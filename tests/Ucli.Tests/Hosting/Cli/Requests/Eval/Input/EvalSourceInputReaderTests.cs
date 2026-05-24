@@ -1,5 +1,5 @@
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Hosting.Cli.Requests.Input;
+using MackySoft.Ucli.Hosting.Cli.Requests.Eval.Input;
 
 namespace MackySoft.Ucli.Tests;
 

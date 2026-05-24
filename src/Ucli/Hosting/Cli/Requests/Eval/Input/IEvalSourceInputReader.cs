@@ -1,4 +1,4 @@
-namespace MackySoft.Ucli.Hosting.Cli.Requests.Input;
+namespace MackySoft.Ucli.Hosting.Cli.Requests.Eval.Input;
 
 /// <summary> Reads C# source text for the <c>eval</c> command. </summary>
 internal interface IEvalSourceInputReader

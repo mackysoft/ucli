@@ -6,7 +6,7 @@ using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Requests;
-using MackySoft.Ucli.Hosting.Cli.Requests.Input;
+using MackySoft.Ucli.Hosting.Cli.Requests.Eval.Input;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 
 namespace MackySoft.Ucli.Tests;
@@ -48,6 +48,7 @@ public sealed class EvalCommandTests
         Assert.True(service.CapturedInput.AllowDangerous);
         Assert.True(service.CapturedInput.AllowPlayMode);
         Assert.True(service.CapturedInput.FailFast);
+        Assert.Equal(UcliCommandIds.Eval, service.CapturedInput.ExecutionOwnerCommand);
         AssertEvalRequestJson(service.CapturedInput.RequestJson);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
@@ -80,6 +81,29 @@ public sealed class EvalCommandTests
             CliOutputGoldenFiles.GetPath("eval", "success.json"),
             standardOutput,
             CliOutputGoldenFiles.NormalizeRequestIds());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Eval_WhenFileProvided_ReadsFileAndBuildsRequestFromFileSource ()
+    {
+        const string filePath = "eval-source.cs";
+        const string fileSource = "return 2;";
+        var service = new StubCallService((_, _) => ValueTask.FromResult(CreateSuccessfulServiceResult()));
+        var sourceReader = new StubEvalSourceInputReader((_, _, _) => ValueTask.FromResult(EvalSourceInputReadResult.Success(fileSource)));
+        var command = new EvalCommand(service, sourceReader, CommandResultTestWriter.Create());
+
+        var (exitCode, _) = await StandardOutputCapture.ExecuteAsync(() => command.EvalAsync(
+            allowDangerous: true,
+            source: null,
+            file: filePath,
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.Success, exitCode);
+        Assert.Null(sourceReader.CapturedSource);
+        Assert.Equal(filePath, sourceReader.CapturedFile);
+        Assert.NotNull(service.CapturedInput);
+        AssertEvalRequestJson(service.CapturedInput!.RequestJson, fileSource);
     }
 
     [Fact]
@@ -177,7 +201,9 @@ public sealed class EvalCommandTests
             (int)CliExitCode.InvalidArgument);
     }
 
-    private static void AssertEvalRequestJson (string requestJson)
+    private static void AssertEvalRequestJson (
+        string requestJson,
+        string expectedSource = EvalSource)
     {
         using var document = JsonDocument.Parse(requestJson);
         JsonAssert.For(document.RootElement)
@@ -186,7 +212,7 @@ public sealed class EvalCommandTests
                 .HasString("id", "eval")
                 .HasString("op", UcliPrimitiveOperationNames.CsEval)
                 .HasProperty("args", args => args
-                    .HasString("source", EvalSource)));
+                    .HasString("source", expectedSource)));
     }
 
     private static CallServiceResult CreateSuccessfulServiceResult ()

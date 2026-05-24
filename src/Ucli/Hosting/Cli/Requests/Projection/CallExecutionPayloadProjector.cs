@@ -1,7 +1,7 @@
 using MackySoft.Ucli.Application.Features.Requests.Call.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Projection;
 
-namespace MackySoft.Ucli.Hosting.Cli.Requests;
+namespace MackySoft.Ucli.Hosting.Cli.Requests.Projection;
 
 /// <summary> Projects call workflow output into the shared request-execution command payload shape. </summary>
 internal static class CallExecutionPayloadProjector

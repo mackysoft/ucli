@@ -4,7 +4,7 @@ using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Options;
-using MackySoft.Ucli.Hosting.Cli.Requests.Input;
+using MackySoft.Ucli.Hosting.Cli.Requests.Eval.Input;
 
 namespace MackySoft.Ucli.Hosting.Cli.Requests;
 
@@ -88,6 +88,7 @@ internal sealed class EvalCommand
                     RequestJson: EvalRequestFactory.Create(sourceInputReadResult.Source!))
                 {
                     AllowPlayMode = allowPlayMode,
+                    ExecutionOwnerCommand = UcliCommandIds.Eval,
                 },
                 cancellationToken)
             .ConfigureAwait(false);

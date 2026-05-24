@@ -4,6 +4,7 @@ using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Requests;
 using MackySoft.Ucli.Hosting.Cli.Requests.Call.Preflight;
+using MackySoft.Ucli.Hosting.Cli.Requests.Eval.Input;
 using MackySoft.Ucli.Hosting.Cli.Requests.Input;
 using MackySoft.Ucli.Hosting.Cli.Requests.Plan.Preflight;
 using Microsoft.Extensions.DependencyInjection;

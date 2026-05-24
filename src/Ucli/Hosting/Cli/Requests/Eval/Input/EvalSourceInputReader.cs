@@ -1,7 +1,7 @@
 using System.Text;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
-namespace MackySoft.Ucli.Hosting.Cli.Requests.Input;
+namespace MackySoft.Ucli.Hosting.Cli.Requests.Eval.Input;
 
 /// <summary> Reads source text for the <c>eval</c> command from options or redirected standard input. </summary>
 internal sealed class EvalSourceInputReader : IEvalSourceInputReader

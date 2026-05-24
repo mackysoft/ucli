@@ -85,6 +85,8 @@ internal static class UcliContractConstants
 
         public const int IpcTimeoutDefaultCallMilliseconds = 60000;
 
+        public const int IpcTimeoutDefaultEvalMilliseconds = 60000;
+
         public const int IpcTimeoutDefaultResolveMilliseconds = 10000;
 
         public const int IpcTimeoutDefaultQueryMilliseconds = 10000;
@@ -128,6 +130,8 @@ internal static class UcliContractConstants
         public const string IpcTimeoutCommandPlan = "plan";
 
         public const string IpcTimeoutCommandCall = "call";
+
+        public const string IpcTimeoutCommandEval = "eval";
 
         public const string IpcTimeoutCommandResolve = "resolve";
 
