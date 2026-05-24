@@ -277,7 +277,7 @@ namespace MackySoft.Ucli.Unity.Runtime
             private void OnBeforeAssemblyReload ()
             {
                 // NOTE:
-                // Waited requests are not persisted across AppDomain reloads, so the gate must
+                // Pending readiness requests are not persisted across AppDomain reloads, so the gate must
                 // complete with a blocked result before Unity tears down the current domain.
                 CompleteBlocked(IpcEditorLifecycleStateCodec.DomainReloading);
             }

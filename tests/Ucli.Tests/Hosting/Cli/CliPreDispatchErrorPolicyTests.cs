@@ -45,7 +45,7 @@ public sealed class CliPreDispatchErrorPolicyTests
             {
                 [UcliCommandNames.Play],
                 UcliCommandNames.Play,
-                "Subcommand is required for command 'play'. Supported subcommands: status, enter, exit, wait."
+                "Subcommand is required for command 'play'. Supported subcommands: status, enter, exit."
             },
             {
                 [UcliCommandNames.Play, "unknown"],

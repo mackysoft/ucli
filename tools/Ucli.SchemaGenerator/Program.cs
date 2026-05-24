@@ -113,7 +113,6 @@ internal static class Program
             CreatePayloadSchema(UcliCommandIds.PlayStatus.Name, CreatePlayStatusPayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.PlayEnter.Name, CreatePlayEnterPayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.PlayExit.Name, CreatePlayExitPayloadSchema()),
-            CreatePayloadSchema(UcliCommandIds.PlayWait.Name, CreatePlayWaitPayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.DaemonStart.Name, CreateDaemonStartPayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.DaemonStatus.Name, CreateDaemonStatusPayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.TestProfileInit.Name, CreateTestProfileInitPayloadSchema()),
@@ -1101,23 +1100,6 @@ internal static class Program
                 Required("timeoutMilliseconds", IntegerSchema())));
     }
 
-    private static Dictionary<string, object?> CreatePlayWaitPayloadSchema ()
-    {
-        return ObjectSchema(
-            additionalProperties: false,
-            Optional(
-                "transition",
-                CreatePlayTransitionResultSchema(
-                    IpcPlayTransitionCommandNames.Wait,
-                    [
-                        IpcPlayTransitionResultNames.Waited,
-                        IpcPlayTransitionResultNames.Timeout,
-                        IpcPlayTransitionResultNames.Blocked,
-                    ],
-                    includeUntil: true)),
-            Optional("timeoutMilliseconds", IntegerSchema()));
-    }
-
     private static SchemaProperty[] CreatePlayLifecyclePayloadProperties (params SchemaProperty[] extraProperties)
     {
         return CreatePlayLifecyclePayloadProperties(PlayLifecyclePayloadState.Any, extraProperties);
@@ -1261,46 +1243,6 @@ internal static class Program
                     IpcPlayApplicationStateNames.Applied,
                     IpcPlayApplicationStateNames.Indeterminate,
                     IpcPlayApplicationStateNames.Unknown)));
-    }
-
-    private static Dictionary<string, object?> CreatePlayTransitionResultSchema (
-        string transitionCommand,
-        string[] results,
-        bool includeUntil)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(transitionCommand);
-        ArgumentNullException.ThrowIfNull(results);
-
-        var properties = new List<SchemaProperty>
-        {
-            Required("transition", ConstString(transitionCommand)),
-            Required("result", EnumSchema(results)),
-            Required("before", CreatePlayLifecycleSnapshotSchema()),
-        };
-
-        if (includeUntil)
-        {
-            properties.Add(Required(
-                "until",
-                EnumSchema(
-                    IpcPlayWaitTargetNames.Entered,
-                    IpcPlayWaitTargetNames.Exited,
-                    IpcPlayWaitTargetNames.Ready)));
-        }
-
-        properties.Add(Optional("after", CreatePlayLifecycleSnapshotSchema()));
-        properties.Add(Optional("observed", CreatePlayLifecycleSnapshotSchema()));
-        properties.Add(Optional(
-            "applicationState",
-            EnumSchema(
-                IpcPlayApplicationStateNames.NotApplied,
-                IpcPlayApplicationStateNames.Applied,
-                IpcPlayApplicationStateNames.Indeterminate,
-                IpcPlayApplicationStateNames.Unknown)));
-
-        return ObjectSchema(
-            additionalProperties: false,
-            properties.ToArray());
     }
 
     private static Dictionary<string, object?> CreatePlayLifecycleSnapshotSchema ()

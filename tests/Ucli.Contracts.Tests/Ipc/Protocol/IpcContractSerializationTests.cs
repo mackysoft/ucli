@@ -337,7 +337,6 @@ public sealed class IpcContractSerializationTests
         Assert.Equal("play.status", IpcMethodNames.PlayStatus);
         Assert.Equal("play.enter", IpcMethodNames.PlayEnter);
         Assert.Equal("play.exit", IpcMethodNames.PlayExit);
-        Assert.Equal("play.wait", IpcMethodNames.PlayWait);
     }
 
     [Fact]
@@ -349,27 +348,12 @@ public sealed class IpcContractSerializationTests
             new IpcPlayEnterRequest { TimeoutMilliseconds = 1500 },
             SerializerOptions);
         var exitRequest = JsonSerializer.SerializeToElement(new IpcPlayExitRequest(), SerializerOptions);
-        var waitRequest = JsonSerializer.SerializeToElement(
-            new IpcPlayWaitRequest(IpcPlayWaitTargetNames.Ready)
-            {
-                TimeoutMilliseconds = 2500,
-            },
-            SerializerOptions);
 
         Assert.Equal(JsonValueKind.Object, statusRequest.ValueKind);
         Assert.Empty(statusRequest.EnumerateObject());
         JsonAssert.For(enterRequest)
             .HasInt32("timeoutMilliseconds", 1500);
         Assert.False(exitRequest.TryGetProperty("timeoutMilliseconds", out _));
-        JsonAssert.For(waitRequest)
-            .HasString("until", IpcPlayWaitTargetNames.Ready)
-            .HasInt32("timeoutMilliseconds", 2500);
-
-        var roundTrip = JsonSerializer.Deserialize<IpcPlayWaitRequest>(waitRequest.GetRawText(), SerializerOptions);
-
-        Assert.NotNull(roundTrip);
-        Assert.Equal(IpcPlayWaitTargetNames.Ready, roundTrip.Until);
-        Assert.Equal(2500, roundTrip.TimeoutMilliseconds);
     }
 
     [Fact]
@@ -453,15 +437,10 @@ public sealed class IpcContractSerializationTests
         Assert.Equal("exiting", IpcPlayModeTransitionNames.Exiting);
         Assert.Equal("enter", IpcPlayTransitionCommandNames.Enter);
         Assert.Equal("exit", IpcPlayTransitionCommandNames.Exit);
-        Assert.Equal("wait", IpcPlayTransitionCommandNames.Wait);
-        Assert.Equal("entered", IpcPlayWaitTargetNames.Entered);
-        Assert.Equal("exited", IpcPlayWaitTargetNames.Exited);
-        Assert.Equal("ready", IpcPlayWaitTargetNames.Ready);
         Assert.Equal("entered", IpcPlayTransitionResultNames.Entered);
         Assert.Equal("alreadyEntered", IpcPlayTransitionResultNames.AlreadyEntered);
         Assert.Equal("exited", IpcPlayTransitionResultNames.Exited);
         Assert.Equal("alreadyExited", IpcPlayTransitionResultNames.AlreadyExited);
-        Assert.Equal("waited", IpcPlayTransitionResultNames.Waited);
         Assert.Equal("timeout", IpcPlayTransitionResultNames.Timeout);
         Assert.Equal("blocked", IpcPlayTransitionResultNames.Blocked);
         Assert.Equal("notApplied", IpcPlayApplicationStateNames.NotApplied);

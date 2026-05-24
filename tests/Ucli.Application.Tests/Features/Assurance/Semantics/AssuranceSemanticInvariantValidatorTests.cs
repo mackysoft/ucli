@@ -112,6 +112,54 @@ public sealed class AssuranceSemanticInvariantValidatorTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Validate_WithRequiredVerifierWithoutPrimaryClaims_ReturnsPrimaryClaimsPath ()
+    {
+        var payload = """
+            {
+              "verdict": "pass",
+              "verifiers": [
+                {
+                  "id": "ready",
+                  "kind": "ready",
+                  "deterministic": true,
+                  "required": true,
+                  "primaryClaims": [],
+                  "reportRef": "ready-log"
+                }
+              ],
+              "claims": [
+                {
+                  "id": "UNITY_READY_EXECUTION",
+                  "status": "passed",
+                  "coverage": "full",
+                  "required": true,
+                  "verifierRef": "ready",
+                  "evidence": [
+                    {
+                      "kind": "log",
+                      "evidenceRef": "ready-log"
+                    }
+                  ],
+                  "residualRisks": []
+                }
+              ],
+              "reports": {
+                "ready-log": {
+                  "kind": "log",
+                  "path": "artifacts/ready.log"
+                }
+              },
+              "residualRisks": []
+            }
+            """;
+
+        var result = Validate(payload);
+
+        AssertViolationPath(result, "$.verifiers[0].primaryClaims");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Validate_WithRequiredClaimOwnedByOptionalVerifier_ReturnsClaimRequiredPath ()
     {
         var payload = """

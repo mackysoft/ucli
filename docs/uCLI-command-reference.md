@@ -12,7 +12,7 @@
 | `ucli ready` | 次の操作へ進める readiness claim を返す | 状態観測と bounded wait だけを行い、暗黙修復は行わない |
 | `ucli refresh` | プロジェクト更新を独立コマンドとして実行する | 固定の `ucli.project.refresh` を実行する |
 | `ucli compile` | script compilation と domain reload の保証 claim を返す | 専用 top-level command とし、`refresh` の拡張や primitive operation wrapper にはしない |
-| `ucli play` | Unity Editor Play Mode を明示制御する | `status` / `enter` / `exit` / `wait` を持つ lifecycle command |
+| `ucli play` | Unity Editor Play Mode を明示制御する | `status` / `enter` / `exit` を持つ lifecycle command |
 | `ucli resolve` | selector 1 件を GlobalObjectId へ解決する | scene-tree-lite index を優先し、必要時だけ Unity IPC へ fallback する |
 | `ucli query` | 型付きサブコマンドで検索・構造取得・スキーマ取得を行う | `assets find` / `scene tree` / `go describe` / `comp schema` / `asset schema` を持つ |
 | `ucli validate` | JSON リクエストを静的に lint する | Unity へ接続せず readIndex snapshot を参照する |
@@ -27,6 +27,50 @@
 | `ucli test` | Unity Test Framework 実行と結果正規化を扱う | `run` / `profile init` |
 
 ## 公開コマンド
+
+### 実行可能 command paths
+
+| Command |
+| --- |
+| `ucli init` |
+| `ucli status` |
+| `ucli ready` |
+| `ucli compile` |
+| `ucli verify` |
+| `ucli refresh` |
+| `ucli resolve` |
+| `ucli validate` |
+| `ucli plan` |
+| `ucli call` |
+| `ucli daemon start` |
+| `ucli daemon stop` |
+| `ucli daemon cleanup` |
+| `ucli daemon status` |
+| `ucli daemon list` |
+| `ucli logs daemon read` |
+| `ucli logs unity read` |
+| `ucli logs unity clear` |
+| `ucli ops list` |
+| `ucli ops describe` |
+| `ucli codes list` |
+| `ucli codes describe` |
+| `ucli play status` |
+| `ucli play enter` |
+| `ucli play exit` |
+| `ucli skills list` |
+| `ucli skills export` |
+| `ucli skills install` |
+| `ucli skills update` |
+| `ucli skills uninstall` |
+| `ucli skills doctor` |
+| `ucli query assets find` |
+| `ucli query scene tree` |
+| `ucli query go describe` |
+| `ucli query comp schema` |
+| `ucli query asset schema` |
+| `ucli test run` |
+| `ucli test profile init` |
+
 - `ucli ops`
   - `list` は利用可能なオペレーション一覧を返す。
   - `list` は `--nameRegex <regex>`、`--kind <query|mutation|command>`、`--maxPolicy <safe|advanced|dangerous>` による絞り込みを受け付ける。
@@ -71,7 +115,7 @@
   - 専用 top-level command とし、`refresh` の拡張や primitive operation wrapper にはしない。
 - `ucli play`
   - Unity Editor Play Mode の状態観測と明示遷移を行う。
-  - `status` / `enter` / `exit` / `wait` を持つ。
+  - `status` / `enter` / `exit` を持つ。
   - `--projectPath <string?>`、`--timeout <int>` を受け付ける。
   - Play Mode enter / exit は primitive operation や JSON request step として扱わない。
 - `ucli verify`
@@ -124,27 +168,17 @@
 | `ucli play status` | 現在の Play Mode snapshot を返す。状態変更は行わない |
 | `ucli play enter` | GUI Editor session を Play Mode に入れ、`EditorApplication.isPlaying == true` まで待つ |
 | `ucli play exit` | Play Mode を終了し、通常 execution が再び可能な `lifecycleState=ready` まで待つ |
-| `ucli play wait` | 指定した Play Mode transition / readiness の完了を待つ。暗黙の enter / exit は行わない |
 
 | Argument / Option | Short | Description |
 | --- | --- | --- |
 | `--projectPath <string?>` | `-p` | 対象 Unity project path |
 | `--timeout <int>` | - | 状態観測または transition wait の timeout milliseconds |
-| `--until <entered\|exited\|ready>` | - | `play wait` の待機対象 |
 
 `ucli play` は Unity Editor process を起動しない。対象 project に既存の registered GUI daemon session が存在することを要求する。GUI daemon session が見つからない場合は `PLAYMODE_SESSION_NOT_AVAILABLE` を返す。GUI daemon session を起動または attach したい呼び出し側は、`ucli daemon start --editorMode gui` を明示的に実行する。
 
 `ucli play` は GUI Editor session 専用であり、batchmode session では `PLAYMODE_REQUIRES_GUI_EDITOR` を返す。batchmode session の lifecycle 観測は `ucli status` または `ucli daemon status` で行う。
 
 `play enter` の成功条件は `lifecycleState=playmode` だけではなく、Unity が `EditorApplication.isPlaying == true` を返すこととする。すでに Playing の場合は idempotent success として `alreadyEntered` を返す。`play exit` はすでに Edit Mode の場合に `alreadyExited` を返し、Play Mode から出る場合は exit 後の compile / domain reload / startup / busy を待って `ready` に戻るまでを command の成功条件とする。
-
-`play wait` は状態観測と bounded wait だけを行い、Play Mode enter / exit 要求を発行しない。
-
-| `play wait --until` | Completion condition |
-| --- | --- |
-| `entered` | `playMode.state=playing`, `playMode.transition=none`, `playMode.isPlaying=true` |
-| `exited` | `playMode.state=stopped`, `playMode.transition=none`, `playMode.isPlaying=false`, `playMode.isPlayingOrWillChangePlaymode=false` |
-| `ready` | `--until exited` の条件に加えて、`lifecycleState=ready`, `blockingReason=null`, `canAcceptExecutionRequests=true` |
 
 Play Mode transition timeout は `PLAYMODE_TRANSITION_TIMEOUT` とし、transport timeout の `IPC_TIMEOUT` と区別する。timeout は no-op を意味しないため、可能な場合は latest observed lifecycle snapshot、`playMode`、transition result、application state を payload に含める。
 

@@ -80,7 +80,6 @@ internal static class UcliCommandCatalog
             new CommandLeafEntry(UcliCommandNames.Status, UcliCommandNames.PlayStatus),
             new CommandLeafEntry(UcliCommandNames.EnterSubcommand, UcliCommandNames.PlayEnter),
             new CommandLeafEntry(UcliCommandNames.ExitSubcommand, UcliCommandNames.PlayExit),
-            new CommandLeafEntry(UcliCommandNames.WaitSubcommand, UcliCommandNames.PlayWait),
         ],
         []);
 
@@ -193,7 +192,6 @@ internal static class UcliCommandCatalog
         app.Add<PlayStatusCommand>("play");
         app.Add<PlayEnterCommand>("play");
         app.Add<PlayExitCommand>("play");
-        app.Add<PlayWaitCommand>("play");
         app.Add<SkillsListCommand>("skills");
         app.Add<SkillsExportCommand>("skills");
         app.Add<SkillsInstallCommand>("skills");

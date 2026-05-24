@@ -98,7 +98,6 @@ public sealed class PlayEnterCommandTests
         var transitionPayload = outputJson.RootElement.GetProperty("payload").GetProperty("transition");
         Assert.False(transitionPayload.TryGetProperty("observed", out _));
         Assert.False(transitionPayload.TryGetProperty("applicationState", out _));
-        Assert.False(transitionPayload.TryGetProperty("until", out _));
         Assert.False(outputJson.RootElement.GetProperty("payload").TryGetProperty("opResults", out _));
         Assert.DoesNotContain("\"touched\"", standardOutput, StringComparison.Ordinal);
     }
