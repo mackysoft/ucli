@@ -50,7 +50,6 @@ public sealed class CliOutputSchemaArtifactTests
         Assert.Contains("play.status", commandEntries.Keys);
         Assert.Contains("play.enter", commandEntries.Keys);
         Assert.Contains("play.exit", commandEntries.Keys);
-        Assert.Contains("play.wait", commandEntries.Keys);
         Assert.Contains("test.run", commandEntries.Keys);
     }
 
@@ -286,25 +285,10 @@ public sealed class CliOutputSchemaArtifactTests
             lifecycleState: "compiling",
             blockingReasonJson: "\"compile\"",
             canAcceptExecutionRequests: false));
-        using var waitDocument = JsonDocument.Parse(
-            $$"""
-            {
-              "transition": {
-                "transition": "wait",
-                "result": "waited",
-                "before": {{CreatePlayLifecycleSnapshotJson()}},
-                "until": "ready",
-                "applicationState": "notApplied"
-              },
-              "timeoutMilliseconds": 1000
-            }
-            """);
-
         Assert.Empty(schemaSet.Validate("cli-output/payload/play.status.schema.json", statusDocument.RootElement));
         Assert.Empty(schemaSet.Validate("cli-output/payload/play.enter.schema.json", enterDocument.RootElement));
         Assert.Empty(schemaSet.Validate("cli-output/payload/play.exit.schema.json", exitDocument.RootElement));
         Assert.Empty(schemaSet.Validate("cli-output/payload/play.exit.schema.json", alreadyExitedDocument.RootElement));
-        Assert.Empty(schemaSet.Validate("cli-output/payload/play.wait.schema.json", waitDocument.RootElement));
     }
 
     [Fact]
@@ -320,30 +304,18 @@ public sealed class CliOutputSchemaArtifactTests
               "before": {{CreatePlayLifecycleSnapshotJson()}}
             }
             """));
-        using var enterWithWaitTargetDocument = JsonDocument.Parse(CreatePlayEnterPayloadJson(
+        using var enterWithUnknownTransitionFieldDocument = JsonDocument.Parse(CreatePlayEnterPayloadJson(
             $$"""
             {
               "transition": "enter",
               "result": "entered",
               "before": {{CreatePlayLifecycleSnapshotJson()}},
               "after": {{CreatePlayingPlayLifecycleSnapshotJson()}},
-              "until": "entered"
+              "target": "entered"
             }
             """));
-        using var waitWithoutTargetDocument = JsonDocument.Parse(
-            $$"""
-            {
-              "transition": {
-                "transition": "wait",
-                "result": "waited",
-                "before": {{CreatePlayLifecycleSnapshotJson()}}
-              }
-            }
-            """);
-
         Assert.NotEmpty(schemaSet.Validate("cli-output/payload/play.enter.schema.json", enterWithExitTransitionDocument.RootElement));
-        Assert.NotEmpty(schemaSet.Validate("cli-output/payload/play.enter.schema.json", enterWithWaitTargetDocument.RootElement));
-        Assert.NotEmpty(schemaSet.Validate("cli-output/payload/play.wait.schema.json", waitWithoutTargetDocument.RootElement));
+        Assert.NotEmpty(schemaSet.Validate("cli-output/payload/play.enter.schema.json", enterWithUnknownTransitionFieldDocument.RootElement));
     }
 
     [Fact]
