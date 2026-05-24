@@ -6,6 +6,7 @@ internal static class PlayModeErrorCodeDescriptors
     [
         UcliCommandIds.Plan,
         UcliCommandIds.Call,
+        UcliCommandIds.Eval,
     ];
 
     private static readonly UcliCommand[] PlayModeLifecycleCommands =
@@ -67,6 +68,7 @@ internal static class PlayModeErrorCodeDescriptors
             [
                 UcliCommandIds.Plan,
                 UcliCommandIds.Call,
+                UcliCommandIds.Eval,
                 UcliCommandIds.PlayStatus,
                 UcliCommandIds.PlayEnter,
                 UcliCommandIds.PlayExit,

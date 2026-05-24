@@ -14,6 +14,7 @@ internal static class OperationAuthorizationErrorCodeDescriptors
                 UcliCommandIds.Validate,
                 UcliCommandIds.Plan,
                 UcliCommandIds.Call,
+                UcliCommandIds.Eval,
                 UcliCommandIds.Refresh,
             ],
             possiblePhases: ["operationAuthorization", "staticValidation", "unityExecution"],

@@ -144,6 +144,32 @@ public sealed class CodesCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task CodesList_WithEvalCommandFilter_ReturnsEvalExecutionErrors ()
+    {
+        var result = await CliProcessRunner.RunCommandAsync(
+            UcliCommandNames.Codes,
+            UcliCommandNames.ListSubcommand,
+            "--kind",
+            CodeCatalogKindValues.Error,
+            "--command",
+            UcliCommandNames.Eval);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: UcliCommandNames.CodesList,
+            status: "ok",
+            exitCode: (int)CliExitCode.Success);
+        var codes = GetCodes(outputJson.RootElement);
+        Assert.Contains(OperationAuthorizationErrorCodes.OperationNotAllowed.Value, codes);
+        Assert.Contains(IpcTransportErrorCodes.IpcTimeout.Value, codes);
+        Assert.Contains(EditorLifecycleErrorCodes.EditorCompiling.Value, codes);
+        Assert.Contains(ExecuteRequestErrorCodes.OperationContractViolation.Value, codes);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task CodesList_WithPlayCommandFilter_ReturnsAllPlayModeControlErrors ()
     {
         var result = await CliProcessRunner.RunCommandAsync(

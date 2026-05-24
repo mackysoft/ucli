@@ -1,19 +1,16 @@
-using System.Text.Json;
 using ConsoleAppFramework;
 using MackySoft.Ucli.Application.Features.Requests.Call.UseCases.Call;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Options;
+using MackySoft.Ucli.Hosting.Cli.Requests.Input;
 
 namespace MackySoft.Ucli.Hosting.Cli.Requests;
 
 /// <summary> Provides the eval CLI command entry point. </summary>
 internal sealed class EvalCommand
 {
-    private const string OperationId = "eval";
-
     private readonly ICallService callService;
 
     private readonly IEvalSourceInputReader sourceInputReader;
@@ -88,7 +85,7 @@ internal sealed class EvalCommand
                     WithPlan: true,
                     AllowDangerous: allowDangerous,
                     FailFast: failFast,
-                    RequestJson: CreateRequestJson(sourceInputReadResult.Source!))
+                    RequestJson: EvalRequestFactory.Create(sourceInputReadResult.Source!))
                 {
                     AllowPlayMode = allowPlayMode,
                 },
@@ -97,28 +94,6 @@ internal sealed class EvalCommand
         var commandResult = EvalCommandResultFactory.Create(serviceResult);
         commandResultWriter.WriteToStandardOutput(commandResult);
         return commandResult.ExitCode;
-    }
-
-    private static string CreateRequestJson (string source)
-    {
-        return JsonSerializer.Serialize(
-            new
-            {
-                steps = new[]
-                {
-                    new
-                    {
-                        kind = "op",
-                        id = OperationId,
-                        op = UcliPrimitiveOperationNames.CsEval,
-                        args = new
-                        {
-                            source,
-                        },
-                    },
-                },
-            },
-            IpcJsonSerializerOptions.Default);
     }
 
     private int WriteExecutionError (ExecutionError error)

@@ -199,6 +199,26 @@ public sealed class CodeCatalogTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void List_WithEvalCommandFilter_ReturnsEvalExecutionErrors ()
+    {
+        var service = new CodeCatalogService(CreateCatalog());
+
+        var result = service.List(new CodeCatalogListInput(Kind: CodeCatalogKindValues.Error, Command: UcliCommandIds.Eval.Name));
+
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Descriptors);
+        var codes = result.Descriptors!
+            .Select(static descriptor => descriptor.Code)
+            .ToArray();
+        Assert.Contains(OperationAuthorizationErrorCodes.OperationNotAllowed, codes);
+        Assert.Contains(IpcTransportErrorCodes.IpcTimeout, codes);
+        Assert.Contains(EditorLifecycleErrorCodes.EditorCompiling, codes);
+        Assert.Contains(ExecuteRequestErrorCodes.OperationContractViolation, codes);
+        Assert.Contains(UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, codes);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void List_WithPlayCommandFilter_ReturnsPlayModeLifecycleErrors ()
     {
         var service = new CodeCatalogService(CreateCatalog());

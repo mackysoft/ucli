@@ -8,6 +8,7 @@ internal static class EditorLifecycleErrorCodeDescriptors
         UcliCommandIds.DaemonStatus,
         UcliCommandIds.Plan,
         UcliCommandIds.Call,
+        UcliCommandIds.Eval,
         UcliCommandIds.Resolve,
         UcliCommandIds.Query,
         UcliCommandIds.Refresh,

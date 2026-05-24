@@ -16,6 +16,7 @@ internal static class ExecutionErrorCodeDescriptors
                 UcliCommandIds.DaemonCleanup,
                 UcliCommandIds.Plan,
                 UcliCommandIds.Call,
+                UcliCommandIds.Eval,
                 UcliCommandIds.Resolve,
                 UcliCommandIds.Query,
                 UcliCommandIds.Refresh,

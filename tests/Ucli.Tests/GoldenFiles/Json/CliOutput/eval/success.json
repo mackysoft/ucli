@@ -20,12 +20,24 @@
         "changed": false,
         "touched": [],
         "result": {
+          "sourceDigest": "sha256:source",
           "sourceKind": "snippet",
+          "resolvedEntryPoint": "Snippet.Run",
+          "executionDigest": "sha256:execution",
+          "compile": {
+            "status": "succeeded",
+            "diagnostics": []
+          },
+          "durationMilliseconds": 7,
+          "logs": [],
           "returnValue": {
             "kind": "json",
             "value": {
               "ok": true
             }
+          },
+          "touchedResources": {
+            "state": "none"
           }
         },
         "diagnostics": []
@@ -47,12 +59,13 @@
           "changed": false,
           "touched": [],
           "result": {
+            "sourceDigest": "sha256:source",
             "sourceKind": "snippet",
-            "returnValue": {
-              "kind": "json",
-              "value": {
-                "ok": true
-              }
+            "resolvedEntryPoint": "Snippet.Run",
+            "executionDigest": "sha256:execution",
+            "compile": {
+              "status": "succeeded",
+              "diagnostics": []
             }
           },
           "diagnostics": []

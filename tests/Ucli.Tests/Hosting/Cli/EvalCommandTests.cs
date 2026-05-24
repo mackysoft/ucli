@@ -6,6 +6,7 @@ using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Requests;
+using MackySoft.Ucli.Hosting.Cli.Requests.Input;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 
 namespace MackySoft.Ucli.Tests;
@@ -58,14 +59,59 @@ public sealed class EvalCommandTests
         JsonAssert.For(outputJson.RootElement)
             .HasString("message", "uCLI eval completed.")
             .HasProperty("payload", payload => payload
+                .HasString("requestId", "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62")
+                .HasValueKind("project", JsonValueKind.Object)
                 .HasArrayLength("opResults", 1)
                 .HasProperty("plan", plan => plan
+                    .HasString("requestId", "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62")
+                    .HasValueKind("project", JsonValueKind.Object)
                     .HasArrayLength("opResults", 1)
                     .HasString("planToken", "plan-token-1")));
+        var planResult = outputJson.RootElement
+            .GetProperty("payload")
+            .GetProperty("plan")
+            .GetProperty("opResults")[0]
+            .GetProperty("result");
+        Assert.False(planResult.TryGetProperty("returnValue", out _));
+        Assert.False(planResult.TryGetProperty("logs", out _));
+        Assert.False(planResult.TryGetProperty("durationMilliseconds", out _));
+        Assert.False(planResult.TryGetProperty("touchedResources", out _));
         JsonGoldenFileAssert.Matches(
             CliOutputGoldenFiles.GetPath("eval", "success.json"),
             standardOutput,
             CliOutputGoldenFiles.NormalizeRequestIds());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Eval_WhenCallServiceRejectsDangerousOperation_WritesEvalFailure ()
+    {
+        var service = new StubCallService((_, _) => ValueTask.FromResult(CallServiceResult.Failure(
+            "Static validation failed.",
+            [
+                ApplicationFailure.InvalidInput(
+                    "Step 'eval' requires dangerous operation 'ucli.cs.eval'. Specify --allowDangerous to execute dangerous operations.",
+                    OperationAuthorizationErrorCodes.OperationNotAllowed,
+                    "eval"),
+            ])));
+        var sourceReader = new StubEvalSourceInputReader((_, _, _) => ValueTask.FromResult(EvalSourceInputReadResult.Success(EvalSource)));
+        var command = new EvalCommand(service, sourceReader, CommandResultTestWriter.Create());
+
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.EvalAsync(
+            source: EvalSource,
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.InvalidArgument, exitCode);
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            UcliCommandNames.Eval,
+            IpcProtocol.StatusError,
+            (int)CliExitCode.InvalidArgument);
+        JsonAssert.For(outputJson.RootElement)
+            .HasProperty("errors", 0, error => error
+                .HasString("code", OperationAuthorizationErrorCodes.OperationNotAllowed.Value)
+                .HasString("opId", "eval"));
     }
 
     [Fact]
@@ -151,47 +197,82 @@ public sealed class EvalCommandTests
                 Project: ProjectIdentityInfoTestFactory.Create(),
                 OpResults:
                 [
-                    CreateOperationResult(IpcExecuteOperationPhaseNames.Call, applied: true),
+                    CreateCallOperationResult(),
                 ],
                 Plan: new CallPlanOutput(
                     RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
                     Project: ProjectIdentityInfoTestFactory.Create(),
                     OpResults:
                     [
-                        CreateOperationResult(IpcExecuteOperationPhaseNames.Plan, applied: false),
+                        CreatePlanOperationResult(),
                     ],
                     PlanToken: "plan-token-1"),
                 ReadPostcondition: null),
             "uCLI call completed.");
     }
 
-    private static OperationExecutionOperationResult CreateOperationResult (
-        string phase,
-        bool applied)
+    private static OperationExecutionOperationResult CreateCallOperationResult ()
     {
         return new OperationExecutionOperationResult(
             OpId: "eval",
             Op: UcliPrimitiveOperationNames.CsEval,
-            Phase: phase,
-            Applied: applied,
+            Phase: IpcExecuteOperationPhaseNames.Call,
+            Applied: true,
             Changed: false,
             Touched: [])
         {
-            Result = JsonSerializer.SerializeToElement(
-                new
-                {
-                    sourceKind = CsEvalSourceKindValues.Snippet,
-                    returnValue = new
-                    {
-                        kind = CsEvalReturnValueKindValues.Json,
-                        value = new
-                        {
-                            ok = true,
-                        },
-                    },
-                },
-                IpcJsonSerializerOptions.Default),
+            Result = IpcPayloadCodec.SerializeToElement(
+                new CsEvalResult(
+                    "sha256:source",
+                    CsEvalSourceKindValues.Snippet,
+                    "Snippet.Run",
+                    "sha256:execution",
+                    CreateSuccessfulCompileResult(),
+                    7,
+                    [],
+                    new CsEvalReturnValue(
+                        CsEvalReturnValueKindValues.Json,
+                        JsonSerializer.SerializeToElement(
+                            new
+                            {
+                                ok = true,
+                            },
+                            IpcJsonSerializerOptions.Default)),
+                    new CsEvalTouchedResources(
+                        CsEvalTouchedResourceStateValues.None,
+                        declared: null))),
         };
+    }
+
+    private static OperationExecutionOperationResult CreatePlanOperationResult ()
+    {
+        return new OperationExecutionOperationResult(
+            OpId: "eval",
+            Op: UcliPrimitiveOperationNames.CsEval,
+            Phase: IpcExecuteOperationPhaseNames.Plan,
+            Applied: false,
+            Changed: false,
+            Touched: [])
+        {
+            Result = IpcPayloadCodec.SerializeToElement(
+                new CsEvalResult(
+                    "sha256:source",
+                    CsEvalSourceKindValues.Snippet,
+                    "Snippet.Run",
+                    "sha256:execution",
+                    CreateSuccessfulCompileResult(),
+                    durationMilliseconds: null,
+                    logs: null,
+                    returnValue: null,
+                    touchedResources: null)),
+        };
+    }
+
+    private static CsEvalCompileResult CreateSuccessfulCompileResult ()
+    {
+        return new CsEvalCompileResult(
+            CsEvalCompileStatusValues.Succeeded,
+            diagnostics: []);
     }
 
     private sealed class StubCallService : ICallService
