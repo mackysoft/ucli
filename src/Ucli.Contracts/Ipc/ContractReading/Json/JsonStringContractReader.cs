@@ -30,40 +30,74 @@ internal static class JsonStringContractReader
 
         if (!jsonObject.TryGetProperty(propertyName, out var propertyElement))
         {
-            if (presenceRequirement == JsonStringPresenceRequirement.Required)
-            {
-                error = new JsonStringReadError(JsonStringReadErrorKind.Missing, propertyName);
-                return false;
-            }
-
-            return true;
+            return TryHandleMissingProperty(propertyName, presenceRequirement, out error);
         }
 
         if (propertyElement.ValueKind != JsonValueKind.String)
         {
-            if (presenceRequirement == JsonStringPresenceRequirement.OptionalLoose)
-            {
-                return true;
-            }
-
-            error = new JsonStringReadError(JsonStringReadErrorKind.TypeMismatch, propertyName);
-            return false;
+            return TryHandleTypeMismatch(propertyName, presenceRequirement, out error);
         }
 
         var parsedValue = propertyElement.GetString() ?? string.Empty;
-        if (rejectOuterWhitespace && StringValueValidator.HasOuterWhitespace(parsedValue))
+        if (!TryValidateContent(parsedValue, propertyName, rejectEmptyOrWhitespace, rejectOuterWhitespace, out error))
+        {
+            return false;
+        }
+
+        value = parsedValue;
+        return true;
+    }
+
+    private static bool TryHandleMissingProperty (
+        string propertyName,
+        JsonStringPresenceRequirement presenceRequirement,
+        out JsonStringReadError error)
+    {
+        if (presenceRequirement == JsonStringPresenceRequirement.Required)
+        {
+            error = new JsonStringReadError(JsonStringReadErrorKind.Missing, propertyName);
+            return false;
+        }
+
+        error = JsonStringReadError.None;
+        return true;
+    }
+
+    private static bool TryHandleTypeMismatch (
+        string propertyName,
+        JsonStringPresenceRequirement presenceRequirement,
+        out JsonStringReadError error)
+    {
+        if (presenceRequirement == JsonStringPresenceRequirement.OptionalLoose)
+        {
+            error = JsonStringReadError.None;
+            return true;
+        }
+
+        error = new JsonStringReadError(JsonStringReadErrorKind.TypeMismatch, propertyName);
+        return false;
+    }
+
+    private static bool TryValidateContent (
+        string value,
+        string propertyName,
+        bool rejectEmptyOrWhitespace,
+        bool rejectOuterWhitespace,
+        out JsonStringReadError error)
+    {
+        if (rejectOuterWhitespace && StringValueValidator.HasOuterWhitespace(value))
         {
             error = new JsonStringReadError(JsonStringReadErrorKind.OuterWhitespace, propertyName);
             return false;
         }
 
-        if (rejectEmptyOrWhitespace && string.IsNullOrWhiteSpace(parsedValue))
+        if (rejectEmptyOrWhitespace && string.IsNullOrWhiteSpace(value))
         {
             error = new JsonStringReadError(JsonStringReadErrorKind.EmptyOrWhitespace, propertyName);
             return false;
         }
 
-        value = parsedValue;
+        error = JsonStringReadError.None;
         return true;
     }
 }

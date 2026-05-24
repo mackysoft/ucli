@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Project;
+using MackySoft.Ucli.Contracts.Operations;
 
 #nullable enable
 
@@ -77,7 +79,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
             }
 
             AddTouchedResource(
-                IpcExecuteTouchedResourceKindNames.Asset,
+                UcliTouchedResourceKindNames.Asset,
                 normalizedPath);
         }
 
@@ -87,7 +89,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
         public void DeclareTouchedScene ([UcliDescription("Project-relative scene asset path.")] string path)
         {
             AddTouchedResource(
-                IpcExecuteTouchedResourceKindNames.Scene,
+                UcliTouchedResourceKindNames.Scene,
                 NormalizeDeclaredPath(path, UnityAssetPathUtility.AssetsRootPrefix, SceneExtension));
         }
 
@@ -97,7 +99,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
         public void DeclareTouchedPrefab ([UcliDescription("Project-relative prefab asset path.")] string path)
         {
             AddTouchedResource(
-                IpcExecuteTouchedResourceKindNames.Prefab,
+                UcliTouchedResourceKindNames.Prefab,
                 NormalizeDeclaredPath(path, UnityAssetPathUtility.AssetsRootPrefix, PrefabExtension));
         }
 
@@ -107,7 +109,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
         public void DeclareTouchedProjectSettings ([UcliDescription("Project-relative ProjectSettings path.")] string path)
         {
             AddTouchedResource(
-                IpcExecuteTouchedResourceKindNames.ProjectSettings,
+                UcliTouchedResourceKindNames.ProjectSettings,
                 NormalizeDeclaredPath(path, ProjectSettingsRootPrefix, requiredExtension: null));
         }
 

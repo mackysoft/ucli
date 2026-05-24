@@ -1,11 +1,13 @@
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using MackySoft.Ucli.Contracts.Operations;
 
 #nullable enable
 
@@ -21,7 +23,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             description: "Saves an opened or previewed prefab asset.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.PrefabSave },
-                touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Prefab },
+                touchedKinds: new[] { UcliTouchedResourceKindNames.Prefab },
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate the prefab path and observe whether the opened or previewed prefab has save-relevant changes.",
                 callSemantics: "Persist the opened or previewed prefab asset when dirty or request-attributed changes exist.",

@@ -9,6 +9,7 @@ using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.Requests;
+using MackySoft.Ucli.Contracts.Operations;
 
 #nullable enable
 
@@ -170,10 +171,10 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 },
                 touchedKinds: new[]
                 {
-                    IpcExecuteTouchedResourceKindNames.Scene,
-                    IpcExecuteTouchedResourceKindNames.Prefab,
-                    IpcExecuteTouchedResourceKindNames.Asset,
-                    IpcExecuteTouchedResourceKindNames.ProjectSettings,
+                    UcliTouchedResourceKindNames.Scene,
+                    UcliTouchedResourceKindNames.Prefab,
+                    UcliTouchedResourceKindNames.Asset,
+                    UcliTouchedResourceKindNames.ProjectSettings,
                 },
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Compile the supplied C# source and validate the required entry point without invoking user code.",

@@ -262,7 +262,7 @@ public sealed class CallCommandTests
             Touched:
             [
                 new OperationExecutionTouchedResource(
-                    Kind: IpcExecuteTouchedResourceKindNames.Asset,
+                    Kind: UcliTouchedResourceKindNames.Asset,
                     Path: "Assets/Example.txt",
                     Guid: null),
             ]);

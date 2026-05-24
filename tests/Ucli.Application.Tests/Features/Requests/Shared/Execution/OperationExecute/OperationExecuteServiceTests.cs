@@ -55,7 +55,7 @@ public sealed class OperationExecuteServiceTests
                             Touched:
                             [
                                 new IpcExecuteTouchedResource(
-                                    Kind: IpcExecuteTouchedResourceKindNames.Asset,
+                                    Kind: UcliTouchedResourceKindNames.Asset,
                                     Path: "Assets/Example.txt",
                                     Guid: "11111111111111111111111111111111"),
                             ])
@@ -87,7 +87,7 @@ public sealed class OperationExecuteServiceTests
         Assert.True(opResult.Changed);
         Assert.Equal(JsonValueKind.Object, opResult.Result!.Value.ValueKind);
         var touchedResource = Assert.Single(opResult.Touched);
-        Assert.Equal(IpcExecuteTouchedResourceKindNames.Asset, touchedResource.Kind);
+        Assert.Equal(UcliTouchedResourceKindNames.Asset, touchedResource.Kind);
         Assert.Equal("Assets/Example.txt", touchedResource.Path);
         Assert.Equal("11111111111111111111111111111111", touchedResource.Guid);
 

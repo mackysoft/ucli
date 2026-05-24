@@ -34,14 +34,27 @@ internal static class BoundedWindowCursorCodec
             return false;
         }
 
+        if (!TryDecodeText(cursor, out var text))
+        {
+            return false;
+        }
+
+        return int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out offset)
+            && offset >= 0
+            && string.Equals(Encode(offset), cursor, StringComparison.Ordinal);
+    }
+
+    private static bool TryDecodeText (
+        string cursor,
+        out string text)
+    {
+        text = string.Empty;
         if (!Base64UrlCodec.TryDecode(cursor, out var bytes))
         {
             return false;
         }
 
-        var text = Encoding.UTF8.GetString(bytes);
-        return int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out offset)
-            && offset >= 0
-            && string.Equals(Encode(offset), cursor, StringComparison.Ordinal);
+        text = Encoding.UTF8.GetString(bytes);
+        return true;
     }
 }

@@ -24,6 +24,7 @@ using NUnit.Framework;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.TestTools;
+using MackySoft.Ucli.Contracts.Operations;
 
 #nullable enable
 
@@ -320,7 +321,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(trace.OperationTraces[0].Contracts!.OperationKind, Is.EqualTo(UcliOperationKind.Mutation));
             Assert.That(trace.OperationTraces[0].Contracts!.MayDirty, Is.True);
             CollectionAssert.AreEqual(
-                new[] { IpcExecuteTouchedResourceKindNames.Scene, IpcExecuteTouchedResourceKindNames.Prefab },
+                new[] { UcliTouchedResourceKindNames.Scene, UcliTouchedResourceKindNames.Prefab },
                 trace.OperationTraces[0].Contracts!.TouchedKinds);
         });
 
@@ -362,7 +363,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(trace.OperationTraces[0].Contracts!.OperationKind, Is.EqualTo(UcliOperationKind.Mutation));
             Assert.That(trace.OperationTraces[0].Contracts!.MayDirty, Is.True);
             CollectionAssert.AreEqual(
-                new[] { IpcExecuteTouchedResourceKindNames.Scene, IpcExecuteTouchedResourceKindNames.Prefab },
+                new[] { UcliTouchedResourceKindNames.Scene, UcliTouchedResourceKindNames.Prefab },
                 trace.OperationTraces[0].Contracts!.TouchedKinds);
         });
 
@@ -1451,7 +1452,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             return new UcliOperationAssuranceContract(
                 sideEffects: CreateMutableSideEffects(policy),
-                touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Scene, IpcExecuteTouchedResourceKindNames.Prefab },
+                touchedKinds: new[] { UcliTouchedResourceKindNames.Scene, UcliTouchedResourceKindNames.Prefab },
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate arguments and prepare mutation without applying it.",
                 callSemantics: "Apply test mutation state.",

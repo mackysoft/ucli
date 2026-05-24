@@ -919,7 +919,7 @@ public sealed class OpsCliOutputContractTests
                 : isMutation ? [UcliOperationSideEffect.SceneSave]
                 : isAdvancedCommand ? [UcliOperationSideEffect.EditorStateChange]
                 : [UcliOperationSideEffect.ObservesUnityState],
-            touchedKinds: isMutation ? [IpcExecuteTouchedResourceKindNames.Scene] : Array.Empty<string>(),
+            touchedKinds: isMutation ? [UcliTouchedResourceKindNames.Scene] : Array.Empty<string>(),
             planMode: UcliOperationPlanMode.ObservesLiveUnity,
             planSemantics: "Validate arguments and observe Unity state without applying mutation.",
             callSemantics: isMutation ? "Persist save-relevant Unity state." : "Read Unity state without applying mutation.",

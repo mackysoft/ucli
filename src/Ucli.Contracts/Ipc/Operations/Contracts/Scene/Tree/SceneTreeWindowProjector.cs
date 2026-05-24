@@ -20,24 +20,45 @@ internal static class SceneTreeWindowProjector
             throw new ArgumentNullException(nameof(options));
         }
 
+        var flatNodes = Flatten(roots);
+
+        if (options.All)
+        {
+            return CreateAllResult(roots, flatNodes.Count);
+        }
+
+        return ApplyPage(flatNodes, options);
+    }
+
+    private static IReadOnlyList<FlatNode> Flatten (IReadOnlyList<IndexSceneTreeLiteNodeJsonContract> roots)
+    {
         var flatNodes = new List<FlatNode>();
         for (var i = 0; i < roots.Count; i++)
         {
             AddNode(roots[i], parentIndex: -1, flatNodes);
         }
 
-        if (options.All)
-        {
-            return new BoundedWindowResult<IndexSceneTreeLiteNodeJsonContract>(
-                roots,
-                new BoundedWindow(
-                    limit: null,
-                    cursor: null,
-                    nextCursor: null,
-                    isComplete: true,
-                    totalCount: flatNodes.Count));
-        }
+        return flatNodes;
+    }
 
+    private static BoundedWindowResult<IndexSceneTreeLiteNodeJsonContract> CreateAllResult (
+        IReadOnlyList<IndexSceneTreeLiteNodeJsonContract> roots,
+        int totalCount)
+    {
+        return new BoundedWindowResult<IndexSceneTreeLiteNodeJsonContract>(
+            roots,
+            new BoundedWindow(
+                limit: null,
+                cursor: null,
+                nextCursor: null,
+                isComplete: true,
+                totalCount: totalCount));
+    }
+
+    private static BoundedWindowResult<IndexSceneTreeLiteNodeJsonContract> ApplyPage (
+        IReadOnlyList<FlatNode> flatNodes,
+        BoundedWindowOptions options)
+    {
         var offset = Math.Min(options.Offset, flatNodes.Count);
         var remaining = flatNodes.Count - offset;
         var count = Math.Min(options.Limit, remaining);

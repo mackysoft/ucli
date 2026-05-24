@@ -18,11 +18,8 @@ public static class SessionTokenContractReader
         out SessionTokenReadError error)
     {
         token = string.Empty;
-        if (root.ValueKind != JsonValueKind.Object)
+        if (!TryValidateRoot(root, out error))
         {
-            error = new SessionTokenReadError(
-                IsRootTypeMismatch: true,
-                JsonStringReadErrorKind: JsonStringReadErrorKind.None);
             return false;
         }
 
@@ -44,5 +41,21 @@ public static class SessionTokenContractReader
         token = parsedToken!;
         error = SessionTokenReadError.None;
         return true;
+    }
+
+    private static bool TryValidateRoot (
+        JsonElement root,
+        out SessionTokenReadError error)
+    {
+        if (root.ValueKind == JsonValueKind.Object)
+        {
+            error = SessionTokenReadError.None;
+            return true;
+        }
+
+        error = new SessionTokenReadError(
+            IsRootTypeMismatch: true,
+            JsonStringReadErrorKind: JsonStringReadErrorKind.None);
+        return false;
     }
 }

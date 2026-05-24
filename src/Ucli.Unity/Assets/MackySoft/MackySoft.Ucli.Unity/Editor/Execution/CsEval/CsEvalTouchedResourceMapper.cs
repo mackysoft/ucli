@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Phases;
 
@@ -66,10 +67,10 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
         {
             return kind switch
             {
-                IpcExecuteTouchedResourceKindNames.Scene => OperationTouchKind.Scene,
-                IpcExecuteTouchedResourceKindNames.Prefab => OperationTouchKind.Prefab,
-                IpcExecuteTouchedResourceKindNames.Asset => OperationTouchKind.Asset,
-                IpcExecuteTouchedResourceKindNames.ProjectSettings => OperationTouchKind.ProjectSettings,
+                UcliTouchedResourceKindNames.Scene => OperationTouchKind.Scene,
+                UcliTouchedResourceKindNames.Prefab => OperationTouchKind.Prefab,
+                UcliTouchedResourceKindNames.Asset => OperationTouchKind.Asset,
+                UcliTouchedResourceKindNames.ProjectSettings => OperationTouchKind.ProjectSettings,
                 _ => OperationTouchKind.Unknown,
             };
         }

@@ -2,6 +2,15 @@ namespace MackySoft.Ucli.Contracts;
 
 internal static class PlanTokenErrorCodeDescriptors
 {
+    private static readonly UcliCode[] AllRelatedCodes =
+    [
+        PlanTokenErrorCodes.PlanTokenRequired,
+        PlanTokenErrorCodes.PlanTokenInvalid,
+        PlanTokenErrorCodes.PlanTokenExpired,
+        PlanTokenErrorCodes.PlanTokenRequestMismatch,
+        PlanTokenErrorCodes.StateChangedSincePlan,
+    ];
+
     public static IReadOnlyList<UcliErrorDescriptor> All { get; } =
     [
         CreatePlanTokenDescriptor(
@@ -51,20 +60,31 @@ internal static class PlanTokenErrorCodeDescriptors
             impliesNotApplied: true,
             mayBeIndeterminate: false,
             safeToRetry: UcliErrorRetryClassValues.ReplanRequired,
-            inspect: ["payload.requestId", "payload.opResults", "status", UcliErrorInspectTargets.DaemonStatusCommand],
-            nextActions:
-            [
-                new UcliErrorNextActionDescriptor(
-                    When: null,
-                    Action: "Run plan again and call with the reviewed token through the normal CLI flow."),
-            ],
-            relatedCodes: new[]
-            {
-                PlanTokenErrorCodes.PlanTokenRequired,
-                PlanTokenErrorCodes.PlanTokenInvalid,
-                PlanTokenErrorCodes.PlanTokenExpired,
-                PlanTokenErrorCodes.PlanTokenRequestMismatch,
-                PlanTokenErrorCodes.StateChangedSincePlan,
-            }.Where(relatedCode => relatedCode != code).ToArray());
+            inspect: InspectTargets(),
+            nextActions: NextActions(),
+            relatedCodes: RelatedCodesExcept(code));
     }
+
+    private static IReadOnlyList<string> InspectTargets ()
+    {
+        return ["payload.requestId", "payload.opResults", "status", UcliErrorInspectTargets.DaemonStatusCommand];
+    }
+
+    private static IReadOnlyList<UcliErrorNextActionDescriptor> NextActions ()
+    {
+        return
+        [
+            new UcliErrorNextActionDescriptor(
+                When: null,
+                Action: "Run plan again and call with the reviewed token through the normal CLI flow."),
+        ];
+    }
+
+    private static IReadOnlyList<UcliCode> RelatedCodesExcept (UcliCode code)
+    {
+        return AllRelatedCodes
+            .Where(relatedCode => relatedCode != code)
+            .ToArray();
+    }
+
 }

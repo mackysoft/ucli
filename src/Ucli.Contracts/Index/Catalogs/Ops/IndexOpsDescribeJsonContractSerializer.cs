@@ -18,22 +18,40 @@ internal static class IndexOpsDescribeJsonContractSerializer
         }
 
         using var document = JsonDocument.Parse(json);
-        if (document.RootElement.ValueKind == JsonValueKind.Null)
+        if (!TryReadRoot(document.RootElement, out var root))
         {
             return null;
         }
 
-        var root = document.RootElement;
-        if (root.ValueKind != JsonValueKind.Object)
-        {
-            throw new JsonException("Ops describe JSON root must be an object or null.");
-        }
+        return DeserializeRoot(root);
+    }
 
+    private static IndexOpsDescribeJsonContract DeserializeRoot (JsonElement root)
+    {
         return new IndexOpsDescribeJsonContract(
             SchemaVersion: ReadRequiredInt32(root, "schemaVersion"),
             GeneratedAtUtc: ReadRequiredDateTimeOffset(root, "generatedAtUtc"),
             SourceInputsHash: ReadNullableString(root, "sourceInputsHash"),
             Operation: DeserializeOperation(ReadRequiredProperty(root, "operation")));
+    }
+
+    private static bool TryReadRoot (
+        JsonElement rootElement,
+        out JsonElement root)
+    {
+        root = default;
+        if (rootElement.ValueKind == JsonValueKind.Null)
+        {
+            return false;
+        }
+
+        if (rootElement.ValueKind != JsonValueKind.Object)
+        {
+            throw new JsonException("Ops describe JSON root must be an object or null.");
+        }
+
+        root = rootElement;
+        return true;
     }
 
     private static IndexOpEntryJsonContract? DeserializeOperation (JsonElement operationElement)

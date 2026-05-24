@@ -141,6 +141,31 @@ public sealed class UcliOperationJsonSchemaGeneratorTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void CreateResultSchemaJson_WhenRootArrayElementRequiresDefinition_EmitsDefsInsideRootObject ()
+    {
+        var schemaJson = UcliOperationJsonSchemaGenerator.CreateResultSchemaJson(typeof(RootArrayNode[]));
+
+        using var document = JsonDocument.Parse(schemaJson!);
+        var root = document.RootElement;
+        var nodeRef = "#/$defs/" + nameof(RootArrayNode);
+        Assert.Equal("array", root.GetProperty("type").GetString());
+        Assert.Equal(nodeRef, root.GetProperty("items").GetProperty("$ref").GetString());
+
+        var nodeSchema = root
+            .GetProperty("$defs")
+            .GetProperty(nameof(RootArrayNode));
+
+        Assert.Equal("object", nodeSchema.GetProperty("type").GetString());
+        Assert.Equal(nodeRef, nodeSchema
+            .GetProperty("properties")
+            .GetProperty("children")
+            .GetProperty("items")
+            .GetProperty("$ref")
+            .GetString());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void CreateResultSchemaJson_WhenAssetsFindResultContainsWindow_EmitsNullableCursorWindowWithoutAfter ()
     {
         var schemaJson = UcliOperationJsonSchemaGenerator.CreateResultSchemaJson(typeof(AssetsFindResult));
@@ -283,4 +308,9 @@ public sealed class UcliOperationJsonSchemaGeneratorTests
     private sealed record MissingDescriptionArgs (
         [property: JsonPropertyName("rawName")]
         string Name);
+
+    private sealed record RootArrayNode (
+        [property: UcliRequired]
+        [property: UcliDescription("Child nodes.")]
+        IReadOnlyList<RootArrayNode> Children);
 }

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
@@ -8,6 +9,7 @@ using MackySoft.Ucli.Unity.Project;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine.SceneManagement;
+using MackySoft.Ucli.Contracts.Operations;
 
 #nullable enable
 
@@ -36,10 +38,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 },
                 touchedKinds: new[]
                 {
-                    IpcExecuteTouchedResourceKindNames.Scene,
-                    IpcExecuteTouchedResourceKindNames.Prefab,
-                    IpcExecuteTouchedResourceKindNames.Asset,
-                    IpcExecuteTouchedResourceKindNames.ProjectSettings,
+                    UcliTouchedResourceKindNames.Scene,
+                    UcliTouchedResourceKindNames.Prefab,
+                    UcliTouchedResourceKindNames.Asset,
+                    UcliTouchedResourceKindNames.ProjectSettings,
                 },
                 planMode: UcliOperationPlanMode.ValidationOnly,
                 planSemantics: "Validate that AssetDatabase refresh can be requested; plan does not run import or observe refreshed project state.",

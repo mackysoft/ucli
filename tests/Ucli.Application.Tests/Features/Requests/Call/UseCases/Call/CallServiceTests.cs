@@ -768,7 +768,7 @@ public sealed class CallServiceTests
                             Touched:
                             [
                                 new IpcExecuteTouchedResource(
-                                    Kind: IpcExecuteTouchedResourceKindNames.Scene,
+                                    Kind: UcliTouchedResourceKindNames.Scene,
                                     Path: "Assets/Scenes/Main.unity",
                                     Guid: null),
                             ]),
@@ -833,7 +833,7 @@ public sealed class CallServiceTests
                             Touched:
                             [
                                 new IpcExecuteTouchedResource(
-                                    Kind: IpcExecuteTouchedResourceKindNames.Scene,
+                                    Kind: UcliTouchedResourceKindNames.Scene,
                                     Path: "Assets/Scenes/Main.unity",
                                     Guid: null),
                             ]),

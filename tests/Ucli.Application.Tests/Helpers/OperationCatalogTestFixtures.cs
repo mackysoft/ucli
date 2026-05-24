@@ -66,7 +66,7 @@ internal static class OperationCatalogTestFixtures
             ResultContract = UcliOperationResultContract.NoResult("No operation-specific result is emitted."),
             Assurance = new UcliOperationAssuranceContract(
                 sideEffects: [UcliOperationSideEffectValues.SceneSave],
-                touchedKinds: [IpcExecuteTouchedResourceKindNames.Scene],
+                touchedKinds: [UcliTouchedResourceKindNames.Scene],
                 planMode: UcliOperationPlanModeValues.ObservesLiveUnity,
                 planSemantics: "Observe save-relevant project state without writing project files.",
                 callSemantics: "Persist save-relevant Unity state.",
@@ -99,10 +99,10 @@ internal static class OperationCatalogTestFixtures
                 ],
                 touchedKinds:
                 [
-                    IpcExecuteTouchedResourceKindNames.Scene,
-                    IpcExecuteTouchedResourceKindNames.Prefab,
-                    IpcExecuteTouchedResourceKindNames.Asset,
-                    IpcExecuteTouchedResourceKindNames.ProjectSettings,
+                    UcliTouchedResourceKindNames.Scene,
+                    UcliTouchedResourceKindNames.Prefab,
+                    UcliTouchedResourceKindNames.Asset,
+                    UcliTouchedResourceKindNames.ProjectSettings,
                 ],
                 planMode: UcliOperationPlanModeValues.ValidationOnly,
                 planSemantics: "Validate source shape without executing user code.",

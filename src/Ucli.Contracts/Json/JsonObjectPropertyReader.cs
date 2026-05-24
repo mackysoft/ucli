@@ -271,6 +271,23 @@ internal static class JsonObjectPropertyReader
             return false;
         }
 
+        if (!TryReadStringArray(property, propertyName, arrayElementTypeMismatchErrorFactory, out values, out error))
+        {
+            return false;
+        }
+
+        error = noError;
+        return true;
+    }
+
+    private static bool TryReadStringArray<TError> (
+        JsonElement property,
+        string propertyName,
+        Func<string, TError> arrayElementTypeMismatchErrorFactory,
+        out string[] values,
+        out TError error)
+    {
+        values = Array.Empty<string>();
         var parsedValues = new List<string>();
         foreach (var element in property.EnumerateArray())
         {
@@ -284,7 +301,7 @@ internal static class JsonObjectPropertyReader
         }
 
         values = parsedValues.ToArray();
-        error = noError;
+        error = default!;
         return true;
     }
 }

@@ -4,6 +4,7 @@ using System.Text.Json;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Contracts.Operations;
 
 namespace MackySoft.Ucli.Unity.Execution.Phases
 {

@@ -28,24 +28,9 @@ public static class IpcExecutePostReadSourceRules
 
         return sourceKind switch
         {
-            IpcExecutePostReadSourceKindNames.Edit =>
-                string.Equals(operationName, EditOperationName, StringComparison.Ordinal)
-                && IsKnownPostReadCommit(commit)
-                && (playModeMutation
-                    ? IsCompatiblePlayModeEditSource(commit, expectedPostState)
-                    : IsCompatibleDeterministicEditSource(commit, persistenceExpected, expectedPostState)),
-            IpcExecutePostReadSourceKindNames.Operation =>
-                !string.Equals(operationName, EditOperationName, StringComparison.Ordinal)
-                && !string.Equals(operationName, UcliPrimitiveOperationNames.ProjectRefresh, StringComparison.Ordinal)
-                && !playModeMutation
-                && commit is null
-                && string.Equals(expectedPostState, IpcExecuteExpectedPostStateNames.Unavailable, StringComparison.Ordinal),
-            IpcExecutePostReadSourceKindNames.Refresh =>
-                string.Equals(operationName, UcliPrimitiveOperationNames.ProjectRefresh, StringComparison.Ordinal)
-                && !playModeMutation
-                && commit is null
-                && persistenceExpected
-                && string.Equals(expectedPostState, IpcExecuteExpectedPostStateNames.Unavailable, StringComparison.Ordinal),
+            IpcExecutePostReadSourceKindNames.Edit => IsCompatibleEditSource(operationName, playModeMutation, commit, persistenceExpected, expectedPostState),
+            IpcExecutePostReadSourceKindNames.Operation => IsCompatibleOperationSource(operationName, playModeMutation, commit, expectedPostState),
+            IpcExecutePostReadSourceKindNames.Refresh => IsCompatibleRefreshSource(operationName, playModeMutation, commit, persistenceExpected, expectedPostState),
             _ => false,
         };
     }
@@ -80,6 +65,47 @@ public static class IpcExecutePostReadSourceRules
         return commit is IpcExecutePostReadCommitNames.None
             or IpcExecutePostReadCommitNames.Context
             or IpcExecutePostReadCommitNames.Project;
+    }
+
+    private static bool IsCompatibleEditSource (
+        string operationName,
+        bool playModeMutation,
+        string? commit,
+        bool persistenceExpected,
+        string expectedPostState)
+    {
+        return string.Equals(operationName, EditOperationName, StringComparison.Ordinal)
+            && IsKnownPostReadCommit(commit)
+            && (playModeMutation
+                ? IsCompatiblePlayModeEditSource(commit, expectedPostState)
+                : IsCompatibleDeterministicEditSource(commit, persistenceExpected, expectedPostState));
+    }
+
+    private static bool IsCompatibleOperationSource (
+        string operationName,
+        bool playModeMutation,
+        string? commit,
+        string expectedPostState)
+    {
+        return !string.Equals(operationName, EditOperationName, StringComparison.Ordinal)
+            && !string.Equals(operationName, UcliPrimitiveOperationNames.ProjectRefresh, StringComparison.Ordinal)
+            && !playModeMutation
+            && commit is null
+            && string.Equals(expectedPostState, IpcExecuteExpectedPostStateNames.Unavailable, StringComparison.Ordinal);
+    }
+
+    private static bool IsCompatibleRefreshSource (
+        string operationName,
+        bool playModeMutation,
+        string? commit,
+        bool persistenceExpected,
+        string expectedPostState)
+    {
+        return string.Equals(operationName, UcliPrimitiveOperationNames.ProjectRefresh, StringComparison.Ordinal)
+            && !playModeMutation
+            && commit is null
+            && persistenceExpected
+            && string.Equals(expectedPostState, IpcExecuteExpectedPostStateNames.Unavailable, StringComparison.Ordinal);
     }
 
     private static bool IsCompatiblePlayModeEditSource (

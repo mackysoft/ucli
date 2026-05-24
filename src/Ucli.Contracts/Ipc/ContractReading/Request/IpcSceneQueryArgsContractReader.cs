@@ -1,6 +1,4 @@
 using System.Text.Json;
-using MackySoft.Ucli.Contracts.Text;
-
 namespace MackySoft.Ucli.Contracts.Ipc.ContractReading;
 
 /// <summary> Provides strict readers for public <c>ucli.scene.query</c> argument objects. </summary>
@@ -60,126 +58,21 @@ internal static class IpcSceneQueryArgsContractReader
         out string errorMessage)
     {
         contract = default!;
-        errorMessage = string.Empty;
         if (argsElement.ValueKind != JsonValueKind.Object)
         {
             errorMessage = $"{contextLabel} '{propertyRoot}' must be an object.";
             return false;
         }
 
-        var hasScene = false;
-        var hasPathPrefix = false;
-        var hasComponentType = false;
-        string? scenePath = null;
-        string? pathPrefix = null;
-        string? componentType = null;
+        var state = new IpcSceneQueryArgsReadState(propertyRoot, contextLabel, allowScene);
         foreach (var property in argsElement.EnumerateObject())
         {
-            if (string.Equals(property.Name, "scene", StringComparison.Ordinal))
+            if (!state.TryRead(property, out errorMessage))
             {
-                if (!allowScene)
-                {
-                    errorMessage = $"{contextLabel} '{propertyRoot}' cannot contain property 'scene'.";
-                    return false;
-                }
-
-                if (!TryReadUniqueStringProperty(
-                    property,
-                    propertyRoot,
-                    contextLabel,
-                    ref hasScene,
-                    out scenePath,
-                    out errorMessage))
-                {
-                    return false;
-                }
-
-                continue;
+                return false;
             }
-
-            if (string.Equals(property.Name, "pathPrefix", StringComparison.Ordinal))
-            {
-                if (!TryReadUniqueStringProperty(
-                    property,
-                    propertyRoot,
-                    contextLabel,
-                    ref hasPathPrefix,
-                    out pathPrefix,
-                    out errorMessage))
-                {
-                    return false;
-                }
-
-                continue;
-            }
-
-            if (string.Equals(property.Name, "componentType", StringComparison.Ordinal))
-            {
-                if (!TryReadUniqueStringProperty(
-                    property,
-                    propertyRoot,
-                    contextLabel,
-                    ref hasComponentType,
-                    out componentType,
-                    out errorMessage))
-                {
-                    return false;
-                }
-
-                continue;
-            }
-
-            errorMessage = $"{contextLabel} '{propertyRoot}' contains an unknown property: {property.Name}.";
-            return false;
         }
 
-        if (requireScene && !hasScene)
-        {
-            errorMessage = $"{contextLabel} '{propertyRoot}.scene' is required.";
-            return false;
-        }
-
-        contract = new IpcSceneQueryArgsContract(scenePath, pathPrefix, componentType);
-        errorMessage = string.Empty;
-        return true;
-    }
-
-    private static bool TryReadUniqueStringProperty (
-        JsonProperty property,
-        string propertyRoot,
-        string contextLabel,
-        ref bool hasValue,
-        out string? value,
-        out string errorMessage)
-    {
-        value = null;
-        if (hasValue)
-        {
-            errorMessage = $"{contextLabel} '{propertyRoot}.{property.Name}' is duplicated.";
-            return false;
-        }
-
-        if (property.Value.ValueKind != JsonValueKind.String)
-        {
-            errorMessage = $"{contextLabel} '{propertyRoot}.{property.Name}' must be a string.";
-            return false;
-        }
-
-        value = property.Value.GetString();
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            errorMessage = $"{contextLabel} '{propertyRoot}.{property.Name}' must not be empty.";
-            return false;
-        }
-
-        if (StringValueValidator.HasOuterWhitespace(value))
-        {
-            errorMessage = $"{contextLabel} '{propertyRoot}.{property.Name}' must not contain leading or trailing whitespace.";
-            return false;
-        }
-
-        hasValue = true;
-        errorMessage = string.Empty;
-        return true;
+        return state.TryBuild(requireScene, out contract, out errorMessage);
     }
 }

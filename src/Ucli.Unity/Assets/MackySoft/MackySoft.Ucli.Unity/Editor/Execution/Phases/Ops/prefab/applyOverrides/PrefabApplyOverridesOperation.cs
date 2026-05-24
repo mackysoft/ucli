@@ -7,6 +7,7 @@ using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using UnityEditor;
+using MackySoft.Ucli.Contracts.Operations;
 
 #nullable enable
 
@@ -22,7 +23,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             description: "Applies request-attributed Prefab instance property overrides to an explicit Prefab asset.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.PrefabContentMutation, UcliOperationSideEffect.PrefabSave },
-                touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Prefab },
+                touchedKinds: new[] { UcliTouchedResourceKindNames.Prefab },
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate the request-attributed property override set and target Prefab asset without persisting it.",
                 callSemantics: "Apply the selected Prefab instance property overrides to the explicit Prefab asset.",

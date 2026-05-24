@@ -2,14 +2,13 @@ using System.Collections;
 using System.Globalization;
 using System.Reflection;
 using System.Text.Json;
+using MackySoft.Ucli.Contracts.Operations;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Validates deserialized operation contract objects against structural uCLI contract attributes. </summary>
 public static class UcliOperationContractValidator
 {
-    private static readonly Type StringType = typeof(string);
-
     private static readonly Type JsonElementType = typeof(JsonElement);
 
     /// <summary> Validates one deserialized operation contract object. </summary>
@@ -47,7 +46,7 @@ public static class UcliOperationContractValidator
             throw new ArgumentNullException(nameof(contractType));
         }
 
-        return TryValidateNoRequestLocalAliasesValue(value, contractType, "args", new HashSet<Type>(), out errorMessage);
+        return UcliOperationRequestLocalAliasValueValidator.TryValidate(value, contractType, out errorMessage);
     }
 
     /// <summary> Validates that one public raw-op JSON args object does not contain request-local alias properties. </summary>
@@ -66,7 +65,7 @@ public static class UcliOperationContractValidator
             throw new ArgumentNullException(nameof(contractType));
         }
 
-        return TryValidateNoRequestLocalAliasPropertiesValue(value, contractType, "args", new HashSet<Type>(), out errorMessage);
+        return UcliOperationRequestLocalAliasJsonValidator.TryValidate(value, contractType, out errorMessage);
     }
 
     /// <summary> Validates that one args contract type does not expose reserved public raw-op property names. </summary>
@@ -83,7 +82,7 @@ public static class UcliOperationContractValidator
             throw new ArgumentNullException(nameof(contractType));
         }
 
-        return TryValidatePublicRawOpReservedProperties(contractType, "args", new HashSet<Type>(), out errorMessage);
+        return UcliOperationPublicRawOpReservedPropertyValidator.TryValidate(contractType, out errorMessage);
     }
 
     private static bool TryValidateValue (
@@ -95,322 +94,22 @@ public static class UcliOperationContractValidator
     {
         errorMessage = string.Empty;
         var actualType = Nullable.GetUnderlyingType(contractType) ?? contractType;
-        if (!HasValue(value))
+        if (!UcliOperationContractTypeFacts.HasValue(value))
         {
             return true;
         }
 
-        if (IsScalar(actualType) || actualType == JsonElementType || actualType == typeof(object))
+        if (UcliOperationContractTypeFacts.IsScalar(actualType) || actualType == JsonElementType || actualType == typeof(object))
         {
             return TryValidateScalar(value!, path, out errorMessage);
         }
 
-        if (TryGetArrayElementType(actualType, out var elementType))
+        if (UcliOperationContractTypeFacts.TryGetArrayElementType(actualType, out var elementType))
         {
             return TryValidateArray(value!, elementType!, path, visitedTypes, out errorMessage);
         }
 
         return TryValidateObject(value, actualType, path, visitedTypes, out errorMessage);
-    }
-
-    private static bool TryValidateNoRequestLocalAliasesValue (
-        object? value,
-        Type contractType,
-        string path,
-        HashSet<Type> visitedTypes,
-        out string errorMessage)
-    {
-        errorMessage = string.Empty;
-        var actualType = Nullable.GetUnderlyingType(contractType) ?? contractType;
-        if (!HasValue(value))
-        {
-            return true;
-        }
-
-        if (UcliRequestLocalAliasContractPolicy.IsRequestLocalAliasValueType(actualType) || IsRequestLocalAliasValue(value))
-        {
-            errorMessage = $"Operation '{path}' cannot use request-local alias references in public op steps.";
-            return false;
-        }
-
-        if (TryGetArrayElementType(actualType, out var elementType))
-        {
-            return TryValidateNoRequestLocalAliasesArray(value!, elementType!, path, visitedTypes, out errorMessage);
-        }
-
-        if (IsScalar(actualType) || actualType == JsonElementType || actualType == typeof(object))
-        {
-            return true;
-        }
-
-        return TryValidateNoRequestLocalAliasesObject(value, actualType, path, visitedTypes, out errorMessage);
-    }
-
-    private static bool TryValidateNoRequestLocalAliasesObject (
-        object? value,
-        Type contractType,
-        string path,
-        HashSet<Type> visitedTypes,
-        out string errorMessage)
-    {
-        errorMessage = string.Empty;
-        if (value == null)
-        {
-            return true;
-        }
-
-        if (!visitedTypes.Add(contractType))
-        {
-            return true;
-        }
-
-        var properties = UcliOperationContractReflection.GetContractProperties(contractType);
-        foreach (var property in properties)
-        {
-            var propertyValue = property.GetValue(value);
-            var propertyName = UcliOperationContractReflection.GetJsonPropertyName(property);
-            if (UcliRequestLocalAliasContractPolicy.IsRequestLocalAliasPropertyName(propertyName))
-            {
-                if (HasValue(propertyValue))
-                {
-                    errorMessage = $"Operation '{path}.{propertyName}' cannot use reserved request-local alias property '{UcliOperationContractPropertyNames.Alias}' in public op steps.";
-                    visitedTypes.Remove(contractType);
-                    return false;
-                }
-
-                continue;
-            }
-
-            if (!HasValue(propertyValue) || property.GetCustomAttribute<UcliJsonAnyValueAttribute>() != null)
-            {
-                continue;
-            }
-
-            if (!TryValidateNoRequestLocalAliasesValue(
-                    propertyValue,
-                    property.PropertyType,
-                    $"{path}.{propertyName}",
-                    visitedTypes,
-                    out errorMessage))
-            {
-                visitedTypes.Remove(contractType);
-                return false;
-            }
-        }
-
-        visitedTypes.Remove(contractType);
-        return true;
-    }
-
-    private static bool TryValidateNoRequestLocalAliasesArray (
-        object value,
-        Type elementType,
-        string path,
-        HashSet<Type> visitedTypes,
-        out string errorMessage)
-    {
-        errorMessage = string.Empty;
-        if (value is not IEnumerable enumerable)
-        {
-            return true;
-        }
-
-        var index = 0;
-        foreach (var item in enumerable)
-        {
-            if (!TryValidateNoRequestLocalAliasesValue(item, elementType, $"{path}[{index.ToString(CultureInfo.InvariantCulture)}]", visitedTypes, out errorMessage))
-            {
-                return false;
-            }
-
-            index++;
-        }
-
-        return true;
-    }
-
-    private static bool TryValidateNoRequestLocalAliasPropertiesValue (
-        JsonElement value,
-        Type contractType,
-        string path,
-        HashSet<Type> visitedTypes,
-        out string errorMessage)
-    {
-        errorMessage = string.Empty;
-        var actualType = Nullable.GetUnderlyingType(contractType) ?? contractType;
-        if (UcliRequestLocalAliasContractPolicy.IsRequestLocalAliasValueType(actualType))
-        {
-            errorMessage = $"Operation '{path}' cannot use request-local alias references in public op steps.";
-            return false;
-        }
-
-        if (TryGetArrayElementType(actualType, out var elementType))
-        {
-            return TryValidateNoRequestLocalAliasPropertiesArray(value, elementType!, path, visitedTypes, out errorMessage);
-        }
-
-        if (IsScalar(actualType) || actualType == JsonElementType || actualType == typeof(object))
-        {
-            return true;
-        }
-
-        return TryValidateNoRequestLocalAliasPropertiesObject(value, actualType, path, visitedTypes, out errorMessage);
-    }
-
-    private static bool TryValidateNoRequestLocalAliasPropertiesObject (
-        JsonElement value,
-        Type contractType,
-        string path,
-        HashSet<Type> visitedTypes,
-        out string errorMessage)
-    {
-        errorMessage = string.Empty;
-        if (value.ValueKind != JsonValueKind.Object)
-        {
-            return true;
-        }
-
-        if (!visitedTypes.Add(contractType))
-        {
-            return true;
-        }
-
-        var properties = UcliOperationContractReflection.GetContractProperties(contractType);
-        foreach (var property in properties)
-        {
-            var propertyName = UcliOperationContractReflection.GetJsonPropertyName(property);
-            if (!value.TryGetProperty(propertyName, out var propertyValue))
-            {
-                continue;
-            }
-
-            if (UcliRequestLocalAliasContractPolicy.IsRequestLocalAliasPropertyName(propertyName))
-            {
-                errorMessage = $"Operation '{path}.{propertyName}' cannot use reserved request-local alias property '{UcliOperationContractPropertyNames.Alias}' in public op steps.";
-                visitedTypes.Remove(contractType);
-                return false;
-            }
-
-            if (property.GetCustomAttribute<UcliJsonAnyValueAttribute>() != null)
-            {
-                continue;
-            }
-
-            if (!TryValidateNoRequestLocalAliasPropertiesValue(
-                propertyValue,
-                property.PropertyType,
-                $"{path}.{propertyName}",
-                visitedTypes,
-                out errorMessage))
-            {
-                visitedTypes.Remove(contractType);
-                return false;
-            }
-        }
-
-        visitedTypes.Remove(contractType);
-        return true;
-    }
-
-    private static bool TryValidateNoRequestLocalAliasPropertiesArray (
-        JsonElement value,
-        Type elementType,
-        string path,
-        HashSet<Type> visitedTypes,
-        out string errorMessage)
-    {
-        errorMessage = string.Empty;
-        if (value.ValueKind != JsonValueKind.Array)
-        {
-            return true;
-        }
-
-        var index = 0;
-        foreach (var item in value.EnumerateArray())
-        {
-            if (!TryValidateNoRequestLocalAliasPropertiesValue(item, elementType, $"{path}[{index.ToString(CultureInfo.InvariantCulture)}]", visitedTypes, out errorMessage))
-            {
-                return false;
-            }
-
-            index++;
-        }
-
-        return true;
-    }
-
-    private static bool TryValidatePublicRawOpReservedProperties (
-        Type contractType,
-        string path,
-        HashSet<Type> visitedTypes,
-        out string errorMessage)
-    {
-        errorMessage = string.Empty;
-        var actualType = Nullable.GetUnderlyingType(contractType) ?? contractType;
-        if (UcliRequestLocalAliasContractPolicy.IsRequestLocalAliasValueType(actualType))
-        {
-            errorMessage = $"Operation contract property '{path}' uses internal request-local alias type '{actualType.Name}'.";
-            return false;
-        }
-
-        if (IsScalar(actualType) || actualType == JsonElementType || actualType == typeof(object))
-        {
-            return true;
-        }
-
-        if (TryGetArrayElementType(actualType, out var elementType))
-        {
-            return TryValidatePublicRawOpReservedProperties(elementType!, path + "[]", visitedTypes, out errorMessage);
-        }
-
-        if (!visitedTypes.Add(actualType))
-        {
-            return true;
-        }
-
-        var properties = UcliOperationContractReflection.GetContractProperties(actualType);
-        foreach (var property in properties)
-        {
-            var propertyName = UcliOperationContractReflection.GetJsonPropertyName(property);
-            var propertyType = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
-            if (UcliRequestLocalAliasContractPolicy.IsInternalRequestLocalAliasBranchProperty(property))
-            {
-                continue;
-            }
-
-            if (UcliRequestLocalAliasContractPolicy.IsRequestLocalAliasValueType(propertyType))
-            {
-                errorMessage = $"Operation contract property '{path}.{propertyName}' uses internal request-local alias type '{propertyType.Name}'.";
-                visitedTypes.Remove(actualType);
-                return false;
-            }
-
-            if (UcliRequestLocalAliasContractPolicy.IsRequestLocalAliasPropertyName(propertyName))
-            {
-                errorMessage = $"Operation contract property '{path}.{propertyName}' uses reserved public raw-op property name '{UcliOperationContractPropertyNames.Alias}'.";
-                visitedTypes.Remove(actualType);
-                return false;
-            }
-
-            if (property.GetCustomAttribute<UcliJsonAnyValueAttribute>() != null)
-            {
-                continue;
-            }
-
-            if (!TryValidatePublicRawOpReservedProperties(property.PropertyType, $"{path}.{propertyName}", visitedTypes, out errorMessage))
-            {
-                visitedTypes.Remove(actualType);
-                return false;
-            }
-        }
-
-        visitedTypes.Remove(actualType);
-        return true;
-    }
-
-    private static bool IsRequestLocalAliasValue (object? value)
-    {
-        return value != null && UcliRequestLocalAliasContractPolicy.IsRequestLocalAliasValueType(value.GetType());
     }
 
     private static bool TryValidateObject (
@@ -431,34 +130,13 @@ public static class UcliOperationContractValidator
             return true;
         }
 
-        var properties = UcliOperationContractReflection.GetContractProperties(contractType);
-        foreach (var property in properties)
-        {
-            var propertyName = UcliOperationContractReflection.GetJsonPropertyName(property);
-            var propertyValue = property.GetValue(value);
-            var hasValue = HasValue(propertyValue);
-
-            if (property.GetCustomAttribute<UcliRequiredAttribute>() != null && !hasValue)
-            {
-                errorMessage = $"Operation '{path}' requires property '{propertyName}'.";
-                visitedTypes.Remove(contractType);
-                return false;
-            }
-
-            if (!TryValidatePropertyValue(property, propertyValue, $"{path}.{propertyName}", visitedTypes, out errorMessage))
-            {
-                visitedTypes.Remove(contractType);
-                return false;
-            }
-        }
-
-        if (!TryValidateExclusiveRequiredPropertySets(value, contractType, path, out errorMessage))
+        if (!TryValidateObjectProperties(value, contractType, path, visitedTypes, out errorMessage))
         {
             visitedTypes.Remove(contractType);
             return false;
         }
 
-        if (!TryValidatePropertyRequirements(value, contractType, path, out errorMessage))
+        if (!TryValidateObjectRules(value, contractType, path, out errorMessage))
         {
             visitedTypes.Remove(contractType);
             return false;
@@ -466,6 +144,54 @@ public static class UcliOperationContractValidator
 
         visitedTypes.Remove(contractType);
         return true;
+    }
+
+    private static bool TryValidateObjectProperties (
+        object value,
+        Type contractType,
+        string path,
+        HashSet<Type> visitedTypes,
+        out string errorMessage)
+    {
+        foreach (var property in UcliOperationContractReflection.GetContractProperties(contractType))
+        {
+            if (!TryValidateProperty(value, property, path, visitedTypes, out errorMessage))
+            {
+                return false;
+            }
+        }
+
+        errorMessage = string.Empty;
+        return true;
+    }
+
+    private static bool TryValidateProperty (
+        object owner,
+        PropertyInfo property,
+        string ownerPath,
+        HashSet<Type> visitedTypes,
+        out string errorMessage)
+    {
+        var propertyName = UcliOperationContractReflection.GetJsonPropertyName(property);
+        var propertyValue = property.GetValue(owner);
+        if (property.GetCustomAttribute<UcliRequiredAttribute>() != null
+            && !UcliOperationContractTypeFacts.HasValue(propertyValue))
+        {
+            errorMessage = $"Operation '{ownerPath}' requires property '{propertyName}'.";
+            return false;
+        }
+
+        return TryValidatePropertyValue(property, propertyValue, $"{ownerPath}.{propertyName}", visitedTypes, out errorMessage);
+    }
+
+    private static bool TryValidateObjectRules (
+        object value,
+        Type contractType,
+        string path,
+        out string errorMessage)
+    {
+        return TryValidateExclusiveRequiredPropertySets(value, contractType, path, out errorMessage)
+            && TryValidatePropertyRequirements(value, contractType, path, out errorMessage);
     }
 
     private static bool TryValidatePropertyValue (
@@ -476,7 +202,7 @@ public static class UcliOperationContractValidator
         out string errorMessage)
     {
         errorMessage = string.Empty;
-        if (!HasValue(value))
+        if (!UcliOperationContractTypeFacts.HasValue(value))
         {
             return true;
         }
@@ -487,17 +213,17 @@ public static class UcliOperationContractValidator
         }
 
         var actualType = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
-        if (!TryValidateSupportedInputConstraints(property, value!, actualType, path, out errorMessage))
+        if (!UcliOperationInputConstraintRuntimeValidator.TryValidate(property, value!, path, out errorMessage))
         {
             return false;
         }
 
-        if (TryGetArrayElementType(property.PropertyType, out var elementType))
+        if (UcliOperationContractTypeFacts.TryGetArrayElementType(property.PropertyType, out var elementType))
         {
             return TryValidateArray(value!, elementType!, path, visitedTypes, out errorMessage);
         }
 
-        if (IsScalar(actualType) || actualType == JsonElementType || actualType == typeof(object))
+        if (UcliOperationContractTypeFacts.IsScalar(actualType) || actualType == JsonElementType || actualType == typeof(object))
         {
             return true;
         }
@@ -645,249 +371,6 @@ public static class UcliOperationContractValidator
         return true;
     }
 
-    private static bool TryValidateSupportedInputConstraints (
-        PropertyInfo property,
-        object value,
-        Type actualType,
-        string path,
-        out string errorMessage)
-    {
-        var attributes = UcliOperationContractReflection.GetInputConstraintAttributes(property);
-        for (var i = 0; i < attributes.Length; i++)
-        {
-            var attribute = attributes[i];
-            switch (attribute.Kind)
-            {
-                case UcliOperationInputConstraintKind.NonEmpty:
-                    if (!TryValidateNonEmpty(value, path, out errorMessage))
-                    {
-                        return false;
-                    }
-
-                    break;
-
-                case UcliOperationInputConstraintKind.Range:
-                    if (!TryValidateRange(value, attribute, path, out errorMessage))
-                    {
-                        return false;
-                    }
-
-                    break;
-
-                case UcliOperationInputConstraintKind.Cursor:
-                    if (!TryValidateCursor(value, path, out errorMessage))
-                    {
-                        return false;
-                    }
-
-                    break;
-            }
-        }
-
-        errorMessage = string.Empty;
-        return true;
-    }
-
-    private static bool TryValidateNonEmpty (
-        object value,
-        string path,
-        out string errorMessage)
-    {
-        switch (value)
-        {
-            case string text when string.IsNullOrWhiteSpace(text):
-                errorMessage = $"Operation '{path}' must not be empty.";
-                return false;
-
-            case UcliStringValue semanticString when string.IsNullOrWhiteSpace(semanticString.Value):
-                errorMessage = $"Operation '{path}' must not be empty.";
-                return false;
-
-            case JsonElement jsonElement when IsEmptyJsonElement(jsonElement):
-                errorMessage = $"Operation '{path}' must not be empty.";
-                return false;
-
-            case IEnumerable enumerable when !HasAny(enumerable):
-                errorMessage = $"Operation '{path}' must not be empty.";
-                return false;
-        }
-
-        errorMessage = string.Empty;
-        return true;
-    }
-
-    private static bool TryValidateRange (
-        object value,
-        UcliInputConstraintAttribute attribute,
-        string path,
-        out string errorMessage)
-    {
-        if (!TryConvertToDouble(value, out var number))
-        {
-            errorMessage = string.Empty;
-            return true;
-        }
-
-        if (!double.IsNaN(attribute.Min) && number < attribute.Min)
-        {
-            errorMessage = $"Operation '{path}' must be greater than or equal to {attribute.Min.ToString(CultureInfo.InvariantCulture)}.";
-            return false;
-        }
-
-        if (!double.IsNaN(attribute.Max) && number > attribute.Max)
-        {
-            errorMessage = $"Operation '{path}' must be less than or equal to {attribute.Max.ToString(CultureInfo.InvariantCulture)}.";
-            return false;
-        }
-
-        errorMessage = string.Empty;
-        return true;
-    }
-
-    private static bool TryValidateCursor (
-        object value,
-        string path,
-        out string errorMessage)
-    {
-        if (!TryConvertToCursorText(value, out var cursor))
-        {
-            errorMessage = string.Empty;
-            return true;
-        }
-
-        if (!BoundedWindowCursorCodec.TryDecode(cursor, out _))
-        {
-            errorMessage = $"Operation '{path}' must be a valid cursor.";
-            return false;
-        }
-
-        errorMessage = string.Empty;
-        return true;
-    }
-
-    private static bool IsEmptyJsonElement (JsonElement jsonElement)
-    {
-        switch (jsonElement.ValueKind)
-        {
-            case JsonValueKind.Object:
-                return !HasAnyJsonObjectProperty(jsonElement);
-
-            case JsonValueKind.Array:
-                return !HasAnyJsonArrayItem(jsonElement);
-
-            default:
-                return false;
-        }
-    }
-
-    private static bool HasAnyJsonObjectProperty (JsonElement jsonElement)
-    {
-        using var enumerator = jsonElement.EnumerateObject();
-        return enumerator.MoveNext();
-    }
-
-    private static bool HasAnyJsonArrayItem (JsonElement jsonElement)
-    {
-        using var enumerator = jsonElement.EnumerateArray();
-        return enumerator.MoveNext();
-    }
-
-    private static bool TryConvertToCursorText (
-        object value,
-        out string? cursor)
-    {
-        switch (value)
-        {
-            case string text:
-                cursor = text;
-                return true;
-
-            case UcliStringValue semanticString:
-                cursor = semanticString.Value;
-                return true;
-
-            case JsonElement { ValueKind: JsonValueKind.String } jsonElement:
-                cursor = jsonElement.GetString();
-                return true;
-
-            default:
-                cursor = null;
-                return false;
-        }
-    }
-
-    private static bool TryConvertToDouble (
-        object value,
-        out double number)
-    {
-        switch (value)
-        {
-            case byte typed:
-                number = typed;
-                return true;
-
-            case sbyte typed:
-                number = typed;
-                return true;
-
-            case short typed:
-                number = typed;
-                return true;
-
-            case ushort typed:
-                number = typed;
-                return true;
-
-            case int typed:
-                number = typed;
-                return true;
-
-            case uint typed:
-                number = typed;
-                return true;
-
-            case long typed:
-                number = typed;
-                return true;
-
-            case ulong typed:
-                number = typed;
-                return true;
-
-            case float typed:
-                number = typed;
-                return true;
-
-            case double typed:
-                number = typed;
-                return true;
-
-            case decimal typed:
-                number = (double)typed;
-                return true;
-
-            default:
-                number = 0;
-                return false;
-        }
-    }
-
-    private static bool HasAny (IEnumerable enumerable)
-    {
-        var enumerator = enumerable.GetEnumerator();
-        try
-        {
-            return enumerator.MoveNext();
-        }
-        finally
-        {
-            if (enumerator is IDisposable disposable)
-            {
-                disposable.Dispose();
-            }
-        }
-    }
-
     private static bool IsRequiredPropertySetMatched (
         object value,
         Type contractType,
@@ -918,66 +401,9 @@ public static class UcliOperationContractValidator
                 continue;
             }
 
-            return HasValue(property.GetValue(value));
+            return UcliOperationContractTypeFacts.HasValue(property.GetValue(value));
         }
 
         return false;
-    }
-
-    private static bool HasValue (object? value)
-    {
-        return value switch
-        {
-            null => false,
-            JsonElement jsonElement => jsonElement.ValueKind != JsonValueKind.Undefined,
-            _ => true,
-        };
-    }
-
-    private static bool TryGetArrayElementType (
-        Type type,
-        out Type? elementType)
-    {
-        var actualType = Nullable.GetUnderlyingType(type) ?? type;
-        if (actualType.IsArray)
-        {
-            elementType = actualType.GetElementType();
-            return elementType != null;
-        }
-
-        if (actualType.IsGenericType)
-        {
-            var genericTypeDefinition = actualType.GetGenericTypeDefinition();
-            if (genericTypeDefinition == typeof(IReadOnlyList<>)
-                || genericTypeDefinition == typeof(IReadOnlyCollection<>)
-                || genericTypeDefinition == typeof(IEnumerable<>)
-                || genericTypeDefinition == typeof(List<>))
-            {
-                elementType = actualType.GetGenericArguments()[0];
-                return true;
-            }
-        }
-
-        elementType = null;
-        return false;
-    }
-
-    private static bool IsScalar (Type type)
-    {
-        return type == StringType
-            || type.IsEnum
-            || UcliStringValue.IsAssignableFrom(type)
-            || type == typeof(bool)
-            || type == typeof(byte)
-            || type == typeof(sbyte)
-            || type == typeof(short)
-            || type == typeof(ushort)
-            || type == typeof(int)
-            || type == typeof(uint)
-            || type == typeof(long)
-            || type == typeof(ulong)
-            || type == typeof(float)
-            || type == typeof(double)
-            || type == typeof(decimal);
     }
 }

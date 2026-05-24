@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Text.Json;
+using MackySoft.Ucli.Contracts.Operations;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
@@ -135,12 +136,8 @@ public static class UcliOperationDescribeContractBuilder
         var resolvedFields = new PropertyInfo[requiredPropertyNames.Count];
         for (var i = 0; i < requiredPropertyNames.Count; i++)
         {
-            var requiredPropertyName = requiredPropertyNames[i];
-            resolvedFields[i] = properties.FirstOrDefault(property =>
-                    string.Equals(UcliOperationContractReflection.GetJsonPropertyName(property), requiredPropertyName, StringComparison.Ordinal))
-                ?? throw new InvalidOperationException($"Exclusive required property set references unknown property '{requiredPropertyName}' on '{contractType.FullName}'.");
-
-            if (UcliRequestLocalAliasContractPolicy.IsInternalRequestLocalAliasBranchProperty(resolvedFields[i]))
+            resolvedFields[i] = ResolveRequiredField(contractType, properties, requiredPropertyNames[i]);
+            if (IsInternalAliasBranch(resolvedFields[i]))
             {
                 fields = Array.Empty<PropertyInfo>();
                 return false;
@@ -149,6 +146,27 @@ public static class UcliOperationDescribeContractBuilder
 
         fields = resolvedFields;
         return true;
+    }
+
+    private static PropertyInfo ResolveRequiredField (
+        Type contractType,
+        IReadOnlyList<PropertyInfo> properties,
+        string requiredPropertyName)
+    {
+        for (var i = 0; i < properties.Count; i++)
+        {
+            if (string.Equals(UcliOperationContractReflection.GetJsonPropertyName(properties[i]), requiredPropertyName, StringComparison.Ordinal))
+            {
+                return properties[i];
+            }
+        }
+
+        throw new InvalidOperationException($"Exclusive required property set references unknown property '{requiredPropertyName}' on '{contractType.FullName}'.");
+    }
+
+    private static bool IsInternalAliasBranch (PropertyInfo property)
+    {
+        return UcliRequestLocalAliasContractPolicy.IsInternalRequestLocalAliasBranchProperty(property);
     }
 
     private static string CreateVariantName (IReadOnlyList<PropertyInfo> fields)

@@ -271,6 +271,28 @@ public sealed class UcliOperationDescribeContractValidatorTests
         Assert.Equal("Test contract has an invalid input variant field at index 0.", errorMessage);
     }
 
+    [Theory]
+    [Trait("Size", "Small")]
+    [MemberData(nameof(InputConstraintFailureCases))]
+    public void TryValidatePublicRawOpInputs_WhenInputConstraintShapeIsInvalid_ReturnsFalse (
+        UcliOperationInputConstraintContract constraint,
+        string expectedConstraintError)
+    {
+        var inputs = new[]
+        {
+            new UcliOperationInputContract(
+                "target",
+                "string",
+                "Target value.",
+                new[] { constraint }),
+        };
+
+        var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpInputs(inputs, "Test contract", out var errorMessage);
+
+        Assert.False(isValid);
+        Assert.Equal($"Test contract has an invalid input constraint at index 0. {expectedConstraintError}", errorMessage);
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public void TryValidatePublicRawOpDescribeContract_WhenCodeContractIsValid_ReturnsTrue ()
@@ -494,7 +516,7 @@ public sealed class UcliOperationDescribeContractValidatorTests
                 describe.Assurance!.MayPersist = true;
                 break;
             case "touchedKinds":
-                describe.Assurance!.TouchedKinds = [IpcExecuteTouchedResourceKindNames.Scene];
+                describe.Assurance!.TouchedKinds = [UcliTouchedResourceKindNames.Scene];
                 break;
             case "sideEffects":
                 describe.Assurance!.SideEffects = [UcliOperationSideEffectValues.SceneContentMutation];
@@ -783,7 +805,7 @@ public sealed class UcliOperationDescribeContractValidatorTests
                 UcliOperationSideEffectValues.AssetContentMutation,
                 false,
                 false,
-                new[] { IpcExecuteTouchedResourceKindNames.Asset },
+                new[] { UcliTouchedResourceKindNames.Asset },
                 "Test contract assurance.mayDirty does not match derived projection 'true'.",
             };
             yield return new object[]
@@ -799,7 +821,7 @@ public sealed class UcliOperationDescribeContractValidatorTests
                 UcliOperationSideEffectValues.AssetSave,
                 false,
                 false,
-                new[] { IpcExecuteTouchedResourceKindNames.Asset },
+                new[] { UcliTouchedResourceKindNames.Asset },
                 "Test contract assurance.mayPersist does not match derived projection 'true'.",
             };
             yield return new object[]
@@ -841,11 +863,67 @@ public sealed class UcliOperationDescribeContractValidatorTests
                 true,
                 new[]
                 {
-                    IpcExecuteTouchedResourceKindNames.Scene,
-                    IpcExecuteTouchedResourceKindNames.Prefab,
-                    IpcExecuteTouchedResourceKindNames.Asset,
+                    UcliTouchedResourceKindNames.Scene,
+                    UcliTouchedResourceKindNames.Prefab,
+                    UcliTouchedResourceKindNames.Asset,
                 },
                 "Test contract side effect 'projectSave' requires assurance.touchedKinds to include 'projectSettings'.",
+            };
+        }
+    }
+
+    public static IEnumerable<object[]> InputConstraintFailureCases
+    {
+        get
+        {
+            yield return new object[]
+            {
+                new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.NonEmpty)
+                {
+                    Min = 1,
+                },
+                "Constraint has unsupported parameters.",
+            };
+            yield return new object[]
+            {
+                new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.Range),
+                "Range constraint must only define min, max, or both.",
+            };
+            yield return new object[]
+            {
+                new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.AssetExists),
+                "Asset constraint must define one supported asset kind.",
+            };
+            yield return new object[]
+            {
+                new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.AssetCreatable)
+                {
+                    AssetKind = "unsupported",
+                },
+                "Asset constraint must define one supported asset kind.",
+            };
+            yield return new object[]
+            {
+                new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.ReferenceResolvable),
+                "Reference constraint must define one supported target kind.",
+            };
+            yield return new object[]
+            {
+                new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.TypeAssignableTo)
+                {
+                    TypeKind = "unsupported",
+                },
+                "Type assignability constraint must define one supported type kind.",
+            };
+            yield return new object[]
+            {
+                new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.SerializedProperty),
+                "Serialized-property constraint must define one supported access value.",
+            };
+            yield return new object[]
+            {
+                new UcliOperationInputConstraintContract("unsupported"),
+                "Unsupported constraint kind 'unsupported'.",
             };
         }
     }

@@ -27,7 +27,7 @@ public sealed class RefreshCommandTests
                 Touched:
                 [
                     new OperationExecutionTouchedResource(
-                        Kind: IpcExecuteTouchedResourceKindNames.Asset,
+                        Kind: UcliTouchedResourceKindNames.Asset,
                         Path: "Assets/Example.txt",
                         Guid: null),
                 ]),
@@ -365,7 +365,7 @@ public sealed class RefreshCommandTests
             Touched:
             [
                 new OperationExecutionTouchedResource(
-                    Kind: IpcExecuteTouchedResourceKindNames.Asset,
+                    Kind: UcliTouchedResourceKindNames.Asset,
                     Path: "Assets/Example.txt",
                     Guid: null),
             ]);

@@ -154,136 +154,108 @@ internal static class IpcEditStepLoweringRules
         out string operationName,
         out string errorMessage)
     {
-        switch (actionKind)
+        return actionKind switch
         {
-            case IpcEditStepContract.ActionKind.Set:
-                if (targetKind == IpcEditTargetKind.Component)
-                {
-                    operationName = UcliPrimitiveOperationNames.CompSet;
-                    errorMessage = string.Empty;
-                    return true;
-                }
+            IpcEditStepContract.ActionKind.Set => TryResolveSet(targetKind, out operationName, out errorMessage),
+            IpcEditStepContract.ActionKind.EnsureComponent => TryResolveGameObjectTarget(targetKind, UcliPrimitiveOperationNames.CompEnsure, "Edit action 'ensureComponent' requires a GameObject target.", out operationName, out errorMessage),
+            IpcEditStepContract.ActionKind.CreateObject => TryResolveGameObjectTarget(targetKind, UcliPrimitiveOperationNames.GoCreate, "Edit action 'createObject' requires a GameObject selection context.", out operationName, out errorMessage),
+            IpcEditStepContract.ActionKind.CreateAsset => Succeed(UcliPrimitiveOperationNames.AssetCreate, out operationName, out errorMessage),
+            IpcEditStepContract.ActionKind.CreatePrefab => TryResolveCreatePrefab(contextKind, targetKind, out operationName, out errorMessage),
+            IpcEditStepContract.ActionKind.ApplyPrefabOverrides => TryResolveSceneComponent(contextKind, targetKind, UcliPrimitiveOperationNames.PrefabApplyOverrides, "Edit action 'applyPrefabOverrides' requires a component target in scene context.", out operationName, out errorMessage),
+            IpcEditStepContract.ActionKind.RevertPrefabOverrides => TryResolveSceneComponent(contextKind, targetKind, UcliPrimitiveOperationNames.PrefabRevertOverrides, "Edit action 'revertPrefabOverrides' requires a component target in scene context.", out operationName, out errorMessage),
+            IpcEditStepContract.ActionKind.Delete => TryResolveGameObjectTarget(targetKind, UcliPrimitiveOperationNames.GoDelete, "Edit action 'delete' requires a GameObject target.", out operationName, out errorMessage),
+            IpcEditStepContract.ActionKind.Reparent => TryResolveReparent(targetKind, parentTargetKind, out operationName, out errorMessage),
+            _ => Fail($"Unsupported edit action kind '{actionKind}'.", out operationName, out errorMessage),
+        };
+    }
 
-                if (targetKind == IpcEditTargetKind.Asset)
-                {
-                    operationName = UcliPrimitiveOperationNames.AssetSet;
-                    errorMessage = string.Empty;
-                    return true;
-                }
+    private static bool TryResolveSet (
+        IpcEditTargetKind targetKind,
+        out string operationName,
+        out string errorMessage)
+    {
+        return targetKind switch
+        {
+            IpcEditTargetKind.Component => Succeed(UcliPrimitiveOperationNames.CompSet, out operationName, out errorMessage),
+            IpcEditTargetKind.Asset => Succeed(UcliPrimitiveOperationNames.AssetSet, out operationName, out errorMessage),
+            _ => Fail("Edit action 'set' requires a component or asset target.", out operationName, out errorMessage),
+        };
+    }
 
-                operationName = string.Empty;
-                errorMessage = "Edit action 'set' requires a component or asset target.";
-                return false;
-
-            case IpcEditStepContract.ActionKind.EnsureComponent:
-                if (targetKind == IpcEditTargetKind.GameObject)
-                {
-                    operationName = UcliPrimitiveOperationNames.CompEnsure;
-                    errorMessage = string.Empty;
-                    return true;
-                }
-
-                operationName = string.Empty;
-                errorMessage = "Edit action 'ensureComponent' requires a GameObject target.";
-                return false;
-
-            case IpcEditStepContract.ActionKind.CreateObject:
-                if (targetKind == IpcEditTargetKind.GameObject)
-                {
-                    operationName = UcliPrimitiveOperationNames.GoCreate;
-                    errorMessage = string.Empty;
-                    return true;
-                }
-
-                operationName = string.Empty;
-                errorMessage = "Edit action 'createObject' requires a GameObject selection context.";
-                return false;
-
-            case IpcEditStepContract.ActionKind.CreateAsset:
-                operationName = UcliPrimitiveOperationNames.AssetCreate;
-                errorMessage = string.Empty;
-                return true;
-
-            case IpcEditStepContract.ActionKind.CreatePrefab:
-                if (targetKind != IpcEditTargetKind.GameObject)
-                {
-                    operationName = string.Empty;
-                    errorMessage = "Edit action 'createPrefab' requires a GameObject target.";
-                    return false;
-                }
-
-                if (contextKind == IpcEditStepContract.ContextKind.Scene)
-                {
-                    operationName = UcliPrimitiveOperationNames.PrefabCreate;
-                    errorMessage = string.Empty;
-                    return true;
-                }
-
-                operationName = string.Empty;
-                errorMessage = "Edit action 'createPrefab' requires a GameObject target in scene context.";
-                return false;
-
-            case IpcEditStepContract.ActionKind.ApplyPrefabOverrides:
-                if (contextKind == IpcEditStepContract.ContextKind.Scene
-                    && targetKind == IpcEditTargetKind.Component)
-                {
-                    operationName = UcliPrimitiveOperationNames.PrefabApplyOverrides;
-                    errorMessage = string.Empty;
-                    return true;
-                }
-
-                operationName = string.Empty;
-                errorMessage = "Edit action 'applyPrefabOverrides' requires a component target in scene context.";
-                return false;
-
-            case IpcEditStepContract.ActionKind.RevertPrefabOverrides:
-                if (contextKind == IpcEditStepContract.ContextKind.Scene
-                    && targetKind == IpcEditTargetKind.Component)
-                {
-                    operationName = UcliPrimitiveOperationNames.PrefabRevertOverrides;
-                    errorMessage = string.Empty;
-                    return true;
-                }
-
-                operationName = string.Empty;
-                errorMessage = "Edit action 'revertPrefabOverrides' requires a component target in scene context.";
-                return false;
-
-            case IpcEditStepContract.ActionKind.Delete:
-                if (targetKind == IpcEditTargetKind.GameObject)
-                {
-                    operationName = UcliPrimitiveOperationNames.GoDelete;
-                    errorMessage = string.Empty;
-                    return true;
-                }
-
-                operationName = string.Empty;
-                errorMessage = "Edit action 'delete' requires a GameObject target.";
-                return false;
-
-            case IpcEditStepContract.ActionKind.Reparent:
-                if (targetKind != IpcEditTargetKind.GameObject)
-                {
-                    operationName = string.Empty;
-                    errorMessage = "Edit action 'reparent' requires a GameObject target.";
-                    return false;
-                }
-
-                if (parentTargetKind != IpcEditTargetKind.GameObject)
-                {
-                    operationName = string.Empty;
-                    errorMessage = "Edit action 'reparent' requires a GameObject parent target.";
-                    return false;
-                }
-
-                operationName = UcliPrimitiveOperationNames.GoReparent;
-                errorMessage = string.Empty;
-                return true;
-
-            default:
-                operationName = string.Empty;
-                errorMessage = $"Unsupported edit action kind '{actionKind}'.";
-                return false;
+    private static bool TryResolveCreatePrefab (
+        IpcEditStepContract.ContextKind contextKind,
+        IpcEditTargetKind targetKind,
+        out string operationName,
+        out string errorMessage)
+    {
+        if (targetKind != IpcEditTargetKind.GameObject)
+        {
+            return Fail("Edit action 'createPrefab' requires a GameObject target.", out operationName, out errorMessage);
         }
+
+        return contextKind == IpcEditStepContract.ContextKind.Scene
+            ? Succeed(UcliPrimitiveOperationNames.PrefabCreate, out operationName, out errorMessage)
+            : Fail("Edit action 'createPrefab' requires a GameObject target in scene context.", out operationName, out errorMessage);
+    }
+
+    private static bool TryResolveSceneComponent (
+        IpcEditStepContract.ContextKind contextKind,
+        IpcEditTargetKind targetKind,
+        string primitiveOperationName,
+        string failureMessage,
+        out string operationName,
+        out string errorMessage)
+    {
+        return contextKind == IpcEditStepContract.ContextKind.Scene && targetKind == IpcEditTargetKind.Component
+            ? Succeed(primitiveOperationName, out operationName, out errorMessage)
+            : Fail(failureMessage, out operationName, out errorMessage);
+    }
+
+    private static bool TryResolveGameObjectTarget (
+        IpcEditTargetKind targetKind,
+        string primitiveOperationName,
+        string failureMessage,
+        out string operationName,
+        out string errorMessage)
+    {
+        return targetKind == IpcEditTargetKind.GameObject
+            ? Succeed(primitiveOperationName, out operationName, out errorMessage)
+            : Fail(failureMessage, out operationName, out errorMessage);
+    }
+
+    private static bool TryResolveReparent (
+        IpcEditTargetKind targetKind,
+        IpcEditTargetKind? parentTargetKind,
+        out string operationName,
+        out string errorMessage)
+    {
+        if (targetKind != IpcEditTargetKind.GameObject)
+        {
+            return Fail("Edit action 'reparent' requires a GameObject target.", out operationName, out errorMessage);
+        }
+
+        return parentTargetKind == IpcEditTargetKind.GameObject
+            ? Succeed(UcliPrimitiveOperationNames.GoReparent, out operationName, out errorMessage)
+            : Fail("Edit action 'reparent' requires a GameObject parent target.", out operationName, out errorMessage);
+    }
+
+    private static bool Succeed (
+        string primitiveOperationName,
+        out string operationName,
+        out string errorMessage)
+    {
+        operationName = primitiveOperationName;
+        errorMessage = string.Empty;
+        return true;
+    }
+
+    private static bool Fail (
+        string message,
+        out string operationName,
+        out string errorMessage)
+    {
+        operationName = string.Empty;
+        errorMessage = message;
+        return false;
     }
 }

@@ -49,66 +49,141 @@ public static class IpcGuiBootstrapArgumentsCodec
         out IpcGuiBootstrapParseError error)
     {
         arguments = default!;
-        if (args == null)
+        if (!TryReadTarget(args, out error))
         {
-            error = new IpcGuiBootstrapParseError(
-                IpcGuiBootstrapParseErrorKind.MissingTarget,
-                "uCLI GUI bootstrap target is missing.");
             return false;
         }
 
-        if (!IpcBootstrapArgumentReader.TryGetArgumentValue(args, KnownArgumentNames, IpcGuiBootstrapArgumentNames.Target, out var target))
+        if (!TryReadRequiredValues(args!, out var ownerProcessIdText, out var canShutdownProcessText, out error))
         {
-            if (IpcBootstrapArgumentReader.ContainsArgumentName(args, IpcGuiBootstrapArgumentNames.Target))
-            {
-                error = new IpcGuiBootstrapParseError(
-                    IpcGuiBootstrapParseErrorKind.InvalidTarget,
-                    "uCLI GUI bootstrap target value is missing.");
-                return false;
-            }
-
-            error = new IpcGuiBootstrapParseError(
-                IpcGuiBootstrapParseErrorKind.MissingTarget,
-                "uCLI GUI bootstrap target is missing.");
             return false;
         }
 
-        if (!string.Equals(target, IpcGuiBootstrapTargetValues.Daemon, StringComparison.Ordinal))
+        if (!TryParseOwnerProcessId(ownerProcessIdText, out var ownerProcessId, out error))
         {
-            error = new IpcGuiBootstrapParseError(
-                IpcGuiBootstrapParseErrorKind.InvalidTarget,
-                $"uCLI GUI bootstrap target is invalid. Actual: {target}");
             return false;
         }
 
-        if (!IpcBootstrapArgumentReader.TryGetArgumentValue(args, KnownArgumentNames, IpcGuiBootstrapArgumentNames.OwnerProcessId, out var ownerProcessIdText)
-            || !IpcBootstrapArgumentReader.TryGetArgumentValue(args, KnownArgumentNames, IpcGuiBootstrapArgumentNames.CanShutdownProcess, out var canShutdownProcessText))
+        if (!TryParseCanShutdownProcess(canShutdownProcessText, out var canShutdownProcess, out error))
         {
-            error = new IpcGuiBootstrapParseError(
-                IpcGuiBootstrapParseErrorKind.MissingRequiredArguments,
-                "uCLI GUI bootstrap arguments are missing.");
-            return false;
-        }
-
-        if (!int.TryParse(ownerProcessIdText, NumberStyles.None, CultureInfo.InvariantCulture, out var ownerProcessId)
-            || ownerProcessId <= 0)
-        {
-            error = new IpcGuiBootstrapParseError(
-                IpcGuiBootstrapParseErrorKind.InvalidRequiredValue,
-                "uCLI GUI bootstrap owner process identifier must be a positive integer.");
-            return false;
-        }
-
-        if (!bool.TryParse(canShutdownProcessText, out var canShutdownProcess))
-        {
-            error = new IpcGuiBootstrapParseError(
-                IpcGuiBootstrapParseErrorKind.InvalidRequiredValue,
-                "uCLI GUI bootstrap canShutdownProcess value must be true or false.");
             return false;
         }
 
         arguments = new IpcGuiBootstrapArguments(ownerProcessId, canShutdownProcess);
         error = IpcGuiBootstrapParseError.None;
         return true;
+    }
+
+    private static bool TryReadTarget (
+        IReadOnlyList<string>? args,
+        out IpcGuiBootstrapParseError error)
+    {
+        if (args == null)
+        {
+            error = MissingTarget();
+            return false;
+        }
+
+        if (!IpcBootstrapArgumentReader.TryGetArgumentValue(args, KnownArgumentNames, IpcGuiBootstrapArgumentNames.Target, out var target))
+        {
+            return TryHandleMissingTargetValue(args, out error);
+        }
+
+        return TryValidateTarget(target, out error);
+    }
+
+    private static bool TryReadRequiredValues (
+        IReadOnlyList<string> args,
+        out string ownerProcessIdText,
+        out string canShutdownProcessText,
+        out IpcGuiBootstrapParseError error)
+    {
+        ownerProcessIdText = string.Empty;
+        canShutdownProcessText = string.Empty;
+        if (IpcBootstrapArgumentReader.TryGetArgumentValue(args, KnownArgumentNames, IpcGuiBootstrapArgumentNames.OwnerProcessId, out ownerProcessIdText)
+            && IpcBootstrapArgumentReader.TryGetArgumentValue(args, KnownArgumentNames, IpcGuiBootstrapArgumentNames.CanShutdownProcess, out canShutdownProcessText))
+        {
+            error = IpcGuiBootstrapParseError.None;
+            return true;
+        }
+
+        error = new IpcGuiBootstrapParseError(
+            IpcGuiBootstrapParseErrorKind.MissingRequiredArguments,
+            "uCLI GUI bootstrap arguments are missing.");
+        return false;
+    }
+
+    private static bool TryParseOwnerProcessId (
+        string text,
+        out int ownerProcessId,
+        out IpcGuiBootstrapParseError error)
+    {
+        if (int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out ownerProcessId)
+            && ownerProcessId > 0)
+        {
+            error = IpcGuiBootstrapParseError.None;
+            return true;
+        }
+
+        error = new IpcGuiBootstrapParseError(
+            IpcGuiBootstrapParseErrorKind.InvalidRequiredValue,
+            "uCLI GUI bootstrap owner process identifier must be a positive integer.");
+        return false;
+    }
+
+    private static bool TryParseCanShutdownProcess (
+        string text,
+        out bool canShutdownProcess,
+        out IpcGuiBootstrapParseError error)
+    {
+        if (bool.TryParse(text, out canShutdownProcess))
+        {
+            error = IpcGuiBootstrapParseError.None;
+            return true;
+        }
+
+        error = new IpcGuiBootstrapParseError(
+            IpcGuiBootstrapParseErrorKind.InvalidRequiredValue,
+            "uCLI GUI bootstrap canShutdownProcess value must be true or false.");
+        return false;
+    }
+
+    private static bool TryHandleMissingTargetValue (
+        IReadOnlyList<string> args,
+        out IpcGuiBootstrapParseError error)
+    {
+        if (IpcBootstrapArgumentReader.ContainsArgumentName(args, IpcGuiBootstrapArgumentNames.Target))
+        {
+            error = new IpcGuiBootstrapParseError(
+                IpcGuiBootstrapParseErrorKind.InvalidTarget,
+                "uCLI GUI bootstrap target value is missing.");
+            return false;
+        }
+
+        error = MissingTarget();
+        return false;
+    }
+
+    private static bool TryValidateTarget (
+        string target,
+        out IpcGuiBootstrapParseError error)
+    {
+        if (string.Equals(target, IpcGuiBootstrapTargetValues.Daemon, StringComparison.Ordinal))
+        {
+            error = IpcGuiBootstrapParseError.None;
+            return true;
+        }
+
+        error = new IpcGuiBootstrapParseError(
+            IpcGuiBootstrapParseErrorKind.InvalidTarget,
+            $"uCLI GUI bootstrap target is invalid. Actual: {target}");
+        return false;
+    }
+
+    private static IpcGuiBootstrapParseError MissingTarget ()
+    {
+        return new IpcGuiBootstrapParseError(
+            IpcGuiBootstrapParseErrorKind.MissingTarget,
+            "uCLI GUI bootstrap target is missing.");
     }
 }

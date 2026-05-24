@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Operations;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
@@ -66,15 +67,9 @@ internal static class UcliOperationPolicyDeriver
             return false;
         }
 
-        for (var i = 0; i < assurance.SideEffects.Count; i++)
+        if (!TryApplySideEffectPolicies(assurance.SideEffects, ref policy))
         {
-            var sideEffect = assurance.SideEffects[i];
-            if (!UcliOperationSideEffectDescriptors.TryGetMinimumPolicy(sideEffect, out var sideEffectPolicy))
-            {
-                return false;
-            }
-
-            policy = Max(policy, sideEffectPolicy);
+            return false;
         }
 
         if (mayDirty || mayPersist)
@@ -90,6 +85,23 @@ internal static class UcliOperationPolicyDeriver
         if (codeContract != null)
         {
             policy = Max(policy, OperationPolicy.Dangerous);
+        }
+
+        return true;
+    }
+
+    private static bool TryApplySideEffectPolicies (
+        IReadOnlyList<string> sideEffects,
+        ref OperationPolicy policy)
+    {
+        for (var i = 0; i < sideEffects.Count; i++)
+        {
+            if (!UcliOperationSideEffectDescriptors.TryGetMinimumPolicy(sideEffects[i], out var sideEffectPolicy))
+            {
+                return false;
+            }
+
+            policy = Max(policy, sideEffectPolicy);
         }
 
         return true;

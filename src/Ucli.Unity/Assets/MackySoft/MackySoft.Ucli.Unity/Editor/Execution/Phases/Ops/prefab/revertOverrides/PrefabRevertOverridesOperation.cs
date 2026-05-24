@@ -7,6 +7,7 @@ using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using UnityEditor;
+using MackySoft.Ucli.Contracts.Operations;
 
 #nullable enable
 
@@ -22,7 +23,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             description: "Reverts request-attributed Prefab instance property overrides on the live scene object.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.SceneContentMutation },
-                touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Scene },
+                touchedKinds: new[] { UcliTouchedResourceKindNames.Scene },
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate that selected property overrides came from this request and were not pre-existing.",
                 callSemantics: "Revert selected live Prefab instance property overrides to the explicit Prefab asset value.",

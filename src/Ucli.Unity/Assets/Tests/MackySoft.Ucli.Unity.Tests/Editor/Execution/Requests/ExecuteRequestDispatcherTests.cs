@@ -382,7 +382,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         Contracts = CreateContractFacts(
                             UcliOperationKind.Query,
                             mayDirty: true,
-                            IpcExecuteTouchedResourceKindNames.Asset),
+                            UcliTouchedResourceKindNames.Asset),
                     },
                 }));
             var dispatcher = CreateDispatcher(normalizer, phaseExecutor);
@@ -440,7 +440,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         Contracts = CreateContractFacts(
                             UcliOperationKind.Mutation,
                             mayDirty: true,
-                            IpcExecuteTouchedResourceKindNames.Scene),
+                            UcliTouchedResourceKindNames.Scene),
                     },
                 }));
             var dispatcher = CreateDispatcher(normalizer, phaseExecutor);
@@ -486,7 +486,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         Contracts = CreateContractFacts(
                             UcliOperationKind.Mutation,
                             mayDirty: true,
-                            IpcExecuteTouchedResourceKindNames.Scene),
+                            UcliTouchedResourceKindNames.Scene),
                     },
                 }));
             var dispatcher = CreateDispatcher(normalizer, phaseExecutor);
@@ -531,7 +531,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         Contracts = CreateContractFacts(
                             UcliOperationKind.Mutation,
                             mayDirty: true,
-                            IpcExecuteTouchedResourceKindNames.Asset),
+                            UcliTouchedResourceKindNames.Asset),
                     },
                 }));
             var dispatcher = CreateDispatcher(normalizer, phaseExecutor);
@@ -578,7 +578,7 @@ namespace MackySoft.Ucli.Unity.Tests
                             UcliOperationKind.Mutation,
                             mayDirty: false,
                             mayPersist: true,
-                            IpcExecuteTouchedResourceKindNames.Scene),
+                            UcliTouchedResourceKindNames.Scene),
                     },
                 }));
             var dispatcher = CreateDispatcher(normalizer, phaseExecutor);
@@ -1413,7 +1413,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var touched = opResult.GetProperty("touched");
             Assert.That(touched.GetArrayLength(), Is.EqualTo(1));
             var touchedElement = GetSingleArrayElement(touched);
-            Assert.That(touchedElement.GetProperty("kind").GetString(), Is.EqualTo(IpcExecuteTouchedResourceKindNames.Scene));
+            Assert.That(touchedElement.GetProperty("kind").GetString(), Is.EqualTo(UcliTouchedResourceKindNames.Scene));
             Assert.That(touchedElement.GetProperty("path").GetString(), Is.EqualTo("Assets/Scenes/Main.unity"));
             Assert.That(touchedElement.GetProperty("guid").GetString(), Is.EqualTo("11111111111111111111111111111111"));
         }

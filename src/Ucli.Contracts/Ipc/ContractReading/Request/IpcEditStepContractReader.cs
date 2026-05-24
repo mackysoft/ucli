@@ -25,22 +25,31 @@ internal static class IpcEditStepContractReader
             return false;
         }
 
-        if (!IpcEditStepContractReadHelpers.TryReadRequiredString(
-            stepElement,
-            "id",
-            "step.id",
-            out var stepId,
-            out errorMessage))
+        if (!TryReadHeader(stepElement, out var stepId, out errorMessage))
         {
             return false;
         }
 
-        if (!IpcEditStepContractReadHelpers.TryReadRequiredString(
-            stepElement,
-            "kind",
-            "step.kind",
-            out var kindLiteral,
-            out errorMessage))
+        if (!TryReadBody(stepElement, out var body, out errorMessage))
+        {
+            return false;
+        }
+
+        stepContract = new IpcEditStepContract(stepId!, body.Context, body.Selection, body.Actions, body.Commit);
+        return true;
+    }
+
+    private static bool TryReadHeader (
+        JsonElement stepElement,
+        out string? stepId,
+        out string errorMessage)
+    {
+        if (!IpcEditStepContractReadHelpers.TryReadRequiredString(stepElement, "id", "step.id", out stepId, out errorMessage))
+        {
+            return false;
+        }
+
+        if (!IpcEditStepContractReadHelpers.TryReadRequiredString(stepElement, "kind", "step.kind", out var kindLiteral, out errorMessage))
         {
             return false;
         }
@@ -51,6 +60,15 @@ internal static class IpcEditStepContractReader
             return false;
         }
 
+        return true;
+    }
+
+    private static bool TryReadBody (
+        JsonElement stepElement,
+        out Body body,
+        out string errorMessage)
+    {
+        body = default;
         if (!IpcEditStepContextReader.TryRead(stepElement, out var context, out errorMessage))
         {
             return false;
@@ -71,7 +89,30 @@ internal static class IpcEditStepContractReader
             return false;
         }
 
-        stepContract = new IpcEditStepContract(stepId!, context, selection, actions, commit);
+        body = new Body(context, selection, actions, commit);
         return true;
+    }
+
+    private readonly struct Body
+    {
+        public Body (
+            IpcEditStepContract.EditContext context,
+            IpcEditStepContract.EditSelection selection,
+            IReadOnlyList<IpcEditStepContract.EditAction> actions,
+            IpcEditStepContract.CommitKind commit)
+        {
+            Context = context;
+            Selection = selection;
+            Actions = actions;
+            Commit = commit;
+        }
+
+        public IpcEditStepContract.EditContext Context { get; }
+
+        public IpcEditStepContract.EditSelection Selection { get; }
+
+        public IReadOnlyList<IpcEditStepContract.EditAction> Actions { get; }
+
+        public IpcEditStepContract.CommitKind Commit { get; }
     }
 }

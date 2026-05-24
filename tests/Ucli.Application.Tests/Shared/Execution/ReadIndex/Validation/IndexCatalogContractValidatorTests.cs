@@ -99,7 +99,7 @@ public sealed class IndexCatalogContractValidatorTests
             Kind = UcliOperationKindValues.Query,
             Assurance = new UcliOperationAssuranceContract(
                 sideEffects: Array.Empty<string>(),
-                touchedKinds: [IpcExecuteTouchedResourceKindNames.Scene],
+                touchedKinds: [UcliTouchedResourceKindNames.Scene],
                 planMode: UcliOperationPlanModeValues.ObservesLiveUnity,
                 planSemantics: "Observe scene hierarchy without applying mutation.",
                 callSemantics: "Read scene hierarchy without applying mutation.",
@@ -866,7 +866,7 @@ public sealed class IndexCatalogContractValidatorTests
             Description = "Assigns serialized property values on a component target.",
             Assurance = new UcliOperationAssuranceContract(
                 sideEffects: [UcliOperationSideEffectValues.SceneContentMutation],
-                touchedKinds: [IpcExecuteTouchedResourceKindNames.Scene],
+                touchedKinds: [UcliTouchedResourceKindNames.Scene],
                 planMode: UcliOperationPlanModeValues.MayCreatePreviewState,
                 planSemantics: "Validate arguments and compute preview changes without persisting project data.",
                 callSemantics: "Apply serialized property values to the live component.",

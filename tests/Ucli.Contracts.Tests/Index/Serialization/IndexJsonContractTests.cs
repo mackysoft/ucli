@@ -762,7 +762,7 @@ public sealed class IndexJsonContractTests
                     ],
                     touchedKinds:
                     [
-                        IpcExecuteTouchedResourceKindNames.Asset,
+                        UcliTouchedResourceKindNames.Asset,
                     ],
                     planMode: UcliOperationPlanModeValues.MayCreatePreviewState,
                     planSemantics: "Validate asset write inputs and compute preview state without persisting project data.",

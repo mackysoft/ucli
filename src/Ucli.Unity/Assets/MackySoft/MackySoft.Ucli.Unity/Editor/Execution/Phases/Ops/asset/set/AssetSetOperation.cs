@@ -6,6 +6,7 @@ using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using UnityEditor;
+using MackySoft.Ucli.Contracts.Operations;
 
 #nullable enable
 
@@ -21,7 +22,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             description: "Assigns serialized property values on an asset or project asset target.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.AssetContentMutation, UcliOperationSideEffect.ProjectSettingsMutation },
-                touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Asset, IpcExecuteTouchedResourceKindNames.ProjectSettings },
+                touchedKinds: new[] { UcliTouchedResourceKindNames.Asset, UcliTouchedResourceKindNames.ProjectSettings },
                 planMode: UcliOperationPlanMode.MayCreatePreviewState,
                 planSemantics: "Validate the asset target and serialized property values, then compute preview changes without persisting project data.",
                 callSemantics: "Apply serialized property values to the live asset or project settings object and leave saving to explicit save operations.",

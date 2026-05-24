@@ -37,84 +37,20 @@ public static class IpcUnityLogsReadRequestNormalizer
         }
 
         normalizedRequest = null;
-        if (request.Tail.HasValue && request.Tail.Value <= 0)
-        {
-            sinceTimestamp = null;
-            untilTimestamp = null;
-            errorMessage = $"tail must be greater than zero. Actual: {request.Tail.Value}.";
-            return false;
-        }
-
-        if (!IpcIso8601TimestampCodec.TryParseOptionalWithTimezoneOffset(request.Since, out sinceTimestamp))
-        {
-            untilTimestamp = null;
-            errorMessage = $"since must be an ISO 8601 timestamp with timezone offset. Actual: {request.Since}.";
-            return false;
-        }
-
-        if (!IpcIso8601TimestampCodec.TryParseOptionalWithTimezoneOffset(request.Until, out untilTimestamp))
-        {
-            errorMessage = $"until must be an ISO 8601 timestamp with timezone offset. Actual: {request.Until}.";
-            return false;
-        }
-
-        if (sinceTimestamp.HasValue
-            && untilTimestamp.HasValue
-            && sinceTimestamp.Value > untilTimestamp.Value)
-        {
-            errorMessage = $"since must be less than or equal to until. since={request.Since}, until={request.Until}.";
-            return false;
-        }
-
-        if (!TryResolveLevel(request.Level, out var level, out errorMessage))
-        {
-            return false;
-        }
-
-        if (!IpcDaemonLogsQueryTargetCodec.TryParseForUnityLogs(
-                request.QueryTarget,
-                out var queryTarget,
+        if (!IpcLogsReadWindowNormalizer.TryNormalize(
+                request.Tail,
+                request.Since,
+                request.Until,
+                out sinceTimestamp,
+                out untilTimestamp,
                 out errorMessage))
         {
             return false;
         }
 
-        if (!TryResolveSource(request.Source, out var source, out errorMessage))
+        if (!TryResolveFilters(request, out var filters, out errorMessage))
         {
             return false;
-        }
-
-        if (!TryResolveStackTraceMode(request.StackTrace, out var stackTraceMode, out errorMessage))
-        {
-            return false;
-        }
-
-        var stackTraceMaxFrames = request.StackTraceMaxFrames;
-        var stackTraceMaxChars = request.StackTraceMaxChars;
-        if (string.Equals(stackTraceMode, IpcUnityLogsStackTraceModeCodec.None, StringComparison.Ordinal))
-        {
-            stackTraceMaxFrames = null;
-            stackTraceMaxChars = null;
-        }
-        else
-        {
-            if (stackTraceMaxFrames.HasValue
-                && (stackTraceMaxFrames.Value < MinimumStackTraceMaxFrames
-                    || stackTraceMaxFrames.Value > MaximumStackTraceMaxFrames))
-            {
-                errorMessage =
-                    $"stackTraceMaxFrames must be between {MinimumStackTraceMaxFrames} and {MaximumStackTraceMaxFrames}. Actual: {stackTraceMaxFrames.Value}.";
-                return false;
-            }
-
-            if (stackTraceMaxChars.HasValue
-                && (stackTraceMaxChars.Value < MinimumStackTraceMaxChars
-                    || stackTraceMaxChars.Value > MaximumStackTraceMaxChars))
-            {
-                errorMessage =
-                    $"stackTraceMaxChars must be between {MinimumStackTraceMaxChars} and {MaximumStackTraceMaxChars}. Actual: {stackTraceMaxChars.Value}.";
-                return false;
-            }
         }
 
         normalizedRequest = new IpcUnityLogsReadRequest(
@@ -122,14 +58,74 @@ public static class IpcUnityLogsReadRequestNormalizer
             After: request.After,
             Since: request.Since,
             Until: request.Until,
-            Level: level,
+            Level: filters.Level,
             Query: StringValueNormalizer.TrimToNull(request.Query),
-            QueryTarget: queryTarget,
-            Source: source,
-            StackTrace: stackTraceMode,
-            StackTraceMaxFrames: stackTraceMaxFrames,
-            StackTraceMaxChars: stackTraceMaxChars);
+            QueryTarget: filters.QueryTarget,
+            Source: filters.Source,
+            StackTrace: filters.StackTraceMode,
+            StackTraceMaxFrames: filters.StackTraceMaxFrames,
+            StackTraceMaxChars: filters.StackTraceMaxChars);
         errorMessage = null;
+        return true;
+    }
+
+    private static bool TryResolveFilters (
+        IpcUnityLogsReadRequest request,
+        out Filters filters,
+        out string? errorMessage)
+    {
+        filters = default;
+        if (!TryResolveTextFilters(request, out var textFilters, out errorMessage))
+        {
+            return false;
+        }
+
+        if (!TryResolveStackTrace(request, textFilters.StackTraceMode, out var stackTrace, out errorMessage))
+        {
+            return false;
+        }
+
+        filters = new Filters(textFilters, stackTrace);
+        return true;
+    }
+
+    private static bool TryResolveTextFilters (
+        IpcUnityLogsReadRequest request,
+        out TextFilters filters,
+        out string? errorMessage)
+    {
+        filters = default;
+        if (!TryResolveLevel(request.Level, out var level, out errorMessage)
+            || !IpcDaemonLogsQueryTargetCodec.TryParseForUnityLogs(request.QueryTarget, out var queryTarget, out errorMessage)
+            || !TryResolveSource(request.Source, out var source, out errorMessage)
+            || !TryResolveStackTraceMode(request.StackTrace, out var stackTraceMode, out errorMessage))
+        {
+            return false;
+        }
+
+        filters = new TextFilters(level, queryTarget, source, stackTraceMode);
+        return true;
+    }
+
+    private static bool TryResolveStackTrace (
+        IpcUnityLogsReadRequest request,
+        string stackTraceMode,
+        out StackTraceOptions options,
+        out string? errorMessage)
+    {
+        options = default;
+        if (!IpcUnityLogsStackTraceOptionsNormalizer.TryNormalize(
+                stackTraceMode,
+                request.StackTraceMaxFrames,
+                request.StackTraceMaxChars,
+                out var maxFrames,
+                out var maxChars,
+                out errorMessage))
+        {
+            return false;
+        }
+
+        options = new StackTraceOptions(maxFrames, maxChars);
         return true;
     }
 
@@ -206,5 +202,70 @@ public static class IpcUnityLogsReadRequestNormalizer
         errorMessage =
             $"stackTrace must be one of: {IpcUnityLogsStackTraceModeCodec.None}, {IpcUnityLogsStackTraceModeCodec.Error}, {IpcUnityLogsStackTraceModeCodec.All}. Actual: {value}.";
         return false;
+    }
+
+    private readonly struct TextFilters
+    {
+        public TextFilters (
+            string level,
+            string queryTarget,
+            string source,
+            string stackTraceMode)
+        {
+            Level = level;
+            QueryTarget = queryTarget;
+            Source = source;
+            StackTraceMode = stackTraceMode;
+        }
+
+        public string Level { get; }
+
+        public string QueryTarget { get; }
+
+        public string Source { get; }
+
+        public string StackTraceMode { get; }
+    }
+
+    private readonly struct StackTraceOptions
+    {
+        public StackTraceOptions (
+            int? maxFrames,
+            int? maxChars)
+        {
+            MaxFrames = maxFrames;
+            MaxChars = maxChars;
+        }
+
+        public int? MaxFrames { get; }
+
+        public int? MaxChars { get; }
+    }
+
+    private readonly struct Filters
+    {
+        public Filters (
+            TextFilters textFilters,
+            StackTraceOptions stackTraceOptions)
+        {
+            Level = textFilters.Level;
+            QueryTarget = textFilters.QueryTarget;
+            Source = textFilters.Source;
+            StackTraceMode = textFilters.StackTraceMode;
+            StackTraceMaxFrames = stackTraceOptions.MaxFrames;
+            StackTraceMaxChars = stackTraceOptions.MaxChars;
+        }
+
+        public string Level { get; }
+
+        public string QueryTarget { get; }
+
+        public string Source { get; }
+
+        public string StackTraceMode { get; }
+
+        public int? StackTraceMaxFrames { get; }
+
+        public int? StackTraceMaxChars { get; }
     }
 }
