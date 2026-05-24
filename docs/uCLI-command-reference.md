@@ -18,6 +18,7 @@
 | `ucli validate` | JSON リクエストを静的に lint する | Unity へ接続せず readIndex snapshot を参照する |
 | `ucli plan` | JSON リクエストの plan フェーズを実行する | static preflight 後に Unity IPC `plan` を実行する |
 | `ucli call` | JSON リクエストの call フェーズを実行する | static preflight 後に Unity IPC `call` を実行する |
+| `ucli eval` | C# source を `ucli.cs.eval` として実行する | JSON request を組み立てずに eval を実行する convenience command |
 | `ucli verify` | 明示 profile に従い Unity 側 verifier の claim packet を返す | v1 は外部 tool を含めない |
 | `ucli ops` | primitive operation の一覧・詳細を返す | `list` / `describe` を持つ |
 | `ucli codes` | 公開 JSON 契約に現れる code value の台帳を返す | `list` / `describe` を持つ |
@@ -42,6 +43,7 @@
 | `ucli validate` |
 | `ucli plan` |
 | `ucli call` |
+| `ucli eval` |
 | `ucli daemon start` |
 | `ucli daemon stop` |
 | `ucli daemon cleanup` |
@@ -793,6 +795,58 @@ ucli plan --projectPath ./UnityProject --mode daemon --failFast <<'JSON'
 JSON
 
 ucli plan --projectPath ./UnityProject --mode daemon --allowPlayMode < playmode-mutation.json
+```
+
+## `ucli eval`
+`ucli eval` は `ucli.cs.eval` を実行する convenience command である。  
+CLI は source 入力から内部 request を組み立て、`call --withPlan` 相当の経路で Unity IPC `plan` と `call` を順に実行する。
+
+### `eval` options
+| Option | Short | Description |
+| --- | --- | --- |
+| `--projectPath <string?>` | `-p` | 対象Unity project root path |
+| `--mode <string?>` | - | `auto` (default), `daemon`, or `oneshot` |
+| `--timeout <int?>` | - | IPC待機タイムアウト（ミリ秒）。`1..2147483647` |
+| `--allowDangerous` | - | `ucli.cs.eval` の実行を明示許可する |
+| `--allowPlayMode` | - | GUI Editor session の Play Mode 中に変更 call を許可する |
+| `--failFast` | - | `ready` になる前なら待機せず即失敗する |
+| `--source <string?>` | - | 評価する C# source |
+| `--file <string?>` | - | 評価する C# source file path |
+
+### `eval` 実行契約
+- `ucli.cs.eval` は引き続き public raw `kind:"op"` の `mutation` / `dangerous` operation であり、`eval` はその専用 CLI フロントエンドである。
+- source は `--source`、`--file`、redirected stdin のいずれか 1 つから読む。
+- `--source` と `--file` の併用は `INVALID_ARGUMENT` とする。
+- source が未指定で stdin が redirect されていない場合、または読み取った source が空白のみの場合は `INVALID_ARGUMENT` とする。
+- `--file` は absolute path または current working directory からの relative path を受け付ける。
+- `--allowDangerous` が無い場合、既存 `call` の dangerous operation guard により `OPERATION_NOT_ALLOWED` で失敗する。
+- CLI は `kind:"op"`、`id:"eval"`、`op:"ucli.cs.eval"`、`args.source` を持つ内部 request を生成する。
+- source kind は CLI で指定しない。Unity 側が `compilationUnit` から `snippet` へ自動判定し、実際の form は `opResults[].result.sourceKind` に返す。
+- `--plan`、`--withPlan`、`--planToken`、`--kind`、`--raw` は受け付けない。
+- CLI は常に pre-plan を実行し、その結果を `payload.plan` に同梱する。発行された plan token は同一コマンド内の後続 call に転送する。
+
+### `eval` のレスポンス契約
+- 出力は共通の `CommandResult` エンベロープを返す。
+- 成功時 payload は `call` と同じ shape で、`project`、`requestId`、`opResults`、`plan` を返す。
+- eval の戻り値は `payload.opResults[].result.returnValue` に格納される。
+
+### `eval` の終了コード
+| Code | Meaning |
+| --- | --- |
+| `0` | 成功 |
+| `3` | 入力不正、static validation failure、dangerous operation guard failure |
+| `4` | IPC timeout、lifecycle failure、daemon/tool/internal failure |
+
+### `eval` 実行例
+```bash
+ucli eval --projectPath ./UnityProject --allowDangerous --source 'return UnityEngine.Application.unityVersion;'
+
+ucli eval --projectPath ./UnityProject --mode daemon --allowDangerous --file ./eval.cs
+
+ucli eval --projectPath ./UnityProject --allowDangerous <<'CS'
+context.DeclareNoTouchedResources();
+return new { ok = true };
+CS
 ```
 
 ## `ucli call`
