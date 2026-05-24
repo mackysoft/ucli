@@ -40,6 +40,12 @@ internal static class UcliContractConstants
 
         public const string AllowDangerous = "--allowDangerous";
 
+        public const string AllowPlayMode = "--allowPlayMode";
+
+        public const string Source = "--source";
+
+        public const string File = "--file";
+
         public const string Unknown = "--unknown";
     }
 
