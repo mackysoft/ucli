@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Application.Features.Testing.Run.Common.Contracts;
 using MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
 using MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun.Projection;
 using MackySoft.Ucli.Application.Shared.Configuration;

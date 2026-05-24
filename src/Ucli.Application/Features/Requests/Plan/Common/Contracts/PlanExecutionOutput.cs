@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
-
 namespace MackySoft.Ucli.Application.Features.Requests.Plan.Common.Contracts;
 
 /// <summary> Represents the command payload emitted by one <c>plan</c> execution. </summary>

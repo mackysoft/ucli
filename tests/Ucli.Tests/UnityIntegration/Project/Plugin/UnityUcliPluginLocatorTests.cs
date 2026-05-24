@@ -5,7 +5,6 @@ using MackySoft.Ucli.Infrastructure.Project;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.UnityIntegration.Project.Plugin;
 using MackySoft.Ucli.UnityIntegration.Project.Plugin.Cache;
-using MackySoft.Ucli.UnityIntegration.Project.Plugin.Marker;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -31,7 +30,7 @@ public sealed class UnityUcliPluginLocatorTests
         Assert.Equal(UnityUcliPluginLocateStatus.Found, result.Status);
         Assert.NotNull(result.MarkerPath);
         Assert.EndsWith(
-            Path.Combine("Assets", "MackySoft", "MackySoft.Ucli.Unity", UnityUcliPluginLocator.MarkerFileName),
+            Path.Combine("Assets", "MackySoft", "MackySoft.Ucli.Unity", UnityUcliPluginMarkerContract.MarkerFileName),
             result.MarkerPath,
             StringComparison.Ordinal);
     }
@@ -54,7 +53,7 @@ public sealed class UnityUcliPluginLocatorTests
         Assert.Equal(UnityUcliPluginLocateStatus.Found, result.Status);
         Assert.NotNull(result.MarkerPath);
         Assert.EndsWith(
-            Path.Combine("Packages", "com.mackysoft.ucli.unity", UnityUcliPluginLocator.MarkerFileName),
+            Path.Combine("Packages", "com.mackysoft.ucli.unity", UnityUcliPluginMarkerContract.MarkerFileName),
             result.MarkerPath,
             StringComparison.Ordinal);
     }
@@ -77,7 +76,7 @@ public sealed class UnityUcliPluginLocatorTests
         Assert.Equal(UnityUcliPluginLocateStatus.Found, result.Status);
         Assert.NotNull(result.MarkerPath);
         Assert.EndsWith(
-            Path.Combine("Assets", "Packages", "com.mackysoft.ucli.unity.1.0.0", UnityUcliPluginLocator.MarkerFileName),
+            Path.Combine("Assets", "Packages", "com.mackysoft.ucli.unity.1.0.0", UnityUcliPluginMarkerContract.MarkerFileName),
             result.MarkerPath,
             StringComparison.Ordinal);
     }
@@ -100,7 +99,7 @@ public sealed class UnityUcliPluginLocatorTests
         Assert.Equal(UnityUcliPluginLocateStatus.Found, result.Status);
         Assert.NotNull(result.MarkerPath);
         Assert.EndsWith(
-            Path.Combine("Assets", "Packages", "MackySoft.Ucli.Unity.1.0.0", UnityUcliPluginLocator.MarkerFileName),
+            Path.Combine("Assets", "Packages", "MackySoft.Ucli.Unity.1.0.0", UnityUcliPluginMarkerContract.MarkerFileName),
             result.MarkerPath,
             StringComparison.Ordinal);
     }
@@ -124,8 +123,8 @@ public sealed class UnityUcliPluginLocatorTests
         Assert.Equal(
             "Assets/MackySoft/MackySoft.Ucli.Unity/ucli-plugin.json",
             cache.ProjectRelativeMarkerPath);
-        Assert.Equal(UnityUcliPluginLocator.ExpectedPluginId, cache.PluginId);
-        Assert.Equal(UnityUcliPluginLocator.ExpectedProtocolVersion, cache.ProtocolVersion);
+        Assert.Equal(UnityUcliPluginMarkerContract.ExpectedPluginId, cache.PluginId);
+        Assert.Equal(UnityUcliPluginMarkerContract.ExpectedProtocolVersion, cache.ProtocolVersion);
     }
 
     [Fact]
@@ -144,7 +143,7 @@ public sealed class UnityUcliPluginLocatorTests
         await TestAwaiter.WaitAsync(cacheWriteTask, "Plugin marker cache write", SignalWaitTimeout);
 
         await scope.WriteFileAsync(
-            Path.Combine("UnityProject", "Packages", "com.example.invalid", UnityUcliPluginLocator.MarkerFileName),
+            Path.Combine("UnityProject", "Packages", "com.example.invalid", UnityUcliPluginMarkerContract.MarkerFileName),
             "{ invalid");
 
         var secondResult = await locator.LocateAsync(unityProjectPath, CancellationToken.None);
@@ -176,7 +175,7 @@ public sealed class UnityUcliPluginLocatorTests
         Assert.Equal(UnityUcliPluginLocateStatus.Found, secondResult.Status);
         Assert.NotNull(secondResult.MarkerPath);
         Assert.EndsWith(
-            Path.Combine("Assets", "MackySoft", "MackySoft.Ucli.Unity", UnityUcliPluginLocator.MarkerFileName),
+            Path.Combine("Assets", "MackySoft", "MackySoft.Ucli.Unity", UnityUcliPluginMarkerContract.MarkerFileName),
             secondResult.MarkerPath,
             StringComparison.Ordinal);
     }
@@ -201,7 +200,7 @@ public sealed class UnityUcliPluginLocatorTests
             "Assets",
             "MackySoft",
             "MackySoft.Ucli.Unity",
-            UnityUcliPluginLocator.MarkerFileName));
+            UnityUcliPluginMarkerContract.MarkerFileName));
         await WriteMarkerAsync(scope, Path.Combine("UnityProject", "Packages", "com.mackysoft.ucli.unity"));
         var secondCacheWriteTask = observedCacheStore.ExpectWriteAsync();
 
@@ -256,7 +255,7 @@ public sealed class UnityUcliPluginLocatorTests
         using var scope = TestDirectories.CreateTempScope("unity-ucli-plugin-locator", "invalid-json");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
         await scope.WriteFileAsync(
-            Path.Combine("UnityProject", "Assets", "MackySoft", "MackySoft.Ucli.Unity", UnityUcliPluginLocator.MarkerFileName),
+            Path.Combine("UnityProject", "Assets", "MackySoft", "MackySoft.Ucli.Unity", UnityUcliPluginMarkerContract.MarkerFileName),
             "{ invalid");
         var locator = CreateLocator();
 
@@ -382,7 +381,7 @@ public sealed class UnityUcliPluginLocatorTests
         ArgumentException.ThrowIfNullOrWhiteSpace(markerDirectoryRelativePath);
 
         return scope.WriteFileAsync(
-            Path.Combine(markerDirectoryRelativePath, UnityUcliPluginLocator.MarkerFileName),
+            Path.Combine(markerDirectoryRelativePath, UnityUcliPluginMarkerContract.MarkerFileName),
             contents
             ?? """
                {

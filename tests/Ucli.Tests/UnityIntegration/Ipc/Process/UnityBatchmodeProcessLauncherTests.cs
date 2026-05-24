@@ -4,7 +4,6 @@ using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
 using MackySoft.Ucli.UnityIntegration.Ipc.Process;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
-using MackySoft.Ucli.UnityIntegration.Project.Plugin;
 
 namespace MackySoft.Ucli.Tests.Ipc;
 
@@ -270,7 +269,7 @@ public sealed class UnityBatchmodeProcessLauncherTests
         public UnityUcliPluginLocateResult Result { get; set; }
             = UnityUcliPluginLocateResult.Found(
                 "/tmp/ucli-plugin.json",
-                UnityUcliPluginLocator.ExpectedProtocolVersion);
+                UnityUcliPluginMarkerContract.ExpectedProtocolVersion);
 
         public Action? OnLocate { get; set; }
 

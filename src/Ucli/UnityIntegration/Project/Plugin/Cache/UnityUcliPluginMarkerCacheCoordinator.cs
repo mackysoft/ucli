@@ -60,8 +60,8 @@ internal sealed class UnityUcliPluginMarkerCacheCoordinator
             return null;
         }
 
-        if (!string.Equals(cache.PluginId, UnityUcliPluginLocator.ExpectedPluginId, StringComparison.Ordinal)
-            || cache.ProtocolVersion != UnityUcliPluginLocator.ExpectedProtocolVersion)
+        if (!string.Equals(cache.PluginId, UnityUcliPluginMarkerContract.ExpectedPluginId, StringComparison.Ordinal)
+            || cache.ProtocolVersion != UnityUcliPluginMarkerContract.ExpectedProtocolVersion)
         {
             DeleteBestEffort(storageRoot, projectFingerprint);
             return null;
@@ -84,7 +84,7 @@ internal sealed class UnityUcliPluginMarkerCacheCoordinator
             return null;
         }
 
-        return UnityUcliPluginLocateResult.Found(cachedMarkerPath, UnityUcliPluginLocator.ExpectedProtocolVersion);
+        return UnityUcliPluginLocateResult.Found(cachedMarkerPath, UnityUcliPluginMarkerContract.ExpectedProtocolVersion);
     }
 
     /// <summary> Queues one best-effort cache write for one resolved marker path. </summary>
@@ -114,8 +114,8 @@ internal sealed class UnityUcliPluginMarkerCacheCoordinator
 
         var cache = new UnityUcliPluginMarkerCache(
             projectRelativeMarkerPath,
-            UnityUcliPluginLocator.ExpectedPluginId,
-            UnityUcliPluginLocator.ExpectedProtocolVersion);
+            UnityUcliPluginMarkerContract.ExpectedPluginId,
+            UnityUcliPluginMarkerContract.ExpectedProtocolVersion);
 
         // NOTE:
         // marker cache is an optimization layer under .ucli/local and must not change

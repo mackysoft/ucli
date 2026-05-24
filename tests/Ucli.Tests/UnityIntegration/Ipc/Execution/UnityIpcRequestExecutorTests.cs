@@ -13,7 +13,6 @@ using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
 using MackySoft.Ucli.UnityIntegration.Ipc.Execution;
 using MackySoft.Ucli.UnityIntegration.Ipc.Process;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
-using MackySoft.Ucli.UnityIntegration.Project.Plugin;
 
 namespace MackySoft.Ucli.Tests.Ipc;
 
@@ -495,7 +494,7 @@ public sealed class UnityIpcRequestExecutorTests
                 await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken).ConfigureAwait(false);
                 return UnityUcliPluginLocateResult.Found(
                     "/tmp/ucli-plugin.json",
-                    UnityUcliPluginLocator.ExpectedProtocolVersion);
+                    UnityUcliPluginMarkerContract.ExpectedProtocolVersion);
             },
         };
         var executor = CreateExecutor(
@@ -837,7 +836,7 @@ public sealed class UnityIpcRequestExecutorTests
         public UnityUcliPluginLocateResult Result { get; set; }
             = UnityUcliPluginLocateResult.Found(
                 "/tmp/ucli-plugin.json",
-                UnityUcliPluginLocator.ExpectedProtocolVersion);
+                UnityUcliPluginMarkerContract.ExpectedProtocolVersion);
 
         public ValueTask<UnityUcliPluginLocateResult> LocateAsync (
             string unityProjectRoot,

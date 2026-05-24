@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Vocabulary;
-using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 
 namespace MackySoft.Ucli.Application.Shared.Execution;
 

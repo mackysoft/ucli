@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Application.Shared.Execution;
-
 namespace MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
 
 /// <summary> Represents one normalized internal <c>ops list</c> read result. </summary>

@@ -36,7 +36,7 @@ public sealed class UnityPluginPackageSpecTests
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
         var packageRoot = Path.Combine("UnityProject", "Assets", "Packages", $"MackySoft.Ucli.Unity.{packageVersion}");
         scope.WriteFile(
-            Path.Combine(packageRoot, UnityUcliPluginLocator.MarkerFileName),
+            Path.Combine(packageRoot, UnityUcliPluginMarkerContract.MarkerFileName),
             """
             {
               "pluginId": "com.mackysoft.ucli.unity",
@@ -51,7 +51,7 @@ public sealed class UnityPluginPackageSpecTests
         Assert.Equal(UnityUcliPluginLocateStatus.Found, result.Status);
         Assert.NotNull(result.MarkerPath);
         Assert.EndsWith(
-            Path.Combine("Assets", "Packages", $"MackySoft.Ucli.Unity.{packageVersion}", UnityUcliPluginLocator.MarkerFileName),
+            Path.Combine("Assets", "Packages", $"MackySoft.Ucli.Unity.{packageVersion}", UnityUcliPluginMarkerContract.MarkerFileName),
             result.MarkerPath,
             StringComparison.Ordinal);
     }

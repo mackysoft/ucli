@@ -8,15 +8,15 @@ internal sealed class UnityUcliPluginMarkerDiscovery
 {
     private static readonly string[] StandardMarkerRelativePaths =
     [
-        Path.Combine("Assets", "MackySoft", "MackySoft.Ucli.Unity", UnityUcliPluginLocator.MarkerFileName),
-        Path.Combine("Packages", UnityUcliPluginLocator.ExpectedPluginId, UnityUcliPluginLocator.MarkerFileName),
-        Path.Combine("Assets", "Packages", UnityUcliPluginLocator.ExpectedPluginId, UnityUcliPluginLocator.MarkerFileName),
-        Path.Combine("Assets", "Packages", "MackySoft.Ucli.Unity", UnityUcliPluginLocator.MarkerFileName),
+        Path.Combine("Assets", "MackySoft", "MackySoft.Ucli.Unity", UnityUcliPluginMarkerContract.MarkerFileName),
+        Path.Combine("Packages", UnityUcliPluginMarkerContract.ExpectedPluginId, UnityUcliPluginMarkerContract.MarkerFileName),
+        Path.Combine("Assets", "Packages", UnityUcliPluginMarkerContract.ExpectedPluginId, UnityUcliPluginMarkerContract.MarkerFileName),
+        Path.Combine("Assets", "Packages", "MackySoft.Ucli.Unity", UnityUcliPluginMarkerContract.MarkerFileName),
     ];
 
     private static readonly string[] StandardNuGetPackageDirectoryPrefixes =
     [
-        $"{UnityUcliPluginLocator.ExpectedPluginId}.",
+        $"{UnityUcliPluginMarkerContract.ExpectedPluginId}.",
         "MackySoft.Ucli.Unity.",
     ];
 
@@ -51,7 +51,7 @@ internal sealed class UnityUcliPluginMarkerDiscovery
 
                 foreach (var markerPath in Directory.EnumerateFiles(
                              searchRootPath,
-                             UnityUcliPluginLocator.MarkerFileName,
+                             UnityUcliPluginMarkerContract.MarkerFileName,
                              SearchOption.AllDirectories))
                 {
                     markerPaths.Add(Path.GetFullPath(markerPath));
@@ -119,7 +119,7 @@ internal sealed class UnityUcliPluginMarkerDiscovery
                 continue;
             }
 
-            var markerPath = Path.Combine(packageDirectoryPath, UnityUcliPluginLocator.MarkerFileName);
+            var markerPath = Path.Combine(packageDirectoryPath, UnityUcliPluginMarkerContract.MarkerFileName);
             if (!File.Exists(markerPath))
             {
                 continue;

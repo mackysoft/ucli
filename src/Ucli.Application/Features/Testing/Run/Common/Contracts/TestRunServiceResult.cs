@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Application.Shared.Execution;
-
 namespace MackySoft.Ucli.Application.Features.Testing.Run.Common.Contracts;
 
 /// <summary> Represents normalized output returned from test-run core service. </summary>

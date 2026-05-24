@@ -3,7 +3,6 @@ using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
 using MackySoft.Ucli.UnityIntegration.Ipc.Process;
-using MackySoft.Ucli.UnityIntegration.Project.Plugin;
 
 namespace MackySoft.Ucli.Tests.UnityIntegration.Ipc.Process;
 
@@ -144,7 +143,7 @@ public sealed class UnityGuiEditorProcessLauncherTests
             cancellationToken.ThrowIfCancellationRequested();
             return ValueTask.FromResult(UnityUcliPluginLocateResult.Found(
                 "/tmp/ucli-plugin.json",
-                UnityUcliPluginLocator.ExpectedProtocolVersion));
+                UnityUcliPluginMarkerContract.ExpectedProtocolVersion));
         }
     }
 

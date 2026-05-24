@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Application.Features.Status.Common.Contracts;
 using MackySoft.Ucli.Application.Features.Status.UseCases.Status.Observation;
 using MackySoft.Ucli.Application.Features.Status.UseCases.Status.Preflight;
 

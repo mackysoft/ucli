@@ -6,7 +6,6 @@ using MackySoft.Ucli.Application.Features.Play.Common.Contracts;
 using MackySoft.Ucli.Application.Features.Play.UseCases.Exit;
 using MackySoft.Ucli.Application.Shared.CommandContracts;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Play;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 

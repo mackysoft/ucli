@@ -1,3 +1,4 @@
+global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Contracts;
 global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.EditorInstance;
 global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Gateway;
 global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.GuiEditor;
@@ -5,12 +6,18 @@ global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Identi
 global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Reachability;
 global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Shutdown;
 global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Timing;
+global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Contracts;
 global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Startup;
+global using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Contracts;
+global using MackySoft.Ucli.Application.Features.Requests.Resolve.UseCases.Resolve.Contracts;
+global using MackySoft.Ucli.Application.Features.Status.Common.Contracts;
+global using MackySoft.Ucli.Application.Features.Testing.Run.Common.Contracts;
+global using MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun.Contracts;
 global using MackySoft.Ucli.Application.Shared.Context.Project;
+global using MackySoft.Ucli.Application.Shared.Execution;
 global using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 global using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
-global using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Assets;
-global using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
+global using MackySoft.Ucli.Application.Shared.Execution.Results;
 global using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 global using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 global using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;

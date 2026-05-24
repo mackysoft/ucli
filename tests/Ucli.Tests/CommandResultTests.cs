@@ -1,5 +1,4 @@
 ﻿using System.Text.Json;
-using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 
 namespace MackySoft.Ucli.Tests;
 

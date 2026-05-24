@@ -10,12 +10,6 @@ namespace MackySoft.Ucli.UnityIntegration.Project.Plugin;
 /// <summary> Locates and validates the uCLI Unity plugin marker within one Unity project. </summary>
 internal sealed class UnityUcliPluginLocator : IUnityUcliPluginLocator
 {
-    internal const string MarkerFileName = "ucli-plugin.json";
-
-    internal const string ExpectedPluginId = "com.mackysoft.ucli.unity";
-
-    internal const int ExpectedProtocolVersion = 1;
-
     private readonly UnityUcliPluginMarkerDiscovery pluginMarkerDiscovery;
 
     private readonly UnityUcliPluginMarkerValidator pluginMarkerValidator;
@@ -74,7 +68,7 @@ internal sealed class UnityUcliPluginLocator : IUnityUcliPluginLocator
         if (markerPathResult.MarkerPaths!.Count == 0)
         {
             return UnityUcliPluginLocateResult.NotFound(ExecutionError.InvalidArgument(
-                $"Unity project does not contain the uCLI Unity plugin. Expected '{MarkerFileName}' with pluginId '{ExpectedPluginId}' under Assets/ or Packages/."));
+                $"Unity project does not contain the uCLI Unity plugin. Expected '{UnityUcliPluginMarkerContract.MarkerFileName}' with pluginId '{UnityUcliPluginMarkerContract.ExpectedPluginId}' under Assets/ or Packages/."));
         }
 
         foreach (var markerPath in markerPathResult.MarkerPaths)
@@ -104,7 +98,7 @@ internal sealed class UnityUcliPluginLocator : IUnityUcliPluginLocator
 
         return UnityUcliPluginLocateResult.Found(
             markerPathResult.MarkerPaths[0],
-            ExpectedProtocolVersion);
+            UnityUcliPluginMarkerContract.ExpectedProtocolVersion);
     }
 
     private static LocateContext CreateLocateContext (string unityProjectRoot)

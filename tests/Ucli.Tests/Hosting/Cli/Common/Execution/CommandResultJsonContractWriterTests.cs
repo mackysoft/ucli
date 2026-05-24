@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using static MackySoft.Tests.JsonTextAssert;
 
