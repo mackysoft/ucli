@@ -213,6 +213,13 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
                 UnityTestExecutionFailureKind.Canceled,
                 "Unity test execution was canceled.");
         }
+        catch (TestRunProgressProtocolException exception)
+        {
+            return UnityTestExecutionResult.Failure(
+                UnityTestExecutionFailureKind.ProgressProtocolViolation,
+                exception.Message,
+                TestRunErrorCodes.UnityTestExecutionFailed);
+        }
         catch (Exception exception)
         {
             return UnityTestExecutionResult.Failure(
@@ -236,6 +243,7 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
                 CreateTestRunRequestPayload(context, session),
                 (frame, progressCancellationToken) => ForwardTestRunProgressFrameAsync(
                     frame,
+                    session.RunId,
                     progressSink,
                     progressCancellationToken),
                 cancellationToken)
@@ -279,42 +287,52 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
 
     private static async ValueTask ForwardTestRunProgressFrameAsync (
         UnityRequestProgressFrame frame,
+        string expectedRunId,
         ITestRunProgressSink progressSink,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(frame);
+        ArgumentException.ThrowIfNullOrWhiteSpace(expectedRunId);
         ArgumentNullException.ThrowIfNull(progressSink);
 
         switch (frame.Event)
         {
             case TestRunProgressEventNames.RunStarted:
-                await ForwardProgressPayloadAsync<TestRunStartedEntry>(frame, progressSink, cancellationToken).ConfigureAwait(false);
+                await ForwardProgressPayloadAsync<TestRunStartedEntry>(frame, expectedRunId, progressSink, cancellationToken).ConfigureAwait(false);
                 return;
             case TestRunProgressEventNames.CaseStarted:
-                await ForwardProgressPayloadAsync<TestCaseStartedEntry>(frame, progressSink, cancellationToken).ConfigureAwait(false);
+                await ForwardProgressPayloadAsync<TestCaseStartedEntry>(frame, expectedRunId, progressSink, cancellationToken).ConfigureAwait(false);
                 return;
             case TestRunProgressEventNames.CaseFinished:
-                await ForwardProgressPayloadAsync<TestCaseFinishedEntry>(frame, progressSink, cancellationToken).ConfigureAwait(false);
+                await ForwardProgressPayloadAsync<TestCaseFinishedEntry>(frame, expectedRunId, progressSink, cancellationToken).ConfigureAwait(false);
                 return;
             case TestRunProgressEventNames.RunDiagnostic:
-                await ForwardProgressPayloadAsync<TestRunDiagnosticEntry>(frame, progressSink, cancellationToken).ConfigureAwait(false);
+                await ForwardProgressPayloadAsync<TestRunDiagnosticEntry>(frame, expectedRunId, progressSink, cancellationToken).ConfigureAwait(false);
                 return;
             default:
-                throw new InvalidOperationException($"Unity test-run progress event is not supported: {frame.Event}.");
+                throw new TestRunProgressProtocolException($"Unity test-run progress event is not supported: {frame.Event}.");
         }
     }
 
     private static async ValueTask ForwardProgressPayloadAsync<TPayload> (
         UnityRequestProgressFrame frame,
+        string expectedRunId,
         ITestRunProgressSink progressSink,
         CancellationToken cancellationToken)
         where TPayload : class
     {
         if (!IpcPayloadCodec.TryDeserialize(frame.Payload, out TPayload? payload, out var error))
         {
-            throw new InvalidOperationException(
+            throw new TestRunProgressProtocolException(
                 $"Unity test-run progress payload is invalid for event '{frame.Event}'. {error}");
+        }
+
+        var actualRunId = GetProgressPayloadRunId(payload!);
+        if (!string.Equals(actualRunId, expectedRunId, StringComparison.Ordinal))
+        {
+            throw new TestRunProgressProtocolException(
+                $"Unity test-run progress payload runId mismatch for event '{frame.Event}'. Expected={expectedRunId}, Actual={actualRunId}.");
         }
 
         await progressSink.OnEntryAsync(
@@ -322,6 +340,18 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
                 payload!,
                 cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    private static string GetProgressPayloadRunId (object payload)
+    {
+        return payload switch
+        {
+            TestRunStartedEntry entry => entry.RunId,
+            TestCaseStartedEntry entry => entry.RunId,
+            TestCaseFinishedEntry entry => entry.RunId,
+            TestRunDiagnosticEntry entry => entry.RunId,
+            _ => throw new TestRunProgressProtocolException($"Unity test-run progress payload type is not supported: {payload.GetType().Name}."),
+        };
     }
 
     private UnityTestExecutionResult CreateUnityExecutionResult (

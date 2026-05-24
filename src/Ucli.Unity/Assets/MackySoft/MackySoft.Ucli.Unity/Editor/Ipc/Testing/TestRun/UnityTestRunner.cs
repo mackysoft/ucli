@@ -11,6 +11,9 @@ namespace MackySoft.Ucli.Unity.Ipc
     /// <summary> Executes Unity Test Framework API runs for daemon test-run requests. </summary>
     internal sealed class UnityTestRunner : IUnityTestRunner
     {
+        private const int MaxProgressTextLength = 8192;
+        private const int MaxProgressCategoryCount = 64;
+
         /// <summary> Executes one Unity Test Framework run and returns the result adaptor. </summary>
         /// <param name="requestContext"> The normalized test-run request context. </param>
         /// <param name="progressSink"> The optional sink that receives live test progress entries. </param>
@@ -127,7 +130,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         /// <summary> Receives Unity Test Framework callbacks and exposes completion task. </summary>
-        private sealed class TestRunCallbacks : ICallbacks
+        internal sealed class TestRunCallbacks : ICallbacks
         {
             private readonly UnityTestRunRequestContext requestContext;
             private readonly IUnityTestRunProgressSink progressSink;
@@ -213,14 +216,14 @@ namespace MackySoft.Ucli.Unity.Ipc
                     new TestCaseFinishedEntry(
                         requestContext.RunId,
                         test.Id,
-                        test.Name,
+                        NormalizeProgressText(test.Name),
                         AssemblyName: null,
                         requestContext.TestPlatform,
                         NormalizeCategories(test.Categories),
                         NormalizeResult(result.TestStatus),
                         checked((long)Math.Round(result.Duration * 1000d)),
-                        string.IsNullOrWhiteSpace(result.Message) ? null : result.Message,
-                        string.IsNullOrWhiteSpace(result.StackTrace) ? null : result.StackTrace));
+                        NormalizeOptionalProgressText(result.Message),
+                        NormalizeOptionalProgressText(result.StackTrace)));
             }
 
             private static TestCaseStartedEntry CreateStartedEntry (
@@ -230,7 +233,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return new TestCaseStartedEntry(
                     requestContext.RunId,
                     test.Id,
-                    test.Name,
+                    NormalizeProgressText(test.Name),
                     AssemblyName: null,
                     requestContext.TestPlatform,
                     NormalizeCategories(test.Categories));
@@ -245,7 +248,32 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             private static string[] NormalizeCategories (System.Collections.Generic.IEnumerable<string> categories)
             {
-                return categories == null ? Array.Empty<string>() : categories.ToArray();
+                return categories == null
+                    ? Array.Empty<string>()
+                    : categories
+                        .Where(static category => !string.IsNullOrWhiteSpace(category))
+                        .Select(static category => NormalizeProgressText(category))
+                        .Take(MaxProgressCategoryCount)
+                        .ToArray();
+            }
+
+            private static string NormalizeProgressText (string value)
+            {
+                if (string.IsNullOrWhiteSpace(value))
+                {
+                    return string.Empty;
+                }
+
+                return value.Length <= MaxProgressTextLength
+                    ? value
+                    : value.Substring(0, MaxProgressTextLength) + "...<truncated>";
+            }
+
+            private static string NormalizeOptionalProgressText (string value)
+            {
+                return string.IsNullOrWhiteSpace(value)
+                    ? null
+                    : NormalizeProgressText(value);
             }
 
             private static string NormalizeResult (TestStatus status)

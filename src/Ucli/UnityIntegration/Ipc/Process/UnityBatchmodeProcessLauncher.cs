@@ -14,6 +14,8 @@ namespace MackySoft.Ucli.UnityIntegration.Ipc.Process;
 /// <summary> Implements Unity batchmode child-process launch using resolved Unity editor executable paths. </summary>
 internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLauncher, IUnityBatchmodeProcessLauncher
 {
+    private const int RedirectedOutputDrainBufferLength = 4096;
+
     private readonly IUnityVersionResolver unityVersionResolver;
 
     private readonly IUnityEditorPathResolver unityEditorPathResolver;
@@ -220,9 +222,10 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
 
     private static async Task DrainRedirectedOutputAsync (TextReader reader)
     {
+        var buffer = new char[RedirectedOutputDrainBufferLength];
         try
         {
-            while (await reader.ReadLineAsync().ConfigureAwait(false) is not null)
+            while (await reader.ReadAsync(buffer, 0, buffer.Length).ConfigureAwait(false) > 0)
             {
             }
         }

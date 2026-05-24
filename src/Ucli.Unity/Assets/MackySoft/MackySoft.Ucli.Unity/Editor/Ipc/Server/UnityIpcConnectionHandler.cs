@@ -65,18 +65,17 @@ namespace MackySoft.Ucli.Unity.Ipc
             var request = readResult.Value;
             if (IsStreamingResponse(request))
             {
-                var streamWriter = new UnityIpcStreamFrameWriter(stream, request);
-                var streamingResponse = requestProcessor is IUnityIpcStreamingRequestProcessor streamingRequestProcessor
-                    ? await streamingRequestProcessor.ProcessStreamingAsync(
-                        request,
-                        streamWriter,
-                        cancellationToken)
-                    : UnityIpcResponseFactory.CreateErrorResponse(
-                        request,
-                        UcliCoreErrorCodes.InternalError,
-                        "Streaming IPC request processor is not registered.",
-                        null);
-                await streamWriter.WriteTerminalAsync(streamingResponse, cancellationToken);
+                using var requestCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                var streamWriter = new UnityIpcStreamFrameWriter(
+                    stream,
+                    request,
+                    _ => TryCancel(requestCancellationTokenSource));
+                var streamingResponse = await ProcessStreamingSafelyAsync(
+                    request,
+                    streamWriter,
+                    requestCancellationTokenSource,
+                    cancellationToken);
+                await WriteTerminalSafelyAsync(streamWriter, streamingResponse, cancellationToken);
                 return new UnityIpcConnectionHandleResult(request, streamingResponse);
             }
 
@@ -93,6 +92,85 @@ namespace MackySoft.Ucli.Unity.Ipc
         private static bool IsStreamingResponse (IpcRequest request)
         {
             return string.Equals(request.ResponseMode, IpcResponseModes.Stream, StringComparison.Ordinal);
+        }
+
+        private async Task<IpcResponse> ProcessStreamingSafelyAsync (
+            IpcRequest request,
+            IUnityIpcStreamFrameWriter streamWriter,
+            CancellationTokenSource requestCancellationTokenSource,
+            CancellationToken connectionCancellationToken)
+        {
+            try
+            {
+                return requestProcessor is IUnityIpcStreamingRequestProcessor streamingRequestProcessor
+                    ? await streamingRequestProcessor.ProcessStreamingAsync(
+                        request,
+                        streamWriter,
+                        requestCancellationTokenSource.Token)
+                    : UnityIpcResponseFactory.CreateErrorResponse(
+                        request,
+                        UcliCoreErrorCodes.InternalError,
+                        "Streaming IPC request processor is not registered.",
+                        null);
+            }
+            catch (OperationCanceledException) when (!connectionCancellationToken.IsCancellationRequested
+                && requestCancellationTokenSource.IsCancellationRequested)
+            {
+                return CreateStreamWriteFailureResponse(request, "Streaming IPC request was canceled because the response stream failed.");
+            }
+            catch (Exception exception) when (requestCancellationTokenSource.IsCancellationRequested
+                && IsConnectionLocalWriteFailure(exception))
+            {
+                return CreateStreamWriteFailureResponse(request, $"Streaming IPC response stream failed. {exception.Message}");
+            }
+        }
+
+        private static IpcResponse CreateStreamWriteFailureResponse (
+            IpcRequest request,
+            string message)
+        {
+            return UnityIpcResponseFactory.CreateErrorResponse(
+                request,
+                UcliCoreErrorCodes.InternalError,
+                message,
+                null);
+        }
+
+        private static async Task WriteTerminalSafelyAsync (
+            IUnityIpcStreamFrameWriter streamWriter,
+            IpcResponse response,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                await streamWriter.WriteTerminalAsync(response, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception exception) when (IsConnectionLocalWriteFailure(exception))
+            {
+                // NOTE:
+                // A broken response stream means the peer has already lost the connection.
+                // Keep the failure connection-local so the daemon listener can keep serving.
+            }
+        }
+
+        private static bool IsConnectionLocalWriteFailure (Exception exception)
+        {
+            return exception is IOException or ObjectDisposedException or InvalidOperationException;
+        }
+
+        private static void TryCancel (CancellationTokenSource cancellationTokenSource)
+        {
+            try
+            {
+                cancellationTokenSource.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
         }
     }
 }

@@ -3,6 +3,7 @@ using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Testing;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
 
@@ -78,6 +79,122 @@ public sealed class IpcContractSerializationTests
         Assert.Single(roundTrip.Errors);
         Assert.Equal(UcliCoreErrorCodes.CommandNotImplemented, roundTrip.Errors[0].Code);
         Assert.Equal("Not implemented", roundTrip.Errors[0].Message);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcStreamFrame_ProgressSerializesWithCamelCaseContractFields ()
+    {
+        var frame = new IpcStreamFrame(
+            IpcProtocol.CurrentVersion,
+            "req-stream",
+            IpcStreamFrameKinds.Progress,
+            TestRunProgressEventNames.RunStarted,
+            IpcPayloadCodec.SerializeToElement(new TestRunStartedEntry(
+                "run-1",
+                "editmode",
+                "Namespace.Tests",
+                ["Assembly.Tests"],
+                ["smoke"])),
+            Response: null);
+
+        using var jsonDocument = JsonDocument.Parse(JsonSerializer.Serialize(frame, SerializerOptions));
+
+        JsonAssert.For(jsonDocument.RootElement)
+            .HasInt32("protocolVersion", IpcProtocol.CurrentVersion)
+            .HasString("requestId", "req-stream")
+            .HasString("kind", IpcStreamFrameKinds.Progress)
+            .HasString("event", TestRunProgressEventNames.RunStarted)
+            .HasValueKind("payload", JsonValueKind.Object)
+            .HasValueKind("response", JsonValueKind.Null);
+        JsonAssert.For(jsonDocument.RootElement.GetProperty("payload"))
+            .HasString("runId", "run-1")
+            .HasString("testPlatform", "editmode")
+            .HasString("testFilter", "Namespace.Tests")
+            .HasArrayLength("assemblyNames", 1)
+            .HasArrayLength("testCategories", 1);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcStreamFrame_TerminalSerializesWithResponse ()
+    {
+        var frame = new IpcStreamFrame(
+            IpcProtocol.CurrentVersion,
+            "req-stream",
+            IpcStreamFrameKinds.Terminal,
+            Event: null,
+            JsonSerializer.SerializeToElement(new { }, SerializerOptions),
+            new IpcResponse(
+                IpcProtocol.CurrentVersion,
+                "req-stream",
+                IpcProtocol.StatusOk,
+                JsonSerializer.SerializeToElement(new { exitCode = 0 }, SerializerOptions),
+                Array.Empty<IpcError>()));
+
+        using var jsonDocument = JsonDocument.Parse(JsonSerializer.Serialize(frame, SerializerOptions));
+
+        JsonAssert.For(jsonDocument.RootElement)
+            .HasString("kind", IpcStreamFrameKinds.Terminal)
+            .HasValueKind("event", JsonValueKind.Null)
+            .HasValueKind("response", JsonValueKind.Object);
+        JsonAssert.For(jsonDocument.RootElement.GetProperty("response"))
+            .HasString("requestId", "req-stream")
+            .HasString("status", IpcProtocol.StatusOk)
+            .HasValueKind("payload", JsonValueKind.Object)
+            .HasArrayLength("errors", 0);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcTestRunProgressContracts_SerializeWithCamelCaseFields ()
+    {
+        using var started = JsonDocument.Parse(JsonSerializer.Serialize(
+            new TestCaseStartedEntry(
+                "run-1",
+                "test-1",
+                "CanPass",
+                "Assembly.Tests",
+                "editmode",
+                ["smoke"]),
+            SerializerOptions));
+        using var finished = JsonDocument.Parse(JsonSerializer.Serialize(
+            new TestCaseFinishedEntry(
+                "run-1",
+                "test-1",
+                "CanPass",
+                "Assembly.Tests",
+                "editmode",
+                ["smoke"],
+                "pass",
+                12,
+                Message: null,
+                StackTrace: null),
+            SerializerOptions));
+        using var diagnostic = JsonDocument.Parse(JsonSerializer.Serialize(
+            new TestRunDiagnosticEntry(
+                "run-1",
+                "TEST_PROGRESS_DROPPED",
+                "Some progress entries were dropped.",
+                "warning"),
+            SerializerOptions));
+
+        JsonAssert.For(started.RootElement)
+            .HasString("runId", "run-1")
+            .HasString("testId", "test-1")
+            .HasString("testName", "CanPass")
+            .HasString("assemblyName", "Assembly.Tests")
+            .HasString("testPlatform", "editmode")
+            .HasArrayLength("categories", 1);
+        JsonAssert.For(finished.RootElement)
+            .HasString("result", "pass")
+            .HasInt32("durationMilliseconds", 12)
+            .HasValueKind("message", JsonValueKind.Null)
+            .HasValueKind("stackTrace", JsonValueKind.Null);
+        JsonAssert.For(diagnostic.RootElement)
+            .HasString("code", "TEST_PROGRESS_DROPPED")
+            .HasString("message", "Some progress entries were dropped.")
+            .HasString("severity", "warning");
     }
 
     [Fact]

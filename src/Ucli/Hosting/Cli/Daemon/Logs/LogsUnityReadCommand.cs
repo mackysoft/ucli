@@ -99,7 +99,7 @@ internal sealed class LogsUnityReadCommand
         IpcUnityLogEvent unityLogEvent,
         string nextCursor)
     {
-        if (string.Equals(format, LogsOutputFormatCodec.Json, StringComparison.Ordinal))
+        if (string.Equals(format, CliStreamEntryFormatCodec.Json, StringComparison.Ordinal))
         {
             entryWriter.WriteJsonEntry(
                 "logs.unity.entry",
@@ -111,7 +111,7 @@ internal sealed class LogsUnityReadCommand
                     StackTrace: unityLogEvent.StackTrace,
                     Cursor: unityLogEvent.Cursor,
                     NextCursor: nextCursor));
-            return unityLogEvent.Cursor;
+            return nextCursor;
         }
 
         var line = string.Concat(
@@ -125,14 +125,14 @@ internal sealed class LogsUnityReadCommand
         if (string.IsNullOrWhiteSpace(unityLogEvent.StackTrace))
         {
             entryWriter.WriteTextEntry(line);
-            return unityLogEvent.Cursor;
+            return nextCursor;
         }
 
         entryWriter.WriteTextEntry(string.Concat(
             line,
             " | ",
             LogsTextUtilities.NormalizeSingleLine(unityLogEvent.StackTrace)));
-        return unityLogEvent.Cursor;
+        return nextCursor;
     }
 
     /// <summary> Represents one NDJSON output line for Unity log events. </summary>

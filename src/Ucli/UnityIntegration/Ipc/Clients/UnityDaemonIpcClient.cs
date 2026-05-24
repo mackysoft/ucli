@@ -112,6 +112,11 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
             {
                 throw;
             }
+            catch (IpcProgressFrameHandlerException exception)
+            {
+                exception.ThrowHandlerException();
+                throw;
+            }
             catch (Exception exception)
             {
                 if (dispatchRequest.IsRecoverable
@@ -217,6 +222,11 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
+                throw;
+            }
+            catch (IpcProgressFrameHandlerException exception)
+            {
+                exception.ThrowHandlerException();
                 throw;
             }
             catch (Exception exception)

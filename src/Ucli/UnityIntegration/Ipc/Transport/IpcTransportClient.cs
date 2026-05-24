@@ -48,6 +48,7 @@ internal sealed class IpcTransportClient : IIpcTransportClient
                 throw CreateFrameReadException(readResult.ErrorKind, readResult.ErrorMessage);
             }
 
+            ValidateIpcResponse(request, readResult.Value);
             return readResult.Value;
         }
         catch (OperationCanceledException exception)
@@ -161,6 +162,7 @@ internal sealed class IpcTransportClient : IIpcTransportClient
                 throw CreateFrameReadException(readResult.ErrorKind, readResult.ErrorMessage);
             }
 
+            ValidateIpcResponse(request, readResult.Value);
             return readResult.Value;
         }
         catch (OperationCanceledException exception)
@@ -218,7 +220,19 @@ internal sealed class IpcTransportClient : IIpcTransportClient
             ValidateStreamingFrame(request, frame);
             if (string.Equals(frame.Kind, IpcStreamFrameKinds.Progress, StringComparison.Ordinal))
             {
-                await onProgressFrame(frame, cancellationToken).ConfigureAwait(false);
+                try
+                {
+                    await onProgressFrame(frame, cancellationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception exception)
+                {
+                    throw new IpcProgressFrameHandlerException(exception);
+                }
+
                 continue;
             }
 
@@ -259,6 +273,11 @@ internal sealed class IpcTransportClient : IIpcTransportClient
 
         if (string.Equals(frame.Kind, IpcStreamFrameKinds.Terminal, StringComparison.Ordinal))
         {
+            if (!string.IsNullOrWhiteSpace(frame.Event))
+            {
+                throw new InvalidDataException("IPC terminal stream frame must not contain an event name.");
+            }
+
             if (frame.Response is null)
             {
                 throw new InvalidDataException("IPC terminal stream frame must contain a response.");
@@ -270,10 +289,39 @@ internal sealed class IpcTransportClient : IIpcTransportClient
                     $"IPC terminal response requestId mismatch. Expected={request.RequestId}, Actual={frame.Response.RequestId}.");
             }
 
+            ValidateIpcResponse(request, frame.Response);
             return;
         }
 
         throw new InvalidDataException($"Unsupported IPC stream frame kind: {frame.Kind}.");
+    }
+
+    private static void ValidateIpcResponse (
+        IpcRequest request,
+        IpcResponse response)
+    {
+        if (response.ProtocolVersion != IpcProtocol.CurrentVersion)
+        {
+            throw new InvalidDataException(
+                $"IPC response protocol version mismatch. Requested={IpcProtocol.CurrentVersion}, Actual={response.ProtocolVersion}.");
+        }
+
+        if (!string.Equals(response.RequestId, request.RequestId, StringComparison.Ordinal))
+        {
+            throw new InvalidDataException(
+                $"IPC response requestId mismatch. Expected={request.RequestId}, Actual={response.RequestId}.");
+        }
+
+        if (!string.Equals(response.Status, IpcProtocol.StatusOk, StringComparison.Ordinal)
+            && !string.Equals(response.Status, IpcProtocol.StatusError, StringComparison.Ordinal))
+        {
+            throw new InvalidDataException($"Unsupported IPC response status: {response.Status}.");
+        }
+
+        if (response.Errors is null)
+        {
+            throw new InvalidDataException("IPC response errors must not be null.");
+        }
     }
 
     /// <summary> Opens a stream connection to the specified endpoint. </summary>

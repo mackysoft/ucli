@@ -83,6 +83,40 @@ public sealed class LogsUnityReadCommandTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Read_WhenTextServiceThrowsAfterEntryWithoutStackTrace_WritesFinalErrorResultWithNextCursor ()
+    {
+        var command = new LogsUnityReadCommand(new StubLogsUnityService(async (_, onEvent, cancellationToken) =>
+        {
+            await onEvent(
+                CreateEvent(
+                    cursor: "stream-1:1",
+                    message: "compile warning",
+                    source: "compile",
+                    stackTrace: null),
+                "stream-1:2",
+                cancellationToken);
+            throw new InvalidOperationException("unity log read failed");
+        }), CommandResultTestWriter.Create());
+
+        var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.ReadAsync(format: "text"));
+
+        Assert.Equal(4, exitCode);
+        Assert.Single(standardError.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries));
+        using var commandResult = JsonDocument.Parse(standardOutput);
+        CommandResultAssert.HasStandardEnvelope(
+            commandResult.RootElement,
+            UcliCommandNames.LogsUnityRead,
+            "error",
+            4);
+        CommandResultAssert.HasSingleError(commandResult.RootElement, UcliCoreErrorCodes.InternalError);
+        var payload = commandResult.RootElement.GetProperty("payload");
+        Assert.Equal(1, payload.GetProperty("count").GetInt32());
+        Assert.Equal("stream-1:2", payload.GetProperty("nextCursor").GetString());
+        Assert.Equal("error", payload.GetProperty("completionReason").GetString());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Read_WhenCancellationRequested_ReturnsSuccessExitCode ()
     {
         var command = new LogsUnityReadCommand(new ThrowingLogsUnityService(), CommandResultTestWriter.Create());

@@ -161,6 +161,53 @@ public sealed class LogsUnityServiceTests
 
         Assert.True(result.IsSuccess, result.Error?.Message);
         Assert.Equal(2, unityLogsClient.CallCount);
+        Assert.Equal(LogsReadCompletionReasons.IdleTimeout, result.CompletionReason);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenUntilTimestampIsReached_ReturnsUntilReachedCompletionReason ()
+    {
+        var context = DaemonServiceTestContext.CreateExecutionContext(timeoutMilliseconds: 3000);
+        var resolver = new DaemonServiceTestContext.StubDaemonCommandExecutionContextResolver(
+            DaemonCommandExecutionContextResolutionResult.Success(context));
+        var unityLogsClient = new StubUnityLogsClient(
+            [
+                UnityLogsClientReadResult.Success(CreatePayload(
+                    events:
+                    [
+                        CreateEvent("stream-1:10", "first"),
+                    ],
+                    nextCursor: "stream-1:11")),
+                UnityLogsClientReadResult.Success(CreatePayload(
+                    events: Array.Empty<IpcUnityLogEvent>(),
+                    nextCursor: "stream-1:11")),
+            ]);
+        var service = CreateService(resolver, unityLogsClient);
+
+        var result = await service.ExecuteAsync(
+            new LogsUnityServiceRequest(
+                ProjectPath: "/tmp/unity-project",
+                Tail: null,
+                After: null,
+                Since: null,
+                Until: "2026-03-05T10:30:00+09:00",
+                Level: null,
+                Query: null,
+                QueryTarget: null,
+                Source: null,
+                StackTrace: null,
+                StackTraceMaxFrames: null,
+                StackTraceMaxChars: null,
+                Stream: true,
+                PollIntervalMilliseconds: 50,
+                IdleTimeoutMilliseconds: 3000),
+            static (_, _, _) => ValueTask.CompletedTask,
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess, result.Error?.Message);
+        Assert.Equal(1, unityLogsClient.CallCount);
+        Assert.Equal(LogsReadCompletionReasons.UntilReached, result.CompletionReason);
     }
 
     [Fact]

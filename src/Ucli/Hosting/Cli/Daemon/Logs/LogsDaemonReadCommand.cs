@@ -95,7 +95,7 @@ internal sealed class LogsDaemonReadCommand
         IpcDaemonLogEvent daemonLogEvent,
         string nextCursor)
     {
-        if (string.Equals(format, LogsOutputFormatCodec.Json, StringComparison.Ordinal))
+        if (string.Equals(format, CliStreamEntryFormatCodec.Json, StringComparison.Ordinal))
         {
             entryWriter.WriteJsonEntry(
                 "logs.daemon.entry",
@@ -107,7 +107,7 @@ internal sealed class LogsDaemonReadCommand
                     Raw: daemonLogEvent.Raw,
                     Cursor: daemonLogEvent.Cursor,
                     NextCursor: nextCursor));
-            return daemonLogEvent.Cursor;
+            return nextCursor;
         }
 
         var textLine = string.Concat(
@@ -119,7 +119,7 @@ internal sealed class LogsDaemonReadCommand
             " ",
             LogsTextUtilities.NormalizeSingleLine(daemonLogEvent.Message));
         entryWriter.WriteTextEntry(textLine);
-        return daemonLogEvent.Cursor;
+        return nextCursor;
     }
 
     /// <summary> Represents one NDJSON output line for daemon log events. </summary>

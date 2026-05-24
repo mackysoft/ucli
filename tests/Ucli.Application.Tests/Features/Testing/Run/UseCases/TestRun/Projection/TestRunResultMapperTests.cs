@@ -10,7 +10,7 @@ public sealed class TestRunResultMapperTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public void Map_WithIpcTimeoutExecutionFailure_ReturnsToolErrorWithArtifactsContext ()
+    public void Map_WithIpcTimeoutExecutionFailure_ReturnsInfraErrorWithArtifactsContext ()
     {
         var session = CreateSession();
         var mapper = new TestRunResultMapper();
@@ -23,10 +23,10 @@ public sealed class TestRunResultMapperTests
             UnityResultsConversionResult.Success(false)));
 
         Assert.Null(result.Result);
-        Assert.Equal(TestRunErrorKind.ToolError, result.ErrorKind);
-        Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
+        Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
+        Assert.Equal(ApplicationOutcome.InfrastructureError, result.Outcome);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
-        Assert.Equal(ApplicationFailureKind.Timeout, result.Failure!.Kind);
+        Assert.Equal(ApplicationFailureKind.ExternalProcessFailure, result.Failure!.Kind);
         Assert.Equal(session.RunId, result.RunId);
         Assert.Equal(session.Paths.ArtifactsDir, result.ArtifactsDir);
         Assert.Equal(session.Paths.SummaryJsonPath, result.SummaryJsonPath);
@@ -53,7 +53,7 @@ public sealed class TestRunResultMapperTests
                 startupFailure),
             UnityResultsConversionResult.Success(false)));
 
-        Assert.Equal(TestRunErrorKind.ToolError, result.ErrorKind);
+        Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
         Assert.Same(startupFailure, result.StartupFailure);
         Assert.Same(startupFailure, result.Failure!.StartupFailure);
     }

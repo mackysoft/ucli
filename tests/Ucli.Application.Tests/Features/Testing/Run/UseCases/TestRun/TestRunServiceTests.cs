@@ -1,3 +1,4 @@
+using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Testing.Run.Artifacts;
 using MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
 using MackySoft.Ucli.Application.Features.Testing.Run.Execution;
@@ -57,6 +58,46 @@ public sealed class TestRunServiceTests
         var configuration = CreateResolvedConfiguration();
         var session = CreateArtifactsSession(configuration);
         var progressSink = new CollectingProgressSink();
+        var unityProgressFrames = new[]
+        {
+            new UnityRequestProgressFrame(
+                TestRunProgressEventNames.RunStarted,
+                IpcPayloadCodec.SerializeToElement(new TestRunStartedEntry(
+                    session.RunId,
+                    "editmode",
+                    null,
+                    ["MyGame.Tests"],
+                    ["smoke"]))),
+            new UnityRequestProgressFrame(
+                TestRunProgressEventNames.CaseStarted,
+                IpcPayloadCodec.SerializeToElement(new TestCaseStartedEntry(
+                    session.RunId,
+                    "test-id",
+                    "SmokeTest.Passes",
+                    "MyGame.Tests",
+                    "editmode",
+                    ["smoke"]))),
+            new UnityRequestProgressFrame(
+                TestRunProgressEventNames.CaseFinished,
+                IpcPayloadCodec.SerializeToElement(new TestCaseFinishedEntry(
+                    session.RunId,
+                    "test-id",
+                    "SmokeTest.Passes",
+                    "MyGame.Tests",
+                    "editmode",
+                    ["smoke"],
+                    "pass",
+                    42,
+                    null,
+                    null))),
+            new UnityRequestProgressFrame(
+                TestRunProgressEventNames.RunDiagnostic,
+                IpcPayloadCodec.SerializeToElement(new TestRunDiagnosticEntry(
+                    session.RunId,
+                    "TEST_PROGRESS_STUB",
+                    "stub progress",
+                    "info"))),
+        };
 
         var service = CreateService(
             configurationResolver: new StubConfigurationResolver(TestRunConfigurationResolutionResult.Success(configuration)),
@@ -66,7 +107,8 @@ public sealed class TestRunServiceTests
                 prepare: _ => ArtifactsPreparationResult.Success(session),
                 complete: (_, _) => ArtifactsCompletionResult.Success()),
             unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
-            resultsConverter: new StubResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))));
+            resultsConverter: new StubResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))),
+            streamingProgressFrames: unityProgressFrames);
 
         var result = await service.ExecuteAsync(CreateInput(), progressSink, CancellationToken.None);
 
@@ -79,6 +121,29 @@ public sealed class TestRunServiceTests
                 var payload = Assert.IsType<TestRunStartedEntry>(entry.Payload);
                 Assert.Equal(session.RunId, payload.RunId);
                 Assert.Equal("editmode", payload.TestPlatform);
+            },
+            entry =>
+            {
+                Assert.Equal(TestRunProgressEventNames.RunStarted, entry.EventName);
+                var payload = Assert.IsType<TestRunStartedEntry>(entry.Payload);
+                Assert.Equal(session.RunId, payload.RunId);
+                Assert.Equal("MyGame.Tests", Assert.Single(payload.AssemblyNames));
+            },
+            entry =>
+            {
+                Assert.Equal(TestRunProgressEventNames.CaseStarted, entry.EventName);
+                var payload = Assert.IsType<TestCaseStartedEntry>(entry.Payload);
+                Assert.Equal(session.RunId, payload.RunId);
+                Assert.Equal("test-id", payload.TestId);
+                Assert.Equal("SmokeTest.Passes", payload.TestName);
+            },
+            entry =>
+            {
+                Assert.Equal(TestRunProgressEventNames.CaseFinished, entry.EventName);
+                var payload = Assert.IsType<TestCaseFinishedEntry>(entry.Payload);
+                Assert.Equal(session.RunId, payload.RunId);
+                Assert.Equal("pass", payload.Result);
+                Assert.Equal(42, payload.DurationMilliseconds);
             },
             entry =>
             {
@@ -117,6 +182,76 @@ public sealed class TestRunServiceTests
         Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
         Assert.Equal(TestRunErrorCodes.UnityTestExecutionFailed, result.ErrorCode);
         Assert.Contains("Unity test-run progress event is not supported", result.Message, StringComparison.Ordinal);
+        Assert.Single(progressSink.Entries);
+        Assert.Equal(TestRunProgressEventNames.RunStarted, progressSink.Entries[0].EventName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithMismatchedUnityProgressRunId_ReturnsToolError ()
+    {
+        var configuration = CreateResolvedConfiguration();
+        var session = CreateArtifactsSession(configuration);
+        var progressSink = new CollectingProgressSink();
+
+        var service = CreateService(
+            configurationResolver: new StubConfigurationResolver(TestRunConfigurationResolutionResult.Success(configuration)),
+            modeDecisionService: new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
+                new UnityExecutionModeDecision(UnityExecutionMode.Oneshot, false, UnityExecutionTarget.Oneshot, TimeSpan.FromSeconds(30)))),
+            artifactsService: new StubArtifactsService(
+                prepare: _ => ArtifactsPreparationResult.Success(session),
+                complete: (_, _) => ArtifactsCompletionResult.Success()),
+            unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
+            resultsConverter: new StubResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))),
+            streamingProgressFrame: new UnityRequestProgressFrame(
+                TestRunProgressEventNames.CaseStarted,
+                IpcPayloadCodec.SerializeToElement(new TestCaseStartedEntry(
+                    "other-run-id",
+                    "test-id",
+                    "SmokeTest.Passes",
+                    "MyGame.Tests",
+                    "editmode",
+                    []))));
+
+        var result = await service.ExecuteAsync(CreateInput(), progressSink, CancellationToken.None);
+
+        Assert.Null(result.Result);
+        Assert.Equal(TestRunErrorKind.ToolError, result.ErrorKind);
+        Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
+        Assert.Equal(TestRunErrorCodes.UnityTestExecutionFailed, result.ErrorCode);
+        Assert.Contains("runId mismatch", result.Message, StringComparison.Ordinal);
+        Assert.Single(progressSink.Entries);
+        Assert.Equal(TestRunProgressEventNames.RunStarted, progressSink.Entries[0].EventName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithInvalidUnityProgressPayload_ReturnsToolError ()
+    {
+        var configuration = CreateResolvedConfiguration();
+        var session = CreateArtifactsSession(configuration);
+        var progressSink = new CollectingProgressSink();
+
+        var service = CreateService(
+            configurationResolver: new StubConfigurationResolver(TestRunConfigurationResolutionResult.Success(configuration)),
+            modeDecisionService: new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
+                new UnityExecutionModeDecision(UnityExecutionMode.Oneshot, false, UnityExecutionTarget.Oneshot, TimeSpan.FromSeconds(30)))),
+            artifactsService: new StubArtifactsService(
+                prepare: _ => ArtifactsPreparationResult.Success(session),
+                complete: (_, _) => ArtifactsCompletionResult.Success()),
+            unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
+            resultsConverter: new StubResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))),
+            streamingProgressFrame: new UnityRequestProgressFrame(
+                TestRunProgressEventNames.CaseFinished,
+                JsonDocument.Parse("[]").RootElement.Clone()));
+
+        var result = await service.ExecuteAsync(CreateInput(), progressSink, CancellationToken.None);
+
+        Assert.Null(result.Result);
+        Assert.Equal(TestRunErrorKind.ToolError, result.ErrorKind);
+        Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
+        Assert.Equal(TestRunErrorCodes.UnityTestExecutionFailed, result.ErrorCode);
+        Assert.Contains("progress payload is invalid", result.Message, StringComparison.Ordinal);
         Assert.Single(progressSink.Entries);
         Assert.Equal(TestRunProgressEventNames.RunStarted, progressSink.Entries[0].EventName);
     }
@@ -254,7 +389,7 @@ public sealed class TestRunServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenDaemonLifecycleGateFails_PreservesLifecycleErrorCode ()
+    public async Task Execute_WhenDaemonLifecycleGateFails_ReturnsInfraErrorWithLifecycleErrorCode ()
     {
         var configuration = CreateResolvedConfiguration();
         var daemonTestRunClient = new StubDaemonTestRunClient((_, _, _, _, _) =>
@@ -278,8 +413,8 @@ public sealed class TestRunServiceTests
         var result = await service.ExecuteAsync(CreateInput() with { FailFast = true }, cancellationToken: CancellationToken.None);
 
         Assert.Null(result.Result);
-        Assert.Equal(TestRunErrorKind.ToolError, result.ErrorKind);
-        Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
+        Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
+        Assert.Equal(ApplicationOutcome.InfrastructureError, result.Outcome);
         Assert.Equal(EditorLifecycleErrorCodes.EditorBusy, result.ErrorCode);
         Assert.Equal(1, daemonTestRunClient.CallCount);
         Assert.True(daemonTestRunClient.LastFailFast);
@@ -310,8 +445,8 @@ public sealed class TestRunServiceTests
         var result = await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None);
 
         Assert.Null(result.Result);
-        Assert.Equal(TestRunErrorKind.ToolError, result.ErrorKind);
-        Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
+        Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
+        Assert.Equal(ApplicationOutcome.InfrastructureError, result.Outcome);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
     }
 
@@ -431,8 +566,8 @@ public sealed class TestRunServiceTests
         var result = await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None);
 
         Assert.Null(result.Result);
-        Assert.Equal(TestRunErrorKind.ToolError, result.ErrorKind);
-        Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
+        Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
+        Assert.Equal(ApplicationOutcome.InfrastructureError, result.Outcome);
         Assert.Equal(TestRunErrorCodes.UnityTestExecutionTimeout, result.ErrorCode);
     }
 
@@ -462,8 +597,8 @@ public sealed class TestRunServiceTests
         var result = await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None);
 
         Assert.Null(result.Result);
-        Assert.Equal(TestRunErrorKind.ToolError, result.ErrorKind);
-        Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
+        Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
+        Assert.Equal(ApplicationOutcome.InfrastructureError, result.Outcome);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
         Assert.Equal(session.RunId, result.RunId);
     }
@@ -548,8 +683,8 @@ public sealed class TestRunServiceTests
         var result = await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None);
 
         Assert.Null(result.Result);
-        Assert.Equal(TestRunErrorKind.ToolError, result.ErrorKind);
-        Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
+        Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
+        Assert.Equal(ApplicationOutcome.InfrastructureError, result.Outcome);
         Assert.Equal(TestRunErrorCodes.UnityTestExecutionFailed, result.ErrorCode);
         Assert.Equal("Generated test artifacts are missing.", result.Message);
     }
@@ -706,13 +841,17 @@ public sealed class TestRunServiceTests
         IUnityResultsConverter resultsConverter,
         IUcliConfigStore? configStore = null,
         StubDaemonTestRunClient? daemonTestRunClient = null,
-        UnityRequestProgressFrame? streamingProgressFrame = null)
+        UnityRequestProgressFrame? streamingProgressFrame = null,
+        IReadOnlyList<UnityRequestProgressFrame>? streamingProgressFrames = null)
     {
         var preflightService = new TestRunPreflightService(
             configurationResolver,
             configStore ?? new StubConfigStore(),
             modeDecisionService);
-        var unityRequestExecutor = new StubUnityRequestExecutor(unityTestExecutor, daemonTestRunClient, streamingProgressFrame);
+        var unityRequestExecutor = new StubUnityRequestExecutor(
+            unityTestExecutor,
+            daemonTestRunClient,
+            streamingProgressFrames ?? (streamingProgressFrame is null ? null : [streamingProgressFrame]));
         var executionPipeline = new TestRunExecutionPipeline(
             artifactsService,
             unityRequestExecutor,
@@ -928,16 +1067,16 @@ public sealed class TestRunServiceTests
     {
         private readonly StubUnityTestExecutor unityTestExecutor;
         private readonly StubDaemonTestRunClient? daemonTestRunClient;
-        private readonly UnityRequestProgressFrame? streamingProgressFrame;
+        private readonly IReadOnlyList<UnityRequestProgressFrame>? streamingProgressFrames;
 
         public StubUnityRequestExecutor (
             StubUnityTestExecutor unityTestExecutor,
             StubDaemonTestRunClient? daemonTestRunClient,
-            UnityRequestProgressFrame? streamingProgressFrame)
+            IReadOnlyList<UnityRequestProgressFrame>? streamingProgressFrames)
         {
             this.unityTestExecutor = unityTestExecutor;
             this.daemonTestRunClient = daemonTestRunClient;
-            this.streamingProgressFrame = streamingProgressFrame;
+            this.streamingProgressFrames = streamingProgressFrames;
         }
 
         public ValueTask<UnityRequestExecutionResult> ExecuteAsync (
@@ -986,16 +1125,19 @@ public sealed class TestRunServiceTests
                 EnsureArtifactFiles(artifactPaths);
                 if (onProgressFrame is not null)
                 {
-                    await onProgressFrame(
-                            streamingProgressFrame ?? new UnityRequestProgressFrame(
-                                TestRunProgressEventNames.RunDiagnostic,
-                                IpcPayloadCodec.SerializeToElement(new TestRunDiagnosticEntry(
-                                    testRunRequest.RunId ?? "run-id",
-                                    "TEST_PROGRESS_STUB",
-                                    "stub progress",
-                                    "info"))),
-                            cancellationToken)
-                        .ConfigureAwait(false);
+                    var progressFrames = streamingProgressFrames ?? [
+                        new UnityRequestProgressFrame(
+                            TestRunProgressEventNames.RunDiagnostic,
+                            IpcPayloadCodec.SerializeToElement(new TestRunDiagnosticEntry(
+                                testRunRequest.RunId ?? "run-id",
+                                "TEST_PROGRESS_STUB",
+                                "stub progress",
+                                "info"))),
+                    ];
+                    foreach (var progressFrame in progressFrames)
+                    {
+                        await onProgressFrame(progressFrame, cancellationToken).ConfigureAwait(false);
+                    }
                 }
 
                 return UnityRequestExecutionResult.Success(new UnityRequestResponse(

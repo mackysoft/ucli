@@ -111,8 +111,48 @@ public sealed class LogsDaemonReadCommandTests
         CommandResultAssert.HasSingleError(commandResult.RootElement, UcliCoreErrorCodes.InternalError);
         var payload = commandResult.RootElement.GetProperty("payload");
         Assert.Equal(1, payload.GetProperty("count").GetInt32());
-        Assert.Equal("stream-1:1", payload.GetProperty("nextCursor").GetString());
+        Assert.Equal("stream-1:2", payload.GetProperty("nextCursor").GetString());
         Assert.Equal("error", payload.GetProperty("completionReason").GetString());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Read_WhenCancellationRequestedAfterEntry_WritesFinalCanceledResultWithPartialMetadata ()
+    {
+        using var cancellationTokenSource = new CancellationTokenSource();
+        var command = new LogsDaemonReadCommand(new StubLogsDaemonService(async (_, onEvent, cancellationToken) =>
+        {
+            await onEvent(
+                CreateEvent(
+                    cursor: "stream-1:1",
+                    category: "ipc",
+                    message: "server started",
+                    raw: null),
+                "stream-1:2",
+                cancellationToken);
+            await cancellationTokenSource.CancelAsync();
+            cancellationToken.ThrowIfCancellationRequested();
+            return LogsReadServiceResult.Success(count: 1, nextCursor: "stream-1:2");
+        }), CommandResultTestWriter.Create());
+
+        var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.ReadAsync(
+            format: "json",
+            stream: true,
+            cancellationToken: cancellationTokenSource.Token));
+
+        Assert.Equal(4, exitCode);
+        Assert.Single(standardError.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries));
+        using var commandResult = JsonDocument.Parse(standardOutput);
+        CommandResultAssert.HasStandardEnvelope(
+            commandResult.RootElement,
+            UcliCommandNames.LogsDaemonRead,
+            "error",
+            4);
+        CommandResultAssert.HasSingleError(commandResult.RootElement, ExecutionErrorCodes.Canceled);
+        var payload = commandResult.RootElement.GetProperty("payload");
+        Assert.Equal(1, payload.GetProperty("count").GetInt32());
+        Assert.Equal("stream-1:2", payload.GetProperty("nextCursor").GetString());
+        Assert.Equal("canceled", payload.GetProperty("completionReason").GetString());
     }
 
     [Fact]

@@ -108,6 +108,47 @@ public sealed class UnityIpcTransportClientTests
         });
     }
 
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("protocol")]
+    [InlineData("requestId")]
+    [InlineData("status")]
+    [InlineData("errors")]
+    public async Task SendAsync_WhenResponseEnvelopeIsInvalid_ThrowsInvalidDataException (string invalidField)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        await WithUnixResponseServerAsync(
+            request => invalidField switch
+            {
+                "protocol" => CreateResponse(request.RequestId, "{}", protocolVersion: IpcProtocol.CurrentVersion + 1),
+                "requestId" => CreateResponse("other-request", "{}"),
+                "status" => CreateResponse(request.RequestId, "{}", status: "unknown"),
+                "errors" => new IpcResponse(
+                    IpcProtocol.CurrentVersion,
+                    request.RequestId,
+                    IpcProtocol.StatusOk,
+                    Json("{}"),
+                    null!),
+                _ => throw new InvalidOperationException("Unsupported invalid field."),
+            },
+            async (client, request) =>
+            {
+                await Assert.ThrowsAsync<InvalidDataException>(async () =>
+                {
+                    await client.SendAsync(
+                            "storage-root",
+                            "fingerprint",
+                            request,
+                            DefaultTimeout)
+                        .AsTask();
+                });
+            });
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task SendStreamingAsync_WhenServerReturnsProgressThenTerminal_ForwardsProgressAndReturnsResponse ()
@@ -161,6 +202,46 @@ public sealed class UnityIpcTransportClientTests
                 Assert.True(progressFrame.Payload.GetProperty("progress").GetBoolean());
                 Assert.Equal("request-1", response.RequestId);
                 Assert.True(response.Payload.GetProperty("done").GetBoolean());
+            });
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendStreamingAsync_WhenProgressCallbackThrows_ThrowsProgressFrameHandlerException ()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var handlerException = new InvalidOperationException("callback failed");
+        await WithUnixStreamingServerAsync(
+            async (request, stream, cancellationToken) =>
+            {
+                await WriteStreamFrameAsync(
+                    stream,
+                    new IpcStreamFrame(
+                        IpcProtocol.CurrentVersion,
+                        request.RequestId,
+                        IpcStreamFrameKinds.Progress,
+                        "test.progress",
+                        Json("{}"),
+                        Response: null),
+                    cancellationToken);
+            },
+            async (client, request) =>
+            {
+                var exception = await Assert.ThrowsAsync<IpcProgressFrameHandlerException>(async () =>
+                {
+                    await client.SendStreamingAsync(
+                            "storage-root",
+                            "fingerprint",
+                            request,
+                            DefaultTimeout,
+                            (_, _) => throw handlerException)
+                        .AsTask();
+                });
+                Assert.Same(handlerException, exception.HandlerException);
             });
     }
 
@@ -238,6 +319,128 @@ public sealed class UnityIpcTransportClientTests
                         .AsTask();
                 });
             });
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendStreamingAsync_WhenProgressProtocolVersionMismatches_ThrowsInvalidDataException ()
+    {
+        await AssertStreamingFrameRejectedAsync(request => new IpcStreamFrame(
+            IpcProtocol.CurrentVersion + 1,
+            request.RequestId,
+            IpcStreamFrameKinds.Progress,
+            "test.progress",
+            Json("{}"),
+            Response: null));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendStreamingAsync_WhenProgressEventIsMissing_ThrowsInvalidDataException ()
+    {
+        await AssertStreamingFrameRejectedAsync(request => new IpcStreamFrame(
+            IpcProtocol.CurrentVersion,
+            request.RequestId,
+            IpcStreamFrameKinds.Progress,
+            Event: null,
+            Json("{}"),
+            Response: null));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendStreamingAsync_WhenProgressContainsResponse_ThrowsInvalidDataException ()
+    {
+        await AssertStreamingFrameRejectedAsync(request => new IpcStreamFrame(
+            IpcProtocol.CurrentVersion,
+            request.RequestId,
+            IpcStreamFrameKinds.Progress,
+            "test.progress",
+            Json("{}"),
+            CreateResponse(request.RequestId, "{}")));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendStreamingAsync_WhenTerminalResponseIsMissing_ThrowsInvalidDataException ()
+    {
+        await AssertStreamingFrameRejectedAsync(request => new IpcStreamFrame(
+            IpcProtocol.CurrentVersion,
+            request.RequestId,
+            IpcStreamFrameKinds.Terminal,
+            Event: null,
+            Json("{}"),
+            Response: null));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendStreamingAsync_WhenTerminalContainsEvent_ThrowsInvalidDataException ()
+    {
+        await AssertStreamingFrameRejectedAsync(request => new IpcStreamFrame(
+            IpcProtocol.CurrentVersion,
+            request.RequestId,
+            IpcStreamFrameKinds.Terminal,
+            "test.progress",
+            Json("{}"),
+            CreateResponse(request.RequestId, "{}")));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendStreamingAsync_WhenTerminalResponseRequestIdMismatches_ThrowsInvalidDataException ()
+    {
+        await AssertStreamingFrameRejectedAsync(request => new IpcStreamFrame(
+            IpcProtocol.CurrentVersion,
+            request.RequestId,
+            IpcStreamFrameKinds.Terminal,
+            Event: null,
+            Json("{}"),
+            CreateResponse("other-request", "{}")));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendStreamingAsync_WhenTerminalResponseProtocolVersionMismatches_ThrowsInvalidDataException ()
+    {
+        await AssertStreamingFrameRejectedAsync(request => new IpcStreamFrame(
+            IpcProtocol.CurrentVersion,
+            request.RequestId,
+            IpcStreamFrameKinds.Terminal,
+            Event: null,
+            Json("{}"),
+            CreateResponse(request.RequestId, "{}", protocolVersion: IpcProtocol.CurrentVersion + 1)));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendStreamingAsync_WhenTerminalResponseStatusIsUnsupported_ThrowsInvalidDataException ()
+    {
+        await AssertStreamingFrameRejectedAsync(request => new IpcStreamFrame(
+            IpcProtocol.CurrentVersion,
+            request.RequestId,
+            IpcStreamFrameKinds.Terminal,
+            Event: null,
+            Json("{}"),
+            CreateResponse(request.RequestId, "{}", status: "unknown")));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendStreamingAsync_WhenTerminalResponseErrorsIsNull_ThrowsInvalidDataException ()
+    {
+        await AssertStreamingFrameRejectedAsync(request => new IpcStreamFrame(
+            IpcProtocol.CurrentVersion,
+            request.RequestId,
+            IpcStreamFrameKinds.Terminal,
+            Event: null,
+            Json("{}"),
+            new IpcResponse(
+                IpcProtocol.CurrentVersion,
+                request.RequestId,
+                IpcProtocol.StatusOk,
+                Json("{}"),
+                null!)));
     }
 
     [Fact]
@@ -344,6 +547,90 @@ public sealed class UnityIpcTransportClientTests
         }
     }
 
+    private static async Task WithUnixResponseServerAsync (
+        Func<IpcRequest, IpcResponse> createResponse,
+        Func<UnityIpcTransportClient, IpcRequest, Task> executeClientAsync)
+    {
+        var endpoint = new IpcEndpoint(
+            IpcTransportKind.UnixDomainSocket,
+            UnixSocketPathUtilities.BuildFallbackSocketPath("ucli-supervisor-", Guid.NewGuid().ToString("N")));
+        var server = new SupervisorTransportServer();
+        var startedTaskSource = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var cancellationTokenSource = new CancellationTokenSource();
+
+        var serverTask = server.RunAsync(
+            endpoint,
+            async (stream, cancellationToken) =>
+            {
+                var readResult = await IpcFrameCodec.TryReadModelAsync<IpcRequest>(
+                    stream,
+                    IpcJsonSerializerOptions.Default,
+                    cancellationToken: cancellationToken);
+                if (!readResult.IsSuccess)
+                {
+                    throw new InvalidDataException(readResult.ErrorMessage);
+                }
+
+                await IpcFrameCodec.WriteModelAsync(
+                    stream,
+                    createResponse(readResult.Value),
+                    IpcJsonSerializerOptions.Default,
+                    cancellationToken: cancellationToken);
+            },
+            cancellationToken =>
+            {
+                startedTaskSource.TrySetResult();
+                return Task.CompletedTask;
+            },
+            cancellationTokenSource.Token);
+
+        try
+        {
+            await TestAwaiter.WaitAsync(startedTaskSource.Task, "Unity IPC transport server start", SendWaitTimeout);
+            var client = new UnityIpcTransportClient(new FixedEndpointResolver(endpoint), new IpcTransportClient());
+            await executeClientAsync(client, CreateSingleRequest());
+        }
+        finally
+        {
+            cancellationTokenSource.Cancel();
+            server.Release();
+            try
+            {
+                await TestAwaiter.WaitAsync(serverTask, "Unity IPC transport server shutdown", SendWaitTimeout);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        }
+    }
+
+    private static async Task AssertStreamingFrameRejectedAsync (Func<IpcRequest, IpcStreamFrame> createFrame)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        await WithUnixStreamingServerAsync(
+            async (request, stream, cancellationToken) =>
+            {
+                await WriteStreamFrameAsync(stream, createFrame(request), cancellationToken);
+            },
+            async (client, request) =>
+            {
+                await Assert.ThrowsAsync<InvalidDataException>(async () =>
+                {
+                    await client.SendStreamingAsync(
+                            "storage-root",
+                            "fingerprint",
+                            request,
+                            DefaultTimeout,
+                            (_, _) => ValueTask.CompletedTask)
+                        .AsTask();
+                });
+            });
+    }
+
     private static async Task WriteStreamFrameAsync (
         Stream stream,
         IpcStreamFrame frame,
@@ -367,14 +654,26 @@ public sealed class UnityIpcTransportClientTests
             IpcResponseModes.Stream);
     }
 
+    private static IpcRequest CreateSingleRequest ()
+    {
+        return new IpcRequest(
+            IpcProtocol.CurrentVersion,
+            "request-1",
+            "token",
+            IpcMethodNames.Ping,
+            Json("{}"));
+    }
+
     private static IpcResponse CreateResponse (
         string requestId,
-        string payloadJson)
+        string payloadJson,
+        int? protocolVersion = null,
+        string? status = null)
     {
         return new IpcResponse(
-            IpcProtocol.CurrentVersion,
+            protocolVersion ?? IpcProtocol.CurrentVersion,
             requestId,
-            IpcProtocol.StatusOk,
+            status ?? IpcProtocol.StatusOk,
             Json(payloadJson),
             Array.Empty<IpcError>());
     }

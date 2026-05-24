@@ -292,6 +292,10 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
             {
                 throw;
             }
+            catch (IpcProgressFrameHandlerException)
+            {
+                throw;
+            }
             catch (Exception exception)
             {
                 result = UnityRequestExecutionResult.Failure(
@@ -313,6 +317,11 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+            throw;
+        }
+        catch (IpcProgressFrameHandlerException exception)
+        {
+            exception.ThrowHandlerException();
             throw;
         }
         catch (Exception exception)

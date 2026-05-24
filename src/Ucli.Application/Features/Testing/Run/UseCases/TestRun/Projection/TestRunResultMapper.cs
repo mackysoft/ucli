@@ -70,22 +70,17 @@ internal sealed class TestRunResultMapper : ITestRunResultMapper
     {
         if (!unityExecutionResult.IsSuccess)
         {
-            if (unityExecutionResult.FailureKind == UnityTestExecutionFailureKind.ClientSetupFailed)
+            if (unityExecutionResult.FailureKind is not { } failureKind)
             {
-                UcliCode setupErrorCode = !unityExecutionResult.ErrorCode.HasValue || !unityExecutionResult.ErrorCode.Value.IsValid
-                    ? UcliCoreErrorCodes.InternalError
-                    : unityExecutionResult.ErrorCode.Value;
-
                 return TestRunServiceResult.InfraError(
-                    unityExecutionResult.ErrorMessage ?? "Daemon execution setup failed.",
-                    setupErrorCode,
+                    "Unexpected Unity test execution failure state.",
+                    UcliCoreErrorCodes.InternalError,
                     runId: session.RunId,
                     artifactsDir: session.Paths.ArtifactsDir,
-                    summaryJsonPath: session.Paths.SummaryJsonPath,
-                    startupFailure: unityExecutionResult.StartupFailure);
+                    summaryJsonPath: session.Paths.SummaryJsonPath);
             }
 
-            UcliCode errorCode = unityExecutionResult.FailureKind switch
+            UcliCode errorCode = failureKind switch
             {
                 UnityTestExecutionFailureKind.Canceled => ExecutionErrorCodes.Canceled,
                 UnityTestExecutionFailureKind.IpcTimedOut => ExecutionErrorCodes.IpcTimeout,
@@ -94,13 +89,21 @@ internal sealed class TestRunResultMapper : ITestRunResultMapper
                 _ => TestRunErrorCodes.UnityTestExecutionFailed,
             };
 
-            return TestRunServiceResult.ToolError(
-                unityExecutionResult.ErrorMessage ?? "Unity test execution failed.",
-                errorCode,
-                runId: session.RunId,
-                artifactsDir: session.Paths.ArtifactsDir,
-                summaryJsonPath: session.Paths.SummaryJsonPath,
-                startupFailure: unityExecutionResult.StartupFailure);
+            return IsUnityExecutionInfrastructureFailure(failureKind)
+                ? TestRunServiceResult.InfraError(
+                    unityExecutionResult.ErrorMessage ?? "Unity test infrastructure failed.",
+                    errorCode,
+                    runId: session.RunId,
+                    artifactsDir: session.Paths.ArtifactsDir,
+                    summaryJsonPath: session.Paths.SummaryJsonPath,
+                    startupFailure: unityExecutionResult.StartupFailure)
+                : TestRunServiceResult.ToolError(
+                    unityExecutionResult.ErrorMessage ?? "Unity test execution failed.",
+                    errorCode,
+                    runId: session.RunId,
+                    artifactsDir: session.Paths.ArtifactsDir,
+                    summaryJsonPath: session.Paths.SummaryJsonPath,
+                    startupFailure: unityExecutionResult.StartupFailure);
         }
 
         if (!conversionResult.IsSuccess)
@@ -148,5 +151,14 @@ internal sealed class TestRunResultMapper : ITestRunResultMapper
             runId: session.RunId,
             artifactsDir: session.Paths.ArtifactsDir,
             summaryJsonPath: session.Paths.SummaryJsonPath);
+    }
+
+    private static bool IsUnityExecutionInfrastructureFailure (UnityTestExecutionFailureKind failureKind)
+    {
+        return failureKind is UnityTestExecutionFailureKind.IpcTimedOut
+            or UnityTestExecutionFailureKind.ProcessTimedOut
+            or UnityTestExecutionFailureKind.AbnormalExit
+            or UnityTestExecutionFailureKind.ArtifactMissing
+            or UnityTestExecutionFailureKind.ClientSetupFailed;
     }
 }

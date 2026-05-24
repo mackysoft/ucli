@@ -204,6 +204,47 @@ public sealed class LogsDaemonServiceTests
 
         Assert.True(result.IsSuccess, result.Error?.Message);
         Assert.Equal(2, daemonLogsClient.CallCount);
+        Assert.Equal(LogsReadCompletionReasons.IdleTimeout, result.CompletionReason);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenUntilTimestampIsReached_ReturnsUntilReachedCompletionReason ()
+    {
+        var context = DaemonServiceTestContext.CreateExecutionContext(timeoutMilliseconds: 3000);
+        var resolver = new DaemonServiceTestContext.StubDaemonCommandExecutionContextResolver(
+            DaemonCommandExecutionContextResolutionResult.Success(context));
+        var daemonLogsClient = new StubDaemonLogsClient(
+        [
+            DaemonLogsClientReadResult.Success(CreatePayload(
+                events:
+                [
+                    CreateEvent("stream-1:10", "first"),
+                ],
+                nextCursor: "stream-1:11")),
+        ]);
+        var service = CreateService(resolver, daemonLogsClient);
+
+        var result = await service.ExecuteAsync(
+            new LogsDaemonServiceRequest(
+                ProjectPath: "/tmp/unity-project",
+                Tail: null,
+                After: null,
+                Since: null,
+                Until: "2026-03-05T10:30:00+09:00",
+                Level: null,
+                Query: null,
+                QueryTarget: null,
+                Category: null,
+                Stream: true,
+                PollIntervalMilliseconds: 50,
+                IdleTimeoutMilliseconds: null),
+            static (_, _, _) => ValueTask.CompletedTask,
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess, result.Error?.Message);
+        Assert.Equal(1, daemonLogsClient.CallCount);
+        Assert.Equal(LogsReadCompletionReasons.UntilReached, result.CompletionReason);
     }
 
     private static IpcDaemonLogEvent CreateEvent (

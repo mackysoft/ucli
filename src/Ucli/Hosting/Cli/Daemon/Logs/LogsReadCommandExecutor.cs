@@ -39,7 +39,7 @@ internal static class LogsReadCommandExecutor
             cancellationToken.ThrowIfCancellationRequested();
             CommandExecutionState.MarkStarted();
 
-            if (!LogsOutputFormatCodec.TryParse(format, out var outputFormat, out var formatErrorMessage))
+            if (!CliStreamEntryFormatCodec.TryParse(format, out var outputFormat, out var formatErrorMessage))
             {
                 var invalidFormatResult = LogsReadCommandResultFactory.Create(
                     commandName,
@@ -68,7 +68,9 @@ internal static class LogsReadCommandExecutor
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            var commandResult = LogsReadCommandResultFactory.Create(commandName, LogsReadServiceResult.Canceled());
+            var commandResult = LogsReadCommandResultFactory.Create(commandName, LogsReadServiceResult.Canceled(
+                emittedCount,
+                latestNextCursor));
             commandResultWriter.WriteToStandardOutput(commandResult);
             return commandResult.ExitCode;
         }

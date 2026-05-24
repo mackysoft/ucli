@@ -12,12 +12,14 @@ namespace MackySoft.Ucli.Unity.Ipc
     {
         private readonly Stream stream;
         private readonly string requestId;
+        private readonly Action<Exception> writeFailureHandler;
         private readonly SemaphoreSlim writeGate = new SemaphoreSlim(1, 1);
 
         /// <summary> Initializes a new instance of the <see cref="UnityIpcStreamFrameWriter" /> class. </summary>
         public UnityIpcStreamFrameWriter (
             Stream stream,
-            IpcRequest request)
+            IpcRequest request,
+            Action<Exception> writeFailureHandler = null)
         {
             this.stream = stream ?? throw new ArgumentNullException(nameof(stream));
             if (request == null)
@@ -26,6 +28,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             requestId = request.RequestId;
+            this.writeFailureHandler = writeFailureHandler;
         }
 
         /// <inheritdoc />
@@ -81,11 +84,19 @@ namespace MackySoft.Ucli.Unity.Ipc
             await writeGate.WaitAsync(cancellationToken);
             try
             {
-                await IpcFrameCodec.WriteModelAsync(
-                    stream,
-                    frame,
-                    IpcJsonSerializerOptions.Default,
-                    cancellationToken: cancellationToken);
+                try
+                {
+                    await IpcFrameCodec.WriteModelAsync(
+                        stream,
+                        frame,
+                        IpcJsonSerializerOptions.Default,
+                        cancellationToken: cancellationToken);
+                }
+                catch (Exception exception) when (exception is IOException or ObjectDisposedException or InvalidOperationException)
+                {
+                    writeFailureHandler?.Invoke(exception);
+                    throw;
+                }
             }
             finally
             {

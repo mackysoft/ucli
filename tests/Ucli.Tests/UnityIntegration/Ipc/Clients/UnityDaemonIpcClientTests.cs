@@ -196,6 +196,35 @@ public sealed class UnityDaemonIpcClientTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task SendStreamingAsync_WhenProgressFrameHandlerFails_RethrowsHandlerException ()
+    {
+        var handlerException = new InvalidOperationException("progress frame rejected");
+        var transportClient = new StubUnityIpcTransportClient();
+        transportClient.EnqueueException(new IpcProgressFrameHandlerException(handlerException));
+        var sessionTokenProvider = new StubDaemonSessionTokenProvider(
+            DaemonSessionTokenResolutionResult.Success("daemon-token"));
+        var client = new UnityDaemonIpcClient(transportClient, sessionTokenProvider);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        {
+            await client.SendStreamingAsync(
+                    CreateContext(),
+                    new UnityIpcDispatchRequest(
+                        IpcMethodNames.OpsRead,
+                        CreateDispatchPayload(),
+                        responseMode: IpcResponseModes.Stream),
+                    TimeSpan.FromSeconds(30),
+                    (_, _) => ValueTask.CompletedTask,
+                    CancellationToken.None)
+                .AsTask();
+        });
+
+        Assert.Same(handlerException, exception);
+        Assert.Equal(1, transportClient.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task SendAsync_WhenRecoverableSessionTokenIsTemporarilyUnavailableDuringRecovery_WaitsAndSendsRecoveredSessionToken ()
     {
         var timeProvider = new ManualTimeProvider();

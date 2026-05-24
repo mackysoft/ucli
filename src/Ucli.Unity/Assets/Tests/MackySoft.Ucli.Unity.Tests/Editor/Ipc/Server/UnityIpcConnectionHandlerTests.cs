@@ -31,6 +31,42 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator StreamFrameWriter_WhenProgressWriteFails_InvokesWriteFailureHandler () => UniTask.ToCoroutine(async () =>
+        {
+            var request = new IpcRequest(
+                ProtocolVersion: IpcProtocol.CurrentVersion,
+                RequestId: "req-stream-write-failure",
+                SessionToken: "token",
+                Method: IpcMethodNames.Shutdown,
+                Payload: JsonSerializer.SerializeToElement(new IpcShutdownRequest("tests")),
+                ResponseMode: IpcResponseModes.Stream);
+            using var stream = new ThrowOnWriteStream();
+            Exception observedFailure = null;
+            var streamWriter = new UnityIpcStreamFrameWriter(
+                stream,
+                request,
+                exception => observedFailure = exception);
+
+            IOException exception = null;
+            try
+            {
+                await streamWriter.WriteProgressAsync(
+                    "test.progress",
+                    new UcliEmptyArgs(),
+                    CancellationToken.None);
+            }
+            catch (IOException writeException)
+            {
+                exception = writeException;
+            }
+
+            Assert.That(exception, Is.Not.Null);
+            Assert.That(exception.Message, Does.Contain("write failed"));
+            Assert.That(observedFailure, Is.SameAs(exception));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Handle_WhenShutdownResponseWritten_ReturnsRequestAndResponse () => UniTask.ToCoroutine(async () =>
         {
             var requestProcessor = new StubRequestProcessor();
@@ -232,5 +268,64 @@ namespace MackySoft.Ucli.Unity.Tests
                 return Task.FromException(new IOException("write failed"));
             }
         }
+
+        private sealed class ThrowOnWriteStream : Stream
+        {
+            public override bool CanRead => false;
+
+            public override bool CanSeek => false;
+
+            public override bool CanWrite => true;
+
+            public override long Length => 0;
+
+            public override long Position
+            {
+                get => 0;
+                set => throw new NotSupportedException();
+            }
+
+            public override void Flush ()
+            {
+            }
+
+            public override int Read (
+                byte[] buffer,
+                int offset,
+                int count)
+            {
+                throw new NotSupportedException();
+            }
+
+            public override long Seek (
+                long offset,
+                SeekOrigin origin)
+            {
+                throw new NotSupportedException();
+            }
+
+            public override void SetLength (long value)
+            {
+                throw new NotSupportedException();
+            }
+
+            public override void Write (
+                byte[] buffer,
+                int offset,
+                int count)
+            {
+                throw new IOException("write failed");
+            }
+
+            public override Task WriteAsync (
+                byte[] buffer,
+                int offset,
+                int count,
+                CancellationToken cancellationToken)
+            {
+                return Task.FromException(new IOException("write failed"));
+            }
+        }
+
     }
 }
