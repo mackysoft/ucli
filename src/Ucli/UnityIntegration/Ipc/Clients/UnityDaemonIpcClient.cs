@@ -1,3 +1,4 @@
+using System.Runtime.ExceptionServices;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
@@ -114,7 +115,7 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
             }
             catch (IpcProgressFrameHandlerException exception)
             {
-                exception.ThrowHandlerException();
+                ExceptionDispatchInfo.Capture(exception.InnerException!).Throw();
                 throw;
             }
             catch (Exception exception)
@@ -226,7 +227,7 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
             }
             catch (IpcProgressFrameHandlerException exception)
             {
-                exception.ThrowHandlerException();
+                ExceptionDispatchInfo.Capture(exception.InnerException!).Throw();
                 throw;
             }
             catch (Exception exception)

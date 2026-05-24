@@ -1,3 +1,4 @@
+using System.Runtime.ExceptionServices;
 using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Logs;
@@ -321,7 +322,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         }
         catch (IpcProgressFrameHandlerException exception)
         {
-            exception.ThrowHandlerException();
+            ExceptionDispatchInfo.Capture(exception.InnerException!).Throw();
             throw;
         }
         catch (Exception exception)

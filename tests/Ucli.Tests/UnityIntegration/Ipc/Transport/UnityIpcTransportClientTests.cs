@@ -241,7 +241,7 @@ public sealed class UnityIpcTransportClientTests
                             (_, _) => throw handlerException)
                         .AsTask();
                 });
-                Assert.Same(handlerException, exception.HandlerException);
+                Assert.Same(handlerException, exception.InnerException);
             });
     }
 
