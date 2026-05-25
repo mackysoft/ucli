@@ -54,7 +54,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 Event: eventName,
                 Payload: IpcPayloadCodec.SerializeToElement(payload),
                 Response: null);
-            await WriteFrameAsync(frame, cancellationToken);
+            await WriteFrameAsync(frame, cancellationToken).ConfigureAwait(false);
         }
 
         /// <inheritdoc />
@@ -74,14 +74,14 @@ namespace MackySoft.Ucli.Unity.Ipc
                 Event: null,
                 Payload: IpcPayloadCodec.SerializeToElement(new UcliEmptyArgs()),
                 Response: response);
-            await WriteFrameAsync(frame, cancellationToken);
+            await WriteFrameAsync(frame, cancellationToken).ConfigureAwait(false);
         }
 
         private async Task WriteFrameAsync (
             IpcStreamFrame frame,
             CancellationToken cancellationToken)
         {
-            await writeGate.WaitAsync(cancellationToken);
+            await writeGate.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
                 try
@@ -90,7 +90,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                         stream,
                         frame,
                         IpcJsonSerializerOptions.Default,
-                        cancellationToken: cancellationToken);
+                        cancellationToken: cancellationToken)
+                        .ConfigureAwait(false);
                 }
                 catch (Exception exception) when (exception is IOException or ObjectDisposedException or InvalidOperationException)
                 {

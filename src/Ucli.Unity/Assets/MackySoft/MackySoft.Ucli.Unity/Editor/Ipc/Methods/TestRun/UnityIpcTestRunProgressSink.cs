@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Testing;
@@ -17,9 +18,13 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private readonly object syncRoot = new object();
 
-        private Task tail = Task.CompletedTask;
+        private readonly Queue<QueuedProgressFrame> pendingFrames = new Queue<QueuedProgressFrame>();
+
+        private Task drainTask = Task.CompletedTask;
         private int pendingFrameCount;
+        private bool drainActive;
         private bool overflowDiagnosticQueued;
+        private Exception? drainFailure;
 
         /// <summary> Initializes a new instance of the <see cref="UnityIpcTestRunProgressSink" /> class. </summary>
         public UnityIpcTestRunProgressSink (
@@ -52,6 +57,13 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             lock (syncRoot)
             {
+                if (drainFailure != null)
+                {
+                    // NOTE: Publish is synchronous and can be called by Unity callbacks after the writer has faulted.
+                    // Keep the first writer failure as the single error surfaced by FlushAsync.
+                    return;
+                }
+
                 if (pendingFrameCount >= MaxPendingFrameCount)
                 {
                     if (overflowDiagnosticQueued)
@@ -68,8 +80,15 @@ namespace MackySoft.Ucli.Unity.Ipc
                         "warning");
                 }
 
+                pendingFrames.Enqueue(new QueuedProgressFrame(eventName, payload));
                 pendingFrameCount++;
-                tail = WriteAfterPreviousAsync(tail, streamWriter, eventName, payload, ReleasePendingFrame, frameWriteCancellationToken);
+                if (!drainActive)
+                {
+                    drainActive = true;
+                    // NOTE: Keep one drain loop instead of chaining one continuation per frame; releasing a backlog
+                    // must not recurse through UnitySynchronizationContext continuations.
+                    drainTask = DrainAsync();
+                }
             }
         }
 
@@ -80,30 +99,50 @@ namespace MackySoft.Ucli.Unity.Ipc
             Task pending;
             lock (syncRoot)
             {
-                pending = tail;
+                pending = drainTask;
             }
 
-            await pending;
+            await pending.ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
         }
 
-        private static async Task WriteAfterPreviousAsync (
-            Task previous,
-            IUnityIpcStreamFrameWriter streamWriter,
-            string eventName,
-            object payload,
-            Action releasePendingFrame,
-            CancellationToken cancellationToken)
+        private async Task DrainAsync ()
         {
             try
             {
-                await previous;
-                cancellationToken.ThrowIfCancellationRequested();
-                await streamWriter.WriteProgressAsync(eventName, payload, cancellationToken);
+                while (true)
+                {
+                    QueuedProgressFrame frame;
+                    lock (syncRoot)
+                    {
+                        if (pendingFrames.Count == 0)
+                        {
+                            drainActive = false;
+                            return;
+                        }
+
+                        frame = pendingFrames.Dequeue();
+                    }
+
+                    try
+                    {
+                        frameWriteCancellationToken.ThrowIfCancellationRequested();
+                        await streamWriter.WriteProgressAsync(
+                                frame.EventName,
+                                frame.Payload,
+                                frameWriteCancellationToken)
+                            .ConfigureAwait(false);
+                    }
+                    finally
+                    {
+                        ReleasePendingFrame();
+                    }
+                }
             }
-            finally
+            catch (Exception exception)
             {
-                releasePendingFrame();
+                ReleaseQueuedFramesAfterFailure(exception);
+                throw;
             }
         }
 
@@ -113,6 +152,32 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 pendingFrameCount--;
             }
+        }
+
+        private void ReleaseQueuedFramesAfterFailure (Exception exception)
+        {
+            lock (syncRoot)
+            {
+                drainFailure ??= exception;
+                pendingFrameCount -= pendingFrames.Count;
+                pendingFrames.Clear();
+                drainActive = false;
+            }
+        }
+
+        private readonly struct QueuedProgressFrame
+        {
+            public QueuedProgressFrame (
+                string eventName,
+                object payload)
+            {
+                EventName = eventName;
+                Payload = payload;
+            }
+
+            public string EventName { get; }
+
+            public object Payload { get; }
         }
     }
 }
