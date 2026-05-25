@@ -1902,7 +1902,7 @@ schema の property に説明文や意味制約を置かない。説明は `inpu
 
 ### `ucli test run`
 
-`ucli test run` は、最後に `stdout` へ `CommandResult` を返す。`--stream` 指定時は、最終 `CommandResult` の前にテスト進捗 entry を `stderr` に出力する。`runId` が確定した場合は最初の entry として `test.run.started` を出力し、`runId` 確定前に失敗した場合はテスト進捗 entry を出力せず、最後の `CommandResult` で失敗を説明する。進捗 entry は progress view であり、最終判定は常に `CommandResult.payload` と artifacts を正とする。
+`ucli test run` は、最後に `stdout` へ `CommandResult` を返す。`runId` 確定後は、最終 `CommandResult` の前にテスト進捗 entry を `stderr` に出力する。`runId` が確定した場合は最初の entry として `test.run.started` を出力し、`runId` 確定前に失敗した場合はテスト進捗 entry を出力せず、最後の `CommandResult` で失敗を説明する。進捗 entry は progress view であり、最終判定は常に `CommandResult.payload` と artifacts を正とする。
 
 | Property | Type | Required | Description |
 | --- | --- | --- | --- |

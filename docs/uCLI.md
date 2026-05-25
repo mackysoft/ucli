@@ -125,7 +125,7 @@ Project context resolution 由来の入力不正は、公開 CLI JSON の envelo
 - uCLI v1 は entry stream の JSONL artifact を自動保存しない。保存が必要な呼び出し側は `stderr` をリダイレクトする
 - 将来 work journal が raw `stderr` や stream NDJSON を保存する場合も、それは公開 `CommandResult.payload` ではなく作業 artifact として扱う
 - `ucli logs unity read` と `ucli logs daemon read` はログ entry stream を出力し、最後に共通 `CommandResult` を返す
-- `ucli test run --stream` はテスト進捗 entry stream を出力し、最後に共通 `CommandResult` を返す
+- `ucli test run` はテスト進捗 entry stream を出力し、最後に共通 `CommandResult` を返す
 - `ucli logs unity clear` は entry stream を持たず、成功時は共通の CLI エンベロープを1件返す
 - `protocolVersion` は最終 `CommandResult`、JSON entry、CLI が生成する内部 execute request、内部 IPC 応答で必須とする。ユーザー入力 JSON リクエストには含めない
 - 公開 CLI host が登録する command は `init`、`status`、`ready`、`refresh`、`compile`、`play`、`resolve`、`query`、`validate`、`plan`、`call`、`verify`、`daemon`、`logs`、`ops`、`codes`、`skills`、`test` である
