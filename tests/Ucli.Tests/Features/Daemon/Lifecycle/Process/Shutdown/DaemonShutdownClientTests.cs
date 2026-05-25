@@ -1,11 +1,10 @@
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
-using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
-namespace MackySoft.Ucli.Tests.Daemon;
-
 using System.Net.Sockets;
-using MackySoft.Ucli.Application.Shared.Context.Project;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
+
+namespace MackySoft.Ucli.Tests.Daemon;
 
 public sealed class DaemonShutdownClientTests
 {
@@ -13,7 +12,7 @@ public sealed class DaemonShutdownClientTests
     [Trait("Size", "Small")]
     public async Task SendShutdown_WhenIpcTimesOut_ReturnsTimeoutFailure ()
     {
-        var client = new DaemonShutdownClient(new StubUnityIpcTransportClient(
+        var client = new DaemonShutdownClient(new StubIpcTransportClient(
             static _ => throw new TimeoutException("ipc timeout")));
 
         var result = await client.SendShutdownAsync(
@@ -32,7 +31,7 @@ public sealed class DaemonShutdownClientTests
     [Trait("Size", "Small")]
     public async Task SendShutdown_WhenSocketConnectionIsRefused_ReturnsNotRunning ()
     {
-        var client = new DaemonShutdownClient(new StubUnityIpcTransportClient(
+        var client = new DaemonShutdownClient(new StubIpcTransportClient(
             static _ => throw new SocketException((int)SocketError.ConnectionRefused)));
 
         var result = await client.SendShutdownAsync(
@@ -50,7 +49,7 @@ public sealed class DaemonShutdownClientTests
     [Trait("Size", "Small")]
     public async Task SendShutdown_WhenSocketConnectionReset_ReturnsFailure ()
     {
-        var client = new DaemonShutdownClient(new StubUnityIpcTransportClient(
+        var client = new DaemonShutdownClient(new StubIpcTransportClient(
             static _ => throw new SocketException((int)SocketError.ConnectionReset)));
 
         var result = await client.SendShutdownAsync(
@@ -77,8 +76,9 @@ public sealed class DaemonShutdownClientTests
             nameof(IpcSessionErrorCodes.SessionTokenInvalid) => IpcSessionErrorCodes.SessionTokenInvalid,
             _ => throw new ArgumentOutOfRangeException(nameof(errorCodeName), errorCodeName, null),
         };
-        var client = new DaemonShutdownClient(new StubUnityIpcTransportClient(
-            request => DaemonServiceTestContext.CreateErrorResponse(request, errorCode, "session rejected")));
+        var transportClient = new StubIpcTransportClient(
+            request => DaemonServiceTestContext.CreateErrorResponse(request, errorCode, "session rejected"));
+        var client = new DaemonShutdownClient(transportClient);
 
         var result = await client.SendShutdownAsync(
             CreateContext("fingerprint-shutdown-auth-rejected"),
@@ -91,6 +91,8 @@ public sealed class DaemonShutdownClientTests
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
         Assert.Contains(errorCode.Value, error.Message, StringComparison.Ordinal);
+        Assert.Equal(IpcTransportKind.NamedPipe, transportClient.LastEndpoint!.TransportKind);
+        Assert.Equal("ucli-daemon-test-endpoint", transportClient.LastEndpoint.Address);
     }
 
     private static ResolvedUnityProjectContext CreateContext (string fingerprint)
@@ -119,35 +121,46 @@ public sealed class DaemonShutdownClientTests
             OwnerProcessId: 9876);
     }
 
-    private sealed class StubUnityIpcTransportClient : IUnityIpcTransportClient
+    private sealed class StubIpcTransportClient : IIpcTransportClient
     {
         private readonly Func<IpcRequest, IpcResponse> responseFactory;
 
-        public StubUnityIpcTransportClient (Func<IpcRequest, IpcResponse> responseFactory)
+        public StubIpcTransportClient (Func<IpcRequest, IpcResponse> responseFactory)
         {
             this.responseFactory = responseFactory;
         }
 
+        public IpcEndpoint? LastEndpoint { get; private set; }
+
         public ValueTask<IpcResponse> SendAsync (
-            string storageRoot,
-            string projectFingerprint,
+            IpcEndpoint endpoint,
             IpcRequest request,
             TimeSpan timeout,
             CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            LastEndpoint = endpoint;
             var response = responseFactory(request);
             return ValueTask.FromResult(response);
         }
 
         public async ValueTask<IpcResponse> SendStreamingAsync (
-            string storageRoot,
-            string projectFingerprint,
+            IpcEndpoint endpoint,
             IpcRequest request,
             TimeSpan timeout,
             Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
             CancellationToken cancellationToken = default)
         {
-            return await SendAsync(storageRoot, projectFingerprint, request, timeout, cancellationToken);
+            return await SendAsync(endpoint, request, timeout, cancellationToken);
+        }
+
+        public ValueTask<IpcResponse> SendWithUnboundedResponseWaitAsync (
+            IpcEndpoint endpoint,
+            IpcRequest request,
+            TimeSpan sendTimeout,
+            CancellationToken cancellationToken = default)
+        {
+            return SendAsync(endpoint, request, sendTimeout, cancellationToken);
         }
     }
 }

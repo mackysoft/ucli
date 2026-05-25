@@ -8,7 +8,7 @@ internal interface IDaemonPingInfoClient
     /// <summary> Sends one ping request to daemon for the specified project context and returns payload values. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="timeout"> The timeout for one ping request. Must be greater than <see cref="TimeSpan.Zero" />. </param>
-    /// <param name="sessionToken"> Optional pre-resolved daemon session token. When <see langword="null" />, implementation resolves token from session storage. </param>
+    /// <param name="sessionToken"> Optional session token override. The daemon endpoint is always resolved from session storage. </param>
     /// <param name="validateProjectFingerprint"> Whether to reject a decoded ping payload whose project fingerprint differs from <paramref name="unityProject" />. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the decoded ping payload. </returns>

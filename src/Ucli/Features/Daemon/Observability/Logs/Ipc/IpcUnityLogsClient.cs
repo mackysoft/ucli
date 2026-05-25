@@ -1,28 +1,21 @@
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Unity;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
+using MackySoft.Ucli.Features.Daemon.Common.Ipc;
 
 namespace MackySoft.Ucli.Features.Daemon.Observability.Logs.Ipc;
 
 /// <summary> Implements Unity-log reads over Unity IPC transport. </summary>
 internal sealed class IpcUnityLogsClient : IUnityLogsClient
 {
-    private readonly IUnityIpcTransportClient transportClient;
-
-    private readonly IDaemonSessionTokenProvider daemonSessionTokenProvider;
+    private readonly IDaemonIpcRequestSender daemonIpcRequestSender;
 
     /// <summary> Initializes a new instance of the <see cref="IpcUnityLogsClient" /> class. </summary>
-    /// <param name="transportClient"> The shared Unity IPC transport client dependency. </param>
-    /// <param name="daemonSessionTokenProvider"> The daemon session-token provider dependency. </param>
-    public IpcUnityLogsClient (
-        IUnityIpcTransportClient transportClient,
-        IDaemonSessionTokenProvider daemonSessionTokenProvider)
+    /// <param name="daemonIpcRequestSender"> The daemon IPC request sender dependency. </param>
+    public IpcUnityLogsClient (IDaemonIpcRequestSender daemonIpcRequestSender)
     {
-        this.transportClient = transportClient ?? throw new ArgumentNullException(nameof(transportClient));
-        this.daemonSessionTokenProvider = daemonSessionTokenProvider ?? throw new ArgumentNullException(nameof(daemonSessionTokenProvider));
+        this.daemonIpcRequestSender = daemonIpcRequestSender ?? throw new ArgumentNullException(nameof(daemonIpcRequestSender));
     }
 
     /// <inheritdoc />
@@ -37,57 +30,29 @@ internal sealed class IpcUnityLogsClient : IUnityLogsClient
         ArgumentNullException.ThrowIfNull(query);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
-        try
+        var sendResult = await daemonIpcRequestSender.SendAsync(
+                unityProject,
+                sessionToken => IpcUnityLogsRequestCodec.CreateRequest(query, sessionToken),
+                timeout,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!sendResult.IsSuccess)
         {
-            var sessionTokenResolutionResult = await daemonSessionTokenProvider.ResolveAsync(unityProject, cancellationToken).ConfigureAwait(false);
-            if (!sessionTokenResolutionResult.IsSuccess)
-            {
-                if (sessionTokenResolutionResult.IsSessionNotAvailable)
-                {
-                    return UnityLogsClientReadResult.Failure(ExecutionError.InternalError(
-                        "Daemon session token is not available."));
-                }
+            return UnityLogsClientReadResult.Failure(ProjectError(sendResult.Error!));
+        }
 
-                return UnityLogsClientReadResult.Failure(ExecutionError.InternalError(
-                    $"Daemon session token could not be resolved. {sessionTokenResolutionResult.Error!.Message}"));
-            }
+        if (!IpcUnityLogsResponseCodec.TryDecode(sendResult.Response!, out var payload, out var decodeError))
+        {
+            return UnityLogsClientReadResult.Failure(decodeError!);
+        }
 
-            var request = IpcUnityLogsRequestCodec.CreateRequest(
-                query,
-                sessionTokenResolutionResult.Token!);
-            var response = await transportClient.SendAsync(
-                    unityProject.RepositoryRoot,
-                    unityProject.ProjectFingerprint,
-                    request,
-                    timeout,
-                    cancellationToken)
-                .ConfigureAwait(false);
+        return UnityLogsClientReadResult.Success(payload!);
+    }
 
-            if (!IpcUnityLogsResponseCodec.TryDecode(response, out var payload, out var decodeError))
-            {
-                return UnityLogsClientReadResult.Failure(decodeError!);
-            }
-
-            return UnityLogsClientReadResult.Success(payload!);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (TimeoutException)
-        {
-            return UnityLogsClientReadResult.Failure(ExecutionError.Timeout(
-                $"Unity logs read request timed out after {timeout.TotalMilliseconds:0} milliseconds."));
-        }
-        catch (Exception exception) when (DaemonProbeExceptionClassifier.IsNotRunning(exception))
-        {
-            return UnityLogsClientReadResult.Failure(ExecutionError.InternalError(
-                $"Unity daemon is not running. {exception.Message}"));
-        }
-        catch (Exception exception)
-        {
-            return UnityLogsClientReadResult.Failure(ExecutionError.InternalError(
-                $"Failed to read Unity logs from Unity daemon. {exception.Message}"));
-        }
+    private static ExecutionError ProjectError (ExecutionError error)
+    {
+        return error.Kind == ExecutionErrorKind.Timeout
+            ? ExecutionError.Timeout($"Unity logs read request timed out. {error.Message}")
+            : error;
     }
 }

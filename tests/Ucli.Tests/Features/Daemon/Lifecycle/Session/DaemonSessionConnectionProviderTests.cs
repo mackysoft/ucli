@@ -1,19 +1,19 @@
+using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Ipc;
+
 namespace MackySoft.Ucli.Tests.Daemon;
 
-using MackySoft.Tests;
-using MackySoft.Ucli.Application.Shared.Context.Project;
-using MackySoft.Ucli.Application.Shared.Foundation;
-
-public sealed class DaemonSessionTokenProviderTests
+public sealed class DaemonSessionConnectionProviderTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Resolve_WhenSessionExists_ReturnsToken ()
+    public async Task Resolve_WhenSessionExists_ReturnsConnection ()
     {
-        using var scope = TestDirectories.CreateTempScope("daemon-session-token-provider", "session-exists");
+        using var scope = TestDirectories.CreateTempScope("daemon-session-connection-provider", "session-exists");
         var store = new DaemonSessionStore(new DaemonSessionJsonSerializer(), new DaemonSessionValidator());
-        var provider = new DaemonSessionTokenProvider(store);
+        var provider = new DaemonSessionConnectionProvider(store);
         var context = CreateContext(scope.FullPath, "fingerprint-session-exists");
 
         var session = CreateSession(context.ProjectFingerprint, "resolved-token");
@@ -23,7 +23,9 @@ public sealed class DaemonSessionTokenProviderTests
         var resolveResult = await provider.ResolveAsync(context, CancellationToken.None);
 
         Assert.True(resolveResult.IsSuccess);
-        Assert.Equal("resolved-token", resolveResult.Token);
+        Assert.Equal("resolved-token", resolveResult.Connection!.SessionToken);
+        Assert.Equal(IpcTransportKind.NamedPipe, resolveResult.Connection.Endpoint.TransportKind);
+        Assert.Equal("ucli-daemon-test", resolveResult.Connection.Endpoint.Address);
         Assert.Null(resolveResult.Error);
     }
 
@@ -31,8 +33,8 @@ public sealed class DaemonSessionTokenProviderTests
     [Trait("Size", "Small")]
     public async Task Resolve_WhenSessionDoesNotExist_ReturnsInvalidArgument ()
     {
-        using var scope = TestDirectories.CreateTempScope("daemon-session-token-provider", "session-missing");
-        var provider = new DaemonSessionTokenProvider(new DaemonSessionStore(new DaemonSessionJsonSerializer(), new DaemonSessionValidator()));
+        using var scope = TestDirectories.CreateTempScope("daemon-session-connection-provider", "session-missing");
+        var provider = new DaemonSessionConnectionProvider(new DaemonSessionStore(new DaemonSessionJsonSerializer(), new DaemonSessionValidator()));
         var context = CreateContext(scope.FullPath, "fingerprint-session-missing");
 
         var resolveResult = await provider.ResolveAsync(context, CancellationToken.None);

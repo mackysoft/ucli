@@ -11,26 +11,26 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
 {
     private const string ProbeClientVersion = "ucli-mode-probe";
 
-    private readonly IUnityIpcTransportClient transportClient;
+    private readonly IIpcTransportClient transportClient;
 
-    private readonly IDaemonSessionTokenProvider daemonSessionTokenProvider;
+    private readonly IDaemonSessionConnectionProvider daemonSessionConnectionProvider;
 
     /// <summary> Initializes a new instance of the <see cref="IpcDaemonPingClient" /> class. </summary>
-    /// <param name="transportClient"> The shared Unity IPC transport client dependency. </param>
-    /// <param name="daemonSessionTokenProvider"> The daemon session token provider dependency. </param>
+    /// <param name="transportClient"> The shared IPC transport client dependency. </param>
+    /// <param name="daemonSessionConnectionProvider"> The daemon session connection provider dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public IpcDaemonPingClient (
-        IUnityIpcTransportClient transportClient,
-        IDaemonSessionTokenProvider daemonSessionTokenProvider)
+        IIpcTransportClient transportClient,
+        IDaemonSessionConnectionProvider daemonSessionConnectionProvider)
     {
         this.transportClient = transportClient ?? throw new ArgumentNullException(nameof(transportClient));
-        this.daemonSessionTokenProvider = daemonSessionTokenProvider ?? throw new ArgumentNullException(nameof(daemonSessionTokenProvider));
+        this.daemonSessionConnectionProvider = daemonSessionConnectionProvider ?? throw new ArgumentNullException(nameof(daemonSessionConnectionProvider));
     }
 
     /// <summary> Sends one ping request and waits for daemon response. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="timeout"> The timeout for one ping request. Must be greater than <see cref="TimeSpan.Zero" />. </param>
-    /// <param name="sessionToken"> Optional pre-resolved daemon session token. When <see langword="null" />, this method resolves token from session storage. </param>
+    /// <param name="sessionToken"> Optional session token override. The daemon endpoint is resolved from session storage. </param>
     /// <param name="validateProjectFingerprint"> Whether to reject a decoded ping payload whose project fingerprint differs from <paramref name="unityProject" />. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that completes when daemon responds. </returns>
@@ -58,7 +58,7 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
     /// <summary> Sends one ping request and returns decoded ping payload values. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="timeout"> The timeout for one ping request. Must be greater than <see cref="TimeSpan.Zero" />. </param>
-    /// <param name="sessionToken"> Optional pre-resolved daemon session token. When <see langword="null" />, this method resolves token from session storage. </param>
+    /// <param name="sessionToken"> Optional session token override. The daemon endpoint is resolved from session storage. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the decoded ping payload. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
@@ -94,7 +94,7 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
     /// <summary> Sends one ping request and returns the raw IPC response envelope. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="timeout"> The timeout for one ping request. Must be greater than <see cref="TimeSpan.Zero" />. </param>
-    /// <param name="sessionToken"> Optional pre-resolved daemon session token. When <see langword="null" />, this method resolves token from session storage. </param>
+    /// <param name="sessionToken"> Optional session token override. The daemon endpoint is resolved from session storage. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the raw ping response. </returns>
     private async ValueTask<IpcResponse> SendPingRequestAsync (
@@ -107,26 +107,49 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         cancellationToken.ThrowIfCancellationRequested();
 
-        var effectiveSessionToken = await ResolveSessionTokenAsync(unityProject, sessionToken, cancellationToken).ConfigureAwait(false);
+        var sessionConnection = await ResolveSessionConnectionAsync(unityProject, cancellationToken).ConfigureAwait(false);
+        var effectiveSessionToken = ResolveSessionToken(sessionToken, sessionConnection.SessionToken);
 
         return await transportClient.SendAsync(
-                unityProject.RepositoryRoot,
-                unityProject.ProjectFingerprint,
+                sessionConnection.Endpoint,
                 CreatePingRequest(effectiveSessionToken),
                 timeout,
                 cancellationToken)
             .ConfigureAwait(false);
     }
 
-    /// <summary> Resolves the effective session token from explicit input or session storage. </summary>
+    /// <summary> Resolves daemon session connection values from session storage. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
-    /// <param name="sessionToken"> The optional explicit session token input. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
-    /// <returns> A task that resolves to the effective session token. </returns>
-    private async ValueTask<string> ResolveSessionTokenAsync (
+    /// <returns> A task that resolves to the daemon session connection values. </returns>
+    private async ValueTask<DaemonSessionConnection> ResolveSessionConnectionAsync (
         ResolvedUnityProjectContext unityProject,
-        string? sessionToken,
         CancellationToken cancellationToken)
+    {
+        var sessionConnectionResult = await daemonSessionConnectionProvider.ResolveAsync(unityProject, cancellationToken).ConfigureAwait(false);
+        if (!sessionConnectionResult.IsSuccess)
+        {
+            if (sessionConnectionResult.IsSessionNotAvailable)
+            {
+                throw new DaemonPingResponseException(
+                    "Daemon session is required.",
+                    IpcSessionErrorCodes.SessionTokenRequired);
+            }
+
+            throw new DaemonPingResponseException(
+                $"Daemon session connection could not be resolved. {sessionConnectionResult.Error!.Message}");
+        }
+
+        return sessionConnectionResult.Connection!;
+    }
+
+    /// <summary> Resolves the effective session token from explicit input or persisted session connection values. </summary>
+    /// <param name="sessionToken"> The optional explicit session token input. </param>
+    /// <param name="persistedSessionToken"> The session token resolved from persisted session metadata. </param>
+    /// <returns> The effective session token. </returns>
+    private static string ResolveSessionToken (
+        string? sessionToken,
+        string persistedSessionToken)
     {
         if (sessionToken != null)
         {
@@ -134,21 +157,7 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
             return sessionToken;
         }
 
-        var sessionTokenResult = await daemonSessionTokenProvider.ResolveAsync(unityProject, cancellationToken).ConfigureAwait(false);
-        if (!sessionTokenResult.IsSuccess)
-        {
-            if (sessionTokenResult.IsSessionNotAvailable)
-            {
-                throw new DaemonPingResponseException(
-                    "Daemon session token is required.",
-                    IpcSessionErrorCodes.SessionTokenRequired);
-            }
-
-            throw new DaemonPingResponseException(
-                $"Daemon session token could not be resolved. {sessionTokenResult.Error!.Message}");
-        }
-
-        return sessionTokenResult.Token!;
+        return persistedSessionToken;
     }
 
     /// <summary> Creates one IPC ping request used for daemon reachability probing. </summary>

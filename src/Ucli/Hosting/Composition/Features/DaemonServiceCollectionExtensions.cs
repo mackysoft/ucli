@@ -19,6 +19,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Launch;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Daemon;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Unity;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
+using MackySoft.Ucli.Features.Daemon.Common.Ipc;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Inventory;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.LaunchAttempts;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Observation;
@@ -41,6 +42,7 @@ internal static class DaemonServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddUcliDaemonLifecycleServices();
+        services.AddSingleton<IDaemonIpcRequestSender, DaemonIpcRequestSender>();
         services.AddUcliDaemonSupervisorServices();
         services.AddUcliDaemonObservabilityServices();
         return services;

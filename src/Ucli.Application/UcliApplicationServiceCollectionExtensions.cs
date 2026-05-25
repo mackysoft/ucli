@@ -177,7 +177,7 @@ public static class UcliApplicationServiceCollectionExtensions
         services.AddSingleton<IDaemonSessionSerializer, DaemonSessionJsonSerializer>();
         services.AddSingleton<IDaemonSessionValidator, DaemonSessionValidator>();
         services.AddSingleton<IDaemonSessionTokenGenerator, DaemonSessionTokenGenerator>();
-        services.AddSingleton<IDaemonSessionTokenProvider, DaemonSessionTokenProvider>();
+        services.AddSingleton<IDaemonSessionConnectionProvider, DaemonSessionConnectionProvider>();
 
         services.AddSingleton<IDaemonSessionCleanupService, DaemonSessionCleanupService>();
         services.AddSingleton<IDaemonExistingSessionGateService, DaemonExistingSessionGateService>();

@@ -16,12 +16,12 @@ public sealed class UnityDaemonIpcClientTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public async Task SendAsync_WhenSuccessful_ResolvesSessionTokenAndDelegatesToTransport ()
+    public async Task SendAsync_WhenSuccessful_ResolvesSessionConnectionAndDelegatesToTransport ()
     {
-        var transportClient = new StubUnityIpcTransportClient();
-        var sessionTokenProvider = new StubDaemonSessionTokenProvider(
-            DaemonSessionTokenResolutionResult.Success("daemon-token"));
-        var client = new UnityDaemonIpcClient(transportClient, sessionTokenProvider);
+        var transportClient = new StubIpcTransportClient();
+        var sessionConnectionProvider = new StubDaemonSessionConnectionProvider(
+            CreateConnectionResult("daemon-token"));
+        var client = new UnityDaemonIpcClient(transportClient, sessionConnectionProvider);
         var response = CreateResponse("req-success");
         transportClient.Response = response;
 
@@ -33,8 +33,9 @@ public sealed class UnityDaemonIpcClientTests
 
         Assert.True(result.IsSuccess);
         AssertUnityResponse(response, result.Response);
-        Assert.Equal(1, sessionTokenProvider.CallCount);
+        Assert.Equal(1, sessionConnectionProvider.CallCount);
         Assert.Equal(1, transportClient.CallCount);
+        Assert.Equal("/tmp/ucli-session.sock", transportClient.Endpoints[0].Address);
         Assert.Equal("daemon-token", transportClient.LastRequest!.SessionToken);
         Assert.Equal(IpcMethodNames.OpsRead, transportClient.LastRequest.Method);
         Assert.Equal(CreateDispatchPayload().GetRawText(), transportClient.LastRequest.Payload.GetRawText());
@@ -60,10 +61,10 @@ public sealed class UnityDaemonIpcClientTests
     [Trait("Size", "Small")]
     public async Task SendAsync_WhenSessionTokenIsNotAvailable_ReturnsFailureWithoutCallingTransport ()
     {
-        var transportClient = new StubUnityIpcTransportClient();
-        var sessionTokenProvider = new StubDaemonSessionTokenProvider(
-            DaemonSessionTokenResolutionResult.SessionNotAvailable());
-        var client = new UnityDaemonIpcClient(transportClient, sessionTokenProvider);
+        var transportClient = new StubIpcTransportClient();
+        var sessionConnectionProvider = new StubDaemonSessionConnectionProvider(
+            DaemonSessionConnectionResolutionResult.SessionNotAvailable());
+        var client = new UnityDaemonIpcClient(transportClient, sessionConnectionProvider);
 
         var result = await client.SendAsync(
             CreateContext(),
@@ -73,7 +74,7 @@ public sealed class UnityDaemonIpcClientTests
 
         Assert.False(result.IsSuccess);
         Assert.Equal(UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, result.ErrorCode);
-        Assert.Equal(1, sessionTokenProvider.CallCount);
+        Assert.Equal(1, sessionConnectionProvider.CallCount);
         Assert.Equal(0, transportClient.CallCount);
     }
 
@@ -81,13 +82,13 @@ public sealed class UnityDaemonIpcClientTests
     [Trait("Size", "Small")]
     public async Task SendAsync_WhenTransportTimesOut_ReturnsIpcTimeout ()
     {
-        var transportClient = new StubUnityIpcTransportClient
+        var transportClient = new StubIpcTransportClient
         {
             Exception = new TimeoutException("timed out"),
         };
-        var sessionTokenProvider = new StubDaemonSessionTokenProvider(
-            DaemonSessionTokenResolutionResult.Success("daemon-token"));
-        var client = new UnityDaemonIpcClient(transportClient, sessionTokenProvider);
+        var sessionConnectionProvider = new StubDaemonSessionConnectionProvider(
+            CreateConnectionResult("daemon-token"));
+        var client = new UnityDaemonIpcClient(transportClient, sessionConnectionProvider);
 
         var result = await client.SendAsync(
             CreateContext(),
@@ -103,13 +104,13 @@ public sealed class UnityDaemonIpcClientTests
     [Trait("Size", "Small")]
     public async Task SendAsync_WhenNonRecoverableDispatchConnectionIsRefused_ReturnsDaemonNotRunningWithoutRetry ()
     {
-        var transportClient = new StubUnityIpcTransportClient
+        var transportClient = new StubIpcTransportClient
         {
             Exception = new SocketException((int)SocketError.ConnectionRefused),
         };
-        var sessionTokenProvider = new StubDaemonSessionTokenProvider(
-            DaemonSessionTokenResolutionResult.Success("daemon-token"));
-        var client = new UnityDaemonIpcClient(transportClient, sessionTokenProvider);
+        var sessionConnectionProvider = new StubDaemonSessionConnectionProvider(
+            CreateConnectionResult("daemon-token"));
+        var client = new UnityDaemonIpcClient(transportClient, sessionConnectionProvider);
 
         var result = await client.SendAsync(
             CreateContext(),
@@ -119,7 +120,7 @@ public sealed class UnityDaemonIpcClientTests
 
         Assert.False(result.IsSuccess);
         Assert.Equal(UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, result.ErrorCode);
-        Assert.Equal(1, sessionTokenProvider.CallCount);
+        Assert.Equal(1, sessionConnectionProvider.CallCount);
         Assert.Equal(1, transportClient.CallCount);
     }
 
@@ -127,13 +128,13 @@ public sealed class UnityDaemonIpcClientTests
     [Trait("Size", "Small")]
     public async Task SendAsync_WhenRecoverableDispatchLosesResponse_RetriesWithSameRequestIdAndReloadedSessionToken ()
     {
-        var transportClient = new StubUnityIpcTransportClient();
+        var transportClient = new StubIpcTransportClient();
         transportClient.EnqueueException(new EndOfStreamException("lost response"));
         transportClient.EnqueueResponse(CreateResponse("req-recovered"));
-        var sessionTokenProvider = new StubDaemonSessionTokenProvider(
-            DaemonSessionTokenResolutionResult.Success("daemon-token-1"),
-            DaemonSessionTokenResolutionResult.Success("daemon-token-2"));
-        var client = new UnityDaemonIpcClient(transportClient, sessionTokenProvider);
+        var sessionConnectionProvider = new StubDaemonSessionConnectionProvider(
+            CreateConnectionResult("daemon-token-1"),
+            CreateConnectionResult("daemon-token-2"));
+        var client = new UnityDaemonIpcClient(transportClient, sessionConnectionProvider);
 
         var result = await client.SendAsync(
             CreateContext(),
@@ -142,7 +143,7 @@ public sealed class UnityDaemonIpcClientTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(2, sessionTokenProvider.CallCount);
+        Assert.Equal(2, sessionConnectionProvider.CallCount);
         Assert.Equal(2, transportClient.CallCount);
         Assert.Equal("daemon-token-1", transportClient.Requests[0].SessionToken);
         Assert.Equal("daemon-token-2", transportClient.Requests[1].SessionToken);
@@ -155,15 +156,15 @@ public sealed class UnityDaemonIpcClientTests
     public async Task SendAsync_WhenRecoverableDispatchConnectionIsRefused_RetriesWithSameRequestIdAndReloadedSessionToken ()
     {
         var timeProvider = new ManualTimeProvider();
-        var transportClient = new StubUnityIpcTransportClient();
+        var transportClient = new StubIpcTransportClient();
         transportClient.EnqueueException(new SocketException((int)SocketError.ConnectionRefused));
         transportClient.EnqueueResponse(CreateResponse("req-recovered"));
-        var sessionTokenProvider = new StubDaemonSessionTokenProvider(
-            DaemonSessionTokenResolutionResult.Success("daemon-token-1"),
-            DaemonSessionTokenResolutionResult.Success("daemon-token-2"));
+        var sessionConnectionProvider = new StubDaemonSessionConnectionProvider(
+            CreateConnectionResult("daemon-token-1"),
+            CreateConnectionResult("daemon-token-2"));
         var client = new UnityDaemonIpcClient(
             transportClient,
-            sessionTokenProvider,
+            sessionConnectionProvider,
             timeProvider: timeProvider);
 
         var sendTask = client.SendAsync(
@@ -178,7 +179,7 @@ public sealed class UnityDaemonIpcClientTests
         var result = await sendTask;
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(2, sessionTokenProvider.CallCount);
+        Assert.Equal(2, sessionConnectionProvider.CallCount);
         Assert.Equal(2, transportClient.CallCount);
         Assert.Equal("daemon-token-1", transportClient.Requests[0].SessionToken);
         Assert.Equal("daemon-token-2", transportClient.Requests[1].SessionToken);
@@ -191,15 +192,15 @@ public sealed class UnityDaemonIpcClientTests
     public async Task SendAsync_WhenRecoverableDispatchConnectionRefusalOutlivesEndpointAbsenceGrace_ReturnsDaemonNotRunning ()
     {
         var timeProvider = new ManualTimeProvider();
-        var transportClient = new StubUnityIpcTransportClient
+        var transportClient = new StubIpcTransportClient
         {
             Exception = new SocketException((int)SocketError.ConnectionRefused),
         };
-        var sessionTokenProvider = new StubDaemonSessionTokenProvider(
-            DaemonSessionTokenResolutionResult.Success("daemon-token"));
+        var sessionConnectionProvider = new StubDaemonSessionConnectionProvider(
+            CreateConnectionResult("daemon-token"));
         var client = new UnityDaemonIpcClient(
             transportClient,
-            sessionTokenProvider,
+            sessionConnectionProvider,
             timeProvider: timeProvider);
 
         var sendTask = client.SendAsync(
@@ -230,15 +231,15 @@ public sealed class UnityDaemonIpcClientTests
     public async Task SendAsync_WhenRecoverableResponseAttemptTimesOutBeforeDeadline_RetriesWithSameRequestId ()
     {
         var timeProvider = new ManualTimeProvider();
-        var transportClient = new StubUnityIpcTransportClient();
+        var transportClient = new StubIpcTransportClient();
         transportClient.EnqueueException(new TimeoutException("response wait timed out"));
         transportClient.EnqueueResponse(CreateResponse("req-recovered"));
-        var sessionTokenProvider = new StubDaemonSessionTokenProvider(
-            DaemonSessionTokenResolutionResult.Success("daemon-token-1"),
-            DaemonSessionTokenResolutionResult.Success("daemon-token-2"));
+        var sessionConnectionProvider = new StubDaemonSessionConnectionProvider(
+            CreateConnectionResult("daemon-token-1"),
+            CreateConnectionResult("daemon-token-2"));
         var client = new UnityDaemonIpcClient(
             transportClient,
-            sessionTokenProvider,
+            sessionConnectionProvider,
             timeProvider: timeProvider);
         var attemptTimeout = TimeSpan.FromMilliseconds(250);
 
@@ -259,7 +260,7 @@ public sealed class UnityDaemonIpcClientTests
         var result = await sendTask;
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(2, sessionTokenProvider.CallCount);
+        Assert.Equal(2, sessionConnectionProvider.CallCount);
         Assert.Equal(2, transportClient.CallCount);
         Assert.Equal("daemon-token-1", transportClient.Requests[0].SessionToken);
         Assert.Equal("daemon-token-2", transportClient.Requests[1].SessionToken);
@@ -272,10 +273,10 @@ public sealed class UnityDaemonIpcClientTests
     [Trait("Size", "Small")]
     public async Task SendStreamingAsync_WhenDispatchIsRecoverable_ReturnsFailureWithoutCallingTransport ()
     {
-        var transportClient = new StubUnityIpcTransportClient();
-        var sessionTokenProvider = new StubDaemonSessionTokenProvider(
-            DaemonSessionTokenResolutionResult.Success("daemon-token"));
-        var client = new UnityDaemonIpcClient(transportClient, sessionTokenProvider);
+        var transportClient = new StubIpcTransportClient();
+        var sessionConnectionProvider = new StubDaemonSessionConnectionProvider(
+            CreateConnectionResult("daemon-token"));
+        var client = new UnityDaemonIpcClient(transportClient, sessionConnectionProvider);
 
         var result = await client.SendStreamingAsync(
             CreateContext(),
@@ -290,7 +291,7 @@ public sealed class UnityDaemonIpcClientTests
 
         Assert.False(result.IsSuccess);
         Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
-        Assert.Equal(0, sessionTokenProvider.CallCount);
+        Assert.Equal(0, sessionConnectionProvider.CallCount);
         Assert.Equal(0, transportClient.CallCount);
     }
 
@@ -299,11 +300,11 @@ public sealed class UnityDaemonIpcClientTests
     public async Task SendStreamingAsync_WhenProgressFrameHandlerFails_RethrowsHandlerException ()
     {
         var handlerException = new InvalidOperationException("progress frame rejected");
-        var transportClient = new StubUnityIpcTransportClient();
+        var transportClient = new StubIpcTransportClient();
         transportClient.EnqueueException(new IpcProgressFrameHandlerException(handlerException));
-        var sessionTokenProvider = new StubDaemonSessionTokenProvider(
-            DaemonSessionTokenResolutionResult.Success("daemon-token"));
-        var client = new UnityDaemonIpcClient(transportClient, sessionTokenProvider);
+        var sessionConnectionProvider = new StubDaemonSessionConnectionProvider(
+            CreateConnectionResult("daemon-token"));
+        var client = new UnityDaemonIpcClient(transportClient, sessionConnectionProvider);
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
@@ -328,7 +329,7 @@ public sealed class UnityDaemonIpcClientTests
     public async Task SendAsync_WhenRecoverableSessionTokenIsTemporarilyUnavailableDuringRecovery_WaitsAndSendsRecoveredSessionToken ()
     {
         var timeProvider = new ManualTimeProvider();
-        var transportClient = new StubUnityIpcTransportClient();
+        var transportClient = new StubIpcTransportClient();
         transportClient.EnqueueResponse(CreateResponse("req-recovered-session"));
         var session = CreateRecoveringSession();
         var recoveryWaiter = new UnityDaemonRecoveryWaiter(
@@ -336,12 +337,12 @@ public sealed class UnityDaemonIpcClientTests
             new StubDaemonLifecycleStore(DaemonLifecycleObservationReadResult.Success(CreateRecoveringObservation(session))),
             new StubDaemonProcessIdentityAssessor(DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess),
             timeProvider);
-        var sessionTokenProvider = new StubDaemonSessionTokenProvider(
-            DaemonSessionTokenResolutionResult.SessionNotAvailable(),
-            DaemonSessionTokenResolutionResult.Success("daemon-token-2"));
+        var sessionConnectionProvider = new StubDaemonSessionConnectionProvider(
+            DaemonSessionConnectionResolutionResult.SessionNotAvailable(),
+            CreateConnectionResult("daemon-token-2"));
         var client = new UnityDaemonIpcClient(
             transportClient,
-            sessionTokenProvider,
+            sessionConnectionProvider,
             recoveryWaiter,
             timeProvider);
 
@@ -357,7 +358,7 @@ public sealed class UnityDaemonIpcClientTests
         var result = await sendTask;
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(2, sessionTokenProvider.CallCount);
+        Assert.Equal(2, sessionConnectionProvider.CallCount);
         Assert.Single(transportClient.Requests);
         Assert.Equal("daemon-token-2", transportClient.Requests[0].SessionToken);
         Assert.StartsWith($"{IpcMethodNames.PlayEnter}-", transportClient.Requests[0].RequestId, StringComparison.Ordinal);
@@ -368,7 +369,7 @@ public sealed class UnityDaemonIpcClientTests
     public async Task SendStreamingAsync_WhenSessionTokenIsTemporarilyUnavailableDuringRecovery_WaitsAndSendsRecoveredSessionToken ()
     {
         var timeProvider = new ManualTimeProvider();
-        var transportClient = new StubUnityIpcTransportClient();
+        var transportClient = new StubIpcTransportClient();
         transportClient.EnqueueResponse(CreateResponse("req-recovered-stream"));
         var session = CreateRecoveringSession();
         var recoveryWaiter = new UnityDaemonRecoveryWaiter(
@@ -376,12 +377,12 @@ public sealed class UnityDaemonIpcClientTests
             new StubDaemonLifecycleStore(DaemonLifecycleObservationReadResult.Success(CreateRecoveringObservation(session))),
             new StubDaemonProcessIdentityAssessor(DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess),
             timeProvider);
-        var sessionTokenProvider = new StubDaemonSessionTokenProvider(
-            DaemonSessionTokenResolutionResult.SessionNotAvailable(),
-            DaemonSessionTokenResolutionResult.Success("daemon-token-2"));
+        var sessionConnectionProvider = new StubDaemonSessionConnectionProvider(
+            DaemonSessionConnectionResolutionResult.SessionNotAvailable(),
+            CreateConnectionResult("daemon-token-2"));
         var client = new UnityDaemonIpcClient(
             transportClient,
-            sessionTokenProvider,
+            sessionConnectionProvider,
             recoveryWaiter,
             timeProvider);
 
@@ -401,7 +402,7 @@ public sealed class UnityDaemonIpcClientTests
         var result = await sendTask;
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(2, sessionTokenProvider.CallCount);
+        Assert.Equal(2, sessionConnectionProvider.CallCount);
         Assert.Single(transportClient.Requests);
         Assert.Equal("daemon-token-2", transportClient.Requests[0].SessionToken);
         Assert.Equal(IpcResponseModes.Stream, transportClient.Requests[0].ResponseMode);
@@ -413,7 +414,7 @@ public sealed class UnityDaemonIpcClientTests
     public async Task SendStreamingAsync_WhenConnectionIsRefusedDuringRecovery_RetriesWithSameRequestIdAndReloadedSessionToken ()
     {
         var timeProvider = new ManualTimeProvider();
-        var transportClient = new StubUnityIpcTransportClient();
+        var transportClient = new StubIpcTransportClient();
         transportClient.EnqueueException(new SocketException((int)SocketError.ConnectionRefused));
         transportClient.EnqueueResponse(CreateResponse("req-recovered-stream"));
         var session = CreateRecoveringSession();
@@ -422,12 +423,12 @@ public sealed class UnityDaemonIpcClientTests
             new StubDaemonLifecycleStore(DaemonLifecycleObservationReadResult.Success(CreateRecoveringObservation(session))),
             new StubDaemonProcessIdentityAssessor(DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess),
             timeProvider);
-        var sessionTokenProvider = new StubDaemonSessionTokenProvider(
-            DaemonSessionTokenResolutionResult.Success("daemon-token-1"),
-            DaemonSessionTokenResolutionResult.Success("daemon-token-2"));
+        var sessionConnectionProvider = new StubDaemonSessionConnectionProvider(
+            CreateConnectionResult("daemon-token-1"),
+            CreateConnectionResult("daemon-token-2"));
         var client = new UnityDaemonIpcClient(
             transportClient,
-            sessionTokenProvider,
+            sessionConnectionProvider,
             recoveryWaiter,
             timeProvider);
 
@@ -447,7 +448,7 @@ public sealed class UnityDaemonIpcClientTests
         var result = await sendTask;
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(2, sessionTokenProvider.CallCount);
+        Assert.Equal(2, sessionConnectionProvider.CallCount);
         Assert.Equal(2, transportClient.CallCount);
         Assert.Equal("daemon-token-1", transportClient.Requests[0].SessionToken);
         Assert.Equal("daemon-token-2", transportClient.Requests[1].SessionToken);
@@ -506,6 +507,13 @@ public sealed class UnityDaemonIpcClientTests
             Errors: Array.Empty<IpcError>());
     }
 
+    private static DaemonSessionConnectionResolutionResult CreateConnectionResult (string sessionToken)
+    {
+        return DaemonSessionConnectionResolutionResult.Success(new DaemonSessionConnection(
+            sessionToken,
+            new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-session.sock")));
+    }
+
     private static DaemonSession CreateRecoveringSession ()
     {
         return new DaemonSession(
@@ -545,9 +553,11 @@ public sealed class UnityDaemonIpcClientTests
         };
     }
 
-    private sealed class StubUnityIpcTransportClient : IUnityIpcTransportClient
+    private sealed class StubIpcTransportClient : IIpcTransportClient
     {
         public int CallCount { get; private set; }
+
+        public List<IpcEndpoint> Endpoints { get; } = new();
 
         public List<IpcRequest> Requests { get; } = new();
 
@@ -574,14 +584,14 @@ public sealed class UnityDaemonIpcClientTests
         }
 
         public ValueTask<IpcResponse> SendAsync (
-            string storageRoot,
-            string projectFingerprint,
+            IpcEndpoint endpoint,
             IpcRequest request,
             TimeSpan timeout,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             CallCount++;
+            Endpoints.Add(endpoint);
             LastRequest = request;
             Requests.Add(request);
             Timeouts.Add(timeout);
@@ -600,34 +610,42 @@ public sealed class UnityDaemonIpcClientTests
         }
 
         public async ValueTask<IpcResponse> SendStreamingAsync (
-            string storageRoot,
-            string projectFingerprint,
+            IpcEndpoint endpoint,
             IpcRequest request,
             TimeSpan timeout,
             Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
             CancellationToken cancellationToken = default)
         {
-            return await SendAsync(storageRoot, projectFingerprint, request, timeout, cancellationToken);
+            return await SendAsync(endpoint, request, timeout, cancellationToken);
+        }
+
+        public ValueTask<IpcResponse> SendWithUnboundedResponseWaitAsync (
+            IpcEndpoint endpoint,
+            IpcRequest request,
+            TimeSpan sendTimeout,
+            CancellationToken cancellationToken = default)
+        {
+            return SendAsync(endpoint, request, sendTimeout, cancellationToken);
         }
     }
 
-    private sealed class StubDaemonSessionTokenProvider : IDaemonSessionTokenProvider
+    private sealed class StubDaemonSessionConnectionProvider : IDaemonSessionConnectionProvider
     {
-        private readonly Queue<DaemonSessionTokenResolutionResult> results;
+        private readonly Queue<DaemonSessionConnectionResolutionResult> results;
 
-        private DaemonSessionTokenResolutionResult lastResult;
+        private DaemonSessionConnectionResolutionResult lastResult;
 
-        public StubDaemonSessionTokenProvider (params DaemonSessionTokenResolutionResult[] results)
+        public StubDaemonSessionConnectionProvider (params DaemonSessionConnectionResolutionResult[] results)
         {
-            this.results = new Queue<DaemonSessionTokenResolutionResult>(results);
+            this.results = new Queue<DaemonSessionConnectionResolutionResult>(results);
             lastResult = results.Length == 0
-                ? DaemonSessionTokenResolutionResult.SessionNotAvailable()
+                ? DaemonSessionConnectionResolutionResult.SessionNotAvailable()
                 : results[^1];
         }
 
         public int CallCount { get; private set; }
 
-        public ValueTask<DaemonSessionTokenResolutionResult> ResolveAsync (
+        public ValueTask<DaemonSessionConnectionResolutionResult> ResolveAsync (
             ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {

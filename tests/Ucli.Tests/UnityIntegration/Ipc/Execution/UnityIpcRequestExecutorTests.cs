@@ -36,7 +36,7 @@ public sealed class UnityIpcRequestExecutorTests
                         "Daemon is not running for mode=daemon."))),
             new StubDaemonPingInfoClient(),
             new StubUnityUcliPluginLocator(),
-            CreateClients(daemonTransportClient, oneshotTransportClient, new StubDaemonSessionTokenProvider(), launcher));
+            CreateClients(daemonTransportClient, oneshotTransportClient, new StubDaemonSessionConnectionProvider(), launcher));
 
         var result = await executor.ExecuteAsync(
             UcliCommandIds.Ops,
@@ -63,9 +63,9 @@ public sealed class UnityIpcRequestExecutorTests
         var response = CreateResponse("req-explicit-daemon");
         var daemonTransportClient = new StubUnityIpcTransportClient(_ => response);
         var oneshotTransportClient = new StubUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Oneshot transport must not be called."));
-        var sessionTokenProvider = new StubDaemonSessionTokenProvider
+        var sessionConnectionProvider = new StubDaemonSessionConnectionProvider
         {
-            Result = DaemonSessionTokenResolutionResult.Success("daemon-token"),
+            Result = CreateConnectionResult("daemon-token"),
         };
         var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(new StubUnityBatchmodeProcessHandle()));
         var modeDecisionService = new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
@@ -81,7 +81,7 @@ public sealed class UnityIpcRequestExecutorTests
             modeDecisionService,
             new StubDaemonPingInfoClient(),
             new StubUnityUcliPluginLocator(),
-            CreateClients(daemonTransportClient, oneshotTransportClient, sessionTokenProvider, launcher));
+            CreateClients(daemonTransportClient, oneshotTransportClient, sessionConnectionProvider, launcher));
 
         var result = await executor.ExecuteAsync(
             UcliCommandIds.Ops,
@@ -96,8 +96,9 @@ public sealed class UnityIpcRequestExecutorTests
         Assert.True(result.IsSuccess);
         AssertUnityResponse(response, result.Response);
         Assert.Equal(1, daemonTransportClient.CallCount);
+        Assert.Equal("/tmp/ucli-session.sock", daemonTransportClient.Endpoints[0].Address);
         Assert.Equal(0, oneshotTransportClient.CallCount);
-        Assert.Equal(1, sessionTokenProvider.CallCount);
+        Assert.Equal(1, sessionConnectionProvider.CallCount);
         Assert.Equal(0, launcher.CallCount);
         Assert.Equal(TimeSpan.Zero, modeDecisionService.LastTimeout);
     }
@@ -123,7 +124,7 @@ public sealed class UnityIpcRequestExecutorTests
             },
             new StubDaemonPingInfoClient(),
             pluginLocator,
-            CreateClients(daemonTransportClient, oneshotTransportClient, new StubDaemonSessionTokenProvider(), launcher));
+            CreateClients(daemonTransportClient, oneshotTransportClient, new StubDaemonSessionConnectionProvider(), launcher));
 
         var result = await executor.ExecuteAsync(
             UcliCommandIds.Ops,
@@ -152,9 +153,9 @@ public sealed class UnityIpcRequestExecutorTests
         var response = CreateResponse("req-daemon");
         var daemonTransportClient = new StubUnityIpcTransportClient(_ => response);
         var oneshotTransportClient = new StubUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Oneshot transport must not be called."));
-        var sessionTokenProvider = new StubDaemonSessionTokenProvider
+        var sessionConnectionProvider = new StubDaemonSessionConnectionProvider
         {
-            Result = DaemonSessionTokenResolutionResult.Success("daemon-token"),
+            Result = CreateConnectionResult("daemon-token"),
         };
         var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(new StubUnityBatchmodeProcessHandle()));
         var pluginLocator = new StubUnityUcliPluginLocator
@@ -171,7 +172,7 @@ public sealed class UnityIpcRequestExecutorTests
                     DefaultTimeout))),
             new StubDaemonPingInfoClient(),
             pluginLocator,
-            CreateClients(daemonTransportClient, oneshotTransportClient, sessionTokenProvider, launcher));
+            CreateClients(daemonTransportClient, oneshotTransportClient, sessionConnectionProvider, launcher));
 
         var result = await executor.ExecuteAsync(
             UcliCommandIds.Ops,
@@ -187,7 +188,7 @@ public sealed class UnityIpcRequestExecutorTests
         AssertUnityResponse(response, result.Response);
         Assert.Equal(1, daemonTransportClient.CallCount);
         Assert.Equal(0, oneshotTransportClient.CallCount);
-        Assert.Equal(1, sessionTokenProvider.CallCount);
+        Assert.Equal(1, sessionConnectionProvider.CallCount);
         Assert.Equal("daemon-token", daemonTransportClient.Requests[0].SessionToken);
         Assert.Equal(0, pluginLocator.CallCount);
         Assert.Equal(0, launcher.CallCount);
@@ -209,9 +210,9 @@ public sealed class UnityIpcRequestExecutorTests
                 EmptyPayload(),
                 Response: null));
         var oneshotTransportClient = new StubUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Oneshot transport must not be called."));
-        var sessionTokenProvider = new StubDaemonSessionTokenProvider
+        var sessionConnectionProvider = new StubDaemonSessionConnectionProvider
         {
-            Result = DaemonSessionTokenResolutionResult.Success("daemon-token"),
+            Result = CreateConnectionResult("daemon-token"),
         };
         var progressFrames = new List<UnityRequestProgressFrame>();
         var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(new StubUnityBatchmodeProcessHandle()));
@@ -224,7 +225,7 @@ public sealed class UnityIpcRequestExecutorTests
                     DefaultTimeout))),
             new StubDaemonPingInfoClient(),
             new StubUnityUcliPluginLocator(),
-            CreateClients(daemonTransportClient, oneshotTransportClient, sessionTokenProvider, launcher));
+            CreateClients(daemonTransportClient, oneshotTransportClient, sessionConnectionProvider, launcher));
 
         var result = await executor.ExecuteAsync(
             UcliCommandIds.Ops,
@@ -261,9 +262,9 @@ public sealed class UnityIpcRequestExecutorTests
         var response = CreateResponse("req-daemon-readiness");
         var daemonTransportClient = new StubUnityIpcTransportClient(_ => response);
         var oneshotTransportClient = new StubUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Oneshot transport must not be called."));
-        var sessionTokenProvider = new StubDaemonSessionTokenProvider
+        var sessionConnectionProvider = new StubDaemonSessionConnectionProvider
         {
-            Result = DaemonSessionTokenResolutionResult.Success("daemon-token"),
+            Result = CreateConnectionResult("daemon-token"),
         };
         var readinessProbe = new StubDaemonPingInfoClient(
             CreatePingPayload(IpcEditorLifecycleStateCodec.Busy, false),
@@ -278,7 +279,7 @@ public sealed class UnityIpcRequestExecutorTests
                     DefaultTimeout))),
             readinessProbe,
             new StubUnityUcliPluginLocator(),
-            CreateClients(daemonTransportClient, oneshotTransportClient, sessionTokenProvider, launcher));
+            CreateClients(daemonTransportClient, oneshotTransportClient, sessionConnectionProvider, launcher));
 
         var result = await executor.ExecuteAsync(
             UcliCommandIds.Ops,
@@ -321,9 +322,9 @@ public sealed class UnityIpcRequestExecutorTests
         });
         var daemonTransportClient = new StubUnityIpcTransportClient(_ => responses.Dequeue());
         var oneshotTransportClient = new StubUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Oneshot transport must not be called."));
-        var sessionTokenProvider = new StubDaemonSessionTokenProvider
+        var sessionConnectionProvider = new StubDaemonSessionConnectionProvider
         {
-            Result = DaemonSessionTokenResolutionResult.Success("daemon-token"),
+            Result = CreateConnectionResult("daemon-token"),
         };
         var readinessProbe = new StubDaemonPingInfoClient(
             CreatePingPayload(IpcEditorLifecycleStateCodec.Ready, true),
@@ -338,7 +339,7 @@ public sealed class UnityIpcRequestExecutorTests
                     DefaultTimeout))),
             readinessProbe,
             new StubUnityUcliPluginLocator(),
-            CreateClients(daemonTransportClient, oneshotTransportClient, sessionTokenProvider, launcher));
+            CreateClients(daemonTransportClient, oneshotTransportClient, sessionConnectionProvider, launcher));
 
         var result = await executor.ExecuteAsync(
             UcliCommandIds.Ops,
@@ -388,7 +389,7 @@ public sealed class UnityIpcRequestExecutorTests
                     DefaultTimeout))),
             readinessProbe,
             new StubUnityUcliPluginLocator(),
-            CreateClients(daemonTransportClient, oneshotTransportClient, new StubDaemonSessionTokenProvider(), launcher));
+            CreateClients(daemonTransportClient, oneshotTransportClient, new StubDaemonSessionConnectionProvider(), launcher));
 
         var result = await executor.ExecuteAsync(
             UcliCommandIds.Ops,
@@ -437,7 +438,7 @@ public sealed class UnityIpcRequestExecutorTests
                     DefaultTimeout))),
             new StubDaemonPingInfoClient(),
             new StubUnityUcliPluginLocator(),
-            CreateClients(daemonTransportClient, oneshotTransportClient, new StubDaemonSessionTokenProvider(), launcher));
+            CreateClients(daemonTransportClient, oneshotTransportClient, new StubDaemonSessionConnectionProvider(), launcher));
 
         var result = await executor.ExecuteAsync(
             UcliCommandIds.Ops,
@@ -478,7 +479,7 @@ public sealed class UnityIpcRequestExecutorTests
                     DefaultTimeout))),
             new StubDaemonPingInfoClient(),
             pluginLocator,
-            CreateClients(daemonTransportClient, oneshotTransportClient, new StubDaemonSessionTokenProvider(), launcher));
+            CreateClients(daemonTransportClient, oneshotTransportClient, new StubDaemonSessionConnectionProvider(), launcher));
 
         var result = await executor.ExecuteAsync(
             UcliCommandIds.Ops,
@@ -519,7 +520,7 @@ public sealed class UnityIpcRequestExecutorTests
                         "Daemon is not running for mode=daemon."))),
             new StubDaemonPingInfoClient(),
             pluginLocator,
-            CreateClients(daemonTransportClient, oneshotTransportClient, new StubDaemonSessionTokenProvider(), launcher));
+            CreateClients(daemonTransportClient, oneshotTransportClient, new StubDaemonSessionConnectionProvider(), launcher));
 
         var result = await executor.ExecuteAsync(
             UcliCommandIds.Ops,
@@ -566,7 +567,7 @@ public sealed class UnityIpcRequestExecutorTests
                     TimeSpan.FromMilliseconds(120)))),
             new StubDaemonPingInfoClient(),
             pluginLocator,
-            CreateClients(daemonTransportClient, oneshotTransportClient, new StubDaemonSessionTokenProvider(), launcher));
+            CreateClients(daemonTransportClient, oneshotTransportClient, new StubDaemonSessionConnectionProvider(), launcher));
 
         var result = await executor.ExecuteAsync(
             UcliCommandIds.Ops,
@@ -612,7 +613,7 @@ public sealed class UnityIpcRequestExecutorTests
             modeDecisionService,
             new StubDaemonPingInfoClient(),
             new StubUnityUcliPluginLocator(),
-            CreateClients(daemonTransportClient, oneshotTransportClient, new StubDaemonSessionTokenProvider(), launcher),
+            CreateClients(daemonTransportClient, oneshotTransportClient, new StubDaemonSessionConnectionProvider(), launcher),
             timeProvider);
 
         var result = await executor.ExecuteAsync(
@@ -636,12 +637,12 @@ public sealed class UnityIpcRequestExecutorTests
     private static IUnityIpcClient[] CreateClients (
         StubUnityIpcTransportClient daemonTransportClient,
         StubUnityIpcTransportClient oneshotTransportClient,
-        StubDaemonSessionTokenProvider sessionTokenProvider,
+        StubDaemonSessionConnectionProvider sessionConnectionProvider,
         StubUnityBatchmodeProcessLauncher launcher)
     {
         return
         [
-            new UnityDaemonIpcClient(daemonTransportClient, sessionTokenProvider),
+            new UnityDaemonIpcClient(daemonTransportClient, sessionConnectionProvider),
             new UnityOneshotIpcClient(
                 launcher,
                 new StubIpcEndpointResolver(new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-oneshot.sock")),
@@ -690,6 +691,13 @@ public sealed class UnityIpcRequestExecutorTests
             Status: IpcProtocol.StatusOk,
             Payload: EmptyPayload(),
             Errors: Array.Empty<IpcError>());
+    }
+
+    private static DaemonSessionConnectionResolutionResult CreateConnectionResult (string sessionToken)
+    {
+        return DaemonSessionConnectionResolutionResult.Success(new DaemonSessionConnection(
+            sessionToken,
+            new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-session.sock")));
     }
 
     private static void AssertUnityResponse (
@@ -786,7 +794,7 @@ public sealed class UnityIpcRequestExecutorTests
         CancellationToken CancellationToken,
         TimeProvider TimeProvider);
 
-    private sealed class StubUnityIpcTransportClient : IUnityIpcTransportClient
+    private sealed class StubUnityIpcTransportClient : IUnityIpcTransportClient, IIpcTransportClient
     {
         private readonly Func<IpcRequest, IpcResponse> responseFactory;
         private readonly Func<IpcRequest, IpcStreamFrame?>? progressFrameFactory;
@@ -801,7 +809,20 @@ public sealed class UnityIpcRequestExecutorTests
 
         public int CallCount { get; private set; }
 
+        public List<IpcEndpoint> Endpoints { get; } = new List<IpcEndpoint>();
+
         public List<IpcRequest> Requests { get; } = new List<IpcRequest>();
+
+        public ValueTask<IpcResponse> SendAsync (
+            IpcEndpoint endpoint,
+            IpcRequest request,
+            TimeSpan timeout,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Endpoints.Add(endpoint);
+            return SendCoreAsync(request);
+        }
 
         public ValueTask<IpcResponse> SendAsync (
             string storageRoot,
@@ -811,9 +832,24 @@ public sealed class UnityIpcRequestExecutorTests
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            CallCount++;
-            Requests.Add(request);
-            return ValueTask.FromResult(responseFactory(request));
+            return SendCoreAsync(request);
+        }
+
+        public async ValueTask<IpcResponse> SendStreamingAsync (
+            IpcEndpoint endpoint,
+            IpcRequest request,
+            TimeSpan timeout,
+            Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Endpoints.Add(endpoint);
+            if (progressFrameFactory?.Invoke(request) is { } progressFrame)
+            {
+                await onProgressFrame(progressFrame, cancellationToken).ConfigureAwait(false);
+            }
+
+            return await SendCoreAsync(request).ConfigureAwait(false);
         }
 
         public async ValueTask<IpcResponse> SendStreamingAsync (
@@ -831,16 +867,34 @@ public sealed class UnityIpcRequestExecutorTests
 
             return await SendAsync(storageRoot, projectFingerprint, request, timeout, cancellationToken);
         }
+
+        public ValueTask<IpcResponse> SendWithUnboundedResponseWaitAsync (
+            IpcEndpoint endpoint,
+            IpcRequest request,
+            TimeSpan sendTimeout,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Endpoints.Add(endpoint);
+            return SendCoreAsync(request);
+        }
+
+        private ValueTask<IpcResponse> SendCoreAsync (IpcRequest request)
+        {
+            CallCount++;
+            Requests.Add(request);
+            return ValueTask.FromResult(responseFactory(request));
+        }
     }
 
-    private sealed class StubDaemonSessionTokenProvider : IDaemonSessionTokenProvider
+    private sealed class StubDaemonSessionConnectionProvider : IDaemonSessionConnectionProvider
     {
         public int CallCount { get; private set; }
 
-        public DaemonSessionTokenResolutionResult Result { get; set; }
-            = DaemonSessionTokenResolutionResult.SessionNotAvailable();
+        public DaemonSessionConnectionResolutionResult Result { get; set; }
+            = DaemonSessionConnectionResolutionResult.SessionNotAvailable();
 
-        public ValueTask<DaemonSessionTokenResolutionResult> ResolveAsync (
+        public ValueTask<DaemonSessionConnectionResolutionResult> ResolveAsync (
             ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {

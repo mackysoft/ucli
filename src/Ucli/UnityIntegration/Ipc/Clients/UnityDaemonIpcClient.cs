@@ -17,9 +17,9 @@ namespace MackySoft.Ucli.UnityIntegration.Ipc.Clients;
 /// <summary> Sends one IPC request through the running Unity daemon. </summary>
 internal sealed class UnityDaemonIpcClient : IUnityIpcClient
 {
-    private readonly IUnityIpcTransportClient transportClient;
+    private readonly IIpcTransportClient transportClient;
 
-    private readonly IDaemonSessionTokenProvider daemonSessionTokenProvider;
+    private readonly IDaemonSessionConnectionProvider daemonSessionConnectionProvider;
 
     private readonly UnityDaemonRecoveryWaiter? recoveryWaiter;
 
@@ -27,17 +27,17 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
 
     /// <summary> Initializes a new instance of the <see cref="UnityDaemonIpcClient" /> class. </summary>
     /// <param name="transportClient"> The shared transport client dependency. </param>
-    /// <param name="daemonSessionTokenProvider"> The daemon session-token provider dependency. </param>
+    /// <param name="daemonSessionConnectionProvider"> The daemon session connection provider dependency. </param>
     /// <param name="recoveryWaiter"> The daemon lifecycle recovery waiter dependency. </param>
     /// <param name="timeProvider"> The time provider used for retry deadlines and delays. </param>
     public UnityDaemonIpcClient (
-        IUnityIpcTransportClient transportClient,
-        IDaemonSessionTokenProvider daemonSessionTokenProvider,
+        IIpcTransportClient transportClient,
+        IDaemonSessionConnectionProvider daemonSessionConnectionProvider,
         UnityDaemonRecoveryWaiter? recoveryWaiter = null,
         TimeProvider? timeProvider = null)
     {
         this.transportClient = transportClient ?? throw new ArgumentNullException(nameof(transportClient));
-        this.daemonSessionTokenProvider = daemonSessionTokenProvider ?? throw new ArgumentNullException(nameof(daemonSessionTokenProvider));
+        this.daemonSessionConnectionProvider = daemonSessionConnectionProvider ?? throw new ArgumentNullException(nameof(daemonSessionConnectionProvider));
         this.recoveryWaiter = recoveryWaiter;
         this.timeProvider = timeProvider ?? TimeProvider.System;
     }
@@ -73,8 +73,8 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
                     $"Unity daemon IPC request timed out after {timeout.TotalMilliseconds:0} milliseconds."));
             }
 
-            var sessionTokenResult = await daemonSessionTokenProvider.ResolveAsync(unityProject, cancellationToken).ConfigureAwait(false);
-            if (!sessionTokenResult.IsSuccess)
+            var sessionConnectionResult = await daemonSessionConnectionProvider.ResolveAsync(unityProject, cancellationToken).ConfigureAwait(false);
+            if (!sessionConnectionResult.IsSuccess)
             {
                 if (dispatchRequest.IsRecoverable
                     && recoveryWaiter != null
@@ -83,25 +83,25 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
                     continue;
                 }
 
-                if (sessionTokenResult.IsSessionNotAvailable)
+                if (sessionConnectionResult.IsSessionNotAvailable)
                 {
                     return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.FromCodeAndMessage(
                         UnityExecutionModeDecisionErrorCodes.DaemonNotRunning,
-                        "Daemon session token is not available."));
+                        DaemonSessionConnectionResolutionResult.SessionNotAvailableMessage));
                 }
 
                 return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.InternalError(
-                    $"Daemon session token could not be resolved. {sessionTokenResult.Error!.Message}"));
+                    $"Daemon session connection could not be resolved. {sessionConnectionResult.Error!.Message}"));
             }
 
             try
             {
+                var sessionConnection = sessionConnectionResult.Connection!;
                 var attemptTimeout = ResolveAttemptTimeout(dispatchRequest, remainingTimeout);
                 var response = await transportClient.SendAsync(
-                        unityProject.RepositoryRoot,
-                        unityProject.ProjectFingerprint,
+                        sessionConnection.Endpoint,
                         UnityIpcRequestFactory.Create(
-                            sessionTokenResult.Token!,
+                            sessionConnection.SessionToken,
                             dispatchRequest,
                             requestId,
                             remainingTimeout),
@@ -193,8 +193,8 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
                     $"Unity daemon IPC request timed out after {timeout.TotalMilliseconds:0} milliseconds."));
             }
 
-            var sessionTokenResult = await daemonSessionTokenProvider.ResolveAsync(unityProject, cancellationToken).ConfigureAwait(false);
-            if (!sessionTokenResult.IsSuccess)
+            var sessionConnectionResult = await daemonSessionConnectionProvider.ResolveAsync(unityProject, cancellationToken).ConfigureAwait(false);
+            if (!sessionConnectionResult.IsSuccess)
             {
                 if (recoveryWaiter != null
                     && await recoveryWaiter.DelayIfRecoveringAsync(unityProject, deadline, cancellationToken).ConfigureAwait(false))
@@ -202,25 +202,25 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
                     continue;
                 }
 
-                if (sessionTokenResult.IsSessionNotAvailable)
+                if (sessionConnectionResult.IsSessionNotAvailable)
                 {
                     return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.FromCodeAndMessage(
                         UnityExecutionModeDecisionErrorCodes.DaemonNotRunning,
-                        "Daemon session token is not available."));
+                        DaemonSessionConnectionResolutionResult.SessionNotAvailableMessage));
                 }
 
                 return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.InternalError(
-                    $"Daemon session token could not be resolved. {sessionTokenResult.Error!.Message}"));
+                    $"Daemon session connection could not be resolved. {sessionConnectionResult.Error!.Message}"));
             }
 
             try
             {
+                var sessionConnection = sessionConnectionResult.Connection!;
                 var attemptTimeout = ResolveAttemptTimeout(dispatchRequest, remainingTimeout);
                 var response = await transportClient.SendStreamingAsync(
-                        unityProject.RepositoryRoot,
-                        unityProject.ProjectFingerprint,
+                        sessionConnection.Endpoint,
                         UnityIpcRequestFactory.Create(
-                            sessionTokenResult.Token!,
+                            sessionConnection.SessionToken,
                             dispatchRequest,
                             requestId,
                             remainingTimeout),

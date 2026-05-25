@@ -69,7 +69,7 @@ public sealed class TestOwnershipBoundaryTests
         var allowedHostIntegrationTestPaths = new HashSet<string>(StringComparer.Ordinal)
         {
             "tests/Ucli.Tests/Features/Daemon/Lifecycle/Cleanup/DaemonCleanupOperationTests.cs",
-            "tests/Ucli.Tests/Features/Daemon/Lifecycle/Session/DaemonSessionTokenProviderTests.cs",
+            "tests/Ucli.Tests/Features/Daemon/Lifecycle/Session/DaemonSessionConnectionProviderTests.cs",
             "tests/Ucli.Tests/Features/Daemon/Lifecycle/Status/DaemonStatusOperationTests.cs",
             "tests/Ucli.Tests/Features/Daemon/Observability/Logs/Daemon/LogsDaemonServiceTests.cs",
             "tests/Ucli.Tests/Features/Daemon/Observability/Logs/Unity/LogsUnityServiceTests.cs",

@@ -81,6 +81,7 @@ public sealed class UnityIpcRequestBuilderTests
 
         Assert.Equal(IpcMethodNames.PlayEnter, request.Method);
         Assert.True(request.IsRecoverable);
+        Assert.Equal(TimeSpan.FromMilliseconds(1000), request.RecoverableResponseAttemptTimeout);
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcPlayEnterRequest payload, out _));
         Assert.Equal(1500, payload.TimeoutMilliseconds);
         Assert.Empty(request.AllowedStartupLifecycleStates);
