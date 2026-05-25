@@ -97,15 +97,13 @@ internal static class CliProcessRunner
         var started = process.Start();
         Assert.True(started, "Failed to start ucli process.");
 
-        if (standardInput is not null)
-        {
-            await process.StandardInput.WriteAsync(standardInput);
-            await process.StandardInput.FlushAsync();
-            process.StandardInput.Close();
-        }
-
         var stdOutTask = process.StandardOutput.ReadToEndAsync();
         var stdErrTask = process.StandardError.ReadToEndAsync();
+
+        if (standardInput is not null)
+        {
+            await WriteStandardInputAsync(process, standardInput).ConfigureAwait(false);
+        }
 
         using var timeoutCts = new CancellationTokenSource(processTimeout);
         try
@@ -126,5 +124,29 @@ internal static class CliProcessRunner
             ExitCode: process.ExitCode,
             StdOut: await stdOutTask,
             StdErr: await stdErrTask);
+    }
+
+    private static async Task WriteStandardInputAsync (
+        Process process,
+        string standardInput)
+    {
+        try
+        {
+            await process.StandardInput.WriteAsync(standardInput).ConfigureAwait(false);
+            await process.StandardInput.FlushAsync().ConfigureAwait(false);
+        }
+        catch (IOException)
+        {
+            // NOTE: Some parser-error paths exit before reading stdin. The command result,
+            // stdout, stderr, and exit code remain the contract under test.
+        }
+        catch (ObjectDisposedException)
+        {
+            // NOTE: See the IOException path above.
+        }
+        finally
+        {
+            process.StandardInput.Close();
+        }
     }
 }
