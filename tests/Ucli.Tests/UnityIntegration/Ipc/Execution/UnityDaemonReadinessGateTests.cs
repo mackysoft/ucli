@@ -421,5 +421,15 @@ public sealed class UnityDaemonReadinessGateTests
 
             return ValueTask.FromResult(results.Dequeue());
         }
+
+        public async ValueTask<UnityRequestExecutionResult> SendStreamingAsync (
+            ResolvedUnityProjectContext unityProject,
+            UnityIpcDispatchRequest dispatchRequest,
+            TimeSpan timeout,
+            Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
+            CancellationToken cancellationToken = default)
+        {
+            return await SendAsync(unityProject, dispatchRequest, timeout, cancellationToken);
+        }
     }
 }

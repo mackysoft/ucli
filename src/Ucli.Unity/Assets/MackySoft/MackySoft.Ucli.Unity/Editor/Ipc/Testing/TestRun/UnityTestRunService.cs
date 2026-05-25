@@ -48,12 +48,14 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         /// <summary> Executes one daemon <c>test.run</c> request and returns IPC response payload. </summary>
         /// <param name="request"> The decoded request payload. </param>
+        /// <param name="progressSink"> The optional sink that receives live test progress entries. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by caller. </param>
         /// <returns> The response payload. </returns>
         /// <exception cref="ArgumentException"> Thrown when request payload violates contract. </exception>
         /// <exception cref="InvalidOperationException"> Thrown when run artifacts cannot be produced. </exception>
         public async Task<UnityTestRunServiceResult> ExecuteAsync (
             IpcTestRunRequest request,
+            IUnityTestRunProgressSink progressSink = null,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -71,7 +73,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             var startOffset = GetFileLengthOrZero(requestContext.ConsoleLogPath);
             var testResult = await mainThreadRequestExecutor.ExecuteAsync(
-                () => unityTestRunner.RunAsync(requestContext, cancellationToken),
+                () => unityTestRunner.RunAsync(requestContext, progressSink, cancellationToken),
                 cancellationToken).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
             var endOffset = GetFileLengthOrZero(requestContext.ConsoleLogPath);

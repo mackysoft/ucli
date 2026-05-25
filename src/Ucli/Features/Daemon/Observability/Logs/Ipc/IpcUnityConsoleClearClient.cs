@@ -1,27 +1,20 @@
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Unity;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
+using MackySoft.Ucli.Features.Daemon.Common.Ipc;
 
 namespace MackySoft.Ucli.Features.Daemon.Observability.Logs.Ipc;
 
 /// <summary> Implements Unity Editor Console clear over Unity IPC transport. </summary>
 internal sealed class IpcUnityConsoleClearClient : IUnityConsoleClearClient
 {
-    private readonly IUnityIpcTransportClient transportClient;
-
-    private readonly IDaemonSessionTokenProvider daemonSessionTokenProvider;
+    private readonly IDaemonIpcRequestSender daemonIpcRequestSender;
 
     /// <summary> Initializes a new instance of the <see cref="IpcUnityConsoleClearClient" /> class. </summary>
-    /// <param name="transportClient"> The shared Unity IPC transport client dependency. </param>
-    /// <param name="daemonSessionTokenProvider"> The daemon session-token provider dependency. </param>
-    public IpcUnityConsoleClearClient (
-        IUnityIpcTransportClient transportClient,
-        IDaemonSessionTokenProvider daemonSessionTokenProvider)
+    /// <param name="daemonIpcRequestSender"> The daemon IPC request sender dependency. </param>
+    public IpcUnityConsoleClearClient (IDaemonIpcRequestSender daemonIpcRequestSender)
     {
-        this.transportClient = transportClient ?? throw new ArgumentNullException(nameof(transportClient));
-        this.daemonSessionTokenProvider = daemonSessionTokenProvider ?? throw new ArgumentNullException(nameof(daemonSessionTokenProvider));
+        this.daemonIpcRequestSender = daemonIpcRequestSender ?? throw new ArgumentNullException(nameof(daemonIpcRequestSender));
     }
 
     /// <inheritdoc />
@@ -34,55 +27,29 @@ internal sealed class IpcUnityConsoleClearClient : IUnityConsoleClearClient
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
-        try
+        var sendResult = await daemonIpcRequestSender.SendAsync(
+                unityProject,
+                IpcUnityConsoleClearRequestCodec.CreateRequest,
+                timeout,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!sendResult.IsSuccess)
         {
-            var sessionTokenResolutionResult = await daemonSessionTokenProvider.ResolveAsync(unityProject, cancellationToken).ConfigureAwait(false);
-            if (!sessionTokenResolutionResult.IsSuccess)
-            {
-                if (sessionTokenResolutionResult.IsSessionNotAvailable)
-                {
-                    return UnityConsoleClearClientResult.Failure(ExecutionError.InternalError(
-                        "Daemon session token is not available."));
-                }
+            return UnityConsoleClearClientResult.Failure(ProjectError(sendResult.Error!));
+        }
 
-                return UnityConsoleClearClientResult.Failure(ExecutionError.InternalError(
-                    $"Daemon session token could not be resolved. {sessionTokenResolutionResult.Error!.Message}"));
-            }
+        if (!IpcUnityConsoleClearResponseCodec.TryDecode(sendResult.Response!, out var decodeError))
+        {
+            return UnityConsoleClearClientResult.Failure(decodeError!);
+        }
 
-            var request = IpcUnityConsoleClearRequestCodec.CreateRequest(sessionTokenResolutionResult.Token!);
-            var response = await transportClient.SendAsync(
-                    unityProject.RepositoryRoot,
-                    unityProject.ProjectFingerprint,
-                    request,
-                    timeout,
-                    cancellationToken)
-                .ConfigureAwait(false);
+        return UnityConsoleClearClientResult.Success();
+    }
 
-            if (!IpcUnityConsoleClearResponseCodec.TryDecode(response, out var decodeError))
-            {
-                return UnityConsoleClearClientResult.Failure(decodeError!);
-            }
-
-            return UnityConsoleClearClientResult.Success();
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (TimeoutException)
-        {
-            return UnityConsoleClearClientResult.Failure(ExecutionError.Timeout(
-                $"Unity Console clear request timed out after {timeout.TotalMilliseconds:0} milliseconds."));
-        }
-        catch (Exception exception) when (DaemonProbeExceptionClassifier.IsNotRunning(exception))
-        {
-            return UnityConsoleClearClientResult.Failure(ExecutionError.InternalError(
-                $"Unity daemon is not running. {exception.Message}"));
-        }
-        catch (Exception exception)
-        {
-            return UnityConsoleClearClientResult.Failure(ExecutionError.InternalError(
-                $"Failed to clear Unity Console through Unity daemon. {exception.Message}"));
-        }
+    private static ExecutionError ProjectError (ExecutionError error)
+    {
+        return error.Kind == ExecutionErrorKind.Timeout
+            ? ExecutionError.Timeout($"Unity Console clear request timed out. {error.Message}")
+            : error;
     }
 }

@@ -14,5 +14,15 @@ namespace MackySoft.Ucli.Unity.Ipc
         Task<IpcResponse> ProcessAsync (
             IpcRequest request,
             CancellationToken cancellationToken = default);
+
+        /// <summary> Processes one IPC request and allows progress frame output before the terminal response. </summary>
+        /// <param name="request"> The incoming IPC request envelope. </param>
+        /// <param name="streamWriter"> The progress frame writer for the request. </param>
+        /// <param name="cancellationToken"> The cancellation token propagated by host execution. </param>
+        /// <returns> The terminal response envelope for the request. </returns>
+        Task<IpcResponse> ProcessStreamingAsync (
+            IpcRequest request,
+            IUnityIpcStreamFrameWriter streamWriter,
+            CancellationToken cancellationToken = default);
     }
 }

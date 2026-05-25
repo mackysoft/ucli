@@ -17,6 +17,8 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private Socket activeListenerSocket;
 
+        private UnityIpcTransportConnectionGroup activeConnectionGroup;
+
         /// <summary> Initializes a new instance of the <see cref="UnixDomainSocketUnityIpcTransportListener" /> class. </summary>
         /// <param name="daemonLogger"> The daemon daemon-logger dependency. </param>
         public UnixDomainSocketUnityIpcTransportListener (IDaemonLogger daemonLogger = null)
@@ -70,9 +72,11 @@ namespace MackySoft.Ucli.Unity.Ipc
             accessBoundary.HardenBoundSocket();
             listener.Listen(8);
 
+            var connectionGroup = new UnityIpcTransportConnectionGroup(daemonLogger);
             lock (syncRoot)
             {
                 activeListenerSocket = listener;
+                activeConnectionGroup = connectionGroup;
             }
 
             onStarted();
@@ -85,14 +89,12 @@ namespace MackySoft.Ucli.Unity.Ipc
 
                     try
                     {
-                        UnityIpcConnectionHandleResult result;
-                        using (var acceptedSocket = await listener.AcceptAsync())
-                        using (var networkStream = new NetworkStream(acceptedSocket, ownsSocket: false))
-                        {
-                            result = await connectionHandler.HandleAsync(networkStream, cancellationToken);
-                        }
-
-                        onConnectionCompleted(result);
+                        var acceptedConnection = new AcceptedUnixDomainSocketConnection(await listener.AcceptAsync());
+                        connectionGroup.Start(
+                            acceptedConnection,
+                            () => connectionHandler.HandleAsync(acceptedConnection.Stream, cancellationToken),
+                            onConnectionCompleted,
+                            cancellationToken);
                     }
                     catch (OperationCanceledException)
                     {
@@ -112,11 +114,19 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
             finally
             {
+                connectionGroup.Release();
+                await connectionGroup.WaitForCompletionAsync();
+
                 lock (syncRoot)
                 {
                     if (ReferenceEquals(activeListenerSocket, listener))
                     {
                         activeListenerSocket = null;
+                    }
+
+                    if (ReferenceEquals(activeConnectionGroup, connectionGroup))
+                    {
+                        activeConnectionGroup = null;
                     }
                 }
 
@@ -127,6 +137,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <summary> Releases active transport handles to unblock accept loops. </summary>
         public void Release ()
         {
+            UnityIpcTransportConnectionGroup connectionGroup;
             lock (syncRoot)
             {
                 if (activeListenerSocket != null)
@@ -134,8 +145,52 @@ namespace MackySoft.Ucli.Unity.Ipc
                     activeListenerSocket.Dispose();
                     activeListenerSocket = null;
                 }
+
+                connectionGroup = activeConnectionGroup;
             }
+
+            connectionGroup?.Release();
         }
 
+        private sealed class AcceptedUnixDomainSocketConnection : IDisposable
+        {
+            private readonly Socket socket;
+
+            private readonly NetworkStream stream;
+
+            private int disposed;
+
+            public AcceptedUnixDomainSocketConnection (Socket socket)
+            {
+                this.socket = socket ?? throw new ArgumentNullException(nameof(socket));
+                stream = new NetworkStream(socket, ownsSocket: false);
+            }
+
+            public Stream Stream => stream;
+
+            public void Dispose ()
+            {
+                if (Interlocked.Exchange(ref disposed, 1) != 0)
+                {
+                    return;
+                }
+
+                try
+                {
+                    stream.Dispose();
+                }
+                catch (Exception exception) when (exception is ObjectDisposedException or IOException or SocketException or InvalidOperationException)
+                {
+                }
+
+                try
+                {
+                    socket.Dispose();
+                }
+                catch (Exception exception) when (exception is ObjectDisposedException or SocketException or InvalidOperationException)
+                {
+                }
+            }
+        }
     }
 }

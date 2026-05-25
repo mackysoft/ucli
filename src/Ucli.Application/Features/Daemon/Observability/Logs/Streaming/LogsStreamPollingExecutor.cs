@@ -21,6 +21,7 @@ internal static class LogsStreamPollingExecutor
         Func<TQuery, string, TQuery> withAfter,
         Func<TResponse, IReadOnlyList<TEvent>> getEvents,
         Func<TResponse, string> getNextCursor,
+        Func<TEvent, string> getEventCursor,
         Func<TEvent, string, CancellationToken, ValueTask> onEvent,
         IDaemonLogsStreamTerminationPolicy streamTerminationPolicy,
         Func<TEvent, string> getTimestamp,
@@ -37,6 +38,7 @@ internal static class LogsStreamPollingExecutor
         ArgumentNullException.ThrowIfNull(withAfter);
         ArgumentNullException.ThrowIfNull(getEvents);
         ArgumentNullException.ThrowIfNull(getNextCursor);
+        ArgumentNullException.ThrowIfNull(getEventCursor);
         ArgumentNullException.ThrowIfNull(onEvent);
         ArgumentNullException.ThrowIfNull(streamTerminationPolicy);
         ArgumentNullException.ThrowIfNull(getTimestamp);
@@ -55,60 +57,97 @@ internal static class LogsStreamPollingExecutor
         var executionContext = contextResolutionResult.Context!;
         var query = initialQuery;
         var lastEventTimestamp = DateTimeOffset.UtcNow;
+        var emittedCount = 0;
+        string? latestNextCursor = null;
 
-        while (true)
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            var readResult = await read(
-                    executionContext.Context.UnityProject,
-                    query,
-                    executionContext.Timeout,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            var error = getError(readResult);
-            if (error is not null)
+            while (true)
             {
-                return LogsReadServiceResult.Failure(error);
-            }
+                cancellationToken.ThrowIfCancellationRequested();
 
-            var response = getResponse(readResult);
-            if (response is null)
-            {
-                return LogsReadServiceResult.Failure(ExecutionError.InternalError(
-                    "Log read client returned neither a response payload nor an error."));
-            }
-            var events = getEvents(response);
-            if (events.Count > 0)
-            {
-                lastEventTimestamp = DateTimeOffset.UtcNow;
-            }
+                var readResult = await read(
+                        executionContext.Context.UnityProject,
+                        query,
+                        executionContext.Timeout,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                var error = getError(readResult);
+                if (error is not null)
+                {
+                    if (stream && error.Kind == ExecutionErrorKind.Timeout)
+                    {
+                        // NOTE: In stream mode, one bounded poll can time out while no matching log entries exist.
+                        // Treat it as an empty poll and let the stream termination policy decide whether idleTimeout
+                        // or untilReached has been reached; bounded non-stream reads still surface the timeout.
+                        var timeoutStopReason = streamTerminationPolicy.GetStopReason(
+                            Array.Empty<TEvent>(),
+                            DateTimeOffset.UtcNow,
+                            streamOptions.UntilTimestamp,
+                            lastEventTimestamp,
+                            streamOptions.IdleTimeout,
+                            getTimestamp);
+                        if (timeoutStopReason is not null)
+                        {
+                            return LogsReadServiceResult.Success(emittedCount, latestNextCursor, timeoutStopReason);
+                        }
 
-            var nextCursor = getNextCursor(response);
-            foreach (var logEvent in events)
-            {
-                await onEvent(logEvent, nextCursor, cancellationToken).ConfigureAwait(false);
-            }
+                        await Task.Delay(streamOptions.PollInterval, cancellationToken).ConfigureAwait(false);
+                        continue;
+                    }
 
-            if (!stream)
-            {
-                return LogsReadServiceResult.Success();
-            }
+                    return LogsReadServiceResult.Failure(error, emittedCount, latestNextCursor);
+                }
 
-            var now = DateTimeOffset.UtcNow;
-            if (streamTerminationPolicy.ShouldStop(
+                var response = getResponse(readResult);
+                if (response is null)
+                {
+                    return LogsReadServiceResult.Failure(
+                        ExecutionError.InternalError("Log read client returned neither a response payload nor an error."),
+                        emittedCount,
+                        latestNextCursor);
+                }
+                var events = getEvents(response);
+                if (events.Count > 0)
+                {
+                    lastEventTimestamp = DateTimeOffset.UtcNow;
+                }
+
+                var nextCursor = getNextCursor(response);
+                foreach (var logEvent in events)
+                {
+                    await onEvent(logEvent, nextCursor, cancellationToken).ConfigureAwait(false);
+                    emittedCount++;
+                    latestNextCursor = getEventCursor(logEvent);
+                }
+                latestNextCursor = nextCursor;
+
+                if (!stream)
+                {
+                    return LogsReadServiceResult.Success(emittedCount, latestNextCursor);
+                }
+
+                var now = DateTimeOffset.UtcNow;
+                var stopReason = streamTerminationPolicy.GetStopReason(
                     events,
                     now,
                     streamOptions.UntilTimestamp,
                     lastEventTimestamp,
                     streamOptions.IdleTimeout,
-                    getTimestamp))
-            {
-                return LogsReadServiceResult.Success();
-            }
+                    getTimestamp);
+                if (stopReason is not null)
+                {
+                    return LogsReadServiceResult.Success(emittedCount, latestNextCursor, stopReason);
+                }
 
-            query = withAfter(query, nextCursor);
-            await Task.Delay(streamOptions.PollInterval, cancellationToken).ConfigureAwait(false);
+                query = withAfter(query, nextCursor);
+                await Task.Delay(streamOptions.PollInterval, cancellationToken).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            return LogsReadServiceResult.Canceled(emittedCount, latestNextCursor);
         }
     }
+
 }

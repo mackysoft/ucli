@@ -1,22 +1,16 @@
-using System.Text.Json;
 using ConsoleAppFramework;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Common;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
+using MackySoft.Ucli.Hosting.Cli.Common.Streaming;
 
 namespace MackySoft.Ucli.Hosting.Cli.Daemon.Logs;
 
 /// <summary> Provides the logs daemon read CLI command entry point. </summary>
 internal sealed class LogsDaemonReadCommand
 {
-    private static readonly JsonSerializerOptions JsonLineSerializerOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        WriteIndented = false,
-    };
-
     private readonly ILogsDaemonService logsDaemonService;
 
     private readonly ICommandResultWriter commandResultWriter;
@@ -90,18 +84,21 @@ internal sealed class LogsDaemonReadCommand
             .ConfigureAwait(false);
     }
 
-    /// <summary> Writes one daemon log event to standard output by selected format. </summary>
-    /// <param name="format"> The normalized output format. </param>
+    /// <summary> Writes one daemon log event to standard error by selected format. </summary>
+    /// <param name="entryWriter"> The stream-entry writer. </param>
+    /// <param name="format"> The parsed output format. </param>
     /// <param name="daemonLogEvent"> The daemon log event payload. </param>
     /// <param name="nextCursor"> The next cursor value returned by daemon. </param>
-    private static void WriteLogEvent (
-        string format,
+    private static string WriteLogEvent (
+        CliStreamEntryWriter entryWriter,
+        CliStreamEntryFormat format,
         IpcDaemonLogEvent daemonLogEvent,
         string nextCursor)
     {
-        if (string.Equals(format, LogsOutputFormatCodec.Json, StringComparison.Ordinal))
+        if (format == CliStreamEntryFormat.Json)
         {
-            var jsonLine = JsonSerializer.Serialize(
+            entryWriter.WriteJsonEntry(
+                "logs.daemon.entry",
                 new JsonLinePayload(
                     Timestamp: daemonLogEvent.Timestamp,
                     Level: daemonLogEvent.Level,
@@ -109,10 +106,8 @@ internal sealed class LogsDaemonReadCommand
                     Message: daemonLogEvent.Message,
                     Raw: daemonLogEvent.Raw,
                     Cursor: daemonLogEvent.Cursor,
-                    NextCursor: nextCursor),
-                JsonLineSerializerOptions);
-            Console.Out.WriteLine(jsonLine);
-            return;
+                    NextCursor: nextCursor));
+            return nextCursor;
         }
 
         var textLine = string.Concat(
@@ -123,7 +118,8 @@ internal sealed class LogsDaemonReadCommand
             daemonLogEvent.Category,
             " ",
             LogsTextUtilities.NormalizeSingleLine(daemonLogEvent.Message));
-        Console.Out.WriteLine(textLine);
+        entryWriter.WriteTextEntry(textLine);
+        return nextCursor;
     }
 
     /// <summary> Represents one NDJSON output line for daemon log events. </summary>

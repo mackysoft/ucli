@@ -186,6 +186,14 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(request.RequestId, Is.EqualTo(expectedRequest.RequestId));
                 return Task.FromResult(response);
             }
+
+            public Task<IpcResponse> ProcessStreamingAsync (
+                IpcRequest request,
+                IUnityIpcStreamFrameWriter streamWriter,
+                CancellationToken cancellationToken = default)
+            {
+                throw new NotSupportedException();
+            }
         }
 
         private static IpcResponse CreateSuccessResponse (string requestId)

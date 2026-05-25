@@ -21,4 +21,20 @@ internal interface IUnityIpcTransportClient
         IpcRequest request,
         TimeSpan timeout,
         CancellationToken cancellationToken = default);
+
+    /// <summary> Sends one request and reads progress frames until the terminal response frame is received. </summary>
+    /// <param name="storageRoot"> The storage root used to resolve endpoint paths. Must not be <see langword="null" />, empty, or whitespace. </param>
+    /// <param name="projectFingerprint"> The project fingerprint used to resolve endpoint identity. Must not be <see langword="null" />, empty, or whitespace. </param>
+    /// <param name="request"> The IPC request envelope. Must not be <see langword="null" />. </param>
+    /// <param name="timeout"> The timeout for one IPC request. Must be greater than <see cref="TimeSpan.Zero" />. </param>
+    /// <param name="onProgressFrame"> The callback invoked for each progress frame. </param>
+    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
+    /// <returns> The terminal response envelope received from the Unity IPC host. </returns>
+    ValueTask<IpcResponse> SendStreamingAsync (
+        string storageRoot,
+        string projectFingerprint,
+        IpcRequest request,
+        TimeSpan timeout,
+        Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
+        CancellationToken cancellationToken = default);
 }

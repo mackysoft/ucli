@@ -74,6 +74,107 @@ public sealed class UnityOneshotIpcClientTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task SendStreamingAsync_WhenSuccessful_UsesStreamingTransportAndForwardsProgress ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "streaming-success");
+        var unityProject = CreateUnityProject(scope);
+        var endpoint = new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-oneshot.sock");
+        var processHandle = new StubUnityBatchmodeProcessHandle();
+        var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
+        var transportClient = new StubUnityIpcTransportClient(
+            request =>
+            {
+                return request.Method switch
+                {
+                    IpcMethodNames.Ping => CreatePingResponse(request.RequestId),
+                    IpcMethodNames.OpsRead => CreateSuccessResponse(request.RequestId),
+                    IpcMethodNames.Shutdown => CreateShutdownResponse(request.RequestId),
+                    _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
+                };
+            },
+            request => new IpcStreamFrame(
+                IpcProtocol.CurrentVersion,
+                request.RequestId,
+                IpcStreamFrameKinds.Progress,
+                "test.progress",
+                EmptyPayload(),
+                null));
+        var client = new UnityOneshotIpcClient(
+            launcher,
+            new StubIpcEndpointResolver(endpoint),
+            transportClient,
+            new StubProjectLifecycleLockProvider(),
+            new StubUnityProjectLockFileProbe());
+        var progressFrames = new List<IpcStreamFrame>();
+
+        var result = await client.SendStreamingAsync(
+            unityProject,
+            CreateDispatchRequest(IpcResponseModes.Stream),
+            TimeSpan.FromSeconds(30),
+            (frame, _) =>
+            {
+                progressFrames.Add(frame);
+                return ValueTask.CompletedTask;
+            },
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(2, transportClient.CallCount);
+        Assert.Equal(1, transportClient.StreamingCallCount);
+        Assert.Equal(IpcMethodNames.Ping, transportClient.Requests[0].Method);
+        Assert.Equal(IpcMethodNames.OpsRead, transportClient.Requests[1].Method);
+        Assert.Equal(IpcResponseModes.Stream, transportClient.Requests[1].ResponseMode);
+        Assert.Single(progressFrames);
+        Assert.Equal("test.progress", progressFrames[0].Event);
+        Assert.Equal(1, processHandle.WaitForExitCallCount);
+        Assert.Equal(0, processHandle.TerminateCallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendStreamingAsync_WhenProgressFrameHandlerFails_RethrowsHandlerExceptionAfterCleanup ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "streaming-progress-handler-failure");
+        var unityProject = CreateUnityProject(scope);
+        var endpoint = new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-oneshot.sock");
+        var processHandle = new StubUnityBatchmodeProcessHandle();
+        var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
+        var handlerException = new InvalidOperationException("progress frame rejected");
+        var transportClient = new StubUnityIpcTransportClient(request =>
+        {
+            return request.Method switch
+            {
+                IpcMethodNames.Ping => CreatePingResponse(request.RequestId),
+                IpcMethodNames.OpsRead => throw new IpcProgressFrameHandlerException(handlerException),
+                IpcMethodNames.Shutdown => CreateShutdownResponse(request.RequestId),
+                _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
+            };
+        });
+        var client = new UnityOneshotIpcClient(
+            launcher,
+            new StubIpcEndpointResolver(endpoint),
+            transportClient,
+            new StubProjectLifecycleLockProvider(),
+            new StubUnityProjectLockFileProbe());
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        {
+            await client.SendStreamingAsync(
+                    unityProject,
+                    CreateDispatchRequest(IpcResponseModes.Stream),
+                    TimeSpan.FromSeconds(30),
+                    (_, _) => ValueTask.CompletedTask,
+                    CancellationToken.None)
+                .AsTask();
+        });
+
+        Assert.Same(handlerException, exception);
+        Assert.Equal(3, transportClient.CallCount);
+        Assert.Equal(IpcMethodNames.Shutdown, transportClient.Requests[2].Method);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task SendAsync_WhenStartupPingProjectFingerprintMismatches_ReturnsFailureWithoutDispatch ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "startup-fingerprint-mismatch");
@@ -864,9 +965,13 @@ public sealed class UnityOneshotIpcClientTests
         return JsonDocument.Parse("""{"sentinel":"oneshot-payload"}""").RootElement.Clone();
     }
 
-    private static UnityIpcDispatchRequest CreateDispatchRequest ()
+    private static UnityIpcDispatchRequest CreateDispatchRequest (
+        string responseMode = IpcResponseModes.Single)
     {
-        return new UnityIpcDispatchRequest(IpcMethodNames.OpsRead, CreateDispatchPayload());
+        return new UnityIpcDispatchRequest(
+            IpcMethodNames.OpsRead,
+            CreateDispatchPayload(),
+            responseMode: responseMode);
     }
 
     private static UnityIpcDispatchRequest CreateOpsReadDispatchRequest (
@@ -1034,12 +1139,19 @@ public sealed class UnityOneshotIpcClientTests
     {
         private readonly Func<IpcRequest, IpcResponse> responseFactory;
 
-        public StubUnityIpcTransportClient (Func<IpcRequest, IpcResponse> responseFactory)
+        private readonly Func<IpcRequest, IpcStreamFrame?>? progressFrameFactory;
+
+        public StubUnityIpcTransportClient (
+            Func<IpcRequest, IpcResponse> responseFactory,
+            Func<IpcRequest, IpcStreamFrame?>? progressFrameFactory = null)
         {
             this.responseFactory = responseFactory;
+            this.progressFrameFactory = progressFrameFactory;
         }
 
         public int CallCount { get; private set; }
+
+        public int StreamingCallCount { get; private set; }
 
         public List<IpcRequest> Requests { get; } = new List<IpcRequest>();
 
@@ -1054,6 +1166,28 @@ public sealed class UnityOneshotIpcClientTests
             CallCount++;
             Requests.Add(request);
             return ValueTask.FromResult(responseFactory(request));
+        }
+
+        public async ValueTask<IpcResponse> SendStreamingAsync (
+            string storageRoot,
+            string projectFingerprint,
+            IpcRequest request,
+            TimeSpan timeout,
+            Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            StreamingCallCount++;
+            if (progressFrameFactory != null)
+            {
+                var progressFrame = progressFrameFactory(request);
+                if (progressFrame != null)
+                {
+                    await onProgressFrame(progressFrame, cancellationToken);
+                }
+            }
+
+            return await SendAsync(storageRoot, projectFingerprint, request, timeout, cancellationToken);
         }
     }
 

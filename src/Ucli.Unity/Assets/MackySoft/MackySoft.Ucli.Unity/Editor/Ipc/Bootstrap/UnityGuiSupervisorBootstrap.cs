@@ -222,7 +222,17 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return;
             }
 
-            _ = state.Server.StopAsync(CancellationToken.None);
+            try
+            {
+                state.Server.ReleaseForEditorLifecycleEvent();
+            }
+            catch (Exception exception)
+            {
+                state.DaemonLogger.Warning(
+                    DaemonLogCategories.Lifecycle,
+                    $"GUI supervisor IPC server lifecycle release failed. {exception.Message}");
+            }
+
             ReleaseStateResources(state);
         }
 

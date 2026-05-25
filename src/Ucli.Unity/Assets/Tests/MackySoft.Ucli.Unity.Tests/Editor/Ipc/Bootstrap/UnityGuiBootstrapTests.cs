@@ -114,7 +114,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator ReleaseResourcesForEditorLifecycleEvent_WhenServerStopDoesNotComplete_DeletesSessionWithoutBlockingOnCallingThread () => UniTask.ToCoroutine(async () =>
+        public IEnumerator ReleaseResourcesForEditorLifecycleEvent_WhenServerStopDoesNotComplete_UsesSynchronousReleaseOnly () => UniTask.ToCoroutine(async () =>
         {
             var storageRoot = CreateStorageRoot();
             try
@@ -139,7 +139,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     NoOpDaemonLogger.Instance,
                     deleteSession: true);
 
-                Assert.That(server.StopCallCount, Is.EqualTo(1));
+                Assert.That(server.StopCallCount, Is.EqualTo(0));
+                Assert.That(server.ReleaseCallCount, Is.EqualTo(1));
                 Assert.That(logCapture.DisposeCallCount, Is.EqualTo(1));
                 Assert.That(logCapture.DisposeThreadId, Is.EqualTo(callingThreadId));
                 Assert.That(serviceProvider.DisposeCallCount, Is.EqualTo(1));
@@ -215,6 +216,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public int StopCallCount { get; private set; }
 
+            public int ReleaseCallCount { get; private set; }
+
             public Task StartAsync (
                 IpcEndpoint endpoint,
                 CancellationToken cancellationToken = default)
@@ -231,6 +234,15 @@ namespace MackySoft.Ucli.Unity.Tests
                 }
 
                 return stopTask ?? Task.CompletedTask;
+            }
+
+            public void ReleaseForEditorLifecycleEvent ()
+            {
+                ReleaseCallCount++;
+                if (throwOnStop)
+                {
+                    throw new InvalidOperationException("release failed");
+                }
             }
 
             public Task WaitForTerminationAsync (CancellationToken cancellationToken = default)

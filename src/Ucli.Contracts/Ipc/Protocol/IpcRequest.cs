@@ -8,9 +8,11 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 /// <param name="SessionToken"> The session token presented for daemon authorization. </param>
 /// <param name="Method"> The IPC method name. </param>
 /// <param name="Payload"> The method-specific request payload. </param>
+/// <param name="ResponseMode"> The requested response framing mode. </param>
 public sealed record IpcRequest (
     int ProtocolVersion,
     string RequestId,
     string SessionToken,
     string Method,
-    JsonElement Payload);
+    JsonElement Payload,
+    string ResponseMode = IpcResponseModes.Single);

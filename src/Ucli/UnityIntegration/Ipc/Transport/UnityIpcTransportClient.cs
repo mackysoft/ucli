@@ -45,4 +45,28 @@ internal sealed class UnityIpcTransportClient : IUnityIpcTransportClient
         var endpoint = endpointResolver.Resolve(storageRoot, projectFingerprint);
         return await transportClient.SendAsync(endpoint, request, timeout, cancellationToken).ConfigureAwait(false);
     }
+
+    /// <inheritdoc />
+    public async ValueTask<IpcResponse> SendStreamingAsync (
+        string storageRoot,
+        string projectFingerprint,
+        IpcRequest request,
+        TimeSpan timeout,
+        Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(onProgressFrame);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var endpoint = endpointResolver.Resolve(storageRoot, projectFingerprint);
+        return await transportClient.SendStreamingAsync(
+                endpoint,
+                request,
+                timeout,
+                onProgressFrame,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
 }

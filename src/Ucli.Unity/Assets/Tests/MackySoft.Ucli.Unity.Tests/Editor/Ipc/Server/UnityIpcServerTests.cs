@@ -233,6 +233,53 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator NamedPipeListener_Run_WhenFirstConnectionIsStillHandling_AcceptsSecondConnection () => UniTask.ToCoroutine(async () =>
+        {
+            var address = "ucli-" + Guid.NewGuid().ToString("N").Substring(0, 8);
+            var listener = new NamedPipeUnityIpcTransportListener();
+            var connectionHandler = new BlockingConnectionHandler();
+            var startedTaskSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            using var cancellationTokenSource = new CancellationTokenSource();
+
+            var runTask = listener.RunAsync(
+                address,
+                connectionHandler,
+                () => startedTaskSource.TrySetResult(true),
+                _ => { },
+                cancellationTokenSource.Token);
+
+            try
+            {
+                await TestAwaiter.WaitAsync(startedTaskSource.Task, "Named pipe listener start", SignalWaitTimeout);
+
+                using var firstClientStream = new NamedPipeClientStream(".", address, PipeDirection.InOut, PipeOptions.Asynchronous);
+                firstClientStream.Connect((int)SignalWaitTimeout.TotalMilliseconds);
+                await TestAwaiter.WaitAsync(connectionHandler.FirstConnectionObserved, "First named pipe connection handling", SignalWaitTimeout);
+
+                using var secondClientStream = new NamedPipeClientStream(".", address, PipeDirection.InOut, PipeOptions.Asynchronous);
+                secondClientStream.Connect((int)SignalWaitTimeout.TotalMilliseconds);
+                await TestAwaiter.WaitAsync(connectionHandler.SecondConnectionObserved, "Second named pipe connection handling", SignalWaitTimeout);
+            }
+            finally
+            {
+                connectionHandler.Release();
+                cancellationTokenSource.Cancel();
+                listener.Release();
+
+                try
+                {
+                    await TestAwaiter.WaitAsync(runTask, "Named pipe listener shutdown", SignalWaitTimeout);
+                }
+                catch (OperationCanceledException)
+                {
+                }
+            }
+
+            Assert.That(connectionHandler.CallCount, Is.EqualTo(2));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Start_WhenTransportReportsShutdownCompletion_SignalsShutdown () => UniTask.ToCoroutine(async () =>
         {
             var request = CreateShutdownRequest("valid-token", "req-server-shutdown-complete");
@@ -361,6 +408,36 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(synchronizationContext.PostCallCount, Is.EqualTo(0));
             Assert.That(server.IsRunning, Is.False);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator ReleaseForEditorLifecycleEvent_WhenListenerDoesNotComplete_ReleasesTransportWithoutWaiting () => UniTask.ToCoroutine(async () =>
+        {
+            var listener = new NonCompletingTransportListener(IpcTransportKind.NamedPipe);
+            var server = CreateServer(
+                new PermitAllSessionTokenValidator(),
+                new StubExecuteRequestDispatcher(),
+                new StubUnityTestRunService(),
+                new StubDaemonShutdownSignal(),
+                new IUnityIpcTransportListener[]
+                {
+                    listener,
+                });
+            var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test-lifecycle-release");
+
+            await TestAwaiter.WaitAsync(
+                server.StartAsync(endpoint).AsUniTask(),
+                "Server start before lifecycle release",
+                SignalWaitTimeout);
+            await TestAwaiter.WaitAsync(listener.RunEntered, "Non-completing transport listener entry", SignalWaitTimeout);
+
+            server.ReleaseForEditorLifecycleEvent();
+
+            Assert.That(listener.ReleaseCallCount, Is.EqualTo(1));
+            Assert.That(server.IsRunning, Is.False);
+
+            listener.Complete();
         });
 
         [UnityTest]
@@ -797,7 +874,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     TestSettingsPath: null,
                     ResultsXmlPath: "/tmp/results.xml",
                     EditorLogPath: "/tmp/editor.log",
-                    FailFast: failFast),
+                    FailFast: failFast,
+                    RunId: "run-id"),
                 SerializerOptions);
             return new IpcRequest(
                 ProtocolVersion: IpcProtocol.CurrentVersion,
@@ -1081,6 +1159,77 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         }
 
+        private sealed class BlockingConnectionHandler : IUnityIpcConnectionHandler
+        {
+            private readonly object syncRoot = new object();
+
+            private readonly TaskCompletionSource<bool> firstConnectionObserved =
+                new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            private readonly TaskCompletionSource<bool> secondConnectionObserved =
+                new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            private readonly TaskCompletionSource<bool> release =
+                new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            private int callCount;
+
+            public int CallCount
+            {
+                get
+                {
+                    lock (syncRoot)
+                    {
+                        return callCount;
+                    }
+                }
+            }
+
+            public Task FirstConnectionObserved => firstConnectionObserved.Task;
+
+            public Task SecondConnectionObserved => secondConnectionObserved.Task;
+
+            public Task<UnityIpcConnectionHandleResult> HandleAsync (
+                Stream stream,
+                CancellationToken cancellationToken = default)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                int currentCallCount;
+                lock (syncRoot)
+                {
+                    callCount++;
+                    currentCallCount = callCount;
+                }
+
+                if (currentCallCount == 1)
+                {
+                    firstConnectionObserved.TrySetResult(true);
+                }
+                else if (currentCallCount == 2)
+                {
+                    secondConnectionObserved.TrySetResult(true);
+                }
+
+                return CompleteAfterReleaseAsync(cancellationToken);
+            }
+
+            public void Release ()
+            {
+                release.TrySetResult(true);
+            }
+
+            private async Task<UnityIpcConnectionHandleResult> CompleteAfterReleaseAsync (CancellationToken cancellationToken)
+            {
+                using var cancellationRegistration = cancellationToken.Register(() =>
+                {
+                    release.TrySetCanceled(cancellationToken);
+                });
+                await release.Task;
+                cancellationToken.ThrowIfCancellationRequested();
+                return default;
+            }
+        }
+
         private sealed class StubConnectionHandler : IUnityIpcConnectionHandler
         {
             public Task<UnityIpcConnectionHandleResult> HandleAsync (
@@ -1195,6 +1344,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public Task<UnityTestRunServiceResult> ExecuteAsync (
                 IpcTestRunRequest request,
+                IUnityTestRunProgressSink progressSink = null,
                 CancellationToken cancellationToken = default)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -1420,6 +1570,50 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public void Release ()
             {
+            }
+        }
+
+        private sealed class NonCompletingTransportListener : IUnityIpcTransportListener
+        {
+            private readonly TaskCompletionSource<bool> runEntered =
+                new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            private readonly TaskCompletionSource<bool> complete =
+                new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            public NonCompletingTransportListener (IpcTransportKind transportKind)
+            {
+                TransportKind = transportKind;
+            }
+
+            public IpcTransportKind TransportKind { get; }
+
+            public int ReleaseCallCount { get; private set; }
+
+            public Task RunEntered => runEntered.Task;
+
+            public void Complete ()
+            {
+                complete.TrySetResult(true);
+            }
+
+            public async Task RunAsync (
+                string address,
+                IUnityIpcConnectionHandler connectionHandler,
+                Action onStarted,
+                Action<UnityIpcConnectionHandleResult> onConnectionCompleted,
+                CancellationToken cancellationToken)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                runEntered.TrySetResult(true);
+                onStarted();
+                await complete.Task;
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+
+            public void Release ()
+            {
+                ReleaseCallCount++;
             }
         }
 

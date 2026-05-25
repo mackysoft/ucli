@@ -1,8 +1,10 @@
 using ConsoleAppFramework;
 using MackySoft.Ucli.Application.Features.Testing.Run.Common.Contracts;
 using MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun;
+using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
+using MackySoft.Ucli.Hosting.Cli.Common.Streaming;
 using MackySoft.Ucli.Hosting.Cli.Options;
 
 namespace MackySoft.Ucli.Hosting.Cli.Testing;
@@ -38,7 +40,8 @@ internal sealed class TestRunCommand
     /// <param name="assemblyName"> -a|--assemblyName, comma-separated assembly names. </param>
     /// <param name="testSettingsPath"> -s|--testSettingsPath, path to TestSettings.json. </param>
     /// <param name="timeout"> Timeout in milliseconds. </param>
-    /// <param name="failFast"> --failFast, Fails immediately when daemon-backed execution is not yet ready. </param>
+    /// <param name="failFast"> --failFast, Fails immediately when readiness-gated Unity execution is not yet ready. </param>
+    /// <param name="format"> Progress entry format (text|json). </param>
     /// <param name="cancellationToken"> The cancellation token propagated by the command pipeline. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.RunSubcommand)]
@@ -55,50 +58,75 @@ internal sealed class TestRunCommand
         string? testSettingsPath = null,
         int? timeout = null,
         bool failFast = false,
+        string? format = null,
         CancellationToken cancellationToken = default)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-
-        CommandExecutionState.MarkStarted();
-
-        var normalizedModeResult = ExecutionModeOptionNormalizer.Normalize(executionMode);
-        if (!normalizedModeResult.IsSuccess)
+        try
         {
-            var errorResult = TestRunCommandResultFactory.Create(TestRunServiceResult.InvalidInput(
-                normalizedModeResult.Error!.Message,
-                UcliCoreErrorCodes.InvalidArgument));
-            commandResultWriter.WriteToStandardOutput(errorResult);
-            return errorResult.ExitCode;
-        }
+            cancellationToken.ThrowIfCancellationRequested();
 
-        var normalizedTestPlatformResult = TestRunPlatformOptionNormalizer.Normalize(testPlatform);
-        if (!normalizedTestPlatformResult.IsSuccess)
+            CommandExecutionState.MarkStarted();
+
+            if (!CliStreamEntryFormatCodec.TryParse(format, out var normalizedFormat, out var formatError))
+            {
+                var errorResult = TestRunCommandResultFactory.Create(TestRunServiceResult.InvalidInput(
+                    formatError!,
+                    UcliCoreErrorCodes.InvalidArgument));
+                commandResultWriter.WriteToStandardOutput(errorResult);
+                return errorResult.ExitCode;
+            }
+
+            var normalizedModeResult = ExecutionModeOptionNormalizer.Normalize(executionMode);
+            if (!normalizedModeResult.IsSuccess)
+            {
+                var errorResult = TestRunCommandResultFactory.Create(TestRunServiceResult.InvalidInput(
+                    normalizedModeResult.Error!.Message,
+                    UcliCoreErrorCodes.InvalidArgument));
+                commandResultWriter.WriteToStandardOutput(errorResult);
+                return errorResult.ExitCode;
+            }
+
+            var normalizedTestPlatformResult = TestRunPlatformOptionNormalizer.Normalize(testPlatform);
+            if (!normalizedTestPlatformResult.IsSuccess)
+            {
+                var errorResult = TestRunCommandResultFactory.Create(TestRunServiceResult.InvalidInput(
+                    normalizedTestPlatformResult.Error!.Message,
+                    UcliCoreErrorCodes.InvalidArgument));
+                commandResultWriter.WriteToStandardOutput(errorResult);
+                return errorResult.ExitCode;
+            }
+
+            var progressSink = new CliTestRunProgressSink(
+                normalizedFormat,
+                new CliStreamEntryWriter(UcliCommandNames.TestRun));
+            var serviceResult = await testRunService.ExecuteAsync(
+                new TestRunCommandInput(
+                    ProjectPath: projectPath,
+                    ProfilePath: profilePath,
+                    Mode: normalizedModeResult.Mode,
+                    UnityVersion: unityVersion,
+                    UnityEditorPath: unityEditorPath,
+                    TestPlatform: normalizedTestPlatformResult.TestPlatform,
+                    TestFilter: testFilter,
+                    TestCategory: SplitCommaSeparatedValues(testCategory),
+                    AssemblyName: SplitCommaSeparatedValues(assemblyName),
+                    TestSettingsPath: testSettingsPath,
+                    TimeoutMilliseconds: timeout,
+                    FailFast: failFast),
+                progressSink,
+                cancellationToken).ConfigureAwait(false);
+            var commandResult = TestRunCommandResultFactory.Create(serviceResult);
+            commandResultWriter.WriteToStandardOutput(commandResult);
+            return commandResult.ExitCode;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            var errorResult = TestRunCommandResultFactory.Create(TestRunServiceResult.InvalidInput(
-                normalizedTestPlatformResult.Error!.Message,
-                UcliCoreErrorCodes.InvalidArgument));
-            commandResultWriter.WriteToStandardOutput(errorResult);
-            return errorResult.ExitCode;
+            var commandResult = TestRunCommandResultFactory.Create(TestRunServiceResult.ToolError(
+                "Test run command was canceled.",
+                ExecutionErrorCodes.Canceled));
+            commandResultWriter.WriteToStandardOutput(commandResult);
+            return commandResult.ExitCode;
         }
-
-        var serviceResult = await testRunService.ExecuteAsync(
-            new TestRunCommandInput(
-                ProjectPath: projectPath,
-                ProfilePath: profilePath,
-                Mode: normalizedModeResult.Mode,
-                UnityVersion: unityVersion,
-                UnityEditorPath: unityEditorPath,
-                TestPlatform: normalizedTestPlatformResult.TestPlatform,
-                TestFilter: testFilter,
-                TestCategory: SplitCommaSeparatedValues(testCategory),
-                AssemblyName: SplitCommaSeparatedValues(assemblyName),
-                TestSettingsPath: testSettingsPath,
-                TimeoutMilliseconds: timeout,
-                FailFast: failFast),
-            cancellationToken).ConfigureAwait(false);
-        var commandResult = TestRunCommandResultFactory.Create(serviceResult);
-        commandResultWriter.WriteToStandardOutput(commandResult);
-        return commandResult.ExitCode;
     }
 
     internal static string[]? SplitCommaSeparatedValues (string? value)

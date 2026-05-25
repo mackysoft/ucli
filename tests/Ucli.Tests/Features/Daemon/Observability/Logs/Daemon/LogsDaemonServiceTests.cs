@@ -67,6 +67,62 @@ public sealed class LogsDaemonServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Execute_WhenCanceledDuringBatch_ReturnsLastEmittedEventCursor ()
+    {
+        var context = DaemonServiceTestContext.CreateExecutionContext(timeoutMilliseconds: 3000);
+        var resolver = new DaemonServiceTestContext.StubDaemonCommandExecutionContextResolver(
+            DaemonCommandExecutionContextResolutionResult.Success(context));
+        var daemonLogsClient = new StubDaemonLogsClient(
+            [
+                DaemonLogsClientReadResult.Success(CreatePayload(
+                    events:
+                    [
+                        CreateEvent("stream-1:1", "alpha"),
+                        CreateEvent("stream-1:2", "bravo"),
+                    ],
+                    nextCursor: "stream-1:3")),
+            ]);
+        var service = CreateService(resolver, daemonLogsClient);
+        var emittedMessages = new List<string>();
+        using var cancellationTokenSource = new CancellationTokenSource();
+
+        var result = await service.ExecuteAsync(
+            new LogsDaemonServiceRequest(
+                ProjectPath: "/tmp/unity-project",
+                Tail: null,
+                After: null,
+                Since: null,
+                Until: null,
+                Level: null,
+                Query: null,
+                QueryTarget: null,
+                Category: null,
+                Stream: true,
+                PollIntervalMilliseconds: 50,
+                IdleTimeoutMilliseconds: null),
+            (daemonLogEvent, _, cancellationToken) =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                emittedMessages.Add(daemonLogEvent.Message);
+                if (emittedMessages.Count == 1)
+                {
+                    cancellationTokenSource.Cancel();
+                }
+
+                return ValueTask.CompletedTask;
+            },
+            cancellationTokenSource.Token);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ExecutionErrorCodes.Canceled, result.Error!.Code);
+        Assert.Equal(1, result.Count);
+        Assert.Equal("stream-1:1", result.NextCursor);
+        Assert.Equal("canceled", result.CompletionReason);
+        Assert.Equal(["alpha"], emittedMessages);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Execute_WhenTailIsProvidedForStream_ClearsTailAfterInitialRead ()
     {
         var context = DaemonServiceTestContext.CreateExecutionContext(timeoutMilliseconds: 3000);
@@ -148,6 +204,47 @@ public sealed class LogsDaemonServiceTests
 
         Assert.True(result.IsSuccess, result.Error?.Message);
         Assert.Equal(2, daemonLogsClient.CallCount);
+        Assert.Equal(LogsReadCompletionReasons.IdleTimeout, result.CompletionReason);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenUntilTimestampIsReached_ReturnsUntilReachedCompletionReason ()
+    {
+        var context = DaemonServiceTestContext.CreateExecutionContext(timeoutMilliseconds: 3000);
+        var resolver = new DaemonServiceTestContext.StubDaemonCommandExecutionContextResolver(
+            DaemonCommandExecutionContextResolutionResult.Success(context));
+        var daemonLogsClient = new StubDaemonLogsClient(
+        [
+            DaemonLogsClientReadResult.Success(CreatePayload(
+                events:
+                [
+                    CreateEvent("stream-1:10", "first"),
+                ],
+                nextCursor: "stream-1:11")),
+        ]);
+        var service = CreateService(resolver, daemonLogsClient);
+
+        var result = await service.ExecuteAsync(
+            new LogsDaemonServiceRequest(
+                ProjectPath: "/tmp/unity-project",
+                Tail: null,
+                After: null,
+                Since: null,
+                Until: "2026-03-05T10:30:00+09:00",
+                Level: null,
+                Query: null,
+                QueryTarget: null,
+                Category: null,
+                Stream: true,
+                PollIntervalMilliseconds: 50,
+                IdleTimeoutMilliseconds: null),
+            static (_, _, _) => ValueTask.CompletedTask,
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess, result.Error?.Message);
+        Assert.Equal(1, daemonLogsClient.CallCount);
+        Assert.Equal(LogsReadCompletionReasons.UntilReached, result.CompletionReason);
     }
 
     private static IpcDaemonLogEvent CreateEvent (

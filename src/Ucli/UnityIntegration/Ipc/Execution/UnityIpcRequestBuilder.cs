@@ -8,7 +8,7 @@ namespace MackySoft.Ucli.UnityIntegration.Ipc.Execution;
 /// <summary> Converts application Unity request payloads into IPC method dispatch requests. </summary>
 internal sealed class UnityIpcRequestBuilder
 {
-    private static readonly TimeSpan PlayExitRecoverableResponseAttemptTimeout = TimeSpan.FromMilliseconds(1000);
+    private static readonly TimeSpan PlayTransitionRecoverableResponseAttemptTimeout = TimeSpan.FromMilliseconds(1000);
 
     private static readonly IReadOnlyList<string> CompileAllowedStartupLifecycleStates =
     [
@@ -34,7 +34,21 @@ internal sealed class UnityIpcRequestBuilder
                 IpcMethodNames.Compile,
                 IpcPayloadCodec.SerializeToElement(new IpcCompileRequest(compile.RunId)),
                 CompileAllowedStartupLifecycleStates,
-                isRecoverable: true),
+                isRecoverable: true,
+                dispatchTimeoutPayloadTransformer: ApplyCompileDispatchTimeout),
+            UnityRequestPayload.TestRun testRun => new UnityIpcDispatchRequest(
+                IpcMethodNames.TestRun,
+                IpcPayloadCodec.SerializeToElement(new IpcTestRunRequest(
+                    TestPlatform: testRun.TestPlatform,
+                    TestFilter: testRun.TestFilter,
+                    TestCategories: testRun.TestCategories,
+                    AssemblyNames: testRun.AssemblyNames,
+                    TestSettingsPath: testRun.TestSettingsPath,
+                    ResultsXmlPath: testRun.ResultsXmlPath,
+                    EditorLogPath: testRun.EditorLogPath,
+                    FailFast: testRun.FailFast,
+                    RunId: testRun.RunId)),
+                dispatchTimeoutPayloadTransformer: ApplyTestRunDispatchTimeout),
             UnityRequestPayload.PlayStatus => new UnityIpcDispatchRequest(
                 IpcMethodNames.PlayStatus,
                 IpcPayloadCodec.SerializeToElement(new IpcPlayStatusRequest())),
@@ -44,7 +58,8 @@ internal sealed class UnityIpcRequestBuilder
                 {
                     TimeoutMilliseconds = playEnter.TimeoutMilliseconds,
                 }),
-                isRecoverable: true),
+                isRecoverable: true,
+                recoverableResponseAttemptTimeout: PlayTransitionRecoverableResponseAttemptTimeout),
             UnityRequestPayload.PlayExit playExit => new UnityIpcDispatchRequest(
                 IpcMethodNames.PlayExit,
                 IpcPayloadCodec.SerializeToElement(new IpcPlayExitRequest
@@ -52,7 +67,7 @@ internal sealed class UnityIpcRequestBuilder
                     TimeoutMilliseconds = playExit.TimeoutMilliseconds,
                 }),
                 isRecoverable: true,
-                recoverableResponseAttemptTimeout: PlayExitRecoverableResponseAttemptTimeout),
+                recoverableResponseAttemptTimeout: PlayTransitionRecoverableResponseAttemptTimeout),
             UnityRequestPayload.ExecuteJson executeJson => new UnityIpcDispatchRequest(
                 IpcMethodNames.Execute,
                 CreateExecutePayload(
@@ -77,6 +92,41 @@ internal sealed class UnityIpcRequestBuilder
                     allowPlayMode: false)),
             _ => throw new ArgumentOutOfRangeException(nameof(request), request, "Unsupported Unity request payload."),
         };
+    }
+
+    private static JsonElement ApplyCompileDispatchTimeout (
+        JsonElement payload,
+        TimeSpan dispatchTimeout)
+    {
+        if (!IpcPayloadCodec.TryDeserialize(payload, out IpcCompileRequest compileRequest, out _))
+        {
+            return payload;
+        }
+
+        return IpcPayloadCodec.SerializeToElement(compileRequest with
+        {
+            TimeoutMilliseconds = ToTimeoutMilliseconds(dispatchTimeout),
+        });
+    }
+
+    private static JsonElement ApplyTestRunDispatchTimeout (
+        JsonElement payload,
+        TimeSpan dispatchTimeout)
+    {
+        if (!IpcPayloadCodec.TryDeserialize(payload, out IpcTestRunRequest testRunRequest, out _))
+        {
+            return payload;
+        }
+
+        return IpcPayloadCodec.SerializeToElement(testRunRequest with
+        {
+            TimeoutMilliseconds = ToTimeoutMilliseconds(dispatchTimeout),
+        });
+    }
+
+    private static int ToTimeoutMilliseconds (TimeSpan timeout)
+    {
+        return checked((int)Math.Ceiling(timeout.TotalMilliseconds));
     }
 
     private static JsonElement CreateSingleOperationArguments (

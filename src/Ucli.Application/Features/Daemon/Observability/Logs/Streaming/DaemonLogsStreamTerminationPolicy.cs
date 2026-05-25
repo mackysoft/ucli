@@ -1,4 +1,5 @@
 using System.Globalization;
+using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Common;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Streaming;
 
@@ -6,7 +7,7 @@ namespace MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Streamin
 internal sealed class DaemonLogsStreamTerminationPolicy : IDaemonLogsStreamTerminationPolicy
 {
     /// <inheritdoc />
-    public bool ShouldStop<TEvent> (
+    public string? GetStopReason<TEvent> (
         IReadOnlyList<TEvent> events,
         DateTimeOffset now,
         DateTimeOffset? untilTimestamp,
@@ -16,7 +17,7 @@ internal sealed class DaemonLogsStreamTerminationPolicy : IDaemonLogsStreamTermi
     {
         ArgumentNullException.ThrowIfNull(events);
         ArgumentNullException.ThrowIfNull(getTimestamp);
-        return ShouldStopCore(
+        return GetStopReasonCore(
             events.Count,
             now,
             untilTimestamp,
@@ -26,7 +27,7 @@ internal sealed class DaemonLogsStreamTerminationPolicy : IDaemonLogsStreamTermi
     }
 
     /// <summary> Determines whether stream loop should stop based on current runtime state. </summary>
-    private static bool ShouldStopCore (
+    private static string? GetStopReasonCore (
         int eventCount,
         DateTimeOffset now,
         DateTimeOffset? untilTimestamp,
@@ -36,17 +37,17 @@ internal sealed class DaemonLogsStreamTerminationPolicy : IDaemonLogsStreamTermi
     {
         if (untilTimestamp.HasValue && ShouldStopByUntil(untilTimestamp.Value, eventCount, now, getTimestamp))
         {
-            return true;
+            return LogsReadCompletionReasons.UntilReached;
         }
 
         if (idleTimeout.HasValue
             && eventCount == 0
             && now - lastEventTimestamp >= idleTimeout.Value)
         {
-            return true;
+            return LogsReadCompletionReasons.IdleTimeout;
         }
 
-        return false;
+        return null;
     }
 
     private static bool ShouldStopByUntil (

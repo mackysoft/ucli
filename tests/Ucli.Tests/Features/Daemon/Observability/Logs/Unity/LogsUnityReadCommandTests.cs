@@ -32,22 +32,27 @@ public sealed class LogsUnityReadCommandTests
                     stackTrace: "at Player.Run()"),
                 "stream-1:3",
                 cancellationToken);
-            return LogsReadServiceResult.Success();
+            return LogsReadServiceResult.Success(count: 2, nextCursor: "stream-1:3");
         }), CommandResultTestWriter.Create());
 
-        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.ReadAsync(format: "json"));
+        var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.ReadAsync(format: "json"));
 
         Assert.Equal((int)CliExitCode.Success, exitCode);
-        var lines = standardOutput.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
+        AssertSuccessResult(standardOutput, count: 2, nextCursor: "stream-1:3");
+        var lines = standardError.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
         Assert.Equal(2, lines.Length);
         using var firstLine = JsonDocument.Parse(lines[0]);
         using var secondLine = JsonDocument.Parse(lines[1]);
-        Assert.Equal("compile", firstLine.RootElement.GetProperty("source").GetString());
-        Assert.Equal("compile warning", firstLine.RootElement.GetProperty("message").GetString());
-        Assert.Equal("stream-1:1", firstLine.RootElement.GetProperty("cursor").GetString());
-        Assert.Equal("stream-1:3", firstLine.RootElement.GetProperty("nextCursor").GetString());
-        Assert.Equal("runtime", secondLine.RootElement.GetProperty("source").GetString());
-        Assert.Equal("at Player.Run()", secondLine.RootElement.GetProperty("stackTrace").GetString());
+        AssertEntryEnvelope(firstLine.RootElement, sequence: 1);
+        AssertEntryEnvelope(secondLine.RootElement, sequence: 2);
+        var firstPayload = firstLine.RootElement.GetProperty("payload");
+        var secondPayload = secondLine.RootElement.GetProperty("payload");
+        Assert.Equal("compile", firstPayload.GetProperty("source").GetString());
+        Assert.Equal("compile warning", firstPayload.GetProperty("message").GetString());
+        Assert.Equal("stream-1:1", firstPayload.GetProperty("cursor").GetString());
+        Assert.Equal("stream-1:3", firstPayload.GetProperty("nextCursor").GetString());
+        Assert.Equal("runtime", secondPayload.GetProperty("source").GetString());
+        Assert.Equal("at Player.Run()", secondPayload.GetProperty("stackTrace").GetString());
     }
 
     [Fact]
@@ -64,15 +69,75 @@ public sealed class LogsUnityReadCommandTests
                     stackTrace: "frame 1\nframe 2"),
                 "stream-1:2",
                 cancellationToken);
-            return LogsReadServiceResult.Success();
+            return LogsReadServiceResult.Success(count: 1, nextCursor: "stream-1:2");
         }), CommandResultTestWriter.Create());
 
-        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.ReadAsync(format: "text"));
+        var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.ReadAsync(format: "text"));
 
         Assert.Equal((int)CliExitCode.Success, exitCode);
+        AssertSuccessResult(standardOutput, count: 1, nextCursor: "stream-1:2");
         Assert.Equal(
-            "2026-03-05T10:30:00+09:00 info runtime line 1 line 2 | frame 1 frame 2" + Environment.NewLine,
-            standardOutput);
+            "2026-03-05T10:30:00+09:00 info runtime line 1\\nline 2 | frame 1\\nframe 2" + Environment.NewLine,
+            standardError);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Read_WhenTextServiceThrowsAfterEntryWithoutStackTrace_WritesFinalErrorResultWithNextCursor ()
+    {
+        var command = new LogsUnityReadCommand(new StubLogsUnityService(async (_, onEvent, cancellationToken) =>
+        {
+            await onEvent(
+                CreateEvent(
+                    cursor: "stream-1:1",
+                    message: "compile warning",
+                    source: "compile",
+                    stackTrace: null),
+                "stream-1:2",
+                cancellationToken);
+            throw new InvalidOperationException("unity log read failed");
+        }), CommandResultTestWriter.Create());
+
+        var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.ReadAsync(format: "text"));
+
+        Assert.Equal(4, exitCode);
+        Assert.Single(standardError.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries));
+        using var commandResult = JsonDocument.Parse(standardOutput);
+        CommandResultAssert.HasStandardEnvelope(
+            commandResult.RootElement,
+            UcliCommandNames.LogsUnityRead,
+            "error",
+            4);
+        CommandResultAssert.HasSingleError(commandResult.RootElement, UcliCoreErrorCodes.InternalError);
+        var payload = commandResult.RootElement.GetProperty("payload");
+        Assert.Equal(1, payload.GetProperty("count").GetInt32());
+        Assert.Equal("stream-1:2", payload.GetProperty("nextCursor").GetString());
+        Assert.Equal("error", payload.GetProperty("completionReason").GetString());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Read_WhenFormatIsInvalid_WritesInvalidArgumentResultWithoutCallingService ()
+    {
+        var service = new StubLogsUnityService((_, _, _) => throw new InvalidOperationException("service must not be called"));
+        var command = new LogsUnityReadCommand(service, CommandResultTestWriter.Create());
+
+        var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.ReadAsync(format: "yaml"));
+
+        Assert.Equal(3, exitCode);
+        Assert.Equal(string.Empty, standardError);
+        Assert.Equal(0, service.CallCount);
+        using var commandResult = JsonDocument.Parse(standardOutput);
+        CommandResultAssert.HasStandardEnvelope(
+            commandResult.RootElement,
+            UcliCommandNames.LogsUnityRead,
+            "error",
+            3);
+        CommandResultAssert.HasSingleError(commandResult.RootElement, UcliCoreErrorCodes.InvalidArgument);
+        var payload = commandResult.RootElement.GetProperty("payload");
+        Assert.Equal(0, payload.GetProperty("count").GetInt32());
+        Assert.Equal(JsonValueKind.Null, payload.GetProperty("nextCursor").ValueKind);
+        Assert.Equal("error", payload.GetProperty("completionReason").GetString());
     }
 
     [Fact]
@@ -83,12 +148,52 @@ public sealed class LogsUnityReadCommandTests
         using var cancellationTokenSource = new CancellationTokenSource();
         cancellationTokenSource.Cancel();
 
-        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.ReadAsync(
+        var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.ReadAsync(
             stream: true,
             cancellationToken: cancellationTokenSource.Token));
 
-        Assert.Equal(0, exitCode);
-        Assert.Equal(string.Empty, standardOutput);
+        Assert.Equal(4, exitCode);
+        Assert.Equal(string.Empty, standardError);
+        using var commandResult = JsonDocument.Parse(standardOutput);
+        CommandResultAssert.HasStandardEnvelope(
+            commandResult.RootElement,
+            UcliCommandNames.LogsUnityRead,
+            "error",
+            4);
+        CommandResultAssert.HasSingleError(commandResult.RootElement, ExecutionErrorCodes.Canceled);
+        var payload = commandResult.RootElement.GetProperty("payload");
+        Assert.Equal(0, payload.GetProperty("count").GetInt32());
+        Assert.Equal("canceled", payload.GetProperty("completionReason").GetString());
+        Assert.Equal(JsonValueKind.Null, payload.GetProperty("nextCursor").ValueKind);
+    }
+
+    private static void AssertSuccessResult (
+        string standardOutput,
+        int count,
+        string nextCursor)
+    {
+        using var commandResult = JsonDocument.Parse(standardOutput);
+        CommandResultAssert.HasStandardEnvelope(
+            commandResult.RootElement,
+            UcliCommandNames.LogsUnityRead,
+            "ok",
+            0);
+        CommandResultAssert.HasNoErrors(commandResult.RootElement);
+        var payload = commandResult.RootElement.GetProperty("payload");
+        Assert.Equal(count, payload.GetProperty("count").GetInt32());
+        Assert.Equal(nextCursor, payload.GetProperty("nextCursor").GetString());
+        Assert.Equal("completed", payload.GetProperty("completionReason").GetString());
+    }
+
+    private static void AssertEntryEnvelope (
+        JsonElement root,
+        int sequence)
+    {
+        Assert.Equal(1, root.GetProperty("protocolVersion").GetInt32());
+        Assert.Equal(UcliCommandNames.LogsUnityRead, root.GetProperty("command").GetString());
+        Assert.Equal(sequence, root.GetProperty("sequence").GetInt32());
+        Assert.Equal("logs.unity.entry", root.GetProperty("event").GetString());
+        Assert.Equal(JsonValueKind.Object, root.GetProperty("payload").ValueKind);
     }
 
     private static IpcUnityLogEvent CreateEvent (
@@ -115,11 +220,14 @@ public sealed class LogsUnityReadCommandTests
             this.handler = handler;
         }
 
+        public int CallCount { get; private set; }
+
         public ValueTask<LogsReadServiceResult> ExecuteAsync (
             LogsUnityServiceRequest request,
             Func<IpcUnityLogEvent, string, CancellationToken, ValueTask> onEvent,
             CancellationToken cancellationToken = default)
         {
+            CallCount++;
             return handler(request, onEvent, cancellationToken);
         }
     }

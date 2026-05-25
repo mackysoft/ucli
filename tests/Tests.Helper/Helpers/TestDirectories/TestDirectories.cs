@@ -42,6 +42,9 @@ internal static class TestDirectories
 
 internal sealed class TestDirectoryScope : IDisposable
 {
+    private const int DeleteRetryCount = 10;
+    private static readonly TimeSpan DeleteRetryDelay = TimeSpan.FromMilliseconds(25);
+
     private readonly DirectoryCleanupMode cleanupMode;
     private readonly string normalizedRootPath;
     private readonly TestDirectoryScope lifetimeOwner;
@@ -170,7 +173,7 @@ internal sealed class TestDirectoryScope : IDisposable
 
         try
         {
-            Directory.Delete(FullPath, recursive: true);
+            DeleteRecursivelyWithRetry(FullPath);
         }
         catch (Exception) when (cleanupMode == DirectoryCleanupMode.BestEffort)
         {
@@ -179,6 +182,31 @@ internal sealed class TestDirectoryScope : IDisposable
         {
             throw new IOException($"Failed to delete directory '{FullPath}'.", ex);
         }
+    }
+
+    private static void DeleteRecursivelyWithRetry (string directoryPath)
+    {
+        Exception? lastException = null;
+        for (var attempt = 0; attempt < DeleteRetryCount; attempt++)
+        {
+            try
+            {
+                Directory.Delete(directoryPath, recursive: true);
+                return;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                lastException = ex;
+                if (attempt == DeleteRetryCount - 1)
+                {
+                    break;
+                }
+
+                Thread.Sleep(DeleteRetryDelay);
+            }
+        }
+
+        throw lastException ?? new IOException($"Directory was not deleted: {directoryPath}");
     }
 
     private static void ValidateRelativePathSegments (string relativePath)

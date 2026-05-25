@@ -62,6 +62,7 @@ internal sealed class LogsUnityService : ILogsUnityService
             },
             static response => response.Events,
             static response => response.NextCursor,
+            static unityLogEvent => unityLogEvent.Cursor,
             onEvent,
             streamTerminationPolicy,
             static unityLogEvent => unityLogEvent.Timestamp,

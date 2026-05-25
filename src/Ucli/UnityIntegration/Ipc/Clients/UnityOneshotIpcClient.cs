@@ -1,3 +1,4 @@
+using System.Runtime.ExceptionServices;
 using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Logs;
@@ -23,6 +24,12 @@ namespace MackySoft.Ucli.UnityIntegration.Ipc.Clients;
 internal sealed class UnityOneshotIpcClient : IUnityIpcClient
 {
     private const string CleanupShutdownRequestedBy = "ucli-oneshot-cleanup";
+
+    private delegate ValueTask<IpcResponse> SendPreparedIpcRequestAsync (
+        ResolvedUnityProjectContext unityProject,
+        IpcRequest request,
+        TimeSpan timeout,
+        CancellationToken cancellationToken);
 
     private static readonly TimeSpan StartupRetryDelay = TimeSpan.FromMilliseconds(50);
     private static readonly TimeSpan DefaultCleanupTimeout = TimeSpan.FromSeconds(30);
@@ -120,17 +127,56 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
     public UnityExecutionTarget Target => UnityExecutionTarget.Oneshot;
 
     /// <inheritdoc />
-    public async ValueTask<UnityRequestExecutionResult> SendAsync (
+    public ValueTask<UnityRequestExecutionResult> SendAsync (
         ResolvedUnityProjectContext unityProject,
         UnityIpcDispatchRequest dispatchRequest,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
+    {
+        return SendCoreAsync(
+            unityProject,
+            dispatchRequest,
+            timeout,
+            SendPreparedSingleRequestAsync,
+            cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public ValueTask<UnityRequestExecutionResult> SendStreamingAsync (
+        ResolvedUnityProjectContext unityProject,
+        UnityIpcDispatchRequest dispatchRequest,
+        TimeSpan timeout,
+        Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(onProgressFrame);
+        return SendCoreAsync(
+            unityProject,
+            dispatchRequest,
+            timeout,
+            (preparedUnityProject, request, requestTimeout, requestCancellationToken) =>
+                SendPreparedStreamingRequestAsync(
+                    preparedUnityProject,
+                    request,
+                    requestTimeout,
+                    onProgressFrame,
+                    requestCancellationToken),
+            cancellationToken);
+    }
+
+    private async ValueTask<UnityRequestExecutionResult> SendCoreAsync (
+        ResolvedUnityProjectContext unityProject,
+        UnityIpcDispatchRequest dispatchRequest,
+        TimeSpan timeout,
+        SendPreparedIpcRequestAsync sendPreparedRequestAsync,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentException.ThrowIfNullOrWhiteSpace(unityProject.UnityProjectRoot);
         ArgumentException.ThrowIfNullOrWhiteSpace(unityProject.RepositoryRoot);
         ArgumentException.ThrowIfNullOrWhiteSpace(unityProject.ProjectFingerprint);
         ArgumentNullException.ThrowIfNull(dispatchRequest);
+        ArgumentNullException.ThrowIfNull(sendPreparedRequestAsync);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -211,14 +257,13 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                 }
                 else
                 {
-                    var response = await transportClient.SendAsync(
-                            unityProject.RepositoryRoot,
-                            unityProject.ProjectFingerprint,
-                            UnityIpcRequestFactory.Create(
-                                sessionToken,
-                                dispatchRequest.Method,
-                                dispatchRequest.Payload,
-                                requestTimeout),
+                    var request = UnityIpcRequestFactory.Create(
+                        sessionToken,
+                        dispatchRequest,
+                        requestTimeout);
+                    var response = await sendPreparedRequestAsync(
+                            unityProject,
+                            request,
                             requestTimeout,
                             cancellationToken)
                         .ConfigureAwait(false);
@@ -249,6 +294,10 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
             {
                 throw;
             }
+            catch (IpcProgressFrameHandlerException)
+            {
+                throw;
+            }
             catch (Exception exception)
             {
                 result = UnityRequestExecutionResult.Failure(
@@ -272,11 +321,46 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         {
             throw;
         }
+        catch (IpcProgressFrameHandlerException exception)
+        {
+            ExceptionDispatchInfo.Capture(exception.InnerException!).Throw();
+            throw;
+        }
         catch (Exception exception)
         {
             return UnityRequestExecutionResult.Failure(
                 UnityIpcFailureClassifier.FromOneshotDispatchException(exception, timeout));
         }
+    }
+
+    private ValueTask<IpcResponse> SendPreparedSingleRequestAsync (
+        ResolvedUnityProjectContext unityProject,
+        IpcRequest request,
+        TimeSpan timeout,
+        CancellationToken cancellationToken)
+    {
+        return transportClient.SendAsync(
+            unityProject.RepositoryRoot,
+            unityProject.ProjectFingerprint,
+            request,
+            timeout,
+            cancellationToken);
+    }
+
+    private ValueTask<IpcResponse> SendPreparedStreamingRequestAsync (
+        ResolvedUnityProjectContext unityProject,
+        IpcRequest request,
+        TimeSpan timeout,
+        Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
+        CancellationToken cancellationToken)
+    {
+        return transportClient.SendStreamingAsync(
+            unityProject.RepositoryRoot,
+            unityProject.ProjectFingerprint,
+            request,
+            timeout,
+            onProgressFrame,
+            cancellationToken);
     }
 
     private async ValueTask<ExecutionError?> RequestTerminalPingShutdownAsync (

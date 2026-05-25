@@ -40,7 +40,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 readinessGate,
                 mainThreadRequestExecutor);
 
-            var responseTask = service.ExecuteAsync(CreateRequest(failFast: false), CancellationToken.None).AsUniTask();
+            var responseTask = service.ExecuteAsync(
+                    CreateRequest(failFast: false),
+                    cancellationToken: CancellationToken.None)
+                .AsUniTask();
             await TestAwaiter.WaitAsync(readinessGate.WaitObserved, "Unity test run service readiness wait", SignalWaitTimeout);
 
             Assert.That(readinessGate.CallCount, Is.EqualTo(1));
@@ -77,7 +80,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 readinessGate,
                 mainThreadRequestExecutor);
 
-            var response = await service.ExecuteAsync(CreateRequest(failFast: true), CancellationToken.None).AsUniTask();
+            var response = await service.ExecuteAsync(
+                    CreateRequest(failFast: true),
+                    cancellationToken: CancellationToken.None)
+                .AsUniTask();
 
             Assert.That(response.IsSuccess, Is.False);
             Assert.That(response.Error!.Code, Is.EqualTo(EditorLifecycleErrorCodes.EditorBusy));
@@ -108,7 +114,10 @@ namespace MackySoft.Ucli.Unity.Tests
 
             await AsyncExceptionCapture.CaptureAsync<ArgumentException>(async () =>
             {
-                await service.ExecuteAsync(CreateRequest(), CancellationToken.None).AsUniTask();
+                await service.ExecuteAsync(
+                        CreateRequest(),
+                        cancellationToken: CancellationToken.None)
+                    .AsUniTask();
             }, "Invalid Unity test run request without readiness wait", SignalWaitTimeout);
 
             Assert.That(readinessGate.CallCount, Is.EqualTo(0));
@@ -128,12 +137,15 @@ namespace MackySoft.Ucli.Unity.Tests
                 TestSettingsPath: null,
                 ResultsXmlPath: "/tmp/results.xml",
                 EditorLogPath: "/tmp/editor.log",
-                FailFast: failFast);
+                FailFast: failFast,
+                RunId: "run-id");
         }
 
         private static UnityTestRunRequestContext CreateRequestContext ()
         {
             return new UnityTestRunRequestContext(
+                RunId: "run-id",
+                TestPlatform: "editmode",
                 TestMode: TestMode.EditMode,
                 TargetPlatform: null,
                 TestFilter: null,
@@ -172,6 +184,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public Task<ITestResultAdaptor> RunAsync (
                 UnityTestRunRequestContext requestContext,
+                IUnityTestRunProgressSink progressSink = null,
                 CancellationToken cancellationToken = default)
             {
                 cancellationToken.ThrowIfCancellationRequested();

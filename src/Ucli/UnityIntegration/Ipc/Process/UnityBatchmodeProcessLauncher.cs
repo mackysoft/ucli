@@ -14,6 +14,8 @@ namespace MackySoft.Ucli.UnityIntegration.Ipc.Process;
 /// <summary> Implements Unity batchmode child-process launch using resolved Unity editor executable paths. </summary>
 internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLauncher, IUnityBatchmodeProcessLauncher
 {
+    private const int RedirectedOutputDrainBufferLength = 4096;
+
     private readonly IUnityVersionResolver unityVersionResolver;
 
     private readonly IUnityEditorPathResolver unityEditorPathResolver;
@@ -167,8 +169,8 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
                 FileName = unityEditorPathResult.UnityEditorPath!,
                 UseShellExecute = false,
                 CreateNoWindow = true,
-                RedirectStandardOutput = false,
-                RedirectStandardError = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
             };
 
             var argumentTokens = BuildArgumentTokens(unityProject.UnityProjectRoot, unityLogPath, bootstrapArguments);
@@ -193,6 +195,7 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
                     "Unity batchmode process could not be started."));
             }
 
+            StartRedirectedOutputDrain(process);
             return UnityBatchmodeProcessLaunchResult.Success(new UnityBatchmodeProcessHandle(process));
         }
         catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
@@ -208,6 +211,28 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
         {
             return UnityBatchmodeProcessLaunchResult.Failure(ExecutionError.InternalError(
                 $"Failed to start Unity batchmode process. {exception.Message}"));
+        }
+    }
+
+    private static void StartRedirectedOutputDrain (System.Diagnostics.Process process)
+    {
+        _ = DrainRedirectedOutputAsync(process.StandardOutput);
+        _ = DrainRedirectedOutputAsync(process.StandardError);
+    }
+
+    private static async Task DrainRedirectedOutputAsync (TextReader reader)
+    {
+        var buffer = new char[RedirectedOutputDrainBufferLength];
+        try
+        {
+            while (await reader.ReadAsync(buffer, 0, buffer.Length).ConfigureAwait(false) > 0)
+            {
+            }
+        }
+        catch (Exception exception) when (exception is ObjectDisposedException or IOException or InvalidOperationException)
+        {
+            // NOTE: The process handle owns these redirected streams. Disposing or killing
+            // the process can close them while background drains are still reading.
         }
     }
 

@@ -226,11 +226,12 @@ The request protocol does not change between these modes. Runtime choice is oper
 
 ## 📤 Automation Output Contract
 
-> **IMPORTANT:** Except for `ucli logs * read`, the automation commands listed below write one JSON result envelope to standard output. Help and version output are human-readable command-line output. Progress messages and diagnostics that are not part of the JSON result contract are written to standard error.
+> **IMPORTANT:** Automation commands listed below write one final JSON result envelope to standard output. Help and version output are human-readable command-line output. Progress messages, diagnostics, and entry streams that are not the final JSON result contract are written to standard error.
 
-`ucli logs unity read` and `ucli logs daemon read` write log entries to standard output. Use `--format json` when a runner needs newline-delimited JSON log events.
+Automation should parse standard output as the final `CommandResult`. Commands with entry streams, such as `ucli logs unity read`, `ucli logs daemon read`, and `ucli test run`, write entries to standard error before the final result.
 
-> **IMPORTANT:** Automation should parse standard output and treat standard error as diagnostic text.
+Use `--format json` when a runner needs newline-delimited JSON entries from standard error. Without `--format json`, standard error is diagnostic or human-readable output and is not a stable parse target.
+When a runner invokes a command that can write entries, it must drain standard error concurrently while it waits for the final standard output result.
 
 The common JSON envelope contains `protocolVersion`, `command`, `status`, `exitCode`, `message`, `payload`, and `errors`.
 Use `status` and `errors[]` for command-level success or failure.

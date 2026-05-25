@@ -19,6 +19,18 @@ internal abstract record UnityRequestPayload
     internal sealed record Compile (
         string RunId) : UnityRequestPayload;
 
+    /// <summary> Represents a Unity Test Framework run request prepared by application orchestration. </summary>
+    internal sealed record TestRun (
+        string TestPlatform,
+        string? TestFilter,
+        string[] TestCategories,
+        string[] AssemblyNames,
+        string? TestSettingsPath,
+        string ResultsXmlPath,
+        string EditorLogPath,
+        bool FailFast,
+        string RunId) : UnityRequestPayload;
+
     /// <summary> Represents a Play Mode status request prepared by application orchestration. </summary>
     internal sealed record PlayStatus : UnityRequestPayload;
 

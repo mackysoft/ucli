@@ -11,12 +11,12 @@ namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Process.Shutdown;
 /// <summary> Implements daemon shutdown request sending through Unity IPC client. </summary>
 internal sealed class DaemonShutdownClient : IDaemonShutdownClient
 {
-    private readonly IUnityIpcTransportClient transportClient;
+    private readonly IIpcTransportClient transportClient;
 
     /// <summary> Initializes a new instance of the <see cref="DaemonShutdownClient" /> class. </summary>
-    /// <param name="transportClient"> The shared Unity IPC transport client dependency. </param>
+    /// <param name="transportClient"> The shared IPC transport client dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="transportClient" /> is <see langword="null" />. </exception>
-    public DaemonShutdownClient (IUnityIpcTransportClient transportClient)
+    public DaemonShutdownClient (IIpcTransportClient transportClient)
     {
         this.transportClient = transportClient ?? throw new ArgumentNullException(nameof(transportClient));
     }
@@ -42,16 +42,20 @@ internal sealed class DaemonShutdownClient : IDaemonShutdownClient
 
         try
         {
+            if (!DaemonSessionConnectionFactory.TryCreate(session, out var connection, out var connectionError))
+            {
+                return DaemonShutdownAttemptResult.Failure(connectionError!);
+            }
+
             var payload = IpcPayloadCodec.SerializeToElement(new IpcShutdownRequest("ucli-daemon-stop"));
             var request = new IpcRequest(
                 ProtocolVersion: IpcProtocol.CurrentVersion,
                 RequestId: $"daemon-stop-{Guid.NewGuid():N}",
-                SessionToken: session.SessionToken,
+                SessionToken: connection.SessionToken,
                 Method: IpcMethodNames.Shutdown,
                 Payload: payload);
             var response = await transportClient.SendAsync(
-                    unityProject.RepositoryRoot,
-                    unityProject.ProjectFingerprint,
+                    connection.Endpoint,
                     request,
                     timeout,
                     cancellationToken)

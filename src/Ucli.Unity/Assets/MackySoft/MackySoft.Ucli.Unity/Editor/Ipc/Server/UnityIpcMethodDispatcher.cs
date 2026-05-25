@@ -87,6 +87,60 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
         }
 
+        /// <inheritdoc />
+        public async Task<IpcResponse> DispatchStreamingAsync (
+            IpcRequest request,
+            IUnityIpcStreamFrameWriter streamWriter,
+            CancellationToken cancellationToken = default)
+        {
+            if (request == null)
+            {
+                throw new ArgumentNullException(nameof(request));
+            }
+
+            if (streamWriter == null)
+            {
+                throw new ArgumentNullException(nameof(streamWriter));
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            try
+            {
+                if (!methodHandlers.TryGetValue(request.Method, out var methodHandler))
+                {
+                    return UnityIpcResponseFactory.CreateErrorResponse(
+                        request,
+                        IpcProtocolErrorCodes.IpcMethodNotSupported,
+                        $"IPC method is not supported: {request.Method}.",
+                        null);
+                }
+
+                if (methodHandler is not IStreamingUnityIpcMethodHandler streamingMethodHandler)
+                {
+                    return UnityIpcResponseFactory.CreateErrorResponse(
+                        request,
+                        IpcProtocolErrorCodes.IpcMethodNotSupported,
+                        $"IPC method does not support streaming: {request.Method}.",
+                        null);
+                }
+
+                return await streamingMethodHandler.HandleStreamingAsync(request, streamWriter, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                return UnityIpcResponseFactory.CreateErrorResponse(
+                    request,
+                    UcliCoreErrorCodes.InternalError,
+                    $"Unexpected error occurred while handling streaming IPC request. {exception.Message}",
+                    null);
+            }
+        }
+
         private async Task<IpcResponse> DispatchRecoverableAsync (
             IRecoverableUnityIpcMethodHandler methodHandler,
             IpcRequest request,

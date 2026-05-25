@@ -442,7 +442,7 @@ internal sealed class VerifyService : IVerifyService
                     TestSettingsPath: null,
                     TimeoutMilliseconds: ToTimeoutMilliseconds(timeout),
                     FailFast: false),
-                cancellationToken)
+                cancellationToken: cancellationToken)
             .ConfigureAwait(false);
         if (result.ErrorKind is not null)
         {

@@ -177,6 +177,34 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
         }
 
+        /// <inheritdoc />
+        public void ReleaseForEditorLifecycleEvent ()
+        {
+            CancellationTokenSource? capturedCancellationTokenSource;
+            lock (syncRoot)
+            {
+                if (!isRunning && listenerTask == null && listenerCancellationTokenSource == null)
+                {
+                    return;
+                }
+
+                isRunning = false;
+                listenerTask = null;
+                capturedCancellationTokenSource = listenerCancellationTokenSource;
+                listenerCancellationTokenSource = null;
+            }
+
+            try
+            {
+                capturedCancellationTokenSource?.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+
+            ReleaseTransportHandles();
+        }
+
         /// <summary> Waits until the active listener loop terminates. </summary>
         /// <param name="cancellationToken"> The cancellation token propagated by operation pipelines. </param>
         /// <returns> A task that completes when listener loop terminates, or immediately when server has not been started. </returns>

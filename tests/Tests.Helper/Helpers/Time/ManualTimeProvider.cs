@@ -40,6 +40,28 @@ internal sealed class ManualTimeProvider : TimeProvider
         }
     }
 
+    internal async ValueTask AdvanceUntilCompletedAsync (
+        Task observedTask,
+        TimeSpan totalTime,
+        TimeSpan step)
+    {
+        ArgumentNullException.ThrowIfNull(observedTask);
+        ArgumentOutOfRangeException.ThrowIfLessThan(totalTime, TimeSpan.Zero);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(step, TimeSpan.Zero);
+
+        var elapsed = TimeSpan.Zero;
+        await WaitForScheduledTimerOrCompletionAsync(observedTask).ConfigureAwait(false);
+        while (!observedTask.IsCompleted && elapsed < totalTime)
+        {
+            var remaining = totalTime - elapsed;
+            var advanceBy = step < remaining ? step : remaining;
+            Advance(advanceBy);
+            elapsed += advanceBy;
+
+            await WaitForScheduledTimerOrCompletionAsync(observedTask).ConfigureAwait(false);
+        }
+    }
+
     public override ITimer CreateTimer (
         TimerCallback callback,
         object? state,
@@ -82,6 +104,31 @@ internal sealed class ManualTimeProvider : TimeProvider
                 CollectDueCallbacks(pendingCallbacks);
             }
         }
+    }
+
+    private async ValueTask WaitForScheduledTimerOrCompletionAsync (Task observedTask)
+    {
+        const int maxYieldCount = 64;
+
+        for (var i = 0; i < maxYieldCount; i++)
+        {
+            if (observedTask.IsCompleted || ActiveTimerCount != 0)
+            {
+                return;
+            }
+
+            // NOTE: Task.Yield alone can keep this helper ahead of sibling continuations on the same test scheduler.
+            if (i % 8 == 7)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(1)).ConfigureAwait(false);
+            }
+            else
+            {
+                await Task.Yield();
+            }
+        }
+
+        throw new TimeoutException("The observed task did not complete or schedule a manual timer.");
     }
 
     private void CollectDueCallbacks (List<(TimerCallback Callback, object? State)> pendingCallbacks)

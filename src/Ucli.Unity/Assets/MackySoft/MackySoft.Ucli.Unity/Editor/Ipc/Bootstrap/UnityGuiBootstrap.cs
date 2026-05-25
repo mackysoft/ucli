@@ -360,35 +360,26 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             // NOTE:
             // EditorApplication.quitting and beforeAssemblyReload are synchronous Unity main-thread callbacks.
-            // They must not wait for async IPC shutdown completion, and Unity-owned resources must not be
-            // disposed from background continuations. StopAsync synchronously cancels and releases transport
-            // handles before its first await; the remaining listener join is pure IPC cleanup. All explicit
-            // Unity-side disposal below runs on this callback thread.
+            // They must release OS transport handles on this callback thread, but must not wait for accepted
+            // connection tasks. Domain reload can tear down those tasks while Unity is rebuilding assemblies;
+            // joining them here can block the next GUI daemon bootstrap.
             if (server != null)
             {
-                _ = StopServerForEditorLifecycleEventAsync(server, daemonLogger, CleanupContext);
+                try
+                {
+                    server.ReleaseForEditorLifecycleEvent();
+                }
+                catch (Exception exception)
+                {
+                    daemonLogger.Warning(
+                        DaemonLogCategories.Lifecycle,
+                        FormatCleanupFailureMessage("GUI IPC server lifecycle release", CleanupContext, exception));
+                }
             }
 
             DisposeUnityLogCapture(unityLogCaptureService, daemonLogger, CleanupContext);
             DeleteSession(registration, daemonLogger, CleanupContext, deleteSession);
             DisposeServiceProvider(serviceProvider, daemonLogger, CleanupContext);
-        }
-
-        private static async Task StopServerForEditorLifecycleEventAsync (
-            IUnityIpcServer server,
-            IDaemonLogger daemonLogger,
-            string cleanupContext)
-        {
-            try
-            {
-                await server.StopAsync(CancellationToken.None).ConfigureAwait(false);
-            }
-            catch (Exception exception)
-            {
-                daemonLogger.Warning(
-                    DaemonLogCategories.Lifecycle,
-                    FormatCleanupFailureMessage("GUI IPC server stop", cleanupContext, exception));
-            }
         }
 
         private static void DisposeUnityLogCapture (

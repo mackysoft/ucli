@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 
@@ -56,6 +57,16 @@ public sealed class UnityIpcClientSelectorTests
             ResolvedUnityProjectContext unityProject,
             UnityIpcDispatchRequest dispatchRequest,
             TimeSpan timeout,
+            CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException();
+        }
+
+        public ValueTask<UnityRequestExecutionResult> SendStreamingAsync (
+            ResolvedUnityProjectContext unityProject,
+            UnityIpcDispatchRequest dispatchRequest,
+            TimeSpan timeout,
+            Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
             CancellationToken cancellationToken = default)
         {
             throw new NotSupportedException();

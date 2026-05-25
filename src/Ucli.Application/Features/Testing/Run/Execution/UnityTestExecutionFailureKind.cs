@@ -26,4 +26,7 @@ internal enum UnityTestExecutionFailureKind
 
     /// <summary> Indicates the Unity project is already open or locked by another Unity process. </summary>
     ProjectAlreadyOpen = 7,
+
+    /// <summary> Indicates streamed Unity test progress violated the public test-run progress contract. </summary>
+    ProgressProtocolViolation = 8,
 }

@@ -66,6 +66,7 @@ internal sealed class LogsDaemonService : ILogsDaemonService
             },
             static response => response.Events,
             static response => response.NextCursor,
+            static daemonLogEvent => daemonLogEvent.Cursor,
             onEvent,
             streamTerminationPolicy,
             static daemonLogEvent => daemonLogEvent.Timestamp,

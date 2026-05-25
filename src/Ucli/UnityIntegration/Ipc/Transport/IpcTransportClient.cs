@@ -18,6 +18,10 @@ internal sealed class IpcTransportClient : IIpcTransportClient
         ArgumentNullException.ThrowIfNull(request);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         cancellationToken.ThrowIfCancellationRequested();
+        if (!string.Equals(request.ResponseMode, IpcResponseModes.Single, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException($"IPC SendAsync requires responseMode='{IpcResponseModes.Single}'. Actual: {request.ResponseMode}.");
+        }
 
         using var timeoutCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeoutCancellationTokenSource.CancelAfter(timeout);
@@ -44,6 +48,7 @@ internal sealed class IpcTransportClient : IIpcTransportClient
                 throw CreateFrameReadException(readResult.ErrorKind, readResult.ErrorMessage);
             }
 
+            ValidateIpcResponse(request, readResult.Value);
             return readResult.Value;
         }
         catch (OperationCanceledException exception)
@@ -63,6 +68,61 @@ internal sealed class IpcTransportClient : IIpcTransportClient
     }
 
     /// <inheritdoc />
+    public async ValueTask<IpcResponse> SendStreamingAsync (
+        IpcEndpoint endpoint,
+        IpcRequest request,
+        TimeSpan timeout,
+        Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(onProgressFrame);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!string.Equals(request.ResponseMode, IpcResponseModes.Stream, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException($"IPC SendStreamingAsync requires responseMode='{IpcResponseModes.Stream}'. Actual: {request.ResponseMode}.");
+        }
+
+        using var timeoutCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeoutCancellationTokenSource.CancelAfter(timeout);
+        var ipcCancellationToken = timeoutCancellationTokenSource.Token;
+        var hasConnected = false;
+        try
+        {
+            await using var stream = await ConnectAsync(endpoint, ipcCancellationToken).ConfigureAwait(false);
+            hasConnected = true;
+            await IpcFrameCodec.WriteModelAsync(
+                    stream,
+                    request,
+                    IpcJsonSerializerOptions.Default,
+                    cancellationToken: ipcCancellationToken)
+                .ConfigureAwait(false);
+
+            return await ReadStreamingResponseAsync(
+                    stream,
+                    request,
+                    onProgressFrame,
+                    ipcCancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException exception)
+            when (!cancellationToken.IsCancellationRequested && timeoutCancellationTokenSource.IsCancellationRequested)
+        {
+            if (!hasConnected)
+            {
+                throw new IpcConnectTimeoutException(
+                    $"IPC connection timed out after {timeout.TotalMilliseconds:0} milliseconds.",
+                    exception);
+            }
+
+            throw new TimeoutException(
+                $"IPC streaming request timed out after {timeout.TotalMilliseconds:0} milliseconds.",
+                exception);
+        }
+    }
+
+    /// <inheritdoc />
     public async ValueTask<IpcResponse> SendWithUnboundedResponseWaitAsync (
         IpcEndpoint endpoint,
         IpcRequest request,
@@ -72,6 +132,10 @@ internal sealed class IpcTransportClient : IIpcTransportClient
         ArgumentNullException.ThrowIfNull(request);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(sendTimeout, TimeSpan.Zero);
         cancellationToken.ThrowIfCancellationRequested();
+        if (!string.Equals(request.ResponseMode, IpcResponseModes.Single, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException($"IPC SendWithUnboundedResponseWaitAsync requires responseMode='{IpcResponseModes.Single}'. Actual: {request.ResponseMode}.");
+        }
 
         using var sendTimeoutCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         sendTimeoutCancellationTokenSource.CancelAfter(sendTimeout);
@@ -98,6 +162,7 @@ internal sealed class IpcTransportClient : IIpcTransportClient
                 throw CreateFrameReadException(readResult.ErrorKind, readResult.ErrorMessage);
             }
 
+            ValidateIpcResponse(request, readResult.Value);
             return readResult.Value;
         }
         catch (OperationCanceledException exception)
@@ -130,6 +195,133 @@ internal sealed class IpcTransportClient : IIpcTransportClient
             IpcFrameReadErrorKind.PayloadTruncated => new EndOfStreamException(errorMessage),
             _ => new InvalidDataException(errorMessage),
         };
+    }
+
+    private static async ValueTask<IpcResponse> ReadStreamingResponseAsync (
+        Stream stream,
+        IpcRequest request,
+        Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
+        CancellationToken cancellationToken)
+    {
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var readResult = await IpcFrameCodec.TryReadModelAsync<IpcStreamFrame>(
+                    stream,
+                    IpcJsonSerializerOptions.Default,
+                    cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
+            if (!readResult.IsSuccess)
+            {
+                throw CreateFrameReadException(readResult.ErrorKind, readResult.ErrorMessage);
+            }
+
+            var frame = readResult.Value;
+            ValidateStreamingFrame(request, frame);
+            if (string.Equals(frame.Kind, IpcStreamFrameKinds.Progress, StringComparison.Ordinal))
+            {
+                try
+                {
+                    await onProgressFrame(frame, cancellationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception exception)
+                {
+                    throw new IpcProgressFrameHandlerException(exception);
+                }
+
+                continue;
+            }
+
+            return frame.Response!;
+        }
+    }
+
+    private static void ValidateStreamingFrame (
+        IpcRequest request,
+        IpcStreamFrame frame)
+    {
+        if (frame.ProtocolVersion != IpcProtocol.CurrentVersion)
+        {
+            throw new InvalidDataException(
+                $"IPC stream frame protocol version mismatch. Requested={IpcProtocol.CurrentVersion}, Actual={frame.ProtocolVersion}.");
+        }
+
+        if (!string.Equals(frame.RequestId, request.RequestId, StringComparison.Ordinal))
+        {
+            throw new InvalidDataException(
+                $"IPC stream frame requestId mismatch. Expected={request.RequestId}, Actual={frame.RequestId}.");
+        }
+
+        if (string.Equals(frame.Kind, IpcStreamFrameKinds.Progress, StringComparison.Ordinal))
+        {
+            if (string.IsNullOrWhiteSpace(frame.Event))
+            {
+                throw new InvalidDataException("IPC progress stream frame must contain an event name.");
+            }
+
+            if (frame.Response is not null)
+            {
+                throw new InvalidDataException("IPC progress stream frame must not contain a terminal response.");
+            }
+
+            return;
+        }
+
+        if (string.Equals(frame.Kind, IpcStreamFrameKinds.Terminal, StringComparison.Ordinal))
+        {
+            if (!string.IsNullOrWhiteSpace(frame.Event))
+            {
+                throw new InvalidDataException("IPC terminal stream frame must not contain an event name.");
+            }
+
+            if (frame.Response is null)
+            {
+                throw new InvalidDataException("IPC terminal stream frame must contain a response.");
+            }
+
+            if (!string.Equals(frame.Response.RequestId, request.RequestId, StringComparison.Ordinal))
+            {
+                throw new InvalidDataException(
+                    $"IPC terminal response requestId mismatch. Expected={request.RequestId}, Actual={frame.Response.RequestId}.");
+            }
+
+            ValidateIpcResponse(request, frame.Response);
+            return;
+        }
+
+        throw new InvalidDataException($"Unsupported IPC stream frame kind: {frame.Kind}.");
+    }
+
+    private static void ValidateIpcResponse (
+        IpcRequest request,
+        IpcResponse response)
+    {
+        if (response.ProtocolVersion != IpcProtocol.CurrentVersion)
+        {
+            throw new InvalidDataException(
+                $"IPC response protocol version mismatch. Requested={IpcProtocol.CurrentVersion}, Actual={response.ProtocolVersion}.");
+        }
+
+        if (!string.Equals(response.RequestId, request.RequestId, StringComparison.Ordinal))
+        {
+            throw new InvalidDataException(
+                $"IPC response requestId mismatch. Expected={request.RequestId}, Actual={response.RequestId}.");
+        }
+
+        if (!string.Equals(response.Status, IpcProtocol.StatusOk, StringComparison.Ordinal)
+            && !string.Equals(response.Status, IpcProtocol.StatusError, StringComparison.Ordinal))
+        {
+            throw new InvalidDataException($"Unsupported IPC response status: {response.Status}.");
+        }
+
+        if (response.Errors is null)
+        {
+            throw new InvalidDataException("IPC response errors must not be null.");
+        }
     }
 
     /// <summary> Opens a stream connection to the specified endpoint. </summary>
