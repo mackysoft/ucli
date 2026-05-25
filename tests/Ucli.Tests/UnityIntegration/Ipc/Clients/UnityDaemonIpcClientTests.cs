@@ -211,8 +211,7 @@ public sealed class UnityDaemonIpcClientTests
             .AsTask();
         Assert.False(sendTask.IsCompleted);
 
-        await AdvanceUntilCompletedAsync(
-            timeProvider,
+        await timeProvider.AdvanceUntilCompletedAsync(
             sendTask,
             TimeSpan.FromSeconds(2),
             TimeSpan.FromMilliseconds(100));
@@ -456,21 +455,6 @@ public sealed class UnityDaemonIpcClientTests
         Assert.Equal(IpcResponseModes.Stream, transportClient.Requests[0].ResponseMode);
         Assert.Equal(IpcResponseModes.Stream, transportClient.Requests[1].ResponseMode);
         Assert.StartsWith($"{IpcMethodNames.TestRun}-", transportClient.Requests[0].RequestId, StringComparison.Ordinal);
-    }
-
-    private static async ValueTask AdvanceUntilCompletedAsync (
-        ManualTimeProvider timeProvider,
-        Task task,
-        TimeSpan totalTime,
-        TimeSpan step)
-    {
-        var elapsed = TimeSpan.Zero;
-        while (!task.IsCompleted && elapsed < totalTime)
-        {
-            timeProvider.Advance(step);
-            elapsed += step;
-            await Task.Yield();
-        }
     }
 
     private static ResolvedUnityProjectContext CreateContext ()
