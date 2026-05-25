@@ -148,7 +148,7 @@ public sealed class TestRunCommandTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Run_WithStreamJson_WritesProgressEntriesToStandardErrorAndFinalResultToStandardOutput ()
+    public async Task Run_WithJsonFormat_WritesProgressEntriesToStandardErrorAndFinalResultToStandardOutput ()
     {
         var artifactsDir = Path.Combine(Path.GetTempPath(), "ucli-test-run-artifacts");
         var summaryJsonPath = Path.Combine(artifactsDir, "summary.json");
@@ -205,7 +205,6 @@ public sealed class TestRunCommandTests
         var command = new TestRunCommand(service, CommandResultTestWriter.Create());
 
         var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.RunAsync(
-            stream: true,
             format: "json",
             testFilter: "Name~Smoke",
             cancellationToken: CancellationToken.None));
@@ -235,7 +234,7 @@ public sealed class TestRunCommandTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Run_WithStreamJsonAndServiceError_WritesProgressEntryThenFinalErrorResult ()
+    public async Task Run_WithJsonFormatAndServiceError_WritesProgressEntryThenFinalErrorResult ()
     {
         var artifactsDir = Path.Combine(Path.GetTempPath(), "ucli-test-run-artifacts");
         var summaryJsonPath = Path.Combine(artifactsDir, "summary.json");
@@ -261,7 +260,6 @@ public sealed class TestRunCommandTests
         var command = new TestRunCommand(service, CommandResultTestWriter.Create());
 
         var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.RunAsync(
-            stream: true,
             format: "json",
             cancellationToken: CancellationToken.None));
 
@@ -289,7 +287,7 @@ public sealed class TestRunCommandTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Run_WithStreamDefaultFormat_WritesTextProgressToStandardError ()
+    public async Task Run_WithDefaultFormat_WritesTextProgressToStandardError ()
     {
         var service = new StubTestRunService(async (_, progressSink, cancellationToken) =>
         {
@@ -311,7 +309,6 @@ public sealed class TestRunCommandTests
         var command = new TestRunCommand(service, CommandResultTestWriter.Create());
 
         var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.RunAsync(
-            stream: true,
             cancellationToken: CancellationToken.None));
 
         Assert.Equal((int)CliExitCode.Success, exitCode);
@@ -328,7 +325,7 @@ public sealed class TestRunCommandTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Run_WithStreamTextFormat_WritesTextProgressToStandardError ()
+    public async Task Run_WithTextFormat_WritesTextProgressToStandardError ()
     {
         var service = new StubTestRunService(async (_, progressSink, cancellationToken) =>
         {
@@ -352,7 +349,6 @@ public sealed class TestRunCommandTests
         var command = new TestRunCommand(service, CommandResultTestWriter.Create());
 
         var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.RunAsync(
-            stream: true,
             format: "text",
             cancellationToken: CancellationToken.None));
 
@@ -370,36 +366,12 @@ public sealed class TestRunCommandTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Run_WithFormatWithoutStream_ReturnsInvalidArgumentWithoutCallingService ()
+    public async Task Run_WithUnsupportedFormat_ReturnsInvalidArgumentWithoutCallingService ()
     {
         var service = new StubTestRunService((_, _) => throw new InvalidOperationException("Service should not be called."));
         var command = new TestRunCommand(service, CommandResultTestWriter.Create());
 
         var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.RunAsync(
-            format: "json",
-            cancellationToken: CancellationToken.None));
-
-        Assert.Equal((int)CliExitCode.InvalidArgument, exitCode);
-        Assert.Equal(string.Empty, standardError);
-        Assert.Null(service.CapturedInput);
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
-        CommandResultAssert.HasStandardEnvelope(
-            outputJson.RootElement,
-            UcliCommandNames.TestRun,
-            IpcProtocol.StatusError,
-            (int)CliExitCode.InvalidArgument);
-        CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.InvalidArgument);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task Run_WithUnsupportedStreamFormat_ReturnsInvalidArgumentWithoutCallingService ()
-    {
-        var service = new StubTestRunService((_, _) => throw new InvalidOperationException("Service should not be called."));
-        var command = new TestRunCommand(service, CommandResultTestWriter.Create());
-
-        var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.RunAsync(
-            stream: true,
             format: "yaml",
             cancellationToken: CancellationToken.None));
 

@@ -1,6 +1,5 @@
 using ConsoleAppFramework;
 using MackySoft.Ucli.Application.Features.Testing.Run.Common.Contracts;
-using MackySoft.Ucli.Application.Features.Testing.Run.Progress;
 using MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun;
 using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
@@ -42,8 +41,7 @@ internal sealed class TestRunCommand
     /// <param name="testSettingsPath"> -s|--testSettingsPath, path to TestSettings.json. </param>
     /// <param name="timeout"> Timeout in milliseconds. </param>
     /// <param name="failFast"> --failFast, Fails immediately when readiness-gated Unity execution is not yet ready. </param>
-    /// <param name="stream"> Emits live test-run progress entries to standard error. </param>
-    /// <param name="format"> Stream entry format (text|json). Valid only with stream enabled. </param>
+    /// <param name="format"> Progress entry format (text|json). </param>
     /// <param name="cancellationToken"> The cancellation token propagated by the command pipeline. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.RunSubcommand)]
@@ -60,7 +58,6 @@ internal sealed class TestRunCommand
         string? testSettingsPath = null,
         int? timeout = null,
         bool failFast = false,
-        bool stream = false,
         string? format = null,
         CancellationToken cancellationToken = default)
     {
@@ -69,15 +66,6 @@ internal sealed class TestRunCommand
             cancellationToken.ThrowIfCancellationRequested();
 
             CommandExecutionState.MarkStarted();
-
-            if (!stream && !string.IsNullOrWhiteSpace(format))
-            {
-                var errorResult = TestRunCommandResultFactory.Create(TestRunServiceResult.InvalidInput(
-                    "--format can only be specified when --stream is enabled.",
-                    UcliCoreErrorCodes.InvalidArgument));
-                commandResultWriter.WriteToStandardOutput(errorResult);
-                return errorResult.ExitCode;
-            }
 
             if (!CliStreamEntryFormatCodec.TryParse(format, out var normalizedFormat, out var formatError))
             {
@@ -108,11 +96,9 @@ internal sealed class TestRunCommand
                 return errorResult.ExitCode;
             }
 
-            ITestRunProgressSink? progressSink = stream
-                ? new CliTestRunProgressSink(
-                    normalizedFormat,
-                    new CliStreamEntryWriter(UcliCommandNames.TestRun))
-                : null;
+            var progressSink = new CliTestRunProgressSink(
+                normalizedFormat,
+                new CliStreamEntryWriter(UcliCommandNames.TestRun));
             var serviceResult = await testRunService.ExecuteAsync(
                 new TestRunCommandInput(
                     ProjectPath: projectPath,

@@ -323,6 +323,7 @@ ucli_test_args=(
   --testPlatform "${test_platform}"
   --assemblyName "${assembly_name}"
   --timeout "${timeout_milliseconds}"
+  --format text
 )
 
 if [[ -n "${unity_editor_path}" ]]; then
@@ -342,13 +343,9 @@ if [[ -n "${test_settings_path}" ]]; then
 fi
 
 set +e
-dotnet "${ucli_dll_path}" "${ucli_test_args[@]}" > "${command_result_path}" 2> "${command_stderr_path}"
+dotnet "${ucli_dll_path}" "${ucli_test_args[@]}" > "${command_result_path}" 2> >(tee "${command_stderr_path}" >&2)
 exit_code=$?
 set -e
-
-if [[ -s "${command_stderr_path}" ]]; then
-  cat "${command_stderr_path}"
-fi
 
 if [[ -s "${command_result_path}" ]]; then
   cat "${command_result_path}"
