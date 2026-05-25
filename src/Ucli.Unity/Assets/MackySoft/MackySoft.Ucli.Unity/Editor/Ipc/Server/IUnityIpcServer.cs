@@ -23,6 +23,9 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <returns> A task that completes when stop sequence has finished. </returns>
         Task StopAsync (CancellationToken cancellationToken = default);
 
+        /// <summary> Synchronously releases transport handles from Unity editor lifecycle callbacks without waiting for connection tasks. </summary>
+        void ReleaseForEditorLifecycleEvent ();
+
         /// <summary> Waits until the active listener loop terminates. </summary>
         /// <param name="cancellationToken"> The cancellation token propagated by operation pipelines. </param>
         /// <returns> A task that completes when listener loop terminates, or immediately when server has not been started. </returns>

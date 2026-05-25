@@ -21,6 +21,8 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private NamedPipeServerStream activeServerStream;
 
+        private UnityIpcTransportConnectionGroup activeConnectionGroup;
+
         /// <summary> Initializes a new instance of the <see cref="NamedPipeUnityIpcTransportListener" /> class. </summary>
         /// <param name="daemonLogger"> The daemon daemon-logger dependency. </param>
         public NamedPipeUnityIpcTransportListener (IDaemonLogger daemonLogger = null)
@@ -65,29 +67,44 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             var started = false;
-            while (!cancellationToken.IsCancellationRequested)
+            var connectionGroup = new UnityIpcTransportConnectionGroup(daemonLogger);
+            lock (syncRoot)
             {
-                cancellationToken.ThrowIfCancellationRequested();
+                activeConnectionGroup = connectionGroup;
+            }
 
-                UnityIpcConnectionHandleResult result = default;
-                using (var serverStream = PipeServerStreamFactory.Create(address, daemonLogger))
+            try
+            {
+                while (!cancellationToken.IsCancellationRequested)
                 {
-                    lock (syncRoot)
-                    {
-                        activeServerStream = serverStream;
-                    }
+                    cancellationToken.ThrowIfCancellationRequested();
 
-                    if (!started)
-                    {
-                        onStarted();
-                        started = true;
-                    }
-
+                    NamedPipeServerStream serverStream = null;
                     try
                     {
+                        serverStream = PipeServerStreamFactory.Create(address, daemonLogger);
+                        lock (syncRoot)
+                        {
+                            activeServerStream = serverStream;
+                        }
+
+                        if (!started)
+                        {
+                            onStarted();
+                            started = true;
+                        }
+
                         await serverStream.WaitForConnectionAsync(cancellationToken);
                         cancellationToken.ThrowIfCancellationRequested();
-                        result = await connectionHandler.HandleAsync(serverStream, cancellationToken);
+                        ClearActiveServerStream(serverStream);
+
+                        var connectedStream = serverStream;
+                        serverStream = null;
+                        connectionGroup.Start(
+                            connectedStream,
+                            () => connectionHandler.HandleAsync(connectedStream, cancellationToken),
+                            onConnectionCompleted,
+                            cancellationToken);
                     }
                     catch (OperationCanceledException)
                     {
@@ -114,28 +131,53 @@ namespace MackySoft.Ucli.Unity.Ipc
                     }
                     finally
                     {
-                        lock (syncRoot)
+                        if (serverStream != null)
                         {
-                            if (ReferenceEquals(activeServerStream, serverStream))
-                            {
-                                activeServerStream = null;
-                            }
+                            ClearActiveServerStream(serverStream);
+                            serverStream.Dispose();
                         }
                     }
                 }
+            }
+            finally
+            {
+                connectionGroup.Release();
+                await connectionGroup.WaitForCompletionAsync();
 
-                onConnectionCompleted(result);
+                lock (syncRoot)
+                {
+                    if (ReferenceEquals(activeConnectionGroup, connectionGroup))
+                    {
+                        activeConnectionGroup = null;
+                    }
+                }
             }
         }
 
         /// <summary> Releases active transport handles to unblock accept loops. </summary>
         public void Release ()
         {
+            UnityIpcTransportConnectionGroup connectionGroup;
             lock (syncRoot)
             {
                 if (activeServerStream != null)
                 {
                     activeServerStream.Dispose();
+                    activeServerStream = null;
+                }
+
+                connectionGroup = activeConnectionGroup;
+            }
+
+            connectionGroup?.Release();
+        }
+
+        private void ClearActiveServerStream (NamedPipeServerStream serverStream)
+        {
+            lock (syncRoot)
+            {
+                if (ReferenceEquals(activeServerStream, serverStream))
+                {
                     activeServerStream = null;
                 }
             }
