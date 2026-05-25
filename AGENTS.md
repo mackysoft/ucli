@@ -10,8 +10,7 @@
   - `uCLI`：CLIコア
   - `uCLI.Unity`：Unity IPCクライアント
   - `uCLI.Contracts`：IPC共有契約パッケージ
-- ドキュメント：`docs/`
-- エージェント用作業ドキュメント：`docs/agents/`
+- 仕様文書（Mac）：`$HOME/Repositories/assurance/ucli/`
 
 ## コーディング規約
 - SOLID原則を遵守し、高凝集・低結合を前提にモジュール分割する
