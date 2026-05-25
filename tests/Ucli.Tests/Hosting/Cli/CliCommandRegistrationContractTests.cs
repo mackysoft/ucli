@@ -19,18 +19,6 @@ public sealed class CliCommandRegistrationContractTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void CommandReference_CommandPathsMatchCommandCatalog ()
-    {
-        var referencePath = Path.Combine(FindRepositoryRoot(), "docs", "uCLI-command-reference.md");
-        var referenceText = File.ReadAllText(referencePath);
-
-        Assert.Equal(
-            UcliCommandCatalog.CommandPaths.Order(StringComparer.Ordinal).ToArray(),
-            ExtractCommandReferenceCommandPaths(referenceText).Order(StringComparer.Ordinal).ToArray());
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
     public void CommandCatalog_CommandPathsMatchPublicLeafCommands ()
     {
         var registeredPublicCommandNames = UcliCommandCatalog.CommandPaths
@@ -70,56 +58,6 @@ public sealed class CliCommandRegistrationContractTests
             }
 
             commandPaths.Add(ExtractCommandPath(line));
-        }
-
-        return commandPaths.ToArray();
-    }
-
-    private static string[] ExtractCommandReferenceCommandPaths (string referenceText)
-    {
-        var commandPaths = new List<string>();
-        var lines = referenceText.Split('\n');
-        var isCommandPathSection = false;
-
-        for (var i = 0; i < lines.Length; i++)
-        {
-            var line = lines[i].TrimEnd('\r');
-            var trimmedLine = line.Trim();
-            if (!isCommandPathSection)
-            {
-                isCommandPathSection = string.Equals(trimmedLine, "### 実行可能 command paths", StringComparison.Ordinal);
-                continue;
-            }
-
-            if (trimmedLine.StartsWith("### ", StringComparison.Ordinal)
-                || trimmedLine.StartsWith("## ", StringComparison.Ordinal))
-            {
-                break;
-            }
-
-            const string commandPrefix = "| `ucli ";
-            if (!trimmedLine.StartsWith(commandPrefix, StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            var commandEnd = trimmedLine.IndexOf('`', commandPrefix.Length);
-            if (commandEnd < 0)
-            {
-                throw new InvalidOperationException($"Command reference row does not close the command literal: {line}");
-            }
-
-            commandPaths.Add(trimmedLine[commandPrefix.Length..commandEnd]);
-        }
-
-        if (!isCommandPathSection)
-        {
-            throw new InvalidOperationException("Command reference does not contain '### 実行可能 command paths'.");
-        }
-
-        if (commandPaths.Count == 0)
-        {
-            throw new InvalidOperationException("Command reference command path section is empty.");
         }
 
         return commandPaths.ToArray();

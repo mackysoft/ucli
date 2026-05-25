@@ -1,5 +1,4 @@
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
 
@@ -935,27 +934,6 @@ public sealed class CliOutputSchemaArtifactTests
         Assert.True(errors.Count > 0, caseName);
     }
 
-    [Fact]
-    [Trait("Size", "Small")]
-    public void OpsDescribePayloadSchema_AcceptsDocumentedFullExamples ()
-    {
-        using var schemaSet = JsonSchemaArtifactSet.Load(Path.Combine(RepositoryRoot, "schemas", "v1"));
-        var examples = ReadOpsDescribeDocumentationPayloadExamples();
-
-        Assert.NotEmpty(examples);
-        foreach (var example in examples)
-        {
-            using var document = JsonDocument.Parse(example);
-
-            var errors = schemaSet.Validate(
-                "cli-output/payload/ops.describe.schema.json",
-                document.RootElement);
-
-            Assert.Empty(errors);
-            AssertOpsDescribeSchemasUseSupportedSubset(document.RootElement.GetProperty("operation"));
-        }
-    }
-
     public static IEnumerable<object[]> GetCliOutputGoldenFiles ()
     {
         var goldenRoot = Path.Combine(RepositoryRoot, "tests", "Ucli.Tests", "GoldenFiles", "Json", "CliOutput");
@@ -1434,33 +1412,6 @@ public sealed class CliOutputSchemaArtifactTests
         Assert.True(
             IndexJsonSchemaSubsetValidator.IsValidObjectSchema(resultSchema.GetRawText()),
             "Documented ops describe resultSchema must use the uCLI-supported schema subset.");
-    }
-
-    private static IReadOnlyList<string> ReadOpsDescribeDocumentationPayloadExamples ()
-    {
-        var propertyReferencePath = Path.Combine(RepositoryRoot, "docs", "uCLI-property-reference.md");
-        var text = File.ReadAllText(propertyReferencePath);
-        var examples = new List<string>();
-        foreach (Match match in Regex.Matches(text, "```json\\s*(?<json>.*?)\\s*```", RegexOptions.Singleline))
-        {
-            var json = match.Groups["json"].Value.Trim();
-            if (!json.Contains("\"operation\"", StringComparison.Ordinal)
-                || !json.Contains("\"readIndex\"", StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            using var document = JsonDocument.Parse(json);
-            var root = document.RootElement;
-            if (root.ValueKind == JsonValueKind.Object
-                && root.TryGetProperty("operation", out _)
-                && root.TryGetProperty("readIndex", out _))
-            {
-                examples.Add(json);
-            }
-        }
-
-        return examples;
     }
 
     private static string FindRepositoryRoot ()

@@ -397,7 +397,6 @@ public sealed class CliOutputGoldenContractTests
 
         string[] roots =
         [
-            Path.Combine(RepositoryRoot, "docs"),
             Path.Combine(RepositoryRoot, "skills", "definitions"),
             Path.Combine(RepositoryRoot, "skills", "generated"),
             CliOutputGoldenRoot,
