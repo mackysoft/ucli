@@ -16,6 +16,56 @@ public sealed class LogsUnityServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Execute_WhenStreamReadTimesOutBeforeIdleTimeout_RetriesPolling ()
+    {
+        var context = DaemonServiceTestContext.CreateExecutionContext(timeoutMilliseconds: 3000);
+        var resolver = new DaemonServiceTestContext.StubDaemonCommandExecutionContextResolver(
+            DaemonCommandExecutionContextResolutionResult.Success(context));
+        var unityLogsClient = new StubUnityLogsClient(
+            [
+                UnityLogsClientReadResult.Failure(ExecutionError.Timeout("Unity logs read request timed out.")),
+                UnityLogsClientReadResult.Success(CreatePayload(
+                    events:
+                    [
+                        CreateEvent("stream-1:1", "alpha", timestamp: "2099-01-01T00:00:00Z"),
+                    ],
+                    nextCursor: "stream-1:2")),
+            ]);
+        var service = CreateService(resolver, unityLogsClient);
+        var emittedMessages = new List<string>();
+
+        var result = await service.ExecuteAsync(
+            new LogsUnityServiceRequest(
+                ProjectPath: "/tmp/unity-project",
+                Tail: null,
+                After: null,
+                Since: null,
+                Until: "2099-01-01T00:00:00Z",
+                Level: null,
+                Query: null,
+                QueryTarget: null,
+                Source: null,
+                StackTrace: null,
+                StackTraceMaxFrames: null,
+                StackTraceMaxChars: null,
+                Stream: true,
+                PollIntervalMilliseconds: 50,
+                IdleTimeoutMilliseconds: 15000),
+            (unityLogEvent, _, _) =>
+            {
+                emittedMessages.Add(unityLogEvent.Message);
+                return ValueTask.CompletedTask;
+            },
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess, result.Error?.Message);
+        Assert.Equal(["alpha"], emittedMessages);
+        Assert.Equal(2, unityLogsClient.CallCount);
+        Assert.All(unityLogsClient.CapturedTimeouts, timeout => Assert.Equal(TimeSpan.FromSeconds(3), timeout));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Execute_WhenStreamEnabled_UsesNextCursorForIncrementalReads ()
     {
         var context = DaemonServiceTestContext.CreateExecutionContext(timeoutMilliseconds: 3000);
@@ -160,6 +210,52 @@ public sealed class LogsUnityServiceTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess, result.Error?.Message);
+        Assert.Equal(2, unityLogsClient.CallCount);
+        Assert.Equal(LogsReadCompletionReasons.IdleTimeout, result.CompletionReason);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenStreamReadTimesOutAfterIdleTimeout_ReturnsIdleTimeout ()
+    {
+        var context = DaemonServiceTestContext.CreateExecutionContext(timeoutMilliseconds: 3000);
+        var resolver = new DaemonServiceTestContext.StubDaemonCommandExecutionContextResolver(
+            DaemonCommandExecutionContextResolutionResult.Success(context));
+        var unityLogsClient = new StubUnityLogsClient(
+            [
+                UnityLogsClientReadResult.Success(CreatePayload(
+                    events:
+                    [
+                        CreateEvent("stream-1:10", "first"),
+                    ],
+                    nextCursor: "stream-1:11")),
+                UnityLogsClientReadResult.Failure(ExecutionError.Timeout("Unity logs read request timed out.")),
+            ]);
+        var service = CreateService(resolver, unityLogsClient);
+
+        var result = await service.ExecuteAsync(
+            new LogsUnityServiceRequest(
+                ProjectPath: "/tmp/unity-project",
+                Tail: null,
+                After: null,
+                Since: null,
+                Until: null,
+                Level: null,
+                Query: null,
+                QueryTarget: null,
+                Source: null,
+                StackTrace: null,
+                StackTraceMaxFrames: null,
+                StackTraceMaxChars: null,
+                Stream: true,
+                PollIntervalMilliseconds: 50,
+                IdleTimeoutMilliseconds: 1),
+            static (_, _, _) => ValueTask.CompletedTask,
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess, result.Error?.Message);
+        Assert.Equal(1, result.Count);
+        Assert.Equal("stream-1:11", result.NextCursor);
         Assert.Equal(2, unityLogsClient.CallCount);
         Assert.Equal(LogsReadCompletionReasons.IdleTimeout, result.CompletionReason);
     }
@@ -329,10 +425,11 @@ public sealed class LogsUnityServiceTests
 
     private static IpcUnityLogEvent CreateEvent (
         string cursor,
-        string message)
+        string message,
+        string timestamp = "2026-03-05T10:30:00+09:00")
     {
         return new IpcUnityLogEvent(
-            Timestamp: "2026-03-05T10:30:00+09:00",
+            Timestamp: timestamp,
             Level: "info",
             Source: "runtime",
             Message: message,
@@ -373,6 +470,8 @@ public sealed class LogsUnityServiceTests
 
         public List<IpcUnityLogsReadRequest> CapturedQueries { get; } = new();
 
+        public List<TimeSpan> CapturedTimeouts { get; } = new();
+
         public ValueTask<UnityLogsClientReadResult> ReadAsync (
             ResolvedUnityProjectContext unityProject,
             IpcUnityLogsReadRequest query,
@@ -383,6 +482,7 @@ public sealed class LogsUnityServiceTests
             CallCount++;
             CapturedAfterValues.Add(query.After);
             CapturedQueries.Add(query);
+            CapturedTimeouts.Add(timeout);
 
             if (responses.Count == 0)
             {

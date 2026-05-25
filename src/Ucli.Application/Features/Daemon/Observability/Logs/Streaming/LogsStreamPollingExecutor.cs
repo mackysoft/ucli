@@ -75,6 +75,27 @@ internal static class LogsStreamPollingExecutor
                 var error = getError(readResult);
                 if (error is not null)
                 {
+                    if (stream && error.Kind == ExecutionErrorKind.Timeout)
+                    {
+                        // NOTE: In stream mode, one bounded poll can time out while no matching log entries exist.
+                        // Treat it as an empty poll and let the stream termination policy decide whether idleTimeout
+                        // or untilReached has been reached; bounded non-stream reads still surface the timeout.
+                        var timeoutStopReason = streamTerminationPolicy.GetStopReason(
+                            Array.Empty<TEvent>(),
+                            DateTimeOffset.UtcNow,
+                            streamOptions.UntilTimestamp,
+                            lastEventTimestamp,
+                            streamOptions.IdleTimeout,
+                            getTimestamp);
+                        if (timeoutStopReason is not null)
+                        {
+                            return LogsReadServiceResult.Success(emittedCount, latestNextCursor, timeoutStopReason);
+                        }
+
+                        await Task.Delay(streamOptions.PollInterval, cancellationToken).ConfigureAwait(false);
+                        continue;
+                    }
+
                     return LogsReadServiceResult.Failure(error, emittedCount, latestNextCursor);
                 }
 
@@ -128,4 +149,5 @@ internal static class LogsStreamPollingExecutor
             return LogsReadServiceResult.Canceled(emittedCount, latestNextCursor);
         }
     }
+
 }
