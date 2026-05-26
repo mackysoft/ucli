@@ -319,29 +319,66 @@ public sealed class TestRunCommandTests
             IpcProtocol.StatusOk,
             (int)CliExitCode.Success);
         Assert.Equal(
-            "test run diagnostic severity=info code=TEST_PROGRESS_STUB message=line 1\\nline 2" + Environment.NewLine,
+            "info TEST_PROGRESS_STUB: line 1\\nline 2" + Environment.NewLine,
             standardError);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Run_WithTextFormat_WritesTextProgressToStandardError ()
+    public async Task Run_WithTextFormat_WritesDotnetStyleCompletedCasesToStandardError ()
     {
         var service = new StubTestRunService(async (_, progressSink, cancellationToken) =>
         {
             Assert.NotNull(progressSink);
             await progressSink!.OnEntryAsync(
+                TestRunProgressEventNames.RunStarted,
+                new TestRunStartedEntry(
+                    "run-id",
+                    "editmode",
+                    null,
+                    ["MyGame.Tests"],
+                    []),
+                cancellationToken);
+            await progressSink.OnEntryAsync(
                 TestRunProgressEventNames.CaseStarted,
                 new TestCaseStartedEntry(
                     "run-id",
-                    "test-id",
+                    "test-id-pass",
                     "SmokeTest.Passes",
                     "MyGame.Tests",
                     "editmode",
                     ["smoke"]),
                 cancellationToken);
-            return TestRunServiceResult.Pass(
-                message: "Unity test execution completed.",
+            await progressSink.OnEntryAsync(
+                TestRunProgressEventNames.CaseFinished,
+                new TestCaseFinishedEntry(
+                    "run-id",
+                    "test-id-pass",
+                    "SmokeTest.Passes",
+                    "MyGame.Tests",
+                    "editmode",
+                    ["smoke"],
+                    "pass",
+                    42,
+                    null,
+                    null),
+                cancellationToken);
+            await progressSink.OnEntryAsync(
+                TestRunProgressEventNames.CaseFinished,
+                new TestCaseFinishedEntry(
+                    "run-id",
+                    "test-id-fail",
+                    "SmokeTest.Fails",
+                    "MyGame.Tests",
+                    "editmode",
+                    ["smoke"],
+                    "fail",
+                    13,
+                    "assertion failed",
+                    "at SmokeTest.Fails()"),
+                cancellationToken);
+            return TestRunServiceResult.Fail(
+                message: "Unity test execution completed with failures.",
                 runId: "run-id",
                 artifactsDir: "/tmp/ucli-test-run-artifacts",
                 summaryJsonPath: "/tmp/ucli-test-run-artifacts/summary.json");
@@ -352,15 +389,16 @@ public sealed class TestRunCommandTests
             format: "text",
             cancellationToken: CancellationToken.None));
 
-        Assert.Equal((int)CliExitCode.Success, exitCode);
+        Assert.Equal(1, exitCode);
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             UcliCommandNames.TestRun,
             IpcProtocol.StatusOk,
-            (int)CliExitCode.Success);
+            1);
         Assert.Equal(
-            "test case started name=SmokeTest.Passes id=test-id assembly=MyGame.Tests" + Environment.NewLine,
+            "Passed SmokeTest.Passes [42 ms]" + Environment.NewLine
+                + "Failed SmokeTest.Fails [13 ms]" + Environment.NewLine,
             standardError);
     }
 

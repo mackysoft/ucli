@@ -1,3 +1,5 @@
+using System.Buffers;
+using System.Text;
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
 
@@ -15,6 +17,7 @@ internal sealed class CliStreamEntryWriter
     private readonly string streamId;
     private readonly TextWriter errorWriter;
     private readonly TimeProvider timeProvider;
+    private readonly ArrayBufferWriter<byte> jsonBuffer = new();
 
     private long sequence;
 
@@ -40,15 +43,22 @@ internal sealed class CliStreamEntryWriter
         ArgumentException.ThrowIfNullOrWhiteSpace(eventName);
         ArgumentNullException.ThrowIfNull(payload);
 
-        var entry = new CliStreamEntryEnvelope(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            Command: command,
-            StreamId: streamId,
-            Sequence: checked(++sequence),
-            Timestamp: timeProvider.GetUtcNow().ToString("O"),
-            Event: eventName,
-            Payload: payload);
-        errorWriter.WriteLine(JsonSerializer.Serialize(entry, SerializerOptions));
+        jsonBuffer.Clear();
+        using (var writer = new Utf8JsonWriter(jsonBuffer))
+        {
+            writer.WriteStartObject();
+            writer.WriteNumber("protocolVersion", IpcProtocol.CurrentVersion);
+            writer.WriteString("command", command);
+            writer.WriteString("streamId", streamId);
+            writer.WriteNumber("sequence", checked(++sequence));
+            writer.WriteString("timestamp", timeProvider.GetUtcNow().ToString("O"));
+            writer.WriteString("event", eventName);
+            writer.WritePropertyName("payload");
+            JsonSerializer.Serialize(writer, payload, payload.GetType(), SerializerOptions);
+            writer.WriteEndObject();
+        }
+
+        WriteUtf8JsonLine(jsonBuffer.WrittenSpan);
     }
 
     /// <summary> Writes one human-readable text entry line. </summary>
@@ -57,12 +67,26 @@ internal sealed class CliStreamEntryWriter
         errorWriter.WriteLine(CliTextEntrySanitizer.Sanitize(text));
     }
 
-    private sealed record CliStreamEntryEnvelope (
-        int ProtocolVersion,
-        string Command,
-        string StreamId,
-        long Sequence,
-        string Timestamp,
-        string Event,
-        object Payload);
+    /// <summary> Writes one human-readable text entry line that has already been sanitized. </summary>
+    public void WritePreSanitizedTextEntry (string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        errorWriter.WriteLine(text);
+    }
+
+    private void WriteUtf8JsonLine (ReadOnlySpan<byte> utf8Json)
+    {
+        var maxCharCount = Encoding.UTF8.GetMaxCharCount(utf8Json.Length);
+        var charBuffer = ArrayPool<char>.Shared.Rent(maxCharCount);
+        try
+        {
+            var charCount = Encoding.UTF8.GetChars(utf8Json, charBuffer);
+            errorWriter.Write(charBuffer.AsSpan(0, charCount));
+            errorWriter.WriteLine();
+        }
+        finally
+        {
+            ArrayPool<char>.Shared.Return(charBuffer);
+        }
+    }
 }
