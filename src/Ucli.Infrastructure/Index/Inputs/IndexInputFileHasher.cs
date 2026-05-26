@@ -1,4 +1,3 @@
-using System.Text;
 using MackySoft.Ucli.Infrastructure.Cryptography;
 using MackySoft.Ucli.Infrastructure.Paths;
 
@@ -79,8 +78,14 @@ internal static class IndexInputFileHasher
     /// <summary> Computes a SHA-256 lower-hex hash for one UTF-8 text value. </summary>
     public static string ComputeUtf8Hash (string text)
     {
-        var bytes = Encoding.UTF8.GetBytes(text);
-        return Sha256LowerHex.Compute(bytes);
+        if (text == null)
+        {
+            throw new ArgumentNullException(nameof(text));
+        }
+
+        using var hashWriter = new Utf8Sha256HashWriter();
+        hashWriter.Append(text);
+        return hashWriter.GetHashAndReset();
     }
 
     private static async ValueTask<string?> TryHashDirectoryFilesAsync (
@@ -142,18 +147,18 @@ internal static class IndexInputFileHasher
             return ComputeUtf8Hash(string.Empty);
         }
 
-        var buffer = new StringBuilder(files.Count * 80);
+        using var hashWriter = new Utf8Sha256HashWriter();
         for (var i = 0; i < files.Count; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (!await TryAppendFileHashMetadataAsync(buffer, files[i], cancellationToken).ConfigureAwait(false))
+            if (!await TryAppendFileHashMetadataAsync(hashWriter, files[i], cancellationToken).ConfigureAwait(false))
             {
                 return null;
             }
         }
 
-        return ComputeUtf8Hash(buffer.ToString());
+        return hashWriter.GetHashAndReset();
     }
 
     private static IndexCoreInputFileHashes? TryCreateCoreInputFileHashes (
@@ -175,7 +180,7 @@ internal static class IndexInputFileHasher
     }
 
     private static async ValueTask<bool> TryAppendFileHashMetadataAsync (
-        StringBuilder buffer,
+        Utf8Sha256HashWriter hashWriter,
         string filePath,
         CancellationToken cancellationToken)
     {
@@ -186,10 +191,10 @@ internal static class IndexInputFileHasher
         }
 
         var normalizedPath = PathStringNormalizer.NormalizeAbsolutePathForHash(filePath);
-        buffer.Append(normalizedPath);
-        buffer.Append('\n');
-        buffer.Append(fileHash);
-        buffer.Append('\n');
+        hashWriter.Append(normalizedPath);
+        hashWriter.Append('\n');
+        hashWriter.Append(fileHash);
+        hashWriter.Append('\n');
         return true;
     }
 

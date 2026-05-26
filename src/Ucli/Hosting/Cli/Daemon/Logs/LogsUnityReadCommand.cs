@@ -5,6 +5,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Common.Streaming;
+using MackySoft.Ucli.Infrastructure.Text;
 
 namespace MackySoft.Ucli.Hosting.Cli.Daemon.Logs;
 
@@ -114,25 +115,46 @@ internal sealed class LogsUnityReadCommand
             return nextCursor;
         }
 
-        var line = string.Concat(
-            unityLogEvent.Timestamp,
-            " ",
-            unityLogEvent.Level,
-            " ",
-            unityLogEvent.Source,
-            " ",
-            LogsTextUtilities.NormalizeSingleLine(unityLogEvent.Message));
-        if (string.IsNullOrWhiteSpace(unityLogEvent.StackTrace))
-        {
-            entryWriter.WriteTextEntry(line);
-            return nextCursor;
-        }
-
-        entryWriter.WriteTextEntry(string.Concat(
-            line,
-            " | ",
-            LogsTextUtilities.NormalizeSingleLine(unityLogEvent.StackTrace)));
+        entryWriter.WritePreSanitizedTextEntry(CreateTextLine(unityLogEvent));
         return nextCursor;
+    }
+
+    private static string CreateTextLine (IpcUnityLogEvent unityLogEvent)
+    {
+        var message = LogsTextUtilities.NormalizeSingleLine(unityLogEvent.Message);
+        var hasStackTrace = !string.IsNullOrWhiteSpace(unityLogEvent.StackTrace);
+        var stackTrace = hasStackTrace
+            ? LogsTextUtilities.NormalizeSingleLine(unityLogEvent.StackTrace)
+            : string.Empty;
+        var length = checked(
+            unityLogEvent.Timestamp.Length
+            + 1
+            + unityLogEvent.Level.Length
+            + 1
+            + unityLogEvent.Source.Length
+            + 1
+            + message.Length
+            + (hasStackTrace ? 3 + stackTrace.Length : 0));
+
+        return string.Create(
+            length,
+            (unityLogEvent.Timestamp, unityLogEvent.Level, unityLogEvent.Source, Message: message, HasStackTrace: hasStackTrace, StackTrace: stackTrace),
+            static (destination, state) =>
+            {
+                var writer = new SpanTextWriter(destination);
+                writer.Append(state.Timestamp);
+                writer.Append(' ');
+                writer.Append(state.Level);
+                writer.Append(' ');
+                writer.Append(state.Source);
+                writer.Append(' ');
+                writer.Append(state.Message);
+                if (state.HasStackTrace)
+                {
+                    writer.Append(" | ");
+                    writer.Append(state.StackTrace);
+                }
+            });
     }
 
     /// <summary> Represents one NDJSON output line for Unity log events. </summary>

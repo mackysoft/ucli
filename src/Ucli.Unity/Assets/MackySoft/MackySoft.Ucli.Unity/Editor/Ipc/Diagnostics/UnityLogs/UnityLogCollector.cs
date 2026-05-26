@@ -1,6 +1,7 @@
 using System;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Infrastructure.Text;
 using UnityEditor.Compilation;
 using UnityEngine;
 
@@ -104,20 +105,122 @@ namespace MackySoft.Ucli.Unity.Ipc
             var level = NormalizeCompileLevel(message.type);
             if (!StringValueNormalizer.TryTrimToNonEmpty(message.file, out var file))
             {
-                return string.Concat(level, " ", normalizedMessage);
+                return CreateCompileMessage(level, normalizedMessage);
             }
 
             if (message.line > 0 && message.column > 0)
             {
-                return string.Concat(file, "(", message.line, ",", message.column, "): ", level, " ", normalizedMessage);
+                return CreateCompileMessage(file, message.line, message.column, level, normalizedMessage);
             }
 
             if (message.line > 0)
             {
-                return string.Concat(file, "(", message.line, "): ", level, " ", normalizedMessage);
+                return CreateCompileMessage(file, message.line, level, normalizedMessage);
             }
 
-            return string.Concat(file, ": ", level, " ", normalizedMessage);
+            return CreateCompileMessage(file, level, normalizedMessage);
+        }
+
+        private static string CreateCompileMessage (
+            string level,
+            string message)
+        {
+            var length = checked(level.Length + 1 + message.Length);
+            return string.Create(
+                length,
+                (Level: level, Message: message),
+                static (destination, state) =>
+                {
+                    var writer = new SpanTextWriter(destination);
+                    writer.Append(state.Level);
+                    writer.Append(' ');
+                    writer.Append(state.Message);
+                });
+        }
+
+        private static string CreateCompileMessage (
+            string file,
+            string level,
+            string message)
+        {
+            var length = checked(file.Length + 2 + level.Length + 1 + message.Length);
+            return string.Create(
+                length,
+                (File: file, Level: level, Message: message),
+                static (destination, state) =>
+                {
+                    var writer = new SpanTextWriter(destination);
+                    writer.Append(state.File);
+                    writer.Append(": ");
+                    writer.Append(state.Level);
+                    writer.Append(' ');
+                    writer.Append(state.Message);
+                });
+        }
+
+        private static string CreateCompileMessage (
+            string file,
+            int line,
+            string level,
+            string message)
+        {
+            var lineLength = GetPositiveInt32TextLength(line);
+            var length = checked(file.Length + 1 + lineLength + 3 + level.Length + 1 + message.Length);
+            return string.Create(
+                length,
+                (File: file, Line: line, Level: level, Message: message),
+                static (destination, state) =>
+                {
+                    var writer = new SpanTextWriter(destination);
+                    writer.Append(state.File);
+                    writer.Append('(');
+                    writer.AppendInvariant(state.Line);
+                    writer.Append("): ");
+                    writer.Append(state.Level);
+                    writer.Append(' ');
+                    writer.Append(state.Message);
+                });
+        }
+
+        private static string CreateCompileMessage (
+            string file,
+            int line,
+            int column,
+            string level,
+            string message)
+        {
+            var lineLength = GetPositiveInt32TextLength(line);
+            var columnLength = GetPositiveInt32TextLength(column);
+            var length = checked(file.Length + 1 + lineLength + 1 + columnLength + 3 + level.Length + 1 + message.Length);
+            return string.Create(
+                length,
+                (File: file, Line: line, Column: column, Level: level, Message: message),
+                static (destination, state) =>
+                {
+                    var writer = new SpanTextWriter(destination);
+                    writer.Append(state.File);
+                    writer.Append('(');
+                    writer.AppendInvariant(state.Line);
+                    writer.Append(',');
+                    writer.AppendInvariant(state.Column);
+                    writer.Append("): ");
+                    writer.Append(state.Level);
+                    writer.Append(' ');
+                    writer.Append(state.Message);
+                });
+        }
+
+        private static int GetPositiveInt32TextLength (int value)
+        {
+            var length = 1;
+            var remaining = value;
+            while (remaining >= 10)
+            {
+                length++;
+                remaining /= 10;
+            }
+
+            return length;
         }
     }
 }

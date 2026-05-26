@@ -23,7 +23,23 @@ public static class IpcLogCursorCodec
             throw new ArgumentOutOfRangeException(nameof(sequence), sequence, "sequence must be non-negative.");
         }
 
-        return string.Concat(streamId, ":", sequence.ToString(CultureInfo.InvariantCulture));
+        var sequenceTextLength = GetNonNegativeInt64TextLength(sequence);
+        var length = checked(streamId.Length + 1 + sequenceTextLength);
+        return string.Create(
+            length,
+            (StreamId: streamId, Sequence: sequence),
+            static (destination, state) =>
+            {
+                state.StreamId.AsSpan().CopyTo(destination);
+                destination[state.StreamId.Length] = ':';
+                if (!state.Sequence.TryFormat(
+                        destination[(state.StreamId.Length + 1)..],
+                        out _,
+                        provider: CultureInfo.InvariantCulture))
+                {
+                    throw new InvalidOperationException("Cursor buffer is too small for sequence formatting.");
+                }
+            });
     }
 
     /// <summary> Tries to parse one opaque cursor value. </summary>
@@ -51,9 +67,9 @@ public static class IpcLogCursorCodec
             return false;
         }
 
-        var parsedStreamId = cursor.Substring(0, separatorIndex);
-        var sequenceText = cursor.Substring(separatorIndex + 1);
-        if (string.IsNullOrWhiteSpace(parsedStreamId)
+        var parsedStreamId = cursor.AsSpan(0, separatorIndex);
+        var sequenceText = cursor.AsSpan(separatorIndex + 1);
+        if (IsWhiteSpace(parsedStreamId)
             || !long.TryParse(sequenceText, NumberStyles.None, CultureInfo.InvariantCulture, out var parsedSequence)
             || parsedSequence < 0)
         {
@@ -62,8 +78,34 @@ public static class IpcLogCursorCodec
             return false;
         }
 
-        streamId = parsedStreamId;
+        streamId = parsedStreamId.ToString();
         sequence = parsedSequence;
+        return true;
+    }
+
+    private static int GetNonNegativeInt64TextLength (long value)
+    {
+        var length = 1;
+        var remaining = value;
+        while (remaining >= 10)
+        {
+            length++;
+            remaining /= 10;
+        }
+
+        return length;
+    }
+
+    private static bool IsWhiteSpace (ReadOnlySpan<char> value)
+    {
+        for (var i = 0; i < value.Length; i++)
+        {
+            if (!char.IsWhiteSpace(value[i]))
+            {
+                return false;
+            }
+        }
+
         return true;
     }
 }

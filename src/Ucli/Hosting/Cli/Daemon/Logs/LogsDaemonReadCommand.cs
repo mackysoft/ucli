@@ -5,6 +5,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Common.Streaming;
+using MackySoft.Ucli.Infrastructure.Text;
 
 namespace MackySoft.Ucli.Hosting.Cli.Daemon.Logs;
 
@@ -110,16 +111,36 @@ internal sealed class LogsDaemonReadCommand
             return nextCursor;
         }
 
-        var textLine = string.Concat(
-            daemonLogEvent.Timestamp,
-            " ",
-            daemonLogEvent.Level,
-            " ",
-            daemonLogEvent.Category,
-            " ",
-            LogsTextUtilities.NormalizeSingleLine(daemonLogEvent.Message));
-        entryWriter.WriteTextEntry(textLine);
+        entryWriter.WritePreSanitizedTextEntry(CreateTextLine(daemonLogEvent));
         return nextCursor;
+    }
+
+    private static string CreateTextLine (IpcDaemonLogEvent daemonLogEvent)
+    {
+        var message = LogsTextUtilities.NormalizeSingleLine(daemonLogEvent.Message);
+        var length = checked(
+            daemonLogEvent.Timestamp.Length
+            + 1
+            + daemonLogEvent.Level.Length
+            + 1
+            + daemonLogEvent.Category.Length
+            + 1
+            + message.Length);
+
+        return string.Create(
+            length,
+            (daemonLogEvent.Timestamp, daemonLogEvent.Level, daemonLogEvent.Category, Message: message),
+            static (destination, state) =>
+            {
+                var writer = new SpanTextWriter(destination);
+                writer.Append(state.Timestamp);
+                writer.Append(' ');
+                writer.Append(state.Level);
+                writer.Append(' ');
+                writer.Append(state.Category);
+                writer.Append(' ');
+                writer.Append(state.Message);
+            });
     }
 
     /// <summary> Represents one NDJSON output line for daemon log events. </summary>

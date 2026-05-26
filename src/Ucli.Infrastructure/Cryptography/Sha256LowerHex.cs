@@ -24,9 +24,13 @@ internal static class Sha256LowerHex
     /// <returns> The lowercase hexadecimal digest string. </returns>
     public static string Compute (ReadOnlySpan<byte> bytes)
     {
-        var inputBytes = bytes.ToArray();
+        Span<byte> hashBytes = stackalloc byte[32];
         using var sha256 = SHA256.Create();
-        var hashBytes = sha256.ComputeHash(inputBytes);
+        if (!sha256.TryComputeHash(bytes, hashBytes, out var bytesWritten) || bytesWritten != hashBytes.Length)
+        {
+            throw new InvalidOperationException("SHA-256 hash computation failed.");
+        }
+
         return ToLowerHex(hashBytes);
     }
 
