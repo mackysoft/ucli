@@ -3,6 +3,7 @@ using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Features.Daemon.Common.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Recovery;
@@ -12,6 +13,32 @@ namespace MackySoft.Ucli.Tests.Features.Daemon.Common.Ipc;
 
 public sealed class DaemonIpcRequestSenderTests
 {
+    private static readonly TimeSpan AsyncWaitTimeout = TimeSpan.FromSeconds(5);
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendAsync_WhenSessionIsMissing_ReturnsDaemonSessionNotAvailableWithoutTransportCall ()
+    {
+        var transportClient = new StubIpcTransportClient();
+        var sender = new DaemonIpcRequestSender(
+            transportClient,
+            new StubDaemonSessionConnectionProvider(DaemonSessionConnectionResolutionResult.SessionNotAvailable()),
+            recoveryWaiter: null);
+
+        var result = await sender.SendAsync(
+            CreateContext(),
+            sessionToken => CreateRequest("logs.unity.read", sessionToken),
+            TimeSpan.FromSeconds(5),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(0, transportClient.CallCount);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.Equal(DaemonErrorCodes.DaemonSessionNotAvailable, error.Code);
+        Assert.Contains("--projectPath", error.Message, StringComparison.Ordinal);
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task SendAsync_WhenResponseAttemptTimesOut_ReturnsTimeoutWithoutRetry ()
@@ -73,6 +100,45 @@ public sealed class DaemonIpcRequestSenderTests
         Assert.Equal(2, sessionConnectionProvider.CallCount);
         Assert.Equal("daemon-token-1", transportClient.Requests[0].SessionToken);
         Assert.Equal("daemon-token-2", transportClient.Requests[1].SessionToken);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendAsync_WhenEndpointRemainsAbsent_ReturnsDaemonSessionNotAvailable ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var transportClient = new StubIpcTransportClient();
+        for (var i = 0; i < 20; i++)
+        {
+            transportClient.EnqueueException(new SocketException((int)SocketError.ConnectionRefused));
+        }
+
+        var sender = new DaemonIpcRequestSender(
+            transportClient,
+            new StubDaemonSessionConnectionProvider(CreateConnectionResult("daemon-token")),
+            recoveryWaiter: null,
+            timeProvider: timeProvider);
+
+        var sendTask = sender.SendAsync(
+                CreateContext(),
+                sessionToken => CreateRequest("logs.unity.read", sessionToken),
+                TimeSpan.FromSeconds(5),
+                CancellationToken.None)
+            .AsTask();
+        for (var i = 0; i < 20 && !sendTask.IsCompleted; i++)
+        {
+            timeProvider.Advance(TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
+            await Task.Yield();
+        }
+
+        var result = await TestAwaiter.WaitAsync(sendTask, "Endpoint absence daemon IPC send", AsyncWaitTimeout);
+
+        Assert.False(result.IsSuccess);
+        Assert.True(transportClient.CallCount > 1);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.Equal(DaemonErrorCodes.DaemonSessionNotAvailable, error.Code);
+        Assert.Contains("--projectPath", error.Message, StringComparison.Ordinal);
     }
 
     private static ResolvedUnityProjectContext CreateContext ()

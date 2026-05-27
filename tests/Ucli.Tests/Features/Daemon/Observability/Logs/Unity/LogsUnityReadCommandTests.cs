@@ -2,6 +2,7 @@ using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Common;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Unity;
+using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Daemon.Logs;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
@@ -10,6 +11,8 @@ namespace MackySoft.Ucli.Tests.Logs;
 
 public sealed class LogsUnityReadCommandTests
 {
+    private const string DaemonSessionNotAvailableMessage = "No daemon session is available for the requested project. Start the daemon or check --projectPath.";
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task Read_WhenFormatIsJson_WritesNdjsonEvents ()
@@ -142,6 +145,36 @@ public sealed class LogsUnityReadCommandTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Read_WhenDaemonSessionIsNotAvailable_WritesActionRequiredResult ()
+    {
+        var command = new LogsUnityReadCommand(new StubLogsUnityService(static (_, _, _) =>
+        {
+            return ValueTask.FromResult(LogsReadServiceResult.Failure(ExecutionError.InternalError(
+                DaemonSessionNotAvailableMessage,
+                DaemonErrorCodes.DaemonSessionNotAvailable)));
+        }), CommandResultTestWriter.Create());
+
+        var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.ReadAsync(format: "json"));
+
+        Assert.Equal(4, exitCode);
+        Assert.Equal(string.Empty, standardError);
+        using var commandResult = JsonDocument.Parse(standardOutput);
+        CommandResultAssert.HasStandardEnvelope(
+            commandResult.RootElement,
+            UcliCommandNames.LogsUnityRead,
+            "error",
+            4);
+        CommandResultAssert.HasSingleError(commandResult.RootElement, DaemonErrorCodes.DaemonSessionNotAvailable);
+        Assert.Equal(DaemonSessionNotAvailableMessage, commandResult.RootElement.GetProperty("message").GetString());
+        var payload = commandResult.RootElement.GetProperty("payload");
+        Assert.Equal(0, payload.GetProperty("count").GetInt32());
+        Assert.Equal(JsonValueKind.Null, payload.GetProperty("nextCursor").ValueKind);
+        Assert.Equal("error", payload.GetProperty("completionReason").GetString());
+        Assert.Equal("startDaemonOrCheckProjectPath", payload.GetProperty("actionRequired").GetString());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Read_WhenCancellationRequested_ReturnsSuccessExitCode ()
     {
         var command = new LogsUnityReadCommand(new ThrowingLogsUnityService(), CommandResultTestWriter.Create());
@@ -183,6 +216,7 @@ public sealed class LogsUnityReadCommandTests
         Assert.Equal(count, payload.GetProperty("count").GetInt32());
         Assert.Equal(nextCursor, payload.GetProperty("nextCursor").GetString());
         Assert.Equal("completed", payload.GetProperty("completionReason").GetString());
+        Assert.False(payload.TryGetProperty("actionRequired", out _));
     }
 
     private static void AssertEntryEnvelope (

@@ -15,6 +15,9 @@ public static class DaemonErrorCodes
     /// <summary> Gets the error code emitted when the daemon endpoint is not registered before the startup budget expires. </summary>
     public static readonly UcliCode DaemonEndpointNotRegistered = new("DAEMON_ENDPOINT_NOT_REGISTERED");
 
+    /// <summary> Gets the error code emitted when no daemon session is available for the requested project. </summary>
+    public static readonly UcliCode DaemonSessionNotAvailable = new("DAEMON_SESSION_NOT_AVAILABLE");
+
     /// <summary> Gets the error code emitted when Unity startup is blocked by script compile errors. </summary>
     public static readonly UcliCode EditorCompileErrors = new("EDITOR_COMPILE_ERRORS");
 

@@ -9,6 +9,8 @@ namespace MackySoft.Ucli.Hosting.Cli.Daemon.Logs;
 /// <summary> Creates public command results for <c>logs * read</c>. </summary>
 internal static class LogsReadCommandResultFactory
 {
+    private const string StartDaemonOrCheckProjectPathActionRequired = "startDaemonOrCheckProjectPath";
+
     /// <summary> Creates one final command result from the logs-read service result. </summary>
     public static CommandResult Create (
         string commandName,
@@ -20,7 +22,8 @@ internal static class LogsReadCommandResultFactory
         var payload = new LogsReadCommandPayload(
             serviceResult.Count,
             serviceResult.NextCursor,
-            serviceResult.CompletionReason);
+            serviceResult.CompletionReason,
+            ResolveActionRequired(serviceResult));
         if (serviceResult.IsSuccess)
         {
             return CommandResult.Success(commandName, "Log read completed.", payload);
@@ -39,5 +42,12 @@ internal static class LogsReadCommandResultFactory
         }
 
         return ApplicationFailure.FromExecutionError(error);
+    }
+
+    private static string? ResolveActionRequired (LogsReadServiceResult serviceResult)
+    {
+        return serviceResult.Error?.Code == DaemonErrorCodes.DaemonSessionNotAvailable
+            ? StartDaemonOrCheckProjectPathActionRequired
+            : null;
     }
 }
