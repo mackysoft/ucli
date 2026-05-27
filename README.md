@@ -322,6 +322,8 @@ For read-heavy workflows, `--readIndexMode` controls whether query-like commands
 | `allowStale` | Use stored index data even when it is stale, and fall back when it is unavailable. |
 | `requireFresh` | Use stored index data only when it is fresh; otherwise refresh from Unity when the command supports it. |
 
+`ucli ready --for readIndex --readIndexMode requireFresh` checks the global read-index surfaces used by public read commands: `ops.catalog`, `asset-search.lookup`, and `guid-path.lookup`. It does not require unconnected schema catalogs or path-specific `scene-tree-lite` snapshots; validate a scene snapshot with `ucli query scene tree --path <scene> --readIndexMode requireFresh`.
+
 The operation catalog is also available from the CLI:
 
 ```bash
