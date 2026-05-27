@@ -81,9 +81,9 @@ public sealed class OpsListFilterTests
     private static UcliOperationAssuranceContract CreateDangerousMutationAssurance ()
     {
         return new UcliOperationAssuranceContract(
-            sideEffects: [UcliOperationSideEffectValues.ExternalProcess],
+            sideEffects: ["externalProcess"],
             touchedKinds: Array.Empty<string>(),
-            planMode: UcliOperationPlanModeValues.ObservesLiveUnity,
+            planMode: "observesLiveUnity",
             planSemantics: "Observe mutation inputs without applying them.",
             callSemantics: "Execute an unbounded mutation fixture.",
             touchedContract: "Reports resources known to be touched.",

@@ -77,8 +77,8 @@ internal static class LifecycleProjectionFactory
         return new LifecycleProjection(
             ServerVersion: StringValueNormalizer.TrimToNull(serverVersion),
             UnityVersion: StringValueNormalizer.TrimToNull(unityVersion),
-            EditorMode: DaemonEditorModeCodec.TryParse(editorModeValue, out var editorMode)
-                ? DaemonEditorModeCodec.ToValue(editorMode)
+            EditorMode: ContractLiteralInputParser.TryParseTrimmed<DaemonEditorMode>(editorModeValue, out var editorMode)
+                ? ContractLiteralCodec.ToValue(editorMode)
                 : null,
             LifecycleState: lifecycleState,
             BlockingReason: blockingReason,

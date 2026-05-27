@@ -1,5 +1,7 @@
 using MackySoft.Ucli.Contracts.Configuration;
 
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 
 /// <summary> Converts catalog entries into validated operation descriptors. </summary>
@@ -28,19 +30,19 @@ internal static class OperationDescriptorMapper
                 throw new InvalidOperationException("Operation catalog contains a null entry.");
             }
 
-            if (!UcliOperationKindCodec.TryParse(operation.Kind, out var kind))
+            if (!ContractLiteralInputParser.TryParseIgnoreCase<UcliOperationKind>(operation.Kind, out var kind))
             {
                 throw new InvalidOperationException(
                     $"Operation kind is invalid for '{operation.Name}'.");
             }
 
-            if (!OperationPolicyCodec.TryParse(operation.Policy, out var policy))
+            if (!ContractLiteralInputParser.TryParseIgnoreCase<OperationPolicy>(operation.Policy, out var policy))
             {
                 throw new InvalidOperationException(
                     $"Operation policy is invalid for '{operation.Name}'.");
             }
 
-            if (!UcliOperationExposureCodec.TryParse(operation.Exposure, out var exposure))
+            if (!ContractLiteralInputParser.TryParseIgnoreCase<UcliOperationExposure>(operation.Exposure, out var exposure))
             {
                 exposure = UcliOperationExposure.Public;
             }

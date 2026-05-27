@@ -127,8 +127,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 IpcEditorLifecycleStateCodec.Playmode,
                 System.StringComparison.Ordinal);
             return new IpcPlayModeSnapshot(
-                State: isPlaying ? IpcPlayModeStateNames.Playing : IpcPlayModeStateNames.Stopped,
-                Transition: IpcPlayModeTransitionNames.None,
+                State: isPlaying ? "playing" : "stopped",
+                Transition: "none",
                 IsPlaying: isPlaying,
                 IsPlayingOrWillChangePlaymode: isPlaying,
                 Generation: "1");

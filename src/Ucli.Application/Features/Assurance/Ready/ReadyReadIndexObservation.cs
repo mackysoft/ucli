@@ -1,5 +1,7 @@
 using MackySoft.Ucli.Contracts.Configuration;
 
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Application.Features.Assurance.Ready;
 
 /// <summary> Represents read-index readiness summary before it is merged into the primary ready claim. </summary>
@@ -12,7 +14,7 @@ internal readonly record struct ReadyReadIndexObservation (
     public static ReadyReadIndexObservation Disabled ()
     {
         return new ReadyReadIndexObservation(
-            new ReadyReadIndexOutput(ReadIndexModeValues.Disabled, []),
+            new ReadyReadIndexOutput(ContractLiteralCodec.ToValue(ReadIndexMode.Disabled), []),
             HasFailure: false,
             IsDisabled: true);
     }
@@ -24,7 +26,7 @@ internal readonly record struct ReadyReadIndexObservation (
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
 
-        var mode = inputMode.HasValue ? ReadIndexModeCodec.ToValue(inputMode.Value) : "unknown";
+        var mode = inputMode.HasValue ? ContractLiteralCodec.ToValue(inputMode.Value) : "unknown";
         return new ReadyReadIndexObservation(
             new ReadyReadIndexOutput(
                 mode,
@@ -47,7 +49,7 @@ internal readonly record struct ReadyReadIndexObservation (
         ArgumentNullException.ThrowIfNull(artifacts);
 
         return new ReadyReadIndexObservation(
-            new ReadyReadIndexOutput(ReadIndexModeCodec.ToValue(mode), artifacts),
+            new ReadyReadIndexOutput(ContractLiteralCodec.ToValue(mode), artifacts),
             artifacts.Any(static artifact => artifact.Required
                 && string.Equals(
                     artifact.Status,

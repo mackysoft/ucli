@@ -1,20 +1,21 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
-using MackySoft.Ucli.Hosting.Cli.Common.Projection;
+
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Tests.Hosting.Cli.Common.Projection;
 
-public sealed class DaemonStatusPayloadCodecTests
+public sealed class DaemonStatusKindContractLiteralTests
 {
     [Theory]
     [Trait("Size", "Small")]
-    [InlineData((int)DaemonStatusKind.Running, DaemonStatusPayloadCodec.Running)]
-    [InlineData((int)DaemonStatusKind.NotRunning, DaemonStatusPayloadCodec.NotRunning)]
-    [InlineData((int)DaemonStatusKind.Stale, DaemonStatusPayloadCodec.Stale)]
+    [InlineData((int)DaemonStatusKind.Running, "running")]
+    [InlineData((int)DaemonStatusKind.NotRunning, "notRunning")]
+    [InlineData((int)DaemonStatusKind.Stale, "stale")]
     public void ToValue_WhenSupportedStatus_ReturnsContractLiteral (
         int daemonStatus,
         string expected)
     {
-        var actual = DaemonStatusPayloadCodec.ToValue((DaemonStatusKind)daemonStatus);
+        var actual = ContractLiteralCodec.ToValue((DaemonStatusKind)daemonStatus);
 
         Assert.Equal(expected, actual);
     }
@@ -24,7 +25,7 @@ public sealed class DaemonStatusPayloadCodecTests
     public void ToValue_WhenUnsupportedStatus_ThrowsArgumentOutOfRangeException ()
     {
         Assert.Throws<ArgumentOutOfRangeException>(
-            () => DaemonStatusPayloadCodec.ToValue(DaemonStatusKind.Failed));
+            () => ContractLiteralCodec.ToValue(DaemonStatusKind.Failed));
     }
 
     [Theory]
@@ -36,7 +37,7 @@ public sealed class DaemonStatusPayloadCodecTests
         string? value,
         int expectedDaemonStatus)
     {
-        var result = DaemonStatusPayloadCodec.TryParse(value, out var daemonStatus);
+        var result = ContractLiteralInputParser.TryParseTrimmed<DaemonStatusKind>(value, out var daemonStatus);
 
         Assert.True(result);
         Assert.Equal((DaemonStatusKind)expectedDaemonStatus, daemonStatus);
@@ -50,9 +51,6 @@ public sealed class DaemonStatusPayloadCodecTests
     [InlineData(null)]
     public void TryParse_WhenInvalidValue_ReturnsFalseAndDefaultEnum (string? value)
     {
-        var result = DaemonStatusPayloadCodec.TryParse(value, out var daemonStatus);
-
-        Assert.False(result);
-        Assert.Equal(default, daemonStatus);
+        Assert.False(ContractLiteralInputParser.IsDefinedTrimmed<DaemonStatusKind>(value));
     }
 }

@@ -1,5 +1,7 @@
 using MackySoft.Ucli.Contracts.Configuration;
 
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Application.Shared.Configuration;
 
 /// <summary> Builds effective config values from raw config JSON values. </summary>
@@ -34,7 +36,7 @@ internal sealed class UcliEffectiveConfigBuilder
                 $"Config schemaVersion must be {UcliConfig.CurrentSchemaVersion}. Actual: {FormatValue(document.SchemaVersion)}."));
         }
 
-        if (!OperationPolicyCodec.TryParse(document.OperationPolicy, out var operationPolicy))
+        if (!ContractLiteralInputParser.TryParseIgnoreCase<OperationPolicy>(document.OperationPolicy, out var operationPolicy))
         {
             AddDiagnostic(diagnostics, CreateUnsupportedLiteralDiagnostic(
                 UcliConfigJsonPropertyNames.OperationPolicy,
@@ -42,7 +44,7 @@ internal sealed class UcliEffectiveConfigBuilder
                 sourcePath));
         }
 
-        if (!PlanTokenModeCodec.TryParse(document.PlanTokenMode, out var planTokenMode))
+        if (!ContractLiteralInputParser.TryParseIgnoreCase<PlanTokenMode>(document.PlanTokenMode, out var planTokenMode))
         {
             AddDiagnostic(diagnostics, CreateUnsupportedLiteralDiagnostic(
                 UcliConfigJsonPropertyNames.PlanTokenMode,
@@ -51,8 +53,8 @@ internal sealed class UcliEffectiveConfigBuilder
         }
 
         var readIndexDefaultModeValue = document.ReadIndexDefaultMode
-            ?? ReadIndexModeValues.RequireFresh;
-        if (!ReadIndexModeCodec.TryParse(readIndexDefaultModeValue, out var readIndexDefaultMode))
+            ?? ContractLiteralCodec.ToValue(ReadIndexMode.RequireFresh);
+        if (!ContractLiteralInputParser.TryParseIgnoreCase<ReadIndexMode>(readIndexDefaultModeValue, out var readIndexDefaultMode))
         {
             AddDiagnostic(diagnostics, CreateUnsupportedLiteralDiagnostic(
                 UcliConfigJsonPropertyNames.ReadIndexDefaultMode,

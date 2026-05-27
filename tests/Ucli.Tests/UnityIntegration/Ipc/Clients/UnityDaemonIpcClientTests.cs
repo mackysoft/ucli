@@ -211,7 +211,8 @@ public sealed class UnityDaemonIpcClientTests
             .AsTask();
         Assert.False(sendTask.IsCompleted);
 
-        await timeProvider.AdvanceUntilCompletedAsync(
+        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
+            timeProvider,
             sendTask,
             TimeSpan.FromSeconds(2),
             TimeSpan.FromMilliseconds(100));
@@ -505,10 +506,10 @@ public sealed class UnityDaemonIpcClientTests
             SessionToken: "session-token",
             ProjectFingerprint: "project-fingerprint",
             IssuedAtUtc: DateTimeOffset.UtcNow,
-            EditorMode: DaemonEditorModeValues.Gui,
+            EditorMode: "gui",
             OwnerKind: "user",
             CanShutdownProcess: false,
-            EndpointTransportKind: IpcTransportKindValues.UnixDomainSocket,
+            EndpointTransportKind: "unixDomainSocket",
             EndpointAddress: "/tmp/ucli.sock",
             ProcessId: 1234,
             ProcessStartedAtUtc: DateTimeOffset.UnixEpoch.AddSeconds(10),

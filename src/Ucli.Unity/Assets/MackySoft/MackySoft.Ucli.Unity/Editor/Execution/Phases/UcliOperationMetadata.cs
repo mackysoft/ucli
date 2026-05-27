@@ -224,7 +224,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             if (!UcliOperationDescribeContractValidator.TryValidateRegisteredOperationDescribeContractAndDerivePolicy(
                     describeContract,
-                    UcliOperationKindCodec.ToValue(kind),
+                    ContractLiteralCodec.ToValue(kind),
                     $"Describe contract for operation '{operationName}'",
                     exposure,
                     out var policy,

@@ -8,6 +8,8 @@ internal sealed class ManualTimeProvider : TimeProvider
 
     private readonly List<ManualTimer> timers = [];
 
+    private readonly List<TimerWaiter> timerWaiters = [];
+
     private long currentTimestamp;
 
     internal ManualTimeProvider (DateTimeOffset? startUtc = null)
@@ -35,31 +37,42 @@ internal sealed class ManualTimeProvider : TimeProvider
         {
             lock (syncObject)
             {
-                return timers.Count(static timer => !timer.IsDisposed);
+                return GetActiveTimerCountCore();
             }
         }
     }
 
-    internal async ValueTask AdvanceUntilCompletedAsync (
-        Task observedTask,
-        TimeSpan totalTime,
-        TimeSpan step)
+    internal Task WaitForTimerDueWithinAsync (TimeSpan maximumDelay)
     {
-        ArgumentNullException.ThrowIfNull(observedTask);
-        ArgumentOutOfRangeException.ThrowIfLessThan(totalTime, TimeSpan.Zero);
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(step, TimeSpan.Zero);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maximumDelay, TimeSpan.Zero);
 
-        var elapsed = TimeSpan.Zero;
-        await WaitForScheduledTimerOrCompletionAsync(observedTask).ConfigureAwait(false);
-        while (!observedTask.IsCompleted && elapsed < totalTime)
+        lock (syncObject)
         {
-            var remaining = totalTime - elapsed;
-            var advanceBy = step < remaining ? step : remaining;
-            Advance(advanceBy);
-            elapsed += advanceBy;
+            if (HasTimerDueWithinCore(maximumDelay.Ticks))
+            {
+                return Task.CompletedTask;
+            }
 
-            await WaitForScheduledTimerOrCompletionAsync(observedTask).ConfigureAwait(false);
+            var waiter = new TimerWaiter(maximumDelay.Ticks);
+            timerWaiters.Add(waiter);
+            return waiter.Task;
         }
+    }
+
+    internal bool TryGetNextTimerDelay (out TimeSpan delay)
+    {
+        lock (syncObject)
+        {
+            if (TryGetNextDueTimestampCore(out var dueTimestamp))
+            {
+                var delayTicks = Math.Max(0, dueTimestamp - currentTimestamp);
+                delay = TimeSpan.FromTicks(delayTicks);
+                return true;
+            }
+        }
+
+        delay = default;
+        return false;
     }
 
     public override ITimer CreateTimer (
@@ -75,6 +88,7 @@ internal sealed class ManualTimeProvider : TimeProvider
         lock (syncObject)
         {
             timers.Add(timer);
+            CompleteTimerWaitersIfNeeded();
         }
 
         return timer;
@@ -102,33 +116,47 @@ internal sealed class ManualTimeProvider : TimeProvider
             lock (syncObject)
             {
                 CollectDueCallbacks(pendingCallbacks);
+                CompleteTimerWaitersIfNeeded();
             }
         }
     }
 
-    private async ValueTask WaitForScheduledTimerOrCompletionAsync (Task observedTask)
+    private int GetActiveTimerCountCore ()
     {
-        const int maxYieldCount = 64;
+        return timers.Count(static timer => timer.IsActive);
+    }
 
-        for (var i = 0; i < maxYieldCount; i++)
+    private bool HasTimerDueWithinCore (long maximumDelayTicks)
+    {
+        return TryGetNextDueTimestampCore(out var dueTimestamp)
+            && Math.Max(0, dueTimestamp - currentTimestamp) <= maximumDelayTicks;
+    }
+
+    private bool TryGetNextDueTimestampCore (out long dueTimestamp)
+    {
+        dueTimestamp = long.MaxValue;
+        foreach (var timer in timers)
         {
-            if (observedTask.IsCompleted || ActiveTimerCount != 0)
+            if (timer.DueTimestamp is long candidate && candidate < dueTimestamp)
             {
-                return;
-            }
-
-            // NOTE: Task.Yield alone can keep this helper ahead of sibling continuations on the same test scheduler.
-            if (i % 8 == 7)
-            {
-                await Task.Delay(TimeSpan.FromMilliseconds(1)).ConfigureAwait(false);
-            }
-            else
-            {
-                await Task.Yield();
+                dueTimestamp = candidate;
             }
         }
 
-        throw new TimeoutException("The observed task did not complete or schedule a manual timer.");
+        return dueTimestamp != long.MaxValue;
+    }
+
+    private void CompleteTimerWaitersIfNeeded ()
+    {
+        for (var i = timerWaiters.Count - 1; i >= 0; i--)
+        {
+            var waiter = timerWaiters[i];
+            if (HasTimerDueWithinCore(waiter.MaximumDelayTicks))
+            {
+                timerWaiters.RemoveAt(i);
+                waiter.Complete();
+            }
+        }
     }
 
     private void CollectDueCallbacks (List<(TimerCallback Callback, object? State)> pendingCallbacks)
@@ -173,6 +201,10 @@ internal sealed class ManualTimeProvider : TimeProvider
 
         public bool IsDisposed { get; private set; }
 
+        public bool IsActive => !IsDisposed && dueTimestamp.HasValue;
+
+        public long? DueTimestamp => IsActive ? dueTimestamp : null;
+
         public bool Change (
             TimeSpan dueTime,
             TimeSpan period)
@@ -182,6 +214,7 @@ internal sealed class ManualTimeProvider : TimeProvider
                 ThrowIfDisposed();
                 dueTimestamp = ToScheduledTimestamp(dueTime);
                 periodTicks = ToPeriodTicks(period);
+                owner.CompleteTimerWaitersIfNeeded();
                 return true;
             }
         }
@@ -258,6 +291,25 @@ internal sealed class ManualTimeProvider : TimeProvider
             {
                 throw new ObjectDisposedException(nameof(ManualTimer));
             }
+        }
+    }
+
+    private sealed class TimerWaiter
+    {
+        private readonly TaskCompletionSource taskCompletionSource = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TimerWaiter (long maximumDelayTicks)
+        {
+            MaximumDelayTicks = maximumDelayTicks;
+        }
+
+        public long MaximumDelayTicks { get; }
+
+        public Task Task => taskCompletionSource.Task;
+
+        public void Complete ()
+        {
+            taskCompletionSource.TrySetResult();
         }
     }
 }

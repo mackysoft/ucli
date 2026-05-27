@@ -1,6 +1,8 @@
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 
 /// <summary> Validates read-index catalog contracts loaded from persistent storage. </summary>
@@ -55,8 +57,8 @@ internal static class IndexCatalogContractValidator
             var entry = entries[i];
             if (entry == null
                 || string.IsNullOrWhiteSpace(entry.Name)
-                || !UcliOperationKindCodec.TryParse(entry.Kind, out _)
-                || !OperationPolicyCodec.TryParse(entry.Policy, out _)
+                || !ContractLiteralInputParser.IsDefinedIgnoreCase<UcliOperationKind>(entry.Kind)
+                || !ContractLiteralInputParser.IsDefinedIgnoreCase<OperationPolicy>(entry.Policy)
                 || string.IsNullOrWhiteSpace(entry.Description)
                 || !IsSha256LowerHex(entry.DescribeKey)
                 || !IsSha256LowerHex(entry.DescribeHash))
@@ -146,8 +148,8 @@ internal static class IndexCatalogContractValidator
         error = null;
         if (entry == null
             || string.IsNullOrWhiteSpace(entry.Name)
-            || !UcliOperationKindCodec.TryParse(entry.Kind, out _)
-            || !OperationPolicyCodec.TryParse(entry.Policy, out _)
+            || !ContractLiteralInputParser.IsDefinedIgnoreCase<UcliOperationKind>(entry.Kind)
+            || !ContractLiteralInputParser.IsDefinedIgnoreCase<OperationPolicy>(entry.Policy)
             || !TryResolveCatalogExposure(entry.Exposure, allowEditLoweringOnlyEntries, out var exposure, out error)
             || !IsValidArgsSchema(entry.ArgsSchemaJson, exposure)
             || !IsValidOptionalSchemaObject(entry.ResultSchemaJson)
@@ -174,7 +176,7 @@ internal static class IndexCatalogContractValidator
             return true;
         }
 
-        if (!UcliOperationExposureCodec.TryParse(exposureValue, out exposure))
+        if (!ContractLiteralInputParser.TryParseIgnoreCase<UcliOperationExposure>(exposureValue, out exposure))
         {
             error = $"Unsupported operation exposure '{exposureValue}'.";
             return false;
@@ -357,13 +359,13 @@ internal static class IndexCatalogContractValidator
                 || string.IsNullOrWhiteSpace(entry.SchemaKey)
                 || string.IsNullOrWhiteSpace(entry.TypeId)
                 || string.IsNullOrWhiteSpace(entry.DisplayName)
-                || !IndexSchemaKindCodec.TryParse(entry.Kind, out var schemaKind)
+                || !ContractLiteralInputParser.TryParseIgnoreCase<IndexSchemaKind>(entry.Kind, out var schemaKind)
                 || entry.Properties == null)
             {
                 return false;
             }
 
-            var expectedSchemaKey = $"{IndexSchemaKindCodec.ToValue(schemaKind)}:{entry.TypeId}";
+            var expectedSchemaKey = $"{ContractLiteralCodec.ToValue(schemaKind)}:{entry.TypeId}";
             if (!string.Equals(entry.SchemaKey, expectedSchemaKey, StringComparison.Ordinal))
             {
                 return false;
@@ -380,7 +382,7 @@ internal static class IndexCatalogContractValidator
                 if (property == null
                     || string.IsNullOrWhiteSpace(property.Path)
                     || string.IsNullOrWhiteSpace(property.DeclaredTypeId)
-                    || !IndexPropertyTypeCodec.TryParse(property.PropertyType, out _))
+                    || !ContractLiteralInputParser.IsDefinedIgnoreCase<IndexPropertyType>(property.PropertyType))
                 {
                     return false;
                 }

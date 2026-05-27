@@ -3,6 +3,8 @@ using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
 
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Encodes lifecycle-bearing response payload values for Unity IPC server. </summary>
@@ -25,7 +27,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             return new IpcPingResponse(
                 ServerVersion: serverVersion,
-                EditorMode: DaemonEditorModeCodec.ToValue(snapshot.EditorMode),
+                EditorMode: ContractLiteralCodec.ToValue(snapshot.EditorMode),
                 UnityVersion: unityVersion,
                 ProjectFingerprint: projectFingerprint,
                 CompileState: snapshot.CompileState,
@@ -57,7 +59,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             return new IpcPlayLifecycleSnapshot(
                 ServerVersion: serverVersion,
-                EditorMode: DaemonEditorModeCodec.ToValue(snapshot.EditorMode),
+                EditorMode: ContractLiteralCodec.ToValue(snapshot.EditorMode),
                 UnityVersion: unityVersion,
                 ProjectFingerprint: projectFingerprint,
                 LifecycleState: snapshot.LifecycleState,

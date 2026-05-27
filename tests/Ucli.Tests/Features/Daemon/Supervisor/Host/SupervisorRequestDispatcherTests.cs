@@ -8,7 +8,6 @@ using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Infrastructure.Project;
 
@@ -83,7 +82,7 @@ public sealed class SupervisorRequestDispatcherTests
                         ProjectFingerprint: "fingerprint",
                         TimeoutMilliseconds: 1000,
                         EditorMode: null,
-                        OnStartupBlocked: DaemonStartupBlockedProcessPolicyValues.Auto))));
+                        OnStartupBlocked: "auto"))));
 
         Assert.Equal(IpcProtocol.StatusError, invalidResponse.Status);
         var invalidError = Assert.Single(invalidResponse.Errors);
@@ -126,7 +125,7 @@ public sealed class SupervisorRequestDispatcherTests
                         ProjectFingerprint: "mismatched-fingerprint",
                         TimeoutMilliseconds: 1000,
                         EditorMode: null,
-                        OnStartupBlocked: DaemonStartupBlockedProcessPolicyValues.Auto))));
+                        OnStartupBlocked: "auto"))));
 
         Assert.Equal(IpcProtocol.StatusError, response.Status);
         var error = Assert.Single(response.Errors);
@@ -210,15 +209,15 @@ public sealed class SupervisorRequestDispatcherTests
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: projectFingerprint,
                         TimeoutMilliseconds: 1000,
-                        EditorMode: DaemonEditorModeValues.Gui,
-                        OnStartupBlocked: DaemonStartupBlockedProcessPolicyValues.Auto))));
+                        EditorMode: "gui",
+                        OnStartupBlocked: "auto"))));
 
         Assert.Equal(IpcProtocol.StatusOk, response.Status);
         Assert.True(IpcPayloadCodec.TryDeserialize(
             response.Payload,
             out SupervisorIpcContracts.EnsureRunningResponse payload,
             out _));
-        Assert.Equal(DaemonStartStateCodec.Attached, payload.StartStatus);
+        Assert.Equal("attached", payload.StartStatus);
         Assert.Equal(session, payload.Session);
         Assert.Equal(lifecycleSnapshot, payload.LifecycleSnapshot);
     }
@@ -247,7 +246,7 @@ public sealed class SupervisorRequestDispatcherTests
                         ProjectFingerprint: projectFingerprint,
                         TimeoutMilliseconds: 1000,
                         EditorMode: "unsupported",
-                        OnStartupBlocked: DaemonStartupBlockedProcessPolicyValues.Auto))));
+                        OnStartupBlocked: "auto"))));
 
         Assert.Equal(IpcProtocol.StatusError, response.Status);
         var error = Assert.Single(response.Errors);
@@ -320,7 +319,7 @@ public sealed class SupervisorRequestDispatcherTests
                         ProjectFingerprint: projectFingerprint,
                         TimeoutMilliseconds: 1000,
                         EditorMode: null,
-                        OnStartupBlocked: DaemonStartupBlockedProcessPolicyValues.Auto))));
+                        OnStartupBlocked: "auto"))));
 
         Assert.Equal(IpcProtocol.StatusError, response.Status);
         var error = Assert.Single(response.Errors);
@@ -331,7 +330,7 @@ public sealed class SupervisorRequestDispatcherTests
             out _));
         Assert.Equal(diagnosis, payload.Diagnosis);
         Assert.Equal(startup, payload.Startup);
-        Assert.Equal(DaemonStatusStateCodec.Stale, payload.DaemonStatus);
+        Assert.Equal("stale", payload.DaemonStatus);
     }
 
     [Fact]
@@ -365,7 +364,7 @@ public sealed class SupervisorRequestDispatcherTests
                         ProjectFingerprint: projectFingerprint,
                         TimeoutMilliseconds: 1,
                         EditorMode: null,
-                        OnStartupBlocked: DaemonStartupBlockedProcessPolicyValues.Auto))));
+                        OnStartupBlocked: "auto"))));
 
         Assert.Equal(IpcProtocol.StatusError, response.Status);
         var error = Assert.Single(response.Errors);
@@ -404,7 +403,7 @@ public sealed class SupervisorRequestDispatcherTests
                         ProjectFingerprint: projectFingerprint,
                         TimeoutMilliseconds: 1000,
                         EditorMode: null,
-                        OnStartupBlocked: DaemonStartupBlockedProcessPolicyValues.Auto))));
+                        OnStartupBlocked: "auto"))));
 
         Assert.Equal(IpcProtocol.StatusError, response.Status);
         var error = Assert.Single(response.Errors);
@@ -656,8 +655,8 @@ public sealed class SupervisorRequestDispatcherTests
             SessionToken: "session-token",
             ProjectFingerprint: "fingerprint",
             IssuedAtUtc: new DateTimeOffset(2026, 03, 11, 0, 0, 0, TimeSpan.Zero),
-            EditorMode: DaemonEditorModeValues.Batchmode,
-            OwnerKind: DaemonSessionOwnerKindValues.Cli,
+            EditorMode: "batchmode",
+            OwnerKind: "cli",
             CanShutdownProcess: true,
             EndpointTransportKind: "unixDomainSocket",
             EndpointAddress: "/tmp/ucli.sock",

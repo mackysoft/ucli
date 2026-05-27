@@ -1,6 +1,8 @@
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Configuration;
 
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Hosting.Cli.Options;
 
 /// <summary> Normalizes the CLI <c>--readIndexMode</c> option into a typed override. </summary>
@@ -16,12 +18,12 @@ internal static class ReadIndexModeOptionNormalizer
             return ReadIndexModeOptionNormalizationResult.Success(mode: null);
         }
 
-        if (ReadIndexModeCodec.TryParse(optionValue, out var mode))
+        if (ContractLiteralInputParser.TryParseIgnoreCase<ReadIndexMode>(optionValue, out var mode))
         {
             return ReadIndexModeOptionNormalizationResult.Success(mode);
         }
 
         return ReadIndexModeOptionNormalizationResult.Failure(ExecutionError.InvalidArgument(
-            $"readIndexMode must be one of '{ReadIndexModeValues.Disabled}', '{ReadIndexModeValues.AllowStale}', '{ReadIndexModeValues.RequireFresh}'. Actual: {optionValue}."));
+            $"readIndexMode must be one of '{ContractLiteralCodec.ToValue(ReadIndexMode.Disabled)}', '{ContractLiteralCodec.ToValue(ReadIndexMode.AllowStale)}', '{ContractLiteralCodec.ToValue(ReadIndexMode.RequireFresh)}'. Actual: {optionValue}."));
     }
 }

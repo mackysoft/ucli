@@ -597,7 +597,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.Result.Value.GetProperty("roots").GetArrayLength(), Is.EqualTo(1));
             Assert.That(result.Result.Value.GetProperty("roots")[0].GetProperty("children").GetArrayLength(), Is.EqualTo(1));
             Assert.That(result.Result.Value.GetProperty("roots")[0].GetProperty("childrenState").GetString(), Is.EqualTo(IndexSceneTreeLiteNodeChildrenStateValues.Complete));
-            Assert.That(result.Result.Value.GetProperty("sourceState").GetProperty("kind").GetString(), Is.EqualTo(SceneTreeSourceStateKindValues.LoadedScene));
+            Assert.That(result.Result.Value.GetProperty("sourceState").GetProperty("kind").GetString(), Is.EqualTo("loadedScene"));
             Assert.That(result.Result.Value.GetProperty("sourceState").GetProperty("isDirty").GetBoolean(), Is.False);
             Assert.That(result.Result.Value.GetProperty("window").GetProperty("limit").GetInt32(), Is.EqualTo(BoundedWindowConstants.DefaultLimit));
             Assert.That(result.Result.Value.GetProperty("window").TryGetProperty("after", out _), Is.False);
@@ -694,7 +694,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.Result.HasValue, Is.True);
             var roots = result.Result!.Value.GetProperty("roots");
             Assert.That(roots.EnumerateArray().Select(static root => root.GetProperty("name").GetString()), Is.EquivalentTo(new[] { "SavedRoot", "UnsavedRoot" }));
-            Assert.That(result.Result.Value.GetProperty("sourceState").GetProperty("kind").GetString(), Is.EqualTo(SceneTreeSourceStateKindValues.LoadedScene));
+            Assert.That(result.Result.Value.GetProperty("sourceState").GetProperty("kind").GetString(), Is.EqualTo("loadedScene"));
             Assert.That(result.Result.Value.GetProperty("sourceState").GetProperty("isDirty").GetBoolean(), Is.True);
         });
 
@@ -724,7 +724,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var roots = result.Result!.Value.GetProperty("roots");
             Assert.That(roots.GetArrayLength(), Is.EqualTo(1));
             Assert.That(roots[0].GetProperty("name").GetString(), Is.EqualTo("SavedRoot"));
-            Assert.That(result.Result.Value.GetProperty("sourceState").GetProperty("kind").GetString(), Is.EqualTo(SceneTreeSourceStateKindValues.PersistedPreview));
+            Assert.That(result.Result.Value.GetProperty("sourceState").GetProperty("kind").GetString(), Is.EqualTo("persistedPreview"));
             Assert.That(result.Result.Value.GetProperty("sourceState").GetProperty("isDirty").GetBoolean(), Is.False);
         });
 
@@ -789,7 +789,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(roots.GetArrayLength(), Is.EqualTo(1));
             Assert.That(roots[0].GetProperty("name").GetString(), Is.EqualTo("RenamedRoot"));
             Assert.That(roots[0].GetProperty("globalObjectId").GetString(), Is.EqualTo(expectedGlobalObjectId));
-            Assert.That(result.Result.Value.GetProperty("sourceState").GetProperty("kind").GetString(), Is.EqualTo(SceneTreeSourceStateKindValues.TemporaryScene));
+            Assert.That(result.Result.Value.GetProperty("sourceState").GetProperty("kind").GetString(), Is.EqualTo("temporaryScene"));
         });
 
         [UnityTest]

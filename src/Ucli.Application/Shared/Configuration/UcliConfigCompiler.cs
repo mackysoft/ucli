@@ -1,6 +1,8 @@
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Configuration;
 
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Application.Shared.Configuration;
 
 /// <summary> Compiles config JSON values and creates serializable config documents. </summary>
@@ -82,9 +84,9 @@ internal sealed class UcliConfigCompiler
 
         return UcliConfigDocumentBuildResult.Success(new UcliConfigDocument(
             SchemaVersion: config.SchemaVersion,
-            OperationPolicy: OperationPolicyCodec.ToValue(config.OperationPolicy),
-            PlanTokenMode: PlanTokenModeCodec.ToValue(config.PlanTokenMode),
-            ReadIndexDefaultMode: ReadIndexModeCodec.ToValue(config.ReadIndexDefaultMode),
+            OperationPolicy: ContractLiteralCodec.ToValue(config.OperationPolicy),
+            PlanTokenMode: ContractLiteralCodec.ToValue(config.PlanTokenMode),
+            ReadIndexDefaultMode: ContractLiteralCodec.ToValue(config.ReadIndexDefaultMode),
             OperationAllowlist: config.OperationAllowlist.ToArray(),
             IpcDefaultTimeoutMilliseconds: config.IpcDefaultTimeoutMilliseconds,
             IpcTimeoutMillisecondsByCommand: ipcTimeoutMillisecondsByCommand));

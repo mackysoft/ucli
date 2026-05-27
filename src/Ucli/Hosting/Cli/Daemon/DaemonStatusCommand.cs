@@ -1,8 +1,8 @@
 using ConsoleAppFramework;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Status;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
-using MackySoft.Ucli.Hosting.Cli.Common.Projection;
 using MackySoft.Ucli.Hosting.Cli.Options;
 
 namespace MackySoft.Ucli.Hosting.Cli.Daemon;
@@ -76,7 +76,7 @@ internal sealed class DaemonStatusCommand
                 message: "uCLI daemon status retrieval completed.",
                 payload: new
                 {
-                    daemonStatus = DaemonStatusPayloadCodec.ToValue(output.DaemonStatus),
+                    daemonStatus = ContractLiteralCodec.ToValue(output.DaemonStatus),
                     serverVersion = output.ServerVersion,
                     editorMode = output.EditorMode,
                     lifecycleState = output.LifecycleState,

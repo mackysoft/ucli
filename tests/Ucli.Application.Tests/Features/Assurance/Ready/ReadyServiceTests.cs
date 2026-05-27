@@ -45,8 +45,8 @@ public sealed class ReadyServiceTests
         Assert.Equal("transientProbe", output.SessionKind);
         Assert.NotNull(output.Lifecycle);
         Assert.NotNull(output.Lifecycle.PlayMode);
-        Assert.Equal(IpcPlayModeStateNames.Stopped, output.Lifecycle.PlayMode.State);
-        Assert.Equal(IpcPlayModeTransitionNames.None, output.Lifecycle.PlayMode.Transition);
+        Assert.Equal("stopped", output.Lifecycle.PlayMode.State);
+        Assert.Equal("none", output.Lifecycle.PlayMode.Transition);
         var claim = Assert.Single(output.Claims);
         Assert.Equal("probeOnly", claim.Validity.Kind);
         Assert.False(claim.Validity.GuaranteesReusableSession);
@@ -165,7 +165,7 @@ public sealed class ReadyServiceTests
         Assert.Equal(AssuranceSessionKindValues.ArtifactOnly, output.SessionKind);
         Assert.Null(output.Lifecycle);
         Assert.NotNull(output.ReadIndex);
-        Assert.Equal(ReadIndexModeValues.AllowStale, output.ReadIndex.Mode);
+        Assert.Equal("allowStale", output.ReadIndex.Mode);
         Assert.Equal(
             ["ops.catalog", "asset-search.lookup", "guid-path.lookup"],
             output.ReadIndex.Artifacts.Select(static artifact => artifact.Name));
@@ -515,8 +515,8 @@ public sealed class ReadyServiceTests
             CanAcceptExecutionRequests: canAcceptExecutionRequests,
             ObservedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:00Z"),
             PlayMode: new IpcPlayModeSnapshot(
-                State: IpcPlayModeStateNames.Stopped,
-                Transition: IpcPlayModeTransitionNames.None,
+                State: "stopped",
+                Transition: "none",
                 IsPlaying: false,
                 IsPlayingOrWillChangePlaymode: false,
                 Generation: "2"));

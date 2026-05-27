@@ -117,7 +117,7 @@ internal sealed class DaemonLifecycleStore : IDaemonLifecycleStore
             return false;
         }
 
-        if (!DaemonEditorModeCodec.TryParse(contract.EditorMode, out var editorMode))
+        if (!ContractLiteralInputParser.TryParseTrimmed<DaemonEditorMode>(contract.EditorMode, out var editorMode))
         {
             error = ExecutionError.InvalidArgument($"Daemon lifecycle editorMode is invalid: {path}.");
             return false;
@@ -168,7 +168,7 @@ internal sealed class DaemonLifecycleStore : IDaemonLifecycleStore
         observation = new DaemonLifecycleObservation(
             ProcessId: processId,
             ProcessStartedAtUtc: processStartedAtUtc,
-            EditorMode: DaemonEditorModeCodec.ToValue(editorMode),
+            EditorMode: ContractLiteralCodec.ToValue(editorMode),
             LifecycleState: lifecycleState!,
             BlockingReason: blockingReason,
             CompileState: compileState!,
@@ -201,20 +201,14 @@ internal sealed class DaemonLifecycleStore : IDaemonLifecycleStore
         }
 
         var state = StringValueNormalizer.TrimToNull(playMode.State);
-        if (state is not (IpcPlayModeStateNames.Stopped
-            or IpcPlayModeStateNames.Entering
-            or IpcPlayModeStateNames.Playing
-            or IpcPlayModeStateNames.Exiting
-            or IpcPlayModeStateNames.Unknown))
+        if (state == null || !ContractLiteralCodec.IsDefined<IpcPlayModeState>(state))
         {
             error = ExecutionError.InvalidArgument($"Daemon lifecycle playMode.state is invalid: {path}.");
             return false;
         }
 
         var transition = StringValueNormalizer.TrimToNull(playMode.Transition);
-        if (transition is not (IpcPlayModeTransitionNames.None
-            or IpcPlayModeTransitionNames.Entering
-            or IpcPlayModeTransitionNames.Exiting))
+        if (transition == null || !ContractLiteralCodec.IsDefined<IpcPlayModeTransition>(transition))
         {
             error = ExecutionError.InvalidArgument($"Daemon lifecycle playMode.transition is invalid: {path}.");
             return false;

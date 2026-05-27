@@ -29,9 +29,9 @@ public sealed class UcliOperationDescribeContractValidatorTests
                                 "Scene asset path.",
                                 new[]
                                 {
-                                    new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.AssetExists)
+                                    new UcliOperationInputConstraintContract("assetExists")
                                     {
-                                        AssetKind = UcliOperationAssetKindValues.Scene,
+                                        AssetKind = "scene",
                                     },
                                 }),
                             new UcliOperationInputVariantFieldContract(
@@ -40,7 +40,7 @@ public sealed class UcliOperationDescribeContractValidatorTests
                                 "Hierarchy path.",
                                 new[]
                                 {
-                                    new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.HierarchyPath),
+                                    new UcliOperationInputConstraintContract("hierarchyPath"),
                                 }),
                         }),
                 }),
@@ -298,7 +298,7 @@ public sealed class UcliOperationDescribeContractValidatorTests
     public void TryValidatePublicRawOpDescribeContract_WhenCodeContractIsValid_ReturnsTrue ()
     {
         var describe = CreateValidDescribeContract();
-        describe.Assurance!.SideEffects = [UcliOperationSideEffectValues.ArbitrarySourceExecution];
+        describe.Assurance!.SideEffects = ["arbitrarySourceExecution"];
         describe.Assurance.DangerousNotes = ["Arbitrary source execution requires dangerous policy."];
         describe.CodeContract = CreateValidCodeContract();
 
@@ -410,13 +410,13 @@ public sealed class UcliOperationDescribeContractValidatorTests
     public void TryValidatePublicRawOpDescribeContract_WhenAssurancePlanModeCreatesPreviewState_ReturnsFalse ()
     {
         var describe = CreateValidDescribeContract();
-        describe.Assurance!.PlanMode = UcliOperationPlanModeValues.MayCreatePreviewState;
+        describe.Assurance!.PlanMode = "mayCreatePreviewState";
         describe.Assurance.DangerousNotes = ["Preview-state planning is not public raw safe."];
 
         var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(
             describe,
-            operationKind: UcliOperationKindValues.Command,
-            operationPolicy: OperationPolicyValues.Advanced,
+            operationKind: "command",
+            operationPolicy: "advanced",
             ownerName: "Test contract",
             out var errorMessage);
 
@@ -429,12 +429,12 @@ public sealed class UcliOperationDescribeContractValidatorTests
     public void TryValidateRegisteredOperationDescribeContractAndDerivePolicy_WhenPreviewStateIsAllowedForEditLoweringOnlyExposure_ReturnsAdvancedPolicy ()
     {
         var describe = CreateValidDescribeContract();
-        describe.Assurance!.PlanMode = UcliOperationPlanModeValues.MayCreatePreviewState;
+        describe.Assurance!.PlanMode = "mayCreatePreviewState";
         describe.Assurance.DangerousNotes = ["Preview-state planning is allowed for edit-lowering-only operations."];
 
         var isValid = UcliOperationDescribeContractValidator.TryValidateRegisteredOperationDescribeContractAndDerivePolicy(
             describe,
-            operationKind: UcliOperationKindValues.Command,
+            operationKind: "command",
             ownerName: "Test contract",
             exposure: UcliOperationExposure.EditLoweringOnly,
             out var derivedPolicy,
@@ -450,12 +450,12 @@ public sealed class UcliOperationDescribeContractValidatorTests
     public void TryValidateRegisteredOperationDescribeContractAndDerivePolicy_WhenPreviewStateUsesUnsupportedExposure_ReturnsFalse ()
     {
         var describe = CreateValidDescribeContract();
-        describe.Assurance!.PlanMode = UcliOperationPlanModeValues.MayCreatePreviewState;
+        describe.Assurance!.PlanMode = "mayCreatePreviewState";
         describe.Assurance.DangerousNotes = ["Preview-state planning requires an edit-lowering-only operation."];
 
         var isValid = UcliOperationDescribeContractValidator.TryValidateRegisteredOperationDescribeContractAndDerivePolicy(
             describe,
-            operationKind: UcliOperationKindValues.Command,
+            operationKind: "command",
             ownerName: "Test contract",
             exposure: (UcliOperationExposure)42,
             out var derivedPolicy,
@@ -484,7 +484,7 @@ public sealed class UcliOperationDescribeContractValidatorTests
     public void TryValidatePublicRawOpDescribeContract_WhenQueryObservesUnityState_ReturnsTrue ()
     {
         var describe = CreateValidDescribeContract();
-        describe.Assurance!.SideEffects = [UcliOperationSideEffectValues.ObservesUnityState];
+        describe.Assurance!.SideEffects = ["observesUnityState"];
 
         var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(
             describe,
@@ -519,7 +519,7 @@ public sealed class UcliOperationDescribeContractValidatorTests
                 describe.Assurance!.TouchedKinds = [UcliTouchedResourceKindNames.Scene];
                 break;
             case "sideEffects":
-                describe.Assurance!.SideEffects = [UcliOperationSideEffectValues.SceneContentMutation];
+                describe.Assurance!.SideEffects = ["sceneContentMutation"];
                 break;
         }
 
@@ -543,8 +543,8 @@ public sealed class UcliOperationDescribeContractValidatorTests
     {
         var describe = CreateValidDescribeContract();
         describe.Assurance!.SideEffects = policy == "advanced"
-            ? [UcliOperationSideEffectValues.EditorStateChange]
-            : [UcliOperationSideEffectValues.ExternalProcess];
+            ? ["editorStateChange"]
+            : ["externalProcess"];
 
         var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(
             describe,
@@ -559,8 +559,8 @@ public sealed class UcliOperationDescribeContractValidatorTests
 
     [Theory]
     [Trait("Size", "Small")]
-    [InlineData(UcliOperationSideEffectValues.EditorStateChange)]
-    [InlineData(UcliOperationSideEffectValues.ExternalProcess)]
+    [InlineData("editorStateChange")]
+    [InlineData("externalProcess")]
     public void TryValidatePublicRawOpDescribeContract_WhenDerivedRiskyPolicyHasNoDangerousNotes_ReturnsFalse (
         string sideEffect)
     {
@@ -578,7 +578,7 @@ public sealed class UcliOperationDescribeContractValidatorTests
     public void TryValidatePublicRawOpDescribeContract_WhenDeclaredPolicyDoesNotMatchDerivedPolicy_ReturnsFalse ()
     {
         var describe = CreateValidDescribeContract();
-        describe.Assurance!.SideEffects = [UcliOperationSideEffectValues.EditorStateChange];
+        describe.Assurance!.SideEffects = ["editorStateChange"];
         describe.Assurance.DangerousNotes = ["Editor state changes require advanced policy."];
 
         var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(
@@ -610,13 +610,13 @@ public sealed class UcliOperationDescribeContractValidatorTests
     public void TryValidatePublicRawOpDescribeContractAndDerivePolicy_WhenCodeContractHasArbitrarySourceExecution_ReturnsDangerousPolicy ()
     {
         var describe = CreateValidDescribeContract();
-        describe.Assurance!.SideEffects = [UcliOperationSideEffectValues.ArbitrarySourceExecution];
+        describe.Assurance!.SideEffects = ["arbitrarySourceExecution"];
         describe.Assurance.DangerousNotes = ["Arbitrary source execution requires dangerous policy."];
         describe.CodeContract = CreateValidCodeContract();
 
         var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContractAndDerivePolicy(
             describe,
-            operationKind: UcliOperationKindValues.Command,
+            operationKind: "command",
             ownerName: "Test contract",
             out var derivedPolicy,
             out var errorMessage);
@@ -631,14 +631,14 @@ public sealed class UcliOperationDescribeContractValidatorTests
     public void TryValidatePublicRawOpDescribeContract_WhenQueryHasCodeContract_ReturnsFalse ()
     {
         var describe = CreateValidDescribeContract();
-        describe.Assurance!.SideEffects = [UcliOperationSideEffectValues.ArbitrarySourceExecution];
+        describe.Assurance!.SideEffects = ["arbitrarySourceExecution"];
         describe.Assurance.DangerousNotes = ["Arbitrary source execution requires dangerous policy."];
         describe.CodeContract = CreateValidCodeContract();
 
         var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(
             describe,
-            operationKind: UcliOperationKindValues.Query,
-            operationPolicy: OperationPolicyValues.Dangerous,
+            operationKind: "query",
+            operationPolicy: "dangerous",
             ownerName: "Test contract",
             out var errorMessage);
 
@@ -651,12 +651,12 @@ public sealed class UcliOperationDescribeContractValidatorTests
     public void TryValidatePublicRawOpDescribeContractAndDerivePolicy_WhenAssuranceIsValid_ReturnsDerivedPolicy ()
     {
         var describe = CreateValidDescribeContract();
-        describe.Assurance!.SideEffects = [UcliOperationSideEffectValues.EditorStateChange];
+        describe.Assurance!.SideEffects = ["editorStateChange"];
         describe.Assurance.DangerousNotes = ["Editor state changes require advanced policy."];
 
         var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContractAndDerivePolicy(
             describe,
-            operationKind: UcliOperationKindValues.Command,
+            operationKind: "command",
             ownerName: "Test contract",
             out var derivedPolicy,
             out var errorMessage);
@@ -684,7 +684,7 @@ public sealed class UcliOperationDescribeContractValidatorTests
     public void TryValidatePublicRawOpDescribeContract_WhenCodeContractParameterDescriptionIsMissing_ReturnsFalse ()
     {
         var describe = CreateValidDescribeContract();
-        describe.Assurance!.SideEffects = [UcliOperationSideEffectValues.ArbitrarySourceExecution];
+        describe.Assurance!.SideEffects = ["arbitrarySourceExecution"];
         describe.Assurance.DangerousNotes = ["Arbitrary source execution requires dangerous policy."];
         describe.CodeContract = new UcliOperationCodeContract(
             "csharp",
@@ -734,7 +734,7 @@ public sealed class UcliOperationDescribeContractValidatorTests
         string? matchRule)
     {
         var describe = CreateValidDescribeContract();
-        describe.Assurance!.SideEffects = [UcliOperationSideEffectValues.ArbitrarySourceExecution];
+        describe.Assurance!.SideEffects = ["arbitrarySourceExecution"];
         describe.Assurance.DangerousNotes = ["Arbitrary source execution requires dangerous policy."];
         describe.CodeContract = CreateValidCodeContract();
         describe.CodeContract.EntryPoint!.MatchRule = matchRule;
@@ -750,7 +750,7 @@ public sealed class UcliOperationDescribeContractValidatorTests
     public void TryValidatePublicRawOpDescribeContract_WhenCodeContractLanguageIsUnsupported_ReturnsFalse ()
     {
         var describe = CreateValidDescribeContract();
-        describe.Assurance!.SideEffects = [UcliOperationSideEffectValues.ArbitrarySourceExecution];
+        describe.Assurance!.SideEffects = ["arbitrarySourceExecution"];
         describe.Assurance.DangerousNotes = ["Arbitrary source execution requires dangerous policy."];
         describe.CodeContract = CreateValidCodeContract();
         describe.CodeContract.Language = "python";
@@ -766,7 +766,7 @@ public sealed class UcliOperationDescribeContractValidatorTests
     public void TryValidatePublicRawOpDescribeContract_WhenCodeContractSourceFormIsUnsupported_ReturnsFalse ()
     {
         var describe = CreateValidDescribeContract();
-        describe.Assurance!.SideEffects = [UcliOperationSideEffectValues.ArbitrarySourceExecution];
+        describe.Assurance!.SideEffects = ["arbitrarySourceExecution"];
         describe.Assurance.DangerousNotes = ["Arbitrary source execution requires dangerous policy."];
         describe.CodeContract = CreateValidCodeContract();
         describe.CodeContract.SourceForms =
@@ -802,7 +802,7 @@ public sealed class UcliOperationDescribeContractValidatorTests
         {
             yield return new object[]
             {
-                UcliOperationSideEffectValues.AssetContentMutation,
+                "assetContentMutation",
                 false,
                 false,
                 new[] { UcliTouchedResourceKindNames.Asset },
@@ -810,7 +810,7 @@ public sealed class UcliOperationDescribeContractValidatorTests
             };
             yield return new object[]
             {
-                UcliOperationSideEffectValues.AssetContentMutation,
+                "assetContentMutation",
                 true,
                 false,
                 Array.Empty<string>(),
@@ -818,7 +818,7 @@ public sealed class UcliOperationDescribeContractValidatorTests
             };
             yield return new object[]
             {
-                UcliOperationSideEffectValues.AssetSave,
+                "assetSave",
                 false,
                 false,
                 new[] { UcliTouchedResourceKindNames.Asset },
@@ -826,7 +826,7 @@ public sealed class UcliOperationDescribeContractValidatorTests
             };
             yield return new object[]
             {
-                UcliOperationSideEffectValues.AssetSave,
+                "assetSave",
                 false,
                 true,
                 Array.Empty<string>(),
@@ -834,7 +834,7 @@ public sealed class UcliOperationDescribeContractValidatorTests
             };
             yield return new object[]
             {
-                UcliOperationSideEffectValues.FilesystemWrite,
+                "filesystemWrite",
                 false,
                 false,
                 Array.Empty<string>(),
@@ -842,7 +842,7 @@ public sealed class UcliOperationDescribeContractValidatorTests
             };
             yield return new object[]
             {
-                UcliOperationSideEffectValues.FilesystemWrite,
+                "filesystemWrite",
                 false,
                 true,
                 Array.Empty<string>(),
@@ -850,7 +850,7 @@ public sealed class UcliOperationDescribeContractValidatorTests
             };
             yield return new object[]
             {
-                UcliOperationSideEffectValues.OpensSceneInEditor,
+                "opensSceneInEditor",
                 false,
                 false,
                 Array.Empty<string>(),
@@ -858,7 +858,7 @@ public sealed class UcliOperationDescribeContractValidatorTests
             };
             yield return new object[]
             {
-                UcliOperationSideEffectValues.ProjectSave,
+                "projectSave",
                 false,
                 true,
                 new[]
@@ -878,7 +878,7 @@ public sealed class UcliOperationDescribeContractValidatorTests
         {
             yield return new object[]
             {
-                new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.NonEmpty)
+                new UcliOperationInputConstraintContract("nonEmpty")
                 {
                     Min = 1,
                 },
@@ -886,17 +886,17 @@ public sealed class UcliOperationDescribeContractValidatorTests
             };
             yield return new object[]
             {
-                new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.Range),
+                new UcliOperationInputConstraintContract("range"),
                 "Range constraint must only define min, max, or both.",
             };
             yield return new object[]
             {
-                new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.AssetExists),
+                new UcliOperationInputConstraintContract("assetExists"),
                 "Asset constraint must define one supported asset kind.",
             };
             yield return new object[]
             {
-                new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.AssetCreatable)
+                new UcliOperationInputConstraintContract("assetCreatable")
                 {
                     AssetKind = "unsupported",
                 },
@@ -904,12 +904,12 @@ public sealed class UcliOperationDescribeContractValidatorTests
             };
             yield return new object[]
             {
-                new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.ReferenceResolvable),
+                new UcliOperationInputConstraintContract("referenceResolvable"),
                 "Reference constraint must define one supported target kind.",
             };
             yield return new object[]
             {
-                new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.TypeAssignableTo)
+                new UcliOperationInputConstraintContract("typeAssignableTo")
                 {
                     TypeKind = "unsupported",
                 },
@@ -917,7 +917,7 @@ public sealed class UcliOperationDescribeContractValidatorTests
             };
             yield return new object[]
             {
-                new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.SerializedProperty),
+                new UcliOperationInputConstraintContract("serializedProperty"),
                 "Serialized-property constraint must define one supported access value.",
             };
             yield return new object[]

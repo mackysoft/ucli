@@ -395,8 +395,8 @@ public sealed class ReadyCommandTests
             ActionRequired: null,
             PrimaryDiagnostic: null,
             PlayMode: new PlayModeSnapshotOutput(
-                State: IpcPlayModeStateNames.Stopped,
-                Transition: IpcPlayModeTransitionNames.None,
+                State: "stopped",
+                Transition: "none",
                 IsPlaying: false,
                 IsPlayingOrWillChangePlaymode: false,
                 Generation: "2"));

@@ -1,6 +1,8 @@
 using System.Reflection;
 using MackySoft.Ucli.Contracts.Configuration;
 
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Contracts.Tests.Operations;
 
 public sealed class UcliOperationDescribeVocabularyTests
@@ -26,40 +28,21 @@ public sealed class UcliOperationDescribeVocabularyTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void ConstraintKindCodec_ToValue_ReturnsStableLiterals ()
+    public void ConstraintKindContractLiteral_ToValue_ReturnsStableLiterals ()
     {
-        Assert.Equal(UcliOperationInputConstraintKindValues.NonEmpty, UcliOperationInputConstraintKindCodec.ToValue(UcliOperationInputConstraintKind.NonEmpty));
-        Assert.Equal(UcliOperationInputConstraintKindValues.Range, UcliOperationInputConstraintKindCodec.ToValue(UcliOperationInputConstraintKind.Range));
-        Assert.Equal(UcliOperationInputConstraintKindValues.ProjectRelativePath, UcliOperationInputConstraintKindCodec.ToValue(UcliOperationInputConstraintKind.ProjectRelativePath));
-        Assert.Equal(UcliOperationInputConstraintKindValues.AssetExists, UcliOperationInputConstraintKindCodec.ToValue(UcliOperationInputConstraintKind.AssetExists));
-        Assert.Equal(UcliOperationInputConstraintKindValues.AssetCreatable, UcliOperationInputConstraintKindCodec.ToValue(UcliOperationInputConstraintKind.AssetCreatable));
-        Assert.Equal(UcliOperationInputConstraintKindValues.GlobalObjectId, UcliOperationInputConstraintKindCodec.ToValue(UcliOperationInputConstraintKind.GlobalObjectId));
-        Assert.Equal(UcliOperationInputConstraintKindValues.HierarchyPath, UcliOperationInputConstraintKindCodec.ToValue(UcliOperationInputConstraintKind.HierarchyPath));
-        Assert.Equal(UcliOperationInputConstraintKindValues.ReferenceResolvable, UcliOperationInputConstraintKindCodec.ToValue(UcliOperationInputConstraintKind.ReferenceResolvable));
-        Assert.Equal(UcliOperationInputConstraintKindValues.TypeExists, UcliOperationInputConstraintKindCodec.ToValue(UcliOperationInputConstraintKind.TypeExists));
-        Assert.Equal(UcliOperationInputConstraintKindValues.TypeAssignableTo, UcliOperationInputConstraintKindCodec.ToValue(UcliOperationInputConstraintKind.TypeAssignableTo));
-        Assert.Equal(UcliOperationInputConstraintKindValues.SerializedProperty, UcliOperationInputConstraintKindCodec.ToValue(UcliOperationInputConstraintKind.SerializedProperty));
-        Assert.Equal(UcliOperationInputConstraintKindValues.AssetGuid, UcliOperationInputConstraintKindCodec.ToValue(UcliOperationInputConstraintKind.AssetGuid));
-        Assert.Equal(UcliOperationInputConstraintKindValues.Cursor, UcliOperationInputConstraintKindCodec.ToValue(UcliOperationInputConstraintKind.Cursor));
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void ConstraintKindValues_AreStableLiterals ()
-    {
-        Assert.Equal("nonEmpty", UcliOperationInputConstraintKindValues.NonEmpty);
-        Assert.Equal("range", UcliOperationInputConstraintKindValues.Range);
-        Assert.Equal("projectRelativePath", UcliOperationInputConstraintKindValues.ProjectRelativePath);
-        Assert.Equal("assetExists", UcliOperationInputConstraintKindValues.AssetExists);
-        Assert.Equal("assetCreatable", UcliOperationInputConstraintKindValues.AssetCreatable);
-        Assert.Equal("globalObjectId", UcliOperationInputConstraintKindValues.GlobalObjectId);
-        Assert.Equal("hierarchyPath", UcliOperationInputConstraintKindValues.HierarchyPath);
-        Assert.Equal("referenceResolvable", UcliOperationInputConstraintKindValues.ReferenceResolvable);
-        Assert.Equal("typeExists", UcliOperationInputConstraintKindValues.TypeExists);
-        Assert.Equal("typeAssignableTo", UcliOperationInputConstraintKindValues.TypeAssignableTo);
-        Assert.Equal("serializedProperty", UcliOperationInputConstraintKindValues.SerializedProperty);
-        Assert.Equal("assetGuid", UcliOperationInputConstraintKindValues.AssetGuid);
-        Assert.Equal("cursor", UcliOperationInputConstraintKindValues.Cursor);
+        Assert.Equal("nonEmpty", ContractLiteralCodec.ToValue(UcliOperationInputConstraintKind.NonEmpty));
+        Assert.Equal("range", ContractLiteralCodec.ToValue(UcliOperationInputConstraintKind.Range));
+        Assert.Equal("projectRelativePath", ContractLiteralCodec.ToValue(UcliOperationInputConstraintKind.ProjectRelativePath));
+        Assert.Equal("assetExists", ContractLiteralCodec.ToValue(UcliOperationInputConstraintKind.AssetExists));
+        Assert.Equal("assetCreatable", ContractLiteralCodec.ToValue(UcliOperationInputConstraintKind.AssetCreatable));
+        Assert.Equal("globalObjectId", ContractLiteralCodec.ToValue(UcliOperationInputConstraintKind.GlobalObjectId));
+        Assert.Equal("hierarchyPath", ContractLiteralCodec.ToValue(UcliOperationInputConstraintKind.HierarchyPath));
+        Assert.Equal("referenceResolvable", ContractLiteralCodec.ToValue(UcliOperationInputConstraintKind.ReferenceResolvable));
+        Assert.Equal("typeExists", ContractLiteralCodec.ToValue(UcliOperationInputConstraintKind.TypeExists));
+        Assert.Equal("typeAssignableTo", ContractLiteralCodec.ToValue(UcliOperationInputConstraintKind.TypeAssignableTo));
+        Assert.Equal("serializedProperty", ContractLiteralCodec.ToValue(UcliOperationInputConstraintKind.SerializedProperty));
+        Assert.Equal("assetGuid", ContractLiteralCodec.ToValue(UcliOperationInputConstraintKind.AssetGuid));
+        Assert.Equal("cursor", ContractLiteralCodec.ToValue(UcliOperationInputConstraintKind.Cursor));
     }
 
     [Fact]
@@ -83,32 +66,17 @@ public sealed class UcliOperationDescribeVocabularyTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void ConstraintParameterCodecs_ToValue_ReturnStableLiterals ()
+    public void ConstraintParameterContractLiterals_ToValue_ReturnStableLiterals ()
     {
-        Assert.Equal(UcliOperationAssetKindValues.Asset, UcliOperationAssetKindCodec.ToValue(UcliOperationAssetKind.Asset));
-        Assert.Equal(UcliOperationAssetKindValues.Prefab, UcliOperationAssetKindCodec.ToValue(UcliOperationAssetKind.Prefab));
-        Assert.Equal(UcliOperationAssetKindValues.ProjectSettings, UcliOperationAssetKindCodec.ToValue(UcliOperationAssetKind.ProjectSettings));
-        Assert.Equal(UcliOperationAssetKindValues.Scene, UcliOperationAssetKindCodec.ToValue(UcliOperationAssetKind.Scene));
-        Assert.Equal(UcliOperationReferenceTargetKindValues.Asset, UcliOperationReferenceTargetKindCodec.ToValue(UcliOperationReferenceTargetKind.Asset));
-        Assert.Equal(UcliOperationReferenceTargetKindValues.Component, UcliOperationReferenceTargetKindCodec.ToValue(UcliOperationReferenceTargetKind.Component));
-        Assert.Equal(UcliOperationReferenceTargetKindValues.GameObject, UcliOperationReferenceTargetKindCodec.ToValue(UcliOperationReferenceTargetKind.GameObject));
-        Assert.Equal(UcliOperationTypeKindValues.Component, UcliOperationTypeKindCodec.ToValue(UcliOperationTypeKind.Component));
-        Assert.Equal(UcliOperationSerializedPropertyAccessValues.Write, UcliOperationSerializedPropertyAccessCodec.ToValue(UcliOperationSerializedPropertyAccess.Write));
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void ConstraintParameterValues_AreStableLiterals ()
-    {
-        Assert.Equal("asset", UcliOperationAssetKindValues.Asset);
-        Assert.Equal("prefab", UcliOperationAssetKindValues.Prefab);
-        Assert.Equal("projectSettings", UcliOperationAssetKindValues.ProjectSettings);
-        Assert.Equal("scene", UcliOperationAssetKindValues.Scene);
-        Assert.Equal("asset", UcliOperationReferenceTargetKindValues.Asset);
-        Assert.Equal("component", UcliOperationReferenceTargetKindValues.Component);
-        Assert.Equal("gameObject", UcliOperationReferenceTargetKindValues.GameObject);
-        Assert.Equal("component", UcliOperationTypeKindValues.Component);
-        Assert.Equal("write", UcliOperationSerializedPropertyAccessValues.Write);
+        Assert.Equal("asset", ContractLiteralCodec.ToValue(UcliOperationAssetKind.Asset));
+        Assert.Equal("prefab", ContractLiteralCodec.ToValue(UcliOperationAssetKind.Prefab));
+        Assert.Equal("projectSettings", ContractLiteralCodec.ToValue(UcliOperationAssetKind.ProjectSettings));
+        Assert.Equal("scene", ContractLiteralCodec.ToValue(UcliOperationAssetKind.Scene));
+        Assert.Equal("asset", ContractLiteralCodec.ToValue(UcliOperationReferenceTargetKind.Asset));
+        Assert.Equal("component", ContractLiteralCodec.ToValue(UcliOperationReferenceTargetKind.Component));
+        Assert.Equal("gameObject", ContractLiteralCodec.ToValue(UcliOperationReferenceTargetKind.GameObject));
+        Assert.Equal("component", ContractLiteralCodec.ToValue(UcliOperationTypeKind.Component));
+        Assert.Equal("write", ContractLiteralCodec.ToValue(UcliOperationSerializedPropertyAccess.Write));
     }
 
     [Fact]
@@ -142,60 +110,31 @@ public sealed class UcliOperationDescribeVocabularyTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void AssuranceCodecs_ToValue_ReturnStableLiterals ()
+    public void AssuranceContractLiterals_ToValue_ReturnStableLiterals ()
     {
-        Assert.Equal(UcliOperationSideEffectValues.ObservesUnityState, UcliOperationSideEffectCodec.ToValue(UcliOperationSideEffect.ObservesUnityState));
-        Assert.Equal(UcliOperationSideEffectValues.EditorStateChange, UcliOperationSideEffectCodec.ToValue(UcliOperationSideEffect.EditorStateChange));
-        Assert.Equal(UcliOperationSideEffectValues.OpensSceneInEditor, UcliOperationSideEffectCodec.ToValue(UcliOperationSideEffect.OpensSceneInEditor));
-        Assert.Equal(UcliOperationSideEffectValues.OpensPrefabStage, UcliOperationSideEffectCodec.ToValue(UcliOperationSideEffect.OpensPrefabStage));
-        Assert.Equal(UcliOperationSideEffectValues.AssetDatabaseRefresh, UcliOperationSideEffectCodec.ToValue(UcliOperationSideEffect.AssetDatabaseRefresh));
-        Assert.Equal(UcliOperationSideEffectValues.AssetImport, UcliOperationSideEffectCodec.ToValue(UcliOperationSideEffect.AssetImport));
-        Assert.Equal(UcliOperationSideEffectValues.ScriptCompilation, UcliOperationSideEffectCodec.ToValue(UcliOperationSideEffect.ScriptCompilation));
-        Assert.Equal(UcliOperationSideEffectValues.DomainReload, UcliOperationSideEffectCodec.ToValue(UcliOperationSideEffect.DomainReload));
-        Assert.Equal(UcliOperationSideEffectValues.SceneContentMutation, UcliOperationSideEffectCodec.ToValue(UcliOperationSideEffect.SceneContentMutation));
-        Assert.Equal(UcliOperationSideEffectValues.PrefabContentMutation, UcliOperationSideEffectCodec.ToValue(UcliOperationSideEffect.PrefabContentMutation));
-        Assert.Equal(UcliOperationSideEffectValues.AssetContentMutation, UcliOperationSideEffectCodec.ToValue(UcliOperationSideEffect.AssetContentMutation));
-        Assert.Equal(UcliOperationSideEffectValues.ProjectSettingsMutation, UcliOperationSideEffectCodec.ToValue(UcliOperationSideEffect.ProjectSettingsMutation));
-        Assert.Equal(UcliOperationSideEffectValues.SceneSave, UcliOperationSideEffectCodec.ToValue(UcliOperationSideEffect.SceneSave));
-        Assert.Equal(UcliOperationSideEffectValues.PrefabSave, UcliOperationSideEffectCodec.ToValue(UcliOperationSideEffect.PrefabSave));
-        Assert.Equal(UcliOperationSideEffectValues.AssetSave, UcliOperationSideEffectCodec.ToValue(UcliOperationSideEffect.AssetSave));
-        Assert.Equal(UcliOperationSideEffectValues.ProjectSave, UcliOperationSideEffectCodec.ToValue(UcliOperationSideEffect.ProjectSave));
-        Assert.Equal(UcliOperationSideEffectValues.ExternalProcess, UcliOperationSideEffectCodec.ToValue(UcliOperationSideEffect.ExternalProcess));
-        Assert.Equal(UcliOperationSideEffectValues.FilesystemWrite, UcliOperationSideEffectCodec.ToValue(UcliOperationSideEffect.FilesystemWrite));
-        Assert.Equal(UcliOperationSideEffectValues.ArbitrarySourceExecution, UcliOperationSideEffectCodec.ToValue(UcliOperationSideEffect.ArbitrarySourceExecution));
-        Assert.Equal(UcliOperationSideEffectValues.DestructiveScope, UcliOperationSideEffectCodec.ToValue(UcliOperationSideEffect.DestructiveScope));
-        Assert.Equal(UcliOperationPlanModeValues.ValidationOnly, UcliOperationPlanModeCodec.ToValue(UcliOperationPlanMode.ValidationOnly));
-        Assert.Equal(UcliOperationPlanModeValues.ObservesLiveUnity, UcliOperationPlanModeCodec.ToValue(UcliOperationPlanMode.ObservesLiveUnity));
-        Assert.Equal(UcliOperationPlanModeValues.MayCreatePreviewState, UcliOperationPlanModeCodec.ToValue(UcliOperationPlanMode.MayCreatePreviewState));
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void AssuranceValues_AreStableLiterals ()
-    {
-        Assert.Equal("observesUnityState", UcliOperationSideEffectValues.ObservesUnityState);
-        Assert.Equal("editorStateChange", UcliOperationSideEffectValues.EditorStateChange);
-        Assert.Equal("opensSceneInEditor", UcliOperationSideEffectValues.OpensSceneInEditor);
-        Assert.Equal("opensPrefabStage", UcliOperationSideEffectValues.OpensPrefabStage);
-        Assert.Equal("assetDatabaseRefresh", UcliOperationSideEffectValues.AssetDatabaseRefresh);
-        Assert.Equal("assetImport", UcliOperationSideEffectValues.AssetImport);
-        Assert.Equal("scriptCompilation", UcliOperationSideEffectValues.ScriptCompilation);
-        Assert.Equal("domainReload", UcliOperationSideEffectValues.DomainReload);
-        Assert.Equal("sceneContentMutation", UcliOperationSideEffectValues.SceneContentMutation);
-        Assert.Equal("prefabContentMutation", UcliOperationSideEffectValues.PrefabContentMutation);
-        Assert.Equal("assetContentMutation", UcliOperationSideEffectValues.AssetContentMutation);
-        Assert.Equal("projectSettingsMutation", UcliOperationSideEffectValues.ProjectSettingsMutation);
-        Assert.Equal("sceneSave", UcliOperationSideEffectValues.SceneSave);
-        Assert.Equal("prefabSave", UcliOperationSideEffectValues.PrefabSave);
-        Assert.Equal("assetSave", UcliOperationSideEffectValues.AssetSave);
-        Assert.Equal("projectSave", UcliOperationSideEffectValues.ProjectSave);
-        Assert.Equal("externalProcess", UcliOperationSideEffectValues.ExternalProcess);
-        Assert.Equal("filesystemWrite", UcliOperationSideEffectValues.FilesystemWrite);
-        Assert.Equal("arbitrarySourceExecution", UcliOperationSideEffectValues.ArbitrarySourceExecution);
-        Assert.Equal("destructiveScope", UcliOperationSideEffectValues.DestructiveScope);
-        Assert.Equal("validationOnly", UcliOperationPlanModeValues.ValidationOnly);
-        Assert.Equal("observesLiveUnity", UcliOperationPlanModeValues.ObservesLiveUnity);
-        Assert.Equal("mayCreatePreviewState", UcliOperationPlanModeValues.MayCreatePreviewState);
+        Assert.Equal("observesUnityState", ContractLiteralCodec.ToValue(UcliOperationSideEffect.ObservesUnityState));
+        Assert.Equal("editorStateChange", ContractLiteralCodec.ToValue(UcliOperationSideEffect.EditorStateChange));
+        Assert.Equal("opensSceneInEditor", ContractLiteralCodec.ToValue(UcliOperationSideEffect.OpensSceneInEditor));
+        Assert.Equal("opensPrefabStage", ContractLiteralCodec.ToValue(UcliOperationSideEffect.OpensPrefabStage));
+        Assert.Equal("assetDatabaseRefresh", ContractLiteralCodec.ToValue(UcliOperationSideEffect.AssetDatabaseRefresh));
+        Assert.Equal("assetImport", ContractLiteralCodec.ToValue(UcliOperationSideEffect.AssetImport));
+        Assert.Equal("scriptCompilation", ContractLiteralCodec.ToValue(UcliOperationSideEffect.ScriptCompilation));
+        Assert.Equal("domainReload", ContractLiteralCodec.ToValue(UcliOperationSideEffect.DomainReload));
+        Assert.Equal("sceneContentMutation", ContractLiteralCodec.ToValue(UcliOperationSideEffect.SceneContentMutation));
+        Assert.Equal("prefabContentMutation", ContractLiteralCodec.ToValue(UcliOperationSideEffect.PrefabContentMutation));
+        Assert.Equal("assetContentMutation", ContractLiteralCodec.ToValue(UcliOperationSideEffect.AssetContentMutation));
+        Assert.Equal("projectSettingsMutation", ContractLiteralCodec.ToValue(UcliOperationSideEffect.ProjectSettingsMutation));
+        Assert.Equal("sceneSave", ContractLiteralCodec.ToValue(UcliOperationSideEffect.SceneSave));
+        Assert.Equal("prefabSave", ContractLiteralCodec.ToValue(UcliOperationSideEffect.PrefabSave));
+        Assert.Equal("assetSave", ContractLiteralCodec.ToValue(UcliOperationSideEffect.AssetSave));
+        Assert.Equal("projectSave", ContractLiteralCodec.ToValue(UcliOperationSideEffect.ProjectSave));
+        Assert.Equal("externalProcess", ContractLiteralCodec.ToValue(UcliOperationSideEffect.ExternalProcess));
+        Assert.Equal("filesystemWrite", ContractLiteralCodec.ToValue(UcliOperationSideEffect.FilesystemWrite));
+        Assert.Equal("arbitrarySourceExecution", ContractLiteralCodec.ToValue(UcliOperationSideEffect.ArbitrarySourceExecution));
+        Assert.Equal("destructiveScope", ContractLiteralCodec.ToValue(UcliOperationSideEffect.DestructiveScope));
+        Assert.Equal("validationOnly", ContractLiteralCodec.ToValue(UcliOperationPlanMode.ValidationOnly));
+        Assert.Equal("observesLiveUnity", ContractLiteralCodec.ToValue(UcliOperationPlanMode.ObservesLiveUnity));
+        Assert.Equal("mayCreatePreviewState", ContractLiteralCodec.ToValue(UcliOperationPlanMode.MayCreatePreviewState));
     }
 
     [Fact]
@@ -204,7 +143,7 @@ public sealed class UcliOperationDescribeVocabularyTests
     {
         var enumLiterals = Enum
             .GetValues<UcliOperationSideEffect>()
-            .Select(UcliOperationSideEffectCodec.ToValue)
+            .Select(ContractLiteralCodec.ToValue)
             .ToArray();
 
         Assert.Equal(enumLiterals, UcliOperationSideEffectDescriptors.SupportedValues);
@@ -218,7 +157,7 @@ public sealed class UcliOperationDescribeVocabularyTests
             .Select(descriptor => descriptor.Value)
             .ToArray();
         var descriptorCodecLiterals = UcliOperationSideEffectDescriptors.All
-            .Select(descriptor => UcliOperationSideEffectCodec.ToValue(descriptor.SideEffect))
+            .Select(descriptor => ContractLiteralCodec.ToValue(descriptor.SideEffect))
             .ToArray();
 
         Assert.Equal(UcliOperationSideEffectDescriptors.SupportedValues, descriptorLiterals);
@@ -381,26 +320,26 @@ public sealed class UcliOperationDescribeVocabularyTests
     {
         get
         {
-            yield return new object[] { UcliOperationSideEffectValues.ObservesUnityState, OperationPolicy.Safe };
-            yield return new object[] { UcliOperationSideEffectValues.EditorStateChange, OperationPolicy.Advanced };
-            yield return new object[] { UcliOperationSideEffectValues.OpensSceneInEditor, OperationPolicy.Advanced };
-            yield return new object[] { UcliOperationSideEffectValues.OpensPrefabStage, OperationPolicy.Advanced };
-            yield return new object[] { UcliOperationSideEffectValues.AssetDatabaseRefresh, OperationPolicy.Advanced };
-            yield return new object[] { UcliOperationSideEffectValues.AssetImport, OperationPolicy.Advanced };
-            yield return new object[] { UcliOperationSideEffectValues.ScriptCompilation, OperationPolicy.Advanced };
-            yield return new object[] { UcliOperationSideEffectValues.DomainReload, OperationPolicy.Advanced };
-            yield return new object[] { UcliOperationSideEffectValues.SceneContentMutation, OperationPolicy.Advanced };
-            yield return new object[] { UcliOperationSideEffectValues.PrefabContentMutation, OperationPolicy.Advanced };
-            yield return new object[] { UcliOperationSideEffectValues.AssetContentMutation, OperationPolicy.Advanced };
-            yield return new object[] { UcliOperationSideEffectValues.ProjectSettingsMutation, OperationPolicy.Advanced };
-            yield return new object[] { UcliOperationSideEffectValues.SceneSave, OperationPolicy.Advanced };
-            yield return new object[] { UcliOperationSideEffectValues.PrefabSave, OperationPolicy.Advanced };
-            yield return new object[] { UcliOperationSideEffectValues.AssetSave, OperationPolicy.Advanced };
-            yield return new object[] { UcliOperationSideEffectValues.ProjectSave, OperationPolicy.Advanced };
-            yield return new object[] { UcliOperationSideEffectValues.ExternalProcess, OperationPolicy.Dangerous };
-            yield return new object[] { UcliOperationSideEffectValues.FilesystemWrite, OperationPolicy.Dangerous };
-            yield return new object[] { UcliOperationSideEffectValues.ArbitrarySourceExecution, OperationPolicy.Dangerous };
-            yield return new object[] { UcliOperationSideEffectValues.DestructiveScope, OperationPolicy.Dangerous };
+            yield return new object[] { "observesUnityState", OperationPolicy.Safe };
+            yield return new object[] { "editorStateChange", OperationPolicy.Advanced };
+            yield return new object[] { "opensSceneInEditor", OperationPolicy.Advanced };
+            yield return new object[] { "opensPrefabStage", OperationPolicy.Advanced };
+            yield return new object[] { "assetDatabaseRefresh", OperationPolicy.Advanced };
+            yield return new object[] { "assetImport", OperationPolicy.Advanced };
+            yield return new object[] { "scriptCompilation", OperationPolicy.Advanced };
+            yield return new object[] { "domainReload", OperationPolicy.Advanced };
+            yield return new object[] { "sceneContentMutation", OperationPolicy.Advanced };
+            yield return new object[] { "prefabContentMutation", OperationPolicy.Advanced };
+            yield return new object[] { "assetContentMutation", OperationPolicy.Advanced };
+            yield return new object[] { "projectSettingsMutation", OperationPolicy.Advanced };
+            yield return new object[] { "sceneSave", OperationPolicy.Advanced };
+            yield return new object[] { "prefabSave", OperationPolicy.Advanced };
+            yield return new object[] { "assetSave", OperationPolicy.Advanced };
+            yield return new object[] { "projectSave", OperationPolicy.Advanced };
+            yield return new object[] { "externalProcess", OperationPolicy.Dangerous };
+            yield return new object[] { "filesystemWrite", OperationPolicy.Dangerous };
+            yield return new object[] { "arbitrarySourceExecution", OperationPolicy.Dangerous };
+            yield return new object[] { "destructiveScope", OperationPolicy.Dangerous };
         }
     }
 
@@ -408,26 +347,26 @@ public sealed class UcliOperationDescribeVocabularyTests
     {
         get
         {
-            yield return new object[] { UcliOperationSideEffectValues.ObservesUnityState, true };
-            yield return new object[] { UcliOperationSideEffectValues.EditorStateChange, false };
-            yield return new object[] { UcliOperationSideEffectValues.OpensSceneInEditor, false };
-            yield return new object[] { UcliOperationSideEffectValues.OpensPrefabStage, false };
-            yield return new object[] { UcliOperationSideEffectValues.AssetDatabaseRefresh, false };
-            yield return new object[] { UcliOperationSideEffectValues.AssetImport, false };
-            yield return new object[] { UcliOperationSideEffectValues.ScriptCompilation, false };
-            yield return new object[] { UcliOperationSideEffectValues.DomainReload, false };
-            yield return new object[] { UcliOperationSideEffectValues.SceneContentMutation, false };
-            yield return new object[] { UcliOperationSideEffectValues.PrefabContentMutation, false };
-            yield return new object[] { UcliOperationSideEffectValues.AssetContentMutation, false };
-            yield return new object[] { UcliOperationSideEffectValues.ProjectSettingsMutation, false };
-            yield return new object[] { UcliOperationSideEffectValues.SceneSave, false };
-            yield return new object[] { UcliOperationSideEffectValues.PrefabSave, false };
-            yield return new object[] { UcliOperationSideEffectValues.AssetSave, false };
-            yield return new object[] { UcliOperationSideEffectValues.ProjectSave, false };
-            yield return new object[] { UcliOperationSideEffectValues.ExternalProcess, false };
-            yield return new object[] { UcliOperationSideEffectValues.FilesystemWrite, false };
-            yield return new object[] { UcliOperationSideEffectValues.ArbitrarySourceExecution, false };
-            yield return new object[] { UcliOperationSideEffectValues.DestructiveScope, false };
+            yield return new object[] { "observesUnityState", true };
+            yield return new object[] { "editorStateChange", false };
+            yield return new object[] { "opensSceneInEditor", false };
+            yield return new object[] { "opensPrefabStage", false };
+            yield return new object[] { "assetDatabaseRefresh", false };
+            yield return new object[] { "assetImport", false };
+            yield return new object[] { "scriptCompilation", false };
+            yield return new object[] { "domainReload", false };
+            yield return new object[] { "sceneContentMutation", false };
+            yield return new object[] { "prefabContentMutation", false };
+            yield return new object[] { "assetContentMutation", false };
+            yield return new object[] { "projectSettingsMutation", false };
+            yield return new object[] { "sceneSave", false };
+            yield return new object[] { "prefabSave", false };
+            yield return new object[] { "assetSave", false };
+            yield return new object[] { "projectSave", false };
+            yield return new object[] { "externalProcess", false };
+            yield return new object[] { "filesystemWrite", false };
+            yield return new object[] { "arbitrarySourceExecution", false };
+            yield return new object[] { "destructiveScope", false };
         }
     }
 
@@ -435,24 +374,24 @@ public sealed class UcliOperationDescribeVocabularyTests
     {
         get
         {
-            yield return new object[] { UcliOperationSideEffectValues.ObservesUnityState, false, false, Array.Empty<string>() };
-            yield return new object[] { UcliOperationSideEffectValues.EditorStateChange, false, false, Array.Empty<string>() };
-            yield return new object[] { UcliOperationSideEffectValues.OpensSceneInEditor, false, false, new[] { UcliTouchedResourceKindNames.Scene } };
-            yield return new object[] { UcliOperationSideEffectValues.OpensPrefabStage, false, false, new[] { UcliTouchedResourceKindNames.Prefab } };
-            yield return new object[] { UcliOperationSideEffectValues.AssetDatabaseRefresh, false, false, new[] { UcliTouchedResourceKindNames.Asset } };
-            yield return new object[] { UcliOperationSideEffectValues.AssetImport, false, false, new[] { UcliTouchedResourceKindNames.Asset } };
-            yield return new object[] { UcliOperationSideEffectValues.ScriptCompilation, false, false, Array.Empty<string>() };
-            yield return new object[] { UcliOperationSideEffectValues.DomainReload, false, false, Array.Empty<string>() };
-            yield return new object[] { UcliOperationSideEffectValues.SceneContentMutation, true, false, new[] { UcliTouchedResourceKindNames.Scene } };
-            yield return new object[] { UcliOperationSideEffectValues.PrefabContentMutation, true, false, new[] { UcliTouchedResourceKindNames.Prefab } };
-            yield return new object[] { UcliOperationSideEffectValues.AssetContentMutation, true, false, new[] { UcliTouchedResourceKindNames.Asset } };
-            yield return new object[] { UcliOperationSideEffectValues.ProjectSettingsMutation, true, false, new[] { UcliTouchedResourceKindNames.ProjectSettings } };
-            yield return new object[] { UcliOperationSideEffectValues.SceneSave, false, true, new[] { UcliTouchedResourceKindNames.Scene } };
-            yield return new object[] { UcliOperationSideEffectValues.PrefabSave, false, true, new[] { UcliTouchedResourceKindNames.Prefab } };
-            yield return new object[] { UcliOperationSideEffectValues.AssetSave, false, true, new[] { UcliTouchedResourceKindNames.Asset } };
+            yield return new object[] { "observesUnityState", false, false, Array.Empty<string>() };
+            yield return new object[] { "editorStateChange", false, false, Array.Empty<string>() };
+            yield return new object[] { "opensSceneInEditor", false, false, new[] { UcliTouchedResourceKindNames.Scene } };
+            yield return new object[] { "opensPrefabStage", false, false, new[] { UcliTouchedResourceKindNames.Prefab } };
+            yield return new object[] { "assetDatabaseRefresh", false, false, new[] { UcliTouchedResourceKindNames.Asset } };
+            yield return new object[] { "assetImport", false, false, new[] { UcliTouchedResourceKindNames.Asset } };
+            yield return new object[] { "scriptCompilation", false, false, Array.Empty<string>() };
+            yield return new object[] { "domainReload", false, false, Array.Empty<string>() };
+            yield return new object[] { "sceneContentMutation", true, false, new[] { UcliTouchedResourceKindNames.Scene } };
+            yield return new object[] { "prefabContentMutation", true, false, new[] { UcliTouchedResourceKindNames.Prefab } };
+            yield return new object[] { "assetContentMutation", true, false, new[] { UcliTouchedResourceKindNames.Asset } };
+            yield return new object[] { "projectSettingsMutation", true, false, new[] { UcliTouchedResourceKindNames.ProjectSettings } };
+            yield return new object[] { "sceneSave", false, true, new[] { UcliTouchedResourceKindNames.Scene } };
+            yield return new object[] { "prefabSave", false, true, new[] { UcliTouchedResourceKindNames.Prefab } };
+            yield return new object[] { "assetSave", false, true, new[] { UcliTouchedResourceKindNames.Asset } };
             yield return new object[]
             {
-                UcliOperationSideEffectValues.ProjectSave,
+                "projectSave",
                 false,
                 true,
                 new[]
@@ -463,10 +402,10 @@ public sealed class UcliOperationDescribeVocabularyTests
                     UcliTouchedResourceKindNames.ProjectSettings,
                 },
             };
-            yield return new object[] { UcliOperationSideEffectValues.ExternalProcess, false, false, Array.Empty<string>() };
-            yield return new object[] { UcliOperationSideEffectValues.FilesystemWrite, false, true, Array.Empty<string>() };
-            yield return new object[] { UcliOperationSideEffectValues.ArbitrarySourceExecution, false, false, Array.Empty<string>() };
-            yield return new object[] { UcliOperationSideEffectValues.DestructiveScope, false, false, Array.Empty<string>() };
+            yield return new object[] { "externalProcess", false, false, Array.Empty<string>() };
+            yield return new object[] { "filesystemWrite", false, true, Array.Empty<string>() };
+            yield return new object[] { "arbitrarySourceExecution", false, false, Array.Empty<string>() };
+            yield return new object[] { "destructiveScope", false, false, Array.Empty<string>() };
         }
     }
 }

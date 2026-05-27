@@ -1,5 +1,7 @@
 using MackySoft.Ucli.Contracts.Configuration;
 
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Contracts.Operations;
 
 /// <summary> Defines the contract facts attached to an operation side-effect value. </summary>
@@ -21,7 +23,7 @@ internal sealed class UcliOperationSideEffectDescriptor
         IReadOnlyList<string> requiredTouchedKinds)
     {
         SideEffect = sideEffect;
-        Value = UcliOperationSideEffectCodec.ToValue(sideEffect);
+        Value = ContractLiteralCodec.ToValue(sideEffect);
         MinimumPolicy = minimumPolicy;
         DerivesMayDirty = derivesMayDirty;
         DerivesMayPersist = derivesMayPersist;

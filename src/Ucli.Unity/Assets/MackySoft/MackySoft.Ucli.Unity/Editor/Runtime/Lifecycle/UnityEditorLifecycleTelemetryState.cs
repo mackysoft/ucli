@@ -4,6 +4,8 @@ using MackySoft.Ucli.Contracts.Ipc;
 using UnityEditor;
 using UnityEditor.Compilation;
 
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Unity.Runtime
 {
     /// <summary> Stores mutable lifecycle telemetry that is shared across readiness snapshots and Unity callbacks. </summary>
@@ -126,8 +128,8 @@ namespace MackySoft.Ucli.Unity.Runtime
             }
 
             return new IpcPlayModeSnapshot(
-                State: IpcPlayModeStateCodec.ToValue(state),
-                Transition: IpcPlayModeTransitionCodec.ToValue(transition),
+                State: ContractLiteralCodec.ToValue(state),
+                Transition: ContractLiteralCodec.ToValue(transition),
                 IsPlaying: isPlaying,
                 IsPlayingOrWillChangePlaymode: isPlayingOrWillChangePlaymode,
                 Generation: PlayModeGeneration);

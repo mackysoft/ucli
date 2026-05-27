@@ -16,8 +16,8 @@ public sealed class LifecycleProjectionFactoryTests
 
     [Theory]
     [Trait("Size", "Small")]
-    [InlineData("unsupported", IpcPlayModeTransitionNames.None)]
-    [InlineData(IpcPlayModeStateNames.Playing, "unsupported")]
+    [InlineData("unsupported", "none")]
+    [InlineData("playing", "unsupported")]
     public void Create_WhenPlayModeHasUnsupportedLiteral_ReturnsNullPlayMode (
         string state,
         string transition)
@@ -37,15 +37,15 @@ public sealed class LifecycleProjectionFactoryTests
     public void Create_WhenPlayModeGenerationIsBlank_ReturnsPlayModeWithNullGeneration ()
     {
         var projection = LifecycleProjectionFactory.Create(CreatePing(new IpcPlayModeSnapshot(
-            State: $" {IpcPlayModeStateNames.Playing} ",
-            Transition: $" {IpcPlayModeTransitionNames.None} ",
+            State: $" {"playing"} ",
+            Transition: $" {"none"} ",
             IsPlaying: true,
             IsPlayingOrWillChangePlaymode: true,
             Generation: "   ")));
 
         Assert.NotNull(projection.PlayMode);
-        Assert.Equal(IpcPlayModeStateNames.Playing, projection.PlayMode.State);
-        Assert.Equal(IpcPlayModeTransitionNames.None, projection.PlayMode.Transition);
+        Assert.Equal("playing", projection.PlayMode.State);
+        Assert.Equal("none", projection.PlayMode.Transition);
         Assert.Null(projection.PlayMode.Generation);
     }
 
@@ -53,7 +53,7 @@ public sealed class LifecycleProjectionFactoryTests
     {
         return new IpcPingResponse(
             ServerVersion: "0.5.0",
-            EditorMode: DaemonEditorModeValues.Batchmode,
+            EditorMode: "batchmode",
             UnityVersion: "6000.1.4f1",
             ProjectFingerprint: "project-fingerprint",
             CompileState: IpcCompileStateCodec.Ready,

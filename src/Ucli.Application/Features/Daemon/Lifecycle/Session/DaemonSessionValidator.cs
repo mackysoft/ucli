@@ -2,6 +2,8 @@ using System.Diagnostics.CodeAnalysis;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 
 /// <summary> Implements contract validation for daemon session models. </summary>
@@ -75,14 +77,14 @@ internal sealed class DaemonSessionValidator : IDaemonSessionValidator
             return false;
         }
 
-        if (!DaemonEditorModeCodec.TryParse(session.EditorMode, out var editorMode))
+        if (!ContractLiteralInputParser.TryParseTrimmed<DaemonEditorMode>(session.EditorMode, out var editorMode))
         {
             error = ExecutionError.InvalidArgument(
                 $"Daemon session editorMode is invalid. Actual: {session.EditorMode}. {sessionPath}");
             return false;
         }
 
-        if (!DaemonSessionOwnerKindCodec.TryParse(session.OwnerKind, out var ownerKind))
+        if (!ContractLiteralInputParser.TryParseTrimmed<DaemonSessionOwnerKind>(session.OwnerKind, out var ownerKind))
         {
             error = ExecutionError.InvalidArgument(
                 $"Daemon session ownerKind is invalid. Actual: {session.OwnerKind}. {sessionPath}");
@@ -94,18 +96,18 @@ internal sealed class DaemonSessionValidator : IDaemonSessionValidator
                 || !session.CanShutdownProcess))
         {
             error = ExecutionError.InvalidArgument(
-                $"Daemon session batchmode contract requires ownerKind='{DaemonSessionOwnerKindValues.Cli}' and canShutdownProcess=true. {sessionPath}");
+                $"Daemon session batchmode contract requires ownerKind='{ContractLiteralCodec.ToValue(DaemonSessionOwnerKind.Cli)}' and canShutdownProcess=true. {sessionPath}");
             return false;
         }
 
         if (ownerKind == DaemonSessionOwnerKind.User && session.CanShutdownProcess)
         {
             error = ExecutionError.InvalidArgument(
-                $"Daemon session ownerKind='{DaemonSessionOwnerKindValues.User}' requires canShutdownProcess=false. {sessionPath}");
+                $"Daemon session ownerKind='{ContractLiteralCodec.ToValue(DaemonSessionOwnerKind.User)}' requires canShutdownProcess=false. {sessionPath}");
             return false;
         }
 
-        if (!IpcTransportKindCodec.TryParse(session.EndpointTransportKind, out _))
+        if (!ContractLiteralCodec.IsDefined<IpcTransportKind>(session.EndpointTransportKind))
         {
             error = ExecutionError.InvalidArgument(
                 $"Daemon session endpointTransportKind is invalid: {session.EndpointTransportKind}. {sessionPath}");

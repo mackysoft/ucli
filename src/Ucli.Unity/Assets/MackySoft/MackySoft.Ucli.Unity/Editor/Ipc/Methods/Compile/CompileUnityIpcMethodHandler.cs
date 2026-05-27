@@ -16,6 +16,8 @@ using UnityEditor;
 using UnityEditor.Compilation;
 using UnityEngine;
 
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Handles <c>compile</c> IPC method requests. </summary>
@@ -721,7 +723,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             return new IpcCompileSummary.LifecycleEvidence(
                 ServerVersion: serverVersionProvider.GetVersion(),
                 UnityVersion: Application.unityVersion,
-                EditorMode: DaemonEditorModeCodec.ToValue(snapshot.EditorMode),
+                EditorMode: ContractLiteralCodec.ToValue(snapshot.EditorMode),
                 LifecycleState: snapshot.LifecycleState,
                 BlockingReason: snapshot.BlockingReason,
                 CompileState: snapshot.CompileState,

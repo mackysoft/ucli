@@ -2,6 +2,8 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Application.Features.Play.Common;
 
 /// <summary> Resolves project, timeout, and GUI daemon session prerequisites for Play Mode commands. </summary>
@@ -93,7 +95,7 @@ internal sealed class PlayCommandExecutionContextResolver : IPlayCommandExecutio
 
     private static bool IsGuiSession (DaemonSession session)
     {
-        return DaemonEditorModeCodec.TryParse(session.EditorMode, out var parsedMode)
+        return ContractLiteralInputParser.TryParseTrimmed<DaemonEditorMode>(session.EditorMode, out var parsedMode)
             && parsedMode == DaemonEditorMode.Gui;
     }
 }

@@ -1,6 +1,8 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Serializes scene-tree source-state kinds as public contract literals. </summary>
@@ -18,7 +20,7 @@ public sealed class SceneTreeSourceStateKindJsonConverter : JsonConverter<SceneT
         }
 
         var value = reader.GetString();
-        if (!SceneTreeSourceStateKindCodec.TryParse(value, out var sourceStateKind))
+        if (!ContractLiteralCodec.TryParse<SceneTreeSourceStateKind>(value, out var sourceStateKind))
         {
             throw new JsonException($"Unsupported scene-tree source-state kind '{value}'.");
         }
@@ -32,6 +34,6 @@ public sealed class SceneTreeSourceStateKindJsonConverter : JsonConverter<SceneT
         SceneTreeSourceStateKind value,
         JsonSerializerOptions options)
     {
-        writer.WriteStringValue(SceneTreeSourceStateKindCodec.ToValue(value));
+        writer.WriteStringValue(ContractLiteralCodec.ToValue(value));
     }
 }

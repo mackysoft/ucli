@@ -1,5 +1,6 @@
-using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
+
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Tests.Execution.ReadIndex;
 
@@ -51,8 +52,8 @@ public sealed class IndexCatalogContractValidatorTests
             SourceInputsHash: "source-hash",
             Operation: new IndexOpEntryJsonContract(
                 Name: "ucli.scene.open",
-                Kind: UcliOperationKindValues.Command,
-                Policy: OperationPolicyValues.Safe,
+                Kind: "command",
+                Policy: "safe",
                 ArgsSchemaJson: """{"type":"object"}"""));
 
         var result = IndexCatalogContractValidator.IsValidOpsDescribe(contract);
@@ -96,11 +97,11 @@ public sealed class IndexCatalogContractValidatorTests
     {
         var entry = CreateValidOpsEntry() with
         {
-            Kind = UcliOperationKindValues.Query,
+            Kind = "query",
             Assurance = new UcliOperationAssuranceContract(
                 sideEffects: Array.Empty<string>(),
                 touchedKinds: [UcliTouchedResourceKindNames.Scene],
-                planMode: UcliOperationPlanModeValues.ObservesLiveUnity,
+                planMode: "observesLiveUnity",
                 planSemantics: "Observe scene hierarchy without applying mutation.",
                 callSemantics: "Read scene hierarchy without applying mutation.",
                 touchedContract: "Invalid query touched resource declaration.",
@@ -125,11 +126,11 @@ public sealed class IndexCatalogContractValidatorTests
     {
         var entry = CreateValidOpsEntry() with
         {
-            Policy = OperationPolicyValues.Advanced,
+            Policy = "advanced",
             Assurance = new UcliOperationAssuranceContract(
                 sideEffects: Array.Empty<string>(),
                 touchedKinds: Array.Empty<string>(),
-                planMode: UcliOperationPlanModeValues.MayCreatePreviewState,
+                planMode: "mayCreatePreviewState",
                 planSemantics: "Create request-local preview state before approval.",
                 callSemantics: "Apply the requested operation.",
                 touchedContract: "Reports no touched resources.",
@@ -227,9 +228,9 @@ public sealed class IndexCatalogContractValidatorTests
                                         description: "Scene asset path.",
                                         constraints:
                                         [
-                                            new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.AssetExists)
+                                            new UcliOperationInputConstraintContract("assetExists")
                                             {
-                                                AssetKind = UcliOperationAssetKindValues.Scene,
+                                                AssetKind = "scene",
                                             },
                                         ]),
                                     new UcliOperationInputVariantFieldContract(
@@ -238,7 +239,7 @@ public sealed class IndexCatalogContractValidatorTests
                                         description: "Hierarchy path.",
                                         constraints:
                                         [
-                                            new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.HierarchyPath),
+                                            new UcliOperationInputConstraintContract("hierarchyPath"),
                                         ]),
                                 ]),
                         ]),
@@ -256,11 +257,11 @@ public sealed class IndexCatalogContractValidatorTests
         var entry = CreateValidOpsEntry();
         entry = entry with
         {
-            Policy = OperationPolicyValues.Dangerous,
+            Policy = "dangerous",
             Assurance = new UcliOperationAssuranceContract(
-                sideEffects: [UcliOperationSideEffectValues.ArbitrarySourceExecution],
+                sideEffects: ["arbitrarySourceExecution"],
                 touchedKinds: Array.Empty<string>(),
-                planMode: UcliOperationPlanModeValues.ValidationOnly,
+                planMode: "validationOnly",
                 planSemantics: "Validate code without applying mutation.",
                 callSemantics: "Execute caller-provided source code.",
                 touchedContract: "Returns no touched resources.",
@@ -425,14 +426,14 @@ public sealed class IndexCatalogContractValidatorTests
             [
                 new IndexSchemaEntryJsonContract(
                     SchemaKey: "comp:Game.Spawner, Assembly-CSharp",
-                    Kind: IndexSchemaKindCodec.ToValue(IndexSchemaKind.Comp),
+                    Kind: ContractLiteralCodec.ToValue(IndexSchemaKind.Comp),
                     TypeId: "Game.Spawner, Assembly-CSharp",
                     DisplayName: "Spawner",
                     Properties:
                     [
                         new IndexSchemaPropertyEntryJsonContract(
                             Path: "field",
-                            PropertyType: IndexPropertyTypeCodec.ToValue(IndexPropertyType.String),
+                            PropertyType: ContractLiteralCodec.ToValue(IndexPropertyType.String),
                             DeclaredTypeId: "System.String, mscorlib",
                             IsArray: false,
                             ElementTypeId: "System.Char, mscorlib",
@@ -457,14 +458,14 @@ public sealed class IndexCatalogContractValidatorTests
             [
                 new IndexSchemaEntryJsonContract(
                     SchemaKey: "asset:Game.Spawner, Assembly-CSharp",
-                    Kind: IndexSchemaKindCodec.ToValue(IndexSchemaKind.Comp),
+                    Kind: ContractLiteralCodec.ToValue(IndexSchemaKind.Comp),
                     TypeId: "Game.Spawner, Assembly-CSharp",
                     DisplayName: "Spawner",
                     Properties:
                     [
                         new IndexSchemaPropertyEntryJsonContract(
                             Path: "field",
-                            PropertyType: IndexPropertyTypeCodec.ToValue(IndexPropertyType.String),
+                            PropertyType: ContractLiteralCodec.ToValue(IndexPropertyType.String),
                             DeclaredTypeId: "System.String, mscorlib",
                             IsArray: false,
                             ElementTypeId: null,
@@ -489,14 +490,14 @@ public sealed class IndexCatalogContractValidatorTests
             [
                 new IndexSchemaEntryJsonContract(
                     SchemaKey: "comp:Game.Spawner, Assembly-CSharp",
-                    Kind: IndexSchemaKindCodec.ToValue(IndexSchemaKind.Comp),
+                    Kind: ContractLiteralCodec.ToValue(IndexSchemaKind.Comp),
                     TypeId: "Game.Spawner, Assembly-CSharp",
                     DisplayName: "Spawner",
                     Properties:
                     [
                         new IndexSchemaPropertyEntryJsonContract(
                             Path: "fieldA",
-                            PropertyType: IndexPropertyTypeCodec.ToValue(IndexPropertyType.String),
+                            PropertyType: ContractLiteralCodec.ToValue(IndexPropertyType.String),
                             DeclaredTypeId: "System.String, mscorlib",
                             IsArray: false,
                             ElementTypeId: null,
@@ -504,14 +505,14 @@ public sealed class IndexCatalogContractValidatorTests
                     ]),
                 new IndexSchemaEntryJsonContract(
                     SchemaKey: "comp:Game.Spawner, Assembly-CSharp",
-                    Kind: IndexSchemaKindCodec.ToValue(IndexSchemaKind.Comp),
+                    Kind: ContractLiteralCodec.ToValue(IndexSchemaKind.Comp),
                     TypeId: "Game.Spawner, Assembly-CSharp",
                     DisplayName: "SpawnerDuplicate",
                     Properties:
                     [
                         new IndexSchemaPropertyEntryJsonContract(
                             Path: "fieldB",
-                            PropertyType: IndexPropertyTypeCodec.ToValue(IndexPropertyType.String),
+                            PropertyType: ContractLiteralCodec.ToValue(IndexPropertyType.String),
                             DeclaredTypeId: "System.String, mscorlib",
                             IsArray: false,
                             ElementTypeId: null,
@@ -825,8 +826,8 @@ public sealed class IndexCatalogContractValidatorTests
     {
         return new IndexOpEntryJsonContract(
             Name: "ucli.scene.open",
-            Kind: UcliOperationKindValues.Command,
-            Policy: OperationPolicyValues.Safe,
+            Kind: "command",
+            Policy: "safe",
             ArgsSchemaJson: argsSchemaJson,
             ResultSchemaJson: resultSchemaJson)
         {
@@ -843,7 +844,7 @@ public sealed class IndexCatalogContractValidatorTests
             Assurance = new UcliOperationAssuranceContract(
                 sideEffects: Array.Empty<string>(),
                 touchedKinds: Array.Empty<string>(),
-                planMode: UcliOperationPlanModeValues.ValidationOnly,
+                planMode: "validationOnly",
                 planSemantics: "Validate arguments without applying mutation.",
                 callSemantics: "Open an editor context without persisting project data.",
                 touchedContract: "Reports no mutation resources.",
@@ -860,14 +861,14 @@ public sealed class IndexCatalogContractValidatorTests
             inputs: Array.Empty<UcliOperationInputContract>()) with
         {
             Name = UcliPrimitiveOperationNames.CompSet,
-            Kind = UcliOperationKindValues.Mutation,
-            Policy = OperationPolicyValues.Advanced,
-            Exposure = UcliOperationExposureValues.EditLoweringOnly,
+            Kind = "mutation",
+            Policy = "advanced",
+            Exposure = "editLoweringOnly",
             Description = "Assigns serialized property values on a component target.",
             Assurance = new UcliOperationAssuranceContract(
-                sideEffects: [UcliOperationSideEffectValues.SceneContentMutation],
+                sideEffects: ["sceneContentMutation"],
                 touchedKinds: [UcliTouchedResourceKindNames.Scene],
-                planMode: UcliOperationPlanModeValues.MayCreatePreviewState,
+                planMode: "mayCreatePreviewState",
                 planSemantics: "Validate arguments and compute preview changes without persisting project data.",
                 callSemantics: "Apply serialized property values to the live component.",
                 touchedContract: "Reports the resource dirtied by the component mutation.",
@@ -881,8 +882,8 @@ public sealed class IndexCatalogContractValidatorTests
     {
         return new IndexOpsCatalogEntryJsonContract(
             Name: "ucli.scene.open",
-            Kind: UcliOperationKindValues.Command,
-            Policy: OperationPolicyValues.Safe,
+            Kind: "command",
+            Policy: "safe",
             Description: "Opens a Unity scene.",
             DescribeKey: new string('a', 64),
             DescribeHash: new string('b', 64));

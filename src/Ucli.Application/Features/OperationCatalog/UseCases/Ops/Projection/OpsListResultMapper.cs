@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
 using MackySoft.Ucli.Application.Features.OperationCatalog.Common.Contracts;
-using MackySoft.Ucli.Contracts.Configuration;
+
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Projection;
 
@@ -28,8 +29,8 @@ internal sealed class OpsListResultMapper : IOpsListResultMapper
             .OrderBy(static operation => operation.Name, StringComparer.Ordinal)
             .Select(static operation => new OpsOperationListItem(
                 Name: operation.Name,
-                Kind: UcliOperationKindCodec.ToValue(operation.Kind),
-                Policy: OperationPolicyCodec.ToValue(operation.Policy),
+                Kind: ContractLiteralCodec.ToValue(operation.Kind),
+                Policy: ContractLiteralCodec.ToValue(operation.Policy),
                 Description: operation.Description))
             .ToArray();
 

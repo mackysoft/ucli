@@ -56,14 +56,14 @@ public sealed class IndexJsonContractTests
             [
                 new IndexSchemaEntryJsonContract(
                     SchemaKey: "comp:Game.Spawner, Assembly-CSharp",
-                    Kind: IndexSchemaKindValues.Comp,
+                    Kind: "comp",
                     TypeId: "Game.Spawner, Assembly-CSharp",
                     DisplayName: "Spawner",
                     Properties:
                     [
                         new IndexSchemaPropertyEntryJsonContract(
                             Path: "spawnInterval",
-                            PropertyType: IndexPropertyTypeValues.Float,
+                            PropertyType: "float",
                             DeclaredTypeId: "System.Single, mscorlib",
                             IsArray: false,
                             ElementTypeId: null,
@@ -85,7 +85,7 @@ public sealed class IndexJsonContractTests
         Assert.NotNull(entries[0].Properties);
         var properties = entries[0].Properties!;
         Assert.Single(properties);
-        Assert.Equal(IndexPropertyTypeValues.Float, properties[0].PropertyType);
+        Assert.Equal("float", properties[0].PropertyType);
     }
 
     [Fact]
@@ -302,7 +302,7 @@ public sealed class IndexJsonContractTests
         Assert.Equal("globalObjectId", globalObjectIdField.Name);
         Assert.Equal("$.target.globalObjectId", globalObjectIdField.ArgsPath);
         Assert.Equal("Resolved Unity GlobalObjectId.", globalObjectIdField.Description);
-        Assert.Contains(globalObjectIdField.Constraints!, constraint => constraint.Kind == UcliOperationInputConstraintKindValues.GlobalObjectId);
+        Assert.Contains(globalObjectIdField.Constraints!, constraint => constraint.Kind == "globalObjectId");
 
         using var jsonDocument = JsonDocument.Parse(json);
         var operationElement = jsonDocument.RootElement.GetProperty("operation");
@@ -326,7 +326,7 @@ public sealed class IndexJsonContractTests
             .HasString("description", "Resolved Unity GlobalObjectId.")
             .HasArrayLength("constraints", 1)
             .HasProperty("constraints", 0, constraint => constraint
-                .HasString("kind", UcliOperationInputConstraintKindValues.GlobalObjectId));
+                .HasString("kind", "globalObjectId"));
 
         var sceneHierarchyVariantElement = targetInputElement.GetProperty("variants").EnumerateArray().Single(variant =>
             string.Equals(variant.GetProperty("name").GetString(), "bySceneHierarchyPath", StringComparison.Ordinal));
@@ -341,14 +341,14 @@ public sealed class IndexJsonContractTests
             .HasString("argsPath", "$.target.scene")
             .HasString("description", "Scene asset path for a hierarchy selector.");
         var assetExistsConstraint = sceneFieldElement.GetProperty("constraints").EnumerateArray().Single(constraint =>
-            string.Equals(constraint.GetProperty("kind").GetString(), UcliOperationInputConstraintKindValues.AssetExists, StringComparison.Ordinal));
+            string.Equals(constraint.GetProperty("kind").GetString(), "assetExists", StringComparison.Ordinal));
         JsonAssert.For(assetExistsConstraint)
-            .HasString("assetKind", UcliOperationAssetKindValues.Scene);
+            .HasString("assetKind", "scene");
         JsonAssert.For(hierarchyPathFieldElement)
             .HasString("argsPath", "$.target.hierarchyPath")
             .HasString("description", "Unity hierarchy path inside the selected scene or prefab.");
         Assert.Contains(hierarchyPathFieldElement.GetProperty("constraints").EnumerateArray(), constraint =>
-            string.Equals(constraint.GetProperty("kind").GetString(), UcliOperationInputConstraintKindValues.HierarchyPath, StringComparison.Ordinal));
+            string.Equals(constraint.GetProperty("kind").GetString(), "hierarchyPath", StringComparison.Ordinal));
     }
 
     [Theory]
@@ -551,27 +551,27 @@ public sealed class IndexJsonContractTests
             [
                 new IndexSchemaEntryJsonContract(
                     SchemaKey: "schema:z",
-                    Kind: IndexSchemaKindValues.Asset,
+                    Kind: "asset",
                     TypeId: "Z.Type, Assembly-CSharp",
                     DisplayName: "Z",
                     Properties: Array.Empty<IndexSchemaPropertyEntryJsonContract>()),
                 new IndexSchemaEntryJsonContract(
                     SchemaKey: "schema:a",
-                    Kind: IndexSchemaKindValues.Comp,
+                    Kind: "comp",
                     TypeId: "A.Type, Assembly-CSharp",
                     DisplayName: "A",
                     Properties:
                     [
                         new IndexSchemaPropertyEntryJsonContract(
                             Path: "z",
-                            PropertyType: IndexPropertyTypeValues.String,
+                            PropertyType: "string",
                             DeclaredTypeId: "System.String, mscorlib",
                             IsArray: false,
                             ElementTypeId: null,
                             IsReadOnly: true),
                         new IndexSchemaPropertyEntryJsonContract(
                             Path: "a",
-                            PropertyType: IndexPropertyTypeValues.Float,
+                            PropertyType: "float",
                             DeclaredTypeId: "System.Single, mscorlib",
                             IsArray: true,
                             ElementTypeId: "System.Single, mscorlib",
@@ -708,23 +708,23 @@ public sealed class IndexJsonContractTests
                         description: "Target input.",
                         constraints:
                         [
-                            new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.AssetExists)
+                            new UcliOperationInputConstraintContract("assetExists")
                             {
-                                AssetKind = UcliOperationAssetKindValues.Scene,
+                                AssetKind = "scene",
                             },
-                            new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.ReferenceResolvable)
+                            new UcliOperationInputConstraintContract("referenceResolvable")
                             {
-                                TargetKind = UcliOperationReferenceTargetKindValues.GameObject,
+                                TargetKind = "gameObject",
                             },
-                            new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.TypeAssignableTo)
+                            new UcliOperationInputConstraintContract("typeAssignableTo")
                             {
-                                TypeKind = UcliOperationTypeKindValues.Component,
+                                TypeKind = "component",
                             },
-                            new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.SerializedProperty)
+                            new UcliOperationInputConstraintContract("serializedProperty")
                             {
-                                Access = UcliOperationSerializedPropertyAccessValues.Write,
+                                Access = "write",
                             },
-                            new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.Range)
+                            new UcliOperationInputConstraintContract("range")
                             {
                                 Min = 1.5,
                                 Max = 3.5,
@@ -744,7 +744,7 @@ public sealed class IndexJsonContractTests
                                         description: "Serialized path.",
                                         constraints:
                                         [
-                                            new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.NonEmpty),
+                                            new UcliOperationInputConstraintContract("nonEmpty"),
                                         ]),
                                 ]),
                         ]),
@@ -756,15 +756,15 @@ public sealed class IndexJsonContractTests
                 Assurance = new UcliOperationAssuranceContract(
                     sideEffects:
                     [
-                        UcliOperationSideEffectValues.AssetContentMutation,
-                        UcliOperationSideEffectValues.AssetSave,
-                        UcliOperationSideEffectValues.ArbitrarySourceExecution,
+                        "assetContentMutation",
+                        "assetSave",
+                        "arbitrarySourceExecution",
                     ],
                     touchedKinds:
                     [
                         UcliTouchedResourceKindNames.Asset,
                     ],
-                    planMode: UcliOperationPlanModeValues.MayCreatePreviewState,
+                    planMode: "mayCreatePreviewState",
                     planSemantics: "Validate asset write inputs and compute preview state without persisting project data.",
                     callSemantics: "Write the requested asset data to Unity project state.",
                     touchedContract: "Reports the asset resource affected by the write.",

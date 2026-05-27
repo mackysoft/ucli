@@ -81,8 +81,8 @@ public sealed class DaemonListQueryServiceTests
                 Assert.Equal(DaemonListItemState.Running, item.State);
                 Assert.Null(item.Reason);
                 Assert.Equal(1001, item.ProcessId);
-                Assert.Equal(DaemonEditorModeValues.Batchmode, item.EditorMode);
-                Assert.Equal(DaemonSessionOwnerKindValues.Cli, item.OwnerKind);
+                Assert.Equal("batchmode", item.EditorMode);
+                Assert.Equal("cli", item.OwnerKind);
                 Assert.True(item.CanShutdownProcess);
                 Assert.Equal("endpoint-a", item.EndpointAddress);
                 Assert.Null(item.Diagnosis);
@@ -97,8 +97,8 @@ public sealed class DaemonListQueryServiceTests
                 Assert.Equal(DaemonListItemState.Running, item.State);
                 Assert.Null(item.Reason);
                 Assert.Equal(1002, item.ProcessId);
-                Assert.Equal(DaemonEditorModeValues.Batchmode, item.EditorMode);
-                Assert.Equal(DaemonSessionOwnerKindValues.Cli, item.OwnerKind);
+                Assert.Equal("batchmode", item.EditorMode);
+                Assert.Equal("cli", item.OwnerKind);
                 Assert.True(item.CanShutdownProcess);
                 Assert.Equal("endpoint-b", item.EndpointAddress);
                 Assert.Null(item.Diagnosis);
@@ -116,12 +116,12 @@ public sealed class DaemonListQueryServiceTests
             "fp-current",
             "endpoint-gui",
             3101,
-            editorMode: DaemonEditorModeValues.Gui,
-            ownerKind: DaemonSessionOwnerKindValues.User,
+            editorMode: "gui",
+            ownerKind: "user",
             canShutdownProcess: false);
         var pingResponse = new IpcPingResponse(
             ServerVersion: "0.0.2",
-            EditorMode: DaemonEditorModeValues.Gui,
+            EditorMode: "gui",
             UnityVersion: "6000.1.4f1",
             ProjectFingerprint: currentProject.ProjectFingerprint,
             CompileState: IpcCompileStateCodec.Ready,
@@ -143,8 +143,8 @@ public sealed class DaemonListQueryServiceTests
         var output = Assert.IsType<DaemonListExecutionOutput>(result.Output);
         var item = Assert.Single(output.Items);
         Assert.Equal(DaemonListItemState.Running, item.State);
-        Assert.Equal(DaemonEditorModeValues.Gui, item.EditorMode);
-        Assert.Equal(DaemonSessionOwnerKindValues.User, item.OwnerKind);
+        Assert.Equal("gui", item.EditorMode);
+        Assert.Equal("user", item.OwnerKind);
         Assert.False(item.CanShutdownProcess);
         Assert.Equal(IpcEditorLifecycleStateCodec.Playmode, item.LifecycleState);
         Assert.Equal(IpcEditorBlockingReasonCodec.PlayMode, item.BlockingReason);
@@ -650,8 +650,8 @@ public sealed class DaemonListQueryServiceTests
         string projectFingerprint,
         string endpointAddress,
         int processId,
-        string editorMode = DaemonEditorModeValues.Batchmode,
-        string ownerKind = DaemonSessionOwnerKindValues.Cli,
+        string editorMode = "batchmode",
+        string ownerKind = "cli",
         bool canShutdownProcess = true)
     {
         return new DaemonSession(
@@ -865,7 +865,7 @@ public sealed class DaemonListQueryServiceTests
             await ping(unityProject, timeout, sessionToken, cancellationToken).ConfigureAwait(false);
             return response ?? new IpcPingResponse(
                 ServerVersion: "0.0.1",
-                EditorMode: DaemonEditorModeValues.Batchmode,
+                EditorMode: "batchmode",
                 UnityVersion: "6000.1.4f1",
                 ProjectFingerprint: unityProject.ProjectFingerprint,
                 CompileState: IpcCompileStateCodec.Ready,

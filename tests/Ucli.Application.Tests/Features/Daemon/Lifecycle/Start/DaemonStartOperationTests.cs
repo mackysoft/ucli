@@ -491,7 +491,7 @@ public sealed class DaemonStartOperationTests
             processId: 6060,
             projectFingerprint: context.ProjectFingerprint) with
         {
-            EditorMode = DaemonEditorModeValues.Gui,
+            EditorMode = "gui",
         };
         var guiAttachService = new StubDaemonGuiEditorAttachService
         {
@@ -752,8 +752,8 @@ public sealed class DaemonStartOperationTests
             SessionToken: "session-token",
             ProjectFingerprint: projectFingerprint,
             IssuedAtUtc: DateTimeOffset.UtcNow,
-            EditorMode: DaemonEditorModeValues.Batchmode,
-            OwnerKind: DaemonSessionOwnerKindValues.Cli,
+            EditorMode: "batchmode",
+            OwnerKind: "cli",
             CanShutdownProcess: true,
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-daemon-test-endpoint",

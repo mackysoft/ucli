@@ -31,9 +31,9 @@ internal static class ApplicationCommandInputTestHelper
         return value switch
         {
             null => null,
-            ReadIndexModeValues.Disabled => ReadIndexMode.Disabled,
-            ReadIndexModeValues.AllowStale => ReadIndexMode.AllowStale,
-            ReadIndexModeValues.RequireFresh => ReadIndexMode.RequireFresh,
+            "disabled" => ReadIndexMode.Disabled,
+            "allowStale" => ReadIndexMode.AllowStale,
+            "requireFresh" => ReadIndexMode.RequireFresh,
             _ => throw new ArgumentOutOfRangeException(nameof(value), value, "Unsupported test readIndex mode."),
         };
     }

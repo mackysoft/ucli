@@ -35,7 +35,7 @@ public sealed class PlayExitServiceTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenRegisteredSessionIsBatchmode_ReturnsRequiresGuiEditorWithoutIpcCall ()
     {
-        var sessionStore = new StubDaemonSessionStore(DaemonSessionReadResult.Success(CreateSession(DaemonEditorModeValues.Batchmode)));
+        var sessionStore = new StubDaemonSessionStore(DaemonSessionReadResult.Success(CreateSession("batchmode")));
         var requestExecutor = new StubUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(CreateExitedResponse())));
         var service = CreateService(CreateContext(), sessionStore, requestExecutor);
 
@@ -62,11 +62,11 @@ public sealed class PlayExitServiceTests
         Assert.Equal(DaemonStatusKind.Running, output.DaemonStatus);
         Assert.Equal(context.UnityProject.UnityProjectRoot, output.Project.ProjectPath);
         Assert.Equal("0.5.0", output.ServerVersion);
-        Assert.Equal(DaemonEditorModeValues.Gui, output.EditorMode);
+        Assert.Equal("gui", output.EditorMode);
         Assert.Equal(IpcEditorLifecycleStateCodec.Ready, output.LifecycleState);
         Assert.Null(output.BlockingReason);
         Assert.True(output.CanAcceptExecutionRequests);
-        Assert.Equal(IpcPlayModeStateNames.Stopped, output.PlayMode.State);
+        Assert.Equal("stopped", output.PlayMode.State);
         Assert.Equal("3", output.PlayMode.Generation);
         Assert.Equal(1500, output.TimeoutMilliseconds);
         Assert.Equal(IpcPlayTransitionCommandNames.Exit, output.Transition.Transition);
@@ -149,8 +149,8 @@ public sealed class PlayExitServiceTests
     {
         var before = CreateSnapshot(IpcEditorLifecycleStateCodec.Playmode, IpcEditorBlockingReasonCodec.PlayMode, false, CreatePlayingPlayMode("2"));
         var observed = CreateSnapshot(IpcEditorLifecycleStateCodec.Playmode, IpcEditorBlockingReasonCodec.PlayMode, false, new IpcPlayModeSnapshot(
-            State: IpcPlayModeStateNames.Exiting,
-            Transition: IpcPlayModeTransitionNames.Exiting,
+            State: "exiting",
+            Transition: "exiting",
             IsPlaying: true,
             IsPlayingOrWillChangePlaymode: true,
             Generation: "2"));
@@ -319,8 +319,8 @@ public sealed class PlayExitServiceTests
     {
         var before = CreateSnapshot(IpcEditorLifecycleStateCodec.Playmode, IpcEditorBlockingReasonCodec.PlayMode, false, CreatePlayingPlayMode("2"));
         var observed = CreateSnapshot(IpcEditorLifecycleStateCodec.Playmode, IpcEditorBlockingReasonCodec.PlayMode, false, new IpcPlayModeSnapshot(
-            State: IpcPlayModeStateNames.Exiting,
-            Transition: IpcPlayModeTransitionNames.Exiting,
+            State: "exiting",
+            Transition: "exiting",
             IsPlaying: true,
             IsPlayingOrWillChangePlaymode: true,
             Generation: "2"));
@@ -352,8 +352,8 @@ public sealed class PlayExitServiceTests
     {
         var before = CreateSnapshot(IpcEditorLifecycleStateCodec.Playmode, IpcEditorBlockingReasonCodec.PlayMode, false, CreatePlayingPlayMode("2"));
         var observed = CreateSnapshot(IpcEditorLifecycleStateCodec.Playmode, IpcEditorBlockingReasonCodec.PlayMode, false, new IpcPlayModeSnapshot(
-            State: IpcPlayModeStateNames.Exiting,
-            Transition: IpcPlayModeTransitionNames.Exiting,
+            State: "exiting",
+            Transition: "exiting",
             IsPlaying: true,
             IsPlayingOrWillChangePlaymode: true,
             Generation: "2"));
@@ -429,7 +429,7 @@ public sealed class PlayExitServiceTests
 
     private static StubDaemonSessionStore CreateGuiSessionStore ()
     {
-        return new StubDaemonSessionStore(DaemonSessionReadResult.Success(CreateSession(DaemonEditorModeValues.Gui)));
+        return new StubDaemonSessionStore(DaemonSessionReadResult.Success(CreateSession("gui")));
     }
 
     private static DaemonSession CreateSession (string editorMode)
@@ -440,7 +440,7 @@ public sealed class PlayExitServiceTests
             ProjectFingerprint: "project-fingerprint",
             IssuedAtUtc: DateTimeOffset.UtcNow,
             EditorMode: editorMode,
-            OwnerKind: DaemonSessionOwnerKindValues.User,
+            OwnerKind: "user",
             CanShutdownProcess: false,
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-play-exit",
@@ -471,7 +471,7 @@ public sealed class PlayExitServiceTests
     {
         return new IpcPlayLifecycleSnapshot(
             ServerVersion: "0.5.0",
-            EditorMode: DaemonEditorModeValues.Gui,
+            EditorMode: "gui",
             UnityVersion: "6000.1.4f1",
             ProjectFingerprint: projectFingerprint,
             LifecycleState: lifecycleState,
@@ -489,8 +489,8 @@ public sealed class PlayExitServiceTests
     private static IpcPlayModeSnapshot CreatePlayingPlayMode (string generation)
     {
         return new IpcPlayModeSnapshot(
-            State: IpcPlayModeStateNames.Playing,
-            Transition: IpcPlayModeTransitionNames.None,
+            State: "playing",
+            Transition: "none",
             IsPlaying: true,
             IsPlayingOrWillChangePlaymode: true,
             Generation: generation);
@@ -499,8 +499,8 @@ public sealed class PlayExitServiceTests
     private static IpcPlayModeSnapshot CreateStoppedPlayMode (string generation)
     {
         return new IpcPlayModeSnapshot(
-            State: IpcPlayModeStateNames.Stopped,
-            Transition: IpcPlayModeTransitionNames.None,
+            State: "stopped",
+            Transition: "none",
             IsPlaying: false,
             IsPlayingOrWillChangePlaymode: false,
             Generation: generation);

@@ -38,7 +38,7 @@ public sealed class StatusDaemonObservationCodecTests
     {
         var pingResponse = new IpcPingResponse(
             ServerVersion: " 0.5.0 ",
-            EditorMode: $" {DaemonEditorModeValues.Batchmode} ",
+            EditorMode: $" {"batchmode"} ",
             UnityVersion: "2022.3.5f1",
             ProjectFingerprint: "project-fingerprint",
             CompileState: compileState,
@@ -66,10 +66,10 @@ public sealed class StatusDaemonObservationCodecTests
         Assert.Equal("42", actual.CompileGeneration);
         Assert.Equal("17", actual.DomainReloadGeneration);
         Assert.True(actual.CanAcceptExecutionRequests);
-        Assert.Equal(DaemonEditorModeValues.Batchmode, actual.EditorMode);
+        Assert.Equal("batchmode", actual.EditorMode);
         Assert.NotNull(actual.PlayMode);
-        Assert.Equal(IpcPlayModeStateNames.Playing, actual.PlayMode.State);
-        Assert.Equal(IpcPlayModeTransitionNames.None, actual.PlayMode.Transition);
+        Assert.Equal("playing", actual.PlayMode.State);
+        Assert.Equal("none", actual.PlayMode.Transition);
         Assert.True(actual.PlayMode.IsPlaying);
         Assert.True(actual.PlayMode.IsPlayingOrWillChangePlaymode);
         Assert.Equal("9", actual.PlayMode.Generation);
@@ -81,7 +81,7 @@ public sealed class StatusDaemonObservationCodecTests
     {
         var pingResponse = new IpcPingResponse(
             ServerVersion: "0.5.0",
-            EditorMode: DaemonEditorModeValues.Batchmode,
+            EditorMode: "batchmode",
             UnityVersion: "2022.3.5f1",
             ProjectFingerprint: "project-fingerprint",
             CompileState: "ready",
@@ -129,7 +129,7 @@ public sealed class StatusDaemonObservationCodecTests
     {
         var pingResponse = new IpcPingResponse(
             ServerVersion: "0.5.0",
-            EditorMode: DaemonEditorModeValues.Batchmode,
+            EditorMode: "batchmode",
             UnityVersion: "2022.3.5f1",
             ProjectFingerprint: "project-fingerprint",
             CompileState: "ready",

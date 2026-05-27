@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Play.UseCases.Status;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Common.Projection;
@@ -24,7 +25,7 @@ internal static class PlayStatusCommandResultFactory
                 payload: new
                 {
                     project = ProjectIdentityPayloadProjector.Create(output.Project),
-                    daemonStatus = DaemonStatusPayloadCodec.ToValue(output.DaemonStatus),
+                    daemonStatus = ContractLiteralCodec.ToValue(output.DaemonStatus),
                     serverVersion = output.ServerVersion,
                     editorMode = output.EditorMode,
                     lifecycleState = output.LifecycleState,

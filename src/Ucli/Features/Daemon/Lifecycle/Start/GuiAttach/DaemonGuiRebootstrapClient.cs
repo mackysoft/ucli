@@ -6,6 +6,7 @@ using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Start.GuiAttach;
@@ -168,7 +169,7 @@ internal sealed class DaemonGuiRebootstrapClient : IDaemonGuiRebootstrapClient
 
     private static IpcEndpoint ResolveEndpoint (GuiSupervisorManifestJsonContract manifest)
     {
-        if (!IpcTransportKindCodec.TryParse(manifest.EndpointTransportKind, out var transportKind))
+        if (!ContractLiteralCodec.TryParse<IpcTransportKind>(manifest.EndpointTransportKind, out var transportKind))
         {
             throw new InvalidDataException($"GUI supervisor endpointTransportKind is invalid: {manifest.EndpointTransportKind}.");
         }

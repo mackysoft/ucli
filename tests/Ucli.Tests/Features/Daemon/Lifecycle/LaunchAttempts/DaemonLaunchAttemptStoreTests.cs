@@ -407,7 +407,7 @@ public sealed class DaemonLaunchAttemptStoreTests
             StartupBlockingReason: DaemonStartupBlockingReasonValues.Unknown,
             RetryDisposition: DaemonStartupRetryDispositionValues.Unknown,
             ProcessAction: DaemonStartupProcessActionValues.None,
-            EditorMode: DaemonEditorModeValues.Gui,
+            EditorMode: "gui",
             ProcessId: 1234,
             ProcessStartedAtUtc: updatedAtUtc,
             UnityLogPath: unityLogPath,

@@ -9,6 +9,7 @@ using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.Tests.Daemon;
@@ -38,8 +39,8 @@ internal static class DaemonServiceTestContext
             SessionToken: "secret-token",
             ProjectFingerprint: "fingerprint",
             IssuedAtUtc: new DateTimeOffset(2026, 03, 05, 0, 0, 0, TimeSpan.Zero),
-            EditorMode: DaemonEditorModeValues.Batchmode,
-            OwnerKind: DaemonSessionOwnerKindValues.Cli,
+            EditorMode: "batchmode",
+            OwnerKind: "cli",
             CanShutdownProcess: true,
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-daemon-endpoint",
@@ -89,7 +90,7 @@ internal static class DaemonServiceTestContext
         return new SupervisorInstanceManifest(
             ProcessId: 2468,
             SessionToken: sessionToken,
-            EndpointTransportKind: IpcTransportKindCodec.ToValue(endpoint.TransportKind),
+            EndpointTransportKind: ContractLiteralCodec.ToValue(endpoint.TransportKind),
             EndpointAddress: endpoint.Address,
             IssuedAtUtc: new DateTimeOffset(2026, 03, 05, 2, 3, 4, TimeSpan.Zero));
     }

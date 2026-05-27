@@ -2,6 +2,7 @@ using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Start.GuiAttach;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
@@ -130,7 +131,7 @@ public sealed class DaemonGuiRebootstrapClientTests
             0,
             "fingerprint",
             "supervisor-token",
-            IpcTransportKindCodec.ToValue(IpcTransportKind.UnixDomainSocket),
+            ContractLiteralCodec.ToValue(IpcTransportKind.UnixDomainSocket),
             "/tmp/ucli-gui-supervisor.sock",
             ProcessStartedAtUtc
         },
@@ -139,7 +140,7 @@ public sealed class DaemonGuiRebootstrapClientTests
             GuiSupervisorManifestJsonContract.CurrentSchemaVersion,
             "other-fingerprint",
             "supervisor-token",
-            IpcTransportKindCodec.ToValue(IpcTransportKind.UnixDomainSocket),
+            ContractLiteralCodec.ToValue(IpcTransportKind.UnixDomainSocket),
             "/tmp/ucli-gui-supervisor.sock",
             ProcessStartedAtUtc
         },
@@ -148,7 +149,7 @@ public sealed class DaemonGuiRebootstrapClientTests
             GuiSupervisorManifestJsonContract.CurrentSchemaVersion,
             "fingerprint",
             "supervisor-token",
-            IpcTransportKindCodec.ToValue(IpcTransportKind.UnixDomainSocket),
+            ContractLiteralCodec.ToValue(IpcTransportKind.UnixDomainSocket),
             "/tmp/ucli-gui-supervisor.sock",
             ProcessStartedAtUtc.Add(DaemonProcessStartTimeMatcher.Tolerance).AddMilliseconds(1)
         },
@@ -157,7 +158,7 @@ public sealed class DaemonGuiRebootstrapClientTests
             GuiSupervisorManifestJsonContract.CurrentSchemaVersion,
             "fingerprint",
             "",
-            IpcTransportKindCodec.ToValue(IpcTransportKind.UnixDomainSocket),
+            ContractLiteralCodec.ToValue(IpcTransportKind.UnixDomainSocket),
             "/tmp/ucli-gui-supervisor.sock",
             ProcessStartedAtUtc
         },
@@ -175,7 +176,7 @@ public sealed class DaemonGuiRebootstrapClientTests
             GuiSupervisorManifestJsonContract.CurrentSchemaVersion,
             "fingerprint",
             "supervisor-token",
-            IpcTransportKindCodec.ToValue(IpcTransportKind.UnixDomainSocket),
+            ContractLiteralCodec.ToValue(IpcTransportKind.UnixDomainSocket),
             "",
             ProcessStartedAtUtc
         },
@@ -353,7 +354,7 @@ public sealed class DaemonGuiRebootstrapClientTests
             SchemaVersion: GuiSupervisorManifestJsonContract.CurrentSchemaVersion,
             SessionToken: "supervisor-token",
             ProjectFingerprint: "fingerprint",
-            EndpointTransportKind: IpcTransportKindCodec.ToValue(IpcTransportKind.UnixDomainSocket),
+            EndpointTransportKind: ContractLiteralCodec.ToValue(IpcTransportKind.UnixDomainSocket),
             EndpointAddress: "/tmp/ucli-gui-supervisor.sock",
             ProcessId: 1234,
             ProcessStartedAtUtc: ProcessStartedAtUtc,

@@ -79,10 +79,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                 SessionToken: sessionToken,
                 ProjectFingerprint: projectFingerprint,
                 IssuedAtUtc: issuedAtUtc,
-                EditorMode: DaemonEditorModeCodec.ToValue(DaemonEditorMode.Gui),
+                EditorMode: ContractLiteralCodec.ToValue(DaemonEditorMode.Gui),
                 OwnerKind: sessionOptions.OwnerKind,
                 CanShutdownProcess: sessionOptions.CanShutdownProcess,
-                EndpointTransportKind: IpcTransportKindCodec.ToValue(endpoint.TransportKind),
+                EndpointTransportKind: ContractLiteralCodec.ToValue(endpoint.TransportKind),
                 EndpointAddress: endpoint.Address,
                 ProcessId: currentProcessId,
                 ProcessStartedAtUtc: currentProcessStartedAtUtc,
@@ -230,12 +230,12 @@ namespace MackySoft.Ucli.Unity.Ipc
         {
             return sessionContract.SchemaVersion == DaemonSessionStorageContract.CurrentSchemaVersion
                 && string.Equals(sessionContract.ProjectFingerprint, projectFingerprint, StringComparison.Ordinal)
-                && string.Equals(sessionContract.EditorMode, DaemonEditorModeValues.Gui, StringComparison.Ordinal)
+                && string.Equals(sessionContract.EditorMode, ContractLiteralCodec.ToValue(DaemonEditorMode.Gui), StringComparison.Ordinal)
                 && string.Equals(sessionContract.OwnerKind, sessionOptions.OwnerKind, StringComparison.Ordinal)
                 && sessionContract.CanShutdownProcess == sessionOptions.CanShutdownProcess
                 && string.Equals(
                     sessionContract.EndpointTransportKind,
-                    IpcTransportKindCodec.ToValue(expectedEndpoint.TransportKind),
+                    ContractLiteralCodec.ToValue(expectedEndpoint.TransportKind),
                     StringComparison.Ordinal)
                 && string.Equals(sessionContract.EndpointAddress, expectedEndpoint.Address, StringComparison.Ordinal)
                 && sessionContract.ProcessId == currentProcessId
@@ -264,7 +264,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             if (expectedEndpoint.TransportKind != IpcTransportKind.UnixDomainSocket
                 || !string.Equals(
                     sessionContract.EndpointTransportKind,
-                    IpcTransportKindCodec.ToValue(expectedEndpoint.TransportKind),
+                    ContractLiteralCodec.ToValue(expectedEndpoint.TransportKind),
                     StringComparison.Ordinal)
                 || !string.Equals(sessionContract.EndpointAddress, expectedEndpoint.Address, StringComparison.Ordinal))
             {
@@ -286,10 +286,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                 && sessionContract.IssuedAtUtc == registration.IssuedAtUtc
                 && sessionContract.CanShutdownProcess == registration.CanShutdownProcess
                 && sessionContract.ProcessId == currentProcess.Id
-                && string.Equals(sessionContract.EditorMode, DaemonEditorModeValues.Gui, StringComparison.Ordinal)
+                && string.Equals(sessionContract.EditorMode, ContractLiteralCodec.ToValue(DaemonEditorMode.Gui), StringComparison.Ordinal)
                 && string.Equals(
                     sessionContract.EndpointTransportKind,
-                    IpcTransportKindCodec.ToValue(registration.Endpoint.TransportKind),
+                    ContractLiteralCodec.ToValue(registration.Endpoint.TransportKind),
                     StringComparison.Ordinal)
                 && string.Equals(sessionContract.EndpointAddress, registration.Endpoint.Address, StringComparison.Ordinal);
         }

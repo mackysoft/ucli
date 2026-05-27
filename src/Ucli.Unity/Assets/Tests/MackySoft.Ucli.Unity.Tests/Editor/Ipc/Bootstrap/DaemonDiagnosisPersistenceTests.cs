@@ -22,7 +22,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 ProjectFingerprint: "fingerprint",
                 SessionPath: Path.Combine(storageRoot, ".ucli", "local", "fingerprints", "fingerprint", "session.json"),
                 SessionIssuedAtUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 0, TimeSpan.Zero),
-                EndpointTransportKind: IpcTransportKindValues.UnixDomainSocket,
+                EndpointTransportKind: "unixDomainSocket",
                 EndpointAddress: "/tmp/ucli.sock");
 
             try

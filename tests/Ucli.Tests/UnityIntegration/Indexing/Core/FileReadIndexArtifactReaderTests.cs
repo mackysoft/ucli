@@ -439,7 +439,7 @@ public sealed class FileReadIndexArtifactReaderTests
             Assurance = new UcliOperationAssuranceContract(
                 sideEffects: Array.Empty<string>(),
                 touchedKinds: Array.Empty<string>(),
-                planMode: UcliOperationPlanModeValues.ObservesLiveUnity,
+                planMode: "observesLiveUnity",
                 planSemantics: "Validate arguments and observe Unity state without applying mutation.",
                 callSemantics: "Read Unity state without applying mutation.",
                 touchedContract: "Returns no touched resources.",

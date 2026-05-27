@@ -125,8 +125,8 @@ public sealed class DaemonLifecycleStoreTests
                 ServerVersion = " 0.5.0 ",
                 CanAcceptExecutionRequests = false,
                 PlayMode = new IpcPlayModeSnapshot(
-                    State: $" {IpcPlayModeStateNames.Playing} ",
-                    Transition: $" {IpcPlayModeTransitionNames.None} ",
+                    State: $" {"playing"} ",
+                    Transition: $" {"none"} ",
                     IsPlaying: true,
                     IsPlayingOrWillChangePlaymode: true,
                     Generation: " 3 "),
@@ -138,8 +138,8 @@ public sealed class DaemonLifecycleStoreTests
         Assert.Equal("0.5.0", readResult.Observation!.ServerVersion);
         Assert.False(readResult.Observation!.CanAcceptExecutionRequests);
         var playMode = Assert.IsType<IpcPlayModeSnapshot>(readResult.Observation.PlayMode);
-        Assert.Equal(IpcPlayModeStateNames.Playing, playMode.State);
-        Assert.Equal(IpcPlayModeTransitionNames.None, playMode.Transition);
+        Assert.Equal("playing", playMode.State);
+        Assert.Equal("none", playMode.Transition);
         Assert.True(playMode.IsPlaying);
         Assert.True(playMode.IsPlayingOrWillChangePlaymode);
         Assert.Equal("3", playMode.Generation);
@@ -150,7 +150,7 @@ public sealed class DaemonLifecycleStoreTests
         return new DaemonLifecycleJsonContract(
             ProcessId: 1234,
             ProcessStartedAtUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 1, TimeSpan.Zero),
-            EditorMode: DaemonEditorModeValues.Gui,
+            EditorMode: "gui",
             LifecycleState: IpcEditorLifecycleStateCodec.CompileFailed,
             BlockingReason: null,
             CompileState: IpcCompileStateCodec.Failed,
