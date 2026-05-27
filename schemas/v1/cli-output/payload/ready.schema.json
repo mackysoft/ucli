@@ -336,6 +336,9 @@
                   "failed"
                 ]
               },
+              "required": {
+                "type": "boolean"
+              },
               "freshness": {
                 "type": [
                   "string",
@@ -365,11 +368,18 @@
                   "string",
                   "null"
                 ]
+              },
+              "actionRequired": {
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "required": [
               "name",
-              "status"
+              "status",
+              "required"
             ]
           }
         }

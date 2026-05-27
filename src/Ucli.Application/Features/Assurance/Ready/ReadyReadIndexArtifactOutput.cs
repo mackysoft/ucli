@@ -6,6 +6,7 @@ namespace MackySoft.Ucli.Application.Features.Assurance.Ready;
 internal sealed record ReadyReadIndexArtifactOutput (
     string Name,
     string Status,
+    bool Required = true,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     string? Freshness = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -15,4 +16,6 @@ internal sealed record ReadyReadIndexArtifactOutput (
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     string? Code = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    string? Message = null);
+    string? Message = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    string? ActionRequired = null);

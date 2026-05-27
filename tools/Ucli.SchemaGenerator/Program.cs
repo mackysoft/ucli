@@ -528,11 +528,13 @@ internal static class Program
             additionalProperties: false,
             Required("name", StringSchema()),
             Required("status", EnumSchema("available", "failed")),
+            Required("required", BooleanSchema()),
             Optional("freshness", NullableStringSchema()),
             Optional("sourceInputsHash", NullableStringSchema()),
             Optional("generatedAtUtc", NullableStringSchema()),
             Optional("code", NullableStringSchema()),
-            Optional("message", NullableStringSchema()));
+            Optional("message", NullableStringSchema()),
+            Optional("actionRequired", NullableStringSchema()));
     }
 
     private static Dictionary<string, object?> CreateCompilePayloadSchema ()

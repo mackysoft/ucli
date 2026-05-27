@@ -48,10 +48,11 @@ internal readonly record struct ReadyReadIndexObservation (
 
         return new ReadyReadIndexObservation(
             new ReadyReadIndexOutput(ReadIndexModeCodec.ToValue(mode), artifacts),
-            artifacts.Any(static artifact => string.Equals(
-                artifact.Status,
-                ReadyReadIndexArtifactStatusValues.Failed,
-                StringComparison.Ordinal)),
+            artifacts.Any(static artifact => artifact.Required
+                && string.Equals(
+                    artifact.Status,
+                    ReadyReadIndexArtifactStatusValues.Failed,
+                    StringComparison.Ordinal)),
             IsDisabled: false);
     }
 }
