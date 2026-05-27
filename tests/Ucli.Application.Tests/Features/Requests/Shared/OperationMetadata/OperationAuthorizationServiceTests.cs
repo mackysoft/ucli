@@ -73,6 +73,31 @@ public sealed class OperationAuthorizationServiceTests
         }
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Authorize_WhenPolicyBlocksOperation_ReturnsGenericPolicyGuidance ()
+    {
+        var service = new OperationAuthorizationService();
+        var operation = CreateOperation(
+            UcliPrimitiveOperationNames.SceneSave,
+            UcliOperationKind.Mutation,
+            OperationPolicy.Advanced);
+        var config = CreateConfig(OperationPolicy.Safe, "^ucli\\.");
+
+        var result = await service.AuthorizeAsync(operation, config, CancellationToken.None);
+
+        Assert.False(result.IsAllowed);
+        Assert.Equal(OperationAuthorizationErrorCodes.OperationNotAllowed, result.ErrorCode);
+        Assert.Contains(UcliPrimitiveOperationNames.SceneSave, result.Message, StringComparison.Ordinal);
+        Assert.Contains("requires operationPolicy='advanced'", result.Message, StringComparison.Ordinal);
+        Assert.Contains("current operationPolicy='safe'", result.Message, StringComparison.Ordinal);
+        Assert.Contains(".ucli/config.json", result.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("AssetDatabase", result.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("ucli refresh", result.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("ucli status", result.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("ucli query", result.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static UcliOperationDescriptor CreateOperation (
         string name,
         UcliOperationKind kind,
