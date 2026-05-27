@@ -173,6 +173,15 @@ public sealed class RefreshCliOutputContractTests
                 .HasString("code", "OPERATION_NOT_ALLOWED")
                 .HasValueKind("message", JsonValueKind.String)
                 .HasString("opId", "refresh"));
+        var message = outputJson.RootElement.GetProperty("errors")[0].GetProperty("message").GetString();
+        Assert.Contains("ucli.project.refresh", message, StringComparison.Ordinal);
+        Assert.Contains("advanced", message, StringComparison.Ordinal);
+        Assert.Contains("safe", message, StringComparison.Ordinal);
+        Assert.Contains(".ucli/config.json", message, StringComparison.Ordinal);
+        Assert.DoesNotContain("AssetDatabase", message, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("ucli status", message, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("ucli ready", message, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("ucli query", message, StringComparison.OrdinalIgnoreCase);
     }
 
     private static void WriteRefreshAllowedConfig (

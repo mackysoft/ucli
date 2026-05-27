@@ -26,7 +26,10 @@ internal static class OperationAuthorizationErrorCodeDescriptors
             [
                 new UcliErrorNextActionDescriptor(
                     When: null,
-                    Action: "Change the request or policy intentionally before retrying."),
+                    Action: "Inspect errors[].message and errors[].opId to identify the blocked operation, required policy, and current operationPolicy; inspect operationAllowlist when allowlist denial is possible."),
+                new UcliErrorNextActionDescriptor(
+                    When: null,
+                    Action: "Change .ucli/config.json intentionally before retrying, or use a command allowed by the current policy."),
             ],
             relatedCodes:
             [

@@ -26,7 +26,7 @@ internal sealed class OperationAuthorizationService : IOperationAuthorizationSer
         {
             return ValueTask.FromResult(OperationAuthorizationResult.Denied(
                 OperationAuthorizationErrorCodes.OperationNotAllowed,
-                $"Operation '{operation.Name}' is blocked by operationPolicy='{config.OperationPolicy}'."));
+                CreatePolicyBlockedMessage(operation, config)));
         }
 
         var allowlistResult = TryMatchAllowlist(operation.Name, config.OperationAllowlist);
@@ -56,6 +56,21 @@ internal sealed class OperationAuthorizationService : IOperationAuthorizationSer
         OperationPolicy configuredPolicy)
     {
         return requiredPolicy <= configuredPolicy;
+    }
+
+    /// <summary> Creates the denial message for one policy-level authorization failure. </summary>
+    /// <param name="operation"> The operation descriptor that was blocked. </param>
+    /// <param name="config"> The configuration that blocked execution. </param>
+    /// <returns> The user-facing policy failure message. </returns>
+    private static string CreatePolicyBlockedMessage (
+        UcliOperationDescriptor operation,
+        UcliConfig config)
+    {
+        var requiredPolicy = OperationPolicyCodec.ToValue(operation.Policy);
+        var configuredPolicy = OperationPolicyCodec.ToValue(config.OperationPolicy);
+        return
+            $"Operation '{operation.Name}' requires operationPolicy='{requiredPolicy}' but current operationPolicy='{configuredPolicy}'. " +
+            $"Set operationPolicy to at least '{requiredPolicy}' in .ucli/config.json only after accepting that policy's effects, or choose an operation allowed by the current policy.";
     }
 
     /// <summary> Attempts to match operation name against allowlist patterns. </summary>
