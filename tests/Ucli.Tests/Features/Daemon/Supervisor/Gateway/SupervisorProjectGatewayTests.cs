@@ -84,8 +84,8 @@ public sealed class SupervisorProjectGatewayTests
         Assert.NotNull(result.Session);
         Assert.True(observedEnsureRunningTimeout > TimeSpan.Zero);
         Assert.True(observedEnsureRunningTimeout < TimeSpan.FromMilliseconds(900));
-        Assert.Equal(DaemonEditorModeValues.Gui, observedEditorMode);
-        Assert.Equal(DaemonStartupBlockedProcessPolicyValues.Keep, observedOnStartupBlocked);
+        Assert.Equal("gui", observedEditorMode);
+        Assert.Equal("keep", observedOnStartupBlocked);
     }
 
     [Fact]
@@ -219,8 +219,8 @@ public sealed class SupervisorProjectGatewayTests
             SessionToken: "daemon-session-token",
             ProjectFingerprint: "fingerprint",
             IssuedAtUtc: new DateTimeOffset(2026, 03, 12, 1, 0, 0, TimeSpan.Zero),
-            EditorMode: DaemonEditorModeValues.Batchmode,
-            OwnerKind: DaemonSessionOwnerKindValues.Cli,
+            EditorMode: "batchmode",
+            OwnerKind: "cli",
             CanShutdownProcess: true,
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-daemon-endpoint",

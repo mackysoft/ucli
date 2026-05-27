@@ -139,6 +139,7 @@ public sealed class SupervisorBootstrapperTests
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-bootstrapper", "delayed-manifest");
         var timeProvider = new ManualTimeProvider();
+        var manifestPublicationTime = DateTimeOffset.UnixEpoch + SupervisorConstants.BootstrapPollDelay;
         var launchCount = 0;
         var manifest = new SupervisorInstanceManifest(
             ProcessId: 2468,
@@ -148,7 +149,7 @@ public sealed class SupervisorBootstrapperTests
             IssuedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 0, 0, TimeSpan.Zero));
         var manifestStore = new SupervisorManifestStore(
             readAllTextOrNull: (path, cancellationToken) => ValueTask.FromResult<string?>(
-                timeProvider.GetUtcNow() >= DateTimeOffset.UnixEpoch + TimeSpan.FromSeconds(3)
+                timeProvider.GetUtcNow() >= manifestPublicationTime
                     ? JsonSerializer.Serialize(manifest)
                     : null),
             writeAllTextAtomically: static (_, _, _) => ValueTask.CompletedTask,
@@ -185,13 +186,11 @@ public sealed class SupervisorBootstrapperTests
                 CancellationToken.None)
             .AsTask();
         await TestAwaiter.WaitAsync(launchStarted.Task, "Supervisor delayed manifest launch start", SignalWaitTimeout);
-        for (var i = 0; i < 40 && !resultTask.IsCompleted; i++)
-        {
-            // NOTE: This test only needs to move through bootstrap polling after the launch
-            // started. Waiting for a specific timer creates a scheduler race in full-suite runs.
-            timeProvider.Advance(SupervisorConstants.BootstrapPollDelay);
-            await Task.Yield();
-        }
+        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
+            timeProvider,
+            resultTask,
+            SupervisorConstants.BootstrapPollDelay + SupervisorConstants.BootstrapPollDelay,
+            SupervisorConstants.BootstrapPollDelay);
 
         var result = await TestAwaiter.WaitAsync(resultTask, "Supervisor delayed manifest result", SignalWaitTimeout);
 
@@ -248,7 +247,10 @@ public sealed class SupervisorBootstrapperTests
             .AsTask();
         for (var i = 0; i < 10 && !resultTask.IsCompleted; i++)
         {
-            await WaitForActiveTimerAsync(timeProvider, resultTask, SignalWaitTimeout, CancellationToken.None);
+            await ManualTimeTaskDriver.WaitForTimerDueWithinOrCompletionAsync(
+                timeProvider,
+                resultTask,
+                SupervisorConstants.ManifestPublicationTimeout);
             if (!resultTask.IsCompleted)
             {
                 timeProvider.Advance(
@@ -303,7 +305,10 @@ public sealed class SupervisorBootstrapperTests
             .AsTask();
         for (var i = 0; i < 10 && !resultTask.IsCompleted; i++)
         {
-            await WaitForActiveTimerAsync(timeProvider, resultTask, SignalWaitTimeout, CancellationToken.None);
+            await ManualTimeTaskDriver.WaitForTimerDueWithinOrCompletionAsync(
+                timeProvider,
+                resultTask,
+                SupervisorConstants.ManifestPublicationTimeout);
             if (!resultTask.IsCompleted)
             {
                 timeProvider.Advance(SupervisorConstants.ManifestPublicationTimeout);
@@ -346,8 +351,14 @@ public sealed class SupervisorBootstrapperTests
                 TimeSpan.FromMilliseconds(50),
                 CancellationToken.None)
             .AsTask();
-        await WaitForActiveTimerAsync(timeProvider, resultTask, SignalWaitTimeout, CancellationToken.None);
-        timeProvider.Advance(TimeSpan.FromMilliseconds(50));
+        await ManualTimeTaskDriver.WaitForTimerDueWithinOrCompletionAsync(
+            timeProvider,
+            resultTask,
+            TimeSpan.FromMilliseconds(50));
+        if (!resultTask.IsCompleted)
+        {
+            timeProvider.Advance(TimeSpan.FromMilliseconds(50));
+        }
 
         var result = await TestAwaiter.WaitAsync(resultTask, "Supervisor poll deadline result", SignalWaitTimeout);
 
@@ -380,7 +391,7 @@ public sealed class SupervisorBootstrapperTests
         var manifest = new SupervisorInstanceManifest(
             ProcessId: 2468,
             SessionToken: "supervisor-session-token",
-            EndpointTransportKind: IpcTransportKindValues.UnixDomainSocket,
+            EndpointTransportKind: "unixDomainSocket",
             EndpointAddress: maliciousPath,
             IssuedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 0, 0, TimeSpan.Zero));
         var manifestStore = new SupervisorManifestStore(
@@ -416,47 +427,6 @@ public sealed class SupervisorBootstrapperTests
         {
             Assert.False(File.Exists(resolvedEndpoint.Address));
         }
-    }
-
-    private static async Task WaitForActiveTimerAsync (
-        ManualTimeProvider timeProvider,
-        Task observedTask,
-        TimeSpan timeout,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(timeProvider);
-        ArgumentNullException.ThrowIfNull(observedTask);
-        cancellationToken.ThrowIfCancellationRequested();
-        using var timeoutCancellationTokenSource = new CancellationTokenSource(timeout);
-        using var linkedCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(
-            cancellationToken,
-            timeoutCancellationTokenSource.Token);
-
-        while (!observedTask.IsCompleted && timeProvider.ActiveTimerCount == 0)
-        {
-            try
-            {
-                await Task.Delay(TimeSpan.FromMilliseconds(1), linkedCancellationTokenSource.Token).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException) when (timeoutCancellationTokenSource.IsCancellationRequested
-                                                      && !cancellationToken.IsCancellationRequested)
-            {
-                break;
-            }
-        }
-
-        // NOTE: ManualTimeProvider can complete the observed task between timer disposal and
-        // task completion publication. Give that completion a short chance to surface before
-        // treating the missing active timer as a bootstrap polling failure.
-        for (var i = 0; i < 10 && !observedTask.IsCompleted && timeProvider.ActiveTimerCount == 0; i++)
-        {
-            await Task.Delay(TimeSpan.FromMilliseconds(1), cancellationToken).ConfigureAwait(false);
-        }
-
-        cancellationToken.ThrowIfCancellationRequested();
-        Assert.True(
-            observedTask.IsCompleted || timeProvider.ActiveTimerCount > 0,
-            "Supervisor bootstrap did not register the expected poll delay timer.");
     }
 
     private sealed class StubSupervisorProcessLauncher : ISupervisorProcessLauncher

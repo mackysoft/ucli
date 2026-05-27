@@ -23,8 +23,8 @@ public sealed class UcliOperationPolicyDeriverTests
     {
         var assurance = CreateAssurance(
         [
-            UcliOperationSideEffectValues.ObservesUnityState,
-            UcliOperationSideEffectValues.SceneSave,
+            "observesUnityState",
+            "sceneSave",
         ],
         touchedKinds: [UcliTouchedResourceKindNames.Scene]);
 
@@ -40,7 +40,7 @@ public sealed class UcliOperationPolicyDeriverTests
     {
         var assurance = CreateAssurance(
             Array.Empty<string>(),
-            planMode: UcliOperationPlanModeValues.MayCreatePreviewState);
+            planMode: "mayCreatePreviewState");
 
         var result = UcliOperationPolicyDeriver.TryDerive(assurance, out var policy);
 
@@ -62,10 +62,10 @@ public sealed class UcliOperationPolicyDeriverTests
 
     [Theory]
     [Trait("Size", "Small")]
-    [InlineData(UcliOperationSideEffectValues.ExternalProcess)]
-    [InlineData(UcliOperationSideEffectValues.FilesystemWrite)]
-    [InlineData(UcliOperationSideEffectValues.ArbitrarySourceExecution)]
-    [InlineData(UcliOperationSideEffectValues.DestructiveScope)]
+    [InlineData("externalProcess")]
+    [InlineData("filesystemWrite")]
+    [InlineData("arbitrarySourceExecution")]
+    [InlineData("destructiveScope")]
     public void TryDerive_WhenDangerousSideEffectIsDeclared_ReturnsDangerous (string sideEffect)
     {
         var assurance = CreateAssurance([sideEffect]);
@@ -92,7 +92,7 @@ public sealed class UcliOperationPolicyDeriverTests
     [Trait("Size", "Small")]
     public void TryDerive_WhenArbitrarySourceExecutionIsDeclared_ReturnsDangerous ()
     {
-        var assurance = CreateAssurance([UcliOperationSideEffectValues.ArbitrarySourceExecution]);
+        var assurance = CreateAssurance(["arbitrarySourceExecution"]);
 
         var result = UcliOperationPolicyDeriver.TryDerive(assurance, out var policy);
 
@@ -104,7 +104,7 @@ public sealed class UcliOperationPolicyDeriverTests
     [Trait("Size", "Small")]
     public void TryDerive_WhenStoredProjectionIsCorrupted_UsesDescriptorProjection ()
     {
-        var assurance = CreateAssurance([UcliOperationSideEffectValues.ObservesUnityState]);
+        var assurance = CreateAssurance(["observesUnityState"]);
         assurance.MayPersist = true;
 
         var result = UcliOperationPolicyDeriver.TryDerive(assurance, out var policy);
@@ -116,7 +116,7 @@ public sealed class UcliOperationPolicyDeriverTests
     private static UcliOperationAssuranceContract CreateAssurance (
         IReadOnlyList<string> sideEffects,
         IReadOnlyList<string>? touchedKinds = null,
-        string? planMode = UcliOperationPlanModeValues.ValidationOnly)
+        string? planMode = "validationOnly")
     {
         return new UcliOperationAssuranceContract(
             sideEffects,

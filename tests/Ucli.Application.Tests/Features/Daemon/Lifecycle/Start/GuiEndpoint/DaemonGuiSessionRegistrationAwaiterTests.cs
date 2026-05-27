@@ -22,7 +22,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
         };
         var pingClient = new DaemonServiceTestContext.StubDaemonPingInfoClient
         {
-            Response = CreatePingResponse(unityProject.ProjectFingerprint, DaemonEditorModeValues.Gui),
+            Response = CreatePingResponse(unityProject.ProjectFingerprint, "gui"),
         };
         var awaiter = CreateAwaiter(sessionStore, pingClient);
 
@@ -47,7 +47,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
         };
         var pingClient = new DaemonServiceTestContext.StubDaemonPingInfoClient
         {
-            Response = CreatePingResponse(unityProject.ProjectFingerprint, DaemonEditorModeValues.Gui),
+            Response = CreatePingResponse(unityProject.ProjectFingerprint, "gui"),
         };
         var awaiter = CreateAwaiter(sessionStore, pingClient);
 
@@ -59,9 +59,9 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
 
     [Theory]
     [Trait("Size", "Small")]
-    [InlineData(9876, "fingerprint", DaemonEditorModeValues.Gui)]
-    [InlineData(4321, "other-fingerprint", DaemonEditorModeValues.Gui)]
-    [InlineData(4321, "fingerprint", DaemonEditorModeValues.Batchmode)]
+    [InlineData(9876, "fingerprint", "gui")]
+    [InlineData(4321, "other-fingerprint", "gui")]
+    [InlineData(4321, "fingerprint", "batchmode")]
     public async Task WaitForSession_WhenStoredSessionDoesNotMatchExpectedContract_DoesNotProbeAndTimesOut (
         int storedProcessId,
         string storedProjectFingerprint,
@@ -108,7 +108,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
         };
         var pingClient = new DaemonServiceTestContext.StubDaemonPingInfoClient
         {
-            Response = CreatePingResponse(unityProject.ProjectFingerprint, DaemonEditorModeValues.Gui),
+            Response = CreatePingResponse(unityProject.ProjectFingerprint, "gui"),
         };
         var awaiter = CreateAwaiter(sessionStore, pingClient);
 
@@ -170,7 +170,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
         };
         var pingClient = new DaemonServiceTestContext.StubDaemonPingInfoClient
         {
-            Response = CreatePingResponse("other-fingerprint", DaemonEditorModeValues.Gui),
+            Response = CreatePingResponse("other-fingerprint", "gui"),
             OnPingAndRead = () => pingObserved.TrySetResult(),
         };
         var awaiter = CreateAwaiter(sessionStore, pingClient, timeProvider);
@@ -292,7 +292,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
         };
         var pingClient = new DaemonServiceTestContext.StubDaemonPingInfoClient
         {
-            Response = CreatePingResponse(unityProject.ProjectFingerprint, DaemonEditorModeValues.Gui),
+            Response = CreatePingResponse(unityProject.ProjectFingerprint, "gui"),
         };
         var awaiter = CreateAwaiter(sessionStore, pingClient, timeProvider);
 
@@ -323,7 +323,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
     private static DaemonSession CreateGuiSession (
         string projectFingerprint,
         int processId,
-        string editorMode = DaemonEditorModeValues.Gui,
+        string editorMode = "gui",
         DateTimeOffset? processStartedAtUtc = null)
     {
         var session = DaemonServiceTestContext.CreateSession();

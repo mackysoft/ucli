@@ -1,6 +1,8 @@
 using MackySoft.Ucli.Contracts.Ipc;
 using UnityEditor;
 
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Unity.Runtime
 {
     /// <summary> Provides one access boundary for Unity <see cref="SessionState" /> values used by the daemon runtime. </summary>
@@ -70,7 +72,7 @@ namespace MackySoft.Ucli.Unity.Runtime
         public static IpcPlayModeState? RestorePlayModeStableState ()
         {
             var persistedState = SessionState.GetString(PlayModeStableStateKey, string.Empty);
-            if (!IpcPlayModeStateCodec.TryParse(persistedState, out var state) || !IsStableState(state))
+            if (!ContractLiteralInputParser.TryParseTrimmed<IpcPlayModeState>(persistedState, out var state) || !IsStableState(state))
             {
                 return null;
             }
@@ -95,7 +97,7 @@ namespace MackySoft.Ucli.Unity.Runtime
                 throw new System.ArgumentException("Stable Play Mode state must be playing or stopped.", nameof(state));
             }
 
-            SessionState.SetString(PlayModeStableStateKey, IpcPlayModeStateCodec.ToValue(state));
+            SessionState.SetString(PlayModeStableStateKey, ContractLiteralCodec.ToValue(state));
         }
 
         /// <summary> Stores one persisted Play Mode generation value. </summary>

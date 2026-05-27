@@ -1,5 +1,7 @@
 using MackySoft.Ucli.Application.Shared.Foundation;
 
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Hosting.Cli.Options;
 
 /// <summary> Normalizes the CLI <c>--editorMode</c> option into a daemon Editor mode literal. </summary>
@@ -15,12 +17,12 @@ internal static class DaemonEditorModeOptionNormalizer
             return DaemonEditorModeOptionNormalizationResult.Success(editorMode: null);
         }
 
-        if (DaemonEditorModeCodec.TryParse(optionValue, out var editorMode))
+        if (ContractLiteralInputParser.TryParseTrimmed<DaemonEditorMode>(optionValue, out var editorMode))
         {
             return DaemonEditorModeOptionNormalizationResult.Success(editorMode);
         }
 
         return DaemonEditorModeOptionNormalizationResult.Failure(ExecutionError.InvalidArgument(
-            $"editorMode must be one of '{DaemonEditorModeValues.Batchmode}', '{DaemonEditorModeValues.Gui}'. Actual: {optionValue}."));
+            $"editorMode must be one of '{ContractLiteralCodec.ToValue(DaemonEditorMode.Batchmode)}', '{ContractLiteralCodec.ToValue(DaemonEditorMode.Gui)}'. Actual: {optionValue}."));
     }
 }

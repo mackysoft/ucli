@@ -4,6 +4,8 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Recovery;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.ExistingSession;
 
 /// <summary> Implements existing-session probe flow for daemon start orchestration. </summary>
@@ -94,7 +96,7 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
 
             if (editorMode.HasValue)
             {
-                var requestedEditorMode = DaemonEditorModeCodec.ToValue(editorMode.Value);
+                var requestedEditorMode = ContractLiteralCodec.ToValue(editorMode.Value);
                 if (!string.Equals(session.EditorMode, requestedEditorMode, StringComparison.Ordinal))
                 {
                     return DaemonStartResult.Failure(ExecutionError.InvalidArgument(
@@ -220,7 +222,7 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
 
                 if (editorMode.HasValue)
                 {
-                    var requestedEditorMode = DaemonEditorModeCodec.ToValue(editorMode.Value);
+                    var requestedEditorMode = ContractLiteralCodec.ToValue(editorMode.Value);
                     if (!string.Equals(session.EditorMode, requestedEditorMode, StringComparison.Ordinal))
                     {
                         return DaemonStartResult.Failure(ExecutionError.InvalidArgument(

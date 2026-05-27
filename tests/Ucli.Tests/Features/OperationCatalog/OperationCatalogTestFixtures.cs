@@ -45,9 +45,9 @@ internal static class OperationCatalogTestFixtures
             Inputs = Array.Empty<UcliOperationInputContract>(),
             ResultContract = UcliOperationResultContract.NoResult("No operation-specific result is emitted."),
             Assurance = new UcliOperationAssuranceContract(
-                sideEffects: [UcliOperationSideEffectValues.SceneSave],
+                sideEffects: ["sceneSave"],
                 touchedKinds: [UcliTouchedResourceKindNames.Scene],
-                planMode: UcliOperationPlanModeValues.ObservesLiveUnity,
+                planMode: "observesLiveUnity",
                 planSemantics: "Observe save-relevant project state without writing project files.",
                 callSemantics: "Persist save-relevant Unity state.",
                 touchedContract: "Reports resources known to be saved.",
@@ -60,9 +60,9 @@ internal static class OperationCatalogTestFixtures
     private static UcliOperationAssuranceContract CreateSafeQueryAssurance ()
     {
         return new UcliOperationAssuranceContract(
-            sideEffects: [UcliOperationSideEffectValues.ObservesUnityState],
+            sideEffects: ["observesUnityState"],
             touchedKinds: Array.Empty<string>(),
-            planMode: UcliOperationPlanModeValues.ObservesLiveUnity,
+            planMode: "observesLiveUnity",
             planSemantics: "Validate arguments and observe Unity state without applying mutation.",
             callSemantics: "Read Unity state without applying mutation.",
             touchedContract: "Returns no touched resources.",

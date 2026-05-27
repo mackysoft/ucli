@@ -1,8 +1,10 @@
 using MackySoft.Ucli.Contracts.Configuration;
 
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Contracts.Tests.Configuration;
 
-public sealed class ConfigModeCodecContractTests
+public sealed class ConfigModeContractLiteralTests
 {
     [Fact]
     [Trait("Size", "Small")]
@@ -15,11 +17,11 @@ public sealed class ConfigModeCodecContractTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void OperationPolicyCodec_ToValue_ReturnsStableLiterals ()
+    public void OperationPolicyContractLiteral_ToValue_ReturnsStableLiterals ()
     {
-        Assert.Equal(OperationPolicyValues.Safe, OperationPolicyCodec.ToValue(OperationPolicy.Safe));
-        Assert.Equal(OperationPolicyValues.Advanced, OperationPolicyCodec.ToValue(OperationPolicy.Advanced));
-        Assert.Equal(OperationPolicyValues.Dangerous, OperationPolicyCodec.ToValue(OperationPolicy.Dangerous));
+        Assert.Equal("safe", ContractLiteralCodec.ToValue(OperationPolicy.Safe));
+        Assert.Equal("advanced", ContractLiteralCodec.ToValue(OperationPolicy.Advanced));
+        Assert.Equal("dangerous", ContractLiteralCodec.ToValue(OperationPolicy.Dangerous));
     }
 
     [Theory]
@@ -28,11 +30,11 @@ public sealed class ConfigModeCodecContractTests
     [InlineData("SAFE", OperationPolicy.Safe)]
     [InlineData("advanced", OperationPolicy.Advanced)]
     [InlineData("dangerous", OperationPolicy.Dangerous)]
-    public void OperationPolicyCodec_TryParse_ParsesCaseInsensitiveLiterals (
+    public void OperationPolicyContractLiteral_TryParse_ParsesCaseInsensitiveLiterals (
         string value,
         OperationPolicy expected)
     {
-        var result = OperationPolicyCodec.TryParse(value, out var parsed);
+        var result = ContractLiteralInputParser.TryParseIgnoreCase<OperationPolicy>(value, out var parsed);
 
         Assert.True(result);
         Assert.Equal(expected, parsed);
@@ -43,17 +45,17 @@ public sealed class ConfigModeCodecContractTests
     [InlineData("")]
     [InlineData(" ")]
     [InlineData("unsupported")]
-    public void OperationPolicyCodec_TryParse_UnknownValue_ReturnsFalse (
+    public void OperationPolicyContractLiteral_TryParse_UnknownValue_ReturnsFalse (
         string value)
     {
-        Assert.False(OperationPolicyCodec.TryParse(value, out _));
+        Assert.False(ContractLiteralInputParser.IsDefinedIgnoreCase<OperationPolicy>(value));
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void OperationPolicyCodec_TryParse_Null_ReturnsFalse ()
+    public void OperationPolicyContractLiteral_TryParse_Null_ReturnsFalse ()
     {
-        Assert.False(OperationPolicyCodec.TryParse(null, out _));
+        Assert.False(ContractLiteralInputParser.IsDefinedIgnoreCase<OperationPolicy>(null));
     }
 
     [Fact]
@@ -67,11 +69,11 @@ public sealed class ConfigModeCodecContractTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void ReadIndexModeCodec_ToValue_ReturnsStableLiterals ()
+    public void ReadIndexModeContractLiteral_ToValue_ReturnsStableLiterals ()
     {
-        Assert.Equal(ReadIndexModeValues.Disabled, ReadIndexModeCodec.ToValue(ReadIndexMode.Disabled));
-        Assert.Equal(ReadIndexModeValues.AllowStale, ReadIndexModeCodec.ToValue(ReadIndexMode.AllowStale));
-        Assert.Equal(ReadIndexModeValues.RequireFresh, ReadIndexModeCodec.ToValue(ReadIndexMode.RequireFresh));
+        Assert.Equal("disabled", ContractLiteralCodec.ToValue(ReadIndexMode.Disabled));
+        Assert.Equal("allowStale", ContractLiteralCodec.ToValue(ReadIndexMode.AllowStale));
+        Assert.Equal("requireFresh", ContractLiteralCodec.ToValue(ReadIndexMode.RequireFresh));
     }
 
     [Theory]
@@ -80,11 +82,11 @@ public sealed class ConfigModeCodecContractTests
     [InlineData("DISABLED", ReadIndexMode.Disabled)]
     [InlineData("allowStale", ReadIndexMode.AllowStale)]
     [InlineData("requireFresh", ReadIndexMode.RequireFresh)]
-    public void ReadIndexModeCodec_TryParse_ParsesCaseInsensitiveLiterals (
+    public void ReadIndexModeContractLiteral_TryParse_ParsesCaseInsensitiveLiterals (
         string value,
         ReadIndexMode expected)
     {
-        var result = ReadIndexModeCodec.TryParse(value, out var parsed);
+        var result = ContractLiteralInputParser.TryParseIgnoreCase<ReadIndexMode>(value, out var parsed);
 
         Assert.True(result);
         Assert.Equal(expected, parsed);
@@ -95,17 +97,17 @@ public sealed class ConfigModeCodecContractTests
     [InlineData("")]
     [InlineData(" ")]
     [InlineData("unsupported")]
-    public void ReadIndexModeCodec_TryParse_UnknownValue_ReturnsFalse (
+    public void ReadIndexModeContractLiteral_TryParse_UnknownValue_ReturnsFalse (
         string value)
     {
-        Assert.False(ReadIndexModeCodec.TryParse(value, out _));
+        Assert.False(ContractLiteralInputParser.IsDefinedIgnoreCase<ReadIndexMode>(value));
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void ReadIndexModeCodec_TryParse_Null_ReturnsFalse ()
+    public void ReadIndexModeContractLiteral_TryParse_Null_ReturnsFalse ()
     {
-        Assert.False(ReadIndexModeCodec.TryParse(null, out _));
+        Assert.False(ContractLiteralInputParser.IsDefinedIgnoreCase<ReadIndexMode>(null));
     }
 
     [Fact]
@@ -119,11 +121,11 @@ public sealed class ConfigModeCodecContractTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void UcliOperationKindCodec_ToValue_ReturnsStableLiterals ()
+    public void UcliOperationKindContractLiteral_ToValue_ReturnsStableLiterals ()
     {
-        Assert.Equal(UcliOperationKindValues.Mutation, UcliOperationKindCodec.ToValue(UcliOperationKind.Mutation));
-        Assert.Equal(UcliOperationKindValues.Query, UcliOperationKindCodec.ToValue(UcliOperationKind.Query));
-        Assert.Equal(UcliOperationKindValues.Command, UcliOperationKindCodec.ToValue(UcliOperationKind.Command));
+        Assert.Equal("mutation", ContractLiteralCodec.ToValue(UcliOperationKind.Mutation));
+        Assert.Equal("query", ContractLiteralCodec.ToValue(UcliOperationKind.Query));
+        Assert.Equal("command", ContractLiteralCodec.ToValue(UcliOperationKind.Command));
     }
 
     [Theory]
@@ -133,11 +135,11 @@ public sealed class ConfigModeCodecContractTests
     [InlineData("query", UcliOperationKind.Query)]
     [InlineData("COMMAND", UcliOperationKind.Command)]
     [InlineData("command", UcliOperationKind.Command)]
-    public void UcliOperationKindCodec_TryParse_ParsesCaseInsensitiveLiterals (
+    public void UcliOperationKindContractLiteral_TryParse_ParsesCaseInsensitiveLiterals (
         string value,
         UcliOperationKind expected)
     {
-        var result = UcliOperationKindCodec.TryParse(value, out var parsed);
+        var result = ContractLiteralInputParser.TryParseIgnoreCase<UcliOperationKind>(value, out var parsed);
 
         Assert.True(result);
         Assert.Equal(expected, parsed);
@@ -148,9 +150,9 @@ public sealed class ConfigModeCodecContractTests
     [InlineData("")]
     [InlineData(" ")]
     [InlineData("unsupported")]
-    public void UcliOperationKindCodec_TryParse_UnknownValue_ReturnsFalse (
+    public void UcliOperationKindContractLiteral_TryParse_UnknownValue_ReturnsFalse (
         string value)
     {
-        Assert.False(UcliOperationKindCodec.TryParse(value, out _));
+        Assert.False(ContractLiteralInputParser.IsDefinedIgnoreCase<UcliOperationKind>(value));
     }
 }

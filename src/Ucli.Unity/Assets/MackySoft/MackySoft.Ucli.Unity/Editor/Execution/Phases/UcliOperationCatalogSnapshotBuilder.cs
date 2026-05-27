@@ -5,6 +5,8 @@ using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
 
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Builds one shared operation snapshot from discovered registrations. </summary>
@@ -63,13 +65,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     var describeContract = registration.Metadata.DescribeContract;
                     return new IndexOpEntryJsonContract(
                         Name: registration.Metadata.OperationName,
-                        Kind: UcliOperationKindCodec.ToValue(registration.Metadata.Kind),
-                        Policy: OperationPolicyCodec.ToValue(registration.Metadata.Policy),
+                        Kind: ContractLiteralCodec.ToValue(registration.Metadata.Kind),
+                        Policy: ContractLiteralCodec.ToValue(registration.Metadata.Policy),
                         ArgsSchemaJson: registration.Metadata.ArgsSchemaJson,
                         ResultSchemaJson: registration.Metadata.ResultSchemaJson,
                         Exposure: registration.Metadata.Exposure == UcliOperationExposure.Public
                             ? null
-                            : UcliOperationExposureCodec.ToValue(registration.Metadata.Exposure))
+                            : ContractLiteralCodec.ToValue(registration.Metadata.Exposure))
                     {
                         Description = describeContract.Description,
                         Inputs = describeContract.Inputs,

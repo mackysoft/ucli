@@ -3,6 +3,8 @@ using System.Diagnostics;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Represents normalized GUI session ownership values for bootstrap registration. </summary>
@@ -22,7 +24,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             return new UnityGuiBootstrapSessionOptions(
-                OwnerKind: DaemonSessionOwnerKindCodec.ToValue(DaemonSessionOwnerKind.Cli),
+                OwnerKind: ContractLiteralCodec.ToValue(DaemonSessionOwnerKind.Cli),
                 CanShutdownProcess: arguments.CanShutdownProcess,
                 OwnerProcessId: arguments.OwnerProcessId);
         }
@@ -31,7 +33,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         {
             using var currentProcess = Process.GetCurrentProcess();
             return new UnityGuiBootstrapSessionOptions(
-                OwnerKind: DaemonSessionOwnerKindCodec.ToValue(DaemonSessionOwnerKind.User),
+                OwnerKind: ContractLiteralCodec.ToValue(DaemonSessionOwnerKind.User),
                 CanShutdownProcess: false,
                 OwnerProcessId: currentProcess.Id);
         }

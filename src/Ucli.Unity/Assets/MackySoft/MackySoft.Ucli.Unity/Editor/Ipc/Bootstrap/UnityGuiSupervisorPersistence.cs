@@ -5,6 +5,8 @@ using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Storage;
 
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Persists GUI supervisor metadata for CLI-side rebootstrap attach. </summary>
@@ -42,7 +44,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 SchemaVersion: GuiSupervisorManifestJsonContract.CurrentSchemaVersion,
                 SessionToken: sessionToken,
                 ProjectFingerprint: projectFingerprint,
-                EndpointTransportKind: IpcTransportKindCodec.ToValue(endpoint.TransportKind),
+                EndpointTransportKind: ContractLiteralCodec.ToValue(endpoint.TransportKind),
                 EndpointAddress: endpoint.Address,
                 ProcessId: currentProcess.Id,
                 ProcessStartedAtUtc: TryGetProcessStartedAtUtc(currentProcess),

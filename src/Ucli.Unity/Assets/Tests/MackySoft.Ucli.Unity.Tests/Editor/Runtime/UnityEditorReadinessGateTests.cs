@@ -256,8 +256,8 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(snapshot.BlockingReason, Is.EqualTo(IpcEditorBlockingReasonCodec.PlayMode));
             Assert.That(snapshot.CanAcceptExecutionRequests, Is.False);
             Assert.That(snapshot.PlayMode, Is.Not.Null);
-            Assert.That(snapshot.PlayMode.State, Is.EqualTo(IpcPlayModeStateNames.Playing));
-            Assert.That(snapshot.PlayMode.Transition, Is.EqualTo(IpcPlayModeTransitionNames.None));
+            Assert.That(snapshot.PlayMode.State, Is.EqualTo("playing"));
+            Assert.That(snapshot.PlayMode.Transition, Is.EqualTo("none"));
             Assert.That(snapshot.PlayMode.IsPlaying, Is.True);
             Assert.That(snapshot.PlayMode.IsPlayingOrWillChangePlaymode, Is.True);
         });
@@ -279,8 +279,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(snapshot.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.Ready));
             Assert.That(snapshot.PlayMode, Is.Not.Null);
-            Assert.That(snapshot.PlayMode.State, Is.EqualTo(IpcPlayModeStateNames.Stopped));
-            Assert.That(snapshot.PlayMode.Transition, Is.EqualTo(IpcPlayModeTransitionNames.None));
+            Assert.That(snapshot.PlayMode.State, Is.EqualTo("stopped"));
+            Assert.That(snapshot.PlayMode.Transition, Is.EqualTo("none"));
             Assert.That(snapshot.PlayMode.IsPlaying, Is.False);
             Assert.That(snapshot.PlayMode.IsPlayingOrWillChangePlaymode, Is.False);
         }
@@ -298,8 +298,8 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(snapshot.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.Playmode));
             Assert.That(snapshot.BlockingReason, Is.EqualTo(IpcEditorBlockingReasonCodec.PlayMode));
             Assert.That(snapshot.CanAcceptExecutionRequests, Is.False);
-            Assert.That(snapshot.PlayMode.State, Is.EqualTo(IpcPlayModeStateNames.Entering));
-            Assert.That(snapshot.PlayMode.Transition, Is.EqualTo(IpcPlayModeTransitionNames.None));
+            Assert.That(snapshot.PlayMode.State, Is.EqualTo("entering"));
+            Assert.That(snapshot.PlayMode.Transition, Is.EqualTo("none"));
             Assert.That(snapshot.PlayMode.IsPlaying, Is.False);
             Assert.That(snapshot.PlayMode.IsPlayingOrWillChangePlaymode, Is.True);
         }
@@ -317,8 +317,8 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(snapshot.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.Playmode));
             Assert.That(snapshot.BlockingReason, Is.EqualTo(IpcEditorBlockingReasonCodec.PlayMode));
             Assert.That(snapshot.CanAcceptExecutionRequests, Is.False);
-            Assert.That(snapshot.PlayMode.State, Is.EqualTo(IpcPlayModeStateNames.Unknown));
-            Assert.That(snapshot.PlayMode.Transition, Is.EqualTo(IpcPlayModeTransitionNames.None));
+            Assert.That(snapshot.PlayMode.State, Is.EqualTo("unknown"));
+            Assert.That(snapshot.PlayMode.Transition, Is.EqualTo("none"));
             Assert.That(snapshot.PlayMode.IsPlaying, Is.True);
             Assert.That(snapshot.PlayMode.IsPlayingOrWillChangePlaymode, Is.False);
         }
@@ -345,11 +345,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 isPlaying: true,
                 isPlayingOrWillChangePlaymode: true);
 
-            Assert.That(entering.State, Is.EqualTo(IpcPlayModeStateNames.Entering));
-            Assert.That(entering.Transition, Is.EqualTo(IpcPlayModeTransitionNames.Entering));
+            Assert.That(entering.State, Is.EqualTo("entering"));
+            Assert.That(entering.Transition, Is.EqualTo("entering"));
             Assert.That(entering.Generation, Is.EqualTo("40"));
-            Assert.That(exiting.State, Is.EqualTo(IpcPlayModeStateNames.Exiting));
-            Assert.That(exiting.Transition, Is.EqualTo(IpcPlayModeTransitionNames.Exiting));
+            Assert.That(exiting.State, Is.EqualTo("exiting"));
+            Assert.That(exiting.Transition, Is.EqualTo("exiting"));
             Assert.That(exiting.Generation, Is.EqualTo("40"));
         }
 
@@ -381,11 +381,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 isPlayingOrWillChangePlaymode: false);
 
             Assert.That(before.Generation, Is.EqualTo("100"));
-            Assert.That(entered.State, Is.EqualTo(IpcPlayModeStateNames.Playing));
-            Assert.That(entered.Transition, Is.EqualTo(IpcPlayModeTransitionNames.None));
+            Assert.That(entered.State, Is.EqualTo("playing"));
+            Assert.That(entered.Transition, Is.EqualTo("none"));
             Assert.That(entered.Generation, Is.EqualTo("101"));
-            Assert.That(exited.State, Is.EqualTo(IpcPlayModeStateNames.Stopped));
-            Assert.That(exited.Transition, Is.EqualTo(IpcPlayModeTransitionNames.None));
+            Assert.That(exited.State, Is.EqualTo("stopped"));
+            Assert.That(exited.Transition, Is.EqualTo("none"));
             Assert.That(exited.Generation, Is.EqualTo("102"));
         }
 
@@ -409,8 +409,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 isPlaying: true,
                 isPlayingOrWillChangePlaymode: true);
 
-            Assert.That(entered.State, Is.EqualTo(IpcPlayModeStateNames.Playing));
-            Assert.That(entered.Transition, Is.EqualTo(IpcPlayModeTransitionNames.None));
+            Assert.That(entered.State, Is.EqualTo("playing"));
+            Assert.That(entered.Transition, Is.EqualTo("none"));
             Assert.That(entered.Generation, Is.EqualTo("201"));
             Assert.That(repeated.Generation, Is.EqualTo("201"));
             Assert.That(UnityEditorSessionStateStore.RestorePlayModeStableState(), Is.EqualTo(IpcPlayModeState.Playing));
@@ -432,7 +432,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 isPlaying: true,
                 isPlayingOrWillChangePlaymode: true);
 
-            Assert.That(entered.State, Is.EqualTo(IpcPlayModeStateNames.Playing));
+            Assert.That(entered.State, Is.EqualTo("playing"));
             Assert.That(entered.Generation, Is.EqualTo("300"));
             Assert.That(UnityEditorSessionStateStore.RestorePlayModeStableState(), Is.EqualTo(IpcPlayModeState.Playing));
         }

@@ -49,8 +49,8 @@ public sealed class DaemonSessionCleanupServiceTests
                 SessionToken: "session-token",
                 ProjectFingerprint: "different-fingerprint",
                 IssuedAtUtc: DateTimeOffset.UtcNow,
-                EditorMode: DaemonEditorModeValues.Batchmode,
-                OwnerKind: DaemonSessionOwnerKindValues.Cli,
+                EditorMode: "batchmode",
+                OwnerKind: "cli",
                 CanShutdownProcess: true,
                 EndpointTransportKind: "namedPipe",
                 EndpointAddress: "ucli-daemon-test-endpoint",
@@ -144,8 +144,8 @@ public sealed class DaemonSessionCleanupServiceTests
         var session = CreateSession(
             processId: 4343,
             projectFingerprint: context.ProjectFingerprint,
-            editorMode: DaemonEditorModeValues.Gui,
-            ownerKind: DaemonSessionOwnerKindValues.User,
+            editorMode: "gui",
+            ownerKind: "user",
             canShutdownProcess: false);
         var processTerminationService = new StubDaemonProcessTerminationService
         {
@@ -206,8 +206,8 @@ public sealed class DaemonSessionCleanupServiceTests
         int? processId,
         string projectFingerprint = "fingerprint",
         int? ownerProcessId = 9876,
-        string editorMode = DaemonEditorModeValues.Batchmode,
-        string ownerKind = DaemonSessionOwnerKindValues.Cli,
+        string editorMode = "batchmode",
+        string ownerKind = "cli",
         bool canShutdownProcess = true)
     {
         return new DaemonSession(

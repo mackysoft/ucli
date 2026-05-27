@@ -6,6 +6,8 @@ using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
 
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Executes and observes a Unity Editor Play Mode exit transition. </summary>
@@ -271,7 +273,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private PlayExitTransitionExecutionResult ValidatePreconditions (IpcPlayLifecycleSnapshot before)
         {
-            if (!string.Equals(before.EditorMode, DaemonEditorModeValues.Gui, StringComparison.Ordinal))
+            if (!string.Equals(before.EditorMode, ContractLiteralCodec.ToValue(DaemonEditorMode.Gui), StringComparison.Ordinal))
             {
                 return CreateFailure(
                     PlayModeErrorCodes.PlayModeRequiresGuiEditor,
@@ -594,8 +596,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             state = default;
             transition = default;
             return playMode != null
-                && IpcPlayModeStateCodec.TryParse(playMode.State, out state)
-                && IpcPlayModeTransitionCodec.TryParse(playMode.Transition, out transition);
+                && ContractLiteralInputParser.TryParseTrimmed<IpcPlayModeState>(playMode.State, out state)
+                && ContractLiteralInputParser.TryParseTrimmed<IpcPlayModeTransition>(playMode.Transition, out transition);
         }
     }
 }

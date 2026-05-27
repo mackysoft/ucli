@@ -11,6 +11,7 @@ using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
@@ -220,7 +221,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                         ProjectFingerprint: unityProject.ProjectFingerprint,
                         SessionToken: sessionToken,
                         ExitDeadlineUtc: DateTimeOffset.UtcNow + launchRemainingTimeout,
-                        EndpointTransportKind: IpcTransportKindCodec.ToValue(endpoint.TransportKind),
+                        EndpointTransportKind: ContractLiteralCodec.ToValue(endpoint.TransportKind),
                         EndpointAddress: endpoint.Address),
                     unityLogPath,
                     cancellationToken)

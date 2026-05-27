@@ -33,8 +33,8 @@ public sealed class StatusCommandResultFactoryTests
                 EditorMode: "batchmode",
                 TimeoutMilliseconds: 1234,
                 PlayMode: new PlayModeSnapshotOutput(
-                    State: IpcPlayModeStateNames.Stopped,
-                    Transition: IpcPlayModeTransitionNames.None,
+                    State: "stopped",
+                    Transition: "none",
                     IsPlaying: false,
                     IsPlayingOrWillChangePlaymode: false,
                     Generation: "2")));
@@ -59,8 +59,8 @@ public sealed class StatusCommandResultFactoryTests
             .HasBoolean("canAcceptExecutionRequests", false)
             .HasString("editorMode", "batchmode")
             .HasProperty("playMode", playMode => playMode
-                .HasString("state", IpcPlayModeStateNames.Stopped)
-                .HasString("transition", IpcPlayModeTransitionNames.None)
+                .HasString("state", "stopped")
+                .HasString("transition", "none")
                 .HasBoolean("isPlaying", false)
                 .HasBoolean("isPlayingOrWillChangePlaymode", false)
                 .HasString("generation", "2"))

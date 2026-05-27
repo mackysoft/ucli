@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Startup;
 
 /// <summary> Resolves process handling for endpoint-registration startup blockers. </summary>
@@ -27,22 +29,27 @@ internal static class DaemonStartupBlockedProcessPolicyResolver
                 ProcessActionWhenNotTerminated: DaemonStartupProcessActionValues.None);
         }
 
-        if (!canShutdownProcess || string.Equals(ownerKind, DaemonSessionOwnerKindValues.User, StringComparison.Ordinal))
+        if (!canShutdownProcess || string.Equals(ownerKind, ContractLiteralCodec.ToValue(DaemonSessionOwnerKind.User), StringComparison.Ordinal))
         {
             return Keep();
         }
 
-        if (!string.Equals(ownerKind, DaemonSessionOwnerKindValues.Cli, StringComparison.Ordinal))
+        if (!string.Equals(ownerKind, ContractLiteralCodec.ToValue(DaemonSessionOwnerKind.Cli), StringComparison.Ordinal))
         {
             return Keep();
         }
 
-        return editorMode switch
+        if (string.Equals(editorMode, ContractLiteralCodec.ToValue(DaemonEditorMode.Batchmode), StringComparison.Ordinal))
         {
-            DaemonEditorModeValues.Batchmode => ResolveCliOwnedBatchmode(policy),
-            DaemonEditorModeValues.Gui => ResolveCliOwnedGui(policy),
-            _ => Keep(),
-        };
+            return ResolveCliOwnedBatchmode(policy);
+        }
+
+        if (string.Equals(editorMode, ContractLiteralCodec.ToValue(DaemonEditorMode.Gui), StringComparison.Ordinal))
+        {
+            return ResolveCliOwnedGui(policy);
+        }
+
+        return Keep();
     }
 
     private static DaemonStartupBlockedProcessPolicyResolution ResolveCliOwnedBatchmode (

@@ -213,7 +213,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void UcliOperationMetadata_WhenDescribeContractIsMutatedAfterCreation_DoesNotExposeMutation ()
         {
-            var fieldConstraint = new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.GlobalObjectId);
+            var fieldConstraint = new UcliOperationInputConstraintContract("globalObjectId");
             var variantField = new UcliOperationInputVariantFieldContract(
                 "globalObjectId",
                 "$.target.globalObjectId",
@@ -244,14 +244,14 @@ namespace MackySoft.Ucli.Unity.Tests
 
             input.ArgsPath = "$.target.var";
             variantField.ArgsPath = "$.target.var";
-            fieldConstraint.Kind = UcliOperationInputConstraintKindValues.HierarchyPath;
+            fieldConstraint.Kind = "hierarchyPath";
             metadata.DescribeContract.Inputs![0].ArgsPath = "$.target.var";
             metadata.DescribeContract.Inputs![0].Variants![0].Fields![0].ArgsPath = "$.target.var";
-            metadata.DescribeContract.Inputs![0].Variants![0].Fields![0].Constraints![0].Kind = UcliOperationInputConstraintKindValues.HierarchyPath;
+            metadata.DescribeContract.Inputs![0].Variants![0].Fields![0].Constraints![0].Kind = "hierarchyPath";
 
             Assert.That(metadata.DescribeContract.Inputs![0].ArgsPath, Is.Null);
             Assert.That(metadata.DescribeContract.Inputs![0].Variants![0].Fields![0].ArgsPath, Is.EqualTo("$.target.globalObjectId"));
-            Assert.That(metadata.DescribeContract.Inputs![0].Variants![0].Fields![0].Constraints![0].Kind, Is.EqualTo(UcliOperationInputConstraintKindValues.GlobalObjectId));
+            Assert.That(metadata.DescribeContract.Inputs![0].Variants![0].Fields![0].Constraints![0].Kind, Is.EqualTo("globalObjectId"));
         }
 
         [Test]
@@ -525,7 +525,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 snapshot.RequestValidationCatalog.Operations!.Select(static entry => entry.Name),
                 Is.EquivalentTo(new[] { "ucli.tests.public", "ucli.tests.edit-lowering-only" }));
             var editOnlyEntry = snapshot.RequestValidationCatalog.Operations!.Single(static entry => entry.Name == "ucli.tests.edit-lowering-only");
-            Assert.That(editOnlyEntry.Exposure, Is.EqualTo(UcliOperationExposureValues.EditLoweringOnly));
+            Assert.That(editOnlyEntry.Exposure, Is.EqualTo("editLoweringOnly"));
         }
 
         [Test]
@@ -537,15 +537,15 @@ namespace MackySoft.Ucli.Unity.Tests
             var snapshot = UcliOperationCatalogSnapshotBuilder.Build(operations);
 
             var sceneOpenEntry = FindCatalogEntry(snapshot.Catalog.Operations!, UcliPrimitiveOperationNames.SceneOpen);
-            Assert.That(sceneOpenEntry.Kind, Is.EqualTo(UcliOperationKindValues.Command));
-            Assert.That(sceneOpenEntry.Policy, Is.EqualTo(OperationPolicyValues.Advanced));
+            Assert.That(sceneOpenEntry.Kind, Is.EqualTo("command"));
+            Assert.That(sceneOpenEntry.Policy, Is.EqualTo("advanced"));
             Assert.That(sceneOpenEntry.Description, Is.Not.Null.And.Not.Empty);
             Assert.That(sceneOpenEntry.ResultContract, Is.Not.Null);
             Assert.That(sceneOpenEntry.ResultContract!.Emitted, Is.False);
             Assert.That(sceneOpenEntry.Assurance, Is.Not.Null);
-            Assert.That(sceneOpenEntry.Assurance!.SideEffects, Does.Contain(UcliOperationSideEffectValues.EditorStateChange));
-            Assert.That(sceneOpenEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffectValues.OpensSceneInEditor));
-            Assert.That(sceneOpenEntry.Assurance!.PlanMode, Is.EqualTo(UcliOperationPlanModeValues.ObservesLiveUnity));
+            Assert.That(sceneOpenEntry.Assurance!.SideEffects, Does.Contain("editorStateChange"));
+            Assert.That(sceneOpenEntry.Assurance.SideEffects, Does.Contain("opensSceneInEditor"));
+            Assert.That(sceneOpenEntry.Assurance!.PlanMode, Is.EqualTo("observesLiveUnity"));
             Assert.That(sceneOpenEntry.Assurance.PlanSemantics, Does.Contain("scene path"));
             Assert.That(sceneOpenEntry.Assurance.CallSemantics, Does.Contain("Open the requested scene"));
             Assert.That(sceneOpenEntry.Assurance.TouchedContract, Does.Contain("observed editor context"));
@@ -553,21 +553,21 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var goDeleteEntry = FindCatalogEntry(snapshot.Catalog.Operations!, UcliPrimitiveOperationNames.GoDelete);
             Assert.That(goDeleteEntry.Assurance, Is.Not.Null);
-            Assert.That(goDeleteEntry.Assurance!.PlanMode, Is.EqualTo(UcliOperationPlanModeValues.ObservesLiveUnity));
+            Assert.That(goDeleteEntry.Assurance!.PlanMode, Is.EqualTo("observesLiveUnity"));
 
             var goReparentEntry = FindCatalogEntry(snapshot.Catalog.Operations!, UcliPrimitiveOperationNames.GoReparent);
             Assert.That(goReparentEntry.Assurance, Is.Not.Null);
-            Assert.That(goReparentEntry.Assurance!.PlanMode, Is.EqualTo(UcliOperationPlanModeValues.ObservesLiveUnity));
+            Assert.That(goReparentEntry.Assurance!.PlanMode, Is.EqualTo("observesLiveUnity"));
 
             var projectRefreshEntry = FindCatalogEntry(snapshot.Catalog.Operations!, UcliPrimitiveOperationNames.ProjectRefresh);
-            Assert.That(projectRefreshEntry.Kind, Is.EqualTo(UcliOperationKindValues.Command));
+            Assert.That(projectRefreshEntry.Kind, Is.EqualTo("command"));
             Assert.That(projectRefreshEntry.Assurance, Is.Not.Null);
-            Assert.That(projectRefreshEntry.Assurance!.SideEffects, Does.Contain(UcliOperationSideEffectValues.AssetDatabaseRefresh));
-            Assert.That(projectRefreshEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffectValues.AssetImport));
-            Assert.That(projectRefreshEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffectValues.ScriptCompilation));
-            Assert.That(projectRefreshEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffectValues.DomainReload));
-            Assert.That(projectRefreshEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffectValues.AssetContentMutation));
-            Assert.That(projectRefreshEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffectValues.AssetSave));
+            Assert.That(projectRefreshEntry.Assurance!.SideEffects, Does.Contain("assetDatabaseRefresh"));
+            Assert.That(projectRefreshEntry.Assurance.SideEffects, Does.Contain("assetImport"));
+            Assert.That(projectRefreshEntry.Assurance.SideEffects, Does.Contain("scriptCompilation"));
+            Assert.That(projectRefreshEntry.Assurance.SideEffects, Does.Contain("domainReload"));
+            Assert.That(projectRefreshEntry.Assurance.SideEffects, Does.Contain("assetContentMutation"));
+            Assert.That(projectRefreshEntry.Assurance.SideEffects, Does.Contain("assetSave"));
             Assert.That(projectRefreshEntry.Assurance.MayDirty, Is.True);
             Assert.That(projectRefreshEntry.Assurance.MayPersist, Is.True);
             Assert.That(projectRefreshEntry.Assurance.ReadPostconditionContract, Does.Contain("readIndex"));
@@ -592,7 +592,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 using var schemaDocument = JsonDocument.Parse(snapshot.Catalog.Operations[i].ArgsSchemaJson!);
                 AssertContainsNoVarBranch(schemaDocument.RootElement);
                 AssertContainsNoVarVariantField(snapshot.Catalog.Operations[i].Inputs);
-                Assert.That(snapshot.Catalog.Operations[i].Assurance!.PlanMode, Is.Not.EqualTo(UcliOperationPlanModeValues.MayCreatePreviewState));
+                Assert.That(snapshot.Catalog.Operations[i].Assurance!.PlanMode, Is.Not.EqualTo("mayCreatePreviewState"));
             }
         }
 
@@ -608,7 +608,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 snapshot.Catalog.Operations!.Any(static entry => entry.Name == UcliPrimitiveOperationNames.PrefabRevertOverrides),
                 Is.False);
             var entry = FindCatalogEntry(snapshot.RequestValidationCatalog.Operations!, UcliPrimitiveOperationNames.PrefabRevertOverrides);
-            Assert.That(entry.Exposure, Is.EqualTo(UcliOperationExposureValues.EditLoweringOnly));
+            Assert.That(entry.Exposure, Is.EqualTo("editLoweringOnly"));
             Assert.That(entry.Assurance, Is.Not.Null);
             Assert.That(entry.Assurance!.TouchedKinds, Does.Contain(UcliTouchedResourceKindNames.Scene));
             Assert.That(entry.Assurance.TouchedContract, Does.Contain("scene resource"));

@@ -133,8 +133,8 @@ public sealed class DaemonGuiEditorAttachServiceTests
         Assert.Equal(marker.ProcessId, diagnosisStore.LastDiagnosis.ProcessId);
         Assert.Equal(marker.MarkerPath, diagnosisStore.LastDiagnosis.EditorInstancePath);
         Assert.NotNull(result.Startup);
-        Assert.Equal(DaemonEditorModeValues.Gui, result.Startup!.EditorMode);
-        Assert.Equal(DaemonSessionOwnerKindValues.User, result.Startup.OwnerKind);
+        Assert.Equal("gui", result.Startup!.EditorMode);
+        Assert.Equal("user", result.Startup.OwnerKind);
         Assert.False(result.Startup.CanShutdownProcess);
         Assert.Equal(marker.ProcessId, result.Startup.ProcessId);
         Assert.Equal(ProbeProcessStartedAtUtc, result.Startup.StartedAtUtc);
@@ -174,8 +174,8 @@ public sealed class DaemonGuiEditorAttachServiceTests
         Assert.True(result!.IsSuccess);
         Assert.Equal(DaemonStartStatus.Attached, result.Status);
         Assert.Equal(session, result.Session);
-        Assert.Equal(DaemonEditorModeValues.Gui, result.Session!.EditorMode);
-        Assert.Equal(DaemonSessionOwnerKindValues.User, result.Session.OwnerKind);
+        Assert.Equal("gui", result.Session!.EditorMode);
+        Assert.Equal("user", result.Session.OwnerKind);
         Assert.False(result.Session.CanShutdownProcess);
         Assert.Equal(marker.ProcessId, result.Session.ProcessId);
         Assert.Equal(2, awaiter.CallCount);
@@ -381,8 +381,8 @@ public sealed class DaemonGuiEditorAttachServiceTests
             SessionToken: "session-token",
             ProjectFingerprint: "fingerprint",
             IssuedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 2, 0, TimeSpan.Zero),
-            EditorMode: DaemonEditorModeValues.Gui,
-            OwnerKind: DaemonSessionOwnerKindValues.User,
+            EditorMode: "gui",
+            OwnerKind: "user",
             CanShutdownProcess: false,
             EndpointTransportKind: "unixDomainSocket",
             EndpointAddress: "/tmp/ucli.sock",

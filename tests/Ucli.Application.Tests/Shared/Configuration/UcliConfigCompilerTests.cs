@@ -180,9 +180,9 @@ public sealed class UcliConfigCompilerTests
         Assert.Empty(result.Diagnostics);
         var document = Assert.IsType<UcliConfigDocument>(result.Document);
         Assert.Equal(UcliConfig.CurrentSchemaVersion, document.SchemaVersion);
-        Assert.Equal(OperationPolicyValues.Dangerous, document.OperationPolicy);
-        Assert.Equal(PlanTokenModeValues.Required, document.PlanTokenMode);
-        Assert.Equal(ReadIndexModeValues.AllowStale, document.ReadIndexDefaultMode);
+        Assert.Equal("dangerous", document.OperationPolicy);
+        Assert.Equal("required", document.PlanTokenMode);
+        Assert.Equal("allowStale", document.ReadIndexDefaultMode);
         Assert.Equal(["^ucli\\."], document.OperationAllowlist);
         Assert.Equal(4500, document.IpcDefaultTimeoutMilliseconds);
         Assert.NotNull(document.IpcTimeoutMillisecondsByCommand);

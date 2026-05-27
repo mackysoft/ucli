@@ -88,8 +88,8 @@ public sealed class SupervisorExitHandlerTests
         var repositoryRoot = Path.Combine(Path.GetTempPath(), "ucli-exit-handler-tests", Guid.NewGuid().ToString("N"));
         var unityProject = CreateUnityProject(repositoryRoot);
         var session = CreateSession(
-            editorMode: DaemonEditorModeValues.Gui,
-            ownerKind: DaemonSessionOwnerKindValues.User,
+            editorMode: "gui",
+            ownerKind: "user",
             canShutdownProcess: false);
         var diagnosisStore = new StubDaemonDiagnosisStore();
         var artifactCleaner = new StubDaemonArtifactCleaner();
@@ -120,8 +120,8 @@ public sealed class SupervisorExitHandlerTests
     }
 
     private static DaemonSession CreateSession (
-        string editorMode = DaemonEditorModeValues.Batchmode,
-        string ownerKind = DaemonSessionOwnerKindValues.Cli,
+        string editorMode = "batchmode",
+        string ownerKind = "cli",
         bool canShutdownProcess = true)
     {
         return new DaemonSession(

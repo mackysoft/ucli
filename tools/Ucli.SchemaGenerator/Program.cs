@@ -6,6 +6,7 @@ using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Operations;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.SchemaGenerator;
 
@@ -773,15 +774,15 @@ internal static class Program
             Required(
                 "kind",
                 EnumSchema(
-                    UcliOperationKindValues.Query,
-                    UcliOperationKindValues.Command,
-                    UcliOperationKindValues.Mutation)),
+                    Literal(UcliOperationKind.Query),
+                    Literal(UcliOperationKind.Command),
+                    Literal(UcliOperationKind.Mutation))),
             Required(
                 "policy",
                 EnumSchema(
-                    OperationPolicyValues.Safe,
-                    OperationPolicyValues.Advanced,
-                    OperationPolicyValues.Dangerous)),
+                    Literal(OperationPolicy.Safe),
+                    Literal(OperationPolicy.Advanced),
+                    Literal(OperationPolicy.Dangerous))),
             Required("description", StringSchema()),
             Required("inputs", ArraySchema(CreateOpsDescribeInputSchema())),
             Required("resultContract", ObjectSchema(
@@ -809,8 +810,8 @@ internal static class Program
                 UcliTouchedResourceKindNames.Asset,
                 UcliTouchedResourceKindNames.ProjectSettings))),
             Required("planMode", EnumSchema(
-                UcliOperationPlanModeValues.ValidationOnly,
-                UcliOperationPlanModeValues.ObservesLiveUnity)),
+                Literal(UcliOperationPlanMode.ValidationOnly),
+                Literal(UcliOperationPlanMode.ObservesLiveUnity))),
             Required("planSemantics", StringSchema()),
             Required("callSemantics", StringSchema()),
             Required("touchedContract", StringSchema()),
@@ -861,23 +862,23 @@ internal static class Program
     private static Dictionary<string, object?> CreateOpsDescribeInputConstraintSchema ()
     {
         return OneOfSchema(
-            ConstraintSchema(UcliOperationInputConstraintKindValues.NonEmpty),
+            ConstraintSchema(Literal(UcliOperationInputConstraintKind.NonEmpty)),
             RangeConstraintSchema(Required("min", NumberSchema())),
             RangeConstraintSchema(Required("max", NumberSchema())),
             RangeConstraintSchema(
                 Required("min", NumberSchema()),
                 Required("max", NumberSchema())),
-            ConstraintSchema(UcliOperationInputConstraintKindValues.ProjectRelativePath),
-            AssetConstraintSchema(UcliOperationInputConstraintKindValues.AssetExists),
-            AssetConstraintSchema(UcliOperationInputConstraintKindValues.AssetCreatable),
-            ConstraintSchema(UcliOperationInputConstraintKindValues.GlobalObjectId),
-            ConstraintSchema(UcliOperationInputConstraintKindValues.HierarchyPath),
+            ConstraintSchema(Literal(UcliOperationInputConstraintKind.ProjectRelativePath)),
+            AssetConstraintSchema(Literal(UcliOperationInputConstraintKind.AssetExists)),
+            AssetConstraintSchema(Literal(UcliOperationInputConstraintKind.AssetCreatable)),
+            ConstraintSchema(Literal(UcliOperationInputConstraintKind.GlobalObjectId)),
+            ConstraintSchema(Literal(UcliOperationInputConstraintKind.HierarchyPath)),
             ReferenceResolvableConstraintSchema(),
-            ConstraintSchema(UcliOperationInputConstraintKindValues.TypeExists),
+            ConstraintSchema(Literal(UcliOperationInputConstraintKind.TypeExists)),
             TypeAssignableToConstraintSchema(),
             SerializedPropertyConstraintSchema(),
-            ConstraintSchema(UcliOperationInputConstraintKindValues.AssetGuid),
-            ConstraintSchema(UcliOperationInputConstraintKindValues.Cursor));
+            ConstraintSchema(Literal(UcliOperationInputConstraintKind.AssetGuid)),
+            ConstraintSchema(Literal(UcliOperationInputConstraintKind.Cursor)));
     }
 
     private static Dictionary<string, object?> ConstraintSchema (
@@ -894,7 +895,7 @@ internal static class Program
 
     private static Dictionary<string, object?> RangeConstraintSchema (params SchemaProperty[] parameters)
     {
-        return ConstraintSchema(UcliOperationInputConstraintKindValues.Range, parameters);
+        return ConstraintSchema(Literal(UcliOperationInputConstraintKind.Range), parameters);
     }
 
     private static Dictionary<string, object?> AssetConstraintSchema (string kind)
@@ -904,40 +905,40 @@ internal static class Program
             Required(
                 "assetKind",
                 EnumSchema(
-                    UcliOperationAssetKindValues.Asset,
-                    UcliOperationAssetKindValues.Prefab,
-                    UcliOperationAssetKindValues.ProjectSettings,
-                    UcliOperationAssetKindValues.Scene)));
+                    Literal(UcliOperationAssetKind.Asset),
+                    Literal(UcliOperationAssetKind.Prefab),
+                    Literal(UcliOperationAssetKind.ProjectSettings),
+                    Literal(UcliOperationAssetKind.Scene))));
     }
 
     private static Dictionary<string, object?> ReferenceResolvableConstraintSchema ()
     {
         return ConstraintSchema(
-            UcliOperationInputConstraintKindValues.ReferenceResolvable,
+            Literal(UcliOperationInputConstraintKind.ReferenceResolvable),
             Required(
                 "targetKind",
                 EnumSchema(
-                    UcliOperationReferenceTargetKindValues.Asset,
-                    UcliOperationReferenceTargetKindValues.Component,
-                    UcliOperationReferenceTargetKindValues.GameObject)));
+                    Literal(UcliOperationReferenceTargetKind.Asset),
+                    Literal(UcliOperationReferenceTargetKind.Component),
+                    Literal(UcliOperationReferenceTargetKind.GameObject))));
     }
 
     private static Dictionary<string, object?> TypeAssignableToConstraintSchema ()
     {
         return ConstraintSchema(
-            UcliOperationInputConstraintKindValues.TypeAssignableTo,
+            Literal(UcliOperationInputConstraintKind.TypeAssignableTo),
             Required(
                 "typeKind",
-                EnumSchema(UcliOperationTypeKindValues.Component)));
+                EnumSchema(Literal(UcliOperationTypeKind.Component))));
     }
 
     private static Dictionary<string, object?> SerializedPropertyConstraintSchema ()
     {
         return ConstraintSchema(
-            UcliOperationInputConstraintKindValues.SerializedProperty,
+            Literal(UcliOperationInputConstraintKind.SerializedProperty),
             Required(
                 "access",
-                EnumSchema(UcliOperationSerializedPropertyAccessValues.Write)));
+                EnumSchema(Literal(UcliOperationSerializedPropertyAccess.Write))));
     }
 
     private static Dictionary<string, object?> CreateOpsDescribeCodeContractSchema ()
@@ -1126,7 +1127,7 @@ internal static class Program
             Required("project", ReferenceSchema("../defs/project.schema.json")),
             Required("daemonStatus", ConstString("running")),
             Required("serverVersion", NullableStringSchema()),
-            Required("editorMode", ConstString(DaemonEditorModeValues.Gui)),
+            Required("editorMode", ConstString(Literal(DaemonEditorMode.Gui))),
             Required("lifecycleState", CreateLifecycleStateSchema(payloadState)),
             Required("blockingReason", CreateBlockingReasonSchema(payloadState)),
             Required("compileState", NullableStringSchema()),
@@ -1321,10 +1322,10 @@ internal static class Program
                 "transition",
                 payloadState == PlayLifecyclePayloadState.Any
                     ? EnumSchema(
-                        IpcPlayModeTransitionNames.None,
-                        IpcPlayModeTransitionNames.Entering,
-                        IpcPlayModeTransitionNames.Exiting)
-                    : ConstString(IpcPlayModeTransitionNames.None)),
+                        Literal(IpcPlayModeTransition.None),
+                        Literal(IpcPlayModeTransition.Entering),
+                        Literal(IpcPlayModeTransition.Exiting))
+                    : ConstString(Literal(IpcPlayModeTransition.None))),
             Required("isPlaying", CreateIsPlayingSchema(payloadState)),
             Required("isPlayingOrWillChangePlaymode", CreateIsPlayingOrWillChangePlaymodeSchema(payloadState)),
             Required("generation", NullableStringSchema()));
@@ -1364,15 +1365,15 @@ internal static class Program
     {
         return payloadState switch
         {
-            PlayLifecyclePayloadState.Entered => ConstString(IpcPlayModeStateNames.Playing),
-            PlayLifecyclePayloadState.Stopped => ConstString(IpcPlayModeStateNames.Stopped),
-            PlayLifecyclePayloadState.ReadyStopped => ConstString(IpcPlayModeStateNames.Stopped),
+            PlayLifecyclePayloadState.Entered => ConstString(Literal(IpcPlayModeState.Playing)),
+            PlayLifecyclePayloadState.Stopped => ConstString(Literal(IpcPlayModeState.Stopped)),
+            PlayLifecyclePayloadState.ReadyStopped => ConstString(Literal(IpcPlayModeState.Stopped)),
             _ => EnumSchema(
-                IpcPlayModeStateNames.Stopped,
-                IpcPlayModeStateNames.Entering,
-                IpcPlayModeStateNames.Playing,
-                IpcPlayModeStateNames.Exiting,
-                IpcPlayModeStateNames.Unknown),
+                Literal(IpcPlayModeState.Stopped),
+                Literal(IpcPlayModeState.Entering),
+                Literal(IpcPlayModeState.Playing),
+                Literal(IpcPlayModeState.Exiting),
+                Literal(IpcPlayModeState.Unknown)),
         };
     }
 
@@ -1644,6 +1645,12 @@ internal static class Program
         {
             ["$ref"] = reference,
         };
+    }
+
+    private static string Literal<TEnum> (TEnum value)
+        where TEnum : struct, Enum
+    {
+        return ContractLiteralCodec.ToValue(value);
     }
 
     private static Dictionary<string, object?> EnumSchema (params string[] values)

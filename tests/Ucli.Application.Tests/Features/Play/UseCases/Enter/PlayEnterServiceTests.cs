@@ -18,7 +18,7 @@ public sealed class PlayEnterServiceTests
     public async Task Execute_WhenProjectResolutionFails_ReturnsFailureWithoutSessionOrIpcCall ()
     {
         var expectedError = ExecutionError.InvalidArgument("Project resolution failed.");
-        var sessionStore = new StubDaemonSessionStore(DaemonSessionReadResult.Success(CreateSession(DaemonEditorModeValues.Gui)));
+        var sessionStore = new StubDaemonSessionStore(DaemonSessionReadResult.Success(CreateSession("gui")));
         var requestExecutor = new StubUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(CreateEnteredResponse())));
         var service = CreateService(ProjectContextResolutionResult.Failure(expectedError), sessionStore, requestExecutor);
 
@@ -54,7 +54,7 @@ public sealed class PlayEnterServiceTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenRegisteredSessionIsBatchmode_ReturnsRequiresGuiEditorWithoutIpcCall ()
     {
-        var sessionStore = new StubDaemonSessionStore(DaemonSessionReadResult.Success(CreateSession(DaemonEditorModeValues.Batchmode)));
+        var sessionStore = new StubDaemonSessionStore(DaemonSessionReadResult.Success(CreateSession("batchmode")));
         var requestExecutor = new StubUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(CreateEnteredResponse())));
         var service = CreateService(CreateContext(), sessionStore, requestExecutor);
 
@@ -71,7 +71,7 @@ public sealed class PlayEnterServiceTests
     public async Task Execute_WhenEnterSucceeds_ReturnsFlatPayloadAndTransition ()
     {
         var context = CreateContext();
-        var sessionStore = new StubDaemonSessionStore(DaemonSessionReadResult.Success(CreateSession(DaemonEditorModeValues.Gui)));
+        var sessionStore = new StubDaemonSessionStore(DaemonSessionReadResult.Success(CreateSession("gui")));
         var requestExecutor = new StubUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(CreateEnteredResponse())));
         var service = CreateService(context, sessionStore, requestExecutor);
 
@@ -82,11 +82,11 @@ public sealed class PlayEnterServiceTests
         Assert.Equal(DaemonStatusKind.Running, output.DaemonStatus);
         Assert.Equal(context.UnityProject.UnityProjectRoot, output.Project.ProjectPath);
         Assert.Equal("0.5.0", output.ServerVersion);
-        Assert.Equal(DaemonEditorModeValues.Gui, output.EditorMode);
+        Assert.Equal("gui", output.EditorMode);
         Assert.Equal(IpcEditorLifecycleStateCodec.Playmode, output.LifecycleState);
         Assert.Equal(IpcEditorBlockingReasonCodec.PlayMode, output.BlockingReason);
         Assert.False(output.CanAcceptExecutionRequests);
-        Assert.Equal(IpcPlayModeStateNames.Playing, output.PlayMode.State);
+        Assert.Equal("playing", output.PlayMode.State);
         Assert.Equal("3", output.PlayMode.Generation);
         Assert.Equal(1500, output.TimeoutMilliseconds);
         Assert.Equal(IpcPlayTransitionCommandNames.Enter, output.Transition.Transition);
@@ -127,8 +127,8 @@ public sealed class PlayEnterServiceTests
     public async Task Execute_WhenAlreadyPlaying_ReturnsAlreadyEnteredWithoutGenerationChange ()
     {
         var before = CreateSnapshot(IpcEditorLifecycleStateCodec.Playmode, IpcEditorBlockingReasonCodec.PlayMode, false, CreatePlayMode(
-            IpcPlayModeStateNames.Playing,
-            IpcPlayModeTransitionNames.None,
+            "playing",
+            "none",
             isPlaying: true,
             isPlayingOrWillChangePlaymode: true,
             generation: "9"));
@@ -139,7 +139,7 @@ public sealed class PlayEnterServiceTests
         {
             After = before,
         });
-        var sessionStore = new StubDaemonSessionStore(DaemonSessionReadResult.Success(CreateSession(DaemonEditorModeValues.Gui)));
+        var sessionStore = new StubDaemonSessionStore(DaemonSessionReadResult.Success(CreateSession("gui")));
         var requestExecutor = new StubUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(response)));
         var service = CreateService(CreateContext(), sessionStore, requestExecutor);
 
@@ -158,8 +158,8 @@ public sealed class PlayEnterServiceTests
     {
         var before = CreateSnapshot(IpcEditorLifecycleStateCodec.Ready, null, true, CreateStoppedPlayMode("2"));
         var observed = CreateSnapshot(IpcEditorLifecycleStateCodec.Playmode, IpcEditorBlockingReasonCodec.PlayMode, false, CreatePlayMode(
-            IpcPlayModeStateNames.Entering,
-            IpcPlayModeTransitionNames.Entering,
+            "entering",
+            "entering",
             isPlaying: false,
             isPlayingOrWillChangePlaymode: true,
             generation: "2"));
@@ -233,7 +233,7 @@ public sealed class PlayEnterServiceTests
             IpcEditorLifecycleStateCodec.Playmode,
             IpcEditorBlockingReasonCodec.PlayMode,
             false,
-            CreatePlayMode(IpcPlayModeStateNames.Playing, IpcPlayModeTransitionNames.None, true, true, "3"),
+            CreatePlayMode("playing", "none", true, true, "3"),
             projectFingerprint: "other-project-fingerprint");
         var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
             IpcPlayTransitionCommandNames.Enter,
@@ -258,7 +258,7 @@ public sealed class PlayEnterServiceTests
         var before = CreateSnapshot(IpcEditorLifecycleStateCodec.Ready, null, true, CreateStoppedPlayMode("2"));
         var after = CreateSnapshot(IpcEditorLifecycleStateCodec.Playmode, IpcEditorBlockingReasonCodec.PlayMode, false, new IpcPlayModeSnapshot(
             State: "invalid",
-            Transition: IpcPlayModeTransitionNames.None,
+            Transition: "none",
             IsPlaying: true,
             IsPlayingOrWillChangePlaymode: true,
             Generation: "3"));
@@ -287,7 +287,7 @@ public sealed class PlayEnterServiceTests
             IpcEditorLifecycleStateCodec.Playmode,
             IpcEditorBlockingReasonCodec.PlayMode,
             false,
-            CreatePlayMode(IpcPlayModeStateNames.Playing, IpcPlayModeTransitionNames.None, true, true, "2"));
+            CreatePlayMode("playing", "none", true, true, "2"));
         var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
             IpcPlayTransitionCommandNames.Enter,
             IpcPlayTransitionResultNames.Entered,
@@ -312,12 +312,12 @@ public sealed class PlayEnterServiceTests
             IpcEditorLifecycleStateCodec.Playmode,
             IpcEditorBlockingReasonCodec.PlayMode,
             false,
-            CreatePlayMode(IpcPlayModeStateNames.Playing, IpcPlayModeTransitionNames.None, true, true, "9"));
+            CreatePlayMode("playing", "none", true, true, "9"));
         var after = CreateSnapshot(
             IpcEditorLifecycleStateCodec.Playmode,
             IpcEditorBlockingReasonCodec.PlayMode,
             false,
-            CreatePlayMode(IpcPlayModeStateNames.Playing, IpcPlayModeTransitionNames.None, true, true, "10"));
+            CreatePlayMode("playing", "none", true, true, "10"));
         var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
             IpcPlayTransitionCommandNames.Enter,
             IpcPlayTransitionResultNames.AlreadyEntered,
@@ -343,7 +343,7 @@ public sealed class PlayEnterServiceTests
             IpcEditorLifecycleStateCodec.Playmode,
             IpcEditorBlockingReasonCodec.PlayMode,
             false,
-            CreatePlayMode(IpcPlayModeStateNames.Playing, IpcPlayModeTransitionNames.None, true, true, "3"));
+            CreatePlayMode("playing", "none", true, true, "3"));
         var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
             IpcPlayTransitionCommandNames.Enter,
             IpcPlayTransitionResultNames.Entered,
@@ -392,7 +392,7 @@ public sealed class PlayEnterServiceTests
             IpcEditorLifecycleStateCodec.Playmode,
             IpcEditorBlockingReasonCodec.PlayMode,
             false,
-            CreatePlayMode(IpcPlayModeStateNames.Playing, IpcPlayModeTransitionNames.None, true, true, "9"));
+            CreatePlayMode("playing", "none", true, true, "9"));
         var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
             IpcPlayTransitionCommandNames.Enter,
             IpcPlayTransitionResultNames.AlreadyEntered,
@@ -443,7 +443,7 @@ public sealed class PlayEnterServiceTests
             IpcEditorLifecycleStateCodec.Playmode,
             IpcEditorBlockingReasonCodec.PlayMode,
             false,
-            CreatePlayMode(IpcPlayModeStateNames.Entering, IpcPlayModeTransitionNames.Entering, false, true, "2"));
+            CreatePlayMode("entering", "entering", false, true, "2"));
         var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
             IpcPlayTransitionCommandNames.Enter,
             IpcPlayTransitionResultNames.Timeout,
@@ -473,7 +473,7 @@ public sealed class PlayEnterServiceTests
             IpcEditorLifecycleStateCodec.Playmode,
             blockingReason: null,
             canAcceptExecutionRequests: false,
-            playMode: CreatePlayMode(IpcPlayModeStateNames.Playing, IpcPlayModeTransitionNames.None, true, true, "3"));
+            playMode: CreatePlayMode("playing", "none", true, true, "3"));
         var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
             IpcPlayTransitionCommandNames.Enter,
             IpcPlayTransitionResultNames.Entered,
@@ -498,12 +498,12 @@ public sealed class PlayEnterServiceTests
             IpcEditorLifecycleStateCodec.Playmode,
             IpcEditorBlockingReasonCodec.PlayMode,
             false,
-            CreatePlayMode(IpcPlayModeStateNames.Playing, IpcPlayModeTransitionNames.None, true, true, "2"));
+            CreatePlayMode("playing", "none", true, true, "2"));
         var after = CreateSnapshot(
             IpcEditorLifecycleStateCodec.Playmode,
             IpcEditorBlockingReasonCodec.PlayMode,
             false,
-            CreatePlayMode(IpcPlayModeStateNames.Playing, IpcPlayModeTransitionNames.None, true, true, "3"));
+            CreatePlayMode("playing", "none", true, true, "3"));
         var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
             IpcPlayTransitionCommandNames.Enter,
             IpcPlayTransitionResultNames.Entered,
@@ -533,7 +533,7 @@ public sealed class PlayEnterServiceTests
             IpcEditorLifecycleStateCodec.Playmode,
             IpcEditorBlockingReasonCodec.PlayMode,
             false,
-            CreatePlayMode(IpcPlayModeStateNames.Playing, IpcPlayModeTransitionNames.None, true, true, "3"));
+            CreatePlayMode("playing", "none", true, true, "3"));
         var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
             IpcPlayTransitionCommandNames.Enter,
             IpcPlayTransitionResultNames.Entered,
@@ -602,7 +602,7 @@ public sealed class PlayEnterServiceTests
 
     private static StubDaemonSessionStore CreateGuiSessionStore ()
     {
-        return new StubDaemonSessionStore(DaemonSessionReadResult.Success(CreateSession(DaemonEditorModeValues.Gui)));
+        return new StubDaemonSessionStore(DaemonSessionReadResult.Success(CreateSession("gui")));
     }
 
     private static DaemonSession CreateSession (string editorMode)
@@ -613,7 +613,7 @@ public sealed class PlayEnterServiceTests
             ProjectFingerprint: "project-fingerprint",
             IssuedAtUtc: DateTimeOffset.UtcNow,
             EditorMode: editorMode,
-            OwnerKind: DaemonSessionOwnerKindValues.User,
+            OwnerKind: "user",
             CanShutdownProcess: false,
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-play-enter",
@@ -626,8 +626,8 @@ public sealed class PlayEnterServiceTests
     {
         var before = CreateSnapshot(IpcEditorLifecycleStateCodec.Ready, null, true, CreateStoppedPlayMode("2"));
         var after = CreateSnapshot(IpcEditorLifecycleStateCodec.Playmode, IpcEditorBlockingReasonCodec.PlayMode, false, CreatePlayMode(
-            IpcPlayModeStateNames.Playing,
-            IpcPlayModeTransitionNames.None,
+            "playing",
+            "none",
             isPlaying: true,
             isPlayingOrWillChangePlaymode: true,
             generation: "3"));
@@ -649,7 +649,7 @@ public sealed class PlayEnterServiceTests
     {
         return new IpcPlayLifecycleSnapshot(
             ServerVersion: "0.5.0",
-            EditorMode: DaemonEditorModeValues.Gui,
+            EditorMode: "gui",
             UnityVersion: "6000.1.4f1",
             ProjectFingerprint: projectFingerprint,
             LifecycleState: lifecycleState,
@@ -667,8 +667,8 @@ public sealed class PlayEnterServiceTests
     private static IpcPlayModeSnapshot CreateStoppedPlayMode (string generation)
     {
         return CreatePlayMode(
-            IpcPlayModeStateNames.Stopped,
-            IpcPlayModeTransitionNames.None,
+            "stopped",
+            "none",
             isPlaying: false,
             isPlayingOrWillChangePlaymode: false,
             generation: generation);

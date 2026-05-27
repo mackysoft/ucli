@@ -3,6 +3,8 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
 
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiEndpoint;
 
 /// <summary> Creates the shared failure contract used when a GUI process cannot accept rebootstrap requests. </summary>
@@ -57,8 +59,8 @@ internal static class DaemonGuiRebootstrapUnavailableFailureFactory
 
         var policyResolution = DaemonStartupBlockedProcessPolicyResolver.Resolve(
             onStartupBlocked,
-            DaemonEditorModeValues.Gui,
-            DaemonSessionOwnerKindValues.User,
+            ContractLiteralCodec.ToValue(DaemonEditorMode.Gui),
+            ContractLiteralCodec.ToValue(DaemonSessionOwnerKind.User),
             canShutdownProcess: false,
             processId);
         var startup = new DaemonStartupObservation(
@@ -67,8 +69,8 @@ internal static class DaemonGuiRebootstrapUnavailableFailureFactory
             LaunchAttemptId: null,
             ProcessAction: policyResolution.ProcessActionWhenNotTerminated,
             RetryDisposition: DaemonStartupRetryDispositionValues.Unknown,
-            EditorMode: DaemonEditorModeValues.Gui,
-            OwnerKind: DaemonSessionOwnerKindValues.User,
+            EditorMode: ContractLiteralCodec.ToValue(DaemonEditorMode.Gui),
+            OwnerKind: ContractLiteralCodec.ToValue(DaemonSessionOwnerKind.User),
             CanShutdownProcess: false,
             ProcessId: processId,
             StartedAtUtc: processStartedAtUtc,

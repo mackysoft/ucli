@@ -6,6 +6,8 @@ using MackySoft.Ucli.Contracts.Ipc;
 using UnityEditor;
 using UnityEditor.Compilation;
 
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Unity.Runtime
 {
     /// <summary> Captures Unity editor lifecycle telemetry and gates execution requests. </summary>
@@ -79,7 +81,7 @@ namespace MackySoft.Ucli.Unity.Runtime
         {
             this.lifecycleMonitor = lifecycleMonitor ?? throw new ArgumentNullException(nameof(lifecycleMonitor));
             this.isPlayModeMutationActiveProvider = isPlayModeMutationActiveProvider ?? throw new ArgumentNullException(nameof(isPlayModeMutationActiveProvider));
-            _ = DaemonEditorModeCodec.ToValue(editorMode);
+            _ = ContractLiteralCodec.ToValue(editorMode);
             this.editorMode = editorMode;
             this.beforeAssemblyReloadSubscriber = beforeAssemblyReloadSubscriber ?? throw new ArgumentNullException(nameof(beforeAssemblyReloadSubscriber));
             this.beforeAssemblyReloadUnsubscriber = beforeAssemblyReloadUnsubscriber ?? throw new ArgumentNullException(nameof(beforeAssemblyReloadUnsubscriber));

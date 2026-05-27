@@ -58,7 +58,7 @@ public sealed class UnityOneshotIpcClientTests
         Assert.Equal(Environment.ProcessId, bootstrapArguments.ParentProcessId);
         Assert.False(string.IsNullOrWhiteSpace(bootstrapArguments.SessionToken));
         Assert.True(bootstrapArguments.ExitDeadlineUtc > DateTimeOffset.UtcNow);
-        Assert.Equal(IpcTransportKindValues.UnixDomainSocket, bootstrapArguments.EndpointTransportKind);
+        Assert.Equal("unixDomainSocket", bootstrapArguments.EndpointTransportKind);
         Assert.Equal(endpoint.Address, bootstrapArguments.EndpointAddress);
 
         Assert.Equal(2, transportClient.CallCount);

@@ -20,6 +20,8 @@ using UnityEngine.TestTools;
 
 #nullable enable
 
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class IndexCatalogBuilderTests
@@ -71,23 +73,23 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(assetTypeEntry.Flags!.IsScriptableObject, Is.True);
 
             var componentSchema = result.SchemasCatalog.Entries!.SingleOrDefault(entry =>
-                entry.Kind == IndexSchemaKindValues.Comp
+                entry.Kind == "comp"
                 && entry.TypeId == componentTypeId);
             Assert.That(componentSchema, Is.Not.Null);
-            Assert.That(componentSchema!.SchemaKey, Is.EqualTo($"{IndexSchemaKindValues.Comp}:{componentTypeId}"));
+            Assert.That(componentSchema!.SchemaKey, Is.EqualTo($"{"comp"}:{componentTypeId}"));
             var enabledProperty = componentSchema.Properties!.SingleOrDefault(property => property.Path == "m_Enabled");
             Assert.That(enabledProperty, Is.Not.Null);
-            Assert.That(enabledProperty!.PropertyType, Is.EqualTo(IndexPropertyTypeValues.Boolean));
+            Assert.That(enabledProperty!.PropertyType, Is.EqualTo("boolean"));
             Assert.That(enabledProperty.DeclaredTypeId, Is.EqualTo(IndexTypeIdFormatter.Format(typeof(bool))));
 
             var assetSchema = result.SchemasCatalog.Entries!.SingleOrDefault(entry =>
-                entry.Kind == IndexSchemaKindValues.Asset
+                entry.Kind == "asset"
                 && entry.TypeId == assetTypeId);
             Assert.That(assetSchema, Is.Not.Null);
-            Assert.That(assetSchema!.SchemaKey, Is.EqualTo($"{IndexSchemaKindValues.Asset}:{assetTypeId}"));
+            Assert.That(assetSchema!.SchemaKey, Is.EqualTo($"{"asset"}:{assetTypeId}"));
             var speedProperty = assetSchema.Properties!.SingleOrDefault(property => property.Path == "speed");
             Assert.That(speedProperty, Is.Not.Null);
-            Assert.That(speedProperty!.PropertyType, Is.EqualTo(IndexPropertyTypeValues.Float));
+            Assert.That(speedProperty!.PropertyType, Is.EqualTo("float"));
         });
 
         [UnityTest]
@@ -105,8 +107,8 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.SchemasCatalog, Is.Not.Null);
             Assert.That(result.SchemasCatalog!.Entries, Is.Not.Null);
             Assert.That(result.SchemasCatalog.Entries!.Count, Is.EqualTo(2));
-            Assert.That(result.SchemasCatalog.Entries[0].Kind, Is.EqualTo(IndexSchemaKindValues.Asset));
-            Assert.That(result.SchemasCatalog.Entries[1].Kind, Is.EqualTo(IndexSchemaKindValues.Comp));
+            Assert.That(result.SchemasCatalog.Entries[0].Kind, Is.EqualTo("asset"));
+            Assert.That(result.SchemasCatalog.Entries[1].Kind, Is.EqualTo("comp"));
             Assert.That(
                 StringComparer.Ordinal.Compare(
                     result.SchemasCatalog.Entries[0].SchemaKey ?? string.Empty,
@@ -122,9 +124,9 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var literal = IndexSerializedPropertyTypeMapper.ToLiteral(SerializedPropertyType.RenderingLayerMask);
 
-            Assert.That(literal, Is.EqualTo(IndexPropertyTypeValues.LayerMask));
+            Assert.That(literal, Is.EqualTo("layerMask"));
             Assert.That(
-                IndexPropertyTypeCodec.TryParse(literal, out var parsedType),
+                ContractLiteralInputParser.TryParseIgnoreCase<IndexPropertyType>(literal, out var parsedType),
                 Is.True);
             Assert.That(parsedType, Is.EqualTo(IndexPropertyType.LayerMask));
         }
@@ -433,15 +435,15 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 var componentTypeId = IndexTypeIdFormatter.Format(typeof(BoxCollider));
                 var entry = new IndexSchemaEntryJsonContract(
-                    SchemaKey: $"{IndexSchemaKindValues.Comp}:{componentTypeId}",
-                    Kind: IndexSchemaKindValues.Comp,
+                    SchemaKey: $"{"comp"}:{componentTypeId}",
+                    Kind: "comp",
                     TypeId: componentTypeId,
                     DisplayName: nameof(BoxCollider),
                     Properties: new[]
                     {
                         new IndexSchemaPropertyEntryJsonContract(
                             Path: "m_Enabled",
-                            PropertyType: IndexPropertyTypeValues.Boolean,
+                            PropertyType: "boolean",
                             DeclaredTypeId: IndexTypeIdFormatter.Format(typeof(bool)),
                             IsArray: false,
                             ElementTypeId: null,
@@ -461,15 +463,15 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 var assetTypeId = IndexTypeIdFormatter.Format(typeof(IndexCatalogTestAsset));
                 var entry = new IndexSchemaEntryJsonContract(
-                    SchemaKey: $"{IndexSchemaKindValues.Asset}:{assetTypeId}",
-                    Kind: IndexSchemaKindValues.Asset,
+                    SchemaKey: $"{"asset"}:{assetTypeId}",
+                    Kind: "asset",
                     TypeId: assetTypeId,
                     DisplayName: nameof(IndexCatalogTestAsset),
                     Properties: new[]
                     {
                         new IndexSchemaPropertyEntryJsonContract(
                             Path: "speed",
-                            PropertyType: IndexPropertyTypeValues.Float,
+                            PropertyType: "float",
                             DeclaredTypeId: IndexTypeIdFormatter.Format(typeof(float)),
                             IsArray: false,
                             ElementTypeId: null,

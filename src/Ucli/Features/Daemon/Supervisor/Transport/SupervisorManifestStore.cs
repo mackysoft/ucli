@@ -157,7 +157,7 @@ internal sealed class SupervisorManifestStore
             throw new InvalidDataException($"Supervisor manifest issuedAtUtc is invalid. {manifestPath}");
         }
 
-        if (!IpcTransportKindCodec.TryParse(manifest.EndpointTransportKind, out _))
+        if (!ContractLiteralCodec.IsDefined<IpcTransportKind>(manifest.EndpointTransportKind))
         {
             throw new InvalidDataException(
                 $"Supervisor manifest endpointTransportKind is invalid: {manifest.EndpointTransportKind}. {manifestPath}");

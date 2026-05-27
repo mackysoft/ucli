@@ -2,6 +2,8 @@ using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 using MackySoft.Ucli.Application.Shared.Execution.OperationMetadata;
 using MackySoft.Ucli.Contracts.Configuration;
 
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
 
 /// <summary> Creates <c>ops list</c> read snapshots from validated operation-catalog data. </summary>
@@ -54,7 +56,7 @@ internal static class OpsCatalogListSnapshotFactory
 
     private static UcliOperationKind ParseKind (string? value)
     {
-        if (!UcliOperationKindCodec.TryParse(value, out var kind))
+        if (!ContractLiteralInputParser.TryParseIgnoreCase<UcliOperationKind>(value, out var kind))
         {
             throw new InvalidOperationException($"Operation kind is invalid: {value}");
         }
@@ -64,7 +66,7 @@ internal static class OpsCatalogListSnapshotFactory
 
     private static OperationPolicy ParsePolicy (string? value)
     {
-        if (!OperationPolicyCodec.TryParse(value, out var policy))
+        if (!ContractLiteralInputParser.TryParseIgnoreCase<OperationPolicy>(value, out var policy))
         {
             throw new InvalidOperationException($"Operation policy is invalid: {value}");
         }

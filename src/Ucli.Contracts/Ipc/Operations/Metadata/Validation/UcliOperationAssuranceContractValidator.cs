@@ -1,6 +1,8 @@
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Operations;
 
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Validates operation assurance metadata and derives operation policy. </summary>
@@ -8,9 +10,9 @@ internal static class UcliOperationAssuranceContractValidator
 {
     private static readonly HashSet<string> SupportedPlanModes = new(StringComparer.Ordinal)
     {
-        UcliOperationPlanModeValues.ValidationOnly,
-        UcliOperationPlanModeValues.ObservesLiveUnity,
-        UcliOperationPlanModeValues.MayCreatePreviewState,
+        ContractLiteralCodec.ToValue(UcliOperationPlanMode.ValidationOnly),
+        ContractLiteralCodec.ToValue(UcliOperationPlanMode.ObservesLiveUnity),
+        ContractLiteralCodec.ToValue(UcliOperationPlanMode.MayCreatePreviewState),
     };
 
     private static readonly HashSet<string> SupportedTouchedKinds = new(StringComparer.Ordinal)
@@ -75,9 +77,9 @@ internal static class UcliOperationAssuranceContractValidator
         out string errorMessage)
     {
         if (!allowMayCreatePreviewState
-            && string.Equals(assurance.PlanMode, UcliOperationPlanModeValues.MayCreatePreviewState, StringComparison.Ordinal))
+            && string.Equals(assurance.PlanMode, ContractLiteralCodec.ToValue(UcliOperationPlanMode.MayCreatePreviewState), StringComparison.Ordinal))
         {
-            errorMessage = $"{ownerName} public raw assurance metadata must not use planMode '{UcliOperationPlanModeValues.MayCreatePreviewState}'.";
+            errorMessage = $"{ownerName} public raw assurance metadata must not use planMode '{ContractLiteralCodec.ToValue(UcliOperationPlanMode.MayCreatePreviewState)}'.";
             return false;
         }
 
@@ -190,7 +192,7 @@ internal static class UcliOperationAssuranceContractValidator
         string ownerName,
         out string errorMessage)
     {
-        if (!UcliOperationKindCodec.TryParse(operationKind, out var parsedKind))
+        if (!ContractLiteralInputParser.TryParseIgnoreCase<UcliOperationKind>(operationKind, out var parsedKind))
         {
             errorMessage = $"{ownerName} has unsupported operation kind metadata.";
             return false;
@@ -227,13 +229,13 @@ internal static class UcliOperationAssuranceContractValidator
         string ownerName,
         out string errorMessage)
     {
-        if (codeContract == null || Contains(assurance.SideEffects!, UcliOperationSideEffectValues.ArbitrarySourceExecution))
+        if (codeContract == null || Contains(assurance.SideEffects!, ContractLiteralCodec.ToValue(UcliOperationSideEffect.ArbitrarySourceExecution)))
         {
             errorMessage = string.Empty;
             return true;
         }
 
-        errorMessage = $"{ownerName} codeContract requires assurance.sideEffects to include '{UcliOperationSideEffectValues.ArbitrarySourceExecution}'.";
+        errorMessage = $"{ownerName} codeContract requires assurance.sideEffects to include '{ContractLiteralCodec.ToValue(UcliOperationSideEffect.ArbitrarySourceExecution)}'.";
         return false;
     }
 
@@ -275,7 +277,7 @@ internal static class UcliOperationAssuranceContractValidator
         string ownerName,
         out string errorMessage)
     {
-        if (!OperationPolicyCodec.TryParse(operationPolicy, out var parsedPolicy))
+        if (!ContractLiteralInputParser.TryParseIgnoreCase<OperationPolicy>(operationPolicy, out var parsedPolicy))
         {
             errorMessage = $"{ownerName} has unsupported operation policy metadata.";
             return false;
@@ -287,7 +289,7 @@ internal static class UcliOperationAssuranceContractValidator
             return true;
         }
 
-        errorMessage = $"{ownerName} policy '{operationPolicy}' does not match derived policy '{OperationPolicyCodec.ToValue(derivedPolicy)}'.";
+        errorMessage = $"{ownerName} policy '{operationPolicy}' does not match derived policy '{ContractLiteralCodec.ToValue(derivedPolicy)}'.";
         return false;
     }
 

@@ -1,6 +1,8 @@
 using System.Diagnostics.CodeAnalysis;
 using MackySoft.Ucli.Contracts.Configuration;
 
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Contracts.Operations;
 
 /// <summary> Defines the closed descriptor vocabulary for operation side-effect literals. </summary>
@@ -206,7 +208,7 @@ public static class UcliOperationSideEffectDescriptors
 
         for (var i = 0; i < sideEffects.Count; i++)
         {
-            if (!TryGetDescriptor(UcliOperationSideEffectCodec.ToValue(sideEffects[i]), out var descriptor))
+            if (!TryGetDescriptor(ContractLiteralCodec.ToValue(sideEffects[i]), out var descriptor))
             {
                 mayDirty = false;
                 mayPersist = false;

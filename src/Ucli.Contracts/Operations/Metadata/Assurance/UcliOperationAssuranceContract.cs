@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Contracts.Operations;
 
 /// <summary> Describes machine-readable assurance metadata for one primitive operation. </summary>
@@ -64,7 +66,7 @@ public sealed class UcliOperationAssuranceContract
         : this(
             ConvertSideEffects(sideEffects),
             touchedKinds,
-            UcliOperationPlanModeCodec.ToValue(planMode),
+            ContractLiteralCodec.ToValue(planMode),
             planSemantics,
             callSemantics,
             touchedContract,
@@ -117,7 +119,7 @@ public sealed class UcliOperationAssuranceContract
         var values = new string[sideEffects.Count];
         for (var i = 0; i < sideEffects.Count; i++)
         {
-            values[i] = UcliOperationSideEffectCodec.ToValue(sideEffects[i]);
+            values[i] = ContractLiteralCodec.ToValue(sideEffects[i]);
         }
 
         return values;

@@ -47,8 +47,8 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(payload.DomainReloadGeneration, Is.EqualTo("1"));
             Assert.That(payload.CanAcceptExecutionRequests, Is.True);
             Assert.That(payload.PlayMode, Is.Not.Null);
-            Assert.That(payload.PlayMode!.State, Is.EqualTo(IpcPlayModeStateNames.Stopped));
-            Assert.That(payload.PlayMode.Transition, Is.EqualTo(IpcPlayModeTransitionNames.None));
+            Assert.That(payload.PlayMode!.State, Is.EqualTo("stopped"));
+            Assert.That(payload.PlayMode.Transition, Is.EqualTo("none"));
             Assert.That(payload.PlayMode.IsPlaying, Is.False);
             Assert.That(payload.PlayMode.IsPlayingOrWillChangePlaymode, Is.False);
         });
@@ -81,7 +81,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
             Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcPingResponse payload, out _), Is.True);
-            Assert.That(payload.EditorMode, Is.EqualTo(DaemonEditorModeValues.Gui));
+            Assert.That(payload.EditorMode, Is.EqualTo("gui"));
             Assert.That(payload.ProjectFingerprint, Is.EqualTo("project-fingerprint"));
         });
 
@@ -149,8 +149,8 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(payload.BlockingReason, Is.EqualTo(IpcEditorBlockingReasonCodec.PlayMode));
             Assert.That(payload.CanAcceptExecutionRequests, Is.False);
             Assert.That(payload.PlayMode, Is.Not.Null);
-            Assert.That(payload.PlayMode!.State, Is.EqualTo(IpcPlayModeStateNames.Playing));
-            Assert.That(payload.PlayMode.Transition, Is.EqualTo(IpcPlayModeTransitionNames.None));
+            Assert.That(payload.PlayMode!.State, Is.EqualTo("playing"));
+            Assert.That(payload.PlayMode.Transition, Is.EqualTo("none"));
             Assert.That(payload.PlayMode.IsPlaying, Is.True);
             Assert.That(payload.PlayMode.IsPlayingOrWillChangePlaymode, Is.True);
         });
@@ -174,13 +174,13 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(readinessGate.CallCount, Is.EqualTo(0));
             Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcPlayStatusResponse payload, out _), Is.True);
             Assert.That(payload.Snapshot.ServerVersion, Is.EqualTo("1.2.3"));
-            Assert.That(payload.Snapshot.EditorMode, Is.EqualTo(DaemonEditorModeValues.Gui));
+            Assert.That(payload.Snapshot.EditorMode, Is.EqualTo("gui"));
             Assert.That(payload.Snapshot.UnityVersion, Is.EqualTo("6000.1.4f1"));
             Assert.That(payload.Snapshot.ProjectFingerprint, Is.EqualTo("project-fingerprint"));
             Assert.That(payload.Snapshot.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.Ready));
             Assert.That(payload.Snapshot.CompileState, Is.EqualTo(IpcCompileStateCodec.Ready));
             Assert.That(payload.Snapshot.PlayMode, Is.Not.Null);
-            Assert.That(payload.Snapshot.PlayMode!.State, Is.EqualTo(IpcPlayModeStateNames.Stopped));
+            Assert.That(payload.Snapshot.PlayMode!.State, Is.EqualTo("stopped"));
         });
 
         [UnityTest]
@@ -276,7 +276,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcOpsReadResponse payload, out _), Is.True);
             Assert.That(payload.Operations.Select(static operation => operation.Name), Does.Contain(UcliPrimitiveOperationNames.AssetSave));
             var assetSave = payload.Operations.Single(static operation => operation.Name == UcliPrimitiveOperationNames.AssetSave);
-            Assert.That(assetSave.Exposure, Is.EqualTo(UcliOperationExposureValues.EditLoweringOnly));
+            Assert.That(assetSave.Exposure, Is.EqualTo("editLoweringOnly"));
         });
 
         [UnityTest]
@@ -1477,7 +1477,7 @@ namespace MackySoft.Ucli.Unity.Tests
                                 Kind: "mutation",
                                 Policy: "advanced",
                                 ArgsSchemaJson: "{\"type\":\"object\"}",
-                                Exposure: UcliOperationExposureValues.EditLoweringOnly),
+                                Exposure: "editLoweringOnly"),
                         })),
                 readinessGate);
         }

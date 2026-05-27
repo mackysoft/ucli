@@ -1,8 +1,10 @@
 using MackySoft.Ucli.Contracts.Configuration;
 
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Contracts.Tests.Configuration;
 
-public sealed class OperationExposureCodecContractTests
+public sealed class OperationExposureContractLiteralTests
 {
     [Fact]
     [Trait("Size", "Small")]
@@ -14,10 +16,10 @@ public sealed class OperationExposureCodecContractTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void UcliOperationExposureCodec_ToValue_ReturnsStableLiterals ()
+    public void UcliOperationExposureContractLiteral_ToValue_ReturnsStableLiterals ()
     {
-        Assert.Equal(UcliOperationExposureValues.Public, UcliOperationExposureCodec.ToValue(UcliOperationExposure.Public));
-        Assert.Equal(UcliOperationExposureValues.EditLoweringOnly, UcliOperationExposureCodec.ToValue(UcliOperationExposure.EditLoweringOnly));
+        Assert.Equal("public", ContractLiteralCodec.ToValue(UcliOperationExposure.Public));
+        Assert.Equal("editLoweringOnly", ContractLiteralCodec.ToValue(UcliOperationExposure.EditLoweringOnly));
     }
 
     [Theory]
@@ -25,11 +27,11 @@ public sealed class OperationExposureCodecContractTests
     [InlineData("public", UcliOperationExposure.Public)]
     [InlineData("PUBLIC", UcliOperationExposure.Public)]
     [InlineData("editLoweringOnly", UcliOperationExposure.EditLoweringOnly)]
-    public void UcliOperationExposureCodec_TryParse_ParsesCaseInsensitiveLiterals (
+    public void UcliOperationExposureContractLiteral_TryParse_ParsesCaseInsensitiveLiterals (
         string value,
         UcliOperationExposure expected)
     {
-        var result = UcliOperationExposureCodec.TryParse(value, out var parsed);
+        var result = ContractLiteralInputParser.TryParseIgnoreCase<UcliOperationExposure>(value, out var parsed);
 
         Assert.True(result);
         Assert.Equal(expected, parsed);
@@ -40,16 +42,16 @@ public sealed class OperationExposureCodecContractTests
     [InlineData("")]
     [InlineData(" ")]
     [InlineData("unsupported")]
-    public void UcliOperationExposureCodec_TryParse_UnknownValue_ReturnsFalse (
+    public void UcliOperationExposureContractLiteral_TryParse_UnknownValue_ReturnsFalse (
         string value)
     {
-        Assert.False(UcliOperationExposureCodec.TryParse(value, out _));
+        Assert.False(ContractLiteralInputParser.IsDefinedIgnoreCase<UcliOperationExposure>(value));
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void UcliOperationExposureCodec_TryParse_Null_ReturnsFalse ()
+    public void UcliOperationExposureContractLiteral_TryParse_Null_ReturnsFalse ()
     {
-        Assert.False(UcliOperationExposureCodec.TryParse(null, out _));
+        Assert.False(ContractLiteralInputParser.IsDefinedIgnoreCase<UcliOperationExposure>(null));
     }
 }

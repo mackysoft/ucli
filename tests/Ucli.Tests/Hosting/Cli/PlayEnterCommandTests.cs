@@ -83,8 +83,8 @@ public sealed class PlayEnterCommandTests
             .HasString("blockingReason", IpcEditorBlockingReasonCodec.PlayMode)
             .HasBoolean("canAcceptExecutionRequests", false)
             .HasProperty("playMode", playMode => playMode
-                .HasString("state", IpcPlayModeStateNames.Playing)
-                .HasString("transition", IpcPlayModeTransitionNames.None)
+                .HasString("state", "playing")
+                .HasString("transition", "none")
                 .HasBoolean("isPlaying", true)
                 .HasBoolean("isPlayingOrWillChangePlaymode", true)
                 .HasString("generation", "3"))
@@ -175,12 +175,12 @@ public sealed class PlayEnterCommandTests
             IpcEditorLifecycleStateCodec.Ready,
             null,
             true,
-            CreatePlayMode(IpcPlayModeStateNames.Stopped, IpcPlayModeTransitionNames.None, false, false, "2"));
+            CreatePlayMode("stopped", "none", false, false, "2"));
         var current = CreateSnapshot(
             IpcEditorLifecycleStateCodec.Playmode,
             IpcEditorBlockingReasonCodec.PlayMode,
             false,
-            CreatePlayMode(IpcPlayModeStateNames.Playing, IpcPlayModeTransitionNames.None, true, true, "3"));
+            CreatePlayMode("playing", "none", true, true, "3"));
         var transition = new PlayEnterTransitionOutput(
             Transition: IpcPlayTransitionCommandNames.Enter,
             Result: result,
@@ -222,8 +222,8 @@ public sealed class PlayEnterCommandTests
             ActionRequired: null,
             PrimaryDiagnostic: null,
             PlayMode: new PlayModeSnapshotOutput(
-                State: IpcPlayModeStateNames.Playing,
-                Transition: IpcPlayModeTransitionNames.None,
+                State: "playing",
+                Transition: "none",
                 IsPlaying: true,
                 IsPlayingOrWillChangePlaymode: true,
                 Generation: "3"),
@@ -263,7 +263,7 @@ public sealed class PlayEnterCommandTests
     {
         return new IpcPlayLifecycleSnapshot(
             ServerVersion: "0.5.0",
-            EditorMode: DaemonEditorModeValues.Gui,
+            EditorMode: "gui",
             UnityVersion: "6000.1.4f1",
             ProjectFingerprint: "project-fingerprint",
             LifecycleState: lifecycleState,

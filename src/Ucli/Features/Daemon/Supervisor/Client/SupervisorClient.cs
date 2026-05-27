@@ -5,6 +5,7 @@ using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Execution;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
@@ -72,7 +73,7 @@ internal sealed class SupervisorClient
     {
         ArgumentNullException.ThrowIfNull(manifest);
 
-        if (!IpcTransportKindCodec.TryParse(manifest.EndpointTransportKind, out var transportKind))
+        if (!ContractLiteralCodec.TryParse<IpcTransportKind>(manifest.EndpointTransportKind, out var transportKind))
         {
             return true;
         }
@@ -116,9 +117,9 @@ internal sealed class SupervisorClient
                     ProjectFingerprint: unityProject.ProjectFingerprint,
                     TimeoutMilliseconds: checked((int)timeout.TotalMilliseconds),
                     EditorMode: editorMode.HasValue
-                        ? DaemonEditorModeCodec.ToValue(editorMode.Value)
+                        ? ContractLiteralCodec.ToValue(editorMode.Value)
                         : null,
-                    OnStartupBlocked: DaemonStartupBlockedProcessPolicyCodec.ToValue(onStartupBlocked)));
+                    OnStartupBlocked: ContractLiteralCodec.ToValue(onStartupBlocked)));
             var response = await SendWithUnboundedResponseWaitAsync(manifest, request, timeout, cancellationToken).ConfigureAwait(false);
             if (IpcResponseFailureReader.TryRead(response, out var firstError, out var status))
             {
@@ -139,17 +140,17 @@ internal sealed class SupervisorClient
                     $"Supervisor ensureRunning response payload is invalid. {payloadError.Message}"));
             }
 
-            if (string.Equals(payload.StartStatus, DaemonStartStateCodec.Started, StringComparison.Ordinal))
+            if (string.Equals(payload.StartStatus, ContractLiteralCodec.ToValue(DaemonStartStatus.Started), StringComparison.Ordinal))
             {
                 return DaemonStartResult.Started(payload.Session, payload.LifecycleSnapshot);
             }
 
-            if (string.Equals(payload.StartStatus, DaemonStartStateCodec.AlreadyRunning, StringComparison.Ordinal))
+            if (string.Equals(payload.StartStatus, ContractLiteralCodec.ToValue(DaemonStartStatus.AlreadyRunning), StringComparison.Ordinal))
             {
                 return DaemonStartResult.AlreadyRunning(payload.Session, payload.LifecycleSnapshot);
             }
 
-            if (string.Equals(payload.StartStatus, DaemonStartStateCodec.Attached, StringComparison.Ordinal))
+            if (string.Equals(payload.StartStatus, ContractLiteralCodec.ToValue(DaemonStartStatus.Attached), StringComparison.Ordinal))
             {
                 return DaemonStartResult.Attached(payload.Session, payload.LifecycleSnapshot);
             }
@@ -214,12 +215,12 @@ internal sealed class SupervisorClient
                     $"Supervisor stopProject response payload is invalid. {payloadError.Message}"));
             }
 
-            if (string.Equals(payload.StopStatus, DaemonStopStateCodec.Stopped, StringComparison.Ordinal))
+            if (string.Equals(payload.StopStatus, ContractLiteralCodec.ToValue(DaemonStopStatus.Stopped), StringComparison.Ordinal))
             {
                 return DaemonStopResult.Stopped();
             }
 
-            if (string.Equals(payload.StopStatus, DaemonStopStateCodec.NotRunning, StringComparison.Ordinal))
+            if (string.Equals(payload.StopStatus, ContractLiteralCodec.ToValue(DaemonStopStatus.NotRunning), StringComparison.Ordinal))
             {
                 return DaemonStopResult.NotRunning();
             }
@@ -278,7 +279,7 @@ internal sealed class SupervisorClient
 
     private static IpcEndpoint ResolveEndpoint (SupervisorInstanceManifest manifest)
     {
-        if (!IpcTransportKindCodec.TryParse(manifest.EndpointTransportKind, out var transportKind))
+        if (!ContractLiteralCodec.TryParse<IpcTransportKind>(manifest.EndpointTransportKind, out var transportKind))
         {
             throw new InvalidOperationException(
                 $"Supervisor manifest endpointTransportKind is invalid: {manifest.EndpointTransportKind}.");
@@ -327,7 +328,7 @@ internal sealed class SupervisorClient
 
     private static DaemonStatusKind ResolveDaemonStatus (string? daemonStatus)
     {
-        return string.Equals(daemonStatus, DaemonStatusStateCodec.Stale, StringComparison.Ordinal)
+        return string.Equals(daemonStatus, ContractLiteralCodec.ToValue(DaemonStatusKind.Stale), StringComparison.Ordinal)
             ? DaemonStatusKind.Stale
             : DaemonStatusKind.NotRunning;
     }
