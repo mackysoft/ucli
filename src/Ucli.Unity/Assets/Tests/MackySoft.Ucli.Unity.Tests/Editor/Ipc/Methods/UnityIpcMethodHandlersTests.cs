@@ -322,7 +322,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator TestRunHandler_WhenServiceSucceeds_ReturnsOkResponse () => UniTask.ToCoroutine(async () =>
         {
             var service = new StubUnityTestRunService(request => Task.FromResult(UnityTestRunServiceResult.Success(new IpcTestRunResponse(2))));
-            var handler = new TestRunUnityIpcMethodHandler(service);
+            var handler = CreateTestRunHandler(service);
             var request = CreateTestRunRequest(
                 "req-test-run-success",
                 CreateValidTestRunPayload(failFast: true));
@@ -367,7 +367,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         null));
                 return Task.FromResult(UnityTestRunServiceResult.Success(new IpcTestRunResponse(0)));
             });
-            var handler = new TestRunUnityIpcMethodHandler(service);
+            var handler = CreateTestRunHandler(service);
             var streamWriter = new CollectingUnityIpcStreamFrameWriter("req-test-run-stream");
             var request = CreateTestRunRequest(
                 "req-test-run-stream",
@@ -406,7 +406,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         Array.Empty<string>()));
                 return Task.FromResult(UnityTestRunServiceResult.Success(new IpcTestRunResponse(0)));
             });
-            var handler = new TestRunUnityIpcMethodHandler(service);
+            var handler = CreateTestRunHandler(service);
             var streamWriter = new CollectingUnityIpcStreamFrameWriter(
                 "req-test-run-stream-flush-error",
                 new IOException("progress write failed"));
@@ -427,39 +427,53 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator TestRunHandler_WhenRequestTimeoutElapses_ReturnsIpcTimeoutAndCancelsService () => UniTask.ToCoroutine(async () =>
         {
-            var serviceObservedCancellation = false;
+            var timeoutScopeFactory = new ManualIpcRequestTimeoutScopeFactory();
+            var serviceAwaitReadySource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var serviceCancellationObservedSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             var service = new StubUnityTestRunService(async (request, _, cancellationToken) =>
             {
                 try
                 {
+                    serviceAwaitReadySource.TrySetResult(true);
                     await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
-                    serviceObservedCancellation = true;
+                    serviceCancellationObservedSource.TrySetResult(true);
                     throw;
                 }
 
                 return UnityTestRunServiceResult.Success(new IpcTestRunResponse(0));
             });
-            var handler = new TestRunUnityIpcMethodHandler(service);
+            var handler = CreateTestRunHandler(service, timeoutScopeFactory);
             var request = CreateTestRunRequest(
                 "req-test-run-timeout",
-                CreateValidTestRunPayload(timeoutMilliseconds: 1));
+                CreateValidTestRunPayload(timeoutMilliseconds: 1000));
 
-            var response = await handler.HandleAsync(request, CancellationToken.None);
+            var responseTask = handler.HandleAsync(request, CancellationToken.None).AsTask();
+            await TestAwaiter.WaitAsync(
+                serviceAwaitReadySource.Task,
+                "test-run service await point",
+                SignalWaitTimeout);
+
+            Assert.That(responseTask.IsCompleted, Is.False);
+
+            timeoutScopeFactory.LastScope.CancelForTimeout();
+            await TestAwaiter.WaitAsync(serviceCancellationObservedSource.Task, "test-run request timeout cancellation", SignalWaitTimeout);
+
+            var response = await TestAwaiter.WaitAsync(responseTask, "test-run timeout response", SignalWaitTimeout);
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
             Assert.That(response.Errors[0].Code, Is.EqualTo(IpcTransportErrorCodes.IpcTimeout));
-            Assert.That(serviceObservedCancellation, Is.True);
         });
 
         [UnityTest]
         [Category("Size.Small")]
         public IEnumerator TestRunHandler_WhenStreamingRequestTimeoutElapsesWithPendingProgress_WaitsForFrameAndReturnsIpcTimeout () => UniTask.ToCoroutine(async () =>
         {
-            var serviceObservedCancellation = false;
+            var timeoutScopeFactory = new ManualIpcRequestTimeoutScopeFactory();
+            var serviceAwaitReadySource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             var serviceCancellationObservedSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             var service = new StubUnityTestRunService(async (request, progressSink, cancellationToken) =>
             {
@@ -475,25 +489,30 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 try
                 {
+                    serviceAwaitReadySource.TrySetResult(true);
                     await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
-                    serviceObservedCancellation = true;
                     serviceCancellationObservedSource.TrySetResult(true);
                     throw;
                 }
 
                 return UnityTestRunServiceResult.Success(new IpcTestRunResponse(0));
             });
-            var handler = new TestRunUnityIpcMethodHandler(service);
+            var handler = CreateTestRunHandler(service, timeoutScopeFactory);
             var streamWriter = new BlockingUnityIpcStreamFrameWriter("req-test-run-stream-timeout");
             var request = CreateTestRunRequest(
                 "req-test-run-stream-timeout",
-                CreateValidTestRunPayload(timeoutMilliseconds: 10));
+                CreateValidTestRunPayload(timeoutMilliseconds: 1000));
 
             var responseTask = handler.HandleStreamingAsync(request, streamWriter, CancellationToken.None).AsTask();
             await TestAwaiter.WaitAsync(streamWriter.FirstWriteObserved, "first blocked progress write", SignalWaitTimeout);
+            await TestAwaiter.WaitAsync(
+                serviceAwaitReadySource.Task,
+                "streaming test-run service await point",
+                SignalWaitTimeout);
+            timeoutScopeFactory.LastScope.CancelForTimeout();
             await TestAwaiter.WaitAsync(serviceCancellationObservedSource.Task, "streaming test-run request timeout", SignalWaitTimeout);
 
             Assert.That(responseTask.IsCompleted, Is.False);
@@ -506,7 +525,6 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
             Assert.That(response.Errors[0].Code, Is.EqualTo(IpcTransportErrorCodes.IpcTimeout));
-            Assert.That(serviceObservedCancellation, Is.True);
             Assert.That(streamWriter.ProgressFrames.Count, Is.EqualTo(1));
         });
 
@@ -556,7 +574,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var service = new StubUnityTestRunService(_ => Task.FromResult(UnityTestRunServiceResult.Failure(
                 new IpcError(EditorLifecycleErrorCodes.EditorBusy, "Unity editor is busy with internal work.", null))));
-            var handler = new TestRunUnityIpcMethodHandler(service);
+            var handler = CreateTestRunHandler(service);
             var request = CreateTestRunRequest(
                 "req-test-run-lifecycle-error",
                 CreateValidTestRunPayload());
@@ -574,7 +592,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator TestRunHandler_WhenServiceThrowsArgumentException_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
             var service = new StubUnityTestRunService(_ => throw new ArgumentException("invalid"));
-            var handler = new TestRunUnityIpcMethodHandler(service);
+            var handler = CreateTestRunHandler(service);
             var request = CreateTestRunRequest(
                 "req-test-run-invalid-argument",
                 CreateValidTestRunPayload());
@@ -591,7 +609,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator TestRunHandler_WhenServiceThrowsUnexpectedException_ReturnsInternalError () => UniTask.ToCoroutine(async () =>
         {
             var service = new StubUnityTestRunService(_ => throw new InvalidOperationException("test-run-failed"));
-            var handler = new TestRunUnityIpcMethodHandler(service);
+            var handler = CreateTestRunHandler(service);
             var request = CreateTestRunRequest(
                 "req-test-run-internal-error",
                 CreateValidTestRunPayload());
@@ -608,7 +626,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator TestRunHandler_WhenPayloadIsInvalid_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
-            var handler = new TestRunUnityIpcMethodHandler(
+            var handler = CreateTestRunHandler(
                 new StubUnityTestRunService(request => Task.FromResult(UnityTestRunServiceResult.Success(new IpcTestRunResponse(0)))));
             var request = CreateTestRunRequest("req-test-run-invalid-payload", 123);
 
@@ -1464,6 +1482,15 @@ namespace MackySoft.Ucli.Unity.Tests
                 readinessGate);
         }
 
+        private static TestRunUnityIpcMethodHandler CreateTestRunHandler (
+            IUnityTestRunService testRunService,
+            IIpcRequestTimeoutScopeFactory timeoutScopeFactory = null)
+        {
+            return new TestRunUnityIpcMethodHandler(
+                testRunService,
+                timeoutScopeFactory ?? new IpcRequestTimeoutScopeFactory());
+        }
+
         private static UnityLogsReadUnityIpcMethodHandler CreateUnityLogsReadHandler (IUnityLogStream stream)
         {
             return new UnityLogsReadUnityIpcMethodHandler(
@@ -1615,6 +1642,63 @@ namespace MackySoft.Ucli.Unity.Tests
                 LastRequest = request;
                 LastProgressSink = progressSink;
                 return execute(request, progressSink, cancellationToken);
+            }
+        }
+
+        private sealed class ManualIpcRequestTimeoutScopeFactory : IIpcRequestTimeoutScopeFactory
+        {
+            public ManualIpcRequestTimeoutScope LastScope { get; private set; }
+
+            public IIpcRequestTimeoutScope CreateLinked (
+                int? timeoutMilliseconds,
+                CancellationToken cancellationToken)
+            {
+                LastScope = new ManualIpcRequestTimeoutScope(cancellationToken);
+                return LastScope;
+            }
+        }
+
+        private sealed class ManualIpcRequestTimeoutScope : IIpcRequestTimeoutScope
+        {
+            private readonly CancellationTokenSource cancellationTokenSource;
+            private readonly CancellationTokenRegistration callerCancellationRegistration;
+
+            private bool disposed;
+            private bool isTimeoutCancellationRequested;
+
+            public ManualIpcRequestTimeoutScope (CancellationToken cancellationToken)
+            {
+                cancellationTokenSource = new CancellationTokenSource();
+                callerCancellationRegistration = cancellationToken.Register(
+                    static state => ((CancellationTokenSource)state).Cancel(),
+                    cancellationTokenSource);
+            }
+
+            public CancellationToken Token => cancellationTokenSource.Token;
+
+            public bool IsTimeoutCancellationRequested => isTimeoutCancellationRequested;
+
+            public void CancelForTimeout ()
+            {
+                if (disposed)
+                {
+                    throw new ObjectDisposedException(nameof(ManualIpcRequestTimeoutScope));
+                }
+
+                isTimeoutCancellationRequested = true;
+                cancellationTokenSource.Cancel();
+            }
+
+            public void Dispose ()
+            {
+                if (disposed)
+                {
+                    return;
+                }
+
+                callerCancellationRegistration.Dispose();
+                cancellationTokenSource.Dispose();
+                disposed = true;
             }
         }
 

@@ -10,12 +10,17 @@ namespace MackySoft.Ucli.Unity.Ipc
     internal sealed class TestRunUnityIpcMethodHandler : IStreamingUnityIpcMethodHandler
     {
         private readonly IUnityTestRunService testRunService;
+        private readonly IIpcRequestTimeoutScopeFactory timeoutScopeFactory;
 
         /// <summary> Initializes a new instance of the <see cref="TestRunUnityIpcMethodHandler" /> class. </summary>
         /// <param name="testRunService"> The test-run service dependency. </param>
-        public TestRunUnityIpcMethodHandler (IUnityTestRunService testRunService)
+        /// <param name="timeoutScopeFactory"> The request timeout scope factory. </param>
+        public TestRunUnityIpcMethodHandler (
+            IUnityTestRunService testRunService,
+            IIpcRequestTimeoutScopeFactory timeoutScopeFactory)
         {
             this.testRunService = testRunService ?? throw new ArgumentNullException(nameof(testRunService));
+            this.timeoutScopeFactory = timeoutScopeFactory ?? throw new ArgumentNullException(nameof(timeoutScopeFactory));
         }
 
         /// <inheritdoc />
@@ -91,7 +96,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         {
             IpcResponse response;
             IUnityTestRunProgressSink progressSink = null;
-            CancellationTokenSource requestTimeoutCancellationTokenSource = null;
+            IIpcRequestTimeoutScope requestTimeoutScope = null;
             try
             {
                 if (!TryValidateTimeoutMilliseconds(testRunRequest.TimeoutMilliseconds, out var timeoutErrorMessage))
@@ -104,12 +109,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                     return response;
                 }
 
-                requestTimeoutCancellationTokenSource = CreateRequestTimeoutCancellationTokenSource(
+                requestTimeoutScope = timeoutScopeFactory.CreateLinked(
                     testRunRequest.TimeoutMilliseconds,
                     cancellationToken);
-                var executionCancellationToken = requestTimeoutCancellationTokenSource != null
-                    ? requestTimeoutCancellationTokenSource.Token
-                    : cancellationToken;
+                var executionCancellationToken = requestTimeoutScope.Token;
                 progressSink = progressSinkFactory?.Invoke(executionCancellationToken);
                 var result = await testRunService.ExecuteAsync(
                     testRunRequest,
@@ -131,7 +134,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return await FlushAndReturnAsync(request, response, progressSink, cancellationToken);
             }
             catch (OperationCanceledException) when (IsRequestTimeout(
-                requestTimeoutCancellationTokenSource,
+                requestTimeoutScope,
                 cancellationToken))
             {
                 response = UnityIpcResponseFactory.CreateErrorResponse(
@@ -165,7 +168,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
             finally
             {
-                requestTimeoutCancellationTokenSource?.Dispose();
+                requestTimeoutScope?.Dispose();
             }
         }
 
@@ -212,26 +215,12 @@ namespace MackySoft.Ucli.Unity.Ipc
             return false;
         }
 
-        private static CancellationTokenSource CreateRequestTimeoutCancellationTokenSource (
-            int? timeoutMilliseconds,
-            CancellationToken cancellationToken)
-        {
-            if (!timeoutMilliseconds.HasValue)
-            {
-                return null;
-            }
-
-            var cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            cancellationTokenSource.CancelAfter(timeoutMilliseconds.Value);
-            return cancellationTokenSource;
-        }
-
         private static bool IsRequestTimeout (
-            CancellationTokenSource requestTimeoutCancellationTokenSource,
+            IIpcRequestTimeoutScope requestTimeoutScope,
             CancellationToken callerCancellationToken)
         {
-            return requestTimeoutCancellationTokenSource != null
-                && requestTimeoutCancellationTokenSource.IsCancellationRequested
+            return requestTimeoutScope != null
+                && requestTimeoutScope.IsTimeoutCancellationRequested
                 && !callerCancellationToken.IsCancellationRequested;
         }
     }
