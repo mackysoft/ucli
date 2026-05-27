@@ -165,10 +165,44 @@ public sealed class ReadyServiceTests
         Assert.Null(output.Lifecycle);
         Assert.NotNull(output.ReadIndex);
         Assert.Equal(ReadIndexModeValues.AllowStale, output.ReadIndex.Mode);
-        Assert.Equal(6, output.ReadIndex.Artifacts.Count);
+        Assert.Equal(
+            ["ops.catalog", "asset-search.lookup", "guid-path.lookup"],
+            output.ReadIndex.Artifacts.Select(static artifact => artifact.Name));
+        Assert.All(output.ReadIndex.Artifacts, static artifact => Assert.True(artifact.Required));
         var claim = Assert.Single(output.Claims);
         Assert.Equal(ReadyValidityKindValues.ProbeOnly, claim.Validity.Kind);
         Assert.False(claim.Validity.GuaranteesReusableSession);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithReadIndexTarget_WhenRequiredArtifactIsMissing_ReturnsFailedClaimWithActionRequired ()
+    {
+        var service = CreateService(
+            readIndexArtifactReader: new SuccessfulReadIndexArtifactReader(missingArtifactName: "asset-search.lookup"));
+
+        var result = await service.ExecuteAsync(new ReadyCommandInput(
+            ProjectPath: null,
+            Target: ReadyTarget.ReadIndex,
+            Mode: null,
+            TimeoutMilliseconds: 10000,
+            ReadIndexMode: ReadIndexMode.RequireFresh,
+            IsReadIndexModeSpecified: true,
+            FailFast: false));
+
+        Assert.True(result.IsSuccess);
+        var output = Assert.IsType<ReadyExecutionOutput>(result.Output);
+        Assert.Equal(ReadyVerdictValues.Fail, output.Verdict);
+        var claim = Assert.Single(output.Claims);
+        Assert.Equal(ReadyClaimStatusValues.Failed, claim.Status);
+
+        var artifact = Assert.Single(
+            output.ReadIndex!.Artifacts,
+            static artifact => string.Equals(artifact.Name, "asset-search.lookup", StringComparison.Ordinal));
+        Assert.True(artifact.Required);
+        Assert.Equal(ReadyReadIndexArtifactStatusValues.Failed, artifact.Status);
+        Assert.Equal(ReadIndexErrorCodes.ReadIndexBootstrapFailed.Value, artifact.Code);
+        Assert.Contains("query assets find", artifact.ActionRequired, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -692,10 +726,22 @@ public sealed class ReadyServiceTests
     {
         private static readonly DateTimeOffset GeneratedAtUtc = DateTimeOffset.Parse("2026-05-17T00:00:00Z");
 
+        private readonly string? missingArtifactName;
+
+        public SuccessfulReadIndexArtifactReader (string? missingArtifactName = null)
+        {
+            this.missingArtifactName = missingArtifactName;
+        }
+
         public ValueTask<ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract>> ReadOpsCatalogAsync (
             ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {
+            if (IsMissing("ops.catalog"))
+            {
+                return Missing<IndexOpsCatalogJsonContract>("ops.catalog.json");
+            }
+
             return Success(new IndexOpsCatalogJsonContract(1, GeneratedAtUtc, "source-hash", []));
         }
 
@@ -712,20 +758,25 @@ public sealed class ReadyServiceTests
             ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {
-            return Success(new IndexTypesCatalogJsonContract(1, GeneratedAtUtc, "source-hash", []));
+            throw new NotSupportedException("types.catalog is not part of readIndex readiness.");
         }
 
         public ValueTask<ReadIndexArtifactReadResult<IndexSchemasCatalogJsonContract>> ReadSchemasCatalogAsync (
             ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {
-            return Success(new IndexSchemasCatalogJsonContract(1, GeneratedAtUtc, "source-hash", []));
+            throw new NotSupportedException("schemas.catalog is not part of readIndex readiness.");
         }
 
         public ValueTask<ReadIndexArtifactReadResult<IndexAssetSearchLookupJsonContract>> ReadAssetSearchLookupAsync (
             ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {
+            if (IsMissing("asset-search.lookup"))
+            {
+                return Missing<IndexAssetSearchLookupJsonContract>("lookups/asset-search.lookup.json");
+            }
+
             return Success(new IndexAssetSearchLookupJsonContract(1, GeneratedAtUtc, "source-hash", []));
         }
 
@@ -733,6 +784,11 @@ public sealed class ReadyServiceTests
             ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {
+            if (IsMissing("guid-path.lookup"))
+            {
+                return Missing<IndexGuidPathLookupJsonContract>("lookups/guid-path.lookup.json");
+            }
+
             return Success(new IndexGuidPathLookupJsonContract(1, GeneratedAtUtc, "source-hash", []));
         }
 
@@ -748,17 +804,20 @@ public sealed class ReadyServiceTests
             ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {
-            return Success(new IndexInputsManifestJsonContract(
-                SchemaVersion: 1,
-                GeneratedAtUtc: GeneratedAtUtc,
-                ScriptAssembliesHash: "assemblies-hash",
-                PackagesManifestHash: "manifest-hash",
-                PackagesLockHash: "lock-hash",
-                AssemblyDefinitionHash: "asmdef-hash",
-                AssetsContentHash: "assets-hash",
-                AssetSearchHash: "asset-search-hash",
-                GuidPathHash: "guid-path-hash",
-                CombinedHash: "source-hash"));
+            throw new NotSupportedException("inputs.manifest is not part of readIndex readiness.");
+        }
+
+        private bool IsMissing (string artifactName)
+        {
+            return string.Equals(missingArtifactName, artifactName, StringComparison.Ordinal);
+        }
+
+        private static ValueTask<ReadIndexArtifactReadResult<T>> Missing<T> (string artifactPath)
+            where T : class
+        {
+            return ValueTask.FromResult(ReadIndexArtifactReadResult<T>.Failure(
+                ReadIndexErrorCodes.ReadIndexBootstrapFailed,
+                $"Index contract file '{artifactPath}' does not exist."));
         }
 
         private static ValueTask<ReadIndexArtifactReadResult<T>> Success<T> (T value)

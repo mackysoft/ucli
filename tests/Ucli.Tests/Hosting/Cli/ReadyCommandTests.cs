@@ -179,6 +179,18 @@ public sealed class ReadyCommandTests
             CreateReadyGoldenNormalization());
     }
 
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Ready_WithHelpOutput_IncludesReadIndexModeCamelCaseOption ()
+    {
+        var result = await CliProcessRunner.RunCommandAsync(
+            UcliCommandNames.Ready,
+            "--help");
+
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        Assert.Contains("--readIndexMode", result.StdOut, StringComparison.Ordinal);
+    }
+
     private static ReadyExecutionOutput CreateOutput (
         string verdict = ReadyVerdictValues.Pass)
     {
@@ -338,14 +350,7 @@ public sealed class ReadyCommandTests
         var generatedAtUtc = DateTimeOffset.Parse("2026-05-17T00:00:00Z");
         return
         [
-            new ReadyReadIndexArtifactOutput(
-                Name: "inputs.manifest",
-                Status: ReadyReadIndexArtifactStatusValues.Available,
-                SourceInputsHash: "source-hash",
-                GeneratedAtUtc: generatedAtUtc),
             CreateCatalogArtifact("ops.catalog", generatedAtUtc),
-            CreateCatalogArtifact("types.catalog", generatedAtUtc),
-            CreateCatalogArtifact("schemas.catalog", generatedAtUtc),
             CreateCatalogArtifact("asset-search.lookup", generatedAtUtc),
             CreateCatalogArtifact("guid-path.lookup", generatedAtUtc),
         ];

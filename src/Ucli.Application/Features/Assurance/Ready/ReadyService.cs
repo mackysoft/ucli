@@ -10,6 +10,12 @@ namespace MackySoft.Ucli.Application.Features.Assurance.Ready;
 /// <summary> Executes readiness probes and compiles the result into an assurance packet. </summary>
 internal sealed class ReadyService : IReadyService
 {
+    private const string OpsCatalogReadinessActionRequired =
+        "Run `ucli ops list --readIndexMode requireFresh` to refresh ops catalog readIndex artifacts.";
+
+    private const string AssetLookupReadinessActionRequired =
+        "Run `ucli query assets find --pathPrefix Assets --limit 1 --readIndexMode disabled` to refresh asset lookup readIndex artifacts.";
+
     private static readonly IReadOnlyDictionary<string, ReadyReportOutput> EmptyReports =
         new Dictionary<string, ReadyReportOutput>(StringComparer.Ordinal);
 
@@ -371,7 +377,6 @@ internal sealed class ReadyService : IReadyService
     {
         var artifacts = new List<ReadyReadIndexArtifactOutput>
         {
-            await ReadInputsManifestAsync(unityProject, cancellationToken).ConfigureAwait(false),
             await ReadArtifactAsync(
                     "ops.catalog",
                     IndexFreshnessTarget.OpsCatalog,
@@ -380,27 +385,9 @@ internal sealed class ReadyService : IReadyService
                     static value => value.GeneratedAtUtc,
                     unityProject,
                     mode,
-                    cancellationToken)
-                .ConfigureAwait(false),
-            await ReadArtifactAsync(
-                    "types.catalog",
-                    IndexFreshnessTarget.TypesCatalog,
-                    cancellationToken => readIndexArtifactReader.ReadTypesCatalogAsync(unityProject, cancellationToken),
-                    static value => value.SourceInputsHash,
-                    static value => value.GeneratedAtUtc,
-                    unityProject,
-                    mode,
-                    cancellationToken)
-                .ConfigureAwait(false),
-            await ReadArtifactAsync(
-                    "schemas.catalog",
-                    IndexFreshnessTarget.SchemasCatalog,
-                    cancellationToken => readIndexArtifactReader.ReadSchemasCatalogAsync(unityProject, cancellationToken),
-                    static value => value.SourceInputsHash,
-                    static value => value.GeneratedAtUtc,
-                    unityProject,
-                    mode,
-                    cancellationToken)
+                    required: true,
+                    actionRequired: OpsCatalogReadinessActionRequired,
+                    cancellationToken: cancellationToken)
                 .ConfigureAwait(false),
             await ReadArtifactAsync(
                     "asset-search.lookup",
@@ -410,7 +397,9 @@ internal sealed class ReadyService : IReadyService
                     static value => value.GeneratedAtUtc,
                     unityProject,
                     mode,
-                    cancellationToken)
+                    required: true,
+                    actionRequired: AssetLookupReadinessActionRequired,
+                    cancellationToken: cancellationToken)
                 .ConfigureAwait(false),
             await ReadArtifactAsync(
                     "guid-path.lookup",
@@ -420,28 +409,13 @@ internal sealed class ReadyService : IReadyService
                     static value => value.GeneratedAtUtc,
                     unityProject,
                     mode,
-                    cancellationToken)
+                    required: true,
+                    actionRequired: AssetLookupReadinessActionRequired,
+                    cancellationToken: cancellationToken)
                 .ConfigureAwait(false),
         };
 
         return ReadyReadIndexObservation.FromArtifacts(mode, artifacts);
-    }
-
-    private async ValueTask<ReadyReadIndexArtifactOutput> ReadInputsManifestAsync (
-        ResolvedUnityProjectContext unityProject,
-        CancellationToken cancellationToken)
-    {
-        var result = await readIndexArtifactReader.ReadInputsManifestAsync(unityProject, cancellationToken).ConfigureAwait(false);
-        if (!result.IsSuccess)
-        {
-            return CreateFailedReadIndexArtifact("inputs.manifest", result.Error!);
-        }
-
-        return new ReadyReadIndexArtifactOutput(
-            Name: "inputs.manifest",
-            Status: ReadyReadIndexArtifactStatusValues.Available,
-            SourceInputsHash: result.Value!.CombinedHash,
-            GeneratedAtUtc: result.Value.GeneratedAtUtc);
     }
 
     private async ValueTask<ReadyReadIndexArtifactOutput> ReadArtifactAsync<T> (
@@ -452,13 +426,15 @@ internal sealed class ReadyService : IReadyService
         Func<T, DateTimeOffset> getGeneratedAtUtc,
         ResolvedUnityProjectContext unityProject,
         ReadIndexMode mode,
+        bool required,
+        string actionRequired,
         CancellationToken cancellationToken)
         where T : class
     {
         var result = await readAsync(cancellationToken).ConfigureAwait(false);
         if (!result.IsSuccess)
         {
-            return CreateFailedReadIndexArtifact(name, result.Error!);
+            return CreateFailedReadIndexArtifact(name, result.Error!, required: required, actionRequired: actionRequired);
         }
 
         var value = result.Value!;
@@ -471,18 +447,33 @@ internal sealed class ReadyService : IReadyService
             .ConfigureAwait(false);
         if (!freshnessResult.IsSuccess)
         {
-            return CreateFailedReadIndexArtifact(name, freshnessResult.Error!, freshnessResult.Freshness, sourceInputsHash, getGeneratedAtUtc(value));
+            return CreateFailedReadIndexArtifact(
+                name,
+                freshnessResult.Error!,
+                freshnessResult.Freshness,
+                sourceInputsHash,
+                getGeneratedAtUtc(value),
+                required,
+                actionRequired);
         }
 
         var constrainedFreshnessResult = IndexFreshnessPolicy.ApplyModeConstraint(mode, freshnessResult.Freshness);
         if (!constrainedFreshnessResult.IsSuccess)
         {
-            return CreateFailedReadIndexArtifact(name, constrainedFreshnessResult.Error!, constrainedFreshnessResult.Freshness, sourceInputsHash, getGeneratedAtUtc(value));
+            return CreateFailedReadIndexArtifact(
+                name,
+                constrainedFreshnessResult.Error!,
+                constrainedFreshnessResult.Freshness,
+                sourceInputsHash,
+                getGeneratedAtUtc(value),
+                required,
+                actionRequired);
         }
 
         return new ReadyReadIndexArtifactOutput(
             Name: name,
             Status: ReadyReadIndexArtifactStatusValues.Available,
+            Required: required,
             Freshness: ReadIndexAccessUtilities.DescribeFreshness(constrainedFreshnessResult.Freshness),
             SourceInputsHash: sourceInputsHash,
             GeneratedAtUtc: getGeneratedAtUtc(value));
@@ -493,18 +484,22 @@ internal sealed class ReadyService : IReadyService
         IndexServiceError error,
         IndexFreshness? freshness = null,
         string? sourceInputsHash = null,
-        DateTimeOffset? generatedAtUtc = null)
+        DateTimeOffset? generatedAtUtc = null,
+        bool required = true,
+        string? actionRequired = null)
     {
         ArgumentNullException.ThrowIfNull(error);
 
         return new ReadyReadIndexArtifactOutput(
             Name: name,
             Status: ReadyReadIndexArtifactStatusValues.Failed,
+            Required: required,
             Freshness: freshness.HasValue ? ReadIndexAccessUtilities.DescribeFreshness(freshness.Value) : null,
             SourceInputsHash: sourceInputsHash,
             GeneratedAtUtc: generatedAtUtc,
             Code: error.Code.Value,
-            Message: error.Message);
+            Message: error.Message,
+            ActionRequired: actionRequired);
     }
 
     private static ReadyExecutionOutput CreateOutput (
