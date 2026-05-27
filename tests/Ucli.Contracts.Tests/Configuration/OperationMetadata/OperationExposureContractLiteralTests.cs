@@ -4,7 +4,7 @@ using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Tests.Configuration;
 
-public sealed class OperationExposureCodecContractTests
+public sealed class OperationExposureContractLiteralTests
 {
     [Fact]
     [Trait("Size", "Small")]
@@ -16,7 +16,7 @@ public sealed class OperationExposureCodecContractTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void UcliOperationExposureCodec_ToValue_ReturnsStableLiterals ()
+    public void UcliOperationExposureContractLiteral_ToValue_ReturnsStableLiterals ()
     {
         Assert.Equal("public", ContractLiteralCodec.ToValue(UcliOperationExposure.Public));
         Assert.Equal("editLoweringOnly", ContractLiteralCodec.ToValue(UcliOperationExposure.EditLoweringOnly));
@@ -27,7 +27,7 @@ public sealed class OperationExposureCodecContractTests
     [InlineData("public", UcliOperationExposure.Public)]
     [InlineData("PUBLIC", UcliOperationExposure.Public)]
     [InlineData("editLoweringOnly", UcliOperationExposure.EditLoweringOnly)]
-    public void UcliOperationExposureCodec_TryParse_ParsesCaseInsensitiveLiterals (
+    public void UcliOperationExposureContractLiteral_TryParse_ParsesCaseInsensitiveLiterals (
         string value,
         UcliOperationExposure expected)
     {
@@ -42,7 +42,7 @@ public sealed class OperationExposureCodecContractTests
     [InlineData("")]
     [InlineData(" ")]
     [InlineData("unsupported")]
-    public void UcliOperationExposureCodec_TryParse_UnknownValue_ReturnsFalse (
+    public void UcliOperationExposureContractLiteral_TryParse_UnknownValue_ReturnsFalse (
         string value)
     {
         Assert.False(ContractLiteralInputParser.IsDefinedIgnoreCase<UcliOperationExposure>(value));
@@ -50,7 +50,7 @@ public sealed class OperationExposureCodecContractTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void UcliOperationExposureCodec_TryParse_Null_ReturnsFalse ()
+    public void UcliOperationExposureContractLiteral_TryParse_Null_ReturnsFalse ()
     {
         Assert.False(ContractLiteralInputParser.IsDefinedIgnoreCase<UcliOperationExposure>(null));
     }

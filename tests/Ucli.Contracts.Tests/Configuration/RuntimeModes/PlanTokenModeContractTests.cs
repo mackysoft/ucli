@@ -16,15 +16,7 @@ public sealed class PlanTokenModeContractTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void PlanTokenModeValues_HasStableStringValues ()
-    {
-        Assert.Equal("optional", "optional");
-        Assert.Equal("required", "required");
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void PlanTokenModeCodec_ToValue_ReturnsStableLiterals ()
+    public void PlanTokenModeContractLiteral_ToValue_ReturnsStableLiterals ()
     {
         Assert.Equal("optional", ContractLiteralCodec.ToValue(PlanTokenMode.Optional));
         Assert.Equal("required", ContractLiteralCodec.ToValue(PlanTokenMode.Required));
@@ -32,7 +24,7 @@ public sealed class PlanTokenModeContractTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void PlanTokenModeCodec_TryParse_AcceptsKnownValuesCaseInsensitive ()
+    public void PlanTokenModeContractLiteral_TryParse_AcceptsKnownValuesCaseInsensitive ()
     {
         Assert.True(ContractLiteralInputParser.TryParseIgnoreCase<PlanTokenMode>("optional", out var optional));
         Assert.Equal(PlanTokenMode.Optional, optional);
@@ -42,7 +34,7 @@ public sealed class PlanTokenModeContractTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void PlanTokenModeCodec_TryParse_UnknownValue_ReturnsFalse ()
+    public void PlanTokenModeContractLiteral_TryParse_UnknownValue_ReturnsFalse ()
     {
         Assert.False(ContractLiteralInputParser.IsDefinedIgnoreCase<PlanTokenMode>("unsupported"));
     }

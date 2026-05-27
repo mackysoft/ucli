@@ -4,7 +4,7 @@ using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Tests.Index;
 
-public sealed class IndexContractCodecTests
+public sealed class IndexContractLiteralTests
 {
     [Fact]
     [Trait("Size", "Small")]
@@ -16,7 +16,7 @@ public sealed class IndexContractCodecTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void IndexSchemaKindCodec_ToValue_ReturnsStableLiterals ()
+    public void IndexSchemaKindContractLiteral_ToValue_ReturnsStableLiterals ()
     {
         Assert.Equal("comp", ContractLiteralCodec.ToValue(IndexSchemaKind.Comp));
         Assert.Equal("asset", ContractLiteralCodec.ToValue(IndexSchemaKind.Asset));
@@ -28,7 +28,7 @@ public sealed class IndexContractCodecTests
     [InlineData("COMP", IndexSchemaKind.Comp)]
     [InlineData("asset", IndexSchemaKind.Asset)]
     [InlineData("ASSET", IndexSchemaKind.Asset)]
-    public void IndexSchemaKindCodec_TryParse_ParsesCaseInsensitiveLiterals (
+    public void IndexSchemaKindContractLiteral_TryParse_ParsesCaseInsensitiveLiterals (
         string value,
         IndexSchemaKind expected)
     {
@@ -43,7 +43,7 @@ public sealed class IndexContractCodecTests
     [InlineData("")]
     [InlineData(" ")]
     [InlineData("unknown")]
-    public void IndexSchemaKindCodec_TryParse_UnknownValue_ReturnsFalse (
+    public void IndexSchemaKindContractLiteral_TryParse_UnknownValue_ReturnsFalse (
         string value)
     {
         Assert.False(ContractLiteralInputParser.IsDefinedIgnoreCase<IndexSchemaKind>(value));
@@ -51,7 +51,7 @@ public sealed class IndexContractCodecTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void IndexSchemaKindCodec_TryParse_Null_ReturnsFalse ()
+    public void IndexSchemaKindContractLiteral_TryParse_Null_ReturnsFalse ()
     {
         Assert.False(ContractLiteralInputParser.IsDefinedIgnoreCase<IndexSchemaKind>(null));
     }
@@ -118,7 +118,7 @@ public sealed class IndexContractCodecTests
     [InlineData(IndexPropertyType.BoundsInt, "boundsInt")]
     [InlineData(IndexPropertyType.ManagedReference, "managedReference")]
     [InlineData(IndexPropertyType.Hash128, "hash128")]
-    public void IndexPropertyTypeCodec_ToValue_ReturnsStableLiterals (
+    public void IndexPropertyTypeContractLiteral_ToValue_ReturnsStableLiterals (
         IndexPropertyType propertyType,
         string expectedLiteral)
     {
@@ -132,7 +132,7 @@ public sealed class IndexContractCodecTests
     [InlineData("objectReference", IndexPropertyType.ObjectReference)]
     [InlineData("managedReference", IndexPropertyType.ManagedReference)]
     [InlineData("hash128", IndexPropertyType.Hash128)]
-    public void IndexPropertyTypeCodec_TryParse_ParsesCaseInsensitiveLiterals (
+    public void IndexPropertyTypeContractLiteral_TryParse_ParsesCaseInsensitiveLiterals (
         string value,
         IndexPropertyType expected)
     {
@@ -147,7 +147,7 @@ public sealed class IndexContractCodecTests
     [InlineData("")]
     [InlineData(" ")]
     [InlineData("unknown")]
-    public void IndexPropertyTypeCodec_TryParse_UnknownValue_ReturnsFalse (
+    public void IndexPropertyTypeContractLiteral_TryParse_UnknownValue_ReturnsFalse (
         string value)
     {
         Assert.False(ContractLiteralInputParser.IsDefinedIgnoreCase<IndexPropertyType>(value));
@@ -155,7 +155,7 @@ public sealed class IndexContractCodecTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void IndexPropertyTypeCodec_TryParse_Null_ReturnsFalse ()
+    public void IndexPropertyTypeContractLiteral_TryParse_Null_ReturnsFalse ()
     {
         Assert.False(ContractLiteralInputParser.IsDefinedIgnoreCase<IndexPropertyType>(null));
     }
