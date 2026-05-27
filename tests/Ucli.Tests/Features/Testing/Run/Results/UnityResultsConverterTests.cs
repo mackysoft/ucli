@@ -47,6 +47,28 @@ public sealed class UnityResultsConverterTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Convert_WithEmptyTestRun_ReportsZeroTestCases ()
+    {
+        using var scope = CreateSessionScope("empty-test-run", out var session);
+        scope.WriteFile("results.xml", "<test-run />");
+
+        var converter = CreateConverter();
+
+        var result = await converter.ConvertAsync(session, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.False(result.HasFailedTests);
+        Assert.Equal(0, result.ReportedTestCaseCount);
+
+        using var summaryDocument = JsonDocument.Parse(File.ReadAllText(session.Paths.SummaryJsonPath));
+        Assert.Equal("pass", summaryDocument.RootElement.GetProperty("status").GetString());
+        Assert.Equal(0, summaryDocument.RootElement.GetProperty("counts").GetProperty("passed").GetInt32());
+        Assert.Equal(0, summaryDocument.RootElement.GetProperty("counts").GetProperty("failed").GetInt32());
+        Assert.Equal(0, summaryDocument.RootElement.GetProperty("counts").GetProperty("skipped").GetInt32());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Convert_WithInvalidXml_ReturnsInvalidResultsXmlFailure ()
     {
         using var scope = CreateSessionScope("invalid-xml", out var session);

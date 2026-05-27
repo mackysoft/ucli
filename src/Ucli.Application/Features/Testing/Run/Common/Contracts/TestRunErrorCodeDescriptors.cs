@@ -51,6 +51,25 @@ internal static class TestRunErrorCodeDescriptors
             ]),
 
         UcliErrorDescriptorFactory.Create(
+            code: TestRunErrorCodes.TestRunNoTestsExecuted,
+            category: "testRun",
+            summary: "Unity test run reported no test cases.",
+            meaning: "The test runner completed, but the selected filter, category, assembly, or project state produced zero reported test cases.",
+            appliesTo: [UcliCommandIds.TestRun],
+            possiblePhases: ["testResultEvaluation"],
+            impliesNotApplied: true,
+            mayBeIndeterminate: false,
+            safeToRetry: UcliErrorRetryClassValues.ContextDependent,
+            inspect: ["payload.artifactsDir", "payload.summaryJsonPath", "errors[].message"],
+            nextActions:
+            [
+                new UcliErrorNextActionDescriptor(
+                    When: null,
+                    Action: "Fix the test filter, category, or assembly selection, or specify --allowEmptyTestRun when an empty run is intentional."),
+            ],
+            relatedCodes: [UcliCoreErrorCodes.InvalidArgument]),
+
+        UcliErrorDescriptorFactory.Create(
             code: TestRunErrorCodes.TestResultsXmlInvalid,
             category: "testRun",
             summary: "Unity test results XML is invalid.",

@@ -41,6 +41,7 @@ internal sealed class TestRunCommand
     /// <param name="testSettingsPath"> -s|--testSettingsPath, path to TestSettings.json. </param>
     /// <param name="timeout"> Timeout in milliseconds. </param>
     /// <param name="failFast"> --failFast, Fails immediately when readiness-gated Unity execution is not yet ready. </param>
+    /// <param name="allowEmptyTestRun"> --allowEmptyTestRun, Accepts a run that reports zero test cases. </param>
     /// <param name="format"> Progress entry format (text|json). </param>
     /// <param name="cancellationToken"> The cancellation token propagated by the command pipeline. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
@@ -58,6 +59,7 @@ internal sealed class TestRunCommand
         string? testSettingsPath = null,
         int? timeout = null,
         bool failFast = false,
+        bool allowEmptyTestRun = false,
         string? format = null,
         CancellationToken cancellationToken = default)
     {
@@ -112,7 +114,8 @@ internal sealed class TestRunCommand
                     AssemblyName: SplitCommaSeparatedValues(assemblyName),
                     TestSettingsPath: testSettingsPath,
                     TimeoutMilliseconds: timeout,
-                    FailFast: failFast),
+                    FailFast: failFast,
+                    AllowEmptyTestRun: allowEmptyTestRun),
                 progressSink,
                 cancellationToken).ConfigureAwait(false);
             var commandResult = TestRunCommandResultFactory.Create(serviceResult);

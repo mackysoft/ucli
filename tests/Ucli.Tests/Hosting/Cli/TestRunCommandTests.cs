@@ -40,6 +40,7 @@ public sealed class TestRunCommandTests
             testSettingsPath: "/repo/UnityProject/ProjectSettings/TestSettings.json",
             timeout: 120,
             failFast: true,
+            allowEmptyTestRun: true,
             cancellationToken: cancellationTokenSource.Token));
 
         Assert.Equal((int)CliExitCode.Success, exitCode);
@@ -60,6 +61,7 @@ public sealed class TestRunCommandTests
         Assert.Equal("/repo/UnityProject/ProjectSettings/TestSettings.json", input.TestSettingsPath);
         Assert.Equal(120, input.TimeoutMilliseconds);
         Assert.True(input.FailFast);
+        Assert.True(input.AllowEmptyTestRun);
         JsonGoldenFileAssert.Matches(
             CliOutputGoldenFiles.GetPath("test-run", "success.json"),
             standardOutput,
