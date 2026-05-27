@@ -1,7 +1,7 @@
-using MackySoft.Ucli.Application.Features.Testing.Run.Progress;
 using MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun.Pipeline;
 using MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun.Preflight;
 using MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun.Projection;
+using MackySoft.Ucli.Application.Shared.Execution.Progress;
 
 namespace MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun;
 
@@ -30,12 +30,12 @@ internal sealed class TestRunService : ITestRunService
 
     /// <summary> Executes one core test-run flow. </summary>
     /// <param name="input"> The interpreted command input values. </param>
-    /// <param name="progressSink"> The optional sink that receives live progress entries. </param>
+    /// <param name="progressSink"> The optional command-neutral sink that receives live progress entries. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the normalized service result. </returns>
     public async ValueTask<TestRunServiceResult> ExecuteAsync (
         TestRunCommandInput input,
-        ITestRunProgressSink? progressSink = null,
+        ICommandProgressSink? progressSink = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();

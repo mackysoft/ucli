@@ -1,68 +1,32 @@
-using MackySoft.Ucli.Application.Features.Testing.Run.Progress;
 using MackySoft.Ucli.Contracts.Testing;
 using MackySoft.Ucli.Hosting.Cli.Common.Streaming;
 using MackySoft.Ucli.Infrastructure.Text;
 
 namespace MackySoft.Ucli.Hosting.Cli.Testing;
 
-/// <summary> Projects test-run progress entries to the public CLI entry stream. </summary>
-internal sealed class CliTestRunProgressSink : ITestRunProgressSink
+/// <summary> Projects test-run progress payloads into human-readable text entries. </summary>
+internal sealed class TestRunProgressTextProjector : ICliCommandProgressTextProjector
 {
-    private readonly CliStreamEntryFormat format;
-    private readonly CliStreamEntryWriter entryWriter;
-
-    /// <summary> Initializes a new instance of the <see cref="CliTestRunProgressSink" /> class. </summary>
-    public CliTestRunProgressSink (
-        CliStreamEntryFormat format,
-        CliStreamEntryWriter entryWriter)
-    {
-        this.format = format;
-        this.entryWriter = entryWriter ?? throw new ArgumentNullException(nameof(entryWriter));
-    }
-
     /// <inheritdoc />
-    public ValueTask OnEntryAsync (
+    public bool TryCreateTextEntry (
         string eventName,
         object payload,
-        CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        ArgumentException.ThrowIfNullOrWhiteSpace(eventName);
-        ArgumentNullException.ThrowIfNull(payload);
-
-        if (format == CliStreamEntryFormat.Json)
-        {
-            entryWriter.WriteJsonEntry(eventName, payload);
-            return ValueTask.CompletedTask;
-        }
-
-        if (TryCreateTextLine(eventName, payload, out var textLine))
-        {
-            entryWriter.WriteTextEntry(textLine);
-        }
-
-        return ValueTask.CompletedTask;
-    }
-
-    private static bool TryCreateTextLine (
-        string eventName,
-        object payload,
-        out string textLine)
+        out string text)
     {
         switch (eventName, payload)
         {
             case (TestRunProgressEventNames.RunStarted, TestRunStartedEntry):
             case (TestRunProgressEventNames.CaseStarted, TestCaseStartedEntry):
-                textLine = string.Empty;
+                text = string.Empty;
                 return false;
             case (TestRunProgressEventNames.CaseFinished, TestCaseFinishedEntry entry):
-                textLine = CreateCaseFinishedTextLine(entry);
+                text = CreateCaseFinishedTextLine(entry);
                 return true;
             case (TestRunProgressEventNames.RunDiagnostic, TestRunDiagnosticEntry entry):
-                textLine = CreateDiagnosticTextLine(entry);
+                text = CreateDiagnosticTextLine(entry);
                 return true;
             default:
-                textLine = string.Concat(eventName, " ", payload);
+                text = string.Concat(eventName, " ", payload);
                 return true;
         }
     }

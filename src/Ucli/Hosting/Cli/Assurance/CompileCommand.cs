@@ -26,6 +26,7 @@ internal sealed class CompileCommand
     /// <param name="projectPath">-p|--projectPath, Optional target Unity project path.</param>
     /// <param name="mode">Unity execution mode (auto|daemon|oneshot).</param>
     /// <param name="timeout">Timeout in milliseconds.</param>
+    /// <param name="format"> Progress entry format (text|json). </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.Compile)]
@@ -33,11 +34,20 @@ internal sealed class CompileCommand
         string? projectPath = null,
         string? mode = null,
         string? timeout = null,
+        string? format = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
         CommandExecutionState.MarkStarted();
+
+        var formatResult = CliStreamEntryFormatOptionNormalizer.Normalize(format);
+        if (!formatResult.IsSuccess)
+        {
+            var errorResult = CompileCommandResultFactory.CreateExecutionError(formatResult.Error!);
+            commandResultWriter.WriteToStandardOutput(errorResult);
+            return errorResult.ExitCode;
+        }
 
         var modeResult = ExecutionModeOptionNormalizer.Normalize(mode);
         if (!modeResult.IsSuccess)

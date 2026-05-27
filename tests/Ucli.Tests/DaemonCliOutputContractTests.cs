@@ -218,6 +218,30 @@ public sealed class DaemonCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task Start_WithInvalidFormat_ReturnsInvalidArgumentErrorAsSingleJson ()
+    {
+        var result = await CliProcessRunner.RunCommandAsync(
+            UcliCommandNames.Daemon,
+            UcliCommandNames.StartSubcommand,
+            "--format",
+            "yaml");
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: UcliCommandNames.DaemonStart,
+            status: "error",
+            exitCode: (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(
+            outputJson.RootElement,
+            expectedCode: "INVALID_ARGUMENT");
+        Assert.Contains("format must be one of", result.StdOut, StringComparison.Ordinal);
+        Assert.DoesNotContain("Argument '--format' is not recognized.", result.StdErr, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task Start_WithOnStartupBlockedKeep_WhenUnityPluginMarkerIsMissing_DoesNotRejectOption ()
     {
         using var scope = TestDirectories.CreateTempScope("cli-output-contract", "daemon-start-on-startup-blocked-option");

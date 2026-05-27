@@ -12,10 +12,10 @@ using MackySoft.Ucli.Application.Features.Assurance.Verify.Profiles;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Vocabulary;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Common;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Unity;
-using MackySoft.Ucli.Application.Features.Testing.Run.Progress;
 using MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
+using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Testing;
@@ -1109,7 +1109,7 @@ public sealed class VerifyServiceTests
 
         public ValueTask<TestRunServiceResult> ExecuteAsync (
             TestRunCommandInput input,
-            ITestRunProgressSink? progressSink = null,
+            ICommandProgressSink? progressSink = null,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();

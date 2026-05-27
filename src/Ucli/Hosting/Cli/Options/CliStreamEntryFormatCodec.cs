@@ -1,4 +1,6 @@
-namespace MackySoft.Ucli.Hosting.Cli.Common.Streaming;
+using MackySoft.Ucli.Hosting.Cli.Common.Streaming;
+
+namespace MackySoft.Ucli.Hosting.Cli.Options;
 
 /// <summary> Converts stream-entry output-format values to canonical literals. </summary>
 internal static class CliStreamEntryFormatCodec

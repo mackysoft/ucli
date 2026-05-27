@@ -3,6 +3,7 @@ using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Common.Streaming;
+using MackySoft.Ucli.Hosting.Cli.Options;
 
 namespace MackySoft.Ucli.Hosting.Cli.Daemon.Logs;
 
@@ -15,7 +16,8 @@ internal static class LogsReadCommandExecutor
     /// <param name="format"> The requested output format. </param>
     /// <param name="commandResultWriter"> The command-result writer dependency. </param>
     /// <param name="executeAsync"> The service execution delegate. </param>
-    /// <param name="writeLogEvent"> The output projection for one log event. </param>
+    /// <param name="createProgressEntry"> The output projection for one log event. </param>
+    /// <param name="textProjector"> The text projection used when <paramref name="format" /> resolves to text. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The command exit code. </returns>
     public static async Task<int> ExecuteAsync<TLogEvent> (
@@ -23,13 +25,15 @@ internal static class LogsReadCommandExecutor
         string? format,
         ICommandResultWriter commandResultWriter,
         Func<Func<TLogEvent, string, CancellationToken, ValueTask>, CancellationToken, ValueTask<LogsReadServiceResult>> executeAsync,
-        Func<CliStreamEntryWriter, CliStreamEntryFormat, TLogEvent, string, string> writeLogEvent,
+        Func<TLogEvent, string, CliCommandProgressEntry> createProgressEntry,
+        ICliCommandProgressTextProjector textProjector,
         CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(commandName);
         ArgumentNullException.ThrowIfNull(commandResultWriter);
         ArgumentNullException.ThrowIfNull(executeAsync);
-        ArgumentNullException.ThrowIfNull(writeLogEvent);
+        ArgumentNullException.ThrowIfNull(createProgressEntry);
+        ArgumentNullException.ThrowIfNull(textProjector);
 
         var emittedCount = 0;
         string? latestNextCursor = null;
@@ -39,24 +43,32 @@ internal static class LogsReadCommandExecutor
             cancellationToken.ThrowIfCancellationRequested();
             CommandExecutionState.MarkStarted();
 
-            if (!CliStreamEntryFormatCodec.TryParse(format, out var outputFormat, out var formatErrorMessage))
+            var formatResult = CliStreamEntryFormatOptionNormalizer.Normalize(format);
+            if (!formatResult.IsSuccess)
             {
                 var invalidFormatResult = LogsReadCommandResultFactory.Create(
                     commandName,
-                    LogsReadServiceResult.Failure(ExecutionError.InvalidArgument(formatErrorMessage!)));
+                    LogsReadServiceResult.Failure(formatResult.Error!));
                 commandResultWriter.WriteToStandardOutput(invalidFormatResult);
                 return invalidFormatResult.ExitCode;
             }
 
-            var entryWriter = new CliStreamEntryWriter(commandName);
+            var progressSink = new CliCommandProgressSink(
+                formatResult.Format,
+                new CliStreamEntryWriter(commandName),
+                textProjector);
             var serviceResult = await executeAsync(
-                    (logEvent, nextCursor, callbackCancellationToken) =>
+                    async (logEvent, nextCursor, callbackCancellationToken) =>
                     {
                         callbackCancellationToken.ThrowIfCancellationRequested();
-                        var confirmedCursor = writeLogEvent(entryWriter, outputFormat, logEvent, nextCursor);
+                        var progressEntry = createProgressEntry(logEvent, nextCursor);
+                        await progressSink.OnEntryAsync(
+                                progressEntry.EventName,
+                                progressEntry.Payload,
+                                callbackCancellationToken)
+                            .ConfigureAwait(false);
                         emittedCount++;
-                        latestNextCursor = confirmedCursor;
-                        return ValueTask.CompletedTask;
+                        latestNextCursor = nextCursor;
                     },
                     cancellationToken)
                 .ConfigureAwait(false);

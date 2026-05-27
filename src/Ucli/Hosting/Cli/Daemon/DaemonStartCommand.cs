@@ -33,6 +33,7 @@ internal sealed class DaemonStartCommand
     /// <param name="timeout"> Optional daemon start timeout in milliseconds. When omitted, timeout is resolved from config defaults. </param>
     /// <param name="editorMode">--editorMode, Optional daemon Editor mode (batchmode|gui).</param>
     /// <param name="onStartupBlocked">--onStartupBlocked, Optional process policy when startup is blocked before endpoint registration.</param>
+    /// <param name="format"> Progress entry format (text|json). </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.StartSubcommand)]
@@ -41,10 +42,21 @@ internal sealed class DaemonStartCommand
         string? timeout = null,
         string? editorMode = null,
         string? onStartupBlocked = null,
+        string? format = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         CommandExecutionState.MarkStarted();
+
+        var formatResult = CliStreamEntryFormatOptionNormalizer.Normalize(format);
+        if (!formatResult.IsSuccess)
+        {
+            var errorResult = CommandResultFactory.FromExecutionError(
+                UcliCommandNames.DaemonStart,
+                formatResult.Error!);
+            commandResultWriter.WriteToStandardOutput(errorResult);
+            return errorResult.ExitCode;
+        }
 
         var normalizedTimeoutResult = TimeoutOptionNormalizer.Normalize(timeout);
         if (!normalizedTimeoutResult.IsSuccess)

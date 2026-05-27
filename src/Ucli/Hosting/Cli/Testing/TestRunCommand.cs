@@ -69,10 +69,11 @@ internal sealed class TestRunCommand
 
             CommandExecutionState.MarkStarted();
 
-            if (!CliStreamEntryFormatCodec.TryParse(format, out var normalizedFormat, out var formatError))
+            var formatResult = CliStreamEntryFormatOptionNormalizer.Normalize(format);
+            if (!formatResult.IsSuccess)
             {
                 var errorResult = TestRunCommandResultFactory.Create(TestRunServiceResult.InvalidInput(
-                    formatError!,
+                    formatResult.Error!.Message,
                     UcliCoreErrorCodes.InvalidArgument));
                 commandResultWriter.WriteToStandardOutput(errorResult);
                 return errorResult.ExitCode;
@@ -98,9 +99,10 @@ internal sealed class TestRunCommand
                 return errorResult.ExitCode;
             }
 
-            var progressSink = new CliTestRunProgressSink(
-                normalizedFormat,
-                new CliStreamEntryWriter(UcliCommandNames.TestRun));
+            var progressSink = new CliCommandProgressSink(
+                formatResult.Format,
+                new CliStreamEntryWriter(UcliCommandNames.TestRun),
+                new TestRunProgressTextProjector());
             var serviceResult = await testRunService.ExecuteAsync(
                 new TestRunCommandInput(
                     ProjectPath: projectPath,

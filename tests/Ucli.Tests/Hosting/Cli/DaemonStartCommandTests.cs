@@ -73,10 +73,11 @@ public sealed class DaemonStartCommandTests
         var command = new DaemonStartCommand(service, CommandResultTestWriter.Create());
 
         CommandExecutionState.Reset();
-        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.StartAsync(
+        var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.StartAsync(
             cancellationToken: CancellationToken.None));
 
         Assert.Equal((int)CliExitCode.Success, exitCode);
+        Assert.Equal(string.Empty, standardError);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
         JsonAssert.For(outputJson.RootElement.GetProperty("payload"))
@@ -89,6 +90,30 @@ public sealed class DaemonStartCommandTests
         var payload = outputJson.RootElement.GetProperty("payload");
         Assert.False(payload.TryGetProperty("runtimeKind", out _));
         Assert.False(payload.GetProperty("session").TryGetProperty("runtimeKind", out _));
+        JsonGoldenFileAssert.Matches(CliOutputGoldenFiles.GetPath("daemon", "start-compiling-success.json"), standardOutput);
+    }
+
+    [Theory]
+    [InlineData("text")]
+    [InlineData("json")]
+    [Trait("Size", "Small")]
+    public async Task Start_WithSupportedFormat_WritesOnlyFinalCommandResult (
+        string format)
+    {
+        var service = new StubDaemonStartService(DaemonStartExecutionResult.Success(CreateSuccessOutput(
+            lifecycleState: IpcEditorLifecycleStateCodec.Compiling,
+            blockingReason: IpcEditorBlockingReasonCodec.Compile,
+            canAcceptExecutionRequests: false)));
+        var command = new DaemonStartCommand(service, CommandResultTestWriter.Create());
+
+        CommandExecutionState.Reset();
+        var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.StartAsync(
+            format: format,
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.Success, exitCode);
+        Assert.Equal(string.Empty, standardError);
+        Assert.Equal(1, service.CallCount);
         JsonGoldenFileAssert.Matches(CliOutputGoldenFiles.GetPath("daemon", "start-compiling-success.json"), standardOutput);
     }
 
@@ -107,6 +132,30 @@ public sealed class DaemonStartCommandTests
         Assert.Equal((int)CliExitCode.InvalidArgument, exitCode);
         Assert.Equal(0, service.CallCount);
 
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            UcliCommandNames.DaemonStart,
+            IpcProtocol.StatusError,
+            (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.InvalidArgument);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Start_WhenFormatIsInvalid_ReturnsInvalidArgumentWithoutCallingService ()
+    {
+        var service = new StubDaemonStartService(DaemonStartExecutionResult.Success(CreateSuccessOutput()));
+        var command = new DaemonStartCommand(service, CommandResultTestWriter.Create());
+
+        CommandExecutionState.Reset();
+        var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.StartAsync(
+            format: "yaml",
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.InvalidArgument, exitCode);
+        Assert.Equal(string.Empty, standardError);
+        Assert.Equal(0, service.CallCount);
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
