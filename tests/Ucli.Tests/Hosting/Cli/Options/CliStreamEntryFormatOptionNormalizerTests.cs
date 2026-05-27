@@ -1,7 +1,8 @@
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Hosting.Cli.Common.Streaming;
+using MackySoft.Ucli.Hosting.Cli.Options;
 
-namespace MackySoft.Ucli.Tests.Hosting.Cli.Common.Streaming;
+namespace MackySoft.Ucli.Tests.Hosting.Cli.Options;
 
 public sealed class CliStreamEntryFormatOptionNormalizerTests
 {

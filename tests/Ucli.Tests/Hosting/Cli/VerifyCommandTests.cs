@@ -86,6 +86,7 @@ public sealed class VerifyCommandTests
     [Theory]
     [InlineData("--mode", "unknown")]
     [InlineData("--timeout", "not-an-int")]
+    [InlineData("--format", "yaml")]
     [Trait("Size", "Medium")]
     public async Task Verify_ProcessWithInvalidOption_ReturnsJsonInvalidArgument (
         string option,
@@ -158,10 +159,11 @@ public sealed class VerifyCommandTests
         var service = new StubVerifyService((_, _) => ValueTask.FromResult(VerifyExecutionResult.Success(CreateOutput())));
         var command = new VerifyCommand(service, CommandResultTestWriter.Create());
 
-        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.VerifyAsync(
+        var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.VerifyAsync(
             cancellationToken: CancellationToken.None));
 
         Assert.Equal((int)CliExitCode.Success, exitCode);
+        Assert.Equal(string.Empty, standardError);
         JsonGoldenFileAssert.Matches(
             CliOutputGoldenFiles.GetPath("verify", "default-success.json"),
             standardOutput,

@@ -63,10 +63,11 @@ public sealed class CompileCommandTests
         var service = new StubCompileService((_, _) => ValueTask.FromResult(CompileExecutionResult.Success(CreateOutput())));
         var command = new CompileCommand(service, CommandResultTestWriter.Create());
 
-        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.CompileAsync(
+        var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.CompileAsync(
             cancellationToken: CancellationToken.None));
 
         Assert.Equal((int)CliExitCode.Success, exitCode);
+        Assert.Equal(string.Empty, standardError);
         JsonGoldenFileAssert.Matches(
             CliOutputGoldenFiles.GetPath("compile", "pass-no-reload.json"),
             standardOutput,
@@ -117,6 +118,27 @@ public sealed class CompileCommandTests
             IpcProtocol.StatusError,
             (int)CliExitCode.InvalidArgument);
         CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.InvalidArgument);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Compile_ProcessWithInvalidFormat_ReturnsInvalidArgument ()
+    {
+        var result = await CliProcessRunner.RunCommandAsync(
+            UcliCommandNames.Compile,
+            "--format",
+            "yaml");
+
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        Assert.True(string.IsNullOrEmpty(result.StdErr), result.StdErr);
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            UcliCommandNames.Compile,
+            IpcProtocol.StatusError,
+            (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.InvalidArgument);
+        Assert.DoesNotContain("Argument '--format' is not recognized.", result.StdErr, StringComparison.Ordinal);
     }
 
     [Fact]

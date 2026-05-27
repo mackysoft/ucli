@@ -73,10 +73,11 @@ public sealed class DaemonStartCommandTests
         var command = new DaemonStartCommand(service, CommandResultTestWriter.Create());
 
         CommandExecutionState.Reset();
-        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.StartAsync(
+        var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.StartAsync(
             cancellationToken: CancellationToken.None));
 
         Assert.Equal((int)CliExitCode.Success, exitCode);
+        Assert.Equal(string.Empty, standardError);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
         JsonAssert.For(outputJson.RootElement.GetProperty("payload"))
