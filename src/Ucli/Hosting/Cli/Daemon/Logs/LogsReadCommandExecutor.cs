@@ -25,7 +25,7 @@ internal static class LogsReadCommandExecutor
         string? format,
         ICommandResultWriter commandResultWriter,
         Func<Func<TLogEvent, string, CancellationToken, ValueTask>, CancellationToken, ValueTask<LogsReadServiceResult>> executeAsync,
-        Func<TLogEvent, string, (string EventName, object Payload)> createProgressEntry,
+        Func<TLogEvent, string, CliCommandProgressEntry> createProgressEntry,
         ICliCommandProgressTextProjector textProjector,
         CancellationToken cancellationToken)
     {

@@ -89,11 +89,11 @@ internal sealed class LogsDaemonReadCommand
     /// <summary> Creates one daemon-log progress entry. </summary>
     /// <param name="daemonLogEvent"> The daemon log event payload. </param>
     /// <param name="nextCursor"> The next cursor value returned by daemon. </param>
-    private static (string EventName, object Payload) CreateProgressEntry (
+    private static CliCommandProgressEntry CreateProgressEntry (
         IpcDaemonLogEvent daemonLogEvent,
         string nextCursor)
     {
-        return (
+        return new CliCommandProgressEntry(
             "logs.daemon.entry",
             new JsonLinePayload(
                 Timestamp: daemonLogEvent.Timestamp,

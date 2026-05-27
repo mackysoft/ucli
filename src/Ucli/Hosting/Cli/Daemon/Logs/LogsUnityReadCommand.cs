@@ -95,11 +95,11 @@ internal sealed class LogsUnityReadCommand
             .ConfigureAwait(false);
     }
 
-    private static (string EventName, object Payload) CreateProgressEntry (
+    private static CliCommandProgressEntry CreateProgressEntry (
         IpcUnityLogEvent unityLogEvent,
         string nextCursor)
     {
-        return (
+        return new CliCommandProgressEntry(
             "logs.unity.entry",
             new JsonLinePayload(
                 Timestamp: unityLogEvent.Timestamp,
