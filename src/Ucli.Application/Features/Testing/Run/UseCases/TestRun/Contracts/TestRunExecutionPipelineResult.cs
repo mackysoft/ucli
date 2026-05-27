@@ -10,11 +10,13 @@ namespace MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun.Contr
 /// <param name="UnityExecutionResult"> The Unity execution result when pipeline reached execution stage; otherwise <see langword="null" />. </param>
 /// <param name="ConversionResult"> The conversion result when pipeline reached conversion stage; otherwise <see langword="null" />. </param>
 /// <param name="Error"> The pipeline infrastructure error when pipeline failed before final mapping; otherwise <see langword="null" />. </param>
+/// <param name="AllowEmptyTestRun"> Whether a run that reports zero test cases should be accepted. </param>
 internal sealed record TestRunExecutionPipelineResult (
     ArtifactsSession? Session,
     UnityTestExecutionResult? UnityExecutionResult,
     UnityResultsConversionResult? ConversionResult,
-    ExecutionError? Error)
+    ExecutionError? Error,
+    bool AllowEmptyTestRun)
 {
     /// <summary> Gets a value indicating whether pipeline completed without infrastructure errors. </summary>
     public bool IsSuccess => Error is null
@@ -30,7 +32,8 @@ internal sealed record TestRunExecutionPipelineResult (
     public static TestRunExecutionPipelineResult Success (
         ArtifactsSession session,
         UnityTestExecutionResult unityExecutionResult,
-        UnityResultsConversionResult conversionResult)
+        UnityResultsConversionResult conversionResult,
+        bool allowEmptyTestRun = false)
     {
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(unityExecutionResult);
@@ -40,7 +43,8 @@ internal sealed record TestRunExecutionPipelineResult (
             Session: session,
             UnityExecutionResult: unityExecutionResult,
             ConversionResult: conversionResult,
-            Error: null);
+            Error: null,
+            AllowEmptyTestRun: allowEmptyTestRun);
     }
 
     /// <summary> Creates one failed pipeline result with infrastructure error. </summary>
@@ -48,12 +52,14 @@ internal sealed record TestRunExecutionPipelineResult (
     /// <param name="session"> The optional prepared artifacts session. </param>
     /// <param name="unityExecutionResult"> The optional Unity execution result. </param>
     /// <param name="conversionResult"> The optional conversion result. </param>
+    /// <param name="allowEmptyTestRun"> Whether a run that reports zero test cases should be accepted. </param>
     /// <returns> The failed pipeline result. </returns>
     public static TestRunExecutionPipelineResult Failure (
         ExecutionError error,
         ArtifactsSession? session = null,
         UnityTestExecutionResult? unityExecutionResult = null,
-        UnityResultsConversionResult? conversionResult = null)
+        UnityResultsConversionResult? conversionResult = null,
+        bool allowEmptyTestRun = false)
     {
         ArgumentNullException.ThrowIfNull(error);
 
@@ -61,6 +67,7 @@ internal sealed record TestRunExecutionPipelineResult (
             Session: session,
             UnityExecutionResult: unityExecutionResult,
             ConversionResult: conversionResult,
-            Error: error);
+            Error: error,
+            AllowEmptyTestRun: allowEmptyTestRun);
     }
 }

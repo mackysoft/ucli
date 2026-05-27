@@ -25,6 +25,7 @@ internal static class InvalidArgumentErrorCodeSet
             PlanTokenErrorCodes.StateChangedSincePlan,
             IpcProtocolErrorCodes.ProtocolVersionMismatch,
             OperationAuthorizationErrorCodes.OperationNotAllowed,
+            TestRunErrorCodes.TestRunNoTestsExecuted,
         };
 
         foreach (var code in ProjectContextErrorCodes.All)

@@ -61,7 +61,9 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
         var artifactsPreparationResult = await PrepareArtifactsSafelyAsync(configuration, cancellationToken).ConfigureAwait(false);
         if (!artifactsPreparationResult.IsSuccess)
         {
-            return TestRunExecutionPipelineResult.Failure(artifactsPreparationResult.Error!);
+            return TestRunExecutionPipelineResult.Failure(
+                artifactsPreparationResult.Error!,
+                allowEmptyTestRun: context.AllowEmptyTestRun);
         }
 
         var artifactsSession = artifactsPreparationResult.Session!;
@@ -75,7 +77,10 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
                 .ConfigureAwait(false);
             if (!progressStartResult.IsSuccess)
             {
-                return TestRunExecutionPipelineResult.Failure(progressStartResult.Error!, artifactsSession);
+                return TestRunExecutionPipelineResult.Failure(
+                    progressStartResult.Error!,
+                    artifactsSession,
+                    allowEmptyTestRun: context.AllowEmptyTestRun);
             }
         }
 
@@ -113,7 +118,8 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
                 conversionUnexpectedError,
                 artifactsSession,
                 unityExecutionResult,
-                conversionResult);
+                conversionResult,
+                allowEmptyTestRun: context.AllowEmptyTestRun);
         }
 
         if (!completionResult.IsSuccess)
@@ -122,13 +128,15 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
                 completionResult.Error!,
                 artifactsSession,
                 unityExecutionResult,
-                conversionResult);
+                conversionResult,
+                allowEmptyTestRun: context.AllowEmptyTestRun);
         }
 
         return TestRunExecutionPipelineResult.Success(
             artifactsSession,
             unityExecutionResult,
-            conversionResult);
+            conversionResult,
+            allowEmptyTestRun: context.AllowEmptyTestRun);
     }
 
     /// <summary> Prepares artifacts session and maps unexpected exceptions into internal errors. </summary>

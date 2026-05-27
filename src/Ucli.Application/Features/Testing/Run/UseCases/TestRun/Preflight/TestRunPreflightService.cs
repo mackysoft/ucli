@@ -93,7 +93,8 @@ internal sealed class TestRunPreflightService : ITestRunPreflightService
             Config: configLoadResult.Config!,
             Target: modeDecisionResult.Decision!.Target,
             Timeout: timeoutResolutionResult.Timeout!.Value,
-            FailFast: input.FailFast);
+            FailFast: input.FailFast,
+            AllowEmptyTestRun: input.AllowEmptyTestRun);
         return TestRunPreflightResult.Success(context);
     }
 
