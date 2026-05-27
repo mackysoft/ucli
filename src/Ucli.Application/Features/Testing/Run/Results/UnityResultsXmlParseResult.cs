@@ -14,6 +14,9 @@ internal sealed record UnityResultsXmlParseResult (
     /// <summary> Gets a value indicating whether parsed results contain failed tests. </summary>
     public bool HasFailedTests => Counts.Failed > 0 || HasSuiteFailure;
 
+    /// <summary> Gets the number of test cases reported by Unity results XML. </summary>
+    public int ReportedTestCaseCount => Counts.Passed + Counts.Failed + Counts.Skipped;
+
     /// <summary> Represents schema-compliant aggregated counts values. </summary>
     /// <param name="Passed"> The passed-test count. </param>
     /// <param name="Failed"> The failed-test count. </param>

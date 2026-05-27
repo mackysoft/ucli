@@ -7,6 +7,9 @@ namespace MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun.Proje
 /// <summary> Implements mapping from pipeline outcomes to command-facing test-run results. </summary>
 internal sealed class TestRunResultMapper : ITestRunResultMapper
 {
+    private const string NoTestsExecutedMessage =
+        "Unity test execution completed without reporting any test cases. Check --testFilter, --testCategory, or --assemblyName, or specify --allowEmptyTestRun to accept an empty run.";
+
     /// <summary> Maps one execution pipeline result into service output. </summary>
     /// <param name="pipelineResult"> The execution pipeline result. </param>
     /// <returns> The mapped service output. </returns>
@@ -19,7 +22,8 @@ internal sealed class TestRunResultMapper : ITestRunResultMapper
             return CreateExecutionResult(
                 pipelineResult.UnityExecutionResult!,
                 pipelineResult.ConversionResult!,
-                pipelineResult.Session!);
+                pipelineResult.Session!,
+                pipelineResult.AllowEmptyTestRun);
         }
 
         if (pipelineResult.Error is not null)
@@ -40,7 +44,8 @@ internal sealed class TestRunResultMapper : ITestRunResultMapper
         return CreateExecutionResult(
             pipelineResult.UnityExecutionResult!,
             pipelineResult.ConversionResult!,
-            pipelineResult.Session!);
+            pipelineResult.Session!,
+            pipelineResult.AllowEmptyTestRun);
     }
 
     private static bool ShouldPreferPrimaryRunOutcome (TestRunExecutionPipelineResult pipelineResult)
@@ -55,7 +60,8 @@ internal sealed class TestRunResultMapper : ITestRunResultMapper
             && pipelineResult.ConversionResult is not null
             && (!pipelineResult.UnityExecutionResult.IsSuccess
                 || !pipelineResult.ConversionResult.IsSuccess
-                || pipelineResult.ConversionResult.HasFailedTests);
+                || pipelineResult.ConversionResult.HasFailedTests
+                || IsNoTestsExecutedOutcome(pipelineResult.ConversionResult, pipelineResult.AllowEmptyTestRun));
     }
 
     /// <summary> Creates final output from execution and conversion outcomes. </summary>
@@ -66,7 +72,8 @@ internal sealed class TestRunResultMapper : ITestRunResultMapper
     private static TestRunServiceResult CreateExecutionResult (
         UnityTestExecutionResult unityExecutionResult,
         UnityResultsConversionResult conversionResult,
-        ArtifactsSession session)
+        ArtifactsSession session,
+        bool allowEmptyTestRun)
     {
         if (!unityExecutionResult.IsSuccess)
         {
@@ -146,11 +153,31 @@ internal sealed class TestRunResultMapper : ITestRunResultMapper
                 summaryJsonPath: session.Paths.SummaryJsonPath);
         }
 
+        if (IsNoTestsExecutedOutcome(conversionResult, allowEmptyTestRun))
+        {
+            return TestRunServiceResult.InvalidInput(
+                message: NoTestsExecutedMessage,
+                errorCode: TestRunErrorCodes.TestRunNoTestsExecuted,
+                runId: session.RunId,
+                artifactsDir: session.Paths.ArtifactsDir,
+                summaryJsonPath: session.Paths.SummaryJsonPath);
+        }
+
         return TestRunServiceResult.Pass(
             message: "Unity test execution completed.",
             runId: session.RunId,
             artifactsDir: session.Paths.ArtifactsDir,
             summaryJsonPath: session.Paths.SummaryJsonPath);
+    }
+
+    private static bool IsNoTestsExecutedOutcome (
+        UnityResultsConversionResult conversionResult,
+        bool allowEmptyTestRun)
+    {
+        return !allowEmptyTestRun
+            && conversionResult.IsSuccess
+            && !conversionResult.HasFailedTests
+            && conversionResult.ReportedTestCaseCount == 0;
     }
 
     private static bool IsUnityExecutionInfrastructureFailure (UnityTestExecutionFailureKind failureKind)

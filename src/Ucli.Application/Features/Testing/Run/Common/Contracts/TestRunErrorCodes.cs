@@ -9,6 +9,9 @@ internal static class TestRunErrorCodes
     /// <summary> Gets the error code emitted when Unity test execution exceeds its runtime budget. </summary>
     public static readonly UcliCode UnityTestExecutionTimeout = new UcliCode("UNITY_TEST_EXECUTION_TIMEOUT");
 
+    /// <summary> Gets the error code emitted when a test run reports no executed test cases. </summary>
+    public static readonly UcliCode TestRunNoTestsExecuted = new UcliCode("TEST_RUN_NO_TESTS_EXECUTED");
+
     /// <summary> Gets the error code emitted when Unity test results XML is invalid. </summary>
     public static readonly UcliCode TestResultsXmlInvalid = new UcliCode("TEST_RESULTS_XML_INVALID");
 

@@ -74,7 +74,7 @@ internal sealed class UnityResultsConverter : IUnityResultsConverter
                 $"Failed to write results artifacts: {exception.Message}");
         }
 
-        return UnityResultsConversionResult.Success(parseResult.HasFailedTests);
+        return UnityResultsConversionResult.Success(parseResult.HasFailedTests, parseResult.ReportedTestCaseCount);
     }
 
     /// <summary> Determines whether one exception represents results XML read failure. </summary>
