@@ -85,6 +85,23 @@ public sealed class UcliErrorDescriptorTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void OperationNotAllowedDescriptor_GuidesPolicyAndAllowlistInspection ()
+    {
+        var descriptor = FindDescriptor(OperationAuthorizationErrorCodes.OperationNotAllowed);
+
+        Assert.Contains(UcliCommandIds.Refresh, descriptor.AppliesTo);
+        Assert.Contains("operationPolicy", descriptor.Inspect);
+        Assert.Contains(
+            descriptor.NextActions,
+            static action => action.Action.Contains("errors[].message", StringComparison.Ordinal)
+                             && action.Action.Contains("operationAllowlist", StringComparison.Ordinal));
+        Assert.Contains(
+            descriptor.NextActions,
+            static action => action.Action.Contains(".ucli/config.json", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void ProtocolVersionMismatchDescriptor_AppliesToValidate ()
     {
         var descriptor = FindDescriptor(IpcProtocolErrorCodes.ProtocolVersionMismatch);
@@ -136,6 +153,22 @@ public sealed class UcliErrorDescriptorTests
         Assert.Contains(UcliCommandIds.TestRun, descriptor.AppliesTo);
         Assert.DoesNotContain("payload.executionState", descriptor.Inspect);
         Assert.Contains("payload.readPostcondition", descriptor.Inspect);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void DaemonSessionNotAvailableDescriptor_AppliesToCurrentPublicCommands ()
+    {
+        var descriptor = FindDescriptor(DaemonErrorCodes.DaemonSessionNotAvailable);
+
+        Assert.Equal("daemon", descriptor.Category);
+        Assert.Contains(UcliCommandIds.LogsDaemonRead, descriptor.AppliesTo);
+        Assert.Contains(UcliCommandIds.LogsUnityRead, descriptor.AppliesTo);
+        Assert.Contains(UcliCommandIds.LogsUnityClear, descriptor.AppliesTo);
+        Assert.DoesNotContain(UcliCommandIds.DaemonStart, descriptor.AppliesTo);
+        Assert.Contains(UcliErrorInspectTargets.DaemonStatusCommand, descriptor.Inspect);
+        Assert.Contains(UcliErrorInspectTargets.DaemonListCommand, descriptor.Inspect);
+        Assert.DoesNotContain("payload.actionRequired", descriptor.Inspect);
     }
 
     [Fact]

@@ -112,6 +112,30 @@ internal static class DaemonErrorCodeDescriptors
             ],
             relatedCodes: [IpcTransportErrorCodes.IpcTimeout, DaemonErrorCodes.DaemonStartupBlocked]),
 
+        UcliErrorDescriptorFactory.Create(
+            code: DaemonErrorCodes.DaemonSessionNotAvailable,
+            category: "daemon",
+            summary: "No daemon session is available for the requested project.",
+            meaning: "The command requires an active daemon session, but no session metadata or reachable daemon endpoint is available for the resolved Unity project.",
+            appliesTo:
+            [
+                UcliCommandIds.LogsDaemonRead,
+                UcliCommandIds.LogsUnityRead,
+                UcliCommandIds.LogsUnityClear,
+            ],
+            possiblePhases: ["daemonSessionResolution", "ipcDispatch", "logRead"],
+            impliesNotApplied: true,
+            mayBeIndeterminate: false,
+            safeToRetry: UcliErrorRetryClassValues.ContextDependent,
+            inspect: [UcliErrorInspectTargets.DaemonStatusCommand, UcliErrorInspectTargets.DaemonListCommand],
+            nextActions:
+            [
+                new UcliErrorNextActionDescriptor(
+                    When: null,
+                    Action: "Start the daemon for the project, or rerun the command with the intended projectPath."),
+            ],
+            relatedCodes: [DaemonErrorCodes.DaemonEndpointNotRegistered, IpcTransportErrorCodes.IpcTimeout]),
+
         CreateStartupProjectFixDescriptor(
             DaemonErrorCodes.EditorCompileErrors,
             "Unity startup is blocked by script compile errors.",

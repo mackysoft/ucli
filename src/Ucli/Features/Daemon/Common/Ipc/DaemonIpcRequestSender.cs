@@ -13,6 +13,8 @@ namespace MackySoft.Ucli.Features.Daemon.Common.Ipc;
 /// <summary> Implements daemon IPC sending through persisted session endpoints with domain-reload recovery retry. </summary>
 internal sealed class DaemonIpcRequestSender : IDaemonIpcRequestSender
 {
+    private const string DaemonSessionNotAvailableMessage = "No daemon session is available for the requested project. Start the daemon or check --projectPath.";
+
     private readonly IIpcTransportClient transportClient;
 
     private readonly IDaemonSessionConnectionProvider daemonSessionConnectionProvider;
@@ -72,8 +74,7 @@ internal sealed class DaemonIpcRequestSender : IDaemonIpcRequestSender
 
                 if (sessionConnectionResult.IsSessionNotAvailable)
                 {
-                    return DaemonIpcSendResult.Failure(ExecutionError.InternalError(
-                        DaemonSessionConnectionResolutionResult.SessionNotAvailableMessage));
+                    return DaemonIpcSendResult.Failure(CreateDaemonSessionNotAvailableError());
                 }
 
                 return DaemonIpcSendResult.Failure(ExecutionError.InternalError(
@@ -111,14 +112,12 @@ internal sealed class DaemonIpcRequestSender : IDaemonIpcRequestSender
                 endpointAbsenceRetryDeadline = retryDecision.EndpointAbsenceRetryDeadline;
                 if (!retryDecision.ShouldRetry)
                 {
-                    return DaemonIpcSendResult.Failure(ExecutionError.InternalError(
-                        $"Unity daemon is not running. {exception.Message}"));
+                    return DaemonIpcSendResult.Failure(CreateDaemonSessionNotAvailableError());
                 }
             }
             catch (Exception exception) when (DaemonProbeExceptionClassifier.IsNotRunning(exception))
             {
-                return DaemonIpcSendResult.Failure(ExecutionError.InternalError(
-                    $"Unity daemon is not running. {exception.Message}"));
+                return DaemonIpcSendResult.Failure(CreateDaemonSessionNotAvailableError());
             }
             catch (Exception exception)
             {
@@ -126,6 +125,13 @@ internal sealed class DaemonIpcRequestSender : IDaemonIpcRequestSender
                     $"Daemon IPC request failed. {exception.Message}"));
             }
         }
+    }
+
+    private static ExecutionError CreateDaemonSessionNotAvailableError ()
+    {
+        return ExecutionError.InternalError(
+            DaemonSessionNotAvailableMessage,
+            DaemonErrorCodes.DaemonSessionNotAvailable);
     }
 
     private async ValueTask<(bool ShouldRetry, ExecutionDeadline? EndpointAbsenceRetryDeadline)> ShouldRetryEndpointAbsenceAsync (

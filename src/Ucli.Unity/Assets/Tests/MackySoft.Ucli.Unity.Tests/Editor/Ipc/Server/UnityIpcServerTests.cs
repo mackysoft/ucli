@@ -1004,7 +1004,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                     new PingUnityIpcMethodHandler(new AssemblyServerVersionProvider(), new StubUnityEditorReadinessGate(), "project-fingerprint"),
                     new ExecuteUnityIpcMethodHandler(executeRequestDispatcher),
-                    new TestRunUnityIpcMethodHandler(testRunService),
+                    new TestRunUnityIpcMethodHandler(testRunService, new IpcRequestTimeoutScopeFactory()),
                     new DaemonLogsReadUnityIpcMethodHandler(
                         daemonLogStream,
                         new DaemonLogsReadRequestValidator(),
