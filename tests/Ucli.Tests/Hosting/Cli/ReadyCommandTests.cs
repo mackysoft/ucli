@@ -1,6 +1,7 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Assurance;
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
+using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Shared.CommandContracts;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Configuration;
@@ -191,6 +192,78 @@ public sealed class ReadyCommandTests
         Assert.Contains("--readIndexMode", result.StdOut, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("--readIndexMode")]
+    [InlineData("--read-index-mode")]
+    [Trait("Size", "Medium")]
+    public async Task Ready_WithReadIndexModeOptionAlias_IsAcceptedByParser (string readIndexModeOption)
+    {
+        var result = await CliProcessRunner.RunCommandAsync(
+            UcliCommandNames.Ready,
+            "--for",
+            "readIndex",
+            readIndexModeOption,
+            "allowStale",
+            UcliContractConstants.CliOption.Timeout,
+            "abc");
+
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        Assert.DoesNotContain($"Argument '{readIndexModeOption}' is not recognized.", result.StdErr, StringComparison.Ordinal);
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            UcliCommandNames.Ready,
+            IpcProtocol.StatusError,
+            (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.InvalidArgument);
+        Assert.Contains("timeout must be a positive integer", outputJson.RootElement.GetProperty("message").GetString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Ready_WithStartupFailure_EmitsProjectAndStartupDiagnosis ()
+    {
+        var startupFailure = CreateStartupFailureDetail();
+        var service = new StubReadyService((_, _) => ValueTask.FromResult(ReadyExecutionResult.Failure(
+            ApplicationFailure.UnityIpcFailure(
+                "Unity startup is blocked.",
+                DaemonErrorCodes.DaemonStartupBlocked,
+                startupFailure: startupFailure),
+            CreateProject())));
+        var command = new ReadyCommand(service, CommandResultTestWriter.Create());
+
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.ReadyAsync(
+            @for: "execution",
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.ToolError, exitCode);
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            UcliCommandNames.Ready,
+            IpcProtocol.StatusError,
+            (int)CliExitCode.ToolError);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, DaemonErrorCodes.DaemonStartupBlocked);
+
+        var payload = outputJson.RootElement.GetProperty("payload");
+        JsonAssert.For(payload)
+            .HasProperty("project", project => project
+                .HasString("projectPath", "<projectPath>")
+                .HasString("projectFingerprint", "<projectFingerprint>"))
+            .HasProperty("startup", startup => startup
+                .HasString("startupStatus", "blocked")
+                .HasString("startupBlockingReason", "compile"))
+            .HasProperty("diagnosis", diagnosis => diagnosis
+                .HasString("reason", "unityScriptCompilationFailed")
+                .HasProperty("primaryDiagnostic", primaryDiagnostic => primaryDiagnostic
+                    .HasString("code", "CS0246")))
+            .HasString("retryDisposition", "retryAfterFix")
+            .HasBoolean("safeToRetryImmediately", false);
+        Assert.False(payload.TryGetProperty("lifecycleState", out _));
+        Assert.False(payload.TryGetProperty("blockingReason", out _));
+        Assert.False(payload.TryGetProperty("canAcceptExecutionRequests", out _));
+    }
+
     private static ReadyExecutionOutput CreateOutput (
         string verdict = ReadyVerdictValues.Pass)
     {
@@ -343,6 +416,46 @@ public sealed class ReadyCommandTests
             ["resolvedMode"] = resolvedMode,
             ["sessionKind"] = sessionKind,
         };
+    }
+
+    private static StartupFailureDetail CreateStartupFailureDetail ()
+    {
+        return new StartupFailureDetail(
+            Startup: new DaemonStartupObservationOutput(
+                StartupStatus: "blocked",
+                StartupBlockingReason: "compile",
+                LaunchAttemptId: null,
+                EditorMode: "batchmode",
+                OwnerKind: "cli",
+                CanShutdownProcess: true,
+                ProcessId: 1234,
+                StartedAtUtc: DateTimeOffset.Parse("2026-03-12T04:05:01+00:00"),
+                ElapsedMilliseconds: null,
+                ProcessAction: "terminated",
+                ProcessTermination: null,
+                ArtifactPath: null,
+                RetryDisposition: "retryAfterFix"),
+            Diagnosis: new DaemonDiagnosisOutput(
+                Reason: "unityScriptCompilationFailed",
+                Message: "Unity startup is blocked.",
+                ReportedBy: "cli",
+                IsInferred: true,
+                UpdatedAtUtc: DateTimeOffset.Parse("2026-03-12T04:05:06+00:00"),
+                ProcessId: 1234,
+                EditorInstancePath: null,
+                ProcessStartedAtUtc: DateTimeOffset.Parse("2026-03-12T04:05:01+00:00"),
+                UnityLogPath: "/repo/.ucli/local/logs/unity.log",
+                StartupPhase: "scriptCompilation",
+                ActionRequired: "fixCompileErrors",
+                PrimaryDiagnostic: new DaemonPrimaryDiagnosticOutput(
+                    Kind: "compiler",
+                    Code: "CS0246",
+                    File: "Assets/Scripts/Broken.cs",
+                    Line: 10,
+                    Column: 5,
+                    Message: "error CS0246")),
+            RetryDisposition: "retryAfterFix",
+            SafeToRetryImmediately: false);
     }
 
     private static IReadOnlyList<ReadyReadIndexArtifactOutput> CreateReadIndexArtifacts ()

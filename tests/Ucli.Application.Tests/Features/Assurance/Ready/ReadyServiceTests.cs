@@ -1,6 +1,7 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Assurance;
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
+using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
@@ -332,6 +333,37 @@ public sealed class ReadyServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Execute_WithOneshotStartupFailure_PreservesStartupFailureOnCommandFailure ()
+    {
+        var startupFailure = CreateStartupFailureDetail();
+        var service = CreateService(
+            modeDecisionService: new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(new UnityExecutionModeDecision(
+                UnityExecutionMode.Auto,
+                DaemonRunning: false,
+                UnityExecutionTarget.Oneshot,
+                TimeSpan.FromSeconds(10)))),
+            unityRequestExecutor: new StubUnityRequestExecutor(UnityRequestExecutionResult.Failure(new UnityRequestFailure(
+                DaemonErrorCodes.DaemonStartupBlocked,
+                "Unity startup is blocked.",
+                startupFailure))));
+
+        var result = await service.ExecuteAsync(new ReadyCommandInput(
+            ProjectPath: null,
+            Target: ReadyTarget.Execution,
+            Mode: UnityExecutionMode.Auto,
+            TimeoutMilliseconds: 10000,
+            ReadIndexMode: null,
+            IsReadIndexModeSpecified: false,
+            FailFast: true));
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(DaemonErrorCodes.DaemonStartupBlocked, error.Code);
+        Assert.Same(startupFailure, error.StartupFailure);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Execute_WithOneshotPingProjectFingerprintMismatch_ReturnsCommandFailure ()
     {
         var service = CreateService(
@@ -488,6 +520,46 @@ public sealed class ReadyServiceTests
                 IsPlaying: false,
                 IsPlayingOrWillChangePlaymode: false,
                 Generation: "2"));
+    }
+
+    private static StartupFailureDetail CreateStartupFailureDetail ()
+    {
+        return new StartupFailureDetail(
+            Startup: new DaemonStartupObservationOutput(
+                StartupStatus: "blocked",
+                StartupBlockingReason: "compile",
+                LaunchAttemptId: null,
+                EditorMode: "batchmode",
+                OwnerKind: "cli",
+                CanShutdownProcess: true,
+                ProcessId: 1234,
+                StartedAtUtc: DateTimeOffset.Parse("2026-03-12T04:05:01+00:00"),
+                ElapsedMilliseconds: null,
+                ProcessAction: "terminated",
+                ProcessTermination: null,
+                ArtifactPath: null,
+                RetryDisposition: "retryAfterFix"),
+            Diagnosis: new DaemonDiagnosisOutput(
+                Reason: "unityScriptCompilationFailed",
+                Message: "Unity startup is blocked.",
+                ReportedBy: "cli",
+                IsInferred: true,
+                UpdatedAtUtc: DateTimeOffset.Parse("2026-03-12T04:05:06+00:00"),
+                ProcessId: 1234,
+                EditorInstancePath: null,
+                ProcessStartedAtUtc: DateTimeOffset.Parse("2026-03-12T04:05:01+00:00"),
+                UnityLogPath: "/repo/.ucli/local/logs/unity.log",
+                StartupPhase: "scriptCompilation",
+                ActionRequired: "fixCompileErrors",
+                PrimaryDiagnostic: new DaemonPrimaryDiagnosticOutput(
+                    Kind: "compiler",
+                    Code: "CS0246",
+                    File: "Assets/Scripts/Broken.cs",
+                    Line: 10,
+                    Column: 5,
+                    Message: "error CS0246")),
+            RetryDisposition: "retryAfterFix",
+            SafeToRetryImmediately: false);
     }
 
     private sealed class StubProjectContextResolver : IProjectContextResolver
