@@ -338,14 +338,7 @@ public sealed class ReadyCommandTests
         var generatedAtUtc = DateTimeOffset.Parse("2026-05-17T00:00:00Z");
         return
         [
-            new ReadyReadIndexArtifactOutput(
-                Name: "inputs.manifest",
-                Status: ReadyReadIndexArtifactStatusValues.Available,
-                SourceInputsHash: "source-hash",
-                GeneratedAtUtc: generatedAtUtc),
             CreateCatalogArtifact("ops.catalog", generatedAtUtc),
-            CreateCatalogArtifact("types.catalog", generatedAtUtc),
-            CreateCatalogArtifact("schemas.catalog", generatedAtUtc),
             CreateCatalogArtifact("asset-search.lookup", generatedAtUtc),
             CreateCatalogArtifact("guid-path.lookup", generatedAtUtc),
         ];

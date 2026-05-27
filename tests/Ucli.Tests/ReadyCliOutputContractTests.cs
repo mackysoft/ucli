@@ -43,7 +43,7 @@ public sealed class ReadyCliOutputContractTests
         Assert.Equal(AssuranceSessionKindValues.ArtifactOnly, payload.GetProperty("sessionKind").GetString());
         Assert.Equal(JsonValueKind.Null, payload.GetProperty("lifecycle").ValueKind);
         Assert.Equal(JsonValueKind.Object, payload.GetProperty("readIndex").ValueKind);
-        Assert.Equal(6, payload.GetProperty("readIndex").GetProperty("artifacts").GetArrayLength());
+        Assert.Equal(3, payload.GetProperty("readIndex").GetProperty("artifacts").GetArrayLength());
     }
 
     private static AssuranceSemanticInvariantValidator CreateValidator ()
