@@ -211,7 +211,8 @@ public sealed class UnityDaemonIpcClientTests
             .AsTask();
         Assert.False(sendTask.IsCompleted);
 
-        await timeProvider.AdvanceUntilCompletedAsync(
+        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
+            timeProvider,
             sendTask,
             TimeSpan.FromSeconds(2),
             TimeSpan.FromMilliseconds(100));
