@@ -85,6 +85,23 @@ public sealed class UcliErrorDescriptorTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void OperationNotAllowedDescriptor_GuidesPolicyAndAllowlistInspection ()
+    {
+        var descriptor = FindDescriptor(OperationAuthorizationErrorCodes.OperationNotAllowed);
+
+        Assert.Contains(UcliCommandIds.Refresh, descriptor.AppliesTo);
+        Assert.Contains("operationPolicy", descriptor.Inspect);
+        Assert.Contains(
+            descriptor.NextActions,
+            static action => action.Action.Contains("errors[].message", StringComparison.Ordinal)
+                             && action.Action.Contains("operationAllowlist", StringComparison.Ordinal));
+        Assert.Contains(
+            descriptor.NextActions,
+            static action => action.Action.Contains(".ucli/config.json", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void ProtocolVersionMismatchDescriptor_AppliesToValidate ()
     {
         var descriptor = FindDescriptor(IpcProtocolErrorCodes.ProtocolVersionMismatch);

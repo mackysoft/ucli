@@ -81,6 +81,48 @@ public sealed class TestRunResultMapperTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Map_WithNoReportedTestCasesAndEmptyRunNotAllowed_ReturnsInvalidInputWithArtifactsContext ()
+    {
+        var session = CreateSession();
+        var mapper = new TestRunResultMapper();
+
+        var result = mapper.Map(TestRunExecutionPipelineResult.Success(
+            session,
+            UnityTestExecutionResult.Success(0),
+            UnityResultsConversionResult.Success(hasFailedTests: false, reportedTestCaseCount: 0)));
+
+        Assert.Null(result.Result);
+        Assert.Equal(TestRunErrorKind.InvalidInput, result.ErrorKind);
+        Assert.Equal(ApplicationOutcome.InvalidArgument, result.Outcome);
+        Assert.Equal(TestRunErrorCodes.TestRunNoTestsExecuted, result.ErrorCode);
+        Assert.Equal(session.RunId, result.RunId);
+        Assert.Equal(session.Paths.ArtifactsDir, result.ArtifactsDir);
+        Assert.Equal(session.Paths.SummaryJsonPath, result.SummaryJsonPath);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Map_WithNoReportedTestCasesAndEmptyRunAllowed_ReturnsPass ()
+    {
+        var session = CreateSession();
+        var mapper = new TestRunResultMapper();
+
+        var result = mapper.Map(TestRunExecutionPipelineResult.Success(
+            session,
+            UnityTestExecutionResult.Success(0),
+            UnityResultsConversionResult.Success(hasFailedTests: false, reportedTestCaseCount: 0),
+            allowEmptyTestRun: true));
+
+        Assert.Equal(TestRunResultKind.Pass, result.Result);
+        Assert.Null(result.ErrorKind);
+        Assert.Equal(ApplicationOutcome.Success, result.Outcome);
+        Assert.Equal(session.RunId, result.RunId);
+        Assert.Equal(session.Paths.ArtifactsDir, result.ArtifactsDir);
+        Assert.Equal(session.Paths.SummaryJsonPath, result.SummaryJsonPath);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Map_WithPipelineErrorAndSession_PreservesArtifactsContext ()
     {
         var session = CreateSession();

@@ -9,9 +9,11 @@ namespace MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun.Contr
 /// <param name="Target"> The resolved Unity execution target. </param>
 /// <param name="Timeout"> The resolved timeout used for execution and daemon probing. </param>
 /// <param name="FailFast"> Whether readiness-gated Unity execution should fail immediately instead of waiting for lifecycle readiness. </param>
+/// <param name="AllowEmptyTestRun"> Whether a run that reports zero test cases should be accepted. </param>
 internal sealed record TestRunExecutionContext (
     ResolvedTestRunConfiguration Configuration,
     UcliConfig Config,
     UnityExecutionTarget Target,
     TimeSpan Timeout,
-    bool FailFast);
+    bool FailFast,
+    bool AllowEmptyTestRun);

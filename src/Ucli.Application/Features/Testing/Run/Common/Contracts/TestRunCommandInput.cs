@@ -15,6 +15,7 @@ namespace MackySoft.Ucli.Application.Features.Testing.Run.Common.Contracts;
 /// <param name="TestSettingsPath"> Optional path to <c>TestSettings.json</c>. </param>
 /// <param name="TimeoutMilliseconds"> Optional timeout in milliseconds. </param>
 /// <param name="FailFast"> Whether readiness-gated Unity execution should fail immediately instead of waiting for lifecycle readiness. </param>
+/// <param name="AllowEmptyTestRun"> Whether a run that reports zero test cases should be accepted. </param>
 internal sealed record TestRunCommandInput (
     string? ProjectPath,
     string? ProfilePath,
@@ -27,4 +28,5 @@ internal sealed record TestRunCommandInput (
     string[]? AssemblyName,
     string? TestSettingsPath,
     int? TimeoutMilliseconds,
-    bool FailFast = false);
+    bool FailFast = false,
+    bool AllowEmptyTestRun = false);
