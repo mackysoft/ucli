@@ -15,13 +15,6 @@ internal static class DaemonErrorCodeDescriptors
         UcliCommandIds.TestRun,
     ];
 
-    private static IReadOnlyList<UcliCommand> SessionRequiredLogCommands { get; } =
-    [
-        UcliCommandIds.LogsDaemonRead,
-        UcliCommandIds.LogsUnityRead,
-        UcliCommandIds.LogsUnityClear,
-    ];
-
     public static IReadOnlyList<UcliErrorDescriptor> All { get; } =
     [
         UcliErrorDescriptorFactory.Create(
@@ -124,12 +117,17 @@ internal static class DaemonErrorCodeDescriptors
             category: "daemon",
             summary: "No daemon session is available for the requested project.",
             meaning: "The command requires an active daemon session, but no session metadata or reachable daemon endpoint is available for the resolved Unity project.",
-            appliesTo: SessionRequiredLogCommands,
+            appliesTo:
+            [
+                UcliCommandIds.LogsDaemonRead,
+                UcliCommandIds.LogsUnityRead,
+                UcliCommandIds.LogsUnityClear,
+            ],
             possiblePhases: ["daemonSessionResolution", "ipcDispatch", "logRead"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
             safeToRetry: UcliErrorRetryClassValues.ContextDependent,
-            inspect: ["payload.actionRequired", UcliErrorInspectTargets.DaemonStatusCommand, UcliErrorInspectTargets.DaemonListCommand],
+            inspect: [UcliErrorInspectTargets.DaemonStatusCommand, UcliErrorInspectTargets.DaemonListCommand],
             nextActions:
             [
                 new UcliErrorNextActionDescriptor(
