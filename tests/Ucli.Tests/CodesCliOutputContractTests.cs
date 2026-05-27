@@ -170,6 +170,30 @@ public sealed class CodesCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task CodesList_WithLogsDaemonReadCommandFilter_ReturnsDaemonSessionErrors ()
+    {
+        var result = await CliProcessRunner.RunCommandAsync(
+            UcliCommandNames.Codes,
+            UcliCommandNames.ListSubcommand,
+            "--kind",
+            CodeCatalogKindValues.Error,
+            "--command",
+            UcliCommandNames.LogsDaemonRead);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: UcliCommandNames.CodesList,
+            status: "ok",
+            exitCode: (int)CliExitCode.Success);
+        var codes = GetCodes(outputJson.RootElement);
+        Assert.Contains(DaemonErrorCodes.DaemonSessionNotAvailable.Value, codes);
+        Assert.Contains(IpcTransportErrorCodes.IpcTimeout.Value, codes);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task CodesList_WithPlayCommandFilter_ReturnsAllPlayModeControlErrors ()
     {
         var result = await CliProcessRunner.RunCommandAsync(

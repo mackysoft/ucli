@@ -140,6 +140,20 @@ public sealed class UcliErrorDescriptorTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void DaemonSessionNotAvailableDescriptor_AppliesToLogCommands ()
+    {
+        var descriptor = FindDescriptor(DaemonErrorCodes.DaemonSessionNotAvailable);
+
+        Assert.Equal("daemon", descriptor.Category);
+        Assert.Contains(UcliCommandIds.LogsDaemonRead, descriptor.AppliesTo);
+        Assert.Contains(UcliCommandIds.LogsUnityRead, descriptor.AppliesTo);
+        Assert.Contains(UcliCommandIds.LogsUnityClear, descriptor.AppliesTo);
+        Assert.DoesNotContain(UcliCommandIds.DaemonStart, descriptor.AppliesTo);
+        Assert.Contains("payload.actionRequired", descriptor.Inspect);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void PlayModeSessionAndStateDescriptors_ApplyToPlayCommandFamily ()
     {
         var lifecycleCodes = new[]

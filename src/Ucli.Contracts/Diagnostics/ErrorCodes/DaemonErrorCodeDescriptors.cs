@@ -15,6 +15,13 @@ internal static class DaemonErrorCodeDescriptors
         UcliCommandIds.TestRun,
     ];
 
+    private static IReadOnlyList<UcliCommand> SessionRequiredLogCommands { get; } =
+    [
+        UcliCommandIds.LogsDaemonRead,
+        UcliCommandIds.LogsUnityRead,
+        UcliCommandIds.LogsUnityClear,
+    ];
+
     public static IReadOnlyList<UcliErrorDescriptor> All { get; } =
     [
         UcliErrorDescriptorFactory.Create(
@@ -111,6 +118,25 @@ internal static class DaemonErrorCodeDescriptors
                     Action: "Inspect daemon status and Unity logs to determine whether Unity is still starting or blocked."),
             ],
             relatedCodes: [IpcTransportErrorCodes.IpcTimeout, DaemonErrorCodes.DaemonStartupBlocked]),
+
+        UcliErrorDescriptorFactory.Create(
+            code: DaemonErrorCodes.DaemonSessionNotAvailable,
+            category: "daemon",
+            summary: "No daemon session is available for the requested project.",
+            meaning: "The command requires an active daemon session, but no session metadata or reachable daemon endpoint is available for the resolved Unity project.",
+            appliesTo: SessionRequiredLogCommands,
+            possiblePhases: ["daemonSessionResolution", "ipcDispatch", "logRead"],
+            impliesNotApplied: true,
+            mayBeIndeterminate: false,
+            safeToRetry: UcliErrorRetryClassValues.ContextDependent,
+            inspect: ["payload.actionRequired", UcliErrorInspectTargets.DaemonStatusCommand, UcliErrorInspectTargets.DaemonListCommand],
+            nextActions:
+            [
+                new UcliErrorNextActionDescriptor(
+                    When: null,
+                    Action: "Start the daemon for the project, or rerun the command with the intended projectPath."),
+            ],
+            relatedCodes: [DaemonErrorCodes.DaemonEndpointNotRegistered, IpcTransportErrorCodes.IpcTimeout]),
 
         CreateStartupProjectFixDescriptor(
             DaemonErrorCodes.EditorCompileErrors,
