@@ -2,8 +2,8 @@ using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Testing.Run.Artifacts;
 using MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
 using MackySoft.Ucli.Application.Features.Testing.Run.Execution;
-using MackySoft.Ucli.Application.Features.Testing.Run.Progress;
 using MackySoft.Ucli.Application.Features.Testing.Run.Results;
+using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Testing;
@@ -45,12 +45,12 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
 
     /// <summary> Executes one test-run pipeline from prepared configuration. </summary>
     /// <param name="context"> The preflight-resolved execution context. </param>
-    /// <param name="progressSink"> The optional sink that receives live progress entries. </param>
+    /// <param name="progressSink"> The optional command-neutral sink that receives live progress entries. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
     /// <returns> A task that resolves to pipeline output values. </returns>
     public async ValueTask<TestRunExecutionPipelineResult> ExecuteAsync (
         TestRunExecutionContext context,
-        ITestRunProgressSink? progressSink = null,
+        ICommandProgressSink? progressSink = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -197,7 +197,7 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
     private async ValueTask<UnityTestExecutionResult> ExecuteUnitySafelyAsync (
         TestRunExecutionContext context,
         ArtifactsSession session,
-        ITestRunProgressSink? progressSink,
+        ICommandProgressSink? progressSink,
         CancellationToken cancellationToken)
     {
         try
@@ -239,7 +239,7 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
     private async ValueTask<UnityTestExecutionResult> ExecuteStreamingUnityAsync (
         TestRunExecutionContext context,
         ArtifactsSession session,
-        ITestRunProgressSink progressSink,
+        ICommandProgressSink progressSink,
         CancellationToken cancellationToken)
     {
         var requestResult = await unityStreamingRequestExecutor.ExecuteAsync(
@@ -296,7 +296,7 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
     private static async ValueTask ForwardTestRunProgressFrameAsync (
         UnityRequestProgressFrame frame,
         string expectedRunId,
-        ITestRunProgressSink progressSink,
+        ICommandProgressSink progressSink,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -326,7 +326,7 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
     private static async ValueTask ForwardProgressPayloadAsync<TPayload> (
         UnityRequestProgressFrame frame,
         string expectedRunId,
-        ITestRunProgressSink progressSink,
+        ICommandProgressSink progressSink,
         CancellationToken cancellationToken)
         where TPayload : class
     {
@@ -519,7 +519,7 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
     private static async ValueTask<ProgressEmissionResult> EmitRunStartedSafelyAsync (
         ResolvedTestRunConfiguration configuration,
         ArtifactsSession session,
-        ITestRunProgressSink progressSink,
+        ICommandProgressSink progressSink,
         CancellationToken cancellationToken)
     {
         try

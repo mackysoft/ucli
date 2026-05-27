@@ -89,56 +89,44 @@ internal sealed class LogsUnityReadCommand
                         IdleTimeoutMilliseconds: idleTimeoutMilliseconds),
                     onLogEvent,
                     executeCancellationToken),
-                WriteLogEvent,
+                CreateProgressEntry,
+                new TextProjector(),
                 cancellationToken)
             .ConfigureAwait(false);
     }
 
-    private static string WriteLogEvent (
-        CliStreamEntryWriter entryWriter,
-        CliStreamEntryFormat format,
+    private static (string EventName, object Payload) CreateProgressEntry (
         IpcUnityLogEvent unityLogEvent,
         string nextCursor)
     {
-        if (format == CliStreamEntryFormat.Json)
-        {
-            entryWriter.WriteJsonEntry(
-                "logs.unity.entry",
-                new JsonLinePayload(
-                    Timestamp: unityLogEvent.Timestamp,
-                    Level: unityLogEvent.Level,
-                    Source: unityLogEvent.Source,
-                    Message: unityLogEvent.Message,
-                    StackTrace: unityLogEvent.StackTrace,
-                    Cursor: unityLogEvent.Cursor,
-                    NextCursor: nextCursor));
-            return nextCursor;
-        }
-
-        entryWriter.WritePreSanitizedTextEntry(CreateTextLine(unityLogEvent));
-        return nextCursor;
+        return (
+            "logs.unity.entry",
+            new JsonLinePayload(
+                Timestamp: unityLogEvent.Timestamp,
+                Level: unityLogEvent.Level,
+                Source: unityLogEvent.Source,
+                Message: unityLogEvent.Message,
+                StackTrace: unityLogEvent.StackTrace,
+                Cursor: unityLogEvent.Cursor,
+                NextCursor: nextCursor));
     }
 
-    private static string CreateTextLine (IpcUnityLogEvent unityLogEvent)
+    private static string CreateTextLine (JsonLinePayload payload)
     {
-        var message = LogsTextUtilities.NormalizeSingleLine(unityLogEvent.Message);
-        var hasStackTrace = !string.IsNullOrWhiteSpace(unityLogEvent.StackTrace);
-        var stackTrace = hasStackTrace
-            ? LogsTextUtilities.NormalizeSingleLine(unityLogEvent.StackTrace)
-            : string.Empty;
+        var hasStackTrace = !string.IsNullOrWhiteSpace(payload.StackTrace);
         var length = checked(
-            unityLogEvent.Timestamp.Length
+            payload.Timestamp.Length
             + 1
-            + unityLogEvent.Level.Length
+            + payload.Level.Length
             + 1
-            + unityLogEvent.Source.Length
+            + payload.Source.Length
             + 1
-            + message.Length
-            + (hasStackTrace ? 3 + stackTrace.Length : 0));
+            + payload.Message.Length
+            + (hasStackTrace ? 3 + payload.StackTrace!.Length : 0));
 
         return string.Create(
             length,
-            (unityLogEvent.Timestamp, unityLogEvent.Level, unityLogEvent.Source, Message: message, HasStackTrace: hasStackTrace, StackTrace: stackTrace),
+            (payload.Timestamp, payload.Level, payload.Source, payload.Message, HasStackTrace: hasStackTrace, StackTrace: payload.StackTrace ?? string.Empty),
             static (destination, state) =>
             {
                 var writer = new SpanTextWriter(destination);
@@ -155,6 +143,24 @@ internal sealed class LogsUnityReadCommand
                     writer.Append(state.StackTrace);
                 }
             });
+    }
+
+    private sealed class TextProjector : ICliCommandProgressTextProjector
+    {
+        public bool TryCreateTextEntry (
+            string eventName,
+            object payload,
+            out string text)
+        {
+            if (payload is JsonLinePayload unityLogEvent)
+            {
+                text = CreateTextLine(unityLogEvent);
+                return true;
+            }
+
+            text = string.Concat(eventName, " ", payload);
+            return true;
+        }
     }
 
     /// <summary> Represents one NDJSON output line for Unity log events. </summary>

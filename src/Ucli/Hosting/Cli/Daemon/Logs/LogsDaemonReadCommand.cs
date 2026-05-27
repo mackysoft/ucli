@@ -80,56 +80,45 @@ internal sealed class LogsDaemonReadCommand
                         IdleTimeoutMilliseconds: idleTimeoutMilliseconds),
                     onLogEvent,
                     executeCancellationToken),
-                WriteLogEvent,
+                CreateProgressEntry,
+                new TextProjector(),
                 cancellationToken)
             .ConfigureAwait(false);
     }
 
-    /// <summary> Writes one daemon log event to standard error by selected format. </summary>
-    /// <param name="entryWriter"> The stream-entry writer. </param>
-    /// <param name="format"> The parsed output format. </param>
+    /// <summary> Creates one daemon-log progress entry. </summary>
     /// <param name="daemonLogEvent"> The daemon log event payload. </param>
     /// <param name="nextCursor"> The next cursor value returned by daemon. </param>
-    private static string WriteLogEvent (
-        CliStreamEntryWriter entryWriter,
-        CliStreamEntryFormat format,
+    private static (string EventName, object Payload) CreateProgressEntry (
         IpcDaemonLogEvent daemonLogEvent,
         string nextCursor)
     {
-        if (format == CliStreamEntryFormat.Json)
-        {
-            entryWriter.WriteJsonEntry(
-                "logs.daemon.entry",
-                new JsonLinePayload(
-                    Timestamp: daemonLogEvent.Timestamp,
-                    Level: daemonLogEvent.Level,
-                    Category: daemonLogEvent.Category,
-                    Message: daemonLogEvent.Message,
-                    Raw: daemonLogEvent.Raw,
-                    Cursor: daemonLogEvent.Cursor,
-                    NextCursor: nextCursor));
-            return nextCursor;
-        }
-
-        entryWriter.WritePreSanitizedTextEntry(CreateTextLine(daemonLogEvent));
-        return nextCursor;
+        return (
+            "logs.daemon.entry",
+            new JsonLinePayload(
+                Timestamp: daemonLogEvent.Timestamp,
+                Level: daemonLogEvent.Level,
+                Category: daemonLogEvent.Category,
+                Message: daemonLogEvent.Message,
+                Raw: daemonLogEvent.Raw,
+                Cursor: daemonLogEvent.Cursor,
+                NextCursor: nextCursor));
     }
 
-    private static string CreateTextLine (IpcDaemonLogEvent daemonLogEvent)
+    private static string CreateTextLine (JsonLinePayload payload)
     {
-        var message = LogsTextUtilities.NormalizeSingleLine(daemonLogEvent.Message);
         var length = checked(
-            daemonLogEvent.Timestamp.Length
+            payload.Timestamp.Length
             + 1
-            + daemonLogEvent.Level.Length
+            + payload.Level.Length
             + 1
-            + daemonLogEvent.Category.Length
+            + payload.Category.Length
             + 1
-            + message.Length);
+            + payload.Message.Length);
 
         return string.Create(
             length,
-            (daemonLogEvent.Timestamp, daemonLogEvent.Level, daemonLogEvent.Category, Message: message),
+            payload,
             static (destination, state) =>
             {
                 var writer = new SpanTextWriter(destination);
@@ -141,6 +130,24 @@ internal sealed class LogsDaemonReadCommand
                 writer.Append(' ');
                 writer.Append(state.Message);
             });
+    }
+
+    private sealed class TextProjector : ICliCommandProgressTextProjector
+    {
+        public bool TryCreateTextEntry (
+            string eventName,
+            object payload,
+            out string text)
+        {
+            if (payload is JsonLinePayload daemonLogEvent)
+            {
+                text = CreateTextLine(daemonLogEvent);
+                return true;
+            }
+
+            text = string.Concat(eventName, " ", payload);
+            return true;
+        }
     }
 
     /// <summary> Represents one NDJSON output line for daemon log events. </summary>

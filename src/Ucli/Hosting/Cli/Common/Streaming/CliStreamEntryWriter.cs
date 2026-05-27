@@ -67,13 +67,6 @@ internal sealed class CliStreamEntryWriter
         errorWriter.WriteLine(CliTextEntrySanitizer.Sanitize(text));
     }
 
-    /// <summary> Writes one human-readable text entry line that has already been sanitized. </summary>
-    public void WritePreSanitizedTextEntry (string text)
-    {
-        ArgumentNullException.ThrowIfNull(text);
-        errorWriter.WriteLine(text);
-    }
-
     private void WriteUtf8JsonLine (ReadOnlySpan<byte> utf8Json)
     {
         var maxCharCount = Encoding.UTF8.GetMaxCharCount(utf8Json.Length);
