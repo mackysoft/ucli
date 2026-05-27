@@ -314,7 +314,7 @@ uCLI includes a read index for read-heavy automation. It lets agents and scripts
 
 Mutations still re-resolve against live Unity state. The read index improves planning and validation, but it is never the source of truth for `call`.
 
-For read-heavy workflows, `--readIndexMode` controls whether query-like commands may use stored index data:
+For read-heavy workflows, `--readIndexMode` controls whether query-like commands may use stored index data. The `--read-index-mode` spelling is accepted as an alias.
 
 | Mode | Behavior |
 | --- | --- |
@@ -978,12 +978,14 @@ Common options:
 | `--projectPath <path>` | Unity-backed commands | Target Unity project path. Overrides `UCLI_PROJECT_PATH` and current-directory resolution. |
 | `--mode auto\|daemon\|oneshot` | Unity-backed commands | Choose daemon reuse or one-shot batchmode. |
 | `--timeout <milliseconds>` | Unity-backed commands | Override the command timeout. |
-| `--readIndexMode disabled\|allowStale\|requireFresh` | Query-like commands | Control read-index use. |
+| `--readIndexMode disabled\|allowStale\|requireFresh`, `--read-index-mode disabled\|allowStale\|requireFresh` | Query-like commands | Control read-index use. |
 | `--failFast` | Unity-backed commands | Fail when the Unity editor lifecycle is not ready instead of waiting. |
 | `--withPlan` | `ucli call` | Run a plan pass inside `call` and include it in the result. |
 | `--planToken <token>` | `ucli call` | Apply a request using a token returned by `ucli plan`. |
 | `--allowDangerous` | `ucli call`, `ucli eval` | Allow operations whose catalog policy is `dangerous`. |
 | `--allowPlayMode` | `ucli plan`, `ucli call`, `ucli eval` | Allow guarded Play Mode mutation in a GUI Editor session. |
+
+Use `--mode daemon` when CI must fail specifically because no daemon is running. With `--mode auto`, a missing daemon may resolve to a one-shot probe; if that startup does not reach an IPC endpoint, inspect `payload.startup`, `payload.diagnosis`, and `retryDisposition`.
 
 > **NOTE:** Project path resolution uses `--projectPath`, then `UCLI_PROJECT_PATH`, then the command default. The default is usually the current working directory.
 

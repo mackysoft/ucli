@@ -36,12 +36,19 @@ internal static class ReadyCommandResultFactory
 
     private static object? CreateFailurePayload (ReadyExecutionResult executionResult)
     {
-        return executionResult.Project is null
-            ? null
-            : new
-            {
-                project = ProjectIdentityPayloadProjector.Create(executionResult.Project),
-            };
+        if (executionResult.Project is null && executionResult.Errors.All(static error => error.StartupFailure is null))
+        {
+            return null;
+        }
+
+        var payload = new Dictionary<string, object?>(StringComparer.Ordinal);
+        if (executionResult.Project is not null)
+        {
+            payload["project"] = ProjectIdentityPayloadProjector.Create(executionResult.Project);
+        }
+
+        StartupFailurePayloadProjector.AppendFromFailures(payload, executionResult.Errors);
+        return payload;
     }
 
     private static CommandResult CreateSuccess (ReadyExecutionResult executionResult)
