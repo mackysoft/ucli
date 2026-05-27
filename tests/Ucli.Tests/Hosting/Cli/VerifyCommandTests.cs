@@ -169,6 +169,52 @@ public sealed class VerifyCommandTests
     }
 
     [Theory]
+    [InlineData("text")]
+    [InlineData("json")]
+    [Trait("Size", "Small")]
+    public async Task Verify_WithSupportedFormat_WritesOnlyFinalCommandResult (
+        string format)
+    {
+        var service = new StubVerifyService((_, _) => ValueTask.FromResult(VerifyExecutionResult.Success(CreateOutput())));
+        var command = new VerifyCommand(service, CommandResultTestWriter.Create());
+
+        var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.VerifyAsync(
+            format: format,
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.Success, exitCode);
+        Assert.Equal(string.Empty, standardError);
+        Assert.NotNull(service.CapturedInput);
+        JsonGoldenFileAssert.Matches(
+            CliOutputGoldenFiles.GetPath("verify", "default-success.json"),
+            standardOutput,
+            CreateVerifyGoldenNormalization());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Verify_WhenFormatIsInvalid_ReturnsInvalidArgumentWithoutCallingService ()
+    {
+        var service = new StubVerifyService((_, _) => throw new InvalidOperationException("Service should not be called."));
+        var command = new VerifyCommand(service, CommandResultTestWriter.Create());
+
+        var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.VerifyAsync(
+            format: "yaml",
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.InvalidArgument, exitCode);
+        Assert.Equal(string.Empty, standardError);
+        Assert.Null(service.CapturedInput);
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            UcliCommandNames.Verify,
+            IpcProtocol.StatusError,
+            (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.InvalidArgument);
+    }
+
+    [Theory]
     [InlineData(VerifyVerdictValues.Fail)]
     [InlineData(VerifyVerdictValues.Incomplete)]
     [Trait("Size", "Small")]

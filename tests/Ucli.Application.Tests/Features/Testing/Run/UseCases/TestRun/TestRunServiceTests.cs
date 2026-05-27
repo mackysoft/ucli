@@ -2,13 +2,13 @@ using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Testing.Run.Artifacts;
 using MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
 using MackySoft.Ucli.Application.Features.Testing.Run.Execution;
-using MackySoft.Ucli.Application.Features.Testing.Run.Progress;
 using MackySoft.Ucli.Application.Features.Testing.Run.Results;
 using MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun;
 using MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun.Pipeline;
 using MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun.Preflight;
 using MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun.Projection;
 using MackySoft.Ucli.Application.Shared.Configuration;
+using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -1376,7 +1376,7 @@ public sealed class TestRunServiceTests
         }
     }
 
-    private sealed class CollectingProgressSink : ITestRunProgressSink
+    private sealed class CollectingProgressSink : ICommandProgressSink
     {
         private readonly List<ProgressEntry> entries = [];
 

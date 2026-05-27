@@ -1,7 +1,7 @@
 using System.Text.Json;
 using MackySoft.Tests;
-using MackySoft.Ucli.Application.Features.Testing.Run.Progress;
 using MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun;
+using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Testing;
@@ -467,14 +467,14 @@ public sealed class TestRunCommandTests
 
     private sealed class StubTestRunService : ITestRunService
     {
-        private readonly Func<TestRunCommandInput, ITestRunProgressSink?, CancellationToken, ValueTask<TestRunServiceResult>> handler;
+        private readonly Func<TestRunCommandInput, ICommandProgressSink?, CancellationToken, ValueTask<TestRunServiceResult>> handler;
 
         public StubTestRunService (Func<TestRunCommandInput, CancellationToken, ValueTask<TestRunServiceResult>> handler)
             : this((input, _, cancellationToken) => handler(input, cancellationToken))
         {
         }
 
-        public StubTestRunService (Func<TestRunCommandInput, ITestRunProgressSink?, CancellationToken, ValueTask<TestRunServiceResult>> handler)
+        public StubTestRunService (Func<TestRunCommandInput, ICommandProgressSink?, CancellationToken, ValueTask<TestRunServiceResult>> handler)
         {
             this.handler = handler ?? throw new ArgumentNullException(nameof(handler));
         }
@@ -485,7 +485,7 @@ public sealed class TestRunCommandTests
 
         public ValueTask<TestRunServiceResult> ExecuteAsync (
             TestRunCommandInput input,
-            ITestRunProgressSink? progressSink = null,
+            ICommandProgressSink? progressSink = null,
             CancellationToken cancellationToken = default)
         {
             CapturedInput = input;
