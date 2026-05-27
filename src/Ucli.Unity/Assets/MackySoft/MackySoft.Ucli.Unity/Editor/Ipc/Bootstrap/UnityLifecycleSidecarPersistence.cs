@@ -4,6 +4,8 @@ using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Runtime;
 
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Persists Unity lifecycle observations for CLI reads while the IPC endpoint is unavailable. </summary>
@@ -41,7 +43,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             var contract = new DaemonLifecycleJsonContract(
                 ProcessId: currentProcess.Id,
                 ProcessStartedAtUtc: currentProcess.StartTime.ToUniversalTime(),
-                EditorMode: MackySoft.Ucli.Contracts.Daemon.DaemonEditorModeCodec.ToValue(snapshot.EditorMode),
+                EditorMode: ContractLiteralCodec.ToValue(snapshot.EditorMode),
                 LifecycleState: snapshot.LifecycleState,
                 BlockingReason: snapshot.BlockingReason,
                 CompileState: snapshot.CompileState,

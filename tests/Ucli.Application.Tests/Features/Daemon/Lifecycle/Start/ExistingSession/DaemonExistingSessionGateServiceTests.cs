@@ -367,8 +367,8 @@ public sealed class DaemonExistingSessionGateServiceTests
             SessionToken: "session-token",
             ProjectFingerprint: projectFingerprint,
             IssuedAtUtc: DateTimeOffset.UtcNow,
-            EditorMode: DaemonEditorModeValues.Batchmode,
-            OwnerKind: DaemonSessionOwnerKindValues.Cli,
+            EditorMode: "batchmode",
+            OwnerKind: "cli",
             CanShutdownProcess: true,
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-daemon-test-endpoint",
@@ -403,7 +403,7 @@ public sealed class DaemonExistingSessionGateServiceTests
     {
         return new IpcPingResponse(
             ServerVersion: "1.0.0",
-            EditorMode: DaemonEditorModeValues.Batchmode,
+            EditorMode: "batchmode",
             UnityVersion: "2022.3.0f1",
             ProjectFingerprint: "fingerprint",
             CompileState: IpcCompileStateCodec.Ready,

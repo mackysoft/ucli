@@ -7,6 +7,7 @@ using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Infrastructure.Project;
 
@@ -156,7 +157,7 @@ internal sealed class SupervisorRequestDispatcher
         var editorMode = (DaemonEditorMode?)null;
         if (payload.EditorMode != null)
         {
-            if (!DaemonEditorModeCodec.TryParse(payload.EditorMode, out var parsedEditorMode))
+            if (!ContractLiteralInputParser.TryParseTrimmed<DaemonEditorMode>(payload.EditorMode, out var parsedEditorMode))
             {
                 return SupervisorIpcResponseFactory.CreateErrorResponse(
                     request,
@@ -167,7 +168,7 @@ internal sealed class SupervisorRequestDispatcher
             editorMode = parsedEditorMode;
         }
 
-        if (!DaemonStartupBlockedProcessPolicyCodec.TryParse(payload.OnStartupBlocked, out var onStartupBlocked))
+        if (!ContractLiteralInputParser.TryParseTrimmed<DaemonStartupBlockedProcessPolicy>(payload.OnStartupBlocked, out var onStartupBlocked))
         {
             return SupervisorIpcResponseFactory.CreateErrorResponse(
                 request,
@@ -206,7 +207,7 @@ internal sealed class SupervisorRequestDispatcher
                 startResult.Startup);
         }
 
-        if (!DaemonStartStateCodec.TryToValue(startResult.Status, out var startStatus))
+        if (!ContractLiteralCodec.TryToValue(startResult.Status, out var startStatus))
         {
             return SupervisorIpcResponseFactory.CreateErrorResponse(
                 request,
@@ -218,7 +219,7 @@ internal sealed class SupervisorRequestDispatcher
             request,
             new SupervisorIpcContracts.EnsureRunningResponse(
                 StartStatus: startStatus!,
-                DaemonStatus: DaemonStatusStateCodec.Running,
+                DaemonStatus: ContractLiteralCodec.ToValue(DaemonStatusKind.Running),
                 Session: startResult.Session!,
                 LifecycleSnapshot: startResult.LifecycleSnapshot));
     }
@@ -282,7 +283,7 @@ internal sealed class SupervisorRequestDispatcher
             return CreateExecutionErrorResponse(request, stopResult.Error!);
         }
 
-        if (!DaemonStopStateCodec.TryToValue(stopResult.Status, out var stopStatus))
+        if (!ContractLiteralCodec.TryToValue(stopResult.Status, out var stopStatus))
         {
             return SupervisorIpcResponseFactory.CreateErrorResponse(
                 request,
@@ -294,7 +295,7 @@ internal sealed class SupervisorRequestDispatcher
             request,
             new SupervisorIpcContracts.StopProjectResponse(
                 StopStatus: stopStatus!,
-                DaemonStatus: DaemonStatusStateCodec.NotRunning));
+                DaemonStatus: ContractLiteralCodec.ToValue(DaemonStatusKind.NotRunning)));
     }
 
     private async Task TryWriteResponseAsync (
@@ -377,9 +378,9 @@ internal sealed class SupervisorRequestDispatcher
         DaemonDiagnosis? diagnosis,
         DaemonStartupObservation? startup)
     {
-        var daemonStatusValue = DaemonStatusStateCodec.TryToValue(daemonStatus, out var value)
+        var daemonStatusValue = ContractLiteralCodec.TryToValue(daemonStatus, out var value)
             ? value
-            : DaemonStatusStateCodec.NotRunning;
+            : ContractLiteralCodec.ToValue(DaemonStatusKind.NotRunning);
         return SupervisorIpcResponseFactory.CreateErrorResponse(
             request,
             ExecutionErrorCodeMapper.ToCode(error),

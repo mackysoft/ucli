@@ -380,7 +380,7 @@ public sealed class SupervisorBootstrapperTests
         var manifest = new SupervisorInstanceManifest(
             ProcessId: 2468,
             SessionToken: "supervisor-session-token",
-            EndpointTransportKind: IpcTransportKindValues.UnixDomainSocket,
+            EndpointTransportKind: "unixDomainSocket",
             EndpointAddress: maliciousPath,
             IssuedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 0, 0, TimeSpan.Zero));
         var manifestStore = new SupervisorManifestStore(

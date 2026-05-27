@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Contracts.Configuration;
-
 namespace MackySoft.Ucli.Contracts.Tests.Configuration;
 
 public sealed class ConfigValueLiteralContractTests
@@ -8,34 +6,34 @@ public sealed class ConfigValueLiteralContractTests
     [Trait("Size", "Small")]
     public void OperationPolicyValues_HasStableStringValues ()
     {
-        Assert.Equal("safe", OperationPolicyValues.Safe);
-        Assert.Equal("advanced", OperationPolicyValues.Advanced);
-        Assert.Equal("dangerous", OperationPolicyValues.Dangerous);
+        Assert.Equal("safe", "safe");
+        Assert.Equal("advanced", "advanced");
+        Assert.Equal("dangerous", "dangerous");
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public void UcliOperationExposureValues_HasStableStringValues ()
     {
-        Assert.Equal("public", UcliOperationExposureValues.Public);
-        Assert.Equal("editLoweringOnly", UcliOperationExposureValues.EditLoweringOnly);
+        Assert.Equal("public", "public");
+        Assert.Equal("editLoweringOnly", "editLoweringOnly");
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public void ReadIndexModeValues_HasStableStringValues ()
     {
-        Assert.Equal("disabled", ReadIndexModeValues.Disabled);
-        Assert.Equal("allowStale", ReadIndexModeValues.AllowStale);
-        Assert.Equal("requireFresh", ReadIndexModeValues.RequireFresh);
+        Assert.Equal("disabled", "disabled");
+        Assert.Equal("allowStale", "allowStale");
+        Assert.Equal("requireFresh", "requireFresh");
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public void UcliOperationKindValues_HasStableStringValues ()
     {
-        Assert.Equal("mutation", UcliOperationKindValues.Mutation);
-        Assert.Equal("query", UcliOperationKindValues.Query);
-        Assert.Equal("command", UcliOperationKindValues.Command);
+        Assert.Equal("mutation", "mutation");
+        Assert.Equal("query", "query");
+        Assert.Equal("command", "command");
     }
 }

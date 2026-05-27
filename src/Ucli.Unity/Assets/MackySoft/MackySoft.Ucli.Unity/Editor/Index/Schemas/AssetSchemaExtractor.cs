@@ -8,6 +8,8 @@ using UnityEngine;
 
 #nullable enable
 
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Unity.Index
 {
     /// <summary> Extracts schema entries for ScriptableObject runtime types. </summary>
@@ -99,7 +101,7 @@ namespace MackySoft.Ucli.Unity.Index
                 propertyResult = schemaPropertyCollector.Collect(assetType, serializedObject);
                 return new IndexSchemaEntryJsonContract(
                     SchemaKey: CreateSchemaKey(assetType),
-                    Kind: IndexSchemaKindValues.Asset,
+                    Kind: ContractLiteralCodec.ToValue(IndexSchemaKind.Asset),
                     TypeId: IndexTypeIdFormatter.Format(assetType),
                     DisplayName: assetType.Name,
                     Properties: propertyResult.Properties);
@@ -116,7 +118,7 @@ namespace MackySoft.Ucli.Unity.Index
         private static string CreateSchemaKey (Type assetType)
         {
             var typeId = IndexTypeIdFormatter.Format(assetType);
-            return $"{IndexSchemaKindValues.Asset}:{typeId}";
+            return $"{ContractLiteralCodec.ToValue(IndexSchemaKind.Asset)}:{typeId}";
         }
 
         private static bool IsValidAssetType (

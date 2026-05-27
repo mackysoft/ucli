@@ -110,7 +110,7 @@ public sealed class SupervisorClientTests
         Assert.True(call.UsesUnboundedResponseWait);
         Assert.Equal(requestedTimeout, call.Timeout);
         Assert.Equal((int)requestedTimeout.TotalMilliseconds, observedOperationTimeoutMilliseconds);
-        Assert.Equal(DaemonStartupBlockedProcessPolicyValues.Terminate, observedOnStartupBlocked);
+        Assert.Equal("terminate", observedOnStartupBlocked);
     }
 
     [Fact]
@@ -214,8 +214,8 @@ public sealed class SupervisorClientTests
             SessionToken: "session-token",
             ProjectFingerprint: "fingerprint",
             IssuedAtUtc: new DateTimeOffset(2026, 03, 11, 0, 0, 0, TimeSpan.Zero),
-            EditorMode: DaemonEditorModeValues.Gui,
-            OwnerKind: DaemonSessionOwnerKindValues.Cli,
+            EditorMode: "gui",
+            OwnerKind: "cli",
             CanShutdownProcess: true,
             EndpointTransportKind: "unixDomainSocket",
             EndpointAddress: "/tmp/ucli.sock",

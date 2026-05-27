@@ -8,6 +8,8 @@ using UnityEngine;
 
 #nullable enable
 
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Unity.Index
 {
     /// <summary> Extracts schema entries for component runtime types. </summary>
@@ -98,7 +100,7 @@ namespace MackySoft.Ucli.Unity.Index
                 propertyResult = schemaPropertyCollector.Collect(componentType, serializedObject);
                 return new IndexSchemaEntryJsonContract(
                     SchemaKey: CreateSchemaKey(componentType),
-                    Kind: IndexSchemaKindValues.Comp,
+                    Kind: ContractLiteralCodec.ToValue(IndexSchemaKind.Comp),
                     TypeId: IndexTypeIdFormatter.Format(componentType),
                     DisplayName: componentType.Name,
                     Properties: propertyResult.Properties);
@@ -115,7 +117,7 @@ namespace MackySoft.Ucli.Unity.Index
         private static string CreateSchemaKey (Type componentType)
         {
             var typeId = IndexTypeIdFormatter.Format(componentType);
-            return $"{IndexSchemaKindValues.Comp}:{typeId}";
+            return $"{ContractLiteralCodec.ToValue(IndexSchemaKind.Comp)}:{typeId}";
         }
 
         private static Component CreateComponentInstance (

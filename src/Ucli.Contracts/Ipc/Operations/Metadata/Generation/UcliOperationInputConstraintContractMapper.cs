@@ -1,5 +1,7 @@
 using MackySoft.Ucli.Contracts.Operations;
 
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Maps input constraint authoring attributes to describe payload constraint contracts. </summary>
@@ -15,7 +17,7 @@ internal static class UcliOperationInputConstraintContractMapper
             throw new ArgumentNullException(nameof(attribute));
         }
 
-        return new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindCodec.ToValue(attribute.Kind))
+        return new UcliOperationInputConstraintContract(ContractLiteralCodec.ToValue(attribute.Kind))
         {
             AssetKind = MapAssetKind(attribute.AssetKind),
             TargetKind = MapTargetKind(attribute.TargetKind),
@@ -28,22 +30,22 @@ internal static class UcliOperationInputConstraintContractMapper
 
     private static string? MapAssetKind (UcliOperationAssetKind value)
     {
-        return value == UcliOperationAssetKind.Unspecified ? null : UcliOperationAssetKindCodec.ToValue(value);
+        return value == UcliOperationAssetKind.Unspecified ? null : ContractLiteralCodec.ToValue(value);
     }
 
     private static string? MapTargetKind (UcliOperationReferenceTargetKind value)
     {
-        return value == UcliOperationReferenceTargetKind.Unspecified ? null : UcliOperationReferenceTargetKindCodec.ToValue(value);
+        return value == UcliOperationReferenceTargetKind.Unspecified ? null : ContractLiteralCodec.ToValue(value);
     }
 
     private static string? MapTypeKind (UcliOperationTypeKind value)
     {
-        return value == UcliOperationTypeKind.Unspecified ? null : UcliOperationTypeKindCodec.ToValue(value);
+        return value == UcliOperationTypeKind.Unspecified ? null : ContractLiteralCodec.ToValue(value);
     }
 
     private static string? MapAccess (UcliOperationSerializedPropertyAccess value)
     {
-        return value == UcliOperationSerializedPropertyAccess.Unspecified ? null : UcliOperationSerializedPropertyAccessCodec.ToValue(value);
+        return value == UcliOperationSerializedPropertyAccess.Unspecified ? null : ContractLiteralCodec.ToValue(value);
     }
 
     private static double? MapOptionalNumber (double value)

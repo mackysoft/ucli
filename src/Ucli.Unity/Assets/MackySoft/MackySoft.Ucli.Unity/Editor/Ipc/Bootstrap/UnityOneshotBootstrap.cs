@@ -6,6 +6,8 @@ using Microsoft.Extensions.DependencyInjection;
 using UnityEditor;
 using UnityEngine;
 
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Bootstraps one batchmode oneshot IPC server and terminates Unity after one handled request. </summary>
@@ -36,7 +38,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 {
                     var completionSignal = serviceProvider.GetRequiredService<OneshotRequestCompletionSignal>();
                     var server = serviceProvider.GetRequiredService<IUnityIpcServer>();
-                    if (!IpcTransportKindCodec.TryParse(bootstrapArguments.EndpointTransportKind, out var transportKind))
+                    if (!ContractLiteralCodec.TryParse<IpcTransportKind>(bootstrapArguments.EndpointTransportKind, out var transportKind))
                     {
                         throw new InvalidOperationException($"Unsupported endpoint transport kind: {bootstrapArguments.EndpointTransportKind}");
                     }

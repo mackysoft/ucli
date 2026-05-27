@@ -14,15 +14,15 @@ internal static class PlayModeSnapshotOutputFactory
         // NOTE: IpcPlayModeSnapshot is a wire contract and therefore stores literals.
         // Command logic parses them here so downstream decisions use typed values.
         if (snapshot is null
-            || !IpcPlayModeStateCodec.TryParse(snapshot.State, out var state)
-            || !IpcPlayModeTransitionCodec.TryParse(snapshot.Transition, out var transition))
+            || !ContractLiteralInputParser.TryParseTrimmed<IpcPlayModeState>(snapshot.State, out var state)
+            || !ContractLiteralInputParser.TryParseTrimmed<IpcPlayModeTransition>(snapshot.Transition, out var transition))
         {
             return null;
         }
 
         return new PlayModeSnapshotOutput(
-            State: IpcPlayModeStateCodec.ToValue(state),
-            Transition: IpcPlayModeTransitionCodec.ToValue(transition),
+            State: ContractLiteralCodec.ToValue(state),
+            Transition: ContractLiteralCodec.ToValue(transition),
             IsPlaying: snapshot.IsPlaying,
             IsPlayingOrWillChangePlaymode: snapshot.IsPlayingOrWillChangePlaymode,
             Generation: StringValueNormalizer.TrimToNull(snapshot.Generation));

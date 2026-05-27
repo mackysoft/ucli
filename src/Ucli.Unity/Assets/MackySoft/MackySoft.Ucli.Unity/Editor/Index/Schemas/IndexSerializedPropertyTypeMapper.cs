@@ -4,6 +4,8 @@ using UnityEditor;
 
 #nullable enable
 
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Unity.Index
 {
     /// <summary> Maps Unity SerializedPropertyType values to index contract property-type literals. </summary>
@@ -18,90 +20,90 @@ namespace MackySoft.Ucli.Unity.Index
             switch (propertyType)
             {
                 case SerializedPropertyType.Generic:
-                    return IndexPropertyTypeValues.Generic;
+                    return ContractLiteralCodec.ToValue(IndexPropertyType.Generic);
 
                 case SerializedPropertyType.Integer:
-                    return IndexPropertyTypeValues.Integer;
+                    return ContractLiteralCodec.ToValue(IndexPropertyType.Integer);
 
                 case SerializedPropertyType.Boolean:
-                    return IndexPropertyTypeValues.Boolean;
+                    return ContractLiteralCodec.ToValue(IndexPropertyType.Boolean);
 
                 case SerializedPropertyType.Float:
-                    return IndexPropertyTypeValues.Float;
+                    return ContractLiteralCodec.ToValue(IndexPropertyType.Float);
 
                 case SerializedPropertyType.String:
-                    return IndexPropertyTypeValues.String;
+                    return ContractLiteralCodec.ToValue(IndexPropertyType.String);
 
                 case SerializedPropertyType.Color:
-                    return IndexPropertyTypeValues.Color;
+                    return ContractLiteralCodec.ToValue(IndexPropertyType.Color);
 
                 case SerializedPropertyType.ObjectReference:
-                    return IndexPropertyTypeValues.ObjectReference;
+                    return ContractLiteralCodec.ToValue(IndexPropertyType.ObjectReference);
 
                 case SerializedPropertyType.LayerMask:
-                    return IndexPropertyTypeValues.LayerMask;
+                    return ContractLiteralCodec.ToValue(IndexPropertyType.LayerMask);
 
                 case SerializedPropertyType.Enum:
-                    return IndexPropertyTypeValues.Enum;
+                    return ContractLiteralCodec.ToValue(IndexPropertyType.Enum);
 
                 case SerializedPropertyType.Vector2:
-                    return IndexPropertyTypeValues.Vector2;
+                    return ContractLiteralCodec.ToValue(IndexPropertyType.Vector2);
 
                 case SerializedPropertyType.Vector3:
-                    return IndexPropertyTypeValues.Vector3;
+                    return ContractLiteralCodec.ToValue(IndexPropertyType.Vector3);
 
                 case SerializedPropertyType.Vector4:
-                    return IndexPropertyTypeValues.Vector4;
+                    return ContractLiteralCodec.ToValue(IndexPropertyType.Vector4);
 
                 case SerializedPropertyType.Rect:
-                    return IndexPropertyTypeValues.Rect;
+                    return ContractLiteralCodec.ToValue(IndexPropertyType.Rect);
 
                 case SerializedPropertyType.ArraySize:
-                    return IndexPropertyTypeValues.ArraySize;
+                    return ContractLiteralCodec.ToValue(IndexPropertyType.ArraySize);
 
                 case SerializedPropertyType.Character:
-                    return IndexPropertyTypeValues.Character;
+                    return ContractLiteralCodec.ToValue(IndexPropertyType.Character);
 
                 case SerializedPropertyType.AnimationCurve:
-                    return IndexPropertyTypeValues.AnimationCurve;
+                    return ContractLiteralCodec.ToValue(IndexPropertyType.AnimationCurve);
 
                 case SerializedPropertyType.Bounds:
-                    return IndexPropertyTypeValues.Bounds;
+                    return ContractLiteralCodec.ToValue(IndexPropertyType.Bounds);
 
                 case SerializedPropertyType.Gradient:
-                    return IndexPropertyTypeValues.Gradient;
+                    return ContractLiteralCodec.ToValue(IndexPropertyType.Gradient);
 
                 case SerializedPropertyType.Quaternion:
-                    return IndexPropertyTypeValues.Quaternion;
+                    return ContractLiteralCodec.ToValue(IndexPropertyType.Quaternion);
 
                 case SerializedPropertyType.ExposedReference:
-                    return IndexPropertyTypeValues.ExposedReference;
+                    return ContractLiteralCodec.ToValue(IndexPropertyType.ExposedReference);
 
                 case SerializedPropertyType.FixedBufferSize:
-                    return IndexPropertyTypeValues.FixedBufferSize;
+                    return ContractLiteralCodec.ToValue(IndexPropertyType.FixedBufferSize);
 
                 case SerializedPropertyType.Vector2Int:
-                    return IndexPropertyTypeValues.Vector2Int;
+                    return ContractLiteralCodec.ToValue(IndexPropertyType.Vector2Int);
 
                 case SerializedPropertyType.Vector3Int:
-                    return IndexPropertyTypeValues.Vector3Int;
+                    return ContractLiteralCodec.ToValue(IndexPropertyType.Vector3Int);
 
                 case SerializedPropertyType.RectInt:
-                    return IndexPropertyTypeValues.RectInt;
+                    return ContractLiteralCodec.ToValue(IndexPropertyType.RectInt);
 
                 case SerializedPropertyType.BoundsInt:
-                    return IndexPropertyTypeValues.BoundsInt;
+                    return ContractLiteralCodec.ToValue(IndexPropertyType.BoundsInt);
 
                 case SerializedPropertyType.ManagedReference:
-                    return IndexPropertyTypeValues.ManagedReference;
+                    return ContractLiteralCodec.ToValue(IndexPropertyType.ManagedReference);
 
                 case SerializedPropertyType.Hash128:
-                    return IndexPropertyTypeValues.Hash128;
+                    return ContractLiteralCodec.ToValue(IndexPropertyType.Hash128);
 
 #if UNITY_6000_0_OR_NEWER
                 // NOTE: Enable RenderingLayerMask mapping only on Unity 6000.0 or newer.
                 case SerializedPropertyType.RenderingLayerMask:
-                    return IndexPropertyTypeValues.LayerMask;
+                    return ContractLiteralCodec.ToValue(IndexPropertyType.LayerMask);
 #endif
 
                 default:

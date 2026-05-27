@@ -6,7 +6,7 @@ internal static class IpcPingResponseTestFactory
 {
     public static IpcPingResponse Create (
         string serverVersion = "1.0.0",
-        string editorMode = DaemonEditorModeValues.Batchmode,
+        string editorMode = "batchmode",
         string unityVersion = "2023.2.22f1",
         string projectFingerprint = "project-fingerprint",
         string compileState = IpcCompileStateCodec.Ready,

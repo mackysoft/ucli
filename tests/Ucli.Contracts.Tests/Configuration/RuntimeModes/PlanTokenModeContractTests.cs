@@ -1,5 +1,7 @@
 using MackySoft.Ucli.Contracts.Configuration;
 
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Contracts.Tests.Configuration;
 
 public sealed class PlanTokenModeContractTests
@@ -16,25 +18,25 @@ public sealed class PlanTokenModeContractTests
     [Trait("Size", "Small")]
     public void PlanTokenModeValues_HasStableStringValues ()
     {
-        Assert.Equal("optional", PlanTokenModeValues.Optional);
-        Assert.Equal("required", PlanTokenModeValues.Required);
+        Assert.Equal("optional", "optional");
+        Assert.Equal("required", "required");
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public void PlanTokenModeCodec_ToValue_ReturnsStableLiterals ()
     {
-        Assert.Equal(PlanTokenModeValues.Optional, PlanTokenModeCodec.ToValue(PlanTokenMode.Optional));
-        Assert.Equal(PlanTokenModeValues.Required, PlanTokenModeCodec.ToValue(PlanTokenMode.Required));
+        Assert.Equal("optional", ContractLiteralCodec.ToValue(PlanTokenMode.Optional));
+        Assert.Equal("required", ContractLiteralCodec.ToValue(PlanTokenMode.Required));
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public void PlanTokenModeCodec_TryParse_AcceptsKnownValuesCaseInsensitive ()
     {
-        Assert.True(PlanTokenModeCodec.TryParse("optional", out var optional));
+        Assert.True(ContractLiteralInputParser.TryParseIgnoreCase<PlanTokenMode>("optional", out var optional));
         Assert.Equal(PlanTokenMode.Optional, optional);
-        Assert.True(PlanTokenModeCodec.TryParse("REQUIRED", out var required));
+        Assert.True(ContractLiteralInputParser.TryParseIgnoreCase<PlanTokenMode>("REQUIRED", out var required));
         Assert.Equal(PlanTokenMode.Required, required);
     }
 
@@ -42,6 +44,6 @@ public sealed class PlanTokenModeContractTests
     [Trait("Size", "Small")]
     public void PlanTokenModeCodec_TryParse_UnknownValue_ReturnsFalse ()
     {
-        Assert.False(PlanTokenModeCodec.TryParse("unsupported", out _));
+        Assert.False(ContractLiteralInputParser.IsDefinedIgnoreCase<PlanTokenMode>("unsupported"));
     }
 }

@@ -65,9 +65,9 @@ internal static class OperationCatalogTestFixtures
             Inputs = Array.Empty<UcliOperationInputContract>(),
             ResultContract = UcliOperationResultContract.NoResult("No operation-specific result is emitted."),
             Assurance = new UcliOperationAssuranceContract(
-                sideEffects: [UcliOperationSideEffectValues.SceneSave],
+                sideEffects: ["sceneSave"],
                 touchedKinds: [UcliTouchedResourceKindNames.Scene],
-                planMode: UcliOperationPlanModeValues.ObservesLiveUnity,
+                planMode: "observesLiveUnity",
                 planSemantics: "Observe save-relevant project state without writing project files.",
                 callSemantics: "Persist save-relevant Unity state.",
                 touchedContract: "Reports resources known to be saved.",
@@ -92,10 +92,10 @@ internal static class OperationCatalogTestFixtures
             Assurance = new UcliOperationAssuranceContract(
                 sideEffects:
                 [
-                    UcliOperationSideEffectValues.ArbitrarySourceExecution,
-                    UcliOperationSideEffectValues.ExternalProcess,
-                    UcliOperationSideEffectValues.FilesystemWrite,
-                    UcliOperationSideEffectValues.DestructiveScope,
+                    "arbitrarySourceExecution",
+                    "externalProcess",
+                    "filesystemWrite",
+                    "destructiveScope",
                 ],
                 touchedKinds:
                 [
@@ -104,7 +104,7 @@ internal static class OperationCatalogTestFixtures
                     UcliTouchedResourceKindNames.Asset,
                     UcliTouchedResourceKindNames.ProjectSettings,
                 ],
-                planMode: UcliOperationPlanModeValues.ValidationOnly,
+                planMode: "validationOnly",
                 planSemantics: "Validate source shape without executing user code.",
                 callSemantics: "Compile and execute caller-provided C# source.",
                 touchedContract: "Touched resources are reported only when declared by the executed source.",
@@ -117,9 +117,9 @@ internal static class OperationCatalogTestFixtures
     private static UcliOperationAssuranceContract CreateSafeQueryAssurance ()
     {
         return new UcliOperationAssuranceContract(
-            sideEffects: [UcliOperationSideEffectValues.ObservesUnityState],
+            sideEffects: ["observesUnityState"],
             touchedKinds: Array.Empty<string>(),
-            planMode: UcliOperationPlanModeValues.ObservesLiveUnity,
+            planMode: "observesLiveUnity",
             planSemantics: "Validate arguments and observe Unity state without applying mutation.",
             callSemantics: "Read Unity state without applying mutation.",
             touchedContract: "Returns no touched resources.",

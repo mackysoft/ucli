@@ -158,9 +158,9 @@ public sealed class DaemonStopOperationTests
         {
             ReadResult = DaemonSessionReadResult.Success(CreateSession(
                 processId: 456,
-                ownerKind: DaemonSessionOwnerKindValues.User,
+                ownerKind: "user",
                 canShutdownProcess: false,
-                editorMode: DaemonEditorModeValues.Gui)),
+                editorMode: "gui")),
         };
         var shutdownClient = new StubDaemonShutdownClient
         {
@@ -196,9 +196,9 @@ public sealed class DaemonStopOperationTests
         {
             ReadResult = DaemonSessionReadResult.Success(CreateSession(
                 processId: 456,
-                ownerKind: DaemonSessionOwnerKindValues.User,
+                ownerKind: "user",
                 canShutdownProcess: false,
-                editorMode: DaemonEditorModeValues.Gui)),
+                editorMode: "gui")),
         };
         var shutdownClient = new StubDaemonShutdownClient
         {
@@ -233,9 +233,9 @@ public sealed class DaemonStopOperationTests
         {
             ReadResult = DaemonSessionReadResult.Success(CreateSession(
                 processId: 457,
-                ownerKind: DaemonSessionOwnerKindValues.Cli,
+                ownerKind: "cli",
                 canShutdownProcess: false,
-                editorMode: DaemonEditorModeValues.Gui)),
+                editorMode: "gui")),
         };
         var shutdownClient = new StubDaemonShutdownClient
         {
@@ -272,9 +272,9 @@ public sealed class DaemonStopOperationTests
         {
             ReadResult = DaemonSessionReadResult.Success(CreateSession(
                 processId: 654,
-                ownerKind: DaemonSessionOwnerKindValues.Cli,
+                ownerKind: "cli",
                 canShutdownProcess: true,
-                editorMode: DaemonEditorModeValues.Gui,
+                editorMode: "gui",
                 issuedAtUtc: issuedAtUtc,
                 processStartedAtUtc: processStartedAtUtc)),
         };
@@ -413,8 +413,8 @@ public sealed class DaemonStopOperationTests
 
     private static DaemonSession CreateSession (
         int? processId,
-        string editorMode = DaemonEditorModeValues.Batchmode,
-        string ownerKind = DaemonSessionOwnerKindValues.Cli,
+        string editorMode = "batchmode",
+        string ownerKind = "cli",
         bool canShutdownProcess = true,
         DateTimeOffset? issuedAtUtc = null,
         DateTimeOffset? processStartedAtUtc = null)

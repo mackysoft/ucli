@@ -123,7 +123,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(payload.Transition.Transition, Is.EqualTo(IpcPlayTransitionCommandNames.Enter));
             Assert.That(payload.Transition.Result, Is.EqualTo(IpcPlayTransitionResultNames.Entered));
             Assert.That(payload.Transition.After, Is.Not.Null);
-            Assert.That(payload.Transition.After!.PlayMode!.State, Is.EqualTo(IpcPlayModeStateNames.Playing));
+            Assert.That(payload.Transition.After!.PlayMode!.State, Is.EqualTo("playing"));
             Assert.That(payload.Transition.After.PlayMode.Generation, Is.EqualTo("11"));
         });
 
@@ -307,8 +307,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 IpcEditorBlockingReasonCodec.PlayMode,
                 canAcceptExecutionRequests: false,
                 new IpcPlayModeSnapshot(
-                    State: IpcPlayModeStateNames.Entering,
-                    Transition: IpcPlayModeTransitionNames.Entering,
+                    State: "entering",
+                    Transition: "entering",
                     IsPlaying: false,
                     IsPlayingOrWillChangePlaymode: true,
                     Generation: "41")));
@@ -457,8 +457,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 IpcEditorBlockingReasonCodec.PlayMode,
                 canAcceptExecutionRequests: false,
                 new IpcPlayModeSnapshot(
-                    State: IpcPlayModeStateNames.Playing,
-                    Transition: IpcPlayModeTransitionNames.None,
+                    State: "playing",
+                    Transition: "none",
                     IsPlaying: true,
                     IsPlayingOrWillChangePlaymode: true,
                     Generation: generation));
@@ -472,8 +472,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 IpcEditorBlockingReasonCodec.PlayMode,
                 canAcceptExecutionRequests: false,
                 new IpcPlayModeSnapshot(
-                    State: IpcPlayModeStateNames.Entering,
-                    Transition: IpcPlayModeTransitionNames.Entering,
+                    State: "entering",
+                    Transition: "entering",
                     IsPlaying: false,
                     IsPlayingOrWillChangePlaymode: true,
                     Generation: generation));
@@ -509,8 +509,8 @@ namespace MackySoft.Ucli.Unity.Tests
         private static IpcPlayModeSnapshot CreateStoppedPlayMode (string generation)
         {
             return new IpcPlayModeSnapshot(
-                State: IpcPlayModeStateNames.Stopped,
-                Transition: IpcPlayModeTransitionNames.None,
+                State: "stopped",
+                Transition: "none",
                 IsPlaying: false,
                 IsPlayingOrWillChangePlaymode: false,
                 Generation: generation);

@@ -62,7 +62,7 @@ public sealed class DaemonLaunchSessionServiceTests
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Session);
-        Assert.Equal(DaemonEditorModeValues.Gui, result.Session!.EditorMode);
+        Assert.Equal("gui", result.Session!.EditorMode);
         Assert.Equal(1, sessionStore.WriteCallCount);
     }
 
@@ -182,8 +182,8 @@ public sealed class DaemonLaunchSessionServiceTests
             SessionToken: "session-token",
             ProjectFingerprint: "fingerprint",
             IssuedAtUtc: DateTimeOffset.UtcNow,
-            EditorMode: DaemonEditorModeValues.Batchmode,
-            OwnerKind: DaemonSessionOwnerKindValues.Cli,
+            EditorMode: "batchmode",
+            OwnerKind: "cli",
             CanShutdownProcess: true,
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-daemon-test-endpoint",

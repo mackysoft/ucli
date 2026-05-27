@@ -4,6 +4,8 @@ using MackySoft.Ucli.Application.Features.Play.Common.Projection;
 using MackySoft.Ucli.Application.Shared.CommandContracts.Projection;
 using MackySoft.Ucli.Contracts.Ipc;
 
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Application.Features.Play.UseCases.Enter;
 
 /// <summary> Executes Play Mode enter against an existing registered GUI daemon session. </summary>
@@ -171,7 +173,7 @@ internal sealed class PlayEnterService : IPlayEnterService
         }
 
         var lifecycle = LifecycleProjectionFactory.Create(currentSnapshot);
-        if (!string.Equals(lifecycle.EditorMode, DaemonEditorModeValues.Gui, StringComparison.Ordinal))
+        if (!string.Equals(lifecycle.EditorMode, ContractLiteralCodec.ToValue(DaemonEditorMode.Gui), StringComparison.Ordinal))
         {
             return PlayEnterOutputCreationResult.Failure(ApplicationFailure.InternalError(
                 RequiresGuiEditorMessage,
@@ -187,7 +189,7 @@ internal sealed class PlayEnterService : IPlayEnterService
             Project: context.Project,
             DaemonStatus: DaemonStatusKind.Running,
             ServerVersion: lifecycle.ServerVersion,
-            EditorMode: DaemonEditorModeValues.Gui,
+            EditorMode: ContractLiteralCodec.ToValue(DaemonEditorMode.Gui),
             LifecycleState: lifecycle.LifecycleState,
             BlockingReason: lifecycle.BlockingReason,
             CompileState: lifecycle.CompileState,
@@ -411,8 +413,8 @@ internal sealed class PlayEnterService : IPlayEnterService
         state = default;
         transition = default;
         return playMode is not null
-            && IpcPlayModeStateCodec.TryParse(playMode.State, out state)
-            && IpcPlayModeTransitionCodec.TryParse(playMode.Transition, out transition);
+            && ContractLiteralInputParser.TryParseTrimmed<IpcPlayModeState>(playMode.State, out state)
+            && ContractLiteralInputParser.TryParseTrimmed<IpcPlayModeTransition>(playMode.Transition, out transition);
     }
 
     private static ApplicationFailure CreateErrorFromUnityRequestFailure (UnityRequestFailure failure)

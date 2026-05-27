@@ -1,9 +1,10 @@
 using System.Text.Json;
 using MackySoft.Tests;
-using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Testing;
+
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
 
@@ -388,7 +389,7 @@ public sealed class IpcContractSerializationTests
     {
         var response = new IpcPingResponse(
             ServerVersion: "0.5.0",
-            EditorMode: DaemonEditorModeValues.Batchmode,
+            EditorMode: "batchmode",
             UnityVersion: "6000.1.4f1",
             ProjectFingerprint: "project-fingerprint",
             CompileState: IpcCompileStateCodec.Ready,
@@ -398,8 +399,8 @@ public sealed class IpcContractSerializationTests
             DomainReloadGeneration: "7",
             CanAcceptExecutionRequests: false,
             PlayMode: new IpcPlayModeSnapshot(
-                State: IpcPlayModeStateNames.Playing,
-                Transition: IpcPlayModeTransitionNames.None,
+                State: "playing",
+                Transition: "none",
                 IsPlaying: true,
                 IsPlayingOrWillChangePlaymode: true,
                 Generation: "42"));
@@ -410,8 +411,8 @@ public sealed class IpcContractSerializationTests
             .HasString("lifecycleState", IpcEditorLifecycleStateCodec.Playmode)
             .HasBoolean("canAcceptExecutionRequests", false)
             .HasProperty("playMode", playMode => playMode
-                .HasString("state", IpcPlayModeStateNames.Playing)
-                .HasString("transition", IpcPlayModeTransitionNames.None)
+                .HasString("state", "playing")
+                .HasString("transition", "none")
                 .HasBoolean("isPlaying", true)
                 .HasBoolean("isPlayingOrWillChangePlaymode", true)
                 .HasString("generation", "42"));
@@ -478,8 +479,8 @@ public sealed class IpcContractSerializationTests
     [Trait("Size", "Small")]
     public void IpcPlayResponseContracts_SerializeWithCamelCaseFields ()
     {
-        var before = CreatePlayLifecycleSnapshot(IpcPlayModeStateNames.Stopped, IpcPlayModeTransitionNames.None);
-        var after = CreatePlayLifecycleSnapshot(IpcPlayModeStateNames.Playing, IpcPlayModeTransitionNames.None);
+        var before = CreatePlayLifecycleSnapshot("stopped", "none");
+        var after = CreatePlayLifecycleSnapshot("playing", "none");
         var statusResponse = new IpcPlayStatusResponse(before);
         var transitionResponse = new IpcPlayTransitionResponse(
             new IpcPlayTransitionResult(
@@ -506,8 +507,8 @@ public sealed class IpcContractSerializationTests
                 .HasBoolean("canAcceptExecutionRequests", true)
                 .HasString("observedAtUtc", "2026-05-21T00:00:00+00:00")
                 .HasProperty("playMode", playMode => playMode
-                    .HasString("state", IpcPlayModeStateNames.Stopped)
-                    .HasString("transition", IpcPlayModeTransitionNames.None)
+                    .HasString("state", "stopped")
+                    .HasString("transition", "none")
                     .HasBoolean("isPlaying", false)
                     .HasBoolean("isPlayingOrWillChangePlaymode", false)
                     .HasString("generation", "42")));
@@ -519,10 +520,10 @@ public sealed class IpcContractSerializationTests
                 .HasString("applicationState", IpcPlayApplicationStateNames.Applied)
                 .HasProperty("before", beforeSnapshot => beforeSnapshot
                     .HasProperty("playMode", playMode => playMode
-                        .HasString("state", IpcPlayModeStateNames.Stopped)))
+                        .HasString("state", "stopped")))
                 .HasProperty("after", afterSnapshot => afterSnapshot
                     .HasProperty("playMode", playMode => playMode
-                        .HasString("state", IpcPlayModeStateNames.Playing))));
+                        .HasString("state", "playing"))));
 
         var roundTrip = JsonSerializer.Deserialize<IpcPlayTransitionResponse>(
             transitionDocument.RootElement.GetRawText(),
@@ -545,14 +546,14 @@ public sealed class IpcContractSerializationTests
         Assert.Equal(0, (int)IpcPlayModeTransition.None);
         Assert.Equal(1, (int)IpcPlayModeTransition.Entering);
         Assert.Equal(2, (int)IpcPlayModeTransition.Exiting);
-        Assert.Equal("stopped", IpcPlayModeStateNames.Stopped);
-        Assert.Equal("entering", IpcPlayModeStateNames.Entering);
-        Assert.Equal("playing", IpcPlayModeStateNames.Playing);
-        Assert.Equal("exiting", IpcPlayModeStateNames.Exiting);
-        Assert.Equal("unknown", IpcPlayModeStateNames.Unknown);
-        Assert.Equal("none", IpcPlayModeTransitionNames.None);
-        Assert.Equal("entering", IpcPlayModeTransitionNames.Entering);
-        Assert.Equal("exiting", IpcPlayModeTransitionNames.Exiting);
+        Assert.Equal("stopped", "stopped");
+        Assert.Equal("entering", "entering");
+        Assert.Equal("playing", "playing");
+        Assert.Equal("exiting", "exiting");
+        Assert.Equal("unknown", "unknown");
+        Assert.Equal("none", "none");
+        Assert.Equal("entering", "entering");
+        Assert.Equal("exiting", "exiting");
         Assert.Equal("enter", IpcPlayTransitionCommandNames.Enter);
         Assert.Equal("exit", IpcPlayTransitionCommandNames.Exit);
         Assert.Equal("entered", IpcPlayTransitionResultNames.Entered);
@@ -571,15 +572,15 @@ public sealed class IpcContractSerializationTests
     [Trait("Size", "Small")]
     public void IpcPlayModeCodecs_RoundTripStableLiterals ()
     {
-        Assert.True(IpcPlayModeStateCodec.TryParse(" playing ", out var state));
+        Assert.True(ContractLiteralInputParser.TryParseTrimmed<IpcPlayModeState>(" playing ", out var state));
         Assert.Equal(IpcPlayModeState.Playing, state);
-        Assert.Equal(IpcPlayModeStateNames.Playing, IpcPlayModeStateCodec.ToValue(state));
-        Assert.False(IpcPlayModeStateCodec.TryParse("unsupported", out _));
+        Assert.Equal("playing", ContractLiteralCodec.ToValue(state));
+        Assert.False(ContractLiteralInputParser.IsDefinedTrimmed<IpcPlayModeState>("unsupported"));
 
-        Assert.True(IpcPlayModeTransitionCodec.TryParse(" none ", out var transition));
+        Assert.True(ContractLiteralInputParser.TryParseTrimmed<IpcPlayModeTransition>(" none ", out var transition));
         Assert.Equal(IpcPlayModeTransition.None, transition);
-        Assert.Equal(IpcPlayModeTransitionNames.None, IpcPlayModeTransitionCodec.ToValue(transition));
-        Assert.False(IpcPlayModeTransitionCodec.TryParse("unsupported", out _));
+        Assert.Equal("none", ContractLiteralCodec.ToValue(transition));
+        Assert.False(ContractLiteralInputParser.IsDefinedTrimmed<IpcPlayModeTransition>("unsupported"));
     }
 
     [Fact]
@@ -644,7 +645,7 @@ public sealed class IpcContractSerializationTests
             .HasString("description", "Resolved Unity GlobalObjectId.")
             .HasArrayLength("constraints", 1)
             .HasProperty("constraints", 0, constraint => constraint
-                .HasString("kind", UcliOperationInputConstraintKindValues.GlobalObjectId));
+                .HasString("kind", "globalObjectId"));
 
         var sceneHierarchyVariantElement = targetInputElement.GetProperty("variants").EnumerateArray().Single(variant =>
             string.Equals(variant.GetProperty("name").GetString(), "bySceneHierarchyPath", StringComparison.Ordinal));
@@ -659,14 +660,14 @@ public sealed class IpcContractSerializationTests
             .HasString("argsPath", "$.target.scene")
             .HasString("description", "Scene asset path for a hierarchy selector.");
         var assetExistsConstraint = sceneFieldElement.GetProperty("constraints").EnumerateArray().Single(constraint =>
-            string.Equals(constraint.GetProperty("kind").GetString(), UcliOperationInputConstraintKindValues.AssetExists, StringComparison.Ordinal));
+            string.Equals(constraint.GetProperty("kind").GetString(), "assetExists", StringComparison.Ordinal));
         JsonAssert.For(assetExistsConstraint)
-            .HasString("assetKind", UcliOperationAssetKindValues.Scene);
+            .HasString("assetKind", "scene");
         JsonAssert.For(hierarchyPathFieldElement)
             .HasString("argsPath", "$.target.hierarchyPath")
             .HasString("description", "Unity hierarchy path inside the selected scene or prefab.");
         Assert.Contains(hierarchyPathFieldElement.GetProperty("constraints").EnumerateArray(), constraint =>
-            string.Equals(constraint.GetProperty("kind").GetString(), UcliOperationInputConstraintKindValues.HierarchyPath, StringComparison.Ordinal));
+            string.Equals(constraint.GetProperty("kind").GetString(), "hierarchyPath", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -1460,9 +1461,9 @@ public sealed class IpcContractSerializationTests
             PlayMode: new IpcPlayModeSnapshot(
                 State: playModeState,
                 Transition: transition,
-                IsPlaying: string.Equals(playModeState, IpcPlayModeStateNames.Playing, StringComparison.Ordinal),
-                IsPlayingOrWillChangePlaymode: string.Equals(playModeState, IpcPlayModeStateNames.Playing, StringComparison.Ordinal)
-                    || string.Equals(transition, IpcPlayModeTransitionNames.Entering, StringComparison.Ordinal),
+                IsPlaying: string.Equals(playModeState, "playing", StringComparison.Ordinal),
+                IsPlayingOrWillChangePlaymode: string.Equals(playModeState, "playing", StringComparison.Ordinal)
+                    || string.Equals(transition, "entering", StringComparison.Ordinal),
                 Generation: "42"));
     }
 

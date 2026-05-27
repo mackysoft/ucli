@@ -214,8 +214,8 @@ public sealed class DaemonStartCommandTests
             LaunchAttemptId: "20260312_040500Z_00abcdef",
             ProcessAction: DaemonStartupProcessActionValues.Kept,
             RetryDisposition: DaemonStartupRetryDispositionValues.RetryAfterFix,
-            EditorMode: DaemonEditorModeValues.Batchmode,
-            OwnerKind: DaemonSessionOwnerKindValues.Cli,
+            EditorMode: "batchmode",
+            OwnerKind: "cli",
             CanShutdownProcess: true,
             ProcessId: 4321,
             StartedAtUtc: new DateTimeOffset(2026, 03, 12, 4, 5, 1, TimeSpan.Zero),
@@ -256,8 +256,8 @@ public sealed class DaemonStartCommandTests
                 .HasString("startupStatus", DaemonStartupStatusValues.Blocked)
                 .HasString("startupBlockingReason", DaemonStartupBlockingReasonValues.Compile)
                 .HasString("launchAttemptId", "20260312_040500Z_00abcdef")
-                .HasString("editorMode", DaemonEditorModeValues.Batchmode)
-                .HasString("ownerKind", DaemonSessionOwnerKindValues.Cli)
+                .HasString("editorMode", "batchmode")
+                .HasString("ownerKind", "cli")
                 .HasBoolean("canShutdownProcess", true)
                 .HasInt32("processId", 4321)
                 .HasString("startedAtUtc", "2026-03-12T04:05:01+00:00")
@@ -367,8 +367,8 @@ public sealed class DaemonStartCommandTests
             Session: new DaemonSessionOutput(
                 ProjectFingerprint: "fingerprint",
                 IssuedAtUtc: new DateTimeOffset(2026, 03, 12, 1, 2, 3, TimeSpan.Zero),
-                EditorMode: DaemonEditorModeValues.Batchmode,
-                OwnerKind: DaemonSessionOwnerKindValues.Cli,
+                EditorMode: "batchmode",
+                OwnerKind: "cli",
                 CanShutdownProcess: true,
                 EndpointTransportKind: "namedPipe",
                 EndpointAddress: "ucli-daemon-endpoint",

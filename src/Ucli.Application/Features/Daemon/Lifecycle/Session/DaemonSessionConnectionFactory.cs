@@ -2,6 +2,8 @@ using System.Diagnostics.CodeAnalysis;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 
 /// <summary> Creates daemon IPC connection values from persisted daemon session metadata. </summary>
@@ -26,7 +28,7 @@ internal static class DaemonSessionConnectionFactory
             return false;
         }
 
-        if (!IpcTransportKindCodec.TryParse(session.EndpointTransportKind, out var transportKind))
+        if (!ContractLiteralCodec.TryParse<IpcTransportKind>(session.EndpointTransportKind, out var transportKind))
         {
             connection = null;
             error = ExecutionError.InvalidArgument(

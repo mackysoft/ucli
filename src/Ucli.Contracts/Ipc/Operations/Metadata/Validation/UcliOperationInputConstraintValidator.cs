@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Operations;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
@@ -7,28 +8,28 @@ internal static class UcliOperationInputConstraintValidator
 {
     private static readonly HashSet<string> ParameterlessKinds = new(StringComparer.Ordinal)
     {
-        UcliOperationInputConstraintKindValues.NonEmpty,
-        UcliOperationInputConstraintKindValues.ProjectRelativePath,
-        UcliOperationInputConstraintKindValues.GlobalObjectId,
-        UcliOperationInputConstraintKindValues.HierarchyPath,
-        UcliOperationInputConstraintKindValues.TypeExists,
-        UcliOperationInputConstraintKindValues.AssetGuid,
-        UcliOperationInputConstraintKindValues.Cursor,
+        ContractLiteralCodec.ToValue(UcliOperationInputConstraintKind.NonEmpty),
+        ContractLiteralCodec.ToValue(UcliOperationInputConstraintKind.ProjectRelativePath),
+        ContractLiteralCodec.ToValue(UcliOperationInputConstraintKind.GlobalObjectId),
+        ContractLiteralCodec.ToValue(UcliOperationInputConstraintKind.HierarchyPath),
+        ContractLiteralCodec.ToValue(UcliOperationInputConstraintKind.TypeExists),
+        ContractLiteralCodec.ToValue(UcliOperationInputConstraintKind.AssetGuid),
+        ContractLiteralCodec.ToValue(UcliOperationInputConstraintKind.Cursor),
     };
 
     private static readonly HashSet<string> SupportedAssetKinds = new(StringComparer.Ordinal)
     {
-        UcliOperationAssetKindValues.Asset,
-        UcliOperationAssetKindValues.Prefab,
-        UcliOperationAssetKindValues.ProjectSettings,
-        UcliOperationAssetKindValues.Scene,
+        ContractLiteralCodec.ToValue(UcliOperationAssetKind.Asset),
+        ContractLiteralCodec.ToValue(UcliOperationAssetKind.Prefab),
+        ContractLiteralCodec.ToValue(UcliOperationAssetKind.ProjectSettings),
+        ContractLiteralCodec.ToValue(UcliOperationAssetKind.Scene),
     };
 
     private static readonly HashSet<string> SupportedReferenceTargetKinds = new(StringComparer.Ordinal)
     {
-        UcliOperationReferenceTargetKindValues.Asset,
-        UcliOperationReferenceTargetKindValues.Component,
-        UcliOperationReferenceTargetKindValues.GameObject,
+        ContractLiteralCodec.ToValue(UcliOperationReferenceTargetKind.Asset),
+        ContractLiteralCodec.ToValue(UcliOperationReferenceTargetKind.Component),
+        ContractLiteralCodec.ToValue(UcliOperationReferenceTargetKind.GameObject),
     };
 
     public static bool TryValidate (
@@ -48,19 +49,24 @@ internal static class UcliOperationInputConstraintValidator
         UcliOperationInputConstraintContract constraint,
         out string errorMessage)
     {
+        if (!ContractLiteralCodec.TryParse<UcliOperationInputConstraintKind>(constraint.Kind, out var kind))
+        {
+            return UnsupportedConstraint(constraint.Kind!, out errorMessage);
+        }
+
         if (ParameterlessKinds.Contains(constraint.Kind!))
         {
             return TryValidateNoConstraintParameters(constraint, out errorMessage);
         }
 
-        return constraint.Kind switch
+        return kind switch
         {
-            UcliOperationInputConstraintKindValues.Range => TryValidateRangeConstraint(constraint, out errorMessage),
-            UcliOperationInputConstraintKindValues.AssetExists => TryValidateAssetKindConstraint(constraint, out errorMessage),
-            UcliOperationInputConstraintKindValues.AssetCreatable => TryValidateAssetKindConstraint(constraint, out errorMessage),
-            UcliOperationInputConstraintKindValues.ReferenceResolvable => TryValidateReferenceTargetKindConstraint(constraint, out errorMessage),
-            UcliOperationInputConstraintKindValues.TypeAssignableTo => TryValidateTypeKindConstraint(constraint, out errorMessage),
-            UcliOperationInputConstraintKindValues.SerializedProperty => TryValidateSerializedPropertyConstraint(constraint, out errorMessage),
+            UcliOperationInputConstraintKind.Range => TryValidateRangeConstraint(constraint, out errorMessage),
+            UcliOperationInputConstraintKind.AssetExists => TryValidateAssetKindConstraint(constraint, out errorMessage),
+            UcliOperationInputConstraintKind.AssetCreatable => TryValidateAssetKindConstraint(constraint, out errorMessage),
+            UcliOperationInputConstraintKind.ReferenceResolvable => TryValidateReferenceTargetKindConstraint(constraint, out errorMessage),
+            UcliOperationInputConstraintKind.TypeAssignableTo => TryValidateTypeKindConstraint(constraint, out errorMessage),
+            UcliOperationInputConstraintKind.SerializedProperty => TryValidateSerializedPropertyConstraint(constraint, out errorMessage),
             _ => UnsupportedConstraint(constraint.Kind!, out errorMessage),
         };
     }
@@ -147,7 +153,7 @@ internal static class UcliOperationInputConstraintValidator
         UcliOperationInputConstraintContract constraint,
         out string errorMessage)
     {
-        if (!string.Equals(constraint.TypeKind, UcliOperationTypeKindValues.Component, StringComparison.Ordinal)
+        if (!string.Equals(constraint.TypeKind, ContractLiteralCodec.ToValue(UcliOperationTypeKind.Component), StringComparison.Ordinal)
             || constraint.AssetKind != null
             || constraint.TargetKind != null
             || constraint.Access != null
@@ -166,7 +172,7 @@ internal static class UcliOperationInputConstraintValidator
         UcliOperationInputConstraintContract constraint,
         out string errorMessage)
     {
-        if (!string.Equals(constraint.Access, UcliOperationSerializedPropertyAccessValues.Write, StringComparison.Ordinal)
+        if (!string.Equals(constraint.Access, ContractLiteralCodec.ToValue(UcliOperationSerializedPropertyAccess.Write), StringComparison.Ordinal)
             || constraint.AssetKind != null
             || constraint.TargetKind != null
             || constraint.TypeKind != null

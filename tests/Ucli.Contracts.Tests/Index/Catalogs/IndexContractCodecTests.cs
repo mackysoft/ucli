@@ -1,5 +1,7 @@
 using MackySoft.Ucli.Contracts.Index;
 
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Contracts.Tests.Index;
 
 public sealed class IndexContractCodecTests
@@ -16,8 +18,8 @@ public sealed class IndexContractCodecTests
     [Trait("Size", "Small")]
     public void IndexSchemaKindCodec_ToValue_ReturnsStableLiterals ()
     {
-        Assert.Equal(IndexSchemaKindValues.Comp, IndexSchemaKindCodec.ToValue(IndexSchemaKind.Comp));
-        Assert.Equal(IndexSchemaKindValues.Asset, IndexSchemaKindCodec.ToValue(IndexSchemaKind.Asset));
+        Assert.Equal("comp", ContractLiteralCodec.ToValue(IndexSchemaKind.Comp));
+        Assert.Equal("asset", ContractLiteralCodec.ToValue(IndexSchemaKind.Asset));
     }
 
     [Theory]
@@ -30,7 +32,7 @@ public sealed class IndexContractCodecTests
         string value,
         IndexSchemaKind expected)
     {
-        var result = IndexSchemaKindCodec.TryParse(value, out var parsed);
+        var result = ContractLiteralInputParser.TryParseIgnoreCase<IndexSchemaKind>(value, out var parsed);
 
         Assert.True(result);
         Assert.Equal(expected, parsed);
@@ -44,14 +46,14 @@ public sealed class IndexContractCodecTests
     public void IndexSchemaKindCodec_TryParse_UnknownValue_ReturnsFalse (
         string value)
     {
-        Assert.False(IndexSchemaKindCodec.TryParse(value, out _));
+        Assert.False(ContractLiteralInputParser.IsDefinedIgnoreCase<IndexSchemaKind>(value));
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public void IndexSchemaKindCodec_TryParse_Null_ReturnsFalse ()
     {
-        Assert.False(IndexSchemaKindCodec.TryParse(null, out _));
+        Assert.False(ContractLiteralInputParser.IsDefinedIgnoreCase<IndexSchemaKind>(null));
     }
 
     [Fact]
@@ -89,52 +91,52 @@ public sealed class IndexContractCodecTests
 
     [Theory]
     [Trait("Size", "Small")]
-    [InlineData(IndexPropertyType.Generic, IndexPropertyTypeValues.Generic)]
-    [InlineData(IndexPropertyType.Integer, IndexPropertyTypeValues.Integer)]
-    [InlineData(IndexPropertyType.Boolean, IndexPropertyTypeValues.Boolean)]
-    [InlineData(IndexPropertyType.Float, IndexPropertyTypeValues.Float)]
-    [InlineData(IndexPropertyType.String, IndexPropertyTypeValues.String)]
-    [InlineData(IndexPropertyType.Color, IndexPropertyTypeValues.Color)]
-    [InlineData(IndexPropertyType.ObjectReference, IndexPropertyTypeValues.ObjectReference)]
-    [InlineData(IndexPropertyType.LayerMask, IndexPropertyTypeValues.LayerMask)]
-    [InlineData(IndexPropertyType.Enum, IndexPropertyTypeValues.Enum)]
-    [InlineData(IndexPropertyType.Vector2, IndexPropertyTypeValues.Vector2)]
-    [InlineData(IndexPropertyType.Vector3, IndexPropertyTypeValues.Vector3)]
-    [InlineData(IndexPropertyType.Vector4, IndexPropertyTypeValues.Vector4)]
-    [InlineData(IndexPropertyType.Rect, IndexPropertyTypeValues.Rect)]
-    [InlineData(IndexPropertyType.ArraySize, IndexPropertyTypeValues.ArraySize)]
-    [InlineData(IndexPropertyType.Character, IndexPropertyTypeValues.Character)]
-    [InlineData(IndexPropertyType.AnimationCurve, IndexPropertyTypeValues.AnimationCurve)]
-    [InlineData(IndexPropertyType.Bounds, IndexPropertyTypeValues.Bounds)]
-    [InlineData(IndexPropertyType.Gradient, IndexPropertyTypeValues.Gradient)]
-    [InlineData(IndexPropertyType.Quaternion, IndexPropertyTypeValues.Quaternion)]
-    [InlineData(IndexPropertyType.ExposedReference, IndexPropertyTypeValues.ExposedReference)]
-    [InlineData(IndexPropertyType.FixedBufferSize, IndexPropertyTypeValues.FixedBufferSize)]
-    [InlineData(IndexPropertyType.Vector2Int, IndexPropertyTypeValues.Vector2Int)]
-    [InlineData(IndexPropertyType.Vector3Int, IndexPropertyTypeValues.Vector3Int)]
-    [InlineData(IndexPropertyType.RectInt, IndexPropertyTypeValues.RectInt)]
-    [InlineData(IndexPropertyType.BoundsInt, IndexPropertyTypeValues.BoundsInt)]
-    [InlineData(IndexPropertyType.ManagedReference, IndexPropertyTypeValues.ManagedReference)]
-    [InlineData(IndexPropertyType.Hash128, IndexPropertyTypeValues.Hash128)]
+    [InlineData(IndexPropertyType.Generic, "generic")]
+    [InlineData(IndexPropertyType.Integer, "integer")]
+    [InlineData(IndexPropertyType.Boolean, "boolean")]
+    [InlineData(IndexPropertyType.Float, "float")]
+    [InlineData(IndexPropertyType.String, "string")]
+    [InlineData(IndexPropertyType.Color, "color")]
+    [InlineData(IndexPropertyType.ObjectReference, "objectReference")]
+    [InlineData(IndexPropertyType.LayerMask, "layerMask")]
+    [InlineData(IndexPropertyType.Enum, "enum")]
+    [InlineData(IndexPropertyType.Vector2, "vector2")]
+    [InlineData(IndexPropertyType.Vector3, "vector3")]
+    [InlineData(IndexPropertyType.Vector4, "vector4")]
+    [InlineData(IndexPropertyType.Rect, "rect")]
+    [InlineData(IndexPropertyType.ArraySize, "arraySize")]
+    [InlineData(IndexPropertyType.Character, "character")]
+    [InlineData(IndexPropertyType.AnimationCurve, "animationCurve")]
+    [InlineData(IndexPropertyType.Bounds, "bounds")]
+    [InlineData(IndexPropertyType.Gradient, "gradient")]
+    [InlineData(IndexPropertyType.Quaternion, "quaternion")]
+    [InlineData(IndexPropertyType.ExposedReference, "exposedReference")]
+    [InlineData(IndexPropertyType.FixedBufferSize, "fixedBufferSize")]
+    [InlineData(IndexPropertyType.Vector2Int, "vector2Int")]
+    [InlineData(IndexPropertyType.Vector3Int, "vector3Int")]
+    [InlineData(IndexPropertyType.RectInt, "rectInt")]
+    [InlineData(IndexPropertyType.BoundsInt, "boundsInt")]
+    [InlineData(IndexPropertyType.ManagedReference, "managedReference")]
+    [InlineData(IndexPropertyType.Hash128, "hash128")]
     public void IndexPropertyTypeCodec_ToValue_ReturnsStableLiterals (
         IndexPropertyType propertyType,
         string expectedLiteral)
     {
-        Assert.Equal(expectedLiteral, IndexPropertyTypeCodec.ToValue(propertyType));
+        Assert.Equal(expectedLiteral, ContractLiteralCodec.ToValue(propertyType));
     }
 
     [Theory]
     [Trait("Size", "Small")]
-    [InlineData(IndexPropertyTypeValues.Generic, IndexPropertyType.Generic)]
+    [InlineData("generic", IndexPropertyType.Generic)]
     [InlineData("GENERIC", IndexPropertyType.Generic)]
-    [InlineData(IndexPropertyTypeValues.ObjectReference, IndexPropertyType.ObjectReference)]
-    [InlineData(IndexPropertyTypeValues.ManagedReference, IndexPropertyType.ManagedReference)]
-    [InlineData(IndexPropertyTypeValues.Hash128, IndexPropertyType.Hash128)]
+    [InlineData("objectReference", IndexPropertyType.ObjectReference)]
+    [InlineData("managedReference", IndexPropertyType.ManagedReference)]
+    [InlineData("hash128", IndexPropertyType.Hash128)]
     public void IndexPropertyTypeCodec_TryParse_ParsesCaseInsensitiveLiterals (
         string value,
         IndexPropertyType expected)
     {
-        var result = IndexPropertyTypeCodec.TryParse(value, out var parsed);
+        var result = ContractLiteralInputParser.TryParseIgnoreCase<IndexPropertyType>(value, out var parsed);
 
         Assert.True(result);
         Assert.Equal(expected, parsed);
@@ -148,13 +150,13 @@ public sealed class IndexContractCodecTests
     public void IndexPropertyTypeCodec_TryParse_UnknownValue_ReturnsFalse (
         string value)
     {
-        Assert.False(IndexPropertyTypeCodec.TryParse(value, out _));
+        Assert.False(ContractLiteralInputParser.IsDefinedIgnoreCase<IndexPropertyType>(value));
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public void IndexPropertyTypeCodec_TryParse_Null_ReturnsFalse ()
     {
-        Assert.False(IndexPropertyTypeCodec.TryParse(null, out _));
+        Assert.False(ContractLiteralInputParser.IsDefinedIgnoreCase<IndexPropertyType>(null));
     }
 }

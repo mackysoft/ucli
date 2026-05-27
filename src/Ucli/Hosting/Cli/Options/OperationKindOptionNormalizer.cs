@@ -1,6 +1,8 @@
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Configuration;
 
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Hosting.Cli.Options;
 
 /// <summary> Normalizes CLI operation-kind options into typed filters. </summary>
@@ -14,12 +16,12 @@ internal static class OperationKindOptionNormalizer
             return OperationKindOptionNormalizationResult.Success(kind: null);
         }
 
-        if (UcliOperationKindCodec.TryParse(optionValue, out var kind))
+        if (ContractLiteralInputParser.TryParseIgnoreCase<UcliOperationKind>(optionValue, out var kind))
         {
             return OperationKindOptionNormalizationResult.Success(kind);
         }
 
         return OperationKindOptionNormalizationResult.Failure(ExecutionError.InvalidArgument(
-            $"kind must be one of '{UcliOperationKindValues.Query}', '{UcliOperationKindValues.Mutation}', '{UcliOperationKindValues.Command}'. Actual: {optionValue}."));
+            $"kind must be one of '{ContractLiteralCodec.ToValue(UcliOperationKind.Query)}', '{ContractLiteralCodec.ToValue(UcliOperationKind.Mutation)}', '{ContractLiteralCodec.ToValue(UcliOperationKind.Command)}'. Actual: {optionValue}."));
     }
 }

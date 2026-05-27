@@ -22,7 +22,7 @@ public sealed class OpsPreflightServiceTests
                 ProjectPath: null,
                 Mode: NormalizeMode("daemon"),
                 TimeoutMilliseconds: NormalizeTimeout("1200"),
-                ReadIndexMode: NormalizeReadIndexMode(ReadIndexModeValues.AllowStale),
+                ReadIndexMode: NormalizeReadIndexMode("allowStale"),
                 FailFast: true));
 
         Assert.True(result.IsSuccess);

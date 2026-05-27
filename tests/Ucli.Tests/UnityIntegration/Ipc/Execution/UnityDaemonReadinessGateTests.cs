@@ -102,7 +102,7 @@ public sealed class UnityDaemonReadinessGateTests
     {
         using var scope = TestDirectories.CreateTempScope("unity-daemon-readiness-gate", "gui-playmode");
         var pingClient = new StubDaemonPingInfoClient(IpcPingResponseTestFactory.Create(
-            editorMode: DaemonEditorModeValues.Gui,
+            editorMode: "gui",
             lifecycleState: IpcEditorLifecycleStateCodec.Playmode,
             canAcceptExecutionRequests: false));
         var daemonClient = new StubUnityIpcClient(CreateSuccessResult());

@@ -19,8 +19,8 @@ public sealed class DaemonStatusCommandTests
         var session = new DaemonSessionOutput(
             ProjectFingerprint: "fp-gui",
             IssuedAtUtc: new DateTimeOffset(2026, 03, 12, 1, 2, 3, TimeSpan.Zero),
-            EditorMode: DaemonEditorModeValues.Gui,
-            OwnerKind: DaemonSessionOwnerKindValues.User,
+            EditorMode: "gui",
+            OwnerKind: "user",
             CanShutdownProcess: false,
             EndpointTransportKind: "unixDomainSocket",
             EndpointAddress: "/tmp/ucli-gui.sock",
@@ -31,7 +31,7 @@ public sealed class DaemonStatusCommandTests
             DaemonStatusExecutionResult.Success(new DaemonStatusExecutionOutput(
                 DaemonStatus: DaemonStatusKind.Running,
                 ServerVersion: "0.0.2",
-                EditorMode: DaemonEditorModeValues.Gui,
+                EditorMode: "gui",
                 LifecycleState: IpcEditorLifecycleStateCodec.Playmode,
                 BlockingReason: IpcEditorBlockingReasonCodec.PlayMode,
                 CompileState: IpcCompileStateCodec.Ready,
@@ -46,8 +46,8 @@ public sealed class DaemonStatusCommandTests
                 ActionRequired: null,
                 PrimaryDiagnostic: null,
                 PlayMode: new PlayModeSnapshotOutput(
-                    State: IpcPlayModeStateNames.Playing,
-                    Transition: IpcPlayModeTransitionNames.None,
+                    State: "playing",
+                    Transition: "none",
                     IsPlaying: true,
                     IsPlayingOrWillChangePlaymode: true,
                     Generation: "8"))));
@@ -70,19 +70,19 @@ public sealed class DaemonStatusCommandTests
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("payload", payload => payload
                 .HasString("daemonStatus", "running")
-                .HasString("editorMode", DaemonEditorModeValues.Gui)
+                .HasString("editorMode", "gui")
                 .HasString("lifecycleState", IpcEditorLifecycleStateCodec.Playmode)
                 .HasString("blockingReason", IpcEditorBlockingReasonCodec.PlayMode)
                 .HasBoolean("canAcceptExecutionRequests", false)
                 .HasProperty("playMode", playMode => playMode
-                    .HasString("state", IpcPlayModeStateNames.Playing)
-                    .HasString("transition", IpcPlayModeTransitionNames.None)
+                    .HasString("state", "playing")
+                    .HasString("transition", "none")
                     .HasBoolean("isPlaying", true)
                     .HasBoolean("isPlayingOrWillChangePlaymode", true)
                     .HasString("generation", "8"))
                 .HasProperty("session", sessionJson => sessionJson
-                    .HasString("editorMode", DaemonEditorModeValues.Gui)
-                    .HasString("ownerKind", DaemonSessionOwnerKindValues.User)
+                    .HasString("editorMode", "gui")
+                    .HasString("ownerKind", "user")
                     .HasBoolean("canShutdownProcess", false)));
 
         var payloadJson = outputJson.RootElement.GetProperty("payload");

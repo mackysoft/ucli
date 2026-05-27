@@ -4,6 +4,8 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Startup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
 using MackySoft.Ucli.Contracts.Storage;
 
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
 
 /// <summary> Creates command-facing startup failure details from daemon startup classification data. </summary>
@@ -38,8 +40,8 @@ internal static class StartupFailureDetailFactory
             StartupStatus: DaemonStartupStatusValues.Blocked,
             StartupBlockingReason: classification.StartupBlockingReason,
             LaunchAttemptId: null,
-            EditorMode: DaemonEditorModeValues.Batchmode,
-            OwnerKind: DaemonSessionOwnerKindValues.Cli,
+            EditorMode: ContractLiteralCodec.ToValue(DaemonEditorMode.Batchmode),
+            OwnerKind: ContractLiteralCodec.ToValue(DaemonSessionOwnerKind.Cli),
             CanShutdownProcess: true,
             ProcessId: processId,
             StartedAtUtc: processStartedAtUtc,
@@ -83,8 +85,8 @@ internal static class StartupFailureDetailFactory
             StartupStatus: DaemonStartupStatusValues.Timeout,
             StartupBlockingReason: DaemonStartupBlockingReasonValues.EndpointNotRegistered,
             LaunchAttemptId: null,
-            EditorMode: DaemonEditorModeValues.Batchmode,
-            OwnerKind: DaemonSessionOwnerKindValues.Cli,
+            EditorMode: ContractLiteralCodec.ToValue(DaemonEditorMode.Batchmode),
+            OwnerKind: ContractLiteralCodec.ToValue(DaemonSessionOwnerKind.Cli),
             CanShutdownProcess: true,
             ProcessId: processId,
             StartedAtUtc: processStartedAtUtc,
@@ -128,8 +130,8 @@ internal static class StartupFailureDetailFactory
             StartupStatus: DaemonStartupStatusValues.Failed,
             StartupBlockingReason: DaemonStartupBlockingReasonValues.ProcessExit,
             LaunchAttemptId: null,
-            EditorMode: DaemonEditorModeValues.Batchmode,
-            OwnerKind: DaemonSessionOwnerKindValues.Cli,
+            EditorMode: ContractLiteralCodec.ToValue(DaemonEditorMode.Batchmode),
+            OwnerKind: ContractLiteralCodec.ToValue(DaemonSessionOwnerKind.Cli),
             CanShutdownProcess: true,
             ProcessId: processId,
             StartedAtUtc: processStartedAtUtc,

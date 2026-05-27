@@ -2,6 +2,8 @@ using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Testing;
 
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
 
 public sealed class IpcCommonContractTests
@@ -80,17 +82,17 @@ public sealed class IpcCommonContractTests
     [Trait("Size", "Small")]
     public void IpcTransportKindCodec_ToValue_ReturnsStableLiterals ()
     {
-        Assert.Equal(IpcTransportKindValues.NamedPipe, IpcTransportKindCodec.ToValue(IpcTransportKind.NamedPipe));
-        Assert.Equal(IpcTransportKindValues.UnixDomainSocket, IpcTransportKindCodec.ToValue(IpcTransportKind.UnixDomainSocket));
+        Assert.Equal("namedPipe", ContractLiteralCodec.ToValue(IpcTransportKind.NamedPipe));
+        Assert.Equal("unixDomainSocket", ContractLiteralCodec.ToValue(IpcTransportKind.UnixDomainSocket));
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public void IpcTransportKindCodec_TryParse_AcceptsKnownValues ()
     {
-        Assert.True(IpcTransportKindCodec.TryParse(IpcTransportKindValues.NamedPipe, out var namedPipe));
+        Assert.True(ContractLiteralCodec.TryParse<IpcTransportKind>("namedPipe", out var namedPipe));
         Assert.Equal(IpcTransportKind.NamedPipe, namedPipe);
-        Assert.True(IpcTransportKindCodec.TryParse(IpcTransportKindValues.UnixDomainSocket, out var unixDomainSocket));
+        Assert.True(ContractLiteralCodec.TryParse<IpcTransportKind>("unixDomainSocket", out var unixDomainSocket));
         Assert.Equal(IpcTransportKind.UnixDomainSocket, unixDomainSocket);
     }
 
@@ -98,7 +100,7 @@ public sealed class IpcCommonContractTests
     [Trait("Size", "Small")]
     public void IpcTransportKindCodec_TryParse_UnknownValue_ReturnsFalse ()
     {
-        Assert.False(IpcTransportKindCodec.TryParse("unsupported", out _));
+        Assert.False(ContractLiteralCodec.IsDefined<IpcTransportKind>("unsupported"));
     }
 
     [Fact]

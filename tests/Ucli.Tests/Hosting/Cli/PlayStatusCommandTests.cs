@@ -86,8 +86,8 @@ public sealed class PlayStatusCommandTests
             .HasString("domainReloadGeneration", "7")
             .HasBoolean("canAcceptExecutionRequests", true)
             .HasProperty("playMode", playMode => playMode
-                .HasString("state", IpcPlayModeStateNames.Stopped)
-                .HasString("transition", IpcPlayModeTransitionNames.None)
+                .HasString("state", "stopped")
+                .HasString("transition", "none")
                 .HasBoolean("isPlaying", false)
                 .HasBoolean("isPlayingOrWillChangePlaymode", false)
                 .HasString("generation", "2"))
@@ -114,8 +114,8 @@ public sealed class PlayStatusCommandTests
             ActionRequired: null,
             PrimaryDiagnostic: null,
             PlayMode: new PlayModeSnapshotOutput(
-                State: IpcPlayModeStateNames.Stopped,
-                Transition: IpcPlayModeTransitionNames.None,
+                State: "stopped",
+                Transition: "none",
                 IsPlaying: false,
                 IsPlayingOrWillChangePlaymode: false,
                 Generation: "2"),

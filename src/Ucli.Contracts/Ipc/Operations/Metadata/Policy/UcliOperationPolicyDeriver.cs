@@ -1,6 +1,8 @@
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Operations;
 
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Derives operation admission policy from operation contract facts. </summary>
@@ -77,7 +79,7 @@ internal static class UcliOperationPolicyDeriver
             policy = Max(policy, OperationPolicy.Advanced);
         }
 
-        if (string.Equals(assurance.PlanMode, UcliOperationPlanModeValues.MayCreatePreviewState, StringComparison.Ordinal))
+        if (string.Equals(assurance.PlanMode, ContractLiteralCodec.ToValue(UcliOperationPlanMode.MayCreatePreviewState), StringComparison.Ordinal))
         {
             policy = Max(policy, OperationPolicy.Advanced);
         }

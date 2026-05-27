@@ -7,6 +7,8 @@ using MackySoft.Ucli.Unity.Runtime;
 using Microsoft.Extensions.DependencyInjection;
 using UnityEditor;
 
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Bootstraps IPC daemon server when Unity is launched in batchmode daemon mode. </summary>
@@ -28,7 +30,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             try
             {
-                if (!IpcTransportKindCodec.TryParse(bootstrapArguments.EndpointTransportKind, out var transportKind))
+                if (!ContractLiteralCodec.TryParse<IpcTransportKind>(bootstrapArguments.EndpointTransportKind, out var transportKind))
                 {
                     var errorMessage = $"Unsupported endpoint transport kind: {bootstrapArguments.EndpointTransportKind}";
                     daemonLogger.Error(

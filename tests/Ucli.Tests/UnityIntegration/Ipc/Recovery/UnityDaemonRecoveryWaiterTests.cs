@@ -139,7 +139,7 @@ public sealed class UnityDaemonRecoveryWaiterTests
     public async Task DelayIfRecoveringAsync_WhenSessionIsBatchmode_ReturnsFalseWithoutDelay ()
     {
         var timeProvider = new ManualTimeProvider();
-        var session = CreateSession(DaemonEditorModeValues.Batchmode);
+        var session = CreateSession("batchmode");
         var waiter = CreateWaiter(
             session,
             CreateObservation(session, IpcEditorLifecycleStateCodec.DomainReloading),
@@ -174,7 +174,7 @@ public sealed class UnityDaemonRecoveryWaiterTests
             PathSource: UnityProjectPathSource.CommandOption);
     }
 
-    private static DaemonSession CreateSession (string editorMode = DaemonEditorModeValues.Gui)
+    private static DaemonSession CreateSession (string editorMode = "gui")
     {
         return new DaemonSession(
             SchemaVersion: DaemonSession.CurrentSchemaVersion,
@@ -184,7 +184,7 @@ public sealed class UnityDaemonRecoveryWaiterTests
             EditorMode: editorMode,
             OwnerKind: "user",
             CanShutdownProcess: false,
-            EndpointTransportKind: IpcTransportKindValues.UnixDomainSocket,
+            EndpointTransportKind: "unixDomainSocket",
             EndpointAddress: "/tmp/ucli.sock",
             ProcessId: 1234,
             ProcessStartedAtUtc: DateTimeOffset.UnixEpoch.AddSeconds(10),

@@ -20,7 +20,7 @@ public sealed class UnityBatchmodeProcessLauncherTests
                 ProjectFingerprint: "project-fingerprint",
             SessionToken: "session-token",
             ExitDeadlineUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 0, TimeSpan.Zero),
-            EndpointTransportKind: IpcTransportKindValues.UnixDomainSocket,
+            EndpointTransportKind: "unixDomainSocket",
             EndpointAddress: @"\\.\pipe\ucli-oneshot");
 
         var arguments = UnityBatchmodeProcessLauncher.BuildArgumentTokens(projectPath, unityLogPath, bootstrapArguments);
@@ -60,7 +60,7 @@ public sealed class UnityBatchmodeProcessLauncherTests
                 ProjectFingerprint: "project-fingerprint",
                 SessionToken: "session-token",
                 ExitDeadlineUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 0, TimeSpan.Zero),
-                EndpointTransportKind: IpcTransportKindValues.UnixDomainSocket,
+                EndpointTransportKind: "unixDomainSocket",
                 EndpointAddress: "/tmp/ucli.sock"),
             "/tmp/unity.log",
             CancellationToken.None);
@@ -94,7 +94,7 @@ public sealed class UnityBatchmodeProcessLauncherTests
                 ProjectFingerprint: "project-fingerprint",
                 SessionToken: "session-token",
                 ExitDeadlineUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 0, TimeSpan.Zero),
-                EndpointTransportKind: IpcTransportKindValues.UnixDomainSocket,
+                EndpointTransportKind: "unixDomainSocket",
                 EndpointAddress: "/tmp/ucli.sock"),
             "/tmp/unity.log",
             CancellationToken.None);
@@ -132,7 +132,7 @@ public sealed class UnityBatchmodeProcessLauncherTests
                 ProjectFingerprint: "project-fingerprint",
                 SessionToken: "session-token",
                 ExitDeadlineUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 0, TimeSpan.Zero),
-                EndpointTransportKind: IpcTransportKindValues.UnixDomainSocket,
+                EndpointTransportKind: "unixDomainSocket",
                 EndpointAddress: "/tmp/ucli.sock"),
             "/tmp/unity.log",
             CancellationToken.None);
@@ -171,7 +171,7 @@ public sealed class UnityBatchmodeProcessLauncherTests
                 ProjectFingerprint: "project-fingerprint",
                 SessionToken: "session-token",
                 ExitDeadlineUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 0, TimeSpan.Zero),
-                EndpointTransportKind: IpcTransportKindValues.UnixDomainSocket,
+                EndpointTransportKind: "unixDomainSocket",
                 EndpointAddress: "/tmp/ucli.sock"),
             scope.GetPath("unity.log"),
             CancellationToken.None);
@@ -215,7 +215,7 @@ public sealed class UnityBatchmodeProcessLauncherTests
                 ProjectFingerprint: "project-fingerprint",
                     SessionToken: "session-token",
                     ExitDeadlineUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 0, TimeSpan.Zero),
-                    EndpointTransportKind: IpcTransportKindValues.UnixDomainSocket,
+                    EndpointTransportKind: "unixDomainSocket",
                     EndpointAddress: "/tmp/ucli.sock"),
                 scope.GetPath("unity.log"),
                 cancellationTokenSource.Token);

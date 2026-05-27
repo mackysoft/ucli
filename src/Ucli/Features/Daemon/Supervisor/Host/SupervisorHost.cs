@@ -1,6 +1,8 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Contracts.Ipc;
 
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Features.Daemon.Supervisor.Host;
 
 /// <summary> Hosts the worktree-local supervisor runtime that owns Unity daemon process lifetime. </summary>
@@ -137,7 +139,7 @@ internal sealed class SupervisorHost
             new SupervisorInstanceManifest(
                 ProcessId: Environment.ProcessId,
                 SessionToken: sessionTokenGenerator.Create(),
-                EndpointTransportKind: IpcTransportKindCodec.ToValue(endpoint.TransportKind),
+                EndpointTransportKind: ContractLiteralCodec.ToValue(endpoint.TransportKind),
                 EndpointAddress: endpoint.Address,
                 IssuedAtUtc: DateTimeOffset.UtcNow));
     }
@@ -185,7 +187,7 @@ internal sealed class SupervisorHost
 
     private static IpcEndpoint ResolveEndpoint (SupervisorInstanceManifest manifest)
     {
-        if (!IpcTransportKindCodec.TryParse(manifest.EndpointTransportKind, out var transportKind))
+        if (!ContractLiteralCodec.TryParse<IpcTransportKind>(manifest.EndpointTransportKind, out var transportKind))
         {
             throw new InvalidOperationException(
                 $"Supervisor manifest endpointTransportKind is invalid: {manifest.EndpointTransportKind}.");

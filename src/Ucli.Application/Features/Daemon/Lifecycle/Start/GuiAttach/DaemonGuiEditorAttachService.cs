@@ -3,6 +3,8 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiEndpoint;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiAttach;
 
 /// <summary> Implements existing GUI Editor detection and attach handling for daemon start. </summary>
@@ -219,8 +221,8 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
             .ConfigureAwait(false);
         var policyResolution = DaemonStartupBlockedProcessPolicyResolver.Resolve(
             onStartupBlocked,
-            DaemonEditorModeValues.Gui,
-            DaemonSessionOwnerKindValues.User,
+            ContractLiteralCodec.ToValue(DaemonEditorMode.Gui),
+            ContractLiteralCodec.ToValue(DaemonSessionOwnerKind.User),
             canShutdownProcess: false,
             marker.ProcessId);
         var startup = new DaemonStartupObservation(
@@ -229,8 +231,8 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
             LaunchAttemptId: null,
             ProcessAction: policyResolution.ProcessActionWhenNotTerminated,
             RetryDisposition: DaemonStartupRetryDispositionValues.WaitThenRetry,
-            EditorMode: DaemonEditorModeValues.Gui,
-            OwnerKind: DaemonSessionOwnerKindValues.User,
+            EditorMode: ContractLiteralCodec.ToValue(DaemonEditorMode.Gui),
+            OwnerKind: ContractLiteralCodec.ToValue(DaemonSessionOwnerKind.User),
             CanShutdownProcess: false,
             ProcessId: marker.ProcessId,
             StartedAtUtc: processStartedAtUtc,

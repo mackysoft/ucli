@@ -19,7 +19,7 @@ public sealed class PlayStatusServiceTests
     public async Task Execute_WhenProjectResolutionFails_ReturnsFailureWithoutSessionOrIpcCall ()
     {
         var expectedError = ExecutionError.InvalidArgument("Project resolution failed.");
-        var sessionStore = new StubDaemonSessionStore(DaemonSessionReadResult.Success(CreateSession(DaemonEditorModeValues.Gui)));
+        var sessionStore = new StubDaemonSessionStore(DaemonSessionReadResult.Success(CreateSession("gui")));
         var requestExecutor = new StubUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(CreateStatusResponse())));
         var service = CreateService(ProjectContextResolutionResult.Failure(expectedError), sessionStore, requestExecutor);
 
@@ -55,7 +55,7 @@ public sealed class PlayStatusServiceTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenRegisteredSessionIsBatchmode_ReturnsRequiresGuiEditorWithoutIpcCall ()
     {
-        var sessionStore = new StubDaemonSessionStore(DaemonSessionReadResult.Success(CreateSession(DaemonEditorModeValues.Batchmode)));
+        var sessionStore = new StubDaemonSessionStore(DaemonSessionReadResult.Success(CreateSession("batchmode")));
         var requestExecutor = new StubUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(CreateStatusResponse())));
         var service = CreateService(CreateContext(), sessionStore, requestExecutor);
 
@@ -73,7 +73,7 @@ public sealed class PlayStatusServiceTests
     public async Task Execute_WhenGuiSessionAndIpcSucceeds_ReturnsFlatStatusProjection ()
     {
         var context = CreateContext();
-        var sessionStore = new StubDaemonSessionStore(DaemonSessionReadResult.Success(CreateSession(DaemonEditorModeValues.Gui)));
+        var sessionStore = new StubDaemonSessionStore(DaemonSessionReadResult.Success(CreateSession("gui")));
         var requestExecutor = new StubUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(CreateStatusResponse())));
         var service = CreateService(context, sessionStore, requestExecutor);
 
@@ -86,7 +86,7 @@ public sealed class PlayStatusServiceTests
         Assert.Equal(context.UnityProject.ProjectFingerprint, output.Project.ProjectFingerprint);
         Assert.Equal("6000.1.4f1", output.Project.UnityVersion);
         Assert.Equal("0.5.0", output.ServerVersion);
-        Assert.Equal(DaemonEditorModeValues.Gui, output.EditorMode);
+        Assert.Equal("gui", output.EditorMode);
         Assert.Equal(IpcEditorLifecycleStateCodec.Ready, output.LifecycleState);
         Assert.Null(output.BlockingReason);
         Assert.Equal(IpcCompileStateCodec.Ready, output.CompileState);
@@ -96,8 +96,8 @@ public sealed class PlayStatusServiceTests
         Assert.Equal("2026-05-21T00:00:00.0000000+00:00", output.ObservedAtUtc?.ToString("O", CultureInfo.InvariantCulture));
         Assert.Null(output.ActionRequired);
         Assert.Null(output.PrimaryDiagnostic);
-        Assert.Equal(IpcPlayModeStateNames.Stopped, output.PlayMode.State);
-        Assert.Equal(IpcPlayModeTransitionNames.None, output.PlayMode.Transition);
+        Assert.Equal("stopped", output.PlayMode.State);
+        Assert.Equal("none", output.PlayMode.Transition);
         Assert.False(output.PlayMode.IsPlaying);
         Assert.False(output.PlayMode.IsPlayingOrWillChangePlaymode);
         Assert.Equal("2", output.PlayMode.Generation);
@@ -115,12 +115,12 @@ public sealed class PlayStatusServiceTests
     public async Task Execute_WhenPlayModeIsPlaying_ReturnsPlayingSnapshot ()
     {
         var playMode = new IpcPlayModeSnapshot(
-            State: IpcPlayModeStateNames.Playing,
-            Transition: IpcPlayModeTransitionNames.None,
+            State: "playing",
+            Transition: "none",
             IsPlaying: true,
             IsPlayingOrWillChangePlaymode: true,
             Generation: "9");
-        var sessionStore = new StubDaemonSessionStore(DaemonSessionReadResult.Success(CreateSession(DaemonEditorModeValues.Gui)));
+        var sessionStore = new StubDaemonSessionStore(DaemonSessionReadResult.Success(CreateSession("gui")));
         var requestExecutor = new StubUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(CreateStatusResponse(playMode: playMode))));
         var service = CreateService(CreateContext(), sessionStore, requestExecutor);
 
@@ -128,8 +128,8 @@ public sealed class PlayStatusServiceTests
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<PlayStatusExecutionOutput>(result.Output);
-        Assert.Equal(IpcPlayModeStateNames.Playing, output.PlayMode.State);
-        Assert.Equal(IpcPlayModeTransitionNames.None, output.PlayMode.Transition);
+        Assert.Equal("playing", output.PlayMode.State);
+        Assert.Equal("none", output.PlayMode.Transition);
         Assert.True(output.PlayMode.IsPlaying);
         Assert.True(output.PlayMode.IsPlayingOrWillChangePlaymode);
         Assert.Equal("9", output.PlayMode.Generation);
@@ -139,7 +139,7 @@ public sealed class PlayStatusServiceTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenIpcExecutionTimesOut_ReturnsTimeoutError ()
     {
-        var sessionStore = new StubDaemonSessionStore(DaemonSessionReadResult.Success(CreateSession(DaemonEditorModeValues.Gui)));
+        var sessionStore = new StubDaemonSessionStore(DaemonSessionReadResult.Success(CreateSession("gui")));
         var requestExecutor = new StubUnityRequestExecutor(UnityRequestExecutionResult.Failure(new UnityRequestFailure(
             ExecutionErrorCodes.IpcTimeout,
             "play status timed out")));
@@ -157,14 +157,14 @@ public sealed class PlayStatusServiceTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenIpcExecutionTimesOutAndFreshLifecycleSidecarExists_ReturnsSidecarStatus ()
     {
-        var session = CreateSession(DaemonEditorModeValues.Gui);
+        var session = CreateSession("gui");
         var sessionStore = new StubDaemonSessionStore(DaemonSessionReadResult.Success(session));
         var lifecycleStore = new StubDaemonLifecycleStore(DaemonLifecycleObservationReadResult.Success(CreateLifecycleObservation(
             session,
             IpcEditorLifecycleStateCodec.Ready,
             blockingReason: null,
             canAcceptExecutionRequests: true,
-            playModeState: IpcPlayModeStateNames.Stopped,
+            playModeState: "stopped",
             isPlaying: false,
             isPlayingOrWillChangePlaymode: false)));
         var processIdentityAssessor = new StubDaemonProcessIdentityAssessor(DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess);
@@ -187,8 +187,8 @@ public sealed class PlayStatusServiceTests
         Assert.Null(output.BlockingReason);
         Assert.True(output.CanAcceptExecutionRequests);
         Assert.Equal("0.5.0", output.ServerVersion);
-        Assert.Equal(IpcPlayModeStateNames.Stopped, output.PlayMode.State);
-        Assert.Equal(IpcPlayModeTransitionNames.None, output.PlayMode.Transition);
+        Assert.Equal("stopped", output.PlayMode.State);
+        Assert.Equal("none", output.PlayMode.Transition);
         Assert.False(output.PlayMode.IsPlaying);
         Assert.Equal(1, lifecycleStore.ReadCallCount);
         Assert.Equal(1, processIdentityAssessor.CallCount);
@@ -199,7 +199,7 @@ public sealed class PlayStatusServiceTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenIpcExecutionTimesOutAndLifecycleSidecarLacksEditorInstanceId_ReturnsTimeoutError ()
     {
-        var session = CreateSession(DaemonEditorModeValues.Gui);
+        var session = CreateSession("gui");
         var sessionStore = new StubDaemonSessionStore(DaemonSessionReadResult.Success(session));
         var lifecycleStore = new StubDaemonLifecycleStore(DaemonLifecycleObservationReadResult.Success(
             CreateLifecycleObservation(session) with
@@ -232,7 +232,7 @@ public sealed class PlayStatusServiceTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenFreshLifecycleSidecarReportsPlayMode_ReturnsWithoutIpcCall ()
     {
-        var session = CreateSession(DaemonEditorModeValues.Gui);
+        var session = CreateSession("gui");
         var sessionStore = new StubDaemonSessionStore(DaemonSessionReadResult.Success(session));
         var lifecycleStore = new StubDaemonLifecycleStore(DaemonLifecycleObservationReadResult.Success(CreateLifecycleObservation(session)));
         var processIdentityAssessor = new StubDaemonProcessIdentityAssessor(DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess);
@@ -250,7 +250,7 @@ public sealed class PlayStatusServiceTests
         var output = Assert.IsType<PlayStatusExecutionOutput>(result.Output);
         Assert.Equal("0.5.0", output.ServerVersion);
         Assert.Equal(IpcEditorLifecycleStateCodec.Playmode, output.LifecycleState);
-        Assert.Equal(IpcPlayModeStateNames.Playing, output.PlayMode.State);
+        Assert.Equal("playing", output.PlayMode.State);
         Assert.Equal(0, requestExecutor.CallCount);
         Assert.Equal(1, lifecycleStore.ReadCallCount);
     }
@@ -259,7 +259,7 @@ public sealed class PlayStatusServiceTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenIpcExecutionFailsWithoutTimeout_PreservesFailureCodeAndMessage ()
     {
-        var sessionStore = new StubDaemonSessionStore(DaemonSessionReadResult.Success(CreateSession(DaemonEditorModeValues.Gui)));
+        var sessionStore = new StubDaemonSessionStore(DaemonSessionReadResult.Success(CreateSession("gui")));
         var requestExecutor = new StubUnityRequestExecutor(UnityRequestExecutionResult.Failure(new UnityRequestFailure(
             UnityExecutionModeDecisionErrorCodes.DaemonNotRunning,
             "Daemon is not running.")));
@@ -278,7 +278,7 @@ public sealed class PlayStatusServiceTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenIpcErrorResponseIsReturned_PreservesErrorCode ()
     {
-        var sessionStore = new StubDaemonSessionStore(DaemonSessionReadResult.Success(CreateSession(DaemonEditorModeValues.Gui)));
+        var sessionStore = new StubDaemonSessionStore(DaemonSessionReadResult.Success(CreateSession("gui")));
         var requestExecutor = new StubUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateErrorResponse(
             UcliCoreErrorCodes.InvalidArgument,
             "PlayStatus payload is invalid.")));
@@ -296,7 +296,7 @@ public sealed class PlayStatusServiceTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenResponseProjectFingerprintDiffers_ReturnsMismatchFailure ()
     {
-        var sessionStore = new StubDaemonSessionStore(DaemonSessionReadResult.Success(CreateSession(DaemonEditorModeValues.Gui)));
+        var sessionStore = new StubDaemonSessionStore(DaemonSessionReadResult.Success(CreateSession("gui")));
         var requestExecutor = new StubUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(CreateStatusResponse(
             projectFingerprint: "other-project-fingerprint"))));
         var service = CreateService(CreateContext(), sessionStore, requestExecutor);
@@ -315,10 +315,10 @@ public sealed class PlayStatusServiceTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenPlayModeSnapshotIsInvalid_ReturnsStateUnknown ()
     {
-        var sessionStore = new StubDaemonSessionStore(DaemonSessionReadResult.Success(CreateSession(DaemonEditorModeValues.Gui)));
+        var sessionStore = new StubDaemonSessionStore(DaemonSessionReadResult.Success(CreateSession("gui")));
         var statusResponse = CreateStatusResponse(playMode: new IpcPlayModeSnapshot(
             State: "invalid",
-            Transition: IpcPlayModeTransitionNames.None,
+            Transition: "none",
             IsPlaying: false,
             IsPlayingOrWillChangePlaymode: false,
             Generation: "2"));
@@ -402,7 +402,7 @@ public sealed class PlayStatusServiceTests
             ProjectFingerprint: "project-fingerprint",
             IssuedAtUtc: DateTimeOffset.UtcNow,
             EditorMode: editorMode,
-            OwnerKind: DaemonSessionOwnerKindValues.User,
+            OwnerKind: "user",
             CanShutdownProcess: false,
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-play-status",
@@ -419,14 +419,14 @@ public sealed class PlayStatusServiceTests
         string lifecycleState = IpcEditorLifecycleStateCodec.Playmode,
         string? blockingReason = IpcEditorBlockingReasonCodec.PlayMode,
         bool canAcceptExecutionRequests = false,
-        string playModeState = IpcPlayModeStateNames.Playing,
+        string playModeState = "playing",
         bool isPlaying = true,
         bool isPlayingOrWillChangePlaymode = true)
     {
         return new DaemonLifecycleObservation(
             ProcessId: session.ProcessId!.Value,
             ProcessStartedAtUtc: session.ProcessStartedAtUtc!.Value,
-            EditorMode: DaemonEditorModeValues.Gui,
+            EditorMode: "gui",
             LifecycleState: lifecycleState,
             BlockingReason: blockingReason,
             CompileState: IpcCompileStateCodec.Ready,
@@ -441,7 +441,7 @@ public sealed class PlayStatusServiceTests
             EditorInstanceId = session.EditorInstanceId,
             PlayMode = new IpcPlayModeSnapshot(
                 State: playModeState,
-                Transition: IpcPlayModeTransitionNames.None,
+                Transition: "none",
                 IsPlaying: isPlaying,
                 IsPlayingOrWillChangePlaymode: isPlayingOrWillChangePlaymode,
                 Generation: "9"),
@@ -454,7 +454,7 @@ public sealed class PlayStatusServiceTests
     {
         return new IpcPlayStatusResponse(new IpcPlayLifecycleSnapshot(
             ServerVersion: "0.5.0",
-            EditorMode: DaemonEditorModeValues.Gui,
+            EditorMode: "gui",
             UnityVersion: "6000.1.4f1",
             ProjectFingerprint: projectFingerprint,
             LifecycleState: IpcEditorLifecycleStateCodec.Ready,
@@ -467,8 +467,8 @@ public sealed class PlayStatusServiceTests
             ActionRequired: null,
             PrimaryDiagnostic: null,
             PlayMode: playMode ?? new IpcPlayModeSnapshot(
-                State: IpcPlayModeStateNames.Stopped,
-                Transition: IpcPlayModeTransitionNames.None,
+                State: "stopped",
+                Transition: "none",
                 IsPlaying: false,
                 IsPlayingOrWillChangePlaymode: false,
                 Generation: "2")));

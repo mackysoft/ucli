@@ -1,7 +1,6 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
 
 namespace MackySoft.Ucli.Tests;
@@ -139,7 +138,7 @@ public sealed class UnityProjectLockOwnerProbeTests
             EditorMode: "batchmode",
             OwnerKind: "cli",
             CanShutdownProcess: true,
-            EndpointTransportKind: IpcTransportKindValues.UnixDomainSocket,
+            EndpointTransportKind: "unixDomainSocket",
             EndpointAddress: "/tmp/ucli.sock",
             ProcessId: processId,
             ProcessStartedAtUtc: DateTimeOffset.UtcNow,

@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 
 /// <summary> Defines when uCLI may terminate a daemon process from session metadata. </summary>
@@ -91,7 +93,7 @@ internal static class DaemonSessionTerminationPolicy
         ownerKind = default;
         return session.SchemaVersion == DaemonSession.CurrentSchemaVersion
             && session.OwnerProcessId is > 0
-            && DaemonEditorModeCodec.TryParse(session.EditorMode, out editorMode)
-            && DaemonSessionOwnerKindCodec.TryParse(session.OwnerKind, out ownerKind);
+            && ContractLiteralInputParser.TryParseTrimmed<DaemonEditorMode>(session.EditorMode, out editorMode)
+            && ContractLiteralInputParser.TryParseTrimmed<DaemonSessionOwnerKind>(session.OwnerKind, out ownerKind);
     }
 }

@@ -779,7 +779,7 @@ public sealed class OpsCliOutputContractTests
         Assert.Equal("Resolved Unity GlobalObjectId.", field.GetProperty("description").GetString());
 
         var constraint = Assert.Single(field.GetProperty("constraints").EnumerateArray());
-        Assert.Equal(UcliOperationInputConstraintKindValues.GlobalObjectId, constraint.GetProperty("kind").GetString());
+        Assert.Equal("globalObjectId", constraint.GetProperty("kind").GetString());
 
         var sceneHierarchyVariant = Assert.Single(
             targetInput.GetProperty("variants").EnumerateArray(),
@@ -794,9 +794,9 @@ public sealed class OpsCliOutputContractTests
         Assert.Equal("Scene asset path for a hierarchy selector.", sceneField.GetProperty("description").GetString());
         var sceneConstraint = Assert.Single(
             sceneField.GetProperty("constraints").EnumerateArray(),
-            constraint => string.Equals(constraint.GetProperty("kind").GetString(), UcliOperationInputConstraintKindValues.AssetExists, StringComparison.Ordinal));
-        Assert.Equal(UcliOperationInputConstraintKindValues.AssetExists, sceneConstraint.GetProperty("kind").GetString());
-        Assert.Equal(UcliOperationAssetKindValues.Scene, sceneConstraint.GetProperty("assetKind").GetString());
+            constraint => string.Equals(constraint.GetProperty("kind").GetString(), "assetExists", StringComparison.Ordinal));
+        Assert.Equal("assetExists", sceneConstraint.GetProperty("kind").GetString());
+        Assert.Equal("scene", sceneConstraint.GetProperty("assetKind").GetString());
 
         var hierarchyPathField = Assert.Single(
             sceneHierarchyVariant.GetProperty("fields").EnumerateArray(),
@@ -805,8 +805,8 @@ public sealed class OpsCliOutputContractTests
         Assert.Equal("Unity hierarchy path inside the selected scene or prefab.", hierarchyPathField.GetProperty("description").GetString());
         var hierarchyPathConstraint = Assert.Single(
             hierarchyPathField.GetProperty("constraints").EnumerateArray(),
-            constraint => string.Equals(constraint.GetProperty("kind").GetString(), UcliOperationInputConstraintKindValues.HierarchyPath, StringComparison.Ordinal));
-        Assert.Equal(UcliOperationInputConstraintKindValues.HierarchyPath, hierarchyPathConstraint.GetProperty("kind").GetString());
+            constraint => string.Equals(constraint.GetProperty("kind").GetString(), "hierarchyPath", StringComparison.Ordinal));
+        Assert.Equal("hierarchyPath", hierarchyPathConstraint.GetProperty("kind").GetString());
     }
 
     private static UcliOperationDescribeContract CreateGoDescribeContract ()
@@ -836,9 +836,9 @@ public sealed class OpsCliOutputContractTests
                     description: "Target GameObject reference.",
                     constraints:
                     [
-                        new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.ReferenceResolvable)
+                        new UcliOperationInputConstraintContract("referenceResolvable")
                         {
-                            TargetKind = UcliOperationReferenceTargetKindValues.GameObject,
+                            TargetKind = "gameObject",
                         },
                     ],
                     argsPath: "$.target",
@@ -855,7 +855,7 @@ public sealed class OpsCliOutputContractTests
                                     description: "Resolved Unity GlobalObjectId.",
                                     constraints:
                                     [
-                                        new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.GlobalObjectId),
+                                        new UcliOperationInputConstraintContract("globalObjectId"),
                                     ]),
                             ]),
                         new UcliOperationInputVariantContract(
@@ -869,9 +869,9 @@ public sealed class OpsCliOutputContractTests
                                     description: "Scene asset path for a hierarchy selector.",
                                     constraints:
                                     [
-                                        new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.AssetExists)
+                                        new UcliOperationInputConstraintContract("assetExists")
                                         {
-                                            AssetKind = UcliOperationAssetKindValues.Scene,
+                                            AssetKind = "scene",
                                         },
                                     ]),
                                 new UcliOperationInputVariantFieldContract(
@@ -880,7 +880,7 @@ public sealed class OpsCliOutputContractTests
                                     description: "Unity hierarchy path inside the selected scene or prefab.",
                                     constraints:
                                     [
-                                        new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.HierarchyPath),
+                                        new UcliOperationInputConstraintContract("hierarchyPath"),
                                     ]),
                             ]),
                     ]),
@@ -890,7 +890,7 @@ public sealed class OpsCliOutputContractTests
                     description: "Maximum child hierarchy depth to include; null means unbounded.",
                     constraints:
                     [
-                        new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.Range)
+                        new UcliOperationInputConstraintContract("range")
                         {
                             Min = 0,
                         },

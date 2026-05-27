@@ -35,8 +35,8 @@ public sealed class StatusServiceTests
             DomainReloadGeneration: "7",
             CanAcceptExecutionRequests: false,
             PlayMode: new IpcPlayModeSnapshot(
-                State: IpcPlayModeStateNames.Stopped,
-                Transition: IpcPlayModeTransitionNames.None,
+                State: "stopped",
+                Transition: "none",
                 IsPlaying: false,
                 IsPlayingOrWillChangePlaymode: false,
                 Generation: "2")));
@@ -61,8 +61,8 @@ public sealed class StatusServiceTests
         Assert.False(output.CanAcceptExecutionRequests);
         Assert.Equal("batchmode", output.EditorMode);
         Assert.NotNull(output.PlayMode);
-        Assert.Equal(IpcPlayModeStateNames.Stopped, output.PlayMode.State);
-        Assert.Equal(IpcPlayModeTransitionNames.None, output.PlayMode.Transition);
+        Assert.Equal("stopped", output.PlayMode.State);
+        Assert.Equal("none", output.PlayMode.Transition);
         Assert.False(output.PlayMode.IsPlaying);
         Assert.False(output.PlayMode.IsPlayingOrWillChangePlaymode);
         Assert.Equal("2", output.PlayMode.Generation);
@@ -351,8 +351,8 @@ public sealed class StatusServiceTests
             SessionToken: sessionToken,
             ProjectFingerprint: "project-fingerprint",
             IssuedAtUtc: DateTimeOffset.UtcNow,
-            EditorMode: DaemonEditorModeValues.Batchmode,
-            OwnerKind: DaemonSessionOwnerKindValues.Cli,
+            EditorMode: "batchmode",
+            OwnerKind: "cli",
             CanShutdownProcess: true,
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-daemon-status",

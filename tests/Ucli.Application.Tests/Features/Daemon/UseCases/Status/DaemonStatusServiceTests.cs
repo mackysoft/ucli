@@ -283,7 +283,7 @@ public sealed class DaemonStatusServiceTests
             StartupBlockingReason: DaemonStartupBlockingReasonValues.EndpointNotRegistered,
             RetryDisposition: DaemonStartupRetryDispositionValues.WaitThenRetry,
             ProcessAction: DaemonStartupProcessActionValues.Terminated,
-            EditorMode: DaemonEditorModeValues.Gui,
+            EditorMode: "gui",
             ProcessId: 1234,
             ProcessStartedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero),
             UnityLogPath: "/tmp/repo-root/.ucli/local/fingerprints/fingerprint/unity.log",
@@ -326,7 +326,7 @@ public sealed class DaemonStatusServiceTests
             DaemonCommandExecutionContextResolutionResult.Success(context));
         var session = DaemonServiceTestContext.CreateSession() with
         {
-            EditorMode = DaemonEditorModeValues.Gui,
+            EditorMode = "gui",
             EditorInstanceId = "editor-instance-1",
         };
         var persistedDiagnosis = DaemonServiceTestContext.CreateDiagnosis();
@@ -393,8 +393,8 @@ public sealed class DaemonStatusServiceTests
             DaemonCommandExecutionContextResolutionResult.Success(context));
         var session = DaemonServiceTestContext.CreateSession() with
         {
-            EditorMode = DaemonEditorModeValues.Gui,
-            OwnerKind = DaemonSessionOwnerKindValues.User,
+            EditorMode = "gui",
+            OwnerKind = "user",
             CanShutdownProcess = false,
         };
         var daemonStatusOperation = new DaemonServiceTestContext.StubDaemonStatusOperation
@@ -405,7 +405,7 @@ public sealed class DaemonStatusServiceTests
         {
             Response = new IpcPingResponse(
                 ServerVersion: "9.9.10",
-                EditorMode: DaemonEditorModeValues.Gui,
+                EditorMode: "gui",
                 UnityVersion: "6000.1.4f1",
                 ProjectFingerprint: "project-fingerprint",
                 CompileState: IpcCompileStateCodec.Ready,
@@ -429,13 +429,13 @@ public sealed class DaemonStatusServiceTests
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<DaemonStatusExecutionOutput>(result.Output);
         Assert.Equal(DaemonStatusKind.Running, output.DaemonStatus);
-        Assert.Equal(DaemonEditorModeValues.Gui, output.EditorMode);
+        Assert.Equal("gui", output.EditorMode);
         Assert.Equal(IpcEditorLifecycleStateCodec.Playmode, output.LifecycleState);
         Assert.Equal(IpcEditorBlockingReasonCodec.PlayMode, output.BlockingReason);
         Assert.False(output.CanAcceptExecutionRequests);
         Assert.NotNull(output.Session);
-        Assert.Equal(DaemonEditorModeValues.Gui, output.Session.EditorMode);
-        Assert.Equal(DaemonSessionOwnerKindValues.User, output.Session.OwnerKind);
+        Assert.Equal("gui", output.Session.EditorMode);
+        Assert.Equal("user", output.Session.OwnerKind);
         Assert.False(output.Session.CanShutdownProcess);
     }
 
@@ -581,7 +581,7 @@ public sealed class DaemonStatusServiceTests
             DaemonCommandExecutionContextResolutionResult.Success(context));
         var session = DaemonServiceTestContext.CreateSession() with
         {
-            EditorMode = DaemonEditorModeValues.Gui,
+            EditorMode = "gui",
             EditorInstanceId = "editor-instance-1",
         };
         var lifecycleStore = new DaemonServiceTestContext.StubDaemonLifecycleStore
@@ -623,7 +623,7 @@ public sealed class DaemonStatusServiceTests
         Assert.Equal(IpcEditorLifecycleStateCodec.Playmode, output.LifecycleState);
         Assert.Equal(IpcEditorBlockingReasonCodec.PlayMode, output.BlockingReason);
         Assert.False(output.CanAcceptExecutionRequests);
-        Assert.Equal(IpcPlayModeStateNames.Playing, output.PlayMode!.State);
+        Assert.Equal("playing", output.PlayMode!.State);
         Assert.Equal(1, lifecycleStore.ReadCallCount);
         Assert.Equal(1, processIdentityAssessor.CallCount);
     }
@@ -637,7 +637,7 @@ public sealed class DaemonStatusServiceTests
             DaemonCommandExecutionContextResolutionResult.Success(context));
         var session = DaemonServiceTestContext.CreateSession() with
         {
-            EditorMode = DaemonEditorModeValues.Gui,
+            EditorMode = "gui",
             EditorInstanceId = "editor-instance-1",
         };
         var lifecycleStore = new DaemonServiceTestContext.StubDaemonLifecycleStore
@@ -960,8 +960,8 @@ public sealed class DaemonStatusServiceTests
             CanAcceptExecutionRequests = false,
             EditorInstanceId = session.EditorInstanceId,
             PlayMode = new IpcPlayModeSnapshot(
-                State: IpcPlayModeStateNames.Playing,
-                Transition: IpcPlayModeTransitionNames.None,
+                State: "playing",
+                Transition: "none",
                 IsPlaying: true,
                 IsPlayingOrWillChangePlaymode: true,
                 Generation: "9"),

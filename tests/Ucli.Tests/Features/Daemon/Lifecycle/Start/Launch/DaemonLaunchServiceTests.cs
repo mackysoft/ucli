@@ -70,7 +70,7 @@ public sealed class DaemonLaunchServiceTests
             processId: 4321,
             projectFingerprint: context.ProjectFingerprint) with
         {
-            EditorMode = DaemonEditorModeValues.Gui,
+            EditorMode = "gui",
         };
         var launchSessionService = new StubDaemonLaunchSessionService();
         var batchmodeLauncher = new StubUnityDaemonProcessLauncher();
@@ -1025,8 +1025,8 @@ public sealed class DaemonLaunchServiceTests
         Assert.Equal(DaemonStartupStatusValues.Blocked, result.Startup!.StartupStatus);
         Assert.Equal(DaemonStartupBlockingReasonValues.Compile, result.Startup.StartupBlockingReason);
         Assert.Equal(DaemonStartupRetryDispositionValues.RetryAfterFix, result.Startup.RetryDisposition);
-        Assert.Equal(DaemonEditorModeValues.Batchmode, result.Startup.EditorMode);
-        Assert.Equal(DaemonSessionOwnerKindValues.Cli, result.Startup.OwnerKind);
+        Assert.Equal("batchmode", result.Startup.EditorMode);
+        Assert.Equal("cli", result.Startup.OwnerKind);
         Assert.Equal(7778, result.Startup.ProcessId);
         Assert.Equal(processStartedAtUtc, result.Startup.StartedAtUtc);
         Assert.Equal(DaemonStartupProcessActionValues.Terminated, result.Startup.ProcessAction);
@@ -1983,8 +1983,8 @@ public sealed class DaemonLaunchServiceTests
             SessionToken: "session-token",
             ProjectFingerprint: projectFingerprint,
             IssuedAtUtc: DateTimeOffset.UtcNow,
-            EditorMode: DaemonEditorModeValues.Batchmode,
-            OwnerKind: DaemonSessionOwnerKindValues.Cli,
+            EditorMode: "batchmode",
+            OwnerKind: "cli",
             CanShutdownProcess: true,
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-daemon-test-endpoint",

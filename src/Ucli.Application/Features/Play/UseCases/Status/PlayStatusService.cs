@@ -125,7 +125,7 @@ internal sealed class PlayStatusService : IPlayStatusService
         }
 
         var lifecycle = LifecycleProjectionFactory.Create(snapshot);
-        var guiEditorMode = DaemonEditorModeCodec.ToValue(DaemonEditorMode.Gui);
+        var guiEditorMode = ContractLiteralCodec.ToValue(DaemonEditorMode.Gui);
         if (!string.Equals(lifecycle.EditorMode, guiEditorMode, StringComparison.Ordinal))
         {
             return PlayStatusExecutionResult.Failure(CreateRequiresGuiEditorError());
@@ -177,7 +177,7 @@ internal sealed class PlayStatusService : IPlayStatusService
             return null;
         }
 
-        var guiEditorMode = DaemonEditorModeCodec.ToValue(DaemonEditorMode.Gui);
+        var guiEditorMode = ContractLiteralCodec.ToValue(DaemonEditorMode.Gui);
         if (!string.Equals(observation.EditorMode, guiEditorMode, StringComparison.Ordinal))
         {
             return null;

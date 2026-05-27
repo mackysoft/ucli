@@ -7,6 +7,8 @@ using UnityEditor;
 
 #nullable enable
 
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Builds schema results from one live asset instance. </summary>
@@ -28,8 +30,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             var properties = CollectProperties(serializedObject, assetType);
             var typeId = IndexTypeIdFormatter.Format(assetType);
             return new IndexSchemaEntryJsonContract(
-                SchemaKey: $"{IndexSchemaKindValues.Asset}:{typeId}",
-                Kind: IndexSchemaKindValues.Asset,
+                SchemaKey: $"{ContractLiteralCodec.ToValue(IndexSchemaKind.Asset)}:{typeId}",
+                Kind: ContractLiteralCodec.ToValue(IndexSchemaKind.Asset),
                 TypeId: typeId,
                 DisplayName: assetType.Name,
                 Properties: properties);

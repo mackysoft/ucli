@@ -1,5 +1,7 @@
 using MackySoft.Ucli.Contracts.Daemon;
 
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Contracts.Tests.Daemon;
 
 public sealed class DaemonContractCodecTests
@@ -8,8 +10,8 @@ public sealed class DaemonContractCodecTests
     [Trait("Size", "Small")]
     public void DaemonEditorModeValues_HasStableStringValues ()
     {
-        Assert.Equal("batchmode", DaemonEditorModeValues.Batchmode);
-        Assert.Equal("gui", DaemonEditorModeValues.Gui);
+        Assert.Equal("batchmode", "batchmode");
+        Assert.Equal("gui", "gui");
     }
 
     [Theory]
@@ -26,7 +28,7 @@ public sealed class DaemonContractCodecTests
         bool expectedResult,
         DaemonEditorMode expectedValue)
     {
-        var result = DaemonEditorModeCodec.TryParse(value, out var editorMode);
+        var result = ContractLiteralInputParser.TryParseTrimmed<DaemonEditorMode>(value, out var editorMode);
 
         Assert.Equal(expectedResult, result);
         if (expectedResult)
@@ -37,21 +39,21 @@ public sealed class DaemonContractCodecTests
 
     [Theory]
     [Trait("Size", "Small")]
-    [InlineData(DaemonEditorMode.Batchmode, DaemonEditorModeValues.Batchmode)]
-    [InlineData(DaemonEditorMode.Gui, DaemonEditorModeValues.Gui)]
+    [InlineData(DaemonEditorMode.Batchmode, "batchmode")]
+    [InlineData(DaemonEditorMode.Gui, "gui")]
     public void DaemonEditorModeCodec_ToValue_ReturnsCanonicalLiteral (
         DaemonEditorMode editorMode,
         string expectedValue)
     {
-        Assert.Equal(expectedValue, DaemonEditorModeCodec.ToValue(editorMode));
+        Assert.Equal(expectedValue, ContractLiteralCodec.ToValue(editorMode));
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public void DaemonSessionOwnerKindValues_HasStableStringValues ()
     {
-        Assert.Equal("cli", DaemonSessionOwnerKindValues.Cli);
-        Assert.Equal("user", DaemonSessionOwnerKindValues.User);
+        Assert.Equal("cli", "cli");
+        Assert.Equal("user", "user");
     }
 
     [Theory]
@@ -68,7 +70,7 @@ public sealed class DaemonContractCodecTests
         bool expectedResult,
         DaemonSessionOwnerKind expectedValue)
     {
-        var result = DaemonSessionOwnerKindCodec.TryParse(value, out var ownerKind);
+        var result = ContractLiteralInputParser.TryParseTrimmed<DaemonSessionOwnerKind>(value, out var ownerKind);
 
         Assert.Equal(expectedResult, result);
         if (expectedResult)
@@ -79,22 +81,22 @@ public sealed class DaemonContractCodecTests
 
     [Theory]
     [Trait("Size", "Small")]
-    [InlineData(DaemonSessionOwnerKind.Cli, DaemonSessionOwnerKindValues.Cli)]
-    [InlineData(DaemonSessionOwnerKind.User, DaemonSessionOwnerKindValues.User)]
+    [InlineData(DaemonSessionOwnerKind.Cli, "cli")]
+    [InlineData(DaemonSessionOwnerKind.User, "user")]
     public void DaemonSessionOwnerKindCodec_ToValue_ReturnsCanonicalLiteral (
         DaemonSessionOwnerKind ownerKind,
         string expectedValue)
     {
-        Assert.Equal(expectedValue, DaemonSessionOwnerKindCodec.ToValue(ownerKind));
+        Assert.Equal(expectedValue, ContractLiteralCodec.ToValue(ownerKind));
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public void DaemonStartupBlockedProcessPolicyValues_HasStableStringValues ()
     {
-        Assert.Equal("auto", DaemonStartupBlockedProcessPolicyValues.Auto);
-        Assert.Equal("keep", DaemonStartupBlockedProcessPolicyValues.Keep);
-        Assert.Equal("terminate", DaemonStartupBlockedProcessPolicyValues.Terminate);
+        Assert.Equal("auto", "auto");
+        Assert.Equal("keep", "keep");
+        Assert.Equal("terminate", "terminate");
     }
 
     [Theory]
@@ -112,7 +114,7 @@ public sealed class DaemonContractCodecTests
         bool expectedResult,
         DaemonStartupBlockedProcessPolicy expectedValue)
     {
-        var result = DaemonStartupBlockedProcessPolicyCodec.TryParse(value, out var policy);
+        var result = ContractLiteralInputParser.TryParseTrimmed<DaemonStartupBlockedProcessPolicy>(value, out var policy);
 
         Assert.Equal(expectedResult, result);
         if (expectedResult)
@@ -123,13 +125,13 @@ public sealed class DaemonContractCodecTests
 
     [Theory]
     [Trait("Size", "Small")]
-    [InlineData(DaemonStartupBlockedProcessPolicy.Auto, DaemonStartupBlockedProcessPolicyValues.Auto)]
-    [InlineData(DaemonStartupBlockedProcessPolicy.Keep, DaemonStartupBlockedProcessPolicyValues.Keep)]
-    [InlineData(DaemonStartupBlockedProcessPolicy.Terminate, DaemonStartupBlockedProcessPolicyValues.Terminate)]
+    [InlineData(DaemonStartupBlockedProcessPolicy.Auto, "auto")]
+    [InlineData(DaemonStartupBlockedProcessPolicy.Keep, "keep")]
+    [InlineData(DaemonStartupBlockedProcessPolicy.Terminate, "terminate")]
     public void DaemonStartupBlockedProcessPolicyCodec_ToValue_ReturnsCanonicalLiteral (
         DaemonStartupBlockedProcessPolicy policy,
         string expectedValue)
     {
-        Assert.Equal(expectedValue, DaemonStartupBlockedProcessPolicyCodec.ToValue(policy));
+        Assert.Equal(expectedValue, ContractLiteralCodec.ToValue(policy));
     }
 }

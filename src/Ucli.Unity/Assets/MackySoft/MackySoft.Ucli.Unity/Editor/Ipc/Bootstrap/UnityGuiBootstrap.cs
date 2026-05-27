@@ -12,6 +12,8 @@ using Microsoft.Extensions.DependencyInjection;
 using UnityEditor;
 using UnityEngine;
 
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Bootstraps IPC daemon server registration for non-batchmode Unity GUI Editor sessions. </summary>
@@ -90,7 +92,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     ProjectFingerprint: projectFingerprint,
                     SessionPath: registration.SessionPath,
                     SessionIssuedAtUtc: registration.IssuedAtUtc,
-                    EndpointTransportKind: IpcTransportKindCodec.ToValue(endpoint.TransportKind),
+                    EndpointTransportKind: ContractLiteralCodec.ToValue(endpoint.TransportKind),
                     EndpointAddress: endpoint.Address);
                 var services = new ServiceCollection();
                 services

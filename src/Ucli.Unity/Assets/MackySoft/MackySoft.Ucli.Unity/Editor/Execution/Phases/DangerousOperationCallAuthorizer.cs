@@ -81,7 +81,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             out OperationFailure? failure)
         {
             var operationName = preparedOperation.PhaseOperation.Metadata.OperationName;
-            if (!OperationPolicyCodec.TryParse(config.OperationPolicy, out var configuredPolicy)
+            if (!ContractLiteralInputParser.TryParseIgnoreCase<OperationPolicy>(config.OperationPolicy, out var configuredPolicy)
                 || requiredPolicy > configuredPolicy)
             {
                 failure = CreateConfigFailure(
