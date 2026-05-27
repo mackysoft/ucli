@@ -26,7 +26,7 @@ internal sealed class ReadyCommand
     /// <param name="for">Readiness target (execution|mutation|test|readIndex).</param>
     /// <param name="projectPath">-p|--projectPath, Optional target Unity project path.</param>
     /// <param name="mode">Unity execution mode (auto|daemon|oneshot).</param>
-    /// <param name="readIndexMode">Read-index mode. Supported only with --for readIndex.</param>
+    /// <param name="readIndexMode">--readIndexMode, Read-index mode. Supported only with --for readIndex.</param>
     /// <param name="timeout">Timeout in milliseconds.</param>
     /// <param name="failFast">--failFast, Fails immediately when Unity editor lifecycle is not yet ready.</param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
