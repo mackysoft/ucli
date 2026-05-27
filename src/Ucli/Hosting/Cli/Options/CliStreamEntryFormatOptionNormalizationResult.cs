@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Hosting.Cli.Common.Streaming;
 
-namespace MackySoft.Ucli.Hosting.Cli.Common.Streaming;
+namespace MackySoft.Ucli.Hosting.Cli.Options;
 
 /// <summary> Represents one normalization result for a stream-entry <c>--format</c> option. </summary>
 internal sealed record CliStreamEntryFormatOptionNormalizationResult (

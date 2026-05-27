@@ -17,8 +17,6 @@ internal sealed class NullCommandProgressSink : ICommandProgressSink
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        ArgumentException.ThrowIfNullOrWhiteSpace(eventName);
-        ArgumentNullException.ThrowIfNull(payload);
         return ValueTask.CompletedTask;
     }
 }

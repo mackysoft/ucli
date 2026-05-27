@@ -1,6 +1,6 @@
 using MackySoft.Ucli.Application.Shared.Foundation;
 
-namespace MackySoft.Ucli.Hosting.Cli.Common.Streaming;
+namespace MackySoft.Ucli.Hosting.Cli.Options;
 
 /// <summary> Normalizes stream-entry <c>--format</c> options into typed rendering formats. </summary>
 internal static class CliStreamEntryFormatOptionNormalizer

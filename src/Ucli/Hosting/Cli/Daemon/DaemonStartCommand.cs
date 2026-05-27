@@ -4,7 +4,6 @@ using MackySoft.Ucli.Application.Shared.Execution;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Common.Projection;
-using MackySoft.Ucli.Hosting.Cli.Common.Streaming;
 using MackySoft.Ucli.Hosting.Cli.Options;
 
 namespace MackySoft.Ucli.Hosting.Cli.Daemon;
