@@ -17,6 +17,8 @@ using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
+using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Testing;
 
@@ -46,6 +48,130 @@ public sealed class VerifyServiceTests
         Assert.DoesNotContain(
             result.Output.Verifiers.SelectMany(static verifier => verifier.Effects),
             static effect => VerifyEffectValues.Compile.Contains(effect, StringComparer.Ordinal));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithProgressSink_DoesNotChangeFinalOutput ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-verify", nameof(Execute_WithProgressSink_DoesNotChangeFinalOutput));
+        var input = new VerifyCommandInput(
+            ProjectPath: null,
+            Profile: "built-in:default",
+            ProfilePath: null,
+            FromPath: null,
+            Mode: UnityExecutionMode.Auto,
+            TimeoutMilliseconds: 10000);
+        var serviceWithoutProgress = CreateService(scope.FullPath);
+        var withoutProgress = await serviceWithoutProgress.ExecuteAsync(input);
+        var progressSink = new CollectingProgressSink();
+        var serviceWithProgress = CreateService(scope.FullPath);
+
+        var withProgress = await serviceWithProgress.ExecuteAsync(input, progressSink);
+
+        Assert.True(withoutProgress.IsSuccess);
+        Assert.True(withProgress.IsSuccess);
+        Assert.Equal(
+            JsonSerializer.Serialize(withoutProgress.Output),
+            JsonSerializer.Serialize(withProgress.Output));
+        Assert.NotEmpty(progressSink.Entries);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithConditionalStepsSkipped_EmitsSkipEntriesWithoutFinalVerifiers ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-verify", nameof(Execute_WithConditionalStepsSkipped_EmitsSkipEntriesWithoutFinalVerifiers));
+        var progressSink = new CollectingProgressSink();
+        var service = CreateService(scope.FullPath);
+
+        var result = await service.ExecuteAsync(
+            new VerifyCommandInput(
+                ProjectPath: null,
+                Profile: "built-in:default",
+                ProfilePath: null,
+                FromPath: null,
+                Mode: UnityExecutionMode.Auto,
+                TimeoutMilliseconds: 10000),
+            progressSink);
+
+        Assert.True(result.IsSuccess);
+        Assert.DoesNotContain(result.Output!.Verifiers, static verifier => string.Equals(verifier.Kind, VerifyStepKindValues.PostRead, StringComparison.Ordinal));
+        Assert.DoesNotContain(result.Output.Verifiers, static verifier => string.Equals(verifier.Kind, VerifyStepKindValues.Logs, StringComparison.Ordinal));
+        var skippedEntries = progressSink.Entries
+            .Where(static entry => string.Equals(entry.EventName, VerifyProgressEventNames.StepSkipped, StringComparison.Ordinal))
+            .Select(static entry => Assert.IsType<VerifyStepProgressEntry>(entry.Payload))
+            .ToArray();
+        Assert.Contains(skippedEntries, static entry =>
+            string.Equals(entry.Kind, VerifyStepKindValues.PostRead, StringComparison.Ordinal)
+            && string.Equals(entry.SkipReason, VerifyStepSkipReasons.PostReadNotNeeded, StringComparison.Ordinal));
+        Assert.Contains(skippedEntries, static entry =>
+            string.Equals(entry.Kind, VerifyStepKindValues.Logs, StringComparison.Ordinal)
+            && string.Equals(entry.SkipReason, VerifyStepSkipReasons.LogsNotNeeded, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenStepFails_EmitsDiagnosticWithoutVerifyCompleted ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-verify", nameof(Execute_WhenStepFails_EmitsDiagnosticWithoutVerifyCompleted));
+        var progressSink = new CollectingProgressSink();
+        var compileService = new StubCompileService(_ => CompileExecutionResult.Failure(
+            ExecutionError.InternalError("Compile command failed.")));
+        var service = CreateService(scope.FullPath, compileService: compileService);
+
+        var result = await service.ExecuteAsync(
+            new VerifyCommandInput(
+                ProjectPath: null,
+                Profile: "built-in:script",
+                ProfilePath: null,
+                FromPath: null,
+                Mode: UnityExecutionMode.Auto,
+                TimeoutMilliseconds: 10000),
+            progressSink);
+
+        Assert.False(result.IsSuccess);
+        Assert.DoesNotContain(progressSink.Entries, static entry => string.Equals(entry.EventName, VerifyProgressEventNames.Completed, StringComparison.Ordinal));
+        var diagnosticEntry = Assert.Single(progressSink.Entries, static entry => string.Equals(entry.EventName, VerifyProgressEventNames.Diagnostic, StringComparison.Ordinal));
+        var diagnostic = Assert.IsType<VerifyDiagnosticEntry>(diagnosticEntry.Payload);
+        Assert.Equal(VerifyStepKindValues.Compile, diagnostic.StepKind);
+        Assert.Equal("error", diagnostic.Severity);
+        Assert.Equal("Compile command failed.", diagnostic.Message);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithUnsupportedProfileStep_DoesNotEmitUnknownStepEntry ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-verify", nameof(Execute_WithUnsupportedProfileStep_DoesNotEmitUnknownStepEntry));
+        scope.WriteFile(
+            "verify.json",
+            """
+            {
+              "schemaVersion": 1,
+              "steps": [
+                {
+                  "kind": "external",
+                  "required": true
+                }
+              ]
+            }
+            """);
+        var progressSink = new CollectingProgressSink();
+        var service = CreateService(scope.FullPath);
+
+        var result = await service.ExecuteAsync(
+            new VerifyCommandInput(
+                ProjectPath: null,
+                Profile: null,
+                ProfilePath: "verify.json",
+                FromPath: null,
+                Mode: UnityExecutionMode.Auto,
+                TimeoutMilliseconds: 10000),
+            progressSink);
+
+        Assert.False(result.IsSuccess);
+        Assert.Empty(progressSink.Entries);
     }
 
     [Fact]
@@ -1189,4 +1315,25 @@ public sealed class VerifyServiceTests
             return ValueTask.FromResult(resultFactory(fromPath, repositoryRoot));
         }
     }
+
+    private sealed class CollectingProgressSink : ICommandProgressSink
+    {
+        private readonly List<ProgressEntry> entries = [];
+
+        public IReadOnlyList<ProgressEntry> Entries => entries;
+
+        public ValueTask OnEntryAsync (
+            string eventName,
+            object payload,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            entries.Add(new ProgressEntry(eventName, payload));
+            return ValueTask.CompletedTask;
+        }
+    }
+
+    private sealed record ProgressEntry (
+        string EventName,
+        object Payload);
 }
