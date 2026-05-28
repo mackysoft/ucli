@@ -283,6 +283,7 @@ public sealed class VerifyServiceTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal(800, compileService.CapturedInput!.TimeoutMilliseconds);
+        Assert.Null(compileService.CapturedProgressSink);
     }
 
     [Fact]
@@ -1209,13 +1210,17 @@ public sealed class VerifyServiceTests
 
         public CompileCommandInput? CapturedInput { get; private set; }
 
+        public ICommandProgressSink? CapturedProgressSink { get; private set; }
+
         public ValueTask<CompileExecutionResult> ExecuteAsync (
             CompileCommandInput input,
+            ICommandProgressSink? progressSink = null,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             ExecuteCount++;
             CapturedInput = input;
+            CapturedProgressSink = progressSink;
             return ValueTask.FromResult(resultFactory(input));
         }
     }

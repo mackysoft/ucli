@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MackySoft.Tests;
+using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Testing;
@@ -921,6 +922,86 @@ public sealed class IpcContractSerializationTests
                             .HasString("code", "CS1002")))));
         Assert.False(responseDocument.RootElement.TryGetProperty("summaryJsonPath", out _));
         Assert.False(responseDocument.RootElement.TryGetProperty("diagnosticsJsonPath", out _));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void CompileProgressContracts_SerializeWithCamelCaseFields ()
+    {
+        var startedPayload = new CompileStartedEntry(
+            RunId: "run-1",
+            ProjectFingerprint: "project-fingerprint",
+            RequestedMode: "auto",
+            ResolvedMode: "oneshot",
+            SessionKind: "transientProbe",
+            TimeoutMilliseconds: 10000);
+        var refreshPayload = new CompileRefreshStartedEntry(
+            RunId: "run-1",
+            RefreshOrigin: "assetDatabaseRefresh",
+            ObservationSource: "hostDispatch");
+        var recoveredPayload = new CompileRecoveredEntry(
+            RunId: "run-1",
+            SummaryJsonPath: "/tmp/ucli/compile/run-1/summary.json",
+            DispatchFailureCode: IpcTransportErrorCodes.IpcTimeout.Value,
+            PollAttempts: 2);
+        var diagnosticPayload = new CompileDiagnosticEntry(
+            RunId: "run-1",
+            RefreshOrigin: "diagnosticsRead",
+            PrimaryDiagnostic: new IpcPrimaryDiagnostic(
+                Kind: "compiler",
+                Code: "CS1002",
+                File: "Assets/Broken.cs",
+                Line: 4,
+                Column: 16,
+                Message: "; expected"));
+        var completedPayload = new CompileCompletedEntry(
+            RunId: "run-1",
+            Verdict: "fail",
+            ErrorCount: 1,
+            WarningCount: 0,
+            SummaryJsonPath: "/tmp/ucli/compile/run-1/summary.json",
+            DiagnosticsJsonPath: "/tmp/ucli/compile/run-1/diagnostics.json");
+
+        using var startedDocument = JsonDocument.Parse(JsonSerializer.Serialize(startedPayload, SerializerOptions));
+        using var refreshDocument = JsonDocument.Parse(JsonSerializer.Serialize(refreshPayload, SerializerOptions));
+        using var recoveredDocument = JsonDocument.Parse(JsonSerializer.Serialize(recoveredPayload, SerializerOptions));
+        using var diagnosticDocument = JsonDocument.Parse(JsonSerializer.Serialize(diagnosticPayload, SerializerOptions));
+        using var completedDocument = JsonDocument.Parse(JsonSerializer.Serialize(completedPayload, SerializerOptions));
+
+        Assert.Equal("compile.started", CompileProgressEventNames.Started);
+        Assert.Equal("compile.refresh.started", CompileProgressEventNames.RefreshStarted);
+        Assert.Equal("compile.recovered", CompileProgressEventNames.Recovered);
+        Assert.Equal("compile.diagnostic", CompileProgressEventNames.Diagnostic);
+        Assert.Equal("compile.completed", CompileProgressEventNames.Completed);
+        JsonAssert.For(startedDocument.RootElement)
+            .HasString("runId", "run-1")
+            .HasString("projectFingerprint", "project-fingerprint")
+            .HasString("requestedMode", "auto")
+            .HasString("resolvedMode", "oneshot")
+            .HasString("sessionKind", "transientProbe")
+            .HasInt32("timeoutMilliseconds", 10000);
+        JsonAssert.For(refreshDocument.RootElement)
+            .HasString("runId", "run-1")
+            .HasString("refreshOrigin", "assetDatabaseRefresh")
+            .HasString("observationSource", "hostDispatch");
+        JsonAssert.For(recoveredDocument.RootElement)
+            .HasString("runId", "run-1")
+            .HasString("summaryJsonPath", "/tmp/ucli/compile/run-1/summary.json")
+            .HasString("dispatchFailureCode", IpcTransportErrorCodes.IpcTimeout.Value)
+            .HasInt32("pollAttempts", 2);
+        JsonAssert.For(diagnosticDocument.RootElement)
+            .HasString("runId", "run-1")
+            .HasString("refreshOrigin", "diagnosticsRead")
+            .HasProperty("primaryDiagnostic", primaryDiagnostic => primaryDiagnostic
+                .HasString("kind", "compiler")
+                .HasString("code", "CS1002"));
+        JsonAssert.For(completedDocument.RootElement)
+            .HasString("runId", "run-1")
+            .HasString("verdict", "fail")
+            .HasInt32("errorCount", 1)
+            .HasInt32("warningCount", 0)
+            .HasString("summaryJsonPath", "/tmp/ucli/compile/run-1/summary.json")
+            .HasString("diagnosticsJsonPath", "/tmp/ucli/compile/run-1/diagnostics.json");
     }
 
     [Fact]

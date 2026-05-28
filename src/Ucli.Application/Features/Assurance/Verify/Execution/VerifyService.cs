@@ -378,6 +378,7 @@ internal sealed class VerifyService : IVerifyService
                     ProjectPath: input.ProjectPath,
                     Mode: input.Mode,
                     TimeoutMilliseconds: ToTimeoutMilliseconds(timeout)),
+                progressSink: null,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!result.IsSuccess)

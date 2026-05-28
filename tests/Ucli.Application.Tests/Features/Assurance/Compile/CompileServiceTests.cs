@@ -2,12 +2,15 @@ using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Artifacts;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Contracts;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Execution;
+using MackySoft.Ucli.Application.Features.Assurance.Compile.Payload;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Vocabulary;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
+using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 
@@ -20,12 +23,13 @@ public sealed class CompileServiceTests
     public async Task Execute_WithSuccessfulCompileResponse_ReturnsPassOutput ()
     {
         var unityRequestExecutor = new StubUnityRequestExecutor(CreateCompileResponseResult(CreateSummary()));
+        var progressSink = new CollectingProgressSink();
         var service = CreateService(unityRequestExecutor: unityRequestExecutor);
 
         var result = await service.ExecuteAsync(new CompileCommandInput(
             ProjectPath: null,
             Mode: UnityExecutionMode.Auto,
-            TimeoutMilliseconds: 10000));
+            TimeoutMilliseconds: 10000), progressSink);
 
         Assert.True(result.IsSuccess);
         var output = result.Output!;
@@ -36,6 +40,24 @@ public sealed class CompileServiceTests
         Assert.Equal(3, output.Claims.Count);
         var payload = Assert.IsType<UnityRequestPayload.Compile>(unityRequestExecutor.CapturedPayload);
         Assert.Equal("run-1", payload.RunId);
+        AssertProgressEvents(
+            progressSink,
+            CompileProgressEventNames.Started,
+            CompileProgressEventNames.RefreshStarted,
+            CompileProgressEventNames.Completed);
+        var startedEntry = Assert.IsType<CompileStartedEntry>(progressSink.Entries[0].Payload);
+        Assert.Equal("run-1", startedEntry.RunId);
+        Assert.Equal("project-fingerprint", startedEntry.ProjectFingerprint);
+        Assert.Equal("auto", startedEntry.RequestedMode);
+        Assert.Equal("oneshot", startedEntry.ResolvedMode);
+        Assert.Equal("transientProbe", startedEntry.SessionKind);
+        Assert.Equal(10000, startedEntry.TimeoutMilliseconds);
+        var refreshEntry = Assert.IsType<CompileRefreshStartedEntry>(progressSink.Entries[1].Payload);
+        Assert.Equal("assetDatabaseRefresh", refreshEntry.RefreshOrigin);
+        Assert.Equal("hostDispatch", refreshEntry.ObservationSource);
+        var completedEntry = Assert.IsType<CompileCompletedEntry>(progressSink.Entries[2].Payload);
+        Assert.Equal(CompileVerdictValues.Pass, completedEntry.Verdict);
+        Assert.Equal(0, completedEntry.ErrorCount);
     }
 
     [Fact]
@@ -87,6 +109,7 @@ public sealed class CompileServiceTests
     public async Task Execute_WithCompileTimeoutResponse_ReadsRecoveredArtifact ()
     {
         var artifactStore = new StubCompileRunArtifactReader(CompileRunArtifactReadResult.Success(CreateSummary(errorCount: 1)));
+        var progressSink = new CollectingProgressSink();
         var service = CreateService(
             unityRequestExecutor: new StubUnityRequestExecutor(UnityRequestExecutionResult.Success(new UnityRequestResponse(
                 default,
@@ -97,11 +120,34 @@ public sealed class CompileServiceTests
         var result = await service.ExecuteAsync(new CompileCommandInput(
             ProjectPath: null,
             Mode: UnityExecutionMode.Oneshot,
-            TimeoutMilliseconds: 10000));
+            TimeoutMilliseconds: 10000), progressSink);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(1, artifactStore.ReadCount);
         Assert.Equal(CompileVerdictValues.Fail, result.Output!.Verdict);
+        AssertProgressEvents(
+            progressSink,
+            CompileProgressEventNames.Started,
+            CompileProgressEventNames.RefreshStarted,
+            CompileProgressEventNames.Recovered,
+            CompileProgressEventNames.Completed);
+        var recoveredEntry = Assert.IsType<CompileRecoveredEntry>(progressSink.Entries[2].Payload);
+        Assert.Equal("run-1", recoveredEntry.RunId);
+        Assert.Equal("/workspace/.ucli/local/compile/run-1/summary.json", recoveredEntry.SummaryJsonPath);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout.Value, recoveredEntry.DispatchFailureCode);
+        Assert.Equal(1, recoveredEntry.PollAttempts);
+
+        var resultWithoutProgress = await CreateService(
+                unityRequestExecutor: new StubUnityRequestExecutor(UnityRequestExecutionResult.Success(new UnityRequestResponse(
+                    default,
+                    [new OperationExecutionError(ExecutionErrorCodes.IpcTimeout, "Unity compile assurance timed out.", null)],
+                    HasFailureStatus: true))),
+                artifactStore: new StubCompileRunArtifactReader(CompileRunArtifactReadResult.Success(CreateSummary(errorCount: 1))))
+            .ExecuteAsync(new CompileCommandInput(
+                ProjectPath: null,
+                Mode: UnityExecutionMode.Oneshot,
+                TimeoutMilliseconds: 10000));
+        AssertCompileOutputsMatch(result.Output!, resultWithoutProgress.Output!);
     }
 
     [Fact]
@@ -109,6 +155,7 @@ public sealed class CompileServiceTests
     public async Task Execute_WithStartupCompilerDiagnostic_ReturnsDiagnosticsReadFailurePacket ()
     {
         var artifactStore = new StubCompileRunArtifactReader();
+        var progressSink = new CollectingProgressSink();
         var service = CreateService(
             unityRequestExecutor: new StubUnityRequestExecutor(UnityRequestExecutionResult.Failure(new UnityRequestFailure(
                 DaemonErrorCodes.DaemonStartupBlocked,
@@ -119,7 +166,7 @@ public sealed class CompileServiceTests
         var result = await service.ExecuteAsync(new CompileCommandInput(
             ProjectPath: null,
             Mode: UnityExecutionMode.Oneshot,
-            TimeoutMilliseconds: 10000));
+            TimeoutMilliseconds: 10000), progressSink);
 
         Assert.True(result.IsSuccess);
         var output = result.Output!;
@@ -132,6 +179,16 @@ public sealed class CompileServiceTests
         Assert.Equal(0, artifactStore.ReadCount);
         Assert.Equal(1, artifactStore.WriteCount);
         Assert.Equal("diagnosticsRead", artifactStore.WrittenSummary!.Refresh.Origin);
+        AssertProgressEvents(
+            progressSink,
+            CompileProgressEventNames.Started,
+            CompileProgressEventNames.RefreshStarted,
+            CompileProgressEventNames.Diagnostic,
+            CompileProgressEventNames.Completed);
+        var diagnosticEntry = Assert.IsType<CompileDiagnosticEntry>(progressSink.Entries[2].Payload);
+        Assert.Equal("run-1", diagnosticEntry.RunId);
+        Assert.Equal("diagnosticsRead", diagnosticEntry.RefreshOrigin);
+        Assert.Equal("CS0246", diagnosticEntry.PrimaryDiagnostic!.Code);
     }
 
     [Fact]
@@ -344,6 +401,52 @@ public sealed class CompileServiceTests
             RetryDisposition: "manualActionRequired",
             SafeToRetryImmediately: false);
     }
+
+    private static void AssertProgressEvents (
+        CollectingProgressSink progressSink,
+        params string[] eventNames)
+    {
+        Assert.Equal(eventNames.Length, progressSink.Entries.Count);
+        for (var i = 0; i < eventNames.Length; i++)
+        {
+            Assert.Equal(eventNames[i], progressSink.Entries[i].EventName);
+        }
+    }
+
+    private static void AssertCompileOutputsMatch (
+        CompileExecutionOutput expected,
+        CompileExecutionOutput actual)
+    {
+        Assert.Equal(expected.Verdict, actual.Verdict);
+        Assert.Equal(expected.Claims.Select(static claim => claim.Id), actual.Claims.Select(static claim => claim.Id));
+        Assert.Equal(expected.Claims.Select(static claim => claim.Status), actual.Claims.Select(static claim => claim.Status));
+        Assert.Equal(
+            expected.Reports.OrderBy(static entry => entry.Key, StringComparer.Ordinal),
+            actual.Reports.OrderBy(static entry => entry.Key, StringComparer.Ordinal));
+        Assert.Equal(expected.ResidualRisks, actual.ResidualRisks);
+    }
+
+    private sealed class CollectingProgressSink : ICommandProgressSink
+    {
+        private readonly List<ProgressEntry> entries = [];
+
+        public IReadOnlyList<ProgressEntry> Entries => entries;
+
+        public ValueTask OnEntryAsync<TPayload> (
+            string eventName,
+            TPayload payload,
+            CancellationToken cancellationToken = default)
+            where TPayload : notnull
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            entries.Add(new ProgressEntry(eventName, payload));
+            return ValueTask.CompletedTask;
+        }
+    }
+
+    private sealed record ProgressEntry (
+        string EventName,
+        object Payload);
 
     private sealed class StubProjectContextResolver : IProjectContextResolver
     {
