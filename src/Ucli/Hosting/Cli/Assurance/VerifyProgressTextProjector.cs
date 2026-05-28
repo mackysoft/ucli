@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Hosting.Cli.Common.Streaming;
+using MackySoft.Ucli.Infrastructure.Text;
 
 namespace MackySoft.Ucli.Hosting.Cli.Assurance;
 
@@ -36,28 +37,55 @@ internal sealed class VerifyProgressTextProjector : ICliCommandProgressTextProje
         VerifyStepProgressEntry entry,
         string status)
     {
-        return string.Concat(
-            "verify ",
-            entry.Kind,
-            " required=",
-            entry.Required ? "true" : "false",
-            " ",
-            status);
+        var required = entry.Required ? "true" : "false";
+        var length = checked(7 + entry.Kind.Length + 10 + required.Length + 1 + status.Length);
+        return string.Create(
+            length,
+            (entry.Kind, Required: required, Status: status),
+            static (destination, state) =>
+            {
+                var writer = new SpanTextWriter(destination);
+                writer.Append("verify ");
+                writer.Append(state.Kind);
+                writer.Append(" required=");
+                writer.Append(state.Required);
+                writer.Append(' ');
+                writer.Append(state.Status);
+            });
     }
 
     private static string CreateDiagnosticTextLine (VerifyDiagnosticEntry entry)
     {
-        var step = string.IsNullOrWhiteSpace(entry.StepKind)
-            ? string.Empty
-            : string.Concat(" step=", entry.StepKind);
-        return string.Concat(
-            "verify diagnostic",
-            step,
-            " ",
-            entry.Severity,
-            " ",
-            entry.Code,
-            ": ",
-            entry.Message);
+        var stepKind = entry.StepKind ?? string.Empty;
+        var hasStep = !string.IsNullOrWhiteSpace(stepKind);
+        var length = checked(
+            17
+            + (hasStep ? 6 + stepKind.Length : 0)
+            + 1
+            + entry.Severity.Length
+            + 1
+            + entry.Code.Length
+            + 2
+            + entry.Message.Length);
+
+        return string.Create(
+            length,
+            (HasStep: hasStep, StepKind: stepKind, entry.Severity, entry.Code, entry.Message),
+            static (destination, state) =>
+            {
+                var writer = new SpanTextWriter(destination);
+                writer.Append("verify diagnostic");
+                if (state.HasStep)
+                {
+                    writer.Append(" step=");
+                    writer.Append(state.StepKind);
+                }
+                writer.Append(' ');
+                writer.Append(state.Severity);
+                writer.Append(' ');
+                writer.Append(state.Code);
+                writer.Append(": ");
+                writer.Append(state.Message);
+            });
     }
 }
