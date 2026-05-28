@@ -11,10 +11,11 @@ internal sealed class NullCommandProgressSink : ICommandProgressSink
     }
 
     /// <inheritdoc />
-    public ValueTask OnEntryAsync (
+    public ValueTask OnEntryAsync<TPayload> (
         string eventName,
-        object payload,
+        TPayload payload,
         CancellationToken cancellationToken = default)
+        where TPayload : notnull
     {
         cancellationToken.ThrowIfCancellationRequested();
         return ValueTask.CompletedTask;

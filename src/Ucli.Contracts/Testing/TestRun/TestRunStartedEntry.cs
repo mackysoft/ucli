@@ -1,7 +1,7 @@
 namespace MackySoft.Ucli.Contracts.Testing;
 
 /// <summary> Represents the <c>test.run.started</c> stream payload. </summary>
-public sealed record TestRunStartedEntry (
+public readonly record struct TestRunStartedEntry (
     string RunId,
     string TestPlatform,
     string? TestFilter,

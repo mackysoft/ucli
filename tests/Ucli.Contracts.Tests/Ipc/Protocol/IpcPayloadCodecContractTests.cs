@@ -54,6 +54,22 @@ public sealed class IpcPayloadCodecContractTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void TryDeserialize_WithNullLiteralForStructPayload_ReturnsNullPayloadError ()
+    {
+        using var document = JsonDocument.Parse("null");
+
+        var result = IpcPayloadCodec.TryDeserialize(
+            document.RootElement,
+            out StructPayload payload,
+            out var error);
+
+        Assert.False(result);
+        Assert.Equal(default, payload);
+        Assert.Equal(IpcPayloadReadErrorKind.NullPayload, error.Kind);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void TryDeserialize_WithInvalidShape_ReturnsDeserializeFailed ()
     {
         using var document = JsonDocument.Parse("""{"serverVersion":123}""");
@@ -140,6 +156,8 @@ public sealed class IpcPayloadCodecContractTests
     private sealed record PayloadEnvelope (string ServerVersion);
 
     private sealed record RejectingValueEnvelope (RejectingStringValue Value);
+
+    private readonly record struct StructPayload (string ServerVersion);
 
     private sealed record RejectingStringValue : UcliStringValue
     {

@@ -56,6 +56,13 @@ public static class IpcPayloadCodec
         out T value,
         out IpcPayloadReadError error)
     {
+        if (element.ValueKind == JsonValueKind.Null)
+        {
+            value = default!;
+            error = new IpcPayloadReadError(IpcPayloadReadErrorKind.NullPayload, "IPC payload is null.");
+            return false;
+        }
+
         if (!TryValidateUniqueObjectProperties(element, "$", out var duplicatePropertyPath))
         {
             value = default!;

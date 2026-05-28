@@ -328,18 +328,18 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
         string expectedRunId,
         ICommandProgressSink progressSink,
         CancellationToken cancellationToken)
-        where TPayload : class
+        where TPayload : notnull
     {
-        if (!IpcPayloadCodec.TryDeserialize(frame.Payload, out TPayload? payload, out var error))
+        if (!IpcPayloadCodec.TryDeserialize<TPayload>(frame.Payload, out var payload, out var error))
         {
             throw new TestRunProgressProtocolException(
                 $"Unity test-run progress payload is invalid for event '{frame.Event}'. {error}");
         }
 
-        TestRunProgressPayloadValidator.Validate(frame.Event, payload!, expectedRunId);
+        TestRunProgressPayloadValidator.Validate(frame.Event, payload, expectedRunId);
         await progressSink.OnEntryAsync(
                 frame.Event,
-                payload!,
+                payload,
                 cancellationToken)
             .ConfigureAwait(false);
     }

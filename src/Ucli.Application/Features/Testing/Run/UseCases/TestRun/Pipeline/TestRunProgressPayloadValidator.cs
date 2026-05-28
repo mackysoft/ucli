@@ -21,13 +21,13 @@ internal static class TestRunProgressPayloadValidator
     };
 
     /// <summary> Validates one decoded progress payload against the closed public stream-entry contract. </summary>
-    public static void Validate (
+    public static void Validate<TPayload> (
         string eventName,
-        object payload,
+        TPayload payload,
         string expectedRunId)
+        where TPayload : notnull
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(eventName);
-        ArgumentNullException.ThrowIfNull(payload);
         ArgumentException.ThrowIfNullOrWhiteSpace(expectedRunId);
 
         switch (eventName)
@@ -78,10 +78,11 @@ internal static class TestRunProgressPayloadValidator
         }
     }
 
-    private static void FailPayloadTypeMismatch (
+    private static void FailPayloadTypeMismatch<TPayload> (
         string eventName,
         string expectedTypeName,
-        object payload)
+        TPayload payload)
+        where TPayload : notnull
     {
         throw new TestRunProgressProtocolException(
             $"Unity test-run progress payload type violates contract for event '{eventName}'. Expected={expectedTypeName}, Actual={payload.GetType().Name}.");

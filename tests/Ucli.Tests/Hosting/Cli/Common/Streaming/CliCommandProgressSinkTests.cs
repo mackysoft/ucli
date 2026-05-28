@@ -79,22 +79,24 @@ public sealed class CliCommandProgressSinkTests
 
     private sealed class EchoTextProjector : ICliCommandProgressTextProjector
     {
-        public bool TryCreateTextEntry (
+        public bool TryCreateTextEntry<TPayload> (
             string eventName,
-            object payload,
+            TPayload payload,
             out string text)
+            where TPayload : notnull
         {
-            text = string.Concat(eventName, ": ", payload);
+            text = CliProgressTextFormatter.CreateDelimitedEntry(eventName, ": ", payload);
             return true;
         }
     }
 
     private sealed class SuppressingTextProjector : ICliCommandProgressTextProjector
     {
-        public bool TryCreateTextEntry (
+        public bool TryCreateTextEntry<TPayload> (
             string eventName,
-            object payload,
+            TPayload payload,
             out string text)
+            where TPayload : notnull
         {
             text = string.Empty;
             return false;
@@ -103,10 +105,11 @@ public sealed class CliCommandProgressSinkTests
 
     private sealed class ThrowingTextProjector : ICliCommandProgressTextProjector
     {
-        public bool TryCreateTextEntry (
+        public bool TryCreateTextEntry<TPayload> (
             string eventName,
-            object payload,
+            TPayload payload,
             out string text)
+            where TPayload : notnull
         {
             throw new InvalidOperationException("Text projector must not be used for JSON entries.");
         }
