@@ -3,6 +3,8 @@ using MackySoft.Ucli.Application.Features.Assurance.Compile.Contracts;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Payload;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Vocabulary;
 using MackySoft.Ucli.Application.Shared.Context;
+using MackySoft.Ucli.Application.Shared.Execution.Progress;
+using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
@@ -16,6 +18,7 @@ internal sealed class CompileService : ICompileService
     private const string SummaryReportRef = "compile.summary";
     private const string DiagnosticsReportRef = "compile.diagnostics";
     private const string RefreshOriginDiagnosticsRead = "diagnosticsRead";
+    private const string ProgressObservationSourceHostDispatch = "hostDispatch";
     private const string UnknownGeneration = "unknown";
 
     private static readonly IReadOnlyList<CompileResidualRiskOutput> EmptyResidualRisks =
@@ -53,11 +56,13 @@ internal sealed class CompileService : ICompileService
     /// <inheritdoc />
     public async ValueTask<CompileExecutionResult> ExecuteAsync (
         CompileCommandInput input,
+        ICommandProgressSink? progressSink = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(input);
         cancellationToken.ThrowIfCancellationRequested();
 
+        var resolvedProgressSink = progressSink ?? NullCommandProgressSink.Instance;
         var contextResult = await projectContextResolver.ResolveAsync(input.ProjectPath, cancellationToken).ConfigureAwait(false);
         if (!contextResult.IsSuccess)
         {
@@ -109,12 +114,23 @@ internal sealed class CompileService : ICompileService
         }
 
         var runId = runIdFactory.Create();
+        await EmitStartedAsync(
+                resolvedProgressSink,
+                runId,
+                project,
+                requestedMode,
+                executionTarget,
+                timeout,
+                cancellationToken)
+            .ConfigureAwait(false);
+        await EmitRefreshStartedAsync(resolvedProgressSink, runId, cancellationToken).ConfigureAwait(false);
         var responseSummary = await DispatchCompileAsync(
                 context,
                 project,
                 ResolveExecutionMode(executionTarget),
                 requestTimeout,
                 runId,
+                resolvedProgressSink,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!responseSummary.IsSuccess && !responseSummary.ShouldReadArtifact)
@@ -139,6 +155,14 @@ internal sealed class CompileService : ICompileService
             }
 
             summary = artifactResult.Summary!;
+            await EmitRecoveredAsync(
+                    resolvedProgressSink,
+                    summary,
+                    artifactStore.ResolveSummaryPath(context.UnityProject, runId),
+                    responseSummary.FailureInfo,
+                    artifactResult.PollAttempts,
+                    cancellationToken)
+                .ConfigureAwait(false);
         }
 
         var completedSummary = summary ?? throw new InvalidOperationException("Compile summary was not resolved.");
@@ -152,14 +176,23 @@ internal sealed class CompileService : ICompileService
             return CompileExecutionResult.Failure(summaryValidationFailure, project);
         }
 
+        var summaryJsonPath = artifactStore.ResolveSummaryPath(context.UnityProject, runId);
+        var diagnosticsJsonPath = artifactStore.ResolveDiagnosticsPath(context.UnityProject, runId);
         var output = CreateOutput(
             project,
             requestedMode,
             executionTarget,
             timeout,
             completedSummary,
-            artifactStore.ResolveSummaryPath(context.UnityProject, runId),
-            artifactStore.ResolveDiagnosticsPath(context.UnityProject, runId));
+            summaryJsonPath,
+            diagnosticsJsonPath);
+        await EmitCompletedAsync(
+                resolvedProgressSink,
+                output,
+                summaryJsonPath,
+                diagnosticsJsonPath,
+                cancellationToken)
+            .ConfigureAwait(false);
         return CompileExecutionResult.Success(output);
     }
 
@@ -169,6 +202,7 @@ internal sealed class CompileService : ICompileService
         UnityExecutionMode mode,
         TimeSpan requestTimeout,
         string runId,
+        ICommandProgressSink progressSink,
         CancellationToken cancellationToken)
     {
         var executionResult = await unityRequestExecutor.ExecuteAsync(
@@ -200,6 +234,7 @@ internal sealed class CompileService : ICompileService
                     return CompileDispatchResult.Failure(ApplicationFailure.FromExecutionError(writeError));
                 }
 
+                await EmitDiagnosticAsync(progressSink, diagnosticsReadSummary!, cancellationToken).ConfigureAwait(false);
                 return CompileDispatchResult.Success(diagnosticsReadSummary!);
             }
 
@@ -271,10 +306,12 @@ internal sealed class CompileService : ICompileService
         TimeSpan timeout,
         CancellationToken cancellationToken)
     {
+        var pollAttempts = 0;
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
+            pollAttempts++;
             var readResult = await artifactStore.ReadSummaryAsync(unityProject, runId, cancellationToken).ConfigureAwait(false);
             if (readResult.IsSuccess)
             {
@@ -286,28 +323,114 @@ internal sealed class CompileService : ICompileService
                     requireCompleted: false);
                 if (summaryValidationFailure != null)
                 {
-                    return CompileSummaryPollResult.Failure(summaryValidationFailure);
+                    return CompileSummaryPollResult.Failure(summaryValidationFailure, pollAttempts);
                 }
 
                 if (summary.Completed)
                 {
-                    return CompileSummaryPollResult.Success(summary);
+                    return CompileSummaryPollResult.Success(summary, pollAttempts);
                 }
             }
             else if (!readResult.IsMissing)
             {
-                return CompileSummaryPollResult.Failure(ApplicationFailure.FromExecutionError(readResult.Error!));
+                return CompileSummaryPollResult.Failure(ApplicationFailure.FromExecutionError(readResult.Error!), pollAttempts);
             }
 
             if (!deadline.TryGetRemainingTimeout(out var remainingTimeout))
             {
                 return CompileSummaryPollResult.Failure(dispatchFailure ?? ApplicationFailure.Timeout(
                     $"Unity compile assurance timed out after {timeout.TotalMilliseconds:0} milliseconds.",
-                    ExecutionErrorCodes.IpcTimeout));
+                    ExecutionErrorCodes.IpcTimeout), pollAttempts);
             }
 
             await TimeProviderDelay.DelayAsync(GetRetryDelay(remainingTimeout), timeProvider, cancellationToken).ConfigureAwait(false);
         }
+    }
+
+    private static ValueTask EmitStartedAsync (
+        ICommandProgressSink progressSink,
+        string runId,
+        ProjectIdentityInfo project,
+        UnityExecutionMode requestedMode,
+        UnityExecutionTarget executionTarget,
+        TimeSpan timeout,
+        CancellationToken cancellationToken)
+    {
+        return progressSink.OnEntryAsync(
+            CompileProgressEventNames.Started,
+            new CompileStartedEntry(
+                RunId: runId,
+                ProjectFingerprint: project.ProjectFingerprint,
+                RequestedMode: AssuranceExecutionModeCodec.ToRequestedModeValue(requestedMode),
+                ResolvedMode: AssuranceExecutionModeCodec.ToResolvedModeValue(executionTarget),
+                SessionKind: AssuranceExecutionModeCodec.ToSessionKindValue(executionTarget),
+                TimeoutMilliseconds: checked((int)timeout.TotalMilliseconds)),
+            cancellationToken);
+    }
+
+    private static ValueTask EmitRefreshStartedAsync (
+        ICommandProgressSink progressSink,
+        string runId,
+        CancellationToken cancellationToken)
+    {
+        return progressSink.OnEntryAsync(
+            CompileProgressEventNames.RefreshStarted,
+            new CompileRefreshStartedEntry(
+                RunId: runId,
+                RefreshOrigin: CompileEffectValues.AssetDatabaseRefresh,
+                ObservationSource: ProgressObservationSourceHostDispatch),
+            cancellationToken);
+    }
+
+    private static ValueTask EmitDiagnosticAsync (
+        ICommandProgressSink progressSink,
+        IpcCompileSummary summary,
+        CancellationToken cancellationToken)
+    {
+        return progressSink.OnEntryAsync(
+            CompileProgressEventNames.Diagnostic,
+            new CompileDiagnosticEntry(
+                RunId: summary.RunId,
+                RefreshOrigin: RefreshOriginDiagnosticsRead,
+                PrimaryDiagnostic: summary.ScriptCompilation.Diagnostics.PrimaryDiagnostic),
+            cancellationToken);
+    }
+
+    private static ValueTask EmitRecoveredAsync (
+        ICommandProgressSink progressSink,
+        IpcCompileSummary summary,
+        string summaryJsonPath,
+        ApplicationFailure? dispatchFailure,
+        int pollAttempts,
+        CancellationToken cancellationToken)
+    {
+        return progressSink.OnEntryAsync(
+            CompileProgressEventNames.Recovered,
+            new CompileRecoveredEntry(
+                RunId: summary.RunId,
+                SummaryJsonPath: summaryJsonPath,
+                DispatchFailureCode: dispatchFailure?.Code.Value,
+                PollAttempts: pollAttempts),
+            cancellationToken);
+    }
+
+    private static ValueTask EmitCompletedAsync (
+        ICommandProgressSink progressSink,
+        CompileExecutionOutput output,
+        string summaryJsonPath,
+        string diagnosticsJsonPath,
+        CancellationToken cancellationToken)
+    {
+        return progressSink.OnEntryAsync(
+            CompileProgressEventNames.Completed,
+            new CompileCompletedEntry(
+                RunId: output.Compile.RunId,
+                Verdict: output.Verdict,
+                ErrorCount: output.Compile.ScriptCompilation.Diagnostics.ErrorCount,
+                WarningCount: output.Compile.ScriptCompilation.Diagnostics.WarningCount,
+                SummaryJsonPath: summaryJsonPath,
+                DiagnosticsJsonPath: diagnosticsJsonPath),
+            cancellationToken);
     }
 
     private static CompileExecutionOutput CreateOutput (
@@ -710,20 +833,25 @@ internal sealed class CompileService : ICompileService
 
     private sealed record CompileSummaryPollResult (
         IpcCompileSummary? Summary,
-        ApplicationFailure? FailureInfo)
+        ApplicationFailure? FailureInfo,
+        int PollAttempts)
     {
         public bool IsSuccess => Summary != null && FailureInfo == null;
 
-        public static CompileSummaryPollResult Success (IpcCompileSummary summary)
+        public static CompileSummaryPollResult Success (
+            IpcCompileSummary summary,
+            int pollAttempts)
         {
             ArgumentNullException.ThrowIfNull(summary);
-            return new CompileSummaryPollResult(summary, null);
+            return new CompileSummaryPollResult(summary, null, pollAttempts);
         }
 
-        public static CompileSummaryPollResult Failure (ApplicationFailure failure)
+        public static CompileSummaryPollResult Failure (
+            ApplicationFailure failure,
+            int pollAttempts)
         {
             ArgumentNullException.ThrowIfNull(failure);
-            return new CompileSummaryPollResult(null, failure);
+            return new CompileSummaryPollResult(null, failure, pollAttempts);
         }
     }
 }

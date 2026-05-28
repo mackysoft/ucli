@@ -1,9 +1,12 @@
+using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Assurance;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Contracts;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Payload;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Vocabulary;
+using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
+using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Assurance;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
@@ -16,7 +19,7 @@ public sealed class CompileCommandTests
     [Trait("Size", "Small")]
     public async Task Compile_MapsOptionsToServiceInputAndCancellationToken ()
     {
-        var service = new StubCompileService((_, _) => ValueTask.FromResult(CompileExecutionResult.Success(CreateOutput())));
+        var service = new StubCompileService((_, _, _) => ValueTask.FromResult(CompileExecutionResult.Success(CreateOutput())));
         var command = new CompileCommand(service, CommandResultTestWriter.Create());
         using var cancellationTokenSource = new CancellationTokenSource();
 
@@ -31,13 +34,14 @@ public sealed class CompileCommandTests
         Assert.Equal("/repo/UnityProject", input.ProjectPath);
         Assert.Equal(UnityExecutionMode.Daemon, input.Mode);
         Assert.Equal(1234, input.TimeoutMilliseconds);
+        Assert.NotNull(service.CapturedProgressSink);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task Compile_WhenModeIsInvalid_ReturnsInvalidArgumentWithoutCallingService ()
     {
-        var service = new StubCompileService((_, _) => throw new InvalidOperationException("Service should not be called."));
+        var service = new StubCompileService((_, _, _) => throw new InvalidOperationException("Service should not be called."));
         var command = new CompileCommand(service, CommandResultTestWriter.Create());
 
         var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.CompileAsync(
@@ -60,7 +64,7 @@ public sealed class CompileCommandTests
     [Trait("Size", "Small")]
     public async Task Compile_WithPassOutput_MatchesGolden ()
     {
-        var service = new StubCompileService((_, _) => ValueTask.FromResult(CompileExecutionResult.Success(CreateOutput())));
+        var service = new StubCompileService((_, _, _) => ValueTask.FromResult(CompileExecutionResult.Success(CreateOutput())));
         var command = new CompileCommand(service, CommandResultTestWriter.Create());
 
         var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.CompileAsync(
@@ -81,7 +85,7 @@ public sealed class CompileCommandTests
     public async Task Compile_WithSupportedFormat_WritesOnlyFinalCommandResult (
         string format)
     {
-        var service = new StubCompileService((_, _) => ValueTask.FromResult(CompileExecutionResult.Success(CreateOutput())));
+        var service = new StubCompileService((_, _, _) => ValueTask.FromResult(CompileExecutionResult.Success(CreateOutput())));
         var command = new CompileCommand(service, CommandResultTestWriter.Create());
 
         var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.CompileAsync(
@@ -99,9 +103,71 @@ public sealed class CompileCommandTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Compile_WithJsonFormat_WritesProgressEntryToStandardError ()
+    {
+        var service = new StubCompileService(async (_, progressSink, cancellationToken) =>
+        {
+            Assert.NotNull(progressSink);
+            await progressSink!.OnEntryAsync(
+                CompileProgressEventNames.Completed,
+                CreateCompletedEntry(),
+                cancellationToken);
+            return CompileExecutionResult.Success(CreateOutput());
+        });
+        var command = new CompileCommand(service, CommandResultTestWriter.Create());
+
+        var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.CompileAsync(
+            format: "json",
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.Success, exitCode);
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            UcliCommandNames.Compile,
+            IpcProtocol.StatusOk,
+            (int)CliExitCode.Success);
+        var line = Assert.Single(standardError.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries));
+        using var entryJson = JsonDocument.Parse(line);
+        AssertCompileStreamEnvelope(entryJson.RootElement, sequence: 1, CompileProgressEventNames.Completed);
+        Assert.Equal("pass", entryJson.RootElement.GetProperty("payload").GetProperty("verdict").GetString());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Compile_WithDefaultFormat_WritesTextProgressToStandardError ()
+    {
+        var service = new StubCompileService(async (_, progressSink, cancellationToken) =>
+        {
+            Assert.NotNull(progressSink);
+            await progressSink!.OnEntryAsync(
+                CompileProgressEventNames.Completed,
+                CreateCompletedEntry(),
+                cancellationToken);
+            return CompileExecutionResult.Success(CreateOutput());
+        });
+        var command = new CompileCommand(service, CommandResultTestWriter.Create());
+
+        var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.CompileAsync(
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.Success, exitCode);
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            UcliCommandNames.Compile,
+            IpcProtocol.StatusOk,
+            (int)CliExitCode.Success);
+        Assert.Equal(
+            "compile runId=run-1 verdict=pass errorCount=0 warningCount=0 completed" + Environment.NewLine,
+            standardError);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Compile_WhenFormatIsInvalid_ReturnsInvalidArgumentWithoutCallingService ()
     {
-        var service = new StubCompileService((_, _) => throw new InvalidOperationException("Service should not be called."));
+        var service = new StubCompileService((_, _, _) => throw new InvalidOperationException("Service should not be called."));
         var command = new CompileCommand(service, CommandResultTestWriter.Create());
 
         var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.CompileAsync(
@@ -145,7 +211,7 @@ public sealed class CompileCommandTests
     [Trait("Size", "Small")]
     public async Task Compile_WithCompileErrorOutput_ReturnsOkEnvelopeWithFailureExitCodeAndMatchesGolden ()
     {
-        var service = new StubCompileService((_, _) => ValueTask.FromResult(CompileExecutionResult.Success(CreateOutput(errorCount: 1))));
+        var service = new StubCompileService((_, _, _) => ValueTask.FromResult(CompileExecutionResult.Success(CreateOutput(errorCount: 1))));
         var command = new CompileCommand(service, CommandResultTestWriter.Create());
 
         var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.CompileAsync(
@@ -171,6 +237,31 @@ public sealed class CompileCommandTests
         return new JsonGoldenFileNormalization()
             .NormalizeStringPropertyValue("projectPath", "<projectPath>")
             .NormalizeStringPropertyValue("projectFingerprint", "<projectFingerprint>");
+    }
+
+    private static void AssertCompileStreamEnvelope (
+        JsonElement root,
+        int sequence,
+        string eventName)
+    {
+        Assert.Equal(1, root.GetProperty("protocolVersion").GetInt32());
+        Assert.Equal(UcliCommandNames.Compile, root.GetProperty("command").GetString());
+        Assert.False(string.IsNullOrWhiteSpace(root.GetProperty("streamId").GetString()));
+        Assert.Equal(sequence, root.GetProperty("sequence").GetInt32());
+        Assert.True(DateTimeOffset.TryParse(root.GetProperty("timestamp").GetString(), out _));
+        Assert.Equal(eventName, root.GetProperty("event").GetString());
+        Assert.Equal(JsonValueKind.Object, root.GetProperty("payload").ValueKind);
+    }
+
+    private static CompileCompletedEntry CreateCompletedEntry ()
+    {
+        return new CompileCompletedEntry(
+            RunId: "run-1",
+            Verdict: "pass",
+            ErrorCount: 0,
+            WarningCount: 0,
+            SummaryJsonPath: "/tmp/ucli/compile/run-1/summary.json",
+            DiagnosticsJsonPath: "/tmp/ucli/compile/run-1/diagnostics.json");
     }
 
     private static CompileExecutionOutput CreateOutput (int errorCount = 0)
@@ -304,24 +395,28 @@ public sealed class CompileCommandTests
 
     private sealed class StubCompileService : ICompileService
     {
-        private readonly Func<CompileCommandInput, CancellationToken, ValueTask<CompileExecutionResult>> handler;
+        private readonly Func<CompileCommandInput, ICommandProgressSink?, CancellationToken, ValueTask<CompileExecutionResult>> handler;
 
-        public StubCompileService (Func<CompileCommandInput, CancellationToken, ValueTask<CompileExecutionResult>> handler)
+        public StubCompileService (Func<CompileCommandInput, ICommandProgressSink?, CancellationToken, ValueTask<CompileExecutionResult>> handler)
         {
             this.handler = handler ?? throw new ArgumentNullException(nameof(handler));
         }
 
         public CompileCommandInput? CapturedInput { get; private set; }
 
+        public ICommandProgressSink? CapturedProgressSink { get; private set; }
+
         public CancellationToken CapturedCancellationToken { get; private set; }
 
         public ValueTask<CompileExecutionResult> ExecuteAsync (
             CompileCommandInput input,
+            ICommandProgressSink? progressSink = null,
             CancellationToken cancellationToken = default)
         {
             CapturedInput = input;
+            CapturedProgressSink = progressSink;
             CapturedCancellationToken = cancellationToken;
-            return handler(input, cancellationToken);
+            return handler(input, progressSink, cancellationToken);
         }
     }
 }
