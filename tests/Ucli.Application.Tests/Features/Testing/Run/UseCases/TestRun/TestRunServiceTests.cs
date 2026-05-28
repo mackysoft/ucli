@@ -1382,10 +1382,11 @@ public sealed class TestRunServiceTests
 
         public IReadOnlyList<ProgressEntry> Entries => entries;
 
-        public ValueTask OnEntryAsync (
+        public ValueTask OnEntryAsync<TPayload> (
             string eventName,
-            object payload,
+            TPayload payload,
             CancellationToken cancellationToken = default)
+            where TPayload : notnull
         {
             cancellationToken.ThrowIfCancellationRequested();
             entries.Add(new ProgressEntry(eventName, payload));

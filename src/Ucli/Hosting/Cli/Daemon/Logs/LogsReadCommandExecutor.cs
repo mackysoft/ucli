@@ -12,6 +12,7 @@ internal static class LogsReadCommandExecutor
 {
     /// <summary> Executes one logs read command and writes error envelopes when validation or service execution fails. </summary>
     /// <typeparam name="TLogEvent"> The streamed log event type. </typeparam>
+    /// <typeparam name="TPayload"> The emitted CLI progress payload type. </typeparam>
     /// <param name="commandName"> The command name used in emitted error envelopes. </param>
     /// <param name="format"> The requested output format. </param>
     /// <param name="commandResultWriter"> The command-result writer dependency. </param>
@@ -20,14 +21,15 @@ internal static class LogsReadCommandExecutor
     /// <param name="textProjector"> The text projection used when <paramref name="format" /> resolves to text. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The command exit code. </returns>
-    public static async Task<int> ExecuteAsync<TLogEvent> (
+    public static async Task<int> ExecuteAsync<TLogEvent, TPayload> (
         string commandName,
         string? format,
         ICommandResultWriter commandResultWriter,
         Func<Func<TLogEvent, string, CancellationToken, ValueTask>, CancellationToken, ValueTask<LogsReadServiceResult>> executeAsync,
-        Func<TLogEvent, string, CliCommandProgressEntry> createProgressEntry,
+        Func<TLogEvent, string, CliCommandProgressEntry<TPayload>> createProgressEntry,
         ICliCommandProgressTextProjector textProjector,
         CancellationToken cancellationToken)
+        where TPayload : notnull
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(commandName);
         ArgumentNullException.ThrowIfNull(commandResultWriter);

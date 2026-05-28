@@ -1,7 +1,7 @@
 namespace MackySoft.Ucli.Contracts.Assurance;
 
 /// <summary> Represents the <c>verify.diagnostic</c> stream payload. </summary>
-public sealed record VerifyDiagnosticEntry (
+public readonly record struct VerifyDiagnosticEntry (
     string Code,
     string Message,
     string Severity,

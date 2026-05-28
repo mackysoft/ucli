@@ -8,7 +8,7 @@ public sealed class NullCommandProgressSinkTests
     [Trait("Size", "Small")]
     public async Task OnEntryAsync_WithInvalidEntry_IgnoresEntry ()
     {
-        await NullCommandProgressSink.Instance.OnEntryAsync(
+        await NullCommandProgressSink.Instance.OnEntryAsync<object>(
             string.Empty,
             null!,
             CancellationToken.None);
@@ -22,7 +22,7 @@ public sealed class NullCommandProgressSinkTests
         await cancellationTokenSource.CancelAsync();
 
         await Assert.ThrowsAsync<OperationCanceledException>(() => NullCommandProgressSink.Instance
-            .OnEntryAsync(
+            .OnEntryAsync<object>(
                 string.Empty,
                 null!,
                 cancellationTokenSource.Token)

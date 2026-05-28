@@ -66,7 +66,7 @@ internal sealed class LogsUnityReadCommand
         string? format = null,
         CancellationToken cancellationToken = default)
     {
-        return await LogsReadCommandExecutor.ExecuteAsync<IpcUnityLogEvent>(
+        return await LogsReadCommandExecutor.ExecuteAsync<IpcUnityLogEvent, JsonLinePayload>(
                 UcliCommandNames.LogsUnityRead,
                 format,
                 commandResultWriter,
@@ -95,11 +95,11 @@ internal sealed class LogsUnityReadCommand
             .ConfigureAwait(false);
     }
 
-    private static CliCommandProgressEntry CreateProgressEntry (
+    private static CliCommandProgressEntry<JsonLinePayload> CreateProgressEntry (
         IpcUnityLogEvent unityLogEvent,
         string nextCursor)
     {
-        return new CliCommandProgressEntry(
+        return new CliCommandProgressEntry<JsonLinePayload>(
             "logs.unity.entry",
             new JsonLinePayload(
                 Timestamp: unityLogEvent.Timestamp,
@@ -147,10 +147,11 @@ internal sealed class LogsUnityReadCommand
 
     private sealed class TextProjector : ICliCommandProgressTextProjector
     {
-        public bool TryCreateTextEntry (
+        public bool TryCreateTextEntry<TPayload> (
             string eventName,
-            object payload,
+            TPayload payload,
             out string text)
+            where TPayload : notnull
         {
             if (payload is JsonLinePayload unityLogEvent)
             {
@@ -158,13 +159,13 @@ internal sealed class LogsUnityReadCommand
                 return true;
             }
 
-            text = string.Concat(eventName, " ", payload);
+            text = CliProgressTextFormatter.CreateDelimitedEntry(eventName, " ", payload);
             return true;
         }
     }
 
     /// <summary> Represents one NDJSON output line for Unity log events. </summary>
-    private sealed record JsonLinePayload (
+    private readonly record struct JsonLinePayload (
         string Timestamp,
         string Level,
         string Source,

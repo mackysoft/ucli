@@ -1,7 +1,7 @@
 namespace MackySoft.Ucli.Contracts.Assurance;
 
 /// <summary> Represents a verify profile step progress stream payload. </summary>
-public sealed record VerifyStepProgressEntry (
+public readonly record struct VerifyStepProgressEntry (
     string Kind,
     bool Required,
     string[] Effects,

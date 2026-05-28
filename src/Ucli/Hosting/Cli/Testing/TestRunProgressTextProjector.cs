@@ -8,10 +8,11 @@ namespace MackySoft.Ucli.Hosting.Cli.Testing;
 internal sealed class TestRunProgressTextProjector : ICliCommandProgressTextProjector
 {
     /// <inheritdoc />
-    public bool TryCreateTextEntry (
+    public bool TryCreateTextEntry<TPayload> (
         string eventName,
-        object payload,
+        TPayload payload,
         out string text)
+        where TPayload : notnull
     {
         switch (eventName, payload)
         {
@@ -26,7 +27,7 @@ internal sealed class TestRunProgressTextProjector : ICliCommandProgressTextProj
                 text = CreateDiagnosticTextLine(entry);
                 return true;
             default:
-                text = string.Concat(eventName, " ", payload);
+                text = CliProgressTextFormatter.CreateDelimitedEntry(eventName, " ", payload);
                 return true;
         }
     }

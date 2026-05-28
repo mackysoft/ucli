@@ -1,7 +1,7 @@
 namespace MackySoft.Ucli.Contracts.Testing;
 
 /// <summary> Represents the <c>test.case.finished</c> stream payload. </summary>
-public sealed record TestCaseFinishedEntry (
+public readonly record struct TestCaseFinishedEntry (
     string RunId,
     string TestId,
     string TestName,

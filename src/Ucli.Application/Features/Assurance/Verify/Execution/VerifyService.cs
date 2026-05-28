@@ -669,11 +669,12 @@ internal sealed class VerifyService : IVerifyService
             cancellationToken);
     }
 
-    private static ValueTask EmitProgressEntryAsync (
+    private static ValueTask EmitProgressEntryAsync<TPayload> (
         ICommandProgressSink? progressSink,
         string eventName,
-        object payload,
+        TPayload payload,
         CancellationToken cancellationToken)
+        where TPayload : notnull
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (progressSink is null)

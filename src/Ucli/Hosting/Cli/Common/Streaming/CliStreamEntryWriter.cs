@@ -36,12 +36,13 @@ internal sealed class CliStreamEntryWriter
     }
 
     /// <summary> Writes one JSON entry envelope as one NDJSON line. </summary>
-    public void WriteJsonEntry (
+    /// <typeparam name="TPayload"> The concrete event payload type. </typeparam>
+    public void WriteJsonEntry<TPayload> (
         string eventName,
-        object payload)
+        TPayload payload)
+        where TPayload : notnull
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(eventName);
-        ArgumentNullException.ThrowIfNull(payload);
 
         jsonBuffer.Clear();
         using (var writer = new Utf8JsonWriter(jsonBuffer))
@@ -54,7 +55,7 @@ internal sealed class CliStreamEntryWriter
             writer.WriteString("timestamp", timeProvider.GetUtcNow().ToString("O"));
             writer.WriteString("event", eventName);
             writer.WritePropertyName("payload");
-            JsonSerializer.Serialize(writer, payload, payload.GetType(), SerializerOptions);
+            JsonSerializer.Serialize(writer, payload, SerializerOptions);
             writer.WriteEndObject();
         }
 

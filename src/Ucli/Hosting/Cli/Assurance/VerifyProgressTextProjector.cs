@@ -8,10 +8,11 @@ namespace MackySoft.Ucli.Hosting.Cli.Assurance;
 internal sealed class VerifyProgressTextProjector : ICliCommandProgressTextProjector
 {
     /// <inheritdoc />
-    public bool TryCreateTextEntry (
+    public bool TryCreateTextEntry<TPayload> (
         string eventName,
-        object payload,
+        TPayload payload,
         out string text)
+        where TPayload : notnull
     {
         switch (eventName, payload)
         {

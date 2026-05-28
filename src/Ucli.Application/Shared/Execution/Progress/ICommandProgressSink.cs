@@ -4,12 +4,14 @@ namespace MackySoft.Ucli.Application.Shared.Execution.Progress;
 internal interface ICommandProgressSink
 {
     /// <summary> Emits one progress entry. </summary>
+    /// <typeparam name="TPayload"> The concrete event payload type. </typeparam>
     /// <param name="eventName"> The command-specific event name. </param>
     /// <param name="payload"> The event payload. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
     /// <returns> A task that completes after the entry is accepted. </returns>
-    ValueTask OnEntryAsync (
+    ValueTask OnEntryAsync<TPayload> (
         string eventName,
-        object payload,
-        CancellationToken cancellationToken = default);
+        TPayload payload,
+        CancellationToken cancellationToken = default)
+        where TPayload : notnull;
 }

@@ -60,7 +60,7 @@ internal sealed class LogsDaemonReadCommand
         string? format = null,
         CancellationToken cancellationToken = default)
     {
-        return await LogsReadCommandExecutor.ExecuteAsync<IpcDaemonLogEvent>(
+        return await LogsReadCommandExecutor.ExecuteAsync<IpcDaemonLogEvent, JsonLinePayload>(
                 UcliCommandNames.LogsDaemonRead,
                 format,
                 commandResultWriter,
@@ -89,11 +89,11 @@ internal sealed class LogsDaemonReadCommand
     /// <summary> Creates one daemon-log progress entry. </summary>
     /// <param name="daemonLogEvent"> The daemon log event payload. </param>
     /// <param name="nextCursor"> The next cursor value returned by daemon. </param>
-    private static CliCommandProgressEntry CreateProgressEntry (
+    private static CliCommandProgressEntry<JsonLinePayload> CreateProgressEntry (
         IpcDaemonLogEvent daemonLogEvent,
         string nextCursor)
     {
-        return new CliCommandProgressEntry(
+        return new CliCommandProgressEntry<JsonLinePayload>(
             "logs.daemon.entry",
             new JsonLinePayload(
                 Timestamp: daemonLogEvent.Timestamp,
@@ -134,10 +134,11 @@ internal sealed class LogsDaemonReadCommand
 
     private sealed class TextProjector : ICliCommandProgressTextProjector
     {
-        public bool TryCreateTextEntry (
+        public bool TryCreateTextEntry<TPayload> (
             string eventName,
-            object payload,
+            TPayload payload,
             out string text)
+            where TPayload : notnull
         {
             if (payload is JsonLinePayload daemonLogEvent)
             {
@@ -145,7 +146,7 @@ internal sealed class LogsDaemonReadCommand
                 return true;
             }
 
-            text = string.Concat(eventName, " ", payload);
+            text = CliProgressTextFormatter.CreateDelimitedEntry(eventName, " ", payload);
             return true;
         }
     }
@@ -158,7 +159,7 @@ internal sealed class LogsDaemonReadCommand
     /// <param name="Raw"> The optional raw event payload. </param>
     /// <param name="Cursor"> The event cursor. </param>
     /// <param name="NextCursor"> The next incremental cursor. </param>
-    private sealed record JsonLinePayload (
+    private readonly record struct JsonLinePayload (
         string Timestamp,
         string Level,
         string Category,
