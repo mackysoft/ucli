@@ -11,7 +11,9 @@ using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Common;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Unity;
 using MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun;
 using MackySoft.Ucli.Application.Shared.Context;
+using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Assurance;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Verify.Execution;
 
@@ -66,6 +68,7 @@ internal sealed class VerifyService : IVerifyService
     /// <inheritdoc />
     public async ValueTask<VerifyExecutionResult> ExecuteAsync (
         VerifyCommandInput input,
+        ICommandProgressSink? progressSink = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(input);
@@ -124,23 +127,53 @@ internal sealed class VerifyService : IVerifyService
         }
 
         var profile = profileResult.Profile!;
+        var profileDigest = VerifyProfileDigestCalculator.Calculate(profile);
+        await EmitProgressEntryAsync(
+                progressSink,
+                VerifyProgressEventNames.Started,
+                CreateProgressEntry(profile, profileDigest, verdict: null),
+                cancellationToken)
+            .ConfigureAwait(false);
+
         var deadline = ExecutionDeadline.Start(timeout, timeProvider);
         var builder = new VerifyPacketBuilder();
         foreach (var step in profile.Steps)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (ShouldSkipConditionalStep(step, fromInput, builder))
+            if (!VerifyStepKindValues.IsSupported(step.Kind))
             {
+                var failure = ApplicationFailure.InvalidInput(
+                    $"Unsupported verify step kind '{step.Kind}'.",
+                    UcliCoreErrorCodes.InvalidArgument);
+                await EmitDiagnosticAsync(progressSink, failure, stepKind: null, cancellationToken).ConfigureAwait(false);
+                return VerifyExecutionResult.Failure(failure, project);
+            }
+
+            if (TryGetConditionalSkipReason(step, fromInput, builder, out var skipReason))
+            {
+                await EmitProgressEntryAsync(
+                        progressSink,
+                        VerifyProgressEventNames.StepSkipped,
+                        CreateStepProgressEntry(step, skipReason),
+                        cancellationToken)
+                    .ConfigureAwait(false);
                 continue;
             }
 
             if (!deadline.TryGetRemainingTimeout(out var stepTimeout))
             {
-                return VerifyExecutionResult.Failure(
-                    ApplicationFailure.Timeout("Timed out before verify profile step execution could begin."),
-                    project);
+                var failure = ApplicationFailure.Timeout("Timed out before verify profile step execution could begin.");
+                await EmitDiagnosticAsync(progressSink, failure, step.Kind, cancellationToken).ConfigureAwait(false);
+                return VerifyExecutionResult.Failure(failure, project);
             }
+
+            await EmitProgressEntryAsync(
+                    progressSink,
+                    VerifyProgressEventNames.StepStarted,
+                    CreateStepProgressEntry(step, skipReason: null),
+                    cancellationToken)
+                .ConfigureAwait(false);
 
             VerifyStepExecutionResult stepResult;
             using (var stepCancellationScope = TimeProviderCancellationScope.CreateLinked(cancellationToken, stepTimeout, timeProvider))
@@ -158,26 +191,33 @@ internal sealed class VerifyService : IVerifyService
                 }
                 catch (OperationCanceledException) when (stepCancellationScope.HasTimedOut)
                 {
-                    return VerifyExecutionResult.Failure(
-                        ApplicationFailure.Timeout("Timed out during verify profile step execution."),
-                        project);
+                    var failure = ApplicationFailure.Timeout("Timed out during verify profile step execution.");
+                    await EmitDiagnosticAsync(progressSink, failure, step.Kind, cancellationToken).ConfigureAwait(false);
+                    return VerifyExecutionResult.Failure(failure, project);
                 }
             }
 
             if (!stepResult.IsSuccess)
             {
+                await EmitDiagnosticAsync(progressSink, stepResult.Error!, step.Kind, cancellationToken).ConfigureAwait(false);
                 return VerifyExecutionResult.Failure(stepResult.Error!, project);
             }
 
+            await EmitProgressEntryAsync(
+                    progressSink,
+                    VerifyProgressEventNames.StepCompleted,
+                    CreateStepProgressEntry(step, skipReason: null),
+                    cancellationToken)
+                .ConfigureAwait(false);
+
             if (deadline.IsExpired)
             {
-                return VerifyExecutionResult.Failure(
-                    ApplicationFailure.Timeout("Timed out during verify profile step execution."),
-                    project);
+                var failure = ApplicationFailure.Timeout("Timed out during verify profile step execution.");
+                await EmitDiagnosticAsync(progressSink, failure, step.Kind, cancellationToken).ConfigureAwait(false);
+                return VerifyExecutionResult.Failure(failure, project);
             }
         }
 
-        var profileDigest = VerifyProfileDigestCalculator.Calculate(profile);
         var output = new VerifyExecutionOutput(
             Verdict: VerifyVerdictCalculator.Calculate(builder.Claims, builder.ResidualRisks),
             Project: project,
@@ -192,6 +232,12 @@ internal sealed class VerifyService : IVerifyService
                 profileDigest),
             ProfileDigest: profileDigest,
             TimeoutMilliseconds: checked((int)timeout.TotalMilliseconds));
+        await EmitProgressEntryAsync(
+                progressSink,
+                VerifyProgressEventNames.Completed,
+                CreateProgressEntry(profile, profileDigest, output.Verdict),
+                cancellationToken)
+            .ConfigureAwait(false);
         return VerifyExecutionResult.Success(output);
     }
 
@@ -555,20 +601,87 @@ internal sealed class VerifyService : IVerifyService
         return VerifyStepExecutionResult.Success();
     }
 
-    private static bool ShouldSkipConditionalStep (
+    private static bool TryGetConditionalSkipReason (
         VerifyProfileStep step,
         VerifyFromInput? fromInput,
-        VerifyPacketBuilder builder)
+        VerifyPacketBuilder builder,
+        out string skipReason)
     {
         if (string.Equals(step.Kind, VerifyStepKindValues.PostRead, StringComparison.Ordinal)
             && !step.Required
             && (fromInput is null || !fromInput.NeedsPostRead))
         {
+            skipReason = VerifyStepSkipReasons.PostReadNotNeeded;
             return true;
         }
 
-        return string.Equals(step.Kind, VerifyStepKindValues.Logs, StringComparison.Ordinal)
-            && !builder.HasNonPassingClaim;
+        if (string.Equals(step.Kind, VerifyStepKindValues.Logs, StringComparison.Ordinal)
+            && !builder.HasNonPassingClaim)
+        {
+            skipReason = VerifyStepSkipReasons.LogsNotNeeded;
+            return true;
+        }
+
+        skipReason = string.Empty;
+        return false;
+    }
+
+    private static VerifyProgressEntry CreateProgressEntry (
+        VerifyProfileDefinition profile,
+        string profileDigest,
+        string? verdict)
+    {
+        return new VerifyProgressEntry(
+            profile.Source,
+            profile.Name,
+            profile.RepositoryRelativePath,
+            profileDigest,
+            profile.Steps.Count,
+            verdict);
+    }
+
+    private static VerifyStepProgressEntry CreateStepProgressEntry (
+        VerifyProfileStep step,
+        string? skipReason)
+    {
+        return new VerifyStepProgressEntry(
+            step.Kind,
+            step.Required,
+            step.Effects.ToArray(),
+            skipReason);
+    }
+
+    private static ValueTask EmitDiagnosticAsync (
+        ICommandProgressSink? progressSink,
+        ApplicationFailure failure,
+        string? stepKind,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(failure);
+        return EmitProgressEntryAsync(
+            progressSink,
+            VerifyProgressEventNames.Diagnostic,
+            new VerifyDiagnosticEntry(
+                failure.Code.Value,
+                failure.Message,
+                "error",
+                VerifyStepKindValues.IsSupported(stepKind ?? string.Empty) ? stepKind : null),
+            cancellationToken);
+    }
+
+    private static ValueTask EmitProgressEntryAsync (
+        ICommandProgressSink? progressSink,
+        string eventName,
+        object payload,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (progressSink is null)
+        {
+            return ValueTask.CompletedTask;
+        }
+
+        return progressSink.OnEntryAsync(eventName, payload, cancellationToken);
     }
 
     private static VerifyClaimOutput ProjectCompileClaim (

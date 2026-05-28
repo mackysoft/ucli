@@ -2,6 +2,7 @@ using ConsoleAppFramework;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
+using MackySoft.Ucli.Hosting.Cli.Common.Streaming;
 using MackySoft.Ucli.Hosting.Cli.Options;
 
 namespace MackySoft.Ucli.Hosting.Cli.Assurance;
@@ -71,6 +72,10 @@ internal sealed class VerifyCommand
             return errorResult.ExitCode;
         }
 
+        var progressSink = new CliCommandProgressSink(
+            formatResult.Format,
+            new CliStreamEntryWriter(UcliCommandNames.Verify),
+            new VerifyProgressTextProjector());
         var executionResult = await verifyService.ExecuteAsync(
                 new VerifyCommandInput(
                     ProjectPath: projectPath,
@@ -79,6 +84,7 @@ internal sealed class VerifyCommand
                     FromPath: from,
                     Mode: modeResult.Mode,
                     TimeoutMilliseconds: timeoutResult.TimeoutMilliseconds),
+                progressSink,
                 cancellationToken)
             .ConfigureAwait(false);
         var commandResult = VerifyCommandResultFactory.Create(executionResult);
