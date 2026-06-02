@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Gateway;
@@ -12,7 +11,7 @@ internal interface IDaemonProjectLifecycleGateway
         TimeSpan timeout,
         DaemonEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
-        DaemonStartProgressEmitter? progressEmitter = null,
+        IDaemonProjectLifecycleProgressObserver? progressObserver = null,
         CancellationToken cancellationToken = default);
 
     /// <summary> Attempts to stop one project daemon through a host-owned lifecycle gateway. </summary>

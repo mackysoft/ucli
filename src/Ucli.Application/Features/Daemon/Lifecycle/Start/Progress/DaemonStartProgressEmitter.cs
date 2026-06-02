@@ -6,7 +6,7 @@ using MackySoft.Ucli.Contracts.Text;
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
 
 /// <summary> Emits host-visible daemon-start progress entries without owning daemon-start decisions. </summary>
-internal sealed class DaemonStartProgressEmitter
+internal sealed class DaemonStartProgressEmitter : IDaemonProjectLifecycleProgressObserver
 {
     private readonly ICommandProgressSink progressSink;
     private readonly string projectFingerprint;

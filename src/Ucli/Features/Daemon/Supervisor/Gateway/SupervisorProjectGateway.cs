@@ -1,7 +1,6 @@
 using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Gateway;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Contracts;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
@@ -40,26 +39,32 @@ internal sealed class SupervisorProjectGateway : IDaemonProjectLifecycleGateway
         TimeSpan timeout,
         DaemonEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
-        DaemonStartProgressEmitter? progressEmitter = null,
+        IDaemonProjectLifecycleProgressObserver? progressObserver = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
-        progressEmitter ??= new DaemonStartProgressEmitter(
-            progressSink: null,
-            unityProject.ProjectFingerprint,
-            checked((int)timeout.TotalMilliseconds),
-            editorMode,
-            onStartupBlocked);
-        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
-        await progressEmitter.EmitSupervisorBootstrapStartedAsync(cancellationToken).ConfigureAwait(false);
-        if (!deadline.TryGetRemainingTimeout(out var bootstrapTimeout))
+        var timeoutBudget = ExecutionTimeoutBudget.Start(timeout, timeProvider);
+        await EmitProgressOutsideBudgetAsync(
+                timeoutBudget,
+                progressObserver is null
+                    ? null
+                    : token => progressObserver.EmitSupervisorBootstrapStartedAsync(token),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!timeoutBudget.TryGetRemainingTimeout(out var bootstrapTimeout))
         {
             var failure = DaemonStartResult.Failure(ExecutionError.Timeout(
                 "Timed out before supervisor bootstrap could begin."));
-            await progressEmitter.EmitSupervisorBootstrapCompletedAsync(failure.Error, cancellationToken).ConfigureAwait(false);
+            await EmitProgressOutsideBudgetAsync(
+                    timeoutBudget,
+                    progressObserver is null
+                        ? null
+                        : token => progressObserver.EmitSupervisorBootstrapCompletedAsync(failure.Error, token),
+                    cancellationToken)
+                .ConfigureAwait(false);
             return failure;
         }
 
@@ -68,18 +73,36 @@ internal sealed class SupervisorProjectGateway : IDaemonProjectLifecycleGateway
                 bootstrapTimeout,
                 cancellationToken)
             .ConfigureAwait(false);
-        await progressEmitter.EmitSupervisorBootstrapCompletedAsync(bootstrapResult.Error, cancellationToken).ConfigureAwait(false);
+        await EmitProgressOutsideBudgetAsync(
+                timeoutBudget,
+                progressObserver is null
+                    ? null
+                    : token => progressObserver.EmitSupervisorBootstrapCompletedAsync(bootstrapResult.Error, token),
+                cancellationToken)
+            .ConfigureAwait(false);
         if (!bootstrapResult.IsSuccess)
         {
             return DaemonStartResult.Failure(bootstrapResult.Error!);
         }
 
-        await progressEmitter.EmitEnsureRunningStartedAsync(cancellationToken).ConfigureAwait(false);
-        if (!deadline.TryGetRemainingTimeout(out var ensureRunningTimeout))
+        await EmitProgressOutsideBudgetAsync(
+                timeoutBudget,
+                progressObserver is null
+                    ? null
+                    : token => progressObserver.EmitEnsureRunningStartedAsync(token),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!timeoutBudget.TryGetRemainingTimeout(out var ensureRunningTimeout))
         {
             var failure = DaemonStartResult.Failure(ExecutionError.Timeout(
                 "Timed out before supervisor ensureRunning could begin."));
-            await progressEmitter.EmitEnsureRunningCompletedAsync(failure, cancellationToken).ConfigureAwait(false);
+            await EmitProgressOutsideBudgetAsync(
+                    timeoutBudget,
+                    progressObserver is null
+                        ? null
+                        : token => progressObserver.EmitEnsureRunningCompletedAsync(failure, token),
+                    cancellationToken)
+                .ConfigureAwait(false);
             return failure;
         }
 
@@ -91,7 +114,13 @@ internal sealed class SupervisorProjectGateway : IDaemonProjectLifecycleGateway
                 onStartupBlocked,
                 cancellationToken)
             .ConfigureAwait(false);
-        await progressEmitter.EmitEnsureRunningCompletedAsync(startResult, cancellationToken).ConfigureAwait(false);
+        await EmitProgressOutsideBudgetAsync(
+                timeoutBudget,
+                progressObserver is null
+                    ? null
+                    : token => progressObserver.EmitEnsureRunningCompletedAsync(startResult, token),
+                cancellationToken)
+            .ConfigureAwait(false);
         return startResult;
     }
 
@@ -199,5 +228,19 @@ internal sealed class SupervisorProjectGateway : IDaemonProjectLifecycleGateway
             // the best-effort manifest cleanup failed.
             return null;
         }
+    }
+
+    private static async ValueTask EmitProgressOutsideBudgetAsync (
+        ExecutionTimeoutBudget timeoutBudget,
+        Func<CancellationToken, ValueTask>? emit,
+        CancellationToken cancellationToken)
+    {
+        if (emit is null)
+        {
+            return;
+        }
+
+        using var excludedSection = timeoutBudget.BeginExcludedSection();
+        await emit(cancellationToken).ConfigureAwait(false);
     }
 }

@@ -71,14 +71,14 @@ public sealed class DaemonStartServiceTests
         var session = DaemonServiceTestContext.CreateSession();
         var supervisorProjectGateway = new DaemonServiceTestContext.StubSupervisorProjectGateway
         {
-            EnsureRunningHandler = async (_, _, _, _, progressEmitter, cancellationToken) =>
+            EnsureRunningHandler = async (_, _, _, _, progressObserver, cancellationToken) =>
             {
-                Assert.NotNull(progressEmitter);
-                await progressEmitter!.EmitSupervisorBootstrapStartedAsync(cancellationToken).ConfigureAwait(false);
-                await progressEmitter.EmitSupervisorBootstrapCompletedAsync(error: null, cancellationToken).ConfigureAwait(false);
-                await progressEmitter.EmitEnsureRunningStartedAsync(cancellationToken).ConfigureAwait(false);
+                Assert.NotNull(progressObserver);
+                await progressObserver!.EmitSupervisorBootstrapStartedAsync(cancellationToken).ConfigureAwait(false);
+                await progressObserver.EmitSupervisorBootstrapCompletedAsync(error: null, cancellationToken).ConfigureAwait(false);
+                await progressObserver.EmitEnsureRunningStartedAsync(cancellationToken).ConfigureAwait(false);
                 var startResult = DaemonStartResult.Started(session);
-                await progressEmitter.EmitEnsureRunningCompletedAsync(startResult, cancellationToken).ConfigureAwait(false);
+                await progressObserver.EmitEnsureRunningCompletedAsync(startResult, cancellationToken).ConfigureAwait(false);
                 return startResult;
             },
         };
@@ -442,6 +442,53 @@ public sealed class DaemonStartServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Start_WhenProgressSinkConsumesTime_DoesNotConsumeTimeoutBudget ()
+    {
+        var timeProvider = new ManualTimeProvider();
+
+        var context = DaemonServiceTestContext.CreateExecutionContext(
+            timeoutMilliseconds: 700,
+            repositoryRoot: "/tmp/repo-root");
+        var resolver = new DaemonServiceTestContext.StubDaemonCommandExecutionContextResolver(
+            DaemonCommandExecutionContextResolutionResult.Success(context));
+        var mapper = new DaemonServiceTestContext.StubDaemonSessionOutputMapper();
+        var supervisorProjectGateway = new DaemonServiceTestContext.StubSupervisorProjectGateway
+        {
+            EnsureRunningResult = DaemonStartResult.Started(DaemonServiceTestContext.CreateSession()),
+        };
+        var pluginVerifier = new StubUnityPluginVerifier
+        {
+            Handler = cancellationToken =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                timeProvider.Advance(TimeSpan.FromMilliseconds(200));
+                return ValueTask.FromResult(UnityPluginVerificationResult.Success());
+            },
+        };
+        var progressSink = new CollectingProgressSink(() => timeProvider.Advance(TimeSpan.FromMilliseconds(250)));
+        var service = CreateService(resolver, supervisorProjectGateway, mapper, pluginVerifier, timeProvider: timeProvider);
+
+        var result = await service.StartAsync(
+            projectPath: "/tmp/sandbox-unity",
+            timeoutMilliseconds: 700,
+            editorMode: null,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+            progressSink: progressSink,
+            cancellationToken: CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(1, supervisorProjectGateway.EnsureRunningCallCount);
+        Assert.Equal(TimeSpan.FromMilliseconds(500), supervisorProjectGateway.LastEnsureRunningTimeout);
+        AssertProgressEvents(
+            progressSink,
+            DaemonStartProgressEventNames.Started,
+            DaemonStartProgressEventNames.PluginVerificationStarted,
+            DaemonStartProgressEventNames.PluginVerificationCompleted,
+            DaemonStartProgressEventNames.Completed);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Start_WhenUnityPluginMarkerIsMissing_ReturnsInvalidArgumentBeforeSupervisorBootstrap ()
     {
         var context = DaemonServiceTestContext.CreateExecutionContext(timeoutMilliseconds: 1200);
@@ -554,6 +601,12 @@ public sealed class DaemonStartServiceTests
     private sealed class CollectingProgressSink : ICommandProgressSink
     {
         private readonly List<ProgressEntry> entries = [];
+        private readonly Action? onEntry;
+
+        public CollectingProgressSink (Action? onEntry = null)
+        {
+            this.onEntry = onEntry;
+        }
 
         public IReadOnlyList<ProgressEntry> Entries => entries;
 
@@ -565,6 +618,7 @@ public sealed class DaemonStartServiceTests
         {
             cancellationToken.ThrowIfCancellationRequested();
             entries.Add(new ProgressEntry(eventName, payload));
+            onEntry?.Invoke();
             return ValueTask.CompletedTask;
         }
     }

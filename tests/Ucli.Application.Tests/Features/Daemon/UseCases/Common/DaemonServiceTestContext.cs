@@ -6,7 +6,6 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Application.Shared.Configuration;
@@ -153,7 +152,7 @@ internal static class DaemonServiceTestContext
 
         public DaemonStopResult? TryStopProjectResult { get; set; }
 
-        public Func<ResolvedUnityProjectContext, TimeSpan, DaemonEditorMode?, DaemonStartupBlockedProcessPolicy, DaemonStartProgressEmitter?, CancellationToken, ValueTask<DaemonStartResult>>? EnsureRunningHandler { get; set; }
+        public Func<ResolvedUnityProjectContext, TimeSpan, DaemonEditorMode?, DaemonStartupBlockedProcessPolicy, IDaemonProjectLifecycleProgressObserver?, CancellationToken, ValueTask<DaemonStartResult>>? EnsureRunningHandler { get; set; }
 
         public Func<ResolvedUnityProjectContext, TimeSpan, CancellationToken, ValueTask<DaemonStopResult?>>? TryStopProjectHandler { get; set; }
 
@@ -169,7 +168,7 @@ internal static class DaemonServiceTestContext
 
         public DaemonStartupBlockedProcessPolicy LastEnsureRunningOnStartupBlocked { get; private set; }
 
-        public DaemonStartProgressEmitter? LastEnsureRunningProgressEmitter { get; private set; }
+        public IDaemonProjectLifecycleProgressObserver? LastEnsureRunningProgressObserver { get; private set; }
 
         public CancellationToken LastEnsureRunningCancellationToken { get; private set; }
 
@@ -184,7 +183,7 @@ internal static class DaemonServiceTestContext
             TimeSpan timeout,
             DaemonEditorMode? editorMode,
             DaemonStartupBlockedProcessPolicy onStartupBlocked,
-            DaemonStartProgressEmitter? progressEmitter = null,
+            IDaemonProjectLifecycleProgressObserver? progressObserver = null,
             CancellationToken cancellationToken = default)
         {
             EnsureRunningCallCount++;
@@ -192,12 +191,12 @@ internal static class DaemonServiceTestContext
             LastEnsureRunningTimeout = timeout;
             LastEnsureRunningEditorMode = editorMode;
             LastEnsureRunningOnStartupBlocked = onStartupBlocked;
-            LastEnsureRunningProgressEmitter = progressEmitter;
+            LastEnsureRunningProgressObserver = progressObserver;
             LastEnsureRunningCancellationToken = cancellationToken;
 
             if (EnsureRunningHandler != null)
             {
-                return EnsureRunningHandler(unityProject, timeout, editorMode, onStartupBlocked, progressEmitter, cancellationToken);
+                return EnsureRunningHandler(unityProject, timeout, editorMode, onStartupBlocked, progressObserver, cancellationToken);
             }
 
             return ValueTask.FromResult(EnsureRunningResult);

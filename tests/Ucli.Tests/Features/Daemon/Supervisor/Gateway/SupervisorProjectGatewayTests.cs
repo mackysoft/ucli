@@ -86,7 +86,7 @@ public sealed class SupervisorProjectGatewayTests
             TimeSpan.FromMilliseconds(900),
             editorMode: DaemonEditorMode.Gui,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Keep,
-            progressEmitter: progressEmitter,
+            progressObserver: progressEmitter,
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -107,6 +107,88 @@ public sealed class SupervisorProjectGatewayTests
         Assert.Equal("started", completedEntry.StartStatus);
         Assert.Equal("running", completedEntry.DaemonStatus);
         Assert.Equal(900, completedEntry.TimeoutMilliseconds);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task EnsureRunning_WhenProgressObserverConsumesTime_DoesNotConsumeTimeoutBudget ()
+    {
+        using var scope = TestDirectories.CreateTempScope("supervisor-project-gateway", "ensure-running-progress-timeout");
+        var timeProvider = new ManualTimeProvider();
+        var manifest = CreateManifest();
+        var manifestStore = new SupervisorManifestStore();
+        await manifestStore.WriteAsync(scope.FullPath, manifest, CancellationToken.None);
+
+        var transportClient = new DaemonServiceTestContext.StubIpcTransportClient();
+        var observedEnsureRunningTimeout = TimeSpan.Zero;
+        transportClient.SendHandler = (endpoint, request, timeout, cancellationToken) =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (string.Equals(request.Method, SupervisorIpcContracts.PingMethod, StringComparison.Ordinal))
+            {
+                timeProvider.Advance(TimeSpan.FromMilliseconds(180));
+                return ValueTask.FromResult(DaemonServiceTestContext.CreateSuccessResponse(
+                    request,
+                    new SupervisorIpcContracts.PingResponse(
+                        manifest.ProcessId,
+                        manifest.IssuedAtUtc)));
+            }
+
+            if (string.Equals(request.Method, SupervisorIpcContracts.EnsureRunningMethod, StringComparison.Ordinal))
+            {
+                Assert.True(IpcPayloadCodec.TryDeserialize(
+                    request.Payload,
+                    out SupervisorIpcContracts.EnsureRunningRequest payload,
+                    out _));
+                observedEnsureRunningTimeout = TimeSpan.FromMilliseconds(payload.TimeoutMilliseconds);
+                return ValueTask.FromResult(DaemonServiceTestContext.CreateSuccessResponse(
+                    request,
+                    new SupervisorIpcContracts.EnsureRunningResponse(
+                        StartStatus: "started",
+                        DaemonStatus: "running",
+                        Session: CreateSession())));
+            }
+
+            throw new InvalidOperationException($"Unexpected method: {request.Method}");
+        };
+
+        var client = new SupervisorClient(transportClient);
+        var gateway = new SupervisorProjectGateway(
+            new SupervisorBootstrapper(
+                manifestStore,
+                client,
+                new StubSupervisorProcessLauncher(),
+                new SupervisorBootstrapLockProvider(),
+                new SupervisorEndpointResolver(),
+                timeProvider),
+            manifestStore,
+            client,
+            timeProvider);
+        var progressSink = new CollectingProgressSink(() => timeProvider.Advance(TimeSpan.FromMilliseconds(250)));
+        var progressEmitter = new DaemonStartProgressEmitter(
+            progressSink,
+            "fingerprint",
+            900,
+            editorMode: null,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto);
+
+        var result = await gateway.EnsureRunningAsync(
+            CreateUnityProject(scope.FullPath),
+            TimeSpan.FromMilliseconds(900),
+            editorMode: null,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+            progressObserver: progressEmitter,
+            cancellationToken: CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(TimeSpan.FromMilliseconds(720), observedEnsureRunningTimeout);
+        AssertProgressEvents(
+            progressSink,
+            DaemonStartProgressEventNames.SupervisorBootstrapStarted,
+            DaemonStartProgressEventNames.SupervisorBootstrapCompleted,
+            DaemonStartProgressEventNames.EnsureRunningStarted,
+            DaemonStartProgressEventNames.EnsureRunningCompleted);
     }
 
     [Fact]
@@ -166,7 +248,7 @@ public sealed class SupervisorProjectGatewayTests
             TimeSpan.FromMilliseconds(900),
             editorMode: null,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
-            progressEmitter: progressEmitter,
+            progressObserver: progressEmitter,
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -223,7 +305,7 @@ public sealed class SupervisorProjectGatewayTests
             TimeSpan.FromMilliseconds(900),
             editorMode: null,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
-            progressEmitter: progressEmitter,
+            progressObserver: progressEmitter,
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -395,6 +477,12 @@ public sealed class SupervisorProjectGatewayTests
     private sealed class CollectingProgressSink : ICommandProgressSink
     {
         private readonly List<ProgressEntry> entries = [];
+        private readonly Action? onEntry;
+
+        public CollectingProgressSink (Action? onEntry = null)
+        {
+            this.onEntry = onEntry;
+        }
 
         public IReadOnlyList<ProgressEntry> Entries => entries;
 
@@ -406,6 +494,7 @@ public sealed class SupervisorProjectGatewayTests
         {
             cancellationToken.ThrowIfCancellationRequested();
             entries.Add(new ProgressEntry(eventName, payload));
+            onEntry?.Invoke();
             return ValueTask.CompletedTask;
         }
     }
