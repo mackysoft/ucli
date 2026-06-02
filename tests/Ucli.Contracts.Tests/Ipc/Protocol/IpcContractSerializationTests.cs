@@ -1014,7 +1014,7 @@ public sealed class IpcContractSerializationTests
             TimeoutMilliseconds: 10000,
             EditorMode: "batchmode",
             OnStartupBlocked: "auto",
-            Result: DaemonStartProgressResultValues.Failed,
+            Result: ContractLiteralCodec.ToValue(CommandProgressResult.Failed),
             StartStatus: "failed",
             DaemonStatus: "notRunning",
             ErrorCode: "IPC_TIMEOUT");
@@ -1029,8 +1029,8 @@ public sealed class IpcContractSerializationTests
         Assert.Equal("daemon.start.ensureRunning.started", DaemonStartProgressEventNames.EnsureRunningStarted);
         Assert.Equal("daemon.start.ensureRunning.completed", DaemonStartProgressEventNames.EnsureRunningCompleted);
         Assert.Equal("daemon.start.completed", DaemonStartProgressEventNames.Completed);
-        Assert.Equal("succeeded", DaemonStartProgressResultValues.Succeeded);
-        Assert.Equal("failed", DaemonStartProgressResultValues.Failed);
+        Assert.Equal("succeeded", ContractLiteralCodec.ToValue(CommandProgressResult.Succeeded));
+        Assert.Equal("failed", ContractLiteralCodec.ToValue(CommandProgressResult.Failed));
         JsonAssert.For(document.RootElement)
             .HasString("projectFingerprint", "project-fingerprint")
             .HasInt32("timeoutMilliseconds", 10000)

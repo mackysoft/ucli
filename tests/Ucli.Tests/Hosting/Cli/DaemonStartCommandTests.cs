@@ -8,6 +8,7 @@ using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Hosting.Cli.Daemon;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 
@@ -136,7 +137,7 @@ public sealed class DaemonStartCommandTests
             .HasString("event", DaemonStartProgressEventNames.Completed)
             .HasInt32("sequence", 2);
         JsonAssert.For(completedEntry.RootElement.GetProperty("payload"))
-            .HasString("result", DaemonStartProgressResultValues.Succeeded)
+            .HasString("result", ContractLiteralCodec.ToValue(CommandProgressResult.Succeeded))
             .HasString("startStatus", "started")
             .HasString("daemonStatus", "running")
             .IsNull("errorCode");
@@ -496,7 +497,7 @@ public sealed class DaemonStartCommandTests
             .ConfigureAwait(false);
         await progressSink.OnEntryAsync(
                 DaemonStartProgressEventNames.Completed,
-                CreateProgressEntry(DaemonStartProgressResultValues.Succeeded, "started", "running", errorCode: null),
+                CreateProgressEntry(ContractLiteralCodec.ToValue(CommandProgressResult.Succeeded), "started", "running", errorCode: null),
                 cancellationToken)
             .ConfigureAwait(false);
     }

@@ -138,7 +138,7 @@ internal sealed class DaemonStartProgressEmitter : IDaemonProjectLifecycleProgre
     private static string ResolveResult (ExecutionError? error)
     {
         return error is null
-            ? DaemonStartProgressResultValues.Succeeded
-            : DaemonStartProgressResultValues.Failed;
+            ? ContractLiteralCodec.ToValue(CommandProgressResult.Succeeded)
+            : ContractLiteralCodec.ToValue(CommandProgressResult.Failed);
     }
 }

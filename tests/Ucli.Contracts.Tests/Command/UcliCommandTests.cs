@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Contracts.Tests.Command;
 
 public sealed class UcliCommandTests
@@ -92,5 +94,39 @@ public sealed class UcliCommandTests
         {
             _ = new UcliCommand(name);
         });
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("succeeded", true, CommandProgressResult.Succeeded)]
+    [InlineData(" failed ", true, CommandProgressResult.Failed)]
+    [InlineData("SUCCEEDED", false, CommandProgressResult.Succeeded)]
+    [InlineData("unsupported", false, CommandProgressResult.Succeeded)]
+    [InlineData("", false, CommandProgressResult.Succeeded)]
+    [InlineData(" ", false, CommandProgressResult.Succeeded)]
+    [InlineData(null, false, CommandProgressResult.Succeeded)]
+    public void CommandProgressResultContractLiteral_TryParse_ReturnsExpectedResult (
+        string? value,
+        bool expectedResult,
+        CommandProgressResult expectedValue)
+    {
+        var result = ContractLiteralInputParser.TryParseTrimmed<CommandProgressResult>(value, out var progressResult);
+
+        Assert.Equal(expectedResult, result);
+        if (expectedResult)
+        {
+            Assert.Equal(expectedValue, progressResult);
+        }
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData(CommandProgressResult.Succeeded, "succeeded")]
+    [InlineData(CommandProgressResult.Failed, "failed")]
+    public void CommandProgressResultContractLiteral_ToValue_ReturnsCanonicalLiteral (
+        CommandProgressResult progressResult,
+        string expectedValue)
+    {
+        Assert.Equal(expectedValue, ContractLiteralCodec.ToValue(progressResult));
     }
 }

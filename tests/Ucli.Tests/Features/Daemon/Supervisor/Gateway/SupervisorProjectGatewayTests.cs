@@ -5,6 +5,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Tests.Daemon;
 
@@ -103,7 +104,7 @@ public sealed class SupervisorProjectGatewayTests
             DaemonStartProgressEventNames.EnsureRunningStarted,
             DaemonStartProgressEventNames.EnsureRunningCompleted);
         var completedEntry = Assert.IsType<DaemonStartProgressEntry>(progressSink.Entries[^1].Payload);
-        Assert.Equal(DaemonStartProgressResultValues.Succeeded, completedEntry.Result);
+        Assert.Equal(ContractLiteralCodec.ToValue(CommandProgressResult.Succeeded), completedEntry.Result);
         Assert.Equal("started", completedEntry.StartStatus);
         Assert.Equal("running", completedEntry.DaemonStatus);
         Assert.Equal(900, completedEntry.TimeoutMilliseconds);
@@ -260,7 +261,7 @@ public sealed class SupervisorProjectGatewayTests
             DaemonStartProgressEventNames.EnsureRunningStarted,
             DaemonStartProgressEventNames.EnsureRunningCompleted);
         var completedEntry = Assert.IsType<DaemonStartProgressEntry>(progressSink.Entries[^1].Payload);
-        Assert.Equal(DaemonStartProgressResultValues.Failed, completedEntry.Result);
+        Assert.Equal(ContractLiteralCodec.ToValue(CommandProgressResult.Failed), completedEntry.Result);
         Assert.Equal("failed", completedEntry.StartStatus);
         Assert.Equal("notRunning", completedEntry.DaemonStatus);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout.Value, completedEntry.ErrorCode);
@@ -316,7 +317,7 @@ public sealed class SupervisorProjectGatewayTests
             DaemonStartProgressEventNames.SupervisorBootstrapStarted,
             DaemonStartProgressEventNames.SupervisorBootstrapCompleted);
         var completedEntry = Assert.IsType<DaemonStartProgressEntry>(progressSink.Entries[^1].Payload);
-        Assert.Equal(DaemonStartProgressResultValues.Failed, completedEntry.Result);
+        Assert.Equal(ContractLiteralCodec.ToValue(CommandProgressResult.Failed), completedEntry.Result);
         Assert.Null(completedEntry.StartStatus);
         Assert.Null(completedEntry.DaemonStatus);
         Assert.Equal(UcliCoreErrorCodes.InternalError.Value, completedEntry.ErrorCode);

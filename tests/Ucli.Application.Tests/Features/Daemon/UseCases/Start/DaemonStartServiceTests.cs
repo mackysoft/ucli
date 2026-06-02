@@ -9,6 +9,7 @@ using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Tests.Daemon;
 
@@ -112,7 +113,7 @@ public sealed class DaemonStartServiceTests
         Assert.Equal("auto", startedEntry.OnStartupBlocked);
         Assert.Null(startedEntry.Result);
         var completedEntry = Assert.IsType<DaemonStartProgressEntry>(progressSink.Entries[^1].Payload);
-        Assert.Equal(DaemonStartProgressResultValues.Succeeded, completedEntry.Result);
+        Assert.Equal(ContractLiteralCodec.ToValue(CommandProgressResult.Succeeded), completedEntry.Result);
         Assert.Equal("started", completedEntry.StartStatus);
         Assert.Equal("running", completedEntry.DaemonStatus);
         Assert.Null(completedEntry.ErrorCode);
@@ -290,7 +291,7 @@ public sealed class DaemonStartServiceTests
             DaemonStartProgressEventNames.PluginVerificationCompleted,
             DaemonStartProgressEventNames.Completed);
         var completedEntry = Assert.IsType<DaemonStartProgressEntry>(progressSink.Entries[^1].Payload);
-        Assert.Equal(DaemonStartProgressResultValues.Failed, completedEntry.Result);
+        Assert.Equal(ContractLiteralCodec.ToValue(CommandProgressResult.Failed), completedEntry.Result);
         Assert.Equal("failed", completedEntry.StartStatus);
         Assert.Equal("notRunning", completedEntry.DaemonStatus);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout.Value, completedEntry.ErrorCode);
@@ -525,10 +526,10 @@ public sealed class DaemonStartServiceTests
             DaemonStartProgressEventNames.PluginVerificationCompleted,
             DaemonStartProgressEventNames.Completed);
         var pluginCompletedEntry = Assert.IsType<DaemonStartProgressEntry>(progressSink.Entries[2].Payload);
-        Assert.Equal(DaemonStartProgressResultValues.Failed, pluginCompletedEntry.Result);
+        Assert.Equal(ContractLiteralCodec.ToValue(CommandProgressResult.Failed), pluginCompletedEntry.Result);
         Assert.Equal("INVALID_ARGUMENT", pluginCompletedEntry.ErrorCode);
         var completedEntry = Assert.IsType<DaemonStartProgressEntry>(progressSink.Entries[^1].Payload);
-        Assert.Equal(DaemonStartProgressResultValues.Failed, completedEntry.Result);
+        Assert.Equal(ContractLiteralCodec.ToValue(CommandProgressResult.Failed), completedEntry.Result);
         Assert.Equal("failed", completedEntry.StartStatus);
         Assert.Equal("notRunning", completedEntry.DaemonStatus);
         Assert.Equal("INVALID_ARGUMENT", completedEntry.ErrorCode);
