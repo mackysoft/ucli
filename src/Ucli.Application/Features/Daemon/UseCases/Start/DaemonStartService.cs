@@ -52,7 +52,7 @@ internal sealed class DaemonStartService : IDaemonStartService
     /// <param name="timeoutMilliseconds"> The optional normalized timeout value in milliseconds. </param>
     /// <param name="editorMode"> The optional normalized <c>--editorMode</c> value. </param>
     /// <param name="onStartupBlocked"> The normalized <c>--onStartupBlocked</c> value. </param>
-    /// <param name="progressSink"> The optional command-neutral sink that receives host-visible daemon-start progress entries. </param>
+    /// <param name="progressSink"> The optional command-neutral sink that receives host-visible daemon-start progress entries. When <see langword="null" />, no progress entries are emitted. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon-start execution result. </returns>
     public async ValueTask<DaemonStartExecutionResult> StartAsync (
