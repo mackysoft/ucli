@@ -314,7 +314,7 @@ internal sealed class SupervisorClient
             SessionToken: manifest.SessionToken,
             Method: method,
             Payload: IpcPayloadCodec.SerializeToElement(payload),
-            ResponseMode: ContractLiteralCodec.ToValue(responseMode));
+            responseMode: responseMode);
     }
 
     private static IpcEndpoint ResolveEndpoint (SupervisorInstanceManifest manifest)

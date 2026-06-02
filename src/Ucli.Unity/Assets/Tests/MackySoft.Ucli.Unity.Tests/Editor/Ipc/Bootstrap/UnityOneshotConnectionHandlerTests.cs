@@ -160,7 +160,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 RequestId: $"req-{method}",
                 SessionToken: "oneshot",
                 Method: method,
-                Payload: payload);
+                Payload: payload,
+                responseMode: IpcResponseMode.Single);
         }
 
         private sealed class StubRequestProcessor : IUnityIpcRequestProcessor

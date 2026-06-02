@@ -455,7 +455,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 RequestId: requestId,
                 SessionToken: "session-token",
                 Method: IpcMethodNames.PlayExit,
-                Payload: IpcPayloadCodec.SerializeToElement(payload));
+                Payload: IpcPayloadCodec.SerializeToElement(payload),
+                responseMode: IpcResponseMode.Single);
         }
 
         private static UnityEditorLifecycleSnapshot CreateReadyStoppedSnapshot (string generation = "1")

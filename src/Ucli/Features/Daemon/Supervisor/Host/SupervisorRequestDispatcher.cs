@@ -411,7 +411,7 @@ internal sealed class SupervisorRequestDispatcher
         out IpcResponseMode responseMode,
         out IpcResponse? responseModeError)
     {
-        if (ContractLiteralCodec.TryParse<IpcResponseMode>(request.ResponseMode, out responseMode))
+        if (ContractLiteralCodec.TryParse(request.ResponseMode, out responseMode))
         {
             responseModeError = null;
             return true;

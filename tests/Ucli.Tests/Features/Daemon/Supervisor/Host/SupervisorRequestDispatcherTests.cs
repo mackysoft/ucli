@@ -32,7 +32,8 @@ public sealed class SupervisorRequestDispatcherTests
                 SessionToken: string.Empty,
                 Method: SupervisorIpcContracts.PingMethod,
                 Payload: IpcPayloadCodec.SerializeToElement(
-                    new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion))));
+                    new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion)),
+                responseMode: IpcResponseMode.Single));
 
         Assert.Equal(IpcProtocol.StatusError, response.Status);
         var error = Assert.Single(response.Errors);
@@ -55,7 +56,8 @@ public sealed class SupervisorRequestDispatcherTests
                 SessionToken: "invalid-token",
                 Method: SupervisorIpcContracts.PingMethod,
                 Payload: IpcPayloadCodec.SerializeToElement(
-                    new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion))));
+                    new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion)),
+                responseMode: IpcResponseMode.Single));
 
         Assert.Equal(IpcProtocol.StatusError, response.Status);
         var error = Assert.Single(response.Errors);
@@ -112,7 +114,7 @@ public sealed class SupervisorRequestDispatcherTests
                 Method: SupervisorIpcContracts.PingMethod,
                 Payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion)),
-                ResponseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Stream)));
+                responseMode: IpcResponseMode.Stream));
 
         var terminalFrame = Assert.Single(frames);
         Assert.Equal(IpcStreamFrameKinds.Terminal, terminalFrame.Kind);
@@ -144,7 +146,8 @@ public sealed class SupervisorRequestDispatcherTests
                         ProjectFingerprint: "fingerprint",
                         TimeoutMilliseconds: 1000,
                         EditorMode: null,
-                        OnStartupBlocked: "auto"))));
+                        OnStartupBlocked: "auto")),
+                responseMode: IpcResponseMode.Single));
 
         Assert.Equal(IpcProtocol.StatusError, invalidResponse.Status);
         var invalidError = Assert.Single(invalidResponse.Errors);
@@ -159,7 +162,8 @@ public sealed class SupervisorRequestDispatcherTests
                 SessionToken: runtimeContext.Manifest.SessionToken,
                 Method: SupervisorIpcContracts.PingMethod,
                 Payload: IpcPayloadCodec.SerializeToElement(
-                    new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion))));
+                    new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion)),
+                responseMode: IpcResponseMode.Single));
 
         Assert.Equal(IpcProtocol.StatusOk, pingResponse.Status);
         Assert.Empty(pingResponse.Errors);
@@ -187,7 +191,8 @@ public sealed class SupervisorRequestDispatcherTests
                         ProjectFingerprint: "mismatched-fingerprint",
                         TimeoutMilliseconds: 1000,
                         EditorMode: null,
-                        OnStartupBlocked: "auto"))));
+                        OnStartupBlocked: "auto")),
+                responseMode: IpcResponseMode.Single));
 
         Assert.Equal(IpcProtocol.StatusError, response.Status);
         var error = Assert.Single(response.Errors);
@@ -226,7 +231,8 @@ public sealed class SupervisorRequestDispatcherTests
                         ProjectFingerprint: projectFingerprint,
                         TimeoutMilliseconds: 1000,
                         EditorMode: " gui ",
-                        OnStartupBlocked: " terminate "))));
+                        OnStartupBlocked: " terminate ")),
+                responseMode: IpcResponseMode.Single));
 
         Assert.True(
             string.Equals(IpcProtocol.StatusOk, response.Status, StringComparison.Ordinal),
@@ -272,7 +278,8 @@ public sealed class SupervisorRequestDispatcherTests
                         ProjectFingerprint: projectFingerprint,
                         TimeoutMilliseconds: 1000,
                         EditorMode: "gui",
-                        OnStartupBlocked: "auto"))));
+                        OnStartupBlocked: "auto")),
+                responseMode: IpcResponseMode.Single));
 
         Assert.Equal(IpcProtocol.StatusOk, response.Status);
         Assert.True(IpcPayloadCodec.TryDeserialize(
@@ -308,7 +315,8 @@ public sealed class SupervisorRequestDispatcherTests
                         ProjectFingerprint: projectFingerprint,
                         TimeoutMilliseconds: 1000,
                         EditorMode: "unsupported",
-                        OnStartupBlocked: "auto"))));
+                        OnStartupBlocked: "auto")),
+                responseMode: IpcResponseMode.Single));
 
         Assert.Equal(IpcProtocol.StatusError, response.Status);
         var error = Assert.Single(response.Errors);
@@ -340,7 +348,8 @@ public sealed class SupervisorRequestDispatcherTests
                         ProjectFingerprint: projectFingerprint,
                         TimeoutMilliseconds: 1000,
                         EditorMode: null,
-                        OnStartupBlocked: "unsupported"))));
+                        OnStartupBlocked: "unsupported")),
+                responseMode: IpcResponseMode.Single));
 
         Assert.Equal(IpcProtocol.StatusError, response.Status);
         var error = Assert.Single(response.Errors);
@@ -381,7 +390,8 @@ public sealed class SupervisorRequestDispatcherTests
                         ProjectFingerprint: projectFingerprint,
                         TimeoutMilliseconds: 1000,
                         EditorMode: null,
-                        OnStartupBlocked: "auto"))));
+                        OnStartupBlocked: "auto")),
+                responseMode: IpcResponseMode.Single));
 
         Assert.Equal(IpcProtocol.StatusError, response.Status);
         var error = Assert.Single(response.Errors);
@@ -426,7 +436,8 @@ public sealed class SupervisorRequestDispatcherTests
                         ProjectFingerprint: projectFingerprint,
                         TimeoutMilliseconds: 1,
                         EditorMode: null,
-                        OnStartupBlocked: "auto"))));
+                        OnStartupBlocked: "auto")),
+                responseMode: IpcResponseMode.Single));
 
         Assert.Equal(IpcProtocol.StatusError, response.Status);
         var error = Assert.Single(response.Errors);
@@ -487,7 +498,7 @@ public sealed class SupervisorRequestDispatcherTests
                         TimeoutMilliseconds: 1000,
                         EditorMode: "batchmode",
                         OnStartupBlocked: "auto")),
-                ResponseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Stream)));
+                responseMode: IpcResponseMode.Stream));
 
         Assert.Equal(2, frames.Count);
         Assert.Equal(IpcStreamFrameKinds.Progress, frames[0].Kind);
@@ -568,7 +579,7 @@ public sealed class SupervisorRequestDispatcherTests
                         TimeoutMilliseconds: 1000,
                         EditorMode: "batchmode",
                         OnStartupBlocked: "auto")),
-                ResponseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Stream)));
+                responseMode: IpcResponseMode.Stream));
 
         Assert.True(progressWriteCanceled);
         Assert.NotNull(startOperation.LastProgressObserver);
@@ -608,7 +619,8 @@ public sealed class SupervisorRequestDispatcherTests
                         ProjectFingerprint: projectFingerprint,
                         TimeoutMilliseconds: 1000,
                         EditorMode: null,
-                        OnStartupBlocked: "auto"))));
+                        OnStartupBlocked: "auto")),
+                responseMode: IpcResponseMode.Single));
 
         Assert.Equal(IpcProtocol.StatusError, response.Status);
         var error = Assert.Single(response.Errors);

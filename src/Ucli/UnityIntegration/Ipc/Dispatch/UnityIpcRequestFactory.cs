@@ -82,7 +82,7 @@ internal static class UnityIpcRequestFactory
             SessionToken: sessionToken,
             Method: method,
             Payload: payload,
-            ResponseMode: ContractLiteralCodec.ToValue(responseMode));
+            responseMode: responseMode);
     }
 
     /// <summary> Creates one request envelope from a dispatch request with the supplied request identifier. </summary>

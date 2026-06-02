@@ -40,7 +40,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 SessionToken: "token",
                 Method: IpcMethodNames.Shutdown,
                 Payload: JsonSerializer.SerializeToElement(new IpcShutdownRequest("tests")),
-                ResponseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Stream));
+                responseMode: IpcResponseMode.Stream);
             using var stream = new ThrowOnWriteStream();
             Exception observedFailure = null;
             var streamWriter = new UnityIpcStreamFrameWriter(
@@ -77,7 +77,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 RequestId: "req-shutdown",
                 SessionToken: "token",
                 Method: IpcMethodNames.Shutdown,
-                Payload: JsonSerializer.SerializeToElement(new IpcShutdownRequest("tests")));
+                Payload: JsonSerializer.SerializeToElement(new IpcShutdownRequest("tests")),
+                responseMode: IpcResponseMode.Single);
 
             using var stream = new MemoryStream();
             await IpcFrameCodec.WriteModelAsync(
@@ -108,7 +109,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 SessionToken: "token",
                 Method: IpcMethodNames.Shutdown,
                 Payload: JsonSerializer.SerializeToElement(new IpcShutdownRequest("tests")),
-                ResponseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Stream));
+                responseMode: IpcResponseMode.Stream);
 
             using var stream = new MemoryStream();
             await IpcFrameCodec.WriteModelAsync(
@@ -191,7 +192,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 SessionToken: "token",
                 Method: IpcMethodNames.Shutdown,
                 Payload: JsonSerializer.SerializeToElement(new IpcShutdownRequest("tests")),
-                ResponseMode: ContractLiteralCodec.ToValue(responseMode));
+                responseMode: responseMode);
         }
 
         private sealed class StubRequestProcessor : IUnityIpcRequestProcessor

@@ -159,7 +159,8 @@ public sealed class DaemonIpcRequestSenderTests
             RequestId: $"{method}-{Guid.NewGuid():N}",
             SessionToken: sessionToken,
             Method: method,
-            Payload: JsonDocument.Parse("{}").RootElement.Clone());
+            Payload: JsonDocument.Parse("{}").RootElement.Clone(),
+            responseMode: IpcResponseMode.Single);
     }
 
     private static IpcResponse CreateResponse (string requestId)

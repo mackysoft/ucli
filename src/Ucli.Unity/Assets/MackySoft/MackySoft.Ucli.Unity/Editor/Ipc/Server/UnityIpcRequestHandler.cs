@@ -43,10 +43,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return validationErrorResponse;
             }
 
-            var singleResponseMode = ContractLiteralCodec.ToValue(IpcResponseMode.Single);
-            if (!string.Equals(request.ResponseMode, singleResponseMode, StringComparison.Ordinal))
+            if (!ContractLiteralCodec.TryParse<IpcResponseMode>(request.ResponseMode, out var responseMode)
+                || responseMode != IpcResponseMode.Single)
             {
-                return CreateResponseModeMismatchResponse(request, singleResponseMode);
+                return CreateResponseModeMismatchResponse(request, IpcResponseMode.Single);
             }
 
             return await methodDispatcher.DispatchAsync(request, cancellationToken);
@@ -69,10 +69,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return validationErrorResponse;
             }
 
-            var streamResponseMode = ContractLiteralCodec.ToValue(IpcResponseMode.Stream);
-            if (!string.Equals(request.ResponseMode, streamResponseMode, StringComparison.Ordinal))
+            if (!ContractLiteralCodec.TryParse<IpcResponseMode>(request.ResponseMode, out var responseMode)
+                || responseMode != IpcResponseMode.Stream)
             {
-                return CreateResponseModeMismatchResponse(request, streamResponseMode);
+                return CreateResponseModeMismatchResponse(request, IpcResponseMode.Stream);
             }
 
             return await methodDispatcher.DispatchStreamingAsync(request, streamWriter, cancellationToken);
@@ -168,12 +168,13 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private static IpcResponse CreateResponseModeMismatchResponse (
             IpcRequest request,
-            string expectedResponseMode)
+            IpcResponseMode expectedResponseMode)
         {
+            var expectedLiteral = ContractLiteralCodec.ToValue(expectedResponseMode);
             return UnityIpcResponseFactory.CreateErrorResponse(
                 request,
                 UcliCoreErrorCodes.InvalidArgument,
-                $"IPC responseMode must be '{expectedResponseMode}' for this request path. Actual: {request.ResponseMode}.",
+                $"IPC responseMode must be '{expectedLiteral}' for this request path. Actual: {request.ResponseMode}.",
                 null);
         }
     }

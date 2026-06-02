@@ -19,11 +19,7 @@ internal sealed class IpcTransportClient : IIpcTransportClient
         ArgumentNullException.ThrowIfNull(request);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         cancellationToken.ThrowIfCancellationRequested();
-        var singleResponseMode = ContractLiteralCodec.ToValue(IpcResponseMode.Single);
-        if (!string.Equals(request.ResponseMode, singleResponseMode, StringComparison.Ordinal))
-        {
-            throw new InvalidOperationException($"IPC SendAsync requires responseMode='{singleResponseMode}'. Actual: {request.ResponseMode}.");
-        }
+        EnsureResponseMode(request, IpcResponseMode.Single, nameof(SendAsync));
 
         using var timeoutCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeoutCancellationTokenSource.CancelAfter(timeout);
@@ -81,11 +77,7 @@ internal sealed class IpcTransportClient : IIpcTransportClient
         ArgumentNullException.ThrowIfNull(onProgressFrame);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         cancellationToken.ThrowIfCancellationRequested();
-        var streamResponseMode = ContractLiteralCodec.ToValue(IpcResponseMode.Stream);
-        if (!string.Equals(request.ResponseMode, streamResponseMode, StringComparison.Ordinal))
-        {
-            throw new InvalidOperationException($"IPC SendStreamingAsync requires responseMode='{streamResponseMode}'. Actual: {request.ResponseMode}.");
-        }
+        EnsureResponseMode(request, IpcResponseMode.Stream, nameof(SendStreamingAsync));
 
         using var timeoutCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeoutCancellationTokenSource.CancelAfter(timeout);
@@ -135,11 +127,7 @@ internal sealed class IpcTransportClient : IIpcTransportClient
         ArgumentNullException.ThrowIfNull(request);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(sendTimeout, TimeSpan.Zero);
         cancellationToken.ThrowIfCancellationRequested();
-        var singleResponseMode = ContractLiteralCodec.ToValue(IpcResponseMode.Single);
-        if (!string.Equals(request.ResponseMode, singleResponseMode, StringComparison.Ordinal))
-        {
-            throw new InvalidOperationException($"IPC SendWithUnboundedResponseWaitAsync requires responseMode='{singleResponseMode}'. Actual: {request.ResponseMode}.");
-        }
+        EnsureResponseMode(request, IpcResponseMode.Single, nameof(SendWithUnboundedResponseWaitAsync));
 
         using var sendTimeoutCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         sendTimeoutCancellationTokenSource.CancelAfter(sendTimeout);
@@ -197,11 +185,7 @@ internal sealed class IpcTransportClient : IIpcTransportClient
         ArgumentNullException.ThrowIfNull(onProgressFrame);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(sendTimeout, TimeSpan.Zero);
         cancellationToken.ThrowIfCancellationRequested();
-        var streamResponseMode = ContractLiteralCodec.ToValue(IpcResponseMode.Stream);
-        if (!string.Equals(request.ResponseMode, streamResponseMode, StringComparison.Ordinal))
-        {
-            throw new InvalidOperationException($"IPC SendStreamingWithUnboundedResponseWaitAsync requires responseMode='{streamResponseMode}'. Actual: {request.ResponseMode}.");
-        }
+        EnsureResponseMode(request, IpcResponseMode.Stream, nameof(SendStreamingWithUnboundedResponseWaitAsync));
 
         using var sendTimeoutCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         sendTimeoutCancellationTokenSource.CancelAfter(sendTimeout);
@@ -255,6 +239,21 @@ internal sealed class IpcTransportClient : IIpcTransportClient
             IpcFrameReadErrorKind.PayloadTruncated => new EndOfStreamException(errorMessage),
             _ => new InvalidDataException(errorMessage),
         };
+    }
+
+    private static void EnsureResponseMode (
+        IpcRequest request,
+        IpcResponseMode expectedResponseMode,
+        string operationName)
+    {
+        if (ContractLiteralCodec.TryParse<IpcResponseMode>(request.ResponseMode, out var responseMode)
+            && responseMode == expectedResponseMode)
+        {
+            return;
+        }
+
+        var expectedLiteral = ContractLiteralCodec.ToValue(expectedResponseMode);
+        throw new InvalidOperationException($"IPC {operationName} requires responseMode='{expectedLiteral}'. Actual: {request.ResponseMode}.");
     }
 
     private static async ValueTask<IpcResponse> ReadStreamingResponseAsync (

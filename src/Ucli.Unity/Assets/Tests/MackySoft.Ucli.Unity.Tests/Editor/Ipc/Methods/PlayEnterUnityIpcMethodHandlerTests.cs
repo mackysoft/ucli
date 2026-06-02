@@ -436,7 +436,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 RequestId: requestId,
                 SessionToken: "session-token",
                 Method: IpcMethodNames.PlayEnter,
-                Payload: IpcPayloadCodec.SerializeToElement(payload));
+                Payload: IpcPayloadCodec.SerializeToElement(payload),
+                responseMode: IpcResponseMode.Single);
         }
 
         private static UnityEditorLifecycleSnapshot CreateReadyStoppedSnapshot (string generation = "1")

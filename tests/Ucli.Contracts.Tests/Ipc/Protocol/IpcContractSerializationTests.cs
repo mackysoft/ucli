@@ -39,7 +39,8 @@ public sealed class IpcContractSerializationTests
             RequestId: "req-1",
             SessionToken: "token",
             Method: "execute",
-            Payload: payload);
+            Payload: payload,
+            responseMode: IpcResponseMode.Single);
 
         using var jsonDocument = JsonDocument.Parse(JsonSerializer.Serialize(request, SerializerOptions));
         JsonAssert.For(jsonDocument.RootElement)

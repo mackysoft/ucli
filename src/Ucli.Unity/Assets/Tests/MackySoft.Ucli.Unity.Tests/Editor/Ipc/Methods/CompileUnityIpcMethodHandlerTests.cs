@@ -172,7 +172,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 Payload: IpcPayloadCodec.SerializeToElement(new IpcCompileRequest(runId)
                 {
                     TimeoutMilliseconds = timeoutMilliseconds,
-                }));
+                }),
+                responseMode: IpcResponseMode.Single);
         }
 
         private static CompileUnityIpcMethodHandler CreateHandler ()
