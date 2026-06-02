@@ -1,7 +1,6 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.LaunchAttempts;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.LaunchAttempts;
@@ -17,7 +16,7 @@ public sealed class DaemonLaunchAttemptStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("daemon-launch-attempt-store", "roundtrip");
         var store = new DaemonLaunchAttemptStore();
-        var attempt = CreateAttempt("20260312_000000Z_00000001", scope.FullPath, startupStatus: DaemonStartupStatusValues.Blocked);
+        var attempt = CreateAttempt("20260312_000000Z_00000001", scope.FullPath, startupStatus: ContractLiteralCodec.ToValue(DaemonStartupStatus.Blocked));
 
         var writeResult = await store.WriteFailureAsync(scope.FullPath, "fingerprint", attempt, CancellationToken.None);
         var readResult = await store.ReadLastFailureAsync(scope.FullPath, "fingerprint", CancellationToken.None);
@@ -26,7 +25,7 @@ public sealed class DaemonLaunchAttemptStoreTests
         Assert.True(readResult.IsSuccess);
         var actual = Assert.IsType<DaemonLaunchAttempt>(readResult.LaunchAttempt);
         Assert.Equal(attempt.LaunchAttemptId, actual.LaunchAttemptId);
-        Assert.Equal(DaemonStartupStatusValues.Blocked, actual.StartupStatus);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupStatus.Blocked), actual.StartupStatus);
         Assert.Equal(attempt.UnityLogPath, actual.UnityLogPath);
         Assert.Equal(attempt.UnityLogPath, actual.Diagnosis.UnityLogPath);
         Assert.EndsWith(
@@ -42,8 +41,8 @@ public sealed class DaemonLaunchAttemptStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("daemon-launch-attempt-store", "completed-hidden");
         var store = new DaemonLaunchAttemptStore();
-        var failed = CreateAttempt("20260312_000000Z_00000001", scope.FullPath, startupStatus: DaemonStartupStatusValues.Failed);
-        var completed = CreateAttempt("20260312_000001Z_00000002", scope.FullPath, startupStatus: DaemonStartupStatusValues.Completed);
+        var failed = CreateAttempt("20260312_000000Z_00000001", scope.FullPath, startupStatus: ContractLiteralCodec.ToValue(DaemonStartupStatus.Failed));
+        var completed = CreateAttempt("20260312_000001Z_00000002", scope.FullPath, startupStatus: ContractLiteralCodec.ToValue(DaemonStartupStatus.Completed));
 
         Assert.True((await store.WriteFailureAsync(scope.FullPath, "fingerprint", failed, CancellationToken.None)).IsSuccess);
         Assert.True((await store.WriteFailureAsync(scope.FullPath, "fingerprint", completed, CancellationToken.None)).IsSuccess);
@@ -66,8 +65,8 @@ public sealed class DaemonLaunchAttemptStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("daemon-launch-attempt-store", "stable-order");
         var store = new DaemonLaunchAttemptStore();
-        var older = CreateAttempt("20260312_000000Z_00000001", scope.FullPath, startupStatus: DaemonStartupStatusValues.Failed);
-        var newer = CreateAttempt("20260312_000001Z_00000002", scope.FullPath, startupStatus: DaemonStartupStatusValues.Failed, minuteOffset: 1);
+        var older = CreateAttempt("20260312_000000Z_00000001", scope.FullPath, startupStatus: ContractLiteralCodec.ToValue(DaemonStartupStatus.Failed));
+        var newer = CreateAttempt("20260312_000001Z_00000002", scope.FullPath, startupStatus: ContractLiteralCodec.ToValue(DaemonStartupStatus.Failed), minuteOffset: 1);
 
         Assert.True((await store.WriteFailureAsync(scope.FullPath, "fingerprint", newer, CancellationToken.None)).IsSuccess);
         Assert.True((await store.WriteFailureAsync(scope.FullPath, "fingerprint", older, CancellationToken.None)).IsSuccess);
@@ -90,8 +89,8 @@ public sealed class DaemonLaunchAttemptStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("daemon-launch-attempt-store", "same-second-order");
         var store = new DaemonLaunchAttemptStore();
-        var older = CreateAttempt("20260312_000000Z_ffffffff", scope.FullPath, startupStatus: DaemonStartupStatusValues.Failed);
-        var newer = CreateAttempt("20260312_000000Z_00000000", scope.FullPath, startupStatus: DaemonStartupStatusValues.Failed, minuteOffset: 1);
+        var older = CreateAttempt("20260312_000000Z_ffffffff", scope.FullPath, startupStatus: ContractLiteralCodec.ToValue(DaemonStartupStatus.Failed));
+        var newer = CreateAttempt("20260312_000000Z_00000000", scope.FullPath, startupStatus: ContractLiteralCodec.ToValue(DaemonStartupStatus.Failed), minuteOffset: 1);
 
         Assert.True((await store.WriteFailureAsync(scope.FullPath, "fingerprint", older, CancellationToken.None)).IsSuccess);
         Assert.True((await store.WriteFailureAsync(scope.FullPath, "fingerprint", newer, CancellationToken.None)).IsSuccess);
@@ -167,7 +166,7 @@ public sealed class DaemonLaunchAttemptStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("daemon-launch-attempt-store", "invalid-vocabulary");
         var store = new DaemonLaunchAttemptStore();
-        var attempt = CreateAttempt("20260312_000000Z_00000001", scope.FullPath, startupStatus: DaemonStartupStatusValues.Failed);
+        var attempt = CreateAttempt("20260312_000000Z_00000001", scope.FullPath, startupStatus: ContractLiteralCodec.ToValue(DaemonStartupStatus.Failed));
         Assert.True((await store.WriteFailureAsync(scope.FullPath, "fingerprint", attempt, CancellationToken.None)).IsSuccess);
         var json = await File.ReadAllTextAsync(attempt.ArtifactPath, CancellationToken.None);
         Assert.Contains(oldValue, json, StringComparison.Ordinal);
@@ -187,7 +186,7 @@ public sealed class DaemonLaunchAttemptStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("daemon-launch-attempt-store", "invalid-id");
         var store = new DaemonLaunchAttemptStore();
-        var attempt = CreateAttempt("20260312_000000Z_00000001", scope.FullPath, startupStatus: DaemonStartupStatusValues.Failed) with
+        var attempt = CreateAttempt("20260312_000000Z_00000001", scope.FullPath, startupStatus: ContractLiteralCodec.ToValue(DaemonStartupStatus.Failed)) with
         {
             LaunchAttemptId = " ",
         };
@@ -208,7 +207,7 @@ public sealed class DaemonLaunchAttemptStoreTests
         for (var i = 0; i < 21; i++)
         {
             var id = $"20260312_0000{i:00}Z_{i:00000000}";
-            var attempt = CreateAttempt(id, scope.FullPath, startupStatus: DaemonStartupStatusValues.Failed, minuteOffset: i);
+            var attempt = CreateAttempt(id, scope.FullPath, startupStatus: ContractLiteralCodec.ToValue(DaemonStartupStatus.Failed), minuteOffset: i);
             Assert.True((await store.WriteFailureAsync(scope.FullPath, "fingerprint", attempt, CancellationToken.None)).IsSuccess);
             Directory.SetLastWriteTimeUtc(
                 UcliStoragePathResolver.ResolveLaunchAttemptDirectory(scope.FullPath, "fingerprint", id),
@@ -230,8 +229,8 @@ public sealed class DaemonLaunchAttemptStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("daemon-launch-attempt-store", "retention-stable-order");
         var store = new DaemonLaunchAttemptStore();
-        var older = CreateAttempt("20260312_000000Z_00000001", scope.FullPath, startupStatus: DaemonStartupStatusValues.Failed);
-        var newer = CreateAttempt("20260312_000001Z_00000002", scope.FullPath, startupStatus: DaemonStartupStatusValues.Failed, minuteOffset: 1);
+        var older = CreateAttempt("20260312_000000Z_00000001", scope.FullPath, startupStatus: ContractLiteralCodec.ToValue(DaemonStartupStatus.Failed));
+        var newer = CreateAttempt("20260312_000001Z_00000002", scope.FullPath, startupStatus: ContractLiteralCodec.ToValue(DaemonStartupStatus.Failed), minuteOffset: 1);
         Assert.True((await store.WriteFailureAsync(scope.FullPath, "fingerprint", newer, CancellationToken.None)).IsSuccess);
         Assert.True((await store.WriteFailureAsync(scope.FullPath, "fingerprint", older, CancellationToken.None)).IsSuccess);
         Directory.SetLastWriteTimeUtc(
@@ -252,8 +251,8 @@ public sealed class DaemonLaunchAttemptStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("daemon-launch-attempt-store", "retention-same-second-order");
         var store = new DaemonLaunchAttemptStore();
-        var older = CreateAttempt("20260312_000000Z_ffffffff", scope.FullPath, startupStatus: DaemonStartupStatusValues.Failed);
-        var newer = CreateAttempt("20260312_000000Z_00000000", scope.FullPath, startupStatus: DaemonStartupStatusValues.Failed, minuteOffset: 1);
+        var older = CreateAttempt("20260312_000000Z_ffffffff", scope.FullPath, startupStatus: ContractLiteralCodec.ToValue(DaemonStartupStatus.Failed));
+        var newer = CreateAttempt("20260312_000000Z_00000000", scope.FullPath, startupStatus: ContractLiteralCodec.ToValue(DaemonStartupStatus.Failed), minuteOffset: 1);
         Assert.True((await store.WriteFailureAsync(scope.FullPath, "fingerprint", older, CancellationToken.None)).IsSuccess);
         Assert.True((await store.WriteFailureAsync(scope.FullPath, "fingerprint", newer, CancellationToken.None)).IsSuccess);
 
@@ -271,8 +270,8 @@ public sealed class DaemonLaunchAttemptStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("daemon-launch-attempt-store", "retention-invalid-json");
         var store = new DaemonLaunchAttemptStore();
-        var older = CreateAttempt("20260312_000000Z_00000001", scope.FullPath, startupStatus: DaemonStartupStatusValues.Failed);
-        var newer = CreateAttempt("20260312_000001Z_00000002", scope.FullPath, startupStatus: DaemonStartupStatusValues.Failed, minuteOffset: 1);
+        var older = CreateAttempt("20260312_000000Z_00000001", scope.FullPath, startupStatus: ContractLiteralCodec.ToValue(DaemonStartupStatus.Failed));
+        var newer = CreateAttempt("20260312_000001Z_00000002", scope.FullPath, startupStatus: ContractLiteralCodec.ToValue(DaemonStartupStatus.Failed), minuteOffset: 1);
         Assert.True((await store.WriteFailureAsync(scope.FullPath, "fingerprint", older, CancellationToken.None)).IsSuccess);
         Assert.True((await store.WriteFailureAsync(scope.FullPath, "fingerprint", newer, CancellationToken.None)).IsSuccess);
         await File.WriteAllTextAsync(older.ArtifactPath, "{ invalid json", CancellationToken.None);
@@ -390,7 +389,7 @@ public sealed class DaemonLaunchAttemptStoreTests
             SessionIssuedAtUtc: updatedAtUtc,
             ProcessStartedAtUtc: updatedAtUtc,
             UnityLogPath: unityLogPath,
-            StartupPhase: DaemonDiagnosisStartupPhaseValues.EndpointRegistration,
+            StartupPhase: ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.EndpointRegistration),
             ActionRequired: DaemonDiagnosisActionRequiredValues.InspectUnityLog,
             PrimaryDiagnostic: new DaemonPrimaryDiagnostic(
                 Kind: DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler,
@@ -404,9 +403,9 @@ public sealed class DaemonLaunchAttemptStoreTests
             StartedAtUtc: updatedAtUtc,
             UpdatedAtUtc: updatedAtUtc,
             StartupStatus: startupStatus,
-            StartupBlockingReason: DaemonStartupBlockingReasonValues.Unknown,
-            RetryDisposition: DaemonStartupRetryDispositionValues.Unknown,
-            ProcessAction: DaemonStartupProcessActionValues.None,
+            StartupBlockingReason: ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Unknown),
+            RetryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.Unknown),
+            ProcessAction: ContractLiteralCodec.ToValue(DaemonStartupProcessAction.None),
             EditorMode: "gui",
             ProcessId: 1234,
             ProcessStartedAtUtc: updatedAtUtc,

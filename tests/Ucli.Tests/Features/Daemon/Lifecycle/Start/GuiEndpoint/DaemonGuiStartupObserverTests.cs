@@ -5,7 +5,6 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Identity;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Logs;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Timing;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
 using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
@@ -95,13 +94,13 @@ public sealed class DaemonGuiStartupObserverTests
 
         Assert.True(result.IsBlocked);
         Assert.NotNull(result.Blocker);
-        Assert.Equal(DaemonStartupBlockingReasonValues.Compile, result.Blocker!.StartupBlockingReason);
-        Assert.Equal(DaemonStartupRetryDispositionValues.RetryAfterFix, result.Blocker.RetryDisposition);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Compile), result.Blocker!.StartupBlockingReason);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix), result.Blocker.RetryDisposition);
         Assert.Equal(DaemonDiagnosisReasonValues.UnityScriptCompilationFailed, result.Blocker.Reason);
         Assert.Equal(DaemonDiagnosisActionRequiredValues.FixCompileErrors, result.Blocker.ActionRequired);
         Assert.Equal(processStartedAtUtc, result.Blocker.ProcessStartedAtUtc);
         Assert.NotNull(result.Blocker.PrimaryDiagnostic);
-        Assert.Equal(DaemonDiagnosisStartupPhaseValues.ScriptCompilation, result.Blocker.StartupPhase);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.ScriptCompilation), result.Blocker.StartupPhase);
         Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler, result.Blocker.PrimaryDiagnostic!.Kind);
         Assert.Equal("CS1739", result.Blocker.PrimaryDiagnostic!.Code);
         Assert.Equal("Assets/Foo.cs", result.Blocker.PrimaryDiagnostic.File);
@@ -114,42 +113,42 @@ public sealed class DaemonGuiStartupObserverTests
     [Trait("Size", "Small")]
     [InlineData(
         "An error occurred while resolving packages:\nProject has invalid dependencies:\ncom.example.missing: Package cannot be found\n",
-        DaemonStartupBlockingReasonValues.PackageResolution,
+        DaemonStartupBlockingReason.PackageResolution,
         DaemonDiagnosisReasonValues.UnityPackageResolutionFailed,
-        DaemonStartupRetryDispositionValues.RetryAfterFix,
-        DaemonDiagnosisStartupPhaseValues.PackageResolution,
+        DaemonStartupRetryDisposition.RetryAfterFix,
+        DaemonDiagnosisStartupPhase.PackageResolution,
         DaemonDiagnosisActionRequiredValues.ResolvePackages,
         DaemonDiagnosisPrimaryDiagnosticKindValues.PackageResolution)]
     [InlineData(
         "Unity Editor entered Safe Mode and is waiting for user action.\n",
-        DaemonStartupBlockingReasonValues.SafeMode,
+        DaemonStartupBlockingReason.SafeMode,
         DaemonDiagnosisReasonValues.EditorUserActionRequired,
-        DaemonStartupRetryDispositionValues.ManualActionRequired,
-        DaemonDiagnosisStartupPhaseValues.UserAction,
+        DaemonStartupRetryDisposition.ManualActionRequired,
+        DaemonDiagnosisStartupPhase.UserAction,
         DaemonDiagnosisActionRequiredValues.ResolveUnityDialog,
         DaemonDiagnosisPrimaryDiagnosticKindValues.UnityDialog)]
     [InlineData(
         "Could not load file or assembly 'MackySoft.Ucli.Infrastructure'\n",
-        DaemonStartupBlockingReasonValues.UcliPlugin,
+        DaemonStartupBlockingReason.UcliPlugin,
         DaemonDiagnosisReasonValues.UcliPluginDependencyMissing,
-        DaemonStartupRetryDispositionValues.RetryAfterFix,
-        DaemonDiagnosisStartupPhaseValues.ScriptCompilation,
+        DaemonStartupRetryDisposition.RetryAfterFix,
+        DaemonDiagnosisStartupPhase.ScriptCompilation,
         DaemonDiagnosisActionRequiredValues.ResolvePackages,
         DaemonDiagnosisPrimaryDiagnosticKindValues.PluginDependency)]
     [InlineData(
         "Multiple precompiled assemblies with the same name Newtonsoft.Json.dll included on the current platform.\n",
-        DaemonStartupBlockingReasonValues.PrecompiledAssemblyConflict,
+        DaemonStartupBlockingReason.PrecompiledAssemblyConflict,
         DaemonDiagnosisReasonValues.PrecompiledAssemblyConflict,
-        DaemonStartupRetryDispositionValues.RetryAfterFix,
-        DaemonDiagnosisStartupPhaseValues.ScriptCompilation,
+        DaemonStartupRetryDisposition.RetryAfterFix,
+        DaemonDiagnosisStartupPhase.ScriptCompilation,
         DaemonDiagnosisActionRequiredValues.FixCompileErrors,
         DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler)]
     public async Task WaitForStartup_WhenClassifiedStartupBlockerAppearsInLog_ReturnsExpectedBlocker (
         string logText,
-        string expectedStartupBlockingReason,
+        DaemonStartupBlockingReason expectedStartupBlockingReason,
         string expectedReason,
-        string expectedRetryDisposition,
-        string expectedStartupPhase,
+        DaemonStartupRetryDisposition expectedRetryDisposition,
+        DaemonDiagnosisStartupPhase expectedStartupPhase,
         string expectedActionRequired,
         string expectedPrimaryDiagnosticKind)
     {
@@ -174,10 +173,10 @@ public sealed class DaemonGuiStartupObserverTests
 
         Assert.True(result.IsBlocked);
         Assert.NotNull(result.Blocker);
-        Assert.Equal(expectedStartupBlockingReason, result.Blocker!.StartupBlockingReason);
+        Assert.Equal(ContractLiteralCodec.ToValue(expectedStartupBlockingReason), result.Blocker!.StartupBlockingReason);
         Assert.Equal(expectedReason, result.Blocker!.Reason);
-        Assert.Equal(expectedRetryDisposition, result.Blocker.RetryDisposition);
-        Assert.Equal(expectedStartupPhase, result.Blocker.StartupPhase);
+        Assert.Equal(ContractLiteralCodec.ToValue(expectedRetryDisposition), result.Blocker.RetryDisposition);
+        Assert.Equal(ContractLiteralCodec.ToValue(expectedStartupPhase), result.Blocker.StartupPhase);
         Assert.Equal(expectedActionRequired, result.Blocker.ActionRequired);
         Assert.Equal(expectedPrimaryDiagnosticKind, result.Blocker.PrimaryDiagnostic!.Kind);
     }
@@ -214,8 +213,8 @@ public sealed class DaemonGuiStartupObserverTests
 
         Assert.True(result.IsBlocked);
         Assert.NotNull(result.Blocker);
-        Assert.Equal(DaemonStartupBlockingReasonValues.ProcessExit, result.Blocker!.StartupBlockingReason);
-        Assert.Equal(DaemonStartupRetryDispositionValues.Unknown, result.Blocker.RetryDisposition);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.ProcessExit), result.Blocker!.StartupBlockingReason);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.Unknown), result.Blocker.RetryDisposition);
         Assert.Equal(DaemonDiagnosisReasonValues.EditorExitedBeforeBootstrap, result.Blocker.Reason);
         Assert.Equal(DaemonDiagnosisActionRequiredValues.InspectUnityLog, result.Blocker.ActionRequired);
         Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKindValues.ProcessExit, result.Blocker.PrimaryDiagnostic!.Kind);
@@ -257,8 +256,8 @@ public sealed class DaemonGuiStartupObserverTests
 
         Assert.True(result.IsBlocked);
         Assert.NotNull(result.Blocker);
-        Assert.Equal(DaemonStartupBlockingReasonValues.Compile, result.Blocker!.StartupBlockingReason);
-        Assert.Equal(DaemonStartupRetryDispositionValues.RetryAfterFix, result.Blocker.RetryDisposition);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Compile), result.Blocker!.StartupBlockingReason);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix), result.Blocker.RetryDisposition);
         Assert.Equal(DaemonDiagnosisReasonValues.UnityScriptCompilationFailed, result.Blocker.Reason);
         Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler, result.Blocker.PrimaryDiagnostic!.Kind);
     }

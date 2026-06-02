@@ -1,9 +1,7 @@
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Startup;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
 using MackySoft.Ucli.Contracts.Storage;
-
 using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
@@ -37,7 +35,7 @@ internal static class StartupFailureDetailFactory
             ActionRequired: classification.ActionRequired,
             PrimaryDiagnostic: ToOutput(classification.PrimaryDiagnostic));
         var startup = new DaemonStartupObservationOutput(
-            StartupStatus: DaemonStartupStatusValues.Blocked,
+            StartupStatus: ContractLiteralCodec.ToValue(DaemonStartupStatus.Blocked),
             StartupBlockingReason: classification.StartupBlockingReason,
             LaunchAttemptId: null,
             EditorMode: ContractLiteralCodec.ToValue(DaemonEditorMode.Batchmode),
@@ -46,7 +44,7 @@ internal static class StartupFailureDetailFactory
             ProcessId: processId,
             StartedAtUtc: processStartedAtUtc,
             ElapsedMilliseconds: null,
-            ProcessAction: DaemonStartupProcessActionValues.Unknown,
+            ProcessAction: ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Unknown),
             ProcessTermination: null,
             ArtifactPath: null,
             RetryDisposition: classification.RetryDisposition);
@@ -55,7 +53,7 @@ internal static class StartupFailureDetailFactory
             startup,
             diagnosis,
             classification.RetryDisposition,
-            string.Equals(classification.RetryDisposition, DaemonStartupRetryDispositionValues.RetryImmediately, StringComparison.Ordinal));
+            string.Equals(classification.RetryDisposition, ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryImmediately), StringComparison.Ordinal));
     }
 
     /// <summary> Creates a detail for an endpoint that never became reachable before the command timeout. </summary>
@@ -78,12 +76,12 @@ internal static class StartupFailureDetailFactory
             EditorInstancePath: null,
             ProcessStartedAtUtc: processStartedAtUtc,
             UnityLogPath: unityLogPath,
-            StartupPhase: DaemonDiagnosisStartupPhaseValues.EndpointRegistration,
+            StartupPhase: ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.EndpointRegistration),
             ActionRequired: null,
             PrimaryDiagnostic: null);
         var startup = new DaemonStartupObservationOutput(
-            StartupStatus: DaemonStartupStatusValues.Timeout,
-            StartupBlockingReason: DaemonStartupBlockingReasonValues.EndpointNotRegistered,
+            StartupStatus: ContractLiteralCodec.ToValue(DaemonStartupStatus.Timeout),
+            StartupBlockingReason: ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.EndpointNotRegistered),
             LaunchAttemptId: null,
             EditorMode: ContractLiteralCodec.ToValue(DaemonEditorMode.Batchmode),
             OwnerKind: ContractLiteralCodec.ToValue(DaemonSessionOwnerKind.Cli),
@@ -91,15 +89,15 @@ internal static class StartupFailureDetailFactory
             ProcessId: processId,
             StartedAtUtc: processStartedAtUtc,
             ElapsedMilliseconds: null,
-            ProcessAction: DaemonStartupProcessActionValues.Unknown,
+            ProcessAction: ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Unknown),
             ProcessTermination: null,
             ArtifactPath: null,
-            RetryDisposition: DaemonStartupRetryDispositionValues.Unknown);
+            RetryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.Unknown));
 
         return new StartupFailureDetail(
             startup,
             diagnosis,
-            DaemonStartupRetryDispositionValues.Unknown,
+            ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.Unknown),
             false);
     }
 
@@ -123,12 +121,12 @@ internal static class StartupFailureDetailFactory
             EditorInstancePath: null,
             ProcessStartedAtUtc: processStartedAtUtc,
             UnityLogPath: unityLogPath,
-            StartupPhase: DaemonDiagnosisStartupPhaseValues.ProcessExit,
+            StartupPhase: ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.ProcessExit),
             ActionRequired: null,
             PrimaryDiagnostic: null);
         var startup = new DaemonStartupObservationOutput(
-            StartupStatus: DaemonStartupStatusValues.Failed,
-            StartupBlockingReason: DaemonStartupBlockingReasonValues.ProcessExit,
+            StartupStatus: ContractLiteralCodec.ToValue(DaemonStartupStatus.Failed),
+            StartupBlockingReason: ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.ProcessExit),
             LaunchAttemptId: null,
             EditorMode: ContractLiteralCodec.ToValue(DaemonEditorMode.Batchmode),
             OwnerKind: ContractLiteralCodec.ToValue(DaemonSessionOwnerKind.Cli),
@@ -136,15 +134,15 @@ internal static class StartupFailureDetailFactory
             ProcessId: processId,
             StartedAtUtc: processStartedAtUtc,
             ElapsedMilliseconds: null,
-            ProcessAction: DaemonStartupProcessActionValues.Unknown,
+            ProcessAction: ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Unknown),
             ProcessTermination: null,
             ArtifactPath: null,
-            RetryDisposition: DaemonStartupRetryDispositionValues.Unknown);
+            RetryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.Unknown));
 
         return new StartupFailureDetail(
             startup,
             diagnosis,
-            DaemonStartupRetryDispositionValues.Unknown,
+            ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.Unknown),
             false);
     }
 

@@ -2,7 +2,6 @@ using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
@@ -1095,10 +1094,10 @@ public sealed class SupervisorRequestDispatcherTests
     private static DaemonStartupObservation CreateStartupObservation ()
     {
         return new DaemonStartupObservation(
-            StartupStatus: DaemonStartupStatusValues.Blocked,
-            StartupBlockingReason: DaemonStartupBlockingReasonValues.Compile,
+            StartupStatus: ContractLiteralCodec.ToValue(DaemonStartupStatus.Blocked),
+            StartupBlockingReason: ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Compile),
             LaunchAttemptId: null,
-            ProcessAction: DaemonStartupProcessActionValues.Kept,
-            RetryDisposition: DaemonStartupRetryDispositionValues.RetryAfterFix);
+            ProcessAction: ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Kept),
+            RetryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix));
     }
 }

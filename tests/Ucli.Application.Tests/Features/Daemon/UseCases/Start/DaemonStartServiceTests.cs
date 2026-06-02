@@ -2,7 +2,6 @@ using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
 using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Startup;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
 using MackySoft.Ucli.Application.Shared.Execution.Progress;
@@ -359,11 +358,11 @@ public sealed class DaemonStartServiceTests
             DaemonCommandExecutionContextResolutionResult.Success(context));
         var mapper = new DaemonServiceTestContext.StubDaemonSessionOutputMapper();
         var startup = new DaemonStartupObservation(
-            StartupStatus: DaemonStartupStatusValues.Blocked,
-            StartupBlockingReason: DaemonStartupBlockingReasonValues.Compile,
+            StartupStatus: ContractLiteralCodec.ToValue(DaemonStartupStatus.Blocked),
+            StartupBlockingReason: ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Compile),
             LaunchAttemptId: "20260312_040500Z_00abcdef",
-            ProcessAction: DaemonStartupProcessActionValues.Kept,
-            RetryDisposition: DaemonStartupRetryDispositionValues.RetryAfterFix);
+            ProcessAction: ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Kept),
+            RetryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix));
         var supervisorProjectGateway = new DaemonServiceTestContext.StubSupervisorProjectGateway
         {
             EnsureRunningResult = DaemonStartResult.Failure(
@@ -394,7 +393,7 @@ public sealed class DaemonStartServiceTests
         Assert.Equal(startup.StartupBlockingReason, failureOutput.Startup!.StartupBlockingReason);
         Assert.Equal(startup.RetryDisposition, failureOutput.Startup.RetryDisposition);
         Assert.Equal(diagnosisOutputMapper.Output, failureOutput.Diagnosis);
-        Assert.Equal(DaemonStartupRetryDispositionValues.RetryAfterFix, failureOutput.RetryDisposition);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix), failureOutput.RetryDisposition);
         Assert.False(failureOutput.SafeToRetryImmediately);
         Assert.Equal(1, diagnosisOutputMapper.CallCount);
     }

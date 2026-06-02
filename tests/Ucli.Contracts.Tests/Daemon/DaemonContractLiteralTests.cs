@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Contracts.Daemon;
-
 using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Tests.Daemon;
@@ -160,6 +159,19 @@ public sealed class DaemonContractLiteralTests
 
     [Theory]
     [Trait("Size", "Small")]
+    [InlineData(DaemonStartupProcessAction.None, "none")]
+    [InlineData(DaemonStartupProcessAction.Kept, "kept")]
+    [InlineData(DaemonStartupProcessAction.Terminated, "terminated")]
+    [InlineData(DaemonStartupProcessAction.Unknown, "unknown")]
+    public void DaemonStartupProcessActionContractLiteral_ToValue_ReturnsCanonicalLiteral (
+        DaemonStartupProcessAction processAction,
+        string expectedValue)
+    {
+        Assert.Equal(expectedValue, ContractLiteralCodec.ToValue(processAction));
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
     [InlineData("launching")]
     [InlineData("compile")]
     [InlineData("retryAfterFix")]
@@ -167,7 +179,8 @@ public sealed class DaemonContractLiteralTests
     {
         var isDefined = ContractLiteralCodec.IsDefined<DaemonStartupStatus>(value)
             || ContractLiteralCodec.IsDefined<DaemonStartupBlockingReason>(value)
-            || ContractLiteralCodec.IsDefined<DaemonStartupRetryDisposition>(value);
+            || ContractLiteralCodec.IsDefined<DaemonStartupRetryDisposition>(value)
+            || ContractLiteralCodec.IsDefined<DaemonStartupProcessAction>(value);
 
         Assert.True(isDefined);
     }
@@ -181,7 +194,8 @@ public sealed class DaemonContractLiteralTests
     {
         var isDefined = ContractLiteralCodec.IsDefined<DaemonStartupStatus>(value)
             || ContractLiteralCodec.IsDefined<DaemonStartupBlockingReason>(value)
-            || ContractLiteralCodec.IsDefined<DaemonStartupRetryDisposition>(value);
+            || ContractLiteralCodec.IsDefined<DaemonStartupRetryDisposition>(value)
+            || ContractLiteralCodec.IsDefined<DaemonStartupProcessAction>(value);
 
         Assert.False(isDefined);
     }

@@ -25,10 +25,10 @@ public sealed class DaemonDiagnosisStartupPhaseContractLiteralTests
     [InlineData(" endpointRegistration ", false)]
     [InlineData("SCRIPT_COMPILATION", false)]
     [InlineData("unsupported", false)]
-    public void IsSupported_UsesCanonicalContractLiteral (
+    public void IsDefined_UsesCanonicalContractLiteral (
         string value,
         bool expectedResult)
     {
-        Assert.Equal(expectedResult, DaemonDiagnosisStartupPhaseValues.IsSupported(value));
+        Assert.Equal(expectedResult, ContractLiteralCodec.IsDefined<DaemonDiagnosisStartupPhase>(value));
     }
 }

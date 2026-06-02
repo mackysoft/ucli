@@ -111,7 +111,7 @@ public sealed class DaemonDiagnosisStoreTests
             SessionIssuedAtUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 1, TimeSpan.Zero),
             ProcessStartedAtUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 2, TimeSpan.Zero),
             UnityLogPath: null,
-            StartupPhase: DaemonDiagnosisStartupPhaseValues.ScriptCompilation,
+            StartupPhase: ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.ScriptCompilation),
             ActionRequired: DaemonDiagnosisActionRequiredValues.FixCompileErrors,
             PrimaryDiagnostic: new DaemonDiagnosisPrimaryDiagnosticJsonContract(
                 Kind: "unknownDiagnosticKind",
@@ -146,7 +146,7 @@ public sealed class DaemonDiagnosisStoreTests
             SessionIssuedAtUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 1, TimeSpan.Zero),
             ProcessStartedAtUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 2, TimeSpan.Zero),
             UnityLogPath: "/repo/.ucli/local/fingerprints/fingerprint-roundtrip/unity.log",
-            StartupPhase: DaemonDiagnosisStartupPhaseValues.ScriptCompilation,
+            StartupPhase: ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.ScriptCompilation),
             ActionRequired: DaemonDiagnosisActionRequiredValues.FixCompileErrors,
             PrimaryDiagnostic: new DaemonPrimaryDiagnostic(
                 Kind: DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler,

@@ -1,8 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
-
 using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiEndpoint;
@@ -42,7 +40,7 @@ internal static class DaemonGuiRebootstrapUnavailableFailureFactory
             SessionIssuedAtUtc: timeProvider.GetUtcNow(),
             ProcessStartedAtUtc: processStartedAtUtc,
             UnityLogPath: null,
-            StartupPhase: DaemonDiagnosisStartupPhaseValues.EndpointRegistration,
+            StartupPhase: ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.EndpointRegistration),
             ActionRequired: DaemonDiagnosisActionRequiredValues.InspectUnityLog);
         var diagnosisWriteResult = await daemonDiagnosisStore.WriteAsync(
                 unityProject.RepositoryRoot,
@@ -64,11 +62,11 @@ internal static class DaemonGuiRebootstrapUnavailableFailureFactory
             canShutdownProcess: false,
             processId);
         var startup = new DaemonStartupObservation(
-            StartupStatus: DaemonStartupStatusValues.Failed,
-            StartupBlockingReason: DaemonStartupBlockingReasonValues.EndpointNotRegistered,
+            StartupStatus: ContractLiteralCodec.ToValue(DaemonStartupStatus.Failed),
+            StartupBlockingReason: ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.EndpointNotRegistered),
             LaunchAttemptId: null,
             ProcessAction: policyResolution.ProcessActionWhenNotTerminated,
-            RetryDisposition: DaemonStartupRetryDispositionValues.Unknown,
+            RetryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.Unknown),
             EditorMode: ContractLiteralCodec.ToValue(DaemonEditorMode.Gui),
             OwnerKind: ContractLiteralCodec.ToValue(DaemonSessionOwnerKind.User),
             CanShutdownProcess: false,

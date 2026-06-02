@@ -156,9 +156,9 @@ public sealed class SupervisorProjectGatewayTests
                                 true,
                                 1234,
                                 null,
-                                DaemonStartupStatusValues.WaitingForEndpoint,
+                                ContractLiteralCodec.ToValue(DaemonStartupStatus.WaitingForEndpoint),
                                 null,
-                                DaemonDiagnosisStartupPhaseValues.EndpointRegistration,
+                                ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.EndpointRegistration),
                                 null,
                                 null,
                                 null)),
@@ -199,7 +199,7 @@ public sealed class SupervisorProjectGatewayTests
         Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartProgressEvent.WaitingForEndpoint), progress.EventName);
         var progressPayload = Assert.IsType<DaemonStartStartupObservationProgressEntry>(progress.Payload);
         Assert.Equal("fingerprint", progressPayload.ProjectFingerprint);
-        Assert.Equal(DaemonStartupStatusValues.WaitingForEndpoint, progressPayload.StartupStatus);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupStatus.WaitingForEndpoint), progressPayload.StartupStatus);
         Assert.Equal(2, transportClient.Calls.Count);
         Assert.True(transportClient.Calls[1].UsesUnboundedResponseWait);
     }

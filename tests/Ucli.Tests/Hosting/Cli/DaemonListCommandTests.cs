@@ -48,7 +48,7 @@ public sealed class DaemonListCommandTests
                 EditorInstancePath: null,
                 ProcessStartedAtUtc: new DateTimeOffset(2026, 03, 09, 11, 59, 0, TimeSpan.Zero),
                 UnityLogPath: "/repo/wt-a/.ucli/local/fingerprints/fp-a/unity.log",
-                StartupPhase: DaemonDiagnosisStartupPhaseValues.EndpointRegistration,
+                StartupPhase: ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.EndpointRegistration),
                 ActionRequired: DaemonDiagnosisActionRequiredValues.InspectUnityLog,
                 PrimaryDiagnostic: new DaemonPrimaryDiagnosticOutput(
                     Kind: DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler,
@@ -102,7 +102,7 @@ public sealed class DaemonListCommandTests
                         .HasInt32("processId", 1234)
                         .HasString("processStartedAtUtc", "2026-03-09T11:59:00+00:00")
                         .HasString("unityLogPath", "/repo/wt-a/.ucli/local/fingerprints/fp-a/unity.log")
-                        .HasString("startupPhase", DaemonDiagnosisStartupPhaseValues.EndpointRegistration)
+                        .HasString("startupPhase", ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.EndpointRegistration))
                         .HasString("actionRequired", DaemonDiagnosisActionRequiredValues.InspectUnityLog)
                         .HasProperty("primaryDiagnostic", primaryDiagnostic => primaryDiagnostic
                             .HasString("kind", DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler)

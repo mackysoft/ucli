@@ -26,7 +26,7 @@ internal static class DaemonStartupBlockedProcessPolicyResolver
         {
             return new DaemonStartupBlockedProcessPolicyResolution(
                 ShouldTerminateProcess: false,
-                ProcessActionWhenNotTerminated: DaemonStartupProcessActionValues.None);
+                ProcessActionWhenNotTerminated: ContractLiteralCodec.ToValue(DaemonStartupProcessAction.None));
         }
 
         if (!canShutdownProcess || string.Equals(ownerKind, ContractLiteralCodec.ToValue(DaemonSessionOwnerKind.User), StringComparison.Ordinal))
@@ -68,13 +68,13 @@ internal static class DaemonStartupBlockedProcessPolicyResolver
     {
         return new DaemonStartupBlockedProcessPolicyResolution(
             ShouldTerminateProcess: false,
-            ProcessActionWhenNotTerminated: DaemonStartupProcessActionValues.Kept);
+            ProcessActionWhenNotTerminated: ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Kept));
     }
 
     private static DaemonStartupBlockedProcessPolicyResolution Terminate ()
     {
         return new DaemonStartupBlockedProcessPolicyResolution(
             ShouldTerminateProcess: true,
-            ProcessActionWhenNotTerminated: DaemonStartupProcessActionValues.Unknown);
+            ProcessActionWhenNotTerminated: ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Unknown));
     }
 }

@@ -104,7 +104,7 @@ public sealed class DaemonStatusCommandTests
             EditorInstancePath: null,
             ProcessStartedAtUtc: new DateTimeOffset(2026, 03, 12, 4, 5, 0, TimeSpan.Zero),
             UnityLogPath: "/repo/.ucli/local/fingerprints/fp/unity.log",
-            StartupPhase: DaemonDiagnosisStartupPhaseValues.EndpointRegistration,
+            StartupPhase: ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.EndpointRegistration),
             ActionRequired: DaemonDiagnosisActionRequiredValues.InspectUnityLog,
             PrimaryDiagnostic: null);
         var launchAttempt = new DaemonLaunchAttemptOutput(
@@ -164,7 +164,7 @@ public sealed class DaemonStatusCommandTests
                     .HasProperty("diagnosis", diagnosisJson => diagnosisJson
                         .HasString("reason", DaemonDiagnosisReasonValues.GuiEndpointNotRegistered)
                         .HasString("unityLogPath", "/repo/.ucli/local/fingerprints/fp/unity.log")
-                        .HasString("startupPhase", DaemonDiagnosisStartupPhaseValues.EndpointRegistration)
+                        .HasString("startupPhase", ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.EndpointRegistration))
                         .HasString("actionRequired", DaemonDiagnosisActionRequiredValues.InspectUnityLog))));
 
         var payloadJson = outputJson.RootElement.GetProperty("payload");

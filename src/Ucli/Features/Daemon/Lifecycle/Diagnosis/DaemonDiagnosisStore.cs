@@ -352,7 +352,7 @@ internal sealed class DaemonDiagnosisStore : IDaemonDiagnosisStore
             return true;
         }
 
-        if (!DaemonDiagnosisStartupPhaseValues.IsSupported(normalizedStartupPhase))
+        if (!ContractLiteralCodec.IsDefined<DaemonDiagnosisStartupPhase>(normalizedStartupPhase))
         {
             error = ExecutionError.InvalidArgument($"Daemon diagnosis startupPhase is invalid: {diagnosisPath}");
             return false;

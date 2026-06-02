@@ -2,9 +2,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiEndpoint;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
 using MackySoft.Ucli.Application.Shared.Foundation;
-
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
 
@@ -255,11 +253,11 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
             canShutdownProcess: false,
             marker.ProcessId);
         var startup = new DaemonStartupObservation(
-            StartupStatus: DaemonStartupStatusValues.Timeout,
-            StartupBlockingReason: DaemonStartupBlockingReasonValues.EndpointNotRegistered,
+            StartupStatus: ContractLiteralCodec.ToValue(DaemonStartupStatus.Timeout),
+            StartupBlockingReason: ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.EndpointNotRegistered),
             LaunchAttemptId: null,
             ProcessAction: policyResolution.ProcessActionWhenNotTerminated,
-            RetryDisposition: DaemonStartupRetryDispositionValues.WaitThenRetry,
+            RetryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.WaitThenRetry),
             EditorMode: ContractLiteralCodec.ToValue(DaemonEditorMode.Gui),
             OwnerKind: ContractLiteralCodec.ToValue(DaemonSessionOwnerKind.User),
             CanShutdownProcess: false,
@@ -356,7 +354,7 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
                     ProcessStartedAtUtc: startup.StartedAtUtc ?? processStartedAtUtc,
                     StartupStatus: startup.StartupStatus,
                     StartupBlockingReason: startup.StartupBlockingReason,
-                    StartupPhase: DaemonDiagnosisStartupPhaseValues.EndpointRegistration,
+                    StartupPhase: ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.EndpointRegistration),
                     RetryDisposition: startup.RetryDisposition,
                     Message: error?.Message,
                     ErrorCode: error is null ? null : ExecutionErrorCodeMapper.ToCode(error).Value),

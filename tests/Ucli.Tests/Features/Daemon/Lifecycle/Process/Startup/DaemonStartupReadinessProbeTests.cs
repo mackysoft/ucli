@@ -1,7 +1,6 @@
 namespace MackySoft.Ucli.Tests.Daemon;
 
 using System.Net.Sockets;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -181,8 +180,8 @@ public sealed class DaemonStartupReadinessProbeTests
         Assert.Equal(DaemonErrorCodes.DaemonStartupBlocked, error.Code);
         Assert.Contains("scripts have compiler errors", error.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Marker=Scripts have compiler errors.", error.Message, StringComparison.Ordinal);
-        Assert.Equal(DaemonStartupBlockingReasonValues.Compile, result.FailureClassification!.StartupBlockingReason);
-        Assert.Equal(DaemonStartupRetryDispositionValues.RetryAfterFix, result.FailureClassification.RetryDisposition);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Compile), result.FailureClassification!.StartupBlockingReason);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix), result.FailureClassification.RetryDisposition);
         Assert.Equal(1, pingClient.CallCount);
         Assert.Equal(1, logReader.CallCount);
     }
@@ -243,8 +242,8 @@ public sealed class DaemonStartupReadinessProbeTests
         Assert.Equal(DaemonErrorCodes.DaemonStartupBlocked, error.Code);
         Assert.Contains("package resolution failed", error.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("FirstError=com.unity.test-framework: Package [com.unity.test-framework@1.6.0] cannot be found", error.Message, StringComparison.Ordinal);
-        Assert.Equal(DaemonStartupBlockingReasonValues.PackageResolution, result.FailureClassification!.StartupBlockingReason);
-        Assert.Equal(DaemonStartupRetryDispositionValues.RetryAfterFix, result.FailureClassification.RetryDisposition);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.PackageResolution), result.FailureClassification!.StartupBlockingReason);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix), result.FailureClassification.RetryDisposition);
         Assert.Equal(1, pingClient.CallCount);
         Assert.Equal(1, logReader.CallCount);
     }

@@ -1,7 +1,6 @@
 using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
 using MackySoft.Ucli.Application.Shared.Execution.Progress;
@@ -183,9 +182,9 @@ public sealed class DaemonStartCommandTests
             .HasInt32("sequence", 2);
         JsonAssert.For(blockerEntry.RootElement.GetProperty("payload"))
             .HasString("payloadKind", "startupObservation")
-            .HasString("startupStatus", DaemonStartupStatusValues.Blocked)
-            .HasString("startupBlockingReason", DaemonStartupBlockingReasonValues.Compile)
-            .HasString("retryDisposition", DaemonStartupRetryDispositionValues.RetryAfterFix);
+            .HasString("startupStatus", ContractLiteralCodec.ToValue(DaemonStartupStatus.Blocked))
+            .HasString("startupBlockingReason", ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Compile))
+            .HasString("retryDisposition", ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix));
         JsonAssert.For(endpointEntry.RootElement)
             .HasString("event", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.EndpointRegistered))
             .HasInt32("sequence", 3);
@@ -360,7 +359,7 @@ public sealed class DaemonStartCommandTests
             EditorInstancePath: "/repo/UnityProject/Library/EditorInstance.json",
             ProcessStartedAtUtc: new DateTimeOffset(2026, 03, 12, 4, 5, 0, TimeSpan.Zero),
             UnityLogPath: "/repo/.ucli/local/fingerprints/fp/unity.log",
-            StartupPhase: DaemonDiagnosisStartupPhaseValues.EndpointRegistration,
+            StartupPhase: ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.EndpointRegistration),
             ActionRequired: DaemonDiagnosisActionRequiredValues.InspectUnityLog,
             PrimaryDiagnostic: new DaemonPrimaryDiagnosticOutput(
                 Kind: DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler,
@@ -397,7 +396,7 @@ public sealed class DaemonStartCommandTests
         Assert.Equal("/repo/UnityProject/Library/EditorInstance.json", diagnosisJson.GetProperty("editorInstancePath").GetString());
         Assert.Equal("2026-03-12T04:05:00+00:00", diagnosisJson.GetProperty("processStartedAtUtc").GetString());
         Assert.Equal("/repo/.ucli/local/fingerprints/fp/unity.log", diagnosisJson.GetProperty("unityLogPath").GetString());
-        Assert.Equal(DaemonDiagnosisStartupPhaseValues.EndpointRegistration, diagnosisJson.GetProperty("startupPhase").GetString());
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.EndpointRegistration), diagnosisJson.GetProperty("startupPhase").GetString());
         Assert.Equal(DaemonDiagnosisActionRequiredValues.InspectUnityLog, diagnosisJson.GetProperty("actionRequired").GetString());
         Assert.True(diagnosisJson.GetProperty("isInferred").GetBoolean());
         var primaryDiagnosticJson = diagnosisJson.GetProperty("primaryDiagnostic");
@@ -415,11 +414,11 @@ public sealed class DaemonStartCommandTests
     {
         var diagnosis = CreateDiagnosis(DaemonDiagnosisReasonValues.UnityScriptCompilationFailed);
         var startup = new DaemonStartupObservation(
-            StartupStatus: DaemonStartupStatusValues.Blocked,
-            StartupBlockingReason: DaemonStartupBlockingReasonValues.Compile,
+            StartupStatus: ContractLiteralCodec.ToValue(DaemonStartupStatus.Blocked),
+            StartupBlockingReason: ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Compile),
             LaunchAttemptId: "20260312_040500Z_00abcdef",
-            ProcessAction: DaemonStartupProcessActionValues.Kept,
-            RetryDisposition: DaemonStartupRetryDispositionValues.RetryAfterFix,
+            ProcessAction: ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Kept),
+            RetryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix),
             EditorMode: "batchmode",
             OwnerKind: "cli",
             CanShutdownProcess: true,
@@ -456,11 +455,11 @@ public sealed class DaemonStartCommandTests
             .HasString("daemonStatus", "notRunning")
             .HasInt32("timeoutMilliseconds", 1234)
             .IsNull("session")
-            .HasString("retryDisposition", DaemonStartupRetryDispositionValues.RetryAfterFix)
+            .HasString("retryDisposition", ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix))
             .HasBoolean("safeToRetryImmediately", false)
             .HasProperty("startup", startupJson => startupJson
-                .HasString("startupStatus", DaemonStartupStatusValues.Blocked)
-                .HasString("startupBlockingReason", DaemonStartupBlockingReasonValues.Compile)
+                .HasString("startupStatus", ContractLiteralCodec.ToValue(DaemonStartupStatus.Blocked))
+                .HasString("startupBlockingReason", ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Compile))
                 .HasString("launchAttemptId", "20260312_040500Z_00abcdef")
                 .HasString("editorMode", "batchmode")
                 .HasString("ownerKind", "cli")
@@ -468,10 +467,10 @@ public sealed class DaemonStartCommandTests
                 .HasInt32("processId", 4321)
                 .HasString("startedAtUtc", "2026-03-12T04:05:01+00:00")
                 .HasInt32("elapsedMilliseconds", 2500)
-                .HasString("processAction", DaemonStartupProcessActionValues.Kept)
+                .HasString("processAction", ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Kept))
                 .IsNull("processTermination")
                 .HasString("artifactPath", "/repo/.ucli/local/fingerprints/fp/launchAttempts/20260312_040500Z_00abcdef/startup-diagnosis.json")
-                .HasString("retryDisposition", DaemonStartupRetryDispositionValues.RetryAfterFix))
+                .HasString("retryDisposition", ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix)))
             .HasProperty("diagnosis", diagnosisJson => diagnosisJson
                 .HasString("reason", DaemonDiagnosisReasonValues.UnityScriptCompilationFailed));
         Assert.False(payload.TryGetProperty("lifecycleState", out _));
@@ -487,11 +486,11 @@ public sealed class DaemonStartCommandTests
     public async Task Start_WhenEndpointRegistrationTimesOut_NormalizesFinalWaitThenRetryToUnknown ()
     {
         var startup = new DaemonStartupObservation(
-            StartupStatus: DaemonStartupStatusValues.Timeout,
-            StartupBlockingReason: DaemonStartupBlockingReasonValues.EndpointNotRegistered,
+            StartupStatus: ContractLiteralCodec.ToValue(DaemonStartupStatus.Timeout),
+            StartupBlockingReason: ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.EndpointNotRegistered),
             LaunchAttemptId: "20260312_040500Z_00abcdef",
-            ProcessAction: DaemonStartupProcessActionValues.Terminated,
-            RetryDisposition: DaemonStartupRetryDispositionValues.WaitThenRetry);
+            ProcessAction: ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated),
+            RetryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.WaitThenRetry));
         var service = new StubDaemonStartService(DaemonStartExecutionResult.Failure(
             ExecutionError.Timeout("endpoint registration timeout", ExecutionErrorCodes.IpcTimeout),
             DaemonStartFailureExecutionOutput.Create(
@@ -514,12 +513,12 @@ public sealed class DaemonStartCommandTests
             .HasString("startStatus", "failed")
             .HasString("daemonStatus", "notRunning")
             .IsNull("session")
-            .HasString("retryDisposition", DaemonStartupRetryDispositionValues.Unknown)
+            .HasString("retryDisposition", ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.Unknown))
             .HasBoolean("safeToRetryImmediately", false)
             .HasProperty("startup", startupJson => startupJson
-                .HasString("startupStatus", DaemonStartupStatusValues.Timeout)
-                .HasString("startupBlockingReason", DaemonStartupBlockingReasonValues.EndpointNotRegistered)
-                .HasString("retryDisposition", DaemonStartupRetryDispositionValues.Unknown));
+                .HasString("startupStatus", ContractLiteralCodec.ToValue(DaemonStartupStatus.Timeout))
+                .HasString("startupBlockingReason", ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.EndpointNotRegistered))
+                .HasString("retryDisposition", ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.Unknown)));
         Assert.False(payload.TryGetProperty("lifecycleState", out _));
         Assert.False(payload.TryGetProperty("blockingReason", out _));
         Assert.False(payload.TryGetProperty("canAcceptExecutionRequests", out _));
@@ -533,11 +532,11 @@ public sealed class DaemonStartCommandTests
     public async Task Start_WhenFailureCanRetryImmediately_EmitsSafeToRetryImmediately ()
     {
         var startup = new DaemonStartupObservation(
-            StartupStatus: DaemonStartupStatusValues.Failed,
-            StartupBlockingReason: DaemonStartupBlockingReasonValues.Unknown,
+            StartupStatus: ContractLiteralCodec.ToValue(DaemonStartupStatus.Failed),
+            StartupBlockingReason: ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Unknown),
             LaunchAttemptId: "20260312_040500Z_00abcdef",
-            ProcessAction: DaemonStartupProcessActionValues.None,
-            RetryDisposition: DaemonStartupRetryDispositionValues.RetryImmediately);
+            ProcessAction: ContractLiteralCodec.ToValue(DaemonStartupProcessAction.None),
+            RetryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryImmediately));
         var service = new StubDaemonStartService(DaemonStartExecutionResult.Failure(
             ExecutionError.InternalError("transient startup failure", DaemonErrorCodes.DaemonStartupBlocked),
             DaemonStartFailureExecutionOutput.Create(
@@ -555,10 +554,10 @@ public sealed class DaemonStartCommandTests
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
         JsonAssert.For(outputJson.RootElement.GetProperty("payload"))
-            .HasString("retryDisposition", DaemonStartupRetryDispositionValues.RetryImmediately)
+            .HasString("retryDisposition", ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryImmediately))
             .HasBoolean("safeToRetryImmediately", true)
             .HasProperty("startup", startupJson => startupJson
-                .HasString("retryDisposition", DaemonStartupRetryDispositionValues.RetryImmediately));
+                .HasString("retryDisposition", ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryImmediately)));
     }
 
     private static DaemonStartExecutionOutput CreateSuccessOutput (
@@ -659,10 +658,10 @@ public sealed class DaemonStartCommandTests
                     true,
                     1234,
                     new DateTimeOffset(2026, 03, 12, 1, 2, 0, TimeSpan.Zero),
-                    DaemonStartupStatusValues.Blocked,
-                    DaemonStartupBlockingReasonValues.Compile,
+                    ContractLiteralCodec.ToValue(DaemonStartupStatus.Blocked),
+                    ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Compile),
                     "endpointRegistration",
-                    DaemonStartupRetryDispositionValues.RetryAfterFix,
+                    ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix),
                     "Unity startup is blocked.",
                     DaemonErrorCodes.DaemonStartupBlocked.Value),
                 cancellationToken)

@@ -1,7 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.LaunchAttempts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 namespace MackySoft.Ucli.Tests.Daemon;
 
@@ -352,10 +351,10 @@ public sealed class DaemonStatusOperationTests
             LaunchAttemptId: "20260312_000000Z_00000001",
             StartedAtUtc: diagnosis.UpdatedAtUtc,
             UpdatedAtUtc: diagnosis.UpdatedAtUtc,
-            StartupStatus: DaemonStartupStatusValues.Failed,
-            StartupBlockingReason: DaemonStartupBlockingReasonValues.Unknown,
-            RetryDisposition: DaemonStartupRetryDispositionValues.Unknown,
-            ProcessAction: DaemonStartupProcessActionValues.None,
+            StartupStatus: ContractLiteralCodec.ToValue(DaemonStartupStatus.Failed),
+            StartupBlockingReason: ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Unknown),
+            RetryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.Unknown),
+            ProcessAction: ContractLiteralCodec.ToValue(DaemonStartupProcessAction.None),
             EditorMode: "gui",
             ProcessId: null,
             ProcessStartedAtUtc: null,

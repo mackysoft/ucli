@@ -111,11 +111,11 @@ internal sealed class SupervisorDaemonStartProgressFrameForwarder
     private bool IsValidStartupObservation (DaemonStartStartupObservationProgressEntry entry)
     {
         return HasExpectedEnvelope(entry.PayloadKind, DaemonStartProgressPayloadKind.StartupObservation, entry.ProjectFingerprint, entry.TimeoutMilliseconds, entry.EditorMode, entry.OnStartupBlocked)
-            && IsOptionalOwnerKind(entry.OwnerKind)
-            && IsOptionalStartupStatus(entry.StartupStatus)
-            && IsOptionalStartupBlockingReason(entry.StartupBlockingReason)
-            && IsOptionalStartupPhase(entry.StartupPhase)
-            && IsOptionalRetryDisposition(entry.RetryDisposition)
+            && IsOptionalContractLiteral<DaemonSessionOwnerKind>(entry.OwnerKind)
+            && IsOptionalContractLiteral<DaemonStartupStatus>(entry.StartupStatus)
+            && IsOptionalContractLiteral<DaemonStartupBlockingReason>(entry.StartupBlockingReason)
+            && IsOptionalContractLiteral<DaemonDiagnosisStartupPhase>(entry.StartupPhase)
+            && IsOptionalContractLiteral<DaemonStartupRetryDisposition>(entry.RetryDisposition)
             && !IsBlankWhenPresent(entry.LaunchAttemptId)
             && !IsBlankWhenPresent(entry.Message)
             && !IsBlankWhenPresent(entry.ErrorCode);
@@ -141,38 +141,14 @@ internal sealed class SupervisorDaemonStartProgressFrameForwarder
             && string.Equals(entryProjectFingerprint, projectFingerprint, StringComparison.Ordinal)
             && entryTimeoutMilliseconds == timeoutMilliseconds
             && string.Equals(entryOnStartupBlocked, onStartupBlocked, StringComparison.Ordinal)
-            && IsOptionalEditorMode(entryEditorMode)
+            && IsOptionalContractLiteral<DaemonEditorMode>(entryEditorMode)
             && (editorMode is null || string.Equals(entryEditorMode, editorMode, StringComparison.Ordinal));
     }
 
-    private static bool IsOptionalEditorMode (string? value)
+    private static bool IsOptionalContractLiteral<TEnum> (string? value)
+        where TEnum : struct, Enum
     {
-        return value is null || ContractLiteralCodec.IsDefined<DaemonEditorMode>(value);
-    }
-
-    private static bool IsOptionalOwnerKind (string? value)
-    {
-        return value is null || ContractLiteralCodec.IsDefined<DaemonSessionOwnerKind>(value);
-    }
-
-    private static bool IsOptionalStartupStatus (string? value)
-    {
-        return value is null || ContractLiteralCodec.IsDefined<DaemonStartupStatus>(value);
-    }
-
-    private static bool IsOptionalStartupBlockingReason (string? value)
-    {
-        return value is null || ContractLiteralCodec.IsDefined<DaemonStartupBlockingReason>(value);
-    }
-
-    private static bool IsOptionalStartupPhase (string? value)
-    {
-        return value is null || ContractLiteralCodec.IsDefined<DaemonDiagnosisStartupPhase>(value);
-    }
-
-    private static bool IsOptionalRetryDisposition (string? value)
-    {
-        return value is null || ContractLiteralCodec.IsDefined<DaemonStartupRetryDisposition>(value);
+        return value is null || ContractLiteralCodec.IsDefined<TEnum>(value);
     }
 
     private static bool IsOptionalBlockingReason (string? value)
