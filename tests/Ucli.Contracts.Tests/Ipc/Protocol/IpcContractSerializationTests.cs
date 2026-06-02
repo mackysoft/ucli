@@ -1,6 +1,7 @@
 using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Assurance;
+using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Testing;
@@ -1002,6 +1003,43 @@ public sealed class IpcContractSerializationTests
             .HasInt32("warningCount", 0)
             .HasString("summaryJsonPath", "/tmp/ucli/compile/run-1/summary.json")
             .HasString("diagnosticsJsonPath", "/tmp/ucli/compile/run-1/diagnostics.json");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void DaemonStartProgressContracts_SerializeWithCamelCaseFields ()
+    {
+        var payload = new DaemonStartProgressEntry(
+            ProjectFingerprint: "project-fingerprint",
+            TimeoutMilliseconds: 10000,
+            EditorMode: "batchmode",
+            OnStartupBlocked: "auto",
+            Result: ContractLiteralCodec.ToValue(CommandProgressResult.Failed),
+            StartStatus: "failed",
+            DaemonStatus: "notRunning",
+            ErrorCode: "IPC_TIMEOUT");
+
+        using var document = JsonDocument.Parse(JsonSerializer.Serialize(payload, SerializerOptions));
+
+        Assert.Equal("daemon.start.started", DaemonStartProgressEventNames.Started);
+        Assert.Equal("daemon.start.pluginVerification.started", DaemonStartProgressEventNames.PluginVerificationStarted);
+        Assert.Equal("daemon.start.pluginVerification.completed", DaemonStartProgressEventNames.PluginVerificationCompleted);
+        Assert.Equal("daemon.start.supervisorBootstrap.started", DaemonStartProgressEventNames.SupervisorBootstrapStarted);
+        Assert.Equal("daemon.start.supervisorBootstrap.completed", DaemonStartProgressEventNames.SupervisorBootstrapCompleted);
+        Assert.Equal("daemon.start.ensureRunning.started", DaemonStartProgressEventNames.EnsureRunningStarted);
+        Assert.Equal("daemon.start.ensureRunning.completed", DaemonStartProgressEventNames.EnsureRunningCompleted);
+        Assert.Equal("daemon.start.completed", DaemonStartProgressEventNames.Completed);
+        Assert.Equal("succeeded", ContractLiteralCodec.ToValue(CommandProgressResult.Succeeded));
+        Assert.Equal("failed", ContractLiteralCodec.ToValue(CommandProgressResult.Failed));
+        JsonAssert.For(document.RootElement)
+            .HasString("projectFingerprint", "project-fingerprint")
+            .HasInt32("timeoutMilliseconds", 10000)
+            .HasString("editorMode", "batchmode")
+            .HasString("onStartupBlocked", "auto")
+            .HasString("result", "failed")
+            .HasString("startStatus", "failed")
+            .HasString("daemonStatus", "notRunning")
+            .HasString("errorCode", "IPC_TIMEOUT");
     }
 
     [Fact]

@@ -1,11 +1,14 @@
+using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
+using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Hosting.Cli.Daemon;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 
@@ -93,17 +96,67 @@ public sealed class DaemonStartCommandTests
         JsonGoldenFileAssert.Matches(CliOutputGoldenFiles.GetPath("daemon", "start-compiling-success.json"), standardOutput);
     }
 
-    [Theory]
-    [InlineData("text")]
-    [InlineData("json")]
+    [Fact]
     [Trait("Size", "Small")]
-    public async Task Start_WithSupportedFormat_WritesOnlyFinalCommandResult (
-        string format)
+    public async Task Start_WithJsonFormat_WritesProgressEntriesToStandardErrorAndFinalCommandResultToStandardOutput ()
     {
-        var service = new StubDaemonStartService(DaemonStartExecutionResult.Success(CreateSuccessOutput(
-            lifecycleState: IpcEditorLifecycleStateCodec.Compiling,
-            blockingReason: IpcEditorBlockingReasonCodec.Compile,
-            canAcceptExecutionRequests: false)));
+        var service = new StubDaemonStartService(
+            DaemonStartExecutionResult.Success(CreateSuccessOutput(
+                lifecycleState: IpcEditorLifecycleStateCodec.Compiling,
+                blockingReason: IpcEditorBlockingReasonCodec.Compile,
+                canAcceptExecutionRequests: false)),
+            EmitSampleDaemonStartProgressAsync);
+        var command = new DaemonStartCommand(service, CommandResultTestWriter.Create());
+
+        CommandExecutionState.Reset();
+        var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.StartAsync(
+            format: "json",
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.Success, exitCode);
+        Assert.Equal(1, service.CallCount);
+        var lines = standardError.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
+        Assert.Equal(2, lines.Length);
+        using var startedEntry = JsonDocument.Parse(lines[0]);
+        using var completedEntry = JsonDocument.Parse(lines[1]);
+        JsonAssert.For(startedEntry.RootElement)
+            .HasString("command", UcliCommandNames.DaemonStart)
+            .HasString("event", DaemonStartProgressEventNames.Started)
+            .HasInt32("sequence", 1);
+        JsonAssert.For(startedEntry.RootElement.GetProperty("payload"))
+            .HasString("projectFingerprint", "fingerprint")
+            .HasInt32("timeoutMilliseconds", 1234)
+            .HasString("editorMode", "batchmode")
+            .HasString("onStartupBlocked", "auto")
+            .IsNull("result")
+            .IsNull("startStatus")
+            .IsNull("daemonStatus")
+            .IsNull("errorCode");
+        JsonAssert.For(completedEntry.RootElement)
+            .HasString("command", UcliCommandNames.DaemonStart)
+            .HasString("event", DaemonStartProgressEventNames.Completed)
+            .HasInt32("sequence", 2);
+        JsonAssert.For(completedEntry.RootElement.GetProperty("payload"))
+            .HasString("result", ContractLiteralCodec.ToValue(CommandProgressResult.Succeeded))
+            .HasString("startStatus", "started")
+            .HasString("daemonStatus", "running")
+            .IsNull("errorCode");
+        JsonGoldenFileAssert.Matches(CliOutputGoldenFiles.GetPath("daemon", "start-compiling-success.json"), standardOutput);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData(null)]
+    [InlineData("text")]
+    public async Task Start_WithTextFormat_WritesSingleLineProgressEntriesToStandardError (
+        string? format)
+    {
+        var service = new StubDaemonStartService(
+            DaemonStartExecutionResult.Success(CreateSuccessOutput(
+                lifecycleState: IpcEditorLifecycleStateCodec.Compiling,
+                blockingReason: IpcEditorBlockingReasonCodec.Compile,
+                canAcceptExecutionRequests: false)),
+            EmitSampleDaemonStartProgressAsync);
         var command = new DaemonStartCommand(service, CommandResultTestWriter.Create());
 
         CommandExecutionState.Reset();
@@ -112,8 +165,11 @@ public sealed class DaemonStartCommandTests
             cancellationToken: CancellationToken.None));
 
         Assert.Equal((int)CliExitCode.Success, exitCode);
-        Assert.Equal(string.Empty, standardError);
         Assert.Equal(1, service.CallCount);
+        var lines = standardError.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
+        Assert.Equal(2, lines.Length);
+        Assert.Equal("daemon start workflow project=fingerprint timeoutMs=1234 started", lines[0]);
+        Assert.Equal("daemon start workflow project=fingerprint timeoutMs=1234 result=succeeded startStatus=started daemonStatus=running completed", lines[1]);
         JsonGoldenFileAssert.Matches(CliOutputGoldenFiles.GetPath("daemon", "start-compiling-success.json"), standardOutput);
     }
 
@@ -429,6 +485,40 @@ public sealed class DaemonStartCommandTests
             CanAcceptExecutionRequests: canAcceptExecutionRequests);
     }
 
+    private static async ValueTask EmitSampleDaemonStartProgressAsync (
+        ICommandProgressSink? progressSink,
+        CancellationToken cancellationToken)
+    {
+        Assert.NotNull(progressSink);
+        await progressSink!.OnEntryAsync(
+                DaemonStartProgressEventNames.Started,
+                CreateProgressEntry(result: null, startStatus: null, daemonStatus: null, errorCode: null),
+                cancellationToken)
+            .ConfigureAwait(false);
+        await progressSink.OnEntryAsync(
+                DaemonStartProgressEventNames.Completed,
+                CreateProgressEntry(ContractLiteralCodec.ToValue(CommandProgressResult.Succeeded), "started", "running", errorCode: null),
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private static DaemonStartProgressEntry CreateProgressEntry (
+        string? result,
+        string? startStatus,
+        string? daemonStatus,
+        string? errorCode)
+    {
+        return new DaemonStartProgressEntry(
+            ProjectFingerprint: "fingerprint",
+            TimeoutMilliseconds: 1234,
+            EditorMode: "batchmode",
+            OnStartupBlocked: "auto",
+            Result: result,
+            StartStatus: startStatus,
+            DaemonStatus: daemonStatus,
+            ErrorCode: errorCode);
+    }
+
     private static DaemonDiagnosisOutput CreateDiagnosis (string reason)
     {
         return new DaemonDiagnosisOutput(
@@ -445,9 +535,14 @@ public sealed class DaemonStartCommandTests
     {
         private readonly DaemonStartExecutionResult result;
 
-        public StubDaemonStartService (DaemonStartExecutionResult result)
+        private readonly Func<ICommandProgressSink?, CancellationToken, ValueTask>? progressHandler;
+
+        public StubDaemonStartService (
+            DaemonStartExecutionResult result,
+            Func<ICommandProgressSink?, CancellationToken, ValueTask>? progressHandler = null)
         {
             this.result = result;
+            this.progressHandler = progressHandler;
         }
 
         public int CallCount { get; private set; }
@@ -467,6 +562,7 @@ public sealed class DaemonStartCommandTests
             int? timeoutMilliseconds,
             DaemonEditorMode? editorMode,
             DaemonStartupBlockedProcessPolicy onStartupBlocked,
+            ICommandProgressSink? progressSink = null,
             CancellationToken cancellationToken = default)
         {
             CallCount++;
@@ -475,7 +571,20 @@ public sealed class DaemonStartCommandTests
             LastEditorMode = editorMode;
             LastOnStartupBlocked = onStartupBlocked;
             LastCancellationToken = cancellationToken;
+            if (progressHandler != null)
+            {
+                return StartCoreAsync(progressSink, cancellationToken);
+            }
+
             return ValueTask.FromResult(result);
+        }
+
+        private async ValueTask<DaemonStartExecutionResult> StartCoreAsync (
+            ICommandProgressSink? progressSink,
+            CancellationToken cancellationToken)
+        {
+            await progressHandler!(progressSink, cancellationToken).ConfigureAwait(false);
+            return result;
         }
     }
 }

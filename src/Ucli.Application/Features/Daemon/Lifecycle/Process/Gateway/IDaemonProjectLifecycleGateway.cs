@@ -11,6 +11,7 @@ internal interface IDaemonProjectLifecycleGateway
         TimeSpan timeout,
         DaemonEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
+        IDaemonProjectLifecycleProgressObserver? progressObserver = null,
         CancellationToken cancellationToken = default);
 
     /// <summary> Attempts to stop one project daemon through a host-owned lifecycle gateway. </summary>

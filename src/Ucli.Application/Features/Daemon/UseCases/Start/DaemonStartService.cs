@@ -1,7 +1,9 @@
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
 using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Preflight;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
+using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
@@ -50,6 +52,7 @@ internal sealed class DaemonStartService : IDaemonStartService
     /// <param name="timeoutMilliseconds"> The optional normalized timeout value in milliseconds. </param>
     /// <param name="editorMode"> The optional normalized <c>--editorMode</c> value. </param>
     /// <param name="onStartupBlocked"> The normalized <c>--onStartupBlocked</c> value. </param>
+    /// <param name="progressSink"> The optional command-neutral sink that receives host-visible daemon-start progress entries. When <see langword="null" />, no progress entries are emitted. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon-start execution result. </returns>
     public async ValueTask<DaemonStartExecutionResult> StartAsync (
@@ -57,6 +60,7 @@ internal sealed class DaemonStartService : IDaemonStartService
         int? timeoutMilliseconds,
         DaemonEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
+        ICommandProgressSink? progressSink = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -73,32 +77,61 @@ internal sealed class DaemonStartService : IDaemonStartService
         }
 
         var executionContext = contextResult.Context!;
-        var deadline = ExecutionDeadline.Start(executionContext.Timeout, timeProvider);
-        var pluginLocateError = await VerifyUnityPluginWithinBudgetAsync(
-                executionContext.Context.UnityProject.UnityProjectRoot,
-                deadline,
+        var effectiveTimeoutMilliseconds = checked((int)executionContext.Timeout.TotalMilliseconds);
+        var progressEmitter = new DaemonStartProgressEmitter(
+            progressSink,
+            executionContext.Context.UnityProject.ProjectFingerprint,
+            effectiveTimeoutMilliseconds,
+            editorMode,
+            onStartupBlocked);
+        var timeoutBudget = ExecutionTimeoutBudget.Start(executionContext.Timeout, timeProvider);
+        await EmitProgressOutsideBudgetAsync(timeoutBudget, progressEmitter.EmitStartedAsync, cancellationToken).ConfigureAwait(false);
+        await EmitProgressOutsideBudgetAsync(timeoutBudget, progressEmitter.EmitPluginVerificationStartedAsync, cancellationToken).ConfigureAwait(false);
+
+        var pluginLocateError = !timeoutBudget.TryGetRemainingTimeout(out var pluginLocateTimeout)
+            ? ExecutionError.Timeout("Timed out before uCLI Unity plugin verification could begin.")
+            : await VerifyUnityPluginWithinBudgetAsync(
+                    executionContext.Context.UnityProject.UnityProjectRoot,
+                    pluginLocateTimeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        await EmitProgressOutsideBudgetAsync(
+                timeoutBudget,
+                token => progressEmitter.EmitPluginVerificationCompletedAsync(pluginLocateError, token),
                 cancellationToken)
             .ConfigureAwait(false);
         if (pluginLocateError != null)
         {
-            return DaemonStartExecutionResult.Failure(
+            var failure = DaemonStartExecutionResult.Failure(
                 pluginLocateError,
                 DaemonStartFailureExecutionOutput.Create(
                     DaemonStatusKind.NotRunning,
-                    checked((int)executionContext.Timeout.TotalMilliseconds),
+                    effectiveTimeoutMilliseconds,
                     startup: null,
                     diagnosis: null));
+            await EmitProgressOutsideBudgetAsync(
+                    timeoutBudget,
+                    token => progressEmitter.EmitCompletedAsync(DaemonStartStatus.Failed, failure.FailureOutput!.DaemonStatus, failure.Error, token),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return failure;
         }
 
-        if (!deadline.TryGetRemainingTimeout(out var ensureRunningTimeout))
+        if (!timeoutBudget.TryGetRemainingTimeout(out var ensureRunningTimeout))
         {
-            return DaemonStartExecutionResult.Failure(ExecutionError.Timeout(
+            var failure = DaemonStartExecutionResult.Failure(ExecutionError.Timeout(
                 "Timed out before daemon lifecycle orchestration could begin."),
                 DaemonStartFailureExecutionOutput.Create(
                     DaemonStatusKind.NotRunning,
-                    checked((int)executionContext.Timeout.TotalMilliseconds),
+                    effectiveTimeoutMilliseconds,
                     startup: null,
                     diagnosis: null));
+            await EmitProgressOutsideBudgetAsync(
+                    timeoutBudget,
+                    token => progressEmitter.EmitCompletedAsync(DaemonStartStatus.Failed, failure.FailureOutput!.DaemonStatus, failure.Error, token),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return failure;
         }
 
         var startResult = await daemonProjectLifecycleGateway.EnsureRunningAsync(
@@ -106,6 +139,7 @@ internal sealed class DaemonStartService : IDaemonStartService
                 ensureRunningTimeout,
                 editorMode,
                 onStartupBlocked,
+                progressEmitter,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!startResult.IsSuccess)
@@ -113,37 +147,44 @@ internal sealed class DaemonStartService : IDaemonStartService
             var diagnosis = startResult.Diagnosis is null
                 ? null
                 : daemonDiagnosisOutputMapper.ToOutput(startResult.Diagnosis);
-            return DaemonStartExecutionResult.Failure(startResult.Error ?? ExecutionError.InternalError(
+            var failure = DaemonStartExecutionResult.Failure(startResult.Error ?? ExecutionError.InternalError(
                 "Daemon start operation failed without structured error details."),
                 DaemonStartFailureExecutionOutput.Create(
                     startResult.DaemonStatus,
-                    checked((int)executionContext.Timeout.TotalMilliseconds),
+                    effectiveTimeoutMilliseconds,
                     startResult.Startup,
                     diagnosis));
+            await EmitProgressOutsideBudgetAsync(
+                    timeoutBudget,
+                    token => progressEmitter.EmitCompletedAsync(DaemonStartStatus.Failed, failure.FailureOutput!.DaemonStatus, failure.Error, token),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return failure;
         }
 
         var lifecycleSnapshot = startResult.LifecycleSnapshot ?? DaemonStartLifecycleSnapshot.Ready();
         var output = new DaemonStartExecutionOutput(
             StartStatus: startResult.Status,
             DaemonStatus: DaemonStatusKind.Running,
-            TimeoutMilliseconds: checked((int)executionContext.Timeout.TotalMilliseconds),
+            TimeoutMilliseconds: effectiveTimeoutMilliseconds,
             Session: daemonSessionOutputMapper.ToOutput(startResult.Session!),
             LifecycleState: lifecycleSnapshot.LifecycleState,
             BlockingReason: lifecycleSnapshot.BlockingReason,
             CanAcceptExecutionRequests: lifecycleSnapshot.CanAcceptExecutionRequests);
-        return DaemonStartExecutionResult.Success(output);
+        var success = DaemonStartExecutionResult.Success(output);
+        await EmitProgressOutsideBudgetAsync(
+                timeoutBudget,
+                token => progressEmitter.EmitCompletedAsync(output.StartStatus, output.DaemonStatus, error: null, cancellationToken: token),
+                cancellationToken)
+            .ConfigureAwait(false);
+        return success;
     }
 
     private async ValueTask<ExecutionError?> VerifyUnityPluginWithinBudgetAsync (
         string unityProjectRoot,
-        ExecutionDeadline deadline,
+        TimeSpan pluginLocateTimeout,
         CancellationToken cancellationToken)
     {
-        if (!deadline.TryGetRemainingTimeout(out var pluginLocateTimeout))
-        {
-            return ExecutionError.Timeout("Timed out before uCLI Unity plugin verification could begin.");
-        }
-
         try
         {
             using var pluginLocateCancellationScope = TimeProviderCancellationScope.CreateLinked(
@@ -163,5 +204,14 @@ internal sealed class DaemonStartService : IDaemonStartService
             return ExecutionError.Timeout(
                 $"Timed out while verifying the uCLI Unity plugin. Timeout={pluginLocateTimeout.TotalMilliseconds:0}ms.");
         }
+    }
+
+    private static async ValueTask EmitProgressOutsideBudgetAsync (
+        ExecutionTimeoutBudget timeoutBudget,
+        Func<CancellationToken, ValueTask> emit,
+        CancellationToken cancellationToken)
+    {
+        using var excludedSection = timeoutBudget.BeginExcludedSection();
+        await emit(cancellationToken).ConfigureAwait(false);
     }
 }

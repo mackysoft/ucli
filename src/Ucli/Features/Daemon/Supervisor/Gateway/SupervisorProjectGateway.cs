@@ -39,17 +39,33 @@ internal sealed class SupervisorProjectGateway : IDaemonProjectLifecycleGateway
         TimeSpan timeout,
         DaemonEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
+        IDaemonProjectLifecycleProgressObserver? progressObserver = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
-        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
-        if (!deadline.TryGetRemainingTimeout(out var bootstrapTimeout))
+        var timeoutBudget = ExecutionTimeoutBudget.Start(timeout, timeProvider);
+        await EmitProgressOutsideBudgetAsync(
+                timeoutBudget,
+                progressObserver is null
+                    ? null
+                    : token => progressObserver.EmitSupervisorBootstrapStartedAsync(token),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!timeoutBudget.TryGetRemainingTimeout(out var bootstrapTimeout))
         {
-            return DaemonStartResult.Failure(ExecutionError.Timeout(
+            var failure = DaemonStartResult.Failure(ExecutionError.Timeout(
                 "Timed out before supervisor bootstrap could begin."));
+            await EmitProgressOutsideBudgetAsync(
+                    timeoutBudget,
+                    progressObserver is null
+                        ? null
+                        : token => progressObserver.EmitSupervisorBootstrapCompletedAsync(failure.Error, token),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return failure;
         }
 
         var bootstrapResult = await supervisorBootstrapper.EnsureReadyAsync(
@@ -57,18 +73,40 @@ internal sealed class SupervisorProjectGateway : IDaemonProjectLifecycleGateway
                 bootstrapTimeout,
                 cancellationToken)
             .ConfigureAwait(false);
+        await EmitProgressOutsideBudgetAsync(
+                timeoutBudget,
+                progressObserver is null
+                    ? null
+                    : token => progressObserver.EmitSupervisorBootstrapCompletedAsync(bootstrapResult.Error, token),
+                cancellationToken)
+            .ConfigureAwait(false);
         if (!bootstrapResult.IsSuccess)
         {
             return DaemonStartResult.Failure(bootstrapResult.Error!);
         }
 
-        if (!deadline.TryGetRemainingTimeout(out var ensureRunningTimeout))
+        await EmitProgressOutsideBudgetAsync(
+                timeoutBudget,
+                progressObserver is null
+                    ? null
+                    : token => progressObserver.EmitEnsureRunningStartedAsync(token),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!timeoutBudget.TryGetRemainingTimeout(out var ensureRunningTimeout))
         {
-            return DaemonStartResult.Failure(ExecutionError.Timeout(
+            var failure = DaemonStartResult.Failure(ExecutionError.Timeout(
                 "Timed out before supervisor ensureRunning could begin."));
+            await EmitProgressOutsideBudgetAsync(
+                    timeoutBudget,
+                    progressObserver is null
+                        ? null
+                        : token => progressObserver.EmitEnsureRunningCompletedAsync(failure, token),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return failure;
         }
 
-        return await supervisorClient.EnsureRunningAsync(
+        var startResult = await supervisorClient.EnsureRunningAsync(
                 bootstrapResult.Manifest!,
                 unityProject,
                 ensureRunningTimeout,
@@ -76,6 +114,14 @@ internal sealed class SupervisorProjectGateway : IDaemonProjectLifecycleGateway
                 onStartupBlocked,
                 cancellationToken)
             .ConfigureAwait(false);
+        await EmitProgressOutsideBudgetAsync(
+                timeoutBudget,
+                progressObserver is null
+                    ? null
+                    : token => progressObserver.EmitEnsureRunningCompletedAsync(startResult, token),
+                cancellationToken)
+            .ConfigureAwait(false);
+        return startResult;
     }
 
     /// <inheritdoc />
@@ -182,5 +228,19 @@ internal sealed class SupervisorProjectGateway : IDaemonProjectLifecycleGateway
             // the best-effort manifest cleanup failed.
             return null;
         }
+    }
+
+    private static async ValueTask EmitProgressOutsideBudgetAsync (
+        ExecutionTimeoutBudget timeoutBudget,
+        Func<CancellationToken, ValueTask>? emit,
+        CancellationToken cancellationToken)
+    {
+        if (emit is null)
+        {
+            return;
+        }
+
+        using var excludedSection = timeoutBudget.BeginExcludedSection();
+        await emit(cancellationToken).ConfigureAwait(false);
     }
 }

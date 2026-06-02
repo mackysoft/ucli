@@ -5,6 +5,7 @@ using MackySoft.Ucli.Application.Shared.Execution;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
+using MackySoft.Ucli.Hosting.Cli.Common.Streaming;
 using MackySoft.Ucli.Hosting.Cli.Options;
 
 namespace MackySoft.Ucli.Hosting.Cli.Daemon;
@@ -88,11 +89,17 @@ internal sealed class DaemonStartCommand
             return errorResult.ExitCode;
         }
 
+        var progressSink = new CliCommandProgressSink(
+            formatResult.Format,
+            new CliStreamEntryWriter(UcliCommandNames.DaemonStart),
+            new DaemonStartProgressTextProjector());
+
         var executionResult = await daemonStartService.StartAsync(
                 projectPath,
                 normalizedTimeoutResult.TimeoutMilliseconds,
                 normalizedEditorModeResult.EditorMode,
                 normalizedOnStartupBlockedResult.Policy,
+                progressSink,
                 cancellationToken)
             .ConfigureAwait(false);
         var commandResult = CreateCommandResult(executionResult);
