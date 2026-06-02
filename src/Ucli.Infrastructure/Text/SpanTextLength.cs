@@ -1,4 +1,4 @@
-namespace MackySoft.Ucli.Contracts.Text;
+namespace MackySoft.Ucli.Infrastructure.Text;
 
 /// <summary> Calculates fixed-size span text lengths before formatting. </summary>
 internal static class SpanTextLength

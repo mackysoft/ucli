@@ -584,17 +584,24 @@ public sealed class IpcCommonContractTests
         Assert.Equal(expectedHasValue, timestamp.HasValue);
     }
 
-    [Fact]
+    [Theory]
     [Trait("Size", "Small")]
-    public void IpcLogCursorCodec_EncodeAndTryParse_RoundTripsValues ()
+    [InlineData("stream-1", 0L, "stream-1:0")]
+    [InlineData("stream-1", 42L, "stream-1:42")]
+    [InlineData("stream:with:colon", long.MaxValue, "stream:with:colon:9223372036854775807")]
+    public void IpcLogCursorCodec_EncodeAndTryParse_RoundTripsValues (
+        string inputStreamId,
+        long inputSequence,
+        string expectedCursor)
     {
-        var cursor = IpcLogCursorCodec.Encode("stream-1", 42);
+        var cursor = IpcLogCursorCodec.Encode(inputStreamId, inputSequence);
 
         var result = IpcLogCursorCodec.TryParse(cursor, out var streamId, out var sequence);
 
+        Assert.Equal(expectedCursor, cursor);
         Assert.True(result);
-        Assert.Equal("stream-1", streamId);
-        Assert.Equal(42, sequence);
+        Assert.Equal(inputStreamId, streamId);
+        Assert.Equal(inputSequence, sequence);
     }
 
     [Theory]

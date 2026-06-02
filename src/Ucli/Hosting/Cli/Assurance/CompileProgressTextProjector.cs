@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Contracts.Assurance;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Hosting.Cli.Common.Streaming;
 using MackySoft.Ucli.Infrastructure.Text;
 
