@@ -1,6 +1,8 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
+using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Storage;
@@ -71,12 +73,20 @@ public sealed class SupervisorProjectGatewayTests
             manifestStore,
             client,
             timeProvider);
+        var progressSink = new CollectingProgressSink();
+        var progressEmitter = new DaemonStartProgressEmitter(
+            progressSink,
+            "fingerprint",
+            900,
+            DaemonEditorMode.Gui,
+            DaemonStartupBlockedProcessPolicy.Keep);
 
         var result = await gateway.EnsureRunningAsync(
             CreateUnityProject(scope.FullPath),
             TimeSpan.FromMilliseconds(900),
             editorMode: DaemonEditorMode.Gui,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Keep,
+            progressEmitter: progressEmitter,
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -86,6 +96,148 @@ public sealed class SupervisorProjectGatewayTests
         Assert.True(observedEnsureRunningTimeout < TimeSpan.FromMilliseconds(900));
         Assert.Equal("gui", observedEditorMode);
         Assert.Equal("keep", observedOnStartupBlocked);
+        AssertProgressEvents(
+            progressSink,
+            DaemonStartProgressEventNames.SupervisorBootstrapStarted,
+            DaemonStartProgressEventNames.SupervisorBootstrapCompleted,
+            DaemonStartProgressEventNames.EnsureRunningStarted,
+            DaemonStartProgressEventNames.EnsureRunningCompleted);
+        var completedEntry = Assert.IsType<DaemonStartProgressEntry>(progressSink.Entries[^1].Payload);
+        Assert.Equal(DaemonStartProgressResultValues.Succeeded, completedEntry.Result);
+        Assert.Equal("started", completedEntry.StartStatus);
+        Assert.Equal("running", completedEntry.DaemonStatus);
+        Assert.Equal(900, completedEntry.TimeoutMilliseconds);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task EnsureRunning_WhenSupervisorEnsureRunningFails_EmitsFailedProgressEntry ()
+    {
+        using var scope = TestDirectories.CreateTempScope("supervisor-project-gateway", "ensure-running-progress-failure");
+        var manifest = CreateManifest();
+        var manifestStore = new SupervisorManifestStore();
+        await manifestStore.WriteAsync(scope.FullPath, manifest, CancellationToken.None);
+
+        var transportClient = new DaemonServiceTestContext.StubIpcTransportClient();
+        transportClient.SendHandler = (endpoint, request, timeout, cancellationToken) =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (string.Equals(request.Method, SupervisorIpcContracts.PingMethod, StringComparison.Ordinal))
+            {
+                return ValueTask.FromResult(DaemonServiceTestContext.CreateSuccessResponse(
+                    request,
+                    new SupervisorIpcContracts.PingResponse(
+                        manifest.ProcessId,
+                        manifest.IssuedAtUtc)));
+            }
+
+            if (string.Equals(request.Method, SupervisorIpcContracts.EnsureRunningMethod, StringComparison.Ordinal))
+            {
+                return ValueTask.FromResult(DaemonServiceTestContext.CreateErrorResponse(
+                    request,
+                    ExecutionErrorCodes.IpcTimeout,
+                    "ensureRunning timed out"));
+            }
+
+            throw new InvalidOperationException($"Unexpected method: {request.Method}");
+        };
+
+        var client = new SupervisorClient(transportClient);
+        var gateway = new SupervisorProjectGateway(
+            new SupervisorBootstrapper(
+                manifestStore,
+                client,
+                new StubSupervisorProcessLauncher(),
+                new SupervisorBootstrapLockProvider(),
+                new SupervisorEndpointResolver()),
+            manifestStore,
+            client);
+        var progressSink = new CollectingProgressSink();
+        var progressEmitter = new DaemonStartProgressEmitter(
+            progressSink,
+            "fingerprint",
+            900,
+            editorMode: null,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto);
+
+        var result = await gateway.EnsureRunningAsync(
+            CreateUnityProject(scope.FullPath),
+            TimeSpan.FromMilliseconds(900),
+            editorMode: null,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+            progressEmitter: progressEmitter,
+            cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.Error!.Code);
+        AssertProgressEvents(
+            progressSink,
+            DaemonStartProgressEventNames.SupervisorBootstrapStarted,
+            DaemonStartProgressEventNames.SupervisorBootstrapCompleted,
+            DaemonStartProgressEventNames.EnsureRunningStarted,
+            DaemonStartProgressEventNames.EnsureRunningCompleted);
+        var completedEntry = Assert.IsType<DaemonStartProgressEntry>(progressSink.Entries[^1].Payload);
+        Assert.Equal(DaemonStartProgressResultValues.Failed, completedEntry.Result);
+        Assert.Equal("failed", completedEntry.StartStatus);
+        Assert.Equal("notRunning", completedEntry.DaemonStatus);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout.Value, completedEntry.ErrorCode);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task EnsureRunning_WhenSupervisorBootstrapFails_EmitsFailedProgressEntry ()
+    {
+        using var scope = TestDirectories.CreateTempScope("supervisor-project-gateway", "bootstrap-progress-failure");
+        var manifestStore = new SupervisorManifestStore();
+        var transportClient = new DaemonServiceTestContext.StubIpcTransportClient
+        {
+            SendHandler = static (_, _, _, _) => throw new InvalidOperationException("Supervisor IPC should not be used when bootstrap launch fails."),
+        };
+        var client = new SupervisorClient(transportClient);
+        var launcher = new StubSupervisorProcessLauncher
+        {
+            LaunchError = ExecutionError.InternalError(
+                "supervisor launch failed",
+                UcliCoreErrorCodes.InternalError),
+        };
+        var gateway = new SupervisorProjectGateway(
+            new SupervisorBootstrapper(
+                manifestStore,
+                client,
+                launcher,
+                new SupervisorBootstrapLockProvider(),
+                new SupervisorEndpointResolver()),
+            manifestStore,
+            client);
+        var progressSink = new CollectingProgressSink();
+        var progressEmitter = new DaemonStartProgressEmitter(
+            progressSink,
+            "fingerprint",
+            900,
+            editorMode: null,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto);
+
+        var result = await gateway.EnsureRunningAsync(
+            CreateUnityProject(scope.FullPath),
+            TimeSpan.FromMilliseconds(900),
+            editorMode: null,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+            progressEmitter: progressEmitter,
+            cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(1, launcher.LaunchCallCount);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, result.Error!.Code);
+        AssertProgressEvents(
+            progressSink,
+            DaemonStartProgressEventNames.SupervisorBootstrapStarted,
+            DaemonStartProgressEventNames.SupervisorBootstrapCompleted);
+        var completedEntry = Assert.IsType<DaemonStartProgressEntry>(progressSink.Entries[^1].Payload);
+        Assert.Equal(DaemonStartProgressResultValues.Failed, completedEntry.Result);
+        Assert.Null(completedEntry.StartStatus);
+        Assert.Null(completedEntry.DaemonStatus);
+        Assert.Equal(UcliCoreErrorCodes.InternalError.Value, completedEntry.ErrorCode);
     }
 
     [Fact]
@@ -229,12 +381,56 @@ public sealed class SupervisorProjectGatewayTests
             OwnerProcessId: 5678);
     }
 
+    private static void AssertProgressEvents (
+        CollectingProgressSink progressSink,
+        params string[] eventNames)
+    {
+        Assert.Equal(eventNames.Length, progressSink.Entries.Count);
+        for (var i = 0; i < eventNames.Length; i++)
+        {
+            Assert.Equal(eventNames[i], progressSink.Entries[i].EventName);
+        }
+    }
+
+    private sealed class CollectingProgressSink : ICommandProgressSink
+    {
+        private readonly List<ProgressEntry> entries = [];
+
+        public IReadOnlyList<ProgressEntry> Entries => entries;
+
+        public ValueTask OnEntryAsync<TPayload> (
+            string eventName,
+            TPayload payload,
+            CancellationToken cancellationToken = default)
+            where TPayload : notnull
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            entries.Add(new ProgressEntry(eventName, payload));
+            return ValueTask.CompletedTask;
+        }
+    }
+
+    private sealed record ProgressEntry (
+        string EventName,
+        object Payload);
+
     private sealed class StubSupervisorProcessLauncher : ISupervisorProcessLauncher
     {
+        public ExecutionError? LaunchError { get; init; }
+
+        public int LaunchCallCount { get; private set; }
+
         public ValueTask<ExecutionError?> LaunchAsync (
             string storageRoot,
             CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            LaunchCallCount++;
+            if (LaunchError != null)
+            {
+                return ValueTask.FromResult<ExecutionError?>(LaunchError);
+            }
+
             throw new InvalidOperationException("Supervisor launch should not be used by this test.");
         }
     }

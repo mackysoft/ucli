@@ -5,6 +5,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Startup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
+using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
@@ -55,6 +56,69 @@ public sealed class DaemonStartServiceTests
         Assert.True(supervisorProjectGateway.LastEnsureRunningTimeout > TimeSpan.Zero);
         Assert.True(supervisorProjectGateway.LastEnsureRunningTimeout <= context.Timeout);
         Assert.Equal(1, mapper.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Start_WithProgressSink_EmitsHostVisibleProgressInOrder ()
+    {
+        var context = DaemonServiceTestContext.CreateExecutionContext(
+            timeoutMilliseconds: 1200,
+            repositoryRoot: "/tmp/repo-root");
+        var resolver = new DaemonServiceTestContext.StubDaemonCommandExecutionContextResolver(
+            DaemonCommandExecutionContextResolutionResult.Success(context));
+        var mapper = new DaemonServiceTestContext.StubDaemonSessionOutputMapper();
+        var session = DaemonServiceTestContext.CreateSession();
+        var supervisorProjectGateway = new DaemonServiceTestContext.StubSupervisorProjectGateway
+        {
+            EnsureRunningHandler = async (_, _, _, _, progressEmitter, cancellationToken) =>
+            {
+                Assert.NotNull(progressEmitter);
+                await progressEmitter!.EmitSupervisorBootstrapStartedAsync(cancellationToken).ConfigureAwait(false);
+                await progressEmitter.EmitSupervisorBootstrapCompletedAsync(error: null, cancellationToken).ConfigureAwait(false);
+                await progressEmitter.EmitEnsureRunningStartedAsync(cancellationToken).ConfigureAwait(false);
+                var startResult = DaemonStartResult.Started(session);
+                await progressEmitter.EmitEnsureRunningCompletedAsync(startResult, cancellationToken).ConfigureAwait(false);
+                return startResult;
+            },
+        };
+        var progressSink = new CollectingProgressSink();
+        var service = CreateService(resolver, supervisorProjectGateway, mapper);
+
+        var result = await service.StartAsync(
+            projectPath: null,
+            timeoutMilliseconds: null,
+            editorMode: DaemonEditorMode.Batchmode,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+            progressSink: progressSink,
+            cancellationToken: CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(8, progressSink.Entries.Count);
+        AssertProgressEvents(
+            progressSink,
+            DaemonStartProgressEventNames.Started,
+            DaemonStartProgressEventNames.PluginVerificationStarted,
+            DaemonStartProgressEventNames.PluginVerificationCompleted,
+            DaemonStartProgressEventNames.SupervisorBootstrapStarted,
+            DaemonStartProgressEventNames.SupervisorBootstrapCompleted,
+            DaemonStartProgressEventNames.EnsureRunningStarted,
+            DaemonStartProgressEventNames.EnsureRunningCompleted,
+            DaemonStartProgressEventNames.Completed);
+        var startedEntry = Assert.IsType<DaemonStartProgressEntry>(progressSink.Entries[0].Payload);
+        Assert.Equal("fingerprint", startedEntry.ProjectFingerprint);
+        Assert.Equal(1200, startedEntry.TimeoutMilliseconds);
+        Assert.Equal("batchmode", startedEntry.EditorMode);
+        Assert.Equal("auto", startedEntry.OnStartupBlocked);
+        Assert.Null(startedEntry.Result);
+        var completedEntry = Assert.IsType<DaemonStartProgressEntry>(progressSink.Entries[^1].Payload);
+        Assert.Equal(DaemonStartProgressResultValues.Succeeded, completedEntry.Result);
+        Assert.Equal("started", completedEntry.StartStatus);
+        Assert.Equal("running", completedEntry.DaemonStatus);
+        Assert.Null(completedEntry.ErrorCode);
+        Assert.All(
+            progressSink.Entries.Select(static entry => Assert.IsType<DaemonStartProgressEntry>(entry.Payload)),
+            static entry => Assert.Equal(1200, entry.TimeoutMilliseconds));
     }
 
     [Fact]
@@ -120,9 +184,16 @@ public sealed class DaemonStartServiceTests
                 ExecutionError.InvalidArgument("invalid project path")));
         var mapper = new DaemonServiceTestContext.StubDaemonSessionOutputMapper();
         var supervisorProjectGateway = new DaemonServiceTestContext.StubSupervisorProjectGateway();
+        var progressSink = new CollectingProgressSink();
         var service = CreateService(resolver, supervisorProjectGateway, mapper);
 
-        var result = await service.StartAsync(projectPath: null, timeoutMilliseconds: null, editorMode: null, onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto, cancellationToken: CancellationToken.None);
+        var result = await service.StartAsync(
+            projectPath: null,
+            timeoutMilliseconds: null,
+            editorMode: null,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+            progressSink: progressSink,
+            cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Output);
@@ -130,6 +201,7 @@ public sealed class DaemonStartServiceTests
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
         Assert.Equal(0, supervisorProjectGateway.EnsureRunningCallCount);
         Assert.Equal(0, mapper.CallCount);
+        Assert.Empty(progressSink.Entries);
     }
 
     [Fact]
@@ -194,9 +266,16 @@ public sealed class DaemonStartServiceTests
         {
             EnsureRunningResult = DaemonStartResult.Failure(ExecutionError.Timeout("start failed")),
         };
+        var progressSink = new CollectingProgressSink();
         var service = CreateService(resolver, supervisorProjectGateway, mapper);
 
-        var result = await service.StartAsync(projectPath: null, timeoutMilliseconds: null, editorMode: null, onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto, cancellationToken: CancellationToken.None);
+        var result = await service.StartAsync(
+            projectPath: null,
+            timeoutMilliseconds: null,
+            editorMode: null,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+            progressSink: progressSink,
+            cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Output);
@@ -204,6 +283,17 @@ public sealed class DaemonStartServiceTests
         Assert.Equal(ExecutionErrorKind.Timeout, error.Kind);
         Assert.Equal("start failed", error.Message);
         Assert.Equal(0, mapper.CallCount);
+        AssertProgressEvents(
+            progressSink,
+            DaemonStartProgressEventNames.Started,
+            DaemonStartProgressEventNames.PluginVerificationStarted,
+            DaemonStartProgressEventNames.PluginVerificationCompleted,
+            DaemonStartProgressEventNames.Completed);
+        var completedEntry = Assert.IsType<DaemonStartProgressEntry>(progressSink.Entries[^1].Payload);
+        Assert.Equal(DaemonStartProgressResultValues.Failed, completedEntry.Result);
+        Assert.Equal("failed", completedEntry.StartStatus);
+        Assert.Equal("notRunning", completedEntry.DaemonStatus);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout.Value, completedEntry.ErrorCode);
     }
 
     [Fact]
@@ -364,9 +454,16 @@ public sealed class DaemonStartServiceTests
                 "Unity project does not contain the uCLI Unity plugin.")),
         };
         var supervisorProjectGateway = new DaemonServiceTestContext.StubSupervisorProjectGateway();
+        var progressSink = new CollectingProgressSink();
         var service = CreateService(resolver, supervisorProjectGateway, mapper, pluginVerifier);
 
-        var result = await service.StartAsync(projectPath: null, timeoutMilliseconds: null, editorMode: null, onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto, cancellationToken: CancellationToken.None);
+        var result = await service.StartAsync(
+            projectPath: null,
+            timeoutMilliseconds: null,
+            editorMode: null,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+            progressSink: progressSink,
+            cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -374,6 +471,20 @@ public sealed class DaemonStartServiceTests
         Assert.Equal(1, pluginVerifier.CallCount);
         Assert.Equal(0, supervisorProjectGateway.EnsureRunningCallCount);
         Assert.Equal(0, mapper.CallCount);
+        AssertProgressEvents(
+            progressSink,
+            DaemonStartProgressEventNames.Started,
+            DaemonStartProgressEventNames.PluginVerificationStarted,
+            DaemonStartProgressEventNames.PluginVerificationCompleted,
+            DaemonStartProgressEventNames.Completed);
+        var pluginCompletedEntry = Assert.IsType<DaemonStartProgressEntry>(progressSink.Entries[2].Payload);
+        Assert.Equal(DaemonStartProgressResultValues.Failed, pluginCompletedEntry.Result);
+        Assert.Equal("INVALID_ARGUMENT", pluginCompletedEntry.ErrorCode);
+        var completedEntry = Assert.IsType<DaemonStartProgressEntry>(progressSink.Entries[^1].Payload);
+        Assert.Equal(DaemonStartProgressResultValues.Failed, completedEntry.Result);
+        Assert.Equal("failed", completedEntry.StartStatus);
+        Assert.Equal("notRunning", completedEntry.DaemonStatus);
+        Assert.Equal("INVALID_ARGUMENT", completedEntry.ErrorCode);
     }
 
     [Fact]
@@ -428,6 +539,39 @@ public sealed class DaemonStartServiceTests
             daemonDiagnosisOutputMapper ?? new DaemonServiceTestContext.StubDaemonDiagnosisOutputMapper(),
             timeProvider);
     }
+
+    private static void AssertProgressEvents (
+        CollectingProgressSink progressSink,
+        params string[] eventNames)
+    {
+        Assert.Equal(eventNames.Length, progressSink.Entries.Count);
+        for (var i = 0; i < eventNames.Length; i++)
+        {
+            Assert.Equal(eventNames[i], progressSink.Entries[i].EventName);
+        }
+    }
+
+    private sealed class CollectingProgressSink : ICommandProgressSink
+    {
+        private readonly List<ProgressEntry> entries = [];
+
+        public IReadOnlyList<ProgressEntry> Entries => entries;
+
+        public ValueTask OnEntryAsync<TPayload> (
+            string eventName,
+            TPayload payload,
+            CancellationToken cancellationToken = default)
+            where TPayload : notnull
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            entries.Add(new ProgressEntry(eventName, payload));
+            return ValueTask.CompletedTask;
+        }
+    }
+
+    private sealed record ProgressEntry (
+        string EventName,
+        object Payload);
 
     private sealed class StubUnityPluginVerifier : IUnityPluginVerifier
     {
