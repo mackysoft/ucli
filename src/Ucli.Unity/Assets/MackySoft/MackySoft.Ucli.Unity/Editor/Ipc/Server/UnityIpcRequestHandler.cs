@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -42,9 +43,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return validationErrorResponse;
             }
 
-            if (!string.Equals(request.ResponseMode, IpcResponseModes.Single, StringComparison.Ordinal))
+            if (!ContractLiteralCodec.TryParse<IpcResponseMode>(request.ResponseMode, out var responseMode)
+                || responseMode != IpcResponseMode.Single)
             {
-                return CreateResponseModeMismatchResponse(request, IpcResponseModes.Single);
+                return CreateResponseModeMismatchResponse(request, IpcResponseMode.Single);
             }
 
             return await methodDispatcher.DispatchAsync(request, cancellationToken);
@@ -67,9 +69,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return validationErrorResponse;
             }
 
-            if (!string.Equals(request.ResponseMode, IpcResponseModes.Stream, StringComparison.Ordinal))
+            if (!ContractLiteralCodec.TryParse<IpcResponseMode>(request.ResponseMode, out var responseMode)
+                || responseMode != IpcResponseMode.Stream)
             {
-                return CreateResponseModeMismatchResponse(request, IpcResponseModes.Stream);
+                return CreateResponseModeMismatchResponse(request, IpcResponseMode.Stream);
             }
 
             return await methodDispatcher.DispatchStreamingAsync(request, streamWriter, cancellationToken);
@@ -147,7 +150,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     null);
             }
 
-            if (!IpcResponseModes.IsDefined(request.ResponseMode))
+            if (!ContractLiteralCodec.IsDefined<IpcResponseMode>(request.ResponseMode))
             {
                 daemonLogger.Warning(
                     DaemonLogCategories.Ipc,
@@ -165,12 +168,13 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private static IpcResponse CreateResponseModeMismatchResponse (
             IpcRequest request,
-            string expectedResponseMode)
+            IpcResponseMode expectedResponseMode)
         {
+            var expectedLiteral = ContractLiteralCodec.ToValue(expectedResponseMode);
             return UnityIpcResponseFactory.CreateErrorResponse(
                 request,
                 UcliCoreErrorCodes.InvalidArgument,
-                $"IPC responseMode must be '{expectedResponseMode}' for this request path. Actual: {request.ResponseMode}.",
+                $"IPC responseMode must be '{expectedLiteral}' for this request path. Actual: {request.ResponseMode}.",
                 null);
         }
     }

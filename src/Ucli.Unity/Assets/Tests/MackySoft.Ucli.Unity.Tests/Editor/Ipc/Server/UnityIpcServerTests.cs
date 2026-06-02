@@ -744,7 +744,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 RequestId: "req-test-run-invalid",
                 SessionToken: "valid-token",
                 Method: IpcMethodNames.TestRun,
-                Payload: invalidPayload);
+                Payload: invalidPayload,
+                responseMode: IpcResponseMode.Single);
 
             var response = await requestProcessor.ProcessAsync(request);
 
@@ -819,7 +820,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 RequestId: "req-ping",
                 SessionToken: sessionToken,
                 Method: IpcMethodNames.Ping,
-                Payload: JsonSerializer.SerializeToElement(new IpcPingRequest("tests"), SerializerOptions));
+                Payload: JsonSerializer.SerializeToElement(new IpcPingRequest("tests"), SerializerOptions),
+                responseMode: IpcResponseMode.Single);
         }
 
         private static IpcRequest CreateExecuteRequest (
@@ -842,7 +844,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 RequestId: requestId,
                 SessionToken: sessionToken,
                 Method: IpcMethodNames.Execute,
-                Payload: payload);
+                Payload: payload,
+                responseMode: IpcResponseMode.Single);
         }
 
         private static IpcRequest CreateShutdownRequest (
@@ -857,7 +860,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 RequestId: requestId,
                 SessionToken: sessionToken,
                 Method: IpcMethodNames.Shutdown,
-                Payload: payload);
+                Payload: payload,
+                responseMode: IpcResponseMode.Single);
         }
 
         private static IpcRequest CreateTestRunRequest (
@@ -882,7 +886,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 RequestId: requestId,
                 SessionToken: sessionToken,
                 Method: IpcMethodNames.TestRun,
-                Payload: payload);
+                Payload: payload,
+                responseMode: IpcResponseMode.Single);
         }
 
         private static IpcRequest CreateDaemonLogsReadRequest (
@@ -905,7 +910,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 RequestId: requestId,
                 SessionToken: sessionToken,
                 Method: IpcMethodNames.DaemonLogsRead,
-                Payload: payload);
+                Payload: payload,
+                responseMode: IpcResponseMode.Single);
         }
 
         private static IpcRequest CreateUnityLogsReadRequest (
@@ -931,7 +937,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 RequestId: requestId,
                 SessionToken: sessionToken,
                 Method: IpcMethodNames.UnityLogsRead,
-                Payload: payload);
+                Payload: payload,
+                responseMode: IpcResponseMode.Single);
         }
 
         private static IpcRequest CreateUnityConsoleClearRequest (
@@ -946,7 +953,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 RequestId: requestId,
                 SessionToken: sessionToken,
                 Method: IpcMethodNames.UnityConsoleClear,
-                Payload: payload);
+                Payload: payload,
+                responseMode: IpcResponseMode.Single);
         }
 
         private static UnityIpcServer CreateServerForLifecycle ()

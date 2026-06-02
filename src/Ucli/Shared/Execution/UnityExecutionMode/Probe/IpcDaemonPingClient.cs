@@ -172,7 +172,8 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
             RequestId: $"mode-probe-{Guid.NewGuid():N}",
             SessionToken: sessionToken,
             Method: IpcMethodNames.Ping,
-            Payload: payload);
+            Payload: payload,
+            responseMode: IpcResponseMode.Single);
     }
 
 }

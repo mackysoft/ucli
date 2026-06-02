@@ -3,7 +3,7 @@ using System.Globalization;
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Encodes and decodes opaque log cursor values. </summary>
-public static class IpcLogCursorCodec
+internal static class IpcLogCursorCodec
 {
     /// <summary> Encodes one stream identifier and sequence value to opaque cursor string. </summary>
     /// <param name="streamId"> The stream identifier. </param>
@@ -23,19 +23,22 @@ public static class IpcLogCursorCodec
             throw new ArgumentOutOfRangeException(nameof(sequence), sequence, "sequence must be non-negative.");
         }
 
-        var sequenceTextLength = GetNonNegativeInt64TextLength(sequence);
+        var sequenceTextLength = GetNonNegativeInvariantInt64Length(sequence);
         var length = checked(streamId.Length + 1 + sequenceTextLength);
         return string.Create(
             length,
-            (StreamId: streamId, Sequence: sequence),
+            (StreamId: streamId, Sequence: sequence, SequenceTextLength: sequenceTextLength),
             static (destination, state) =>
             {
                 state.StreamId.AsSpan().CopyTo(destination);
                 destination[state.StreamId.Length] = ':';
+
+                var sequenceDestination = destination[(state.StreamId.Length + 1)..];
                 if (!state.Sequence.TryFormat(
-                        destination[(state.StreamId.Length + 1)..],
-                        out _,
-                        provider: CultureInfo.InvariantCulture))
+                        sequenceDestination,
+                        out var charsWritten,
+                        provider: CultureInfo.InvariantCulture)
+                    || charsWritten != state.SequenceTextLength)
                 {
                     throw new InvalidOperationException("Cursor buffer is too small for sequence formatting.");
                 }
@@ -83,19 +86,6 @@ public static class IpcLogCursorCodec
         return true;
     }
 
-    private static int GetNonNegativeInt64TextLength (long value)
-    {
-        var length = 1;
-        var remaining = value;
-        while (remaining >= 10)
-        {
-            length++;
-            remaining /= 10;
-        }
-
-        return length;
-    }
-
     private static bool IsWhiteSpace (ReadOnlySpan<char> value)
     {
         for (var i = 0; i < value.Length; i++)
@@ -107,5 +97,17 @@ public static class IpcLogCursorCodec
         }
 
         return true;
+    }
+
+    private static int GetNonNegativeInvariantInt64Length (long value)
+    {
+        var length = 1;
+        while (value >= 10)
+        {
+            length++;
+            value /= 10;
+        }
+
+        return length;
     }
 }

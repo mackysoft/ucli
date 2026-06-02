@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Contracts.Text;
-
 namespace MackySoft.Ucli.Application.Tests.Configuration;
 
 public sealed class RegexPatternUtilitiesTests

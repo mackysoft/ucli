@@ -2,14 +2,12 @@ using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
 using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Startup;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
 using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Tests.Daemon;
 
@@ -56,6 +54,7 @@ public sealed class DaemonStartServiceTests
         Assert.Equal(context.Context.UnityProject, supervisorProjectGateway.LastEnsureRunningUnityProject);
         Assert.True(supervisorProjectGateway.LastEnsureRunningTimeout > TimeSpan.Zero);
         Assert.True(supervisorProjectGateway.LastEnsureRunningTimeout <= context.Timeout);
+        Assert.Null(supervisorProjectGateway.LastEnsureRunningSupervisorProgressSink);
         Assert.Equal(1, mapper.CallCount);
     }
 
@@ -72,9 +71,10 @@ public sealed class DaemonStartServiceTests
         var session = DaemonServiceTestContext.CreateSession();
         var supervisorProjectGateway = new DaemonServiceTestContext.StubSupervisorProjectGateway
         {
-            EnsureRunningHandler = async (_, _, _, _, progressObserver, cancellationToken) =>
+            EnsureRunningHandler = async (_, _, _, _, progressObserver, supervisorProgressSink, cancellationToken) =>
             {
                 Assert.NotNull(progressObserver);
+                Assert.NotNull(supervisorProgressSink);
                 await progressObserver!.EmitSupervisorBootstrapStartedAsync(cancellationToken).ConfigureAwait(false);
                 await progressObserver.EmitSupervisorBootstrapCompletedAsync(error: null, cancellationToken).ConfigureAwait(false);
                 await progressObserver.EmitEnsureRunningStartedAsync(cancellationToken).ConfigureAwait(false);
@@ -95,17 +95,18 @@ public sealed class DaemonStartServiceTests
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
+        Assert.Same(progressSink, supervisorProjectGateway.LastEnsureRunningSupervisorProgressSink);
         Assert.Equal(8, progressSink.Entries.Count);
         AssertProgressEvents(
             progressSink,
-            DaemonStartProgressEventNames.Started,
-            DaemonStartProgressEventNames.PluginVerificationStarted,
-            DaemonStartProgressEventNames.PluginVerificationCompleted,
-            DaemonStartProgressEventNames.SupervisorBootstrapStarted,
-            DaemonStartProgressEventNames.SupervisorBootstrapCompleted,
-            DaemonStartProgressEventNames.EnsureRunningStarted,
-            DaemonStartProgressEventNames.EnsureRunningCompleted,
-            DaemonStartProgressEventNames.Completed);
+            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.Started),
+            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.PluginVerificationStarted),
+            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.PluginVerificationCompleted),
+            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.SupervisorBootstrapStarted),
+            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.SupervisorBootstrapCompleted),
+            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.EnsureRunningStarted),
+            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.EnsureRunningCompleted),
+            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.Completed));
         var startedEntry = Assert.IsType<DaemonStartProgressEntry>(progressSink.Entries[0].Payload);
         Assert.Equal("fingerprint", startedEntry.ProjectFingerprint);
         Assert.Equal(1200, startedEntry.TimeoutMilliseconds);
@@ -286,10 +287,10 @@ public sealed class DaemonStartServiceTests
         Assert.Equal(0, mapper.CallCount);
         AssertProgressEvents(
             progressSink,
-            DaemonStartProgressEventNames.Started,
-            DaemonStartProgressEventNames.PluginVerificationStarted,
-            DaemonStartProgressEventNames.PluginVerificationCompleted,
-            DaemonStartProgressEventNames.Completed);
+            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.Started),
+            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.PluginVerificationStarted),
+            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.PluginVerificationCompleted),
+            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.Completed));
         var completedEntry = Assert.IsType<DaemonStartProgressEntry>(progressSink.Entries[^1].Payload);
         Assert.Equal(ContractLiteralCodec.ToValue(CommandProgressResult.Failed), completedEntry.Result);
         Assert.Equal("failed", completedEntry.StartStatus);
@@ -357,11 +358,11 @@ public sealed class DaemonStartServiceTests
             DaemonCommandExecutionContextResolutionResult.Success(context));
         var mapper = new DaemonServiceTestContext.StubDaemonSessionOutputMapper();
         var startup = new DaemonStartupObservation(
-            StartupStatus: DaemonStartupStatusValues.Blocked,
-            StartupBlockingReason: DaemonStartupBlockingReasonValues.Compile,
+            StartupStatus: ContractLiteralCodec.ToValue(DaemonStartupStatus.Blocked),
+            StartupBlockingReason: ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Compile),
             LaunchAttemptId: "20260312_040500Z_00abcdef",
-            ProcessAction: DaemonStartupProcessActionValues.Kept,
-            RetryDisposition: DaemonStartupRetryDispositionValues.RetryAfterFix);
+            ProcessAction: ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Kept),
+            RetryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix));
         var supervisorProjectGateway = new DaemonServiceTestContext.StubSupervisorProjectGateway
         {
             EnsureRunningResult = DaemonStartResult.Failure(
@@ -392,7 +393,7 @@ public sealed class DaemonStartServiceTests
         Assert.Equal(startup.StartupBlockingReason, failureOutput.Startup!.StartupBlockingReason);
         Assert.Equal(startup.RetryDisposition, failureOutput.Startup.RetryDisposition);
         Assert.Equal(diagnosisOutputMapper.Output, failureOutput.Diagnosis);
-        Assert.Equal(DaemonStartupRetryDispositionValues.RetryAfterFix, failureOutput.RetryDisposition);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix), failureOutput.RetryDisposition);
         Assert.False(failureOutput.SafeToRetryImmediately);
         Assert.Equal(1, diagnosisOutputMapper.CallCount);
     }
@@ -482,10 +483,10 @@ public sealed class DaemonStartServiceTests
         Assert.Equal(TimeSpan.FromMilliseconds(500), supervisorProjectGateway.LastEnsureRunningTimeout);
         AssertProgressEvents(
             progressSink,
-            DaemonStartProgressEventNames.Started,
-            DaemonStartProgressEventNames.PluginVerificationStarted,
-            DaemonStartProgressEventNames.PluginVerificationCompleted,
-            DaemonStartProgressEventNames.Completed);
+            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.Started),
+            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.PluginVerificationStarted),
+            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.PluginVerificationCompleted),
+            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.Completed));
     }
 
     [Fact]
@@ -521,10 +522,10 @@ public sealed class DaemonStartServiceTests
         Assert.Equal(0, mapper.CallCount);
         AssertProgressEvents(
             progressSink,
-            DaemonStartProgressEventNames.Started,
-            DaemonStartProgressEventNames.PluginVerificationStarted,
-            DaemonStartProgressEventNames.PluginVerificationCompleted,
-            DaemonStartProgressEventNames.Completed);
+            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.Started),
+            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.PluginVerificationStarted),
+            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.PluginVerificationCompleted),
+            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.Completed));
         var pluginCompletedEntry = Assert.IsType<DaemonStartProgressEntry>(progressSink.Entries[2].Payload);
         Assert.Equal(ContractLiteralCodec.ToValue(CommandProgressResult.Failed), pluginCompletedEntry.Result);
         Assert.Equal("INVALID_ARGUMENT", pluginCompletedEntry.ErrorCode);

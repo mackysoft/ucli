@@ -1,11 +1,10 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Tests.Daemon;
 
@@ -99,15 +98,110 @@ public sealed class SupervisorProjectGatewayTests
         Assert.Equal("keep", observedOnStartupBlocked);
         AssertProgressEvents(
             progressSink,
-            DaemonStartProgressEventNames.SupervisorBootstrapStarted,
-            DaemonStartProgressEventNames.SupervisorBootstrapCompleted,
-            DaemonStartProgressEventNames.EnsureRunningStarted,
-            DaemonStartProgressEventNames.EnsureRunningCompleted);
+            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.SupervisorBootstrapStarted),
+            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.SupervisorBootstrapCompleted),
+            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.EnsureRunningStarted),
+            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.EnsureRunningCompleted));
         var completedEntry = Assert.IsType<DaemonStartProgressEntry>(progressSink.Entries[^1].Payload);
         Assert.Equal(ContractLiteralCodec.ToValue(CommandProgressResult.Succeeded), completedEntry.Result);
         Assert.Equal("started", completedEntry.StartStatus);
         Assert.Equal("running", completedEntry.DaemonStatus);
         Assert.Equal(900, completedEntry.TimeoutMilliseconds);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task EnsureRunning_WithSupervisorProgressSink_ForwardsSupervisorProgressThroughStreamClient ()
+    {
+        using var scope = TestDirectories.CreateTempScope("supervisor-project-gateway", "ensure-running-supervisor-progress");
+        var manifest = CreateManifest();
+        var manifestStore = new SupervisorManifestStore();
+        await manifestStore.WriteAsync(scope.FullPath, manifest, CancellationToken.None);
+
+        var transportClient = new DaemonServiceTestContext.StubIpcTransportClient();
+        transportClient.SendHandler = (endpoint, request, timeout, cancellationToken) =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Assert.Equal(SupervisorIpcContracts.PingMethod, request.Method);
+            return ValueTask.FromResult(DaemonServiceTestContext.CreateSuccessResponse(
+                request,
+                new SupervisorIpcContracts.PingResponse(
+                    manifest.ProcessId,
+                    manifest.IssuedAtUtc)));
+        };
+        transportClient.StreamingHandler = async (endpoint, request, timeout, onProgressFrame, cancellationToken) =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Assert.Equal(SupervisorIpcContracts.EnsureRunningMethod, request.Method);
+            Assert.Equal(ContractLiteralCodec.ToValue(IpcResponseMode.Stream), request.ResponseMode);
+            Assert.True(IpcPayloadCodec.TryDeserialize(
+                request.Payload,
+                out SupervisorIpcContracts.EnsureRunningRequest payload,
+                out _));
+            await onProgressFrame(
+                    new IpcStreamFrame(
+                        IpcProtocol.CurrentVersion,
+                        request.RequestId,
+                        IpcStreamFrameKinds.Progress,
+                        ContractLiteralCodec.ToValue(DaemonStartProgressEvent.WaitingForEndpoint),
+                        IpcPayloadCodec.SerializeToElement(
+                            new DaemonStartStartupObservationProgressEntry(
+                                ContractLiteralCodec.ToValue(DaemonStartProgressPayloadKind.StartupObservation),
+                                payload.ProjectFingerprint,
+                                payload.TimeoutMilliseconds,
+                                "batchmode",
+                                payload.OnStartupBlocked,
+                                "attempt-1",
+                                "cli",
+                                true,
+                                1234,
+                                null,
+                                ContractLiteralCodec.ToValue(DaemonStartupStatus.WaitingForEndpoint),
+                                null,
+                                ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.EndpointRegistration),
+                                null,
+                                null,
+                                null)),
+                        Response: null),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return DaemonServiceTestContext.CreateSuccessResponse(
+                request,
+                new SupervisorIpcContracts.EnsureRunningResponse(
+                    StartStatus: "started",
+                    DaemonStatus: "running",
+                    Session: CreateSession()));
+        };
+
+        var client = new SupervisorClient(transportClient);
+        var gateway = new SupervisorProjectGateway(
+            new SupervisorBootstrapper(
+                manifestStore,
+                client,
+                new StubSupervisorProcessLauncher(),
+                new SupervisorBootstrapLockProvider(),
+                new SupervisorEndpointResolver()),
+            manifestStore,
+            client);
+        var progressSink = new CollectingProgressSink();
+
+        var result = await gateway.EnsureRunningAsync(
+            CreateUnityProject(scope.FullPath),
+            TimeSpan.FromMilliseconds(900),
+            editorMode: null,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+            progressObserver: null,
+            supervisorProgressSink: progressSink,
+            cancellationToken: CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var progress = Assert.Single(progressSink.Entries);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartProgressEvent.WaitingForEndpoint), progress.EventName);
+        var progressPayload = Assert.IsType<DaemonStartStartupObservationProgressEntry>(progress.Payload);
+        Assert.Equal("fingerprint", progressPayload.ProjectFingerprint);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupStatus.WaitingForEndpoint), progressPayload.StartupStatus);
+        Assert.Equal(2, transportClient.Calls.Count);
+        Assert.True(transportClient.Calls[1].UsesUnboundedResponseWait);
     }
 
     [Fact]
@@ -186,10 +280,10 @@ public sealed class SupervisorProjectGatewayTests
         Assert.Equal(TimeSpan.FromMilliseconds(720), observedEnsureRunningTimeout);
         AssertProgressEvents(
             progressSink,
-            DaemonStartProgressEventNames.SupervisorBootstrapStarted,
-            DaemonStartProgressEventNames.SupervisorBootstrapCompleted,
-            DaemonStartProgressEventNames.EnsureRunningStarted,
-            DaemonStartProgressEventNames.EnsureRunningCompleted);
+            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.SupervisorBootstrapStarted),
+            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.SupervisorBootstrapCompleted),
+            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.EnsureRunningStarted),
+            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.EnsureRunningCompleted));
     }
 
     [Fact]
@@ -256,10 +350,10 @@ public sealed class SupervisorProjectGatewayTests
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.Error!.Code);
         AssertProgressEvents(
             progressSink,
-            DaemonStartProgressEventNames.SupervisorBootstrapStarted,
-            DaemonStartProgressEventNames.SupervisorBootstrapCompleted,
-            DaemonStartProgressEventNames.EnsureRunningStarted,
-            DaemonStartProgressEventNames.EnsureRunningCompleted);
+            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.SupervisorBootstrapStarted),
+            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.SupervisorBootstrapCompleted),
+            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.EnsureRunningStarted),
+            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.EnsureRunningCompleted));
         var completedEntry = Assert.IsType<DaemonStartProgressEntry>(progressSink.Entries[^1].Payload);
         Assert.Equal(ContractLiteralCodec.ToValue(CommandProgressResult.Failed), completedEntry.Result);
         Assert.Equal("failed", completedEntry.StartStatus);
@@ -314,8 +408,8 @@ public sealed class SupervisorProjectGatewayTests
         Assert.Equal(UcliCoreErrorCodes.InternalError, result.Error!.Code);
         AssertProgressEvents(
             progressSink,
-            DaemonStartProgressEventNames.SupervisorBootstrapStarted,
-            DaemonStartProgressEventNames.SupervisorBootstrapCompleted);
+            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.SupervisorBootstrapStarted),
+            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.SupervisorBootstrapCompleted));
         var completedEntry = Assert.IsType<DaemonStartProgressEntry>(progressSink.Entries[^1].Payload);
         Assert.Equal(ContractLiteralCodec.ToValue(CommandProgressResult.Failed), completedEntry.Result);
         Assert.Null(completedEntry.StartStatus);

@@ -37,6 +37,12 @@ internal sealed class SupervisorRequestLifetime : IAsyncDisposable
         disconnectCancellationTokenSource.IsCancellationRequested
         && !listenerCancellationToken.IsCancellationRequested;
 
+    /// <summary> Cancels the request because the caller-owned response stream failed. </summary>
+    public void CancelForResponseStreamFailure ()
+    {
+        TryCancel(disconnectCancellationTokenSource);
+    }
+
     /// <summary> Starts one request lifetime bound to the specified client stream. </summary>
     /// <param name="stream"> The request stream to monitor for caller disconnect. </param>
     /// <param name="listenerCancellationToken"> The host listener cancellation token. </param>

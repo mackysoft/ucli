@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Contracts;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Startup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
@@ -60,7 +61,27 @@ internal sealed class SupervisorRequestDispatcher
             return;
         }
 
-        var response = await ProcessRequestAsync(stream, runtimeContext, readResult.Value, cancellationToken).ConfigureAwait(false);
+        var request = readResult.Value;
+        if (!TryParseResponseMode(request, out var responseMode, out var responseModeError))
+        {
+            await TryWriteResponseAsync(stream, responseModeError!, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        if (responseMode == IpcResponseMode.Stream)
+        {
+            await HandleStreamingRequestAsync(stream, runtimeContext, request, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        var response = await ProcessRequestAsync(
+                stream,
+                runtimeContext,
+                request,
+                streamWriter: null,
+                requestLifetimeStarted: null,
+                cancellationToken)
+            .ConfigureAwait(false);
         await TryWriteResponseAsync(stream, response, cancellationToken).ConfigureAwait(false);
     }
 
@@ -68,6 +89,8 @@ internal sealed class SupervisorRequestDispatcher
         Stream stream,
         SupervisorRuntimeContext runtimeContext,
         IpcRequest request,
+        SupervisorIpcStreamFrameWriter? streamWriter,
+        Action<SupervisorRequestLifetime>? requestLifetimeStarted,
         CancellationToken cancellationToken)
     {
         using var requestScope = activityTracker.BeginRequest();
@@ -96,16 +119,54 @@ internal sealed class SupervisorRequestDispatcher
                 $"Protocol version mismatch. Requested={request.ProtocolVersion}, Supported={IpcProtocol.CurrentVersion}.");
         }
 
+        if (streamWriter is not null
+            && !string.Equals(request.Method, SupervisorIpcContracts.EnsureRunningMethod, StringComparison.Ordinal))
+        {
+            return SupervisorIpcResponseFactory.CreateErrorResponse(
+                request,
+                UcliCoreErrorCodes.InvalidArgument,
+                $"Supervisor IPC responseMode 'stream' is only supported for {SupervisorIpcContracts.EnsureRunningMethod}.");
+        }
+
         return request.Method switch
         {
             SupervisorIpcContracts.PingMethod => HandlePing(request, runtimeContext),
-            SupervisorIpcContracts.EnsureRunningMethod => await HandleEnsureRunningAsync(stream, request, runtimeContext, cancellationToken).ConfigureAwait(false),
+            SupervisorIpcContracts.EnsureRunningMethod => await HandleEnsureRunningAsync(
+                    stream,
+                    request,
+                    runtimeContext,
+                    streamWriter,
+                    requestLifetimeStarted,
+                    cancellationToken)
+                .ConfigureAwait(false),
             SupervisorIpcContracts.StopProjectMethod => await HandleStopProjectAsync(stream, request, runtimeContext, cancellationToken).ConfigureAwait(false),
             _ => SupervisorIpcResponseFactory.CreateErrorResponse(
                 request,
                 IpcProtocolErrorCodes.IpcMethodNotSupported,
                 $"Supervisor IPC method is not supported: {request.Method}."),
         };
+    }
+
+    private async ValueTask HandleStreamingRequestAsync (
+        Stream stream,
+        SupervisorRuntimeContext runtimeContext,
+        IpcRequest request,
+        CancellationToken cancellationToken)
+    {
+        SupervisorRequestLifetime? activeRequestLifetime = null;
+        var streamWriter = new SupervisorIpcStreamFrameWriter(
+            stream,
+            request,
+            _ => activeRequestLifetime?.CancelForResponseStreamFailure());
+        var response = await ProcessRequestAsync(
+                stream,
+                runtimeContext,
+                request,
+                streamWriter,
+                requestLifetime => activeRequestLifetime = requestLifetime,
+                cancellationToken)
+            .ConfigureAwait(false);
+        await TryWriteTerminalAsync(streamWriter, response, cancellationToken).ConfigureAwait(false);
     }
 
     private static IpcResponse HandlePing (
@@ -123,6 +184,8 @@ internal sealed class SupervisorRequestDispatcher
         Stream stream,
         IpcRequest request,
         SupervisorRuntimeContext runtimeContext,
+        SupervisorIpcStreamFrameWriter? streamWriter,
+        Action<SupervisorRequestLifetime>? requestLifetimeStarted,
         CancellationToken cancellationToken)
     {
         if (!IpcPayloadCodec.TryDeserialize(
@@ -177,6 +240,10 @@ internal sealed class SupervisorRequestDispatcher
         }
 
         await using var requestLifetime = SupervisorRequestLifetime.Start(stream, cancellationToken);
+        requestLifetimeStarted?.Invoke(requestLifetime);
+        var progressObserver = streamWriter is null
+            ? null
+            : CreateProgressObserver(streamWriter, payload, editorMode, onStartupBlocked);
 
         DaemonStartResult startResult;
         try
@@ -186,6 +253,7 @@ internal sealed class SupervisorRequestDispatcher
                     timeout,
                     editorMode,
                     onStartupBlocked,
+                    progressObserver,
                     requestLifetime.CancellationToken)
                 .ConfigureAwait(false);
         }
@@ -317,6 +385,63 @@ internal sealed class SupervisorRequestDispatcher
             // NOTE:
             // the peer may already close the connection after sending a malformed frame.
         }
+    }
+
+    private async ValueTask TryWriteTerminalAsync (
+        SupervisorIpcStreamFrameWriter streamWriter,
+        IpcResponse response,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await streamWriter.WriteTerminalAsync(response, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception) when (IsConnectionLocalWriteFailure(exception))
+        {
+            // NOTE: A broken response stream is connection-local; the supervisor listener must keep serving.
+        }
+    }
+
+    private static bool TryParseResponseMode (
+        IpcRequest request,
+        out IpcResponseMode responseMode,
+        out IpcResponse? responseModeError)
+    {
+        if (ContractLiteralCodec.TryParse(request.ResponseMode, out responseMode))
+        {
+            responseModeError = null;
+            return true;
+        }
+
+        var responseModeLiteral = request.ResponseMode ?? "<null>";
+        responseModeError = SupervisorIpcResponseFactory.CreateErrorResponse(
+            request,
+            UcliCoreErrorCodes.InvalidArgument,
+            $"Unsupported IPC response mode: {responseModeLiteral}.");
+        return false;
+    }
+
+    private static bool IsConnectionLocalWriteFailure (Exception exception)
+    {
+        return exception is IOException or ObjectDisposedException or InvalidOperationException;
+    }
+
+    private static IDaemonStartProgressObserver CreateProgressObserver (
+        SupervisorIpcStreamFrameWriter streamWriter,
+        SupervisorIpcContracts.EnsureRunningRequest payload,
+        DaemonEditorMode? editorMode,
+        DaemonStartupBlockedProcessPolicy onStartupBlocked)
+    {
+        return new DaemonStartProgressEmitter(
+            new SupervisorIpcCommandProgressSink(streamWriter),
+            payload.ProjectFingerprint,
+            payload.TimeoutMilliseconds,
+            editorMode,
+            onStartupBlocked);
     }
 
     private static ProjectContextResult TryCreateProjectContext (

@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Contracts.Daemon;
-
 using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Tests.Daemon;
@@ -108,5 +107,96 @@ public sealed class DaemonContractLiteralTests
         string expectedValue)
     {
         Assert.Equal(expectedValue, ContractLiteralCodec.ToValue(policy));
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData(DaemonStartupStatus.Launching, "launching")]
+    [InlineData(DaemonStartupStatus.WaitingForEndpoint, "waitingForEndpoint")]
+    [InlineData(DaemonStartupStatus.Blocked, "blocked")]
+    [InlineData(DaemonStartupStatus.Timeout, "timeout")]
+    [InlineData(DaemonStartupStatus.Failed, "failed")]
+    [InlineData(DaemonStartupStatus.Completed, "completed")]
+    public void DaemonStartupStatusContractLiteral_ToValue_ReturnsCanonicalLiteral (
+        DaemonStartupStatus status,
+        string expectedValue)
+    {
+        Assert.Equal(expectedValue, ContractLiteralCodec.ToValue(status));
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData(DaemonStartupBlockingReason.SafeMode, "safeMode")]
+    [InlineData(DaemonStartupBlockingReason.Compile, "compile")]
+    [InlineData(DaemonStartupBlockingReason.PackageResolution, "packageResolution")]
+    [InlineData(DaemonStartupBlockingReason.UcliPlugin, "ucliPlugin")]
+    [InlineData(DaemonStartupBlockingReason.PrecompiledAssemblyConflict, "precompiledAssemblyConflict")]
+    [InlineData(DaemonStartupBlockingReason.ModalDialog, "modalDialog")]
+    [InlineData(DaemonStartupBlockingReason.EndpointNotRegistered, "endpointNotRegistered")]
+    [InlineData(DaemonStartupBlockingReason.ProcessExit, "processExit")]
+    [InlineData(DaemonStartupBlockingReason.Unknown, "unknown")]
+    public void DaemonStartupBlockingReasonContractLiteral_ToValue_ReturnsCanonicalLiteral (
+        DaemonStartupBlockingReason reason,
+        string expectedValue)
+    {
+        Assert.Equal(expectedValue, ContractLiteralCodec.ToValue(reason));
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData(DaemonStartupRetryDisposition.RetryImmediately, "retryImmediately")]
+    [InlineData(DaemonStartupRetryDisposition.WaitThenRetry, "waitThenRetry")]
+    [InlineData(DaemonStartupRetryDisposition.RetryAfterFix, "retryAfterFix")]
+    [InlineData(DaemonStartupRetryDisposition.ManualActionRequired, "manualActionRequired")]
+    [InlineData(DaemonStartupRetryDisposition.DoNotRetry, "doNotRetry")]
+    [InlineData(DaemonStartupRetryDisposition.Unknown, "unknown")]
+    public void DaemonStartupRetryDispositionContractLiteral_ToValue_ReturnsCanonicalLiteral (
+        DaemonStartupRetryDisposition disposition,
+        string expectedValue)
+    {
+        Assert.Equal(expectedValue, ContractLiteralCodec.ToValue(disposition));
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData(DaemonStartupProcessAction.None, "none")]
+    [InlineData(DaemonStartupProcessAction.Kept, "kept")]
+    [InlineData(DaemonStartupProcessAction.Terminated, "terminated")]
+    [InlineData(DaemonStartupProcessAction.Unknown, "unknown")]
+    public void DaemonStartupProcessActionContractLiteral_ToValue_ReturnsCanonicalLiteral (
+        DaemonStartupProcessAction processAction,
+        string expectedValue)
+    {
+        Assert.Equal(expectedValue, ContractLiteralCodec.ToValue(processAction));
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("launching")]
+    [InlineData("compile")]
+    [InlineData("retryAfterFix")]
+    public void DaemonStartupProgressContractLiteral_IsDefined_AcceptsCanonicalLiteral (string value)
+    {
+        var isDefined = ContractLiteralCodec.IsDefined<DaemonStartupStatus>(value)
+            || ContractLiteralCodec.IsDefined<DaemonStartupBlockingReason>(value)
+            || ContractLiteralCodec.IsDefined<DaemonStartupRetryDisposition>(value)
+            || ContractLiteralCodec.IsDefined<DaemonStartupProcessAction>(value);
+
+        Assert.True(isDefined);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData(" launching ")]
+    [InlineData("COMPILE")]
+    [InlineData("unsupported")]
+    public void DaemonStartupProgressContractLiteral_IsDefined_RejectsNonCanonicalLiteral (string value)
+    {
+        var isDefined = ContractLiteralCodec.IsDefined<DaemonStartupStatus>(value)
+            || ContractLiteralCodec.IsDefined<DaemonStartupBlockingReason>(value)
+            || ContractLiteralCodec.IsDefined<DaemonStartupRetryDisposition>(value)
+            || ContractLiteralCodec.IsDefined<DaemonStartupProcessAction>(value);
+
+        Assert.False(isDefined);
     }
 }

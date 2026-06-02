@@ -1,14 +1,12 @@
 using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
 using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Hosting.Cli.Daemon;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 
@@ -121,7 +119,7 @@ public sealed class DaemonStartCommandTests
         using var completedEntry = JsonDocument.Parse(lines[1]);
         JsonAssert.For(startedEntry.RootElement)
             .HasString("command", UcliCommandNames.DaemonStart)
-            .HasString("event", DaemonStartProgressEventNames.Started)
+            .HasString("event", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.Started))
             .HasInt32("sequence", 1);
         JsonAssert.For(startedEntry.RootElement.GetProperty("payload"))
             .HasString("projectFingerprint", "fingerprint")
@@ -134,7 +132,7 @@ public sealed class DaemonStartCommandTests
             .IsNull("errorCode");
         JsonAssert.For(completedEntry.RootElement)
             .HasString("command", UcliCommandNames.DaemonStart)
-            .HasString("event", DaemonStartProgressEventNames.Completed)
+            .HasString("event", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.Completed))
             .HasInt32("sequence", 2);
         JsonAssert.For(completedEntry.RootElement.GetProperty("payload"))
             .HasString("result", ContractLiteralCodec.ToValue(CommandProgressResult.Succeeded))
@@ -142,6 +140,72 @@ public sealed class DaemonStartCommandTests
             .HasString("daemonStatus", "running")
             .IsNull("errorCode");
         JsonGoldenFileAssert.Matches(CliOutputGoldenFiles.GetPath("daemon", "start-compiling-success.json"), standardOutput);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Start_WithJsonFormat_WritesSupervisorProgressPayloadsToStandardErrorOnly ()
+    {
+        var service = new StubDaemonStartService(
+            DaemonStartExecutionResult.Success(CreateSuccessOutput(
+                lifecycleState: IpcEditorLifecycleStateCodec.Compiling,
+                blockingReason: IpcEditorBlockingReasonCodec.Compile,
+                canAcceptExecutionRequests: false)),
+            EmitSampleSupervisorProgressAsync);
+        var command = new DaemonStartCommand(service, CommandResultTestWriter.Create());
+
+        CommandExecutionState.Reset();
+        var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.StartAsync(
+            format: "json",
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.Success, exitCode);
+        var lines = standardError.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
+        Assert.Equal(4, lines.Length);
+        using var waitingEntry = JsonDocument.Parse(lines[0]);
+        using var blockerEntry = JsonDocument.Parse(lines[1]);
+        using var endpointEntry = JsonDocument.Parse(lines[2]);
+        using var lifecycleEntry = JsonDocument.Parse(lines[3]);
+        JsonAssert.For(waitingEntry.RootElement)
+            .HasString("event", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.WaitingForEndpoint))
+            .HasInt32("sequence", 1);
+        JsonAssert.For(waitingEntry.RootElement.GetProperty("payload"))
+            .HasString("payloadKind", "startupObservation")
+            .HasString("projectFingerprint", "fingerprint")
+            .HasString("startupStatus", "waitingForEndpoint")
+            .HasString("startupPhase", "endpointRegistration");
+        Assert.False(waitingEntry.RootElement.GetProperty("payload").TryGetProperty("lifecycleState", out _));
+        Assert.False(waitingEntry.RootElement.GetProperty("payload").TryGetProperty("blockingReason", out _));
+        Assert.False(waitingEntry.RootElement.GetProperty("payload").TryGetProperty("canAcceptExecutionRequests", out _));
+        JsonAssert.For(blockerEntry.RootElement)
+            .HasString("event", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.BlockerDetected))
+            .HasInt32("sequence", 2);
+        JsonAssert.For(blockerEntry.RootElement.GetProperty("payload"))
+            .HasString("payloadKind", "startupObservation")
+            .HasString("startupStatus", ContractLiteralCodec.ToValue(DaemonStartupStatus.Blocked))
+            .HasString("startupBlockingReason", ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Compile))
+            .HasString("retryDisposition", ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix));
+        JsonAssert.For(endpointEntry.RootElement)
+            .HasString("event", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.EndpointRegistered))
+            .HasInt32("sequence", 3);
+        JsonAssert.For(endpointEntry.RootElement.GetProperty("payload"))
+            .HasString("payloadKind", "startupObservation")
+            .HasString("projectFingerprint", "fingerprint")
+            .HasInt32("processId", 1234);
+        JsonAssert.For(lifecycleEntry.RootElement)
+            .HasString("event", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.LifecycleObserved))
+            .HasInt32("sequence", 4);
+        JsonAssert.For(lifecycleEntry.RootElement.GetProperty("payload"))
+            .HasString("payloadKind", "lifecycleSnapshot")
+            .HasString("lifecycleState", IpcEditorLifecycleStateCodec.Compiling)
+            .HasString("blockingReason", IpcEditorBlockingReasonCodec.Compile)
+            .HasBoolean("canAcceptExecutionRequests", false);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
+        JsonAssert.For(outputJson.RootElement)
+            .HasString("command", UcliCommandNames.DaemonStart)
+            .HasValueKind("payload", JsonValueKind.Object);
+        Assert.False(outputJson.RootElement.TryGetProperty("event", out _));
     }
 
     [Theory]
@@ -171,6 +235,61 @@ public sealed class DaemonStartCommandTests
         Assert.Equal("daemon start workflow project=fingerprint timeoutMs=1234 started", lines[0]);
         Assert.Equal("daemon start workflow project=fingerprint timeoutMs=1234 result=succeeded startStatus=started daemonStatus=running completed", lines[1]);
         JsonGoldenFileAssert.Matches(CliOutputGoldenFiles.GetPath("daemon", "start-compiling-success.json"), standardOutput);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Start_WithTextFormat_WhenProgressEventHasUnknownStartedSuffix_RendersStartedStatus ()
+    {
+        var service = new StubDaemonStartService(
+            DaemonStartExecutionResult.Success(CreateSuccessOutput()),
+            EmitUnknownStartedDaemonStartProgressAsync);
+        var command = new DaemonStartCommand(service, CommandResultTestWriter.Create());
+
+        CommandExecutionState.Reset();
+        var (exitCode, _, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.StartAsync(
+            format: "text",
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.Success, exitCode);
+        var line = Assert.Single(standardError.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries));
+        Assert.Equal("daemon start daemon.start.future.started project=fingerprint timeoutMs=1234 started", line);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Start_WithTextFormat_WritesSupervisorProgressPayloadsToStandardError ()
+    {
+        var service = new StubDaemonStartService(
+            DaemonStartExecutionResult.Success(CreateSuccessOutput(
+                lifecycleState: IpcEditorLifecycleStateCodec.Compiling,
+                blockingReason: IpcEditorBlockingReasonCodec.Compile,
+                canAcceptExecutionRequests: false)),
+            EmitSampleSupervisorProgressAsync);
+        var command = new DaemonStartCommand(service, CommandResultTestWriter.Create());
+
+        CommandExecutionState.Reset();
+        var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.StartAsync(
+            format: "text",
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.Success, exitCode);
+        var lines = standardError.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
+        Assert.Equal(4, lines.Length);
+        Assert.Equal(
+            "daemon start endpoint project=fingerprint timeoutMs=1234 editorMode=batchmode owner=cli canShutdownProcess=true pid=1234 launchAttempt=attempt-1 startupStatus=waitingForEndpoint startupPhase=endpointRegistration waiting",
+            lines[0]);
+        Assert.Equal(
+            "daemon start blocker project=fingerprint timeoutMs=1234 editorMode=batchmode owner=cli canShutdownProcess=true pid=1234 launchAttempt=attempt-1 startupStatus=blocked startupBlockingReason=compile startupPhase=endpointRegistration retryDisposition=retryAfterFix errorCode=DAEMON_STARTUP_BLOCKED detected",
+            lines[1]);
+        Assert.Equal(
+            "daemon start endpoint project=fingerprint timeoutMs=1234 editorMode=batchmode owner=cli canShutdownProcess=true pid=1234 launchAttempt=attempt-1 registered",
+            lines[2]);
+        Assert.Equal(
+            "daemon start lifecycle project=fingerprint timeoutMs=1234 editorMode=batchmode lifecycleState=compiling blockingReason=compile canAcceptExecutionRequests=false observed",
+            lines[3]);
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
+        Assert.False(outputJson.RootElement.TryGetProperty("event", out _));
     }
 
     [Fact]
@@ -259,7 +378,7 @@ public sealed class DaemonStartCommandTests
             EditorInstancePath: "/repo/UnityProject/Library/EditorInstance.json",
             ProcessStartedAtUtc: new DateTimeOffset(2026, 03, 12, 4, 5, 0, TimeSpan.Zero),
             UnityLogPath: "/repo/.ucli/local/fingerprints/fp/unity.log",
-            StartupPhase: DaemonDiagnosisStartupPhaseValues.EndpointRegistration,
+            StartupPhase: ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.EndpointRegistration),
             ActionRequired: DaemonDiagnosisActionRequiredValues.InspectUnityLog,
             PrimaryDiagnostic: new DaemonPrimaryDiagnosticOutput(
                 Kind: DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler,
@@ -296,7 +415,7 @@ public sealed class DaemonStartCommandTests
         Assert.Equal("/repo/UnityProject/Library/EditorInstance.json", diagnosisJson.GetProperty("editorInstancePath").GetString());
         Assert.Equal("2026-03-12T04:05:00+00:00", diagnosisJson.GetProperty("processStartedAtUtc").GetString());
         Assert.Equal("/repo/.ucli/local/fingerprints/fp/unity.log", diagnosisJson.GetProperty("unityLogPath").GetString());
-        Assert.Equal(DaemonDiagnosisStartupPhaseValues.EndpointRegistration, diagnosisJson.GetProperty("startupPhase").GetString());
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.EndpointRegistration), diagnosisJson.GetProperty("startupPhase").GetString());
         Assert.Equal(DaemonDiagnosisActionRequiredValues.InspectUnityLog, diagnosisJson.GetProperty("actionRequired").GetString());
         Assert.True(diagnosisJson.GetProperty("isInferred").GetBoolean());
         var primaryDiagnosticJson = diagnosisJson.GetProperty("primaryDiagnostic");
@@ -314,11 +433,11 @@ public sealed class DaemonStartCommandTests
     {
         var diagnosis = CreateDiagnosis(DaemonDiagnosisReasonValues.UnityScriptCompilationFailed);
         var startup = new DaemonStartupObservation(
-            StartupStatus: DaemonStartupStatusValues.Blocked,
-            StartupBlockingReason: DaemonStartupBlockingReasonValues.Compile,
+            StartupStatus: ContractLiteralCodec.ToValue(DaemonStartupStatus.Blocked),
+            StartupBlockingReason: ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Compile),
             LaunchAttemptId: "20260312_040500Z_00abcdef",
-            ProcessAction: DaemonStartupProcessActionValues.Kept,
-            RetryDisposition: DaemonStartupRetryDispositionValues.RetryAfterFix,
+            ProcessAction: ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Kept),
+            RetryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix),
             EditorMode: "batchmode",
             OwnerKind: "cli",
             CanShutdownProcess: true,
@@ -355,11 +474,11 @@ public sealed class DaemonStartCommandTests
             .HasString("daemonStatus", "notRunning")
             .HasInt32("timeoutMilliseconds", 1234)
             .IsNull("session")
-            .HasString("retryDisposition", DaemonStartupRetryDispositionValues.RetryAfterFix)
+            .HasString("retryDisposition", ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix))
             .HasBoolean("safeToRetryImmediately", false)
             .HasProperty("startup", startupJson => startupJson
-                .HasString("startupStatus", DaemonStartupStatusValues.Blocked)
-                .HasString("startupBlockingReason", DaemonStartupBlockingReasonValues.Compile)
+                .HasString("startupStatus", ContractLiteralCodec.ToValue(DaemonStartupStatus.Blocked))
+                .HasString("startupBlockingReason", ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Compile))
                 .HasString("launchAttemptId", "20260312_040500Z_00abcdef")
                 .HasString("editorMode", "batchmode")
                 .HasString("ownerKind", "cli")
@@ -367,10 +486,10 @@ public sealed class DaemonStartCommandTests
                 .HasInt32("processId", 4321)
                 .HasString("startedAtUtc", "2026-03-12T04:05:01+00:00")
                 .HasInt32("elapsedMilliseconds", 2500)
-                .HasString("processAction", DaemonStartupProcessActionValues.Kept)
+                .HasString("processAction", ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Kept))
                 .IsNull("processTermination")
                 .HasString("artifactPath", "/repo/.ucli/local/fingerprints/fp/launchAttempts/20260312_040500Z_00abcdef/startup-diagnosis.json")
-                .HasString("retryDisposition", DaemonStartupRetryDispositionValues.RetryAfterFix))
+                .HasString("retryDisposition", ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix)))
             .HasProperty("diagnosis", diagnosisJson => diagnosisJson
                 .HasString("reason", DaemonDiagnosisReasonValues.UnityScriptCompilationFailed));
         Assert.False(payload.TryGetProperty("lifecycleState", out _));
@@ -386,11 +505,11 @@ public sealed class DaemonStartCommandTests
     public async Task Start_WhenEndpointRegistrationTimesOut_NormalizesFinalWaitThenRetryToUnknown ()
     {
         var startup = new DaemonStartupObservation(
-            StartupStatus: DaemonStartupStatusValues.Timeout,
-            StartupBlockingReason: DaemonStartupBlockingReasonValues.EndpointNotRegistered,
+            StartupStatus: ContractLiteralCodec.ToValue(DaemonStartupStatus.Timeout),
+            StartupBlockingReason: ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.EndpointNotRegistered),
             LaunchAttemptId: "20260312_040500Z_00abcdef",
-            ProcessAction: DaemonStartupProcessActionValues.Terminated,
-            RetryDisposition: DaemonStartupRetryDispositionValues.WaitThenRetry);
+            ProcessAction: ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated),
+            RetryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.WaitThenRetry));
         var service = new StubDaemonStartService(DaemonStartExecutionResult.Failure(
             ExecutionError.Timeout("endpoint registration timeout", ExecutionErrorCodes.IpcTimeout),
             DaemonStartFailureExecutionOutput.Create(
@@ -413,12 +532,12 @@ public sealed class DaemonStartCommandTests
             .HasString("startStatus", "failed")
             .HasString("daemonStatus", "notRunning")
             .IsNull("session")
-            .HasString("retryDisposition", DaemonStartupRetryDispositionValues.Unknown)
+            .HasString("retryDisposition", ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.Unknown))
             .HasBoolean("safeToRetryImmediately", false)
             .HasProperty("startup", startupJson => startupJson
-                .HasString("startupStatus", DaemonStartupStatusValues.Timeout)
-                .HasString("startupBlockingReason", DaemonStartupBlockingReasonValues.EndpointNotRegistered)
-                .HasString("retryDisposition", DaemonStartupRetryDispositionValues.Unknown));
+                .HasString("startupStatus", ContractLiteralCodec.ToValue(DaemonStartupStatus.Timeout))
+                .HasString("startupBlockingReason", ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.EndpointNotRegistered))
+                .HasString("retryDisposition", ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.Unknown)));
         Assert.False(payload.TryGetProperty("lifecycleState", out _));
         Assert.False(payload.TryGetProperty("blockingReason", out _));
         Assert.False(payload.TryGetProperty("canAcceptExecutionRequests", out _));
@@ -432,11 +551,11 @@ public sealed class DaemonStartCommandTests
     public async Task Start_WhenFailureCanRetryImmediately_EmitsSafeToRetryImmediately ()
     {
         var startup = new DaemonStartupObservation(
-            StartupStatus: DaemonStartupStatusValues.Failed,
-            StartupBlockingReason: DaemonStartupBlockingReasonValues.Unknown,
+            StartupStatus: ContractLiteralCodec.ToValue(DaemonStartupStatus.Failed),
+            StartupBlockingReason: ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Unknown),
             LaunchAttemptId: "20260312_040500Z_00abcdef",
-            ProcessAction: DaemonStartupProcessActionValues.None,
-            RetryDisposition: DaemonStartupRetryDispositionValues.RetryImmediately);
+            ProcessAction: ContractLiteralCodec.ToValue(DaemonStartupProcessAction.None),
+            RetryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryImmediately));
         var service = new StubDaemonStartService(DaemonStartExecutionResult.Failure(
             ExecutionError.InternalError("transient startup failure", DaemonErrorCodes.DaemonStartupBlocked),
             DaemonStartFailureExecutionOutput.Create(
@@ -454,10 +573,10 @@ public sealed class DaemonStartCommandTests
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
         JsonAssert.For(outputJson.RootElement.GetProperty("payload"))
-            .HasString("retryDisposition", DaemonStartupRetryDispositionValues.RetryImmediately)
+            .HasString("retryDisposition", ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryImmediately))
             .HasBoolean("safeToRetryImmediately", true)
             .HasProperty("startup", startupJson => startupJson
-                .HasString("retryDisposition", DaemonStartupRetryDispositionValues.RetryImmediately));
+                .HasString("retryDisposition", ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryImmediately)));
     }
 
     private static DaemonStartExecutionOutput CreateSuccessOutput (
@@ -491,13 +610,25 @@ public sealed class DaemonStartCommandTests
     {
         Assert.NotNull(progressSink);
         await progressSink!.OnEntryAsync(
-                DaemonStartProgressEventNames.Started,
+                ContractLiteralCodec.ToValue(DaemonStartProgressEvent.Started),
                 CreateProgressEntry(result: null, startStatus: null, daemonStatus: null, errorCode: null),
                 cancellationToken)
             .ConfigureAwait(false);
         await progressSink.OnEntryAsync(
-                DaemonStartProgressEventNames.Completed,
+                ContractLiteralCodec.ToValue(DaemonStartProgressEvent.Completed),
                 CreateProgressEntry(ContractLiteralCodec.ToValue(CommandProgressResult.Succeeded), "started", "running", errorCode: null),
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private static async ValueTask EmitUnknownStartedDaemonStartProgressAsync (
+        ICommandProgressSink? progressSink,
+        CancellationToken cancellationToken)
+    {
+        Assert.NotNull(progressSink);
+        await progressSink!.OnEntryAsync(
+                "daemon.start.future.started",
+                CreateProgressEntry(result: null, startStatus: null, daemonStatus: null, errorCode: null),
                 cancellationToken)
             .ConfigureAwait(false);
     }
@@ -517,6 +648,89 @@ public sealed class DaemonStartCommandTests
             StartStatus: startStatus,
             DaemonStatus: daemonStatus,
             ErrorCode: errorCode);
+    }
+
+    private static async ValueTask EmitSampleSupervisorProgressAsync (
+        ICommandProgressSink? progressSink,
+        CancellationToken cancellationToken)
+    {
+        Assert.NotNull(progressSink);
+        await progressSink!.OnEntryAsync(
+                ContractLiteralCodec.ToValue(DaemonStartProgressEvent.WaitingForEndpoint),
+                new DaemonStartStartupObservationProgressEntry(
+                    ContractLiteralCodec.ToValue(DaemonStartProgressPayloadKind.StartupObservation),
+                    "fingerprint",
+                    1234,
+                    "batchmode",
+                    "auto",
+                    "attempt-1",
+                    "cli",
+                    true,
+                    1234,
+                    new DateTimeOffset(2026, 03, 12, 1, 2, 0, TimeSpan.Zero),
+                    "waitingForEndpoint",
+                    null,
+                    "endpointRegistration",
+                    null,
+                    null,
+                    null),
+                cancellationToken)
+            .ConfigureAwait(false);
+        await progressSink.OnEntryAsync(
+                ContractLiteralCodec.ToValue(DaemonStartProgressEvent.BlockerDetected),
+                new DaemonStartStartupObservationProgressEntry(
+                    ContractLiteralCodec.ToValue(DaemonStartProgressPayloadKind.StartupObservation),
+                    "fingerprint",
+                    1234,
+                    "batchmode",
+                    "auto",
+                    "attempt-1",
+                    "cli",
+                    true,
+                    1234,
+                    new DateTimeOffset(2026, 03, 12, 1, 2, 0, TimeSpan.Zero),
+                    ContractLiteralCodec.ToValue(DaemonStartupStatus.Blocked),
+                    ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Compile),
+                    "endpointRegistration",
+                    ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix),
+                    "Unity startup is blocked.",
+                    DaemonErrorCodes.DaemonStartupBlocked.Value),
+                cancellationToken)
+            .ConfigureAwait(false);
+        await progressSink.OnEntryAsync(
+                ContractLiteralCodec.ToValue(DaemonStartProgressEvent.EndpointRegistered),
+                new DaemonStartStartupObservationProgressEntry(
+                    ContractLiteralCodec.ToValue(DaemonStartProgressPayloadKind.StartupObservation),
+                    "fingerprint",
+                    1234,
+                    "batchmode",
+                    "auto",
+                    "attempt-1",
+                    "cli",
+                    true,
+                    1234,
+                    new DateTimeOffset(2026, 03, 12, 1, 2, 0, TimeSpan.Zero),
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null),
+                cancellationToken)
+            .ConfigureAwait(false);
+        await progressSink.OnEntryAsync(
+                ContractLiteralCodec.ToValue(DaemonStartProgressEvent.LifecycleObserved),
+                new DaemonStartLifecycleSnapshotProgressEntry(
+                    ContractLiteralCodec.ToValue(DaemonStartProgressPayloadKind.LifecycleSnapshot),
+                    "fingerprint",
+                    1234,
+                    "batchmode",
+                    "auto",
+                    IpcEditorLifecycleStateCodec.Compiling,
+                    IpcEditorBlockingReasonCodec.Compile,
+                    CanAcceptExecutionRequests: false),
+                cancellationToken)
+            .ConfigureAwait(false);
     }
 
     private static DaemonDiagnosisOutput CreateDiagnosis (string reason)

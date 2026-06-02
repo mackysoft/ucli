@@ -1,13 +1,13 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.LaunchAttempts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
 namespace MackySoft.Ucli.Tests.Daemon;
 
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Storage;
 
@@ -49,7 +49,7 @@ public sealed class DaemonLaunchServiceTests
             TimeSpan.FromMilliseconds(500),
             DaemonEditorMode.Batchmode,
             DaemonStartupBlockedProcessPolicy.Auto,
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Started, result.Status);
         Assert.True(result.IsSuccess);
@@ -59,6 +59,66 @@ public sealed class DaemonLaunchServiceTests
         Assert.Equal(1, launcher.CallCount);
         Assert.Equal(0, compensationService.CallCount);
         Assert.Equal(0, diagnosisStore.WriteCallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Launch_WhenBatchmodeLaunchAndReadinessSucceed_EmitsStartupProgress ()
+    {
+        var context = CreateContext("fingerprint-batchmode-progress");
+        var initialSession = CreateSession(processId: null, projectFingerprint: context.ProjectFingerprint);
+        var processStartedAtUtc = new DateTimeOffset(2026, 03, 11, 0, 0, 1, TimeSpan.Zero);
+        var startedSession = initialSession with
+        {
+            ProcessId = 999,
+            ProcessStartedAtUtc = processStartedAtUtc,
+        };
+        var launchSessionService = new StubDaemonLaunchSessionService
+        {
+            InitializeResult = DaemonLaunchSessionWriteResult.Success(initialSession),
+            UpdateProcessIdResult = DaemonLaunchSessionWriteResult.Success(startedSession),
+        };
+        var launcher = new StubUnityDaemonProcessLauncher
+        {
+            NextResult = UnityDaemonLaunchResult.Success(999, processStartedAtUtc),
+        };
+        var readinessProbe = new StubDaemonStartupReadinessProbe
+        {
+            NextResult = DaemonStartupReadinessProbeResult.Ready(new DaemonStartLifecycleSnapshot(
+                IpcEditorLifecycleStateCodec.Ready,
+                null,
+                CanAcceptExecutionRequests: true)),
+        };
+        var progressObserver = new CollectingDaemonStartProgressObserver();
+        var service = CreateService(
+            launchSessionService,
+            launcher,
+            readinessProbe,
+            new StubDaemonLaunchCompensationService(),
+            new StubDaemonDiagnosisStore());
+
+        var result = await service.LaunchAsync(
+            context,
+            TimeSpan.FromMilliseconds(500),
+            DaemonEditorMode.Batchmode,
+            DaemonStartupBlockedProcessPolicy.Auto,
+            progressObserver,
+            cancellationToken: CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        AssertProgressEvents(
+            progressObserver,
+            DaemonStartProgressEvent.SessionRegistered,
+            DaemonStartProgressEvent.Launching,
+            DaemonStartProgressEvent.WaitingForEndpoint,
+            DaemonStartProgressEvent.EndpointRegistered,
+            DaemonStartProgressEvent.LifecycleObserved);
+        var waitingObservation = Assert.IsType<DaemonStartStartupProgressObservation>(progressObserver.Entries[2].Payload);
+        Assert.Equal("batchmode", waitingObservation.EditorMode);
+        Assert.Equal(999, waitingObservation.ProcessId);
+        var lifecycleSnapshot = Assert.IsType<DaemonStartLifecycleSnapshot>(progressObserver.Entries[^1].Payload);
+        Assert.Equal(IpcEditorLifecycleStateCodec.Ready, lifecycleSnapshot.LifecycleState);
+        Assert.True(lifecycleSnapshot.CanAcceptExecutionRequests);
     }
 
     [Fact]
@@ -99,7 +159,7 @@ public sealed class DaemonLaunchServiceTests
             TimeSpan.FromMilliseconds(500),
             DaemonEditorMode.Gui,
             DaemonStartupBlockedProcessPolicy.Terminate,
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Started, result.Status);
         Assert.Equal(registeredSession, result.Session);
@@ -110,6 +170,67 @@ public sealed class DaemonLaunchServiceTests
         Assert.Equal(4321, guiStartupObserver.LastProcessId);
         Assert.Equal(0, compensationService.CallCount);
         Assert.Equal(0, diagnosisStore.WriteCallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Launch_WhenGuiLaunchAndRegistrationSucceed_EmitsStartupProgress ()
+    {
+        var context = CreateContext("fingerprint-gui-progress");
+        var processStartedAtUtc = new DateTimeOffset(2026, 03, 11, 0, 0, 1, TimeSpan.Zero);
+        var registeredSession = CreateSession(
+            processId: 4321,
+            projectFingerprint: context.ProjectFingerprint) with
+        {
+            EditorMode = "gui",
+            ProcessStartedAtUtc = processStartedAtUtc,
+        };
+        var guiLauncher = new StubUnityGuiEditorProcessLauncher
+        {
+            NextResult = UnityDaemonLaunchResult.Success(4321, processStartedAtUtc),
+        };
+        var guiStartupObserver = new StubDaemonGuiStartupObserver
+        {
+            NextResult = DaemonGuiStartupObservationResult.Success(
+                registeredSession,
+                new DaemonStartLifecycleSnapshot(
+                    IpcEditorLifecycleStateCodec.Ready,
+                    null,
+                    CanAcceptExecutionRequests: true)),
+        };
+        var progressObserver = new CollectingDaemonStartProgressObserver();
+        var service = CreateService(
+            new StubDaemonLaunchSessionService(),
+            new StubUnityDaemonProcessLauncher(),
+            new StubDaemonStartupReadinessProbe(),
+            new StubDaemonLaunchCompensationService(),
+            new StubDaemonDiagnosisStore(),
+            unityGuiEditorProcessLauncher: guiLauncher,
+            guiStartupObserver: guiStartupObserver);
+
+        var result = await service.LaunchAsync(
+            context,
+            TimeSpan.FromMilliseconds(500),
+            DaemonEditorMode.Gui,
+            DaemonStartupBlockedProcessPolicy.Terminate,
+            progressObserver,
+            cancellationToken: CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        AssertProgressEvents(
+            progressObserver,
+            DaemonStartProgressEvent.Launching,
+            DaemonStartProgressEvent.WaitingForEndpoint,
+            DaemonStartProgressEvent.SessionRegistered,
+            DaemonStartProgressEvent.EndpointRegistered,
+            DaemonStartProgressEvent.LifecycleObserved);
+        var launchingObservation = Assert.IsType<DaemonStartStartupProgressObservation>(progressObserver.Entries[0].Payload);
+        Assert.Equal("gui", launchingObservation.EditorMode);
+        Assert.Null(launchingObservation.ProcessId);
+        var waitingObservation = Assert.IsType<DaemonStartStartupProgressObservation>(progressObserver.Entries[1].Payload);
+        Assert.Equal(4321, waitingObservation.ProcessId);
+        var lifecycleSnapshot = Assert.IsType<DaemonStartLifecycleSnapshot>(progressObserver.Entries[^1].Payload);
+        Assert.Equal(IpcEditorLifecycleStateCodec.Ready, lifecycleSnapshot.LifecycleState);
     }
 
     [Fact]
@@ -147,7 +268,7 @@ public sealed class DaemonLaunchServiceTests
             TimeSpan.FromMilliseconds(500),
             DaemonEditorMode.Gui,
             DaemonStartupBlockedProcessPolicy.Auto,
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -162,7 +283,7 @@ public sealed class DaemonLaunchServiceTests
         Assert.Equal(
             Path.GetFullPath(Path.Combine("/tmp/repo-root", ".ucli", "local", "fingerprints", context.ProjectFingerprint, "unity.log")),
             diagnosisStore.LastDiagnosis.UnityLogPath);
-        Assert.Equal(DaemonDiagnosisStartupPhaseValues.EndpointRegistration, diagnosisStore.LastDiagnosis.StartupPhase);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.EndpointRegistration), diagnosisStore.LastDiagnosis.StartupPhase);
         Assert.Equal(DaemonDiagnosisActionRequiredValues.InspectUnityLog, diagnosisStore.LastDiagnosis.ActionRequired);
         Assert.Equal(
             Path.Combine("/tmp/unity-project", "Library", "EditorInstance.json"),
@@ -171,10 +292,10 @@ public sealed class DaemonLaunchServiceTests
         Assert.Null(compensationService.LastProcessId);
         Assert.Null(compensationService.LastProcessStartedAtUtc);
         Assert.NotNull(result.Startup);
-        Assert.Equal(DaemonStartupProcessActionValues.Kept, result.Startup!.ProcessAction);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Kept), result.Startup!.ProcessAction);
         Assert.Equal(1, launchAttemptStore.WriteCallCount);
-        Assert.Equal(DaemonStartupStatusValues.Timeout, launchAttemptStore.LastLaunchAttempt!.StartupStatus);
-        Assert.Equal(DaemonStartupProcessActionValues.Kept, launchAttemptStore.LastLaunchAttempt.ProcessAction);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupStatus.Timeout), launchAttemptStore.LastLaunchAttempt!.StartupStatus);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Kept), launchAttemptStore.LastLaunchAttempt.ProcessAction);
     }
 
     [Fact]
@@ -209,17 +330,17 @@ public sealed class DaemonLaunchServiceTests
             TimeSpan.FromMilliseconds(500),
             DaemonEditorMode.Gui,
             DaemonStartupBlockedProcessPolicy.Terminate,
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         Assert.NotNull(result.Startup);
-        Assert.Equal(DaemonStartupProcessActionValues.Terminated, result.Startup!.ProcessAction);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated), result.Startup!.ProcessAction);
         Assert.Equal(1, compensationService.CallCount);
         Assert.Equal(5434, compensationService.LastProcessId);
         Assert.Equal(processStartedAtUtc, compensationService.LastProcessStartedAtUtc);
         Assert.Equal(1, launchAttemptStore.WriteCallCount);
-        Assert.Equal(DaemonStartupStatusValues.Timeout, launchAttemptStore.LastLaunchAttempt!.StartupStatus);
-        Assert.Equal(DaemonStartupProcessActionValues.Terminated, launchAttemptStore.LastLaunchAttempt.ProcessAction);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupStatus.Timeout), launchAttemptStore.LastLaunchAttempt!.StartupStatus);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated), launchAttemptStore.LastLaunchAttempt.ProcessAction);
     }
 
     [Fact]
@@ -257,14 +378,14 @@ public sealed class DaemonLaunchServiceTests
             TimeSpan.FromMilliseconds(500),
             DaemonEditorMode.Gui,
             DaemonStartupBlockedProcessPolicy.Terminate,
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         Assert.NotNull(result.Startup);
-        Assert.Equal(DaemonStartupProcessActionValues.Unknown, result.Startup!.ProcessAction);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Unknown), result.Startup!.ProcessAction);
         Assert.Equal(1, launchAttemptStore.WriteCallCount);
-        Assert.Equal(DaemonStartupStatusValues.Timeout, launchAttemptStore.LastLaunchAttempt!.StartupStatus);
-        Assert.Equal(DaemonStartupProcessActionValues.Unknown, launchAttemptStore.LastLaunchAttempt.ProcessAction);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupStatus.Timeout), launchAttemptStore.LastLaunchAttempt!.StartupStatus);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Unknown), launchAttemptStore.LastLaunchAttempt.ProcessAction);
     }
 
     [Fact]
@@ -304,7 +425,7 @@ public sealed class DaemonLaunchServiceTests
                     TimeSpan.FromMilliseconds(500),
                     DaemonEditorMode.Gui,
                     DaemonStartupBlockedProcessPolicy.Auto,
-                    cancellationTokenSource.Token)
+                    cancellationToken: cancellationTokenSource.Token)
                 .AsTask());
 
         Assert.Equal(1, compensationService.CallCount);
@@ -344,7 +465,7 @@ public sealed class DaemonLaunchServiceTests
             TimeSpan.FromMilliseconds(500),
             DaemonEditorMode.Gui,
             DaemonStartupBlockedProcessPolicy.Auto,
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         Assert.Equal(startupError, result.Error);
@@ -352,10 +473,10 @@ public sealed class DaemonLaunchServiceTests
         Assert.Equal(8765, compensationService.LastProcessId);
         Assert.Equal(processStartedAtUtc, compensationService.LastProcessStartedAtUtc);
         Assert.NotNull(result.Startup);
-        Assert.Equal(DaemonStartupProcessActionValues.Terminated, result.Startup!.ProcessAction);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated), result.Startup!.ProcessAction);
         Assert.Equal(1, launchAttemptStore.WriteCallCount);
-        Assert.Equal(DaemonStartupStatusValues.Failed, launchAttemptStore.LastLaunchAttempt!.StartupStatus);
-        Assert.Equal(DaemonStartupProcessActionValues.Terminated, launchAttemptStore.LastLaunchAttempt.ProcessAction);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupStatus.Failed), launchAttemptStore.LastLaunchAttempt!.StartupStatus);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated), launchAttemptStore.LastLaunchAttempt.ProcessAction);
     }
 
     [Theory]
@@ -379,11 +500,11 @@ public sealed class DaemonLaunchServiceTests
             Column: 17,
             Message: "Missing parameter");
         var blocker = new DaemonGuiStartupBlocker(
-            StartupBlockingReason: DaemonStartupBlockingReasonValues.Compile,
+            StartupBlockingReason: ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Compile),
             Reason: DaemonDiagnosisReasonValues.UnityScriptCompilationFailed,
-            RetryDisposition: DaemonStartupRetryDispositionValues.RetryAfterFix,
+            RetryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix),
             Message: "Unity Editor startup is blocked because scripts have compiler errors. FirstError=Assets/Foo.cs(74,17): error CS1739: Missing parameter",
-            StartupPhase: DaemonDiagnosisStartupPhaseValues.ScriptCompilation,
+            StartupPhase: ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.ScriptCompilation),
             ActionRequired: DaemonDiagnosisActionRequiredValues.FixCompileErrors,
             ProcessId: 6543,
             ProcessStartedAtUtc: processStartedAtUtc,
@@ -396,6 +517,7 @@ public sealed class DaemonLaunchServiceTests
         var compensationService = new StubDaemonLaunchCompensationService();
         var diagnosisStore = new StubDaemonDiagnosisStore();
         var launchAttemptStore = new StubDaemonLaunchAttemptStore();
+        var progressObserver = new CollectingDaemonStartProgressObserver();
         var service = CreateService(
             new StubDaemonLaunchSessionService(),
             new StubUnityDaemonProcessLauncher(),
@@ -411,7 +533,8 @@ public sealed class DaemonLaunchServiceTests
             TimeSpan.FromMilliseconds(500),
             DaemonEditorMode.Gui,
             onStartupBlocked,
-            CancellationToken.None);
+            progressObserver,
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -420,7 +543,7 @@ public sealed class DaemonLaunchServiceTests
         Assert.Equal(1, diagnosisStore.WriteCallCount);
         Assert.NotNull(diagnosisStore.LastDiagnosis);
         Assert.Equal(DaemonDiagnosisReasonValues.UnityScriptCompilationFailed, diagnosisStore.LastDiagnosis!.Reason);
-        Assert.Equal(DaemonDiagnosisStartupPhaseValues.ScriptCompilation, diagnosisStore.LastDiagnosis.StartupPhase);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.ScriptCompilation), diagnosisStore.LastDiagnosis.StartupPhase);
         Assert.Equal(DaemonDiagnosisActionRequiredValues.FixCompileErrors, diagnosisStore.LastDiagnosis.ActionRequired);
         Assert.Equal(processStartedAtUtc, diagnosisStore.LastDiagnosis.ProcessStartedAtUtc);
         Assert.Equal(blocker.UnityLogPath, diagnosisStore.LastDiagnosis.UnityLogPath);
@@ -428,15 +551,23 @@ public sealed class DaemonLaunchServiceTests
         Assert.Equal(diagnosisStore.LastDiagnosis, result.Diagnosis);
         Assert.Equal(0, compensationService.CallCount);
         Assert.NotNull(result.Startup);
-        Assert.Equal(DaemonStartupProcessActionValues.Kept, result.Startup!.ProcessAction);
-        Assert.Equal(DaemonStartupBlockingReasonValues.Compile, result.Startup.StartupBlockingReason);
-        Assert.Equal(DaemonStartupRetryDispositionValues.RetryAfterFix, result.Startup.RetryDisposition);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Kept), result.Startup!.ProcessAction);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Compile), result.Startup.StartupBlockingReason);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix), result.Startup.RetryDisposition);
         Assert.Equal(1, launchAttemptStore.WriteCallCount);
         Assert.Equal(1, launchAttemptStore.PruneCallCount);
         Assert.Equal(result.Startup.LaunchAttemptId, launchAttemptStore.LastLaunchAttempt!.LaunchAttemptId);
-        Assert.Equal(DaemonStartupStatusValues.Blocked, launchAttemptStore.LastLaunchAttempt.StartupStatus);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupStatus.Blocked), launchAttemptStore.LastLaunchAttempt.StartupStatus);
         Assert.Equal(blocker.UnityLogPath, launchAttemptStore.LastLaunchAttempt.UnityLogPath);
         Assert.Equal(diagnosisStore.LastDiagnosis, launchAttemptStore.LastLaunchAttempt.Diagnosis);
+        AssertProgressEvents(
+            progressObserver,
+            DaemonStartProgressEvent.Launching,
+            DaemonStartProgressEvent.WaitingForEndpoint,
+            DaemonStartProgressEvent.BlockerDetected);
+        var blockerObservation = Assert.IsType<DaemonStartStartupProgressObservation>(progressObserver.Entries[^1].Payload);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Compile), blockerObservation.StartupBlockingReason);
+        Assert.Equal(DaemonErrorCodes.DaemonStartupBlocked.Value, blockerObservation.ErrorCode);
     }
 
     [Fact]
@@ -459,11 +590,11 @@ public sealed class DaemonLaunchServiceTests
             NextResult = UnityDaemonLaunchResult.Success(6543, processStartedAtUtc),
         };
         var blocker = new DaemonGuiStartupBlocker(
-            StartupBlockingReason: DaemonStartupBlockingReasonValues.ProcessExit,
+            StartupBlockingReason: ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.ProcessExit),
             Reason: DaemonDiagnosisReasonValues.EditorExitedBeforeBootstrap,
-            RetryDisposition: DaemonStartupRetryDispositionValues.Unknown,
+            RetryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.Unknown),
             Message: "Unity Editor exited before bootstrap completed.",
-            StartupPhase: DaemonDiagnosisStartupPhaseValues.ProcessExit,
+            StartupPhase: ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.ProcessExit),
             ActionRequired: DaemonDiagnosisActionRequiredValues.InspectUnityLog,
             ProcessId: 6543,
             ProcessStartedAtUtc: processStartedAtUtc,
@@ -489,7 +620,7 @@ public sealed class DaemonLaunchServiceTests
             TimeSpan.FromMilliseconds(500),
             DaemonEditorMode.Gui,
             DaemonStartupBlockedProcessPolicy.Keep,
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         Assert.NotNull(result.Startup);
@@ -508,11 +639,11 @@ public sealed class DaemonLaunchServiceTests
             NextResult = UnityDaemonLaunchResult.Success(6544, processStartedAtUtc),
         };
         var blocker = new DaemonGuiStartupBlocker(
-            StartupBlockingReason: DaemonStartupBlockingReasonValues.Compile,
+            StartupBlockingReason: ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Compile),
             Reason: DaemonDiagnosisReasonValues.UnityScriptCompilationFailed,
-            RetryDisposition: DaemonStartupRetryDispositionValues.RetryAfterFix,
+            RetryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix),
             Message: "Unity Editor startup is blocked because scripts have compiler errors.",
-            StartupPhase: DaemonDiagnosisStartupPhaseValues.ScriptCompilation,
+            StartupPhase: ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.ScriptCompilation),
             ActionRequired: DaemonDiagnosisActionRequiredValues.FixCompileErrors,
             ProcessId: 6544,
             ProcessStartedAtUtc: processStartedAtUtc,
@@ -538,7 +669,7 @@ public sealed class DaemonLaunchServiceTests
             TimeSpan.FromMilliseconds(500),
             DaemonEditorMode.Gui,
             DaemonStartupBlockedProcessPolicy.Terminate,
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         Assert.Equal(1, diagnosisStore.WriteCallCount);
@@ -546,7 +677,7 @@ public sealed class DaemonLaunchServiceTests
         Assert.Equal(6544, compensationService.LastProcessId);
         Assert.Equal(processStartedAtUtc, compensationService.LastProcessStartedAtUtc);
         Assert.NotNull(result.Startup);
-        Assert.Equal(DaemonStartupProcessActionValues.Terminated, result.Startup!.ProcessAction);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated), result.Startup!.ProcessAction);
     }
 
     [Fact]
@@ -567,11 +698,11 @@ public sealed class DaemonLaunchServiceTests
             NextResult = UnityDaemonLaunchResult.Success(6545, processStartedAtUtc),
         };
         var blocker = new DaemonGuiStartupBlocker(
-            StartupBlockingReason: DaemonStartupBlockingReasonValues.Compile,
+            StartupBlockingReason: ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Compile),
             Reason: DaemonDiagnosisReasonValues.UnityScriptCompilationFailed,
-            RetryDisposition: DaemonStartupRetryDispositionValues.RetryAfterFix,
+            RetryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix),
             Message: "Unity Editor startup is blocked because scripts have compiler errors.",
-            StartupPhase: DaemonDiagnosisStartupPhaseValues.ScriptCompilation,
+            StartupPhase: ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.ScriptCompilation),
             ActionRequired: DaemonDiagnosisActionRequiredValues.FixCompileErrors,
             ProcessId: 6545,
             ProcessStartedAtUtc: processStartedAtUtc,
@@ -602,7 +733,7 @@ public sealed class DaemonLaunchServiceTests
             TimeSpan.FromMilliseconds(500),
             DaemonEditorMode.Gui,
             DaemonStartupBlockedProcessPolicy.Terminate,
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -612,15 +743,15 @@ public sealed class DaemonLaunchServiceTests
         Assert.Equal(1, diagnosisStore.WriteCallCount);
         Assert.NotNull(result.Diagnosis);
         Assert.Equal(DaemonDiagnosisReasonValues.UnityScriptCompilationFailed, result.Diagnosis!.Reason);
-        Assert.Equal(DaemonDiagnosisStartupPhaseValues.ScriptCompilation, result.Diagnosis.StartupPhase);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.ScriptCompilation), result.Diagnosis.StartupPhase);
         Assert.Equal(DaemonDiagnosisActionRequiredValues.FixCompileErrors, result.Diagnosis.ActionRequired);
         Assert.Equal(primaryDiagnostic, result.Diagnosis.PrimaryDiagnostic);
         Assert.Equal(1, compensationService.CallCount);
         Assert.NotNull(result.Startup);
-        Assert.Equal(DaemonStartupProcessActionValues.Unknown, result.Startup!.ProcessAction);
-        Assert.Equal(DaemonStartupBlockingReasonValues.Compile, result.Startup.StartupBlockingReason);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Unknown), result.Startup!.ProcessAction);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Compile), result.Startup.StartupBlockingReason);
         Assert.Equal(1, launchAttemptStore.WriteCallCount);
-        Assert.Equal(DaemonStartupProcessActionValues.Unknown, launchAttemptStore.LastLaunchAttempt!.ProcessAction);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Unknown), launchAttemptStore.LastLaunchAttempt!.ProcessAction);
         Assert.Equal(result.Diagnosis, launchAttemptStore.LastLaunchAttempt.Diagnosis);
     }
 
@@ -628,10 +759,10 @@ public sealed class DaemonLaunchServiceTests
     [Trait("Size", "Small")]
     public async Task Launch_WhenEditorModeGuiStartupObserverFindsActionableBlocker_WritesDiagnosisAndPreservesGuiProcess ()
     {
-        const string startupBlockingReason = DaemonStartupBlockingReasonValues.SafeMode;
+        var startupBlockingReason = ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.SafeMode);
         const string reason = DaemonDiagnosisReasonValues.EditorUserActionRequired;
-        const string retryDisposition = DaemonStartupRetryDispositionValues.ManualActionRequired;
-        const string startupPhase = DaemonDiagnosisStartupPhaseValues.UserAction;
+        var retryDisposition = ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.ManualActionRequired);
+        var startupPhase = ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.UserAction);
         const string actionRequired = DaemonDiagnosisActionRequiredValues.ResolveUnityDialog;
 
         var context = CreateContext($"fingerprint-gui-launch-{startupBlockingReason}");
@@ -671,7 +802,7 @@ public sealed class DaemonLaunchServiceTests
             TimeSpan.FromMilliseconds(500),
             DaemonEditorMode.Gui,
             DaemonStartupBlockedProcessPolicy.Auto,
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -702,11 +833,11 @@ public sealed class DaemonLaunchServiceTests
             NextResult = UnityDaemonLaunchResult.Success(6543, processStartedAtUtc),
         };
         var blocker = new DaemonGuiStartupBlocker(
-            StartupBlockingReason: DaemonStartupBlockingReasonValues.ProcessExit,
+            StartupBlockingReason: ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.ProcessExit),
             Reason: DaemonDiagnosisReasonValues.EditorExitedBeforeBootstrap,
-            RetryDisposition: DaemonStartupRetryDispositionValues.Unknown,
+            RetryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.Unknown),
             Message: "Unity Editor process exited before GUI daemon session registration. ProcessId=6543.",
-            StartupPhase: DaemonDiagnosisStartupPhaseValues.ProcessExit,
+            StartupPhase: ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.ProcessExit),
             ActionRequired: DaemonDiagnosisActionRequiredValues.InspectUnityLog,
             ProcessId: 6543,
             ProcessStartedAtUtc: processStartedAtUtc,
@@ -738,7 +869,7 @@ public sealed class DaemonLaunchServiceTests
             TimeSpan.FromMilliseconds(500),
             DaemonEditorMode.Gui,
             DaemonStartupBlockedProcessPolicy.Auto,
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -751,9 +882,9 @@ public sealed class DaemonLaunchServiceTests
         Assert.Null(compensationService.LastProcessId);
         Assert.Null(compensationService.LastProcessStartedAtUtc);
         Assert.NotNull(result.Startup);
-        Assert.Equal(DaemonStartupProcessActionValues.None, result.Startup!.ProcessAction);
-        Assert.Equal(DaemonStartupBlockingReasonValues.ProcessExit, result.Startup.StartupBlockingReason);
-        Assert.Equal(DaemonStartupRetryDispositionValues.Unknown, result.Startup.RetryDisposition);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.None), result.Startup!.ProcessAction);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.ProcessExit), result.Startup.StartupBlockingReason);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.Unknown), result.Startup.RetryDisposition);
     }
 
     [Fact]
@@ -784,7 +915,7 @@ public sealed class DaemonLaunchServiceTests
             TimeSpan.FromMilliseconds(500),
             DaemonEditorMode.Batchmode,
             DaemonStartupBlockedProcessPolicy.Auto,
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         Assert.Equal(expectedError, result.Error);
@@ -797,8 +928,8 @@ public sealed class DaemonLaunchServiceTests
         Assert.Equal(1, launchAttemptStore.WriteCallCount);
         Assert.Equal(1, launchAttemptStore.PruneCallCount);
         Assert.Equal(result.Startup!.LaunchAttemptId, launchAttemptStore.LastLaunchAttempt!.LaunchAttemptId);
-        Assert.Equal(DaemonStartupStatusValues.Failed, launchAttemptStore.LastLaunchAttempt.StartupStatus);
-        Assert.Equal(DaemonStartupProcessActionValues.None, launchAttemptStore.LastLaunchAttempt.ProcessAction);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupStatus.Failed), launchAttemptStore.LastLaunchAttempt.StartupStatus);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.None), launchAttemptStore.LastLaunchAttempt.ProcessAction);
     }
 
     [Fact]
@@ -836,7 +967,7 @@ public sealed class DaemonLaunchServiceTests
             TimeSpan.FromMilliseconds(500),
             DaemonEditorMode.Batchmode,
             DaemonStartupBlockedProcessPolicy.Auto,
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         Assert.Equal(launchError, result.Error);
@@ -852,8 +983,8 @@ public sealed class DaemonLaunchServiceTests
         Assert.Equal(diagnosisStore.LastDiagnosis, result.Diagnosis);
         Assert.Equal(1, launchAttemptStore.WriteCallCount);
         Assert.Equal(1, launchAttemptStore.PruneCallCount);
-        Assert.Equal(DaemonStartupStatusValues.Failed, launchAttemptStore.LastLaunchAttempt!.StartupStatus);
-        Assert.Equal(DaemonStartupProcessActionValues.None, launchAttemptStore.LastLaunchAttempt.ProcessAction);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupStatus.Failed), launchAttemptStore.LastLaunchAttempt!.StartupStatus);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.None), launchAttemptStore.LastLaunchAttempt.ProcessAction);
         Assert.Equal(diagnosisStore.LastDiagnosis, launchAttemptStore.LastLaunchAttempt.Diagnosis);
     }
 
@@ -894,7 +1025,7 @@ public sealed class DaemonLaunchServiceTests
             TimeSpan.FromMilliseconds(500),
             DaemonEditorMode.Batchmode,
             DaemonStartupBlockedProcessPolicy.Auto,
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         Assert.Equal(writeError, result.Error);
@@ -905,8 +1036,8 @@ public sealed class DaemonLaunchServiceTests
         Assert.Equal(1, diagnosisStore.WriteCallCount);
         Assert.Equal(processStartedAtUtc, diagnosisStore.LastDiagnosis?.ProcessStartedAtUtc);
         Assert.Equal(1, launchAttemptStore.WriteCallCount);
-        Assert.Equal(DaemonStartupStatusValues.Failed, launchAttemptStore.LastLaunchAttempt!.StartupStatus);
-        Assert.Equal(DaemonStartupProcessActionValues.Terminated, launchAttemptStore.LastLaunchAttempt.ProcessAction);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupStatus.Failed), launchAttemptStore.LastLaunchAttempt!.StartupStatus);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated), launchAttemptStore.LastLaunchAttempt.ProcessAction);
         Assert.Equal(processStartedAtUtc, launchAttemptStore.LastLaunchAttempt.ProcessStartedAtUtc);
     }
 
@@ -951,7 +1082,7 @@ public sealed class DaemonLaunchServiceTests
             TimeSpan.FromMilliseconds(500),
             DaemonEditorMode.Batchmode,
             DaemonStartupBlockedProcessPolicy.Auto,
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         Assert.Equal(probeError, result.Error);
@@ -963,8 +1094,8 @@ public sealed class DaemonLaunchServiceTests
         Assert.Equal(processStartedAtUtc, diagnosisStore.LastDiagnosis?.ProcessStartedAtUtc);
         Assert.Equal(diagnosisStore.LastDiagnosis, result.Diagnosis);
         Assert.Equal(1, launchAttemptStore.WriteCallCount);
-        Assert.Equal(DaemonStartupStatusValues.Timeout, launchAttemptStore.LastLaunchAttempt!.StartupStatus);
-        Assert.Equal(DaemonStartupProcessActionValues.Terminated, launchAttemptStore.LastLaunchAttempt.ProcessAction);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupStatus.Timeout), launchAttemptStore.LastLaunchAttempt!.StartupStatus);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated), launchAttemptStore.LastLaunchAttempt.ProcessAction);
         Assert.Equal(processStartedAtUtc, launchAttemptStore.LastLaunchAttempt.ProcessStartedAtUtc);
     }
 
@@ -977,11 +1108,11 @@ public sealed class DaemonLaunchServiceTests
         var updatedSession = initialSession with { ProcessId = 7778 };
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 09, 0, 0, 1, TimeSpan.Zero);
         var classification = new DaemonStartupFailureClassification(
-            StartupBlockingReason: DaemonStartupBlockingReasonValues.Compile,
+            StartupBlockingReason: ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Compile),
             Reason: DaemonDiagnosisReasonValues.UnityScriptCompilationFailed,
-            RetryDisposition: DaemonStartupRetryDispositionValues.RetryAfterFix,
+            RetryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix),
             Message: "Unity scripts have compiler errors.",
-            StartupPhase: DaemonDiagnosisStartupPhaseValues.ScriptCompilation,
+            StartupPhase: ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.ScriptCompilation),
             ActionRequired: DaemonDiagnosisActionRequiredValues.FixCompileErrors,
             PrimaryDiagnostic: null);
         var launchSessionService = new StubDaemonLaunchSessionService
@@ -1018,23 +1149,23 @@ public sealed class DaemonLaunchServiceTests
             TimeSpan.FromMilliseconds(500),
             DaemonEditorMode.Batchmode,
             DaemonStartupBlockedProcessPolicy.Auto,
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         Assert.Equal(DaemonErrorCodes.DaemonStartupBlocked, result.Error!.Code);
-        Assert.Equal(DaemonStartupStatusValues.Blocked, result.Startup!.StartupStatus);
-        Assert.Equal(DaemonStartupBlockingReasonValues.Compile, result.Startup.StartupBlockingReason);
-        Assert.Equal(DaemonStartupRetryDispositionValues.RetryAfterFix, result.Startup.RetryDisposition);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupStatus.Blocked), result.Startup!.StartupStatus);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Compile), result.Startup.StartupBlockingReason);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix), result.Startup.RetryDisposition);
         Assert.Equal("batchmode", result.Startup.EditorMode);
         Assert.Equal("cli", result.Startup.OwnerKind);
         Assert.Equal(7778, result.Startup.ProcessId);
         Assert.Equal(processStartedAtUtc, result.Startup.StartedAtUtc);
-        Assert.Equal(DaemonStartupProcessActionValues.Terminated, result.Startup.ProcessAction);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated), result.Startup.ProcessAction);
         Assert.NotNull(result.Startup.ArtifactPath);
         Assert.Equal(DaemonDiagnosisReasonValues.UnityScriptCompilationFailed, result.Diagnosis!.Reason);
         Assert.Equal(1, compensationService.CallCount);
-        Assert.Equal(DaemonStartupStatusValues.Blocked, launchAttemptStore.LastLaunchAttempt!.StartupStatus);
-        Assert.Equal(DaemonStartupBlockingReasonValues.Compile, launchAttemptStore.LastLaunchAttempt.StartupBlockingReason);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupStatus.Blocked), launchAttemptStore.LastLaunchAttempt!.StartupStatus);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Compile), launchAttemptStore.LastLaunchAttempt.StartupBlockingReason);
     }
 
     [Fact]
@@ -1046,11 +1177,11 @@ public sealed class DaemonLaunchServiceTests
         var updatedSession = initialSession with { ProcessId = 7780 };
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 09, 0, 0, 1, TimeSpan.Zero);
         var classification = new DaemonStartupFailureClassification(
-            StartupBlockingReason: DaemonStartupBlockingReasonValues.Compile,
+            StartupBlockingReason: ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Compile),
             Reason: DaemonDiagnosisReasonValues.UnityScriptCompilationFailed,
-            RetryDisposition: DaemonStartupRetryDispositionValues.RetryAfterFix,
+            RetryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix),
             Message: "Unity scripts have compiler errors.",
-            StartupPhase: DaemonDiagnosisStartupPhaseValues.ScriptCompilation,
+            StartupPhase: ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.ScriptCompilation),
             ActionRequired: DaemonDiagnosisActionRequiredValues.FixCompileErrors,
             PrimaryDiagnostic: null);
         var launchSessionService = new StubDaemonLaunchSessionService
@@ -1093,10 +1224,10 @@ public sealed class DaemonLaunchServiceTests
             TimeSpan.FromMilliseconds(500),
             DaemonEditorMode.Batchmode,
             DaemonStartupBlockedProcessPolicy.Auto,
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
-        Assert.Equal(DaemonStartupProcessActionValues.Terminated, result.Startup!.ProcessAction);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated), result.Startup!.ProcessAction);
         var cleanupIndex = sequence.IndexOf("cleanup");
         Assert.True(cleanupIndex > sequence.IndexOf("diagnosis"));
         Assert.Contains(
@@ -1106,9 +1237,9 @@ public sealed class DaemonLaunchServiceTests
             sequence.Skip(cleanupIndex + 1),
             value => string.Equals(
                 value,
-                $"launchAttempt:{DaemonStartupProcessActionValues.Terminated}",
+                $"launchAttempt:{ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated)}",
                 StringComparison.Ordinal));
-        Assert.Equal(DaemonStartupProcessActionValues.Terminated, launchAttemptStore.LastLaunchAttempt!.ProcessAction);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated), launchAttemptStore.LastLaunchAttempt!.ProcessAction);
     }
 
     [Fact]
@@ -1120,11 +1251,11 @@ public sealed class DaemonLaunchServiceTests
         var updatedSession = initialSession with { ProcessId = 7781 };
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 09, 0, 0, 1, TimeSpan.Zero);
         var classification = new DaemonStartupFailureClassification(
-            StartupBlockingReason: DaemonStartupBlockingReasonValues.Compile,
+            StartupBlockingReason: ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Compile),
             Reason: DaemonDiagnosisReasonValues.UnityScriptCompilationFailed,
-            RetryDisposition: DaemonStartupRetryDispositionValues.RetryAfterFix,
+            RetryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix),
             Message: "Unity scripts have compiler errors.",
-            StartupPhase: DaemonDiagnosisStartupPhaseValues.ScriptCompilation,
+            StartupPhase: ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.ScriptCompilation),
             ActionRequired: DaemonDiagnosisActionRequiredValues.FixCompileErrors,
             PrimaryDiagnostic: null);
         var launchSessionService = new StubDaemonLaunchSessionService
@@ -1160,7 +1291,7 @@ public sealed class DaemonLaunchServiceTests
             TimeSpan.FromMilliseconds(500),
             DaemonEditorMode.Batchmode,
             DaemonStartupBlockedProcessPolicy.Auto,
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -1169,9 +1300,9 @@ public sealed class DaemonLaunchServiceTests
         Assert.Contains("DiagnosisError=diagnosis failed", error.Message, StringComparison.Ordinal);
         Assert.Equal(1, compensationService.CallCount);
         Assert.NotNull(result.Startup);
-        Assert.Equal(DaemonStartupProcessActionValues.Terminated, result.Startup!.ProcessAction);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated), result.Startup!.ProcessAction);
         Assert.Equal(2, launchAttemptStore.WriteCallCount);
-        Assert.Equal(DaemonStartupProcessActionValues.Terminated, launchAttemptStore.LastLaunchAttempt!.ProcessAction);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated), launchAttemptStore.LastLaunchAttempt!.ProcessAction);
     }
 
     [Fact]
@@ -1183,11 +1314,11 @@ public sealed class DaemonLaunchServiceTests
         var updatedSession = initialSession with { ProcessId = 7782 };
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 09, 0, 0, 1, TimeSpan.Zero);
         var classification = new DaemonStartupFailureClassification(
-            StartupBlockingReason: DaemonStartupBlockingReasonValues.Compile,
+            StartupBlockingReason: ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Compile),
             Reason: DaemonDiagnosisReasonValues.UnityScriptCompilationFailed,
-            RetryDisposition: DaemonStartupRetryDispositionValues.RetryAfterFix,
+            RetryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix),
             Message: "Unity scripts have compiler errors.",
-            StartupPhase: DaemonDiagnosisStartupPhaseValues.ScriptCompilation,
+            StartupPhase: ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.ScriptCompilation),
             ActionRequired: DaemonDiagnosisActionRequiredValues.FixCompileErrors,
             PrimaryDiagnostic: null);
         var launchSessionService = new StubDaemonLaunchSessionService
@@ -1222,7 +1353,7 @@ public sealed class DaemonLaunchServiceTests
             TimeSpan.FromMilliseconds(500),
             DaemonEditorMode.Batchmode,
             DaemonStartupBlockedProcessPolicy.Auto,
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -1231,7 +1362,7 @@ public sealed class DaemonLaunchServiceTests
         Assert.Contains("ArtifactError=artifact failed", error.Message, StringComparison.Ordinal);
         Assert.Equal(1, compensationService.CallCount);
         Assert.NotNull(result.Startup);
-        Assert.Equal(DaemonStartupProcessActionValues.Terminated, result.Startup!.ProcessAction);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated), result.Startup!.ProcessAction);
         Assert.Equal(2, launchAttemptStore.WriteCallCount);
         Assert.Equal(0, launchAttemptStore.PruneCallCount);
     }
@@ -1245,11 +1376,11 @@ public sealed class DaemonLaunchServiceTests
         var updatedSession = initialSession with { ProcessId = 7784 };
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 09, 0, 0, 1, TimeSpan.Zero);
         var classification = new DaemonStartupFailureClassification(
-            StartupBlockingReason: DaemonStartupBlockingReasonValues.Compile,
+            StartupBlockingReason: ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Compile),
             Reason: DaemonDiagnosisReasonValues.UnityScriptCompilationFailed,
-            RetryDisposition: DaemonStartupRetryDispositionValues.RetryAfterFix,
+            RetryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix),
             Message: "Unity scripts have compiler errors.",
-            StartupPhase: DaemonDiagnosisStartupPhaseValues.ScriptCompilation,
+            StartupPhase: ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.ScriptCompilation),
             ActionRequired: DaemonDiagnosisActionRequiredValues.FixCompileErrors,
             PrimaryDiagnostic: null);
         var launchSessionService = new StubDaemonLaunchSessionService
@@ -1284,7 +1415,7 @@ public sealed class DaemonLaunchServiceTests
             TimeSpan.FromMilliseconds(500),
             DaemonEditorMode.Batchmode,
             DaemonStartupBlockedProcessPolicy.Auto,
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -1293,9 +1424,9 @@ public sealed class DaemonLaunchServiceTests
         Assert.Contains("ArtifactError=final artifact failed", error.Message, StringComparison.Ordinal);
         Assert.Equal(1, compensationService.CallCount);
         Assert.NotNull(result.Startup);
-        Assert.Equal(DaemonStartupProcessActionValues.Terminated, result.Startup!.ProcessAction);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated), result.Startup!.ProcessAction);
         Assert.Equal(2, launchAttemptStore.WriteCallCount);
-        Assert.Equal(DaemonStartupProcessActionValues.Terminated, launchAttemptStore.LastLaunchAttempt!.ProcessAction);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated), launchAttemptStore.LastLaunchAttempt!.ProcessAction);
     }
 
     [Fact]
@@ -1307,11 +1438,11 @@ public sealed class DaemonLaunchServiceTests
         var updatedSession = initialSession with { ProcessId = 7785 };
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 09, 0, 0, 1, TimeSpan.Zero);
         var classification = new DaemonStartupFailureClassification(
-            StartupBlockingReason: DaemonStartupBlockingReasonValues.Compile,
+            StartupBlockingReason: ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Compile),
             Reason: DaemonDiagnosisReasonValues.UnityScriptCompilationFailed,
-            RetryDisposition: DaemonStartupRetryDispositionValues.RetryAfterFix,
+            RetryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix),
             Message: "Unity scripts have compiler errors.",
-            StartupPhase: DaemonDiagnosisStartupPhaseValues.ScriptCompilation,
+            StartupPhase: ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.ScriptCompilation),
             ActionRequired: DaemonDiagnosisActionRequiredValues.FixCompileErrors,
             PrimaryDiagnostic: null);
         var launchSessionService = new StubDaemonLaunchSessionService
@@ -1349,7 +1480,7 @@ public sealed class DaemonLaunchServiceTests
             TimeSpan.FromMilliseconds(500),
             DaemonEditorMode.Batchmode,
             DaemonStartupBlockedProcessPolicy.Auto,
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -1358,9 +1489,9 @@ public sealed class DaemonLaunchServiceTests
         Assert.Contains("ArtifactError=final artifact failed", error.Message, StringComparison.Ordinal);
         Assert.Contains("CleanupError=cleanup failed", error.Message, StringComparison.Ordinal);
         Assert.NotNull(result.Startup);
-        Assert.Equal(DaemonStartupProcessActionValues.Unknown, result.Startup!.ProcessAction);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Unknown), result.Startup!.ProcessAction);
         Assert.Equal(2, launchAttemptStore.WriteCallCount);
-        Assert.Equal(DaemonStartupProcessActionValues.Unknown, launchAttemptStore.LastLaunchAttempt!.ProcessAction);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Unknown), launchAttemptStore.LastLaunchAttempt!.ProcessAction);
     }
 
     [Fact]
@@ -1379,11 +1510,11 @@ public sealed class DaemonLaunchServiceTests
             Column: 13,
             Message: "Semicolon expected");
         var classification = new DaemonStartupFailureClassification(
-            StartupBlockingReason: DaemonStartupBlockingReasonValues.Compile,
+            StartupBlockingReason: ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Compile),
             Reason: DaemonDiagnosisReasonValues.UnityScriptCompilationFailed,
-            RetryDisposition: DaemonStartupRetryDispositionValues.RetryAfterFix,
+            RetryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix),
             Message: "Unity scripts have compiler errors.",
-            StartupPhase: DaemonDiagnosisStartupPhaseValues.ScriptCompilation,
+            StartupPhase: ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.ScriptCompilation),
             ActionRequired: DaemonDiagnosisActionRequiredValues.FixCompileErrors,
             PrimaryDiagnostic: primaryDiagnostic);
         var launchSessionService = new StubDaemonLaunchSessionService
@@ -1418,7 +1549,7 @@ public sealed class DaemonLaunchServiceTests
             TimeSpan.FromMilliseconds(500),
             DaemonEditorMode.Batchmode,
             DaemonStartupBlockedProcessPolicy.Auto,
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -1428,13 +1559,13 @@ public sealed class DaemonLaunchServiceTests
         Assert.Equal(1, compensationService.CallCount);
         Assert.NotNull(result.Diagnosis);
         Assert.Equal(DaemonDiagnosisReasonValues.UnityScriptCompilationFailed, result.Diagnosis!.Reason);
-        Assert.Equal(DaemonDiagnosisStartupPhaseValues.ScriptCompilation, result.Diagnosis.StartupPhase);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.ScriptCompilation), result.Diagnosis.StartupPhase);
         Assert.Equal(DaemonDiagnosisActionRequiredValues.FixCompileErrors, result.Diagnosis.ActionRequired);
         Assert.Equal(primaryDiagnostic, result.Diagnosis.PrimaryDiagnostic);
         Assert.NotNull(result.Startup);
-        Assert.Equal(DaemonStartupProcessActionValues.Unknown, result.Startup!.ProcessAction);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Unknown), result.Startup!.ProcessAction);
         Assert.Equal(2, launchAttemptStore.WriteCallCount);
-        Assert.Equal(DaemonStartupProcessActionValues.Unknown, launchAttemptStore.LastLaunchAttempt!.ProcessAction);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Unknown), launchAttemptStore.LastLaunchAttempt!.ProcessAction);
         Assert.Equal(result.Diagnosis, launchAttemptStore.LastLaunchAttempt.Diagnosis);
     }
 
@@ -1447,11 +1578,11 @@ public sealed class DaemonLaunchServiceTests
         var updatedSession = initialSession with { ProcessId = 7779 };
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 09, 0, 0, 1, TimeSpan.Zero);
         var classification = new DaemonStartupFailureClassification(
-            StartupBlockingReason: DaemonStartupBlockingReasonValues.Compile,
+            StartupBlockingReason: ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Compile),
             Reason: DaemonDiagnosisReasonValues.UnityScriptCompilationFailed,
-            RetryDisposition: DaemonStartupRetryDispositionValues.RetryAfterFix,
+            RetryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix),
             Message: "Unity scripts have compiler errors.",
-            StartupPhase: DaemonDiagnosisStartupPhaseValues.ScriptCompilation,
+            StartupPhase: ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.ScriptCompilation),
             ActionRequired: DaemonDiagnosisActionRequiredValues.FixCompileErrors,
             PrimaryDiagnostic: null);
         var launchSessionService = new StubDaemonLaunchSessionService
@@ -1485,12 +1616,12 @@ public sealed class DaemonLaunchServiceTests
             TimeSpan.FromMilliseconds(500),
             DaemonEditorMode.Batchmode,
             DaemonStartupBlockedProcessPolicy.Keep,
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
-        Assert.Equal(DaemonStartupProcessActionValues.Kept, result.Startup!.ProcessAction);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Kept), result.Startup!.ProcessAction);
         Assert.Equal(0, compensationService.CallCount);
-        Assert.Equal(DaemonStartupProcessActionValues.Kept, launchAttemptStore.LastLaunchAttempt!.ProcessAction);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Kept), launchAttemptStore.LastLaunchAttempt!.ProcessAction);
     }
 
     [Fact]
@@ -1532,7 +1663,7 @@ public sealed class DaemonLaunchServiceTests
             TimeSpan.FromMilliseconds(500),
             DaemonEditorMode.Batchmode,
             DaemonStartupBlockedProcessPolicy.Auto,
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -1541,8 +1672,8 @@ public sealed class DaemonLaunchServiceTests
         Assert.Contains("ProbeError=probe failed", error.Message, StringComparison.Ordinal);
         Assert.Contains("ArtifactError=artifact write failed", error.Message, StringComparison.Ordinal);
         Assert.NotNull(result.Startup);
-        Assert.Equal(DaemonStartupStatusValues.Timeout, result.Startup!.StartupStatus);
-        Assert.Equal(DaemonStartupProcessActionValues.Terminated, result.Startup.ProcessAction);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupStatus.Timeout), result.Startup!.StartupStatus);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated), result.Startup.ProcessAction);
         Assert.Equal(1, launchAttemptStore.WriteCallCount);
         Assert.Equal(0, launchAttemptStore.PruneCallCount);
     }
@@ -1586,7 +1717,7 @@ public sealed class DaemonLaunchServiceTests
             TimeSpan.FromMilliseconds(500),
             DaemonEditorMode.Batchmode,
             DaemonStartupBlockedProcessPolicy.Auto,
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -1595,8 +1726,8 @@ public sealed class DaemonLaunchServiceTests
         Assert.Contains("ProbeError=probe failed", error.Message, StringComparison.Ordinal);
         Assert.Contains("ArtifactError=artifact prune failed", error.Message, StringComparison.Ordinal);
         Assert.NotNull(result.Startup);
-        Assert.Equal(DaemonStartupStatusValues.Timeout, result.Startup!.StartupStatus);
-        Assert.Equal(DaemonStartupProcessActionValues.Terminated, result.Startup.ProcessAction);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupStatus.Timeout), result.Startup!.StartupStatus);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated), result.Startup.ProcessAction);
         Assert.Equal(1, launchAttemptStore.WriteCallCount);
         Assert.Equal(1, launchAttemptStore.PruneCallCount);
     }
@@ -1635,7 +1766,7 @@ public sealed class DaemonLaunchServiceTests
             TimeSpan.FromMilliseconds(500),
             DaemonEditorMode.Batchmode,
             DaemonStartupBlockedProcessPolicy.Auto,
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -1683,7 +1814,7 @@ public sealed class DaemonLaunchServiceTests
             TimeSpan.FromMilliseconds(1),
             DaemonEditorMode.Batchmode,
             DaemonStartupBlockedProcessPolicy.Auto,
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         Assert.Equal(launchError, result.Error);
@@ -1733,7 +1864,7 @@ public sealed class DaemonLaunchServiceTests
             TimeSpan.FromMilliseconds(500),
             DaemonEditorMode.Batchmode,
             DaemonStartupBlockedProcessPolicy.Auto,
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -1781,7 +1912,7 @@ public sealed class DaemonLaunchServiceTests
             TimeSpan.FromMilliseconds(500),
             DaemonEditorMode.Batchmode,
             DaemonStartupBlockedProcessPolicy.Auto,
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -1825,7 +1956,7 @@ public sealed class DaemonLaunchServiceTests
             TimeSpan.FromMilliseconds(500),
             DaemonEditorMode.Batchmode,
             DaemonStartupBlockedProcessPolicy.Auto,
-            cancellationSource.Token);
+            cancellationToken: cancellationSource.Token);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         Assert.Equal(launchError, result.Error);
@@ -1877,7 +2008,7 @@ public sealed class DaemonLaunchServiceTests
                         TimeSpan.FromMilliseconds(500),
                         DaemonEditorMode.Batchmode,
                         DaemonStartupBlockedProcessPolicy.Auto,
-                        cancellationSource.Token)
+                        cancellationToken: cancellationSource.Token)
                     .AsTask(),
                 "Canceled daemon launch result",
                 AsyncWaitTimeout);
@@ -1928,7 +2059,7 @@ public sealed class DaemonLaunchServiceTests
             TimeSpan.FromMilliseconds(500),
             DaemonEditorMode.Batchmode,
             DaemonStartupBlockedProcessPolicy.Auto,
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -1991,6 +2122,82 @@ public sealed class DaemonLaunchServiceTests
             ProcessId: processId,
             ProcessStartedAtUtc: processId is null ? null : DateTimeOffset.UtcNow,
             OwnerProcessId: 9876);
+    }
+
+    private static void AssertProgressEvents (
+        CollectingDaemonStartProgressObserver progressObserver,
+        params DaemonStartProgressEvent[] expectedEvents)
+    {
+        Assert.Equal(expectedEvents.Length, progressObserver.Entries.Count);
+        for (var i = 0; i < expectedEvents.Length; i++)
+        {
+            Assert.Equal(expectedEvents[i], progressObserver.Entries[i].Event);
+        }
+    }
+
+    private sealed record CollectedDaemonStartProgressEntry (
+        DaemonStartProgressEvent Event,
+        object Payload);
+
+    private sealed class CollectingDaemonStartProgressObserver : IDaemonStartProgressObserver
+    {
+        public List<CollectedDaemonStartProgressEntry> Entries { get; } = [];
+
+        public ValueTask EmitLaunchingAsync (
+            DaemonStartStartupProgressObservation observation,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Entries.Add(new CollectedDaemonStartProgressEntry(DaemonStartProgressEvent.Launching, observation));
+            return ValueTask.CompletedTask;
+        }
+
+        public ValueTask EmitWaitingForEndpointAsync (
+            DaemonStartStartupProgressObservation observation,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Entries.Add(new CollectedDaemonStartProgressEntry(DaemonStartProgressEvent.WaitingForEndpoint, observation));
+            return ValueTask.CompletedTask;
+        }
+
+        public ValueTask EmitBlockerDetectedAsync (
+            DaemonStartStartupProgressObservation observation,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Entries.Add(new CollectedDaemonStartProgressEntry(DaemonStartProgressEvent.BlockerDetected, observation));
+            return ValueTask.CompletedTask;
+        }
+
+        public ValueTask EmitSessionRegisteredAsync (
+            DaemonSession session,
+            string? launchAttemptId,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Entries.Add(new CollectedDaemonStartProgressEntry(DaemonStartProgressEvent.SessionRegistered, session));
+            return ValueTask.CompletedTask;
+        }
+
+        public ValueTask EmitEndpointRegisteredAsync (
+            DaemonSession session,
+            string? launchAttemptId,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Entries.Add(new CollectedDaemonStartProgressEntry(DaemonStartProgressEvent.EndpointRegistered, session));
+            return ValueTask.CompletedTask;
+        }
+
+        public ValueTask EmitLifecycleObservedAsync (
+            DaemonStartLifecycleSnapshot lifecycleSnapshot,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Entries.Add(new CollectedDaemonStartProgressEntry(DaemonStartProgressEvent.LifecycleObserved, lifecycleSnapshot));
+            return ValueTask.CompletedTask;
+        }
     }
 
     private sealed class StubDaemonLaunchSessionService : IDaemonLaunchSessionService

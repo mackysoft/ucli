@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Contracts.Text;
-
 namespace MackySoft.Ucli.Tests.Daemon;
 
 public sealed class DaemonStartStatusContractLiteralTests

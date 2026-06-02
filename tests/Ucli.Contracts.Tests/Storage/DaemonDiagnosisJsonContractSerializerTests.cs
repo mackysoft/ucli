@@ -1,6 +1,7 @@
 using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Tests.Storage;
 
@@ -93,7 +94,7 @@ public sealed class DaemonDiagnosisJsonContractSerializerTests
             SessionIssuedAtUtc: DateTimeOffset.Parse("2026-03-09T00:00:01+00:00"),
             ProcessStartedAtUtc: DateTimeOffset.Parse("2026-03-09T00:00:02+00:00"),
             UnityLogPath: "/repo/.ucli/unity.log",
-            StartupPhase: DaemonDiagnosisStartupPhaseValues.ScriptCompilation,
+            StartupPhase: ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.ScriptCompilation),
             ActionRequired: DaemonDiagnosisActionRequiredValues.FixCompileErrors,
             PrimaryDiagnostic: new DaemonDiagnosisPrimaryDiagnosticJsonContract(
                 Kind: DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler,

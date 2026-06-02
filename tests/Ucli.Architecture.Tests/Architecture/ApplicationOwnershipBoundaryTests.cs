@@ -143,7 +143,7 @@ public sealed class ApplicationOwnershipBoundaryTests
                 "IpcRequest",
                 "IpcResponse",
                 "IpcStreamFrame",
-                "IpcResponseModes",
+                "IpcResponseMode",
             ]);
     }
 }

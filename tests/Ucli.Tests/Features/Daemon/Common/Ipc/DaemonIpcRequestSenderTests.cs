@@ -159,7 +159,8 @@ public sealed class DaemonIpcRequestSenderTests
             RequestId: $"{method}-{Guid.NewGuid():N}",
             SessionToken: sessionToken,
             Method: method,
-            Payload: JsonDocument.Parse("{}").RootElement.Clone());
+            Payload: JsonDocument.Parse("{}").RootElement.Clone(),
+            responseMode: IpcResponseMode.Single);
     }
 
     private static IpcResponse CreateResponse (string requestId)
@@ -275,6 +276,16 @@ public sealed class DaemonIpcRequestSenderTests
             IpcEndpoint endpoint,
             IpcRequest request,
             TimeSpan sendTimeout,
+            CancellationToken cancellationToken = default)
+        {
+            return SendAsync(endpoint, request, sendTimeout, cancellationToken);
+        }
+
+        public ValueTask<IpcResponse> SendStreamingWithUnboundedResponseWaitAsync (
+            IpcEndpoint endpoint,
+            IpcRequest request,
+            TimeSpan sendTimeout,
+            Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
             CancellationToken cancellationToken = default)
         {
             return SendAsync(endpoint, request, sendTimeout, cancellationToken);

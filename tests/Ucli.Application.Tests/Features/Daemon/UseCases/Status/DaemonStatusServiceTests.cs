@@ -6,8 +6,6 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.LaunchAttempts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Startup;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Status;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
@@ -279,10 +277,10 @@ public sealed class DaemonStatusServiceTests
             LaunchAttemptId: "20260312_000000Z_00000001",
             StartedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 0, 0, TimeSpan.Zero),
             UpdatedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 0, 5, TimeSpan.Zero),
-            StartupStatus: DaemonStartupStatusValues.Timeout,
-            StartupBlockingReason: DaemonStartupBlockingReasonValues.EndpointNotRegistered,
-            RetryDisposition: DaemonStartupRetryDispositionValues.WaitThenRetry,
-            ProcessAction: DaemonStartupProcessActionValues.Terminated,
+            StartupStatus: ContractLiteralCodec.ToValue(DaemonStartupStatus.Timeout),
+            StartupBlockingReason: ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.EndpointNotRegistered),
+            RetryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.WaitThenRetry),
+            ProcessAction: ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated),
             EditorMode: "gui",
             ProcessId: 1234,
             ProcessStartedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero),

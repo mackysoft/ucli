@@ -291,7 +291,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 RequestId: requestId,
                 SessionToken: "session-token",
                 Method: method,
-                Payload: IpcPayloadCodec.SerializeToElement(payload));
+                Payload: IpcPayloadCodec.SerializeToElement(payload),
+                responseMode: IpcResponseMode.Single);
         }
 
         private static IpcResponse CreateSuccessResponse (string requestId)

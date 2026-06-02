@@ -1,8 +1,8 @@
 using System.Globalization;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Startup;
 
@@ -121,16 +121,16 @@ internal static class DaemonStartupFailureLogClassifier
             }
 
             var startupBlockingReason = safeModeLine
-                ? DaemonStartupBlockingReasonValues.SafeMode
-                : DaemonStartupBlockingReasonValues.ModalDialog;
+                ? ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.SafeMode)
+                : ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.ModalDialog);
             return new DaemonStartupFailureCandidate(
                 Priority: UserActionPriority,
                 Classification: new DaemonStartupFailureClassification(
                     StartupBlockingReason: startupBlockingReason,
                     Reason: DaemonDiagnosisReasonValues.EditorUserActionRequired,
-                    RetryDisposition: DaemonStartupRetryDispositionValues.ManualActionRequired,
+                    RetryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.ManualActionRequired),
                     Message: $"Unity Editor startup is blocked because Unity requires user action. Marker={trimmedLine}",
-                    StartupPhase: DaemonDiagnosisStartupPhaseValues.UserAction,
+                    StartupPhase: ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.UserAction),
                     ActionRequired: DaemonDiagnosisActionRequiredValues.ResolveUnityDialog,
                     PrimaryDiagnostic: new DaemonPrimaryDiagnostic(
                         Kind: DaemonDiagnosisPrimaryDiagnosticKindValues.UnityDialog,
@@ -156,11 +156,11 @@ internal static class DaemonStartupFailureLogClassifier
             return new DaemonStartupFailureCandidate(
                 Priority: PrecompiledAssemblyConflictPriority,
                 Classification: new DaemonStartupFailureClassification(
-                    StartupBlockingReason: DaemonStartupBlockingReasonValues.PrecompiledAssemblyConflict,
+                    StartupBlockingReason: ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.PrecompiledAssemblyConflict),
                     Reason: DaemonDiagnosisReasonValues.PrecompiledAssemblyConflict,
-                    RetryDisposition: DaemonStartupRetryDispositionValues.RetryAfterFix,
+                    RetryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix),
                     Message: $"Unity Editor startup is blocked by a precompiled assembly conflict. Marker={trimmedLine}",
-                    StartupPhase: DaemonDiagnosisStartupPhaseValues.ScriptCompilation,
+                    StartupPhase: ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.ScriptCompilation),
                     ActionRequired: DaemonDiagnosisActionRequiredValues.FixCompileErrors,
                     PrimaryDiagnostic: new DaemonPrimaryDiagnostic(
                         Kind: DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler,
@@ -195,11 +195,11 @@ internal static class DaemonStartupFailureLogClassifier
             return new DaemonStartupFailureCandidate(
                 Priority: UcliPluginDependencyPriority,
                 Classification: new DaemonStartupFailureClassification(
-                    StartupBlockingReason: DaemonStartupBlockingReasonValues.UcliPlugin,
+                    StartupBlockingReason: ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.UcliPlugin),
                     Reason: DaemonDiagnosisReasonValues.UcliPluginDependencyMissing,
-                    RetryDisposition: DaemonStartupRetryDispositionValues.RetryAfterFix,
+                    RetryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix),
                     Message: $"Unity Editor startup is blocked because uCLI plugin dependencies are missing. FirstError={trimmedLine}",
-                    StartupPhase: DaemonDiagnosisStartupPhaseValues.ScriptCompilation,
+                    StartupPhase: ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.ScriptCompilation),
                     ActionRequired: DaemonDiagnosisActionRequiredValues.ResolvePackages,
                     PrimaryDiagnostic: new DaemonPrimaryDiagnostic(
                         Kind: DaemonDiagnosisPrimaryDiagnosticKindValues.PluginDependency,
@@ -249,11 +249,11 @@ internal static class DaemonStartupFailureLogClassifier
         DaemonPrimaryDiagnostic? primaryDiagnostic)
     {
         return new DaemonStartupFailureClassification(
-            StartupBlockingReason: DaemonStartupBlockingReasonValues.Compile,
+            StartupBlockingReason: ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Compile),
             Reason: DaemonDiagnosisReasonValues.UnityScriptCompilationFailed,
-            RetryDisposition: DaemonStartupRetryDispositionValues.RetryAfterFix,
+            RetryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix),
             Message: $"Unity Editor startup is blocked because scripts have compiler errors. {summary}",
-            StartupPhase: DaemonDiagnosisStartupPhaseValues.ScriptCompilation,
+            StartupPhase: ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.ScriptCompilation),
             ActionRequired: DaemonDiagnosisActionRequiredValues.FixCompileErrors,
             PrimaryDiagnostic: primaryDiagnostic);
     }
@@ -263,11 +263,11 @@ internal static class DaemonStartupFailureLogClassifier
         DaemonPrimaryDiagnostic? primaryDiagnostic)
     {
         return new DaemonStartupFailureClassification(
-            StartupBlockingReason: DaemonStartupBlockingReasonValues.PackageResolution,
+            StartupBlockingReason: ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.PackageResolution),
             Reason: DaemonDiagnosisReasonValues.UnityPackageResolutionFailed,
-            RetryDisposition: DaemonStartupRetryDispositionValues.RetryAfterFix,
+            RetryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix),
             Message: $"Unity Editor startup is blocked because package resolution failed. {summary}",
-            StartupPhase: DaemonDiagnosisStartupPhaseValues.PackageResolution,
+            StartupPhase: ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.PackageResolution),
             ActionRequired: DaemonDiagnosisActionRequiredValues.ResolvePackages,
             PrimaryDiagnostic: primaryDiagnostic);
     }

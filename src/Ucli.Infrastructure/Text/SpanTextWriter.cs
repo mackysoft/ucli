@@ -46,4 +46,66 @@ internal ref struct SpanTextWriter
 
         offset += written;
     }
+
+    /// <summary> Appends one boolean value using lowercase JSON-compatible text. </summary>
+    public void AppendBool (bool value)
+    {
+        Append(value ? "true" : "false");
+    }
+
+    /// <summary> Appends one optional string value prefixed by a label. </summary>
+    public void AppendOptional (
+        string prefix,
+        string? value)
+    {
+        if (value == null)
+        {
+            return;
+        }
+
+        Append(prefix);
+        Append(value);
+    }
+
+    /// <summary> Appends one optional integer value prefixed by a label. </summary>
+    public void AppendOptionalInvariant (
+        string prefix,
+        int? value)
+    {
+        if (!value.HasValue)
+        {
+            return;
+        }
+
+        Append(prefix);
+        AppendInvariant(value.Value);
+    }
+
+    /// <summary> Appends one optional integer value prefixed by a label. </summary>
+    public void AppendOptionalInvariant (
+        string prefix,
+        long? value)
+    {
+        if (!value.HasValue)
+        {
+            return;
+        }
+
+        Append(prefix);
+        AppendInvariant(value.Value);
+    }
+
+    /// <summary> Appends one optional boolean value prefixed by a label. </summary>
+    public void AppendOptionalBool (
+        string prefix,
+        bool? value)
+    {
+        if (!value.HasValue)
+        {
+            return;
+        }
+
+        Append(prefix);
+        AppendBool(value.Value);
+    }
 }

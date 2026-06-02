@@ -4,6 +4,7 @@ using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Testing;
 
 using MackySoft.Ucli.Contracts.Text;
@@ -39,7 +40,8 @@ public sealed class IpcContractSerializationTests
             RequestId: "req-1",
             SessionToken: "token",
             Method: "execute",
-            Payload: payload);
+            Payload: payload,
+            responseMode: IpcResponseMode.Single);
 
         using var jsonDocument = JsonDocument.Parse(JsonSerializer.Serialize(request, SerializerOptions));
         JsonAssert.For(jsonDocument.RootElement)
@@ -47,7 +49,7 @@ public sealed class IpcContractSerializationTests
             .HasString("requestId", "req-1")
             .HasString("sessionToken", "token")
             .HasString("method", "execute")
-            .HasString("responseMode", IpcResponseModes.Single)
+            .HasString("responseMode", ContractLiteralCodec.ToValue(IpcResponseMode.Single))
             .HasValueKind("payload", JsonValueKind.Object);
     }
 
@@ -198,6 +200,99 @@ public sealed class IpcContractSerializationTests
             .HasString("code", "TEST_PROGRESS_DROPPED")
             .HasString("message", "Some progress entries were dropped.")
             .HasString("severity", "warning");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void DaemonStartSupervisorProgressContracts_SerializeWithCamelCaseFields ()
+    {
+        Assert.Equal("daemon.start.launching", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.Launching));
+        Assert.Equal("daemon.start.waitingForEndpoint", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.WaitingForEndpoint));
+        Assert.Equal("daemon.start.blockerDetected", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.BlockerDetected));
+        Assert.Equal("daemon.start.sessionRegistered", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.SessionRegistered));
+        Assert.Equal("daemon.start.endpointRegistered", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.EndpointRegistered));
+        Assert.Equal("daemon.start.lifecycleObserved", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.LifecycleObserved));
+        Assert.Equal("startupObservation", ContractLiteralCodec.ToValue(DaemonStartProgressPayloadKind.StartupObservation));
+        Assert.Equal("lifecycleSnapshot", ContractLiteralCodec.ToValue(DaemonStartProgressPayloadKind.LifecycleSnapshot));
+        AssertPayloadKind(DaemonStartProgressEvent.Launching, DaemonStartProgressPayloadKind.StartupObservation);
+        AssertPayloadKind(DaemonStartProgressEvent.WaitingForEndpoint, DaemonStartProgressPayloadKind.StartupObservation);
+        AssertPayloadKind(DaemonStartProgressEvent.BlockerDetected, DaemonStartProgressPayloadKind.StartupObservation);
+        AssertPayloadKind(DaemonStartProgressEvent.SessionRegistered, DaemonStartProgressPayloadKind.StartupObservation);
+        AssertPayloadKind(DaemonStartProgressEvent.EndpointRegistered, DaemonStartProgressPayloadKind.StartupObservation);
+        AssertPayloadKind(DaemonStartProgressEvent.LifecycleObserved, DaemonStartProgressPayloadKind.LifecycleSnapshot);
+        Assert.False(DaemonStartProgressPayloadContract.TryGetPayloadKind(
+            DaemonStartProgressEvent.Completed,
+            out _));
+
+        using var startupObservation = JsonDocument.Parse(JsonSerializer.Serialize(
+            new DaemonStartStartupObservationProgressEntry(
+                ContractLiteralCodec.ToValue(DaemonStartProgressPayloadKind.StartupObservation),
+                "project-fingerprint",
+                120000,
+                ContractLiteralCodec.ToValue(DaemonEditorMode.Batchmode),
+                ContractLiteralCodec.ToValue(DaemonStartupBlockedProcessPolicy.Terminate),
+                "attempt-1",
+                ContractLiteralCodec.ToValue(DaemonSessionOwnerKind.Cli),
+                true,
+                1234,
+                DateTimeOffset.Parse("2026-05-21T00:00:00+00:00"),
+                ContractLiteralCodec.ToValue(DaemonStartupStatus.Blocked),
+                ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Compile),
+                ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.ScriptCompilation),
+                ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix),
+                "Unity scripts failed to compile.",
+                "UNITY_SCRIPT_COMPILATION_FAILED"),
+            SerializerOptions));
+        using var lifecycleSnapshot = JsonDocument.Parse(JsonSerializer.Serialize(
+            new DaemonStartLifecycleSnapshotProgressEntry(
+                ContractLiteralCodec.ToValue(DaemonStartProgressPayloadKind.LifecycleSnapshot),
+                "project-fingerprint",
+                120000,
+                ContractLiteralCodec.ToValue(DaemonEditorMode.Batchmode),
+                ContractLiteralCodec.ToValue(DaemonStartupBlockedProcessPolicy.Terminate),
+                IpcEditorLifecycleStateCodec.Ready,
+                null,
+                true),
+            SerializerOptions));
+
+        JsonAssert.For(startupObservation.RootElement)
+            .HasString("payloadKind", "startupObservation")
+            .HasString("projectFingerprint", "project-fingerprint")
+            .HasInt32("timeoutMilliseconds", 120000)
+            .HasString("editorMode", "batchmode")
+            .HasString("onStartupBlocked", "terminate")
+            .HasString("launchAttemptId", "attempt-1")
+            .HasString("ownerKind", "cli")
+            .HasBoolean("canShutdownProcess", true)
+            .HasInt32("processId", 1234)
+            .HasString("processStartedAtUtc", "2026-05-21T00:00:00+00:00")
+            .HasString("startupStatus", "blocked")
+            .HasString("startupBlockingReason", "compile")
+            .HasString("startupPhase", "scriptCompilation")
+            .HasString("retryDisposition", "retryAfterFix")
+            .HasString("message", "Unity scripts failed to compile.")
+            .HasString("errorCode", "UNITY_SCRIPT_COMPILATION_FAILED");
+        Assert.False(startupObservation.RootElement.TryGetProperty("lifecycleState", out _));
+        Assert.False(startupObservation.RootElement.TryGetProperty("blockingReason", out _));
+        Assert.False(startupObservation.RootElement.TryGetProperty("canAcceptExecutionRequests", out _));
+
+        JsonAssert.For(lifecycleSnapshot.RootElement)
+            .HasString("payloadKind", "lifecycleSnapshot")
+            .HasString("projectFingerprint", "project-fingerprint")
+            .HasInt32("timeoutMilliseconds", 120000)
+            .HasString("editorMode", "batchmode")
+            .HasString("onStartupBlocked", "terminate")
+            .HasString("lifecycleState", "ready")
+            .HasValueKind("blockingReason", JsonValueKind.Null)
+            .HasBoolean("canAcceptExecutionRequests", true);
+    }
+
+    private static void AssertPayloadKind (
+        DaemonStartProgressEvent progressEvent,
+        DaemonStartProgressPayloadKind expectedPayloadKind)
+    {
+        Assert.True(DaemonStartProgressPayloadContract.TryGetPayloadKind(progressEvent, out var payloadKind));
+        Assert.Equal(expectedPayloadKind, payloadKind);
     }
 
     [Fact]
@@ -1021,14 +1116,14 @@ public sealed class IpcContractSerializationTests
 
         using var document = JsonDocument.Parse(JsonSerializer.Serialize(payload, SerializerOptions));
 
-        Assert.Equal("daemon.start.started", DaemonStartProgressEventNames.Started);
-        Assert.Equal("daemon.start.pluginVerification.started", DaemonStartProgressEventNames.PluginVerificationStarted);
-        Assert.Equal("daemon.start.pluginVerification.completed", DaemonStartProgressEventNames.PluginVerificationCompleted);
-        Assert.Equal("daemon.start.supervisorBootstrap.started", DaemonStartProgressEventNames.SupervisorBootstrapStarted);
-        Assert.Equal("daemon.start.supervisorBootstrap.completed", DaemonStartProgressEventNames.SupervisorBootstrapCompleted);
-        Assert.Equal("daemon.start.ensureRunning.started", DaemonStartProgressEventNames.EnsureRunningStarted);
-        Assert.Equal("daemon.start.ensureRunning.completed", DaemonStartProgressEventNames.EnsureRunningCompleted);
-        Assert.Equal("daemon.start.completed", DaemonStartProgressEventNames.Completed);
+        Assert.Equal("daemon.start.started", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.Started));
+        Assert.Equal("daemon.start.pluginVerification.started", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.PluginVerificationStarted));
+        Assert.Equal("daemon.start.pluginVerification.completed", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.PluginVerificationCompleted));
+        Assert.Equal("daemon.start.supervisorBootstrap.started", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.SupervisorBootstrapStarted));
+        Assert.Equal("daemon.start.supervisorBootstrap.completed", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.SupervisorBootstrapCompleted));
+        Assert.Equal("daemon.start.ensureRunning.started", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.EnsureRunningStarted));
+        Assert.Equal("daemon.start.ensureRunning.completed", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.EnsureRunningCompleted));
+        Assert.Equal("daemon.start.completed", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.Completed));
         Assert.Equal("succeeded", ContractLiteralCodec.ToValue(CommandProgressResult.Succeeded));
         Assert.Equal("failed", ContractLiteralCodec.ToValue(CommandProgressResult.Failed));
         JsonAssert.For(document.RootElement)

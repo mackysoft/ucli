@@ -53,7 +53,8 @@ internal sealed class DaemonShutdownClient : IDaemonShutdownClient
                 RequestId: $"daemon-stop-{Guid.NewGuid():N}",
                 SessionToken: connection.SessionToken,
                 Method: IpcMethodNames.Shutdown,
-                Payload: payload);
+                Payload: payload,
+                responseMode: IpcResponseMode.Single);
             var response = await transportClient.SendAsync(
                     connection.Endpoint,
                     request,

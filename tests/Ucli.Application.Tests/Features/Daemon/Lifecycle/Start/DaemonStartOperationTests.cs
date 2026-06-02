@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
 namespace MackySoft.Ucli.Application.Tests.Daemon;
 
 using MackySoft.Ucli.Application.Shared.Context.Project;
@@ -840,6 +841,7 @@ public sealed class DaemonStartOperationTests
             DaemonSession session,
             TimeSpan timeout,
             DaemonEditorMode? editorMode,
+            IDaemonStartProgressObserver? progressObserver = null,
             CancellationToken cancellationToken = default)
         {
             CallCount++;
@@ -864,6 +866,7 @@ public sealed class DaemonStartOperationTests
             TimeSpan timeout,
             DaemonEditorMode? editorMode,
             DaemonStartupBlockedProcessPolicy onStartupBlocked,
+            IDaemonStartProgressObserver? progressObserver = null,
             CancellationToken cancellationToken = default)
         {
             CallCount++;
@@ -888,6 +891,7 @@ public sealed class DaemonStartOperationTests
             TimeSpan timeout,
             DaemonEditorMode editorMode,
             DaemonStartupBlockedProcessPolicy onStartupBlocked,
+            IDaemonStartProgressObserver? progressObserver = null,
             CancellationToken cancellationToken = default)
         {
             CallCount++;

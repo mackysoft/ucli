@@ -9,7 +9,6 @@ using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.Tests.Daemon;
@@ -206,6 +205,8 @@ internal static class DaemonServiceTestContext
 
         public DaemonStartupBlockedProcessPolicy LastOnStartupBlocked { get; private set; }
 
+        public IDaemonStartProgressObserver? LastProgressObserver { get; private set; }
+
         public CancellationToken LastCancellationToken { get; private set; }
 
         public ValueTask<DaemonStartResult> StartAsync (
@@ -213,6 +214,7 @@ internal static class DaemonServiceTestContext
             TimeSpan timeout,
             DaemonEditorMode? editorMode,
             DaemonStartupBlockedProcessPolicy onStartupBlocked,
+            IDaemonStartProgressObserver? progressObserver = null,
             CancellationToken cancellationToken = default)
         {
             StartCallCount++;
@@ -220,6 +222,7 @@ internal static class DaemonServiceTestContext
             LastTimeout = timeout;
             LastEditorMode = editorMode;
             LastOnStartupBlocked = onStartupBlocked;
+            LastProgressObserver = progressObserver;
             LastCancellationToken = cancellationToken;
             return ValueTask.FromResult(StartResult);
         }
@@ -325,6 +328,8 @@ internal static class DaemonServiceTestContext
     {
         public Func<IpcEndpoint, IpcRequest, TimeSpan, CancellationToken, ValueTask<IpcResponse>>? SendHandler { get; set; }
 
+        public Func<IpcEndpoint, IpcRequest, TimeSpan, Func<IpcStreamFrame, CancellationToken, ValueTask>, CancellationToken, ValueTask<IpcResponse>>? StreamingHandler { get; set; }
+
         public List<StubIpcTransportCall> Calls { get; } = [];
 
         public ValueTask<IpcResponse> SendAsync (
@@ -365,12 +370,38 @@ internal static class DaemonServiceTestContext
             CancellationToken cancellationToken = default)
         {
             Calls.Add(new StubIpcTransportCall(endpoint, request, timeout, UsesUnboundedResponseWait: false));
+            if (StreamingHandler != null)
+            {
+                return StreamingHandler(endpoint, request, timeout, onProgressFrame, cancellationToken);
+            }
+
             if (SendHandler == null)
             {
                 throw new InvalidOperationException("Stub IPC transport handler is not configured.");
             }
 
             return SendHandler(endpoint, request, timeout, cancellationToken);
+        }
+
+        public ValueTask<IpcResponse> SendStreamingWithUnboundedResponseWaitAsync (
+            IpcEndpoint endpoint,
+            IpcRequest request,
+            TimeSpan sendTimeout,
+            Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
+            CancellationToken cancellationToken = default)
+        {
+            Calls.Add(new StubIpcTransportCall(endpoint, request, sendTimeout, UsesUnboundedResponseWait: true));
+            if (StreamingHandler != null)
+            {
+                return StreamingHandler(endpoint, request, sendTimeout, onProgressFrame, cancellationToken);
+            }
+
+            if (SendHandler == null)
+            {
+                throw new InvalidOperationException("Stub IPC transport handler is not configured.");
+            }
+
+            return SendHandler(endpoint, request, sendTimeout, cancellationToken);
         }
     }
 }

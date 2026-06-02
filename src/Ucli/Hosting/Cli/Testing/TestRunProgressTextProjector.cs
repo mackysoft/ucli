@@ -35,7 +35,7 @@ internal sealed class TestRunProgressTextProjector : ICliCommandProgressTextProj
     private static string CreateCaseFinishedTextLine (TestCaseFinishedEntry entry)
     {
         var caseResult = FormatCaseResult(entry.Result);
-        var durationLength = GetInt64TextLength(entry.DurationMilliseconds);
+        var durationLength = SpanTextLength.GetInvariantInt64Length(entry.DurationMilliseconds);
         var length = checked(caseResult.Length + 1 + entry.TestName.Length + 2 + durationLength + 4);
 
         return string.Create(
@@ -82,21 +82,4 @@ internal sealed class TestRunProgressTextProjector : ICliCommandProgressTextProj
         };
     }
 
-    private static int GetInt64TextLength (long value)
-    {
-        if (value == 0)
-        {
-            return 1;
-        }
-
-        var length = value < 0 ? 1 : 0;
-        var remaining = value;
-        while (remaining != 0)
-        {
-            length++;
-            remaining /= 10;
-        }
-
-        return length;
-    }
 }

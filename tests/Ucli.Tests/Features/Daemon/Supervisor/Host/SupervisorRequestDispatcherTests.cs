@@ -1,7 +1,8 @@
+using System.Text.Json;
+using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
@@ -31,7 +32,8 @@ public sealed class SupervisorRequestDispatcherTests
                 SessionToken: string.Empty,
                 Method: SupervisorIpcContracts.PingMethod,
                 Payload: IpcPayloadCodec.SerializeToElement(
-                    new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion))));
+                    new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion)),
+                responseMode: IpcResponseMode.Single));
 
         Assert.Equal(IpcProtocol.StatusError, response.Status);
         var error = Assert.Single(response.Errors);
@@ -54,11 +56,144 @@ public sealed class SupervisorRequestDispatcherTests
                 SessionToken: "invalid-token",
                 Method: SupervisorIpcContracts.PingMethod,
                 Payload: IpcPayloadCodec.SerializeToElement(
-                    new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion))));
+                    new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion)),
+                responseMode: IpcResponseMode.Single));
 
         Assert.Equal(IpcProtocol.StatusError, response.Status);
         var error = Assert.Single(response.Errors);
         Assert.Equal(IpcSessionErrorCodes.SessionTokenInvalid, error.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task HandleConnection_WhenResponseModeIsUnsupported_ReturnsInvalidArgumentWithoutStartOperation ()
+    {
+        var startOperation = new StubDaemonStartOperation();
+        var dispatcher = CreateDispatcher(startOperation);
+        var runtimeContext = CreateRuntimeContext();
+        var unityProjectRoot = Path.Combine(runtimeContext.StorageRoot, "UnityProject");
+        var projectFingerprint = UnityProjectFingerprintCalculator.Create(runtimeContext.StorageRoot, unityProjectRoot);
+
+        var response = await SendRequestAsync(
+            dispatcher,
+            runtimeContext,
+            new IpcRequest(
+                ProtocolVersion: IpcProtocol.CurrentVersion,
+                RequestId: "request-unsupported-response-mode",
+                SessionToken: runtimeContext.Manifest.SessionToken,
+                Method: SupervisorIpcContracts.EnsureRunningMethod,
+                Payload: IpcPayloadCodec.SerializeToElement(
+                    new SupervisorIpcContracts.EnsureRunningRequest(
+                        UnityProjectRoot: unityProjectRoot,
+                        ProjectFingerprint: projectFingerprint,
+                        TimeoutMilliseconds: 1000,
+                        EditorMode: null,
+                        OnStartupBlocked: "auto")),
+                ResponseMode: "unsupported"));
+
+        Assert.Equal(IpcProtocol.StatusError, response.Status);
+        var error = Assert.Single(response.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, error.Code);
+        Assert.Contains("Unsupported IPC response mode: unsupported.", error.Message, StringComparison.Ordinal);
+        Assert.Equal(0, startOperation.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task HandleConnection_WhenResponseModeIsNull_ReturnsInvalidArgumentWithNullPlaceholder ()
+    {
+        var startOperation = new StubDaemonStartOperation();
+        var dispatcher = CreateDispatcher(startOperation);
+        var runtimeContext = CreateRuntimeContext();
+        var unityProjectRoot = Path.Combine(runtimeContext.StorageRoot, "UnityProject");
+        var projectFingerprint = UnityProjectFingerprintCalculator.Create(runtimeContext.StorageRoot, unityProjectRoot);
+
+        var response = await SendRequestAsync(
+            dispatcher,
+            runtimeContext,
+            new IpcRequest(
+                ProtocolVersion: IpcProtocol.CurrentVersion,
+                RequestId: "request-null-response-mode",
+                SessionToken: runtimeContext.Manifest.SessionToken,
+                Method: SupervisorIpcContracts.EnsureRunningMethod,
+                Payload: IpcPayloadCodec.SerializeToElement(
+                    new SupervisorIpcContracts.EnsureRunningRequest(
+                        UnityProjectRoot: unityProjectRoot,
+                        ProjectFingerprint: projectFingerprint,
+                        TimeoutMilliseconds: 1000,
+                        EditorMode: null,
+                        OnStartupBlocked: "auto")),
+                ResponseMode: null!));
+
+        Assert.Equal(IpcProtocol.StatusError, response.Status);
+        var error = Assert.Single(response.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, error.Code);
+        Assert.Contains("Unsupported IPC response mode: <null>.", error.Message, StringComparison.Ordinal);
+        Assert.Equal(0, startOperation.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task HandleConnection_WhenResponseModeIsMissing_ReturnsInvalidArgumentWithNullPlaceholder ()
+    {
+        var startOperation = new StubDaemonStartOperation();
+        var dispatcher = CreateDispatcher(startOperation);
+        var runtimeContext = CreateRuntimeContext();
+        var unityProjectRoot = Path.Combine(runtimeContext.StorageRoot, "UnityProject");
+        var projectFingerprint = UnityProjectFingerprintCalculator.Create(runtimeContext.StorageRoot, unityProjectRoot);
+        var payload = IpcPayloadCodec.SerializeToElement(
+            new SupervisorIpcContracts.EnsureRunningRequest(
+                UnityProjectRoot: unityProjectRoot,
+                ProjectFingerprint: projectFingerprint,
+                TimeoutMilliseconds: 1000,
+                EditorMode: null,
+                OnStartupBlocked: "auto"));
+        var rawRequest = JsonSerializer.SerializeToElement(
+            new
+            {
+                ProtocolVersion = IpcProtocol.CurrentVersion,
+                RequestId = "request-missing-response-mode",
+                SessionToken = runtimeContext.Manifest.SessionToken,
+                Method = SupervisorIpcContracts.EnsureRunningMethod,
+                Payload = payload,
+            },
+            IpcJsonSerializerOptions.Default);
+
+        var response = await SendRawJsonRequestAsync(dispatcher, runtimeContext, rawRequest);
+
+        Assert.Equal(IpcProtocol.StatusError, response.Status);
+        var error = Assert.Single(response.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, error.Code);
+        Assert.Contains("Unsupported IPC response mode: <null>.", error.Message, StringComparison.Ordinal);
+        Assert.Equal(0, startOperation.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task HandleConnection_WhenStreamResponseModeTargetsPing_ReturnsInvalidArgument ()
+    {
+        var dispatcher = CreateDispatcher();
+        var runtimeContext = CreateRuntimeContext();
+
+        var frames = await SendStreamingRequestAsync(
+            dispatcher,
+            runtimeContext,
+            new IpcRequest(
+                ProtocolVersion: IpcProtocol.CurrentVersion,
+                RequestId: "request-ping-stream-response-mode",
+                SessionToken: runtimeContext.Manifest.SessionToken,
+                Method: SupervisorIpcContracts.PingMethod,
+                Payload: IpcPayloadCodec.SerializeToElement(
+                    new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion)),
+                responseMode: IpcResponseMode.Stream));
+
+        var terminalFrame = Assert.Single(frames);
+        Assert.Equal(IpcStreamFrameKinds.Terminal, terminalFrame.Kind);
+        var response = Assert.IsType<IpcResponse>(terminalFrame.Response);
+        Assert.Equal(IpcProtocol.StatusError, response.Status);
+        var error = Assert.Single(response.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, error.Code);
+        Assert.Contains(SupervisorIpcContracts.EnsureRunningMethod, error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -82,7 +217,8 @@ public sealed class SupervisorRequestDispatcherTests
                         ProjectFingerprint: "fingerprint",
                         TimeoutMilliseconds: 1000,
                         EditorMode: null,
-                        OnStartupBlocked: "auto"))));
+                        OnStartupBlocked: "auto")),
+                responseMode: IpcResponseMode.Single));
 
         Assert.Equal(IpcProtocol.StatusError, invalidResponse.Status);
         var invalidError = Assert.Single(invalidResponse.Errors);
@@ -97,7 +233,8 @@ public sealed class SupervisorRequestDispatcherTests
                 SessionToken: runtimeContext.Manifest.SessionToken,
                 Method: SupervisorIpcContracts.PingMethod,
                 Payload: IpcPayloadCodec.SerializeToElement(
-                    new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion))));
+                    new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion)),
+                responseMode: IpcResponseMode.Single));
 
         Assert.Equal(IpcProtocol.StatusOk, pingResponse.Status);
         Assert.Empty(pingResponse.Errors);
@@ -125,7 +262,8 @@ public sealed class SupervisorRequestDispatcherTests
                         ProjectFingerprint: "mismatched-fingerprint",
                         TimeoutMilliseconds: 1000,
                         EditorMode: null,
-                        OnStartupBlocked: "auto"))));
+                        OnStartupBlocked: "auto")),
+                responseMode: IpcResponseMode.Single));
 
         Assert.Equal(IpcProtocol.StatusError, response.Status);
         var error = Assert.Single(response.Errors);
@@ -164,7 +302,8 @@ public sealed class SupervisorRequestDispatcherTests
                         ProjectFingerprint: projectFingerprint,
                         TimeoutMilliseconds: 1000,
                         EditorMode: " gui ",
-                        OnStartupBlocked: " terminate "))));
+                        OnStartupBlocked: " terminate ")),
+                responseMode: IpcResponseMode.Single));
 
         Assert.True(
             string.Equals(IpcProtocol.StatusOk, response.Status, StringComparison.Ordinal),
@@ -182,7 +321,7 @@ public sealed class SupervisorRequestDispatcherTests
     [Trait("Size", "Small")]
     public async Task HandleConnection_WhenStartOperationAttaches_EmitsAttachedStartStatus ()
     {
-        var session = CreateSession();
+        var session = CreateSession(canShutdownProcess: false);
         var lifecycleSnapshot = new DaemonStartLifecycleSnapshot(
             IpcEditorLifecycleStateCodec.Ready,
             null,
@@ -210,7 +349,8 @@ public sealed class SupervisorRequestDispatcherTests
                         ProjectFingerprint: projectFingerprint,
                         TimeoutMilliseconds: 1000,
                         EditorMode: "gui",
-                        OnStartupBlocked: "auto"))));
+                        OnStartupBlocked: "auto")),
+                responseMode: IpcResponseMode.Single));
 
         Assert.Equal(IpcProtocol.StatusOk, response.Status);
         Assert.True(IpcPayloadCodec.TryDeserialize(
@@ -246,7 +386,8 @@ public sealed class SupervisorRequestDispatcherTests
                         ProjectFingerprint: projectFingerprint,
                         TimeoutMilliseconds: 1000,
                         EditorMode: "unsupported",
-                        OnStartupBlocked: "auto"))));
+                        OnStartupBlocked: "auto")),
+                responseMode: IpcResponseMode.Single));
 
         Assert.Equal(IpcProtocol.StatusError, response.Status);
         var error = Assert.Single(response.Errors);
@@ -278,7 +419,8 @@ public sealed class SupervisorRequestDispatcherTests
                         ProjectFingerprint: projectFingerprint,
                         TimeoutMilliseconds: 1000,
                         EditorMode: null,
-                        OnStartupBlocked: "unsupported"))));
+                        OnStartupBlocked: "unsupported")),
+                responseMode: IpcResponseMode.Single));
 
         Assert.Equal(IpcProtocol.StatusError, response.Status);
         var error = Assert.Single(response.Errors);
@@ -319,7 +461,8 @@ public sealed class SupervisorRequestDispatcherTests
                         ProjectFingerprint: projectFingerprint,
                         TimeoutMilliseconds: 1000,
                         EditorMode: null,
-                        OnStartupBlocked: "auto"))));
+                        OnStartupBlocked: "auto")),
+                responseMode: IpcResponseMode.Single));
 
         Assert.Equal(IpcProtocol.StatusError, response.Status);
         var error = Assert.Single(response.Errors);
@@ -364,7 +507,8 @@ public sealed class SupervisorRequestDispatcherTests
                         ProjectFingerprint: projectFingerprint,
                         TimeoutMilliseconds: 1,
                         EditorMode: null,
-                        OnStartupBlocked: "auto"))));
+                        OnStartupBlocked: "auto")),
+                responseMode: IpcResponseMode.Single));
 
         Assert.Equal(IpcProtocol.StatusError, response.Status);
         var error = Assert.Single(response.Errors);
@@ -374,6 +518,149 @@ public sealed class SupervisorRequestDispatcherTests
             out SupervisorIpcContracts.EnsureRunningFailureResponse payload,
             out _));
         Assert.Equal(diagnosis, payload.Diagnosis);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task HandleConnection_WhenEnsureRunningStreamEmitsProgress_WritesProgressBeforeTerminal ()
+    {
+        var session = CreateSession(canShutdownProcess: false);
+        var startOperation = new StubDaemonStartOperation
+        {
+            StartResult = DaemonStartResult.Started(session),
+            OnStart = async (progressObserver, cancellationToken) =>
+            {
+                Assert.NotNull(progressObserver);
+                await progressObserver!.EmitWaitingForEndpointAsync(
+                        new DaemonStartStartupProgressObservation(
+                            LaunchAttemptId: "attempt-1",
+                            EditorMode: "batchmode",
+                            OwnerKind: "cli",
+                            CanShutdownProcess: false,
+                            ProcessId: 42,
+                            ProcessStartedAtUtc: session.ProcessStartedAtUtc,
+                            StartupStatus: "waitingForEndpoint",
+                            StartupBlockingReason: null,
+                            StartupPhase: "endpointRegistration",
+                            RetryDisposition: null,
+                            Message: "Waiting for daemon endpoint.",
+                            ErrorCode: null),
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            },
+        };
+        var dispatcher = CreateDispatcher(startOperation);
+        var runtimeContext = CreateRuntimeContext();
+        var unityProjectRoot = Path.Combine(runtimeContext.StorageRoot, "UnityProject");
+        var projectFingerprint = UnityProjectFingerprintCalculator.Create(runtimeContext.StorageRoot, unityProjectRoot);
+
+        var frames = await SendStreamingRequestAsync(
+            dispatcher,
+            runtimeContext,
+            new IpcRequest(
+                ProtocolVersion: IpcProtocol.CurrentVersion,
+                RequestId: "request-stream-progress",
+                SessionToken: runtimeContext.Manifest.SessionToken,
+                Method: SupervisorIpcContracts.EnsureRunningMethod,
+                Payload: IpcPayloadCodec.SerializeToElement(
+                    new SupervisorIpcContracts.EnsureRunningRequest(
+                        UnityProjectRoot: unityProjectRoot,
+                        ProjectFingerprint: projectFingerprint,
+                        TimeoutMilliseconds: 1000,
+                        EditorMode: "batchmode",
+                        OnStartupBlocked: "auto")),
+                responseMode: IpcResponseMode.Stream));
+
+        Assert.Equal(2, frames.Count);
+        Assert.Equal(IpcStreamFrameKinds.Progress, frames[0].Kind);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartProgressEvent.WaitingForEndpoint), frames[0].Event);
+        JsonAssert.For(frames[0].Payload)
+            .HasString("payloadKind", "startupObservation")
+            .HasString("projectFingerprint", projectFingerprint)
+            .HasInt32("timeoutMilliseconds", 1000)
+            .HasString("message", "Waiting for daemon endpoint.");
+        Assert.Equal(IpcStreamFrameKinds.Terminal, frames[1].Kind);
+        Assert.Null(frames[1].Event);
+        var terminalResponse = Assert.IsType<IpcResponse>(frames[1].Response);
+        Assert.True(
+            string.Equals(IpcProtocol.StatusOk, terminalResponse.Status, StringComparison.Ordinal),
+            string.Join(Environment.NewLine, terminalResponse.Errors.Select(static error => $"{error.Code}: {error.Message}")));
+        Assert.True(IpcPayloadCodec.TryDeserialize(
+            terminalResponse.Payload,
+            out SupervisorIpcContracts.EnsureRunningResponse terminalPayload,
+            out _));
+        Assert.Equal("started", terminalPayload.StartStatus);
+        Assert.Equal(session, terminalPayload.Session);
+        Assert.NotNull(startOperation.LastProgressObserver);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task HandleConnection_WhenEnsureRunningStreamProgressWriteFails_CancelsStartOperation ()
+    {
+        var progressWriteCanceled = false;
+        var startOperation = new StubDaemonStartOperation
+        {
+            OnStart = async (progressObserver, cancellationToken) =>
+            {
+                Assert.NotNull(progressObserver);
+                try
+                {
+                    await progressObserver!.EmitWaitingForEndpointAsync(
+                            new DaemonStartStartupProgressObservation(
+                                LaunchAttemptId: "attempt-1",
+                                EditorMode: "batchmode",
+                                OwnerKind: "cli",
+                                CanShutdownProcess: true,
+                                ProcessId: 42,
+                                ProcessStartedAtUtc: DateTimeOffset.UtcNow,
+                                StartupStatus: "waitingForEndpoint",
+                                StartupBlockingReason: null,
+                                StartupPhase: "endpointRegistration",
+                                RetryDisposition: null,
+                                Message: null,
+                                ErrorCode: null),
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    progressWriteCanceled = true;
+                    throw;
+                }
+            },
+        };
+        var dispatcher = CreateDispatcher(startOperation);
+        var runtimeContext = CreateRuntimeContext();
+        var unityProjectRoot = Path.Combine(runtimeContext.StorageRoot, "UnityProject");
+        var projectFingerprint = UnityProjectFingerprintCalculator.Create(runtimeContext.StorageRoot, unityProjectRoot);
+
+        var frames = await SendStreamingRequestWithTransientWriteFailureAsync(
+            dispatcher,
+            runtimeContext,
+            new IpcRequest(
+                ProtocolVersion: IpcProtocol.CurrentVersion,
+                RequestId: "request-stream-write-failure",
+                SessionToken: runtimeContext.Manifest.SessionToken,
+                Method: SupervisorIpcContracts.EnsureRunningMethod,
+                Payload: IpcPayloadCodec.SerializeToElement(
+                    new SupervisorIpcContracts.EnsureRunningRequest(
+                        UnityProjectRoot: unityProjectRoot,
+                        ProjectFingerprint: projectFingerprint,
+                        TimeoutMilliseconds: 1000,
+                        EditorMode: "batchmode",
+                        OnStartupBlocked: "auto")),
+                responseMode: IpcResponseMode.Stream));
+
+        Assert.True(progressWriteCanceled);
+        Assert.NotNull(startOperation.LastProgressObserver);
+        var terminalFrame = Assert.Single(frames);
+        Assert.Equal(IpcStreamFrameKinds.Terminal, terminalFrame.Kind);
+        var terminalResponse = Assert.IsType<IpcResponse>(terminalFrame.Response);
+        Assert.Equal(IpcProtocol.StatusError, terminalResponse.Status);
+        var error = Assert.Single(terminalResponse.Errors);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, error.Code);
+        Assert.Contains("caller disconnected", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -403,7 +690,8 @@ public sealed class SupervisorRequestDispatcherTests
                         ProjectFingerprint: projectFingerprint,
                         TimeoutMilliseconds: 1000,
                         EditorMode: null,
-                        OnStartupBlocked: "auto"))));
+                        OnStartupBlocked: "auto")),
+                responseMode: IpcResponseMode.Single));
 
         Assert.Equal(IpcProtocol.StatusError, response.Status);
         var error = Assert.Single(response.Errors);
@@ -450,6 +738,22 @@ public sealed class SupervisorRequestDispatcherTests
         SupervisorRuntimeContext runtimeContext,
         IpcRequest request)
     {
+        return await SendFramedRequestAsync(dispatcher, runtimeContext, request).ConfigureAwait(false);
+    }
+
+    private static async Task<IpcResponse> SendRawJsonRequestAsync (
+        SupervisorRequestDispatcher dispatcher,
+        SupervisorRuntimeContext runtimeContext,
+        JsonElement request)
+    {
+        return await SendFramedRequestAsync(dispatcher, runtimeContext, request).ConfigureAwait(false);
+    }
+
+    private static async Task<IpcResponse> SendFramedRequestAsync<TRequest> (
+        SupervisorRequestDispatcher dispatcher,
+        SupervisorRuntimeContext runtimeContext,
+        TRequest request)
+    {
         using var stream = new NonDisconnectingMemoryStream();
         await IpcFrameCodec.WriteModelAsync(
                 stream,
@@ -491,7 +795,68 @@ public sealed class SupervisorRequestDispatcherTests
             .ConfigureAwait(false);
     }
 
-    private sealed class NonDisconnectingMemoryStream : MemoryStream
+    private static async Task<IReadOnlyList<IpcStreamFrame>> SendStreamingRequestAsync (
+        SupervisorRequestDispatcher dispatcher,
+        SupervisorRuntimeContext runtimeContext,
+        IpcRequest request)
+    {
+        using var stream = new DuplexMemoryStream(await CreateRequestFrameBytesAsync(request).ConfigureAwait(false));
+
+        await dispatcher.HandleConnectionAsync(stream, runtimeContext, CancellationToken.None).ConfigureAwait(false);
+
+        using var outputStream = new MemoryStream(stream.GetWrittenBytes());
+        var frames = new List<IpcStreamFrame>();
+        while (true)
+        {
+            var frame = await IpcFrameCodec.ReadModelAsync<IpcStreamFrame>(
+                    outputStream,
+                    IpcJsonSerializerOptions.Default)
+                .ConfigureAwait(false);
+            frames.Add(frame);
+            if (string.Equals(frame.Kind, IpcStreamFrameKinds.Terminal, StringComparison.Ordinal))
+            {
+                return frames;
+            }
+        }
+    }
+
+    private static async Task<IReadOnlyList<IpcStreamFrame>> SendStreamingRequestWithTransientWriteFailureAsync (
+        SupervisorRequestDispatcher dispatcher,
+        SupervisorRuntimeContext runtimeContext,
+        IpcRequest request)
+    {
+        using var stream = new DuplexMemoryStream(await CreateRequestFrameBytesAsync(request).ConfigureAwait(false))
+        {
+            FailWriteCount = 1,
+        };
+
+        await dispatcher.HandleConnectionAsync(stream, runtimeContext, CancellationToken.None).ConfigureAwait(false);
+
+        using var outputStream = new MemoryStream(stream.GetWrittenBytes());
+        var frames = new List<IpcStreamFrame>();
+        while (outputStream.Position < outputStream.Length)
+        {
+            frames.Add(await IpcFrameCodec.ReadModelAsync<IpcStreamFrame>(
+                    outputStream,
+                    IpcJsonSerializerOptions.Default)
+                .ConfigureAwait(false));
+        }
+
+        return frames;
+    }
+
+    private static async Task<byte[]> CreateRequestFrameBytesAsync (IpcRequest request)
+    {
+        using var stream = new MemoryStream();
+        await IpcFrameCodec.WriteModelAsync(
+                stream,
+                request,
+                IpcJsonSerializerOptions.Default)
+            .ConfigureAwait(false);
+        return stream.ToArray();
+    }
+
+    private class NonDisconnectingMemoryStream : MemoryStream
     {
         public override async ValueTask<int> ReadAsync (
             Memory<byte> buffer,
@@ -522,6 +887,131 @@ public sealed class SupervisorRequestDispatcherTests
         }
     }
 
+    private sealed class DuplexMemoryStream : Stream
+    {
+        private readonly byte[] input;
+        private readonly MemoryStream output = new();
+        private int inputOffset;
+
+        public DuplexMemoryStream (byte[] input)
+        {
+            this.input = input ?? throw new ArgumentNullException(nameof(input));
+        }
+
+        public bool FailWrites { get; set; }
+
+        public int FailWriteCount { get; set; }
+
+        public override bool CanRead => true;
+
+        public override bool CanSeek => false;
+
+        public override bool CanWrite => true;
+
+        public override long Length => throw new NotSupportedException();
+
+        public override long Position
+        {
+            get => throw new NotSupportedException();
+            set => throw new NotSupportedException();
+        }
+
+        public byte[] GetWrittenBytes ()
+        {
+            return output.ToArray();
+        }
+
+        public override void Flush ()
+        {
+        }
+
+        public override int Read (
+            byte[] buffer,
+            int offset,
+            int count)
+        {
+            if (inputOffset >= input.Length)
+            {
+                return 0;
+            }
+
+            var bytesRead = Math.Min(count, input.Length - inputOffset);
+            input.AsSpan(inputOffset, bytesRead).CopyTo(buffer.AsSpan(offset, bytesRead));
+            inputOffset += bytesRead;
+            return bytesRead;
+        }
+
+        public override async ValueTask<int> ReadAsync (
+            Memory<byte> buffer,
+            CancellationToken cancellationToken = default)
+        {
+            if (inputOffset < input.Length)
+            {
+                var bytesRead = Math.Min(buffer.Length, input.Length - inputOffset);
+                input.AsMemory(inputOffset, bytesRead).CopyTo(buffer);
+                inputOffset += bytesRead;
+                return bytesRead;
+            }
+
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken).ConfigureAwait(false);
+            return 0;
+        }
+
+        public override long Seek (
+            long offset,
+            SeekOrigin origin)
+        {
+            throw new NotSupportedException();
+        }
+
+        public override void SetLength (long value)
+        {
+            throw new NotSupportedException();
+        }
+
+        public override void Write (
+            byte[] buffer,
+            int offset,
+            int count)
+        {
+            if (ShouldFailWrite())
+            {
+                throw new IOException("Simulated caller disconnect.");
+            }
+
+            output.Write(buffer, offset, count);
+        }
+
+        public override ValueTask WriteAsync (
+            ReadOnlyMemory<byte> buffer,
+            CancellationToken cancellationToken = default)
+        {
+            if (ShouldFailWrite())
+            {
+                throw new IOException("Simulated caller disconnect.");
+            }
+
+            output.Write(buffer.Span);
+            return ValueTask.CompletedTask;
+        }
+
+        private bool ShouldFailWrite ()
+        {
+            if (FailWrites)
+            {
+                return true;
+            }
+
+            if (FailWriteCount <= 0)
+            {
+                return false;
+            }
+
+            FailWriteCount--;
+            return true;
+        }
+    }
+
     private sealed class StubDaemonStartOperation : IDaemonStartOperation
     {
         public DaemonStartResult StartResult { get; set; } = DaemonStartResult.AlreadyRunning(CreateSession());
@@ -536,16 +1026,27 @@ public sealed class SupervisorRequestDispatcherTests
 
         public DaemonStartupBlockedProcessPolicy LastOnStartupBlocked { get; private set; }
 
+        public IDaemonStartProgressObserver? LastProgressObserver { get; private set; }
+
+        public Func<IDaemonStartProgressObserver?, CancellationToken, ValueTask>? OnStart { get; set; }
+
         public async ValueTask<DaemonStartResult> StartAsync (
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             DaemonEditorMode? editorMode,
             DaemonStartupBlockedProcessPolicy onStartupBlocked,
+            IDaemonStartProgressObserver? progressObserver = null,
             CancellationToken cancellationToken = default)
         {
             CallCount++;
             LastEditorMode = editorMode;
             LastOnStartupBlocked = onStartupBlocked;
+            LastProgressObserver = progressObserver;
+            if (OnStart != null)
+            {
+                await OnStart(progressObserver, cancellationToken).ConfigureAwait(false);
+            }
+
             if (WaitUntilCancellation)
             {
                 await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken).ConfigureAwait(false);
@@ -648,7 +1149,7 @@ public sealed class SupervisorRequestDispatcherTests
         }
     }
 
-    private static DaemonSession CreateSession ()
+    private static DaemonSession CreateSession (bool canShutdownProcess = true)
     {
         return new DaemonSession(
             SchemaVersion: DaemonSession.CurrentSchemaVersion,
@@ -657,7 +1158,7 @@ public sealed class SupervisorRequestDispatcherTests
             IssuedAtUtc: new DateTimeOffset(2026, 03, 11, 0, 0, 0, TimeSpan.Zero),
             EditorMode: "batchmode",
             OwnerKind: "cli",
-            CanShutdownProcess: true,
+            CanShutdownProcess: canShutdownProcess,
             EndpointTransportKind: "unixDomainSocket",
             EndpointAddress: "/tmp/ucli.sock",
             ProcessId: 42,
@@ -681,10 +1182,10 @@ public sealed class SupervisorRequestDispatcherTests
     private static DaemonStartupObservation CreateStartupObservation ()
     {
         return new DaemonStartupObservation(
-            StartupStatus: DaemonStartupStatusValues.Blocked,
-            StartupBlockingReason: DaemonStartupBlockingReasonValues.Compile,
+            StartupStatus: ContractLiteralCodec.ToValue(DaemonStartupStatus.Blocked),
+            StartupBlockingReason: ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Compile),
             LaunchAttemptId: null,
-            ProcessAction: DaemonStartupProcessActionValues.Kept,
-            RetryDisposition: DaemonStartupRetryDispositionValues.RetryAfterFix);
+            ProcessAction: ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Kept),
+            RetryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix));
     }
 }

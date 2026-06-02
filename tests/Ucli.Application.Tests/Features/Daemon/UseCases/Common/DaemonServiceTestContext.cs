@@ -10,6 +10,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
+using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
@@ -152,7 +153,7 @@ internal static class DaemonServiceTestContext
 
         public DaemonStopResult? TryStopProjectResult { get; set; }
 
-        public Func<ResolvedUnityProjectContext, TimeSpan, DaemonEditorMode?, DaemonStartupBlockedProcessPolicy, IDaemonProjectLifecycleProgressObserver?, CancellationToken, ValueTask<DaemonStartResult>>? EnsureRunningHandler { get; set; }
+        public Func<ResolvedUnityProjectContext, TimeSpan, DaemonEditorMode?, DaemonStartupBlockedProcessPolicy, IDaemonProjectLifecycleProgressObserver?, ICommandProgressSink?, CancellationToken, ValueTask<DaemonStartResult>>? EnsureRunningHandler { get; set; }
 
         public Func<ResolvedUnityProjectContext, TimeSpan, CancellationToken, ValueTask<DaemonStopResult?>>? TryStopProjectHandler { get; set; }
 
@@ -170,6 +171,8 @@ internal static class DaemonServiceTestContext
 
         public IDaemonProjectLifecycleProgressObserver? LastEnsureRunningProgressObserver { get; private set; }
 
+        public ICommandProgressSink? LastEnsureRunningSupervisorProgressSink { get; private set; }
+
         public CancellationToken LastEnsureRunningCancellationToken { get; private set; }
 
         public ResolvedUnityProjectContext? LastTryStopProjectUnityProject { get; private set; }
@@ -184,6 +187,7 @@ internal static class DaemonServiceTestContext
             DaemonEditorMode? editorMode,
             DaemonStartupBlockedProcessPolicy onStartupBlocked,
             IDaemonProjectLifecycleProgressObserver? progressObserver = null,
+            ICommandProgressSink? supervisorProgressSink = null,
             CancellationToken cancellationToken = default)
         {
             EnsureRunningCallCount++;
@@ -192,11 +196,12 @@ internal static class DaemonServiceTestContext
             LastEnsureRunningEditorMode = editorMode;
             LastEnsureRunningOnStartupBlocked = onStartupBlocked;
             LastEnsureRunningProgressObserver = progressObserver;
+            LastEnsureRunningSupervisorProgressSink = supervisorProgressSink;
             LastEnsureRunningCancellationToken = cancellationToken;
 
             if (EnsureRunningHandler != null)
             {
-                return EnsureRunningHandler(unityProject, timeout, editorMode, onStartupBlocked, progressObserver, cancellationToken);
+                return EnsureRunningHandler(unityProject, timeout, editorMode, onStartupBlocked, progressObserver, supervisorProgressSink, cancellationToken);
             }
 
             return ValueTask.FromResult(EnsureRunningResult);

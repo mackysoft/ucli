@@ -4,12 +4,12 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Logs;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Startup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Timing;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiEndpoint;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Start.GuiEndpoint;
 
@@ -203,11 +203,11 @@ internal sealed class DaemonGuiStartupObserver : IDaemonGuiStartupObserver
     {
         var message = $"Unity Editor process exited before GUI daemon session registration. ProcessId={processId}.";
         return new DaemonGuiStartupBlocker(
-            StartupBlockingReason: DaemonStartupBlockingReasonValues.ProcessExit,
+            StartupBlockingReason: ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.ProcessExit),
             Reason: DaemonDiagnosisReasonValues.EditorExitedBeforeBootstrap,
-            RetryDisposition: DaemonStartupRetryDispositionValues.Unknown,
+            RetryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.Unknown),
             Message: message,
-            StartupPhase: DaemonDiagnosisStartupPhaseValues.ProcessExit,
+            StartupPhase: ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.ProcessExit),
             ActionRequired: DaemonDiagnosisActionRequiredValues.InspectUnityLog,
             ProcessId: processId,
             ProcessStartedAtUtc: processStartedAtUtc,

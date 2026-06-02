@@ -1,6 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
 
@@ -33,18 +33,18 @@ internal sealed record DaemonStartFailureExecutionOutput (
             ToOutput(startup, retryDisposition),
             diagnosis,
             retryDisposition,
-            string.Equals(retryDisposition, DaemonStartupRetryDispositionValues.RetryImmediately, StringComparison.Ordinal));
+            string.Equals(retryDisposition, ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryImmediately), StringComparison.Ordinal));
     }
 
     private static string ResolveFinalRetryDisposition (DaemonStartupObservation? startup)
     {
         if (startup is null)
         {
-            return DaemonStartupRetryDispositionValues.Unknown;
+            return ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.Unknown);
         }
 
-        return string.Equals(startup.RetryDisposition, DaemonStartupRetryDispositionValues.WaitThenRetry, StringComparison.Ordinal)
-            ? DaemonStartupRetryDispositionValues.Unknown
+        return string.Equals(startup.RetryDisposition, ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.WaitThenRetry), StringComparison.Ordinal)
+            ? ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.Unknown)
             : startup.RetryDisposition;
     }
 

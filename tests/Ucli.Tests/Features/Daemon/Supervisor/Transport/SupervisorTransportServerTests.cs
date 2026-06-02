@@ -266,7 +266,8 @@ public sealed class SupervisorTransportServerTests
             RequestId: $"request-{Guid.NewGuid():N}",
             SessionToken: "session-token",
             Method: method,
-            Payload: IpcPayloadCodec.SerializeToElement(new { }));
+            Payload: IpcPayloadCodec.SerializeToElement(new { }),
+            responseMode: IpcResponseMode.Single);
     }
 
     private sealed record TransportServerResponse (string Method);

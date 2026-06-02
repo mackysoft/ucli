@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 
@@ -25,7 +26,7 @@ internal static class UnityIpcRequestFactory
         string sessionToken,
         string method,
         JsonElement payload,
-        string responseMode = IpcResponseModes.Single)
+        IpcResponseMode responseMode = IpcResponseMode.Single)
     {
         return Create(
             sessionToken,
@@ -65,12 +66,12 @@ internal static class UnityIpcRequestFactory
         string method,
         JsonElement payload,
         string requestId,
-        string responseMode = IpcResponseModes.Single)
+        IpcResponseMode responseMode = IpcResponseMode.Single)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sessionToken);
         ArgumentException.ThrowIfNullOrWhiteSpace(method);
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
-        if (!IpcResponseModes.IsDefined(responseMode))
+        if (!ContractLiteralCodec.IsDefined(responseMode))
         {
             throw new ArgumentException($"Unsupported IPC response mode: {responseMode}.", nameof(responseMode));
         }
@@ -81,7 +82,7 @@ internal static class UnityIpcRequestFactory
             SessionToken: sessionToken,
             Method: method,
             Payload: payload,
-            ResponseMode: responseMode);
+            responseMode: responseMode);
     }
 
     /// <summary> Creates one request envelope from a dispatch request with the supplied request identifier. </summary>

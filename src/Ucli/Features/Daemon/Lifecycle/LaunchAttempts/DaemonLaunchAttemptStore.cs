@@ -1,8 +1,6 @@
 using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.LaunchAttempts;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Startup;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
@@ -118,8 +116,7 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
         }
 
         var latestFailure = entriesResult.Entries
-            .Where(static entry => entry.LaunchAttempt is not null
-                && IsPublicFailureStatus(entry.LaunchAttempt.StartupStatus))
+            .Where(static entry => HasPublicFailureStartupStatus(entry))
             .OrderByDescending(static entry => entry.LaunchAttempt!.UpdatedAtUtc)
             .ThenByDescending(static entry => entry.LaunchAttemptId, StringComparer.Ordinal)
             .FirstOrDefault();
@@ -515,26 +512,31 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
             return false;
         }
 
-        if (!IsSupportedStartupStatus(startupStatus))
+        if (!TryReadPersistedTerminalStartupStatus(startupStatus, out _))
         {
             error = ExecutionError.InvalidArgument($"Daemon launch-attempt startupStatus is invalid: {diagnosisPath}");
             return false;
         }
 
-        if (StringValueNormalizer.TrimToNull(startupBlockingReason) is not string normalizedStartupBlockingReason
-            || !IsSupportedStartupBlockingReason(normalizedStartupBlockingReason))
+        if (StringValueNormalizer.TrimToNull(startupBlockingReason) is not string normalizedStartupBlockingReason)
         {
             error = ExecutionError.InvalidArgument($"Daemon launch-attempt startupBlockingReason is invalid: {diagnosisPath}");
             return false;
         }
 
-        if (!IsSupportedRetryDisposition(retryDisposition))
+        if (!ContractLiteralCodec.IsDefined<DaemonStartupBlockingReason>(normalizedStartupBlockingReason))
+        {
+            error = ExecutionError.InvalidArgument($"Daemon launch-attempt startupBlockingReason is invalid: {diagnosisPath}");
+            return false;
+        }
+
+        if (!ContractLiteralCodec.IsDefined<DaemonStartupRetryDisposition>(retryDisposition))
         {
             error = ExecutionError.InvalidArgument($"Daemon launch-attempt retryDisposition is invalid: {diagnosisPath}");
             return false;
         }
 
-        if (!IsSupportedProcessAction(processAction))
+        if (!ContractLiteralCodec.IsDefined<DaemonStartupProcessAction>(processAction))
         {
             error = ExecutionError.InvalidArgument($"Daemon launch-attempt processAction is invalid: {diagnosisPath}");
             return false;
@@ -652,7 +654,7 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
             return true;
         }
 
-        if (!DaemonDiagnosisStartupPhaseValues.IsSupported(normalizedStartupPhase))
+        if (!ContractLiteralCodec.IsDefined<DaemonDiagnosisStartupPhase>(normalizedStartupPhase))
         {
             error = ExecutionError.InvalidArgument($"Daemon launch-attempt diagnosis.startupPhase is invalid: {diagnosisPath}");
             return false;
@@ -717,32 +719,36 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
         return true;
     }
 
-    private static bool IsSupportedStartupStatus (string? startupStatus)
+    private static bool HasPublicFailureStartupStatus (LaunchAttemptDirectoryEntry entry)
     {
-        return startupStatus is DaemonStartupStatusValues.Blocked
-            or DaemonStartupStatusValues.Timeout
-            or DaemonStartupStatusValues.Failed
-            or DaemonStartupStatusValues.Completed;
+        if (entry.LaunchAttempt is null)
+        {
+            return false;
+        }
+
+        if (!ContractLiteralCodec.TryParse<DaemonStartupStatus>(entry.LaunchAttempt.StartupStatus, out var startupStatus))
+        {
+            return false;
+        }
+
+        return startupStatus is DaemonStartupStatus.Blocked
+            or DaemonStartupStatus.Timeout
+            or DaemonStartupStatus.Failed;
     }
 
-    private static bool IsSupportedStartupBlockingReason (string startupBlockingReason)
+    private static bool TryReadPersistedTerminalStartupStatus (
+        string? startupStatus,
+        out DaemonStartupStatus status)
     {
-        return startupBlockingReason is DaemonStartupBlockingReasonValues.SafeMode
-            or DaemonStartupBlockingReasonValues.Compile
-            or DaemonStartupBlockingReasonValues.PackageResolution
-            or DaemonStartupBlockingReasonValues.UcliPlugin
-            or DaemonStartupBlockingReasonValues.PrecompiledAssemblyConflict
-            or DaemonStartupBlockingReasonValues.ModalDialog
-            or DaemonStartupBlockingReasonValues.EndpointNotRegistered
-            or DaemonStartupBlockingReasonValues.ProcessExit
-            or DaemonStartupBlockingReasonValues.Unknown;
-    }
+        if (!ContractLiteralCodec.TryParse(startupStatus, out status))
+        {
+            return false;
+        }
 
-    private static bool IsPublicFailureStatus (string startupStatus)
-    {
-        return startupStatus is DaemonStartupStatusValues.Blocked
-            or DaemonStartupStatusValues.Timeout
-            or DaemonStartupStatusValues.Failed;
+        return status is DaemonStartupStatus.Blocked
+            or DaemonStartupStatus.Timeout
+            or DaemonStartupStatus.Failed
+            or DaemonStartupStatus.Completed;
     }
 
     private static void EnsureSafeLaunchAttemptDirectory (
@@ -798,24 +804,6 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
             && !relativePath.Equals("..", StringComparison.Ordinal)
             && !relativePath.StartsWith($"..{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
             && !relativePath.StartsWith($"..{Path.AltDirectorySeparatorChar}", StringComparison.Ordinal);
-    }
-
-    private static bool IsSupportedRetryDisposition (string? retryDisposition)
-    {
-        return retryDisposition is DaemonStartupRetryDispositionValues.RetryImmediately
-            or DaemonStartupRetryDispositionValues.WaitThenRetry
-            or DaemonStartupRetryDispositionValues.RetryAfterFix
-            or DaemonStartupRetryDispositionValues.ManualActionRequired
-            or DaemonStartupRetryDispositionValues.DoNotRetry
-            or DaemonStartupRetryDispositionValues.Unknown;
-    }
-
-    private static bool IsSupportedProcessAction (string? processAction)
-    {
-        return processAction is DaemonStartupProcessActionValues.None
-            or DaemonStartupProcessActionValues.Kept
-            or DaemonStartupProcessActionValues.Terminated
-            or DaemonStartupProcessActionValues.Unknown;
     }
 
     private static bool IsIoFailure (Exception exception)

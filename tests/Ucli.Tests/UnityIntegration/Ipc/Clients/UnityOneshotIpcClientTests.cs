@@ -109,7 +109,7 @@ public sealed class UnityOneshotIpcClientTests
 
         var result = await client.SendStreamingAsync(
             unityProject,
-            CreateDispatchRequest(IpcResponseModes.Stream),
+            CreateDispatchRequest(IpcResponseMode.Stream),
             TimeSpan.FromSeconds(30),
             (frame, _) =>
             {
@@ -123,7 +123,7 @@ public sealed class UnityOneshotIpcClientTests
         Assert.Equal(1, transportClient.StreamingCallCount);
         Assert.Equal(IpcMethodNames.Ping, transportClient.Requests[0].Method);
         Assert.Equal(IpcMethodNames.OpsRead, transportClient.Requests[1].Method);
-        Assert.Equal(IpcResponseModes.Stream, transportClient.Requests[1].ResponseMode);
+        Assert.Equal(ContractLiteralCodec.ToValue(IpcResponseMode.Stream), transportClient.Requests[1].ResponseMode);
         Assert.Single(progressFrames);
         Assert.Equal("test.progress", progressFrames[0].Event);
         Assert.Equal(1, processHandle.WaitForExitCallCount);
@@ -161,7 +161,7 @@ public sealed class UnityOneshotIpcClientTests
         {
             await client.SendStreamingAsync(
                     unityProject,
-                    CreateDispatchRequest(IpcResponseModes.Stream),
+                    CreateDispatchRequest(IpcResponseMode.Stream),
                     TimeSpan.FromSeconds(30),
                     (_, _) => ValueTask.CompletedTask,
                     CancellationToken.None)
@@ -541,7 +541,7 @@ public sealed class UnityOneshotIpcClientTests
         Assert.Contains("Stale Unity project lock file was removed", result.Message, StringComparison.Ordinal);
         Assert.NotNull(result.FailureInfo!.StartupFailure);
         Assert.Equal("failed", result.FailureInfo.StartupFailure!.Startup!.StartupStatus);
-        Assert.Equal(DaemonStartupProcessActionValues.Unknown, result.FailureInfo.StartupFailure.Startup.ProcessAction);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Unknown), result.FailureInfo.StartupFailure.Startup.ProcessAction);
         Assert.Equal(0, processHandle.TerminateCallCount);
     }
 
@@ -572,7 +572,7 @@ public sealed class UnityOneshotIpcClientTests
         Assert.Contains("exited before startup readiness", result.Message, StringComparison.Ordinal);
         Assert.NotNull(result.FailureInfo!.StartupFailure);
         Assert.Equal("failed", result.FailureInfo.StartupFailure!.Startup!.StartupStatus);
-        Assert.Equal(DaemonStartupProcessActionValues.Unknown, result.FailureInfo.StartupFailure.Startup.ProcessAction);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Unknown), result.FailureInfo.StartupFailure.Startup.ProcessAction);
     }
 
     [Fact]
@@ -615,7 +615,7 @@ public sealed class UnityOneshotIpcClientTests
         var startupFailure = result.FailureInfo.StartupFailure!;
         Assert.Equal("blocked", startupFailure.Startup!.StartupStatus);
         Assert.Equal("compile", startupFailure.Startup.StartupBlockingReason);
-        Assert.Equal(DaemonStartupProcessActionValues.Unknown, startupFailure.Startup.ProcessAction);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Unknown), startupFailure.Startup.ProcessAction);
         Assert.Equal("unityScriptCompilationFailed", startupFailure.Diagnosis!.Reason);
         Assert.Equal("CS0246", startupFailure.Diagnosis.PrimaryDiagnostic!.Code);
     }
@@ -661,7 +661,7 @@ public sealed class UnityOneshotIpcClientTests
         var startupFailure = result.FailureInfo.StartupFailure!;
         Assert.Equal("blocked", startupFailure.Startup!.StartupStatus);
         Assert.Equal("packageResolution", startupFailure.Startup.StartupBlockingReason);
-        Assert.Equal(DaemonStartupProcessActionValues.Unknown, startupFailure.Startup.ProcessAction);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Unknown), startupFailure.Startup.ProcessAction);
         Assert.Equal("unityPackageResolutionFailed", startupFailure.Diagnosis!.Reason);
         Assert.Equal("packageResolution", startupFailure.Diagnosis.PrimaryDiagnostic!.Kind);
     }
@@ -787,7 +787,7 @@ public sealed class UnityOneshotIpcClientTests
         var startupFailure = result.FailureInfo.StartupFailure!;
         Assert.Equal("timeout", startupFailure.Startup!.StartupStatus);
         Assert.Equal("endpointNotRegistered", startupFailure.Startup.StartupBlockingReason);
-        Assert.Equal(DaemonStartupProcessActionValues.Unknown, startupFailure.Startup.ProcessAction);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Unknown), startupFailure.Startup.ProcessAction);
         Assert.Equal("startupFailed", startupFailure.Diagnosis!.Reason);
         Assert.Contains(transportClient.Requests, request => string.Equals(request.Method, IpcMethodNames.Shutdown, StringComparison.Ordinal));
         var bootstrapArguments = Assert.IsType<IpcOneshotBootstrapArguments>(launcher.LastBootstrapArguments);
@@ -966,7 +966,7 @@ public sealed class UnityOneshotIpcClientTests
     }
 
     private static UnityIpcDispatchRequest CreateDispatchRequest (
-        string responseMode = IpcResponseModes.Single)
+        IpcResponseMode responseMode = IpcResponseMode.Single)
     {
         return new UnityIpcDispatchRequest(
             IpcMethodNames.OpsRead,

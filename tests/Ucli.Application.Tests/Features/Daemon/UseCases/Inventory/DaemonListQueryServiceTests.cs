@@ -684,7 +684,7 @@ public sealed class DaemonListQueryServiceTests
             SessionIssuedAtUtc: session.IssuedAtUtc,
             ProcessStartedAtUtc: session.ProcessStartedAtUtc,
             UnityLogPath: "/repo/.ucli/local/fingerprints/fp-current/unity.log",
-            StartupPhase: DaemonDiagnosisStartupPhaseValues.EndpointRegistration,
+            StartupPhase: ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.EndpointRegistration),
             ActionRequired: DaemonDiagnosisActionRequiredValues.InspectUnityLog,
             PrimaryDiagnostic: new DaemonPrimaryDiagnostic(
                 Kind: DaemonDiagnosisPrimaryDiagnosticKindValues.ProcessExit,

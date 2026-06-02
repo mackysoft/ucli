@@ -1,6 +1,7 @@
 using System.IO.Pipes;
 using System.Net.Sockets;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Ipc;
 
 namespace MackySoft.Ucli.UnityIntegration.Ipc.Transport;
@@ -18,10 +19,7 @@ internal sealed class IpcTransportClient : IIpcTransportClient
         ArgumentNullException.ThrowIfNull(request);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         cancellationToken.ThrowIfCancellationRequested();
-        if (!string.Equals(request.ResponseMode, IpcResponseModes.Single, StringComparison.Ordinal))
-        {
-            throw new InvalidOperationException($"IPC SendAsync requires responseMode='{IpcResponseModes.Single}'. Actual: {request.ResponseMode}.");
-        }
+        EnsureResponseMode(request, IpcResponseMode.Single, nameof(SendAsync));
 
         using var timeoutCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeoutCancellationTokenSource.CancelAfter(timeout);
@@ -79,10 +77,7 @@ internal sealed class IpcTransportClient : IIpcTransportClient
         ArgumentNullException.ThrowIfNull(onProgressFrame);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         cancellationToken.ThrowIfCancellationRequested();
-        if (!string.Equals(request.ResponseMode, IpcResponseModes.Stream, StringComparison.Ordinal))
-        {
-            throw new InvalidOperationException($"IPC SendStreamingAsync requires responseMode='{IpcResponseModes.Stream}'. Actual: {request.ResponseMode}.");
-        }
+        EnsureResponseMode(request, IpcResponseMode.Stream, nameof(SendStreamingAsync));
 
         using var timeoutCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeoutCancellationTokenSource.CancelAfter(timeout);
@@ -132,10 +127,7 @@ internal sealed class IpcTransportClient : IIpcTransportClient
         ArgumentNullException.ThrowIfNull(request);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(sendTimeout, TimeSpan.Zero);
         cancellationToken.ThrowIfCancellationRequested();
-        if (!string.Equals(request.ResponseMode, IpcResponseModes.Single, StringComparison.Ordinal))
-        {
-            throw new InvalidOperationException($"IPC SendWithUnboundedResponseWaitAsync requires responseMode='{IpcResponseModes.Single}'. Actual: {request.ResponseMode}.");
-        }
+        EnsureResponseMode(request, IpcResponseMode.Single, nameof(SendWithUnboundedResponseWaitAsync));
 
         using var sendTimeoutCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         sendTimeoutCancellationTokenSource.CancelAfter(sendTimeout);
@@ -181,6 +173,58 @@ internal sealed class IpcTransportClient : IIpcTransportClient
         }
     }
 
+    /// <inheritdoc />
+    public async ValueTask<IpcResponse> SendStreamingWithUnboundedResponseWaitAsync (
+        IpcEndpoint endpoint,
+        IpcRequest request,
+        TimeSpan sendTimeout,
+        Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(onProgressFrame);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(sendTimeout, TimeSpan.Zero);
+        cancellationToken.ThrowIfCancellationRequested();
+        EnsureResponseMode(request, IpcResponseMode.Stream, nameof(SendStreamingWithUnboundedResponseWaitAsync));
+
+        using var sendTimeoutCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        sendTimeoutCancellationTokenSource.CancelAfter(sendTimeout);
+        var sendCancellationToken = sendTimeoutCancellationTokenSource.Token;
+        var hasConnected = false;
+        try
+        {
+            await using var stream = await ConnectAsync(endpoint, sendCancellationToken).ConfigureAwait(false);
+            hasConnected = true;
+            await IpcFrameCodec.WriteModelAsync(
+                    stream,
+                    request,
+                    IpcJsonSerializerOptions.Default,
+                    cancellationToken: sendCancellationToken)
+                .ConfigureAwait(false);
+
+            return await ReadStreamingResponseAsync(
+                    stream,
+                    request,
+                    onProgressFrame,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException exception)
+            when (!cancellationToken.IsCancellationRequested && sendTimeoutCancellationTokenSource.IsCancellationRequested)
+        {
+            if (!hasConnected)
+            {
+                throw new IpcConnectTimeoutException(
+                    $"IPC connection timed out after {sendTimeout.TotalMilliseconds:0} milliseconds.",
+                    exception);
+            }
+
+            throw new TimeoutException(
+                $"IPC streaming request write timed out after {sendTimeout.TotalMilliseconds:0} milliseconds.",
+                exception);
+        }
+    }
+
     /// <summary> Maps one frame read error kind to legacy exception categories for caller compatibility. </summary>
     /// <param name="errorKind"> The frame read error kind. </param>
     /// <param name="errorMessage"> The diagnostic frame read error message. </param>
@@ -195,6 +239,21 @@ internal sealed class IpcTransportClient : IIpcTransportClient
             IpcFrameReadErrorKind.PayloadTruncated => new EndOfStreamException(errorMessage),
             _ => new InvalidDataException(errorMessage),
         };
+    }
+
+    private static void EnsureResponseMode (
+        IpcRequest request,
+        IpcResponseMode expectedResponseMode,
+        string operationName)
+    {
+        if (ContractLiteralCodec.TryParse<IpcResponseMode>(request.ResponseMode, out var responseMode)
+            && responseMode == expectedResponseMode)
+        {
+            return;
+        }
+
+        var expectedLiteral = ContractLiteralCodec.ToValue(expectedResponseMode);
+        throw new InvalidOperationException($"IPC {operationName} requires responseMode='{expectedLiteral}'. Actual: {request.ResponseMode}.");
     }
 
     private static async ValueTask<IpcResponse> ReadStreamingResponseAsync (
