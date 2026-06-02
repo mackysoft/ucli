@@ -1,6 +1,4 @@
 using System.Text.Json;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Startup;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
 using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
@@ -149,53 +147,32 @@ internal sealed class SupervisorDaemonStartProgressFrameForwarder
 
     private static bool IsOptionalEditorMode (string? value)
     {
-        return value is null || ContractLiteralCodec.TryParse<DaemonEditorMode>(value, out _);
+        return value is null || ContractLiteralCodec.IsDefined<DaemonEditorMode>(value);
     }
 
     private static bool IsOptionalOwnerKind (string? value)
     {
-        return value is null || ContractLiteralCodec.TryParse<DaemonSessionOwnerKind>(value, out _);
+        return value is null || ContractLiteralCodec.IsDefined<DaemonSessionOwnerKind>(value);
     }
 
     private static bool IsOptionalStartupStatus (string? value)
     {
-        return value is null
-            || value is DaemonStartupStatusValues.Launching
-                or DaemonStartupStatusValues.WaitingForEndpoint
-                or DaemonStartupStatusValues.Blocked
-                or DaemonStartupStatusValues.Timeout
-                or DaemonStartupStatusValues.Failed
-                or DaemonStartupStatusValues.Completed;
+        return value is null || ContractLiteralCodec.IsDefined<DaemonStartupStatus>(value);
     }
 
     private static bool IsOptionalStartupBlockingReason (string? value)
     {
-        return value is null
-            || value is DaemonStartupBlockingReasonValues.SafeMode
-                or DaemonStartupBlockingReasonValues.Compile
-                or DaemonStartupBlockingReasonValues.PackageResolution
-                or DaemonStartupBlockingReasonValues.UcliPlugin
-                or DaemonStartupBlockingReasonValues.PrecompiledAssemblyConflict
-                or DaemonStartupBlockingReasonValues.ModalDialog
-                or DaemonStartupBlockingReasonValues.EndpointNotRegistered
-                or DaemonStartupBlockingReasonValues.ProcessExit
-                or DaemonStartupBlockingReasonValues.Unknown;
+        return value is null || ContractLiteralCodec.IsDefined<DaemonStartupBlockingReason>(value);
     }
 
     private static bool IsOptionalStartupPhase (string? value)
     {
-        return value is null || DaemonDiagnosisStartupPhaseValues.IsSupported(value);
+        return value is null || ContractLiteralCodec.IsDefined<DaemonDiagnosisStartupPhase>(value);
     }
 
     private static bool IsOptionalRetryDisposition (string? value)
     {
-        return value is null
-            || value is DaemonStartupRetryDispositionValues.RetryImmediately
-                or DaemonStartupRetryDispositionValues.WaitThenRetry
-                or DaemonStartupRetryDispositionValues.RetryAfterFix
-                or DaemonStartupRetryDispositionValues.ManualActionRequired
-                or DaemonStartupRetryDispositionValues.DoNotRetry
-                or DaemonStartupRetryDispositionValues.Unknown;
+        return value is null || ContractLiteralCodec.IsDefined<DaemonStartupRetryDisposition>(value);
     }
 
     private static bool IsOptionalBlockingReason (string? value)

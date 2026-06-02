@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Contracts.Storage;
 
 /// <summary> Defines normalized daemon diagnosis startup-phase values. </summary>
@@ -21,10 +23,6 @@ public static class DaemonDiagnosisStartupPhaseValues
     /// <summary> Determines whether one daemon diagnosis startup-phase value is supported. </summary>
     public static bool IsSupported (string value)
     {
-        return string.Equals(value, ScriptCompilation, StringComparison.Ordinal)
-            || string.Equals(value, PackageResolution, StringComparison.Ordinal)
-            || string.Equals(value, UserAction, StringComparison.Ordinal)
-            || string.Equals(value, ProcessExit, StringComparison.Ordinal)
-            || string.Equals(value, EndpointRegistration, StringComparison.Ordinal);
+        return ContractLiteralCodec.IsDefined<DaemonDiagnosisStartupPhase>(value);
     }
 }
