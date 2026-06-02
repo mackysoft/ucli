@@ -107,7 +107,7 @@ internal sealed class UnityIpcRequestExecutor : IUnityRequestExecutor, IUnityStr
         ArgumentNullException.ThrowIfNull(onProgressFrame);
         ValidateExecutionInputs(command, timeout, config, unityProject, payload, cancellationToken);
 
-        var dispatchRequest = requestBuilder.Build(payload).WithResponseMode(IpcResponseModes.Stream);
+        var dispatchRequest = requestBuilder.Build(payload).WithResponseMode(IpcResponseMode.Stream);
         if (dispatchRequest.IsRecoverable)
         {
             return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.InternalError(

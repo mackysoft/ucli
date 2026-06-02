@@ -109,7 +109,7 @@ public sealed class UnityOneshotIpcClientTests
 
         var result = await client.SendStreamingAsync(
             unityProject,
-            CreateDispatchRequest(IpcResponseModes.Stream),
+            CreateDispatchRequest(IpcResponseMode.Stream),
             TimeSpan.FromSeconds(30),
             (frame, _) =>
             {
@@ -123,7 +123,7 @@ public sealed class UnityOneshotIpcClientTests
         Assert.Equal(1, transportClient.StreamingCallCount);
         Assert.Equal(IpcMethodNames.Ping, transportClient.Requests[0].Method);
         Assert.Equal(IpcMethodNames.OpsRead, transportClient.Requests[1].Method);
-        Assert.Equal(IpcResponseModes.Stream, transportClient.Requests[1].ResponseMode);
+        Assert.Equal(ContractLiteralCodec.ToValue(IpcResponseMode.Stream), transportClient.Requests[1].ResponseMode);
         Assert.Single(progressFrames);
         Assert.Equal("test.progress", progressFrames[0].Event);
         Assert.Equal(1, processHandle.WaitForExitCallCount);
@@ -161,7 +161,7 @@ public sealed class UnityOneshotIpcClientTests
         {
             await client.SendStreamingAsync(
                     unityProject,
-                    CreateDispatchRequest(IpcResponseModes.Stream),
+                    CreateDispatchRequest(IpcResponseMode.Stream),
                     TimeSpan.FromSeconds(30),
                     (_, _) => ValueTask.CompletedTask,
                     CancellationToken.None)
@@ -966,7 +966,7 @@ public sealed class UnityOneshotIpcClientTests
     }
 
     private static UnityIpcDispatchRequest CreateDispatchRequest (
-        string responseMode = IpcResponseModes.Single)
+        IpcResponseMode responseMode = IpcResponseMode.Single)
     {
         return new UnityIpcDispatchRequest(
             IpcMethodNames.OpsRead,

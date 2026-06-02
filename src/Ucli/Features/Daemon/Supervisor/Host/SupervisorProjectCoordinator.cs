@@ -3,6 +3,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Reachability;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Timing;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Contracts;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
@@ -84,6 +85,7 @@ internal sealed class SupervisorProjectCoordinator
     /// <param name="timeout"> The command timeout. </param>
     /// <param name="editorMode"> The optional requested daemon Editor mode. </param>
     /// <param name="onStartupBlocked"> The startup-blocked process policy requested by the caller. </param>
+    /// <param name="progressObserver"> The optional observer for supervisor-internal start progress. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
     /// <returns> The daemon-start result. </returns>
     public async ValueTask<DaemonStartResult> EnsureRunningAsync (
@@ -91,6 +93,7 @@ internal sealed class SupervisorProjectCoordinator
         TimeSpan timeout,
         DaemonEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
+        IDaemonStartProgressObserver? progressObserver = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -127,6 +130,7 @@ internal sealed class SupervisorProjectCoordinator
                     daemonStartTimeout,
                     editorMode,
                     onStartupBlocked,
+                    progressObserver,
                     cancellationToken)
                 .ConfigureAwait(false);
             if (!startResult.IsSuccess)

@@ -15,4 +15,4 @@ public sealed record IpcRequest (
     string SessionToken,
     string Method,
     JsonElement Payload,
-    string ResponseMode = IpcResponseModes.Single);
+    string ResponseMode = "single");

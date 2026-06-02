@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -42,9 +43,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return validationErrorResponse;
             }
 
-            if (!string.Equals(request.ResponseMode, IpcResponseModes.Single, StringComparison.Ordinal))
+            var singleResponseMode = ContractLiteralCodec.ToValue(IpcResponseMode.Single);
+            if (!string.Equals(request.ResponseMode, singleResponseMode, StringComparison.Ordinal))
             {
-                return CreateResponseModeMismatchResponse(request, IpcResponseModes.Single);
+                return CreateResponseModeMismatchResponse(request, singleResponseMode);
             }
 
             return await methodDispatcher.DispatchAsync(request, cancellationToken);
@@ -67,9 +69,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return validationErrorResponse;
             }
 
-            if (!string.Equals(request.ResponseMode, IpcResponseModes.Stream, StringComparison.Ordinal))
+            var streamResponseMode = ContractLiteralCodec.ToValue(IpcResponseMode.Stream);
+            if (!string.Equals(request.ResponseMode, streamResponseMode, StringComparison.Ordinal))
             {
-                return CreateResponseModeMismatchResponse(request, IpcResponseModes.Stream);
+                return CreateResponseModeMismatchResponse(request, streamResponseMode);
             }
 
             return await methodDispatcher.DispatchStreamingAsync(request, streamWriter, cancellationToken);
@@ -147,7 +150,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     null);
             }
 
-            if (!IpcResponseModes.IsDefined(request.ResponseMode))
+            if (!ContractLiteralCodec.IsDefined<IpcResponseMode>(request.ResponseMode))
             {
                 daemonLogger.Warning(
                     DaemonLogCategories.Ipc,

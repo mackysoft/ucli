@@ -132,8 +132,11 @@ public sealed class ContractLiteralCodecTests
             yield return new object[] { typeof(DaemonEditorMode) };
             yield return new object[] { typeof(DaemonSessionOwnerKind) };
             yield return new object[] { typeof(DaemonStartupBlockedProcessPolicy) };
+            yield return new object[] { typeof(DaemonStartProgressEvent) };
+            yield return new object[] { typeof(DaemonStartProgressPayloadKind) };
             yield return new object[] { typeof(IndexSchemaKind) };
             yield return new object[] { typeof(IndexPropertyType) };
+            yield return new object[] { typeof(IpcResponseMode) };
             yield return new object[] { typeof(IpcTransportKind) };
             yield return new object[] { typeof(IpcPlayModeState) };
             yield return new object[] { typeof(IpcPlayModeTransition) };

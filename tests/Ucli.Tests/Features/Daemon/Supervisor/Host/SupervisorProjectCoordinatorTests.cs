@@ -733,14 +733,18 @@ public sealed class SupervisorProjectCoordinatorTests
 
         public DaemonStartupBlockedProcessPolicy LastOnStartupBlocked { get; private set; }
 
+        public IDaemonStartProgressObserver? LastProgressObserver { get; private set; }
+
         public ValueTask<DaemonStartResult> StartAsync (
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             DaemonEditorMode? editorMode,
             DaemonStartupBlockedProcessPolicy onStartupBlocked,
+            IDaemonStartProgressObserver? progressObserver = null,
             CancellationToken cancellationToken = default)
         {
             LastOnStartupBlocked = onStartupBlocked;
+            LastProgressObserver = progressObserver;
             return ValueTask.FromResult(StartResult);
         }
     }

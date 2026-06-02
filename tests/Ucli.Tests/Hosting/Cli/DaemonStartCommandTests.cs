@@ -8,7 +8,6 @@ using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Hosting.Cli.Daemon;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 
@@ -121,7 +120,7 @@ public sealed class DaemonStartCommandTests
         using var completedEntry = JsonDocument.Parse(lines[1]);
         JsonAssert.For(startedEntry.RootElement)
             .HasString("command", UcliCommandNames.DaemonStart)
-            .HasString("event", DaemonStartProgressEventNames.Started)
+            .HasString("event", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.Started))
             .HasInt32("sequence", 1);
         JsonAssert.For(startedEntry.RootElement.GetProperty("payload"))
             .HasString("projectFingerprint", "fingerprint")
@@ -134,7 +133,7 @@ public sealed class DaemonStartCommandTests
             .IsNull("errorCode");
         JsonAssert.For(completedEntry.RootElement)
             .HasString("command", UcliCommandNames.DaemonStart)
-            .HasString("event", DaemonStartProgressEventNames.Completed)
+            .HasString("event", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.Completed))
             .HasInt32("sequence", 2);
         JsonAssert.For(completedEntry.RootElement.GetProperty("payload"))
             .HasString("result", ContractLiteralCodec.ToValue(CommandProgressResult.Succeeded))
@@ -142,6 +141,55 @@ public sealed class DaemonStartCommandTests
             .HasString("daemonStatus", "running")
             .IsNull("errorCode");
         JsonGoldenFileAssert.Matches(CliOutputGoldenFiles.GetPath("daemon", "start-compiling-success.json"), standardOutput);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Start_WithJsonFormat_WritesSupervisorProgressPayloadsToStandardErrorOnly ()
+    {
+        var service = new StubDaemonStartService(
+            DaemonStartExecutionResult.Success(CreateSuccessOutput(
+                lifecycleState: IpcEditorLifecycleStateCodec.Compiling,
+                blockingReason: IpcEditorBlockingReasonCodec.Compile,
+                canAcceptExecutionRequests: false)),
+            EmitSampleSupervisorProgressAsync);
+        var command = new DaemonStartCommand(service, CommandResultTestWriter.Create());
+
+        CommandExecutionState.Reset();
+        var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.StartAsync(
+            format: "json",
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.Success, exitCode);
+        var lines = standardError.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
+        Assert.Equal(2, lines.Length);
+        using var waitingEntry = JsonDocument.Parse(lines[0]);
+        using var lifecycleEntry = JsonDocument.Parse(lines[1]);
+        JsonAssert.For(waitingEntry.RootElement)
+            .HasString("event", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.WaitingForEndpoint))
+            .HasInt32("sequence", 1);
+        JsonAssert.For(waitingEntry.RootElement.GetProperty("payload"))
+            .HasString("payloadKind", "startupObservation")
+            .HasString("projectFingerprint", "fingerprint")
+            .HasString("startupStatus", "waitingForEndpoint")
+            .HasString("startupPhase", "endpointRegistration");
+        Assert.False(waitingEntry.RootElement.GetProperty("payload").TryGetProperty("lifecycleState", out _));
+        Assert.False(waitingEntry.RootElement.GetProperty("payload").TryGetProperty("blockingReason", out _));
+        Assert.False(waitingEntry.RootElement.GetProperty("payload").TryGetProperty("canAcceptExecutionRequests", out _));
+        JsonAssert.For(lifecycleEntry.RootElement)
+            .HasString("event", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.LifecycleObserved))
+            .HasInt32("sequence", 2);
+        JsonAssert.For(lifecycleEntry.RootElement.GetProperty("payload"))
+            .HasString("payloadKind", "lifecycleSnapshot")
+            .HasString("lifecycleState", IpcEditorLifecycleStateCodec.Compiling)
+            .HasString("blockingReason", IpcEditorBlockingReasonCodec.Compile)
+            .HasBoolean("canAcceptExecutionRequests", false);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
+        JsonAssert.For(outputJson.RootElement)
+            .HasString("command", UcliCommandNames.DaemonStart)
+            .HasValueKind("payload", JsonValueKind.Object);
+        Assert.False(outputJson.RootElement.TryGetProperty("event", out _));
     }
 
     [Theory]
@@ -171,6 +219,36 @@ public sealed class DaemonStartCommandTests
         Assert.Equal("daemon start workflow project=fingerprint timeoutMs=1234 started", lines[0]);
         Assert.Equal("daemon start workflow project=fingerprint timeoutMs=1234 result=succeeded startStatus=started daemonStatus=running completed", lines[1]);
         JsonGoldenFileAssert.Matches(CliOutputGoldenFiles.GetPath("daemon", "start-compiling-success.json"), standardOutput);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Start_WithTextFormat_WritesSupervisorProgressPayloadsToStandardError ()
+    {
+        var service = new StubDaemonStartService(
+            DaemonStartExecutionResult.Success(CreateSuccessOutput(
+                lifecycleState: IpcEditorLifecycleStateCodec.Compiling,
+                blockingReason: IpcEditorBlockingReasonCodec.Compile,
+                canAcceptExecutionRequests: false)),
+            EmitSampleSupervisorProgressAsync);
+        var command = new DaemonStartCommand(service, CommandResultTestWriter.Create());
+
+        CommandExecutionState.Reset();
+        var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.StartAsync(
+            format: "text",
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.Success, exitCode);
+        var lines = standardError.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
+        Assert.Equal(2, lines.Length);
+        Assert.Equal(
+            "daemon start endpoint project=fingerprint timeoutMs=1234 editorMode=batchmode owner=cli canShutdownProcess=true pid=1234 launchAttempt=attempt-1 startupStatus=waitingForEndpoint startupPhase=endpointRegistration waiting",
+            lines[0]);
+        Assert.Equal(
+            "daemon start lifecycle project=fingerprint timeoutMs=1234 editorMode=batchmode lifecycleState=compiling blockingReason=compile canAcceptExecutionRequests=false observed",
+            lines[1]);
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
+        Assert.False(outputJson.RootElement.TryGetProperty("event", out _));
     }
 
     [Fact]
@@ -491,12 +569,12 @@ public sealed class DaemonStartCommandTests
     {
         Assert.NotNull(progressSink);
         await progressSink!.OnEntryAsync(
-                DaemonStartProgressEventNames.Started,
+                ContractLiteralCodec.ToValue(DaemonStartProgressEvent.Started),
                 CreateProgressEntry(result: null, startStatus: null, daemonStatus: null, errorCode: null),
                 cancellationToken)
             .ConfigureAwait(false);
         await progressSink.OnEntryAsync(
-                DaemonStartProgressEventNames.Completed,
+                ContractLiteralCodec.ToValue(DaemonStartProgressEvent.Completed),
                 CreateProgressEntry(ContractLiteralCodec.ToValue(CommandProgressResult.Succeeded), "started", "running", errorCode: null),
                 cancellationToken)
             .ConfigureAwait(false);
@@ -517,6 +595,47 @@ public sealed class DaemonStartCommandTests
             StartStatus: startStatus,
             DaemonStatus: daemonStatus,
             ErrorCode: errorCode);
+    }
+
+    private static async ValueTask EmitSampleSupervisorProgressAsync (
+        ICommandProgressSink? progressSink,
+        CancellationToken cancellationToken)
+    {
+        Assert.NotNull(progressSink);
+        await progressSink!.OnEntryAsync(
+                ContractLiteralCodec.ToValue(DaemonStartProgressEvent.WaitingForEndpoint),
+                new DaemonStartStartupObservationProgressEntry(
+                    ContractLiteralCodec.ToValue(DaemonStartProgressPayloadKind.StartupObservation),
+                    "fingerprint",
+                    1234,
+                    "batchmode",
+                    "auto",
+                    "attempt-1",
+                    "cli",
+                    true,
+                    1234,
+                    new DateTimeOffset(2026, 03, 12, 1, 2, 0, TimeSpan.Zero),
+                    "waitingForEndpoint",
+                    null,
+                    "endpointRegistration",
+                    null,
+                    null,
+                    null),
+                cancellationToken)
+            .ConfigureAwait(false);
+        await progressSink.OnEntryAsync(
+                ContractLiteralCodec.ToValue(DaemonStartProgressEvent.LifecycleObserved),
+                new DaemonStartLifecycleSnapshotProgressEntry(
+                    ContractLiteralCodec.ToValue(DaemonStartProgressPayloadKind.LifecycleSnapshot),
+                    "fingerprint",
+                    1234,
+                    "batchmode",
+                    "auto",
+                    IpcEditorLifecycleStateCodec.Compiling,
+                    IpcEditorBlockingReasonCodec.Compile,
+                    CanAcceptExecutionRequests: false),
+                cancellationToken)
+            .ConfigureAwait(false);
     }
 
     private static DaemonDiagnosisOutput CreateDiagnosis (string reason)

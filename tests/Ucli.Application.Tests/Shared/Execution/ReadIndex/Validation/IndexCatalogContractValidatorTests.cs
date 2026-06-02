@@ -1,7 +1,5 @@
 using MackySoft.Ucli.Contracts.Ipc;
 
-using MackySoft.Ucli.Contracts.Text;
-
 namespace MackySoft.Ucli.Application.Tests.Execution.ReadIndex;
 
 public sealed class IndexCatalogContractValidatorTests

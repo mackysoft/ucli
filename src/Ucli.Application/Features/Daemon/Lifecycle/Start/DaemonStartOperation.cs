@@ -3,6 +3,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.ExistingSession;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiAttach;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Launch;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Recovery;
 using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -57,6 +58,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
     /// <param name="timeout"> The daemon startup timeout. </param>
     /// <param name="editorMode"> The optional requested daemon Editor mode. </param>
     /// <param name="onStartupBlocked"> The startup-blocked process policy requested by the caller. </param>
+    /// <param name="progressObserver"> The optional observer for supervisor-internal start progress. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon start result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
@@ -66,6 +68,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
         TimeSpan timeout,
         DaemonEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
+        IDaemonStartProgressObserver? progressObserver = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -131,6 +134,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
                     diagnosisCleanupError,
                     editorMode,
                     onStartupBlocked,
+                    progressObserver,
                     cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -149,6 +153,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
                     readResult.Session!,
                     existingSessionGateTimeout,
                     editorMode,
+                    progressObserver,
                     cancellationToken)
                 .ConfigureAwait(false);
             if (existingSessionGateResult is not null)
@@ -163,6 +168,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
                 diagnosisCleanupError,
                 editorMode,
                 onStartupBlocked,
+                progressObserver,
                 cancellationToken)
             .ConfigureAwait(false);
     }
@@ -174,6 +180,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
         ExecutionError? diagnosisCleanupError,
         DaemonEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
+        IDaemonStartProgressObserver? progressObserver,
         CancellationToken cancellationToken)
     {
         if (readResult.FailureKind != DaemonSessionReadFailureKind.InvalidSession)
@@ -205,6 +212,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
                 diagnosisCleanupError,
                 editorMode,
                 onStartupBlocked,
+                progressObserver,
                 cancellationToken)
             .ConfigureAwait(false);
     }
@@ -215,6 +223,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
         ExecutionError? diagnosisCleanupError,
         DaemonEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
+        IDaemonStartProgressObserver? progressObserver,
         CancellationToken cancellationToken)
     {
         if (!deadline.TryGetRemainingTimeout(out var attachTimeout))
@@ -229,6 +238,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
                 attachTimeout,
                 editorMode,
                 onStartupBlocked,
+                progressObserver,
                 cancellationToken)
             .ConfigureAwait(false);
         if (attachResult is not null)
@@ -253,6 +263,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
                 launchTimeout,
                 launchEditorMode,
                 onStartupBlocked,
+                progressObserver,
                 cancellationToken)
             .ConfigureAwait(false);
         return CreateResult(launchResult, diagnosisCleanupError);

@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
+
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Contracts;
 
 /// <summary> Starts daemon lifecycle for one Unity project context. </summary>
@@ -8,6 +10,7 @@ internal interface IDaemonStartOperation
     /// <param name="timeout"> The daemon startup timeout. </param>
     /// <param name="editorMode"> The optional requested daemon Editor mode. </param>
     /// <param name="onStartupBlocked"> The startup-blocked process policy requested by the caller. </param>
+    /// <param name="progressObserver"> The optional observer for supervisor-internal start progress. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon start result. </returns>
     ValueTask<DaemonStartResult> StartAsync (
@@ -15,5 +18,6 @@ internal interface IDaemonStartOperation
         TimeSpan timeout,
         DaemonEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
+        IDaemonStartProgressObserver? progressObserver = null,
         CancellationToken cancellationToken = default);
 }

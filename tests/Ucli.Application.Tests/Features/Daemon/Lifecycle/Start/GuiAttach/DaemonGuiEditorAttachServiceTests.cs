@@ -39,7 +39,7 @@ public sealed class DaemonGuiEditorAttachServiceTests
             TimeSpan.FromMilliseconds(500),
             editorMode: null,
             DaemonStartupBlockedProcessPolicy.Auto,
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.NotNull(result);
         Assert.True(result!.IsSuccess);
@@ -81,7 +81,7 @@ public sealed class DaemonGuiEditorAttachServiceTests
             TimeSpan.FromMilliseconds(500),
             DaemonEditorMode.Batchmode,
             DaemonStartupBlockedProcessPolicy.Auto,
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.NotNull(result);
         Assert.False(result!.IsSuccess);
@@ -117,7 +117,7 @@ public sealed class DaemonGuiEditorAttachServiceTests
             TimeSpan.FromMilliseconds(500),
             editorMode: null,
             DaemonStartupBlockedProcessPolicy.Terminate,
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.NotNull(result);
         Assert.False(result!.IsSuccess);
@@ -168,7 +168,7 @@ public sealed class DaemonGuiEditorAttachServiceTests
             TimeSpan.FromMilliseconds(500),
             editorMode: null,
             DaemonStartupBlockedProcessPolicy.Terminate,
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.NotNull(result);
         Assert.True(result!.IsSuccess);
@@ -215,7 +215,7 @@ public sealed class DaemonGuiEditorAttachServiceTests
             TimeSpan.FromMilliseconds(1000),
             editorMode: null,
             DaemonStartupBlockedProcessPolicy.Auto,
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.NotNull(result);
         Assert.True(result!.IsSuccess);
@@ -266,7 +266,7 @@ public sealed class DaemonGuiEditorAttachServiceTests
             TimeSpan.FromMilliseconds(1000),
             editorMode: null,
             DaemonStartupBlockedProcessPolicy.Auto,
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.NotNull(result);
         Assert.True(result!.IsSuccess);
@@ -300,7 +300,7 @@ public sealed class DaemonGuiEditorAttachServiceTests
             TimeSpan.FromMilliseconds(500),
             editorMode: null,
             DaemonStartupBlockedProcessPolicy.Auto,
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.Null(result);
         Assert.Equal(0, awaiter.CallCount);
@@ -342,7 +342,7 @@ public sealed class DaemonGuiEditorAttachServiceTests
             TimeSpan.FromMilliseconds(500),
             editorMode: null,
             DaemonStartupBlockedProcessPolicy.Terminate,
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.NotNull(result);
         Assert.False(result!.IsSuccess);

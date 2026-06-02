@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
 
@@ -91,7 +92,8 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private static bool IsStreamingResponse (IpcRequest request)
         {
-            return string.Equals(request.ResponseMode, IpcResponseModes.Stream, StringComparison.Ordinal);
+            return ContractLiteralCodec.TryParse<IpcResponseMode>(request.ResponseMode, out var responseMode)
+                && responseMode == IpcResponseMode.Stream;
         }
 
         private async Task<IpcResponse> ProcessStreamingSafelyAsync (

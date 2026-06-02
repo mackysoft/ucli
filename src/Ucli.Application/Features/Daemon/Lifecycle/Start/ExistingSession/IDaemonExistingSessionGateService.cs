@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.ExistingSession;
 
@@ -13,6 +14,7 @@ internal interface IDaemonExistingSessionGateService
     /// <param name="session"> The existing daemon session snapshot. </param>
     /// <param name="timeout"> The timeout used for daemon ping and stale cleanup. </param>
     /// <param name="editorMode"> The optional requested daemon Editor mode. </param>
+    /// <param name="progressObserver"> The optional observer for supervisor-internal start progress. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns>
     /// The resolved daemon start result when workflow should complete;
@@ -23,5 +25,6 @@ internal interface IDaemonExistingSessionGateService
         DaemonSession session,
         TimeSpan timeout,
         DaemonEditorMode? editorMode,
+        IDaemonStartProgressObserver? progressObserver = null,
         CancellationToken cancellationToken = default);
 }

@@ -1,3 +1,5 @@
+using System.Text.Json;
+using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
@@ -111,6 +113,106 @@ public sealed class SupervisorClientTests
         Assert.Equal(requestedTimeout, call.Timeout);
         Assert.Equal((int)requestedTimeout.TotalMilliseconds, observedOperationTimeoutMilliseconds);
         Assert.Equal("terminate", observedOnStartupBlocked);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task EnsureRunning_WithProgressObserver_UsesStreamResponseModeAndForwardsProgressFrame ()
+    {
+        var transportClient = new StreamingTransportClient((request, onProgressFrame, cancellationToken) =>
+        {
+            Assert.Equal(ContractLiteralCodec.ToValue(IpcResponseMode.Stream), request.ResponseMode);
+
+            var progressPayload = new DaemonStartStartupObservationProgressEntry(
+                ContractLiteralCodec.ToValue(DaemonStartProgressPayloadKind.StartupObservation),
+                "fingerprint",
+                5000,
+                "gui",
+                "terminate",
+                "attempt-1",
+                "cli",
+                true,
+                42,
+                new DateTimeOffset(2026, 03, 11, 0, 0, 1, TimeSpan.Zero),
+                "waitingForEndpoint",
+                null,
+                "endpointRegistration",
+                null,
+                "Waiting for daemon endpoint.",
+                null);
+            var progressFrame = new IpcStreamFrame(
+                IpcProtocol.CurrentVersion,
+                request.RequestId,
+                IpcStreamFrameKinds.Progress,
+                ContractLiteralCodec.ToValue(DaemonStartProgressEvent.WaitingForEndpoint),
+                IpcPayloadCodec.SerializeToElement(progressPayload),
+                Response: null);
+            return InvokeProgressAndCreateResponseAsync(
+                request,
+                onProgressFrame,
+                progressFrame,
+                cancellationToken);
+        });
+        var progressObserver = new CollectingSupervisorProgressObserver();
+        var client = new SupervisorClient(transportClient);
+
+        var result = await client.EnsureRunningAsync(
+            CreateManifest(),
+            CreateUnityProject(),
+            TimeSpan.FromSeconds(5),
+            editorMode: DaemonEditorMode.Gui,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Terminate,
+            progressObserver,
+            cancellationToken: CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var call = Assert.Single(transportClient.StreamingCalls);
+        Assert.Equal(ContractLiteralCodec.ToValue(IpcResponseMode.Stream), call.Request.ResponseMode);
+        Assert.True(call.UsesUnboundedResponseWait);
+        Assert.Equal(TimeSpan.FromSeconds(5), call.Timeout);
+        var progress = Assert.Single(progressObserver.Entries);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartProgressEvent.WaitingForEndpoint), progress.EventName);
+        JsonAssert.For(progress.Payload)
+            .HasString("payloadKind", "startupObservation")
+            .HasString("projectFingerprint", "fingerprint")
+            .HasString("message", "Waiting for daemon endpoint.");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task EnsureRunning_WithProgressObserver_WhenTerminalFails_PreservesFailureMetadata ()
+    {
+        var diagnosis = CreateDiagnosis();
+        var startup = CreateStartupObservation();
+        var transportClient = new StreamingTransportClient((request, onProgressFrame, cancellationToken) => ValueTask.FromResult(new IpcResponse(
+            ProtocolVersion: request.ProtocolVersion,
+            RequestId: request.RequestId,
+            Status: IpcProtocol.StatusError,
+            Payload: IpcPayloadCodec.SerializeToElement(
+                new SupervisorIpcContracts.EnsureRunningFailureResponse("stale", diagnosis, startup)),
+            Errors:
+            [
+                new IpcError(ExecutionErrorCodes.IpcTimeout, "endpoint registration timed out", null),
+            ])));
+        var progressObserver = new CollectingSupervisorProgressObserver();
+        var client = new SupervisorClient(transportClient);
+
+        var result = await client.EnsureRunningAsync(
+            CreateManifest(),
+            CreateUnityProject(),
+            TimeSpan.FromSeconds(5),
+            editorMode: DaemonEditorMode.Gui,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+            progressObserver,
+            cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.Error!.Code);
+        Assert.Equal(diagnosis, result.Diagnosis);
+        Assert.Equal(startup, result.Startup);
+        Assert.Equal(DaemonStatusKind.Stale, result.DaemonStatus);
+        Assert.Empty(progressObserver.Entries);
+        Assert.Equal(ContractLiteralCodec.ToValue(IpcResponseMode.Stream), Assert.Single(transportClient.StreamingCalls).Request.ResponseMode);
     }
 
     [Fact]
@@ -245,5 +347,100 @@ public sealed class SupervisorClientTests
             LaunchAttemptId: null,
             ProcessAction: DaemonStartupProcessActionValues.Kept,
             RetryDisposition: DaemonStartupRetryDispositionValues.RetryAfterFix);
+    }
+
+    private static async ValueTask<IpcResponse> InvokeProgressAndCreateResponseAsync (
+        IpcRequest request,
+        Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
+        IpcStreamFrame progressFrame,
+        CancellationToken cancellationToken)
+    {
+        await onProgressFrame(progressFrame, cancellationToken).ConfigureAwait(false);
+        return new IpcResponse(
+            ProtocolVersion: request.ProtocolVersion,
+            RequestId: request.RequestId,
+            Status: IpcProtocol.StatusOk,
+            Payload: IpcPayloadCodec.SerializeToElement(
+                new SupervisorIpcContracts.EnsureRunningResponse(
+                    StartStatus: "started",
+                    DaemonStatus: "running",
+                    Session: CreateSession(),
+                    LifecycleSnapshot: new DaemonStartLifecycleSnapshot(
+                        IpcEditorLifecycleStateCodec.Ready,
+                        null,
+                        CanAcceptExecutionRequests: true))),
+            Errors: []);
+    }
+
+    private sealed record StreamingTransportCall (
+        IpcEndpoint Endpoint,
+        IpcRequest Request,
+        TimeSpan Timeout,
+        bool UsesUnboundedResponseWait);
+
+    private sealed class StreamingTransportClient : IIpcTransportClient
+    {
+        private readonly Func<IpcRequest, Func<IpcStreamFrame, CancellationToken, ValueTask>, CancellationToken, ValueTask<IpcResponse>> streamingHandler;
+
+        public StreamingTransportClient (Func<IpcRequest, Func<IpcStreamFrame, CancellationToken, ValueTask>, CancellationToken, ValueTask<IpcResponse>> streamingHandler)
+        {
+            this.streamingHandler = streamingHandler;
+        }
+
+        public List<StreamingTransportCall> StreamingCalls { get; } = [];
+
+        public ValueTask<IpcResponse> SendAsync (
+            IpcEndpoint endpoint,
+            IpcRequest request,
+            TimeSpan timeout,
+            CancellationToken cancellationToken = default)
+        {
+            throw new InvalidOperationException("Expected streaming transport.");
+        }
+
+        public ValueTask<IpcResponse> SendWithUnboundedResponseWaitAsync (
+            IpcEndpoint endpoint,
+            IpcRequest request,
+            TimeSpan sendTimeout,
+            CancellationToken cancellationToken = default)
+        {
+            throw new InvalidOperationException("Expected streaming transport.");
+        }
+
+        public ValueTask<IpcResponse> SendStreamingAsync (
+            IpcEndpoint endpoint,
+            IpcRequest request,
+            TimeSpan timeout,
+            Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
+            CancellationToken cancellationToken = default)
+        {
+            throw new InvalidOperationException("Expected unbounded streaming transport.");
+        }
+
+        public ValueTask<IpcResponse> SendStreamingWithUnboundedResponseWaitAsync (
+            IpcEndpoint endpoint,
+            IpcRequest request,
+            TimeSpan sendTimeout,
+            Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
+            CancellationToken cancellationToken = default)
+        {
+            StreamingCalls.Add(new StreamingTransportCall(endpoint, request, sendTimeout, UsesUnboundedResponseWait: true));
+            return streamingHandler(request, onProgressFrame, cancellationToken);
+        }
+    }
+
+    private sealed class CollectingSupervisorProgressObserver : IDaemonStartSupervisorProgressObserver
+    {
+        public List<(string EventName, JsonElement Payload)> Entries { get; } = [];
+
+        public ValueTask EmitSupervisorProgressAsync (
+            string eventName,
+            JsonElement payload,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Entries.Add((eventName, payload.Clone()));
+            return ValueTask.CompletedTask;
+        }
     }
 }

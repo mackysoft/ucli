@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
+
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiAttach;
 
 /// <summary> Resolves daemon start from an already-open Unity GUI Editor when possible. </summary>
@@ -12,5 +14,6 @@ internal interface IDaemonGuiEditorAttachService
         TimeSpan timeout,
         DaemonEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
+        IDaemonStartProgressObserver? progressObserver = null,
         CancellationToken cancellationToken = default);
 }

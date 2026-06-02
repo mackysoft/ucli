@@ -10,6 +10,7 @@ global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Timing
 global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Contracts;
 global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiEndpoint;
 global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Launch;
+global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
 global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Recovery;
 global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Startup;
 global using MackySoft.Ucli.Application.Features.Status.Common.Contracts;
@@ -25,6 +26,7 @@ global using MackySoft.Ucli.Contracts;
 global using MackySoft.Ucli.Contracts.Daemon;
 global using MackySoft.Ucli.Contracts.Index;
 global using MackySoft.Ucli.Contracts.Operations;
+global using MackySoft.Ucli.Contracts.Text;
 global using MackySoft.Ucli.Features.Daemon.Lifecycle.Cleanup;
 global using MackySoft.Ucli.Features.Daemon.Lifecycle.Diagnosis;
 global using MackySoft.Ucli.Features.Daemon.Lifecycle.Process.EditorInstance;

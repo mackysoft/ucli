@@ -1,6 +1,7 @@
 using System.IO.Pipes;
 using System.Net.Sockets;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Ipc;
 
 namespace MackySoft.Ucli.UnityIntegration.Ipc.Transport;
@@ -18,9 +19,10 @@ internal sealed class IpcTransportClient : IIpcTransportClient
         ArgumentNullException.ThrowIfNull(request);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         cancellationToken.ThrowIfCancellationRequested();
-        if (!string.Equals(request.ResponseMode, IpcResponseModes.Single, StringComparison.Ordinal))
+        var singleResponseMode = ContractLiteralCodec.ToValue(IpcResponseMode.Single);
+        if (!string.Equals(request.ResponseMode, singleResponseMode, StringComparison.Ordinal))
         {
-            throw new InvalidOperationException($"IPC SendAsync requires responseMode='{IpcResponseModes.Single}'. Actual: {request.ResponseMode}.");
+            throw new InvalidOperationException($"IPC SendAsync requires responseMode='{singleResponseMode}'. Actual: {request.ResponseMode}.");
         }
 
         using var timeoutCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -79,9 +81,10 @@ internal sealed class IpcTransportClient : IIpcTransportClient
         ArgumentNullException.ThrowIfNull(onProgressFrame);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         cancellationToken.ThrowIfCancellationRequested();
-        if (!string.Equals(request.ResponseMode, IpcResponseModes.Stream, StringComparison.Ordinal))
+        var streamResponseMode = ContractLiteralCodec.ToValue(IpcResponseMode.Stream);
+        if (!string.Equals(request.ResponseMode, streamResponseMode, StringComparison.Ordinal))
         {
-            throw new InvalidOperationException($"IPC SendStreamingAsync requires responseMode='{IpcResponseModes.Stream}'. Actual: {request.ResponseMode}.");
+            throw new InvalidOperationException($"IPC SendStreamingAsync requires responseMode='{streamResponseMode}'. Actual: {request.ResponseMode}.");
         }
 
         using var timeoutCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -132,9 +135,10 @@ internal sealed class IpcTransportClient : IIpcTransportClient
         ArgumentNullException.ThrowIfNull(request);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(sendTimeout, TimeSpan.Zero);
         cancellationToken.ThrowIfCancellationRequested();
-        if (!string.Equals(request.ResponseMode, IpcResponseModes.Single, StringComparison.Ordinal))
+        var singleResponseMode = ContractLiteralCodec.ToValue(IpcResponseMode.Single);
+        if (!string.Equals(request.ResponseMode, singleResponseMode, StringComparison.Ordinal))
         {
-            throw new InvalidOperationException($"IPC SendWithUnboundedResponseWaitAsync requires responseMode='{IpcResponseModes.Single}'. Actual: {request.ResponseMode}.");
+            throw new InvalidOperationException($"IPC SendWithUnboundedResponseWaitAsync requires responseMode='{singleResponseMode}'. Actual: {request.ResponseMode}.");
         }
 
         using var sendTimeoutCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -177,6 +181,62 @@ internal sealed class IpcTransportClient : IIpcTransportClient
 
             throw new TimeoutException(
                 $"IPC request write timed out after {sendTimeout.TotalMilliseconds:0} milliseconds.",
+                exception);
+        }
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<IpcResponse> SendStreamingWithUnboundedResponseWaitAsync (
+        IpcEndpoint endpoint,
+        IpcRequest request,
+        TimeSpan sendTimeout,
+        Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(onProgressFrame);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(sendTimeout, TimeSpan.Zero);
+        cancellationToken.ThrowIfCancellationRequested();
+        var streamResponseMode = ContractLiteralCodec.ToValue(IpcResponseMode.Stream);
+        if (!string.Equals(request.ResponseMode, streamResponseMode, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException($"IPC SendStreamingWithUnboundedResponseWaitAsync requires responseMode='{streamResponseMode}'. Actual: {request.ResponseMode}.");
+        }
+
+        using var sendTimeoutCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        sendTimeoutCancellationTokenSource.CancelAfter(sendTimeout);
+        var sendCancellationToken = sendTimeoutCancellationTokenSource.Token;
+        var hasConnected = false;
+        try
+        {
+            await using var stream = await ConnectAsync(endpoint, sendCancellationToken).ConfigureAwait(false);
+            hasConnected = true;
+            await IpcFrameCodec.WriteModelAsync(
+                    stream,
+                    request,
+                    IpcJsonSerializerOptions.Default,
+                    cancellationToken: sendCancellationToken)
+                .ConfigureAwait(false);
+
+            return await ReadStreamingResponseAsync(
+                    stream,
+                    request,
+                    onProgressFrame,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException exception)
+            when (!cancellationToken.IsCancellationRequested && sendTimeoutCancellationTokenSource.IsCancellationRequested)
+        {
+            if (!hasConnected)
+            {
+                throw new IpcConnectTimeoutException(
+                    $"IPC connection timed out after {sendTimeout.TotalMilliseconds:0} milliseconds.",
+                    exception);
+            }
+
+            throw new TimeoutException(
+                $"IPC streaming request write timed out after {sendTimeout.TotalMilliseconds:0} milliseconds.",
                 exception);
         }
     }

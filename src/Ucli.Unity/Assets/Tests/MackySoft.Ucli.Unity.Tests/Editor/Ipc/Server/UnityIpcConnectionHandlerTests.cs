@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Unity.Ipc;
 using NUnit.Framework;
@@ -39,7 +40,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 SessionToken: "token",
                 Method: IpcMethodNames.Shutdown,
                 Payload: JsonSerializer.SerializeToElement(new IpcShutdownRequest("tests")),
-                ResponseMode: IpcResponseModes.Stream);
+                ResponseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Stream));
             using var stream = new ThrowOnWriteStream();
             Exception observedFailure = null;
             var streamWriter = new UnityIpcStreamFrameWriter(
@@ -107,7 +108,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 SessionToken: "token",
                 Method: IpcMethodNames.Shutdown,
                 Payload: JsonSerializer.SerializeToElement(new IpcShutdownRequest("tests")),
-                ResponseMode: IpcResponseModes.Stream);
+                ResponseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Stream));
 
             using var stream = new MemoryStream();
             await IpcFrameCodec.WriteModelAsync(
@@ -152,7 +153,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var dispatcher = new StubMethodDispatcher();
             var handler = new UnityIpcRequestHandler(new StubSessionTokenValidator(true), dispatcher);
-            var request = CreateShutdownRequest("req-mode-mismatch-single", IpcResponseModes.Stream);
+            var request = CreateShutdownRequest("req-mode-mismatch-single", IpcResponseMode.Stream);
 
             var response = await handler.HandleAsync(request, CancellationToken.None);
 
@@ -169,7 +170,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var dispatcher = new StubMethodDispatcher();
             var handler = new UnityIpcRequestHandler(new StubSessionTokenValidator(true), dispatcher);
-            var request = CreateShutdownRequest("req-mode-mismatch-stream", IpcResponseModes.Single);
+            var request = CreateShutdownRequest("req-mode-mismatch-stream", IpcResponseMode.Single);
 
             var response = await handler.HandleStreamingAsync(request, new NoOpStreamFrameWriter(), CancellationToken.None);
 
@@ -182,7 +183,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static IpcRequest CreateShutdownRequest (
             string requestId,
-            string responseMode)
+            IpcResponseMode responseMode)
         {
             return new IpcRequest(
                 ProtocolVersion: IpcProtocol.CurrentVersion,
@@ -190,7 +191,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 SessionToken: "token",
                 Method: IpcMethodNames.Shutdown,
                 Payload: JsonSerializer.SerializeToElement(new IpcShutdownRequest("tests")),
-                ResponseMode: responseMode);
+                ResponseMode: ContractLiteralCodec.ToValue(responseMode));
         }
 
         private sealed class StubRequestProcessor : IUnityIpcRequestProcessor

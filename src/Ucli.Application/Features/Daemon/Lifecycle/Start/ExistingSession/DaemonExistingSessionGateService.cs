@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Recovery;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -55,6 +56,7 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
     /// <param name="session"> The existing daemon session snapshot. </param>
     /// <param name="timeout"> The timeout used for daemon ping and stale cleanup. </param>
     /// <param name="editorMode"> The optional requested daemon Editor mode. </param>
+    /// <param name="progressObserver"> The optional observer for supervisor-internal start progress. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns>
     /// The resolved daemon start result when workflow should complete;
@@ -67,6 +69,7 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
         DaemonSession session,
         TimeSpan timeout,
         DaemonEditorMode? editorMode,
+        IDaemonStartProgressObserver? progressObserver = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -83,6 +86,7 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
 
         try
         {
+            await EmitWaitingForEndpointAsync(progressObserver, session, cancellationToken).ConfigureAwait(false);
             var pingResponse = await daemonPingInfoClient.PingAndReadAsync(
                     unityProject,
                     pingTimeout,
@@ -105,6 +109,7 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
                 }
             }
 
+            await EmitEndpointReadyAsync(progressObserver, session, lifecycleSnapshot!, cancellationToken).ConfigureAwait(false);
             return DaemonStartResult.AlreadyRunning(session, lifecycleSnapshot);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -118,6 +123,7 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
                     session,
                     deadline,
                     editorMode,
+                    progressObserver,
                     cancellationToken)
                 .ConfigureAwait(false);
             if (recoveringResult is not null)
@@ -136,6 +142,7 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
                     session,
                     deadline,
                     editorMode,
+                    progressObserver,
                     cancellationToken)
                 .ConfigureAwait(false);
             if (recoveringResult is not null)
@@ -177,6 +184,7 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
         DaemonSession session,
         ExecutionDeadline deadline,
         DaemonEditorMode? editorMode,
+        IDaemonStartProgressObserver? progressObserver,
         CancellationToken cancellationToken)
     {
         var lifecycleReadResult = await daemonLifecycleStore.ReadAsync(
@@ -231,6 +239,7 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
                     }
                 }
 
+                await EmitEndpointReadyAsync(progressObserver, session, lifecycleSnapshot!, cancellationToken).ConfigureAwait(false);
                 return DaemonStartResult.AlreadyRunning(session, lifecycleSnapshot);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -280,5 +289,48 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
             DaemonTimeouts.StartupProbeRetryDelayMilliseconds,
             Math.Max(1, (int)Math.Ceiling(remainingTimeout.TotalMilliseconds)));
         return TimeSpan.FromMilliseconds(retryDelayMilliseconds);
+    }
+
+    private static async ValueTask EmitWaitingForEndpointAsync (
+        IDaemonStartProgressObserver? progressObserver,
+        DaemonSession session,
+        CancellationToken cancellationToken)
+    {
+        if (progressObserver is null)
+        {
+            return;
+        }
+
+        await progressObserver.EmitWaitingForEndpointAsync(
+                new DaemonStartStartupProgressObservation(
+                    LaunchAttemptId: null,
+                    EditorMode: session.EditorMode,
+                    OwnerKind: session.OwnerKind,
+                    CanShutdownProcess: session.CanShutdownProcess,
+                    ProcessId: session.ProcessId,
+                    ProcessStartedAtUtc: session.ProcessStartedAtUtc,
+                    StartupStatus: null,
+                    StartupBlockingReason: null,
+                    StartupPhase: null,
+                    RetryDisposition: null,
+                    Message: null,
+                    ErrorCode: null),
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private static async ValueTask EmitEndpointReadyAsync (
+        IDaemonStartProgressObserver? progressObserver,
+        DaemonSession session,
+        DaemonStartLifecycleSnapshot lifecycleSnapshot,
+        CancellationToken cancellationToken)
+    {
+        if (progressObserver is null)
+        {
+            return;
+        }
+
+        await progressObserver.EmitEndpointRegisteredAsync(session, launchAttemptId: null, cancellationToken).ConfigureAwait(false);
+        await progressObserver.EmitLifecycleObservedAsync(lifecycleSnapshot, cancellationToken).ConfigureAwait(false);
     }
 }

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 
@@ -20,7 +21,7 @@ internal sealed record UnityIpcDispatchRequest
         IReadOnlyList<string>? allowedStartupLifecycleStates = null,
         bool isRecoverable = false,
         TimeSpan? recoverableResponseAttemptTimeout = null,
-        string responseMode = IpcResponseModes.Single,
+        IpcResponseMode responseMode = IpcResponseMode.Single,
         Func<JsonElement, TimeSpan, JsonElement>? dispatchTimeoutPayloadTransformer = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(method);
@@ -29,7 +30,7 @@ internal sealed record UnityIpcDispatchRequest
             ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(recoverableResponseAttemptTimeout.Value, TimeSpan.Zero);
         }
 
-        if (!IpcResponseModes.IsDefined(responseMode))
+        if (!ContractLiteralCodec.IsDefined(responseMode))
         {
             throw new ArgumentException($"Unsupported IPC response mode: {responseMode}.", nameof(responseMode));
         }
@@ -59,14 +60,14 @@ internal sealed record UnityIpcDispatchRequest
     public TimeSpan? RecoverableResponseAttemptTimeout { get; }
 
     /// <summary> Gets the IPC response framing mode requested for this dispatch. </summary>
-    public string ResponseMode { get; }
+    public IpcResponseMode ResponseMode { get; }
 
     private Func<JsonElement, TimeSpan, JsonElement>? DispatchTimeoutPayloadTransformer { get; }
 
     /// <summary> Creates a copy of this request with a different response framing mode. </summary>
     /// <param name="responseMode"> The response framing mode. </param>
     /// <returns> The copied request. </returns>
-    public UnityIpcDispatchRequest WithResponseMode (string responseMode)
+    public UnityIpcDispatchRequest WithResponseMode (IpcResponseMode responseMode)
     {
         return new UnityIpcDispatchRequest(
             Method,

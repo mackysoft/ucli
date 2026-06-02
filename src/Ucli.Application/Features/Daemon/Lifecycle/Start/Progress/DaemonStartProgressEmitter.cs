@@ -1,12 +1,18 @@
+using System.Text.Json;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
 
 /// <summary> Emits host-visible daemon-start progress entries without owning daemon-start decisions. </summary>
-internal sealed class DaemonStartProgressEmitter : IDaemonProjectLifecycleProgressObserver
+internal sealed class DaemonStartProgressEmitter :
+    IDaemonProjectLifecycleProgressObserver,
+    IDaemonStartProgressObserver,
+    IDaemonStartSupervisorProgressObserver
 {
     private readonly ICommandProgressSink progressSink;
     private readonly string projectFingerprint;
@@ -37,13 +43,13 @@ internal sealed class DaemonStartProgressEmitter : IDaemonProjectLifecycleProgre
     /// <summary> Emits the daemon-start workflow start entry. </summary>
     public ValueTask EmitStartedAsync (CancellationToken cancellationToken)
     {
-        return EmitAsync(DaemonStartProgressEventNames.Started, result: null, startStatus: null, daemonStatus: null, error: null, cancellationToken);
+        return EmitAsync(DaemonStartProgressEvent.Started, result: null, startStatus: null, daemonStatus: null, error: null, cancellationToken);
     }
 
     /// <summary> Emits the plugin-verification start entry. </summary>
     public ValueTask EmitPluginVerificationStartedAsync (CancellationToken cancellationToken)
     {
-        return EmitAsync(DaemonStartProgressEventNames.PluginVerificationStarted, result: null, startStatus: null, daemonStatus: null, error: null, cancellationToken);
+        return EmitAsync(DaemonStartProgressEvent.PluginVerificationStarted, result: null, startStatus: null, daemonStatus: null, error: null, cancellationToken);
     }
 
     /// <summary> Emits the plugin-verification completion entry. </summary>
@@ -51,13 +57,13 @@ internal sealed class DaemonStartProgressEmitter : IDaemonProjectLifecycleProgre
         ExecutionError? error,
         CancellationToken cancellationToken)
     {
-        return EmitCompletedAsync(DaemonStartProgressEventNames.PluginVerificationCompleted, error, cancellationToken);
+        return EmitCompletedAsync(DaemonStartProgressEvent.PluginVerificationCompleted, error, cancellationToken);
     }
 
     /// <summary> Emits the supervisor-bootstrap start entry. </summary>
     public ValueTask EmitSupervisorBootstrapStartedAsync (CancellationToken cancellationToken)
     {
-        return EmitAsync(DaemonStartProgressEventNames.SupervisorBootstrapStarted, result: null, startStatus: null, daemonStatus: null, error: null, cancellationToken);
+        return EmitAsync(DaemonStartProgressEvent.SupervisorBootstrapStarted, result: null, startStatus: null, daemonStatus: null, error: null, cancellationToken);
     }
 
     /// <summary> Emits the supervisor-bootstrap completion entry. </summary>
@@ -65,13 +71,13 @@ internal sealed class DaemonStartProgressEmitter : IDaemonProjectLifecycleProgre
         ExecutionError? error,
         CancellationToken cancellationToken)
     {
-        return EmitCompletedAsync(DaemonStartProgressEventNames.SupervisorBootstrapCompleted, error, cancellationToken);
+        return EmitCompletedAsync(DaemonStartProgressEvent.SupervisorBootstrapCompleted, error, cancellationToken);
     }
 
     /// <summary> Emits the supervisor ensureRunning request start entry. </summary>
     public ValueTask EmitEnsureRunningStartedAsync (CancellationToken cancellationToken)
     {
-        return EmitAsync(DaemonStartProgressEventNames.EnsureRunningStarted, result: null, startStatus: null, daemonStatus: null, error: null, cancellationToken);
+        return EmitAsync(DaemonStartProgressEvent.EnsureRunningStarted, result: null, startStatus: null, daemonStatus: null, error: null, cancellationToken);
     }
 
     /// <summary> Emits the supervisor ensureRunning request completion entry. </summary>
@@ -81,7 +87,7 @@ internal sealed class DaemonStartProgressEmitter : IDaemonProjectLifecycleProgre
     {
         ArgumentNullException.ThrowIfNull(result);
         return EmitAsync(
-            DaemonStartProgressEventNames.EnsureRunningCompleted,
+            DaemonStartProgressEvent.EnsureRunningCompleted,
             ResolveResult(result.Error),
             result.Status,
             result.DaemonStatus,
@@ -97,7 +103,7 @@ internal sealed class DaemonStartProgressEmitter : IDaemonProjectLifecycleProgre
         CancellationToken cancellationToken)
     {
         return EmitAsync(
-            DaemonStartProgressEventNames.Completed,
+            DaemonStartProgressEvent.Completed,
             ResolveResult(error),
             startStatus,
             daemonStatus,
@@ -105,16 +111,125 @@ internal sealed class DaemonStartProgressEmitter : IDaemonProjectLifecycleProgre
             cancellationToken);
     }
 
-    private ValueTask EmitCompletedAsync (
+    /// <inheritdoc />
+    public ValueTask EmitLaunchingAsync (
+        DaemonStartStartupProgressObservation observation,
+        CancellationToken cancellationToken)
+    {
+        return EmitStartupObservationAsync(DaemonStartProgressEvent.Launching, observation, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public ValueTask EmitWaitingForEndpointAsync (
+        DaemonStartStartupProgressObservation observation,
+        CancellationToken cancellationToken)
+    {
+        return EmitStartupObservationAsync(DaemonStartProgressEvent.WaitingForEndpoint, observation, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public ValueTask EmitBlockerDetectedAsync (
+        DaemonStartStartupProgressObservation observation,
+        CancellationToken cancellationToken)
+    {
+        return EmitStartupObservationAsync(DaemonStartProgressEvent.BlockerDetected, observation, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public ValueTask EmitSessionRegisteredAsync (
+        DaemonSession session,
+        string? launchAttemptId,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        return EmitStartupObservationAsync(
+            DaemonStartProgressEvent.SessionRegistered,
+            CreateSessionObservation(session, launchAttemptId),
+            cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public ValueTask EmitEndpointRegisteredAsync (
+        DaemonSession session,
+        string? launchAttemptId,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        return EmitStartupObservationAsync(
+            DaemonStartProgressEvent.EndpointRegistered,
+            CreateSessionObservation(session, launchAttemptId),
+            cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public ValueTask EmitLifecycleObservedAsync (
+        DaemonStartLifecycleSnapshot lifecycleSnapshot,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(lifecycleSnapshot);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var entry = new DaemonStartLifecycleSnapshotProgressEntry(
+            PayloadKind: ContractLiteralCodec.ToValue(DaemonStartProgressPayloadKind.LifecycleSnapshot),
+            ProjectFingerprint: projectFingerprint,
+            TimeoutMilliseconds: timeoutMilliseconds,
+            EditorMode: editorMode,
+            OnStartupBlocked: onStartupBlocked,
+            LifecycleState: lifecycleSnapshot.LifecycleState,
+            BlockingReason: lifecycleSnapshot.BlockingReason,
+            CanAcceptExecutionRequests: lifecycleSnapshot.CanAcceptExecutionRequests);
+        return progressSink.OnEntryAsync(ToEventName(DaemonStartProgressEvent.LifecycleObserved), entry, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public ValueTask EmitSupervisorProgressAsync (
         string eventName,
+        JsonElement payload,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentException.ThrowIfNullOrWhiteSpace(eventName);
+
+        if (!ContractLiteralCodec.TryParse<DaemonStartProgressEvent>(eventName, out var progressEvent))
+        {
+            return progressSink.OnEntryAsync(eventName, payload.Clone(), cancellationToken);
+        }
+
+        if (progressEvent == DaemonStartProgressEvent.LifecycleObserved)
+        {
+            var lifecycleEntry = payload.Deserialize<DaemonStartLifecycleSnapshotProgressEntry>(IpcJsonSerializerOptions.Default);
+            if (lifecycleEntry is null)
+            {
+                throw new InvalidDataException("Supervisor daemon-start lifecycle progress payload is invalid.");
+            }
+
+            return progressSink.OnEntryAsync(eventName, lifecycleEntry, cancellationToken);
+        }
+
+        if (IsStartupObservationEvent(progressEvent))
+        {
+            var startupEntry = payload.Deserialize<DaemonStartStartupObservationProgressEntry>(IpcJsonSerializerOptions.Default);
+            if (startupEntry is null)
+            {
+                throw new InvalidDataException("Supervisor daemon-start startup progress payload is invalid.");
+            }
+
+            return progressSink.OnEntryAsync(eventName, startupEntry, cancellationToken);
+        }
+
+        return progressSink.OnEntryAsync(eventName, payload.Clone(), cancellationToken);
+    }
+
+    private ValueTask EmitCompletedAsync (
+        DaemonStartProgressEvent progressEvent,
         ExecutionError? error,
         CancellationToken cancellationToken)
     {
-        return EmitAsync(eventName, ResolveResult(error), startStatus: null, daemonStatus: null, error, cancellationToken);
+        return EmitAsync(progressEvent, ResolveResult(error), startStatus: null, daemonStatus: null, error, cancellationToken);
     }
 
     private ValueTask EmitAsync (
-        string eventName,
+        DaemonStartProgressEvent progressEvent,
         string? result,
         DaemonStartStatus? startStatus,
         DaemonStatusKind? daemonStatus,
@@ -132,7 +247,69 @@ internal sealed class DaemonStartProgressEmitter : IDaemonProjectLifecycleProgre
             StartStatus: startStatus.HasValue ? ContractLiteralCodec.ToValue(startStatus.Value) : null,
             DaemonStatus: daemonStatus.HasValue ? ContractLiteralCodec.ToValue(daemonStatus.Value) : null,
             ErrorCode: error is null ? null : ExecutionErrorCodeMapper.ToCode(error).Value);
-        return progressSink.OnEntryAsync(eventName, entry, cancellationToken);
+        return progressSink.OnEntryAsync(ToEventName(progressEvent), entry, cancellationToken);
+    }
+
+    private ValueTask EmitStartupObservationAsync (
+        DaemonStartProgressEvent progressEvent,
+        DaemonStartStartupProgressObservation observation,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(observation);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var entry = new DaemonStartStartupObservationProgressEntry(
+            PayloadKind: ContractLiteralCodec.ToValue(DaemonStartProgressPayloadKind.StartupObservation),
+            ProjectFingerprint: projectFingerprint,
+            TimeoutMilliseconds: timeoutMilliseconds,
+            EditorMode: observation.EditorMode ?? editorMode,
+            OnStartupBlocked: onStartupBlocked,
+            LaunchAttemptId: observation.LaunchAttemptId,
+            OwnerKind: observation.OwnerKind,
+            CanShutdownProcess: observation.CanShutdownProcess,
+            ProcessId: observation.ProcessId,
+            ProcessStartedAtUtc: observation.ProcessStartedAtUtc,
+            StartupStatus: observation.StartupStatus,
+            StartupBlockingReason: observation.StartupBlockingReason,
+            StartupPhase: observation.StartupPhase,
+            RetryDisposition: observation.RetryDisposition,
+            Message: observation.Message,
+            ErrorCode: observation.ErrorCode);
+        return progressSink.OnEntryAsync(ToEventName(progressEvent), entry, cancellationToken);
+    }
+
+    private static DaemonStartStartupProgressObservation CreateSessionObservation (
+        DaemonSession session,
+        string? launchAttemptId)
+    {
+        return new DaemonStartStartupProgressObservation(
+            LaunchAttemptId: launchAttemptId,
+            EditorMode: session.EditorMode,
+            OwnerKind: session.OwnerKind,
+            CanShutdownProcess: session.CanShutdownProcess,
+            ProcessId: session.ProcessId,
+            ProcessStartedAtUtc: session.ProcessStartedAtUtc,
+            StartupStatus: null,
+            StartupBlockingReason: null,
+            StartupPhase: null,
+            RetryDisposition: null,
+            Message: null,
+            ErrorCode: null);
+    }
+
+    private static bool IsStartupObservationEvent (DaemonStartProgressEvent progressEvent)
+    {
+        return progressEvent
+            is DaemonStartProgressEvent.Launching
+            or DaemonStartProgressEvent.WaitingForEndpoint
+            or DaemonStartProgressEvent.BlockerDetected
+            or DaemonStartProgressEvent.SessionRegistered
+            or DaemonStartProgressEvent.EndpointRegistered;
+    }
+
+    private static string ToEventName (DaemonStartProgressEvent progressEvent)
+    {
+        return ContractLiteralCodec.ToValue(progressEvent);
     }
 
     private static string ResolveResult (ExecutionError? error)

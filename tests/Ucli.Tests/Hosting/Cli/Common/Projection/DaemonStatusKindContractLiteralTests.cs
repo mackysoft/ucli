@@ -1,7 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 
-using MackySoft.Ucli.Contracts.Text;
-
 namespace MackySoft.Ucli.Tests.Hosting.Cli.Common.Projection;
 
 public sealed class DaemonStatusKindContractLiteralTests

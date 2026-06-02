@@ -458,7 +458,7 @@ public sealed class UnityIpcTransportClientTests
             "token",
             IpcMethodNames.Ping,
             JsonDocument.Parse("{}").RootElement.Clone(),
-            IpcResponseModes.Stream);
+            ContractLiteralCodec.ToValue(IpcResponseMode.Stream));
 
         await Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
@@ -651,7 +651,7 @@ public sealed class UnityIpcTransportClientTests
             "token",
             IpcMethodNames.Ping,
             Json("{}"),
-            IpcResponseModes.Stream);
+            ContractLiteralCodec.ToValue(IpcResponseMode.Stream));
     }
 
     private static IpcRequest CreateSingleRequest ()

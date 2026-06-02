@@ -284,7 +284,7 @@ public sealed class UnityDaemonIpcClientTests
                 IpcMethodNames.PlayEnter,
                 CreateDispatchPayload(),
                 isRecoverable: true,
-                responseMode: IpcResponseModes.Stream),
+                responseMode: IpcResponseMode.Stream),
             TimeSpan.FromSeconds(30),
             (_, _) => ValueTask.CompletedTask,
             CancellationToken.None);
@@ -313,7 +313,7 @@ public sealed class UnityDaemonIpcClientTests
                     new UnityIpcDispatchRequest(
                         IpcMethodNames.OpsRead,
                         CreateDispatchPayload(),
-                        responseMode: IpcResponseModes.Stream),
+                        responseMode: IpcResponseMode.Stream),
                     TimeSpan.FromSeconds(30),
                     (_, _) => ValueTask.CompletedTask,
                     CancellationToken.None)
@@ -391,7 +391,7 @@ public sealed class UnityDaemonIpcClientTests
                 new UnityIpcDispatchRequest(
                     IpcMethodNames.TestRun,
                     CreateDispatchPayload(),
-                    responseMode: IpcResponseModes.Stream),
+                    responseMode: IpcResponseMode.Stream),
                 TimeSpan.FromSeconds(5),
                 (_, _) => ValueTask.CompletedTask,
                 CancellationToken.None)
@@ -405,7 +405,7 @@ public sealed class UnityDaemonIpcClientTests
         Assert.Equal(2, sessionConnectionProvider.CallCount);
         Assert.Single(transportClient.Requests);
         Assert.Equal("daemon-token-2", transportClient.Requests[0].SessionToken);
-        Assert.Equal(IpcResponseModes.Stream, transportClient.Requests[0].ResponseMode);
+        Assert.Equal(ContractLiteralCodec.ToValue(IpcResponseMode.Stream), transportClient.Requests[0].ResponseMode);
         Assert.StartsWith($"{IpcMethodNames.TestRun}-", transportClient.Requests[0].RequestId, StringComparison.Ordinal);
     }
 
@@ -437,7 +437,7 @@ public sealed class UnityDaemonIpcClientTests
                 new UnityIpcDispatchRequest(
                     IpcMethodNames.TestRun,
                     CreateDispatchPayload(),
-                    responseMode: IpcResponseModes.Stream),
+                    responseMode: IpcResponseMode.Stream),
                 TimeSpan.FromSeconds(5),
                 (_, _) => ValueTask.CompletedTask,
                 CancellationToken.None)
@@ -453,8 +453,8 @@ public sealed class UnityDaemonIpcClientTests
         Assert.Equal("daemon-token-1", transportClient.Requests[0].SessionToken);
         Assert.Equal("daemon-token-2", transportClient.Requests[1].SessionToken);
         Assert.Equal(transportClient.Requests[0].RequestId, transportClient.Requests[1].RequestId);
-        Assert.Equal(IpcResponseModes.Stream, transportClient.Requests[0].ResponseMode);
-        Assert.Equal(IpcResponseModes.Stream, transportClient.Requests[1].ResponseMode);
+        Assert.Equal(ContractLiteralCodec.ToValue(IpcResponseMode.Stream), transportClient.Requests[0].ResponseMode);
+        Assert.Equal(ContractLiteralCodec.ToValue(IpcResponseMode.Stream), transportClient.Requests[1].ResponseMode);
         Assert.StartsWith($"{IpcMethodNames.TestRun}-", transportClient.Requests[0].RequestId, StringComparison.Ordinal);
     }
 
@@ -608,6 +608,16 @@ public sealed class UnityDaemonIpcClientTests
             IpcEndpoint endpoint,
             IpcRequest request,
             TimeSpan sendTimeout,
+            CancellationToken cancellationToken = default)
+        {
+            return SendAsync(endpoint, request, sendTimeout, cancellationToken);
+        }
+
+        public ValueTask<IpcResponse> SendStreamingWithUnboundedResponseWaitAsync (
+            IpcEndpoint endpoint,
+            IpcRequest request,
+            TimeSpan sendTimeout,
+            Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
             CancellationToken cancellationToken = default)
         {
             return SendAsync(endpoint, request, sendTimeout, cancellationToken);

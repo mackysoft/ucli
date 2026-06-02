@@ -246,7 +246,7 @@ public sealed class UnityIpcRequestExecutorTests
         Assert.True(result.IsSuccess);
         AssertUnityResponse(response, result.Response);
         Assert.Equal(1, daemonTransportClient.CallCount);
-        Assert.Equal(IpcResponseModes.Stream, daemonTransportClient.Requests[0].ResponseMode);
+        Assert.Equal(ContractLiteralCodec.ToValue(IpcResponseMode.Stream), daemonTransportClient.Requests[0].ResponseMode);
         var progressFrame = Assert.Single(progressFrames);
         Assert.Equal("ops.progress", progressFrame.Event);
         Assert.Equal(JsonValueKind.Object, progressFrame.Payload.ValueKind);
@@ -877,6 +877,23 @@ public sealed class UnityIpcRequestExecutorTests
             cancellationToken.ThrowIfCancellationRequested();
             Endpoints.Add(endpoint);
             return SendCoreAsync(request);
+        }
+
+        public async ValueTask<IpcResponse> SendStreamingWithUnboundedResponseWaitAsync (
+            IpcEndpoint endpoint,
+            IpcRequest request,
+            TimeSpan sendTimeout,
+            Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Endpoints.Add(endpoint);
+            if (progressFrameFactory?.Invoke(request) is { } progressFrame)
+            {
+                await onProgressFrame(progressFrame, cancellationToken).ConfigureAwait(false);
+            }
+
+            return await SendCoreAsync(request).ConfigureAwait(false);
         }
 
         private ValueTask<IpcResponse> SendCoreAsync (IpcRequest request)

@@ -1,5 +1,7 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiEndpoint;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
@@ -45,6 +47,7 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
         TimeSpan timeout,
         DaemonEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
+        IDaemonStartProgressObserver? progressObserver = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -88,6 +91,7 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
                 .ConfigureAwait(false);
         }
 
+        await EmitWaitingForEndpointAsync(progressObserver, marker, probeResult.ProcessStartedAtUtc, cancellationToken).ConfigureAwait(false);
         var initialWaitResult = await sessionRegistrationAwaiter.WaitForSessionAsync(
                 unityProject,
                 marker.ProcessId,
@@ -97,6 +101,7 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
             .ConfigureAwait(false);
         if (initialWaitResult.IsSuccess)
         {
+            await EmitEndpointReadyAsync(progressObserver, initialWaitResult.Session!, initialWaitResult.LifecycleSnapshot, cancellationToken).ConfigureAwait(false);
             return DaemonStartResult.Attached(initialWaitResult.Session!, initialWaitResult.LifecycleSnapshot);
         }
 
@@ -155,6 +160,7 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
             .ConfigureAwait(false);
         if (waitResult.IsSuccess)
         {
+            await EmitEndpointReadyAsync(progressObserver, waitResult.Session!, waitResult.LifecycleSnapshot, cancellationToken).ConfigureAwait(false);
             return DaemonStartResult.Attached(waitResult.Session!, waitResult.LifecycleSnapshot);
         }
 
@@ -244,6 +250,54 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
     private static ExecutionError CreateTimeoutError (string message)
     {
         return ExecutionError.Timeout(message, ExecutionErrorCodes.IpcTimeout);
+    }
+
+    private static async ValueTask EmitWaitingForEndpointAsync (
+        IDaemonStartProgressObserver? progressObserver,
+        UnityEditorInstanceMarker marker,
+        DateTimeOffset? processStartedAtUtc,
+        CancellationToken cancellationToken)
+    {
+        if (progressObserver is null)
+        {
+            return;
+        }
+
+        await progressObserver.EmitWaitingForEndpointAsync(
+                new DaemonStartStartupProgressObservation(
+                    LaunchAttemptId: null,
+                    EditorMode: ContractLiteralCodec.ToValue(DaemonEditorMode.Gui),
+                    OwnerKind: ContractLiteralCodec.ToValue(DaemonSessionOwnerKind.User),
+                    CanShutdownProcess: false,
+                    ProcessId: marker.ProcessId,
+                    ProcessStartedAtUtc: processStartedAtUtc,
+                    StartupStatus: null,
+                    StartupBlockingReason: null,
+                    StartupPhase: null,
+                    RetryDisposition: null,
+                    Message: null,
+                    ErrorCode: null),
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private static async ValueTask EmitEndpointReadyAsync (
+        IDaemonStartProgressObserver? progressObserver,
+        DaemonSession session,
+        DaemonStartLifecycleSnapshot? lifecycleSnapshot,
+        CancellationToken cancellationToken)
+    {
+        if (progressObserver is null)
+        {
+            return;
+        }
+
+        await progressObserver.EmitSessionRegisteredAsync(session, launchAttemptId: null, cancellationToken).ConfigureAwait(false);
+        await progressObserver.EmitEndpointRegisteredAsync(session, launchAttemptId: null, cancellationToken).ConfigureAwait(false);
+        if (lifecycleSnapshot is not null)
+        {
+            await progressObserver.EmitLifecycleObservedAsync(lifecycleSnapshot, cancellationToken).ConfigureAwait(false);
+        }
     }
 
 }

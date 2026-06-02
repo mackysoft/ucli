@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Contracts;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Application.Shared.Context.Project;
@@ -92,6 +93,7 @@ internal sealed class SupervisorClient
     /// <param name="timeout"> The command timeout. Must be greater than <see cref="TimeSpan.Zero" />. </param>
     /// <param name="editorMode"> The optional requested daemon Editor mode. </param>
     /// <param name="onStartupBlocked"> The startup-blocked process policy requested by the caller. </param>
+    /// <param name="progressObserver"> The optional observer that receives supervisor-internal daemon-start progress frames. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The mapped daemon-start result. </returns>
     public async ValueTask<DaemonStartResult> EnsureRunningAsync (
@@ -100,6 +102,7 @@ internal sealed class SupervisorClient
         TimeSpan timeout,
         DaemonEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
+        IDaemonStartSupervisorProgressObserver? progressObserver = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -119,8 +122,20 @@ internal sealed class SupervisorClient
                     EditorMode: editorMode.HasValue
                         ? ContractLiteralCodec.ToValue(editorMode.Value)
                         : null,
-                    OnStartupBlocked: ContractLiteralCodec.ToValue(onStartupBlocked)));
-            var response = await SendWithUnboundedResponseWaitAsync(manifest, request, timeout, cancellationToken).ConfigureAwait(false);
+                    OnStartupBlocked: ContractLiteralCodec.ToValue(onStartupBlocked)),
+                progressObserver is null ? IpcResponseMode.Single : IpcResponseMode.Stream);
+            var response = progressObserver is null
+                ? await SendWithUnboundedResponseWaitAsync(manifest, request, timeout, cancellationToken).ConfigureAwait(false)
+                : await SendStreamingWithUnboundedResponseWaitAsync(
+                        manifest,
+                        request,
+                        timeout,
+                        (frame, progressCancellationToken) => progressObserver.EmitSupervisorProgressAsync(
+                            frame.Event!,
+                            frame.Payload,
+                            progressCancellationToken),
+                        cancellationToken)
+                    .ConfigureAwait(false);
             if (IpcResponseFailureReader.TryRead(response, out var firstError, out var status))
             {
                 var failurePayload = TryReadEnsureRunningFailurePayload(response);
@@ -264,17 +279,36 @@ internal sealed class SupervisorClient
         return await transportClient.SendWithUnboundedResponseWaitAsync(endpoint, request, sendTimeout, cancellationToken).ConfigureAwait(false);
     }
 
+    private async ValueTask<IpcResponse> SendStreamingWithUnboundedResponseWaitAsync (
+        SupervisorInstanceManifest manifest,
+        IpcRequest request,
+        TimeSpan sendTimeout,
+        Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
+        CancellationToken cancellationToken)
+    {
+        var endpoint = ResolveEndpoint(manifest);
+        return await transportClient.SendStreamingWithUnboundedResponseWaitAsync(
+                endpoint,
+                request,
+                sendTimeout,
+                onProgressFrame,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
     private static IpcRequest CreateRequest<TPayload> (
         SupervisorInstanceManifest manifest,
         string method,
-        TPayload payload)
+        TPayload payload,
+        IpcResponseMode responseMode = IpcResponseMode.Single)
     {
         return new IpcRequest(
             ProtocolVersion: IpcProtocol.CurrentVersion,
             RequestId: $"supervisor-{Guid.NewGuid():N}",
             SessionToken: manifest.SessionToken,
             Method: method,
-            Payload: IpcPayloadCodec.SerializeToElement(payload));
+            Payload: IpcPayloadCodec.SerializeToElement(payload),
+            ResponseMode: ContractLiteralCodec.ToValue(responseMode));
     }
 
     private static IpcEndpoint ResolveEndpoint (SupervisorInstanceManifest manifest)

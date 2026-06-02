@@ -279,6 +279,16 @@ public sealed class DaemonIpcRequestSenderTests
         {
             return SendAsync(endpoint, request, sendTimeout, cancellationToken);
         }
+
+        public ValueTask<IpcResponse> SendStreamingWithUnboundedResponseWaitAsync (
+            IpcEndpoint endpoint,
+            IpcRequest request,
+            TimeSpan sendTimeout,
+            Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
+            CancellationToken cancellationToken = default)
+        {
+            return SendAsync(endpoint, request, sendTimeout, cancellationToken);
+        }
     }
 
     private sealed class StubDaemonSessionConnectionProvider : IDaemonSessionConnectionProvider
