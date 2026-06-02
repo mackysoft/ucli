@@ -1,6 +1,7 @@
 using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Gateway;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Contracts;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
@@ -39,17 +40,27 @@ internal sealed class SupervisorProjectGateway : IDaemonProjectLifecycleGateway
         TimeSpan timeout,
         DaemonEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
+        DaemonStartProgressEmitter? progressEmitter = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
+        progressEmitter ??= new DaemonStartProgressEmitter(
+            progressSink: null,
+            unityProject.ProjectFingerprint,
+            checked((int)timeout.TotalMilliseconds),
+            editorMode,
+            onStartupBlocked);
         var deadline = ExecutionDeadline.Start(timeout, timeProvider);
+        await progressEmitter.EmitSupervisorBootstrapStartedAsync(cancellationToken).ConfigureAwait(false);
         if (!deadline.TryGetRemainingTimeout(out var bootstrapTimeout))
         {
-            return DaemonStartResult.Failure(ExecutionError.Timeout(
+            var failure = DaemonStartResult.Failure(ExecutionError.Timeout(
                 "Timed out before supervisor bootstrap could begin."));
+            await progressEmitter.EmitSupervisorBootstrapCompletedAsync(failure.Error, cancellationToken).ConfigureAwait(false);
+            return failure;
         }
 
         var bootstrapResult = await supervisorBootstrapper.EnsureReadyAsync(
@@ -57,18 +68,22 @@ internal sealed class SupervisorProjectGateway : IDaemonProjectLifecycleGateway
                 bootstrapTimeout,
                 cancellationToken)
             .ConfigureAwait(false);
+        await progressEmitter.EmitSupervisorBootstrapCompletedAsync(bootstrapResult.Error, cancellationToken).ConfigureAwait(false);
         if (!bootstrapResult.IsSuccess)
         {
             return DaemonStartResult.Failure(bootstrapResult.Error!);
         }
 
+        await progressEmitter.EmitEnsureRunningStartedAsync(cancellationToken).ConfigureAwait(false);
         if (!deadline.TryGetRemainingTimeout(out var ensureRunningTimeout))
         {
-            return DaemonStartResult.Failure(ExecutionError.Timeout(
+            var failure = DaemonStartResult.Failure(ExecutionError.Timeout(
                 "Timed out before supervisor ensureRunning could begin."));
+            await progressEmitter.EmitEnsureRunningCompletedAsync(failure, cancellationToken).ConfigureAwait(false);
+            return failure;
         }
 
-        return await supervisorClient.EnsureRunningAsync(
+        var startResult = await supervisorClient.EnsureRunningAsync(
                 bootstrapResult.Manifest!,
                 unityProject,
                 ensureRunningTimeout,
@@ -76,6 +91,8 @@ internal sealed class SupervisorProjectGateway : IDaemonProjectLifecycleGateway
                 onStartupBlocked,
                 cancellationToken)
             .ConfigureAwait(false);
+        await progressEmitter.EmitEnsureRunningCompletedAsync(startResult, cancellationToken).ConfigureAwait(false);
+        return startResult;
     }
 
     /// <inheritdoc />
