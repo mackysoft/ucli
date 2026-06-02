@@ -417,10 +417,11 @@ internal sealed class SupervisorRequestDispatcher
             return true;
         }
 
+        var responseModeLiteral = request.ResponseMode ?? "<null>";
         responseModeError = SupervisorIpcResponseFactory.CreateErrorResponse(
             request,
             UcliCoreErrorCodes.InvalidArgument,
-            $"Unsupported IPC response mode: {request.ResponseMode}.");
+            $"Unsupported IPC response mode: {responseModeLiteral}.");
         return false;
     }
 

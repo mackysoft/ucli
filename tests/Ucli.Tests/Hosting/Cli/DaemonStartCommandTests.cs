@@ -239,6 +239,25 @@ public sealed class DaemonStartCommandTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Start_WithTextFormat_WhenProgressEventHasUnknownStartedSuffix_RendersStartedStatus ()
+    {
+        var service = new StubDaemonStartService(
+            DaemonStartExecutionResult.Success(CreateSuccessOutput()),
+            EmitUnknownStartedDaemonStartProgressAsync);
+        var command = new DaemonStartCommand(service, CommandResultTestWriter.Create());
+
+        CommandExecutionState.Reset();
+        var (exitCode, _, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.StartAsync(
+            format: "text",
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.Success, exitCode);
+        var line = Assert.Single(standardError.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries));
+        Assert.Equal("daemon start daemon.start.future.started project=fingerprint timeoutMs=1234 started", line);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Start_WithTextFormat_WritesSupervisorProgressPayloadsToStandardError ()
     {
         var service = new StubDaemonStartService(
@@ -598,6 +617,18 @@ public sealed class DaemonStartCommandTests
         await progressSink.OnEntryAsync(
                 ContractLiteralCodec.ToValue(DaemonStartProgressEvent.Completed),
                 CreateProgressEntry(ContractLiteralCodec.ToValue(CommandProgressResult.Succeeded), "started", "running", errorCode: null),
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private static async ValueTask EmitUnknownStartedDaemonStartProgressAsync (
+        ICommandProgressSink? progressSink,
+        CancellationToken cancellationToken)
+    {
+        Assert.NotNull(progressSink);
+        await progressSink!.OnEntryAsync(
+                "daemon.start.future.started",
+                CreateProgressEntry(result: null, startStatus: null, daemonStatus: null, errorCode: null),
                 cancellationToken)
             .ConfigureAwait(false);
     }

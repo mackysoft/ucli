@@ -73,6 +73,7 @@ internal sealed class DaemonStartProgressTextProjector : ICliCommandProgressText
             _ => eventName,
         };
         var status = IsStartedEvent(progressEvent)
+                || (progressEvent is null && eventName.EndsWith(".started", StringComparison.Ordinal))
                 ? "started"
                 : "completed";
         var length = checked(
