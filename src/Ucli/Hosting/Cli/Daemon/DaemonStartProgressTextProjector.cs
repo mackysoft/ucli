@@ -60,7 +60,9 @@ internal sealed class DaemonStartProgressTextProjector : ICliCommandProgressText
         string eventName,
         DaemonStartProgressEntry entry)
     {
-        var progressEvent = ParseProgressEvent(eventName);
+        var progressEvent = ContractLiteralCodec.TryParse<DaemonStartProgressEvent>(eventName, out var parsedProgressEvent)
+            ? parsedProgressEvent
+            : (DaemonStartProgressEvent?)null;
         var step = progressEvent switch
         {
             DaemonStartProgressEvent.Started => "workflow",
@@ -111,7 +113,9 @@ internal sealed class DaemonStartProgressTextProjector : ICliCommandProgressText
         string eventName,
         DaemonStartStartupObservationProgressEntry entry)
     {
-        var progressEvent = ParseProgressEvent(eventName);
+        var progressEvent = ContractLiteralCodec.TryParse<DaemonStartProgressEvent>(eventName, out var parsedProgressEvent)
+            ? parsedProgressEvent
+            : (DaemonStartProgressEvent?)null;
         var step = progressEvent switch
         {
             DaemonStartProgressEvent.Launching => "launch",
@@ -179,7 +183,8 @@ internal sealed class DaemonStartProgressTextProjector : ICliCommandProgressText
         string eventName,
         DaemonStartLifecycleSnapshotProgressEntry entry)
     {
-        var step = ParseProgressEvent(eventName) == DaemonStartProgressEvent.LifecycleObserved
+        var step = ContractLiteralCodec.TryParse<DaemonStartProgressEvent>(eventName, out var progressEvent)
+            && progressEvent == DaemonStartProgressEvent.LifecycleObserved
             ? "lifecycle"
             : eventName;
         const string status = "observed";
@@ -221,13 +226,6 @@ internal sealed class DaemonStartProgressTextProjector : ICliCommandProgressText
             });
     }
 
-    private static DaemonStartProgressEvent? ParseProgressEvent (string eventName)
-    {
-        return ContractLiteralCodec.TryParse<DaemonStartProgressEvent>(eventName, out var progressEvent)
-            ? progressEvent
-            : null;
-    }
-
     private static bool IsStartedEvent (DaemonStartProgressEvent? progressEvent)
     {
         return progressEvent
@@ -236,5 +234,4 @@ internal sealed class DaemonStartProgressTextProjector : ICliCommandProgressText
             or DaemonStartProgressEvent.SupervisorBootstrapStarted
             or DaemonStartProgressEvent.EnsureRunningStarted;
     }
-
 }

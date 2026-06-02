@@ -175,7 +175,7 @@ internal sealed class DaemonStartProgressEmitter :
             LifecycleState: lifecycleSnapshot.LifecycleState,
             BlockingReason: lifecycleSnapshot.BlockingReason,
             CanAcceptExecutionRequests: lifecycleSnapshot.CanAcceptExecutionRequests);
-        return progressSink.OnEntryAsync(ToEventName(DaemonStartProgressEvent.LifecycleObserved), entry, cancellationToken);
+        return progressSink.OnEntryAsync(ContractLiteralCodec.ToValue(DaemonStartProgressEvent.LifecycleObserved), entry, cancellationToken);
     }
 
     private ValueTask EmitCompletedAsync (
@@ -205,7 +205,7 @@ internal sealed class DaemonStartProgressEmitter :
             StartStatus: startStatus.HasValue ? ContractLiteralCodec.ToValue(startStatus.Value) : null,
             DaemonStatus: daemonStatus.HasValue ? ContractLiteralCodec.ToValue(daemonStatus.Value) : null,
             ErrorCode: error is null ? null : ExecutionErrorCodeMapper.ToCode(error).Value);
-        return progressSink.OnEntryAsync(ToEventName(progressEvent), entry, cancellationToken);
+        return progressSink.OnEntryAsync(ContractLiteralCodec.ToValue(progressEvent), entry, cancellationToken);
     }
 
     private ValueTask EmitStartupObservationAsync (
@@ -238,7 +238,7 @@ internal sealed class DaemonStartProgressEmitter :
             RetryDisposition: observation.RetryDisposition,
             Message: observation.Message,
             ErrorCode: observation.ErrorCode);
-        return progressSink.OnEntryAsync(ToEventName(progressEvent), entry, cancellationToken);
+        return progressSink.OnEntryAsync(ContractLiteralCodec.ToValue(progressEvent), entry, cancellationToken);
     }
 
     private static DaemonStartStartupProgressObservation CreateSessionObservation (
@@ -258,11 +258,6 @@ internal sealed class DaemonStartProgressEmitter :
             RetryDisposition: null,
             Message: null,
             ErrorCode: null);
-    }
-
-    private static string ToEventName (DaemonStartProgressEvent progressEvent)
-    {
-        return ContractLiteralCodec.ToValue(progressEvent);
     }
 
     private static string ResolveResult (ExecutionError? error)
