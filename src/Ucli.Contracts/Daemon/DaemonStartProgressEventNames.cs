@@ -1,6 +1,6 @@
 namespace MackySoft.Ucli.Contracts.Daemon;
 
-/// <summary> Defines the closed host-visible <c>daemon.start</c> progress stream event set. </summary>
+/// <summary> Defines the current host-visible <c>daemon.start</c> progress stream event names. </summary>
 public static class DaemonStartProgressEventNames
 {
     /// <summary> Gets the event emitted after daemon-start context resolution completes. </summary>
