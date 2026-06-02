@@ -1,9 +1,7 @@
-using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
@@ -11,8 +9,7 @@ namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
 /// <summary> Emits host-visible daemon-start progress entries without owning daemon-start decisions. </summary>
 internal sealed class DaemonStartProgressEmitter :
     IDaemonProjectLifecycleProgressObserver,
-    IDaemonStartProgressObserver,
-    IDaemonStartSupervisorProgressObserver
+    IDaemonStartProgressObserver
 {
     private readonly ICommandProgressSink progressSink;
     private readonly string projectFingerprint;
@@ -181,45 +178,6 @@ internal sealed class DaemonStartProgressEmitter :
         return progressSink.OnEntryAsync(ToEventName(DaemonStartProgressEvent.LifecycleObserved), entry, cancellationToken);
     }
 
-    /// <inheritdoc />
-    public ValueTask EmitSupervisorProgressAsync (
-        string eventName,
-        JsonElement payload,
-        CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        ArgumentException.ThrowIfNullOrWhiteSpace(eventName);
-
-        if (!ContractLiteralCodec.TryParse<DaemonStartProgressEvent>(eventName, out var progressEvent))
-        {
-            return progressSink.OnEntryAsync(eventName, payload.Clone(), cancellationToken);
-        }
-
-        if (progressEvent == DaemonStartProgressEvent.LifecycleObserved)
-        {
-            var lifecycleEntry = payload.Deserialize<DaemonStartLifecycleSnapshotProgressEntry>(IpcJsonSerializerOptions.Default);
-            if (lifecycleEntry is null)
-            {
-                throw new InvalidDataException("Supervisor daemon-start lifecycle progress payload is invalid.");
-            }
-
-            return progressSink.OnEntryAsync(eventName, lifecycleEntry, cancellationToken);
-        }
-
-        if (IsStartupObservationEvent(progressEvent))
-        {
-            var startupEntry = payload.Deserialize<DaemonStartStartupObservationProgressEntry>(IpcJsonSerializerOptions.Default);
-            if (startupEntry is null)
-            {
-                throw new InvalidDataException("Supervisor daemon-start startup progress payload is invalid.");
-            }
-
-            return progressSink.OnEntryAsync(eventName, startupEntry, cancellationToken);
-        }
-
-        return progressSink.OnEntryAsync(eventName, payload.Clone(), cancellationToken);
-    }
-
     private ValueTask EmitCompletedAsync (
         DaemonStartProgressEvent progressEvent,
         ExecutionError? error,
@@ -257,6 +215,11 @@ internal sealed class DaemonStartProgressEmitter :
     {
         ArgumentNullException.ThrowIfNull(observation);
         cancellationToken.ThrowIfCancellationRequested();
+        if (!DaemonStartProgressPayloadContract.IsStartupObservation(progressEvent))
+        {
+            throw new InvalidOperationException(
+                $"Daemon-start progress event does not carry a startup-observation payload: {progressEvent}.");
+        }
 
         var entry = new DaemonStartStartupObservationProgressEntry(
             PayloadKind: ContractLiteralCodec.ToValue(DaemonStartProgressPayloadKind.StartupObservation),
@@ -295,16 +258,6 @@ internal sealed class DaemonStartProgressEmitter :
             RetryDisposition: null,
             Message: null,
             ErrorCode: null);
-    }
-
-    private static bool IsStartupObservationEvent (DaemonStartProgressEvent progressEvent)
-    {
-        return progressEvent
-            is DaemonStartProgressEvent.Launching
-            or DaemonStartProgressEvent.WaitingForEndpoint
-            or DaemonStartProgressEvent.BlockerDetected
-            or DaemonStartProgressEvent.SessionRegistered
-            or DaemonStartProgressEvent.EndpointRegistered;
     }
 
     private static string ToEventName (DaemonStartProgressEvent progressEvent)

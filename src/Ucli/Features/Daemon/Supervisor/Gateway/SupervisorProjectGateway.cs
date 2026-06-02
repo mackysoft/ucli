@@ -1,9 +1,9 @@
 using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Gateway;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Contracts;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Application.Shared.Context.Project;
+using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Infrastructure.Paths;
@@ -41,7 +41,7 @@ internal sealed class SupervisorProjectGateway : IDaemonProjectLifecycleGateway
         DaemonEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
         IDaemonProjectLifecycleProgressObserver? progressObserver = null,
-        IDaemonStartSupervisorProgressObserver? supervisorProgressObserver = null,
+        ICommandProgressSink? supervisorProgressSink = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -114,7 +114,7 @@ internal sealed class SupervisorProjectGateway : IDaemonProjectLifecycleGateway
                 ensureRunningTimeout,
                 editorMode,
                 onStartupBlocked,
-                supervisorProgressObserver,
+                supervisorProgressSink,
                 cancellationToken)
             .ConfigureAwait(false);
         await EmitProgressOutsideBudgetAsync(

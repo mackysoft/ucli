@@ -212,6 +212,15 @@ public sealed class IpcContractSerializationTests
         Assert.Equal("daemon.start.lifecycleObserved", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.LifecycleObserved));
         Assert.Equal("startupObservation", ContractLiteralCodec.ToValue(DaemonStartProgressPayloadKind.StartupObservation));
         Assert.Equal("lifecycleSnapshot", ContractLiteralCodec.ToValue(DaemonStartProgressPayloadKind.LifecycleSnapshot));
+        AssertPayloadKind(DaemonStartProgressEvent.Launching, DaemonStartProgressPayloadKind.StartupObservation);
+        AssertPayloadKind(DaemonStartProgressEvent.WaitingForEndpoint, DaemonStartProgressPayloadKind.StartupObservation);
+        AssertPayloadKind(DaemonStartProgressEvent.BlockerDetected, DaemonStartProgressPayloadKind.StartupObservation);
+        AssertPayloadKind(DaemonStartProgressEvent.SessionRegistered, DaemonStartProgressPayloadKind.StartupObservation);
+        AssertPayloadKind(DaemonStartProgressEvent.EndpointRegistered, DaemonStartProgressPayloadKind.StartupObservation);
+        AssertPayloadKind(DaemonStartProgressEvent.LifecycleObserved, DaemonStartProgressPayloadKind.LifecycleSnapshot);
+        Assert.False(DaemonStartProgressPayloadContract.TryGetPayloadKind(
+            DaemonStartProgressEvent.Completed,
+            out _));
 
         using var startupObservation = JsonDocument.Parse(JsonSerializer.Serialize(
             new DaemonStartStartupObservationProgressEntry(
@@ -274,6 +283,14 @@ public sealed class IpcContractSerializationTests
             .HasString("lifecycleState", "ready")
             .HasString("blockingReason", "none")
             .HasBoolean("canAcceptExecutionRequests", true);
+    }
+
+    private static void AssertPayloadKind (
+        DaemonStartProgressEvent progressEvent,
+        DaemonStartProgressPayloadKind expectedPayloadKind)
+    {
+        Assert.True(DaemonStartProgressPayloadContract.TryGetPayloadKind(progressEvent, out var payloadKind));
+        Assert.Equal(expectedPayloadKind, payloadKind);
     }
 
     [Fact]

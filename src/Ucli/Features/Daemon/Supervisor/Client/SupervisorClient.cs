@@ -1,9 +1,9 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Contracts;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
+using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
@@ -93,7 +93,7 @@ internal sealed class SupervisorClient
     /// <param name="timeout"> The command timeout. Must be greater than <see cref="TimeSpan.Zero" />. </param>
     /// <param name="editorMode"> The optional requested daemon Editor mode. </param>
     /// <param name="onStartupBlocked"> The startup-blocked process policy requested by the caller. </param>
-    /// <param name="progressObserver"> The optional observer that receives supervisor-internal daemon-start progress frames. </param>
+    /// <param name="progressSink"> The optional caller progress sink that receives supervisor-internal daemon-start progress entries. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The mapped daemon-start result. </returns>
     public async ValueTask<DaemonStartResult> EnsureRunningAsync (
@@ -102,7 +102,7 @@ internal sealed class SupervisorClient
         TimeSpan timeout,
         DaemonEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
-        IDaemonStartSupervisorProgressObserver? progressObserver = null,
+        ICommandProgressSink? progressSink = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -112,28 +112,34 @@ internal sealed class SupervisorClient
 
         try
         {
-            var request = CreateRequest(
-                manifest,
-                SupervisorIpcContracts.EnsureRunningMethod,
-                new SupervisorIpcContracts.EnsureRunningRequest(
+            var ensureRunningPayload = new SupervisorIpcContracts.EnsureRunningRequest(
                     UnityProjectRoot: unityProject.UnityProjectRoot,
                     ProjectFingerprint: unityProject.ProjectFingerprint,
                     TimeoutMilliseconds: checked((int)timeout.TotalMilliseconds),
                     EditorMode: editorMode.HasValue
-                        ? ContractLiteralCodec.ToValue(editorMode.Value)
-                        : null,
-                    OnStartupBlocked: ContractLiteralCodec.ToValue(onStartupBlocked)),
-                progressObserver is null ? IpcResponseMode.Single : IpcResponseMode.Stream);
-            var response = progressObserver is null
+                    ? ContractLiteralCodec.ToValue(editorMode.Value)
+                    : null,
+                OnStartupBlocked: ContractLiteralCodec.ToValue(onStartupBlocked));
+            var request = CreateRequest(
+                manifest,
+                SupervisorIpcContracts.EnsureRunningMethod,
+                ensureRunningPayload,
+                progressSink is null ? IpcResponseMode.Single : IpcResponseMode.Stream);
+            var progressFrameForwarder = progressSink is null
+                ? null
+                : new SupervisorDaemonStartProgressFrameForwarder(
+                    progressSink,
+                    ensureRunningPayload.ProjectFingerprint,
+                    ensureRunningPayload.TimeoutMilliseconds,
+                    ensureRunningPayload.EditorMode,
+                    ensureRunningPayload.OnStartupBlocked);
+            var response = progressFrameForwarder is null
                 ? await SendWithUnboundedResponseWaitAsync(manifest, request, timeout, cancellationToken).ConfigureAwait(false)
                 : await SendStreamingWithUnboundedResponseWaitAsync(
                         manifest,
                         request,
                         timeout,
-                        (frame, progressCancellationToken) => progressObserver.EmitSupervisorProgressAsync(
-                            frame.Event!,
-                            frame.Payload,
-                            progressCancellationToken),
+                        progressFrameForwarder.ForwardAsync,
                         cancellationToken)
                     .ConfigureAwait(false);
             if (IpcResponseFailureReader.TryRead(response, out var firstError, out var status))

@@ -61,16 +61,23 @@ internal sealed class SupervisorRequestDispatcher
             return;
         }
 
-        if (IsStreamingResponse(readResult.Value))
+        var request = readResult.Value;
+        if (!TryParseResponseMode(request, out var responseMode, out var responseModeError))
         {
-            await HandleStreamingRequestAsync(stream, runtimeContext, readResult.Value, cancellationToken).ConfigureAwait(false);
+            await TryWriteResponseAsync(stream, responseModeError!, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        if (responseMode == IpcResponseMode.Stream)
+        {
+            await HandleStreamingRequestAsync(stream, runtimeContext, request, cancellationToken).ConfigureAwait(false);
             return;
         }
 
         var response = await ProcessRequestAsync(
                 stream,
                 runtimeContext,
-                readResult.Value,
+                request,
                 streamWriter: null,
                 requestLifetimeStarted: null,
                 cancellationToken)
@@ -110,6 +117,15 @@ internal sealed class SupervisorRequestDispatcher
                 request,
                 IpcProtocolErrorCodes.ProtocolVersionMismatch,
                 $"Protocol version mismatch. Requested={request.ProtocolVersion}, Supported={IpcProtocol.CurrentVersion}.");
+        }
+
+        if (streamWriter is not null
+            && !string.Equals(request.Method, SupervisorIpcContracts.EnsureRunningMethod, StringComparison.Ordinal))
+        {
+            return SupervisorIpcResponseFactory.CreateErrorResponse(
+                request,
+                UcliCoreErrorCodes.InvalidArgument,
+                $"Supervisor IPC responseMode 'stream' is only supported for {SupervisorIpcContracts.EnsureRunningMethod}.");
         }
 
         return request.Method switch
@@ -390,10 +406,22 @@ internal sealed class SupervisorRequestDispatcher
         }
     }
 
-    private static bool IsStreamingResponse (IpcRequest request)
+    private static bool TryParseResponseMode (
+        IpcRequest request,
+        out IpcResponseMode responseMode,
+        out IpcResponse? responseModeError)
     {
-        return ContractLiteralCodec.TryParse<IpcResponseMode>(request.ResponseMode, out var responseMode)
-            && responseMode == IpcResponseMode.Stream;
+        if (ContractLiteralCodec.TryParse<IpcResponseMode>(request.ResponseMode, out responseMode))
+        {
+            responseModeError = null;
+            return true;
+        }
+
+        responseModeError = SupervisorIpcResponseFactory.CreateErrorResponse(
+            request,
+            UcliCoreErrorCodes.InvalidArgument,
+            $"Unsupported IPC response mode: {request.ResponseMode}.");
+        return false;
     }
 
     private static bool IsConnectionLocalWriteFailure (Exception exception)

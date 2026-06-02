@@ -1,4 +1,5 @@
 using System.Globalization;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
@@ -23,7 +24,7 @@ public static class IpcLogCursorCodec
             throw new ArgumentOutOfRangeException(nameof(sequence), sequence, "sequence must be non-negative.");
         }
 
-        var sequenceTextLength = GetNonNegativeInt64TextLength(sequence);
+        var sequenceTextLength = SpanTextLength.GetInvariantInt64Length(sequence);
         var length = checked(streamId.Length + 1 + sequenceTextLength);
         return string.Create(
             length,
@@ -81,19 +82,6 @@ public static class IpcLogCursorCodec
         streamId = parsedStreamId.ToString();
         sequence = parsedSequence;
         return true;
-    }
-
-    private static int GetNonNegativeInt64TextLength (long value)
-    {
-        var length = 1;
-        var remaining = value;
-        while (remaining >= 10)
-        {
-            length++;
-            remaining /= 10;
-        }
-
-        return length;
     }
 
     private static bool IsWhiteSpace (ReadOnlySpan<char> value)

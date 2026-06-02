@@ -328,6 +328,8 @@ internal static class DaemonServiceTestContext
     {
         public Func<IpcEndpoint, IpcRequest, TimeSpan, CancellationToken, ValueTask<IpcResponse>>? SendHandler { get; set; }
 
+        public Func<IpcEndpoint, IpcRequest, TimeSpan, Func<IpcStreamFrame, CancellationToken, ValueTask>, CancellationToken, ValueTask<IpcResponse>>? StreamingHandler { get; set; }
+
         public List<StubIpcTransportCall> Calls { get; } = [];
 
         public ValueTask<IpcResponse> SendAsync (
@@ -368,6 +370,11 @@ internal static class DaemonServiceTestContext
             CancellationToken cancellationToken = default)
         {
             Calls.Add(new StubIpcTransportCall(endpoint, request, timeout, UsesUnboundedResponseWait: false));
+            if (StreamingHandler != null)
+            {
+                return StreamingHandler(endpoint, request, timeout, onProgressFrame, cancellationToken);
+            }
+
             if (SendHandler == null)
             {
                 throw new InvalidOperationException("Stub IPC transport handler is not configured.");
@@ -384,6 +391,11 @@ internal static class DaemonServiceTestContext
             CancellationToken cancellationToken = default)
         {
             Calls.Add(new StubIpcTransportCall(endpoint, request, sendTimeout, UsesUnboundedResponseWait: true));
+            if (StreamingHandler != null)
+            {
+                return StreamingHandler(endpoint, request, sendTimeout, onProgressFrame, cancellationToken);
+            }
+
             if (SendHandler == null)
             {
                 throw new InvalidOperationException("Stub IPC transport handler is not configured.");

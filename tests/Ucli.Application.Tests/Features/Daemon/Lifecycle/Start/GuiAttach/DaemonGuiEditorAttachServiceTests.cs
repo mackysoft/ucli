@@ -1,8 +1,11 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Startup;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Application.Tests.Daemon;
@@ -26,25 +29,42 @@ public sealed class DaemonGuiEditorAttachServiceTests
             Result = UnityGuiEditorProcessProbeResult.Matching(ProbeProcessStartedAtUtc),
         };
         var session = CreateGuiSession();
+        var lifecycleSnapshot = new DaemonStartLifecycleSnapshot(
+            IpcEditorLifecycleStateCodec.Ready,
+            null,
+            CanAcceptExecutionRequests: true);
         var awaiter = new StubDaemonGuiSessionRegistrationAwaiter
         {
-            Result = DaemonGuiSessionRegistrationWaitResult.Success(session),
+            Result = DaemonGuiSessionRegistrationWaitResult.Success(session, lifecycleSnapshot),
         };
         var diagnosisStore = new StubDaemonDiagnosisStore();
         var rebootstrapClient = new StubDaemonGuiRebootstrapClient();
         var service = new DaemonGuiEditorAttachService(markerReader, processProbe, awaiter, rebootstrapClient, diagnosisStore);
+        var progressObserver = new CollectingDaemonStartProgressObserver();
 
         var result = await service.TryAttachExistingGuiEditorAsync(
             context,
             TimeSpan.FromMilliseconds(500),
             editorMode: null,
             DaemonStartupBlockedProcessPolicy.Auto,
+            progressObserver,
             cancellationToken: CancellationToken.None);
 
         Assert.NotNull(result);
         Assert.True(result!.IsSuccess);
         Assert.Equal(DaemonStartStatus.Attached, result.Status);
         Assert.Equal(session, result.Session);
+        Assert.Equal(lifecycleSnapshot, result.LifecycleSnapshot);
+        AssertProgressEvents(
+            progressObserver,
+            DaemonStartProgressEvent.WaitingForEndpoint,
+            DaemonStartProgressEvent.SessionRegistered,
+            DaemonStartProgressEvent.EndpointRegistered,
+            DaemonStartProgressEvent.LifecycleObserved);
+        Assert.Equal(marker.ProcessId, progressObserver.Entries[0].Observation!.ProcessId);
+        Assert.Equal(session, progressObserver.Entries[1].Session);
+        Assert.Equal(session, progressObserver.Entries[2].Session);
+        Assert.Equal(lifecycleSnapshot, progressObserver.Entries[3].LifecycleSnapshot);
         Assert.Equal(1, awaiter.CallCount);
         Assert.Equal(context, awaiter.LastUnityProject);
         Assert.Equal(marker.ProcessId, awaiter.LastExpectedProcessId);
@@ -111,12 +131,14 @@ public sealed class DaemonGuiEditorAttachServiceTests
         var diagnosisStore = new StubDaemonDiagnosisStore();
         var rebootstrapClient = new StubDaemonGuiRebootstrapClient();
         var service = new DaemonGuiEditorAttachService(markerReader, processProbe, awaiter, rebootstrapClient, diagnosisStore);
+        var progressObserver = new CollectingDaemonStartProgressObserver();
 
         var result = await service.TryAttachExistingGuiEditorAsync(
             CreateContext(),
             TimeSpan.FromMilliseconds(500),
             editorMode: null,
             DaemonStartupBlockedProcessPolicy.Terminate,
+            progressObserver,
             cancellationToken: CancellationToken.None);
 
         Assert.NotNull(result);
@@ -139,6 +161,14 @@ public sealed class DaemonGuiEditorAttachServiceTests
         Assert.Equal(marker.ProcessId, result.Startup.ProcessId);
         Assert.Equal(ProbeProcessStartedAtUtc, result.Startup.StartedAtUtc);
         Assert.Equal(DaemonStartupProcessActionValues.Kept, result.Startup.ProcessAction);
+        AssertProgressEvents(
+            progressObserver,
+            DaemonStartProgressEvent.WaitingForEndpoint,
+            DaemonStartProgressEvent.BlockerDetected);
+        var blockerObservation = progressObserver.Entries[1].Observation!;
+        Assert.Equal(DaemonStartupStatusValues.Timeout, blockerObservation.StartupStatus);
+        Assert.Equal(DaemonStartupBlockingReasonValues.EndpointNotRegistered, blockerObservation.StartupBlockingReason);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout.Value, blockerObservation.ErrorCode);
     }
 
     [Fact]
@@ -156,18 +186,24 @@ public sealed class DaemonGuiEditorAttachServiceTests
             Result = UnityGuiEditorProcessProbeResult.Matching(ProbeProcessStartedAtUtc),
         };
         var session = CreateGuiSession();
+        var lifecycleSnapshot = new DaemonStartLifecycleSnapshot(
+            IpcEditorLifecycleStateCodec.Ready,
+            null,
+            CanAcceptExecutionRequests: true);
         var awaiter = new StubDaemonGuiSessionRegistrationAwaiter();
         awaiter.Results.Enqueue(DaemonGuiSessionRegistrationWaitResult.Failure(ExecutionError.Timeout("session missing")));
-        awaiter.Results.Enqueue(DaemonGuiSessionRegistrationWaitResult.Success(session));
+        awaiter.Results.Enqueue(DaemonGuiSessionRegistrationWaitResult.Success(session, lifecycleSnapshot));
         var diagnosisStore = new StubDaemonDiagnosisStore();
         var rebootstrapClient = new StubDaemonGuiRebootstrapClient();
         var service = new DaemonGuiEditorAttachService(markerReader, processProbe, awaiter, rebootstrapClient, diagnosisStore);
+        var progressObserver = new CollectingDaemonStartProgressObserver();
 
         var result = await service.TryAttachExistingGuiEditorAsync(
             context,
             TimeSpan.FromMilliseconds(500),
             editorMode: null,
             DaemonStartupBlockedProcessPolicy.Terminate,
+            progressObserver,
             cancellationToken: CancellationToken.None);
 
         Assert.NotNull(result);
@@ -178,6 +214,17 @@ public sealed class DaemonGuiEditorAttachServiceTests
         Assert.Equal("user", result.Session.OwnerKind);
         Assert.False(result.Session.CanShutdownProcess);
         Assert.Equal(marker.ProcessId, result.Session.ProcessId);
+        Assert.Equal(lifecycleSnapshot, result.LifecycleSnapshot);
+        AssertProgressEvents(
+            progressObserver,
+            DaemonStartProgressEvent.WaitingForEndpoint,
+            DaemonStartProgressEvent.SessionRegistered,
+            DaemonStartProgressEvent.EndpointRegistered,
+            DaemonStartProgressEvent.LifecycleObserved);
+        Assert.Equal(marker.ProcessId, progressObserver.Entries[0].Observation!.ProcessId);
+        Assert.Equal(session, progressObserver.Entries[1].Session);
+        Assert.Equal(session, progressObserver.Entries[2].Session);
+        Assert.Equal(lifecycleSnapshot, progressObserver.Entries[3].LifecycleSnapshot);
         Assert.Equal(2, awaiter.CallCount);
         Assert.Equal(1, rebootstrapClient.CallCount);
         Assert.Equal(context, rebootstrapClient.LastUnityProject);
@@ -336,12 +383,14 @@ public sealed class DaemonGuiEditorAttachServiceTests
             awaiter,
             rebootstrapClient,
             diagnosisStore);
+        var progressObserver = new CollectingDaemonStartProgressObserver();
 
         var result = await service.TryAttachExistingGuiEditorAsync(
             CreateContext(),
             TimeSpan.FromMilliseconds(500),
             editorMode: null,
             DaemonStartupBlockedProcessPolicy.Terminate,
+            progressObserver,
             cancellationToken: CancellationToken.None);
 
         Assert.NotNull(result);
@@ -353,6 +402,15 @@ public sealed class DaemonGuiEditorAttachServiceTests
         Assert.NotNull(diagnosisStore.LastDiagnosis);
         Assert.Equal(DaemonDiagnosisReasonValues.GuiRebootstrapUnavailable, diagnosisStore.LastDiagnosis!.Reason);
         Assert.Equal(DaemonStartupProcessActionValues.Kept, result.Startup!.ProcessAction);
+        AssertProgressEvents(
+            progressObserver,
+            DaemonStartProgressEvent.WaitingForEndpoint,
+            DaemonStartProgressEvent.BlockerDetected);
+        var blockerObservation = progressObserver.Entries[1].Observation!;
+        Assert.Equal(DaemonStartupStatusValues.Failed, blockerObservation.StartupStatus);
+        Assert.Equal(DaemonStartupBlockingReasonValues.EndpointNotRegistered, blockerObservation.StartupBlockingReason);
+        Assert.Equal(DaemonStartupRetryDispositionValues.Unknown, blockerObservation.RetryDisposition);
+        Assert.Equal(DaemonErrorCodes.DaemonEndpointNotRegistered.Value, blockerObservation.ErrorCode);
     }
 
     private static UnityEditorInstanceMarker CreateMarker ()
@@ -391,6 +449,13 @@ public sealed class DaemonGuiEditorAttachServiceTests
             OwnerProcessId: null);
     }
 
+    private static void AssertProgressEvents (
+        CollectingDaemonStartProgressObserver progressObserver,
+        params DaemonStartProgressEvent[] expectedEvents)
+    {
+        Assert.Equal(expectedEvents, progressObserver.Entries.Select(static entry => entry.Event).ToArray());
+    }
+
     private sealed class StubUnityEditorInstanceMarkerReader : IUnityEditorInstanceMarkerReader
     {
         public UnityEditorInstanceMarkerReadResult ReadResult { get; set; } =
@@ -404,6 +469,61 @@ public sealed class DaemonGuiEditorAttachServiceTests
         {
             OnRead?.Invoke();
             return ValueTask.FromResult(ReadResult);
+        }
+    }
+
+    private sealed class CollectingDaemonStartProgressObserver : IDaemonStartProgressObserver
+    {
+        public List<(DaemonStartProgressEvent Event, DaemonStartStartupProgressObservation? Observation, DaemonSession? Session, DaemonStartLifecycleSnapshot? LifecycleSnapshot)> Entries { get; } = [];
+
+        public ValueTask EmitLaunchingAsync (
+            DaemonStartStartupProgressObservation observation,
+            CancellationToken cancellationToken)
+        {
+            Entries.Add((DaemonStartProgressEvent.Launching, observation, null, null));
+            return ValueTask.CompletedTask;
+        }
+
+        public ValueTask EmitWaitingForEndpointAsync (
+            DaemonStartStartupProgressObservation observation,
+            CancellationToken cancellationToken)
+        {
+            Entries.Add((DaemonStartProgressEvent.WaitingForEndpoint, observation, null, null));
+            return ValueTask.CompletedTask;
+        }
+
+        public ValueTask EmitBlockerDetectedAsync (
+            DaemonStartStartupProgressObservation observation,
+            CancellationToken cancellationToken)
+        {
+            Entries.Add((DaemonStartProgressEvent.BlockerDetected, observation, null, null));
+            return ValueTask.CompletedTask;
+        }
+
+        public ValueTask EmitSessionRegisteredAsync (
+            DaemonSession session,
+            string? launchAttemptId,
+            CancellationToken cancellationToken)
+        {
+            Entries.Add((DaemonStartProgressEvent.SessionRegistered, null, session, null));
+            return ValueTask.CompletedTask;
+        }
+
+        public ValueTask EmitEndpointRegisteredAsync (
+            DaemonSession session,
+            string? launchAttemptId,
+            CancellationToken cancellationToken)
+        {
+            Entries.Add((DaemonStartProgressEvent.EndpointRegistered, null, session, null));
+            return ValueTask.CompletedTask;
+        }
+
+        public ValueTask EmitLifecycleObservedAsync (
+            DaemonStartLifecycleSnapshot lifecycleSnapshot,
+            CancellationToken cancellationToken)
+        {
+            Entries.Add((DaemonStartProgressEvent.LifecycleObserved, null, null, lifecycleSnapshot));
+            return ValueTask.CompletedTask;
         }
     }
 

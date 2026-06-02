@@ -1,9 +1,8 @@
-using System.Text.Json;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
+using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
@@ -153,7 +152,7 @@ public sealed class SupervisorClientTests
                 progressFrame,
                 cancellationToken);
         });
-        var progressObserver = new CollectingSupervisorProgressObserver();
+        var progressSink = new CollectingProgressSink();
         var client = new SupervisorClient(transportClient);
 
         var result = await client.EnsureRunningAsync(
@@ -162,7 +161,7 @@ public sealed class SupervisorClientTests
             TimeSpan.FromSeconds(5),
             editorMode: DaemonEditorMode.Gui,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Terminate,
-            progressObserver,
+            progressSink,
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -170,12 +169,12 @@ public sealed class SupervisorClientTests
         Assert.Equal(ContractLiteralCodec.ToValue(IpcResponseMode.Stream), call.Request.ResponseMode);
         Assert.True(call.UsesUnboundedResponseWait);
         Assert.Equal(TimeSpan.FromSeconds(5), call.Timeout);
-        var progress = Assert.Single(progressObserver.Entries);
+        var progress = Assert.Single(progressSink.Entries);
         Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartProgressEvent.WaitingForEndpoint), progress.EventName);
-        JsonAssert.For(progress.Payload)
-            .HasString("payloadKind", "startupObservation")
-            .HasString("projectFingerprint", "fingerprint")
-            .HasString("message", "Waiting for daemon endpoint.");
+        var payload = Assert.IsType<DaemonStartStartupObservationProgressEntry>(progress.Payload);
+        Assert.Equal("startupObservation", payload.PayloadKind);
+        Assert.Equal("fingerprint", payload.ProjectFingerprint);
+        Assert.Equal("Waiting for daemon endpoint.", payload.Message);
     }
 
     [Fact]
@@ -194,7 +193,7 @@ public sealed class SupervisorClientTests
             [
                 new IpcError(ExecutionErrorCodes.IpcTimeout, "endpoint registration timed out", null),
             ])));
-        var progressObserver = new CollectingSupervisorProgressObserver();
+        var progressSink = new CollectingProgressSink();
         var client = new SupervisorClient(transportClient);
 
         var result = await client.EnsureRunningAsync(
@@ -203,7 +202,7 @@ public sealed class SupervisorClientTests
             TimeSpan.FromSeconds(5),
             editorMode: DaemonEditorMode.Gui,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
-            progressObserver,
+            progressSink,
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -211,8 +210,282 @@ public sealed class SupervisorClientTests
         Assert.Equal(diagnosis, result.Diagnosis);
         Assert.Equal(startup, result.Startup);
         Assert.Equal(DaemonStatusKind.Stale, result.DaemonStatus);
-        Assert.Empty(progressObserver.Entries);
+        Assert.Empty(progressSink.Entries);
         Assert.Equal(ContractLiteralCodec.ToValue(IpcResponseMode.Stream), Assert.Single(transportClient.StreamingCalls).Request.ResponseMode);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task EnsureRunning_WithProgressSink_ForwardsLifecycleSnapshotProgressFrame ()
+    {
+        var transportClient = new StreamingTransportClient((request, onProgressFrame, cancellationToken) =>
+        {
+            var progressPayload = new DaemonStartLifecycleSnapshotProgressEntry(
+                ContractLiteralCodec.ToValue(DaemonStartProgressPayloadKind.LifecycleSnapshot),
+                "fingerprint",
+                5000,
+                "gui",
+                "auto",
+                IpcEditorLifecycleStateCodec.Compiling,
+                IpcEditorBlockingReasonCodec.Compile,
+                CanAcceptExecutionRequests: false);
+            var progressFrame = new IpcStreamFrame(
+                IpcProtocol.CurrentVersion,
+                request.RequestId,
+                IpcStreamFrameKinds.Progress,
+                ContractLiteralCodec.ToValue(DaemonStartProgressEvent.LifecycleObserved),
+                IpcPayloadCodec.SerializeToElement(progressPayload),
+                Response: null);
+            return InvokeProgressAndCreateResponseAsync(
+                request,
+                onProgressFrame,
+                progressFrame,
+                cancellationToken);
+        });
+        var progressSink = new CollectingProgressSink();
+        var client = new SupervisorClient(transportClient);
+
+        var result = await client.EnsureRunningAsync(
+            CreateManifest(),
+            CreateUnityProject(),
+            TimeSpan.FromSeconds(5),
+            editorMode: DaemonEditorMode.Gui,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+            progressSink,
+            cancellationToken: CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var progress = Assert.Single(progressSink.Entries);
+        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartProgressEvent.LifecycleObserved), progress.EventName);
+        var payload = Assert.IsType<DaemonStartLifecycleSnapshotProgressEntry>(progress.Payload);
+        Assert.Equal("lifecycleSnapshot", payload.PayloadKind);
+        Assert.Equal(IpcEditorLifecycleStateCodec.Compiling, payload.LifecycleState);
+        Assert.Equal(IpcEditorBlockingReasonCodec.Compile, payload.BlockingReason);
+        Assert.False(payload.CanAcceptExecutionRequests);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task EnsureRunning_WithProgressSink_WhenProgressEventIsUnsupported_DropsProgressAndPreservesTerminal ()
+    {
+        var transportClient = new StreamingTransportClient((request, onProgressFrame, cancellationToken) =>
+        {
+            var progressFrame = new IpcStreamFrame(
+                IpcProtocol.CurrentVersion,
+                request.RequestId,
+                IpcStreamFrameKinds.Progress,
+                "daemon.start.unknown",
+                IpcPayloadCodec.SerializeToElement(new { payloadKind = "startupObservation" }),
+                Response: null);
+            return InvokeProgressAndCreateResponseAsync(
+                request,
+                onProgressFrame,
+                progressFrame,
+                cancellationToken);
+        });
+        var client = new SupervisorClient(transportClient);
+        var progressSink = new CollectingProgressSink();
+
+        var result = await client.EnsureRunningAsync(
+            CreateManifest(),
+            CreateUnityProject(),
+            TimeSpan.FromSeconds(5),
+            editorMode: DaemonEditorMode.Gui,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+            progressSink,
+            cancellationToken: CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Empty(progressSink.Entries);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task EnsureRunning_WithProgressSink_WhenPayloadKindDoesNotMatchEvent_DropsProgressAndPreservesTerminal ()
+    {
+        var transportClient = new StreamingTransportClient((request, onProgressFrame, cancellationToken) =>
+        {
+            var progressPayload = new DaemonStartStartupObservationProgressEntry(
+                ContractLiteralCodec.ToValue(DaemonStartProgressPayloadKind.LifecycleSnapshot),
+                "fingerprint",
+                5000,
+                "gui",
+                "auto",
+                null,
+                "user",
+                false,
+                42,
+                null,
+                "waitingForEndpoint",
+                null,
+                "endpointRegistration",
+                null,
+                null,
+                null);
+            var progressFrame = new IpcStreamFrame(
+                IpcProtocol.CurrentVersion,
+                request.RequestId,
+                IpcStreamFrameKinds.Progress,
+                ContractLiteralCodec.ToValue(DaemonStartProgressEvent.WaitingForEndpoint),
+                IpcPayloadCodec.SerializeToElement(progressPayload),
+                Response: null);
+            return InvokeProgressAndCreateResponseAsync(
+                request,
+                onProgressFrame,
+                progressFrame,
+                cancellationToken);
+        });
+        var client = new SupervisorClient(transportClient);
+        var progressSink = new CollectingProgressSink();
+
+        var result = await client.EnsureRunningAsync(
+            CreateManifest(),
+            CreateUnityProject(),
+            TimeSpan.FromSeconds(5),
+            editorMode: DaemonEditorMode.Gui,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+            progressSink,
+            cancellationToken: CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Empty(progressSink.Entries);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task EnsureRunning_WithProgressSink_WhenKnownEventHasNoStreamPayloadContract_DropsProgressAndPreservesTerminal ()
+    {
+        var transportClient = new StreamingTransportClient((request, onProgressFrame, cancellationToken) =>
+        {
+            var progressFrame = new IpcStreamFrame(
+                IpcProtocol.CurrentVersion,
+                request.RequestId,
+                IpcStreamFrameKinds.Progress,
+                ContractLiteralCodec.ToValue(DaemonStartProgressEvent.Completed),
+                IpcPayloadCodec.SerializeToElement(new { payloadKind = "startupObservation" }),
+                Response: null);
+            return InvokeProgressAndCreateResponseAsync(
+                request,
+                onProgressFrame,
+                progressFrame,
+                cancellationToken);
+        });
+        var client = new SupervisorClient(transportClient);
+        var progressSink = new CollectingProgressSink();
+
+        var result = await client.EnsureRunningAsync(
+            CreateManifest(),
+            CreateUnityProject(),
+            TimeSpan.FromSeconds(5),
+            editorMode: DaemonEditorMode.Gui,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+            progressSink,
+            cancellationToken: CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Empty(progressSink.Entries);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task EnsureRunning_WithProgressSink_WhenProgressEnvelopeDoesNotMatchRequest_DropsProgressAndPreservesTerminal ()
+    {
+        var transportClient = new StreamingTransportClient((request, onProgressFrame, cancellationToken) =>
+        {
+            var progressPayload = new DaemonStartStartupObservationProgressEntry(
+                ContractLiteralCodec.ToValue(DaemonStartProgressPayloadKind.StartupObservation),
+                "other-fingerprint",
+                5000,
+                "gui",
+                "auto",
+                null,
+                "user",
+                false,
+                42,
+                null,
+                "waitingForEndpoint",
+                null,
+                "endpointRegistration",
+                null,
+                null,
+                null);
+            var progressFrame = new IpcStreamFrame(
+                IpcProtocol.CurrentVersion,
+                request.RequestId,
+                IpcStreamFrameKinds.Progress,
+                ContractLiteralCodec.ToValue(DaemonStartProgressEvent.WaitingForEndpoint),
+                IpcPayloadCodec.SerializeToElement(progressPayload),
+                Response: null);
+            return InvokeProgressAndCreateResponseAsync(
+                request,
+                onProgressFrame,
+                progressFrame,
+                cancellationToken);
+        });
+        var client = new SupervisorClient(transportClient);
+        var progressSink = new CollectingProgressSink();
+
+        var result = await client.EnsureRunningAsync(
+            CreateManifest(),
+            CreateUnityProject(),
+            TimeSpan.FromSeconds(5),
+            editorMode: DaemonEditorMode.Gui,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+            progressSink,
+            cancellationToken: CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Empty(progressSink.Entries);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task EnsureRunning_WithProgressSink_WhenProgressSinkThrows_PreservesTerminal ()
+    {
+        var transportClient = new StreamingTransportClient((request, onProgressFrame, cancellationToken) =>
+        {
+            var progressPayload = new DaemonStartStartupObservationProgressEntry(
+                ContractLiteralCodec.ToValue(DaemonStartProgressPayloadKind.StartupObservation),
+                "fingerprint",
+                5000,
+                "gui",
+                "auto",
+                null,
+                "user",
+                false,
+                42,
+                null,
+                "waitingForEndpoint",
+                null,
+                "endpointRegistration",
+                null,
+                null,
+                null);
+            var progressFrame = new IpcStreamFrame(
+                IpcProtocol.CurrentVersion,
+                request.RequestId,
+                IpcStreamFrameKinds.Progress,
+                ContractLiteralCodec.ToValue(DaemonStartProgressEvent.WaitingForEndpoint),
+                IpcPayloadCodec.SerializeToElement(progressPayload),
+                Response: null);
+            return InvokeProgressAndCreateResponseAsync(
+                request,
+                onProgressFrame,
+                progressFrame,
+                cancellationToken);
+        });
+        var client = new SupervisorClient(transportClient);
+
+        var result = await client.EnsureRunningAsync(
+            CreateManifest(),
+            CreateUnityProject(),
+            TimeSpan.FromSeconds(5),
+            editorMode: DaemonEditorMode.Gui,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+            new ThrowingProgressSink(),
+            cancellationToken: CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
     }
 
     [Fact]
@@ -429,18 +702,31 @@ public sealed class SupervisorClientTests
         }
     }
 
-    private sealed class CollectingSupervisorProgressObserver : IDaemonStartSupervisorProgressObserver
+    private sealed class CollectingProgressSink : ICommandProgressSink
     {
-        public List<(string EventName, JsonElement Payload)> Entries { get; } = [];
+        public List<(string EventName, object Payload)> Entries { get; } = [];
 
-        public ValueTask EmitSupervisorProgressAsync (
+        public ValueTask OnEntryAsync<TPayload> (
             string eventName,
-            JsonElement payload,
+            TPayload payload,
             CancellationToken cancellationToken)
+            where TPayload : notnull
         {
             cancellationToken.ThrowIfCancellationRequested();
-            Entries.Add((eventName, payload.Clone()));
+            Entries.Add((eventName, payload));
             return ValueTask.CompletedTask;
+        }
+    }
+
+    private sealed class ThrowingProgressSink : ICommandProgressSink
+    {
+        public ValueTask OnEntryAsync<TPayload> (
+            string eventName,
+            TPayload payload,
+            CancellationToken cancellationToken)
+            where TPayload : notnull
+        {
+            throw new IOException("Simulated progress sink failure.");
         }
     }
 }

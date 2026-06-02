@@ -164,7 +164,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             string level,
             string message)
         {
-            var lineLength = GetPositiveInt32TextLength(line);
+            var lineLength = SpanTextLength.GetInvariantInt64Length(line);
             var length = checked(file.Length + 1 + lineLength + 3 + level.Length + 1 + message.Length);
             return string.Create(
                 length,
@@ -189,8 +189,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             string level,
             string message)
         {
-            var lineLength = GetPositiveInt32TextLength(line);
-            var columnLength = GetPositiveInt32TextLength(column);
+            var lineLength = SpanTextLength.GetInvariantInt64Length(line);
+            var columnLength = SpanTextLength.GetInvariantInt64Length(column);
             var length = checked(file.Length + 1 + lineLength + 1 + columnLength + 3 + level.Length + 1 + message.Length);
             return string.Create(
                 length,
@@ -210,17 +210,5 @@ namespace MackySoft.Ucli.Unity.Ipc
                 });
         }
 
-        private static int GetPositiveInt32TextLength (int value)
-        {
-            var length = 1;
-            var remaining = value;
-            while (remaining >= 10)
-            {
-                length++;
-                remaining /= 10;
-            }
-
-            return length;
-        }
     }
 }

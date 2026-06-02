@@ -55,7 +55,7 @@ public sealed class DaemonStartServiceTests
         Assert.Equal(context.Context.UnityProject, supervisorProjectGateway.LastEnsureRunningUnityProject);
         Assert.True(supervisorProjectGateway.LastEnsureRunningTimeout > TimeSpan.Zero);
         Assert.True(supervisorProjectGateway.LastEnsureRunningTimeout <= context.Timeout);
-        Assert.Null(supervisorProjectGateway.LastEnsureRunningSupervisorProgressObserver);
+        Assert.Null(supervisorProjectGateway.LastEnsureRunningSupervisorProgressSink);
         Assert.Equal(1, mapper.CallCount);
     }
 
@@ -72,10 +72,10 @@ public sealed class DaemonStartServiceTests
         var session = DaemonServiceTestContext.CreateSession();
         var supervisorProjectGateway = new DaemonServiceTestContext.StubSupervisorProjectGateway
         {
-            EnsureRunningHandler = async (_, _, _, _, progressObserver, supervisorProgressObserver, cancellationToken) =>
+            EnsureRunningHandler = async (_, _, _, _, progressObserver, supervisorProgressSink, cancellationToken) =>
             {
                 Assert.NotNull(progressObserver);
-                Assert.NotNull(supervisorProgressObserver);
+                Assert.NotNull(supervisorProgressSink);
                 await progressObserver!.EmitSupervisorBootstrapStartedAsync(cancellationToken).ConfigureAwait(false);
                 await progressObserver.EmitSupervisorBootstrapCompletedAsync(error: null, cancellationToken).ConfigureAwait(false);
                 await progressObserver.EmitEnsureRunningStartedAsync(cancellationToken).ConfigureAwait(false);
@@ -96,6 +96,7 @@ public sealed class DaemonStartServiceTests
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
+        Assert.Same(progressSink, supervisorProjectGateway.LastEnsureRunningSupervisorProgressSink);
         Assert.Equal(8, progressSink.Entries.Count);
         AssertProgressEvents(
             progressSink,

@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Assurance;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Hosting.Cli.Common.Streaming;
 using MackySoft.Ucli.Infrastructure.Text;
 
@@ -46,7 +47,7 @@ internal sealed class CompileProgressTextProjector : ICliCommandProgressTextProj
         const string TimeoutLabel = " timeoutMs=";
         const string Status = " started";
 
-        var timeoutLength = GetInt64TextLength(entry.TimeoutMilliseconds);
+        var timeoutLength = SpanTextLength.GetInvariantInt64Length(entry.TimeoutMilliseconds);
         var length = checked(Prefix.Length
             + entry.RunId.Length
             + RequestedModeLabel.Length
@@ -115,7 +116,7 @@ internal sealed class CompileProgressTextProjector : ICliCommandProgressTextProj
         const string SummaryLabel = " summaryJsonPath=";
         const string Status = " recovered";
 
-        var pollAttemptsLength = GetInt64TextLength(entry.PollAttempts);
+        var pollAttemptsLength = SpanTextLength.GetInvariantInt64Length(entry.PollAttempts);
         var length = checked(Prefix.Length
             + entry.RunId.Length
             + PollsLabel.Length
@@ -203,8 +204,8 @@ internal sealed class CompileProgressTextProjector : ICliCommandProgressTextProj
         const string WarningsLabel = " warningCount=";
         const string Status = " completed";
 
-        var errorCountLength = GetInt64TextLength(entry.ErrorCount);
-        var warningCountLength = GetInt64TextLength(entry.WarningCount);
+        var errorCountLength = SpanTextLength.GetInvariantInt64Length(entry.ErrorCount);
+        var warningCountLength = SpanTextLength.GetInvariantInt64Length(entry.WarningCount);
         var length = checked(Prefix.Length
             + entry.RunId.Length
             + VerdictLabel.Length
@@ -232,21 +233,4 @@ internal sealed class CompileProgressTextProjector : ICliCommandProgressTextProj
             });
     }
 
-    private static int GetInt64TextLength (long value)
-    {
-        if (value == 0)
-        {
-            return 1;
-        }
-
-        var length = value < 0 ? 1 : 0;
-        var remaining = value;
-        while (remaining != 0)
-        {
-            length++;
-            remaining /= 10;
-        }
-
-        return length;
-    }
 }

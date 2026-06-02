@@ -162,9 +162,11 @@ public sealed class DaemonStartCommandTests
 
         Assert.Equal((int)CliExitCode.Success, exitCode);
         var lines = standardError.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
-        Assert.Equal(2, lines.Length);
+        Assert.Equal(4, lines.Length);
         using var waitingEntry = JsonDocument.Parse(lines[0]);
-        using var lifecycleEntry = JsonDocument.Parse(lines[1]);
+        using var blockerEntry = JsonDocument.Parse(lines[1]);
+        using var endpointEntry = JsonDocument.Parse(lines[2]);
+        using var lifecycleEntry = JsonDocument.Parse(lines[3]);
         JsonAssert.For(waitingEntry.RootElement)
             .HasString("event", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.WaitingForEndpoint))
             .HasInt32("sequence", 1);
@@ -176,9 +178,24 @@ public sealed class DaemonStartCommandTests
         Assert.False(waitingEntry.RootElement.GetProperty("payload").TryGetProperty("lifecycleState", out _));
         Assert.False(waitingEntry.RootElement.GetProperty("payload").TryGetProperty("blockingReason", out _));
         Assert.False(waitingEntry.RootElement.GetProperty("payload").TryGetProperty("canAcceptExecutionRequests", out _));
+        JsonAssert.For(blockerEntry.RootElement)
+            .HasString("event", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.BlockerDetected))
+            .HasInt32("sequence", 2);
+        JsonAssert.For(blockerEntry.RootElement.GetProperty("payload"))
+            .HasString("payloadKind", "startupObservation")
+            .HasString("startupStatus", DaemonStartupStatusValues.Blocked)
+            .HasString("startupBlockingReason", DaemonStartupBlockingReasonValues.Compile)
+            .HasString("retryDisposition", DaemonStartupRetryDispositionValues.RetryAfterFix);
+        JsonAssert.For(endpointEntry.RootElement)
+            .HasString("event", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.EndpointRegistered))
+            .HasInt32("sequence", 3);
+        JsonAssert.For(endpointEntry.RootElement.GetProperty("payload"))
+            .HasString("payloadKind", "startupObservation")
+            .HasString("projectFingerprint", "fingerprint")
+            .HasInt32("processId", 1234);
         JsonAssert.For(lifecycleEntry.RootElement)
             .HasString("event", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.LifecycleObserved))
-            .HasInt32("sequence", 2);
+            .HasInt32("sequence", 4);
         JsonAssert.For(lifecycleEntry.RootElement.GetProperty("payload"))
             .HasString("payloadKind", "lifecycleSnapshot")
             .HasString("lifecycleState", IpcEditorLifecycleStateCodec.Compiling)
@@ -240,13 +257,19 @@ public sealed class DaemonStartCommandTests
 
         Assert.Equal((int)CliExitCode.Success, exitCode);
         var lines = standardError.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
-        Assert.Equal(2, lines.Length);
+        Assert.Equal(4, lines.Length);
         Assert.Equal(
             "daemon start endpoint project=fingerprint timeoutMs=1234 editorMode=batchmode owner=cli canShutdownProcess=true pid=1234 launchAttempt=attempt-1 startupStatus=waitingForEndpoint startupPhase=endpointRegistration waiting",
             lines[0]);
         Assert.Equal(
-            "daemon start lifecycle project=fingerprint timeoutMs=1234 editorMode=batchmode lifecycleState=compiling blockingReason=compile canAcceptExecutionRequests=false observed",
+            "daemon start blocker project=fingerprint timeoutMs=1234 editorMode=batchmode owner=cli canShutdownProcess=true pid=1234 launchAttempt=attempt-1 startupStatus=blocked startupBlockingReason=compile startupPhase=endpointRegistration retryDisposition=retryAfterFix errorCode=DAEMON_STARTUP_BLOCKED detected",
             lines[1]);
+        Assert.Equal(
+            "daemon start endpoint project=fingerprint timeoutMs=1234 editorMode=batchmode owner=cli canShutdownProcess=true pid=1234 launchAttempt=attempt-1 registered",
+            lines[2]);
+        Assert.Equal(
+            "daemon start lifecycle project=fingerprint timeoutMs=1234 editorMode=batchmode lifecycleState=compiling blockingReason=compile canAcceptExecutionRequests=false observed",
+            lines[3]);
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
         Assert.False(outputJson.RootElement.TryGetProperty("event", out _));
     }
@@ -618,6 +641,48 @@ public sealed class DaemonStartCommandTests
                     "waitingForEndpoint",
                     null,
                     "endpointRegistration",
+                    null,
+                    null,
+                    null),
+                cancellationToken)
+            .ConfigureAwait(false);
+        await progressSink.OnEntryAsync(
+                ContractLiteralCodec.ToValue(DaemonStartProgressEvent.BlockerDetected),
+                new DaemonStartStartupObservationProgressEntry(
+                    ContractLiteralCodec.ToValue(DaemonStartProgressPayloadKind.StartupObservation),
+                    "fingerprint",
+                    1234,
+                    "batchmode",
+                    "auto",
+                    "attempt-1",
+                    "cli",
+                    true,
+                    1234,
+                    new DateTimeOffset(2026, 03, 12, 1, 2, 0, TimeSpan.Zero),
+                    DaemonStartupStatusValues.Blocked,
+                    DaemonStartupBlockingReasonValues.Compile,
+                    "endpointRegistration",
+                    DaemonStartupRetryDispositionValues.RetryAfterFix,
+                    "Unity startup is blocked.",
+                    DaemonErrorCodes.DaemonStartupBlocked.Value),
+                cancellationToken)
+            .ConfigureAwait(false);
+        await progressSink.OnEntryAsync(
+                ContractLiteralCodec.ToValue(DaemonStartProgressEvent.EndpointRegistered),
+                new DaemonStartStartupObservationProgressEntry(
+                    ContractLiteralCodec.ToValue(DaemonStartProgressPayloadKind.StartupObservation),
+                    "fingerprint",
+                    1234,
+                    "batchmode",
+                    "auto",
+                    "attempt-1",
+                    "cli",
+                    true,
+                    1234,
+                    new DateTimeOffset(2026, 03, 12, 1, 2, 0, TimeSpan.Zero),
+                    null,
+                    null,
+                    null,
                     null,
                     null,
                     null),

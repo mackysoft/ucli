@@ -70,7 +70,7 @@ internal sealed class DaemonStartProgressTextProjector : ICliCommandProgressText
             DaemonStartProgressEvent.Completed => "workflow",
             _ => eventName,
         };
-        var status = IsStartedEvent(progressEvent, eventName)
+        var status = IsStartedEvent(progressEvent)
                 ? "started"
                 : "completed";
         var length = checked(
@@ -79,11 +79,11 @@ internal sealed class DaemonStartProgressTextProjector : ICliCommandProgressText
             + ProjectPrefix.Length
             + entry.ProjectFingerprint.Length
             + TimeoutPrefix.Length
-            + GetInvariantInt32Length(entry.TimeoutMilliseconds)
-            + GetOptionalLength(ResultPrefix, entry.Result)
-            + GetOptionalLength(StartStatusPrefix, entry.StartStatus)
-            + GetOptionalLength(DaemonStatusPrefix, entry.DaemonStatus)
-            + GetOptionalLength(ErrorCodePrefix, entry.ErrorCode)
+            + SpanTextLength.GetInvariantInt64Length(entry.TimeoutMilliseconds)
+            + SpanTextLength.GetOptionalStringLength(ResultPrefix, entry.Result)
+            + SpanTextLength.GetOptionalStringLength(StartStatusPrefix, entry.StartStatus)
+            + SpanTextLength.GetOptionalStringLength(DaemonStatusPrefix, entry.DaemonStatus)
+            + SpanTextLength.GetOptionalStringLength(ErrorCodePrefix, entry.ErrorCode)
             + 1
             + status.Length);
         return string.Create(
@@ -98,10 +98,10 @@ internal sealed class DaemonStartProgressTextProjector : ICliCommandProgressText
                 writer.Append(state.entry.ProjectFingerprint);
                 writer.Append(TimeoutPrefix);
                 writer.AppendInvariant(state.entry.TimeoutMilliseconds);
-                AppendOptional(ref writer, ResultPrefix, state.entry.Result);
-                AppendOptional(ref writer, StartStatusPrefix, state.entry.StartStatus);
-                AppendOptional(ref writer, DaemonStatusPrefix, state.entry.DaemonStatus);
-                AppendOptional(ref writer, ErrorCodePrefix, state.entry.ErrorCode);
+                writer.AppendOptional(ResultPrefix, state.entry.Result);
+                writer.AppendOptional(StartStatusPrefix, state.entry.StartStatus);
+                writer.AppendOptional(DaemonStatusPrefix, state.entry.DaemonStatus);
+                writer.AppendOptional(ErrorCodePrefix, state.entry.ErrorCode);
                 writer.Append(' ');
                 writer.Append(state.status);
             });
@@ -135,17 +135,17 @@ internal sealed class DaemonStartProgressTextProjector : ICliCommandProgressText
             + ProjectPrefix.Length
             + entry.ProjectFingerprint.Length
             + TimeoutPrefix.Length
-            + GetInvariantInt32Length(entry.TimeoutMilliseconds)
-            + GetOptionalLength(EditorModePrefix, entry.EditorMode)
-            + GetOptionalLength(OwnerKindPrefix, entry.OwnerKind)
-            + GetOptionalBoolLength(CanShutdownProcessPrefix, entry.CanShutdownProcess)
-            + GetOptionalInt32Length(ProcessIdPrefix, entry.ProcessId)
-            + GetOptionalLength(LaunchAttemptIdPrefix, entry.LaunchAttemptId)
-            + GetOptionalLength(StartupStatusPrefix, entry.StartupStatus)
-            + GetOptionalLength(StartupBlockingReasonPrefix, entry.StartupBlockingReason)
-            + GetOptionalLength(StartupPhasePrefix, entry.StartupPhase)
-            + GetOptionalLength(RetryDispositionPrefix, entry.RetryDisposition)
-            + GetOptionalLength(ErrorCodePrefix, entry.ErrorCode)
+            + SpanTextLength.GetInvariantInt64Length(entry.TimeoutMilliseconds)
+            + SpanTextLength.GetOptionalStringLength(EditorModePrefix, entry.EditorMode)
+            + SpanTextLength.GetOptionalStringLength(OwnerKindPrefix, entry.OwnerKind)
+            + SpanTextLength.GetOptionalBoolLength(CanShutdownProcessPrefix, entry.CanShutdownProcess)
+            + SpanTextLength.GetOptionalInvariantInt64Length(ProcessIdPrefix, entry.ProcessId)
+            + SpanTextLength.GetOptionalStringLength(LaunchAttemptIdPrefix, entry.LaunchAttemptId)
+            + SpanTextLength.GetOptionalStringLength(StartupStatusPrefix, entry.StartupStatus)
+            + SpanTextLength.GetOptionalStringLength(StartupBlockingReasonPrefix, entry.StartupBlockingReason)
+            + SpanTextLength.GetOptionalStringLength(StartupPhasePrefix, entry.StartupPhase)
+            + SpanTextLength.GetOptionalStringLength(RetryDispositionPrefix, entry.RetryDisposition)
+            + SpanTextLength.GetOptionalStringLength(ErrorCodePrefix, entry.ErrorCode)
             + 1
             + status.Length);
         return string.Create(
@@ -160,16 +160,16 @@ internal sealed class DaemonStartProgressTextProjector : ICliCommandProgressText
                 writer.Append(state.entry.ProjectFingerprint);
                 writer.Append(TimeoutPrefix);
                 writer.AppendInvariant(state.entry.TimeoutMilliseconds);
-                AppendOptional(ref writer, EditorModePrefix, state.entry.EditorMode);
-                AppendOptional(ref writer, OwnerKindPrefix, state.entry.OwnerKind);
-                AppendOptional(ref writer, CanShutdownProcessPrefix, state.entry.CanShutdownProcess);
-                AppendOptional(ref writer, ProcessIdPrefix, state.entry.ProcessId);
-                AppendOptional(ref writer, LaunchAttemptIdPrefix, state.entry.LaunchAttemptId);
-                AppendOptional(ref writer, StartupStatusPrefix, state.entry.StartupStatus);
-                AppendOptional(ref writer, StartupBlockingReasonPrefix, state.entry.StartupBlockingReason);
-                AppendOptional(ref writer, StartupPhasePrefix, state.entry.StartupPhase);
-                AppendOptional(ref writer, RetryDispositionPrefix, state.entry.RetryDisposition);
-                AppendOptional(ref writer, ErrorCodePrefix, state.entry.ErrorCode);
+                writer.AppendOptional(EditorModePrefix, state.entry.EditorMode);
+                writer.AppendOptional(OwnerKindPrefix, state.entry.OwnerKind);
+                writer.AppendOptionalBool(CanShutdownProcessPrefix, state.entry.CanShutdownProcess);
+                writer.AppendOptionalInvariant(ProcessIdPrefix, state.entry.ProcessId);
+                writer.AppendOptional(LaunchAttemptIdPrefix, state.entry.LaunchAttemptId);
+                writer.AppendOptional(StartupStatusPrefix, state.entry.StartupStatus);
+                writer.AppendOptional(StartupBlockingReasonPrefix, state.entry.StartupBlockingReason);
+                writer.AppendOptional(StartupPhasePrefix, state.entry.StartupPhase);
+                writer.AppendOptional(RetryDispositionPrefix, state.entry.RetryDisposition);
+                writer.AppendOptional(ErrorCodePrefix, state.entry.ErrorCode);
                 writer.Append(' ');
                 writer.Append(state.status);
             });
@@ -189,13 +189,13 @@ internal sealed class DaemonStartProgressTextProjector : ICliCommandProgressText
             + ProjectPrefix.Length
             + entry.ProjectFingerprint.Length
             + TimeoutPrefix.Length
-            + GetInvariantInt32Length(entry.TimeoutMilliseconds)
-            + GetOptionalLength(EditorModePrefix, entry.EditorMode)
+            + SpanTextLength.GetInvariantInt64Length(entry.TimeoutMilliseconds)
+            + SpanTextLength.GetOptionalStringLength(EditorModePrefix, entry.EditorMode)
             + LifecycleStatePrefix.Length
             + entry.LifecycleState.Length
-            + GetOptionalLength(BlockingReasonPrefix, entry.BlockingReason)
+            + SpanTextLength.GetOptionalStringLength(BlockingReasonPrefix, entry.BlockingReason)
             + CanAcceptExecutionRequestsPrefix.Length
-            + GetBoolLength(entry.CanAcceptExecutionRequests)
+            + SpanTextLength.GetBoolLength(entry.CanAcceptExecutionRequests)
             + 1
             + status.Length);
         return string.Create(
@@ -210,41 +210,15 @@ internal sealed class DaemonStartProgressTextProjector : ICliCommandProgressText
                 writer.Append(state.entry.ProjectFingerprint);
                 writer.Append(TimeoutPrefix);
                 writer.AppendInvariant(state.entry.TimeoutMilliseconds);
-                AppendOptional(ref writer, EditorModePrefix, state.entry.EditorMode);
+                writer.AppendOptional(EditorModePrefix, state.entry.EditorMode);
                 writer.Append(LifecycleStatePrefix);
                 writer.Append(state.entry.LifecycleState);
-                AppendOptional(ref writer, BlockingReasonPrefix, state.entry.BlockingReason);
+                writer.AppendOptional(BlockingReasonPrefix, state.entry.BlockingReason);
                 writer.Append(CanAcceptExecutionRequestsPrefix);
-                AppendBool(ref writer, state.entry.CanAcceptExecutionRequests);
+                writer.AppendBool(state.entry.CanAcceptExecutionRequests);
                 writer.Append(' ');
                 writer.Append(status);
             });
-    }
-
-    private static int GetOptionalLength (
-        string prefix,
-        string? value)
-    {
-        return value is null ? 0 : checked(prefix.Length + value.Length);
-    }
-
-    private static int GetOptionalInt32Length (
-        string prefix,
-        int? value)
-    {
-        return value.HasValue ? checked(prefix.Length + GetInvariantInt32Length(value.Value)) : 0;
-    }
-
-    private static int GetOptionalBoolLength (
-        string prefix,
-        bool? value)
-    {
-        return value.HasValue ? checked(prefix.Length + GetBoolLength(value.Value)) : 0;
-    }
-
-    private static int GetBoolLength (bool value)
-    {
-        return value ? 4 : 5;
     }
 
     private static DaemonStartProgressEvent? ParseProgressEvent (string eventName)
@@ -254,82 +228,13 @@ internal sealed class DaemonStartProgressTextProjector : ICliCommandProgressText
             : null;
     }
 
-    private static bool IsStartedEvent (
-        DaemonStartProgressEvent? progressEvent,
-        string eventName)
+    private static bool IsStartedEvent (DaemonStartProgressEvent? progressEvent)
     {
         return progressEvent
             is DaemonStartProgressEvent.Started
             or DaemonStartProgressEvent.PluginVerificationStarted
             or DaemonStartProgressEvent.SupervisorBootstrapStarted
-            or DaemonStartProgressEvent.EnsureRunningStarted
-            || eventName.EndsWith(".started", StringComparison.Ordinal);
+            or DaemonStartProgressEvent.EnsureRunningStarted;
     }
 
-    private static int GetInvariantInt32Length (int value)
-    {
-        if (value == 0)
-        {
-            return 1;
-        }
-
-        var length = value < 0 ? 1 : 0;
-        var remaining = value < 0 ? -(long)value : value;
-        while (remaining > 0)
-        {
-            remaining /= 10;
-            length++;
-        }
-
-        return length;
-    }
-
-    private static void AppendOptional (
-        ref SpanTextWriter writer,
-        string prefix,
-        string? value)
-    {
-        if (value == null)
-        {
-            return;
-        }
-
-        writer.Append(prefix);
-        writer.Append(value);
-    }
-
-    private static void AppendOptional (
-        ref SpanTextWriter writer,
-        string prefix,
-        int? value)
-    {
-        if (!value.HasValue)
-        {
-            return;
-        }
-
-        writer.Append(prefix);
-        writer.AppendInvariant(value.Value);
-    }
-
-    private static void AppendOptional (
-        ref SpanTextWriter writer,
-        string prefix,
-        bool? value)
-    {
-        if (!value.HasValue)
-        {
-            return;
-        }
-
-        writer.Append(prefix);
-        AppendBool(ref writer, value.Value);
-    }
-
-    private static void AppendBool (
-        ref SpanTextWriter writer,
-        bool value)
-    {
-        writer.Append(value ? "true" : "false");
-    }
 }

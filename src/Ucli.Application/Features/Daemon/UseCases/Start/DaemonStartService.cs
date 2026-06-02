@@ -140,7 +140,7 @@ internal sealed class DaemonStartService : IDaemonStartService
                 editorMode,
                 onStartupBlocked,
                 progressEmitter,
-                progressSink is null ? null : progressEmitter,
+                progressSink,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!startResult.IsSuccess)

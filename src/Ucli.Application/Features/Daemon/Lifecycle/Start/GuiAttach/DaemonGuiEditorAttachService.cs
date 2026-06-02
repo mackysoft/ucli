@@ -5,6 +5,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiAttach;
@@ -87,7 +88,9 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
                     marker,
                     probeResult.ProcessStartedAtUtc,
                     onStartupBlocked,
-                    CreateTimeoutError($"Timed out before waiting for existing GUI Editor endpoint registration. ProcessId={marker.ProcessId}."))
+                    progressObserver,
+                    CreateTimeoutError($"Timed out before waiting for existing GUI Editor endpoint registration. ProcessId={marker.ProcessId}."),
+                    cancellationToken)
                 .ConfigureAwait(false);
         }
 
@@ -117,7 +120,9 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
                     marker,
                     probeResult.ProcessStartedAtUtc,
                     onStartupBlocked,
-                    initialWaitResult.Error)
+                    progressObserver,
+                    initialWaitResult.Error,
+                    cancellationToken)
                 .ConfigureAwait(false);
         }
 
@@ -136,6 +141,7 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
                     probeResult.ProcessStartedAtUtc,
                     onStartupBlocked,
                     rebootstrapResult.Error!,
+                    progressObserver,
                     cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -147,7 +153,9 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
                     marker,
                     probeResult.ProcessStartedAtUtc,
                     onStartupBlocked,
-                    initialWaitResult.Error)
+                    progressObserver,
+                    initialWaitResult.Error,
+                    cancellationToken)
                 .ConfigureAwait(false);
         }
 
@@ -174,7 +182,9 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
                 marker,
                 probeResult.ProcessStartedAtUtc,
                 onStartupBlocked,
-                waitResult.Error)
+                progressObserver,
+                waitResult.Error,
+                cancellationToken)
             .ConfigureAwait(false);
     }
 
@@ -184,10 +194,11 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
         DateTimeOffset? processStartedAtUtc,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
         ExecutionError rebootstrapError,
+        IDaemonStartProgressObserver? progressObserver,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return await DaemonGuiRebootstrapUnavailableFailureFactory.CreateFailureAsync(
+        var result = await DaemonGuiRebootstrapUnavailableFailureFactory.CreateFailureAsync(
                 unityProject,
                 daemonDiagnosisStore,
                 timeProvider,
@@ -198,6 +209,15 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
                 rebootstrapError,
                 cancellationToken)
             .ConfigureAwait(false);
+        await EmitBlockerDetectedAsync(
+                progressObserver,
+                marker,
+                processStartedAtUtc,
+                result.Startup!,
+                result.Error,
+                cancellationToken)
+            .ConfigureAwait(false);
+        return result;
     }
 
     private static TimeSpan GetInitialSessionProbeTimeout (TimeSpan remainingTimeout)
@@ -213,8 +233,11 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
         UnityEditorInstanceMarker marker,
         DateTimeOffset? processStartedAtUtc,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
-        ExecutionError waitError)
+        IDaemonStartProgressObserver? progressObserver,
+        ExecutionError waitError,
+        CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var result = await DaemonGuiEndpointNotRegisteredFailureFactory.CreateFailureAsync(
                 unityProject,
                 daemonDiagnosisStore,
@@ -244,7 +267,16 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
             StartedAtUtc: processStartedAtUtc,
             ElapsedMilliseconds: null,
             ArtifactPath: null);
-        return DaemonStartResult.Failure(result.Error!, result.Diagnosis, startup);
+        var failure = DaemonStartResult.Failure(result.Error!, result.Diagnosis, startup);
+        await EmitBlockerDetectedAsync(
+                progressObserver,
+                marker,
+                processStartedAtUtc,
+                startup,
+                failure.Error,
+                cancellationToken)
+            .ConfigureAwait(false);
+        return failure;
     }
 
     private static ExecutionError CreateTimeoutError (string message)
@@ -300,4 +332,35 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
         }
     }
 
+    private static async ValueTask EmitBlockerDetectedAsync (
+        IDaemonStartProgressObserver? progressObserver,
+        UnityEditorInstanceMarker marker,
+        DateTimeOffset? processStartedAtUtc,
+        DaemonStartupObservation startup,
+        ExecutionError? error,
+        CancellationToken cancellationToken)
+    {
+        if (progressObserver is null)
+        {
+            return;
+        }
+
+        ArgumentNullException.ThrowIfNull(startup);
+        await progressObserver.EmitBlockerDetectedAsync(
+                new DaemonStartStartupProgressObservation(
+                    LaunchAttemptId: startup.LaunchAttemptId,
+                    EditorMode: startup.EditorMode,
+                    OwnerKind: startup.OwnerKind,
+                    CanShutdownProcess: startup.CanShutdownProcess,
+                    ProcessId: startup.ProcessId ?? marker.ProcessId,
+                    ProcessStartedAtUtc: startup.StartedAtUtc ?? processStartedAtUtc,
+                    StartupStatus: startup.StartupStatus,
+                    StartupBlockingReason: startup.StartupBlockingReason,
+                    StartupPhase: DaemonDiagnosisStartupPhaseValues.EndpointRegistration,
+                    RetryDisposition: startup.RetryDisposition,
+                    Message: error?.Message,
+                    ErrorCode: error is null ? null : ExecutionErrorCodeMapper.ToCode(error).Value),
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
 }

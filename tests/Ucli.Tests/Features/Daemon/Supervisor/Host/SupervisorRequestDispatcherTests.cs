@@ -64,6 +64,67 @@ public sealed class SupervisorRequestDispatcherTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task HandleConnection_WhenResponseModeIsUnsupported_ReturnsInvalidArgumentWithoutStartOperation ()
+    {
+        var startOperation = new StubDaemonStartOperation();
+        var dispatcher = CreateDispatcher(startOperation);
+        var runtimeContext = CreateRuntimeContext();
+        var unityProjectRoot = Path.Combine(runtimeContext.StorageRoot, "UnityProject");
+        var projectFingerprint = UnityProjectFingerprintCalculator.Create(runtimeContext.StorageRoot, unityProjectRoot);
+
+        var response = await SendRequestAsync(
+            dispatcher,
+            runtimeContext,
+            new IpcRequest(
+                ProtocolVersion: IpcProtocol.CurrentVersion,
+                RequestId: "request-unsupported-response-mode",
+                SessionToken: runtimeContext.Manifest.SessionToken,
+                Method: SupervisorIpcContracts.EnsureRunningMethod,
+                Payload: IpcPayloadCodec.SerializeToElement(
+                    new SupervisorIpcContracts.EnsureRunningRequest(
+                        UnityProjectRoot: unityProjectRoot,
+                        ProjectFingerprint: projectFingerprint,
+                        TimeoutMilliseconds: 1000,
+                        EditorMode: null,
+                        OnStartupBlocked: "auto")),
+                ResponseMode: "unsupported"));
+
+        Assert.Equal(IpcProtocol.StatusError, response.Status);
+        var error = Assert.Single(response.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, error.Code);
+        Assert.Equal(0, startOperation.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task HandleConnection_WhenStreamResponseModeTargetsPing_ReturnsInvalidArgument ()
+    {
+        var dispatcher = CreateDispatcher();
+        var runtimeContext = CreateRuntimeContext();
+
+        var frames = await SendStreamingRequestAsync(
+            dispatcher,
+            runtimeContext,
+            new IpcRequest(
+                ProtocolVersion: IpcProtocol.CurrentVersion,
+                RequestId: "request-ping-stream-response-mode",
+                SessionToken: runtimeContext.Manifest.SessionToken,
+                Method: SupervisorIpcContracts.PingMethod,
+                Payload: IpcPayloadCodec.SerializeToElement(
+                    new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion)),
+                ResponseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Stream)));
+
+        var terminalFrame = Assert.Single(frames);
+        Assert.Equal(IpcStreamFrameKinds.Terminal, terminalFrame.Kind);
+        var response = Assert.IsType<IpcResponse>(terminalFrame.Response);
+        Assert.Equal(IpcProtocol.StatusError, response.Status);
+        var error = Assert.Single(response.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, error.Code);
+        Assert.Contains(SupervisorIpcContracts.EnsureRunningMethod, error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task HandleConnection_WhenUnityProjectRootIsInvalid_ReturnsInvalidArgumentWithoutBreakingSubsequentRequests ()
     {
         var dispatcher = CreateDispatcher();
@@ -492,7 +553,7 @@ public sealed class SupervisorRequestDispatcherTests
         var unityProjectRoot = Path.Combine(runtimeContext.StorageRoot, "UnityProject");
         var projectFingerprint = UnityProjectFingerprintCalculator.Create(runtimeContext.StorageRoot, unityProjectRoot);
 
-        await SendStreamingRequestWithWriteFailureAsync(
+        var frames = await SendStreamingRequestWithTransientWriteFailureAsync(
             dispatcher,
             runtimeContext,
             new IpcRequest(
@@ -511,6 +572,13 @@ public sealed class SupervisorRequestDispatcherTests
 
         Assert.True(progressWriteCanceled);
         Assert.NotNull(startOperation.LastProgressObserver);
+        var terminalFrame = Assert.Single(frames);
+        Assert.Equal(IpcStreamFrameKinds.Terminal, terminalFrame.Kind);
+        var terminalResponse = Assert.IsType<IpcResponse>(terminalFrame.Response);
+        Assert.Equal(IpcProtocol.StatusError, terminalResponse.Status);
+        var error = Assert.Single(terminalResponse.Errors);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, error.Code);
+        Assert.Contains("caller disconnected", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -653,17 +721,29 @@ public sealed class SupervisorRequestDispatcherTests
         }
     }
 
-    private static async Task SendStreamingRequestWithWriteFailureAsync (
+    private static async Task<IReadOnlyList<IpcStreamFrame>> SendStreamingRequestWithTransientWriteFailureAsync (
         SupervisorRequestDispatcher dispatcher,
         SupervisorRuntimeContext runtimeContext,
         IpcRequest request)
     {
         using var stream = new DuplexMemoryStream(await CreateRequestFrameBytesAsync(request).ConfigureAwait(false))
         {
-            FailWrites = true,
+            FailWriteCount = 1,
         };
 
         await dispatcher.HandleConnectionAsync(stream, runtimeContext, CancellationToken.None).ConfigureAwait(false);
+
+        using var outputStream = new MemoryStream(stream.GetWrittenBytes());
+        var frames = new List<IpcStreamFrame>();
+        while (outputStream.Position < outputStream.Length)
+        {
+            frames.Add(await IpcFrameCodec.ReadModelAsync<IpcStreamFrame>(
+                    outputStream,
+                    IpcJsonSerializerOptions.Default)
+                .ConfigureAwait(false));
+        }
+
+        return frames;
     }
 
     private static async Task<byte[]> CreateRequestFrameBytesAsync (IpcRequest request)
@@ -720,6 +800,8 @@ public sealed class SupervisorRequestDispatcherTests
         }
 
         public bool FailWrites { get; set; }
+
+        public int FailWriteCount { get; set; }
 
         public override bool CanRead => true;
 
@@ -793,7 +875,7 @@ public sealed class SupervisorRequestDispatcherTests
             int offset,
             int count)
         {
-            if (FailWrites)
+            if (ShouldFailWrite())
             {
                 throw new IOException("Simulated caller disconnect.");
             }
@@ -805,13 +887,29 @@ public sealed class SupervisorRequestDispatcherTests
             ReadOnlyMemory<byte> buffer,
             CancellationToken cancellationToken = default)
         {
-            if (FailWrites)
+            if (ShouldFailWrite())
             {
                 throw new IOException("Simulated caller disconnect.");
             }
 
             output.Write(buffer.Span);
             return ValueTask.CompletedTask;
+        }
+
+        private bool ShouldFailWrite ()
+        {
+            if (FailWrites)
+            {
+                return true;
+            }
+
+            if (FailWriteCount <= 0)
+            {
+                return false;
+            }
+
+            FailWriteCount--;
+            return true;
         }
     }
 
