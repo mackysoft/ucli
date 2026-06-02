@@ -1,13 +1,12 @@
 using System;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Unity.Runtime;
-
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Unity.Runtime;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
-    /// <summary> Encodes lifecycle-bearing response payload values for Unity IPC server. </summary>
+    /// <summary> Encodes lifecycle-bearing response payload values for Unity IPC protocol responses. </summary>
     internal static class UnityLifecycleResponseCodec
     {
         /// <summary> Creates one ping response payload from Unity editor environment values. </summary>

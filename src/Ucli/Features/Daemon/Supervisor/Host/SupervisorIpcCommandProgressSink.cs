@@ -1,14 +1,15 @@
 using MackySoft.Ucli.Application.Shared.Execution.Progress;
+using MackySoft.Ucli.Infrastructure.Ipc;
 
 namespace MackySoft.Ucli.Features.Daemon.Supervisor.Host;
 
 /// <summary> Projects command progress entries to supervisor IPC progress frames. </summary>
 internal sealed class SupervisorIpcCommandProgressSink : ICommandProgressSink
 {
-    private readonly SupervisorIpcStreamFrameWriter streamWriter;
+    private readonly IpcStreamFrameWriter streamWriter;
 
     /// <summary> Initializes a new instance of the <see cref="SupervisorIpcCommandProgressSink" /> class. </summary>
-    public SupervisorIpcCommandProgressSink (SupervisorIpcStreamFrameWriter streamWriter)
+    public SupervisorIpcCommandProgressSink (IpcStreamFrameWriter streamWriter)
     {
         this.streamWriter = streamWriter ?? throw new ArgumentNullException(nameof(streamWriter));
     }
@@ -29,17 +30,12 @@ internal sealed class SupervisorIpcCommandProgressSink : ICommandProgressSink
         {
             throw;
         }
-        catch (Exception exception) when (IsConnectionLocalWriteFailure(exception))
+        catch (Exception exception) when (IpcConnectionWriteFailureClassifier.IsConnectionLocalWriteFailure(exception))
         {
             throw new OperationCanceledException(
                 "Supervisor progress stream was canceled because the caller disconnected.",
                 exception,
                 cancellationToken);
         }
-    }
-
-    private static bool IsConnectionLocalWriteFailure (Exception exception)
-    {
-        return exception is IOException or ObjectDisposedException or InvalidOperationException;
     }
 }

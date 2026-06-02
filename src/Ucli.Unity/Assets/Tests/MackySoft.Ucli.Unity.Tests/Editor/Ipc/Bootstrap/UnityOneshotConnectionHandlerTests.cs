@@ -190,7 +190,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public Task<IpcResponse> ProcessStreamingAsync (
                 IpcRequest request,
-                IUnityIpcStreamFrameWriter streamWriter,
+                IIpcStreamFrameWriter streamWriter,
                 CancellationToken cancellationToken = default)
             {
                 throw new NotSupportedException();

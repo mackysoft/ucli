@@ -53,7 +53,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 {
                     throw;
                 }
-                catch (Exception writeException) when (writeException is IOException or ObjectDisposedException or InvalidOperationException)
+                catch (Exception writeException) when (IpcConnectionWriteFailureClassifier.IsConnectionLocalWriteFailure(writeException))
                 {
                     // NOTE:
                     // The peer may already close the connection after sending a malformed frame.
@@ -67,7 +67,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             if (IsStreamingResponse(request))
             {
                 using var requestCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                var streamWriter = new UnityIpcStreamFrameWriter(
+                var streamWriter = new IpcStreamFrameWriter(
                     stream,
                     request,
                     _ => TryCancel(requestCancellationTokenSource));
@@ -98,7 +98,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private async Task<IpcResponse> ProcessStreamingSafelyAsync (
             IpcRequest request,
-            IUnityIpcStreamFrameWriter streamWriter,
+            IIpcStreamFrameWriter streamWriter,
             CancellationTokenSource requestCancellationTokenSource,
             CancellationToken connectionCancellationToken)
         {
@@ -115,7 +115,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return CreateStreamWriteFailureResponse(request, "Streaming IPC request was canceled because the response stream failed.");
             }
             catch (Exception exception) when (requestCancellationTokenSource.IsCancellationRequested
-                && IsConnectionLocalWriteFailure(exception))
+                && IpcConnectionWriteFailureClassifier.IsConnectionLocalWriteFailure(exception))
             {
                 return CreateStreamWriteFailureResponse(request, $"Streaming IPC response stream failed. {exception.Message}");
             }
@@ -133,7 +133,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         private static async Task WriteTerminalSafelyAsync (
-            UnityIpcStreamFrameWriter streamWriter,
+            IIpcStreamFrameWriter streamWriter,
             IpcResponse response,
             CancellationToken cancellationToken)
         {
@@ -145,17 +145,12 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 throw;
             }
-            catch (Exception exception) when (IsConnectionLocalWriteFailure(exception))
+            catch (Exception exception) when (IpcConnectionWriteFailureClassifier.IsConnectionLocalWriteFailure(exception))
             {
                 // NOTE:
                 // A broken response stream means the peer has already lost the connection.
                 // Keep the failure connection-local so the daemon listener can keep serving.
             }
-        }
-
-        private static bool IsConnectionLocalWriteFailure (Exception exception)
-        {
-            return exception is IOException or ObjectDisposedException or InvalidOperationException;
         }
 
         private static void TryCancel (CancellationTokenSource cancellationTokenSource)

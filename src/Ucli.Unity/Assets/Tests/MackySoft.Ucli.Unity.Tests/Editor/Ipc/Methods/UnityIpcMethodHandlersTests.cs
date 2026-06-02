@@ -12,6 +12,7 @@ using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Testing;
+using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using MackySoft.Ucli.Unity.Execution.Dispatch;
@@ -368,7 +369,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 return Task.FromResult(UnityTestRunServiceResult.Success(new IpcTestRunResponse(0)));
             });
             var handler = CreateTestRunHandler(service);
-            var streamWriter = new CollectingUnityIpcStreamFrameWriter("req-test-run-stream");
+            var streamWriter = new CollectingIpcStreamFrameWriter("req-test-run-stream");
             var request = CreateTestRunRequest(
                 "req-test-run-stream",
                 CreateValidTestRunPayload());
@@ -407,7 +408,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 return Task.FromResult(UnityTestRunServiceResult.Success(new IpcTestRunResponse(0)));
             });
             var handler = CreateTestRunHandler(service);
-            var streamWriter = new CollectingUnityIpcStreamFrameWriter(
+            var streamWriter = new CollectingIpcStreamFrameWriter(
                 "req-test-run-stream-flush-error",
                 new IOException("progress write failed"));
             var request = CreateTestRunRequest(
@@ -501,7 +502,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 return UnityTestRunServiceResult.Success(new IpcTestRunResponse(0));
             });
             var handler = CreateTestRunHandler(service, timeoutScopeFactory);
-            var streamWriter = new BlockingUnityIpcStreamFrameWriter("req-test-run-stream-timeout");
+            var streamWriter = new BlockingIpcStreamFrameWriter("req-test-run-stream-timeout");
             var request = CreateTestRunRequest(
                 "req-test-run-stream-timeout",
                 CreateValidTestRunPayload(timeoutMilliseconds: 1000));
@@ -532,7 +533,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator TestRunProgressSink_WhenPendingFrameLimitIsExceeded_QueuesOneDropDiagnosticAndFlushWaits () => UniTask.ToCoroutine(async () =>
         {
-            var streamWriter = new BlockingUnityIpcStreamFrameWriter("req-test-run-progress-backpressure");
+            var streamWriter = new BlockingIpcStreamFrameWriter("req-test-run-progress-backpressure");
             var progressSink = new UnityIpcTestRunProgressSink(
                 streamWriter,
                 "run-id",
@@ -1703,12 +1704,12 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         }
 
-        private sealed class CollectingUnityIpcStreamFrameWriter : IUnityIpcStreamFrameWriter
+        private sealed class CollectingIpcStreamFrameWriter : IIpcStreamFrameWriter
         {
             private readonly string requestId;
             private readonly Exception progressWriteException;
 
-            public CollectingUnityIpcStreamFrameWriter (
+            public CollectingIpcStreamFrameWriter (
                 string requestId,
                 Exception progressWriteException = null)
             {
@@ -1722,16 +1723,17 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public int ProgressWriteAttemptCount { get; private set; }
 
-            public Task WriteProgressAsync (
+            public ValueTask WriteProgressAsync<TPayload> (
                 string eventName,
-                object payload,
+                TPayload payload,
                 CancellationToken cancellationToken = default)
+                where TPayload : notnull
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 ProgressWriteAttemptCount++;
                 if (progressWriteException != null)
                 {
-                    return Task.FromException(progressWriteException);
+                    return new ValueTask(Task.FromException(progressWriteException));
                 }
 
                 ProgressFrames.Add(new IpcStreamFrame(
@@ -1741,20 +1743,20 @@ namespace MackySoft.Ucli.Unity.Tests
                     eventName,
                     IpcPayloadCodec.SerializeToElement(payload),
                     null));
-                return Task.CompletedTask;
+                return default;
             }
 
-            public Task WriteTerminalAsync (
+            public ValueTask WriteTerminalAsync (
                 IpcResponse response,
                 CancellationToken cancellationToken = default)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 TerminalResponse = response;
-                return Task.CompletedTask;
+                return default;
             }
         }
 
-        private sealed class BlockingUnityIpcStreamFrameWriter : IUnityIpcStreamFrameWriter
+        private sealed class BlockingIpcStreamFrameWriter : IIpcStreamFrameWriter
         {
             private readonly string requestId;
             private readonly TaskCompletionSource<bool> writeReleaseSource =
@@ -1762,7 +1764,7 @@ namespace MackySoft.Ucli.Unity.Tests
             private readonly TaskCompletionSource<bool> firstWriteObservedSource =
                 new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-            public BlockingUnityIpcStreamFrameWriter (string requestId)
+            public BlockingIpcStreamFrameWriter (string requestId)
             {
                 this.requestId = requestId;
             }
@@ -1773,10 +1775,11 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public CancellationToken LastWriteCancellationToken { get; private set; }
 
-            public async Task WriteProgressAsync (
+            public async ValueTask WriteProgressAsync<TPayload> (
                 string eventName,
-                object payload,
+                TPayload payload,
                 CancellationToken cancellationToken = default)
+                where TPayload : notnull
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 LastWriteCancellationToken = cancellationToken;
@@ -1801,6 +1804,14 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 await writeReleaseSource.Task;
                 cancellationToken.ThrowIfCancellationRequested();
+            }
+
+            public ValueTask WriteTerminalAsync (
+                IpcResponse response,
+                CancellationToken cancellationToken = default)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                return default;
             }
 
             public void ReleaseWrites ()

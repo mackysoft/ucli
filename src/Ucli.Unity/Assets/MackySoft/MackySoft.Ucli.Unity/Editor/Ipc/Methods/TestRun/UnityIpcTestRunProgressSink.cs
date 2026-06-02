@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Testing;
+using MackySoft.Ucli.Infrastructure.Ipc;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -11,7 +12,7 @@ namespace MackySoft.Ucli.Unity.Ipc
     {
         private const int MaxPendingFrameCount = 1024;
 
-        private readonly IUnityIpcStreamFrameWriter streamWriter;
+        private readonly IIpcStreamFrameWriter streamWriter;
         private readonly string runId;
         private readonly CancellationToken progressAcceptanceCancellationToken;
         private readonly CancellationToken frameWriteCancellationToken;
@@ -28,7 +29,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         /// <summary> Initializes a new instance of the <see cref="UnityIpcTestRunProgressSink" /> class. </summary>
         public UnityIpcTestRunProgressSink (
-            IUnityIpcStreamFrameWriter streamWriter,
+            IIpcStreamFrameWriter streamWriter,
             string runId,
             CancellationToken progressAcceptanceCancellationToken,
             CancellationToken frameWriteCancellationToken)

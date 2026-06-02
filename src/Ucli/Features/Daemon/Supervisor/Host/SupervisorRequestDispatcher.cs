@@ -89,7 +89,7 @@ internal sealed class SupervisorRequestDispatcher
         Stream stream,
         SupervisorRuntimeContext runtimeContext,
         IpcRequest request,
-        SupervisorIpcStreamFrameWriter? streamWriter,
+        IpcStreamFrameWriter? streamWriter,
         Action<SupervisorRequestLifetime>? requestLifetimeStarted,
         CancellationToken cancellationToken)
     {
@@ -154,7 +154,7 @@ internal sealed class SupervisorRequestDispatcher
         CancellationToken cancellationToken)
     {
         SupervisorRequestLifetime? activeRequestLifetime = null;
-        var streamWriter = new SupervisorIpcStreamFrameWriter(
+        var streamWriter = new IpcStreamFrameWriter(
             stream,
             request,
             _ => activeRequestLifetime?.CancelForResponseStreamFailure());
@@ -184,7 +184,7 @@ internal sealed class SupervisorRequestDispatcher
         Stream stream,
         IpcRequest request,
         SupervisorRuntimeContext runtimeContext,
-        SupervisorIpcStreamFrameWriter? streamWriter,
+        IpcStreamFrameWriter? streamWriter,
         Action<SupervisorRequestLifetime>? requestLifetimeStarted,
         CancellationToken cancellationToken)
     {
@@ -388,7 +388,7 @@ internal sealed class SupervisorRequestDispatcher
     }
 
     private async ValueTask TryWriteTerminalAsync (
-        SupervisorIpcStreamFrameWriter streamWriter,
+        IpcStreamFrameWriter streamWriter,
         IpcResponse response,
         CancellationToken cancellationToken)
     {
@@ -400,7 +400,7 @@ internal sealed class SupervisorRequestDispatcher
         {
             throw;
         }
-        catch (Exception exception) when (IsConnectionLocalWriteFailure(exception))
+        catch (Exception exception) when (IpcConnectionWriteFailureClassifier.IsConnectionLocalWriteFailure(exception))
         {
             // NOTE: A broken response stream is connection-local; the supervisor listener must keep serving.
         }
@@ -425,13 +425,8 @@ internal sealed class SupervisorRequestDispatcher
         return false;
     }
 
-    private static bool IsConnectionLocalWriteFailure (Exception exception)
-    {
-        return exception is IOException or ObjectDisposedException or InvalidOperationException;
-    }
-
     private static IDaemonStartProgressObserver CreateProgressObserver (
-        SupervisorIpcStreamFrameWriter streamWriter,
+        IpcStreamFrameWriter streamWriter,
         SupervisorIpcContracts.EnsureRunningRequest payload,
         DaemonEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked)
