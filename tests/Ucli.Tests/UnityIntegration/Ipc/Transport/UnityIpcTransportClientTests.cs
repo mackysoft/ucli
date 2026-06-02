@@ -1,7 +1,4 @@
-using System.Text.Json;
-using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.Tests.Ipc;
@@ -10,698 +7,276 @@ public sealed class UnityIpcTransportClientTests
 {
     private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(1);
 
-    private static readonly TimeSpan SendWaitTimeout = TimeSpan.FromSeconds(5);
-
     [Fact]
     [Trait("Size", "Small")]
-    public async Task SendAsync_WhenNamedPipeServerIsMissing_ThrowsConnectTimeoutException ()
+    public async Task SendAsync_ResolvesEndpointAndForwardsRequest ()
     {
-        if (!OperatingSystem.IsWindows())
-        {
-            return;
-        }
+        var endpoint = CreateEndpoint();
+        var endpointResolver = new RecordingEndpointResolver(endpoint);
+        var transportClient = new RecordingIpcTransportClient();
+        var client = new UnityIpcTransportClient(endpointResolver, transportClient);
+        var request = IpcTransportTestHarness.CreateSingleRequest();
+        using var cancellationTokenSource = new CancellationTokenSource();
 
-        var endpointResolver = new FixedEndpointResolver(
-            new IpcEndpoint(
-                IpcTransportKind.NamedPipe,
-                $"ucli-missing-{Guid.NewGuid():N}"));
-        var client = new UnityIpcTransportClient(endpointResolver, new IpcTransportClient());
-        var request = new IpcRequest(
-            IpcProtocol.CurrentVersion,
-            "request-1",
-            "token",
-            IpcMethodNames.Ping,
-            JsonDocument.Parse("{}").RootElement.Clone(),
-            IpcResponseMode.Single);
+        var response = await client.SendAsync(
+            "storage-root",
+            "project-fingerprint",
+            request,
+            DefaultTimeout,
+            cancellationTokenSource.Token);
 
-        var exception = await Assert.ThrowsAsync<IpcConnectTimeoutException>(async () =>
-        {
-            await TestAwaiter.WaitAsync(
-                client.SendAsync("storage-root", "fingerprint", request, DefaultTimeout).AsTask(),
-                "Missing named pipe send result",
-                SendWaitTimeout);
-        });
-        Assert.Contains("timed out", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Same(transportClient.SendResponse, response);
+        Assert.Equal(1, endpointResolver.CallCount);
+        Assert.Equal("storage-root", endpointResolver.StorageRoot);
+        Assert.Equal("project-fingerprint", endpointResolver.ProjectFingerprint);
+        Assert.Equal(endpoint, transportClient.SendEndpoint);
+        Assert.Same(request, transportClient.SendRequest);
+        Assert.Equal(DefaultTimeout, transportClient.SendTimeout);
+        Assert.Equal(cancellationTokenSource.Token, transportClient.SendCancellationToken);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task SendAsync_WhenCancellationIsRequested_ThrowsOperationCanceledException ()
+    public async Task SendStreamingAsync_ResolvesEndpointAndForwardsProgressCallback ()
     {
-        if (!OperatingSystem.IsWindows())
+        var endpoint = CreateEndpoint();
+        var endpointResolver = new RecordingEndpointResolver(endpoint);
+        var progressFrame = CreateProgressFrame();
+        var transportClient = new RecordingIpcTransportClient
         {
-            return;
-        }
-
-        var endpointResolver = new FixedEndpointResolver(
-            new IpcEndpoint(
-                IpcTransportKind.NamedPipe,
-                $"ucli-missing-{Guid.NewGuid():N}"));
-        var client = new UnityIpcTransportClient(endpointResolver, new IpcTransportClient());
-        var request = new IpcRequest(
-            IpcProtocol.CurrentVersion,
-            "request-1",
-            "token",
-            IpcMethodNames.Ping,
-            JsonDocument.Parse("{}").RootElement.Clone(),
-            IpcResponseMode.Single);
+            ProgressFrame = progressFrame,
+        };
+        var client = new UnityIpcTransportClient(endpointResolver, transportClient);
+        var request = IpcTransportTestHarness.CreateStreamingRequest();
+        var progressFrames = new List<IpcStreamFrame>();
         using var cancellationTokenSource = new CancellationTokenSource();
 
-        var sendTask = client.SendAsync(
-                "storage-root",
-                "fingerprint",
-                request,
-                TimeSpan.FromSeconds(5),
-                cancellationTokenSource.Token)
-            .AsTask();
-        cancellationTokenSource.Cancel();
+        var response = await client.SendStreamingAsync(
+            "storage-root",
+            "project-fingerprint",
+            request,
+            DefaultTimeout,
+            (frame, _) =>
+            {
+                progressFrames.Add(frame);
+                return ValueTask.CompletedTask;
+            },
+            cancellationTokenSource.Token);
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
-        {
-            await TestAwaiter.WaitAsync(sendTask, "Canceled Unity IPC send", SendWaitTimeout);
-        });
+        Assert.Same(transportClient.StreamingResponse, response);
+        Assert.Equal(1, endpointResolver.CallCount);
+        Assert.Equal("storage-root", endpointResolver.StorageRoot);
+        Assert.Equal("project-fingerprint", endpointResolver.ProjectFingerprint);
+        Assert.Equal(endpoint, transportClient.StreamingEndpoint);
+        Assert.Same(request, transportClient.StreamingRequest);
+        Assert.Equal(DefaultTimeout, transportClient.StreamingTimeout);
+        Assert.Equal(cancellationTokenSource.Token, transportClient.StreamingCancellationToken);
+        Assert.Same(progressFrame, Assert.Single(progressFrames));
     }
 
     [Theory]
     [Trait("Size", "Small")]
     [InlineData(0)]
     [InlineData(-1)]
-    public async Task SendAsync_WithNonPositiveTimeout_ThrowsArgumentOutOfRangeException (int timeoutMilliseconds)
+    public async Task SendAsync_WithNonPositiveTimeout_ThrowsArgumentOutOfRangeExceptionWithoutResolvingEndpoint (int timeoutMilliseconds)
     {
-        var endpointResolver = new FixedEndpointResolver(
-            new IpcEndpoint(
-                IpcTransportKind.NamedPipe,
-                $"ucli-invalid-timeout-{Guid.NewGuid():N}"));
-        var client = new UnityIpcTransportClient(endpointResolver, new IpcTransportClient());
-        var request = new IpcRequest(
-            IpcProtocol.CurrentVersion,
-            "request-1",
-            "token",
-            IpcMethodNames.Ping,
-            JsonDocument.Parse("{}").RootElement.Clone(),
-            IpcResponseMode.Single);
-        var timeout = TimeSpan.FromMilliseconds(timeoutMilliseconds);
+        var endpointResolver = new RecordingEndpointResolver(CreateEndpoint());
+        var client = new UnityIpcTransportClient(endpointResolver, new RecordingIpcTransportClient());
 
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () =>
         {
-            await TestAwaiter.WaitAsync(
-                client.SendAsync("storage-root", "fingerprint", request, timeout).AsTask(),
-                "Invalid timeout send result",
-                SendWaitTimeout);
+            await client.SendAsync(
+                    "storage-root",
+                    "project-fingerprint",
+                    IpcTransportTestHarness.CreateSingleRequest(),
+                    TimeSpan.FromMilliseconds(timeoutMilliseconds))
+                .AsTask();
         });
+        Assert.Equal(0, endpointResolver.CallCount);
     }
 
     [Theory]
     [Trait("Size", "Small")]
-    [InlineData("protocol")]
-    [InlineData("requestId")]
-    [InlineData("status")]
-    [InlineData("errors")]
-    public async Task SendAsync_WhenResponseEnvelopeIsInvalid_ThrowsInvalidDataException (string invalidField)
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task SendStreamingAsync_WithNonPositiveTimeout_ThrowsArgumentOutOfRangeExceptionWithoutResolvingEndpoint (int timeoutMilliseconds)
     {
-        if (OperatingSystem.IsWindows())
-        {
-            return;
-        }
+        var endpointResolver = new RecordingEndpointResolver(CreateEndpoint());
+        var client = new UnityIpcTransportClient(endpointResolver, new RecordingIpcTransportClient());
 
-        await WithUnixResponseServerAsync(
-            request => invalidField switch
-            {
-                "protocol" => CreateResponse(request.RequestId, "{}", protocolVersion: IpcProtocol.CurrentVersion + 1),
-                "requestId" => CreateResponse("other-request", "{}"),
-                "status" => CreateResponse(request.RequestId, "{}", status: "unknown"),
-                "errors" => new IpcResponse(
-                    IpcProtocol.CurrentVersion,
-                    request.RequestId,
-                    IpcProtocol.StatusOk,
-                    Json("{}"),
-                    null!),
-                _ => throw new InvalidOperationException("Unsupported invalid field."),
-            },
-            async (client, request) =>
-            {
-                await Assert.ThrowsAsync<InvalidDataException>(async () =>
-                {
-                    await client.SendAsync(
-                            "storage-root",
-                            "fingerprint",
-                            request,
-                            DefaultTimeout)
-                        .AsTask();
-                });
-            });
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task SendStreamingAsync_WhenServerReturnsProgressThenTerminal_ForwardsProgressAndReturnsResponse ()
-    {
-        if (OperatingSystem.IsWindows())
-        {
-            return;
-        }
-
-        await WithUnixStreamingServerAsync(
-            async (request, stream, cancellationToken) =>
-            {
-                await WriteStreamFrameAsync(
-                    stream,
-                    new IpcStreamFrame(
-                        IpcProtocol.CurrentVersion,
-                        request.RequestId,
-                        IpcStreamFrameKinds.Progress,
-                        "test.progress",
-                        Json("""{"progress":true}"""),
-                        Response: null),
-                    cancellationToken);
-                await WriteStreamFrameAsync(
-                    stream,
-                    new IpcStreamFrame(
-                        IpcProtocol.CurrentVersion,
-                        request.RequestId,
-                        IpcStreamFrameKinds.Terminal,
-                        Event: null,
-                        Json("{}"),
-                        CreateResponse(request.RequestId, """{"done":true}""")),
-                    cancellationToken);
-            },
-            async (client, request) =>
-            {
-                var progressFrames = new List<IpcStreamFrame>();
-
-                var response = await client.SendStreamingAsync(
-                    "storage-root",
-                    "fingerprint",
-                    request,
-                    DefaultTimeout,
-                    (frame, _) =>
-                    {
-                        progressFrames.Add(frame);
-                        return ValueTask.CompletedTask;
-                    });
-
-                var progressFrame = Assert.Single(progressFrames);
-                Assert.Equal("test.progress", progressFrame.Event);
-                Assert.True(progressFrame.Payload.GetProperty("progress").GetBoolean());
-                Assert.Equal("request-1", response.RequestId);
-                Assert.True(response.Payload.GetProperty("done").GetBoolean());
-            });
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task SendStreamingAsync_WhenProgressCallbackThrows_ThrowsProgressFrameHandlerException ()
-    {
-        if (OperatingSystem.IsWindows())
-        {
-            return;
-        }
-
-        var handlerException = new InvalidOperationException("callback failed");
-        await WithUnixStreamingServerAsync(
-            async (request, stream, cancellationToken) =>
-            {
-                await WriteStreamFrameAsync(
-                    stream,
-                    new IpcStreamFrame(
-                        IpcProtocol.CurrentVersion,
-                        request.RequestId,
-                        IpcStreamFrameKinds.Progress,
-                        "test.progress",
-                        Json("{}"),
-                        Response: null),
-                    cancellationToken);
-            },
-            async (client, request) =>
-            {
-                var exception = await Assert.ThrowsAsync<IpcProgressFrameHandlerException>(async () =>
-                {
-                    await client.SendStreamingAsync(
-                            "storage-root",
-                            "fingerprint",
-                            request,
-                            DefaultTimeout,
-                            (_, _) => throw handlerException)
-                        .AsTask();
-                });
-                Assert.Same(handlerException, exception.InnerException);
-            });
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task SendStreamingAsync_WhenProgressRequestIdMismatches_ThrowsInvalidDataException ()
-    {
-        if (OperatingSystem.IsWindows())
-        {
-            return;
-        }
-
-        await WithUnixStreamingServerAsync(
-            async (_, stream, cancellationToken) =>
-            {
-                await WriteStreamFrameAsync(
-                    stream,
-                    new IpcStreamFrame(
-                        IpcProtocol.CurrentVersion,
-                        "other-request",
-                        IpcStreamFrameKinds.Progress,
-                        "test.progress",
-                        Json("{}"),
-                        Response: null),
-                    cancellationToken);
-            },
-            async (client, request) =>
-            {
-                await Assert.ThrowsAsync<InvalidDataException>(async () =>
-                {
-                    await client.SendStreamingAsync(
-                            "storage-root",
-                            "fingerprint",
-                            request,
-                            DefaultTimeout,
-                            (_, _) => ValueTask.CompletedTask)
-                        .AsTask();
-                });
-            });
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task SendStreamingAsync_WhenFrameKindIsUnsupported_ThrowsInvalidDataException ()
-    {
-        if (OperatingSystem.IsWindows())
-        {
-            return;
-        }
-
-        await WithUnixStreamingServerAsync(
-            async (request, stream, cancellationToken) =>
-            {
-                await WriteStreamFrameAsync(
-                    stream,
-                    new IpcStreamFrame(
-                        IpcProtocol.CurrentVersion,
-                        request.RequestId,
-                        "unsupported",
-                        "test.progress",
-                        Json("{}"),
-                        Response: null),
-                    cancellationToken);
-            },
-            async (client, request) =>
-            {
-                await Assert.ThrowsAsync<InvalidDataException>(async () =>
-                {
-                    await client.SendStreamingAsync(
-                            "storage-root",
-                            "fingerprint",
-                            request,
-                            DefaultTimeout,
-                            (_, _) => ValueTask.CompletedTask)
-                        .AsTask();
-                });
-            });
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task SendStreamingAsync_WhenProgressProtocolVersionMismatches_ThrowsInvalidDataException ()
-    {
-        await AssertStreamingFrameRejectedAsync(request => new IpcStreamFrame(
-            IpcProtocol.CurrentVersion + 1,
-            request.RequestId,
-            IpcStreamFrameKinds.Progress,
-            "test.progress",
-            Json("{}"),
-            Response: null));
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task SendStreamingAsync_WhenProgressEventIsMissing_ThrowsInvalidDataException ()
-    {
-        await AssertStreamingFrameRejectedAsync(request => new IpcStreamFrame(
-            IpcProtocol.CurrentVersion,
-            request.RequestId,
-            IpcStreamFrameKinds.Progress,
-            Event: null,
-            Json("{}"),
-            Response: null));
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task SendStreamingAsync_WhenProgressContainsResponse_ThrowsInvalidDataException ()
-    {
-        await AssertStreamingFrameRejectedAsync(request => new IpcStreamFrame(
-            IpcProtocol.CurrentVersion,
-            request.RequestId,
-            IpcStreamFrameKinds.Progress,
-            "test.progress",
-            Json("{}"),
-            CreateResponse(request.RequestId, "{}")));
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task SendStreamingAsync_WhenTerminalResponseIsMissing_ThrowsInvalidDataException ()
-    {
-        await AssertStreamingFrameRejectedAsync(request => new IpcStreamFrame(
-            IpcProtocol.CurrentVersion,
-            request.RequestId,
-            IpcStreamFrameKinds.Terminal,
-            Event: null,
-            Json("{}"),
-            Response: null));
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task SendStreamingAsync_WhenTerminalContainsEvent_ThrowsInvalidDataException ()
-    {
-        await AssertStreamingFrameRejectedAsync(request => new IpcStreamFrame(
-            IpcProtocol.CurrentVersion,
-            request.RequestId,
-            IpcStreamFrameKinds.Terminal,
-            "test.progress",
-            Json("{}"),
-            CreateResponse(request.RequestId, "{}")));
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task SendStreamingAsync_WhenTerminalResponseRequestIdMismatches_ThrowsInvalidDataException ()
-    {
-        await AssertStreamingFrameRejectedAsync(request => new IpcStreamFrame(
-            IpcProtocol.CurrentVersion,
-            request.RequestId,
-            IpcStreamFrameKinds.Terminal,
-            Event: null,
-            Json("{}"),
-            CreateResponse("other-request", "{}")));
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task SendStreamingAsync_WhenTerminalResponseProtocolVersionMismatches_ThrowsInvalidDataException ()
-    {
-        await AssertStreamingFrameRejectedAsync(request => new IpcStreamFrame(
-            IpcProtocol.CurrentVersion,
-            request.RequestId,
-            IpcStreamFrameKinds.Terminal,
-            Event: null,
-            Json("{}"),
-            CreateResponse(request.RequestId, "{}", protocolVersion: IpcProtocol.CurrentVersion + 1)));
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task SendStreamingAsync_WhenTerminalResponseStatusIsUnsupported_ThrowsInvalidDataException ()
-    {
-        await AssertStreamingFrameRejectedAsync(request => new IpcStreamFrame(
-            IpcProtocol.CurrentVersion,
-            request.RequestId,
-            IpcStreamFrameKinds.Terminal,
-            Event: null,
-            Json("{}"),
-            CreateResponse(request.RequestId, "{}", status: "unknown")));
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task SendStreamingAsync_WhenTerminalResponseErrorsIsNull_ThrowsInvalidDataException ()
-    {
-        await AssertStreamingFrameRejectedAsync(request => new IpcStreamFrame(
-            IpcProtocol.CurrentVersion,
-            request.RequestId,
-            IpcStreamFrameKinds.Terminal,
-            Event: null,
-            Json("{}"),
-            new IpcResponse(
-                IpcProtocol.CurrentVersion,
-                request.RequestId,
-                IpcProtocol.StatusOk,
-                Json("{}"),
-                null!)));
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task SendAsync_WithStreamResponseMode_ThrowsInvalidOperationException ()
-    {
-        var endpointResolver = new FixedEndpointResolver(
-            new IpcEndpoint(
-                IpcTransportKind.NamedPipe,
-                $"ucli-stream-mode-{Guid.NewGuid():N}"));
-        var client = new UnityIpcTransportClient(endpointResolver, new IpcTransportClient());
-        var request = new IpcRequest(
-            IpcProtocol.CurrentVersion,
-            "request-1",
-            "token",
-            IpcMethodNames.Ping,
-            JsonDocument.Parse("{}").RootElement.Clone(),
-            IpcResponseMode.Stream);
-
-        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
-        {
-            await client.SendAsync("storage-root", "fingerprint", request, DefaultTimeout).AsTask();
-        });
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task SendStreamingAsync_WithSingleResponseMode_ThrowsInvalidOperationException ()
-    {
-        var endpointResolver = new FixedEndpointResolver(
-            new IpcEndpoint(
-                IpcTransportKind.NamedPipe,
-                $"ucli-single-mode-{Guid.NewGuid():N}"));
-        var client = new UnityIpcTransportClient(endpointResolver, new IpcTransportClient());
-        var request = new IpcRequest(
-            IpcProtocol.CurrentVersion,
-            "request-1",
-            "token",
-            IpcMethodNames.Ping,
-            JsonDocument.Parse("{}").RootElement.Clone(),
-            IpcResponseMode.Single);
-
-        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () =>
         {
             await client.SendStreamingAsync(
                     "storage-root",
-                    "fingerprint",
-                    request,
-                    DefaultTimeout,
+                    "project-fingerprint",
+                    IpcTransportTestHarness.CreateStreamingRequest(),
+                    TimeSpan.FromMilliseconds(timeoutMilliseconds),
                     (_, _) => ValueTask.CompletedTask)
                 .AsTask();
         });
+        Assert.Equal(0, endpointResolver.CallCount);
     }
 
-    private static async Task WithUnixStreamingServerAsync (
-        Func<IpcRequest, Stream, CancellationToken, Task> writeFramesAsync,
-        Func<UnityIpcTransportClient, IpcRequest, Task> executeClientAsync)
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendAsync_WhenCancellationIsRequested_ThrowsOperationCanceledExceptionWithoutResolvingEndpoint ()
     {
-        var endpoint = new IpcEndpoint(
-            IpcTransportKind.UnixDomainSocket,
-            UnixSocketPathUtilities.BuildFallbackSocketPath("ucli-supervisor-", Guid.NewGuid().ToString("N")));
-        var server = new SupervisorTransportServer();
-        var startedTaskSource = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var endpointResolver = new RecordingEndpointResolver(CreateEndpoint());
+        var client = new UnityIpcTransportClient(endpointResolver, new RecordingIpcTransportClient());
         using var cancellationTokenSource = new CancellationTokenSource();
+        cancellationTokenSource.Cancel();
 
-        var serverTask = server.RunAsync(
-            endpoint,
-            async (stream, cancellationToken) =>
-            {
-                var readResult = await IpcFrameCodec.TryReadModelAsync<IpcRequest>(
-                    stream,
-                    IpcJsonSerializerOptions.Default,
-                    cancellationToken: cancellationToken);
-                if (!readResult.IsSuccess)
-                {
-                    throw new InvalidDataException(readResult.ErrorMessage);
-                }
-
-                await writeFramesAsync(readResult.Value, stream, cancellationToken);
-            },
-            cancellationToken =>
-            {
-                startedTaskSource.TrySetResult();
-                return Task.CompletedTask;
-            },
-            cancellationTokenSource.Token);
-
-        try
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
         {
-            await TestAwaiter.WaitAsync(startedTaskSource.Task, "Unity IPC streaming transport server start", SendWaitTimeout);
-            var client = new UnityIpcTransportClient(new FixedEndpointResolver(endpoint), new IpcTransportClient());
-            await executeClientAsync(client, CreateStreamingRequest());
-        }
-        finally
-        {
-            cancellationTokenSource.Cancel();
-            server.Release();
-            try
-            {
-                await TestAwaiter.WaitAsync(serverTask, "Unity IPC streaming transport server shutdown", SendWaitTimeout);
-            }
-            catch (OperationCanceledException)
-            {
-            }
-        }
+            await client.SendAsync(
+                    "storage-root",
+                    "project-fingerprint",
+                    IpcTransportTestHarness.CreateSingleRequest(),
+                    DefaultTimeout,
+                    cancellationTokenSource.Token)
+                .AsTask();
+        });
+        Assert.Equal(0, endpointResolver.CallCount);
     }
 
-    private static async Task WithUnixResponseServerAsync (
-        Func<IpcRequest, IpcResponse> createResponse,
-        Func<UnityIpcTransportClient, IpcRequest, Task> executeClientAsync)
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendStreamingAsync_WhenCancellationIsRequested_ThrowsOperationCanceledExceptionWithoutResolvingEndpoint ()
     {
-        var endpoint = new IpcEndpoint(
-            IpcTransportKind.UnixDomainSocket,
-            UnixSocketPathUtilities.BuildFallbackSocketPath("ucli-supervisor-", Guid.NewGuid().ToString("N")));
-        var server = new SupervisorTransportServer();
-        var startedTaskSource = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var endpointResolver = new RecordingEndpointResolver(CreateEndpoint());
+        var client = new UnityIpcTransportClient(endpointResolver, new RecordingIpcTransportClient());
         using var cancellationTokenSource = new CancellationTokenSource();
+        cancellationTokenSource.Cancel();
 
-        var serverTask = server.RunAsync(
-            endpoint,
-            async (stream, cancellationToken) =>
-            {
-                var readResult = await IpcFrameCodec.TryReadModelAsync<IpcRequest>(
-                    stream,
-                    IpcJsonSerializerOptions.Default,
-                    cancellationToken: cancellationToken);
-                if (!readResult.IsSuccess)
-                {
-                    throw new InvalidDataException(readResult.ErrorMessage);
-                }
-
-                await IpcFrameCodec.WriteModelAsync(
-                    stream,
-                    createResponse(readResult.Value),
-                    IpcJsonSerializerOptions.Default,
-                    cancellationToken: cancellationToken);
-            },
-            cancellationToken =>
-            {
-                startedTaskSource.TrySetResult();
-                return Task.CompletedTask;
-            },
-            cancellationTokenSource.Token);
-
-        try
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
         {
-            await TestAwaiter.WaitAsync(startedTaskSource.Task, "Unity IPC transport server start", SendWaitTimeout);
-            var client = new UnityIpcTransportClient(new FixedEndpointResolver(endpoint), new IpcTransportClient());
-            await executeClientAsync(client, CreateSingleRequest());
-        }
-        finally
-        {
-            cancellationTokenSource.Cancel();
-            server.Release();
-            try
-            {
-                await TestAwaiter.WaitAsync(serverTask, "Unity IPC transport server shutdown", SendWaitTimeout);
-            }
-            catch (OperationCanceledException)
-            {
-            }
-        }
+            await client.SendStreamingAsync(
+                    "storage-root",
+                    "project-fingerprint",
+                    IpcTransportTestHarness.CreateStreamingRequest(),
+                    DefaultTimeout,
+                    (_, _) => ValueTask.CompletedTask,
+                    cancellationTokenSource.Token)
+                .AsTask();
+        });
+        Assert.Equal(0, endpointResolver.CallCount);
     }
 
-    private static async Task AssertStreamingFrameRejectedAsync (Func<IpcRequest, IpcStreamFrame> createFrame)
+    private static IpcEndpoint CreateEndpoint ()
     {
-        if (OperatingSystem.IsWindows())
-        {
-            return;
-        }
-
-        await WithUnixStreamingServerAsync(
-            async (request, stream, cancellationToken) =>
-            {
-                await WriteStreamFrameAsync(stream, createFrame(request), cancellationToken);
-            },
-            async (client, request) =>
-            {
-                await Assert.ThrowsAsync<InvalidDataException>(async () =>
-                {
-                    await client.SendStreamingAsync(
-                            "storage-root",
-                            "fingerprint",
-                            request,
-                            DefaultTimeout,
-                            (_, _) => ValueTask.CompletedTask)
-                        .AsTask();
-                });
-            });
+        return new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-test.sock");
     }
 
-    private static async Task WriteStreamFrameAsync (
-        Stream stream,
-        IpcStreamFrame frame,
-        CancellationToken cancellationToken)
+    private static IpcStreamFrame CreateProgressFrame ()
     {
-        await IpcFrameCodec.WriteModelAsync(
-            stream,
-            frame,
-            IpcJsonSerializerOptions.Default,
-            cancellationToken: cancellationToken);
-    }
-
-    private static IpcRequest CreateStreamingRequest ()
-    {
-        return new IpcRequest(
+        return new IpcStreamFrame(
             IpcProtocol.CurrentVersion,
             "request-1",
-            "token",
-            IpcMethodNames.Ping,
-            Json("{}"),
-            IpcResponseMode.Stream);
+            IpcStreamFrameKinds.Progress,
+            "test.progress",
+            IpcTransportTestHarness.Json("{}"),
+            Response: null);
     }
 
-    private static IpcRequest CreateSingleRequest ()
-    {
-        return new IpcRequest(
-            IpcProtocol.CurrentVersion,
-            "request-1",
-            "token",
-            IpcMethodNames.Ping,
-            Json("{}"),
-            IpcResponseMode.Single);
-    }
-
-    private static IpcResponse CreateResponse (
-        string requestId,
-        string payloadJson,
-        int? protocolVersion = null,
-        string? status = null)
-    {
-        return new IpcResponse(
-            protocolVersion ?? IpcProtocol.CurrentVersion,
-            requestId,
-            status ?? IpcProtocol.StatusOk,
-            Json(payloadJson),
-            Array.Empty<IpcError>());
-    }
-
-    private static JsonElement Json (string json)
-    {
-        return JsonDocument.Parse(json).RootElement.Clone();
-    }
-
-    private sealed class FixedEndpointResolver : IIpcEndpointResolver
+    private sealed class RecordingEndpointResolver : IIpcEndpointResolver
     {
         private readonly IpcEndpoint endpoint;
 
-        public FixedEndpointResolver (IpcEndpoint endpoint)
+        public RecordingEndpointResolver (IpcEndpoint endpoint)
         {
             this.endpoint = endpoint;
         }
+
+        public int CallCount { get; private set; }
+
+        public string? StorageRoot { get; private set; }
+
+        public string? ProjectFingerprint { get; private set; }
 
         public IpcEndpoint Resolve (
             string storageRoot,
             string projectFingerprint)
         {
+            CallCount++;
+            StorageRoot = storageRoot;
+            ProjectFingerprint = projectFingerprint;
             return endpoint;
+        }
+    }
+
+    private sealed class RecordingIpcTransportClient : IIpcTransportClient
+    {
+        public IpcResponse SendResponse { get; } = IpcTransportTestHarness.CreateResponse("request-1", """{"sent":true}""");
+
+        public IpcResponse StreamingResponse { get; } = IpcTransportTestHarness.CreateResponse("request-1", """{"streamed":true}""");
+
+        public IpcStreamFrame? ProgressFrame { get; set; }
+
+        public IpcEndpoint? SendEndpoint { get; private set; }
+
+        public IpcRequest? SendRequest { get; private set; }
+
+        public TimeSpan? SendTimeout { get; private set; }
+
+        public CancellationToken SendCancellationToken { get; private set; }
+
+        public IpcEndpoint? StreamingEndpoint { get; private set; }
+
+        public IpcRequest? StreamingRequest { get; private set; }
+
+        public TimeSpan? StreamingTimeout { get; private set; }
+
+        public CancellationToken StreamingCancellationToken { get; private set; }
+
+        public ValueTask<IpcResponse> SendAsync (
+            IpcEndpoint endpoint,
+            IpcRequest request,
+            TimeSpan timeout,
+            CancellationToken cancellationToken = default)
+        {
+            SendEndpoint = endpoint;
+            SendRequest = request;
+            SendTimeout = timeout;
+            SendCancellationToken = cancellationToken;
+            return ValueTask.FromResult(SendResponse);
+        }
+
+        public async ValueTask<IpcResponse> SendStreamingAsync (
+            IpcEndpoint endpoint,
+            IpcRequest request,
+            TimeSpan timeout,
+            Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
+            CancellationToken cancellationToken = default)
+        {
+            StreamingEndpoint = endpoint;
+            StreamingRequest = request;
+            StreamingTimeout = timeout;
+            StreamingCancellationToken = cancellationToken;
+            if (ProgressFrame is not null)
+            {
+                await onProgressFrame(ProgressFrame, cancellationToken);
+            }
+
+            return StreamingResponse;
+        }
+
+        public ValueTask<IpcResponse> SendStreamingWithUnboundedResponseWaitAsync (
+            IpcEndpoint endpoint,
+            IpcRequest request,
+            TimeSpan sendTimeout,
+            Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
+            CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException();
+        }
+
+        public ValueTask<IpcResponse> SendWithUnboundedResponseWaitAsync (
+            IpcEndpoint endpoint,
+            IpcRequest request,
+            TimeSpan sendTimeout,
+            CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException();
         }
     }
 }

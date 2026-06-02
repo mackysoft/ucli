@@ -4,6 +4,7 @@ using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Testing;
 
 using MackySoft.Ucli.Contracts.Text;
@@ -228,17 +229,17 @@ public sealed class IpcContractSerializationTests
                 ContractLiteralCodec.ToValue(DaemonStartProgressPayloadKind.StartupObservation),
                 "project-fingerprint",
                 120000,
-                "batchmode",
-                "fail",
+                ContractLiteralCodec.ToValue(DaemonEditorMode.Batchmode),
+                ContractLiteralCodec.ToValue(DaemonStartupBlockedProcessPolicy.Terminate),
                 "attempt-1",
-                "launched",
+                ContractLiteralCodec.ToValue(DaemonSessionOwnerKind.Cli),
                 true,
                 1234,
                 DateTimeOffset.Parse("2026-05-21T00:00:00+00:00"),
-                "blocked",
-                "compile",
-                "startup",
-                "retryAfterFix",
+                ContractLiteralCodec.ToValue(DaemonStartupStatus.Blocked),
+                ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Compile),
+                ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.ScriptCompilation),
+                ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix),
                 "Unity scripts failed to compile.",
                 "UNITY_SCRIPT_COMPILATION_FAILED"),
             SerializerOptions));
@@ -247,10 +248,10 @@ public sealed class IpcContractSerializationTests
                 ContractLiteralCodec.ToValue(DaemonStartProgressPayloadKind.LifecycleSnapshot),
                 "project-fingerprint",
                 120000,
-                "batchmode",
-                "fail",
-                "ready",
-                "none",
+                ContractLiteralCodec.ToValue(DaemonEditorMode.Batchmode),
+                ContractLiteralCodec.ToValue(DaemonStartupBlockedProcessPolicy.Terminate),
+                IpcEditorLifecycleStateCodec.Ready,
+                null,
                 true),
             SerializerOptions));
 
@@ -259,15 +260,15 @@ public sealed class IpcContractSerializationTests
             .HasString("projectFingerprint", "project-fingerprint")
             .HasInt32("timeoutMilliseconds", 120000)
             .HasString("editorMode", "batchmode")
-            .HasString("onStartupBlocked", "fail")
+            .HasString("onStartupBlocked", "terminate")
             .HasString("launchAttemptId", "attempt-1")
-            .HasString("ownerKind", "launched")
+            .HasString("ownerKind", "cli")
             .HasBoolean("canShutdownProcess", true)
             .HasInt32("processId", 1234)
             .HasString("processStartedAtUtc", "2026-05-21T00:00:00+00:00")
             .HasString("startupStatus", "blocked")
             .HasString("startupBlockingReason", "compile")
-            .HasString("startupPhase", "startup")
+            .HasString("startupPhase", "scriptCompilation")
             .HasString("retryDisposition", "retryAfterFix")
             .HasString("message", "Unity scripts failed to compile.")
             .HasString("errorCode", "UNITY_SCRIPT_COMPILATION_FAILED");
@@ -280,9 +281,9 @@ public sealed class IpcContractSerializationTests
             .HasString("projectFingerprint", "project-fingerprint")
             .HasInt32("timeoutMilliseconds", 120000)
             .HasString("editorMode", "batchmode")
-            .HasString("onStartupBlocked", "fail")
+            .HasString("onStartupBlocked", "terminate")
             .HasString("lifecycleState", "ready")
-            .HasString("blockingReason", "none")
+            .HasValueKind("blockingReason", JsonValueKind.Null)
             .HasBoolean("canAcceptExecutionRequests", true);
     }
 

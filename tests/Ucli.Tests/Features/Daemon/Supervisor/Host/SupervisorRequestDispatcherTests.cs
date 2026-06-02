@@ -1,3 +1,4 @@
+using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
@@ -123,6 +124,42 @@ public sealed class SupervisorRequestDispatcherTests
                         EditorMode: null,
                         OnStartupBlocked: "auto")),
                 ResponseMode: null!));
+
+        Assert.Equal(IpcProtocol.StatusError, response.Status);
+        var error = Assert.Single(response.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, error.Code);
+        Assert.Contains("Unsupported IPC response mode: <null>.", error.Message, StringComparison.Ordinal);
+        Assert.Equal(0, startOperation.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task HandleConnection_WhenResponseModeIsMissing_ReturnsInvalidArgumentWithNullPlaceholder ()
+    {
+        var startOperation = new StubDaemonStartOperation();
+        var dispatcher = CreateDispatcher(startOperation);
+        var runtimeContext = CreateRuntimeContext();
+        var unityProjectRoot = Path.Combine(runtimeContext.StorageRoot, "UnityProject");
+        var projectFingerprint = UnityProjectFingerprintCalculator.Create(runtimeContext.StorageRoot, unityProjectRoot);
+        var payload = IpcPayloadCodec.SerializeToElement(
+            new SupervisorIpcContracts.EnsureRunningRequest(
+                UnityProjectRoot: unityProjectRoot,
+                ProjectFingerprint: projectFingerprint,
+                TimeoutMilliseconds: 1000,
+                EditorMode: null,
+                OnStartupBlocked: "auto"));
+        var rawRequest = JsonSerializer.SerializeToElement(
+            new
+            {
+                ProtocolVersion = IpcProtocol.CurrentVersion,
+                RequestId = "request-missing-response-mode",
+                SessionToken = runtimeContext.Manifest.SessionToken,
+                Method = SupervisorIpcContracts.EnsureRunningMethod,
+                Payload = payload,
+            },
+            IpcJsonSerializerOptions.Default);
+
+        var response = await SendRawJsonRequestAsync(dispatcher, runtimeContext, rawRequest);
 
         Assert.Equal(IpcProtocol.StatusError, response.Status);
         var error = Assert.Single(response.Errors);
@@ -700,6 +737,22 @@ public sealed class SupervisorRequestDispatcherTests
         SupervisorRequestDispatcher dispatcher,
         SupervisorRuntimeContext runtimeContext,
         IpcRequest request)
+    {
+        return await SendFramedRequestAsync(dispatcher, runtimeContext, request).ConfigureAwait(false);
+    }
+
+    private static async Task<IpcResponse> SendRawJsonRequestAsync (
+        SupervisorRequestDispatcher dispatcher,
+        SupervisorRuntimeContext runtimeContext,
+        JsonElement request)
+    {
+        return await SendFramedRequestAsync(dispatcher, runtimeContext, request).ConfigureAwait(false);
+    }
+
+    private static async Task<IpcResponse> SendFramedRequestAsync<TRequest> (
+        SupervisorRequestDispatcher dispatcher,
+        SupervisorRuntimeContext runtimeContext,
+        TRequest request)
     {
         using var stream = new NonDisconnectingMemoryStream();
         await IpcFrameCodec.WriteModelAsync(

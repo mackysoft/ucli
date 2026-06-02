@@ -522,7 +522,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                 CancellationToken.None)
             .ConfigureAwait(false);
         var processAction = ResolveCompensatedProcessAction(processId, compensationResult);
-        var startup = CreateStartupObservation(
+        var startup = CreateStartupFailureObservation(
             startupStatus,
             ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Unknown),
             launchAttemptId,
@@ -633,7 +633,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                 unityLogPath,
                 diagnosis)
             .ConfigureAwait(false);
-        var startup = CreateStartupObservation(
+        var startup = CreateStartupFailureObservation(
             startupStatus,
             startupBlockingReason,
             launchAttemptId,
@@ -744,7 +744,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
             launchAttemptId);
     }
 
-    private static DaemonStartupObservation CreateStartupObservation (
+    private static DaemonStartupObservation CreateStartupFailureObservation (
         string startupStatus,
         string startupBlockingReason,
         string launchAttemptId,
@@ -864,7 +864,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
             }
         }
 
-        var startup = CreateStartupObservation(
+        var startup = CreateStartupFailureObservation(
             ContractLiteralCodec.ToValue(DaemonStartupStatus.Blocked),
             classification.StartupBlockingReason,
             launchAttemptId,
@@ -1037,7 +1037,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
             ? policyResolution.ProcessActionWhenNotTerminated
             : ResolveCompensatedProcessAction(processId, compensationResult);
         var updatedAtUtc = timeProvider.GetUtcNow();
-        var startup = CreateStartupObservation(
+        var startup = CreateStartupFailureObservation(
             ContractLiteralCodec.ToValue(DaemonStartupStatus.Timeout),
             ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.EndpointNotRegistered),
             launchAttemptId,
@@ -1319,7 +1319,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         ArgumentException.ThrowIfNullOrWhiteSpace(launchAttemptId);
         ArgumentException.ThrowIfNullOrWhiteSpace(processAction);
 
-        return CreateStartupObservation(
+        return CreateStartupFailureObservation(
             ContractLiteralCodec.ToValue(DaemonStartupStatus.Blocked),
             blocker.StartupBlockingReason,
             launchAttemptId,
@@ -1372,7 +1372,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         }
 
         await progressObserver.EmitLaunchingAsync(
-                CreateStartupObservation(
+                CreateStartupProgressObservation(
                     launchAttemptId,
                     editorMode,
                     ownerKind,
@@ -1405,7 +1405,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         }
 
         await progressObserver.EmitWaitingForEndpointAsync(
-                CreateStartupObservation(
+                CreateStartupProgressObservation(
                     launchAttemptId,
                     editorMode,
                     ownerKind,
@@ -1476,7 +1476,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         }
 
         await progressObserver.EmitBlockerDetectedAsync(
-                CreateStartupObservation(
+                CreateStartupProgressObservation(
                     launchAttemptId,
                     ContractLiteralCodec.ToValue(DaemonEditorMode.Batchmode),
                     ContractLiteralCodec.ToValue(DaemonSessionOwnerKind.Cli),
@@ -1505,7 +1505,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         }
 
         await progressObserver.EmitBlockerDetectedAsync(
-                CreateStartupObservation(
+                CreateStartupProgressObservation(
                     launchAttemptId,
                     ContractLiteralCodec.ToValue(DaemonEditorMode.Gui),
                     ContractLiteralCodec.ToValue(DaemonSessionOwnerKind.Cli),
@@ -1522,7 +1522,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
             .ConfigureAwait(false);
     }
 
-    private static DaemonStartStartupProgressObservation CreateStartupObservation (
+    private static DaemonStartStartupProgressObservation CreateStartupProgressObservation (
         string launchAttemptId,
         string editorMode,
         string ownerKind,
