@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
 
 namespace MackySoft.Ucli.Unity.Ipc
@@ -48,7 +49,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <inheritdoc />
         public Task<IpcResponse> ProcessStreamingAsync (
             IpcRequest request,
-            IUnityIpcStreamFrameWriter streamWriter,
+            IIpcStreamFrameWriter streamWriter,
             CancellationToken cancellationToken = default)
         {
             if (request == null)

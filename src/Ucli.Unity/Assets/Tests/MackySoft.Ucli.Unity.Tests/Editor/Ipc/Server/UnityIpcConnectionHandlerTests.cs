@@ -43,7 +43,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 responseMode: IpcResponseMode.Stream);
             using var stream = new ThrowOnWriteStream();
             Exception observedFailure = null;
-            var streamWriter = new UnityIpcStreamFrameWriter(
+            var streamWriter = new IpcStreamFrameWriter(
                 stream,
                 request,
                 exception => observedFailure = exception);
@@ -214,7 +214,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public Task<IpcResponse> ProcessStreamingAsync (
                 IpcRequest request,
-                IUnityIpcStreamFrameWriter streamWriter,
+                IIpcStreamFrameWriter streamWriter,
                 CancellationToken cancellationToken = default)
             {
                 throw new NotSupportedException();
@@ -238,7 +238,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public Task<IpcResponse> DispatchStreamingAsync (
                 IpcRequest request,
-                IUnityIpcStreamFrameWriter streamWriter,
+                IIpcStreamFrameWriter streamWriter,
                 CancellationToken cancellationToken = default)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -275,15 +275,24 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         }
 
-        private sealed class NoOpStreamFrameWriter : IUnityIpcStreamFrameWriter
+        private sealed class NoOpStreamFrameWriter : IIpcStreamFrameWriter
         {
-            public Task WriteProgressAsync (
+            public ValueTask WriteProgressAsync<TPayload> (
                 string eventName,
-                object payload,
+                TPayload payload,
+                CancellationToken cancellationToken = default)
+                where TPayload : notnull
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                return default;
+            }
+
+            public ValueTask WriteTerminalAsync (
+                IpcResponse response,
                 CancellationToken cancellationToken = default)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                return Task.CompletedTask;
+                return default;
             }
         }
 
@@ -303,7 +312,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public async Task<IpcResponse> ProcessStreamingAsync (
                 IpcRequest request,
-                IUnityIpcStreamFrameWriter streamWriter,
+                IIpcStreamFrameWriter streamWriter,
                 CancellationToken cancellationToken = default)
             {
                 StreamingCallCount++;

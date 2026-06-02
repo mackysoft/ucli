@@ -1,6 +1,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Infrastructure.Ipc;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -22,7 +23,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <returns> The terminal response envelope for the request. </returns>
         Task<IpcResponse> DispatchStreamingAsync (
             IpcRequest request,
-            IUnityIpcStreamFrameWriter streamWriter,
+            IIpcStreamFrameWriter streamWriter,
             CancellationToken cancellationToken = default);
     }
 }
