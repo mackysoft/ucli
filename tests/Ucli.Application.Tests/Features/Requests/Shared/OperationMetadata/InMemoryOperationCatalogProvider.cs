@@ -23,6 +23,7 @@ internal sealed class InMemoryOperationCatalogProvider : IOperationCatalogProvid
     private static readonly string GoDeleteArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(GoTargetArgs));
     private static readonly string GoReparentArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(GoReparentArgs));
     private static readonly string AssetCreateArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(AssetCreateArgs));
+    private static readonly string AssetSaveArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(AssetSaveArgs));
     private static readonly string AssetsFindArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(AssetsFindArgs));
     private static readonly string AssetSchemaArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(AssetSchemaArgs));
     private static readonly string CompSchemaArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(ComponentTypeArgs));
@@ -34,6 +35,7 @@ internal sealed class InMemoryOperationCatalogProvider : IOperationCatalogProvid
     [
         new UcliOperationDescriptor(UcliPrimitiveOperationNames.Resolve, UcliOperationKind.Query, OperationPolicy.Safe, ResolveArgsSchemaJson),
         new UcliOperationDescriptor(UcliPrimitiveOperationNames.AssetCreate, UcliOperationKind.Mutation, OperationPolicy.Advanced, AssetCreateArgsSchemaJson, Exposure: UcliOperationExposure.EditLoweringOnly),
+        new UcliOperationDescriptor(UcliPrimitiveOperationNames.AssetSave, UcliOperationKind.Mutation, OperationPolicy.Advanced, AssetSaveArgsSchemaJson, Exposure: UcliOperationExposure.EditLoweringOnly),
         new UcliOperationDescriptor(UcliPrimitiveOperationNames.AssetsFind, UcliOperationKind.Query, OperationPolicy.Safe, AssetsFindArgsSchemaJson),
         new UcliOperationDescriptor(UcliPrimitiveOperationNames.AssetSchema, UcliOperationKind.Query, OperationPolicy.Safe, AssetSchemaArgsSchemaJson),
         new UcliOperationDescriptor(UcliPrimitiveOperationNames.AssetSet, UcliOperationKind.Mutation, OperationPolicy.Advanced, AssetSetArgsSchemaJson, Exposure: UcliOperationExposure.EditLoweringOnly),

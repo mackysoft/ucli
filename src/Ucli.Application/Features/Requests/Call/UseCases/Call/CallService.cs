@@ -67,6 +67,16 @@ internal sealed class CallService : ICallService
             return CallFailureResultFactory.FromExecutionError(timeoutResolutionResult.Error!, baseOutput);
         }
         var executionMode = input.Mode ?? UnityExecutionMode.Auto;
+        if (input.AllowPlayMode)
+        {
+            preparedRequestContext = preparedRequestContext with
+            {
+                Request = preparedRequestContext.Request with
+                {
+                    AllowPlayMode = true,
+                },
+            };
+        }
 
         var deadline = ExecutionDeadline.Start(timeoutResolutionResult.Timeout!.Value, timeProvider);
         var preflightResult = await phaseExecutionPreflightService.PrepareAsync(

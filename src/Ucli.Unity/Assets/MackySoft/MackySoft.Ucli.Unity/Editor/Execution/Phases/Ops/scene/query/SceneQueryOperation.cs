@@ -6,6 +6,7 @@ using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
 using MackySoft.Ucli.Unity.Execution.Requests;
+using MackySoft.Ucli.Unity.SceneInspection;
 using MackySoft.Ucli.Contracts.Operations;
 
 #nullable enable
@@ -111,7 +112,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             scenePath = args.Scene;
             queryArguments = new SceneQuerySelectionEngine.QueryArguments(args.PathPrefix, args.ComponentType);
 
-            if (!SceneOperationUtilities.TryEnsureSceneAssetExists(scenePath, out var errorMessage))
+            if (!SceneAssetSourceUtilities.TryEnsureSceneAssetExists(scenePath, out var errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;

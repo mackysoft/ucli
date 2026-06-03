@@ -247,11 +247,81 @@ public sealed class SourceBoundaryTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Unity_operation_phases_do_not_reference_contract_edit_step_lowering_helpers ()
+    public void Unity_operation_phases_do_not_reference_contract_edit_step_lowering_subnamespace ()
     {
         var forbiddenMarkers = new[]
         {
             "MackySoft.Ucli.Contracts.Ipc.EditSteps",
+        };
+
+        SourceBoundaryAssertions.AssertNoMarkersInCode(
+            ArchitectureTestRepository.EnumerateCSharpSourceFiles("src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/Execution/Phases"),
+            forbiddenMarkers);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Unity_operation_phases_root_contains_only_boundary_directories ()
+    {
+        var phasesDirectory = ArchitectureTestRepository.ToRegularDirectoryFullPath(
+            "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/Execution/Phases");
+        var allowedDirectoryNames = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "Aliases",
+            "Authorization",
+            "ChangeTracking",
+            "Compilation",
+            "Contracts",
+            "Context",
+            "Mirroring",
+            "Ops",
+            "Pipeline",
+            "PlanTokens",
+            "PreviewState",
+            "Resources",
+            "Results",
+            "Selection",
+            "Serialization",
+        };
+        var rootSourceFiles = Directory
+            .EnumerateFiles(phasesDirectory, "*.cs", SearchOption.TopDirectoryOnly)
+            .Select(ArchitectureTestRepository.NormalizeRepositoryRelativePath)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        var unexpectedDirectories = Directory
+            .EnumerateDirectories(phasesDirectory, "*", SearchOption.TopDirectoryOnly)
+            .Select(Path.GetFileName)
+            .Where(directoryName => directoryName != null && !allowedDirectoryNames.Contains(directoryName))
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Empty(rootSourceFiles);
+        Assert.Empty(unexpectedDirectories);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Unity_index_does_not_reference_execution_runtime_namespaces ()
+    {
+        var forbiddenMarkers = new[]
+        {
+            "MackySoft.Ucli.Unity.Execution",
+        };
+
+        SourceBoundaryAssertions.AssertNoMarkersInCode(
+            ArchitectureTestRepository.EnumerateCSharpSourceFiles("src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/Index"),
+            forbiddenMarkers);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Unity_operation_phases_do_not_reference_execution_root_service_registration ()
+    {
+        var forbiddenMarkers = new[]
+        {
+            "using MackySoft.Ucli.Unity.Execution;",
+            "UnityExecutionServiceCollectionExtensions",
+            "AddUnityOperationServices",
         };
 
         SourceBoundaryAssertions.AssertNoMarkersInCode(

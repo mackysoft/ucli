@@ -102,7 +102,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="steps" /> or <paramref name="operationTraces" /> is <see langword="null" />. </exception>
         private static IpcExecuteResponse CreateExecutePayload (
             IpcProjectIdentity project,
-            IReadOnlyList<Execution.Requests.NormalizedRequestStep> steps,
+            IReadOnlyList<NormalizedRequestStep> steps,
             IReadOnlyList<OperationPhaseTrace> operationTraces,
             string? planToken,
             DateTimeOffset issuedAtUtc,
@@ -174,7 +174,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
             };
         }
 
-        private static IpcExecutePostReadSource? CreatePostReadSource (IReadOnlyList<Execution.Requests.NormalizedRequestStep> steps)
+        private static IpcExecutePostReadSource? CreatePostReadSource (IReadOnlyList<NormalizedRequestStep> steps)
         {
             var sourceSteps = new List<IpcExecutePostReadSourceStep>(steps.Count);
             for (var stepIndex = 0; stepIndex < steps.Count; stepIndex++)

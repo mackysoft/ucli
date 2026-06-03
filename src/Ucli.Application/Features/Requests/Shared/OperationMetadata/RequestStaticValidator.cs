@@ -176,6 +176,7 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
                 case IpcRequestStepKind.Edit:
                     if (!RequestEditStepLowerPreviewBuilder.TryBuild(
                         step.Element,
+                        request.AllowPlayMode,
                         out var operationNames,
                         out var errorMessage))
                     {

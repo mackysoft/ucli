@@ -4,6 +4,7 @@ using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
+using MackySoft.Ucli.Unity.SceneInspection;
 using UnityEditor.SceneManagement;
 using UnityEngine.SceneManagement;
 using MackySoft.Ucli.Contracts.Operations;
@@ -157,13 +158,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             validationState = default;
             failure = null;
 
-            if (!SceneOperationUtilities.TryEnsureSceneAssetExists(args.Path, out var sceneErrorMessage))
+            if (!SceneAssetSourceUtilities.TryEnsureSceneAssetExists(args.Path, out var sceneErrorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, sceneErrorMessage);
                 return false;
             }
 
-            if (!SceneOperationUtilities.TryGetLoadedScene(args.Path, out var scene, out sceneErrorMessage))
+            if (!SceneAssetSourceUtilities.TryGetLoadedScene(args.Path, out var scene, out sceneErrorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, sceneErrorMessage);
                 return false;
@@ -183,13 +184,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             validationState = default;
             failure = null;
 
-            if (!SceneOperationUtilities.TryEnsureSceneAssetExists(args.Path, out var sceneErrorMessage))
+            if (!SceneAssetSourceUtilities.TryEnsureSceneAssetExists(args.Path, out var sceneErrorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, sceneErrorMessage);
                 return false;
             }
 
-            var hasLoadedScene = SceneOperationUtilities.TryGetLoadedScene(args.Path, out var loadedScene, out _);
+            var hasLoadedScene = SceneAssetSourceUtilities.TryGetLoadedScene(args.Path, out var loadedScene, out _);
             if (!hasLoadedScene
                 && !executionContext.HasPlannedLiveSceneOpen(args.Path))
             {

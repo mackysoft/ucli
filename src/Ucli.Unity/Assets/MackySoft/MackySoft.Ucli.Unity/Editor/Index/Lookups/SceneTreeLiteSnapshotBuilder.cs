@@ -2,8 +2,8 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Project;
+using MackySoft.Ucli.Unity.SceneInspection;
 
 #nullable enable
 
@@ -25,15 +25,12 @@ namespace MackySoft.Ucli.Unity.Index
             }
 
             var normalizedScenePath = UnityAssetPathUtility.NormalizeAssetPath(scenePath);
-            var policy = loadedSceneOnly
-                ? SceneSourceResolver.Policy.LoadedOnly
-                : SceneSourceResolver.Policy.LoadedOrPersistedPreview;
-            if (!SceneSourceResolver.TryAcquire(
-                    normalizedScenePath,
-                    policy,
-                    executionContext: null,
-                    out var sceneLease,
-                    out var errorMessage))
+            SceneSourceLease sceneLease;
+            string errorMessage;
+            var acquired = loadedSceneOnly
+                ? SceneReadSourceResolver.TryAcquireLoadedOnly(normalizedScenePath, out sceneLease, out errorMessage)
+                : SceneReadSourceResolver.TryAcquireLoadedOrPersistedPreview(normalizedScenePath, out sceneLease, out errorMessage);
+            if (!acquired)
             {
                 throw new ArgumentException(errorMessage, nameof(scenePath));
             }
@@ -42,7 +39,7 @@ namespace MackySoft.Ucli.Unity.Index
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                var roots = SceneTreeNodeSnapshotBuilder.BuildRoots(sceneLease.Scene, depth: null, executionContext: null);
+                var roots = SceneTreeNodeSnapshotBuilder.BuildRoots(sceneLease.Scene, depth: null);
                 return new ValueTask<IpcIndexSceneTreeLiteReadResponse>(new IpcIndexSceneTreeLiteReadResponse(
                     GeneratedAtUtc: DateTimeOffset.UtcNow,
                     ScenePath: normalizedScenePath,

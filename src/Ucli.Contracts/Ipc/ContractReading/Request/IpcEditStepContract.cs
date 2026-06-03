@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Ipc.ContractReading;
 
@@ -58,22 +59,31 @@ internal sealed record IpcEditStepContract (
     /// </summary>
     internal enum ActionKind
     {
+        [UcliContractLiteral("set")]
         Set = 0,
 
+        [UcliContractLiteral("ensureComponent")]
         EnsureComponent,
 
+        [UcliContractLiteral("createObject")]
         CreateObject,
 
+        [UcliContractLiteral("createAsset")]
         CreateAsset,
 
+        [UcliContractLiteral("createPrefab")]
         CreatePrefab,
 
+        [UcliContractLiteral("applyPrefabOverrides")]
         ApplyPrefabOverrides,
 
+        [UcliContractLiteral("revertPrefabOverrides")]
         RevertPrefabOverrides,
 
+        [UcliContractLiteral("delete")]
         Delete,
 
+        [UcliContractLiteral("reparent")]
         Reparent,
     }
 

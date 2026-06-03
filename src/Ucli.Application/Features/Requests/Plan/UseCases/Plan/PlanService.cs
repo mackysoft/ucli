@@ -97,6 +97,13 @@ internal sealed class PlanService : IPlanService
         }
         else
         {
+            preparedRequest = preparedRequest with
+            {
+                Request = preparedRequest.Request with
+                {
+                    AllowPlayMode = true,
+                },
+            };
             baseOutput = PlanExecutionOutputFactory.CreateBase(
                 preparedRequest,
                 ReadIndexInfoFactory.Unity(PlayModeReadIndexFallbackReason));

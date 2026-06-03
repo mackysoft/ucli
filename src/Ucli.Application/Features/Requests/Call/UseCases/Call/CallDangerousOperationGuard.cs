@@ -50,6 +50,7 @@ internal sealed class CallDangerousOperationGuard : ICallDangerousOperationGuard
                 case IpcRequestStepKind.Edit:
                     if (!RequestEditStepLowerPreviewBuilder.TryBuild(
                             step.Element,
+                            preparedRequest.Request.AllowPlayMode,
                             out var operationNames,
                             out var errorMessage))
                     {
