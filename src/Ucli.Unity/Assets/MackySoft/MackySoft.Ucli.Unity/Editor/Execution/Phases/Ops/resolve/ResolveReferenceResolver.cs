@@ -1,6 +1,7 @@
 using System;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Project;
+using MackySoft.Ucli.Unity.SceneInspection;
 using UnityEditor;
 using UnityEngine;
 
@@ -212,7 +213,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (!SceneOperationUtilities.TryGetLoadedScene(scenePath, out _, out errorMessage))
+            if (!SceneAssetSourceUtilities.TryGetLoadedScene(scenePath, out _, out errorMessage))
             {
                 return false;
             }
@@ -422,7 +423,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return SceneHierarchyPathResolver.TryResolveSceneObject(temporaryScene, hierarchyPath, out gameObject, out errorMessage);
             }
 
-            if (!SceneOperationUtilities.TryGetLoadedScene(scenePath, out var loadedScene, out errorMessage))
+            if (!SceneAssetSourceUtilities.TryGetLoadedScene(scenePath, out var loadedScene, out errorMessage))
             {
                 return false;
             }

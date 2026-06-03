@@ -3,10 +3,12 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine.SceneManagement;
 
-namespace MackySoft.Ucli.Unity.Execution.Phases
+#nullable enable
+
+namespace MackySoft.Ucli.Unity.SceneInspection
 {
-    /// <summary> Provides reusable scene-operation helpers shared by scene-domain phase operations. </summary>
-    internal static class SceneOperationUtilities
+    /// <summary> Provides scene asset and loaded-scene lookup helpers for read-only scene inspection. </summary>
+    internal static class SceneAssetSourceUtilities
     {
         /// <summary> Validates that the specified path resolves to a scene asset. </summary>
         /// <param name="scenePath"> The scene path. </param>

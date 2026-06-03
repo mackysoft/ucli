@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using MackySoft.Ucli.Unity.SceneInspection;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -461,7 +462,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             scene = default;
             isRequestOwned = false;
-            if (SceneOperationUtilities.TryGetLoadedScene(scenePath, out scene, out _))
+            if (SceneAssetSourceUtilities.TryGetLoadedScene(scenePath, out scene, out _))
             {
                 errorMessage = string.Empty;
                 return true;
@@ -1030,7 +1031,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return true;
             }
 
-            if (SceneOperationUtilities.TryGetLoadedScene(scenePath, out var loadedScene, out _)
+            if (SceneAssetSourceUtilities.TryGetLoadedScene(scenePath, out var loadedScene, out _)
                 && loadedScene.isDirty)
             {
                 return temporarySceneRegistry.TryGetOrCreatePreviewSceneFromLoadedScene(

@@ -8,6 +8,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Unity.Execution.Requests;
+using MackySoft.Ucli.Unity.SceneInspection;
 
 #nullable enable
 
@@ -308,7 +309,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             switch (step.Context.Kind)
             {
                 case IpcEditStepContract.ContextKind.Scene:
-                    if (SceneOperationUtilities.TryGetLoadedScene(step.Context.Path!, out _, out _)
+                    if (SceneAssetSourceUtilities.TryGetLoadedScene(step.Context.Path!, out _, out _)
                         || executionContext.HasPlannedLiveSceneOpen(step.Context.Path!))
                     {
                         return true;
@@ -390,7 +391,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             switch (operationName)
             {
                 case UcliPrimitiveOperationNames.SceneSave:
-                    if (SceneOperationUtilities.TryGetLoadedScene(step.Context.Path!, out _, out _)
+                    if (SceneAssetSourceUtilities.TryGetLoadedScene(step.Context.Path!, out _, out _)
                         || executionContext.HasPlannedLiveSceneOpen(step.Context.Path!))
                     {
                         return true;

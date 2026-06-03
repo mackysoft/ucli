@@ -301,6 +301,20 @@ public sealed class SourceBoundaryTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Unity_index_does_not_reference_execution_runtime_namespaces ()
+    {
+        var forbiddenMarkers = new[]
+        {
+            "MackySoft.Ucli.Unity.Execution",
+        };
+
+        SourceBoundaryAssertions.AssertNoMarkersInCode(
+            ArchitectureTestRepository.EnumerateCSharpSourceFiles("src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/Index"),
+            forbiddenMarkers);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Unity_operation_phases_do_not_reference_execution_root_service_registration ()
     {
         var forbiddenMarkers = new[]

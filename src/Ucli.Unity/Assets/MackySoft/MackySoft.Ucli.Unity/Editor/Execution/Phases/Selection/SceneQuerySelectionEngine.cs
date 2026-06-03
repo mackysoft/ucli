@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
+using MackySoft.Ucli.Unity.SceneInspection;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -139,15 +140,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 throw new ArgumentNullException(nameof(executionContext));
             }
 
-            var policy = allowTemporaryState
-                ? SceneSourceResolver.Policy.TrackedTemporaryOrLoadedOrPersistedPreview
-                : SceneSourceResolver.Policy.LoadedOrPersistedPreview;
-            if (!SceneSourceResolver.TryAcquire(
-                    scenePath,
-                    policy,
-                    executionContext,
-                    out var sceneLease,
-                    out errorMessage))
+            SceneSourceLease sceneLease;
+            var acquired = allowTemporaryState
+                ? SceneSourceResolver.TryAcquireTrackedTemporaryOrLoadedOrPersistedPreview(scenePath, executionContext, out sceneLease, out errorMessage)
+                : SceneReadSourceResolver.TryAcquireLoadedOrPersistedPreview(scenePath, out sceneLease, out errorMessage);
+            if (!acquired)
             {
                 return false;
             }

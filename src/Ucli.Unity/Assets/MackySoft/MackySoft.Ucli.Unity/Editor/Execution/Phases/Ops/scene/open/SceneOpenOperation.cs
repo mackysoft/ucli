@@ -5,6 +5,7 @@ using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
+using MackySoft.Ucli.Unity.SceneInspection;
 using UnityEditor.SceneManagement;
 using MackySoft.Ucli.Contracts.Operations;
 
@@ -68,8 +69,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(failure!);
             }
 
-            if (!SceneOperationUtilities.TryGetLoadedScene(validationState.ScenePath, out _, out _)
-                && !SceneOperationUtilities.TryEnsureCanOpenSceneLive(validationState.ScenePath, out var blockerErrorMessage))
+            if (!SceneAssetSourceUtilities.TryGetLoadedScene(validationState.ScenePath, out _, out _)
+                && !SceneAssetSourceUtilities.TryEnsureCanOpenSceneLive(validationState.ScenePath, out var blockerErrorMessage))
             {
                 return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
                     operation.Id,
@@ -114,7 +115,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(failure!);
             }
 
-            if (SceneOperationUtilities.TryGetLoadedScene(validationState.ScenePath, out _, out _))
+            if (SceneAssetSourceUtilities.TryGetLoadedScene(validationState.ScenePath, out _, out _))
             {
                 return Task.FromResult(OperationPhaseStepResult.Success(
                     applied: true,
@@ -125,7 +126,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     }));
             }
 
-            if (!SceneOperationUtilities.TryEnsureCanOpenSceneLive(validationState.ScenePath, out var blockerErrorMessage))
+            if (!SceneAssetSourceUtilities.TryEnsureCanOpenSceneLive(validationState.ScenePath, out var blockerErrorMessage))
             {
                 return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
                     operation.Id,
@@ -163,7 +164,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             validationState = default;
             failure = null;
 
-            if (!SceneOperationUtilities.TryEnsureSceneAssetExists(args.Path, out var sceneErrorMessage))
+            if (!SceneAssetSourceUtilities.TryEnsureSceneAssetExists(args.Path, out var sceneErrorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, sceneErrorMessage);
                 return false;

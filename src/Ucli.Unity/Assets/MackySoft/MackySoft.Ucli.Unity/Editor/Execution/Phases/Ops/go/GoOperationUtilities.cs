@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Unity.SceneInspection;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEditor.SceneManagement;
@@ -20,12 +21,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             out string errorMessage)
         {
             scene = default;
-            if (!SceneOperationUtilities.TryEnsureSceneAssetExists(scenePath, out errorMessage))
+            if (!SceneAssetSourceUtilities.TryEnsureSceneAssetExists(scenePath, out errorMessage))
             {
                 return false;
             }
 
-            return SceneOperationUtilities.TryGetLoadedScene(scenePath, out scene, out errorMessage);
+            return SceneAssetSourceUtilities.TryGetLoadedScene(scenePath, out scene, out errorMessage);
         }
 
         /// <summary> Resolves one scene path to the appropriate runtime scene for the current phase. </summary>
@@ -48,7 +49,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 throw new System.ArgumentNullException(nameof(executionContext));
             }
 
-            if (!SceneOperationUtilities.TryEnsureSceneAssetExists(scenePath, out errorMessage))
+            if (!SceneAssetSourceUtilities.TryEnsureSceneAssetExists(scenePath, out errorMessage))
             {
                 return false;
             }
@@ -60,7 +61,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return true;
             }
 
-            if (!SceneOperationUtilities.TryGetLoadedScene(scenePath, out scene, out errorMessage))
+            if (!SceneAssetSourceUtilities.TryGetLoadedScene(scenePath, out scene, out errorMessage))
             {
                 return false;
             }
@@ -325,7 +326,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         return true;
                     }
 
-                    if (!SceneOperationUtilities.TryGetLoadedScene(resource.Path, out _, out errorMessage))
+                    if (!SceneAssetSourceUtilities.TryGetLoadedScene(resource.Path, out _, out errorMessage))
                     {
                         return false;
                     }

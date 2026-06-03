@@ -6,6 +6,7 @@ using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
+using MackySoft.Ucli.Unity.SceneInspection;
 using MackySoft.Ucli.Contracts.Operations;
 
 #nullable enable
@@ -100,7 +101,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             using (validationState.SceneLease)
             {
-                var roots = SceneTreeNodeSnapshotBuilder.BuildRoots(validationState.SceneLease.Scene, validationState.Depth, executionContext);
+                var roots = SceneTreeNodeSnapshotBuilder.BuildRoots(
+                    validationState.SceneLease.Scene,
+                    validationState.Depth,
+                    gameObject => ResolveReferenceResolver.TryCreateGameObjectResolvedReference(gameObject, executionContext, out var resolvedReference)
+                        ? resolvedReference!.GlobalObjectId
+                        : null);
                 var windowedRoots = SceneTreeWindowProjector.Apply(roots, validationState.WindowOptions);
                 var tree = new SceneTreeResult(
                     validationState.ScenePath,
@@ -141,11 +147,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             var windowOptions = BoundedWindowOptionsNormalizer.NormalizeValidated(args.Limit, args.Cursor);
 
             var scenePath = args.Path;
-            var policy = allowTemporaryState
-                ? SceneSourceResolver.Policy.TrackedTemporaryOrLoadedOrPersistedPreview
-                : SceneSourceResolver.Policy.LoadedOrPersistedPreview;
+            SceneSourceLease sceneLease;
             string sceneErrorMessage;
-            if (!SceneSourceResolver.TryAcquire(scenePath, policy, executionContext, out var sceneLease, out sceneErrorMessage))
+            var acquired = allowTemporaryState
+                ? SceneSourceResolver.TryAcquireTrackedTemporaryOrLoadedOrPersistedPreview(scenePath, executionContext, out sceneLease, out sceneErrorMessage)
+                : SceneReadSourceResolver.TryAcquireLoadedOrPersistedPreview(scenePath, out sceneLease, out sceneErrorMessage);
+            if (!acquired)
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, sceneErrorMessage);
                 return false;
@@ -159,7 +166,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             public ValidationState (
                 string scenePath,
-                SceneSourceResolver.Lease sceneLease,
+                SceneSourceLease sceneLease,
                 int? depth,
                 BoundedWindowOptions windowOptions)
             {
@@ -171,7 +178,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             public string ScenePath { get; }
 
-            public SceneSourceResolver.Lease SceneLease { get; }
+            public SceneSourceLease SceneLease { get; }
 
             public int? Depth { get; }
 
