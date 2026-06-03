@@ -10,6 +10,7 @@ using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Unity.Execution;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using NUnit.Framework;
@@ -49,6 +50,53 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(operations[0].Metadata.DescribeContract.Description, Is.EqualTo("Generic operation used to verify custom operation authoring."));
             Assert.That(operations[0].Metadata.DescribeContract.Inputs!.Count, Is.EqualTo(1));
             Assert.That(operations[0].Metadata.DescribeContract.Inputs[0].Name, Is.EqualTo("path"));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void DiscoverFromTypes_WhenConstructorDependencyIsRegistered_UsesServiceProvider ()
+        {
+            var dependency = new RegisteredOperationDependency();
+            var serviceProvider = new SingleServiceProvider(dependency);
+
+            var operations = UcliOperationDiscoverer.DiscoverFromTypes(new Type[]
+            {
+                typeof(RegisteredDependencyOperation),
+            }, serviceProvider);
+
+            Assert.That(operations.Count, Is.EqualTo(1));
+            var operation = (RegisteredDependencyOperation)operations[0].Operation;
+            Assert.That(operation.Dependency, Is.SameAs(dependency));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void DiscoverFromTypes_WhenConcreteDependencyIsUnregistered_ThrowsInvalidOperationException ()
+        {
+            var serviceProvider = new SingleServiceProvider(null);
+
+            Assert.Throws<InvalidOperationException>(() =>
+            {
+                _ = UcliOperationDiscoverer.DiscoverFromTypes(new Type[]
+                {
+                    typeof(UnregisteredConcreteDependencyOperation),
+                }, serviceProvider);
+            });
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void DiscoverFromTypes_WhenConstructorIsNonPublic_ThrowsInvalidOperationException ()
+        {
+            var serviceProvider = new SingleServiceProvider(null);
+
+            Assert.Throws<InvalidOperationException>(() =>
+            {
+                _ = UcliOperationDiscoverer.DiscoverFromTypes(new Type[]
+                {
+                    typeof(PrivateConstructorOperation),
+                }, serviceProvider);
+            });
         }
 
         [Test]
@@ -712,6 +760,149 @@ namespace MackySoft.Ucli.Unity.Tests
                 CancellationToken cancellationToken)
             {
                 return Task.FromResult(OperationPhaseStepResult.Success());
+            }
+        }
+
+        [UcliOperation]
+        private sealed class RegisteredDependencyOperation : IUcliOperation
+        {
+            public RegisteredDependencyOperation (RegisteredOperationDependency dependency)
+            {
+                Dependency = dependency ?? throw new ArgumentNullException(nameof(dependency));
+            }
+
+            public RegisteredOperationDependency Dependency { get; }
+
+            public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
+                operationName: "ucli.tests.registered-dependency",
+                kind: UcliOperationKind.Query,
+                describeContract: CreateDescribeContract("ucli.tests.registered-dependency"));
+
+            public Task<OperationPhaseStepResult> ValidateAsync (
+                NormalizedOperation operation,
+                OperationExecutionContext executionContext,
+                CancellationToken cancellationToken = default)
+            {
+                return Task.FromResult(OperationPhaseStepResult.Success());
+            }
+
+            public Task<OperationPhaseStepResult> PlanAsync (
+                NormalizedOperation operation,
+                OperationExecutionContext executionContext,
+                CancellationToken cancellationToken = default)
+            {
+                return Task.FromResult(OperationPhaseStepResult.Success());
+            }
+
+            public Task<OperationPhaseStepResult> CallAsync (
+                NormalizedOperation operation,
+                OperationExecutionContext executionContext,
+                CancellationToken cancellationToken = default)
+            {
+                return Task.FromResult(OperationPhaseStepResult.Success());
+            }
+        }
+
+        [UcliOperation]
+        private sealed class UnregisteredConcreteDependencyOperation : IUcliOperation
+        {
+            public UnregisteredConcreteDependencyOperation (UnregisteredOperationDependency dependency)
+            {
+                _ = dependency ?? throw new ArgumentNullException(nameof(dependency));
+            }
+
+            public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
+                operationName: "ucli.tests.unregistered-concrete-dependency",
+                kind: UcliOperationKind.Query,
+                describeContract: CreateDescribeContract("ucli.tests.unregistered-concrete-dependency"));
+
+            public Task<OperationPhaseStepResult> ValidateAsync (
+                NormalizedOperation operation,
+                OperationExecutionContext executionContext,
+                CancellationToken cancellationToken = default)
+            {
+                return Task.FromResult(OperationPhaseStepResult.Success());
+            }
+
+            public Task<OperationPhaseStepResult> PlanAsync (
+                NormalizedOperation operation,
+                OperationExecutionContext executionContext,
+                CancellationToken cancellationToken = default)
+            {
+                return Task.FromResult(OperationPhaseStepResult.Success());
+            }
+
+            public Task<OperationPhaseStepResult> CallAsync (
+                NormalizedOperation operation,
+                OperationExecutionContext executionContext,
+                CancellationToken cancellationToken = default)
+            {
+                return Task.FromResult(OperationPhaseStepResult.Success());
+            }
+        }
+
+        [UcliOperation]
+        private sealed class PrivateConstructorOperation : IUcliOperation
+        {
+            private PrivateConstructorOperation ()
+            {
+            }
+
+            public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
+                operationName: "ucli.tests.private-constructor",
+                kind: UcliOperationKind.Query,
+                describeContract: CreateDescribeContract("ucli.tests.private-constructor"));
+
+            public Task<OperationPhaseStepResult> ValidateAsync (
+                NormalizedOperation operation,
+                OperationExecutionContext executionContext,
+                CancellationToken cancellationToken = default)
+            {
+                return Task.FromResult(OperationPhaseStepResult.Success());
+            }
+
+            public Task<OperationPhaseStepResult> PlanAsync (
+                NormalizedOperation operation,
+                OperationExecutionContext executionContext,
+                CancellationToken cancellationToken = default)
+            {
+                return Task.FromResult(OperationPhaseStepResult.Success());
+            }
+
+            public Task<OperationPhaseStepResult> CallAsync (
+                NormalizedOperation operation,
+                OperationExecutionContext executionContext,
+                CancellationToken cancellationToken = default)
+            {
+                return Task.FromResult(OperationPhaseStepResult.Success());
+            }
+        }
+
+        private sealed class RegisteredOperationDependency
+        {
+        }
+
+        private sealed class UnregisteredOperationDependency
+        {
+        }
+
+        private sealed class SingleServiceProvider : IServiceProvider
+        {
+            private readonly object? service;
+
+            public SingleServiceProvider (object? service)
+            {
+                this.service = service;
+            }
+
+            public object? GetService (Type serviceType)
+            {
+                if (service != null && service.GetType() == serviceType)
+                {
+                    return service;
+                }
+
+                return null;
             }
         }
 

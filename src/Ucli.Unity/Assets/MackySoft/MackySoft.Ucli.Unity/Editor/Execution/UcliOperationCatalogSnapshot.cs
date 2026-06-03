@@ -1,7 +1,8 @@
 using System.Collections.Generic;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Unity.Execution.Phases;
 
-namespace MackySoft.Ucli.Unity.Execution.Phases
+namespace MackySoft.Ucli.Unity.Execution
 {
     /// <summary> Represents one discovered operation snapshot shared by execute and ops-read flows. </summary>
     /// <param name="Registrations"> The discovered operation registrations. </param>

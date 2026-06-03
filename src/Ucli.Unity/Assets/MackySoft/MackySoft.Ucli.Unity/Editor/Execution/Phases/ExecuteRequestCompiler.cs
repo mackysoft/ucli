@@ -300,7 +300,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             out ExecuteRequestNormalizationError error)
         {
             error = default!;
-            if (!EditStepLoweringRules.RequiresLiveEditableContext(step))
+            if (!IpcEditStepLoweringRules.RequiresLiveEditableContext(step))
             {
                 return true;
             }
@@ -381,7 +381,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             out ExecuteRequestNormalizationError error)
         {
             error = default!;
-            var operationName = EditStepLoweringRules.GetCommitOperationName(step.Context.Kind, step.Commit);
+            var operationName = IpcEditStepLoweringRules.GetCommitOperationName(step.Context.Kind, step.Commit, allowPlayMode);
             if (operationName == null)
             {
                 return true;
@@ -744,7 +744,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (!EditStepLoweringRules.TryGetActionOperationName(
+            if (!IpcEditStepLoweringRules.TryGetActionOperationName(
                     step.Context.Kind,
                     action.Kind,
                     target.Kind,
@@ -787,7 +787,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (!EditStepLoweringRules.TryGetActionOperationName(
+            if (!IpcEditStepLoweringRules.TryGetActionOperationName(
                     step.Context.Kind,
                     action.Kind,
                     target.Kind,
@@ -814,7 +814,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             if (action.Alias != null)
             {
-                aliases[action.Alias] = new SelectionTarget(EditTargetKind.Component, CreateAliasReference(internalAlias!));
+                aliases[action.Alias] = new SelectionTarget(IpcEditTargetKind.Component, CreateAliasReference(internalAlias!));
             }
 
             error = default!;
@@ -831,7 +831,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             bool allowPlayMode,
             out ExecuteRequestNormalizationError error)
         {
-            if (!EditStepLoweringRules.TryGetActionOperationName(
+            if (!IpcEditStepLoweringRules.TryGetActionOperationName(
                     step.Context.Kind,
                     action.Kind,
                     branchTarget.Kind,
@@ -858,7 +858,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             if (action.Alias != null)
             {
-                aliases[action.Alias] = new SelectionTarget(EditTargetKind.GameObject, CreateAliasReference(internalAlias!));
+                aliases[action.Alias] = new SelectionTarget(IpcEditTargetKind.GameObject, CreateAliasReference(internalAlias!));
             }
 
             error = default!;
@@ -871,10 +871,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             ICollection<NormalizedOperation> operations,
             out ExecuteRequestNormalizationError error)
         {
-            if (!EditStepLoweringRules.TryGetActionOperationName(
+            if (!IpcEditStepLoweringRules.TryGetActionOperationName(
                     step.Context.Kind,
                     action.Kind,
-                    EditTargetKind.Asset,
+                    IpcEditTargetKind.Asset,
                     parentTargetKind: null,
                     out var operationName,
                     out var errorMessage))
@@ -911,7 +911,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (!EditStepLoweringRules.TryGetActionOperationName(
+            if (!IpcEditStepLoweringRules.TryGetActionOperationName(
                     step.Context.Kind,
                     action.Kind,
                     target.Kind,
@@ -953,7 +953,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (!EditStepLoweringRules.TryGetActionOperationName(
+            if (!IpcEditStepLoweringRules.TryGetActionOperationName(
                     step.Context.Kind,
                     action.Kind,
                     target.Kind,
@@ -994,7 +994,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (!EditStepLoweringRules.TryGetActionOperationName(
+            if (!IpcEditStepLoweringRules.TryGetActionOperationName(
                     step.Context.Kind,
                     action.Kind,
                     target.Kind,
@@ -1040,7 +1040,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (!EditStepLoweringRules.TryGetActionOperationName(
+            if (!IpcEditStepLoweringRules.TryGetActionOperationName(
                     step.Context.Kind,
                     action.Kind,
                     target.Kind,
@@ -1073,22 +1073,25 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             bool allowPlayMode,
             out ExecuteRequestNormalizationError error)
         {
-            var operationName = EditStepLoweringRules.GetCommitOperationName(step.Context.Kind, step.Commit);
+            var operationName = IpcEditStepLoweringRules.GetCommitOperationName(step.Context.Kind, step.Commit, allowPlayMode);
             if (operationName == null)
             {
                 error = default!;
                 return true;
             }
 
-            var args = operationName == UcliPrimitiveOperationNames.ProjectSave
-                ? CreateEmptyArgs()
-                : CreatePathArgs(step.Context.Path!);
+            JsonElement args;
             if (allowPlayMode
-                && operationName == UcliPrimitiveOperationNames.ProjectSave
-                && TryCreatePlayModeTargetSaveOperation(step, out var playModeSaveOperationName, out var playModeSaveArgs))
+                && operationName == UcliPrimitiveOperationNames.AssetSave
+                && TryCreatePlayModeTargetSaveOperation(step, out var playModeSaveArgs))
             {
-                operationName = playModeSaveOperationName;
                 args = playModeSaveArgs;
+            }
+            else
+            {
+                args = operationName == UcliPrimitiveOperationNames.ProjectSave
+                    ? CreateEmptyArgs()
+                    : CreatePathArgs(step.Context.Path!);
             }
 
             operations.Add(new NormalizedOperation(
@@ -1105,23 +1108,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static bool TryCreatePlayModeTargetSaveOperation (
             IpcEditStepContract step,
-            out string operationName,
             out JsonElement args)
         {
             switch (step.Context.Kind)
             {
                 case IpcEditStepContract.ContextKind.Asset:
-                    operationName = UcliPrimitiveOperationNames.AssetSave;
                     args = CreateAssetSaveArgs(CreateAssetPathSelector(step.Context.Path!));
                     return true;
 
                 case IpcEditStepContract.ContextKind.Project:
-                    operationName = UcliPrimitiveOperationNames.AssetSave;
                     args = CreateAssetSaveArgs(CreateProjectAssetPathSelector(step.Selection.ProjectAssetPath!));
                     return true;
 
                 default:
-                    operationName = string.Empty;
                     args = default;
                     return false;
             }
@@ -1150,22 +1149,22 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             {
                 case IpcEditStepContract.ContextKind.Scene:
                     target = new SelectionTarget(
-                        EditStepLoweringRules.DetermineDirectSelectionTargetKind(step.Context.Kind, step.Selection.ComponentType),
+                        IpcEditStepLoweringRules.DetermineDirectSelectionTargetKind(step.Context.Kind, step.Selection.ComponentType),
                         CreateSceneSelector(step.Context.Path!, step.Selection.GameObjectPath!, step.Selection.ComponentType));
                     errorMessage = string.Empty;
                     return true;
                 case IpcEditStepContract.ContextKind.Prefab:
                     target = new SelectionTarget(
-                        EditStepLoweringRules.DetermineDirectSelectionTargetKind(step.Context.Kind, step.Selection.ComponentType),
+                        IpcEditStepLoweringRules.DetermineDirectSelectionTargetKind(step.Context.Kind, step.Selection.ComponentType),
                         CreatePrefabSelector(step.Context.Path!, step.Selection.GameObjectPath!, step.Selection.ComponentType));
                     errorMessage = string.Empty;
                     return true;
                 case IpcEditStepContract.ContextKind.Asset:
-                    target = new SelectionTarget(EditTargetKind.Asset, CreateAssetPathSelector(step.Context.Path!));
+                    target = new SelectionTarget(IpcEditTargetKind.Asset, CreateAssetPathSelector(step.Context.Path!));
                     errorMessage = string.Empty;
                     return true;
                 case IpcEditStepContract.ContextKind.Project:
-                    target = new SelectionTarget(EditTargetKind.Asset, CreateProjectAssetPathSelector(step.Selection.ProjectAssetPath!));
+                    target = new SelectionTarget(IpcEditTargetKind.Asset, CreateProjectAssetPathSelector(step.Selection.ProjectAssetPath!));
                     errorMessage = string.Empty;
                     return true;
                 default:
@@ -1186,8 +1185,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             SceneQuerySelectionEngine.QueryMatch match)
         {
             var targetKind = match.TargetKind == SceneQuerySelectionEngine.QueryTargetKind.Component
-                ? EditTargetKind.Component
-                : EditTargetKind.GameObject;
+                ? IpcEditTargetKind.Component
+                : IpcEditTargetKind.GameObject;
 
             return new SelectionTarget(
                 targetKind,
@@ -1246,7 +1245,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return true;
             }
 
-            if (!EditStepLoweringRules.SupportsDirectHierarchyParentLiteral(step.Context.Kind))
+            if (!IpcEditStepLoweringRules.SupportsDirectHierarchyParentLiteral(step.Context.Kind))
             {
                 error = ExecuteRequestNormalizationError.InvalidArgument(
                     "Edit action 'reparent' can use direct parent paths only in scene or prefab context.",
@@ -1257,12 +1256,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             if (step.Context.Kind == IpcEditStepContract.ContextKind.Scene)
             {
-                target = new SelectionTarget(EditTargetKind.GameObject, CreateSceneSelector(step.Context.Path!, parentLiteral, null));
+                target = new SelectionTarget(IpcEditTargetKind.GameObject, CreateSceneSelector(step.Context.Path!, parentLiteral, null));
                 error = default!;
                 return true;
             }
 
-            target = new SelectionTarget(EditTargetKind.GameObject, CreatePrefabSelector(step.Context.Path!, parentLiteral, null));
+            target = new SelectionTarget(IpcEditTargetKind.GameObject, CreatePrefabSelector(step.Context.Path!, parentLiteral, null));
             error = default!;
             return true;
         }
@@ -1630,7 +1629,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             /// <param name="kind"> The target category selected for the branch. </param>
             /// <param name="reference"> The cloned primitive reference payload that identifies the target. </param>
             public SelectionTarget (
-                EditTargetKind kind,
+                IpcEditTargetKind kind,
                 JsonElement reference)
             {
                 Kind = kind;
@@ -1640,7 +1639,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             /// <summary>
             /// Gets the primitive target category selected for the branch.
             /// </summary>
-            public EditTargetKind Kind { get; }
+            public IpcEditTargetKind Kind { get; }
 
             /// <summary>
             /// Gets the cloned primitive reference payload used by lowered operations.

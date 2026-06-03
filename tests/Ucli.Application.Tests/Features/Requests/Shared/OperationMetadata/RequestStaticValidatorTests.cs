@@ -1213,6 +1213,60 @@ public sealed class RequestStaticValidatorTests
                      && error.Message.Contains("operationAllowlist", StringComparison.Ordinal));
     }
 
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("asset")]
+    [InlineData("project")]
+    public async Task Validate_WhenAllowPlayModeAssetBackedCommitUsesTargetLimitedAssetSave_DoesNotRequireProjectSave (
+        string contextKind)
+    {
+        var validator = CreateValidator();
+        var request = CreateRequest(
+            allowPlayMode: true,
+            steps:
+            [
+                CreateAssetSetEditStep("edit-asset-save", contextKind),
+            ]);
+
+        var result = await validator.ValidateAsync(
+            request,
+            CreateUnityProject(),
+            CreateConfig(OperationPolicy.Advanced, "^ucli\\.asset\\.(set|save)$"),
+            CancellationToken.None);
+
+        Assert.True(result.IsValid);
+        Assert.Empty(result.Errors);
+        Assert.Null(result.Error);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("asset")]
+    [InlineData("project")]
+    public async Task Validate_WhenAssetBackedCommitRunsOutsidePlayMode_RequiresProjectSave (
+        string contextKind)
+    {
+        var validator = CreateValidator();
+        var request = CreateRequest(
+            steps:
+            [
+                CreateAssetSetEditStep("edit-project-save", contextKind),
+            ]);
+
+        var result = await validator.ValidateAsync(
+            request,
+            CreateUnityProject(),
+            CreateConfig(OperationPolicy.Advanced, "^ucli\\.asset\\.(set|save)$"),
+            CancellationToken.None);
+
+        Assert.False(result.IsValid);
+        Assert.Contains(
+            result.Errors,
+            error => error.Code == OperationAuthorizationErrorCodes.OperationNotAllowed
+                     && error.Message.Contains(UcliPrimitiveOperationNames.ProjectSave, StringComparison.Ordinal)
+                     && error.Message.Contains("operationAllowlist", StringComparison.Ordinal));
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task Validate_WhenPrefabMutationEditDisallowsPrefabOpen_RemainsValid ()
@@ -1303,7 +1357,8 @@ public sealed class RequestStaticValidatorTests
     private static ValidateRequest CreateRequest (
         int protocolVersion = IpcProtocol.CurrentVersion,
         string? requestId = null,
-        IReadOnlyList<ValidateRequestStep?>? steps = null)
+        IReadOnlyList<ValidateRequestStep?>? steps = null,
+        bool allowPlayMode = false)
     {
         return new ValidateRequest(
             ProtocolVersion: protocolVersion,
@@ -1314,7 +1369,8 @@ public sealed class RequestStaticValidatorTests
                 {
                     path = "Assets/Scenes/Main.unity",
                 }),
-            ]);
+            ],
+            AllowPlayMode: allowPlayMode);
     }
 
     private static ValidateRequest CreateInvalidRequest (string scenario)
@@ -1465,6 +1521,64 @@ public sealed class RequestStaticValidatorTests
               "commit": "none"
             }
             """.Replace("__STEP_ID__", stepId, StringComparison.Ordinal));
+    }
+
+    private static ValidateRequestStep CreateAssetSetEditStep (
+        string stepId,
+        string contextKind)
+    {
+        var on = contextKind switch
+        {
+            "asset" => """
+                "on": {
+                  "asset": "Assets/Data/Config.asset"
+                }
+                """,
+            "project" => """
+                "on": {
+                  "project": true
+                }
+                """,
+            _ => throw new ArgumentOutOfRangeException(nameof(contextKind), contextKind, "Unsupported edit context kind."),
+        };
+        var select = contextKind switch
+        {
+            "asset" => """
+                "select": {
+                  "self": true,
+                  "cardinality": "one"
+                }
+                """,
+            "project" => """
+                "select": {
+                  "projectAsset": {
+                    "path": "ProjectSettings/TagManager.asset"
+                  },
+                  "cardinality": "one"
+                }
+                """,
+            _ => throw new ArgumentOutOfRangeException(nameof(contextKind), contextKind, "Unsupported edit context kind."),
+        };
+
+        return CreateEditStep(
+            stepId: stepId,
+            $$"""
+            {
+              "kind": "edit",
+              "id": "{{stepId}}",
+              {{on}},
+              {{select}},
+              "actions": [
+                {
+                  "kind": "set",
+                  "values": {
+                    "m_Name": "Updated"
+                  }
+                }
+              ],
+              "commit": "context"
+            }
+            """);
     }
 
     private static UcliOperationDescriptor CreateDescriptor (

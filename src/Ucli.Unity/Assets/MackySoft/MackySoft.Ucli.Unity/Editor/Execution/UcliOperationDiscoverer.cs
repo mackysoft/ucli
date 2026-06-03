@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Reflection;
+using MackySoft.Ucli.Unity.Execution.Phases;
 using Microsoft.Extensions.DependencyInjection;
 using UnityEditor.Compilation;
 
@@ -10,7 +10,7 @@ using RuntimeAssembly = System.Reflection.Assembly;
 
 #nullable enable
 
-namespace MackySoft.Ucli.Unity.Execution.Phases
+namespace MackySoft.Ucli.Unity.Execution
 {
     /// <summary> Discovers and instantiates operation types marked with <see cref="UcliOperationAttribute" />. </summary>
     internal static class UcliOperationDiscoverer
@@ -409,7 +409,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> The default operation service provider. </returns>
         private static IServiceProvider CreateDefaultOperationServiceProvider ()
         {
-            return new ServiceCollection().BuildServiceProvider();
+            return new ServiceCollection()
+                .AddUnityOperationServices()
+                .BuildServiceProvider();
         }
 
         /// <summary> Creates one operation instance through dependency injection. </summary>
@@ -423,8 +425,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             try
             {
-                var created = TryCreateWithServiceProvider(type, serviceProvider)
-                    ?? CreateWithRecursiveConcreteActivation(type, serviceProvider, new HashSet<Type>()) as IUcliOperation;
+                var created = ActivatorUtilities.GetServiceOrCreateInstance(serviceProvider, type) as IUcliOperation;
                 if (created == null)
                 {
                     throw new InvalidOperationException(
@@ -450,80 +451,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 throw new InvalidOperationException(
                     $"Type '{type.FullName}' with '{nameof(UcliOperationAttribute)}' is not accessible for operation discovery.",
                     exception);
-            }
-        }
-
-        private static IUcliOperation? TryCreateWithServiceProvider (
-            Type type,
-            IServiceProvider serviceProvider)
-        {
-            try
-            {
-                return ActivatorUtilities.GetServiceOrCreateInstance(serviceProvider, type) as IUcliOperation;
-            }
-            catch (InvalidOperationException)
-            {
-                return null;
-            }
-        }
-
-        private static object CreateWithRecursiveConcreteActivation (
-            Type type,
-            IServiceProvider serviceProvider,
-            ISet<Type> activationStack)
-        {
-            if (type.IsAbstract || type.IsInterface)
-            {
-                throw new InvalidOperationException(
-                    $"Type '{type.FullName}' requires an unregistered abstract or interface dependency.");
-            }
-
-            if (!activationStack.Add(type))
-            {
-                throw new InvalidOperationException(
-                    $"Type '{type.FullName}' has a cyclic constructor dependency.");
-            }
-
-            try
-            {
-                var constructor = type.GetConstructors(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
-                    .OrderByDescending(static candidate => candidate.GetParameters().Length)
-                    .FirstOrDefault();
-                if (constructor == null)
-                {
-                    throw new InvalidOperationException(
-                        $"Type '{type.FullName}' does not declare an instance constructor.");
-                }
-
-                var parameters = constructor.GetParameters();
-                var arguments = new object?[parameters.Length];
-                for (var parameterIndex = 0; parameterIndex < parameters.Length; parameterIndex++)
-                {
-                    var parameter = parameters[parameterIndex];
-                    var resolved = serviceProvider.GetService(parameter.ParameterType);
-                    if (resolved != null)
-                    {
-                        arguments[parameterIndex] = resolved;
-                        continue;
-                    }
-
-                    if (parameter.HasDefaultValue)
-                    {
-                        arguments[parameterIndex] = parameter.DefaultValue;
-                        continue;
-                    }
-
-                    arguments[parameterIndex] = CreateWithRecursiveConcreteActivation(
-                        parameter.ParameterType,
-                        serviceProvider,
-                        activationStack);
-                }
-
-                return constructor.Invoke(arguments);
-            }
-            finally
-            {
-                activationStack.Remove(type);
             }
         }
     }

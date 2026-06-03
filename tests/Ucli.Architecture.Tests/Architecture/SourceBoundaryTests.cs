@@ -247,11 +247,27 @@ public sealed class SourceBoundaryTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Unity_operation_phases_do_not_reference_contract_edit_step_lowering_helpers ()
+    public void Unity_operation_phases_do_not_reference_contract_edit_step_lowering_subnamespace ()
     {
         var forbiddenMarkers = new[]
         {
             "MackySoft.Ucli.Contracts.Ipc.EditSteps",
+        };
+
+        SourceBoundaryAssertions.AssertNoMarkersInCode(
+            ArchitectureTestRepository.EnumerateCSharpSourceFiles("src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/Execution/Phases"),
+            forbiddenMarkers);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Unity_operation_phases_do_not_reference_execution_root_service_registration ()
+    {
+        var forbiddenMarkers = new[]
+        {
+            "using MackySoft.Ucli.Unity.Execution;",
+            "UnityExecutionServiceCollectionExtensions",
+            "AddUnityOperationServices",
         };
 
         SourceBoundaryAssertions.AssertNoMarkersInCode(

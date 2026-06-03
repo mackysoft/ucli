@@ -1,6 +1,6 @@
 using System.Text.Json;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
-using MackySoft.Ucli.Contracts.Ipc.EditSteps;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 
@@ -14,6 +14,7 @@ internal static class RequestEditStepLowerPreviewBuilder
     /// <returns> <see langword="true" /> when the edit step can be structurally lowered into primitive operation names; otherwise <see langword="false" />. </returns>
     public static bool TryBuild (
         JsonElement stepElement,
+        bool allowPlayMode,
         out IReadOnlyList<string> operationNames,
         out string errorMessage)
     {
@@ -44,7 +45,7 @@ internal static class RequestEditStepLowerPreviewBuilder
             }
         }
 
-        AddIfPresent(IpcEditStepLoweringRules.GetCommitOperationName(stepContract.Context.Kind, stepContract.Commit), operations);
+        AddIfPresent(IpcEditStepLoweringRules.GetCommitOperationName(stepContract.Context.Kind, stepContract.Commit, allowPlayMode), operations);
         operationNames = operations;
         return true;
     }

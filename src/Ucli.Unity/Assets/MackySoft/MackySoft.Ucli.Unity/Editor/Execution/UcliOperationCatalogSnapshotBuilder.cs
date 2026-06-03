@@ -4,10 +4,11 @@ using System.Linq;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Unity.Execution.Phases;
 
 using MackySoft.Ucli.Contracts.Text;
 
-namespace MackySoft.Ucli.Unity.Execution.Phases
+namespace MackySoft.Ucli.Unity.Execution
 {
     /// <summary> Builds one shared operation snapshot from discovered registrations. </summary>
     internal static class UcliOperationCatalogSnapshotBuilder

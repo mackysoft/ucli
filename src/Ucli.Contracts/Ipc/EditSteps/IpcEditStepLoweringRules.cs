@@ -2,7 +2,7 @@ using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
 using MackySoft.Ucli.Contracts.Text;
 
-namespace MackySoft.Ucli.Contracts.Ipc.EditSteps;
+namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Defines shared structural lowering rules for public <c>kind:"edit"</c> steps. </summary>
 internal static class IpcEditStepLoweringRules
@@ -99,32 +99,41 @@ internal static class IpcEditStepLoweringRules
     /// <returns> The implicit save primitive operation name, or <see langword="null" /> when no save operation is required. </returns>
     public static string? GetCommitOperationName (
         IpcEditStepContract.ContextKind contextKind,
-        IpcEditStepContract.CommitKind commitKind)
+        IpcEditStepContract.CommitKind commitKind,
+        bool allowPlayMode = false)
     {
-        switch (commitKind)
+        var operationName = commitKind switch
         {
-            case IpcEditStepContract.CommitKind.None:
-                return null;
+            IpcEditStepContract.CommitKind.None => null,
+            IpcEditStepContract.CommitKind.Context => GetContextCommitOperationName(contextKind),
+            IpcEditStepContract.CommitKind.Project => UcliPrimitiveOperationNames.ProjectSave,
+            _ => null,
+        };
 
-            case IpcEditStepContract.CommitKind.Context:
-                switch (contextKind)
-                {
-                    case IpcEditStepContract.ContextKind.Scene:
-                        return UcliPrimitiveOperationNames.SceneSave;
-
-                    case IpcEditStepContract.ContextKind.Prefab:
-                        return UcliPrimitiveOperationNames.PrefabSave;
-
-                    default:
-                        return UcliPrimitiveOperationNames.ProjectSave;
-                }
-
-            case IpcEditStepContract.CommitKind.Project:
-                return UcliPrimitiveOperationNames.ProjectSave;
-
-            default:
-                return null;
+        if (allowPlayMode
+            && operationName == UcliPrimitiveOperationNames.ProjectSave
+            && SupportsPlayModeTargetLimitedAssetSave(contextKind))
+        {
+            return UcliPrimitiveOperationNames.AssetSave;
         }
+
+        return operationName;
+    }
+
+    private static string GetContextCommitOperationName (IpcEditStepContract.ContextKind contextKind)
+    {
+        return contextKind switch
+        {
+            IpcEditStepContract.ContextKind.Scene => UcliPrimitiveOperationNames.SceneSave,
+            IpcEditStepContract.ContextKind.Prefab => UcliPrimitiveOperationNames.PrefabSave,
+            _ => UcliPrimitiveOperationNames.ProjectSave,
+        };
+    }
+
+    private static bool SupportsPlayModeTargetLimitedAssetSave (IpcEditStepContract.ContextKind contextKind)
+    {
+        return contextKind == IpcEditStepContract.ContextKind.Asset
+               || contextKind == IpcEditStepContract.ContextKind.Project;
     }
 
     /// <summary>

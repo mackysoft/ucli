@@ -13,6 +13,7 @@ using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Testing;
 using MackySoft.Ucli.Infrastructure.Ipc;
+using MackySoft.Ucli.Unity.Execution;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using MackySoft.Ucli.Unity.Execution.Dispatch;

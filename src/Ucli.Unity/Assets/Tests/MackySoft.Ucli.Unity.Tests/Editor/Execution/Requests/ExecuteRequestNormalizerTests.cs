@@ -200,6 +200,80 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
+        public void Normalize_WhenEditRequestReparentsDirectSceneSelection_CompilesGoReparentOperation ()
+        {
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(ExecuteRequestNormalizerTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Root");
+            var child = new GameObject("Child");
+            child.transform.SetParent(root.transform, worldPositionStays: false);
+            var newParent = new GameObject("NewParent");
+            newParent.transform.SetParent(root.transform, worldPositionStays: false);
+            EditorSceneManager.SaveScene(scene, scenePath);
+
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = new object[]
+                    {
+                        new
+                        {
+                            kind = "edit",
+                            id = "reparentChild",
+                            on = new
+                            {
+                                scene = scenePath,
+                            },
+                            select = new
+                            {
+                                gameObject = "Root/Child",
+                                cardinality = "one",
+                            },
+                            actions = new object[]
+                            {
+                                new
+                                {
+                                    kind = "reparent",
+                                    parent = "Root/NewParent",
+                                },
+                            },
+                            commit = "none",
+                        },
+                    },
+                });
+
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Error, Is.Null);
+            var normalizedRequest = result.Request!;
+            var (compiledStep, compiledOperations) = CompileSingleStep(normalizedRequest, 0, scope.CreateExecutionContext());
+            _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
+                .HasLoweredOperations(
+                    IpcRequestStepKind.Edit,
+                    "edit",
+                    UcliPrimitiveOperationNames.GoReparent)
+                .HasPostReadSourceStep(
+                    IpcExecutePostReadSourceKindNames.Edit,
+                    IpcExecutePostReadCommitNames.None,
+                    false,
+                    IpcExecuteExpectedPostStateNames.Deterministic);
+
+            var args = compiledOperations[0].Args;
+            var target = args.GetProperty("target");
+            Assert.That(target.GetProperty("scene").GetString(), Is.EqualTo(scenePath));
+            Assert.That(target.GetProperty("hierarchyPath").GetString(), Is.EqualTo("Root/Child"));
+            var parent = args.GetProperty("parent");
+            Assert.That(parent.GetProperty("scene").GetString(), Is.EqualTo(scenePath));
+            Assert.That(parent.GetProperty("hierarchyPath").GetString(), Is.EqualTo("Root/NewParent"));
+        }
+
+        [Test]
+        [Category("Size.Small")]
         public void Normalize_WhenSelectFromUsesFirst_SelectsFirstHierarchyTraversalMatch ()
         {
             using var scope = new EditorTestScope();
