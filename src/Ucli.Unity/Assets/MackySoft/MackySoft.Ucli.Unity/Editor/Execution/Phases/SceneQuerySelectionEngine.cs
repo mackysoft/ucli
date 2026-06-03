@@ -3,11 +3,10 @@ using System.Collections.Generic;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
-using MackySoft.Ucli.Unity.Execution.Phases;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace MackySoft.Ucli.Unity.Execution.Requests
+namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary>
     /// <para> Resolves scene-scoped query selections into deterministic query matches. </para>

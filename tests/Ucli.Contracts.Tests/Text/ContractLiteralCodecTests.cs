@@ -3,6 +3,7 @@ using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Ipc.ContractReading;
 using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Tests.Text;
@@ -74,6 +75,25 @@ public sealed class ContractLiteralCodecTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void GetLiterals_WhenEditActionKind_ReturnsCanonicalActionLiterals ()
+    {
+        Assert.Equal(
+            [
+                "set",
+                "ensureComponent",
+                "createObject",
+                "createAsset",
+                "createPrefab",
+                "applyPrefabOverrides",
+                "revertPrefabOverrides",
+                "delete",
+                "reparent",
+            ],
+            ContractLiteralCodec.GetLiterals<IpcEditStepContract.ActionKind>());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void ToValue_WhenValueIsUnmapped_ThrowsArgumentOutOfRangeException ()
     {
         Assert.Throws<ArgumentOutOfRangeException>(
@@ -140,6 +160,7 @@ public sealed class ContractLiteralCodecTests
             yield return new object[] { typeof(IpcTransportKind) };
             yield return new object[] { typeof(IpcPlayModeState) };
             yield return new object[] { typeof(IpcPlayModeTransition) };
+            yield return new object[] { typeof(IpcEditStepContract.ActionKind) };
             yield return new object[] { typeof(SceneTreeSourceStateKind) };
             yield return new object[] { typeof(UcliOperationInputConstraintKind) };
             yield return new object[] { typeof(UcliOperationAssetKind) };

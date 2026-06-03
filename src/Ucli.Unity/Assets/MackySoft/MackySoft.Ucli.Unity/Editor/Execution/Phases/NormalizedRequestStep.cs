@@ -1,9 +1,8 @@
 using System.Collections.Generic;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
-using MackySoft.Ucli.Unity.Execution.Phases;
 
-namespace MackySoft.Ucli.Unity.Execution.Requests
+namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Represents one normalized public step and the number of compiled primitives it produced. </summary>
     /// <param name="Id"> The public step identifier. </param>

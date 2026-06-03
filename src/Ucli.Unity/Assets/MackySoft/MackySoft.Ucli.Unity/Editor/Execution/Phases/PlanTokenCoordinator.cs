@@ -1,16 +1,16 @@
 using System;
-using MackySoft.Ucli.Contracts;
 using System.Collections.Generic;
 using System.Threading;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
-using MackySoft.Ucli.Infrastructure.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Unity.Execution.Phases;
+using MackySoft.Ucli.Infrastructure.Cryptography;
+using MackySoft.Ucli.Unity.Execution.PlanToken;
 using MackySoft.Ucli.Unity.Execution.Requests;
 
 #nullable enable
 
-namespace MackySoft.Ucli.Unity.Execution.PlanToken
+namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Provides file-backed plan-token issuance and validation services. </summary>
     internal sealed class PlanTokenCoordinator : IPlanTokenCoordinator

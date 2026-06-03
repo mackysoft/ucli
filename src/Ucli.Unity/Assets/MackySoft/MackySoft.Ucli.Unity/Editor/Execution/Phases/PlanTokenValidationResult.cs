@@ -1,9 +1,8 @@
 using System;
-using MackySoft.Ucli.Unity.Execution.Phases;
 
 #nullable enable
 
-namespace MackySoft.Ucli.Unity.Execution.PlanToken
+namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Represents one plan-token validation result. </summary>
     /// <param name="Failure"> The validation failure details when validation failed; otherwise <see langword="null" />. </param>

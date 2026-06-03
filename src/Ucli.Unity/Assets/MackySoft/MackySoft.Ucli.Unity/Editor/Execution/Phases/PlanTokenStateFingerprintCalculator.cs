@@ -6,11 +6,11 @@ using System.Threading;
 using MackySoft.Ucli.Infrastructure.Cryptography;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Contracts.Text;
-using MackySoft.Ucli.Unity.Execution.Phases;
+using MackySoft.Ucli.Unity.Execution.PlanToken;
 
 #nullable enable
 
-namespace MackySoft.Ucli.Unity.Execution.PlanToken
+namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Computes state-fingerprint hash values used by plan-token workflows. </summary>
     internal static class PlanTokenStateFingerprintCalculator

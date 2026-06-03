@@ -1,9 +1,8 @@
 using System;
-using MackySoft.Ucli.Unity.Execution.Phases;
 
 #nullable enable
 
-namespace MackySoft.Ucli.Unity.Execution.PlanToken
+namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Represents one plan-token issuance result. </summary>
     /// <param name="PlanToken"> The issued token string when issuance succeeded. </param>

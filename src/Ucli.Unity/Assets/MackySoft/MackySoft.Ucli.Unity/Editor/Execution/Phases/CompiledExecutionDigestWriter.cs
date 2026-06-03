@@ -3,8 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
+using MackySoft.Ucli.Unity.Execution.Requests;
 
-namespace MackySoft.Ucli.Unity.Execution.Requests
+namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Writes canonical JSON payload bytes used for compiled-execution digest material. </summary>
     internal static class CompiledExecutionDigestWriter

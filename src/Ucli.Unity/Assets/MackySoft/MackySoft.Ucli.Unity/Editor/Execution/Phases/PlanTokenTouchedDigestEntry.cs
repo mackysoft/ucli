@@ -1,6 +1,6 @@
 #nullable enable
 
-namespace MackySoft.Ucli.Unity.Execution.PlanToken
+namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Represents one touched-digest entry. </summary>
     /// <param name="Kind"> The touched kind literal. </param>

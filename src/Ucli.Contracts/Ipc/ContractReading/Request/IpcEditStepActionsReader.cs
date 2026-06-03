@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Ipc.ContractReading;
 
@@ -104,7 +105,7 @@ internal static class IpcEditStepActionsReader
             return false;
         }
 
-        if (!IpcCamelCaseEnumLiteralParser.TryParse(kindLiteral!, out actionKind))
+        if (!ContractLiteralCodec.TryParse(kindLiteral, out actionKind))
         {
             errorMessage = $"Edit step property 'step.actions[{actionIndex}].kind' is unsupported.";
             return false;

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text.Json;
 using System.Threading;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
 using MackySoft.Ucli.Contracts.Text;
@@ -13,8 +14,6 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
     /// <summary> Validates and normalizes execute request payloads into strict contract models. </summary>
     internal sealed class ExecuteRequestNormalizer : IExecuteRequestNormalizer
     {
-        private readonly ExecuteRequestCompiler requestCompiler = new();
-
         /// <summary> Validates and normalizes one execute request payload. </summary>
         /// <param name="request"> The execute request payload. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by operation pipelines. </param>
@@ -107,7 +106,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 validatedSteps,
                 request.AllowPlayMode);
             var normalizedPlanToken = StringValueNormalizer.TrimToNull(request.PlanToken);
-            if (!requestCompiler.TryPrepareSourceSteps(
+            if (!TryPrepareSourceSteps(
                 parsedContract,
                 request.AllowPlayMode,
                 out var sourceSteps,
@@ -125,6 +124,171 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 PlanToken: normalizedPlanToken,
                 CanonicalDigestPayloadUtf8: canonicalPayload);
             return ExecuteRequestNormalizationResult.Success(normalizedRequest);
+        }
+
+        internal static bool TryPrepareSourceSteps (
+            IpcRequestContract requestContract,
+            bool allowPlayMode,
+            out IReadOnlyList<IpcRequestContractStep> sourceSteps,
+            out ExecuteRequestNormalizationError error)
+        {
+            sourceSteps = Array.Empty<IpcRequestContractStep>();
+            error = default!;
+
+            if (requestContract.Steps == null)
+            {
+                error = ExecuteRequestNormalizationError.InvalidArgument(
+                    message: "Request property 'steps' is required.",
+                    opId: null);
+                return false;
+            }
+
+            var preparedSteps = new List<IpcRequestContractStep>(requestContract.Steps.Count);
+            foreach (var step in requestContract.Steps)
+            {
+                if (step == null || step.Id == null || step.Kind == null)
+                {
+                    error = ExecuteRequestNormalizationError.InvalidArgument(
+                        message: "Request step is incomplete.",
+                        opId: step?.Id);
+                    return false;
+                }
+
+                switch (step.Kind)
+                {
+                    case IpcRequestStepKind.Op:
+                        if (allowPlayMode && !IsPlayModeRawOperationAllowed(step))
+                        {
+                            error = ExecuteRequestNormalizationError.InvalidArgument(
+                                "Play Mode mutation requests support only public edit steps.",
+                                step.Id);
+                            return false;
+                        }
+
+                        if (!TryValidateOpStep(step, out error))
+                        {
+                            return false;
+                        }
+
+                        break;
+
+                    case IpcRequestStepKind.Edit:
+                        if (!TryValidateEditStep(step, out var editStep, out error))
+                        {
+                            return false;
+                        }
+
+                        if (allowPlayMode && !TryValidatePlayModeEditStep(step.Id, editStep, out error))
+                        {
+                            return false;
+                        }
+
+                        break;
+
+                    default:
+                        error = ExecuteRequestNormalizationError.InvalidArgument(
+                            message: $"Step '{step.Id}' has unsupported kind.",
+                            opId: step.Id);
+                        return false;
+                }
+
+                preparedSteps.Add(step);
+            }
+
+            sourceSteps = preparedSteps;
+            error = default!;
+            return true;
+        }
+
+        private static bool TryValidateOpStep (
+            IpcRequestContractStep step,
+            out ExecuteRequestNormalizationError error)
+        {
+            if (step.OperationName == null)
+            {
+                error = ExecuteRequestNormalizationError.InvalidArgument(
+                    message: "Step operation name is required.",
+                    opId: step.Id);
+                return false;
+            }
+
+            if (!step.Element.TryGetProperty("args", out var argsElement)
+                || argsElement.ValueKind != JsonValueKind.Object)
+            {
+                error = ExecuteRequestNormalizationError.InvalidArgument(
+                    message: $"Step '{step.Id}' property 'args' must be an object.",
+                    opId: step.Id);
+                return false;
+            }
+
+            error = default!;
+            return true;
+        }
+
+        private static bool IsPlayModeRawOperationAllowed (IpcRequestContractStep step)
+        {
+            return string.Equals(step.OperationName, UcliPrimitiveOperationNames.CsEval, StringComparison.Ordinal);
+        }
+
+        private static bool TryValidateEditStep (
+            IpcRequestContractStep step,
+            out IpcEditStepContract editStep,
+            out ExecuteRequestNormalizationError error)
+        {
+            editStep = default!;
+            if (!IpcEditStepContractReader.TryRead(step.Element, out editStep, out var editErrorMessage))
+            {
+                error = ExecuteRequestNormalizationError.InvalidArgument(
+                    message: editErrorMessage,
+                    opId: step.Id);
+                return false;
+            }
+
+            error = default!;
+            return true;
+        }
+
+        private static bool TryValidatePlayModeEditStep (
+            string stepId,
+            IpcEditStepContract editStep,
+            out ExecuteRequestNormalizationError error)
+        {
+            if (editStep.Commit == IpcEditStepContract.CommitKind.Project)
+            {
+                error = new ExecuteRequestNormalizationError(
+                    PlayModeErrorCodes.PlayModePersistenceForbidden,
+                    "Play Mode mutation does not allow project-wide commit.",
+                    stepId);
+                return false;
+            }
+
+            if (editStep.Context.Kind == IpcEditStepContract.ContextKind.Scene)
+            {
+                if (editStep.Commit != IpcEditStepContract.CommitKind.None)
+                {
+                    error = new ExecuteRequestNormalizationError(
+                        PlayModeErrorCodes.PlayModePersistenceForbidden,
+                        "Play Mode scene mutation must use commit:'none'.",
+                        stepId);
+                    return false;
+                }
+
+                for (var actionIndex = 0; actionIndex < editStep.Actions.Count; actionIndex++)
+                {
+                    var actionKind = editStep.Actions[actionIndex].Kind;
+                    if (actionKind == IpcEditStepContract.ActionKind.CreateAsset)
+                    {
+                        error = new ExecuteRequestNormalizationError(
+                            PlayModeErrorCodes.PlayModePersistenceForbidden,
+                            $"Play Mode scene mutation does not allow action '{ContractLiteralCodec.ToValue(actionKind)}'.",
+                            stepId);
+                        return false;
+                    }
+                }
+            }
+
+            error = default!;
+            return true;
         }
 
         private static ExecuteRequestNormalizationError MapReadError (in IpcRequestContractReadError readError)

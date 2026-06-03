@@ -6,12 +6,12 @@ using System.Text.Json;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
-using MackySoft.Ucli.Contracts.Ipc.EditSteps;
-using MackySoft.Ucli.Unity.Execution.Phases;
+using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Unity.Execution.Requests;
 
 #nullable enable
 
-namespace MackySoft.Ucli.Unity.Execution.Requests
+namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary>
     /// <para> Compiles validated public request steps into primitive-only execute-request models. </para>
@@ -20,87 +20,6 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
     internal sealed class ExecuteRequestCompiler
     {
         private const string EditOperationName = "edit";
-
-        /// <summary>
-        /// Validates one parsed request step list and preserves the validated source steps for runtime compilation.
-        /// </summary>
-        /// <param name="requestContract"> The validated public request contract. </param>
-        /// <param name="sourceSteps"> The validated source steps in source order when validation succeeds. </param>
-        /// <param name="error"> The structured normalization error when compilation fails. </param>
-        /// <returns> <see langword="true" /> when every source step is valid for runtime compilation; otherwise <see langword="false" />. </returns>
-        public bool TryPrepareSourceSteps (
-            IpcRequestContract requestContract,
-            bool allowPlayMode,
-            out IReadOnlyList<IpcRequestContractStep> sourceSteps,
-            out ExecuteRequestNormalizationError error)
-        {
-            sourceSteps = Array.Empty<IpcRequestContractStep>();
-            error = default!;
-
-            if (requestContract.Steps == null)
-            {
-                error = ExecuteRequestNormalizationError.InvalidArgument(
-                    message: "Request property 'steps' is required.",
-                    opId: null);
-                return false;
-            }
-
-            var preparedSteps = new List<IpcRequestContractStep>(requestContract.Steps.Count);
-            foreach (var step in requestContract.Steps)
-            {
-                if (step == null || step.Id == null || step.Kind == null)
-                {
-                    error = ExecuteRequestNormalizationError.InvalidArgument(
-                        message: "Request step is incomplete.",
-                        opId: step?.Id);
-                    return false;
-                }
-
-                switch (step.Kind)
-                {
-                    case IpcRequestStepKind.Op:
-                        if (allowPlayMode && !IsPlayModeRawOperationAllowed(step))
-                        {
-                            error = ExecuteRequestNormalizationError.InvalidArgument(
-                                "Play Mode mutation requests support only public edit steps.",
-                                step.Id);
-                            return false;
-                        }
-
-                        if (!TryValidateOpStep(step, out error))
-                        {
-                            return false;
-                        }
-
-                        break;
-
-                    case IpcRequestStepKind.Edit:
-                        if (!TryValidateEditStep(step, out var editStep, out error))
-                        {
-                            return false;
-                        }
-
-                        if (allowPlayMode && !TryValidatePlayModeEditStep(step.Id!, editStep, out error))
-                        {
-                            return false;
-                        }
-
-                        break;
-
-                    default:
-                        error = ExecuteRequestNormalizationError.InvalidArgument(
-                            message: $"Step '{step.Id}' has unsupported kind.",
-                            opId: step.Id);
-                        return false;
-                }
-
-                preparedSteps.Add(step);
-            }
-
-            sourceSteps = preparedSteps;
-            error = default!;
-            return true;
-        }
 
         /// <summary>
         /// Compiles one validated source step against the current request-local execution state.
@@ -213,74 +132,6 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             {
                 PostReadSourceStep = CreateOperationPostReadSourceStep(step.Id!, step.OperationName!),
             };
-            error = default!;
-            return true;
-        }
-
-        private bool TryValidateEditStep (
-            IpcRequestContractStep step,
-            out IpcEditStepContract editStep,
-            out ExecuteRequestNormalizationError error)
-        {
-            editStep = default!;
-            if (!IpcEditStepContractReader.TryRead(step.Element, out editStep, out var editErrorMessage))
-            {
-                error = ExecuteRequestNormalizationError.InvalidArgument(
-                    message: editErrorMessage,
-                    opId: step.Id);
-                return false;
-            }
-
-            if (editStep.Selection.Kind == IpcEditStepContract.SelectionKind.Direct
-                && !TryBuildDirectSelectionTarget(editStep, out _, out var errorMessage))
-            {
-                error = ExecuteRequestNormalizationError.InvalidArgument(errorMessage, step.Id);
-                return false;
-            }
-
-            error = default!;
-            return true;
-        }
-
-        private static bool TryValidatePlayModeEditStep (
-            string stepId,
-            IpcEditStepContract editStep,
-            out ExecuteRequestNormalizationError error)
-        {
-            if (editStep.Commit == IpcEditStepContract.CommitKind.Project)
-            {
-                error = new ExecuteRequestNormalizationError(
-                    PlayModeErrorCodes.PlayModePersistenceForbidden,
-                    "Play Mode mutation does not allow project-wide commit.",
-                    stepId);
-                return false;
-            }
-
-            if (editStep.Context.Kind == IpcEditStepContract.ContextKind.Scene)
-            {
-                if (editStep.Commit != IpcEditStepContract.CommitKind.None)
-                {
-                    error = new ExecuteRequestNormalizationError(
-                        PlayModeErrorCodes.PlayModePersistenceForbidden,
-                        "Play Mode scene mutation must use commit:'none'.",
-                        stepId);
-                    return false;
-                }
-
-                for (var actionIndex = 0; actionIndex < editStep.Actions.Count; actionIndex++)
-                {
-                    var actionKind = editStep.Actions[actionIndex].Kind;
-                    if (actionKind == IpcEditStepContract.ActionKind.CreateAsset)
-                    {
-                        error = new ExecuteRequestNormalizationError(
-                            PlayModeErrorCodes.PlayModePersistenceForbidden,
-                            $"Play Mode scene mutation does not allow action '{ToActionLiteral(actionKind)}'.",
-                            stepId);
-                        return false;
-                    }
-                }
-            }
-
             error = default!;
             return true;
         }
@@ -449,7 +300,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             out ExecuteRequestNormalizationError error)
         {
             error = default!;
-            if (!IpcEditStepLoweringRules.RequiresLiveEditableContext(step))
+            if (!EditStepLoweringRules.RequiresLiveEditableContext(step))
             {
                 return true;
             }
@@ -530,7 +381,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             out ExecuteRequestNormalizationError error)
         {
             error = default!;
-            var operationName = IpcEditStepLoweringRules.GetCommitOperationName(step.Context.Kind, step.Commit);
+            var operationName = EditStepLoweringRules.GetCommitOperationName(step.Context.Kind, step.Commit);
             if (operationName == null)
             {
                 return true;
@@ -793,7 +644,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 }
 
                 error = ExecuteRequestNormalizationError.InvalidArgument(
-                    $"Edit step '{step.Id}' action '{ToActionLiteral(actionKind)}' requires the selection to resolve to at most one target.",
+                    $"Edit step '{step.Id}' action '{ContractLiteralCodec.ToValue(actionKind)}' requires the selection to resolve to at most one target.",
                     step.Id);
                 return false;
             }
@@ -893,7 +744,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 return false;
             }
 
-            if (!IpcEditStepLoweringRules.TryGetActionOperationName(
+            if (!EditStepLoweringRules.TryGetActionOperationName(
                     step.Context.Kind,
                     action.Kind,
                     target.Kind,
@@ -936,7 +787,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 return false;
             }
 
-            if (!IpcEditStepLoweringRules.TryGetActionOperationName(
+            if (!EditStepLoweringRules.TryGetActionOperationName(
                     step.Context.Kind,
                     action.Kind,
                     target.Kind,
@@ -963,7 +814,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
 
             if (action.Alias != null)
             {
-                aliases[action.Alias] = new SelectionTarget(IpcEditTargetKind.Component, CreateAliasReference(internalAlias!));
+                aliases[action.Alias] = new SelectionTarget(EditTargetKind.Component, CreateAliasReference(internalAlias!));
             }
 
             error = default!;
@@ -980,7 +831,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             bool allowPlayMode,
             out ExecuteRequestNormalizationError error)
         {
-            if (!IpcEditStepLoweringRules.TryGetActionOperationName(
+            if (!EditStepLoweringRules.TryGetActionOperationName(
                     step.Context.Kind,
                     action.Kind,
                     branchTarget.Kind,
@@ -1007,7 +858,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
 
             if (action.Alias != null)
             {
-                aliases[action.Alias] = new SelectionTarget(IpcEditTargetKind.GameObject, CreateAliasReference(internalAlias!));
+                aliases[action.Alias] = new SelectionTarget(EditTargetKind.GameObject, CreateAliasReference(internalAlias!));
             }
 
             error = default!;
@@ -1020,10 +871,10 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             ICollection<NormalizedOperation> operations,
             out ExecuteRequestNormalizationError error)
         {
-            if (!IpcEditStepLoweringRules.TryGetActionOperationName(
+            if (!EditStepLoweringRules.TryGetActionOperationName(
                     step.Context.Kind,
                     action.Kind,
-                    IpcEditTargetKind.Asset,
+                    EditTargetKind.Asset,
                     parentTargetKind: null,
                     out var operationName,
                     out var errorMessage))
@@ -1060,7 +911,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 return false;
             }
 
-            if (!IpcEditStepLoweringRules.TryGetActionOperationName(
+            if (!EditStepLoweringRules.TryGetActionOperationName(
                     step.Context.Kind,
                     action.Kind,
                     target.Kind,
@@ -1102,7 +953,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 return false;
             }
 
-            if (!IpcEditStepLoweringRules.TryGetActionOperationName(
+            if (!EditStepLoweringRules.TryGetActionOperationName(
                     step.Context.Kind,
                     action.Kind,
                     target.Kind,
@@ -1143,7 +994,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 return false;
             }
 
-            if (!IpcEditStepLoweringRules.TryGetActionOperationName(
+            if (!EditStepLoweringRules.TryGetActionOperationName(
                     step.Context.Kind,
                     action.Kind,
                     target.Kind,
@@ -1189,7 +1040,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 return false;
             }
 
-            if (!IpcEditStepLoweringRules.TryGetActionOperationName(
+            if (!EditStepLoweringRules.TryGetActionOperationName(
                     step.Context.Kind,
                     action.Kind,
                     target.Kind,
@@ -1222,7 +1073,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             bool allowPlayMode,
             out ExecuteRequestNormalizationError error)
         {
-            var operationName = IpcEditStepLoweringRules.GetCommitOperationName(step.Context.Kind, step.Commit);
+            var operationName = EditStepLoweringRules.GetCommitOperationName(step.Context.Kind, step.Commit);
             if (operationName == null)
             {
                 error = default!;
@@ -1299,22 +1150,22 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             {
                 case IpcEditStepContract.ContextKind.Scene:
                     target = new SelectionTarget(
-                        IpcEditStepLoweringRules.DetermineDirectSelectionTargetKind(step.Context.Kind, step.Selection.ComponentType),
+                        EditStepLoweringRules.DetermineDirectSelectionTargetKind(step.Context.Kind, step.Selection.ComponentType),
                         CreateSceneSelector(step.Context.Path!, step.Selection.GameObjectPath!, step.Selection.ComponentType));
                     errorMessage = string.Empty;
                     return true;
                 case IpcEditStepContract.ContextKind.Prefab:
                     target = new SelectionTarget(
-                        IpcEditStepLoweringRules.DetermineDirectSelectionTargetKind(step.Context.Kind, step.Selection.ComponentType),
+                        EditStepLoweringRules.DetermineDirectSelectionTargetKind(step.Context.Kind, step.Selection.ComponentType),
                         CreatePrefabSelector(step.Context.Path!, step.Selection.GameObjectPath!, step.Selection.ComponentType));
                     errorMessage = string.Empty;
                     return true;
                 case IpcEditStepContract.ContextKind.Asset:
-                    target = new SelectionTarget(IpcEditTargetKind.Asset, CreateAssetPathSelector(step.Context.Path!));
+                    target = new SelectionTarget(EditTargetKind.Asset, CreateAssetPathSelector(step.Context.Path!));
                     errorMessage = string.Empty;
                     return true;
                 case IpcEditStepContract.ContextKind.Project:
-                    target = new SelectionTarget(IpcEditTargetKind.Asset, CreateProjectAssetPathSelector(step.Selection.ProjectAssetPath!));
+                    target = new SelectionTarget(EditTargetKind.Asset, CreateProjectAssetPathSelector(step.Selection.ProjectAssetPath!));
                     errorMessage = string.Empty;
                     return true;
                 default:
@@ -1335,8 +1186,8 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             SceneQuerySelectionEngine.QueryMatch match)
         {
             var targetKind = match.TargetKind == SceneQuerySelectionEngine.QueryTargetKind.Component
-                ? IpcEditTargetKind.Component
-                : IpcEditTargetKind.GameObject;
+                ? EditTargetKind.Component
+                : EditTargetKind.GameObject;
 
             return new SelectionTarget(
                 targetKind,
@@ -1395,7 +1246,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 return true;
             }
 
-            if (!IpcEditStepLoweringRules.SupportsDirectHierarchyParentLiteral(step.Context.Kind))
+            if (!EditStepLoweringRules.SupportsDirectHierarchyParentLiteral(step.Context.Kind))
             {
                 error = ExecuteRequestNormalizationError.InvalidArgument(
                     "Edit action 'reparent' can use direct parent paths only in scene or prefab context.",
@@ -1406,12 +1257,12 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
 
             if (step.Context.Kind == IpcEditStepContract.ContextKind.Scene)
             {
-                target = new SelectionTarget(IpcEditTargetKind.GameObject, CreateSceneSelector(step.Context.Path!, parentLiteral, null));
+                target = new SelectionTarget(EditTargetKind.GameObject, CreateSceneSelector(step.Context.Path!, parentLiteral, null));
                 error = default!;
                 return true;
             }
 
-            target = new SelectionTarget(IpcEditTargetKind.GameObject, CreatePrefabSelector(step.Context.Path!, parentLiteral, null));
+            target = new SelectionTarget(EditTargetKind.GameObject, CreatePrefabSelector(step.Context.Path!, parentLiteral, null));
             error = default!;
             return true;
         }
@@ -1779,7 +1630,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             /// <param name="kind"> The target category selected for the branch. </param>
             /// <param name="reference"> The cloned primitive reference payload that identifies the target. </param>
             public SelectionTarget (
-                IpcEditTargetKind kind,
+                EditTargetKind kind,
                 JsonElement reference)
             {
                 Kind = kind;
@@ -1789,7 +1640,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             /// <summary>
             /// Gets the primitive target category selected for the branch.
             /// </summary>
-            public IpcEditTargetKind Kind { get; }
+            public EditTargetKind Kind { get; }
 
             /// <summary>
             /// Gets the cloned primitive reference payload used by lowered operations.
@@ -1812,21 +1663,5 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             public JsonElement Value { get; }
         }
 
-        private static string ToActionLiteral (IpcEditStepContract.ActionKind actionKind)
-        {
-            return actionKind switch
-            {
-                IpcEditStepContract.ActionKind.Set => "set",
-                IpcEditStepContract.ActionKind.EnsureComponent => "ensureComponent",
-                IpcEditStepContract.ActionKind.CreateObject => "createObject",
-                IpcEditStepContract.ActionKind.CreateAsset => "createAsset",
-                IpcEditStepContract.ActionKind.CreatePrefab => "createPrefab",
-                IpcEditStepContract.ActionKind.ApplyPrefabOverrides => "applyPrefabOverrides",
-                IpcEditStepContract.ActionKind.RevertPrefabOverrides => "revertPrefabOverrides",
-                IpcEditStepContract.ActionKind.Delete => "delete",
-                IpcEditStepContract.ActionKind.Reparent => "reparent",
-                _ => actionKind.ToString(),
-            };
-        }
     }
 }

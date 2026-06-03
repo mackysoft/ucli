@@ -1,12 +1,11 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
-using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.Requests;
-using System;
 
 #nullable enable
 
-namespace MackySoft.Ucli.Unity.Execution.PlanToken
+namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Coordinates plan-token issuance and validation around phase execution. </summary>
     internal interface IPlanTokenCoordinator
