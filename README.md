@@ -954,7 +954,7 @@ ucli ops describe game.scene.countGameObjects --projectPath ./UnityProject
 
 ## 📦 Packages
 
-| Package | Version | Install when |
+| Package | NuGet | Install when |
 | --- | --- | --- |
 | `MackySoft.Ucli` | [![NuGet](https://img.shields.io/nuget/v/MackySoft.Ucli?label=)](https://www.nuget.org/packages/MackySoft.Ucli) | You need the `ucli` command. |
 | `MackySoft.Ucli.Unity` | [![NuGet](https://img.shields.io/nuget/v/MackySoft.Ucli.Unity?label=)](https://www.nuget.org/packages/MackySoft.Ucli.Unity) | You need Unity Editor operations in a Unity project. |
