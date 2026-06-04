@@ -954,12 +954,12 @@ ucli ops describe game.scene.countGameObjects --projectPath ./UnityProject
 
 ## 📦 Packages
 
-| Package | Install when |
-| --- | --- |
-| `MackySoft.Ucli` | You need the `ucli` command. |
-| `MackySoft.Ucli.Unity` | You need Unity Editor operations in a Unity project. |
-| `MackySoft.Ucli.Contracts` | You build advanced tooling that uses uCLI's shared IPC types directly. |
-| `MackySoft.Ucli.Infrastructure` | You build advanced uCLI runtime integrations that need shared infrastructure helpers. |
+| Package | NuGet | Install when |
+| --- | --- | --- |
+| `MackySoft.Ucli` | [![NuGet](https://img.shields.io/nuget/v/MackySoft.Ucli?label=)](https://www.nuget.org/packages/MackySoft.Ucli) | You need the `ucli` command. |
+| `MackySoft.Ucli.Unity` | [![NuGet](https://img.shields.io/nuget/v/MackySoft.Ucli.Unity?label=)](https://www.nuget.org/packages/MackySoft.Ucli.Unity) | You need Unity Editor operations in a Unity project. |
+| `MackySoft.Ucli.Contracts` | [![NuGet](https://img.shields.io/nuget/v/MackySoft.Ucli.Contracts?label=)](https://www.nuget.org/packages/MackySoft.Ucli.Contracts) | You build advanced tooling that uses uCLI's shared IPC types directly. |
+| `MackySoft.Ucli.Infrastructure` | [![NuGet](https://img.shields.io/nuget/v/MackySoft.Ucli.Infrastructure?label=)](https://www.nuget.org/packages/MackySoft.Ucli.Infrastructure) | You build advanced uCLI runtime integrations that need shared infrastructure helpers. |
 
 ## 💬 Support
 
