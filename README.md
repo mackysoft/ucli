@@ -1,4 +1,4 @@
-# uCLI - Contract-first Unity automation for agents, CI, and tools
+# uCLI - Reviewable Unity automation for agents, CI, and tools
 
 [![verify](https://github.com/mackysoft/ucli/actions/workflows/verify.yaml/badge.svg)](https://github.com/mackysoft/ucli/actions/workflows/verify.yaml) [![NuGet](https://img.shields.io/nuget/v/MackySoft.Ucli?label=MackySoft.Ucli)](https://www.nuget.org/packages/MackySoft.Ucli) [![NuGet Unity](https://img.shields.io/nuget/v/MackySoft.Ucli.Unity?label=MackySoft.Ucli.Unity)](https://www.nuget.org/packages/MackySoft.Ucli.Unity) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
@@ -6,60 +6,34 @@
 
 uCLI turns Unity Editor changes into reviewable, repeatable, machine-readable workflows for scripts, CI, and AI agents.
 
-It reads Unity state, declares the intended change, applies it through Unity Editor APIs with internal validation and planning, chooses the save boundary, and returns structured evidence.
+It reads Unity state, declares the intended change, applies it through Unity Editor APIs with validation and planning, chooses the save boundary, and returns structured evidence.
 
-uCLI is not a remote-control wrapper around the Unity Editor. It is an execution protocol for workflows where automation must be inspected, replayed, gated, and trusted.
+uCLI is not a remote-control wrapper around the Unity Editor. Use it when automated Unity changes need to be inspected, replayed, gated, and trusted.
 
 ## ❓ Why uCLI?
 
-Unity automation usually fails in the control plane, not only in the edit API. Scripts and agents need to know which Unity project they are talking to, whether the Editor is compiling or reloading, whether a request was applied before a timeout, what contexts were touched, and whether a reviewed plan is still valid when applied.
-
-In short:
+uCLI starts from a simple premise:
 
 - Unity is callable.
 - Unity changes should be reviewable.
 - The normal workflow is `status -> ready -> read -> call --withPlan -> verify`.
 
-uCLI focuses on those guarantees:
+uCLI keeps automated Unity changes reviewable: inspect the plan before mutation, see what happened after execution, and diagnose uncertain Editor state.
 
-- **Planned calls by default:** `ucli call --withPlan` validates, plans, and applies one request in one command; split `planToken` flows are available when a review gate must separate planning from mutation.
-- **Live Unity source of truth:** mutations go through Unity Editor APIs and are re-resolved against live Unity state.
-- **Context-bound edits:** every edit belongs to a scene, prefab, asset, or project boundary.
-- **Explicit persistence:** changing an object and saving a context are separate decisions.
-- **Machine-readable evidence:** automation receives structured JSON with `opResults`, `applied`, `changed`, `touched`, errors, logs, and artifacts.
-- **Lifecycle-aware execution:** compile, domain reload, busy, play mode, shutdown, and blocked states are surfaced as protocol states or structured errors.
-- **Worktree-safe sessions:** daemon state, indexes, and artifacts are scoped by project identity; Unity process launches are serialized by physical project root.
-- **Dangerous operations are opt-in:** unsafe paths are isolated behind derived operation policy and `--allowDangerous`.
-
-## 🧭 What uCLI Makes Explicit
-
-uCLI is built around the review boundary: an automated Unity change should be inspectable before mutation, attributable after execution, and diagnosable when the runtime state is uncertain.
-
-| Concern | What must be knowable | uCLI contract |
+| Concern | What you need to know | How uCLI handles it |
 | --- | --- | --- |
-| Editor readiness | Whether Unity can accept the request now. | Lifecycle states are surfaced; execution waits or fails with structured errors. |
-| Reviewed plan drift | Whether Unity state still matches the reviewed plan. | `planToken` validates request and state before `call`. |
-| Project and worktree identity | Which project owns local state, indexes, artifacts, and launch coordination. | Local state and Unity process launches stay coordinated across worktrees. |
+| Editor readiness | Whether Unity can accept the request now. | Compile, domain reload, busy, play mode, shutdown, and blocked states are surfaced as readiness states or structured errors. |
+| Live Unity state | Whether the mutation is applied through Unity itself. | Mutations go through Unity Editor APIs and re-resolve against live Unity state. |
+| Edit context | Which scene, prefab, asset, or project context owns the edit. | Every edit declares a scene, prefab, asset, or project context. |
+| Execution mode | Whether `daemon`, `auto`, or `oneshot` changes request meaning. | `daemon`, `auto`, and `oneshot` do not change request meaning; they only change process reuse and startup behavior. |
+| Planned writes and drift | Whether planning is explicit and Unity state still matches the reviewed plan. | `ucli call --withPlan` validates, plans, and applies in one command; `ucli plan` and `--planToken` support separated review gates and validate request/state before mutation. |
+| Project and worktree identity | Which project owns local state, indexes, artifacts, and launch coordination. | Daemon state, indexes, and artifacts are scoped by project identity; Unity process launches are serialized by physical project root. |
 | Timeout recovery | Whether a retry is safe after timeout or disconnect. | Timeout is not proof of no-op; inspect returned results when available and logs before retrying. |
-| Persistence | Whether a mutation also saved project data. | `commit` makes save boundaries explicit. |
-| Evidence | What changed, what was touched, and where diagnostics live. | JSON envelopes, logs, and test artifacts are first-class outputs. |
-| Operation discovery | Which operation contract is installed for this project. | `ops describe` exposes the installed operation's kind, policy, inputs, result contract, assurance facts, optional code contract, and structural schemas. |
-| Read freshness | Whether cached read data is fresh, stale, or advisory. | readIndex accelerates reads, while `call` re-resolves against live Unity state. |
-| Guarded execution | Which requests cross the normal edit boundary. | Dangerous operations are isolated and require explicit opt-in. |
-
-## 🧠 Design Contracts
-
-uCLI is designed around assurance, not convenience-first automation.
-
-| Contract | What uCLI does |
-| --- | --- |
-| Unity remains the source of truth | Mutations go through Unity Editor APIs. |
-| Edits have context | Every edit declares a scene, prefab, asset, or project context. |
-| Planned writes are explicit | `ucli call --withPlan` validates, plans, and applies in one command; `ucli plan` and `--planToken` support separated review gates. |
-| Saves are explicit | `commit` controls persistence with `"none"`, `"context"`, or `"project"`. |
-| Results are evidence | JSON exposes `opResults`, `applied`, `changed`, `touched`, errors, logs, and artifacts. |
-| Runtime is operational | `daemon`, `auto`, and `oneshot` do not change request meaning. |
-| Unsafe paths are isolated | Dangerous operations require catalog policy and `--allowDangerous`. |
+| Persistence | Whether a mutation also saved project data. | `commit` controls persistence with `"none"`, `"context"`, or `"project"`. |
+| Evidence | What changed, what was touched, and where diagnostics live. | JSON exposes `opResults`, `applied`, `changed`, `touched`, errors, logs, and artifacts. |
+| Operation discovery | Which operations this project exposes and what data they accept. | `ops describe` shows the installed operation's kind, policy, inputs, result data, and JSON input/result shape. |
+| Read freshness | Whether cached read data is fresh, stale, or advisory. | readIndex accelerates repeated reads, while `call` re-resolves against live Unity state. |
+| Guarded execution | Which requests cross the normal edit boundary. | Dangerous operations stay outside the normal guarded edit path. |
 
 ## ✨ What You Can Do
 
@@ -67,17 +41,12 @@ Use uCLI when you need to automate Unity from scripts, CI, or agents without los
 
 ### 🤖 For Agents
 
-Agents should not hard-code operation arguments or guess Unity state from memory.
+Agents should use uCLI to read Unity state, choose an edit, apply it, and verify the result.
 
-- Discover available operations with `ucli ops list` and `ucli ops describe`.
-- Treat `ucli ops describe <operation>` as the runtime contract for that operation's kind, policy, inputs, result contract, assurance facts, optional code contract, and structural schemas.
-- Use `ucli ready --for execution` instead of fixed sleeps before read-only or generic Unity-backed work.
-- Use `ucli ready --for mutation` before normal write workflows.
-- Inspect assets, scene trees, components, and serialized schemas before editing.
-- Do not use `--all` in normal reasoning loops. Use `--limit` and `--after` to page deterministically.
-- Build JSON requests with primitive `op` steps and higher-level `edit` steps.
-- Use `ucli call --withPlan` for normal writes; reserve `ucli validate` and `ucli plan` for diagnostics or separated review gates.
-- Use `ucli verify --profile built-in:mutation --from result.json` after mutation to read post-mutation claims, coverage, and residual risks.
+- List and describe installed operations before building a request.
+- Read current Unity state before deciding an edit, and treat cached read data as advisory.
+- Use planned writes with explicit scene, prefab, asset, or project contexts.
+- Base follow-up decisions on structured results, logs, artifacts, and verification claims.
 
 ### 🧪 For CI
 
@@ -89,14 +58,9 @@ Agents should not hard-code operation arguments or guess Unity state from memory
 ### 🧰 For Local Tool Workflows
 
 - Start a daemon for repeated Unity-backed commands.
-- Reuse read indexes for operation metadata, schemas, asset search, and scene inspection.
+- Reuse read indexes for operation details, asset search, and scene inspection.
 - Read Unity and daemon logs from the same CLI.
-
-### 🌿 For Multi-Worktree Development
-
-- Scope sessions, indexes, and artifacts by project identity.
-- Serialize Unity process launches by physical Unity project root, even across worktrees.
-- Keep daemon state separate across Git worktrees.
+- Keep sessions, indexes, artifacts, daemon state, and Unity process launches scoped correctly across project roots and Git worktrees.
 
 ## 📦 Installation
 
@@ -107,20 +71,17 @@ Agents should not hard-code operation arguments or guess Unity state from memory
 
 ### 💻 CLI
 
+Install the CLI and confirm the command is available:
+
 ```bash
 dotnet tool install --global MackySoft.Ucli --version <version>
+ucli --version
 ```
 
 Update an existing installation:
 
 ```bash
 dotnet tool update --global MackySoft.Ucli --version <version>
-```
-
-Confirm the command is available:
-
-```bash
-ucli --version
 ```
 
 ### 🎮 Unity Plugin
@@ -133,7 +94,7 @@ If you manage `Assets/packages.config` directly, add:
 <package id="MackySoft.Ucli.Unity" version="<version>" manuallyInstalled="true" targetFramework="netstandard2.1" />
 ```
 
-> **IMPORTANT:** Use the same pinned `<version>` for both the CLI and Unity plugin in released automation.
+> **IMPORTANT:** Use the same pinned `<version>` for both the CLI and Unity plugin in released automation, and update them together.
 
 ## 🚀 Quick Start
 
@@ -159,11 +120,17 @@ Then confirm that uCLI can resolve the project:
 ucli status
 ```
 
+Wait until Unity can answer read-only work:
+
+```bash
+ucli ready --for execution
+```
+
 Inspect the installed operation catalog:
 
 ```bash
 ucli ops list
-ucli ops describe ucli.scene.open
+ucli ops describe ucli.assets.find
 ```
 
 Read project state:
@@ -171,6 +138,28 @@ Read project state:
 ```bash
 ucli query assets find --pathPrefix Assets --limit 10
 ```
+
+Run one planned Unity-backed request and capture the JSON result:
+
+```bash
+ucli call --withPlan > result.json <<'JSON'
+{
+  "steps": [
+    {
+      "kind": "op",
+      "id": "findAssets",
+      "op": "ucli.assets.find",
+      "args": {
+        "pathPrefix": "Assets",
+        "limit": 10
+      }
+    }
+  ]
+}
+JSON
+```
+
+Inspect `result.json` to confirm the request status, plan, and asset-search `opResults`.
 
 For repeated local automation, start a daemon:
 
@@ -180,72 +169,34 @@ ucli daemon start
 
 Use `--projectPath <path>` when a single command needs to override the environment value.
 
-## 🧭 Compatibility and Stability
-
-- Pin `MackySoft.Ucli` and `MackySoft.Ucli.Unity` to the same released version and update them together.
-- The CLI generates the internal request protocol metadata for automation workflows.
-- `MackySoft.Ucli.Contracts` is for direct IPC protocol and tooling consumers.
-- `MackySoft.Ucli.Infrastructure` is an advanced integration package for runtime support code.
-- Operations whose policy is `dangerous` are outside the normal guarded edit path and require an explicit `ucli call --allowDangerous` or `ucli eval --allowDangerous`.
-
-## 🔄 Typical Workflow
-
-uCLI is normally driven by a runner: a local shell script, a continuous integration job, or an agent. The runner reads Unity state, builds one JSON request, sends that request to uCLI, and decides whether to accept the result.
-
-Set up optional project-local configuration once per repository:
-
-```bash
-ucli init
-```
-
-Confirm that uCLI can resolve the target Unity project:
-
-```bash
-ucli status
-```
-
-Start a daemon when an interactive session or local automation will run several Unity-backed commands:
-
-```bash
-ucli daemon start
-```
-
-> **NOTE:** For one-off local commands and CI jobs, you can skip the daemon. The default `--mode auto` uses a running daemon when one is available and falls back to one-shot batchmode when it is not.
-
-### 🧭 One Contract, Multiple Runtimes
+## 🧭 Runtime Modes
 
 uCLI can run Unity-backed commands through three execution modes:
 
 | Mode | Use it for |
 | --- | --- |
 | `oneshot` | Start Unity in batchmode for isolated commands and CI jobs. |
-| `daemon` | Require an existing Unity-backed daemon for repeated local or agent requests. |
-| `auto` | Reuse a running daemon when available; otherwise fall back to one-shot batchmode. |
+| `daemon` | Require an existing Unity-backed daemon for repeated local automation. |
+| `auto` | Reuse a running daemon when available; otherwise fall back to one-shot batchmode, so one-off local commands and CI jobs do not need a daemon. |
 
-The request protocol does not change between these modes. Runtime choice is operational, not semantic.
+Requests mean the same thing in every mode. The mode only controls process reuse and startup behavior.
 
-## 📤 Automation Output Contract
+## 📤 Machine-Readable Output
 
-> **IMPORTANT:** Automation commands listed below write one final JSON result envelope to standard output. Help and version output are human-readable command-line output. Progress messages, diagnostics, and entry streams that are not the final JSON result contract are written to standard error.
+> **IMPORTANT:** Automation commands listed below write one final JSON result envelope to standard output. Other human-readable command-line output, progress messages, diagnostics, and entry streams are written to standard error.
 
-Automation should parse standard output as the final `CommandResult`. Commands with entry streams, such as `ucli logs unity read`, `ucli logs daemon read`, and `ucli test run`, write entries to standard error before the final result.
+Automation should parse standard output as the final JSON result. Commands with entry streams, such as `ucli logs unity read`, `ucli logs daemon read`, and `ucli test run`, write entries to standard error before the final result.
 
-Use `--format json` when a runner needs newline-delimited JSON entries from standard error. Without `--format json`, standard error is diagnostic or human-readable output and is not a stable parse target.
-When a runner invokes a command that can write entries, it must drain standard error concurrently while it waits for the final standard output result.
+Use `--format json` when automation needs newline-delimited JSON entries from standard error. Without `--format json`, standard error is diagnostic or human-readable output and is not a stable parse target.
+When a command can write entries, drain standard error concurrently while waiting for the final standard output result.
 
 The common JSON envelope contains `protocolVersion`, `command`, `status`, `exitCode`, `message`, `payload`, and `errors`.
 Use `status` and `errors[]` for command-level success or failure.
 For request commands, inspect `payload.opResults` to determine which steps applied, changed, or returned operation-specific result data.
 For assurance commands, inspect `payload.verdict`, `payload.verifiers[]`, `payload.claims[]`, `payload.reports`, and `payload.residualRisks[]`.
 Use `ucli codes describe IPC_TIMEOUT` or another code value to read the static meaning of machine-readable codes.
-uCLI code values are bare tool-local identities. When a supervisor combines uCLI output with another tool's report, use a cross-tool identity such as `ucli:IPC_TIMEOUT` at the aggregation layer; the uCLI JSON itself keeps `code` values unprefixed.
 
-uCLI emits Unity-local assurance. Static code review tools should run separately and be combined by an external supervisor; `ucli verify` does not execute, ingest, or reinterpret external tool reports.
-`payload.verdict = "pass"` means the Unity-local required claims passed. It is not, by itself, a reviewless green decision for an external supervisor.
-A supervisor that requires reviewless green should treat every residual risk, including `blocking=false` risks, as review policy input. uCLI pass only says those risks did not block the Unity-local verifier.
-
-Published schema artifacts validate the JSON envelope and command-specific payload structure. The top-level `command` selects the payload schema. Operation-specific `opResults[].result` bodies are validated by the operation `resultSchema` exposed through `ucli ops describe`; cross-field assurance rules such as verdict recalculation and evidence reference resolution are checked by contract validators and golden output tests, not by JSON Schema alone.
-Schema artifacts are distributed under `schemas/v1/` in the CLI package and GitHub Releases for `protocolVersion: 1`.
+Published JSON schemas are available for tools that validate uCLI output. They cover the common envelope and each command payload; operation-specific `opResults[].result` follows the `resultSchema` shown by `ucli ops describe`. Treat verifier verdicts and evidence references as returned result data, not as something JSON Schema alone can decide.
 
 ## 🔍 Reading Project State
 
@@ -295,12 +246,12 @@ ucli compile
 ucli verify --profile built-in:script --from result.json
 ```
 
-The `built-in:default` verify profile includes `compile`, so `ucli verify --from result.json` may trigger AssetDatabase refresh, script compilation, and domain reload. Use `--profile built-in:mutation` when a runner only needs Unity-local post-mutation evidence, and use `--profile built-in:script` for C# script changes. Inspect `payload.verifiers[].effects[]` when a runner needs the effective side-effect boundary.
+The `built-in:default` verify profile includes `compile`, so `ucli verify --from result.json` may trigger AssetDatabase refresh, script compilation, and domain reload. Use `--profile built-in:mutation` when you only need evidence from Unity after the mutation, and use `--profile built-in:script` for C# script changes. Inspect `payload.verifiers[].effects[]` when automation needs to know which verification steps may refresh, compile, or reload Unity.
 `payload.profile` records the selected profile source, name, path, and digest. The digest includes profile identity as well as effective steps.
 
 If `ucli ready --mode auto` resolves to a transient oneshot probe, the ready claim is diagnostic evidence only for that probe session. It does not guarantee that a later mutation command will reuse the same Unity process.
 
-When a command fails, read code semantics and bounded logs instead of scraping free-form messages:
+When a command fails, read code meanings and bounded logs instead of scraping free-form messages:
 
 ```bash
 ucli codes describe IPC_TIMEOUT
@@ -308,11 +259,11 @@ ucli logs daemon read --tail 200 --level error
 ucli logs unity read --tail 200 --level error
 ```
 
-### 🗃️ Read Index for Agent Loops
+### 🗃️ Read Index for Repeated Reads
 
-uCLI includes a read index for read-heavy automation. It lets agents and scripts inspect operation metadata, schemas, asset search data, GUID/path mappings, and lightweight scene structure without reconnecting to Unity for every reasoning step.
+uCLI includes a read index for read-heavy automation. It lets scripts and agents inspect operation details, asset search data, GUID/path mappings, and lightweight scene structure without reconnecting to Unity for every read.
 
-Mutations still re-resolve against live Unity state. The read index improves planning and validation, but it is never the source of truth for `call`.
+Write commands still resolve targets against live Unity state. The read index speeds up planning, but `call` does not treat stored index data as final state.
 
 For read-heavy workflows, `--readIndexMode` controls whether query-like commands may use stored index data. The `--read-index-mode` spelling is accepted as an alias.
 
@@ -322,7 +273,7 @@ For read-heavy workflows, `--readIndexMode` controls whether query-like commands
 | `allowStale` | Use stored index data even when it is stale, and fall back when it is unavailable. |
 | `requireFresh` | Use stored index data only when it is fresh; otherwise refresh from Unity when the command supports it. |
 
-`ucli ready --for readIndex --readIndexMode requireFresh` checks the global read-index surfaces used by public read commands: `ops.catalog`, `asset-search.lookup`, and `guid-path.lookup`. It does not require unconnected schema catalogs or path-specific `scene-tree-lite` snapshots; validate a scene snapshot with `ucli query scene tree --path <scene> --readIndexMode requireFresh`.
+`ucli ready --for readIndex --readIndexMode requireFresh` checks the stored operation catalog, asset search, and GUID/path lookup data used by public read commands. Validate a scene snapshot with `ucli query scene tree --path <scene> --readIndexMode requireFresh`.
 
 The operation catalog is also available from the CLI:
 
@@ -331,231 +282,13 @@ ucli ops list
 ucli ops describe ucli.scene.open
 ```
 
-`ops describe` returns the agent-facing operation contract for one public raw operation. Its operation payload is fixed to `name`, `kind`, `policy`, `description`, `inputs[]`, `resultContract`, `assurance`, optional `codeContract`, `argsSchema`, and `resultSchema`. Agents should use `description`, `inputs[].constraints`, `inputs[].variants[].fields[].constraints`, `resultContract`, `assurance`, and `codeContract` when present to choose the operation, build `steps[].args`, decide admission, and interpret results. Reusable operation values such as scene asset paths, prefab asset paths, hierarchy paths, GlobalObjectId strings, asset GUIDs, and Unity type identifiers are modeled as semantic Args/Result value types in C#, while the IPC JSON remains primitive strings. Input descriptions and semantic constraints are generated from Args property attributes and those semantic value-type attributes. The generated `argsSchema` and `resultSchema` validate only JSON structure; descriptions and semantic constraints live in the describe contract, not in JSON Schema constraint keywords.
-
-## Custom Operation Authoring Overview
-
-This section is a guide, not the source of truth. The source of truth is `Ucli.Contracts`, operation metadata, and `ucli ops describe`.
-
-Custom operations are Unity Editor code. Put the implementation in an Editor assembly that references `MackySoft.Ucli.Unity`, and put reusable Args/Result contracts in a shared assembly when another tool should compile against them. If only the Unity-side implementation needs the CLR types, the public wire contract is still available through `ucli ops describe`.
-
-An operation has three parts:
-
-1. Define a typed Args contract and, when needed, a typed Result contract.
-2. Add descriptions and semantic constraints to Args properties or reusable semantic value types.
-3. Implement `UcliOperation<TArgs,TResult>` and mark the class with `[UcliOperation]`.
-
-Use `UcliNoResult` for operations that do not emit `opResults[].result`.
-
-The Args and Result CLR types are the source of truth for the public operation contract. `UcliOperationMetadata.Create<TArgs,TResult>` derives `inputs`, `resultContract`, `argsSchema`, and `resultSchema` from those types and their attributes. The catalog builder derives the public `kind` and `policy` from the operation contract facts. Do not hand-write JSON Schema for a normal operation.
-
-Contract rules:
-
-| Rule | Why it matters |
-| --- | --- |
-| Put `[UcliDescription]` on every Args/Result contract type and every public contract property. | `ops describe` uses these descriptions as the user-facing and agent-facing explanation. |
-| Use `[UcliRequired]` for required properties. Do not use C# `required` for the uCLI contract. | Unity-compatible builds and schema generation read the uCLI attribute. |
-| Leave optional properties nullable and omit `[UcliRequired]`. | Optional inputs are not listed in `argsSchema.required`. |
-| Use `[JsonConstructor]` when the contract has a non-default constructor. | uCLI deserializes `steps[].args` with `System.Text.Json` before validation. |
-| Use `[JsonPropertyName]` when the JSON member name must differ from the C# property name. | `argsSchema`, `resultSchema`, and `ops describe` use the JSON name. |
-| Use `[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]` for optional result or selector properties that should be omitted when absent. | Omitted and explicit `null` have different meanings in the public JSON contract. |
-| Use `[UcliJsonAllowNull]` only when explicit JSON `null` is valid for a reference-type property. | Nullable value types such as `int?` already allow JSON `null`; nullable reference syntax alone does not change the runtime JSON contract. |
-| Use `[UcliJsonAnyValue]` only for intentional arbitrary JSON value slots, such as a serialized property value. | It disables structural validation for that property. |
-
-Use existing semantic value types before adding new primitive strings: `SceneAssetPath`, `PrefabAssetPath`, `UnityAssetPath`, `ProjectSettingsAssetPath`, `CreatableUnityAssetPath`, `CreatablePrefabAssetPath`, `ProjectRelativePathPrefix`, `UnityHierarchyPath`, `UnityHierarchyPathPrefix`, `UnityGlobalObjectId`, `UnityAssetGuid`, `UnityTypeId`, `UnityComponentTypeId`, and `SerializedPropertyPath`.
-User-defined semantic value objects are supported for string-shaped values that remain JSON strings on the IPC boundary.
-Create one only when the same meaning appears in multiple Args/Result contracts or when the meaning is important enough to name in the public contract.
-For one-off meaning, keep a normal property and put `[UcliDescription]` and `[UcliInputConstraint]` on that property instead.
-If you need a new string-shaped semantic value, derive from `UcliStringValue`, define a public `string` constructor, add `[JsonConverter(typeof(UcliStringValueJsonConverterFactory))]`, add `[UcliDescription]`, and put `[UcliInputConstraint]` attributes on the value type.
-Do not use arbitrary custom scalar wrappers unless uCLI has a contract base type and schema generator support for that wire shape.
-
-```csharp
-using System.Text.Json.Serialization;
-using MackySoft.Ucli.Contracts.Ipc;
-
-[JsonConverter(typeof(UcliStringValueJsonConverterFactory))]
-[UcliDescription("Addressable asset key used by this project.")]
-[UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]
-public sealed record AddressableKey : UcliStringValue
-{
-    [JsonConstructor]
-    public AddressableKey (string value)
-        : base(value)
-    {
-    }
-}
-
-[UcliDescription("Arguments for setting an Addressables label.")]
-public sealed record SetAddressableLabelArgs
-{
-    [JsonConstructor]
-    public SetAddressableLabelArgs (
-        AddressableKey key,
-        string label)
-    {
-        Key = key;
-        Label = label;
-    }
-
-    [UcliRequired]
-    [UcliDescription("Addressable key to update.")]
-    public AddressableKey Key { get; init; }
-
-    [UcliRequired]
-    [UcliDescription("Label to assign.")]
-    [UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]
-    public string Label { get; init; }
-}
-```
-
-`AddressableKey` remains a JSON string in `steps[].args`, so the generated `argsSchema` contains `"key": { "type": "string" }`.
-Because `Key` has its own `[UcliDescription]`, `ops describe` uses the property description for that input.
-If the property does not declare `[UcliDescription]`, uCLI falls back to the `UcliStringValue` type description.
-The `NonEmpty` constraint comes from the value type and appears in `ops describe` as input metadata.
-
-Input constraints describe the meaning of values in `ops describe`; they are not JSON Schema keywords. Put `[UcliInputConstraint]` on a semantic value type when every use of that type has the same meaning, or on a property when the meaning is specific to one operation.
-
-| Constraint kind | Required parameter | Use it for |
-| --- | --- | --- |
-| `NonEmpty` | none | Non-empty strings, arrays, or objects. |
-| `Range` | `Min`, `Max`, or both | Inclusive numeric bounds. |
-| `ProjectRelativePath` | none | Paths relative to the Unity project. |
-| `AssetExists` | `AssetKind` | Existing asset, scene, prefab, or project settings paths. |
-| `AssetCreatable` | `AssetKind` | Asset or prefab paths that an operation may create. |
-| `GlobalObjectId` | none | Unity GlobalObjectId strings. |
-| `HierarchyPath` | none | Unity scene or prefab hierarchy paths. |
-| `ReferenceResolvable` | `TargetKind` | Object references that must resolve to an asset, GameObject, or component. |
-| `TypeExists` | none | Unity type identifiers that must resolve in the project. |
-| `TypeAssignableTo` | `TypeKind` | Unity type identifiers assignable to a specific Unity kind, such as component. |
-| `SerializedProperty` | `Access` | SerializedProperty paths that must be writable for the operation. |
-| `AssetGuid` | none | Unity asset GUID strings. |
-| `Cursor` | none | Opaque bounded-window cursors returned by read operations. |
-
-For object references and selectors, prefer existing contract types such as `AssetReferenceArgs`, `GameObjectReferenceArgs`, `SceneGameObjectReferenceArgs`, `ComponentReferenceArgs`, and `ResolveSelectorArgs`. If an operation needs a new reference object, use `[UcliExclusiveRequiredPropertySet]` on the object type to define mutually exclusive selector shapes, and `[UcliPropertyRequires]` when one property requires other properties.
-
-Declare operation contract facts deliberately:
-
-| Metadata | Values | Use it for |
-| --- | --- | --- |
-| `declaredKind` | `Query`, `Command`, `Mutation` | The author-declared operation intent. The catalog builder validates it against contract facts and publishes the validated public kind. |
-| `UcliOperationAssuranceContract` | side effects, dirty/persist flags, touched kinds, plan mode | Machine-readable behavior facts used to derive admission policy and let runners decide whether an operation is acceptable. |
-| `UcliOperationPlanMode` | `ValidationOnly`, `ObservesLiveUnity` for public v1 operations | How much the `Plan` phase may do before `Call`. `MayCreatePreviewState` remains an internal metadata literal and is not part of the public `ops describe` payload or schema. |
-| `UcliOperationCodeContract` | source forms, entry point, source-visible API, return constraints | Required for operations that accept source code. Arbitrary source execution derives `dangerous` policy. |
-| `UcliOperationExposure` | `Public`, `EditLoweringOnly`, `Internal` | Whether the operation can be called as a public raw `kind:"op"` step or only through lowering/internal flows. |
-
-`OperationPolicy` is not an author-chosen safety label. It is the admission policy derived only from operation contract facts. The catalog builder computes `policy` from `declaredKind` compatibility, `assurance.sideEffects`, `assurance.mayDirty`, `assurance.mayPersist`, `assurance.touchedKinds`, `assurance.planMode`, `codeContract`, `exposure`, destructive scope, arbitrary execution, and external process or filesystem access. Operation authors do not specify `policy` and cannot tighten or loosen it directly.
-
-Safe operations are bounded observations that cannot dirty, persist, or change Editor state, and do not execute arbitrary code or external processes. Advanced operations include deterministic Unity Editor API writes, Editor state changes, dirty or persisted Unity content, AssetDatabase refresh/import/compile effects, and broader project effects. Dangerous operations are escape hatches such as arbitrary C# execution, arbitrary shell/process/filesystem writes, unbounded destructive operations, or operations whose touched/save boundary cannot be sufficiently guaranteed.
-
-An operation with `MayCreatePreviewState` must not appear in the public `ops describe` payload or schema in v1. If an internal or experimental operation can create preview state during `Plan`, it must derive at least `advanced` and document cleanup evidence and residual risk. If cleanup or the application boundary cannot be guaranteed, it is `dangerous`.
-
-Keep phase behavior consistent:
-
-- `Validate` checks typed args and cheap preconditions.
-- `Plan` may inspect Unity state according to `planMode`, but must not persist content.
-- `Call` performs the operation.
-- Query operations must report `applied:false`, `changed:false`, and `touched:[]`.
-- `applied`, `changed`, and `touched` belong to the operation result envelope. Do not put those fields in `TResult`.
-- `TResult` should contain only the operation-specific main data. Use `UcliNoResult` when there is no main data.
-
-```csharp
-using System;
-using System.Text.Json.Serialization;
-using System.Threading;
-using System.Threading.Tasks;
-using MackySoft.Ucli.Contracts.Configuration;
-using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Unity.Execution.Phases;
-using MackySoft.Ucli.Unity.Execution.Requests;
-
-[UcliDescription("Arguments for counting GameObjects in a scene.")]
-public sealed record CountSceneObjectsArgs
-{
-    [JsonConstructor]
-    public CountSceneObjectsArgs (SceneAssetPath path)
-    {
-        Path = path;
-    }
-
-    [UcliRequired]
-    [UcliDescription("Scene asset path to inspect.")]
-    public SceneAssetPath Path { get; init; }
-}
-
-[UcliDescription("GameObject count result.")]
-public sealed record CountSceneObjectsResult
-{
-    [JsonConstructor]
-    public CountSceneObjectsResult (int count)
-    {
-        Count = count;
-    }
-
-    [UcliRequired]
-    [UcliDescription("Number of GameObjects found in the scene.")]
-    public int Count { get; init; }
-}
-
-[UcliOperation]
-internal sealed class CountSceneObjectsOperation : UcliOperation<CountSceneObjectsArgs, CountSceneObjectsResult>
-{
-    public override UcliOperationMetadata Metadata { get; } =
-        UcliOperationMetadata.Create<CountSceneObjectsArgs, CountSceneObjectsResult>(
-            operationName: "game.scene.countGameObjects",
-            declaredKind: UcliOperationKind.Query,
-            description: "Counts GameObjects in a Unity scene.",
-            assurance: new UcliOperationAssuranceContract(
-                Array.Empty<UcliOperationSideEffect>(),
-                mayDirty: false,
-                mayPersist: false,
-                Array.Empty<string>(),
-                UcliOperationPlanMode.ObservesLiveUnity));
-
-    protected override Task<OperationPhaseStepResult> Validate (
-        NormalizedOperation operation,
-        CountSceneObjectsArgs args,
-        OperationExecutionContext executionContext,
-        CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult(OperationPhaseStepResult.Success());
-    }
-
-    protected override Task<OperationPhaseStepResult> Plan (
-        NormalizedOperation operation,
-        CountSceneObjectsArgs args,
-        OperationExecutionContext executionContext,
-        CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult(SuccessWithResult(new CountSceneObjectsResult(0), applied: false, changed: false));
-    }
-
-    protected override Task<OperationPhaseStepResult> Call (
-        NormalizedOperation operation,
-        CountSceneObjectsArgs args,
-        OperationExecutionContext executionContext,
-        CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult(SuccessWithResult(new CountSceneObjectsResult(0), applied: false, changed: false));
-    }
-}
-```
-
-The example leaves the Unity scene traversal out of the snippet so the contract shape is visible. In a real operation, keep Unity object resolution and mutation inside `Validate`, `Plan`, or `Call`, and keep `JsonElement` out of the operation body. Use existing semantic value types such as `SceneAssetPath`, `PrefabAssetPath`, `UnityHierarchyPath`, `UnityGlobalObjectId`, `UnityAssetGuid`, and `UnityTypeId` before introducing a new value type.
-
-After Unity recompiles the Editor assembly, confirm that the operation is discoverable and that its contract is usable by agents:
-
-```bash
-ucli ops describe game.scene.countGameObjects --projectPath ./UnityProject
-```
+`ops describe` returns the details for one callable operation. Use it to see the operation kind, policy, inputs, result data, constraints, and JSON input/result shape before building a request. README examples show common operations only; the installed Unity plugin's catalog is the source for the project you are automating.
 
 ## 🛠️ Applying Changes
 
-> **IMPORTANT:** Request commands read JSON only from redirected standard input. Keep the request in your runner and pipe it to uCLI.
+> **IMPORTANT:** Request commands read JSON only from redirected standard input. Keep the request in your script or job and pipe it to uCLI.
 
-Use `call --withPlan` for compact local automation where the same runner plans and applies immediately.
+Use `call --withPlan` for compact local automation where the same script or job plans and applies immediately.
 
 ```bash
 ucli call --withPlan <<'JSON'
@@ -598,7 +331,7 @@ JSON
 
 This example opens `Assets/Scenes/Main.unity`, selects `Root/Enemies/Spawner`, edits the `Game.EnemySpawner` component, and saves the scene through `commit: "context"`.
 
-Use `ucli plan` and `ucli call --planToken` only when a human review step, CI gate, or agent supervisor must inspect and approve a plan before mutation.
+Use `ucli plan` and `ucli call --planToken` only when a review step or CI gate must inspect and approve a plan before mutation.
 
 > **IMPORTANT:** A timeout or disconnect does not prove that nothing was applied. Inspect the JSON result, `opResults`, touched units, Unity logs, and daemon logs before retrying.
 
@@ -610,6 +343,49 @@ ucli eval --allowDangerous \
 
 ucli eval --mode daemon --allowDangerous \
   --file ./eval.cs
+```
+
+## ⚠️ Dangerous Operations
+
+> **WARNING:** `ucli call` and `ucli eval` block operations whose policy is `dangerous` unless every guard allows them: project policy, operation allowlist, and the explicit `--allowDangerous` flag. Prefer the normal `edit` flow and non-dangerous operations.
+
+Use normal edit steps for planned, reviewable Unity changes.
+
+## 🧪 Verifying Changes
+
+Run Unity tests after applying edits:
+
+```bash
+ucli test run \
+  --testPlatform editmode \
+  --assemblyName MyGame.Tests.EditMode
+```
+
+Use `--unityEditorPath <path>` when the job must use a specific Unity executable or `.app` directory, or when Unity is not installed in a standard searchable location.
+For repeated test settings, generate a profile with `ucli test profile init --outputPath test.profile.json` and pass it to `ucli test run` with `--profilePath test.profile.json`.
+
+The command result includes `payload.artifactsDir` and `payload.summaryJsonPath`.
+Test artifacts are written under `.ucli/local/fingerprints/<projectFingerprint>/artifacts/test/<runId>/`.
+
+| Artifact | Use it for |
+| --- | --- |
+| `summary.json` | Fast pass/fail checks, result counts, and top failures. |
+| `results.json` | Normalized per-test results for automation. |
+| `results.xml` | Raw Unity Test Framework output from `-testResults`. |
+| `editor.log` | Unity Editor diagnostics for setup failures, compiler errors, and runtime exceptions. |
+| `meta.json` | The resolved test run configuration and timestamps. |
+
+> **TIP:** When a command or test fails, read Unity and daemon logs before retrying:
+
+```bash
+ucli logs unity read --tail 200 --level error
+ucli logs daemon read --tail 200
+```
+
+Stop the daemon at the end of an interactive automation session:
+
+```bash
+ucli daemon stop
 ```
 
 ## 🧩 Request DSL Core
@@ -632,7 +408,7 @@ A request is one ordered unit of work:
 
 Each step is either `kind: "op"` or `kind: "edit"`.
 
-### ⚙️ Primitive Operation Step
+### ⚙️ Direct Operation Step
 
 Use `op` when the operation you need is already in the operation catalog.
 
@@ -689,7 +465,7 @@ Use `edit` for common Unity edits where you want to name a context, select targe
 | `actions` | One or more edits to apply to the selected target. |
 | `commit` | Save behavior. Use `none`, `context`, or `project`. |
 
-> **IMPORTANT:** `scene` and `prefab` edits that mutate or use `commit: "context"` need that context open. Put `ucli.scene.open` or `ucli.prefab.open` before the edit step when the runner has not opened it already.
+> **IMPORTANT:** `scene` and `prefab` edits that mutate or use `commit: "context"` need that context open. Put `ucli.scene.open` or `ucli.prefab.open` before the edit step when the request has not opened it already.
 
 ### 📍 Edit Contexts
 
@@ -824,9 +600,9 @@ For a scene context, select a set produced by `ucli.scene.query`:
 
 > **IMPORTANT:** uCLI does not implicitly save an edit step. Choose `commit` intentionally.
 
-### 🧷 Primitive Target Selectors
+### 🧷 Direct Operation Target Selectors
 
-Primitive operations that take a `target` use one of these selector shapes:
+Direct operation steps that take a `target` use one of these selector shapes:
 
 ```json
 { "globalObjectId": "GlobalObjectId_V1-..." }
@@ -838,9 +614,9 @@ Primitive operations that take a `target` use one of these selector shapes:
 { "prefab": "Assets/Prefabs/Enemy.prefab", "hierarchyPath": "Root/Visual" }
 ```
 
-Do not put `{ "var": "..." }` or `"var": null` in public raw `op` args. To name a value produced by an edit action, use the edit action `as` field and refer to that name through the edit DSL form, such as `$createdObject`. `ops describe` omits the raw `var` selector branch, and raw `op` execution rejects it.
+Do not put `{ "var": "..." }` or `"var": null` in direct `op` args. To name a value produced by an edit action, use the edit action `as` field and refer to that name through the edit DSL form, such as `$createdObject`. `ops describe` omits the `var` selector branch, and direct `op` execution rejects it.
 
-Raw `set` operations use `sets`, while edit steps use the shorter `values` form:
+Direct `set` operations use `sets`, while edit steps use the shorter `values` form:
 
 ```json
 {
@@ -865,22 +641,22 @@ Raw `set` operations use `sets`, while edit steps use the shorter `values` form:
 
 ## 📚 Operation Catalog
 
-The installed Unity plugin exposes its primitive operation catalog at runtime.
+The installed Unity plugin exposes the operations available to requests.
 
 ```bash
 ucli ops list
 ucli ops describe ucli.comp.set
 ```
 
-`ops list` returns only operations that are callable as public raw `kind:"op"` steps. Edit-lowering-only and internal primitives are validated internally but are not listed for agent selection.
+`ops list` returns operations that can be used directly in `kind:"op"` request steps. Operations used only by higher-level edit flows are not listed for direct selection.
 
-Use `ops describe` as the source of truth for:
+Use `ops describe` to check:
 
 - operation kind and policy
-- inputs, result contract, assurance facts, optional code contract, and structural schemas
+- inputs, constraints, result data, and JSON input/result shape
 - `readIndex` source and freshness metadata
 
-README examples show common operations only. The installed Unity plugin's operation catalog is the runtime contract.
+README examples show common operations only. The installed Unity plugin's operation catalog is the authoritative list for that project.
 
 | Operation | Type | Args | Use it for |
 | --- | --- | --- | --- |
@@ -895,59 +671,16 @@ Common operation groups include:
 
 - `ucli.scene.*` - open, inspect, and save scenes.
 - `ucli.prefab.*` - open, edit, save, and create prefabs.
-- `ucli.assets.*` / `ucli.asset.*` - find assets, inspect schemas, and update asset values.
+- `ucli.assets.*` / `ucli.asset.*` - find assets, inspect asset data, and update asset values.
 - `ucli.go.*` - create, describe, delete, and reparent GameObjects.
 - `ucli.comp.*` - inspect, ensure, and set components.
 - `ucli.project.*` - refresh and save project-scoped state.
 
-## 🧱 Extensible by Contract
+## 🧱 Project-Specific Operations
 
 Extensions can expose operations under names such as `myorg.navmesh.bake`.
 
-Custom operations are not hidden shortcuts. Once they are in the catalog, they participate in the same derived policy, schema, and JSON result envelope contracts as built-in operations, so agents and CI can discover them with `ucli ops list` and inspect them with `ucli ops describe`.
-
-## ⚠️ Dangerous Operations
-
-> **WARNING:** `ucli call` and `ucli eval` block operations whose policy is `dangerous` unless every guard allows them: project policy, operation allowlist, and the explicit `--allowDangerous` flag. Prefer the normal `edit` flow and non-dangerous primitive operations.
-
-uCLI keeps the normal edit path declarative, typed, planned, and reviewable.
-
-## 🧪 Verifying Changes
-
-Run Unity tests after applying edits:
-
-```bash
-ucli test run \
-  --testPlatform editmode \
-  --assemblyName MyGame.Tests.EditMode
-```
-
-Use `--unityEditorPath <path>` when the runner must use a specific Unity executable or `.app` directory, or when Unity is not installed in a standard searchable location.
-For repeated test settings, generate a profile with `ucli test profile init --outputPath test.profile.json` and pass it to `ucli test run` with `--profilePath test.profile.json`.
-
-The command result includes `payload.artifactsDir` and `payload.summaryJsonPath`.
-Test artifacts are written under `.ucli/local/fingerprints/<projectFingerprint>/artifacts/test/<runId>/`.
-
-| Artifact | Use it for |
-| --- | --- |
-| `summary.json` | Fast pass/fail checks, result counts, and top failures. |
-| `results.json` | Normalized per-test results for automation. |
-| `results.xml` | Raw Unity Test Framework output from `-testResults`. |
-| `editor.log` | Unity Editor diagnostics for setup failures, compiler errors, and runtime exceptions. |
-| `meta.json` | The resolved test run configuration and timestamps. |
-
-> **TIP:** When a command or test fails, read Unity and daemon logs before retrying:
-
-```bash
-ucli logs unity read --tail 200 --level error
-ucli logs daemon read --tail 200
-```
-
-Stop the daemon at the end of an interactive automation session:
-
-```bash
-ucli daemon stop
-```
+Custom operations are not hidden shortcuts. Once they are in the catalog, they follow the same policy, JSON output, and discovery rules as built-in operations, so scripts, agents, and CI can find them with `ucli ops list` and inspect them with `ucli ops describe`.
 
 ## 🧰 Command Guide
 
@@ -955,18 +688,18 @@ ucli daemon stop
 | --- | --- |
 | `ucli init` | Create optional project-local uCLI configuration. |
 | `ucli status` | Check Unity project resolution and daemon lifecycle state. |
-| `ucli ready` | Wait for a bounded Unity readiness gate and receive readiness claims. |
+| `ucli ready` | Wait until Unity is ready for reading or mutation. |
 | `ucli refresh` | Refresh Unity project state. |
 | `ucli compile` | Verify Unity script compilation and domain reload readiness. |
 | `ucli query` | Read project data without writing changes. |
 | `ucli resolve` | Resolve a selector to a Unity object identifier. |
-| `ucli ops` | List and inspect available primitive operations. |
-| `ucli codes` | List and describe machine-readable code values used in JSON contracts. |
+| `ucli ops` | List and inspect available operations. |
+| `ucli codes` | List and describe machine-readable code values used in JSON output. |
 | `ucli call` | Apply a request; use `--withPlan` for the normal planned write path. |
 | `ucli eval` | Run ad hoc C# through `ucli.cs.eval` without authoring a JSON request. |
 | `ucli plan` | Prepare a separated review gate and receive a `planToken`. |
 | `ucli validate` | Diagnose static request validation without running `plan` or `call`. |
-| `ucli verify` | Aggregate Unity-side verifier results into a claim packet. |
+| `ucli verify` | Return a JSON verification result for Unity-side checks. |
 | `ucli logs` | Read Unity or daemon logs. |
 | `ucli daemon` | Manage daemon sessions. |
 | `ucli test` | Run Unity Test Framework tests. |
@@ -985,7 +718,7 @@ Common options:
 | `--allowDangerous` | `ucli call`, `ucli eval` | Allow operations whose catalog policy is `dangerous`. |
 | `--allowPlayMode` | `ucli plan`, `ucli call`, `ucli eval` | Allow guarded Play Mode mutation in a GUI Editor session. |
 
-Use `--mode daemon` when CI must fail specifically because no daemon is running. With `--mode auto`, a missing daemon may resolve to a one-shot probe; if that startup does not reach an IPC endpoint, inspect `payload.startup`, `payload.diagnosis`, and `retryDisposition`.
+Use `--mode daemon` when CI must fail specifically because no daemon is running. With `--mode auto`, a missing daemon may start a one-shot Unity process; if startup fails, inspect `payload.startup`, `payload.diagnosis`, and `retryDisposition`.
 
 > **NOTE:** Project path resolution uses `--projectPath`, then `UCLI_PROJECT_PATH`, then the command default. The default is usually the current working directory.
 
@@ -1003,13 +736,229 @@ Lifecycle lock files are stored in the current user's OS local application data 
 
 Unity's project-local `Temp/UnityLockfile` is treated as a Unity-owned marker for editors opened outside uCLI. uCLI does not clean it on a timer or in the background; it attempts cleanup only before starting a new Unity process and after a uCLI-launched Unity process exits. uCLI deletes the marker only when those checks can prove it is stale. Active ownership returns `UNITY_PROJECT_ALREADY_OPEN`, unsafe ownership checks return `UNITY_PROJECT_LOCK_AMBIGUOUS`, and stale-lock deletion failures return `UNITY_PROJECT_LOCK_CLEANUP_FAILED`.
 
+## 🧱 Authoring Project-Specific Operations
+
+Skip this section if you only run the built-in Unity operations. Use it when your Unity project needs to expose project-specific operations through uCLI.
+
+Custom operations are Unity Editor code. Put the implementation in an Editor assembly that references `MackySoft.Ucli.Unity`. If another tool needs to compile against the same Args/Result types, put those types in a shared assembly. The published operation details are available through `ucli ops describe`.
+
+An operation has three parts:
+
+1. Define a typed Args type and, when needed, a typed Result type.
+2. Add descriptions and constraints to Args properties or reusable semantic value types.
+3. Implement `UcliOperation<TArgs,TResult>` and mark the class with `[UcliOperation]`.
+
+Use `UcliNoResult` for operations that do not emit `opResults[].result`.
+
+The Args and Result types define what callers send and receive. `UcliOperationMetadata.Create<TArgs,TResult>` publishes the operation inputs, result data, JSON shapes, public kind, and policy from those types and their attributes. Do not hand-write JSON Schema for a normal operation.
+
+Request/result rules:
+
+| Rule | Why it matters |
+| --- | --- |
+| Put `[UcliDescription]` on every Args/Result type and every public property. | `ops describe` shows these descriptions to callers. |
+| Use `[UcliRequired]` for required properties. Do not use C# `required` for the uCLI JSON shape. | uCLI uses the attribute when publishing and validating request JSON. |
+| Leave optional properties nullable and omit `[UcliRequired]`. | Optional inputs stay optional in the published JSON shape. |
+| Use `[JsonConstructor]` when the type has a non-default constructor. | uCLI deserializes `steps[].args` with `System.Text.Json` before validation. |
+| Use `[JsonPropertyName]` when the JSON member name must differ from the C# property name. | `ops describe` and JSON validation use the JSON name. |
+| Use `[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]` for optional result or selector properties that should be omitted when absent. | Omitted and explicit `null` have different meanings in the published JSON shape. |
+| Use `[UcliJsonAllowNull]` only when explicit JSON `null` is valid for a reference-type property. | Nullable value types such as `int?` already allow JSON `null`; nullable reference syntax alone does not change runtime validation. |
+| Use `[UcliJsonAnyValue]` only for intentional arbitrary JSON value slots, such as a serialized property value. | It disables structural validation for that property. |
+
+Use existing semantic value types before adding new plain strings: `SceneAssetPath`, `PrefabAssetPath`, `UnityAssetPath`, `ProjectSettingsAssetPath`, `CreatableUnityAssetPath`, `CreatablePrefabAssetPath`, `ProjectRelativePathPrefix`, `UnityHierarchyPath`, `UnityHierarchyPathPrefix`, `UnityGlobalObjectId`, `UnityAssetGuid`, `UnityTypeId`, `UnityComponentTypeId`, and `SerializedPropertyPath`.
+User-defined semantic value objects are supported for string-shaped values that remain JSON strings in requests and results.
+Create one only when the same meaning appears in multiple Args/Result types or when the meaning is important enough to name for callers.
+For one-off meaning, keep a normal property and put `[UcliDescription]` and `[UcliInputConstraint]` on that property instead.
+If you need a new string-shaped semantic value, derive from `UcliStringValue`, define a public `string` constructor, add `[JsonConverter(typeof(UcliStringValueJsonConverterFactory))]`, add `[UcliDescription]`, and put `[UcliInputConstraint]` attributes on the value type.
+Do not use arbitrary custom scalar wrappers unless uCLI has a supported base type for that JSON shape.
+
+```csharp
+using System.Text.Json.Serialization;
+using MackySoft.Ucli.Contracts.Ipc;
+
+[JsonConverter(typeof(UcliStringValueJsonConverterFactory))]
+[UcliDescription("Addressable asset key used by this project.")]
+[UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]
+public sealed record AddressableKey : UcliStringValue
+{
+    [JsonConstructor]
+    public AddressableKey (string value)
+        : base(value)
+    {
+    }
+}
+
+[UcliDescription("Arguments for setting an Addressables label.")]
+public sealed record SetAddressableLabelArgs
+{
+    [JsonConstructor]
+    public SetAddressableLabelArgs (
+        AddressableKey key,
+        string label)
+    {
+        Key = key;
+        Label = label;
+    }
+
+    [UcliRequired]
+    [UcliDescription("Addressable key to update.")]
+    public AddressableKey Key { get; init; }
+
+    [UcliRequired]
+    [UcliDescription("Label to assign.")]
+    [UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]
+    public string Label { get; init; }
+}
+```
+
+`AddressableKey` remains a JSON string in `steps[].args`.
+Because `Key` has its own `[UcliDescription]`, `ops describe` uses the property description for that input.
+If the property does not declare `[UcliDescription]`, uCLI falls back to the `UcliStringValue` type description.
+The `NonEmpty` constraint comes from the value type and appears in `ops describe` as input metadata.
+
+Input constraints describe the meaning of values in `ops describe`. Put `[UcliInputConstraint]` on a semantic value type when every use of that type has the same meaning, or on a property when the meaning is specific to one operation.
+
+| Constraint kind | Required parameter | Use it for |
+| --- | --- | --- |
+| `NonEmpty` | none | Non-empty strings, arrays, or objects. |
+| `Range` | `Min`, `Max`, or both | Inclusive numeric bounds. |
+| `ProjectRelativePath` | none | Paths relative to the Unity project. |
+| `AssetExists` | `AssetKind` | Existing asset, scene, prefab, or project settings paths. |
+| `AssetCreatable` | `AssetKind` | Asset or prefab paths that an operation may create. |
+| `GlobalObjectId` | none | Unity GlobalObjectId strings. |
+| `HierarchyPath` | none | Unity scene or prefab hierarchy paths. |
+| `ReferenceResolvable` | `TargetKind` | Object references that must resolve to an asset, GameObject, or component. |
+| `TypeExists` | none | Unity type identifiers that must resolve in the project. |
+| `TypeAssignableTo` | `TypeKind` | Unity type identifiers assignable to a specific Unity kind, such as component. |
+| `SerializedProperty` | `Access` | SerializedProperty paths that must be writable for the operation. |
+| `AssetGuid` | none | Unity asset GUID strings. |
+| `Cursor` | none | Opaque bounded-window cursors returned by read operations. |
+
+For object references and selectors, prefer existing reference types such as `AssetReferenceArgs`, `GameObjectReferenceArgs`, `SceneGameObjectReferenceArgs`, `ComponentReferenceArgs`, and `ResolveSelectorArgs`. If an operation needs a new reference object, use `[UcliExclusiveRequiredPropertySet]` on the object type to define mutually exclusive selector shapes, and `[UcliPropertyRequires]` when one property requires other properties.
+
+Declare operation behavior deliberately:
+
+| Behavior field | Values | Use it for |
+| --- | --- | --- |
+| `declaredKind` | `Query`, `Command`, `Mutation` | The operation's public intent. |
+| `UcliOperationAssuranceContract` | side effects, dirty/persist flags, touched kinds, plan mode | Behavior facts that help callers decide whether an operation is acceptable. |
+| `UcliOperationPlanMode` | `ValidationOnly`, `ObservesLiveUnity` | How much the `Plan` phase may do before `Call`. |
+| `UcliOperationCodeContract` | source forms, entry point, source-visible API, return constraints | Required for operations that accept source code. Arbitrary source execution is dangerous. |
+| `UcliOperationExposure` | `Public`, `EditLoweringOnly`, `Internal` | Whether callers can select the operation directly or only through higher-level edit flows. |
+
+Do not choose `policy` manually. uCLI publishes it from the operation's declared intent, side effects, persistence behavior, touched targets, source-code execution, exposure, destructive scope, and external process or filesystem access.
+
+Safe operations are bounded observations that cannot dirty, persist, or change Editor state, and do not execute arbitrary code or external processes. Advanced operations include deterministic Unity Editor API writes, Editor state changes, dirty or persisted Unity content, AssetDatabase refresh/import/compile effects, and broader project effects. Dangerous operations are escape hatches such as arbitrary C# execution, arbitrary shell/process/filesystem writes, unbounded destructive operations, or operations whose touched/save boundary cannot be sufficiently guaranteed.
+
+Keep phase behavior consistent:
+
+- `Validate` checks typed args and cheap preconditions.
+- `Plan` may inspect Unity state according to `planMode`, but must not persist content.
+- `Call` performs the operation.
+- Query operations must report `applied:false`, `changed:false`, and `touched:[]`.
+- `applied`, `changed`, and `touched` belong to the operation result envelope. Do not put those fields in `TResult`.
+- `TResult` should contain only the operation-specific main data. Use `UcliNoResult` when there is no main data.
+
+```csharp
+using System;
+using System.Text.Json.Serialization;
+using System.Threading;
+using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Unity.Execution.Phases;
+using MackySoft.Ucli.Unity.Execution.Requests;
+
+[UcliDescription("Arguments for counting GameObjects in a scene.")]
+public sealed record CountSceneObjectsArgs
+{
+    [JsonConstructor]
+    public CountSceneObjectsArgs (SceneAssetPath path)
+    {
+        Path = path;
+    }
+
+    [UcliRequired]
+    [UcliDescription("Scene asset path to inspect.")]
+    public SceneAssetPath Path { get; init; }
+}
+
+[UcliDescription("GameObject count result.")]
+public sealed record CountSceneObjectsResult
+{
+    [JsonConstructor]
+    public CountSceneObjectsResult (int count)
+    {
+        Count = count;
+    }
+
+    [UcliRequired]
+    [UcliDescription("Number of GameObjects found in the scene.")]
+    public int Count { get; init; }
+}
+
+[UcliOperation]
+internal sealed class CountSceneObjectsOperation : UcliOperation<CountSceneObjectsArgs, CountSceneObjectsResult>
+{
+    public override UcliOperationMetadata Metadata { get; } =
+        UcliOperationMetadata.Create<CountSceneObjectsArgs, CountSceneObjectsResult>(
+            operationName: "game.scene.countGameObjects",
+            declaredKind: UcliOperationKind.Query,
+            description: "Counts GameObjects in a Unity scene.",
+            assurance: new UcliOperationAssuranceContract(
+                Array.Empty<UcliOperationSideEffect>(),
+                mayDirty: false,
+                mayPersist: false,
+                Array.Empty<string>(),
+                UcliOperationPlanMode.ObservesLiveUnity));
+
+    protected override Task<OperationPhaseStepResult> Validate (
+        NormalizedOperation operation,
+        CountSceneObjectsArgs args,
+        OperationExecutionContext executionContext,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(OperationPhaseStepResult.Success());
+    }
+
+    protected override Task<OperationPhaseStepResult> Plan (
+        NormalizedOperation operation,
+        CountSceneObjectsArgs args,
+        OperationExecutionContext executionContext,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(SuccessWithResult(new CountSceneObjectsResult(0), applied: false, changed: false));
+    }
+
+    protected override Task<OperationPhaseStepResult> Call (
+        NormalizedOperation operation,
+        CountSceneObjectsArgs args,
+        OperationExecutionContext executionContext,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(SuccessWithResult(new CountSceneObjectsResult(0), applied: false, changed: false));
+    }
+}
+```
+
+The example leaves the Unity scene traversal out of the snippet so the request/result shape is visible. In a real operation, keep Unity object resolution and mutation inside `Validate`, `Plan`, or `Call`, and keep `JsonElement` out of the operation body. Use existing semantic value types such as `SceneAssetPath`, `PrefabAssetPath`, `UnityHierarchyPath`, `UnityGlobalObjectId`, `UnityAssetGuid`, and `UnityTypeId` before introducing a new value type.
+
+After Unity recompiles the Editor assembly, confirm that the operation is discoverable from the CLI:
+
+```bash
+ucli ops describe game.scene.countGameObjects --projectPath ./UnityProject
+```
+
 ## 📦 Packages
 
 | Package | Install when |
 | --- | --- |
 | `MackySoft.Ucli` | You need the `ucli` command. |
 | `MackySoft.Ucli.Unity` | You need Unity Editor operations in a Unity project. |
-| `MackySoft.Ucli.Contracts` | You build advanced tooling that exchanges uCLI IPC contracts directly. |
+| `MackySoft.Ucli.Contracts` | You build advanced tooling that uses uCLI's shared IPC types directly. |
 | `MackySoft.Ucli.Infrastructure` | You build advanced uCLI runtime integrations that need shared infrastructure helpers. |
 
 ## 💬 Support
@@ -1022,11 +971,6 @@ For bug reports, include:
 - Unity version
 - Operating system
 - The command you ran
-- `--mode` and `--readIndexMode` values, when relevant
-- For `ucli test run` failures, `payload.artifactsDir` or `payload.summaryJsonPath` when available
-- Error output or logs from `ucli logs unity read` / `ucli logs daemon read`
-
-Use [Pull Requests](https://github.com/mackysoft/ucli/pulls) for focused fixes and README improvements.
 
 ## 💖 Sponsor
 
