@@ -1,6 +1,7 @@
 using MackySoft.AgentSkills.Distribution;
 using MackySoft.AgentSkills.Hosts.Registration;
 using MackySoft.AgentSkills.Installation.Targeting;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
@@ -14,6 +15,9 @@ internal static class SkillsCommandOptionNormalizer
     private const string UserScopeLiteral = "user";
     private const string DirectoryExportFormatLiteral = "directory";
     private const string ZipExportFormatLiteral = "zip";
+    private const string UnityAssetsDirectoryName = "Assets";
+    private const string UnityPackagesDirectoryName = "Packages";
+    private const string UnityProjectSettingsDirectoryName = "ProjectSettings";
 
     /// <summary> Normalizes a required host option to its canonical host key. </summary>
     /// <param name="command"> The command name used for error results. </param>
@@ -105,12 +109,81 @@ internal static class SkillsCommandOptionNormalizer
             return null;
         }
 
-        if (!string.IsNullOrWhiteSpace(repoRoot))
+        return !string.IsNullOrWhiteSpace(repoRoot)
+            ? NormalizeExplicitRepositoryRoot(command, repoRoot, out errorResult)
+            : ResolveDefaultRepositoryRoot(command, out errorResult);
+    }
+
+    /// <summary> Validates target-directory usage for a resolved scope. </summary>
+    /// <param name="command"> The command name used for error results. </param>
+    /// <param name="scope"> The normalized scope. </param>
+    /// <param name="repositoryRoot"> The resolved repository root. </param>
+    /// <param name="targetDir"> The raw target directory option. </param>
+    /// <param name="errorResult"> The emitted error result when validation fails. </param>
+    /// <returns> <see langword="true" /> when the target directory can be passed to the SKILL installer; otherwise <see langword="false" />. </returns>
+    public static bool ValidateTargetDirectoryForScope (
+        string command,
+        SkillScopeKind scope,
+        string? repositoryRoot,
+        string? targetDir,
+        out CommandResult? errorResult)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(command);
+
+        errorResult = null;
+        if (scope != SkillScopeKind.Project || string.IsNullOrWhiteSpace(targetDir))
         {
-            return NormalizeRequiredFullPath(command, "repoRoot", repoRoot, out errorResult);
+            return true;
         }
 
-        return ResolveDefaultRepositoryRoot(command, out errorResult);
+        if (string.IsNullOrWhiteSpace(repositoryRoot))
+        {
+            errorResult = CommandResult.InvalidArgument(command, "Project-scope target directory validation requires a repository root.");
+            return false;
+        }
+
+        string normalizedRepositoryRoot;
+        string normalizedTargetRoot;
+        try
+        {
+            normalizedRepositoryRoot = NormalizeComparisonPath(repositoryRoot);
+            normalizedTargetRoot = Path.IsPathFullyQualified(targetDir)
+                ? NormalizeComparisonPath(targetDir)
+                : NormalizeComparisonPath(Path.Combine(normalizedRepositoryRoot, targetDir));
+        }
+        catch (Exception ex) when (PathFormatExceptionClassifier.IsPathFormatException(ex))
+        {
+            errorResult = CommandResult.InvalidArgument(command, $"Option '--targetDir' is invalid: {ex.Message}");
+            return false;
+        }
+
+        if (IsSamePath(normalizedTargetRoot, normalizedRepositoryRoot))
+        {
+            errorResult = CommandResult.InvalidArgument(command, "Option '--targetDir' must point to a SKILL target directory, not the repository root.");
+            return false;
+        }
+
+        var gitMarkerPath = Path.Combine(normalizedRepositoryRoot, UcliStoragePathNames.GitMarkerName);
+        if (IsSameOrUnderPath(normalizedTargetRoot, gitMarkerPath))
+        {
+            errorResult = CommandResult.InvalidArgument(command, "Option '--targetDir' must not point inside the Git metadata directory.");
+            return false;
+        }
+
+        var ucliDirectoryPath = Path.Combine(normalizedRepositoryRoot, UcliStoragePathNames.UcliDirectoryName);
+        if (IsSameOrUnderPath(normalizedTargetRoot, ucliDirectoryPath))
+        {
+            errorResult = CommandResult.InvalidArgument(command, "Option '--targetDir' must not point inside the uCLI storage directory.");
+            return false;
+        }
+
+        if (Directory.Exists(normalizedTargetRoot) && IsUnityProjectRoot(normalizedTargetRoot))
+        {
+            errorResult = CommandResult.InvalidArgument(command, "Option '--targetDir' must point to a SKILL target directory, not a Unity project root.");
+            return false;
+        }
+
+        return true;
     }
 
     /// <summary> Normalizes the optional export format. </summary>
@@ -173,6 +246,20 @@ internal static class SkillsCommandOptionNormalizer
         }
     }
 
+    private static string? NormalizeExplicitRepositoryRoot (
+        string command,
+        string repoRoot,
+        out CommandResult? errorResult)
+    {
+        var normalizedRepositoryRoot = NormalizeRequiredFullPath(command, "repoRoot", repoRoot, out errorResult);
+        if (errorResult is not null)
+        {
+            return null;
+        }
+
+        return ValidateRepositoryRoot(command, normalizedRepositoryRoot!, "Option '--repoRoot'", out errorResult);
+    }
+
     private static string? ResolveDefaultRepositoryRoot (
         string command,
         out CommandResult? errorResult)
@@ -181,7 +268,16 @@ internal static class SkillsCommandOptionNormalizer
         try
         {
             var currentDirectoryPath = Path.GetFullPath(Environment.CurrentDirectory);
-            return UcliStoragePathResolver.ResolveStorageRoot(currentDirectoryPath);
+            var repositoryRoot = UcliStoragePathResolver.TryResolveRepositoryRoot(currentDirectoryPath);
+            if (repositoryRoot is not null)
+            {
+                return repositoryRoot;
+            }
+
+            errorResult = CommandResult.InvalidArgument(
+                command,
+                "Could not resolve a Git repository root from the current working directory. Run the command inside a Git repository or specify --repoRoot.");
+            return null;
         }
         catch (Exception ex) when (PathFormatExceptionClassifier.IsPathFormatException(ex))
         {
@@ -190,5 +286,84 @@ internal static class SkillsCommandOptionNormalizer
                 $"Current working directory path is invalid: {Environment.CurrentDirectory}. {ex.Message}");
             return null;
         }
+    }
+
+    private static string? ValidateRepositoryRoot (
+        string command,
+        string repositoryRoot,
+        string sourceName,
+        out CommandResult? errorResult)
+    {
+        errorResult = null;
+        if (!Directory.Exists(repositoryRoot))
+        {
+            errorResult = CommandResult.InvalidArgument(command, $"{sourceName} must point to an existing directory: {repositoryRoot}");
+            return null;
+        }
+
+        string? resolvedRepositoryRoot;
+        try
+        {
+            resolvedRepositoryRoot = UcliStoragePathResolver.TryResolveRepositoryRoot(repositoryRoot);
+        }
+        catch (Exception ex) when (PathFormatExceptionClassifier.IsPathFormatException(ex))
+        {
+            errorResult = CommandResult.InvalidArgument(command, $"{sourceName} is invalid: {ex.Message}");
+            return null;
+        }
+
+        if (resolvedRepositoryRoot is null)
+        {
+            errorResult = CommandResult.InvalidArgument(command, $"{sourceName} must point to a Git repository root: {repositoryRoot}");
+            return null;
+        }
+
+        if (!IsSamePath(resolvedRepositoryRoot, repositoryRoot))
+        {
+            errorResult = CommandResult.InvalidArgument(
+                command,
+                $"{sourceName} must point to the Git repository root, not a subdirectory. Resolved repository root: {resolvedRepositoryRoot}");
+            return null;
+        }
+
+        return resolvedRepositoryRoot;
+    }
+
+    private static bool IsUnityProjectRoot (string directoryPath)
+    {
+        return Directory.Exists(Path.Combine(directoryPath, UnityAssetsDirectoryName))
+            && Directory.Exists(Path.Combine(directoryPath, UnityPackagesDirectoryName))
+            && Directory.Exists(Path.Combine(directoryPath, UnityProjectSettingsDirectoryName));
+    }
+
+    private static bool IsSameOrUnderPath (
+        string path,
+        string parentPath)
+    {
+        if (IsSamePath(path, parentPath))
+        {
+            return true;
+        }
+
+        var normalizedParent = NormalizeComparisonPath(parentPath);
+        var parentPrefix = Path.EndsInDirectorySeparator(normalizedParent)
+            ? normalizedParent
+            : normalizedParent + Path.DirectorySeparatorChar;
+        return NormalizeComparisonPath(path).StartsWith(parentPrefix, PathComparison);
+    }
+
+    private static bool IsSamePath (
+        string left,
+        string right)
+    {
+        return string.Equals(NormalizeComparisonPath(left), NormalizeComparisonPath(right), PathComparison);
+    }
+
+    private static StringComparison PathComparison =>
+        OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+
+    private static string NormalizeComparisonPath (string path)
+    {
+        return Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
     }
 }

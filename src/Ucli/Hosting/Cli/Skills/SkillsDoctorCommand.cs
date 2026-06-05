@@ -87,6 +87,17 @@ internal sealed class SkillsDoctorCommand
             return errorResult.ExitCode;
         }
 
+        if (!SkillsCommandOptionNormalizer.ValidateTargetDirectoryForScope(
+                UcliCommandNames.SkillsDoctor,
+                normalizedScope.Value,
+                repositoryRoot,
+                targetDir,
+                out errorResult))
+        {
+            commandResultWriter.WriteToStandardOutput(errorResult!);
+            return errorResult!.ExitCode;
+        }
+
         var targetResult = targetResolver.ResolveTarget(new SkillInstallRequest(normalizedHost!, normalizedScope!.Value, repositoryRoot, targetDir));
         if (!targetResult.IsSuccess)
         {

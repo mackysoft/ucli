@@ -88,6 +88,17 @@ internal sealed class SkillsUninstallCommand
             return errorResult.ExitCode;
         }
 
+        if (!SkillsCommandOptionNormalizer.ValidateTargetDirectoryForScope(
+                UcliCommandNames.SkillsUninstall,
+                normalizedScope.Value,
+                repositoryRoot,
+                targetDir,
+                out errorResult))
+        {
+            commandResultWriter.WriteToStandardOutput(errorResult!);
+            return errorResult!.ExitCode;
+        }
+
         var packagesResult = await packageProvider.GetPackagesAsync(cancellationToken).ConfigureAwait(false);
         if (!packagesResult.IsSuccess)
         {
