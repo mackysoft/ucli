@@ -448,7 +448,7 @@ public sealed class SkillsCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task SkillsProjectScope_WithoutRepoRootAndGitMarker_ReturnsInvalidArgument ()
+    public async Task SkillsProjectScope_WithoutRepoRootAndGitMarker_UsesWorkingDirectory ()
     {
         using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "project-default-repo-root-no-git");
         var workingDirectory = scope.CreateDirectory("workspace");
@@ -459,66 +459,16 @@ public sealed class SkillsCliOutputContractTests
             dryRun: true);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
-        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             command: UcliCommandNames.SkillsInstall,
-            status: "error",
-            exitCode: (int)CliExitCode.InvalidArgument);
-        CommandResultAssert.HasSingleError(outputJson.RootElement, InvalidArgumentCode);
+            status: "ok",
+            exitCode: (int)CliExitCode.Success);
+        var payload = outputJson.RootElement.GetProperty("payload");
+        FileSystemAssert.ForPath(payload.GetProperty("repositoryRoot").GetString()!).EqualsNormalized(workingDirectory);
+        FileSystemAssert.ForPath(payload.GetProperty("targetRoot").GetString()!).EqualsNormalized(Path.Combine(workingDirectory, ".agents", "skills"));
         FileSystemAssert.ForPath(Path.Combine(workingDirectory, ".agents")).DoesNotExist();
-    }
-
-    [Theory]
-    [Trait("Size", "Medium")]
-    [InlineData(UcliCommandNames.InstallSubcommand, UcliCommandNames.SkillsInstall)]
-    [InlineData(UcliCommandNames.UpdateSubcommand, UcliCommandNames.SkillsUpdate)]
-    [InlineData(UcliCommandNames.UninstallSubcommand, UcliCommandNames.SkillsUninstall)]
-    [InlineData(UcliCommandNames.DoctorSubcommand, UcliCommandNames.SkillsDoctor)]
-    public async Task SkillsProjectScope_WithMissingRepoRoot_ReturnsInvalidArgument (
-        string subcommand,
-        string expectedCommand)
-    {
-        using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", $"project-missing-repo-root-{subcommand}");
-        var repoRoot = scope.GetPath("missing-repo");
-
-        var result = await RunScopedCommandWithoutRepositoryRootSetupAsync(subcommand, repoRoot, host: "openai", scope: "project", targetDir: null);
-
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
-        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
-        CommandResultAssert.HasStandardEnvelope(
-            outputJson.RootElement,
-            command: expectedCommand,
-            status: "error",
-            exitCode: (int)CliExitCode.InvalidArgument);
-        CommandResultAssert.HasSingleError(outputJson.RootElement, InvalidArgumentCode);
-    }
-
-    [Theory]
-    [Trait("Size", "Medium")]
-    [InlineData(UcliCommandNames.InstallSubcommand, UcliCommandNames.SkillsInstall)]
-    [InlineData(UcliCommandNames.UpdateSubcommand, UcliCommandNames.SkillsUpdate)]
-    [InlineData(UcliCommandNames.UninstallSubcommand, UcliCommandNames.SkillsUninstall)]
-    [InlineData(UcliCommandNames.DoctorSubcommand, UcliCommandNames.SkillsDoctor)]
-    public async Task SkillsProjectScope_WithRepoRootSubdirectory_ReturnsInvalidArgument (
-        string subcommand,
-        string expectedCommand)
-    {
-        using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", $"project-subdirectory-repo-root-{subcommand}");
-        var repoRoot = scope.CreateDirectory("repo");
-        EnsureGitRepositoryMarker(repoRoot);
-        var subdirectory = scope.CreateDirectory(Path.Combine("repo", "src", "tool"));
-
-        var result = await RunScopedCommandWithoutRepositoryRootSetupAsync(subcommand, subdirectory, host: "openai", scope: "project", targetDir: null);
-
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
-        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
-        CommandResultAssert.HasStandardEnvelope(
-            outputJson.RootElement,
-            command: expectedCommand,
-            status: "error",
-            exitCode: (int)CliExitCode.InvalidArgument);
-        CommandResultAssert.HasSingleError(outputJson.RootElement, InvalidArgumentCode);
     }
 
     [Fact]
@@ -1071,74 +1021,6 @@ public sealed class SkillsCliOutputContractTests
         CommandResultAssert.HasSingleError(outputJson.RootElement, PathUnsafeCode);
     }
 
-    [Theory]
-    [Trait("Size", "Medium")]
-    [InlineData(UcliCommandNames.InstallSubcommand, UcliCommandNames.SkillsInstall)]
-    [InlineData(UcliCommandNames.UpdateSubcommand, UcliCommandNames.SkillsUpdate)]
-    [InlineData(UcliCommandNames.UninstallSubcommand, UcliCommandNames.SkillsUninstall)]
-    [InlineData(UcliCommandNames.DoctorSubcommand, UcliCommandNames.SkillsDoctor)]
-    public async Task SkillsScopedSubcommand_WithRepositoryRootTargetDir_ReturnsInvalidArgument (
-        string subcommand,
-        string expectedCommand)
-    {
-        using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", $"repo-root-target-{subcommand}");
-        var repoRoot = scope.CreateDirectory("repo");
-
-        var result = await RunScopedCommandAsync(subcommand, repoRoot, host: "openai", scope: "project", targetDir: ".");
-
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
-        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
-        CommandResultAssert.HasStandardEnvelope(
-            outputJson.RootElement,
-            command: expectedCommand,
-            status: "error",
-            exitCode: (int)CliExitCode.InvalidArgument);
-        CommandResultAssert.HasSingleError(outputJson.RootElement, InvalidArgumentCode);
-    }
-
-    [Theory]
-    [Trait("Size", "Medium")]
-    [InlineData(".git/skills")]
-    [InlineData(".ucli/skills")]
-    public async Task SkillsInstall_WithInternalStorageTargetDir_ReturnsInvalidArgument (string targetDir)
-    {
-        using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "internal-storage-target");
-        var repoRoot = scope.CreateDirectory("repo");
-
-        var result = await RunScopedCommandAsync(UcliCommandNames.InstallSubcommand, repoRoot, host: "openai", scope: "project", targetDir: targetDir);
-
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
-        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
-        CommandResultAssert.HasStandardEnvelope(
-            outputJson.RootElement,
-            command: UcliCommandNames.SkillsInstall,
-            status: "error",
-            exitCode: (int)CliExitCode.InvalidArgument);
-        CommandResultAssert.HasSingleError(outputJson.RootElement, InvalidArgumentCode);
-    }
-
-    [Fact]
-    [Trait("Size", "Medium")]
-    public async Task SkillsInstall_WithUnityProjectRootTargetDir_ReturnsInvalidArgument ()
-    {
-        using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "unity-project-root-target");
-        var repoRoot = scope.CreateDirectory("repo");
-        scope.CreateDirectory(Path.Combine("repo", "src", "Ucli.Unity", "Assets"));
-        scope.CreateDirectory(Path.Combine("repo", "src", "Ucli.Unity", "Packages"));
-        scope.CreateDirectory(Path.Combine("repo", "src", "Ucli.Unity", "ProjectSettings"));
-
-        var result = await RunScopedCommandAsync(UcliCommandNames.InstallSubcommand, repoRoot, host: "openai", scope: "project", targetDir: Path.Combine("src", "Ucli.Unity"));
-
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
-        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
-        CommandResultAssert.HasStandardEnvelope(
-            outputJson.RootElement,
-            command: UcliCommandNames.SkillsInstall,
-            status: "error",
-            exitCode: (int)CliExitCode.InvalidArgument);
-        CommandResultAssert.HasSingleError(outputJson.RootElement, InvalidArgumentCode);
-    }
-
     [Fact]
     [Trait("Size", "Medium")]
     public async Task SkillsDoctor_WithInstalledTarget_ReturnsHealthy ()
@@ -1389,33 +1271,6 @@ public sealed class SkillsCliOutputContractTests
         bool force = false,
         bool printDiff = false)
     {
-        return RunScopedCommandCoreAsync(subcommand, repoRoot, host, scope, targetDir, dryRun, force, printDiff, ensureProjectRepositoryRoot: true);
-    }
-
-    private static Task<CommandExecutionResult> RunScopedCommandWithoutRepositoryRootSetupAsync (
-        string subcommand,
-        string repoRoot,
-        string? host,
-        string? scope,
-        string? targetDir,
-        bool dryRun = false,
-        bool force = false,
-        bool printDiff = false)
-    {
-        return RunScopedCommandCoreAsync(subcommand, repoRoot, host, scope, targetDir, dryRun, force, printDiff, ensureProjectRepositoryRoot: false);
-    }
-
-    private static Task<CommandExecutionResult> RunScopedCommandCoreAsync (
-        string subcommand,
-        string repoRoot,
-        string? host,
-        string? scope,
-        string? targetDir,
-        bool dryRun,
-        bool force,
-        bool printDiff,
-        bool ensureProjectRepositoryRoot)
-    {
         var args = new List<string>
         {
             UcliCommandNames.Skills,
@@ -1431,11 +1286,6 @@ public sealed class SkillsCliOutputContractTests
         {
             args.Add("--scope");
             args.Add(scope);
-        }
-
-        if (ensureProjectRepositoryRoot && string.Equals(scope, "project", StringComparison.OrdinalIgnoreCase))
-        {
-            EnsureGitRepositoryMarker(repoRoot);
         }
 
         args.AddRange([
@@ -1465,11 +1315,6 @@ public sealed class SkillsCliOutputContractTests
         }
 
         return CliProcessRunner.RunCommandAsync(args.ToArray());
-    }
-
-    private static void EnsureGitRepositoryMarker (string repoRoot)
-    {
-        Directory.CreateDirectory(Path.Combine(repoRoot, ".git"));
     }
 
     private static Task<CommandExecutionResult> RunOpenAiDoctorAsync (string repoRoot)

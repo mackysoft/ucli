@@ -90,17 +90,6 @@ internal sealed class SkillsInstallCommand
             return errorResult.ExitCode;
         }
 
-        if (!SkillsCommandOptionNormalizer.ValidateTargetDirectoryForScope(
-                UcliCommandNames.SkillsInstall,
-                normalizedScope.Value,
-                repositoryRoot,
-                targetDir,
-                out errorResult))
-        {
-            commandResultWriter.WriteToStandardOutput(errorResult!);
-            return errorResult!.ExitCode;
-        }
-
         var packagesResult = await packageProvider.GetPackagesAsync(cancellationToken).ConfigureAwait(false);
         if (!packagesResult.IsSuccess)
         {

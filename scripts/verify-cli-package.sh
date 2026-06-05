@@ -125,13 +125,9 @@ while IFS= read -r relative_path; do
 done < <(list_host_independent_skill_files)
 
 install_repo="$(mktemp -d "${temp_root%/}/ucli-skills-install.XXXXXX")"
-git init --quiet "${install_repo}"
-(
-  cd "${install_repo}"
-  "${tool_path}/ucli" skills install --host openai --scope project >/dev/null
-  "${tool_path}/ucli" skills install --host openai --scope project >/dev/null
-  "${tool_path}/ucli" skills doctor --host openai --scope project >/dev/null
-)
+"${tool_path}/ucli" skills install --host openai --scope project --repoRoot "${install_repo}" >/dev/null
+"${tool_path}/ucli" skills install --host openai --scope project --repoRoot "${install_repo}" >/dev/null
+"${tool_path}/ucli" skills doctor --host openai --scope project --repoRoot "${install_repo}" >/dev/null
 installed_path="${install_repo}/.agents/skills"
 if [[ ! -d "${installed_path}" ]]; then
   echo "ucli skills install did not create the project skills directory: ${installed_path}" >&2
