@@ -40,7 +40,7 @@ internal sealed class SkillsDoctorCommand
     /// <summary> Executes the skills doctor command and emits the JSON result contract. </summary>
     /// <param name="host"> Required target host (claude|copilot|openai). </param>
     /// <param name="scope"> Required install scope (project|user). </param>
-    /// <param name="repoRoot"> --repoRoot, Required repository root for project scope. </param>
+    /// <param name="repoRoot"> --repoRoot, Optional repository root override for project scope. </param>
     /// <param name="targetDir"> --targetDir, Optional target root path under the repository root. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>

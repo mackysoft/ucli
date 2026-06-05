@@ -37,7 +37,7 @@ internal sealed class SkillsUninstallCommand
     /// <summary> Executes the skills uninstall command and emits the JSON result contract. </summary>
     /// <param name="host"> Required target host (claude|copilot|openai). </param>
     /// <param name="scope"> Required install scope (project|user). </param>
-    /// <param name="repoRoot"> --repoRoot, Required repository root for project scope. </param>
+    /// <param name="repoRoot"> --repoRoot, Optional repository root override for project scope. </param>
     /// <param name="targetDir"> --targetDir, Optional target root path under the repository root. </param>
     /// <param name="dryRun"> --dryRun, Whether to return the uninstall plan without writing. </param>
     /// <param name="force"> Whether managed local modifications can be deleted. </param>

@@ -2,6 +2,8 @@ using MackySoft.AgentSkills.Distribution;
 using MackySoft.AgentSkills.Hosts.Registration;
 using MackySoft.AgentSkills.Installation.Targeting;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
+using MackySoft.Ucli.Infrastructure.Paths;
+using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Hosting.Cli.Skills;
 
@@ -103,7 +105,12 @@ internal static class SkillsCommandOptionNormalizer
             return null;
         }
 
-        return NormalizeRequiredFullPath(command, "repoRoot", repoRoot, out errorResult);
+        if (!string.IsNullOrWhiteSpace(repoRoot))
+        {
+            return NormalizeRequiredFullPath(command, "repoRoot", repoRoot, out errorResult);
+        }
+
+        return ResolveDefaultRepositoryRoot(command, out errorResult);
     }
 
     /// <summary> Normalizes the optional export format. </summary>
@@ -162,6 +169,25 @@ internal static class SkillsCommandOptionNormalizer
         catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
         {
             errorResult = CommandResult.InvalidArgument(command, $"Option '--{optionName}' is invalid: {ex.Message}");
+            return null;
+        }
+    }
+
+    private static string? ResolveDefaultRepositoryRoot (
+        string command,
+        out CommandResult? errorResult)
+    {
+        errorResult = null;
+        try
+        {
+            var currentDirectoryPath = Path.GetFullPath(Environment.CurrentDirectory);
+            return UcliStoragePathResolver.ResolveStorageRoot(currentDirectoryPath);
+        }
+        catch (Exception ex) when (PathFormatExceptionClassifier.IsPathFormatException(ex))
+        {
+            errorResult = CommandResult.InvalidArgument(
+                command,
+                $"Current working directory path is invalid: {Environment.CurrentDirectory}. {ex.Message}");
             return null;
         }
     }

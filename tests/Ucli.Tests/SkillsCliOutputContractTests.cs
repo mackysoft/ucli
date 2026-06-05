@@ -415,6 +415,62 @@ public sealed class SkillsCliOutputContractTests
         }
     }
 
+    [Theory]
+    [Trait("Size", "Medium")]
+    [InlineData(UcliCommandNames.InstallSubcommand, UcliCommandNames.SkillsInstall)]
+    [InlineData(UcliCommandNames.UpdateSubcommand, UcliCommandNames.SkillsUpdate)]
+    [InlineData(UcliCommandNames.UninstallSubcommand, UcliCommandNames.SkillsUninstall)]
+    [InlineData(UcliCommandNames.DoctorSubcommand, UcliCommandNames.SkillsDoctor)]
+    public async Task SkillsProjectScope_WithoutRepoRoot_UsesWorkingDirectoryGitRoot (
+        string subcommand,
+        string expectedCommand)
+    {
+        using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", $"project-default-repo-root-{subcommand}");
+        var repoRoot = scope.CreateDirectory("repo");
+        scope.CreateDirectory(Path.Combine("repo", ".git"));
+        var workingDirectory = scope.CreateDirectory(Path.Combine("repo", "src", "tool"));
+        var seed = await RunOpenAiInstallAsync(repoRoot);
+        Assert.Equal((int)CliExitCode.Success, seed.ExitCode);
+
+        var result = await RunProjectCommandWithoutRepoRootAsync(subcommand, workingDirectory);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: expectedCommand,
+            status: "ok",
+            exitCode: (int)CliExitCode.Success);
+        var payload = outputJson.RootElement.GetProperty("payload");
+        FileSystemAssert.ForPath(payload.GetProperty("repositoryRoot").GetString()!).EqualsNormalized(repoRoot);
+        FileSystemAssert.ForPath(payload.GetProperty("targetRoot").GetString()!).EqualsNormalized(Path.Combine(repoRoot, ".agents", "skills"));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task SkillsProjectScope_WithoutRepoRootAndGitMarker_UsesWorkingDirectory ()
+    {
+        using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "project-default-repo-root-no-git");
+        var workingDirectory = scope.CreateDirectory("workspace");
+
+        var result = await RunProjectCommandWithoutRepoRootAsync(
+            UcliCommandNames.InstallSubcommand,
+            workingDirectory,
+            dryRun: true);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: UcliCommandNames.SkillsInstall,
+            status: "ok",
+            exitCode: (int)CliExitCode.Success);
+        var payload = outputJson.RootElement.GetProperty("payload");
+        FileSystemAssert.ForPath(payload.GetProperty("repositoryRoot").GetString()!).EqualsNormalized(workingDirectory);
+        FileSystemAssert.ForPath(payload.GetProperty("targetRoot").GetString()!).EqualsNormalized(Path.Combine(workingDirectory, ".agents", "skills"));
+        FileSystemAssert.ForPath(Path.Combine(workingDirectory, ".agents")).DoesNotExist();
+    }
+
     [Fact]
     [Trait("Size", "Medium")]
     public async Task SkillsUserScope_WithoutTargetDir_UsesOpenAiCodexHomeDefault ()
@@ -1181,6 +1237,28 @@ public sealed class SkillsCliOutputContractTests
         bool printDiff = false)
     {
         return RunScopedCommandAsync(UcliCommandNames.InstallSubcommand, repoRoot, host, "project", targetDir, dryRun, force, printDiff);
+    }
+
+    private static Task<CommandExecutionResult> RunProjectCommandWithoutRepoRootAsync (
+        string subcommand,
+        string workingDirectory,
+        bool dryRun = false)
+    {
+        var args = new List<string>
+        {
+            UcliCommandNames.Skills,
+            subcommand,
+            "--host",
+            "openai",
+            "--scope",
+            "project",
+        };
+        if (dryRun)
+        {
+            args.Add("--dryRun");
+        }
+
+        return CliProcessRunner.RunCommandWithWorkingDirectoryAsync(workingDirectory, args.ToArray());
     }
 
     private static Task<CommandExecutionResult> RunScopedCommandAsync (
