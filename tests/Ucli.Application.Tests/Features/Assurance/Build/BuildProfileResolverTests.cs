@@ -1,8 +1,8 @@
-using System.Security.Cryptography;
 using System.Text;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Cryptography;
 
 namespace MackySoft.Ucli.Application.Tests.Features.Assurance.Build;
 
@@ -36,16 +36,19 @@ public sealed class BuildProfileResolverTests
         Assert.True(result.IsSuccess);
         var profile = result.Profile!;
         Assert.Equal(1, profile.SchemaVersion);
+        Assert.Equal(BuildTargetStableName.StandaloneLinux64, profile.Target.StableNameValue);
         Assert.Equal("standaloneLinux64", profile.Target.StableName);
         Assert.Equal("StandaloneLinux64", profile.Target.UnityBuildTargetLiteral);
-        Assert.Equal("explicit", profile.Scenes.Source);
+        Assert.Equal(BuildProfileSceneSource.Explicit, profile.Scenes.Source);
+        Assert.Equal("explicit", ContractLiteralCodec.ToValue(profile.Scenes.Source));
         Assert.Equal(
             [
                 "Assets/Scenes/Main.unity",
                 "Assets/Scenes/Bootstrap.unity",
             ],
             profile.Scenes.Paths);
-        Assert.Equal("ucliArtifact", profile.Output.Kind);
+        Assert.Equal(BuildProfileOutputKind.UcliArtifact, profile.Output.Kind);
+        Assert.Equal("ucliArtifact", ContractLiteralCodec.ToValue(profile.Output.Kind));
         Assert.False(profile.Options.Development);
         Assert.Matches("^[0-9a-f]{64}$", profile.Digest);
         Assert.False(profile.Digest.StartsWith("sha256:", StringComparison.Ordinal));
@@ -74,9 +77,45 @@ public sealed class BuildProfileResolverTests
 
         Assert.True(result.IsSuccess);
         var profile = result.Profile!;
-        Assert.Equal("editorBuildSettings", profile.Scenes.Source);
+        Assert.Equal(BuildProfileSceneSource.EditorBuildSettings, profile.Scenes.Source);
+        Assert.Equal("editorBuildSettings", ContractLiteralCodec.ToValue(profile.Scenes.Source));
         Assert.Empty(profile.Scenes.Paths);
         Assert.True(profile.Options.Development);
+    }
+
+    [Theory]
+    [MemberData(nameof(SupportedTargetCases))]
+    [Trait("Size", "Small")]
+    public void ResolveJson_WithSupportedTarget_ReturnsResolvedTarget (
+        string stableName,
+        string expectedStableNameValueName,
+        string expectedUnityBuildTargetLiteral)
+    {
+        var expectedStableNameValue = Enum.Parse<BuildTargetStableName>(expectedStableNameValueName);
+
+        var result = BuildProfileResolver.ResolveJson(
+            $$"""
+            {
+              "schemaVersion": 1,
+              "target": "{{stableName}}",
+              "scenes": {
+                "source": "editorBuildSettings"
+              },
+              "output": {
+                "kind": "ucliArtifact"
+              },
+              "options": {
+                "development": false
+              }
+            }
+            """);
+
+        Assert.True(result.IsSuccess);
+        var target = result.Profile!.Target;
+        Assert.Equal(expectedStableNameValue, target.StableNameValue);
+        Assert.Equal(stableName, target.StableName);
+        Assert.Equal(ContractLiteralCodec.ToValue(expectedStableNameValue), target.StableName);
+        Assert.Equal(expectedUnityBuildTargetLiteral, target.UnityBuildTargetLiteral);
     }
 
     [Theory]
@@ -99,7 +138,7 @@ public sealed class BuildProfileResolverTests
             """
             {
               "schemaVersion": 1,
-              "target": "standaloneWindows64",
+              "target": "StandaloneWindows64",
               "scenes": {
                 "source": "editorBuildSettings"
               },
@@ -143,7 +182,7 @@ public sealed class BuildProfileResolverTests
 
         var first = BuildProfileResolver.ResolveJson(CompactJson).Profile!;
         var second = BuildProfileResolver.ResolveJson(ReorderedJson).Profile!;
-        var expectedDigest = ComputeSha256LowerHex(CompactJson);
+        var expectedDigest = Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(CompactJson));
 
         Assert.Equal(first.Digest, second.Digest);
         Assert.Equal(expectedDigest, first.Digest);
@@ -172,9 +211,28 @@ public sealed class BuildProfileResolverTests
         ];
     }
 
-    private static string ComputeSha256LowerHex (string utf8Text)
+    public static TheoryData<string, string, string> SupportedTargetCases ()
     {
-        var hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(utf8Text));
-        return Convert.ToHexString(hashBytes).ToLowerInvariant();
+        return new TheoryData<string, string, string>
+        {
+            { "standaloneOSX", nameof(BuildTargetStableName.StandaloneOsx), "StandaloneOSX" },
+            { "standaloneWindows", nameof(BuildTargetStableName.StandaloneWindows), "StandaloneWindows" },
+            { "standaloneWindows64", nameof(BuildTargetStableName.StandaloneWindows64), "StandaloneWindows64" },
+            { "standaloneLinux64", nameof(BuildTargetStableName.StandaloneLinux64), "StandaloneLinux64" },
+            { "ios", nameof(BuildTargetStableName.Ios), "iOS" },
+            { "android", nameof(BuildTargetStableName.Android), "Android" },
+            { "webgl", nameof(BuildTargetStableName.Webgl), "WebGL" },
+            { "wsaPlayer", nameof(BuildTargetStableName.WsaPlayer), "WSAPlayer" },
+            { "tvos", nameof(BuildTargetStableName.Tvos), "tvOS" },
+            { "switch", nameof(BuildTargetStableName.Switch), "Switch" },
+            { "linuxHeadlessSimulation", nameof(BuildTargetStableName.LinuxHeadlessSimulation), "LinuxHeadlessSimulation" },
+            { "gameCoreXboxSeries", nameof(BuildTargetStableName.GameCoreXboxSeries), "GameCoreXboxSeries" },
+            { "gameCoreXboxOne", nameof(BuildTargetStableName.GameCoreXboxOne), "GameCoreXboxOne" },
+            { "ps4", nameof(BuildTargetStableName.Ps4), "PS4" },
+            { "ps5", nameof(BuildTargetStableName.Ps5), "PS5" },
+            { "xboxOne", nameof(BuildTargetStableName.XboxOne), "XboxOne" },
+            { "visionOS", nameof(BuildTargetStableName.VisionOs), "VisionOS" },
+        };
     }
+
 }

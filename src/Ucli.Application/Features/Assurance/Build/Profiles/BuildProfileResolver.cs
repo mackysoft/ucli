@@ -2,6 +2,7 @@ using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Json;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
 
@@ -204,7 +205,13 @@ internal static class BuildProfileResolver
             return false;
         }
 
-        if (string.Equals(source, BuildProfileSceneSourceValues.EditorBuildSettings, StringComparison.Ordinal))
+        if (!ContractLiteralCodec.TryParse<BuildProfileSceneSource>(source, out var sceneSource))
+        {
+            error = InvalidProfile($"Build profile scenes.source is unsupported: {source}.");
+            return false;
+        }
+
+        if (sceneSource == BuildProfileSceneSource.EditorBuildSettings)
         {
             if (scenesElement.TryGetProperty("paths", out _))
             {
@@ -212,18 +219,18 @@ internal static class BuildProfileResolver
                 return false;
             }
 
-            scenes = new ResolvedBuildScenes(BuildProfileSceneSourceValues.EditorBuildSettings, Array.Empty<string>());
+            scenes = new ResolvedBuildScenes(BuildProfileSceneSource.EditorBuildSettings, Array.Empty<string>());
             error = null;
             return true;
         }
 
-        if (string.Equals(source, BuildProfileSceneSourceValues.Explicit, StringComparison.Ordinal))
+        if (sceneSource != BuildProfileSceneSource.Explicit)
         {
-            return TryReadExplicitScenes(scenesElement, out scenes, out error);
+            error = InvalidProfile($"Build profile scenes.source is unsupported: {source}.");
+            return false;
         }
 
-        error = InvalidProfile($"Build profile scenes.source is unsupported: {source}.");
-        return false;
+        return TryReadExplicitScenes(scenesElement, out scenes, out error);
     }
 
     private static bool TryReadExplicitScenes (
@@ -261,7 +268,7 @@ internal static class BuildProfileResolver
             }
         }
 
-        scenes = new ResolvedBuildScenes(BuildProfileSceneSourceValues.Explicit, paths);
+        scenes = new ResolvedBuildScenes(BuildProfileSceneSource.Explicit, paths);
         error = null;
         return true;
     }
@@ -309,13 +316,14 @@ internal static class BuildProfileResolver
             return false;
         }
 
-        if (!string.Equals(kind, BuildProfileOutputKindValues.UcliArtifact, StringComparison.Ordinal))
+        if (!ContractLiteralCodec.TryParse<BuildProfileOutputKind>(kind, out var outputKind)
+            || outputKind != BuildProfileOutputKind.UcliArtifact)
         {
             error = InvalidProfile($"Build profile output.kind is unsupported: {kind}.");
             return false;
         }
 
-        output = new ResolvedBuildOutputPolicy(BuildProfileOutputKindValues.UcliArtifact);
+        output = new ResolvedBuildOutputPolicy(BuildProfileOutputKind.UcliArtifact);
         error = null;
         return true;
     }
