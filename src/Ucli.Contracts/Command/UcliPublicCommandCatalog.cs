@@ -10,6 +10,8 @@ public static class UcliPublicCommandCatalog
         UcliCommandIds.Status,
         UcliCommandIds.Ready,
         UcliCommandIds.Compile,
+        UcliCommandIds.Build,
+        UcliCommandIds.BuildRun,
         UcliCommandIds.Verify,
         UcliCommandIds.Refresh,
         UcliCommandIds.Resolve,

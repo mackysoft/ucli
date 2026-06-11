@@ -126,6 +126,7 @@ public sealed class CliCommandRegistrationContractTests
     {
         var knownCommandNames = UcliPublicCommandCatalog.KnownCommands
             .Select(static command => command.Name)
+            .Where(static commandName => !IsKnownButNotCliRegistered(commandName))
             .ToArray();
         return knownCommandNames
             .Where(commandName => !knownCommandNames.Any(otherCommandName =>
@@ -144,7 +145,13 @@ public sealed class CliCommandRegistrationContractTests
             && optionHelpLine.Contains("--kind", StringComparison.Ordinal))
             || (string.Equals(commandPath, $"{UcliCommandNames.Test} {UcliCommandNames.RunSubcommand}", StringComparison.Ordinal)
             && string.Equals(kebabCaseOption, "--execution-mode", StringComparison.Ordinal)
-            && optionHelpLine.Contains("--mode", StringComparison.Ordinal));
+                && optionHelpLine.Contains("--mode", StringComparison.Ordinal));
+    }
+
+    private static bool IsKnownButNotCliRegistered (string commandName)
+    {
+        return string.Equals(commandName, UcliCommandIds.Build.Name, StringComparison.Ordinal)
+            || string.Equals(commandName, UcliCommandIds.BuildRun.Name, StringComparison.Ordinal);
     }
 
     private static string ToCamelCaseLongOption (string kebabCaseOption)

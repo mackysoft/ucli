@@ -10,6 +10,7 @@ public sealed class UcliCommandTests
     [InlineData("daemon.cleanup")]
     [InlineData("daemon.status")]
     [InlineData("daemon.list")]
+    [InlineData("build.run")]
     [InlineData("test.run")]
     [InlineData("logs.daemon.read")]
     [InlineData("logs.unity.read")]
@@ -27,6 +28,7 @@ public sealed class UcliCommandTests
     [InlineData("daemon.cleanup")]
     [InlineData("daemon.status")]
     [InlineData("daemon.list")]
+    [InlineData("build.run")]
     [InlineData("test.run")]
     [InlineData("logs.daemon.read")]
     [InlineData("logs.unity.read")]
@@ -71,12 +73,28 @@ public sealed class UcliCommandTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void UcliCommandIds_ExposeBuildCommandLiterals ()
+    {
+        Assert.Equal("build", UcliCommandIds.Build.Name);
+        Assert.Equal("build.run", UcliCommandIds.BuildRun.Name);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void PublicCommandCatalog_IncludesPlayModeCommandFamily ()
     {
         Assert.Contains(UcliCommandIds.Play, UcliPublicCommandCatalog.KnownCommands);
         Assert.Contains(UcliCommandIds.PlayStatus, UcliPublicCommandCatalog.KnownCommands);
         Assert.Contains(UcliCommandIds.PlayEnter, UcliPublicCommandCatalog.KnownCommands);
         Assert.Contains(UcliCommandIds.PlayExit, UcliPublicCommandCatalog.KnownCommands);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void PublicCommandCatalog_IncludesBuildCommandFamily ()
+    {
+        Assert.Contains(UcliCommandIds.Build, UcliPublicCommandCatalog.KnownCommands);
+        Assert.Contains(UcliCommandIds.BuildRun, UcliPublicCommandCatalog.KnownCommands);
     }
 
     [Theory]

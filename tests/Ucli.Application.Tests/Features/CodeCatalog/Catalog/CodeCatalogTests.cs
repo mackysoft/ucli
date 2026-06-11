@@ -1,5 +1,6 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Diagnostics;
+using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Catalog;
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Catalog;
@@ -98,6 +99,35 @@ public sealed class CodeCatalogTests
         Assert.Equal(
             daemonNotRunningDescriptor.AppliesTo.Count,
             daemonNotRunningDescriptor.AppliesTo.Distinct().Count());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Constructor_WithApplicationContributors_RegistersBuildProfileErrorCodes ()
+    {
+        var catalog = CreateCatalog();
+
+        Assert.True(catalog.TryFind(BuildErrorCodes.BuildProfileInvalid, out var profileInvalidDescriptor));
+        Assert.Equal(CodeCatalogKindValues.Error, profileInvalidDescriptor.Kind);
+        Assert.Equal("build", profileInvalidDescriptor.Category);
+        Assert.Contains(UcliCommandIds.BuildRun, profileInvalidDescriptor.AppliesTo);
+
+        Assert.True(catalog.TryFind(BuildErrorCodes.BuildTargetUnsupported, out var targetUnsupportedDescriptor));
+        Assert.Equal(CodeCatalogKindValues.Error, targetUnsupportedDescriptor.Kind);
+        Assert.Equal("build", targetUnsupportedDescriptor.Category);
+        Assert.Contains(UcliCommandIds.BuildRun, targetUnsupportedDescriptor.AppliesTo);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ApplicationFailure_FromBuildProfileCodes_UsesInvalidArgumentOutcome ()
+    {
+        Assert.Equal(
+            ApplicationOutcome.InvalidArgument,
+            ApplicationFailure.FromCode(BuildErrorCodes.BuildProfileInvalid, "Invalid build profile.").Outcome);
+        Assert.Equal(
+            ApplicationOutcome.InvalidArgument,
+            ApplicationFailure.FromCode(BuildErrorCodes.BuildTargetUnsupported, "Unsupported build target.").Outcome);
     }
 
     [Fact]

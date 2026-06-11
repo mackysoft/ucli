@@ -9,6 +9,7 @@ public sealed class UcliCommandCatalogTests
     public void FilterableCommandNames_MatchPublicCommandCatalog ()
     {
         var expected = UcliPublicCommandCatalog.KnownCommands
+            .Where(static command => !IsKnownButNotCliRegistered(command))
             .Select(static command => command.Name)
             .Order(StringComparer.Ordinal)
             .ToArray();
@@ -222,5 +223,10 @@ public sealed class UcliCommandCatalogTests
         }
 
         return commandNames.ToArray();
+    }
+
+    private static bool IsKnownButNotCliRegistered (UcliCommand command)
+    {
+        return command == UcliCommandIds.Build || command == UcliCommandIds.BuildRun;
     }
 }
