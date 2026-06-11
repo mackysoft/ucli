@@ -1,5 +1,7 @@
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
+using MackySoft.Ucli.Contracts.Cryptography;
 
 namespace MackySoft.Ucli.Infrastructure.Cryptography;
 
@@ -27,16 +29,14 @@ internal sealed class Utf8Sha256HashWriter : IDisposable
     /// <summary> Appends one UTF-8 character to the hash input. </summary>
     public void Append (char value)
     {
-        Span<char> chars = stackalloc char[1];
-        chars[0] = value;
-        Append(chars);
+        Append(MemoryMarshal.CreateReadOnlySpan(ref value, 1));
     }
 
     /// <summary> Completes the current digest and resets the writer for another hash. </summary>
     public string GetHashAndReset ()
     {
         ThrowIfDisposed();
-        return Sha256LowerHex.ToLowerHex(hash.GetHashAndReset());
+        return Sha256LowerHex.GetHashAndReset(hash);
     }
 
     /// <inheritdoc />
