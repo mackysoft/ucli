@@ -64,6 +64,8 @@ public sealed class VerifyProfileResolverTests
         var projectDigest = VerifyProfileDigestCalculator.Calculate(project);
 
         Assert.Equal(firstDigest, secondDigest);
+        Assert.Matches("^[0-9a-f]{64}$", firstDigest);
+        Assert.Matches("^[0-9a-f]{64}$", projectDigest);
         Assert.NotEqual(firstDigest, projectDigest);
         Assert.Equal(
             firstDefault.Steps.Select(static step => step.Kind),

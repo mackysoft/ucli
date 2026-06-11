@@ -249,10 +249,10 @@ public sealed class EvalCommandTests
         {
             Result = IpcPayloadCodec.SerializeToElement(
                 new CsEvalResult(
-                    "sha256:source",
+                    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                     CsEvalSourceKindValues.Snippet,
                     "Snippet.Run",
-                    "sha256:execution",
+                    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
                     CreateSuccessfulCompileResult(),
                     7,
                     [],
@@ -282,10 +282,10 @@ public sealed class EvalCommandTests
         {
             Result = IpcPayloadCodec.SerializeToElement(
                 new CsEvalResult(
-                    "sha256:source",
+                    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                     CsEvalSourceKindValues.Snippet,
                     "Snippet.Run",
-                    "sha256:execution",
+                    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
                     CreateSuccessfulCompileResult(),
                     durationMilliseconds: null,
                     logs: null,

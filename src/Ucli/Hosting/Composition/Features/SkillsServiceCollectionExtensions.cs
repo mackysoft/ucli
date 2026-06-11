@@ -1,8 +1,10 @@
 using MackySoft.AgentSkills.Digests;
 using MackySoft.AgentSkills.Distribution;
 using MackySoft.AgentSkills.Doctor;
-using MackySoft.AgentSkills.Doctor.Diagnostics;
-using MackySoft.AgentSkills.Hosts.Defaults;
+using MackySoft.AgentSkills.Hosts.Claude;
+using MackySoft.AgentSkills.Hosts.Copilot;
+using MackySoft.AgentSkills.Hosts.OpenAi;
+using MackySoft.AgentSkills.Hosts.Registration;
 using MackySoft.AgentSkills.Installation.Contracts;
 using MackySoft.AgentSkills.Installation.Diffing;
 using MackySoft.AgentSkills.Installation.Inventory;
@@ -29,16 +31,24 @@ internal static class SkillsServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddSingleton(_ => DefaultSkillHostAdapters.CreateSet());
-        services.AddSingleton<BundledSkillPackageRootResolver>();
+        services.AddSingleton(_ => new SkillHostAdapterSet(
+        [
+            new ClaudeSkillHostAdapter(),
+            new CopilotSkillHostAdapter(),
+            new OpenAiSkillHostAdapter(),
+        ]));
+        services.AddSingleton(_ => new BundledSkillPackageRootResolver(AppContext.BaseDirectory));
         services.AddSingleton<SkillDigestCalculator>();
         services.AddSingleton<SkillManifestJsonSerializer>();
+        services.AddSingleton<SkillManifestDigestCalculator>();
         services.AddSingleton<SkillManifestValidator>();
         services.AddSingleton<CanonicalSkillPackageReader>();
         services.AddSingleton<SkillPackageProvider>();
         services.AddSingleton<SkillMaterializationService>();
         services.AddSingleton<SkillExportService>();
-        services.AddSingleton<SkillUserTargetRootResolver>();
+        services.AddSingleton(_ => new SkillUserTargetRootResolver(
+            () => Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            Environment.GetEnvironmentVariable));
         services.AddSingleton<SkillInstallTargetResolver>();
         services.AddSingleton<SkillInstalledManifestReader>();
         services.AddSingleton<SkillInstalledContentDigestVerifier>();
@@ -46,7 +56,6 @@ internal static class SkillsServiceCollectionExtensions
         services.AddSingleton<SkillHostMaterializationInspector>();
         services.AddSingleton<SkillInstalledPackageValidator>();
         services.AddSingleton<SkillInstalledPackageIntegrityVerifier>();
-        services.AddSingleton<SkillInstalledPackageDriftAnalyzer>();
         services.AddSingleton<SkillInstalledTargetStateAnalyzer>();
         services.AddSingleton<ISkillPackageDirectoryOperations, SkillPackageDirectoryOperations>();
         services.AddSingleton<ISkillMaterializedPackageWriter, SkillMaterializedPackageWriter>();

@@ -363,12 +363,12 @@ internal static class Program
                     additionalProperties: false,
                     Required("kind", StringSchema()),
                     Required("path", StringSchema()),
-                    Optional("digest", StringSchema())),
+                    Optional("digest", Sha256LowerHexSchema())),
                 ObjectSchema(
                     additionalProperties: false,
                     Required("kind", StringSchema()),
                     Required("uri", StringSchema()),
-                    Optional("digest", StringSchema())),
+                    Optional("digest", Sha256LowerHexSchema())),
             },
         };
     }
@@ -633,7 +633,6 @@ internal static class Program
         return ObjectSchema(
             additionalProperties: false,
             Required("profile", CreateVerifyProfileSchema()),
-            Required("profileDigest", StringSchema()),
             Required("verdict", EnumSchema("pass", "fail", "incomplete")),
             Required("project", ReferenceSchema("../defs/project.schema.json")),
             Required("verifiers", ArraySchema(ReferenceSchema("../defs/verifier.schema.json"))),
@@ -661,7 +660,7 @@ internal static class Program
             Required("source", EnumSchema("builtIn", "file")),
             Required("name", StringSchema()),
             Required("path", NullableStringSchema()),
-            Required("digest", StringSchema()));
+            Required("digest", Sha256LowerHexSchema()));
     }
 
     private static Dictionary<string, object?> CreateVerifyClaimSchema ()
@@ -1555,6 +1554,11 @@ internal static class Program
         {
             ["type"] = "string",
         };
+    }
+
+    private static Dictionary<string, object?> Sha256LowerHexSchema ()
+    {
+        return PatternStringSchema("^[0-9a-f]{64}$");
     }
 
     private static Dictionary<string, object?> InputArgsPathSchema ()

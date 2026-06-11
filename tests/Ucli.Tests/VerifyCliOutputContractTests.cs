@@ -32,9 +32,6 @@ public sealed class VerifyCliOutputContractTests
         Assert.True(
             result.IsValid,
             string.Join(Environment.NewLine, result.Violations.Select(static violation => $"{violation.Path}: {violation.Message}")));
-        Assert.Equal(
-            payload.GetProperty("profile").GetProperty("digest").GetString(),
-            payload.GetProperty("profileDigest").GetString());
     }
 
     [Fact]

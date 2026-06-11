@@ -127,11 +127,11 @@ internal sealed class VerifyService : IVerifyService
         }
 
         var profile = profileResult.Profile!;
-        var profileDigest = VerifyProfileDigestCalculator.Calculate(profile);
+        var effectiveProfileDigest = VerifyProfileDigestCalculator.Calculate(profile);
         await EmitProgressEntryAsync(
                 progressSink,
                 VerifyProgressEventNames.Started,
-                CreateProgressEntry(profile, profileDigest, verdict: null),
+                CreateProgressEntry(profile, effectiveProfileDigest, verdict: null),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -229,13 +229,12 @@ internal sealed class VerifyService : IVerifyService
                 profile.Source,
                 profile.Name,
                 profile.RepositoryRelativePath,
-                profileDigest),
-            ProfileDigest: profileDigest,
+                effectiveProfileDigest),
             TimeoutMilliseconds: checked((int)timeout.TotalMilliseconds));
         await EmitProgressEntryAsync(
                 progressSink,
                 VerifyProgressEventNames.Completed,
-                CreateProgressEntry(profile, profileDigest, output.Verdict),
+                CreateProgressEntry(profile, effectiveProfileDigest, output.Verdict),
                 cancellationToken)
             .ConfigureAwait(false);
         return VerifyExecutionResult.Success(output);
@@ -629,14 +628,14 @@ internal sealed class VerifyService : IVerifyService
 
     private static VerifyProgressEntry CreateProgressEntry (
         VerifyProfileDefinition profile,
-        string profileDigest,
+        string effectiveProfileDigest,
         string? verdict)
     {
         return new VerifyProgressEntry(
             profile.Source,
             profile.Name,
             profile.RepositoryRelativePath,
-            profileDigest,
+            effectiveProfileDigest,
             profile.Steps.Count,
             verdict);
     }

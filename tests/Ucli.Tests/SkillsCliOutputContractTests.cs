@@ -1184,10 +1184,10 @@ public sealed class SkillsCliOutputContractTests
         var serializer = new SkillManifestJsonSerializer();
         var manifestResult = serializer.TryDeserialize(await File.ReadAllTextAsync(manifestPath));
         Assert.True(manifestResult.IsSuccess, manifestResult.Failure?.Message);
-        var manifest = manifestResult.Value! with
+        var manifest = new SkillManifestDigestCalculator(serializer).WithComputedManifestDigest(manifestResult.Value! with
         {
             ContentDigest = new SkillDigestCalculator().ComputeDigest(digestInputs),
-        };
+        });
         await File.WriteAllTextAsync(manifestPath, serializer.Serialize(manifest));
     }
 

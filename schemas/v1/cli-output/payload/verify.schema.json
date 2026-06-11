@@ -27,7 +27,8 @@
               ]
             },
             "digest": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
             }
           },
           "required": [
@@ -36,9 +37,6 @@
             "path",
             "digest"
           ]
-        },
-        "profileDigest": {
-          "type": "string"
         },
         "verdict": {
           "type": "string",
@@ -139,7 +137,6 @@
       },
       "required": [
         "profile",
-        "profileDigest",
         "verdict",
         "project",
         "verifiers",

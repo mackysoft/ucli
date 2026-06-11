@@ -953,7 +953,8 @@ public sealed class CliOutputSchemaArtifactTests
             """
             {
               "kind": "log",
-              "path": "artifacts/ready.log"
+              "path": "artifacts/ready.log",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
             }
             """,
             true,
@@ -973,7 +974,7 @@ public sealed class CliOutputSchemaArtifactTests
             """
             {
               "kind": "report",
-              "digest": "sha256:abc"
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
             }
             """,
             false,
