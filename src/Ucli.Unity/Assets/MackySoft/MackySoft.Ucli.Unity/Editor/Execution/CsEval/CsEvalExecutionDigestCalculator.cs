@@ -1,5 +1,5 @@
 using System.Text;
-using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Infrastructure.Cryptography;
 using Microsoft.CodeAnalysis.CSharp;
 
 #nullable enable

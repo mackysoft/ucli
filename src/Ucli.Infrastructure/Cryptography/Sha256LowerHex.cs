@@ -1,6 +1,6 @@
 using System.Security.Cryptography;
 
-namespace MackySoft.Ucli.Contracts.Cryptography;
+namespace MackySoft.Ucli.Infrastructure.Cryptography;
 
 /// <summary> Computes lowercase hexadecimal SHA-256 digest strings. </summary>
 internal static class Sha256LowerHex
@@ -61,9 +61,9 @@ internal static class Sha256LowerHex
         return ToLowerHex(hashBytes);
     }
 
-    /// <summary> Converts bytes to lowercase hexadecimal text. </summary>
-    /// <param name="bytes"> The source bytes. </param>
-    /// <returns> The lowercase hexadecimal text. </returns>
+    /// <summary> Converts SHA-256 digest bytes to lowercase hexadecimal text. </summary>
+    /// <param name="bytes"> The SHA-256 digest bytes. </param>
+    /// <returns> The lowercase hexadecimal SHA-256 digest text. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="bytes" /> is <see langword="null" />. </exception>
     public static string ToLowerHex (byte[] bytes)
     {
@@ -75,9 +75,10 @@ internal static class Sha256LowerHex
         return ToLowerHex(bytes.AsSpan());
     }
 
-    /// <summary> Converts bytes to lowercase hexadecimal text. </summary>
-    /// <param name="bytes"> The source bytes. </param>
-    /// <returns> The lowercase hexadecimal text. </returns>
+    /// <summary> Converts SHA-256 digest bytes to lowercase hexadecimal text. </summary>
+    /// <param name="bytes"> The SHA-256 digest bytes. </param>
+    /// <returns> The lowercase hexadecimal SHA-256 digest text. </returns>
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="bytes" /> length is not the SHA-256 digest byte count. </exception>
     public static string ToLowerHex (ReadOnlySpan<byte> bytes)
     {
         if (bytes.Length != ByteCount)

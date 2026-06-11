@@ -11,6 +11,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Common;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Unity;
 using MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun;
 using MackySoft.Ucli.Application.Shared.Context;
+using MackySoft.Ucli.Application.Shared.Cryptography;
 using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Assurance;
@@ -42,6 +43,8 @@ internal sealed class VerifyService : IVerifyService
 
     private readonly IVerifyFromInputFileReader fromInputFileReader;
 
+    private readonly ISha256DigestCalculator sha256DigestCalculator;
+
     private readonly TimeProvider timeProvider;
 
     /// <summary> Initializes a new instance of the <see cref="VerifyService" /> class. </summary>
@@ -53,6 +56,7 @@ internal sealed class VerifyService : IVerifyService
         ILogsUnityService logsUnityService,
         IVerifyProfileFileReader profileFileReader,
         IVerifyFromInputFileReader fromInputFileReader,
+        ISha256DigestCalculator sha256DigestCalculator,
         TimeProvider? timeProvider = null)
     {
         this.projectContextResolver = projectContextResolver ?? throw new ArgumentNullException(nameof(projectContextResolver));
@@ -62,6 +66,7 @@ internal sealed class VerifyService : IVerifyService
         this.logsUnityService = logsUnityService ?? throw new ArgumentNullException(nameof(logsUnityService));
         this.profileFileReader = profileFileReader ?? throw new ArgumentNullException(nameof(profileFileReader));
         this.fromInputFileReader = fromInputFileReader ?? throw new ArgumentNullException(nameof(fromInputFileReader));
+        this.sha256DigestCalculator = sha256DigestCalculator ?? throw new ArgumentNullException(nameof(sha256DigestCalculator));
         this.timeProvider = timeProvider ?? TimeProvider.System;
     }
 
@@ -127,7 +132,7 @@ internal sealed class VerifyService : IVerifyService
         }
 
         var profile = profileResult.Profile!;
-        var effectiveProfileDigest = VerifyProfileDigestCalculator.Calculate(profile);
+        var effectiveProfileDigest = VerifyProfileDigestCalculator.Calculate(profile, sha256DigestCalculator);
         await EmitProgressEntryAsync(
                 progressSink,
                 VerifyProgressEventNames.Started,

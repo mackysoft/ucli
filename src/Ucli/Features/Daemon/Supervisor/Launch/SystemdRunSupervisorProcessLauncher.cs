@@ -1,6 +1,6 @@
 using System.Text;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Infrastructure.Cryptography;
 
 namespace MackySoft.Ucli.Features.Daemon.Supervisor.Launch;
 

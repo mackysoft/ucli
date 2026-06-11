@@ -39,7 +39,7 @@ internal static class InvalidArgumentErrorCodeSet
             codes.Add(code);
         }
 
-        foreach (var code in BuildErrorCodes.All)
+        foreach (var code in BuildErrorCodes.InvalidArgumentCodes)
         {
             codes.Add(code);
         }

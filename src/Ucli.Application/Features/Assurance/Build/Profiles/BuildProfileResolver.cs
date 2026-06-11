@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
+using MackySoft.Ucli.Application.Shared.Cryptography;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Json;
 using MackySoft.Ucli.Contracts.Text;
@@ -7,9 +8,11 @@ using MackySoft.Ucli.Contracts.Text;
 namespace MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
 
 /// <summary> Resolves build profile JSON into build execution input. </summary>
-internal static class BuildProfileResolver
+internal sealed class BuildProfileResolver
 {
     private const int CurrentSchemaVersion = 1;
+    private const string AssetsRootPrefix = "Assets/";
+    private const string SceneAssetExtension = ".unity";
 
     private static readonly HashSet<string> AllowedRootProperties = new(StringComparer.Ordinal)
     {
@@ -36,8 +39,17 @@ internal static class BuildProfileResolver
         "development",
     };
 
+    private readonly ISha256DigestCalculator sha256DigestCalculator;
+
+    /// <summary> Initializes a new instance of the <see cref="BuildProfileResolver" /> class. </summary>
+    /// <param name="sha256DigestCalculator"> The SHA-256 digest calculator used for canonical profile digests. </param>
+    public BuildProfileResolver (ISha256DigestCalculator sha256DigestCalculator)
+    {
+        this.sha256DigestCalculator = sha256DigestCalculator ?? throw new ArgumentNullException(nameof(sha256DigestCalculator));
+    }
+
     /// <summary> Resolves one build profile from raw JSON text. </summary>
-    public static BuildProfileResolutionResult ResolveJson (string json)
+    public BuildProfileResolutionResult ResolveJson (string json)
     {
         if (string.IsNullOrWhiteSpace(json))
         {
@@ -55,20 +67,19 @@ internal static class BuildProfileResolver
         }
     }
 
-    private static BuildProfileResolutionResult ResolveCore (JsonElement root)
+    private BuildProfileResolutionResult ResolveCore (JsonElement root)
     {
         if (root.ValueKind != JsonValueKind.Object)
         {
             return InvalidProfile("Build profile root must be an object.");
         }
 
-        var unknownRootProperty = JsonObjectPropertyReader.FindUnknownProperty(root, AllowedRootProperties);
-        if (!string.IsNullOrEmpty(unknownRootProperty))
+        if (!TryValidateObjectProperties(root, AllowedRootProperties, "Build profile", out var error))
         {
-            return InvalidProfile($"Build profile contains unknown property '{unknownRootProperty}'.");
+            return error!;
         }
 
-        if (!TryReadSchemaVersion(root, out var schemaVersion, out var error))
+        if (!TryReadSchemaVersion(root, out var schemaVersion, out error))
         {
             return error!;
         }
@@ -86,7 +97,8 @@ internal static class BuildProfileResolver
             target!,
             scenes!,
             output!,
-            options!);
+            options!,
+            sha256DigestCalculator);
         return BuildProfileResolutionResult.Success(new ResolvedBuildProfile(
             SchemaVersion: schemaVersion,
             Target: target!,
@@ -185,10 +197,8 @@ internal static class BuildProfileResolver
             return false;
         }
 
-        var unknownScenesProperty = JsonObjectPropertyReader.FindUnknownProperty(scenesElement, AllowedScenesProperties);
-        if (!string.IsNullOrEmpty(unknownScenesProperty))
+        if (!TryValidateObjectProperties(scenesElement, AllowedScenesProperties, "Build profile scenes", out error))
         {
-            error = InvalidProfile($"Build profile scenes contains unknown property '{unknownScenesProperty}'.");
             return false;
         }
 
@@ -266,6 +276,12 @@ internal static class BuildProfileResolver
                 error = InvalidProfile($"Build profile scenes.paths[{i}] must not be empty.");
                 return false;
             }
+
+            if (!IsProjectRelativeSceneAssetPath(paths[i]))
+            {
+                error = InvalidProfile($"Build profile scenes.paths[{i}] must be a project-relative scene asset path under Assets ending with '{SceneAssetExtension}'.");
+                return false;
+            }
         }
 
         scenes = new ResolvedBuildScenes(BuildProfileSceneSource.Explicit, paths);
@@ -296,10 +312,8 @@ internal static class BuildProfileResolver
             return false;
         }
 
-        var unknownOutputProperty = JsonObjectPropertyReader.FindUnknownProperty(outputElement, AllowedOutputProperties);
-        if (!string.IsNullOrEmpty(unknownOutputProperty))
+        if (!TryValidateObjectProperties(outputElement, AllowedOutputProperties, "Build profile output", out error))
         {
-            error = InvalidProfile($"Build profile output contains unknown property '{unknownOutputProperty}'.");
             return false;
         }
 
@@ -351,10 +365,8 @@ internal static class BuildProfileResolver
             return false;
         }
 
-        var unknownOptionsProperty = JsonObjectPropertyReader.FindUnknownProperty(optionsElement, AllowedOptionsProperties);
-        if (!string.IsNullOrEmpty(unknownOptionsProperty))
+        if (!TryValidateObjectProperties(optionsElement, AllowedOptionsProperties, "Build profile options", out error))
         {
-            error = InvalidProfile($"Build profile options contains unknown property '{unknownOptionsProperty}'.");
             return false;
         }
 
@@ -385,6 +397,72 @@ internal static class BuildProfileResolver
         return BuildProfileResolutionResult.Failure(ExecutionError.InvalidArgument(
             message,
             BuildErrorCodes.BuildProfileInvalid));
+    }
+
+    private static bool TryValidateObjectProperties (
+        JsonElement jsonObject,
+        ISet<string> allowedProperties,
+        string objectName,
+        out BuildProfileResolutionResult? error)
+    {
+        var seenProperties = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var property in jsonObject.EnumerateObject())
+        {
+            if (!seenProperties.Add(property.Name))
+            {
+                error = InvalidProfile($"{objectName} contains duplicate property '{property.Name}'.");
+                return false;
+            }
+
+            if (!allowedProperties.Contains(property.Name))
+            {
+                error = InvalidProfile($"{objectName} contains unknown property '{property.Name}'.");
+                return false;
+            }
+        }
+
+        error = null;
+        return true;
+    }
+
+    private static bool IsProjectRelativeSceneAssetPath (string path)
+    {
+        if (StringValueValidator.HasOuterWhitespace(path)
+            || path.Contains('\\', StringComparison.Ordinal)
+            || IsWindowsDriveQualifiedPath(path)
+            || path.StartsWith("/", StringComparison.Ordinal)
+            || !path.StartsWith(AssetsRootPrefix, StringComparison.Ordinal)
+            || !path.EndsWith(SceneAssetExtension, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var segments = path.Split('/');
+        for (var i = 0; i < segments.Length; i++)
+        {
+            var segment = segments[i];
+            if (segment.Length == 0
+                || string.Equals(segment, ".", StringComparison.Ordinal)
+                || string.Equals(segment, "..", StringComparison.Ordinal))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool IsWindowsDriveQualifiedPath (string path)
+    {
+        return path.Length >= 2
+            && IsAsciiLetter(path[0])
+            && path[1] == ':';
+    }
+
+    private static bool IsAsciiLetter (char value)
+    {
+        return value is (>= 'A' and <= 'Z')
+            or (>= 'a' and <= 'z');
     }
 
     private static string CreateMissingRequiredPropertyError (string propertyName)

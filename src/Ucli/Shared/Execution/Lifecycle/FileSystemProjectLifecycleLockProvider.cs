@@ -1,7 +1,7 @@
 using System.Text;
 using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
-using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Infrastructure.Cryptography;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
 

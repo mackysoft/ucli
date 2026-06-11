@@ -1,7 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Application.Shared.Cryptography;
 using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
@@ -21,12 +21,14 @@ internal static class BuildProfileDigestCalculator
         ResolvedBuildTarget target,
         ResolvedBuildScenes scenes,
         ResolvedBuildOutputPolicy output,
-        ResolvedBuildOptions options)
+        ResolvedBuildOptions options,
+        ISha256DigestCalculator sha256DigestCalculator)
     {
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(scenes);
         ArgumentNullException.ThrowIfNull(output);
         ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(sha256DigestCalculator);
 
         var canonical = new CanonicalBuildProfile(
             SchemaVersion: schemaVersion,
@@ -36,7 +38,7 @@ internal static class BuildProfileDigestCalculator
             Options: new CanonicalBuildOptions(options.Development));
 
         var json = JsonSerializer.Serialize(canonical, SerializerOptions);
-        return Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(json));
+        return sha256DigestCalculator.Compute(Encoding.UTF8.GetBytes(json));
     }
 
     private sealed record CanonicalBuildProfile (

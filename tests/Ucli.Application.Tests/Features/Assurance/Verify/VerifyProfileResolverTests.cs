@@ -59,9 +59,9 @@ public sealed class VerifyProfileResolverTests
         var secondDefault = VerifyProfileResolver.Resolve("built-in:default").Profile!;
         var project = VerifyProfileResolver.Resolve("built-in:project").Profile!;
 
-        var firstDigest = VerifyProfileDigestCalculator.Calculate(firstDefault);
-        var secondDigest = VerifyProfileDigestCalculator.Calculate(secondDefault);
-        var projectDigest = VerifyProfileDigestCalculator.Calculate(project);
+        var firstDigest = VerifyProfileDigestCalculator.Calculate(firstDefault, TestSha256DigestCalculator.Instance);
+        var secondDigest = VerifyProfileDigestCalculator.Calculate(secondDefault, TestSha256DigestCalculator.Instance);
+        var projectDigest = VerifyProfileDigestCalculator.Calculate(project, TestSha256DigestCalculator.Instance);
 
         Assert.Equal(firstDigest, secondDigest);
         Assert.Matches("^[0-9a-f]{64}$", firstDigest);

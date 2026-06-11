@@ -796,6 +796,7 @@ public sealed class VerifyServiceTests
                 profilePath.Replace('\\', '/'))),
             fromInputFileReader ?? new StubFromInputFileReader((fromPath, root) => VerifyFromInputFileReadResult.Success(
                 File.ReadAllText(Path.Combine(root, fromPath)))),
+            TestSha256DigestCalculator.Instance,
             timeProvider);
     }
 

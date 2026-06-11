@@ -1,4 +1,4 @@
-using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Infrastructure.Cryptography;
 
 namespace MackySoft.Ucli.Infrastructure.Index;
 

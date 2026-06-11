@@ -1,7 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
-using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Application.Shared.Cryptography;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Verify.Profiles;
 
@@ -15,9 +15,12 @@ internal static class VerifyProfileDigestCalculator
     };
 
     /// <summary> Calculates the canonical digest for one resolved profile. </summary>
-    public static string Calculate (VerifyProfileDefinition profile)
+    public static string Calculate (
+        VerifyProfileDefinition profile,
+        ISha256DigestCalculator sha256DigestCalculator)
     {
         ArgumentNullException.ThrowIfNull(profile);
+        ArgumentNullException.ThrowIfNull(sha256DigestCalculator);
 
         var canonical = new
         {
@@ -40,6 +43,6 @@ internal static class VerifyProfileDigestCalculator
         };
 
         var json = JsonSerializer.Serialize(canonical, SerializerOptions);
-        return Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(json));
+        return sha256DigestCalculator.Compute(Encoding.UTF8.GetBytes(json));
     }
 }
