@@ -9,5 +9,4 @@ internal sealed record VerifyExecutionOutput (
     IReadOnlyDictionary<string, VerifyReportOutput> Reports,
     IReadOnlyList<VerifyResidualRiskOutput> ResidualRisks,
     VerifyProfileOutput Profile,
-    string ProfileDigest,
     int TimeoutMilliseconds);

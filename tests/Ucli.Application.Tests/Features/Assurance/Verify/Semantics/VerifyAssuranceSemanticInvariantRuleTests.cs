@@ -91,12 +91,11 @@ public sealed class VerifyAssuranceSemanticInvariantRuleTests
         {
           "verdict": "pass",
           "profile": {
-            "source": "built-in",
+            "source": "builtIn",
             "name": "mutation",
-            "digest": "digest",
-            "steps": []
+            "path": null,
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
           },
-          "profileDigest": "digest",
           "timeoutMilliseconds": 10000,
           "verifiers": [
             {

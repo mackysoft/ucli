@@ -471,7 +471,7 @@ public sealed class AssuranceSemanticInvariantValidatorTests
               "reports": {
                 "ready-log": {
                   "kind": "log",
-                  "digest": "abc123"
+                  "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
                 }
               },
               "residualRisks": []
@@ -712,7 +712,7 @@ public sealed class AssuranceSemanticInvariantValidatorTests
                 "ready-log": {
                   "kind": "log",
                   "path": "artifacts/ready.log",
-                  "digest": "abc123"
+                  "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
                 }
               },
               "residualRisks": []

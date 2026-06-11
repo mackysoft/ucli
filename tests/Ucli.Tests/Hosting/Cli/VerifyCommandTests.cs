@@ -438,8 +438,7 @@ public sealed class VerifyCommandTests
                 Source: VerifyProfileSourceValues.BuiltIn,
                 Name: "built-in:default",
                 Path: null,
-                Digest: "sha256:1111111111111111111111111111111111111111111111111111111111111111"),
-            ProfileDigest: "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+                Digest: "1111111111111111111111111111111111111111111111111111111111111111"),
             TimeoutMilliseconds: 120000);
     }
 

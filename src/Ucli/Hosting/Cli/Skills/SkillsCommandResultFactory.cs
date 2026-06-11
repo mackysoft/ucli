@@ -48,8 +48,8 @@ internal static class SkillsCommandResultFactory
                     .Select(static adapter => new
                     {
                         host = adapter.Descriptor.HostKey,
-                        adapter.Descriptor.ProjectTargetDirectory,
-                        adapter.Descriptor.UserTargetDirectory,
+                        projectTargetDirectory = adapter.Descriptor.ProjectDefaultTargetPath,
+                        userTargetDirectory = adapter.Descriptor.UserDefaultTargetPath,
                         adapter.Descriptor.ReloadGuidance,
                     })
                     .ToArray(),

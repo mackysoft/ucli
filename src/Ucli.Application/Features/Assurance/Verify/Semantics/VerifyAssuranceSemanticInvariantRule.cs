@@ -143,7 +143,6 @@ internal sealed class VerifyAssuranceSemanticInvariantRule : IAssuranceSemanticI
     private static bool IsVerifyPayload (JsonElement payload)
     {
         return payload.TryGetProperty("profile", out _)
-            && payload.TryGetProperty("profileDigest", out _)
             && payload.TryGetProperty("timeoutMilliseconds", out _);
     }
 

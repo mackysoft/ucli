@@ -20,10 +20,10 @@
         "changed": false,
         "touched": [],
         "result": {
-          "sourceDigest": "sha256:source",
+          "sourceDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "sourceKind": "snippet",
           "resolvedEntryPoint": "Snippet.Run",
-          "executionDigest": "sha256:execution",
+          "executionDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
           "compile": {
             "status": "succeeded",
             "diagnostics": []
@@ -59,10 +59,10 @@
           "changed": false,
           "touched": [],
           "result": {
-            "sourceDigest": "sha256:source",
+            "sourceDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "sourceKind": "snippet",
             "resolvedEntryPoint": "Snippet.Run",
-            "executionDigest": "sha256:execution",
+            "executionDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
             "compile": {
               "status": "succeeded",
               "diagnostics": []
