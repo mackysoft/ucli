@@ -264,9 +264,9 @@ internal static class BuildProfileResolver
                 return false;
             }
 
-            if (!BuildProfileScenePathContract.IsProjectRelativeSceneAssetPath(paths[i]))
+            if (!UnityAssetPathContract.IsNormalizedSceneAssetPath(paths[i]))
             {
-                error = InvalidProfile($"Build profile scenes.paths[{i}] must be a project-relative scene asset path under Assets ending with '{BuildProfileScenePathContract.SceneAssetExtension}'.");
+                error = InvalidProfile($"Build profile scenes.paths[{i}] must be a project-relative scene asset path under Assets ending with '{UnityAssetPathContract.SceneAssetExtension}'.");
                 return false;
             }
         }

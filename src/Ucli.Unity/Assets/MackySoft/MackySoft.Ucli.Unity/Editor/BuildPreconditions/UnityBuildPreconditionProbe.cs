@@ -291,12 +291,12 @@ namespace MackySoft.Ucli.Unity.Build
                     return false;
                 }
 
-                if (!BuildProfileScenePathContract.IsProjectRelativeSceneAssetPath(rawPath))
+                if (!UnityAssetPathContract.IsNormalizedSceneAssetPath(rawPath))
                 {
                     scenePaths = Array.Empty<string>();
                     error = new IpcError(
                         BuildErrorCodes.BuildInputsInvalid,
-                        $"Build scene path at index {i} must be a normalized project-relative scene path under Assets ending with '{BuildProfileScenePathContract.SceneAssetExtension}': {rawPath}.",
+                        $"Build scene path at index {i} must be a normalized project-relative scene path under Assets ending with '{UnityAssetPathContract.SceneAssetExtension}': {rawPath}.",
                         null);
                     return false;
                 }

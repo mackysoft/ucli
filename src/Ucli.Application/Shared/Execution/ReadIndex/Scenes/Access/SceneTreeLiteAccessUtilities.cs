@@ -1,36 +1,24 @@
-using MackySoft.Ucli.Contracts.Text;
-
 namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
 
 /// <summary> Provides shared helpers used by scene-tree-lite access services. </summary>
 internal static class SceneTreeLiteAccessUtilities
 {
-    private const string AssetsRootPrefix = "Assets/";
-    private const string SceneExtension = ".unity";
-
     /// <summary> Normalizes and validates one scene path input. </summary>
     public static bool TryNormalizeScenePath (
         string scenePath,
         out string normalizedScenePath,
         out string errorMessage)
     {
-        normalizedScenePath = scenePath;
+        normalizedScenePath = string.Empty;
         if (string.IsNullOrWhiteSpace(scenePath))
         {
             errorMessage = "Property 'path' must not be empty or whitespace.";
             return false;
         }
 
-        if (StringValueValidator.HasOuterWhitespace(scenePath))
+        if (!UnityAssetPathContract.TryNormalizeProjectRelativePath(scenePath, out normalizedScenePath))
         {
-            errorMessage = "Property 'path' must not contain leading or trailing whitespace.";
-            return false;
-        }
-
-        normalizedScenePath = ToSlashSeparated(scenePath);
-        if (HasUnsafePathSegments(normalizedScenePath))
-        {
-            errorMessage = "Property 'path' must be a project-relative path without '.' or '..' segments.";
+            errorMessage = "Property 'path' must be a project-relative path without leading or trailing whitespace, empty segments, '.' segments, or '..' segments.";
             return false;
         }
 
@@ -41,9 +29,7 @@ internal static class SceneTreeLiteAccessUtilities
     /// <summary> Returns whether the path can be persisted into scene-tree-lite read-index storage. </summary>
     public static bool IsLookupEligibleScenePath (string scenePath)
     {
-        return !string.IsNullOrWhiteSpace(scenePath)
-            && scenePath.StartsWith(AssetsRootPrefix, StringComparison.Ordinal)
-            && scenePath.EndsWith(SceneExtension, StringComparison.Ordinal);
+        return UnityAssetPathContract.IsNormalizedSceneAssetPath(scenePath);
     }
 
     /// <summary> Returns one tree snapshot trimmed to the requested depth. </summary>
@@ -127,44 +113,4 @@ internal static class SceneTreeLiteAccessUtilities
         return IndexSceneTreeLiteNodeChildrenStateValues.Complete;
     }
 
-    private static bool HasUnsafePathSegments (string scenePath)
-    {
-        if (scenePath.StartsWith("/", StringComparison.Ordinal)
-            || IsWindowsDriveQualifiedPath(scenePath))
-        {
-            return true;
-        }
-
-        var segments = scenePath.Split('/');
-        for (var i = 0; i < segments.Length; i++)
-        {
-            var segment = segments[i];
-            if (segment.Length == 0
-                || string.Equals(segment, ".", StringComparison.Ordinal)
-                || string.Equals(segment, "..", StringComparison.Ordinal))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static bool IsWindowsDriveQualifiedPath (string scenePath)
-    {
-        return scenePath.Length >= 2
-            && IsAsciiLetter(scenePath[0])
-            && scenePath[1] == ':';
-    }
-
-    private static bool IsAsciiLetter (char value)
-    {
-        return value is (>= 'A' and <= 'Z')
-            or (>= 'a' and <= 'z');
-    }
-
-    private static string ToSlashSeparated (string value)
-    {
-        return value.Replace('\\', '/');
-    }
 }
