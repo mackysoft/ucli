@@ -143,7 +143,6 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
                     cancellationToken)
                 .ConfigureAwait(false);
             buildReportRef = CreateArtifactRef(
-                BuildArtifactKeys.BuildReport,
                 BuildArtifactKind.BuildReport,
                 request.Paths.RepositoryRoot,
                 request.Paths.BuildReportJsonPath,
@@ -155,7 +154,6 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
                     cancellationToken)
                 .ConfigureAwait(false);
             buildLogRef = CreateArtifactRef(
-                BuildArtifactKeys.BuildLog,
                 BuildArtifactKind.BuildLog,
                 request.Paths.RepositoryRoot,
                 request.Paths.BuildLogPath,
@@ -183,7 +181,6 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
                     cancellationToken)
                 .ConfigureAwait(false);
             outputManifestRef = CreateArtifactRef(
-                BuildArtifactKeys.BuildOutputManifest,
                 BuildArtifactKind.BuildOutputManifest,
                 request.Paths.RepositoryRoot,
                 request.Paths.OutputManifestJsonPath,
@@ -217,7 +214,6 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
                     cancellationToken)
                 .ConfigureAwait(false);
             buildRef = CreateArtifactRef(
-                BuildArtifactKeys.Build,
                 BuildArtifactKind.Build,
                 request.Paths.RepositoryRoot,
                 request.Paths.BuildJsonPath,
@@ -605,14 +601,12 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
     }
 
     private static BuildArtifactRef CreateArtifactRef (
-        string key,
         BuildArtifactKind kind,
         string repositoryRoot,
         string path,
         string sha256)
     {
         return new BuildArtifactRef(
-            key,
             kind,
             NormalizeRepositoryRelativePath(repositoryRoot, path),
             sha256);

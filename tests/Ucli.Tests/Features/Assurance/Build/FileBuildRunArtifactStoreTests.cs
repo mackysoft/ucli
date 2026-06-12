@@ -101,11 +101,10 @@ public sealed class FileBuildRunArtifactStoreTests
 
         Assert.True(writeResult.IsSuccess);
         var result = Assert.IsType<BuildRunArtifactWriteResult>(writeResult.Result);
-        Assert.Equal(BuildArtifactKeys.Build, result.Build.Key);
         Assert.Equal(BuildArtifactKind.Build, result.Build.Kind);
-        Assert.Equal(BuildArtifactKeys.BuildReport, result.BuildReport.Key);
-        Assert.Equal(BuildArtifactKeys.BuildOutputManifest, result.BuildOutputManifest.Key);
-        Assert.Equal(BuildArtifactKeys.BuildLog, result.BuildLog.Key);
+        Assert.Equal(BuildArtifactKind.BuildReport, result.BuildReport.Kind);
+        Assert.Equal(BuildArtifactKind.BuildOutputManifest, result.BuildOutputManifest.Kind);
+        Assert.Equal(BuildArtifactKind.BuildLog, result.BuildLog.Kind);
         AssertLowerSha256(result.Build.Digest);
 
         var topLevelArtifactNames = Directory
@@ -162,24 +161,24 @@ public sealed class FileBuildRunArtifactStoreTests
         var artifacts = buildRoot.GetProperty("artifacts");
         Assert.Equal(
             [
-                BuildArtifactKeys.BuildReport,
-                BuildArtifactKeys.BuildOutputManifest,
-                BuildArtifactKeys.BuildLog,
+                GetArtifactKey(BuildArtifactKind.BuildReport),
+                GetArtifactKey(BuildArtifactKind.BuildOutputManifest),
+                GetArtifactKey(BuildArtifactKind.BuildLog),
             ],
             artifacts.EnumerateObject().Select(static property => property.Name).ToArray());
-        Assert.False(artifacts.TryGetProperty(BuildArtifactKeys.Build, out _));
+        Assert.False(artifacts.TryGetProperty(GetArtifactKey(BuildArtifactKind.Build), out _));
         AssertArtifactRef(
-            artifacts.GetProperty(BuildArtifactKeys.BuildReport),
+            artifacts.GetProperty(GetArtifactKey(BuildArtifactKind.BuildReport)),
             BuildArtifactKind.BuildReport,
             ToRepositoryRelativeSlashPath(scope.FullPath, paths.BuildReportJsonPath),
             result.BuildReport.Digest);
         AssertArtifactRef(
-            artifacts.GetProperty(BuildArtifactKeys.BuildOutputManifest),
+            artifacts.GetProperty(GetArtifactKey(BuildArtifactKind.BuildOutputManifest)),
             BuildArtifactKind.BuildOutputManifest,
             ToRepositoryRelativeSlashPath(scope.FullPath, paths.OutputManifestJsonPath),
             result.OutputManifest.ManifestDigest);
         AssertArtifactRef(
-            artifacts.GetProperty(BuildArtifactKeys.BuildLog),
+            artifacts.GetProperty(GetArtifactKey(BuildArtifactKind.BuildLog)),
             BuildArtifactKind.BuildLog,
             ToRepositoryRelativeSlashPath(scope.FullPath, paths.BuildLogPath),
             result.BuildLog.Digest);
@@ -456,6 +455,11 @@ public sealed class FileBuildRunArtifactStoreTests
         Assert.Equal(expectedPath, artifact.GetProperty("path").GetString());
         Assert.Equal(expectedDigest, artifact.GetProperty("digest").GetString());
         AssertLowerSha256(expectedDigest);
+    }
+
+    private static string GetArtifactKey (BuildArtifactKind kind)
+    {
+        return ContractLiteralCodec.ToValue(kind);
     }
 
     private static void AssertLowerSha256 (string sha256)
