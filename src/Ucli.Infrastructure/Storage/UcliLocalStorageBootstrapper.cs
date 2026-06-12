@@ -25,9 +25,29 @@ public static class UcliLocalStorageBootstrapper
             return;
         }
 
+        EnsureDirectoryIsNotReparsePointIfExists(ucliDirectoryPath!);
         Directory.CreateDirectory(ucliDirectoryPath!);
+        EnsureDirectoryIsNotReparsePointIfExists(ucliDirectoryPath!);
+
         EnsureLocalGitIgnoreExists(ucliDirectoryPath!);
+
+        EnsureDirectoryIsNotReparsePointIfExists(localDirectoryPath!);
         Directory.CreateDirectory(localDirectoryPath!);
+        EnsureDirectoryIsNotReparsePointIfExists(localDirectoryPath!);
+    }
+
+    private static void EnsureDirectoryIsNotReparsePointIfExists (string directoryPath)
+    {
+        if (!Directory.Exists(directoryPath))
+        {
+            return;
+        }
+
+        var attributes = File.GetAttributes(directoryPath);
+        if ((attributes & FileAttributes.ReparsePoint) != 0)
+        {
+            throw new IOException($"Local storage directory must not be a reparse point: {directoryPath}");
+        }
     }
 
     private static void EnsureLocalGitIgnoreExists (string ucliDirectoryPath)

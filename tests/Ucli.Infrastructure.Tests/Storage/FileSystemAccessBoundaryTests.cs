@@ -75,4 +75,33 @@ public sealed class FileSystemAccessBoundaryTests
 
         Assert.Contains("reparse point", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void EnsureSecureDirectory_WhenUcliDirectoryIsSymbolicLink_ThrowsBeforeBootstrapWrite ()
+    {
+        using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "secure-ucli-symlink");
+        var targetDirectoryPath = scope.CreateDirectory("target");
+        var ucliDirectoryPath = Path.Combine(scope.FullPath, ".ucli");
+        if (!TestSymbolicLinks.TryCreateDirectory(ucliDirectoryPath, targetDirectoryPath))
+        {
+            return;
+        }
+
+        var exception = Assert.Throws<IOException>(() =>
+        {
+            FileSystemAccessBoundary.EnsureSecureDirectory(
+                Path.Combine(
+                    ucliDirectoryPath,
+                    "local",
+                    "fingerprints",
+                    "fingerprint",
+                    "artifacts",
+                    "build",
+                    "run-1"));
+        });
+
+        Assert.Contains("reparse point", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.False(File.Exists(Path.Combine(targetDirectoryPath, ".gitignore")));
+    }
 }

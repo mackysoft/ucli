@@ -144,6 +144,21 @@ public sealed class CodeCatalogTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void ApplicationFailure_FromBuildArtifactCodes_UsesToolErrorOutcome ()
+    {
+        Assert.Equal(
+            ApplicationOutcome.ToolError,
+            ApplicationFailure.FromCode(BuildErrorCodes.BuildArtifactWriteFailed, "Artifact write failed.").Outcome);
+        Assert.Equal(
+            ApplicationOutcome.ToolError,
+            ApplicationFailure.FromCode(BuildErrorCodes.BuildOutputManifestFailed, "Output manifest failed.").Outcome);
+        Assert.Equal(
+            ApplicationOutcome.ToolError,
+            ApplicationFailure.FromCode(BuildErrorCodes.BuildOutputDigestMismatch, "Digest mismatch.").Outcome);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Constructor_WithProductionContributors_DoesNotExposePolicyReasonCodes ()
     {
         var catalog = new CodeCatalogModel(

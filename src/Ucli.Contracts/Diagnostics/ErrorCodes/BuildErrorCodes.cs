@@ -18,6 +18,15 @@ public static class BuildErrorCodes
     /// <summary> Gets the error code emitted when build input scenes have unsaved changes. </summary>
     public static readonly UcliCode BuildDirtyStatePresent = new("BUILD_DIRTY_STATE_PRESENT");
 
+    /// <summary> Gets the error code emitted when build artifacts cannot be persisted. </summary>
+    public static readonly UcliCode BuildArtifactWriteFailed = new("BUILD_ARTIFACT_WRITE_FAILED");
+
+    /// <summary> Gets the error code emitted when the build output manifest cannot be generated or persisted. </summary>
+    public static readonly UcliCode BuildOutputManifestFailed = new("BUILD_OUTPUT_MANIFEST_FAILED");
+
+    /// <summary> Gets the error code emitted when output digest accounting cannot be trusted. </summary>
+    public static readonly UcliCode BuildOutputDigestMismatch = new("BUILD_OUTPUT_DIGEST_MISMATCH");
+
     /// <summary> Gets all build error codes owned by the build assurance workflow. </summary>
     public static IReadOnlyList<UcliCode> All { get; } =
     [
@@ -26,6 +35,8 @@ public static class BuildErrorCodes
         BuildInputsInvalid,
         BuildTargetModuleMissing,
         BuildDirtyStatePresent,
+        BuildArtifactWriteFailed,
+        BuildOutputManifestFailed,
+        BuildOutputDigestMismatch,
     ];
-
 }
