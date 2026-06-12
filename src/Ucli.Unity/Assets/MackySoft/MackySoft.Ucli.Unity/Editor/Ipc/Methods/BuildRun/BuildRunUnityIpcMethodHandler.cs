@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.IO;
 using System.Text;
 using System.Text.Json;
@@ -19,6 +20,8 @@ namespace MackySoft.Ucli.Unity.Ipc
     /// <summary> Handles <c>build.run</c> IPC method requests. </summary>
     internal sealed class BuildRunUnityIpcMethodHandler : IUnityIpcMethodHandler
     {
+        private static readonly UTF8Encoding Utf8NoBomEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+
         private readonly UnityBuildPreconditionProbe preconditionProbe;
 
         private readonly IUnityBuildPipelineRunner buildPipelineRunner;
@@ -317,8 +320,25 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private static bool IsValidPathSegment (string value)
         {
-            return !string.IsNullOrWhiteSpace(value)
-                && value.IndexOfAny(new[] { '/', '\\', Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }) < 0;
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return false;
+            }
+
+            var span = value.AsSpan();
+            for (var i = 0; i < span.Length; i++)
+            {
+                var character = span[i];
+                if (character == '/'
+                    || character == '\\'
+                    || character == Path.DirectorySeparatorChar
+                    || character == Path.AltDirectorySeparatorChar)
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private static bool TryResolveExpectedArtifactPaths (
@@ -434,18 +454,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     }
 
                     totalBytesRead += bytesRead;
-                    for (var i = 0; i < bytesRead; i++)
-                    {
-                        if (buffer[i] == '\n')
-                        {
-                            count++;
-                            previousWasNewLine = true;
-                        }
-                        else
-                        {
-                            previousWasNewLine = false;
-                        }
-                    }
+                    count += CountNewLines(buffer, bytesRead, ref previousWasNewLine);
                 }
 
                 if (totalBytesRead > 0 && !previousWasNewLine)
@@ -462,11 +471,34 @@ namespace MackySoft.Ucli.Unity.Ipc
             T value,
             CancellationToken cancellationToken)
         {
-            await WriteTextAtomicallyAsync(
-                    path,
-                    JsonSerializer.Serialize(value, IpcJsonSerializerOptions.Default),
-                    cancellationToken)
-                .ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            var directoryPath = Path.GetDirectoryName(path);
+            if (string.IsNullOrWhiteSpace(directoryPath))
+            {
+                throw new InvalidOperationException($"Artifact directory path could not be resolved: {path}");
+            }
+
+            Directory.CreateDirectory(directoryPath);
+            var tempPath = path + $".tmp.{Guid.NewGuid():N}";
+            try
+            {
+                using (var stream = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, 81920, useAsync: true))
+                {
+                    await JsonSerializer.SerializeAsync(
+                            stream,
+                            value,
+                            IpcJsonSerializerOptions.Default,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                }
+
+                cancellationToken.ThrowIfCancellationRequested();
+                ReplaceFile(tempPath, path);
+            }
+            finally
+            {
+                DeleteTemporaryFileIfExists(tempPath);
+            }
         }
 
         private static async Task WriteTextAtomicallyAsync (
@@ -485,28 +517,82 @@ namespace MackySoft.Ucli.Unity.Ipc
             var tempPath = path + $".tmp.{Guid.NewGuid():N}";
             try
             {
-                var bytes = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false).GetBytes(value);
                 using (var stream = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, 81920, useAsync: true))
                 {
-                    await stream.WriteAsync(bytes, 0, bytes.Length, cancellationToken);
+                    var byteCount = Utf8NoBomEncoding.GetByteCount(value);
+                    if (byteCount > 0)
+                    {
+                        var buffer = ArrayPool<byte>.Shared.Rent(byteCount);
+                        try
+                        {
+                            var bytesWritten = EncodeUtf8(value, buffer, byteCount);
+                            await stream.WriteAsync(buffer, 0, bytesWritten, cancellationToken);
+                        }
+                        finally
+                        {
+                            ArrayPool<byte>.Shared.Return(buffer);
+                        }
+                    }
                 }
 
                 cancellationToken.ThrowIfCancellationRequested();
-                if (File.Exists(path))
-                {
-                    File.Replace(tempPath, path, destinationBackupFileName: null, ignoreMetadataErrors: true);
-                }
-                else
-                {
-                    File.Move(tempPath, path);
-                }
+                ReplaceFile(tempPath, path);
             }
             finally
             {
-                if (File.Exists(tempPath))
+                DeleteTemporaryFileIfExists(tempPath);
+            }
+        }
+
+        private static int CountNewLines (
+            byte[] buffer,
+            int length,
+            ref bool previousWasNewLine)
+        {
+            var count = 0;
+            var span = buffer.AsSpan(0, length);
+            for (var i = 0; i < span.Length; i++)
+            {
+                if (span[i] == '\n')
                 {
-                    File.Delete(tempPath);
+                    count++;
+                    previousWasNewLine = true;
                 }
+                else
+                {
+                    previousWasNewLine = false;
+                }
+            }
+
+            return count;
+        }
+
+        private static int EncodeUtf8 (
+            string value,
+            byte[] buffer,
+            int byteCount)
+        {
+            return Utf8NoBomEncoding.GetBytes(value.AsSpan(), buffer.AsSpan(0, byteCount));
+        }
+
+        private static void ReplaceFile (
+            string temporaryPath,
+            string path)
+        {
+            if (File.Exists(path))
+            {
+                File.Replace(temporaryPath, path, destinationBackupFileName: null, ignoreMetadataErrors: true);
+                return;
+            }
+
+            File.Move(temporaryPath, path);
+        }
+
+        private static void DeleteTemporaryFileIfExists (string path)
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
             }
         }
 

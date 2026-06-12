@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -314,7 +315,27 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
 
     private static string CalculateManifestContentDigest (BuildOutputManifestContent content)
     {
-        return Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(content, IpcJsonSerializerOptions.Default)));
+        return CalculateUtf8Digest(JsonSerializer.Serialize(content, IpcJsonSerializerOptions.Default));
+    }
+
+    private static string CalculateUtf8Digest (string value)
+    {
+        var byteCount = Encoding.UTF8.GetByteCount(value);
+        if (byteCount == 0)
+        {
+            return Sha256LowerHex.Compute(ReadOnlySpan<byte>.Empty);
+        }
+
+        var buffer = ArrayPool<byte>.Shared.Rent(byteCount);
+        try
+        {
+            var bytesWritten = Encoding.UTF8.GetBytes(value.AsSpan(), buffer.AsSpan(0, byteCount));
+            return Sha256LowerHex.Compute(buffer.AsSpan(0, bytesWritten));
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
     }
 
     private static BuildOutputManifest CreateOutputManifest (
