@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.Assurance.Build.Contracts;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Payload;
+using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Assurance;
 
@@ -11,7 +12,7 @@ public sealed class BuildRunCommandResultFactoryTests
     [Trait("Size", "Small")]
     public void Create_WithFailedVerifierVerdict_ReturnsOkStatusAndExitCodeOne ()
     {
-        var output = CreateOutput("fail");
+        var output = CreateOutput(ContractLiteralCodec.ToValue(BuildVerdict.Fail));
 
         var result = BuildRunCommandResultFactory.Create(BuildExecutionResult.Success(output));
 
@@ -46,7 +47,7 @@ public sealed class BuildRunCommandResultFactoryTests
                 After: new BuildGenerationSnapshotOutput("compile-after", "domain-after", "asset-after"),
                 ValidFor: new BuildGenerationSnapshotOutput("compile-after", "domain-after", "asset-after")),
             Summary: new BuildSummaryOutput(
-                Result: "failed",
+                Result: ContractLiteralCodec.ToValue(IpcBuildReportResult.Failed),
                 DurationMilliseconds: 2500,
                 ErrorCount: 1,
                 WarningCount: 0,
@@ -56,7 +57,7 @@ public sealed class BuildRunCommandResultFactoryTests
                 EntryCount: 1,
                 ErrorCount: 1,
                 WarningCount: 0,
-                CompletionReason: "failed",
+                CompletionReason: ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Failed),
                 Window: new BuildLogWindowOutput(DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch)));
         return new BuildExecutionOutput(
             Verdict: verdict,

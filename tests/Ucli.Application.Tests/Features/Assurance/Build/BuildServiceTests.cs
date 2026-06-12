@@ -93,7 +93,7 @@ public sealed class BuildServiceTests
         Assert.Equal(BuildClaimCodes.All.Select(static code => code.Value).ToArray(), verifier.PrimaryClaims);
         Assert.Equal(ContractLiteralCodec.GetLiterals<BuildEffect>(), verifier.Effects);
         Assert.NotNull(artifactStore.WrittenMetadata);
-        Assert.Equal("succeeded", artifactStore.WrittenMetadata!.Summary.Result);
+        Assert.Equal(ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded), artifactStore.WrittenMetadata!.Summary.Result);
         Assert.Equal("ready", artifactStore.WrittenMetadata.Lifecycle.Before.LifecycleState);
         Assert.Equal("ready", artifactStore.WrittenMetadata.Lifecycle.After.LifecycleState);
 
@@ -181,17 +181,19 @@ public sealed class BuildServiceTests
 
     [Theory]
     [Trait("Size", "Small")]
-    [InlineData("failed", "failed")]
-    [InlineData("canceled", "canceled")]
+    [InlineData(IpcBuildReportResult.Failed, IpcBuildLogCompletionReason.Failed)]
+    [InlineData(IpcBuildReportResult.Canceled, IpcBuildLogCompletionReason.Canceled)]
     public async Task Execute_WithUnsuccessfulBuildReport_ReturnsCompletedFailVerdict (
-        string reportResult,
-        string completionReason)
+        IpcBuildReportResult reportResult,
+        IpcBuildLogCompletionReason completionReason)
     {
+        var reportResultLiteral = ContractLiteralCodec.ToValue(reportResult);
+        var completionReasonLiteral = ContractLiteralCodec.ToValue(completionReason);
         using var tempDirectory = TemporaryDirectory.Create();
         var service = CreateService(
             requestExecutor: new StubUnityRequestExecutor(CreateBuildResponseResult(
-                reportResult,
-                completionReason,
+                reportResultLiteral,
+                completionReasonLiteral,
                 errorCount: 1)),
             artifactStore: new StubBuildRunArtifactStore(tempDirectory.Path));
 
@@ -200,8 +202,8 @@ public sealed class BuildServiceTests
         Assert.True(result.IsSuccess);
         var output = result.Output!;
         Assert.Equal(ContractLiteralCodec.ToValue(BuildVerdict.Fail), output.Verdict);
-        Assert.Equal(reportResult, output.Build.Summary.Result);
-        Assert.Equal(completionReason, output.Build.Logs.CompletionReason);
+        Assert.Equal(reportResultLiteral, output.Build.Summary.Result);
+        Assert.Equal(completionReasonLiteral, output.Build.Logs.CompletionReason);
         Assert.Equal(ContractLiteralCodec.ToValue(BuildClaimStatus.Passed), FindClaim(output, BuildClaimCodes.UnityBuildCompleted).Status);
         Assert.Equal(ContractLiteralCodec.ToValue(BuildClaimStatus.Failed), FindClaim(output, BuildClaimCodes.UnityBuildSucceeded).Status);
     }
@@ -217,7 +219,7 @@ public sealed class BuildServiceTests
             Items:
             [
                 new IpcBuildDirtyStateItem(
-                    IpcBuildDirtyStateItemKindNames.Scene,
+                    ContractLiteralCodec.ToValue(IpcBuildDirtyStateItemKind.Scene),
                     "Assets/Scenes/Main.unity"),
             ]);
         var input = CreateInputProbe();
@@ -244,7 +246,7 @@ public sealed class BuildServiceTests
         Assert.True(result.DirtyState!.Checked);
         Assert.True(result.DirtyState.Dirty);
         var item = Assert.Single(result.DirtyState.Items);
-        Assert.Equal(IpcBuildDirtyStateItemKindNames.Scene, item.Kind);
+        Assert.Equal(ContractLiteralCodec.ToValue(IpcBuildDirtyStateItemKind.Scene), item.Kind);
         Assert.Equal("Assets/Scenes/Main.unity", item.Path);
         Assert.Null(result.Output);
     }
@@ -260,7 +262,7 @@ public sealed class BuildServiceTests
             Items:
             [
                 new IpcBuildDirtyStateItem(
-                    IpcBuildDirtyStateItemKindNames.Scene,
+                    ContractLiteralCodec.ToValue(IpcBuildDirtyStateItemKind.Scene),
                     "Assets/Scenes/Main.unity"),
             ]);
         var errorPayload = new IpcBuildRunErrorPayload(

@@ -77,18 +77,26 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(artifact.Messages, Is.Empty);
         }
 
-        [TestCase("succeeded", "completed")]
-        [TestCase("failed", "failed")]
-        [TestCase("canceled", "canceled")]
-        [TestCase("unknown", "failed")]
+        [TestCase(IpcBuildReportResult.Succeeded, IpcBuildLogCompletionReason.Completed)]
+        [TestCase(IpcBuildReportResult.Failed, IpcBuildLogCompletionReason.Failed)]
+        [TestCase(IpcBuildReportResult.Canceled, IpcBuildLogCompletionReason.Canceled)]
         [Category("Size.Small")]
         public void ToCompletionReason_MapsBuildReportResultToLogCompletionReason (
-            string result,
-            string expectedCompletionReason)
+            IpcBuildReportResult result,
+            IpcBuildLogCompletionReason expectedCompletionReason)
         {
-            var completionReason = UnityBuildReportNormalizer.ToCompletionReason(result);
+            var completionReason = UnityBuildReportNormalizer.ToCompletionReason(ContractLiteralCodec.ToValue(result));
 
-            Assert.That(ContractLiteralCodec.ToValue(completionReason), Is.EqualTo(expectedCompletionReason));
+            Assert.That(completionReason, Is.EqualTo(expectedCompletionReason));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void ToCompletionReason_WithUnknownBuildReportResult_ReturnsFailed ()
+        {
+            var completionReason = UnityBuildReportNormalizer.ToCompletionReason("unknown");
+
+            Assert.That(completionReason, Is.EqualTo(IpcBuildLogCompletionReason.Failed));
         }
 
         [Test]

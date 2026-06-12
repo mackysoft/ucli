@@ -156,6 +156,7 @@ public sealed class IpcContractSerializationTests
     {
         Assert.Equal("explicit", ContractLiteralCodec.ToValue(BuildProfileSceneSource.Explicit));
         Assert.Equal("editorBuildSettings", ContractLiteralCodec.ToValue(BuildProfileSceneSource.EditorBuildSettings));
+        Assert.Equal("scene", ContractLiteralCodec.ToValue(IpcBuildDirtyStateItemKind.Scene));
 
         using var dirtyState = JsonDocument.Parse(JsonSerializer.Serialize(
             new IpcBuildDirtyState(
@@ -164,7 +165,7 @@ public sealed class IpcContractSerializationTests
                 Items:
                 [
                     new IpcBuildDirtyStateItem(
-                        IpcBuildDirtyStateItemKindNames.Scene,
+                        ContractLiteralCodec.ToValue(IpcBuildDirtyStateItemKind.Scene),
                         "Assets/Scenes/Main.unity"),
                 ]),
             SerializerOptions));
@@ -212,7 +213,7 @@ public sealed class IpcContractSerializationTests
             .HasBoolean("dirty", true)
             .HasArrayLength("items", 1)
             .HasProperty("items", 0, item => item
-                .HasString("kind", IpcBuildDirtyStateItemKindNames.Scene)
+                .HasString("kind", ContractLiteralCodec.ToValue(IpcBuildDirtyStateItemKind.Scene))
                 .HasString("path", "Assets/Scenes/Main.unity"));
         JsonAssert.For(inputProbe.RootElement)
             .HasString("targetStableName", "standaloneLinux64")
@@ -260,6 +261,7 @@ public sealed class IpcContractSerializationTests
         Assert.Equal("failed", ContractLiteralCodec.ToValue(IpcBuildReportResult.Failed));
         Assert.Equal("canceled", ContractLiteralCodec.ToValue(IpcBuildReportResult.Canceled));
         Assert.Equal("completed", ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed));
+        Assert.Equal("failed", ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Failed));
         Assert.Equal("canceled", ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Canceled));
 
         using var request = JsonDocument.Parse(JsonSerializer.Serialize(

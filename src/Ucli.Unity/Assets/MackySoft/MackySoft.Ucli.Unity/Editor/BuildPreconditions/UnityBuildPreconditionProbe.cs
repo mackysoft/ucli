@@ -178,7 +178,7 @@ namespace MackySoft.Ucli.Unity.Build
                 }
 
                 items.Add(new IpcBuildDirtyStateItem(
-                    IpcBuildDirtyStateItemKindNames.Scene,
+                    ContractLiteralCodec.ToValue(IpcBuildDirtyStateItemKind.Scene),
                     normalizedPath));
             }
 

@@ -69,7 +69,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.DirtyState!.Checked, Is.True);
             Assert.That(result.DirtyState.Dirty, Is.True);
             Assert.That(result.DirtyState.Items, Has.Count.EqualTo(2));
-            Assert.That(result.DirtyState.Items[0].Kind, Is.EqualTo(IpcBuildDirtyStateItemKindNames.Scene));
+            Assert.That(result.DirtyState.Items[0].Kind, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildDirtyStateItemKind.Scene)));
             Assert.That(result.DirtyState.Items[0].Path, Is.EqualTo(aScenePath));
             Assert.That(result.DirtyState.Items[1].Path, Is.EqualTo(zScenePath));
             Assert.That(result.ResolvedInput, Is.Null);
