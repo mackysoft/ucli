@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Infrastructure.Cryptography;
+using MackySoft.Ucli.Contracts.Cryptography;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Emit;

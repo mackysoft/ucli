@@ -1,7 +1,7 @@
 using System;
 using System.IO;
 using System.Text.Json;
-using MackySoft.Ucli.Infrastructure.Cryptography;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Unity.Execution.Requests;

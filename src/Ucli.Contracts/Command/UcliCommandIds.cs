@@ -15,6 +15,12 @@ public static class UcliCommandIds
     /// <summary> Gets command identifier for <c>compile</c>. </summary>
     public static UcliCommand Compile { get; } = new("compile");
 
+    /// <summary> Gets command identifier for <c>build</c>. </summary>
+    public static UcliCommand Build { get; } = new("build");
+
+    /// <summary> Gets command identifier for <c>build.run</c>. </summary>
+    public static UcliCommand BuildRun { get; } = new("build.run");
+
     /// <summary> Gets command identifier for <c>verify</c>. </summary>
     public static UcliCommand Verify { get; } = new("verify");
 

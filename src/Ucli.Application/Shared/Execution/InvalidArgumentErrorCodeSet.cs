@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Vocabulary;
 
 namespace MackySoft.Ucli.Application.Shared.Execution;
@@ -34,6 +35,11 @@ internal static class InvalidArgumentErrorCodeSet
         }
 
         foreach (var code in VerifyErrorCodes.All)
+        {
+            codes.Add(code);
+        }
+
+        foreach (var code in BuildErrorCodes.InvalidArgumentCodes)
         {
             codes.Add(code);
         }
