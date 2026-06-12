@@ -1,6 +1,8 @@
 using System;
 using System.IO;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Unity.Project;
 using UnityEditor;
 using UnityEngine;
@@ -39,10 +41,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            normalizedAssetPath = UnityAssetPathUtility.NormalizeAssetPath(assetPath);
-            if (!UnityAssetPathUtility.IsAssetsDescendantPath(normalizedAssetPath))
+            if (!UnityAssetPathContract.TryNormalizeAssetsDescendantPath(assetPath, out normalizedAssetPath))
             {
-                errorMessage = $"Asset path must be under '{UnityAssetPathUtility.AssetsRootPrefix}'. Actual: {normalizedAssetPath}.";
+                errorMessage = $"Asset path must be under '{UnityAssetPathContract.AssetsRootPrefix}'. Actual: {assetPath}.";
                 return false;
             }
 
@@ -52,7 +53,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (UnityAssetPathUtility.IsReservedAssetPath(normalizedAssetPath))
+            if (IsReservedAssetPath(normalizedAssetPath))
             {
                 errorMessage = $"Asset path is reserved for another domain: {normalizedAssetPath}.";
                 return false;
@@ -327,19 +328,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            assetPath = UnityAssetPathUtility.NormalizeAssetPath(assetPath);
+            assetPath = PathStringNormalizer.ToSlashSeparated(assetPath);
             if (IsProjectSettingsAssetPath(assetPath))
             {
                 return TryValidatePersistentMainAssetIdentity(unityObject, assetPath, out errorMessage);
             }
 
-            if (!UnityAssetPathUtility.IsAssetsDescendantPath(assetPath))
+            if (!UnityAssetPathContract.IsNormalizedAssetsDescendantPath(assetPath))
             {
-                errorMessage = $"Asset path must be under '{UnityAssetPathUtility.AssetsRootPrefix}'. Actual: {assetPath}.";
+                errorMessage = $"Asset path must be under '{UnityAssetPathContract.AssetsRootPrefix}'. Actual: {assetPath}.";
                 return false;
             }
 
-            if (UnityAssetPathUtility.IsReservedAssetPath(assetPath))
+            if (IsReservedAssetPath(assetPath))
             {
                 errorMessage = $"Asset path is reserved for another domain: {assetPath}.";
                 return false;
@@ -367,6 +368,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         private static bool IsProjectSettingsAssetPath (string assetPath)
         {
             return assetPath.StartsWith(ProjectSettingsRootPrefix, StringComparison.Ordinal);
+        }
+
+        private static bool IsReservedAssetPath (string assetPath)
+        {
+            return UnityAssetPathContract.IsNormalizedSceneAssetPath(assetPath)
+                || UnityAssetPathContract.IsNormalizedPrefabAssetPath(assetPath);
         }
     }
 }

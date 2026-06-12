@@ -1,6 +1,6 @@
 using System.Text.Json;
-using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Json;
 using MackySoft.Ucli.Contracts.Text;
 
@@ -10,8 +10,6 @@ namespace MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
 internal static class BuildProfileResolver
 {
     private const int CurrentSchemaVersion = 1;
-    private const string AssetsRootPrefix = "Assets/";
-    private const string SceneAssetExtension = ".unity";
 
     private static readonly HashSet<string> AllowedRootProperties = new(StringComparer.Ordinal)
     {
@@ -214,7 +212,7 @@ internal static class BuildProfileResolver
         {
             if (scenesElement.TryGetProperty("paths", out _))
             {
-                error = InvalidProfile("Build profile scenes.paths must not be specified when scenes.source is editorBuildSettings.");
+                error = InvalidProfile($"Build profile scenes.paths must not be specified when scenes.source is {ContractLiteralCodec.ToValue(BuildProfileSceneSource.EditorBuildSettings)}.");
                 return false;
             }
 
@@ -266,9 +264,9 @@ internal static class BuildProfileResolver
                 return false;
             }
 
-            if (!IsProjectRelativeSceneAssetPath(paths[i]))
+            if (!UnityAssetPathContract.IsNormalizedSceneAssetPath(paths[i]))
             {
-                error = InvalidProfile($"Build profile scenes.paths[{i}] must be a project-relative scene asset path under Assets ending with '{SceneAssetExtension}'.");
+                error = InvalidProfile($"Build profile scenes.paths[{i}] must be a project-relative scene asset path under Assets ending with '{UnityAssetPathContract.SceneAssetExtension}'.");
                 return false;
             }
         }
@@ -412,46 +410,6 @@ internal static class BuildProfileResolver
 
         error = null;
         return true;
-    }
-
-    private static bool IsProjectRelativeSceneAssetPath (string path)
-    {
-        if (StringValueValidator.HasOuterWhitespace(path)
-            || path.Contains('\\', StringComparison.Ordinal)
-            || IsWindowsDriveQualifiedPath(path)
-            || path.StartsWith("/", StringComparison.Ordinal)
-            || !path.StartsWith(AssetsRootPrefix, StringComparison.Ordinal)
-            || !path.EndsWith(SceneAssetExtension, StringComparison.Ordinal))
-        {
-            return false;
-        }
-
-        var segments = path.Split('/');
-        for (var i = 0; i < segments.Length; i++)
-        {
-            var segment = segments[i];
-            if (segment.Length == 0
-                || string.Equals(segment, ".", StringComparison.Ordinal)
-                || string.Equals(segment, "..", StringComparison.Ordinal))
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private static bool IsWindowsDriveQualifiedPath (string path)
-    {
-        return path.Length >= 2
-            && IsAsciiLetter(path[0])
-            && path[1] == ':';
-    }
-
-    private static bool IsAsciiLetter (char value)
-    {
-        return value is (>= 'A' and <= 'Z')
-            or (>= 'a' and <= 'z');
     }
 
     private static string CreateMissingRequiredPropertyError (string propertyName)

@@ -2,11 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Unity.Execution.Requests;
-using MackySoft.Ucli.Unity.Project;
 using MackySoft.Ucli.Contracts.Operations;
+using MackySoft.Ucli.Unity.Execution.Requests;
 
 #nullable enable
 
@@ -134,12 +134,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             string? normalizedPathPrefix = null;
             if (args.PathPrefix != null)
             {
-                normalizedPathPrefix = UnityAssetPathUtility.NormalizeAssetPath(args.PathPrefix);
-                if (!UnityAssetPathUtility.IsAssetsRootOrDescendant(normalizedPathPrefix))
+                if (!UnityAssetPathContract.TryNormalizeAssetsRootOrDescendantPath(args.PathPrefix, out normalizedPathPrefix))
                 {
                     failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
                         operation.Id,
-                        $"Path prefix must be 'Assets' or one of its descendants. Actual: {normalizedPathPrefix}.");
+                        $"Path prefix must be 'Assets' or one of its descendants. Actual: {args.PathPrefix}.");
                     return false;
                 }
             }

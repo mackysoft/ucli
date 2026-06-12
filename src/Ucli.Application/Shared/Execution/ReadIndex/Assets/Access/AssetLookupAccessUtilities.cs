@@ -5,9 +5,6 @@ namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Assets;
 /// <summary> Provides shared helpers used by asset lookup access services. </summary>
 internal static class AssetLookupAccessUtilities
 {
-    private const string AssetsRootPath = "Assets";
-    private const string AssetsRootPrefix = "Assets/";
-
     /// <summary> Normalizes and validates one assets.find-style query. </summary>
     public static bool TryNormalizeSearchQuery (
         AssetSearchLookupQuery query,
@@ -32,10 +29,10 @@ internal static class AssetLookupAccessUtilities
 
         if (pathPrefix != null)
         {
-            pathPrefix = ToSlashSeparated(pathPrefix);
-            if (!IsAssetsRootOrDescendant(pathPrefix))
+            var rawPathPrefix = pathPrefix;
+            if (!UnityAssetPathContract.TryNormalizeAssetsRootOrDescendantPath(rawPathPrefix, out pathPrefix))
             {
-                errorMessage = $"Path prefix must be 'Assets' or one of its descendants. Actual: {pathPrefix}.";
+                errorMessage = $"Path prefix must be 'Assets' or one of its descendants. Actual: {rawPathPrefix}.";
                 return false;
             }
         }
@@ -78,10 +75,10 @@ internal static class AssetLookupAccessUtilities
             return false;
         }
 
-        normalizedAssetPath = ToSlashSeparated(normalizedAssetPath);
-        if (!IsAssetsRootOrDescendant(normalizedAssetPath))
+        var rawAssetPath = normalizedAssetPath;
+        if (!UnityAssetPathContract.TryNormalizeAssetsRootOrDescendantPath(rawAssetPath, out normalizedAssetPath))
         {
-            errorMessage = $"Asset path must be 'Assets' or one of its descendants. Actual: {normalizedAssetPath}.";
+            errorMessage = $"Asset path must be 'Assets' or one of its descendants. Actual: {rawAssetPath}.";
             return false;
         }
 
@@ -139,14 +136,4 @@ internal static class AssetLookupAccessUtilities
         return true;
     }
 
-    private static bool IsAssetsRootOrDescendant (string assetPath)
-    {
-        return string.Equals(assetPath, AssetsRootPath, StringComparison.Ordinal)
-            || assetPath.StartsWith(AssetsRootPrefix, StringComparison.Ordinal);
-    }
-
-    private static string ToSlashSeparated (string value)
-    {
-        return value.Replace('\\', '/');
-    }
 }

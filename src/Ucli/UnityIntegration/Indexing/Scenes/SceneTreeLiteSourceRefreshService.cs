@@ -59,7 +59,7 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (!SceneTreeLiteAccessUtilities.IsLookupEligibleScenePath(scenePath))
+        if (!UnityAssetPathContract.IsNormalizedSceneAssetPath(scenePath))
         {
             var fetchResult = await snapshotReader.ReadAsync(
                     project,

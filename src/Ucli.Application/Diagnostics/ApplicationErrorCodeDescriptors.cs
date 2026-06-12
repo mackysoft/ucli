@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Application.Features.Assurance.Build.Diagnostics;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Diagnostics;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 
@@ -16,7 +15,6 @@ internal static class ApplicationErrorCodeDescriptors
             .Concat(UnityProcessErrorCodeDescriptors.All)
             .Concat(UnityExecutionModeDecisionErrorCodeDescriptors.All)
             .Concat(ProjectContextErrorCodeDescriptors.All)
-            .Concat(BuildErrorCodeDescriptors.All)
             .Concat(VerifyErrorCodeDescriptors.All)
             .Concat(ValidationErrorCodeDescriptors.All)
             .Concat(TestRunErrorCodeDescriptors.All)

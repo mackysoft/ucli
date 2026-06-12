@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Assurance;
+
 namespace MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
 
 /// <summary> Represents build scene selection resolved from a build profile. </summary>

@@ -2,7 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Unity.Project;
+using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Unity.SceneInspection;
 
 #nullable enable
@@ -24,7 +24,7 @@ namespace MackySoft.Ucli.Unity.Index
                 throw new ArgumentException("Scene path must not be empty.", nameof(scenePath));
             }
 
-            var normalizedScenePath = UnityAssetPathUtility.NormalizeAssetPath(scenePath);
+            var normalizedScenePath = PathStringNormalizer.ToSlashSeparated(scenePath);
             SceneSourceLease sceneLease;
             string errorMessage;
             var acquired = loadedSceneOnly

@@ -1,7 +1,7 @@
 using System.Text;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
-using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Cryptography;
 
 namespace MackySoft.Ucli.Application.Tests.Features.Assurance.Build;

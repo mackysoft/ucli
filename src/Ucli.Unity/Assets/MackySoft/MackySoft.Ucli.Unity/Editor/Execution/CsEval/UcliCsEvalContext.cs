@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Text;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Unity.Project;
 using MackySoft.Ucli.Contracts.Operations;
 
 #nullable enable
@@ -15,10 +14,6 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
     public sealed class UcliCsEvalContext
     {
         private const string ProjectSettingsRootPrefix = "ProjectSettings/";
-
-        private const string SceneExtension = ".unity";
-
-        private const string PrefabExtension = ".prefab";
 
         private readonly List<CsEvalLogEntry> logs = new List<CsEvalLogEntry>();
 
@@ -71,9 +66,8 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
         [UcliDescription("Declares that the eval call touched a project asset.")]
         public void DeclareTouchedAsset ([UcliDescription("Project-relative asset path.")] string path)
         {
-            var normalizedPath = NormalizeDeclaredPath(path, UnityAssetPathUtility.AssetsRootPrefix, requiredExtension: null);
-            if (normalizedPath.EndsWith(SceneExtension, StringComparison.OrdinalIgnoreCase)
-                || normalizedPath.EndsWith(PrefabExtension, StringComparison.OrdinalIgnoreCase))
+            var normalizedPath = NormalizeDeclaredAssetPath(path);
+            if (IsSceneOrPrefabAssetPath(normalizedPath))
             {
                 throw new ArgumentException("Scene and prefab assets must be declared with their specific touched-resource APIs.", nameof(path));
             }
@@ -90,7 +84,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
         {
             AddTouchedResource(
                 UcliTouchedResourceKindNames.Scene,
-                NormalizeDeclaredPath(path, UnityAssetPathUtility.AssetsRootPrefix, SceneExtension));
+                NormalizeDeclaredSceneAssetPath(path));
         }
 
         /// <summary> Declares that the eval call touched a prefab asset. </summary>
@@ -100,7 +94,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
         {
             AddTouchedResource(
                 UcliTouchedResourceKindNames.Prefab,
-                NormalizeDeclaredPath(path, UnityAssetPathUtility.AssetsRootPrefix, PrefabExtension));
+                NormalizeDeclaredPrefabAssetPath(path));
         }
 
         /// <summary> Declares that the eval call touched a ProjectSettings asset. </summary>
@@ -110,7 +104,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
         {
             AddTouchedResource(
                 UcliTouchedResourceKindNames.ProjectSettings,
-                NormalizeDeclaredPath(path, ProjectSettingsRootPrefix, requiredExtension: null));
+                NormalizeDeclaredPath(path, ProjectSettingsRootPrefix));
         }
 
         internal IReadOnlyList<CsEvalLogEntry> Logs => logs;
@@ -141,33 +135,16 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
 
         private static string NormalizeDeclaredPath (
             string path,
-            string requiredPrefix,
-            string? requiredExtension)
+            string requiredPrefix)
         {
             if (string.IsNullOrWhiteSpace(path))
             {
                 throw new ArgumentException("Touched resource path must not be empty.", nameof(path));
             }
 
-            if (!string.Equals(path, path.Trim(), StringComparison.Ordinal))
+            if (!UnityAssetPathContract.TryNormalizeProjectRelativePath(path, out var normalizedPath))
             {
-                throw new ArgumentException("Touched resource path must not contain leading or trailing whitespace.", nameof(path));
-            }
-
-            var normalizedPath = UnityAssetPathUtility.NormalizeAssetPath(path);
-            if (normalizedPath.StartsWith("/", StringComparison.Ordinal)
-                || normalizedPath.Contains(":", StringComparison.Ordinal))
-            {
-                throw new ArgumentException("Touched resource path must be project-relative.", nameof(path));
-            }
-
-            var segments = normalizedPath.Split('/');
-            for (var i = 0; i < segments.Length; i++)
-            {
-                if (segments[i].Length == 0 || segments[i] == "." || segments[i] == "..")
-                {
-                    throw new ArgumentException("Touched resource path must not contain empty, current, or parent segments.", nameof(path));
-                }
+                throw new ArgumentException("Touched resource path must be project-relative and must not contain leading or trailing whitespace, empty segments, current segments, or parent segments.", nameof(path));
             }
 
             if (!normalizedPath.StartsWith(requiredPrefix, StringComparison.Ordinal)
@@ -176,13 +153,49 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 throw new ArgumentException($"Touched resource path must be under '{requiredPrefix}'.", nameof(path));
             }
 
-            if (requiredExtension != null
-                && !normalizedPath.EndsWith(requiredExtension, StringComparison.OrdinalIgnoreCase))
+            return normalizedPath;
+        }
+
+        private static string NormalizeDeclaredAssetPath (
+            string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
             {
-                throw new ArgumentException($"Touched resource path must end with '{requiredExtension}'.", nameof(path));
+                throw new ArgumentException("Touched resource path must not be empty.", nameof(path));
+            }
+
+            if (!UnityAssetPathContract.TryNormalizeAssetsDescendantPath(path, out var normalizedPath))
+            {
+                throw new ArgumentException("Touched resource path must be under 'Assets/' and must not contain leading or trailing whitespace, empty segments, current segments, or parent segments.", nameof(path));
             }
 
             return normalizedPath;
+        }
+
+        private static string NormalizeDeclaredSceneAssetPath (string path)
+        {
+            if (!UnityAssetPathContract.TryNormalizeSceneAssetPath(path, out var normalizedPath))
+            {
+                throw new ArgumentException($"Touched resource path must be a scene asset path ending with '{UnityAssetPathContract.SceneAssetExtension}'.", nameof(path));
+            }
+
+            return normalizedPath;
+        }
+
+        private static string NormalizeDeclaredPrefabAssetPath (string path)
+        {
+            if (!UnityAssetPathContract.TryNormalizePrefabAssetPath(path, out var normalizedPath))
+            {
+                throw new ArgumentException($"Touched resource path must be a prefab asset path ending with '{UnityAssetPathContract.PrefabAssetExtension}'.", nameof(path));
+            }
+
+            return normalizedPath;
+        }
+
+        private static bool IsSceneOrPrefabAssetPath (string normalizedPath)
+        {
+            return normalizedPath.EndsWith(UnityAssetPathContract.SceneAssetExtension, StringComparison.OrdinalIgnoreCase)
+                || normalizedPath.EndsWith(UnityAssetPathContract.PrefabAssetExtension, StringComparison.OrdinalIgnoreCase);
         }
 
         private void AddTouchedResource (

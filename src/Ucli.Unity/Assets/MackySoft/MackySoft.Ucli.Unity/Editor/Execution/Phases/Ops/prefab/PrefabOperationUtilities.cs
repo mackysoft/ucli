@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using MackySoft.Ucli.Contracts;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -12,27 +13,26 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     /// <summary> Provides reusable helpers shared by prefab-domain phase operations. </summary>
     internal static class PrefabOperationUtilities
     {
-        private const string AssetsRootPrefix = "Assets/";
-
-        private const string PrefabExtension = ".prefab";
-
         /// <summary> Validates that the specified path resolves to a prefab asset. </summary>
         /// <param name="prefabPath"> The prefab path. </param>
+        /// <param name="normalizedPrefabPath"> The normalized prefab path when validation succeeds. </param>
         /// <param name="errorMessage"> The validation error message when failed. </param>
         /// <returns> <see langword="true" /> when prefab asset exists; otherwise <see langword="false" />. </returns>
         public static bool TryEnsurePrefabAssetExists (
             string prefabPath,
+            out string normalizedPrefabPath,
             out string errorMessage)
         {
-            if (!TryValidatePrefabAssetPathFormat(prefabPath, out errorMessage))
+            if (!TryNormalizePrefabAssetPath(prefabPath, out normalizedPrefabPath, out errorMessage))
             {
                 return false;
             }
 
-            var prefabAsset = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+            var prefabAsset = AssetDatabase.LoadAssetAtPath<GameObject>(normalizedPrefabPath);
             if (prefabAsset == null)
             {
-                errorMessage = $"Prefab path could not be resolved to a prefab asset: {prefabPath}.";
+                errorMessage = $"Prefab path could not be resolved to a prefab asset: {normalizedPrefabPath}.";
+                normalizedPrefabPath = string.Empty;
                 return false;
             }
 
@@ -42,34 +42,39 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         /// <summary> Validates that the specified path can be used to create a new prefab asset. </summary>
         /// <param name="prefabPath"> The prefab path. </param>
+        /// <param name="normalizedPrefabPath"> The normalized prefab path when validation succeeds. </param>
         /// <param name="errorMessage"> The validation error message when failed. </param>
         /// <returns> <see langword="true" /> when the path is creatable; otherwise <see langword="false" />. </returns>
         public static bool TryEnsurePrefabAssetCanBeCreated (
             string prefabPath,
+            out string normalizedPrefabPath,
             out string errorMessage)
         {
-            if (!TryValidatePrefabAssetPathFormat(prefabPath, out errorMessage))
+            if (!TryNormalizePrefabAssetPath(prefabPath, out normalizedPrefabPath, out errorMessage))
             {
                 return false;
             }
 
-            if (AssetDatabase.LoadMainAssetAtPath(prefabPath) != null)
+            if (AssetDatabase.LoadMainAssetAtPath(normalizedPrefabPath) != null)
             {
-                errorMessage = $"Prefab asset already exists: {prefabPath}.";
+                errorMessage = $"Prefab asset already exists: {normalizedPrefabPath}.";
+                normalizedPrefabPath = string.Empty;
                 return false;
             }
 
-            var directoryPath = Path.GetDirectoryName(prefabPath);
+            var directoryPath = Path.GetDirectoryName(normalizedPrefabPath);
             if (string.IsNullOrWhiteSpace(directoryPath)
                 || !AssetDatabase.IsValidFolder(directoryPath))
             {
-                errorMessage = $"Prefab path directory does not exist: {prefabPath}.";
+                errorMessage = $"Prefab path directory does not exist: {normalizedPrefabPath}.";
+                normalizedPrefabPath = string.Empty;
                 return false;
             }
 
             errorMessage = string.Empty;
             return true;
         }
+
         /// <summary> Gets one currently opened prefab stage by asset path. </summary>
         /// <param name="prefabPath"> The prefab asset path. </param>
         /// <param name="prefabStage"> The opened prefab stage when successful. </param>
@@ -229,25 +234,21 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 : scene.path;
         }
 
-        private static bool TryValidatePrefabAssetPathFormat (
+        private static bool TryNormalizePrefabAssetPath (
             string prefabPath,
+            out string normalizedPrefabPath,
             out string errorMessage)
         {
+            normalizedPrefabPath = string.Empty;
             if (string.IsNullOrWhiteSpace(prefabPath))
             {
                 errorMessage = "Prefab path must not be null, empty, or whitespace.";
                 return false;
             }
 
-            if (!prefabPath.StartsWith(AssetsRootPrefix, StringComparison.Ordinal))
+            if (!UnityAssetPathContract.TryNormalizePrefabAssetPath(prefabPath, out normalizedPrefabPath))
             {
-                errorMessage = $"Prefab path must start with '{AssetsRootPrefix}': {prefabPath}.";
-                return false;
-            }
-
-            if (!prefabPath.EndsWith(PrefabExtension, StringComparison.Ordinal))
-            {
-                errorMessage = $"Prefab path must end with '{PrefabExtension}': {prefabPath}.";
+                errorMessage = $"Prefab path must be a project-relative prefab asset path under '{UnityAssetPathContract.AssetsRootPrefix}': {prefabPath}.";
                 return false;
             }
 

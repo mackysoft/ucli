@@ -1,9 +1,9 @@
 using MackySoft.Ucli.Contracts.Text;
 
-namespace MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
+namespace MackySoft.Ucli.Contracts.Assurance;
 
 /// <summary> Defines build profile scene-source literals. </summary>
-internal enum BuildProfileSceneSource
+public enum BuildProfileSceneSource
 {
     /// <summary> Uses enabled Unity Editor Build Settings scenes. </summary>
     [UcliContractLiteral("editorBuildSettings")]

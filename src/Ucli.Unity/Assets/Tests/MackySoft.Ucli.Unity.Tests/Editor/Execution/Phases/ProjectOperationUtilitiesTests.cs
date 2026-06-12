@@ -33,11 +33,13 @@ namespace MackySoft.Ucli.Unity.Tests
                     "Assets/Prefabs/Enemy.prefab.meta",
                     "Assets/Data/Config.asset",
                     "Assets/Data/Config.asset.meta",
+                    "./Assets/Data/Config.asset.meta",
                     "Packages/com.example/ignored.asset",
                 },
                 new[]
                 {
                     "ProjectSettings/TagManager.asset",
+                    "./ProjectSettings/TagManager.asset",
                 });
 
             Assert.That(touched.Count, Is.EqualTo(4));

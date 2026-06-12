@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using UnityEditor;
@@ -96,13 +97,21 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            var targetAssetPath = args.TargetAssetPath.Value;
+            if (!UnityAssetPathContract.TryNormalizePrefabAssetPath(args.TargetAssetPath.Value, out var targetAssetPath))
+            {
+                errorMessage = $"Prefab path must be a project-relative prefab asset path under '{UnityAssetPathContract.AssetsRootPrefix}': {args.TargetAssetPath.Value}.";
+                return false;
+            }
+
             var usesPlannedPrefabCreation = allowTemporaryState
                 && executionContext.IsPlannedPrefabInstanceLineage(component, targetAssetPath);
-            if (!PrefabOperationUtilities.TryEnsurePrefabAssetExists(targetAssetPath, out errorMessage)
-                && !usesPlannedPrefabCreation)
+            if (!PrefabOperationUtilities.TryEnsurePrefabAssetExists(targetAssetPath, out _, out var prefabAssetErrorMessage))
             {
-                return false;
+                if (!usesPlannedPrefabCreation)
+                {
+                    errorMessage = prefabAssetErrorMessage;
+                    return false;
+                }
             }
 
             if (!TryCreateRequestedPropertyPaths(args.PropertyPaths, out var requestedPropertyPaths, out errorMessage))
