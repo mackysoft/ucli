@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Unity.Ipc;
@@ -18,11 +19,6 @@ namespace MackySoft.Ucli.Unity.Build
     /// <summary> Performs BuildPipeline precondition checks and lifecycle capture for build execution. </summary>
     internal sealed class UnityBuildPreconditionProbe
     {
-        private const string ExplicitSceneSource = "explicit";
-        private const string EditorBuildSettingsSceneSource = "editorBuildSettings";
-        private const string AssetsRootPrefix = "Assets/";
-        private const string SceneAssetExtension = ".unity";
-
         private readonly IUnityEditorReadinessGate readinessGate;
         private readonly IpcProjectIdentity projectIdentity;
         private readonly IServerVersionProvider serverVersionProvider;
@@ -74,6 +70,7 @@ namespace MackySoft.Ucli.Unity.Build
             }
 
             var targetSupport = targetSupportProbe.Probe(input.UnityBuildTarget);
+            cancellationToken.ThrowIfCancellationRequested();
             if (!targetSupport.IsValidTarget)
             {
                 return UnityBuildPreconditionProbeResult.Failure(
@@ -100,7 +97,7 @@ namespace MackySoft.Ucli.Unity.Build
                         null));
             }
 
-            if (!TryResolveScenePaths(input, out var scenePaths, out var inputError))
+            if (!TryResolveScenePaths(input, cancellationToken, out var scenePaths, out var inputError))
             {
                 return UnityBuildPreconditionProbeResult.Failure(
                     projectIdentity,
@@ -112,7 +109,7 @@ namespace MackySoft.Ucli.Unity.Build
 
             var buildOptions = CreateBuildOptions(input);
             var resolvedInputProbe = CreateInputProbe(input, targetSupport, scenePaths, buildOptions);
-            var dirtyState = CaptureDirtyState(scenePaths);
+            var dirtyState = CaptureDirtyState(scenePaths, cancellationToken);
             if (dirtyState.Dirty)
             {
                 return UnityBuildPreconditionProbeResult.Failure(
@@ -126,6 +123,7 @@ namespace MackySoft.Ucli.Unity.Build
                         null));
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
             return UnityBuildPreconditionProbeResult.Success(
                 projectIdentity,
                 lifecycleBefore,
@@ -152,12 +150,17 @@ namespace MackySoft.Ucli.Unity.Build
                 : BuildOptions.None;
         }
 
-        private static IpcBuildDirtyState CaptureDirtyState (IReadOnlyList<string> scenePaths)
+        private static IpcBuildDirtyState CaptureDirtyState (
+            IReadOnlyList<string> scenePaths,
+            CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var buildInputScenePaths = new HashSet<string>(scenePaths, StringComparer.Ordinal);
             var items = new List<IpcBuildDirtyStateItem>();
             for (var sceneIndex = 0; sceneIndex < SceneManager.sceneCount; sceneIndex++)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 var scene = SceneManager.GetSceneAt(sceneIndex);
                 if (!scene.IsValid()
                     || !scene.isLoaded
@@ -168,7 +171,7 @@ namespace MackySoft.Ucli.Unity.Build
                     continue;
                 }
 
-                var normalizedPath = NormalizeProjectPath(scene.path);
+                var normalizedPath = NormalizeLoadedScenePath(scene.path);
                 if (!buildInputScenePaths.Contains(normalizedPath))
                 {
                     continue;
@@ -188,32 +191,36 @@ namespace MackySoft.Ucli.Unity.Build
 
         private static bool TryResolveScenePaths (
             UnityBuildPreconditionInput input,
+            CancellationToken cancellationToken,
             out string[] scenePaths,
             out IpcError? error)
         {
-            if (string.Equals(input.SceneSource, ExplicitSceneSource, StringComparison.Ordinal))
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!ContractLiteralCodec.TryParse<BuildProfileSceneSource>(input.SceneSource, out var sceneSource))
             {
-                return TryResolveExplicitScenePaths(input.ScenePaths, out scenePaths, out error);
+                scenePaths = Array.Empty<string>();
+                error = new IpcError(
+                    BuildErrorCodes.BuildInputsInvalid,
+                    $"Build scene source is invalid: {input.SceneSource}.",
+                    null);
+                return false;
             }
 
-            if (string.Equals(input.SceneSource, EditorBuildSettingsSceneSource, StringComparison.Ordinal))
+            if (sceneSource == BuildProfileSceneSource.Explicit)
             {
-                return TryResolveEditorBuildSettingsScenePaths(out scenePaths, out error);
+                return TryResolveExplicitScenePaths(input.ScenePaths, cancellationToken, out scenePaths, out error);
             }
 
-            scenePaths = Array.Empty<string>();
-            error = new IpcError(
-                BuildErrorCodes.BuildInputsInvalid,
-                $"Build scene source is invalid: {input.SceneSource}.",
-                null);
-            return false;
+            return TryResolveEditorBuildSettingsScenePaths(cancellationToken, out scenePaths, out error);
         }
 
         private static bool TryResolveExplicitScenePaths (
             IReadOnlyList<string> paths,
+            CancellationToken cancellationToken,
             out string[] scenePaths,
             out IpcError? error)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (paths == null || paths.Count == 0)
             {
                 scenePaths = Array.Empty<string>();
@@ -224,17 +231,21 @@ namespace MackySoft.Ucli.Unity.Build
                 return false;
             }
 
-            return TryValidateScenePaths(paths, out scenePaths, out error);
+            return TryValidateScenePaths(paths, cancellationToken, out scenePaths, out error);
         }
 
         private static bool TryResolveEditorBuildSettingsScenePaths (
+            CancellationToken cancellationToken,
             out string[] scenePaths,
             out IpcError? error)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var enabledScenes = new List<string>();
             var editorBuildSettingsScenes = EditorBuildSettings.scenes;
             for (var i = 0; i < editorBuildSettingsScenes.Length; i++)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 var scene = editorBuildSettingsScenes[i];
                 if (!scene.enabled)
                 {
@@ -254,17 +265,21 @@ namespace MackySoft.Ucli.Unity.Build
                 return false;
             }
 
-            return TryValidateScenePaths(enabledScenes, out scenePaths, out error);
+            return TryValidateScenePaths(enabledScenes, cancellationToken, out scenePaths, out error);
         }
 
         private static bool TryValidateScenePaths (
             IReadOnlyList<string> paths,
+            CancellationToken cancellationToken,
             out string[] scenePaths,
             out IpcError? error)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             scenePaths = new string[paths.Count];
             for (var i = 0; i < paths.Count; i++)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 var rawPath = paths[i];
                 if (string.IsNullOrWhiteSpace(rawPath))
                 {
@@ -276,44 +291,46 @@ namespace MackySoft.Ucli.Unity.Build
                     return false;
                 }
 
-                var path = NormalizeProjectPath(rawPath);
-                if (!IsProjectRelativeSceneAssetPath(path))
+                if (!BuildProfileScenePathContract.IsProjectRelativeSceneAssetPath(rawPath))
                 {
                     scenePaths = Array.Empty<string>();
                     error = new IpcError(
                         BuildErrorCodes.BuildInputsInvalid,
-                        $"Build scene path at index {i} must be under Assets and end with '{SceneAssetExtension}': {path}.",
+                        $"Build scene path at index {i} must be a normalized project-relative scene path under Assets ending with '{BuildProfileScenePathContract.SceneAssetExtension}': {rawPath}.",
                         null);
                     return false;
                 }
 
-                var sceneAsset = AssetDatabase.LoadAssetAtPath<SceneAsset>(path);
+                var sceneAsset = AssetDatabase.LoadAssetAtPath<SceneAsset>(rawPath);
                 if (sceneAsset == null)
                 {
                     scenePaths = Array.Empty<string>();
                     error = new IpcError(
                         BuildErrorCodes.BuildInputsInvalid,
-                        $"Build scene path at index {i} does not resolve to a scene asset: {path}.",
+                        $"Build scene path at index {i} does not resolve to a scene asset: {rawPath}.",
                         null);
                     return false;
                 }
 
-                scenePaths[i] = path;
+                var canonicalPath = AssetDatabase.GetAssetPath(sceneAsset);
+                if (!string.Equals(rawPath, canonicalPath, StringComparison.Ordinal))
+                {
+                    scenePaths = Array.Empty<string>();
+                    error = new IpcError(
+                        BuildErrorCodes.BuildInputsInvalid,
+                        $"Build scene path at index {i} must match the scene asset's canonical project path: {rawPath}.",
+                        null);
+                    return false;
+                }
+
+                scenePaths[i] = canonicalPath;
             }
 
             error = null;
             return true;
         }
 
-        private static bool IsProjectRelativeSceneAssetPath (string path)
-        {
-            return path.StartsWith(AssetsRootPrefix, StringComparison.Ordinal)
-                && path.EndsWith(SceneAssetExtension, StringComparison.Ordinal)
-                && !path.Contains("//", StringComparison.Ordinal)
-                && !path.Contains('\\');
-        }
-
-        private static string NormalizeProjectPath (string path)
+        private static string NormalizeLoadedScenePath (string path)
         {
             return path.Trim().Replace('\\', '/');
         }
@@ -335,21 +352,11 @@ namespace MackySoft.Ucli.Unity.Build
 
         private IpcBuildLifecycleSnapshot CreateLifecycleSnapshot (UnityEditorLifecycleSnapshot snapshot)
         {
-            return new IpcBuildLifecycleSnapshot(
-                ServerVersion: serverVersionProvider.GetVersion(),
-                EditorMode: ContractLiteralCodec.ToValue(snapshot.EditorMode),
-                UnityVersion: projectIdentity.UnityVersion,
-                ProjectFingerprint: projectIdentity.ProjectFingerprint,
-                LifecycleState: snapshot.LifecycleState,
-                BlockingReason: snapshot.BlockingReason,
-                CompileState: snapshot.CompileState,
-                CompileGeneration: snapshot.CompileGeneration,
-                DomainReloadGeneration: snapshot.DomainReloadGeneration,
-                CanAcceptExecutionRequests: snapshot.CanAcceptExecutionRequests,
-                ObservedAtUtc: snapshot.ObservedAtUtc,
-                ActionRequired: snapshot.ActionRequired,
-                PrimaryDiagnostic: snapshot.PrimaryDiagnostic,
-                PlayMode: snapshot.PlayMode);
+            return UnityLifecycleResponseCodec.CreateBuildLifecycleSnapshot(
+                projectIdentity.UnityVersion,
+                serverVersionProvider.GetVersion(),
+                projectIdentity.ProjectFingerprint,
+                snapshot);
         }
 
         private static IpcError CreateInternalPreconditionError (string message)

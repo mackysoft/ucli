@@ -28,11 +28,4 @@ public static class BuildErrorCodes
         BuildDirtyStatePresent,
     ];
 
-    /// <summary> Gets build error codes that represent caller-correctable invalid arguments. </summary>
-    public static IReadOnlyList<UcliCode> InvalidArgumentCodes { get; } =
-    [
-        BuildProfileInvalid,
-        BuildTargetUnsupported,
-        BuildInputsInvalid,
-    ];
 }
