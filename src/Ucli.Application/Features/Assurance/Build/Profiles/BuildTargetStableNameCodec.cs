@@ -83,6 +83,12 @@ internal static class BuildTargetStableNameCodec
             case BuildTargetStableName.XboxOne:
                 unityBuildTargetLiteral = "XboxOne";
                 return true;
+            case BuildTargetStableName.EmbeddedLinux:
+                unityBuildTargetLiteral = "EmbeddedLinux";
+                return true;
+            case BuildTargetStableName.Qnx:
+                unityBuildTargetLiteral = "QNX";
+                return true;
             case BuildTargetStableName.VisionOs:
                 unityBuildTargetLiteral = "VisionOS";
                 return true;

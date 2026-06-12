@@ -69,7 +69,15 @@ internal enum BuildTargetStableName
     [UcliContractLiteral("xboxOne")]
     XboxOne = 15,
 
+    /// <summary> Embedded Linux player build target. </summary>
+    [UcliContractLiteral("embeddedLinux")]
+    EmbeddedLinux = 16,
+
+    /// <summary> QNX player build target. </summary>
+    [UcliContractLiteral("qnx")]
+    Qnx = 17,
+
     /// <summary> visionOS player build target. </summary>
     [UcliContractLiteral("visionOS")]
-    VisionOs = 16,
+    VisionOs = 18,
 }

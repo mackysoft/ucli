@@ -1,6 +1,5 @@
 using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
-using MackySoft.Ucli.Application.Shared.Cryptography;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Json;
 using MackySoft.Ucli.Contracts.Text;
@@ -8,7 +7,7 @@ using MackySoft.Ucli.Contracts.Text;
 namespace MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
 
 /// <summary> Resolves build profile JSON into build execution input. </summary>
-internal sealed class BuildProfileResolver
+internal static class BuildProfileResolver
 {
     private const int CurrentSchemaVersion = 1;
     private const string AssetsRootPrefix = "Assets/";
@@ -39,17 +38,8 @@ internal sealed class BuildProfileResolver
         "development",
     };
 
-    private readonly ISha256DigestCalculator sha256DigestCalculator;
-
-    /// <summary> Initializes a new instance of the <see cref="BuildProfileResolver" /> class. </summary>
-    /// <param name="sha256DigestCalculator"> The SHA-256 digest calculator used for canonical profile digests. </param>
-    public BuildProfileResolver (ISha256DigestCalculator sha256DigestCalculator)
-    {
-        this.sha256DigestCalculator = sha256DigestCalculator ?? throw new ArgumentNullException(nameof(sha256DigestCalculator));
-    }
-
     /// <summary> Resolves one build profile from raw JSON text. </summary>
-    public BuildProfileResolutionResult ResolveJson (string json)
+    public static BuildProfileResolutionResult ResolveJson (string json)
     {
         if (string.IsNullOrWhiteSpace(json))
         {
@@ -67,7 +57,7 @@ internal sealed class BuildProfileResolver
         }
     }
 
-    private BuildProfileResolutionResult ResolveCore (JsonElement root)
+    private static BuildProfileResolutionResult ResolveCore (JsonElement root)
     {
         if (root.ValueKind != JsonValueKind.Object)
         {
@@ -97,8 +87,7 @@ internal sealed class BuildProfileResolver
             target!,
             scenes!,
             output!,
-            options!,
-            sha256DigestCalculator);
+            options!);
         return BuildProfileResolutionResult.Success(new ResolvedBuildProfile(
             SchemaVersion: schemaVersion,
             Target: target!,

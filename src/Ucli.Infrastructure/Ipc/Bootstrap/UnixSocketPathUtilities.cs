@@ -1,7 +1,7 @@
 using System.Runtime.InteropServices;
 using System.Text;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Infrastructure.Cryptography;
 
 namespace MackySoft.Ucli.Infrastructure.Ipc;
 

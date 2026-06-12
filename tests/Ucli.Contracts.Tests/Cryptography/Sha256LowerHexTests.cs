@@ -1,7 +1,7 @@
 using System.Text;
-using MackySoft.Ucli.Infrastructure.Cryptography;
+using MackySoft.Ucli.Contracts.Cryptography;
 
-namespace MackySoft.Ucli.Infrastructure.Tests.Cryptography;
+namespace MackySoft.Ucli.Contracts.Tests.Cryptography;
 
 public sealed class Sha256LowerHexTests
 {

@@ -56,6 +56,8 @@ public sealed class BuildTargetStableNameCodecTests
             { "ps4", nameof(BuildTargetStableName.Ps4), "PS4" },
             { "ps5", nameof(BuildTargetStableName.Ps5), "PS5" },
             { "xboxOne", nameof(BuildTargetStableName.XboxOne), "XboxOne" },
+            { "embeddedLinux", nameof(BuildTargetStableName.EmbeddedLinux), "EmbeddedLinux" },
+            { "qnx", nameof(BuildTargetStableName.Qnx), "QNX" },
             { "visionOS", nameof(BuildTargetStableName.VisionOs), "VisionOS" },
         };
     }

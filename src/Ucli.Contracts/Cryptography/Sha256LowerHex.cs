@@ -1,6 +1,6 @@
 using System.Security.Cryptography;
 
-namespace MackySoft.Ucli.Infrastructure.Cryptography;
+namespace MackySoft.Ucli.Contracts.Cryptography;
 
 /// <summary> Computes lowercase hexadecimal SHA-256 digest strings. </summary>
 internal static class Sha256LowerHex

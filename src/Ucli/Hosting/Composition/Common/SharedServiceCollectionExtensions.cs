@@ -1,12 +1,10 @@
 using MackySoft.Ucli.Application.Shared.Configuration;
-using MackySoft.Ucli.Application.Shared.Cryptography;
 using MackySoft.Ucli.Application.Shared.EnvironmentVariables;
 using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Application.Shared.Git;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Json;
 using MackySoft.Ucli.Shared.Configuration;
-using MackySoft.Ucli.Shared.Cryptography;
 using MackySoft.Ucli.Shared.EnvironmentVariables;
 using MackySoft.Ucli.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Shared.Git;
@@ -32,7 +30,6 @@ internal static class SharedServiceCollectionExtensions
         services.AddSingleton<UcliConfigCompiler>();
         services.AddSingleton<IUcliConfigStore, UcliConfigStore>();
         services.AddSingleton<IProjectLifecycleLockProvider, FileSystemProjectLifecycleLockProvider>();
-        services.AddSingleton<ISha256DigestCalculator, InfrastructureSha256DigestCalculator>();
         services.AddSingleton<IUnityProjectLockFileProbe, UnityProjectLockFileProbe>();
         services.AddSingleton<IUnityEditorInstanceProbe, UnityEditorInstanceProbe>();
         services.AddSingleton<IUnityProjectProcessScanner, UnityProjectProcessScanner>();

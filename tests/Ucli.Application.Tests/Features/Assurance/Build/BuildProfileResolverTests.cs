@@ -2,6 +2,7 @@ using System.Text;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Cryptography;
 
 namespace MackySoft.Ucli.Application.Tests.Features.Assurance.Build;
 
@@ -11,7 +12,7 @@ public sealed class BuildProfileResolverTests
     [Trait("Size", "Small")]
     public void ResolveJson_WithExplicitScenesProfile_ReturnsResolvedModel ()
     {
-        var result = CreateResolver().ResolveJson(
+        var result = BuildProfileResolver.ResolveJson(
             """
             {
               "schemaVersion": 1,
@@ -57,7 +58,7 @@ public sealed class BuildProfileResolverTests
     [Trait("Size", "Small")]
     public void ResolveJson_WithEditorBuildSettingsProfile_PreservesSourceWithoutScenePaths ()
     {
-        var result = CreateResolver().ResolveJson(
+        var result = BuildProfileResolver.ResolveJson(
             """
             {
               "schemaVersion": 1,
@@ -87,7 +88,7 @@ public sealed class BuildProfileResolverTests
     [Trait("Size", "Small")]
     public void ResolveJson_WithInvalidProfileShape_ReturnsBuildProfileInvalid (string json)
     {
-        var result = CreateResolver().ResolveJson(json);
+        var result = BuildProfileResolver.ResolveJson(json);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, result.Error!.Kind);
@@ -98,7 +99,7 @@ public sealed class BuildProfileResolverTests
     [Trait("Size", "Small")]
     public void ResolveJson_WithUnsupportedTarget_ReturnsBuildTargetUnsupported ()
     {
-        var result = CreateResolver().ResolveJson(
+        var result = BuildProfileResolver.ResolveJson(
             """
             {
               "schemaVersion": 1,
@@ -144,10 +145,9 @@ public sealed class BuildProfileResolverTests
             }
             """;
 
-        var resolver = CreateResolver();
-        var first = resolver.ResolveJson(CompactJson).Profile!;
-        var second = resolver.ResolveJson(ReorderedJson).Profile!;
-        var expectedDigest = TestSha256DigestCalculator.Instance.Compute(Encoding.UTF8.GetBytes(CompactJson));
+        var first = BuildProfileResolver.ResolveJson(CompactJson).Profile!;
+        var second = BuildProfileResolver.ResolveJson(ReorderedJson).Profile!;
+        var expectedDigest = Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(CompactJson));
 
         Assert.Equal(first.Digest, second.Digest);
         Assert.Equal(expectedDigest, first.Digest);
@@ -192,11 +192,6 @@ public sealed class BuildProfileResolverTests
             """{"schemaVersion":1,"target":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"output":{"kind":"ucliArtifact"},"options":{"development":false,"development":false}}""",
             """{"schemaVersion":1,"target":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"output":{"kind":"ucliArtifact"},"options":{"development":"false"}}""",
         ];
-    }
-
-    private static BuildProfileResolver CreateResolver ()
-    {
-        return new BuildProfileResolver(TestSha256DigestCalculator.Instance);
     }
 
 }

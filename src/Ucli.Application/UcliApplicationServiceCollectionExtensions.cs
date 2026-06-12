@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Artifacts;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Catalog;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Contracts;
@@ -123,7 +122,6 @@ public static class UcliApplicationServiceCollectionExtensions
         services.AddSingleton<IAssuranceSemanticInvariantRule, CompileAssuranceSemanticInvariantRule>();
         services.AddSingleton<IAssuranceSemanticInvariantRule, VerifyAssuranceSemanticInvariantRule>();
         services.AddSingleton<AssuranceSemanticInvariantValidator>();
-        services.AddSingleton<BuildProfileResolver>();
         services.AddSingleton<ICompileRunIdFactory, CompileRunIdFactory>();
         services.AddSingleton<ICompileService, CompileService>();
         services.AddSingleton<IReadyService, ReadyService>();
