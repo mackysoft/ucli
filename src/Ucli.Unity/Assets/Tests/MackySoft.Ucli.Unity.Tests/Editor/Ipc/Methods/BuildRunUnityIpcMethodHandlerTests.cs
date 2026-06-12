@@ -224,11 +224,8 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             public int CallCount { get; private set; }
 
-            public ValueTask<BuildReport> RunAsync (
-                BuildPlayerOptions options,
-                CancellationToken cancellationToken)
+            public BuildReport Run (BuildPlayerOptions options)
             {
-                cancellationToken.ThrowIfCancellationRequested();
                 CallCount++;
                 throw new InvalidOperationException("BuildPipeline must not run for an invalid build.run request.");
             }
