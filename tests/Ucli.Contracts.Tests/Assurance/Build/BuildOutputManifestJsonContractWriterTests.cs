@@ -67,8 +67,11 @@ public sealed class BuildOutputManifestJsonContractWriterTests
         var digestSource = writer.WriteDigestSource(content);
         var digest = writer.CalculateManifestDigest(content);
 
+        Assert.Equal(
+            "{\"schemaVersion\":1,\"outputRoot\":\".ucli/local/fingerprints/fingerprint/artifacts/build/run-1/output\",\"target\":\"standaloneLinux64\",\"fileCount\":1,\"totalBytes\":12,\"files\":[{\"path\":\"Game.x86_64\",\"sizeBytes\":12,\"sha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"}]}",
+            digestSource);
+        Assert.Equal("a853dad0d38bd6ae09f37d3dc13c77616975011bc81076765bc274f41b9beebd", digest);
         Assert.DoesNotContain("manifestDigest", digestSource, StringComparison.Ordinal);
-        Assert.Equal(64, digest.Length);
         Assert.All(digest, static c => Assert.True(
             (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'),
             $"Character '{c}' is not lowercase hexadecimal."));

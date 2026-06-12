@@ -5,9 +5,9 @@ namespace MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
 /// <summary> Defines stable semantic kinds used by build artifact references. </summary>
 internal enum BuildArtifactKind
 {
-    /// <summary> Represents the build metadata artifact. </summary>
-    [UcliContractLiteral("buildMetadata")]
-    BuildMetadata = 0,
+    /// <summary> Represents the <c>build.json</c> artifact. </summary>
+    [UcliContractLiteral("build")]
+    Build = 0,
 
     /// <summary> Represents the Unity BuildReport artifact. </summary>
     [UcliContractLiteral("buildReport")]

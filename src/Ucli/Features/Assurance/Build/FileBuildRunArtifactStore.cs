@@ -54,10 +54,10 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
 
         try
         {
-            if (File.Exists(paths.OutputDirectory) || Directory.Exists(paths.OutputDirectory))
+            if (File.Exists(paths.ArtifactsDirectory) || Directory.Exists(paths.ArtifactsDirectory))
             {
                 return BuildRunArtifactPreparationResult.Failure(ExecutionError.InternalError(
-                    $"Build output artifact directory already exists: {paths.OutputDirectory}.",
+                    $"Build artifact directory already exists: {paths.ArtifactsDirectory}.",
                     BuildErrorCodes.BuildArtifactWriteFailed));
             }
 
@@ -90,6 +90,21 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         ArgumentNullException.ThrowIfNull(request.BuildLogText);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.TargetStableName);
         cancellationToken.ThrowIfCancellationRequested();
+
+        try
+        {
+            EnsureExpectedPathLayout(request.Paths);
+        }
+        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
+        {
+            return BuildRunArtifactWriteOperationResult.Failure(ExecutionError.InvalidArgument(
+                $"Build artifact path layout is invalid. {exception.Message}"));
+        }
+        catch (InvalidOperationException exception)
+        {
+            return BuildRunArtifactWriteOperationResult.Failure(ExecutionError.InvalidArgument(
+                $"Build artifact path layout is invalid. {exception.Message}"));
+        }
 
         OutputManifestArtifacts outputManifestArtifacts;
         try
@@ -162,7 +177,7 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         try
         {
             var outputManifestJson = outputManifestWriter.Write(outputManifestArtifacts.Contract);
-            var outputManifestFileDigest = await WriteTextAtomicallyAsync(
+            await WriteTextAtomicallyAsync(
                     request.Paths.OutputManifestJsonPath,
                     outputManifestJson,
                     cancellationToken)
@@ -172,7 +187,7 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
                 BuildArtifactKind.BuildOutputManifest,
                 request.Paths.RepositoryRoot,
                 request.Paths.OutputManifestJsonPath,
-                outputManifestFileDigest);
+                outputManifestArtifacts.Summary.ManifestDigest);
         }
         catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
@@ -203,7 +218,7 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
                 .ConfigureAwait(false);
             buildRef = CreateArtifactRef(
                 BuildArtifactKeys.Build,
-                BuildArtifactKind.BuildMetadata,
+                BuildArtifactKind.Build,
                 request.Paths.RepositoryRoot,
                 request.Paths.BuildJsonPath,
                 buildDigest);
@@ -246,6 +261,70 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
             Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildLogFileName),
             Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildOutputManifestFileName),
             Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildOutputDirectoryName));
+    }
+
+    private static void EnsureExpectedPathLayout (BuildRunArtifactPaths paths)
+    {
+        var artifactsDirectory = Path.GetFullPath(paths.ArtifactsDirectory);
+        if (!string.Equals(artifactsDirectory, paths.ArtifactsDirectory, GetPathComparison()))
+        {
+            throw new InvalidOperationException($"Artifact directory must be normalized: {paths.ArtifactsDirectory}");
+        }
+
+        EnsureExpectedArtifactsDirectory(paths, artifactsDirectory);
+        EnsureExpectedPath(
+            artifactsDirectory,
+            paths.BuildJsonPath,
+            UcliStoragePathNames.BuildMetadataFileName);
+        EnsureExpectedPath(
+            artifactsDirectory,
+            paths.BuildReportJsonPath,
+            UcliStoragePathNames.BuildReportFileName);
+        EnsureExpectedPath(
+            artifactsDirectory,
+            paths.BuildLogPath,
+            UcliStoragePathNames.BuildLogFileName);
+        EnsureExpectedPath(
+            artifactsDirectory,
+            paths.OutputManifestJsonPath,
+            UcliStoragePathNames.BuildOutputManifestFileName);
+        EnsureExpectedPath(
+            artifactsDirectory,
+            paths.OutputDirectory,
+            UcliStoragePathNames.BuildOutputDirectoryName);
+    }
+
+    private static void EnsureExpectedArtifactsDirectory (
+        BuildRunArtifactPaths paths,
+        string artifactsDirectory)
+    {
+        var relativePath = NormalizeRepositoryRelativePath(paths.RepositoryRoot, artifactsDirectory);
+        var segments = relativePath.Split('/');
+        if (segments.Length != 7
+            || !string.Equals(segments[0], UcliStoragePathNames.UcliDirectoryName, StringComparison.Ordinal)
+            || !string.Equals(segments[1], UcliStoragePathNames.LocalDirectoryName, StringComparison.Ordinal)
+            || !string.Equals(segments[2], UcliStoragePathNames.FingerprintsDirectoryName, StringComparison.Ordinal)
+            || !string.Equals(segments[4], UcliStoragePathNames.ArtifactsDirectoryName, StringComparison.Ordinal)
+            || !string.Equals(segments[5], UcliStoragePathNames.BuildArtifactsDirectoryName, StringComparison.Ordinal)
+            || !string.Equals(segments[6], paths.RunId, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                $"Artifact directory must use the build-run storage layout: {paths.ArtifactsDirectory}");
+        }
+    }
+
+    private static void EnsureExpectedPath (
+        string artifactsDirectory,
+        string actualPath,
+        string expectedFileName)
+    {
+        var expectedPath = Path.Combine(artifactsDirectory, expectedFileName);
+        var normalizedActualPath = Path.GetFullPath(actualPath);
+        if (!string.Equals(normalizedActualPath, expectedPath, GetPathComparison()))
+        {
+            throw new InvalidOperationException(
+                $"Artifact path must be {expectedPath}: {actualPath}");
+        }
     }
 
     private async ValueTask<OutputManifestArtifacts> CreateOutputManifestArtifactsAsync (
@@ -332,8 +411,9 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
                 }
 
                 var fullPath = Path.GetFullPath(entryPath);
-                var relativePath = PathStringNormalizer.ToSlashSeparated(Path.GetRelativePath(outputRootFullPath, fullPath));
-                EnsureSafeOutputRelativePath(relativePath, fullPath);
+                var platformRelativePath = Path.GetRelativePath(outputRootFullPath, fullPath);
+                EnsureSafeOutputRelativePath(platformRelativePath, fullPath);
+                var relativePath = PathStringNormalizer.ToSlashSeparated(platformRelativePath);
                 files.Add(new OutputFileCandidate(fullPath, relativePath));
             }
         }
@@ -356,17 +436,40 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
     }
 
     private static void EnsureSafeOutputRelativePath (
-        string relativePath,
+        string platformRelativePath,
         string fullPath)
     {
-        if (string.IsNullOrWhiteSpace(relativePath)
-            || string.Equals(relativePath, ".", StringComparison.Ordinal)
-            || relativePath.StartsWith("../", StringComparison.Ordinal)
-            || string.Equals(relativePath, "..", StringComparison.Ordinal)
-            || Path.IsPathRooted(relativePath))
+        if (string.IsNullOrWhiteSpace(platformRelativePath)
+            || ContainsLiteralBackslash(platformRelativePath)
+            || Path.IsPathRooted(platformRelativePath)
+            || LooksLikeWindowsRootedPath(platformRelativePath))
         {
             throw new IOException($"Build output file path escaped the output directory: {fullPath}");
         }
+
+        var relativePath = PathStringNormalizer.ToSlashSeparated(platformRelativePath);
+        foreach (var segment in relativePath.Split('/'))
+        {
+            if (string.IsNullOrEmpty(segment)
+                || string.Equals(segment, ".", StringComparison.Ordinal)
+                || string.Equals(segment, "..", StringComparison.Ordinal))
+            {
+                throw new IOException($"Build output file path escaped the output directory: {fullPath}");
+            }
+        }
+    }
+
+    private static bool ContainsLiteralBackslash (string path)
+    {
+        return Path.DirectorySeparatorChar != '\\'
+            && path.Contains('\\', StringComparison.Ordinal);
+    }
+
+    private static bool LooksLikeWindowsRootedPath (string path)
+    {
+        return path.Length >= 2
+            && path[1] == ':'
+            && char.IsAsciiLetter(path[0]);
     }
 
     private static async ValueTask<string> ComputeFileSha256Async (
@@ -440,6 +543,11 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         if ((attributes & FileAttributes.Directory) != 0)
         {
             throw new IOException($"Build output file must not be a directory: {filePath}");
+        }
+
+        if (!FileSystemNodeClassifier.IsRegularFile(filePath, attributes))
+        {
+            throw new IOException($"Build output file must be a regular file: {filePath}");
         }
     }
 
@@ -523,6 +631,13 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         return result.RepositoryRelativeSlashPath!;
     }
 
+    private static StringComparison GetPathComparison ()
+    {
+        return OperatingSystem.IsWindows()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+    }
+
     private static void EnsureWritableArtifactPath (string path)
     {
         if (!File.Exists(path) && !Directory.Exists(path))
@@ -598,4 +713,5 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         {
         }
     }
+
 }

@@ -78,7 +78,7 @@ internal sealed class BuildRunMetadataDocumentWriter
             writer.WriteStartObject();
             writer.WriteString("kind", ContractLiteralCodec.ToValue(artifact.Kind));
             writer.WriteString("path", artifact.Path);
-            writer.WriteString("sha256", artifact.Sha256);
+            writer.WriteString("digest", artifact.Digest);
             writer.WriteEndObject();
         }
 
