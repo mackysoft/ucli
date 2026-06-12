@@ -8,6 +8,7 @@ using MackySoft.Ucli.Application.Features.Assurance.Semantics;
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 
@@ -17,11 +18,6 @@ namespace MackySoft.Ucli.Application.Features.Assurance.Build.Execution;
 internal sealed class BuildService : IBuildService
 {
     private const int BuildMetadataSchemaVersion = 1;
-    private const string BuildReportRef = "buildReport";
-    private const string BuildLogRef = "buildLog";
-    private const string BuildMetadataRef = "build";
-    private const string BuildOutputManifestRef = "buildOutputManifest";
-    private const string BuildVerifierId = "build";
     private const string UnknownGeneration = "unknown";
 
     private static readonly IReadOnlyList<BuildResidualRiskOutput> EmptyResidualRisks =
@@ -168,98 +164,124 @@ internal sealed class BuildService : IBuildService
         var responseResult = ResolveBuildResponse(executionResult.Response!, runId, context.UnityProject.ProjectFingerprint);
         if (!responseResult.IsSuccess)
         {
+            var dirtyState = responseResult.Error!.Code == BuildErrorCodes.BuildDirtyStatePresent
+                ? responseResult.ErrorPayload?.DirtyState
+                : null;
             return BuildExecutionResult.Failure(
                 responseResult.Error!,
                 project,
-                responseResult.ErrorPayload?.DirtyState,
-                responseResult.ErrorPayload?.Input);
+                dirtyState);
         }
 
         var buildResponse = responseResult.Response!;
-        var outputManifestResult = await artifactStore.WriteOutputManifestAsync(
+        if (!deadline.TryGetRemainingTimeout(out var artifactAccountingTimeout))
+        {
+            return BuildExecutionResult.Failure(CreateTimeoutFailure(timeout), project);
+        }
+
+        using var artifactAccountingCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        artifactAccountingCancellationTokenSource.CancelAfter(artifactAccountingTimeout);
+        var artifactCancellationToken = artifactAccountingCancellationTokenSource.Token;
+        try
+        {
+            var outputManifestResult = await artifactStore.WriteOutputManifestAsync(
+                    paths,
+                    profile.Target.StableName,
+                    artifactCancellationToken)
+                .ConfigureAwait(false);
+            if (!outputManifestResult.IsSuccess)
+            {
+                return BuildExecutionResult.Failure(outputManifestResult.Error!, project);
+            }
+
+            var buildReportDigestResult = await artifactStore.CalculateRequiredDigestAsync(paths.BuildReportPath, BuildErrorCodes.BuildReportMissing, artifactCancellationToken).ConfigureAwait(false);
+            if (!buildReportDigestResult.IsSuccess)
+            {
+                return BuildExecutionResult.Failure(buildReportDigestResult.Error!, project);
+            }
+
+            var buildLogDigestResult = await artifactStore.CalculateDigestAsync(paths.BuildLogPath, artifactCancellationToken).ConfigureAwait(false);
+            if (!buildLogDigestResult.IsSuccess)
+            {
+                return BuildExecutionResult.Failure(buildLogDigestResult.Error!, project);
+            }
+
+            var outputManifestContentDigestResult = await artifactStore.CalculateOutputManifestContentDigestAsync(paths.OutputManifestPath, artifactCancellationToken).ConfigureAwait(false);
+            if (!outputManifestContentDigestResult.IsSuccess)
+            {
+                return BuildExecutionResult.Failure(outputManifestContentDigestResult.Error!, project);
+            }
+
+            if (!string.Equals(outputManifestContentDigestResult.Digest, outputManifestResult.Manifest!.ManifestDigest, StringComparison.Ordinal))
+            {
+                return BuildExecutionResult.Failure(ExecutionError.InternalError(
+                    "Build output manifest digest did not match the written manifest content.",
+                    BuildErrorCodes.BuildOutputDigestMismatch), project);
+            }
+
+            var outputManifestDigestResult = await artifactStore.CalculateDigestAsync(paths.OutputManifestPath, artifactCancellationToken).ConfigureAwait(false);
+            if (!outputManifestDigestResult.IsSuccess)
+            {
+                return BuildExecutionResult.Failure(outputManifestDigestResult.Error!, project);
+            }
+
+            var output = CreateOutput(
+                project,
+                runId,
+                profileReadResult.DisplayPath!,
+                profile,
+                buildResponse,
+                outputManifestResult.Manifest,
                 paths,
-                profile.Target.StableName,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (!outputManifestResult.IsSuccess)
-        {
-            return BuildExecutionResult.Failure(outputManifestResult.Error!, project);
-        }
+                buildReportDigestResult.Digest!,
+                buildLogDigestResult.Digest!,
+                outputManifestDigestResult.Digest!);
+            var metadataReports = CreateReports(
+                paths,
+                buildReportDigestResult.Digest!,
+                buildLogDigestResult.Digest!,
+                outputManifestDigestResult.Digest!,
+                buildDigest: null);
+            var metadata = new BuildRunMetadata(
+                SchemaVersion: BuildMetadataSchemaVersion,
+                RunId: runId,
+                Project: project,
+                Profile: output.Build.Profile,
+                Input: new BuildRunInputMetadata(
+                    Target: output.Build.Target,
+                    UnityBuildTarget: buildResponse.Input.UnityBuildTarget,
+                    Scenes: output.Build.Scenes,
+                    Options: output.Build.Options),
+                Lifecycle: new BuildRunLifecycleMetadata(
+                    Before: buildResponse.LifecycleBefore,
+                    After: buildResponse.LifecycleAfter),
+                Generations: output.Build.Generations,
+                Summary: output.Build.Summary,
+                Logs: output.Build.Logs,
+                Output: output.Build.Output,
+                Artifacts: metadataReports,
+                DirtyState: buildResponse.DirtyState);
+            var metadataWriteResult = await artifactStore.WriteMetadataAsync(paths, metadata, artifactCancellationToken).ConfigureAwait(false);
+            if (!metadataWriteResult.IsSuccess)
+            {
+                return BuildExecutionResult.Failure(metadataWriteResult.Error!, project);
+            }
 
-        var buildReportDigestResult = await artifactStore.CalculateRequiredDigestAsync(paths.BuildReportPath, BuildErrorCodes.BuildReportMissing, cancellationToken).ConfigureAwait(false);
-        if (!buildReportDigestResult.IsSuccess)
-        {
-            return BuildExecutionResult.Failure(buildReportDigestResult.Error!, project);
+            var reports = CreateReports(
+                paths,
+                buildReportDigestResult.Digest!,
+                buildLogDigestResult.Digest!,
+                outputManifestDigestResult.Digest!,
+                metadataWriteResult.Digest);
+            return BuildExecutionResult.Success(output with
+            {
+                Reports = reports,
+            });
         }
-
-        var buildLogDigestResult = await artifactStore.CalculateDigestAsync(paths.BuildLogPath, cancellationToken).ConfigureAwait(false);
-        if (!buildLogDigestResult.IsSuccess)
+        catch (OperationCanceledException) when (artifactAccountingCancellationTokenSource.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
         {
-            return BuildExecutionResult.Failure(buildLogDigestResult.Error!, project);
+            return BuildExecutionResult.Failure(CreateTimeoutFailure(timeout), project);
         }
-
-        var outputManifestDigestResult = await artifactStore.CalculateDigestAsync(paths.OutputManifestPath, cancellationToken).ConfigureAwait(false);
-        if (!outputManifestDigestResult.IsSuccess)
-        {
-            return BuildExecutionResult.Failure(outputManifestDigestResult.Error!, project);
-        }
-
-        if (!string.Equals(outputManifestDigestResult.Digest, outputManifestResult.Manifest!.ManifestDigest, StringComparison.Ordinal))
-        {
-            return BuildExecutionResult.Failure(ExecutionError.InternalError(
-                "Build output manifest digest did not match the written manifest content.",
-                BuildErrorCodes.BuildOutputDigestMismatch), project);
-        }
-
-        var output = CreateOutput(
-            project,
-            runId,
-            profileReadResult.DisplayPath!,
-            profile,
-            buildResponse,
-            outputManifestResult.Manifest,
-            paths,
-            buildReportDigestResult.Digest!,
-            buildLogDigestResult.Digest!,
-            outputManifestDigestResult.Digest!);
-        var metadataReports = CreateReports(
-            paths,
-            buildReportDigestResult.Digest!,
-            buildLogDigestResult.Digest!,
-            outputManifestDigestResult.Digest!,
-            buildDigest: null);
-        var metadata = new BuildRunMetadata(
-            SchemaVersion: BuildMetadataSchemaVersion,
-            RunId: runId,
-            Project: project,
-            Profile: output.Build.Profile,
-            Input: new BuildRunInputMetadata(
-                Target: output.Build.Target,
-                UnityBuildTarget: buildResponse.Input.UnityBuildTarget,
-                Scenes: output.Build.Scenes,
-                Options: output.Build.Options),
-            Generations: output.Build.Generations,
-            Summary: output.Build.Summary,
-            Logs: output.Build.Logs,
-            Output: output.Build.Output,
-            Artifacts: metadataReports,
-            DirtyState: buildResponse.DirtyState);
-        var metadataWriteResult = await artifactStore.WriteMetadataAsync(paths, metadata, cancellationToken).ConfigureAwait(false);
-        if (!metadataWriteResult.IsSuccess)
-        {
-            return BuildExecutionResult.Failure(metadataWriteResult.Error!, project);
-        }
-
-        var reports = CreateReports(
-            paths,
-            buildReportDigestResult.Digest!,
-            buildLogDigestResult.Digest!,
-            outputManifestDigestResult.Digest!,
-            metadataWriteResult.Digest);
-        return BuildExecutionResult.Success(output with
-        {
-            Reports = reports,
-        });
     }
 
     private static UnityRequestPayload.BuildRun CreateBuildRunRequest (
@@ -340,6 +362,25 @@ internal sealed class BuildService : IBuildService
             return ApplicationFailure.InternalError($"Unity build response contains unsupported log completionReason: {response.Logs.CompletionReason}.");
         }
 
+        if (!ContractLiteralCodec.TryParse<BuildProfileSceneSource>(response.Input.SceneSource, out _))
+        {
+            return ApplicationFailure.InternalError($"Unity build response contains unsupported scene source: {response.Input.SceneSource}.");
+        }
+
+        if (response.Input.Scenes.Count == 0)
+        {
+            return ApplicationFailure.InternalError("Unity build response contains no resolved build scenes.");
+        }
+
+        for (var i = 0; i < response.Input.Scenes.Count; i++)
+        {
+            if (!UnityAssetPathContract.IsNormalizedSceneAssetPath(response.Input.Scenes[i]))
+            {
+                return ApplicationFailure.InternalError(
+                    $"Unity build response contains invalid resolved scene path at index {i}: {response.Input.Scenes[i]}.");
+            }
+        }
+
         return null;
     }
 
@@ -361,9 +402,9 @@ internal sealed class BuildService : IBuildService
             DurationMilliseconds: response.Report.DurationMilliseconds,
             ErrorCount: response.Report.ErrorCount,
             WarningCount: response.Report.WarningCount,
-            ReportRef: BuildReportRef);
+            ReportRef: BuildReportRefs.BuildReport);
         var logs = new BuildLogsOutput(
-            ReportRef: BuildLogRef,
+            ReportRef: BuildReportRefs.BuildLog,
             EntryCount: response.Logs.EntryCount,
             ErrorCount: response.Logs.ErrorCount,
             WarningCount: response.Logs.WarningCount,
@@ -376,12 +417,14 @@ internal sealed class BuildService : IBuildService
             Profile: new BuildProfileOutput(profilePath, profile.Digest),
             Target: profile.Target.StableName,
             Scenes: new BuildScenesOutput(
-                Source: ContractLiteralCodec.ToValue(profile.Scenes.Source),
-                Paths: profile.Scenes.Paths),
+                Source: response.Input.SceneSource,
+                Paths: response.Input.Scenes),
             Options: new BuildOptionsOutput(profile.Options.Development),
             Output: new BuildArtifactOutput(
-                RootPath: paths.OutputDirectory,
-                ManifestRef: BuildOutputManifestRef,
+                Kind: ContractLiteralCodec.ToValue(profile.Output.Kind),
+                ArtifactRoot: paths.RunDirectory,
+                OutputRoot: paths.OutputDirectory,
+                ManifestRef: BuildReportRefs.BuildOutputManifest,
                 ManifestDigest: outputManifest.ManifestDigest,
                 FileCount: outputManifest.FileCount,
                 TotalBytes: outputManifest.TotalBytes),
@@ -402,13 +445,13 @@ internal sealed class BuildService : IBuildService
             Verifiers:
             [
                 new BuildVerifierOutput(
-                    Id: BuildVerifierId,
-                    Kind: BuildVerifierId,
+                    Id: BuildReportRefs.Build,
+                    Kind: BuildReportRefs.Build,
                     Deterministic: false,
                     Required: true,
                     PrimaryClaims: BuildClaimCodes.All.Select(static code => code.Value).ToArray(),
                     Effects: ContractLiteralCodec.GetLiterals<BuildEffect>(),
-                    ReportRef: BuildMetadataRef),
+                    ReportRef: BuildReportRefs.Build),
             ],
             Claims: claims,
             Reports: reports,
@@ -424,10 +467,10 @@ internal sealed class BuildService : IBuildService
     {
         return new Dictionary<string, BuildReportOutput>(StringComparer.Ordinal)
         {
-            [BuildMetadataRef] = new BuildReportOutput("build.metadata", paths.BuildJsonPath, buildDigest),
-            [BuildReportRef] = new BuildReportOutput("build.report", paths.BuildReportPath, buildReportDigest),
-            [BuildOutputManifestRef] = new BuildReportOutput("build.outputManifest", paths.OutputManifestPath, outputManifestDigest),
-            [BuildLogRef] = new BuildReportOutput("build.log", paths.BuildLogPath, buildLogDigest),
+            [BuildReportRefs.Build] = new BuildReportOutput(BuildReportRefs.Build, paths.BuildJsonPath, buildDigest),
+            [BuildReportRefs.BuildReport] = new BuildReportOutput(BuildReportRefs.BuildReport, paths.BuildReportPath, buildReportDigest),
+            [BuildReportRefs.BuildOutputManifest] = new BuildReportOutput(BuildReportRefs.BuildOutputManifest, paths.OutputManifestPath, outputManifestDigest),
+            [BuildReportRefs.BuildLog] = new BuildReportOutput(BuildReportRefs.BuildLog, paths.BuildLogPath, buildLogDigest),
         };
     }
 
@@ -477,7 +520,7 @@ internal sealed class BuildService : IBuildService
                     ["path"] = build.Profile.Path,
                     ["digest"] = build.Profile.Digest,
                 },
-                [new BuildEvidenceOutput(Kind: "buildProfile", Data: build.Profile)]),
+                [new BuildEvidenceOutput(Kind: "buildProfile", EvidenceRef: BuildReportRefs.Build, Data: build.Profile)]),
             CreateClaim(
                 BuildClaimCodes.UnityReadyForBuild,
                 response.LifecycleBefore.CanAcceptExecutionRequests ? BuildClaimStatus.Passed : BuildClaimStatus.Failed,
@@ -496,7 +539,7 @@ internal sealed class BuildService : IBuildService
                     ["target"] = build.Target,
                     ["sceneCount"] = build.Scenes.Paths.Count,
                 },
-                [new BuildEvidenceOutput(Kind: "buildInput", Data: response.Input)]),
+                [new BuildEvidenceOutput(Kind: "buildInput", EvidenceRef: BuildReportRefs.Build, Data: response.Input)]),
             CreateClaim(
                 BuildClaimCodes.UnityBuildCompleted,
                 knownTerminalResult ? BuildClaimStatus.Passed : BuildClaimStatus.Indeterminate,
@@ -505,7 +548,7 @@ internal sealed class BuildService : IBuildService
                 {
                     ["result"] = build.Summary.Result,
                 },
-                [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(BuildEffect.UnityBuildPipeline), EvidenceRef: BuildReportRef, Data: build.Summary)]),
+                [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(BuildEffect.UnityBuildPipeline), EvidenceRef: BuildReportRefs.BuildReport, Data: build.Summary)]),
             CreateClaim(
                 BuildClaimCodes.UnityBuildSucceeded,
                 succeeded ? BuildClaimStatus.Passed : BuildClaimStatus.Failed,
@@ -515,26 +558,26 @@ internal sealed class BuildService : IBuildService
                     ["result"] = build.Summary.Result,
                     ["errorCount"] = build.Summary.ErrorCount,
                 },
-                [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(BuildEffect.UnityBuildReportRead), EvidenceRef: BuildReportRef, Data: build.Summary)]),
+                [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(BuildEffect.UnityBuildReportRead), EvidenceRef: BuildReportRefs.BuildReport, Data: build.Summary)]),
             CreateClaim(
                 BuildClaimCodes.UnityBuildReportAccounted,
                 BuildClaimStatus.Passed,
                 "BuildReport artifact was written and digested.",
                 new Dictionary<string, object?>(StringComparer.Ordinal)
                 {
-                    ["reportRef"] = BuildReportRef,
+                    ["reportRef"] = BuildReportRefs.BuildReport,
                 },
-                [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(BuildEffect.UnityBuildReportRead), EvidenceRef: BuildReportRef)]),
+                [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(BuildEffect.UnityBuildReportRead), EvidenceRef: BuildReportRefs.BuildReport)]),
             CreateClaim(
                 BuildClaimCodes.UnityBuildArtifactsAccounted,
                 BuildClaimStatus.Passed,
                 "Build output artifacts were counted in the output manifest.",
                 new Dictionary<string, object?>(StringComparer.Ordinal)
                 {
-                    ["manifestRef"] = BuildOutputManifestRef,
+                    ["manifestRef"] = BuildReportRefs.BuildOutputManifest,
                     ["fileCount"] = build.Output.FileCount,
                 },
-                [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(BuildEffect.OutputManifestWrite), EvidenceRef: BuildOutputManifestRef, Data: build.Output)]),
+                [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(BuildEffect.OutputManifestWrite), EvidenceRef: BuildReportRefs.Build, Data: build.Output)]),
             CreateClaim(
                 BuildClaimCodes.UnityBuildOutputDigested,
                 BuildClaimStatus.Passed,
@@ -543,21 +586,21 @@ internal sealed class BuildService : IBuildService
                 {
                     ["manifestDigest"] = build.Output.ManifestDigest,
                 },
-                [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(BuildEffect.OutputManifestWrite), EvidenceRef: BuildOutputManifestRef)]),
+                [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(BuildEffect.OutputManifestWrite), EvidenceRef: BuildReportRefs.BuildOutputManifest)]),
             CreateClaim(
                 BuildClaimCodes.UnityBuildLogsAccounted,
                 BuildClaimStatus.Passed,
                 "Build log byte range was written and summarized.",
                 new Dictionary<string, object?>(StringComparer.Ordinal)
                 {
-                    ["reportRef"] = BuildLogRef,
+                    ["reportRef"] = BuildReportRefs.BuildLog,
                     ["entryCount"] = build.Logs.EntryCount,
                     ["completionReason"] = build.Logs.CompletionReason,
                 },
-                [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(BuildEffect.UnityLogWindowRead), EvidenceRef: BuildLogRef, Data: build.Logs)]),
+                [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(BuildEffect.UnityLogWindowRead), EvidenceRef: BuildReportRefs.BuildLog, Data: build.Logs)]),
             CreateClaim(
                 BuildClaimCodes.UnityBuildValidForGeneration,
-                BuildClaimStatus.Passed,
+                HasCompleteGenerationSnapshot(build.Generations) ? BuildClaimStatus.Passed : BuildClaimStatus.Indeterminate,
                 "Build artifacts declare the Unity lifecycle generations they are valid for.",
                 new Dictionary<string, object?>(StringComparer.Ordinal)
                 {
@@ -565,8 +608,27 @@ internal sealed class BuildService : IBuildService
                     ["domainReloadGeneration"] = build.Generations.ValidFor.DomainReloadGeneration,
                     ["assetRefreshGeneration"] = build.Generations.ValidFor.AssetRefreshGeneration,
                 },
-                [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(BuildEffect.GenerationSnapshot), Data: build.Generations)]),
+                [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(BuildEffect.GenerationSnapshot), EvidenceRef: BuildReportRefs.Build, Data: build.Generations)]),
         ];
+    }
+
+    private static bool HasCompleteGenerationSnapshot (BuildGenerationsOutput generations)
+    {
+        return IsKnownGeneration(generations.Before.CompileGeneration)
+            && IsKnownGeneration(generations.Before.DomainReloadGeneration)
+            && IsKnownGeneration(generations.Before.AssetRefreshGeneration)
+            && IsKnownGeneration(generations.After.CompileGeneration)
+            && IsKnownGeneration(generations.After.DomainReloadGeneration)
+            && IsKnownGeneration(generations.After.AssetRefreshGeneration)
+            && IsKnownGeneration(generations.ValidFor.CompileGeneration)
+            && IsKnownGeneration(generations.ValidFor.DomainReloadGeneration)
+            && IsKnownGeneration(generations.ValidFor.AssetRefreshGeneration);
+    }
+
+    private static bool IsKnownGeneration (string generation)
+    {
+        return !string.IsNullOrWhiteSpace(generation)
+            && !string.Equals(generation, UnknownGeneration, StringComparison.Ordinal);
     }
 
     private static BuildClaimOutput CreateClaim (
@@ -581,7 +643,7 @@ internal sealed class BuildService : IBuildService
             Status: ContractLiteralCodec.ToValue(status),
             Coverage: ContractLiteralCodec.ToValue(status == BuildClaimStatus.Indeterminate ? BuildCoverage.None : BuildCoverage.Full),
             Required: true,
-            VerifierRef: BuildVerifierId,
+            VerifierRef: BuildReportRefs.Build,
             Statement: statement,
             Subject: subject,
             Evidence: evidence,

@@ -10,6 +10,7 @@ internal sealed record BuildRunMetadata (
     ProjectIdentityInfo Project,
     BuildProfileOutput Profile,
     BuildRunInputMetadata Input,
+    BuildRunLifecycleMetadata Lifecycle,
     BuildGenerationsOutput Generations,
     BuildSummaryOutput Summary,
     BuildLogsOutput Logs,

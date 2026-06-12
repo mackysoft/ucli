@@ -13,14 +13,12 @@ internal sealed record BuildExecutionResult
         BuildExecutionOutput? output,
         ProjectIdentityInfo? project,
         IReadOnlyList<ApplicationFailure> errors,
-        IpcBuildDirtyState? dirtyState,
-        IpcBuildInputProbe? input)
+        IpcBuildDirtyState? dirtyState)
     {
         Output = output;
         Project = project;
         Errors = errors;
         DirtyState = dirtyState;
-        Input = input;
     }
 
     /// <summary> Gets the output payload when execution reached verifier completion. </summary>
@@ -35,9 +33,6 @@ internal sealed record BuildExecutionResult
     /// <summary> Gets the dirty state attached to a precondition command failure. </summary>
     public IpcBuildDirtyState? DirtyState { get; }
 
-    /// <summary> Gets the resolved build input attached to a precondition command failure. </summary>
-    public IpcBuildInputProbe? Input { get; }
-
     /// <summary> Gets a value indicating whether command execution reached verifier completion. </summary>
     public bool IsSuccess => Output != null && Errors.Count == 0;
 
@@ -48,28 +43,26 @@ internal sealed record BuildExecutionResult
     public static BuildExecutionResult Success (BuildExecutionOutput output)
     {
         ArgumentNullException.ThrowIfNull(output);
-        return new BuildExecutionResult(output, output.Project, [], null, null);
+        return new BuildExecutionResult(output, output.Project, [], null);
     }
 
     /// <summary> Creates a failed build command result. </summary>
     public static BuildExecutionResult Failure (
         ExecutionError error,
         ProjectIdentityInfo? project = null,
-        IpcBuildDirtyState? dirtyState = null,
-        IpcBuildInputProbe? input = null)
+        IpcBuildDirtyState? dirtyState = null)
     {
         ArgumentNullException.ThrowIfNull(error);
-        return Failure(ApplicationFailure.FromExecutionError(error), project, dirtyState, input);
+        return Failure(ApplicationFailure.FromExecutionError(error), project, dirtyState);
     }
 
     /// <summary> Creates a failed build command result. </summary>
     public static BuildExecutionResult Failure (
         ApplicationFailure failure,
         ProjectIdentityInfo? project = null,
-        IpcBuildDirtyState? dirtyState = null,
-        IpcBuildInputProbe? input = null)
+        IpcBuildDirtyState? dirtyState = null)
     {
         ArgumentNullException.ThrowIfNull(failure);
-        return new BuildExecutionResult(null, project, [failure], dirtyState, input);
+        return new BuildExecutionResult(null, project, [failure], dirtyState);
     }
 }

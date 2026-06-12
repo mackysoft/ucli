@@ -1,7 +1,9 @@
 using System.Text;
+using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
 using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Features.Assurance.Build;
 using MackySoft.Ucli.Infrastructure.Storage;
@@ -67,13 +69,42 @@ public sealed class FileBuildRunArtifactStoreTests
         Assert.Equal(4, manifest.Files[1].SizeBytes);
         Assert.Equal(Sha256LowerHex.Compute(Encoding.UTF8.GetBytes("zeta")), manifest.Files[1].Sha256);
         var persistedJson = await File.ReadAllTextAsync(paths.OutputManifestPath, CancellationToken.None);
-        Assert.DoesNotContain("manifestDigest", persistedJson, StringComparison.Ordinal);
-        Assert.Equal(Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(persistedJson)), manifest.ManifestDigest);
+        Assert.Contains("manifestDigest", persistedJson, StringComparison.Ordinal);
+        var persistedManifest = JsonSerializer.Deserialize<BuildOutputManifest>(persistedJson, IpcJsonSerializerOptions.Default);
+        Assert.NotNull(persistedManifest);
+        Assert.Equal(manifest.ManifestDigest, persistedManifest!.ManifestDigest);
 
         var digestResult = await store.CalculateDigestAsync(paths.OutputManifestPath, CancellationToken.None);
+        var contentDigestResult = await store.CalculateOutputManifestContentDigestAsync(paths.OutputManifestPath, CancellationToken.None);
 
         Assert.True(digestResult.IsSuccess);
-        Assert.Equal(manifest.ManifestDigest, digestResult.Digest);
+        Assert.True(contentDigestResult.IsSuccess);
+        Assert.Equal(Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(persistedJson)), digestResult.Digest);
+        Assert.Equal(manifest.ManifestDigest, contentDigestResult.Digest);
+        Assert.NotEqual(manifest.ManifestDigest, digestResult.Digest);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task CalculateOutputManifestContentDigestAsync_WhenPersistedManifestDigestDiffers_ReturnsDigestMismatch ()
+    {
+        using var scope = TestDirectories.CreateTempScope("build-artifact-store", "manifest-digest-mismatch");
+        var store = new FileBuildRunArtifactStore();
+        var prepareResult = await store.PrepareAsync(CreateProject(scope.FullPath), "run-1", CancellationToken.None);
+        var paths = prepareResult.Paths!;
+
+        var manifestResult = await store.WriteOutputManifestAsync(paths, "standaloneLinux64", CancellationToken.None);
+        Assert.True(manifestResult.IsSuccess);
+        var persistedJson = await File.ReadAllTextAsync(paths.OutputManifestPath, CancellationToken.None);
+        await File.WriteAllTextAsync(
+            paths.OutputManifestPath,
+            persistedJson.Replace(manifestResult.Manifest!.ManifestDigest, new string('0', 64), StringComparison.Ordinal),
+            CancellationToken.None);
+
+        var result = await store.CalculateOutputManifestContentDigestAsync(paths.OutputManifestPath, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(BuildErrorCodes.BuildOutputDigestMismatch, result.Error!.Code);
     }
 
     [Fact]

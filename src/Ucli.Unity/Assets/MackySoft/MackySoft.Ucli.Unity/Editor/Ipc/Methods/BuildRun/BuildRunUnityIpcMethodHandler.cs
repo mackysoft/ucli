@@ -6,6 +6,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Unity.Build;
 using UnityEngine;
@@ -23,6 +25,8 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private readonly IEditorLogRangeExporter editorLogRangeExporter;
 
+        private readonly IpcProjectIdentity projectIdentity;
+
         private readonly IIpcRequestTimeoutScopeFactory timeoutScopeFactory;
 
         /// <summary> Initializes a new instance of the <see cref="BuildRunUnityIpcMethodHandler" /> class. </summary>
@@ -30,11 +34,13 @@ namespace MackySoft.Ucli.Unity.Ipc
             UnityBuildPreconditionProbe preconditionProbe,
             IUnityBuildPipelineRunner buildPipelineRunner,
             IEditorLogRangeExporter editorLogRangeExporter,
+            IpcProjectIdentity projectIdentity,
             IIpcRequestTimeoutScopeFactory timeoutScopeFactory)
         {
             this.preconditionProbe = preconditionProbe ?? throw new ArgumentNullException(nameof(preconditionProbe));
             this.buildPipelineRunner = buildPipelineRunner ?? throw new ArgumentNullException(nameof(buildPipelineRunner));
             this.editorLogRangeExporter = editorLogRangeExporter ?? throw new ArgumentNullException(nameof(editorLogRangeExporter));
+            this.projectIdentity = projectIdentity ?? throw new ArgumentNullException(nameof(projectIdentity));
             this.timeoutScopeFactory = timeoutScopeFactory ?? throw new ArgumentNullException(nameof(timeoutScopeFactory));
         }
 
@@ -60,7 +66,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return errorResponse!;
             }
 
-            if (!TryValidateRequest(buildRunRequest!, out var validationErrorMessage))
+            if (!TryValidateRequest(buildRunRequest!, projectIdentity, out var validationErrorMessage))
             {
                 return UnityIpcResponseFactory.CreateErrorResponse(
                     request,
@@ -246,10 +252,21 @@ namespace MackySoft.Ucli.Unity.Ipc
                 .ConfigureAwait(false);
         }
 
-        private static bool TryValidateRequest (
+        internal static bool TryValidateRequest (
             IpcBuildRunRequest request,
+            IpcProjectIdentity projectIdentity,
             out string? errorMessage)
         {
+            if (request == null)
+            {
+                throw new ArgumentNullException(nameof(request));
+            }
+
+            if (projectIdentity == null)
+            {
+                throw new ArgumentNullException(nameof(projectIdentity));
+            }
+
             if (request.TimeoutMilliseconds.HasValue && request.TimeoutMilliseconds.Value <= 0)
             {
                 errorMessage = "Build run timeoutMilliseconds must be greater than zero when specified.";
@@ -270,11 +287,22 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return false;
             }
 
-            if (!IsFullyQualifiedPath(request.OutputPath)
-                || !IsFullyQualifiedPath(request.BuildReportPath)
-                || !IsFullyQualifiedPath(request.BuildLogPath))
+            if (!TryResolveExpectedArtifactPaths(
+                    request.RunId,
+                    projectIdentity,
+                    out var expectedOutputPath,
+                    out var expectedBuildReportPath,
+                    out var expectedBuildLogPath,
+                    out errorMessage))
             {
-                errorMessage = "Build output and artifact paths must be absolute paths.";
+                return false;
+            }
+
+            if (!PathEquals(request.OutputPath, expectedOutputPath!)
+                || !PathEquals(request.BuildReportPath, expectedBuildReportPath!)
+                || !PathEquals(request.BuildLogPath, expectedBuildLogPath!))
+            {
+                errorMessage = "Build output and artifact paths must match the expected uCLI build artifact layout.";
                 return false;
             }
 
@@ -288,9 +316,81 @@ namespace MackySoft.Ucli.Unity.Ipc
                 && value.IndexOfAny(new[] { '/', '\\', Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }) < 0;
         }
 
-        private static bool IsFullyQualifiedPath (string value)
+        private static bool TryResolveExpectedArtifactPaths (
+            string runId,
+            IpcProjectIdentity projectIdentity,
+            out string? expectedOutputPath,
+            out string? expectedBuildReportPath,
+            out string? expectedBuildLogPath,
+            out string? errorMessage)
         {
-            return !string.IsNullOrWhiteSpace(value) && Path.IsPathRooted(value);
+            expectedOutputPath = null;
+            expectedBuildReportPath = null;
+            expectedBuildLogPath = null;
+
+            try
+            {
+                var storageRoot = UcliStoragePathResolver.ResolveStorageRoot(projectIdentity.ProjectPath);
+                var runDirectory = UcliStoragePathResolver.ResolveBuildRunArtifactsDirectory(
+                    storageRoot,
+                    projectIdentity.ProjectFingerprint,
+                    runId);
+                expectedOutputPath = Path.GetFullPath(Path.Combine(runDirectory, UcliStoragePathNames.BuildOutputDirectoryName));
+                expectedBuildReportPath = Path.GetFullPath(Path.Combine(runDirectory, UcliStoragePathNames.BuildReportFileName));
+                expectedBuildLogPath = Path.GetFullPath(Path.Combine(runDirectory, UcliStoragePathNames.BuildLogFileName));
+                errorMessage = null;
+                return true;
+            }
+            catch (Exception exception) when (exception is ArgumentException or IOException or NotSupportedException)
+            {
+                errorMessage = $"Build artifact paths could not be resolved. {exception.Message}";
+                return false;
+            }
+        }
+
+        private static bool PathEquals (
+            string actualPath,
+            string expectedPath)
+        {
+            if (string.IsNullOrWhiteSpace(actualPath))
+            {
+                return false;
+            }
+
+            if (!IsFullyQualifiedPath(actualPath))
+            {
+                return false;
+            }
+
+            try
+            {
+                return string.Equals(
+                    Path.GetFullPath(actualPath),
+                    expectedPath,
+                    Path.DirectorySeparatorChar == '\\' ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+            }
+            catch (Exception exception) when (exception is ArgumentException or IOException or NotSupportedException)
+            {
+                return false;
+            }
+        }
+
+        private static bool IsFullyQualifiedPath (string path)
+        {
+            if (!Path.IsPathRooted(path))
+            {
+                return false;
+            }
+
+            return !IsWindowsDriveRelativePath(path);
+        }
+
+        private static bool IsWindowsDriveRelativePath (string path)
+        {
+            return path.Length >= 2
+                && char.IsLetter(path[0])
+                && path[1] == ':'
+                && (path.Length == 2 || (path[2] != '\\' && path[2] != '/'));
         }
 
         private static long GetLogLength (string path)

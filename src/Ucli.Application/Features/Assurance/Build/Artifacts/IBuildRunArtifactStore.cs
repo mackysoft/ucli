@@ -28,6 +28,11 @@ internal interface IBuildRunArtifactStore
         string path,
         CancellationToken cancellationToken = default);
 
+    /// <summary> Calculates the canonical content digest declared by an existing output manifest. </summary>
+    ValueTask<BuildArtifactWriteResult> CalculateOutputManifestContentDigestAsync (
+        string path,
+        CancellationToken cancellationToken = default);
+
     /// <summary> Calculates the digest for a required artifact file and maps a missing file to the supplied code. </summary>
     ValueTask<BuildArtifactWriteResult> CalculateRequiredDigestAsync (
         string path,

@@ -81,20 +81,15 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
             var files = await ScanOutputFilesAsync(paths.OutputDirectory, cancellationToken).ConfigureAwait(false);
             files.Sort(static (left, right) => string.CompareOrdinal(left.Path, right.Path));
             var totalBytes = files.Sum(static file => file.SizeBytes);
-            var unsignedManifest = new BuildOutputManifest(
+            var manifestContent = new BuildOutputManifestContent(
                 SchemaVersion: OutputManifestSchemaVersion,
                 OutputRoot: paths.OutputDirectory,
                 Target: target,
                 FileCount: files.Count,
                 TotalBytes: totalBytes,
-                Files: files,
-                ManifestDigest: string.Empty);
-            var manifestJson = JsonSerializer.Serialize(unsignedManifest, IpcJsonSerializerOptions.Default);
-            var manifestDigest = Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(manifestJson));
-            var manifest = unsignedManifest with
-            {
-                ManifestDigest = manifestDigest,
-            };
+                Files: files);
+            var manifestDigest = CalculateManifestContentDigest(manifestContent);
+            var manifest = CreateOutputManifest(manifestContent, manifestDigest);
 
             WriteJsonAtomically(paths.OutputManifestPath, manifest);
             return BuildOutputManifestResult.Success(manifest);
@@ -148,6 +143,58 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         CancellationToken cancellationToken = default)
     {
         return await CalculateDigestCoreAsync(path, BuildErrorCodes.BuildArtifactWriteFailed, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<BuildArtifactWriteResult> CalculateOutputManifestContentDigestAsync (
+        string path,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        try
+        {
+            EnsureReadableArtifactPath(path);
+            await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 8192, useAsync: true);
+            var manifest = await JsonSerializer.DeserializeAsync<BuildOutputManifest>(
+                    stream,
+                    IpcJsonSerializerOptions.Default,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (manifest == null)
+            {
+                throw new JsonException("Build output manifest was empty.");
+            }
+
+            var contentDigest = CalculateManifestContentDigest(CreateManifestContent(manifest));
+            if (!string.Equals(contentDigest, manifest.ManifestDigest, StringComparison.Ordinal))
+            {
+                return BuildArtifactWriteResult.Failure(ExecutionError.InternalError(
+                    "Build output manifest digest did not match the persisted manifest content.",
+                    BuildErrorCodes.BuildOutputDigestMismatch));
+            }
+
+            return BuildArtifactWriteResult.Success(contentDigest);
+        }
+        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
+        {
+            return BuildArtifactWriteResult.Failure(ExecutionError.InternalError(
+                $"Build output manifest path is invalid. {exception.Message}",
+                BuildErrorCodes.BuildOutputManifestFailed));
+        }
+        catch (Exception exception) when (exception is FileNotFoundException or DirectoryNotFoundException)
+        {
+            return BuildArtifactWriteResult.Failure(ExecutionError.InternalError(
+                $"Build output manifest is missing: {path}. {exception.Message}",
+                BuildErrorCodes.BuildOutputManifestFailed));
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or JsonException)
+        {
+            return BuildArtifactWriteResult.Failure(ExecutionError.InternalError(
+                $"Failed to digest build output manifest content: {path}. {exception.Message}",
+                BuildErrorCodes.BuildOutputManifestFailed));
+        }
     }
 
     /// <inheritdoc />
@@ -265,6 +312,36 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
             Sha256: Sha256LowerHex.ToLowerHex(digestBytes));
     }
 
+    private static string CalculateManifestContentDigest (BuildOutputManifestContent content)
+    {
+        return Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(content, IpcJsonSerializerOptions.Default)));
+    }
+
+    private static BuildOutputManifest CreateOutputManifest (
+        BuildOutputManifestContent content,
+        string manifestDigest)
+    {
+        return new BuildOutputManifest(
+            SchemaVersion: content.SchemaVersion,
+            OutputRoot: content.OutputRoot,
+            Target: content.Target,
+            FileCount: content.FileCount,
+            TotalBytes: content.TotalBytes,
+            Files: content.Files,
+            ManifestDigest: manifestDigest);
+    }
+
+    private static BuildOutputManifestContent CreateManifestContent (BuildOutputManifest manifest)
+    {
+        return new BuildOutputManifestContent(
+            SchemaVersion: manifest.SchemaVersion,
+            OutputRoot: manifest.OutputRoot,
+            Target: manifest.Target,
+            FileCount: manifest.FileCount,
+            TotalBytes: manifest.TotalBytes,
+            Files: manifest.Files);
+    }
+
     private static void WriteJsonAtomically<T> (
         string path,
         T value)
@@ -376,4 +453,12 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
             File.Delete(path);
         }
     }
+
+    private sealed record BuildOutputManifestContent (
+        int SchemaVersion,
+        string OutputRoot,
+        string Target,
+        int FileCount,
+        long TotalBytes,
+        IReadOnlyList<BuildOutputManifestFile> Files);
 }

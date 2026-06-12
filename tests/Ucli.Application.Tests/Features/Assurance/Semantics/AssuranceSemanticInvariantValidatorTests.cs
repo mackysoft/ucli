@@ -45,6 +45,24 @@ public sealed class AssuranceSemanticInvariantValidatorTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Validate_WithBuildPayloadReportMissingDigest_ReturnsReportDigestPath ()
+    {
+        var result = ValidateBuildPayload(CreateBuildPayload(includeBuildLogDigest: false));
+
+        AssertViolationPath(result, "$.reports.buildLog.digest");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Validate_WithBuildClaimEvidenceRefMismatch_ReturnsClaimEvidencePath ()
+    {
+        var result = ValidateBuildPayload(CreateBuildPayload(buildSucceededEvidenceRef: "build"));
+
+        AssertViolationPath(result, "$.claims[4].evidence");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Validate_WithFailedBuildResultAndPassedSucceededClaim_ReturnsSucceededClaimStatusPath ()
     {
         var result = ValidateBuildPayload(CreateBuildPayload(
@@ -780,33 +798,45 @@ public sealed class AssuranceSemanticInvariantValidatorTests
     private static string CreateBuildPayload (
         string buildResult = "succeeded",
         string buildSucceededClaimStatus = "passed",
-        bool includeBuildLogReport = true)
+        bool includeBuildLogReport = true,
+        bool includeBuildLogDigest = true,
+        string? buildSucceededEvidenceRef = null)
     {
         var reports = new Dictionary<string, object>(StringComparer.Ordinal)
         {
             ["build"] = new
             {
-                kind = "build.metadata",
+                kind = "build",
                 path = "artifacts/build.json",
+                digest = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             },
             ["buildReport"] = new
             {
-                kind = "build.report",
+                kind = "buildReport",
                 path = "artifacts/build-report.json",
+                digest = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
             },
             ["buildOutputManifest"] = new
             {
-                kind = "build.outputManifest",
+                kind = "buildOutputManifest",
                 path = "artifacts/output-manifest.json",
+                digest = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
             },
         };
         if (includeBuildLogReport)
         {
-            reports["buildLog"] = new
-            {
-                kind = "build.log",
-                path = "artifacts/build.log",
-            };
+            reports["buildLog"] = includeBuildLogDigest
+                ? (object)new
+                {
+                    kind = "buildLog",
+                    path = "artifacts/build.log",
+                    digest = "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                }
+                : new
+                {
+                    kind = "buildLog",
+                    path = "artifacts/build.log",
+                };
         }
 
         var claims = BuildClaimCodes.All
@@ -817,7 +847,7 @@ public sealed class AssuranceSemanticInvariantValidatorTests
                 coverage = "full",
                 required = true,
                 verifierRef = "build",
-                evidence = Array.Empty<object>(),
+                evidence = CreateBuildEvidence(code.Value, buildSucceededEvidenceRef),
                 residualRisks = Array.Empty<object>(),
             })
             .ToArray();
@@ -826,6 +856,11 @@ public sealed class AssuranceSemanticInvariantValidatorTests
             verdict = "pass",
             build = new
             {
+                output = new
+                {
+                    manifestRef = "buildOutputManifest",
+                    manifestDigest = "manifest-digest",
+                },
                 summary = new
                 {
                     result = buildResult,
@@ -848,6 +883,48 @@ public sealed class AssuranceSemanticInvariantValidatorTests
             reports,
             residualRisks = Array.Empty<object>(),
         });
+    }
+
+    private static object[] CreateBuildEvidence (
+        string claimId,
+        string? buildSucceededEvidenceRef)
+    {
+        var evidenceRef = ResolveBuildEvidenceRef(claimId);
+        if (BuildClaimCodes.UnityBuildSucceeded.EqualsValue(claimId) && buildSucceededEvidenceRef != null)
+        {
+            evidenceRef = buildSucceededEvidenceRef;
+        }
+
+        return
+        [
+            new
+            {
+                kind = "evidence",
+                evidenceRef,
+            },
+        ];
+    }
+
+    private static string ResolveBuildEvidenceRef (string claimId)
+    {
+        if (BuildClaimCodes.UnityBuildCompleted.EqualsValue(claimId)
+            || BuildClaimCodes.UnityBuildSucceeded.EqualsValue(claimId)
+            || BuildClaimCodes.UnityBuildReportAccounted.EqualsValue(claimId))
+        {
+            return "buildReport";
+        }
+
+        if (BuildClaimCodes.UnityBuildOutputDigested.EqualsValue(claimId))
+        {
+            return "buildOutputManifest";
+        }
+
+        if (BuildClaimCodes.UnityBuildLogsAccounted.EqualsValue(claimId))
+        {
+            return "buildLog";
+        }
+
+        return "build";
     }
 
     private static string ValidReadyPayload (string validityJson)

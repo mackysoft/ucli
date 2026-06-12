@@ -46,11 +46,6 @@ internal static class BuildRunCommandResultFactory
             payload["dirtyState"] = executionResult.DirtyState;
         }
 
-        if (executionResult.Input != null)
-        {
-            payload["input"] = executionResult.Input;
-        }
-
         StartupFailurePayloadProjector.AppendFromFailures(payload, executionResult.Errors);
         return payload.Count == 0 ? null : payload;
     }
