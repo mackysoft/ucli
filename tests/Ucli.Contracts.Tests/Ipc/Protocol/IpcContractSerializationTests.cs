@@ -260,6 +260,7 @@ public sealed class IpcContractSerializationTests
         Assert.Equal("succeeded", ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded));
         Assert.Equal("failed", ContractLiteralCodec.ToValue(IpcBuildReportResult.Failed));
         Assert.Equal("canceled", ContractLiteralCodec.ToValue(IpcBuildReportResult.Canceled));
+        Assert.Equal("unknown", ContractLiteralCodec.ToValue(IpcBuildReportResult.Unknown));
         Assert.Equal("completed", ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed));
         Assert.Equal("failed", ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Failed));
         Assert.Equal("canceled", ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Canceled));
