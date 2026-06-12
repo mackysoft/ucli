@@ -532,8 +532,18 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         var normalizedParentPath = Path.GetFullPath(parentPath);
         var relativePath = Path.GetRelativePath(normalizedParentPath, normalizedPath);
         return string.Equals(relativePath, ".", StringComparison.Ordinal)
-            || (!relativePath.StartsWith("..", StringComparison.Ordinal)
+            || (!IsParentRelativePath(relativePath)
                 && !Path.IsPathRooted(relativePath));
+    }
+
+    private static bool IsParentRelativePath (string relativePath)
+    {
+        return relativePath.Length == 2
+            ? relativePath[0] == '.' && relativePath[1] == '.'
+            : relativePath.Length > 2
+                && relativePath[0] == '.'
+                && relativePath[1] == '.'
+                && (relativePath[2] == Path.DirectorySeparatorChar || relativePath[2] == Path.AltDirectorySeparatorChar);
     }
 
     private sealed record BuildOutputManifestContent (

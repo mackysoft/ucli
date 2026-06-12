@@ -65,7 +65,7 @@ internal sealed class BuildService : IBuildService
         ArgumentNullException.ThrowIfNull(input);
         cancellationToken.ThrowIfCancellationRequested();
 
-        _ = progressSink ?? NullCommandProgressSink.Instance;
+        var resolvedProgressSink = progressSink ?? NullCommandProgressSink.Instance;
         var contextResult = await projectContextResolver.ResolveAsync(input.ProjectPath, cancellationToken).ConfigureAwait(false);
         if (!contextResult.IsSuccess)
         {
@@ -126,6 +126,7 @@ internal sealed class BuildService : IBuildService
             return BuildExecutionResult.Failure(modeDecisionResult.Error!, project);
         }
 
+        var executionTarget = modeDecisionResult.Decision!.Target;
         if (!deadline.TryGetRemainingTimeout(out var requestTimeout))
         {
             return BuildExecutionResult.Failure(CreateTimeoutFailure(timeout), project);
@@ -140,10 +141,22 @@ internal sealed class BuildService : IBuildService
 
         var profile = profileResolutionResult.Profile!;
         var paths = prepareResult.Paths!;
+        await EmitStartedAsync(
+                resolvedProgressSink,
+                runId,
+                project,
+                requestedMode,
+                executionTarget,
+                timeout,
+                profile.Target.StableName,
+                paths.OutputDirectory,
+                cancellationToken)
+            .ConfigureAwait(false);
+
         var request = CreateBuildRunRequest(profile, paths, runId);
         var executionResult = await unityRequestExecutor.ExecuteAsync(
                 UcliCommandIds.BuildRun,
-                ResolveExecutionMode(modeDecisionResult.Decision!.Target),
+                ResolveExecutionMode(executionTarget),
                 requestTimeout,
                 context.Config,
                 context.UnityProject,
@@ -279,15 +292,69 @@ internal sealed class BuildService : IBuildService
                 buildLogDigestResult.Digest!,
                 outputManifestDigestResult.Digest!,
                 metadataWriteResult.Digest);
-            return BuildExecutionResult.Success(output with
+            var completedOutput = output with
             {
                 Reports = reports,
-            });
+            };
+            await EmitCompletedAsync(
+                    resolvedProgressSink,
+                    completedOutput,
+                    paths,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return BuildExecutionResult.Success(completedOutput);
         }
         catch (OperationCanceledException) when (artifactAccountingCancellationTokenSource.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
         {
             return BuildExecutionResult.Failure(CreateTimeoutFailure(timeout), project);
         }
+    }
+
+    private static ValueTask EmitStartedAsync (
+        ICommandProgressSink progressSink,
+        string runId,
+        ProjectIdentityInfo project,
+        UnityExecutionMode requestedMode,
+        UnityExecutionTarget executionTarget,
+        TimeSpan timeout,
+        string target,
+        string outputPath,
+        CancellationToken cancellationToken)
+    {
+        return progressSink.OnEntryAsync(
+            BuildRunProgressEventNames.Started,
+            new BuildRunStartedEntry(
+                RunId: runId,
+                ProjectFingerprint: project.ProjectFingerprint,
+                RequestedMode: AssuranceExecutionModeCodec.ToRequestedModeValue(requestedMode),
+                ResolvedMode: AssuranceExecutionModeCodec.ToResolvedModeValue(executionTarget),
+                SessionKind: AssuranceExecutionModeCodec.ToSessionKindValue(executionTarget),
+                TimeoutMilliseconds: checked((int)timeout.TotalMilliseconds),
+                Target: target,
+                OutputPath: outputPath),
+            cancellationToken);
+    }
+
+    private static ValueTask EmitCompletedAsync (
+        ICommandProgressSink progressSink,
+        BuildExecutionOutput output,
+        BuildRunArtifactPaths paths,
+        CancellationToken cancellationToken)
+    {
+        return progressSink.OnEntryAsync(
+            BuildRunProgressEventNames.Completed,
+            new BuildRunCompletedEntry(
+                RunId: output.Build.RunId,
+                Verdict: output.Verdict,
+                Result: output.Build.Summary.Result,
+                CompletionReason: output.Build.Logs.CompletionReason,
+                ErrorCount: output.Build.Summary.ErrorCount,
+                WarningCount: output.Build.Summary.WarningCount,
+                BuildJsonPath: paths.BuildJsonPath,
+                BuildReportPath: paths.BuildReportPath,
+                BuildLogPath: paths.BuildLogPath,
+                OutputManifestPath: paths.OutputManifestPath),
+            cancellationToken);
     }
 
     private static UnityRequestPayload.BuildRun CreateBuildRunRequest (

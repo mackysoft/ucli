@@ -175,6 +175,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcBuildRunResponse payload, out _), Is.True);
                 Assert.That(payload.RunId, Is.EqualTo(RunId));
                 Assert.That(payload.Report.Result, Is.EqualTo(ContractLiteralCodec.ToValue(reportResult)));
+                Assert.That(payload.Report.ErrorCount, Is.EqualTo(reportErrorCount));
+                Assert.That(payload.Report.WarningCount, Is.EqualTo(reportWarningCount));
                 Assert.That(payload.Logs.CompletionReason, Is.EqualTo(ContractLiteralCodec.ToValue(completionReason)));
                 Assert.That(payload.Logs.EntryCount, Is.EqualTo(3));
                 Assert.That(payload.Logs.ErrorCount, Is.EqualTo(1));
@@ -190,6 +192,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     IpcJsonSerializerOptions.Default);
                 Assert.That(persistedReport, Is.Not.Null);
                 Assert.That(persistedReport!.Result, Is.EqualTo(reportArtifact.Result));
+                Assert.That(persistedReport.ErrorCount, Is.EqualTo(reportErrorCount));
+                Assert.That(persistedReport.WarningCount, Is.EqualTo(reportWarningCount));
                 Assert.That(File.ReadAllText(requestPayload.BuildLogPath), Does.Contain("warning CS0168"));
             }
         }

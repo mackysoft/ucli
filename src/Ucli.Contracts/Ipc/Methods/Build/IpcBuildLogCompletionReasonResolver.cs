@@ -3,7 +3,7 @@ using MackySoft.Ucli.Contracts.Text;
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Resolves build log completion reason values from normalized BuildReport results. </summary>
-public static class IpcBuildLogCompletionReasonResolver
+internal static class IpcBuildLogCompletionReasonResolver
 {
     /// <summary> Maps one normalized BuildReport result to the corresponding build log completion reason. </summary>
     /// <param name="result"> The normalized BuildReport result. </param>

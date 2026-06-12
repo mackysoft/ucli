@@ -11,6 +11,7 @@ using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
 using MackySoft.Ucli.Application.Features.Assurance.Semantics;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
+using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -57,11 +58,12 @@ public sealed class BuildServiceTests
             ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
             ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
             errorCount: 0);
+        var progressSink = new CollectingProgressSink();
         var service = CreateService(
             requestExecutor: requestExecutor,
             artifactStore: artifactStore);
 
-        var result = await service.ExecuteAsync(CreateInput());
+        var result = await service.ExecuteAsync(CreateInput(), progressSink);
 
         Assert.True(result.IsSuccess);
         var output = result.Output!;
@@ -96,6 +98,30 @@ public sealed class BuildServiceTests
         Assert.Equal(ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded), artifactStore.WrittenMetadata!.Summary.Result);
         Assert.Equal("ready", artifactStore.WrittenMetadata.Lifecycle.Before.LifecycleState);
         Assert.Equal("ready", artifactStore.WrittenMetadata.Lifecycle.After.LifecycleState);
+        AssertProgressEvents(
+            progressSink,
+            BuildRunProgressEventNames.Started,
+            BuildRunProgressEventNames.Completed);
+        var startedEntry = Assert.IsType<BuildRunStartedEntry>(progressSink.Entries[0].Payload);
+        Assert.Equal(RunId, startedEntry.RunId);
+        Assert.Equal(ProjectFingerprint, startedEntry.ProjectFingerprint);
+        Assert.Equal("auto", startedEntry.RequestedMode);
+        Assert.Equal("oneshot", startedEntry.ResolvedMode);
+        Assert.Equal("transientProbe", startedEntry.SessionKind);
+        Assert.Equal(10000, startedEntry.TimeoutMilliseconds);
+        Assert.Equal("standaloneLinux64", startedEntry.Target);
+        Assert.Equal(artifactStore.PreparedPaths.OutputDirectory, startedEntry.OutputPath);
+        var completedEntry = Assert.IsType<BuildRunCompletedEntry>(progressSink.Entries[1].Payload);
+        Assert.Equal(RunId, completedEntry.RunId);
+        Assert.Equal(ContractLiteralCodec.ToValue(BuildVerdict.Pass), completedEntry.Verdict);
+        Assert.Equal(ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded), completedEntry.Result);
+        Assert.Equal(ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed), completedEntry.CompletionReason);
+        Assert.Equal(0, completedEntry.ErrorCount);
+        Assert.Equal(1, completedEntry.WarningCount);
+        Assert.Equal(artifactStore.PreparedPaths.BuildJsonPath, completedEntry.BuildJsonPath);
+        Assert.Equal(artifactStore.PreparedPaths.BuildReportPath, completedEntry.BuildReportPath);
+        Assert.Equal(artifactStore.PreparedPaths.BuildLogPath, completedEntry.BuildLogPath);
+        Assert.Equal(artifactStore.PreparedPaths.OutputManifestPath, completedEntry.OutputManifestPath);
 
         var validator = CreateBuildSemanticInvariantValidator();
         var semanticPayload = JsonSerializer.SerializeToElement(output, PayloadSerializerOptions);
@@ -463,12 +489,12 @@ public sealed class BuildServiceTests
     }
 
     private static BuildService CreateService (
+        IBuildRunArtifactStore artifactStore,
         IProjectContextResolver? projectContextResolver = null,
         IBuildProfileFileReader? profileFileReader = null,
         IUnityExecutionModeDecisionService? modeDecisionService = null,
         IUnityRequestExecutor? requestExecutor = null,
         IBuildRunIdFactory? runIdFactory = null,
-        IBuildRunArtifactStore? artifactStore = null,
         TimeProvider? timeProvider = null)
     {
         return new BuildService(
@@ -484,7 +510,7 @@ public sealed class BuildServiceTests
                 ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
                 errorCount: 0),
             runIdFactory ?? new StubBuildRunIdFactory(RunId),
-            artifactStore ?? new StubBuildRunArtifactStore(TemporaryDirectory.Create().Path),
+            artifactStore,
             timeProvider);
     }
 
@@ -658,6 +684,39 @@ public sealed class BuildServiceTests
             [new BuildAssuranceSemanticInvariantRule()]);
     }
 
+    private static void AssertProgressEvents (
+        CollectingProgressSink progressSink,
+        params string[] eventNames)
+    {
+        Assert.Equal(eventNames.Length, progressSink.Entries.Count);
+        for (var i = 0; i < eventNames.Length; i++)
+        {
+            Assert.Equal(eventNames[i], progressSink.Entries[i].EventName);
+        }
+    }
+
+    private sealed class CollectingProgressSink : ICommandProgressSink
+    {
+        private readonly List<ProgressEntry> entries = [];
+
+        public IReadOnlyList<ProgressEntry> Entries => entries;
+
+        public ValueTask OnEntryAsync<TPayload> (
+            string eventName,
+            TPayload payload,
+            CancellationToken cancellationToken = default)
+            where TPayload : notnull
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            entries.Add(new ProgressEntry(eventName, payload));
+            return ValueTask.CompletedTask;
+        }
+    }
+
+    private sealed record ProgressEntry (
+        string EventName,
+        object Payload);
+
     private sealed class StubProjectContextResolver : IProjectContextResolver
     {
         private readonly ProjectContextResolutionResult result;
@@ -763,6 +822,8 @@ public sealed class BuildServiceTests
 
     private sealed class StubBuildRunArtifactStore : IBuildRunArtifactStore
     {
+        private readonly HashSet<string> acceptedOutputPaths = new(StringComparer.Ordinal);
+
         private readonly string rootPath;
 
         private readonly Func<BuildRunArtifactPaths, string, CancellationToken, ValueTask<BuildOutputManifestResult>>? writeOutputManifestOverride;
@@ -795,6 +856,9 @@ public sealed class BuildServiceTests
                 BuildLogPath: Path.Combine(runDirectory, "build.log"),
                 OutputManifestPath: Path.Combine(runDirectory, "output-manifest.json"),
                 OutputDirectory: outputDirectory);
+            acceptedOutputPaths.Clear();
+            acceptedOutputPaths.Add(PreparedPaths.OutputDirectory);
+            acceptedOutputPaths.Add(Path.Combine(PreparedPaths.OutputDirectory, "build"));
             File.WriteAllText(PreparedPaths.BuildReportPath, "{}");
             return ValueTask.FromResult(BuildRunArtifactPrepareResult.Success(PreparedPaths));
         }
@@ -831,15 +895,7 @@ public sealed class BuildServiceTests
             BuildRunArtifactPaths paths,
             string outputPath)
         {
-            if (string.IsNullOrWhiteSpace(outputPath))
-            {
-                return false;
-            }
-
-            var relativePath = Path.GetRelativePath(paths.OutputDirectory, outputPath);
-            return string.Equals(relativePath, ".", StringComparison.Ordinal)
-                || (!relativePath.StartsWith("..", StringComparison.Ordinal)
-                    && !Path.IsPathRooted(relativePath));
+            return acceptedOutputPaths.Contains(outputPath);
         }
 
         public ValueTask<BuildArtifactWriteResult> WriteMetadataAsync (

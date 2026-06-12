@@ -140,6 +140,7 @@ public sealed class FileBuildRunArtifactStoreTests
 
         Assert.True(store.ContainsOutputPath(paths, paths.OutputDirectory));
         Assert.True(store.ContainsOutputPath(paths, Path.Combine(paths.OutputDirectory, "Game.x86_64")));
+        Assert.True(store.ContainsOutputPath(paths, Path.Combine(paths.OutputDirectory, "..valid-output")));
         Assert.False(store.ContainsOutputPath(paths, Path.Combine(paths.RunDirectory, "sibling")));
         Assert.False(store.ContainsOutputPath(paths, "relative-output"));
         Assert.False(store.ContainsOutputPath(paths, string.Empty));

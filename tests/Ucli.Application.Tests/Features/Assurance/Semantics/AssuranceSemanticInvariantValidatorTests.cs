@@ -58,7 +58,7 @@ public sealed class AssuranceSemanticInvariantValidatorTests
     {
         var result = ValidateBuildPayload(CreateBuildPayload(buildSucceededEvidenceRef: "build"));
 
-        AssertViolationPath(result, "$.claims[4].evidence");
+        AssertViolationPath(result, BuildSucceededClaimPath("evidence"));
     }
 
     [Fact]
@@ -70,7 +70,7 @@ public sealed class AssuranceSemanticInvariantValidatorTests
             buildCompletionReason: "failed",
             buildSucceededClaimStatus: "passed"));
 
-        AssertViolationPath(result, "$.claims[4].status");
+        AssertViolationPath(result, BuildSucceededClaimPath("status"));
     }
 
     [Fact]
@@ -854,10 +854,10 @@ public sealed class AssuranceSemanticInvariantValidatorTests
         }
 
         var claims = BuildClaimCodes.All
-            .Select((code, index) => new
+            .Select(code => new
             {
                 id = code.Value,
-                status = index == 4 ? buildSucceededClaimStatus : "passed",
+                status = code.Equals(BuildClaimCodes.UnityBuildSucceeded) ? buildSucceededClaimStatus : "passed",
                 coverage = "full",
                 required = true,
                 verifierRef = "build",
@@ -905,6 +905,19 @@ public sealed class AssuranceSemanticInvariantValidatorTests
             reports,
             residualRisks = Array.Empty<object>(),
         });
+    }
+
+    private static string BuildSucceededClaimPath (string propertyName)
+    {
+        for (var i = 0; i < BuildClaimCodes.All.Count; i++)
+        {
+            if (BuildClaimCodes.All[i].Equals(BuildClaimCodes.UnityBuildSucceeded))
+            {
+                return $"$.claims[{i}].{propertyName}";
+            }
+        }
+
+        throw new InvalidOperationException("Build claim catalog must contain UNITY_BUILD_SUCCEEDED.");
     }
 
     private static object[] CreateBuildEvidence (

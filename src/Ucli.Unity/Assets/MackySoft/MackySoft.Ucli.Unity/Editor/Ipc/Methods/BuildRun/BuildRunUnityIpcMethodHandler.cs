@@ -7,7 +7,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Unity.Build;
