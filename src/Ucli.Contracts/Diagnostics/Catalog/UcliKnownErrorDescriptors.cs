@@ -6,6 +6,7 @@ public static class UcliKnownErrorDescriptors
     private static readonly IReadOnlyList<UcliErrorDescriptor>[] DescriptorGroups =
     [
         UcliCoreErrorCodeDescriptors.All,
+        BuildErrorCodeDescriptors.All,
         DaemonErrorCodeDescriptors.All,
         EditorLifecycleErrorCodeDescriptors.All,
         ExecuteRequestErrorCodeDescriptors.All,

@@ -152,6 +152,72 @@ public sealed class IpcContractSerializationTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void IpcBuildPreconditionContracts_SerializeWithCamelCaseFields ()
+    {
+        using var dirtyState = JsonDocument.Parse(JsonSerializer.Serialize(
+            new IpcBuildDirtyState(
+                Checked: true,
+                Dirty: true,
+                Items:
+                [
+                    new IpcBuildDirtyStateItem(
+                        IpcBuildDirtyStateItemKindNames.Scene,
+                        "Assets/Scenes/Main.unity"),
+                ]),
+            SerializerOptions));
+        using var inputProbe = JsonDocument.Parse(JsonSerializer.Serialize(
+            new IpcBuildInputProbe(
+                TargetStableName: "standaloneLinux64",
+                UnityBuildTarget: "StandaloneLinux64",
+                UnityBuildTargetGroup: "Standalone",
+                SceneSource: "explicit",
+                Scenes: ["Assets/Scenes/Main.unity"],
+                BuildOptions: "Development"),
+            SerializerOptions));
+        using var lifecycle = JsonDocument.Parse(JsonSerializer.Serialize(
+            new IpcBuildLifecycleSnapshot(
+                ServerVersion: "1.2.3",
+                EditorMode: "batchmode",
+                UnityVersion: "6000.0.0f1",
+                ProjectFingerprint: "project-fingerprint",
+                LifecycleState: "ready",
+                BlockingReason: null,
+                CompileState: "idle",
+                CompileGeneration: "compile-1",
+                DomainReloadGeneration: "domain-1",
+                CanAcceptExecutionRequests: true,
+                ObservedAtUtc: DateTimeOffset.Parse("2026-06-12T00:00:00+00:00"),
+                ActionRequired: null,
+                PrimaryDiagnostic: null,
+                PlayMode: null),
+            SerializerOptions));
+
+        JsonAssert.For(dirtyState.RootElement)
+            .HasBoolean("checked", true)
+            .HasBoolean("dirty", true)
+            .HasArrayLength("items", 1)
+            .HasProperty("items", 0, item => item
+                .HasString("kind", IpcBuildDirtyStateItemKindNames.Scene)
+                .HasString("path", "Assets/Scenes/Main.unity"));
+        JsonAssert.For(inputProbe.RootElement)
+            .HasString("targetStableName", "standaloneLinux64")
+            .HasString("unityBuildTarget", "StandaloneLinux64")
+            .HasString("unityBuildTargetGroup", "Standalone")
+            .HasString("sceneSource", "explicit")
+            .HasArrayLength("scenes", 1)
+            .HasString("buildOptions", "Development");
+        JsonAssert.For(lifecycle.RootElement)
+            .HasString("serverVersion", "1.2.3")
+            .HasString("editorMode", "batchmode")
+            .HasString("projectFingerprint", "project-fingerprint")
+            .HasString("compileGeneration", "compile-1")
+            .HasString("domainReloadGeneration", "domain-1")
+            .HasBoolean("canAcceptExecutionRequests", true)
+            .HasValueKind("playMode", JsonValueKind.Null);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void IpcTestRunProgressContracts_SerializeWithCamelCaseFields ()
     {
         using var started = JsonDocument.Parse(JsonSerializer.Serialize(

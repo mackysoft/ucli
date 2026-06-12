@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Vocabulary;
 
 namespace MackySoft.Ucli.Application.Shared.Execution;

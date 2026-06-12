@@ -1,5 +1,4 @@
 using System.Text.Json;
-using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Json;
 using MackySoft.Ucli.Contracts.Text;
