@@ -10,6 +10,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             UnityEditorSessionStateStore.SetDomainReloadGenerationForTests(0);
             UnityEditorSessionStateStore.SetPlayModeGenerationForTests(0);
+            UnityEditorSessionStateStore.SetAssetRefreshGenerationForTests(0);
             UnityEditorSessionStateStore.SetEditorInstanceIdForTests(null);
         }
 
@@ -18,6 +19,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             UnityEditorSessionStateStore.SetDomainReloadGenerationForTests(0);
             UnityEditorSessionStateStore.SetPlayModeGenerationForTests(0);
+            UnityEditorSessionStateStore.SetAssetRefreshGenerationForTests(0);
             UnityEditorSessionStateStore.SetEditorInstanceIdForTests(null);
         }
 
@@ -51,6 +53,26 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(actual, Is.EqualTo(4));
             Assert.That(UnityEditorSessionStateStore.RestoreDomainReloadGeneration(), Is.EqualTo(4));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void RestoreAssetRefreshGeneration_WhenNoGenerationWasPersisted_ReturnsZero ()
+        {
+            var actual = UnityEditorSessionStateStore.RestoreAssetRefreshGeneration();
+
+            Assert.That(actual, Is.Zero);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void AdvanceAssetRefreshGeneration_PersistsIncrementedGeneration ()
+        {
+            var advanced = UnityEditorSessionStateStore.AdvanceAssetRefreshGeneration();
+            var restored = UnityEditorSessionStateStore.RestoreAssetRefreshGeneration();
+
+            Assert.That(advanced, Is.EqualTo(1));
+            Assert.That(restored, Is.EqualTo(1));
         }
 
         [Test]

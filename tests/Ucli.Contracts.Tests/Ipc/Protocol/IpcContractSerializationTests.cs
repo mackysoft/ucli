@@ -203,7 +203,8 @@ public sealed class IpcContractSerializationTests
                     Transition: "none",
                     IsPlaying: false,
                     IsPlayingOrWillChangePlaymode: false,
-                    Generation: "play-1")),
+                    Generation: "play-1"),
+                AssetRefreshGeneration: "asset-1"),
             SerializerOptions));
 
         JsonAssert.For(dirtyState.RootElement)
@@ -232,6 +233,7 @@ public sealed class IpcContractSerializationTests
             .HasString("compileState", IpcCompileStateCodec.Failed)
             .HasString("compileGeneration", "compile-1")
             .HasString("domainReloadGeneration", "domain-1")
+            .HasString("assetRefreshGeneration", "asset-1")
             .HasBoolean("canAcceptExecutionRequests", false)
             .HasString("observedAtUtc", "2026-06-12T00:00:00+00:00")
             .HasString("actionRequired", DaemonDiagnosisActionRequiredValues.FixCompileErrors)
@@ -248,6 +250,139 @@ public sealed class IpcContractSerializationTests
                 .HasBoolean("isPlaying", false)
                 .HasBoolean("isPlayingOrWillChangePlaymode", false)
                 .HasString("generation", "play-1"));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcBuildRunContracts_SerializeWithCamelCaseFields ()
+    {
+        Assert.Equal("succeeded", ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded));
+        Assert.Equal("failed", ContractLiteralCodec.ToValue(IpcBuildReportResult.Failed));
+        Assert.Equal("canceled", ContractLiteralCodec.ToValue(IpcBuildReportResult.Canceled));
+        Assert.Equal("completed", ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed));
+        Assert.Equal("canceled", ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Canceled));
+
+        using var request = JsonDocument.Parse(JsonSerializer.Serialize(
+            new IpcBuildRunRequest(
+                RunId: "build-run-1",
+                TargetStableName: "standaloneLinux64",
+                UnityBuildTarget: "StandaloneLinux64",
+                SceneSource: ContractLiteralCodec.ToValue(BuildProfileSceneSource.Explicit),
+                ScenePaths: ["Assets/Scenes/Main.unity"],
+                Development: true,
+                OutputPath: "/tmp/ucli/output",
+                BuildReportPath: "/tmp/ucli/build-report.json",
+                BuildLogPath: "/tmp/ucli/build.log")
+            {
+                TimeoutMilliseconds = 1234,
+            },
+            SerializerOptions));
+        using var response = JsonDocument.Parse(JsonSerializer.Serialize(
+            new IpcBuildRunResponse(
+                RunId: "build-run-1",
+                ProjectFingerprint: "project-fingerprint",
+                LifecycleBefore: CreateBuildLifecycleSnapshot("before", canAcceptExecutionRequests: true),
+                LifecycleAfter: CreateBuildLifecycleSnapshot("after", canAcceptExecutionRequests: true),
+                DirtyState: new IpcBuildDirtyState(Checked: true, Dirty: false, Items: []),
+                Input: new IpcBuildInputProbe(
+                    TargetStableName: "standaloneLinux64",
+                    UnityBuildTarget: "StandaloneLinux64",
+                    UnityBuildTargetGroup: "Standalone",
+                    SceneSource: ContractLiteralCodec.ToValue(BuildProfileSceneSource.Explicit),
+                    Scenes: ["Assets/Scenes/Main.unity"],
+                    BuildOptions: "Development"),
+                Report: new IpcBuildReportArtifact(
+                    SchemaVersion: 1,
+                    Result: ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+                    Target: "StandaloneLinux64",
+                    OutputPath: "/tmp/ucli/output/build",
+                    DurationMilliseconds: 2500,
+                    TotalSizeBytes: 4096,
+                    ErrorCount: 0,
+                    WarningCount: 1,
+                    Steps:
+                    [
+                        new IpcBuildReportStep(
+                            Name: "Build player",
+                            DurationMilliseconds: 2500,
+                            Depth: 0,
+                            MessageCount: 1),
+                    ],
+                    Messages:
+                    [
+                        new IpcBuildReportMessage(
+                            Type: "warning",
+                            Content: "Sample warning"),
+                    ]),
+                Logs: new IpcBuildLogSummary(
+                    EntryCount: 3,
+                    ErrorCount: 0,
+                    WarningCount: 1,
+                    CompletionReason: ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+                    Window: new IpcBuildLogWindow(
+                        StartedAtUtc: DateTimeOffset.Parse("2026-06-12T00:00:00+00:00"),
+                        CompletedAtUtc: DateTimeOffset.Parse("2026-06-12T00:00:03+00:00")))),
+            SerializerOptions));
+
+        JsonAssert.For(request.RootElement)
+            .HasString("runId", "build-run-1")
+            .HasString("targetStableName", "standaloneLinux64")
+            .HasString("unityBuildTarget", "StandaloneLinux64")
+            .HasString("sceneSource", ContractLiteralCodec.ToValue(BuildProfileSceneSource.Explicit))
+            .HasArrayLength("scenePaths", 1)
+            .HasProperty("scenePaths", 0, scene => scene
+                .HasString("Assets/Scenes/Main.unity"))
+            .HasBoolean("development", true)
+            .HasString("outputPath", "/tmp/ucli/output")
+            .HasString("buildReportPath", "/tmp/ucli/build-report.json")
+            .HasString("buildLogPath", "/tmp/ucli/build.log")
+            .HasInt32("timeoutMilliseconds", 1234);
+        JsonAssert.For(response.RootElement)
+            .HasString("runId", "build-run-1")
+            .HasString("projectFingerprint", "project-fingerprint")
+            .HasProperty("lifecycleBefore", lifecycle => lifecycle
+                .HasString("compileGeneration", "compile-before")
+                .HasString("domainReloadGeneration", "domain-before")
+                .HasString("assetRefreshGeneration", "asset-before")
+                .HasBoolean("canAcceptExecutionRequests", true))
+            .HasProperty("lifecycleAfter", lifecycle => lifecycle
+                .HasString("compileGeneration", "compile-after")
+                .HasString("domainReloadGeneration", "domain-after")
+                .HasString("assetRefreshGeneration", "asset-after"))
+            .HasProperty("dirtyState", dirty => dirty
+                .HasBoolean("checked", true)
+                .HasBoolean("dirty", false)
+                .HasArrayLength("items", 0))
+            .HasProperty("input", input => input
+                .HasString("targetStableName", "standaloneLinux64")
+                .HasString("sceneSource", ContractLiteralCodec.ToValue(BuildProfileSceneSource.Explicit)))
+            .HasProperty("report", report => report
+                .HasInt32("schemaVersion", 1)
+                .HasString("result", ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded))
+                .HasString("target", "StandaloneLinux64")
+                .HasString("outputPath", "/tmp/ucli/output/build")
+                .HasInt32("durationMilliseconds", 2500)
+                .HasInt32("totalSizeBytes", 4096)
+                .HasInt32("errorCount", 0)
+                .HasInt32("warningCount", 1)
+                .HasArrayLength("steps", 1)
+                .HasProperty("steps", 0, step => step
+                    .HasString("name", "Build player")
+                    .HasInt32("durationMilliseconds", 2500)
+                    .HasInt32("depth", 0)
+                    .HasInt32("messageCount", 1))
+                .HasArrayLength("messages", 1)
+                .HasProperty("messages", 0, message => message
+                    .HasString("type", "warning")
+                    .HasString("content", "Sample warning")))
+            .HasProperty("logs", logs => logs
+                .HasInt32("entryCount", 3)
+                .HasInt32("errorCount", 0)
+                .HasInt32("warningCount", 1)
+                .HasString("completionReason", ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed))
+                .HasProperty("window", window => window
+                    .HasString("startedAtUtc", "2026-06-12T00:00:00+00:00")
+                    .HasString("completedAtUtc", "2026-06-12T00:00:03+00:00")));
     }
 
     [Fact]
@@ -1752,6 +1887,33 @@ public sealed class IpcContractSerializationTests
                 readPostconditionContract: "Does not stale read surfaces by itself.",
                 failureSemantics: "Failure means the observation was not fully produced.",
                 dangerousNotes: Array.Empty<string>()));
+    }
+
+    private static IpcBuildLifecycleSnapshot CreateBuildLifecycleSnapshot (
+        string generationSuffix,
+        bool canAcceptExecutionRequests)
+    {
+        return new IpcBuildLifecycleSnapshot(
+            ServerVersion: "0.5.0",
+            EditorMode: "batchmode",
+            UnityVersion: "6000.1.4f1",
+            ProjectFingerprint: "project-fingerprint",
+            LifecycleState: "ready",
+            BlockingReason: "none",
+            CompileState: "idle",
+            CompileGeneration: $"compile-{generationSuffix}",
+            DomainReloadGeneration: $"domain-{generationSuffix}",
+            CanAcceptExecutionRequests: canAcceptExecutionRequests,
+            ObservedAtUtc: DateTimeOffset.Parse("2026-06-12T00:00:00+00:00"),
+            ActionRequired: null,
+            PrimaryDiagnostic: null,
+            PlayMode: new IpcPlayModeSnapshot(
+                State: "stopped",
+                Transition: "none",
+                IsPlaying: false,
+                IsPlayingOrWillChangePlaymode: false,
+                Generation: $"play-{generationSuffix}"),
+            AssetRefreshGeneration: $"asset-{generationSuffix}");
     }
 
     private static IpcPlayLifecycleSnapshot CreatePlayLifecycleSnapshot (

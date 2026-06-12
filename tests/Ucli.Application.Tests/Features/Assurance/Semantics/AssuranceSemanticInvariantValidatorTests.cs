@@ -1,4 +1,6 @@
 using System.Text.Json;
+using MackySoft.Ucli.Application.Features.Assurance.Build.Semantics;
+using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
 using MackySoft.Ucli.Application.Features.Assurance.Semantics;
 using MackySoft.Ucli.Application.Features.CodeCatalog.Catalog;
@@ -20,6 +22,36 @@ public sealed class AssuranceSemanticInvariantValidatorTests
 
         Assert.True(result.IsValid);
         Assert.Empty(result.Violations);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Validate_WithValidBuildPayload_ReturnsNoViolations ()
+    {
+        var result = ValidateBuildPayload(CreateBuildPayload());
+
+        Assert.True(result.IsValid);
+        Assert.Empty(result.Violations);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Validate_WithBuildPayloadMissingStableReport_ReturnsReportsPath ()
+    {
+        var result = ValidateBuildPayload(CreateBuildPayload(includeBuildLogReport: false));
+
+        AssertViolationPath(result, "$.reports");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Validate_WithFailedBuildResultAndPassedSucceededClaim_ReturnsSucceededClaimStatusPath ()
+    {
+        var result = ValidateBuildPayload(CreateBuildPayload(
+            buildResult: "failed",
+            buildSucceededClaimStatus: "passed"));
+
+        AssertViolationPath(result, "$.claims[4].status");
     }
 
     [Fact]
@@ -730,6 +762,92 @@ public sealed class AssuranceSemanticInvariantValidatorTests
                 CreateDescriptor(LogUnavailableRisk, CodeCatalogKindValues.Risk),
             ]),
             [new ReadyAssuranceSemanticInvariantRule()]);
+    }
+
+    private static AssuranceSemanticInvariantValidator CreateBuildValidator ()
+    {
+        return new AssuranceSemanticInvariantValidator(
+            new StubCodeCatalog(BuildClaimCodes.All.Select(static code => CreateDescriptor(code.Value, CodeCatalogKindValues.Claim))),
+            [new BuildAssuranceSemanticInvariantRule()]);
+    }
+
+    private static AssuranceSemanticInvariantValidationResult ValidateBuildPayload (string payload)
+    {
+        using var document = JsonDocument.Parse(payload);
+        return CreateBuildValidator().Validate(document.RootElement);
+    }
+
+    private static string CreateBuildPayload (
+        string buildResult = "succeeded",
+        string buildSucceededClaimStatus = "passed",
+        bool includeBuildLogReport = true)
+    {
+        var reports = new Dictionary<string, object>(StringComparer.Ordinal)
+        {
+            ["build"] = new
+            {
+                kind = "build.metadata",
+                path = "artifacts/build.json",
+            },
+            ["buildReport"] = new
+            {
+                kind = "build.report",
+                path = "artifacts/build-report.json",
+            },
+            ["buildOutputManifest"] = new
+            {
+                kind = "build.outputManifest",
+                path = "artifacts/output-manifest.json",
+            },
+        };
+        if (includeBuildLogReport)
+        {
+            reports["buildLog"] = new
+            {
+                kind = "build.log",
+                path = "artifacts/build.log",
+            };
+        }
+
+        var claims = BuildClaimCodes.All
+            .Select((code, index) => new
+            {
+                id = code.Value,
+                status = index == 4 ? buildSucceededClaimStatus : "passed",
+                coverage = "full",
+                required = true,
+                verifierRef = "build",
+                evidence = Array.Empty<object>(),
+                residualRisks = Array.Empty<object>(),
+            })
+            .ToArray();
+        return JsonSerializer.Serialize(new
+        {
+            verdict = "pass",
+            build = new
+            {
+                summary = new
+                {
+                    result = buildResult,
+                },
+            },
+            verifiers = new[]
+            {
+                new
+                {
+                    id = "build",
+                    kind = "build",
+                    deterministic = false,
+                    required = true,
+                    primaryClaims = BuildClaimCodes.All.Select(static code => code.Value).ToArray(),
+                    effects = ContractLiteralCodec.GetLiterals<BuildEffect>(),
+                    reportRef = "build",
+                },
+            },
+            claims,
+            reports,
+            residualRisks = Array.Empty<object>(),
+        });
     }
 
     private static string ValidReadyPayload (string validityJson)
