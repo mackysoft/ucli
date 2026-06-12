@@ -36,6 +36,19 @@ internal sealed class UnityIpcRequestBuilder
                 CompileAllowedStartupLifecycleStates,
                 isRecoverable: true,
                 dispatchTimeoutPayloadTransformer: ApplyCompileDispatchTimeout),
+            UnityRequestPayload.BuildRun buildRun => new UnityIpcDispatchRequest(
+                IpcMethodNames.BuildRun,
+                IpcPayloadCodec.SerializeToElement(new IpcBuildRunRequest(
+                    RunId: buildRun.RunId,
+                    TargetStableName: buildRun.TargetStableName,
+                    UnityBuildTarget: buildRun.UnityBuildTarget,
+                    SceneSource: buildRun.SceneSource,
+                    ScenePaths: buildRun.ScenePaths,
+                    Development: buildRun.Development,
+                    OutputPath: buildRun.OutputPath,
+                    BuildReportPath: buildRun.BuildReportPath,
+                    BuildLogPath: buildRun.BuildLogPath)),
+                dispatchTimeoutPayloadTransformer: ApplyBuildRunDispatchTimeout),
             UnityRequestPayload.TestRun testRun => new UnityIpcDispatchRequest(
                 IpcMethodNames.TestRun,
                 IpcPayloadCodec.SerializeToElement(new IpcTestRunRequest(
@@ -119,6 +132,21 @@ internal sealed class UnityIpcRequestBuilder
         }
 
         return IpcPayloadCodec.SerializeToElement(testRunRequest with
+        {
+            TimeoutMilliseconds = ToTimeoutMilliseconds(dispatchTimeout),
+        });
+    }
+
+    private static JsonElement ApplyBuildRunDispatchTimeout (
+        JsonElement payload,
+        TimeSpan dispatchTimeout)
+    {
+        if (!IpcPayloadCodec.TryDeserialize(payload, out IpcBuildRunRequest buildRunRequest, out _))
+        {
+            return payload;
+        }
+
+        return IpcPayloadCodec.SerializeToElement(buildRunRequest with
         {
             TimeoutMilliseconds = ToTimeoutMilliseconds(dispatchTimeout),
         });

@@ -102,7 +102,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                 ObservedAtUtc: snapshot.ObservedAtUtc,
                 ActionRequired: snapshot.ActionRequired,
                 PrimaryDiagnostic: snapshot.PrimaryDiagnostic,
-                PlayMode: snapshot.PlayMode);
+                PlayMode: snapshot.PlayMode,
+                AssetRefreshGeneration: snapshot.AssetRefreshGeneration);
         }
 
         private static void ValidateInputs (

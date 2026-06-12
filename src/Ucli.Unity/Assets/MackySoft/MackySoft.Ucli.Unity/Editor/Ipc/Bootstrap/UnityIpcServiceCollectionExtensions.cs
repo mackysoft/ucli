@@ -67,6 +67,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddSingleton<IUnityEditorUpdateAwaiter, UnityEditorUpdateAwaiterAdapter>();
             services.AddSingleton<IUnityPlayModeController, UnityEditorPlayModeController>();
             services.AddSingleton<IUnityBuildTargetSupportProbe, UnityBuildTargetSupportProbe>();
+            services.AddSingleton<IUnityBuildPipelineRunner, UnityBuildPipelineRunner>();
             services.AddSingleton<UnityBuildPreconditionProbe>();
             services.AddSingleton<PlayEnterTransitionRunner>();
             services.AddSingleton<PlayExitTransitionRunner>();
@@ -87,6 +88,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     serviceProvider.GetRequiredService<IServerVersionProvider>(),
                     serviceProvider.GetRequiredService<IDaemonLogger>());
             });
+            services.AddSingleton<IUnityIpcMethodHandler, BuildRunUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodHandler>(serviceProvider =>
             {
                 return new PlayStatusUnityIpcMethodHandler(

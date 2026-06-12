@@ -16,5 +16,6 @@ namespace MackySoft.Ucli.Unity.Runtime
         DateTimeOffset? ObservedAtUtc = null,
         string ActionRequired = null,
         IpcPrimaryDiagnostic PrimaryDiagnostic = null,
-        IpcPlayModeSnapshot PlayMode = null);
+        IpcPlayModeSnapshot PlayMode = null,
+        string AssetRefreshGeneration = null);
 }

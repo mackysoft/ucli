@@ -19,6 +19,18 @@ internal abstract record UnityRequestPayload
     internal sealed record Compile (
         string RunId) : UnityRequestPayload;
 
+    /// <summary> Represents a build assurance request prepared by application orchestration. </summary>
+    internal sealed record BuildRun (
+        string RunId,
+        string TargetStableName,
+        string UnityBuildTarget,
+        string SceneSource,
+        IReadOnlyList<string> ScenePaths,
+        bool Development,
+        string OutputPath,
+        string BuildReportPath,
+        string BuildLogPath) : UnityRequestPayload;
+
     /// <summary> Represents a Unity Test Framework run request prepared by application orchestration. </summary>
     internal sealed record TestRun (
         string TestPlatform,

@@ -152,6 +152,12 @@ namespace MackySoft.Ucli.Unity.Runtime
         /// <summary> Gets the current domain-reload generation used by plan-token environment snapshots. </summary>
         internal static string CurrentDomainReloadGeneration => sharedLifecycleTelemetryState.DomainReloadGeneration;
 
+        /// <summary> Records completion of one asset refresh cycle. </summary>
+        internal static void ObserveAssetRefreshCompleted ()
+        {
+            sharedLifecycleMonitor.OnAssetRefreshCompleted();
+        }
+
         private static bool OnWantsToQuit ()
         {
             // NOTE:
@@ -315,7 +321,8 @@ namespace MackySoft.Ucli.Unity.Runtime
                     ObservedAtUtc: snapshot.ObservedAtUtc,
                     ActionRequired: snapshot.ActionRequired,
                     PrimaryDiagnostic: snapshot.PrimaryDiagnostic,
-                    PlayMode: snapshot.PlayMode);
+                    PlayMode: snapshot.PlayMode,
+                    AssetRefreshGeneration: snapshot.AssetRefreshGeneration);
                 return UnityEditorExecutionReadinessPolicy.CreateBlockedResult(blockedSnapshot);
             }
 

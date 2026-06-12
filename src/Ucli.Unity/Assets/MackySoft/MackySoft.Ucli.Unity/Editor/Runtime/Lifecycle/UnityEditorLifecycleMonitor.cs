@@ -59,7 +59,8 @@ namespace MackySoft.Ucli.Unity.Runtime
                 PrimaryDiagnostic: lifecycleTelemetryState.PrimaryDiagnostic,
                 PlayMode: lifecycleTelemetryState.CapturePlayModeSnapshot(
                     isPlaying,
-                    isPlayingOrWillChangePlaymode));
+                    isPlayingOrWillChangePlaymode),
+                AssetRefreshGeneration: lifecycleTelemetryState.AssetRefreshGeneration);
         }
 
         /// <summary> Records one editor update observation. </summary>
@@ -87,6 +88,12 @@ namespace MackySoft.Ucli.Unity.Runtime
         public void OnCompilationFinished ()
         {
             lifecycleTelemetryState.OnCompilationFinished();
+        }
+
+        /// <summary> Records completion of one asset refresh cycle. </summary>
+        public void OnAssetRefreshCompleted ()
+        {
+            lifecycleTelemetryState.OnAssetRefreshCompleted();
         }
 
         /// <summary> Records the start of one domain reload. </summary>

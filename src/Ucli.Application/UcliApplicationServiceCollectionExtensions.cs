@@ -1,3 +1,8 @@
+using MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
+using MackySoft.Ucli.Application.Features.Assurance.Build.Catalog;
+using MackySoft.Ucli.Application.Features.Assurance.Build.Contracts;
+using MackySoft.Ucli.Application.Features.Assurance.Build.Execution;
+using MackySoft.Ucli.Application.Features.Assurance.Build.Semantics;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Artifacts;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Catalog;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Contracts;
@@ -109,6 +114,7 @@ public static class UcliApplicationServiceCollectionExtensions
         services.AddSingleton<ICodeCatalogContributor, ContractsCodeCatalogContributor>();
         services.AddSingleton<ICodeCatalogContributor, ApplicationCodeCatalogContributor>();
         services.AddSingleton<ICodeCatalogContributor, ReadyCodeCatalogContributor>();
+        services.AddSingleton<ICodeCatalogContributor, BuildCodeCatalogContributor>();
         services.AddSingleton<ICodeCatalogContributor, CompileCodeCatalogContributor>();
         services.AddSingleton<ICodeCatalogContributor, VerifyCodeCatalogContributor>();
         services.AddSingleton<ICodeCatalog, CodeCatalog>();
@@ -119,9 +125,12 @@ public static class UcliApplicationServiceCollectionExtensions
     private static IServiceCollection AddUcliApplicationAssuranceServices (this IServiceCollection services)
     {
         services.AddSingleton<IAssuranceSemanticInvariantRule, ReadyAssuranceSemanticInvariantRule>();
+        services.AddSingleton<IAssuranceSemanticInvariantRule, BuildAssuranceSemanticInvariantRule>();
         services.AddSingleton<IAssuranceSemanticInvariantRule, CompileAssuranceSemanticInvariantRule>();
         services.AddSingleton<IAssuranceSemanticInvariantRule, VerifyAssuranceSemanticInvariantRule>();
         services.AddSingleton<AssuranceSemanticInvariantValidator>();
+        services.AddSingleton<IBuildRunIdFactory, BuildRunIdFactory>();
+        services.AddSingleton<IBuildService, BuildService>();
         services.AddSingleton<ICompileRunIdFactory, CompileRunIdFactory>();
         services.AddSingleton<ICompileService, CompileService>();
         services.AddSingleton<IReadyService, ReadyService>();

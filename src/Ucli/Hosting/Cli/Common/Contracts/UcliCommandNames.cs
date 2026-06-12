@@ -21,6 +21,12 @@ internal static class UcliCommandNames
     /// <summary> Gets the command name for compile. </summary>
     public const string Compile = "compile";
 
+    /// <summary> Gets the top-level command name for build. </summary>
+    public const string Build = "build";
+
+    /// <summary> Gets the command name for <c>build run</c> result payloads. </summary>
+    public const string BuildRun = "build.run";
+
     /// <summary> Gets the command name for verify. </summary>
     public const string Verify = "verify";
 
