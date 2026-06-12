@@ -100,8 +100,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                 var logStartOffset = GetLogLength(logSourcePath);
                 var startedAtUtc = DateTimeOffset.UtcNow;
                 var buildOptions = UnityBuildPlayerOptionsFactory.Create(buildRunRequest, precondition.ResolvedInput!);
-                var report = buildPipelineRunner.Run(buildOptions);
-                executionCancellationToken.ThrowIfCancellationRequested();
+                var report = await buildPipelineRunner
+                    .RunAsync(buildOptions, executionCancellationToken);
                 var completedAtUtc = DateTimeOffset.UtcNow;
                 var lifecycleAfter = preconditionProbe.CaptureAfterBuild();
                 var logEndOffset = GetLogLength(logSourcePath);
