@@ -116,6 +116,20 @@ public sealed class CodeCatalogTests
         Assert.Equal(CodeCatalogKindValues.Error, targetUnsupportedDescriptor.Kind);
         Assert.Equal("build", targetUnsupportedDescriptor.Category);
         Assert.Contains(UcliCommandIds.BuildRun, targetUnsupportedDescriptor.AppliesTo);
+
+        var artifactCodes = new[]
+        {
+            BuildErrorCodes.BuildArtifactWriteFailed,
+            BuildErrorCodes.BuildOutputManifestFailed,
+            BuildErrorCodes.BuildOutputDigestMismatch,
+        };
+        foreach (var artifactCode in artifactCodes)
+        {
+            Assert.True(catalog.TryFind(artifactCode, out var artifactDescriptor));
+            Assert.Equal(CodeCatalogKindValues.Error, artifactDescriptor.Kind);
+            Assert.Equal("build", artifactDescriptor.Category);
+            Assert.Contains(UcliCommandIds.BuildRun, artifactDescriptor.AppliesTo);
+        }
     }
 
     [Fact]
@@ -128,6 +142,21 @@ public sealed class CodeCatalogTests
         Assert.Equal(
             ApplicationOutcome.InvalidArgument,
             ApplicationFailure.FromCode(BuildErrorCodes.BuildTargetUnsupported, "Unsupported build target.").Outcome);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ApplicationFailure_FromBuildArtifactCodes_UsesToolErrorOutcome ()
+    {
+        Assert.Equal(
+            ApplicationOutcome.ToolError,
+            ApplicationFailure.FromCode(BuildErrorCodes.BuildArtifactWriteFailed, "Artifact write failed.").Outcome);
+        Assert.Equal(
+            ApplicationOutcome.ToolError,
+            ApplicationFailure.FromCode(BuildErrorCodes.BuildOutputManifestFailed, "Output manifest failed.").Outcome);
+        Assert.Equal(
+            ApplicationOutcome.ToolError,
+            ApplicationFailure.FromCode(BuildErrorCodes.BuildOutputDigestMismatch, "Digest mismatch.").Outcome);
     }
 
     [Fact]

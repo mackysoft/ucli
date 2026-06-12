@@ -47,5 +47,62 @@ internal static class BuildErrorCodeDescriptors
                     Action: "Use a supported build target stable name in the build profile."),
             ],
             relatedCodes: [BuildErrorCodes.BuildProfileInvalid]),
+
+        UcliErrorDescriptorFactory.Create(
+            code: BuildErrorCodes.BuildArtifactWriteFailed,
+            category: "build",
+            summary: "The build artifacts could not be written.",
+            meaning: "uCLI could not create or update the build-run artifact directory or one of its required metadata artifacts.",
+            appliesTo: AppliesToBuildRun,
+            possiblePhases: ["artifactPreparation", "artifactWrite"],
+            impliesNotApplied: false,
+            mayBeIndeterminate: true,
+            safeToRetry: UcliErrorRetryClassValues.Yes,
+            inspect: ["errors[].code", "errors[].message", "payload.build.artifacts"],
+            nextActions:
+            [
+                new UcliErrorNextActionDescriptor(
+                    When: null,
+                    Action: "Check filesystem permissions and remove any conflicting file or symbolic link under the build artifact directory."),
+            ],
+            relatedCodes: [UcliCoreErrorCodes.InternalError]),
+
+        UcliErrorDescriptorFactory.Create(
+            code: BuildErrorCodes.BuildOutputManifestFailed,
+            category: "build",
+            summary: "The build output manifest could not be produced.",
+            meaning: "uCLI could not enumerate the build output directory or persist output-manifest.json with trustworthy file accounting.",
+            appliesTo: AppliesToBuildRun,
+            possiblePhases: ["outputManifestWrite", "artifactAccounting"],
+            impliesNotApplied: false,
+            mayBeIndeterminate: true,
+            safeToRetry: UcliErrorRetryClassValues.Yes,
+            inspect: ["errors[].code", "errors[].message", "payload.build.artifacts.buildOutputManifest"],
+            nextActions:
+            [
+                new UcliErrorNextActionDescriptor(
+                    When: null,
+                    Action: "Check the generated build output directory for unsupported links, permissions, or files that are still being modified."),
+            ],
+            relatedCodes: [BuildErrorCodes.BuildArtifactWriteFailed]),
+
+        UcliErrorDescriptorFactory.Create(
+            code: BuildErrorCodes.BuildOutputDigestMismatch,
+            category: "build",
+            summary: "The build output digest accounting changed while being recorded.",
+            meaning: "A build output file changed while uCLI was calculating output-manifest.json, so the manifest could not be trusted.",
+            appliesTo: AppliesToBuildRun,
+            possiblePhases: ["artifactAccounting"],
+            impliesNotApplied: false,
+            mayBeIndeterminate: true,
+            safeToRetry: UcliErrorRetryClassValues.Yes,
+            inspect: ["errors[].code", "errors[].message", "payload.build.artifacts.buildOutputManifest"],
+            nextActions:
+            [
+                new UcliErrorNextActionDescriptor(
+                    When: null,
+                    Action: "Retry the build after ensuring no external process mutates the build output directory."),
+            ],
+            relatedCodes: [BuildErrorCodes.BuildOutputManifestFailed]),
     ];
 }

@@ -72,6 +72,9 @@ public static class UcliStoragePathNames
     /// <summary> Gets the compile-artifacts directory name under one fingerprint artifacts directory. </summary>
     public const string CompileArtifactsDirectoryName = "compile";
 
+    /// <summary> Gets the build-artifacts directory name under one fingerprint artifacts directory. </summary>
+    public const string BuildArtifactsDirectoryName = "build";
+
     /// <summary> Gets the recoverable IPC operation directory name under one fingerprint directory. </summary>
     public const string IpcOperationsDirectoryName = "ipc-operations";
 
@@ -83,6 +86,21 @@ public static class UcliStoragePathNames
 
     /// <summary> Gets the compile-run diagnostics artifact file name. </summary>
     public const string CompileDiagnosticsFileName = "diagnostics.json";
+
+    /// <summary> Gets the build-run metadata artifact file name. </summary>
+    public const string BuildMetadataFileName = "build.json";
+
+    /// <summary> Gets the build-run BuildReport artifact file name. </summary>
+    public const string BuildReportFileName = "build-report.json";
+
+    /// <summary> Gets the build-run log artifact file name. </summary>
+    public const string BuildLogFileName = "build.log";
+
+    /// <summary> Gets the build-run output manifest artifact file name. </summary>
+    public const string BuildOutputManifestFileName = "output-manifest.json";
+
+    /// <summary> Gets the build-run player output directory name. </summary>
+    public const string BuildOutputDirectoryName = "output";
 
     /// <summary> Gets the shared config file name under <c>.ucli</c>. </summary>
     public const string ConfigFileName = "config.json";

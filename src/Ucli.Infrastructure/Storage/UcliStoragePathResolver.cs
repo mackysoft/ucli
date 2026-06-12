@@ -454,6 +454,20 @@ public static class UcliStoragePathResolver
             UcliStoragePathNames.CompileArtifactsDirectoryName);
     }
 
+    /// <summary> Resolves the absolute path to one fingerprint build-artifacts directory under <c>.ucli/local/fingerprints/&lt;projectFingerprint&gt;/artifacts/build</c>. </summary>
+    /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
+    /// <param name="projectFingerprint"> The project fingerprint value. Must not be <see langword="null" />, empty, or whitespace. </param>
+    /// <returns> The absolute fingerprint build-artifacts directory path. </returns>
+    /// <exception cref="ArgumentException"> Thrown when any argument is <see langword="null" />, empty, or whitespace. </exception>
+    public static string ResolveBuildArtifactsDirectory (
+        string storageRoot,
+        string projectFingerprint)
+    {
+        return Path.Combine(
+            ResolveArtifactsDirectory(storageRoot, projectFingerprint),
+            UcliStoragePathNames.BuildArtifactsDirectoryName);
+    }
+
     /// <summary> Resolves the absolute path to one mutation read-postcondition file under one fingerprint directory. </summary>
     /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
     /// <param name="projectFingerprint"> The project fingerprint value. Must not be <see langword="null" />, empty, or whitespace. </param>
@@ -479,19 +493,7 @@ public static class UcliStoragePathResolver
         string projectFingerprint,
         string runId)
     {
-        if (!TryTrimToNonEmpty(runId, out var normalizedRunId))
-        {
-            throw new ArgumentException("Run identifier must not be empty.", nameof(runId));
-        }
-
-        if (normalizedRunId.IndexOfAny(PathSegmentInvalidPathChars) >= 0
-            || string.Equals(normalizedRunId, ".", StringComparison.Ordinal)
-            || string.Equals(normalizedRunId, "..", StringComparison.Ordinal))
-        {
-            throw new ArgumentException(
-                "Run identifier must be one path segment and must not contain path separator or traversal tokens.",
-                nameof(runId));
-        }
+        var normalizedRunId = NormalizeRunId(runId);
 
         return Path.Combine(
             ResolveTestArtifactsDirectory(storageRoot, projectFingerprint),
@@ -509,22 +511,28 @@ public static class UcliStoragePathResolver
         string projectFingerprint,
         string runId)
     {
-        if (!TryTrimToNonEmpty(runId, out var normalizedRunId))
-        {
-            throw new ArgumentException("Run identifier must not be empty.", nameof(runId));
-        }
-
-        if (normalizedRunId.IndexOfAny(PathSegmentInvalidPathChars) >= 0
-            || string.Equals(normalizedRunId, ".", StringComparison.Ordinal)
-            || string.Equals(normalizedRunId, "..", StringComparison.Ordinal))
-        {
-            throw new ArgumentException(
-                "Run identifier must be one path segment and must not contain path separator or traversal tokens.",
-                nameof(runId));
-        }
+        var normalizedRunId = NormalizeRunId(runId);
 
         return Path.Combine(
             ResolveCompileArtifactsDirectory(storageRoot, projectFingerprint),
+            normalizedRunId);
+    }
+
+    /// <summary> Resolves the absolute path to one build-run artifacts directory under <c>.ucli/local/fingerprints/&lt;projectFingerprint&gt;/artifacts/build/&lt;runId&gt;</c>. </summary>
+    /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
+    /// <param name="projectFingerprint"> The project fingerprint value. Must not be <see langword="null" />, empty, or whitespace. </param>
+    /// <param name="runId"> The run identifier value. Must not be <see langword="null" />, empty, whitespace, or contain path-segment/control tokens. </param>
+    /// <returns> The absolute build-run artifacts directory path. </returns>
+    /// <exception cref="ArgumentException"> Thrown when any argument is <see langword="null" />, empty, or whitespace. </exception>
+    public static string ResolveBuildRunArtifactsDirectory (
+        string storageRoot,
+        string projectFingerprint,
+        string runId)
+    {
+        var normalizedRunId = NormalizeRunId(runId);
+
+        return Path.Combine(
+            ResolveBuildArtifactsDirectory(storageRoot, projectFingerprint),
             normalizedRunId);
     }
 
@@ -721,6 +729,25 @@ public static class UcliStoragePathResolver
         }
 
         return normalizedProjectFingerprint;
+    }
+
+    private static string NormalizeRunId (string runId)
+    {
+        if (!TryTrimToNonEmpty(runId, out var normalizedRunId))
+        {
+            throw new ArgumentException("Run identifier must not be empty.", nameof(runId));
+        }
+
+        if (normalizedRunId.IndexOfAny(PathSegmentInvalidPathChars) >= 0
+            || string.Equals(normalizedRunId, ".", StringComparison.Ordinal)
+            || string.Equals(normalizedRunId, "..", StringComparison.Ordinal))
+        {
+            throw new ArgumentException(
+                "Run identifier must be one path segment and must not contain path separator or traversal tokens.",
+                nameof(runId));
+        }
+
+        return normalizedRunId;
     }
 
     private static string NormalizeLaunchAttemptId (string launchAttemptId)
