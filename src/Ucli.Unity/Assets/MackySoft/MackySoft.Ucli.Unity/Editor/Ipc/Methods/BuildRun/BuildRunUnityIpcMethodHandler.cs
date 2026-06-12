@@ -237,7 +237,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 Input: precondition.InputProbe);
         }
 
-        private async Task<(int EntryCount, int ErrorCount, int WarningCount)> ExportBuildLogAsync (
+        private async Task<EditorLogRangeExportResult> ExportBuildLogAsync (
             string sourcePath,
             string destinationPath,
             long startOffset,
@@ -248,7 +248,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             if (string.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
             {
                 await WriteTextAtomicallyAsync(destinationPath, string.Empty, cancellationToken).ConfigureAwait(false);
-                return (0, 0, 0);
+                return new EditorLogRangeExportResult(0, 0, 0);
             }
 
             return await editorLogRangeExporter.ExportRangeAsync(

@@ -450,7 +450,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             private readonly string? contents;
 
-            private readonly (int EntryCount, int ErrorCount, int WarningCount) summary;
+            private readonly EditorLogRangeExportResult summary;
 
             public CountingEditorLogRangeExporter ()
             {
@@ -463,12 +463,12 @@ namespace MackySoft.Ucli.Unity.Tests
                 int warningCount)
             {
                 this.contents = contents;
-                summary = (entryCount, errorCount, warningCount);
+                summary = new EditorLogRangeExportResult(entryCount, errorCount, warningCount);
             }
 
             public int CallCount { get; private set; }
 
-            public Task<(int EntryCount, int ErrorCount, int WarningCount)> ExportRangeAsync (
+            public Task<EditorLogRangeExportResult> ExportRangeAsync (
                 string sourcePath,
                 string destinationPath,
                 long startOffset,

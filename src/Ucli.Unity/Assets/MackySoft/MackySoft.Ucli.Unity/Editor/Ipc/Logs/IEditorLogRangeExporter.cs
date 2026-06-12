@@ -12,8 +12,8 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="startOffset"> The inclusive start byte offset. </param>
         /// <param name="endOffset"> The exclusive end byte offset. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by caller. </param>
-        /// <returns> The number of exported log entries and severity-classified warning/error entries. </returns>
-        Task<(int EntryCount, int ErrorCount, int WarningCount)> ExportRangeAsync (
+        /// <returns> The counters collected from the exported log range. </returns>
+        Task<EditorLogRangeExportResult> ExportRangeAsync (
             string sourcePath,
             string destinationPath,
             long startOffset,
