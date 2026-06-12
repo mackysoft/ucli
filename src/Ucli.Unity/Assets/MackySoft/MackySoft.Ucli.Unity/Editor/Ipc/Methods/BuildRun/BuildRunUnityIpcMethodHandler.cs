@@ -121,7 +121,11 @@ namespace MackySoft.Ucli.Unity.Ipc
                 }
 
                 var normalizedReport = UnityBuildReportNormalizer.Normalize(report);
-                WriteJsonAtomically(buildRunRequest.BuildReportPath, normalizedReport);
+                await WriteJsonAtomicallyAsync(
+                        buildRunRequest.BuildReportPath,
+                        normalizedReport,
+                        executionCancellationToken)
+                    .ConfigureAwait(false);
                 await ExportBuildLogAsync(
                         logSourcePath,
                         buildRunRequest.BuildLogPath,
@@ -131,7 +135,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     .ConfigureAwait(false);
                 var completionReason = UnityBuildReportNormalizer.ToCompletionReason(normalizedReport.Result);
                 var logs = new IpcBuildLogSummary(
-                    EntryCount: CountLogEntries(buildRunRequest.BuildLogPath),
+                    EntryCount: await CountLogEntriesAsync(buildRunRequest.BuildLogPath, executionCancellationToken).ConfigureAwait(false),
                     ErrorCount: normalizedReport.ErrorCount,
                     WarningCount: normalizedReport.WarningCount,
                     CompletionReason: ContractLiteralCodec.ToValue(completionReason),
@@ -240,7 +244,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             cancellationToken.ThrowIfCancellationRequested();
             if (string.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
             {
-                WriteTextAtomically(destinationPath, string.Empty);
+                await WriteTextAtomicallyAsync(destinationPath, string.Empty, cancellationToken).ConfigureAwait(false);
                 return;
             }
 
@@ -404,37 +408,47 @@ namespace MackySoft.Ucli.Unity.Ipc
             return new FileInfo(path).Length;
         }
 
-        private static int CountLogEntries (string path)
+        private static async Task<int> CountLogEntriesAsync (
+            string path,
+            CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (!File.Exists(path))
             {
                 return 0;
             }
 
             var count = 0;
-            using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            var totalBytesRead = 0L;
+            var buffer = new byte[81920];
+            using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, buffer.Length, useAsync: true))
             {
                 var previousWasNewLine = false;
                 while (true)
                 {
-                    var value = stream.ReadByte();
-                    if (value < 0)
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length, cancellationToken);
+                    if (bytesRead == 0)
                     {
                         break;
                     }
 
-                    if (value == '\n')
+                    totalBytesRead += bytesRead;
+                    for (var i = 0; i < bytesRead; i++)
                     {
-                        count++;
-                        previousWasNewLine = true;
-                    }
-                    else
-                    {
-                        previousWasNewLine = false;
+                        if (buffer[i] == '\n')
+                        {
+                            count++;
+                            previousWasNewLine = true;
+                        }
+                        else
+                        {
+                            previousWasNewLine = false;
+                        }
                     }
                 }
 
-                if (stream.Length > 0 && !previousWasNewLine)
+                if (totalBytesRead > 0 && !previousWasNewLine)
                 {
                     count++;
                 }
@@ -443,17 +457,24 @@ namespace MackySoft.Ucli.Unity.Ipc
             return count;
         }
 
-        private static void WriteJsonAtomically<T> (
+        private static async Task WriteJsonAtomicallyAsync<T> (
             string path,
-            T value)
+            T value,
+            CancellationToken cancellationToken)
         {
-            WriteTextAtomically(path, JsonSerializer.Serialize(value, IpcJsonSerializerOptions.Default));
+            await WriteTextAtomicallyAsync(
+                    path,
+                    JsonSerializer.Serialize(value, IpcJsonSerializerOptions.Default),
+                    cancellationToken)
+                .ConfigureAwait(false);
         }
 
-        private static void WriteTextAtomically (
+        private static async Task WriteTextAtomicallyAsync (
             string path,
-            string value)
+            string value,
+            CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var directoryPath = Path.GetDirectoryName(path);
             if (string.IsNullOrWhiteSpace(directoryPath))
             {
@@ -464,7 +485,13 @@ namespace MackySoft.Ucli.Unity.Ipc
             var tempPath = path + $".tmp.{Guid.NewGuid():N}";
             try
             {
-                File.WriteAllText(tempPath, value, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+                var bytes = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false).GetBytes(value);
+                using (var stream = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, 81920, useAsync: true))
+                {
+                    await stream.WriteAsync(bytes, 0, bytes.Length, cancellationToken);
+                }
+
+                cancellationToken.ThrowIfCancellationRequested();
                 if (File.Exists(path))
                 {
                     File.Replace(tempPath, path, destinationBackupFileName: null, ignoreMetadataErrors: true);

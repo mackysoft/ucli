@@ -91,7 +91,7 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
             var manifestDigest = CalculateManifestContentDigest(manifestContent);
             var manifest = CreateOutputManifest(manifestContent, manifestDigest);
 
-            WriteJsonAtomically(paths.OutputManifestPath, manifest);
+            await WriteJsonAtomicallyAsync(paths.OutputManifestPath, manifest, cancellationToken).ConfigureAwait(false);
             return BuildOutputManifestResult.Success(manifest);
         }
         catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
@@ -120,7 +120,7 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
 
         try
         {
-            WriteJsonAtomically(paths.BuildJsonPath, metadata);
+            await WriteJsonAtomicallyAsync(paths.BuildJsonPath, metadata, cancellationToken).ConfigureAwait(false);
             return await CalculateDigestAsync(paths.BuildJsonPath, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
@@ -342,10 +342,13 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
             Files: manifest.Files);
     }
 
-    private static void WriteJsonAtomically<T> (
+    private static async ValueTask WriteJsonAtomicallyAsync<T> (
         string path,
-        T value)
+        T value,
+        CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         var directoryPath = Path.GetDirectoryName(path);
         if (string.IsNullOrWhiteSpace(directoryPath))
         {
@@ -358,12 +361,17 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         try
         {
             EnsureWritableArtifactPath(tempPath);
-            using (var stream = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
-            using (var writer = new StreamWriter(stream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)))
+            await using (var stream = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, 8192, useAsync: true))
             {
-                writer.Write(JsonSerializer.Serialize(value, IpcJsonSerializerOptions.Default));
+                await JsonSerializer.SerializeAsync(
+                        stream,
+                        value,
+                        IpcJsonSerializerOptions.Default,
+                        cancellationToken)
+                    .ConfigureAwait(false);
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
             FileSystemAccessBoundary.EnsureSecureFile(tempPath);
             EnsureWritableArtifactPath(path);
             ReplaceFile(tempPath, path);
