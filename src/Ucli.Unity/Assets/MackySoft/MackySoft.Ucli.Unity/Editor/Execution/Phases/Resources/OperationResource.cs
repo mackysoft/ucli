@@ -1,5 +1,5 @@
 using System;
-using MackySoft.Ucli.Unity.Project;
+using MackySoft.Ucli.Infrastructure.Paths;
 
 #nullable enable
 
@@ -23,7 +23,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> The normalized asset owner resource. </returns>
         public static OperationResource PersistentAsset (string assetPath)
         {
-            var normalizedAssetPath = UnityAssetPathUtility.NormalizeAssetPath(assetPath);
+            var normalizedAssetPath = PathStringNormalizer.ToSlashSeparated(assetPath);
             var kind = normalizedAssetPath.StartsWith(ProjectSettingsRootPrefix, StringComparison.Ordinal)
                 ? OperationTouchKind.ProjectSettings
                 : OperationTouchKind.Asset;

@@ -1010,8 +1010,12 @@ namespace EvalScripts
                 "context.DeclareTouchedScene(\"Assets/Main.prefab\");",
                 "context.DeclareTouchedPrefab(\"/Assets/Main.prefab\");",
                 "context.DeclareTouchedProjectSettings(\"ProjectSettings.asset\");",
+                "context.DeclareTouchedAsset(\"Assets/Foo:Bar.asset\");",
+                "context.DeclareTouchedProjectSettings(\"ProjectSettings/Foo:Bar.asset\");",
                 "context.DeclareTouchedAsset(\"Assets/Main.unity\");",
                 "context.DeclareTouchedAsset(\"Assets/Widget.prefab\");",
+                "context.DeclareTouchedAsset(\"Assets/Main.UNITY\");",
+                "context.DeclareTouchedAsset(\"Assets/Widget.PREFAB\");",
             };
             var operation = CreateCsEvalOperation();
             for (var i = 0; i < cases.Length; i++)

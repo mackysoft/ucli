@@ -2,8 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Infrastructure.Paths;
-using MackySoft.Ucli.Unity.Project;
 using UnityEditor;
 
 #nullable enable
@@ -62,7 +62,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             foreach (var filePath in Directory.EnumerateFiles(projectSettingsDirectoryPath, "*", SearchOption.AllDirectories))
             {
                 var fileInfo = new FileInfo(filePath);
-                var relativePath = NormalizeProjectRelativePath(Path.GetRelativePath(projectRoot, filePath));
+                var relativePath = PathStringNormalizer.ToSlashSeparated(Path.GetRelativePath(projectRoot, filePath));
                 snapshot[relativePath] = new ProjectOperationFileSnapshot(
                     fileInfo.Length,
                     fileInfo.LastWriteTimeUtc.Ticks);
@@ -260,7 +260,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            var normalizedPath = NormalizeProjectRelativePath(candidatePath!);
+            if (!UnityAssetPathContract.TryNormalizeProjectRelativePath(candidatePath, out var normalizedPath))
+            {
+                return false;
+            }
+
             if (normalizedPath.EndsWith(MetaExtension, StringComparison.Ordinal))
             {
                 normalizedPath = normalizedPath.Substring(0, normalizedPath.Length - MetaExtension.Length);
@@ -280,7 +284,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return true;
             }
 
-            if (!UnityAssetPathUtility.IsAssetsDescendantPath(normalizedPath))
+            if (!UnityAssetPathContract.IsNormalizedAssetsDescendantPath(normalizedPath))
             {
                 return false;
             }
@@ -297,12 +301,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> The touched resource kind. </returns>
         private static OperationTouchKind ResolveAssetTouchKind (string assetPath)
         {
-            if (assetPath.EndsWith(".unity", StringComparison.Ordinal))
+            if (UnityAssetPathContract.IsNormalizedSceneAssetPath(assetPath))
             {
                 return OperationTouchKind.Scene;
             }
 
-            if (assetPath.EndsWith(".prefab", StringComparison.Ordinal))
+            if (UnityAssetPathContract.IsNormalizedPrefabAssetPath(assetPath))
             {
                 return OperationTouchKind.Prefab;
             }
@@ -319,18 +323,5 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return string.IsNullOrWhiteSpace(assetGuid) ? null : assetGuid;
         }
 
-        /// <summary> Normalizes one project-relative path to the protocol slash format. </summary>
-        /// <param name="path"> The source path. </param>
-        /// <returns> The normalized project-relative path. </returns>
-        private static string NormalizeProjectRelativePath (string path)
-        {
-            var normalizedPath = PathStringNormalizer.ToSlashSeparated(path);
-            if (normalizedPath.StartsWith("./", StringComparison.Ordinal))
-            {
-                return normalizedPath.Substring(2);
-            }
-
-            return normalizedPath;
-        }
     }
 }

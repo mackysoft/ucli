@@ -1,6 +1,6 @@
 using System;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Unity.Project;
+using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Unity.SceneInspection;
 using UnityEditor;
 using UnityEngine;
@@ -964,13 +964,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            assetPath = UnityAssetPathUtility.NormalizeAssetPath(assetPath);
-            if (!PrefabOperationUtilities.TryEnsurePrefabAssetExists(assetPath, out _))
+            assetPath = PathStringNormalizer.ToSlashSeparated(assetPath);
+            if (!PrefabOperationUtilities.TryEnsurePrefabAssetExists(assetPath, out var normalizedPrefabPath, out _))
             {
                 return false;
             }
 
-            prefabPath = assetPath;
+            prefabPath = normalizedPrefabPath;
             return true;
         }
 
@@ -1002,7 +1002,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             out UnityEngine.Object? unityObject,
             out string errorMessage)
         {
-            var normalizedAssetPath = UnityAssetPathUtility.NormalizeAssetPath(assetPath);
+            var normalizedAssetPath = PathStringNormalizer.ToSlashSeparated(assetPath);
             if (allowTemporaryState
                 && executionContext != null
                 && executionContext.TryGetPlannedAssetState(normalizedAssetPath, out var plannedAssetState)

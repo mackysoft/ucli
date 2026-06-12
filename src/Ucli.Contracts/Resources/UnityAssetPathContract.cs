@@ -67,6 +67,24 @@ public static class UnityAssetPathContract
             || path.StartsWith(AssetsRootPrefix, StringComparison.Ordinal);
     }
 
+    /// <summary> Normalizes and validates one path that must identify the <c>Assets</c> root or a path under it. </summary>
+    /// <param name="path"> The input path. </param>
+    /// <param name="normalizedPath"> The slash-separated normalized path when validation succeeds. </param>
+    /// <returns> <see langword="true" /> when <paramref name="path" /> can be normalized to <c>Assets</c> or an <c>Assets/</c> descendant; otherwise <see langword="false" />. </returns>
+    public static bool TryNormalizeAssetsRootOrDescendantPath (
+        string? path,
+        out string normalizedPath)
+    {
+        if (TryNormalizeProjectRelativePath(path, out normalizedPath)
+            && IsNormalizedAssetsRootOrDescendantPath(normalizedPath))
+        {
+            return true;
+        }
+
+        normalizedPath = string.Empty;
+        return false;
+    }
+
     /// <summary> Determines whether <paramref name="path" /> is a normalized path under <c>Assets/</c>. </summary>
     /// <param name="path"> The path to inspect. </param>
     /// <returns> <see langword="true" /> when <paramref name="path" /> is an <c>Assets/</c> descendant; otherwise <see langword="false" />. </returns>
@@ -75,6 +93,24 @@ public static class UnityAssetPathContract
         return path != null
             && IsNormalizedProjectRelativePath(path)
             && path.StartsWith(AssetsRootPrefix, StringComparison.Ordinal);
+    }
+
+    /// <summary> Normalizes and validates one path that must identify an asset under <c>Assets/</c>. </summary>
+    /// <param name="path"> The input path. </param>
+    /// <param name="normalizedPath"> The slash-separated normalized path when validation succeeds. </param>
+    /// <returns> <see langword="true" /> when <paramref name="path" /> can be normalized to an <c>Assets/</c> descendant; otherwise <see langword="false" />. </returns>
+    public static bool TryNormalizeAssetsDescendantPath (
+        string? path,
+        out string normalizedPath)
+    {
+        if (TryNormalizeProjectRelativePath(path, out normalizedPath)
+            && IsNormalizedAssetsDescendantPath(normalizedPath))
+        {
+            return true;
+        }
+
+        normalizedPath = string.Empty;
+        return false;
     }
 
     /// <summary> Determines whether <paramref name="path" /> is a normalized Unity scene asset path under <c>Assets/</c>. </summary>
@@ -87,11 +123,57 @@ public static class UnityAssetPathContract
             && path.EndsWith(SceneAssetExtension, StringComparison.Ordinal);
     }
 
+    /// <summary> Normalizes and validates one Unity scene asset path under <c>Assets/</c>. </summary>
+    /// <param name="path"> The input path. </param>
+    /// <param name="normalizedPath"> The slash-separated normalized path when validation succeeds. </param>
+    /// <returns> <see langword="true" /> when <paramref name="path" /> can be normalized to a Unity scene asset path; otherwise <see langword="false" />. </returns>
+    public static bool TryNormalizeSceneAssetPath (
+        string? path,
+        out string normalizedPath)
+    {
+        if (TryNormalizeAssetsDescendantPath(path, out normalizedPath)
+            && IsNormalizedSceneAssetPath(normalizedPath))
+        {
+            return true;
+        }
+
+        normalizedPath = string.Empty;
+        return false;
+    }
+
+    /// <summary> Determines whether <paramref name="path" /> is a normalized Unity prefab asset path under <c>Assets/</c>. </summary>
+    /// <param name="path"> The path to inspect. </param>
+    /// <returns> <see langword="true" /> when <paramref name="path" /> is a normalized prefab asset path; otherwise <see langword="false" />. </returns>
+    public static bool IsNormalizedPrefabAssetPath (string? path)
+    {
+        return path != null
+            && IsNormalizedAssetsDescendantPath(path)
+            && path.EndsWith(PrefabAssetExtension, StringComparison.Ordinal);
+    }
+
+    /// <summary> Normalizes and validates one Unity prefab asset path under <c>Assets/</c>. </summary>
+    /// <param name="path"> The input path. </param>
+    /// <param name="normalizedPath"> The slash-separated normalized path when validation succeeds. </param>
+    /// <returns> <see langword="true" /> when <paramref name="path" /> can be normalized to a Unity prefab asset path; otherwise <see langword="false" />. </returns>
+    public static bool TryNormalizePrefabAssetPath (
+        string? path,
+        out string normalizedPath)
+    {
+        if (TryNormalizeAssetsDescendantPath(path, out normalizedPath)
+            && IsNormalizedPrefabAssetPath(normalizedPath))
+        {
+            return true;
+        }
+
+        normalizedPath = string.Empty;
+        return false;
+    }
+
     private static bool IsProjectRelativePathSyntax (string path)
     {
         return path.Length > 0
             && !path.StartsWith("/", StringComparison.Ordinal)
-            && !IsWindowsDriveQualifiedPath(path)
+            && !path.Contains(':', StringComparison.Ordinal)
             && HasValidSegments(path);
     }
 
@@ -138,16 +220,4 @@ public static class UnityAssetPathContract
             && path[segmentStartIndex + 1] == '.';
     }
 
-    private static bool IsWindowsDriveQualifiedPath (string path)
-    {
-        return path.Length >= 2
-            && IsAsciiLetter(path[0])
-            && path[1] == ':';
-    }
-
-    private static bool IsAsciiLetter (char value)
-    {
-        return value is (>= 'A' and <= 'Z')
-            or (>= 'a' and <= 'z');
-    }
 }
