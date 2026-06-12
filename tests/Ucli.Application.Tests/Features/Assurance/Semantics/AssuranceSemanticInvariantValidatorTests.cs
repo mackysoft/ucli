@@ -67,9 +67,22 @@ public sealed class AssuranceSemanticInvariantValidatorTests
     {
         var result = ValidateBuildPayload(CreateBuildPayload(
             buildResult: "failed",
+            buildCompletionReason: "failed",
             buildSucceededClaimStatus: "passed"));
 
         AssertViolationPath(result, "$.claims[4].status");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Validate_WithBuildCompletionReasonMismatch_ReturnsLogsCompletionReasonPath ()
+    {
+        var result = ValidateBuildPayload(CreateBuildPayload(
+            buildResult: "failed",
+            buildCompletionReason: "completed",
+            buildSucceededClaimStatus: "failed"));
+
+        AssertViolationPath(result, "$.build.logs.completionReason");
     }
 
     [Fact]
@@ -797,6 +810,7 @@ public sealed class AssuranceSemanticInvariantValidatorTests
 
     private static string CreateBuildPayload (
         string buildResult = "succeeded",
+        string buildCompletionReason = "completed",
         string buildSucceededClaimStatus = "passed",
         bool includeBuildLogReport = true,
         bool includeBuildLogDigest = true,
@@ -864,6 +878,14 @@ public sealed class AssuranceSemanticInvariantValidatorTests
                 summary = new
                 {
                     result = buildResult,
+                },
+                logs = new
+                {
+                    reportRef = "buildLog",
+                    entryCount = 1,
+                    errorCount = 0,
+                    warningCount = 0,
+                    completionReason = buildCompletionReason,
                 },
             },
             verifiers = new[]

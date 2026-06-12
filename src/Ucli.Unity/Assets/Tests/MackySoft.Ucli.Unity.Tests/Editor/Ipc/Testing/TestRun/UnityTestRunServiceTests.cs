@@ -209,7 +209,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             public int CallCount { get; private set; }
 
-            public Task ExportRangeAsync (
+            public Task<(int EntryCount, int ErrorCount, int WarningCount)> ExportRangeAsync (
                 string sourcePath,
                 string destinationPath,
                 long startOffset,
@@ -218,7 +218,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 CallCount++;
-                return Task.CompletedTask;
+                return Task.FromResult((0, 0, 0));
             }
         }
 

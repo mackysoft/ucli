@@ -25,13 +25,49 @@ namespace MackySoft.Ucli.Unity.Tests
 
             try
             {
-                await TestAwaiter.WaitAsync(
+                var summary = await TestAwaiter.WaitAsync(
                     exporter.ExportRangeAsync(sourcePath, destinationPath, 2, 7, CancellationToken.None).AsUniTask(),
                     "Editor log range export",
                     AsyncWaitTimeout);
 
                 Assert.That(File.Exists(destinationPath), Is.True);
                 Assert.That(File.ReadAllText(destinationPath), Is.EqualTo("23456"));
+                Assert.That(summary.EntryCount, Is.EqualTo(1));
+                Assert.That(summary.ErrorCount, Is.EqualTo(0));
+                Assert.That(summary.WarningCount, Is.EqualTo(0));
+            }
+            finally
+            {
+                TryDeleteFile(sourcePath);
+                TryDeleteFile(destinationPath);
+            }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator ExportRange_ReturnsSeveritySummaryWithoutCountingBuildTotalsAsErrors () => UniTask.ToCoroutine(async () =>
+        {
+            var sourcePath = Path.Combine(Application.temporaryCachePath, $"editor-log-source-{Guid.NewGuid():N}.log");
+            var destinationPath = Path.Combine(Application.temporaryCachePath, $"editor-log-destination-{Guid.NewGuid():N}.log");
+            File.WriteAllText(
+                sourcePath,
+                "Assets/Test.cs(1,1): warning CS0168" + Environment.NewLine
+                + "Assets/Test.cs(2,1): error CS1001" + Environment.NewLine
+                + "0 errors, 0 warnings" + Environment.NewLine
+                + "Build completed" + Environment.NewLine);
+            var exporter = new EditorLogRangeExporter();
+
+            try
+            {
+                var summary = await TestAwaiter.WaitAsync(
+                    exporter.ExportRangeAsync(sourcePath, destinationPath, 0, new FileInfo(sourcePath).Length, CancellationToken.None).AsUniTask(),
+                    "Editor log severity summary export",
+                    AsyncWaitTimeout);
+
+                Assert.That(File.Exists(destinationPath), Is.True);
+                Assert.That(summary.EntryCount, Is.EqualTo(4));
+                Assert.That(summary.ErrorCount, Is.EqualTo(1));
+                Assert.That(summary.WarningCount, Is.EqualTo(1));
             }
             finally
             {
@@ -103,7 +139,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator ExportRange_WhenDestinationPathIsDirectory_ThrowsUnauthorizedAccessException () => UniTask.ToCoroutine(async () =>
+        public IEnumerator ExportRange_WhenDestinationPathIsDirectory_ThrowsIOException () => UniTask.ToCoroutine(async () =>
         {
             var sourcePath = Path.Combine(Application.temporaryCachePath, $"editor-log-source-{Guid.NewGuid():N}.log");
             var destinationDirectoryPath = Path.Combine(Application.temporaryCachePath, $"editor-log-destination-dir-{Guid.NewGuid():N}");
@@ -113,7 +149,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             try
             {
-                await AsyncExceptionCapture.CaptureAsync<UnauthorizedAccessException>(async () =>
+                await AsyncExceptionCapture.CaptureAsync<IOException>(async () =>
                 {
                     await exporter.ExportRangeAsync(sourcePath, destinationDirectoryPath, 0, 1, CancellationToken.None).AsUniTask();
                 }, "Directory destination editor log export", AsyncWaitTimeout);

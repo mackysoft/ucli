@@ -1,11 +1,11 @@
 using System;
 using System.IO;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Build;
@@ -13,7 +13,11 @@ using MackySoft.Ucli.Unity.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
 using NUnit.Framework;
 using UnityEditor;
-using UnityEditor.Build.Reporting;
+using UnityEditor.SceneManagement;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+
+#nullable enable
 
 namespace MackySoft.Ucli.Unity.Tests
 {
@@ -37,25 +41,20 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         }
 
-        [Test]
+        [TestCase("output")]
+        [TestCase("report")]
+        [TestCase("log")]
         [Category("Size.Small")]
-        public void TryValidateRequest_WithRelativeArtifactPath_ReturnsFalse ()
+        public void TryValidateRequest_WithRelativeArtifactPath_ReturnsFalse (string artifact)
         {
             using (var scope = TemporaryDirectoryScope.Create())
             {
                 var identity = CreateProjectIdentity(scope.ProjectPath);
-                var storageRoot = UcliStoragePathResolver.ResolveStorageRoot(scope.ProjectPath);
-                var runDirectory = UcliStoragePathResolver.ResolveBuildRunArtifactsDirectory(
-                    storageRoot,
-                    ProjectFingerprint,
-                    RunId);
-                var relativeBuildReportPath = Path.GetRelativePath(
+                var request = CreateRequest(scope.ProjectPath, identity);
+                var relativeArtifactPath = Path.GetRelativePath(
                     Directory.GetCurrentDirectory(),
-                    Path.Combine(runDirectory, UcliStoragePathNames.BuildReportFileName));
-                var request = CreateRequest(scope.ProjectPath, identity) with
-                {
-                    BuildReportPath = relativeBuildReportPath,
-                };
+                    GetArtifactPath(request, artifact));
+                request = WithArtifactPath(request, artifact, relativeArtifactPath);
 
                 var result = BuildRunUnityIpcMethodHandler.TryValidateRequest(request, identity, out var errorMessage);
 
@@ -64,17 +63,19 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         }
 
-        [Test]
+        [TestCase("output")]
+        [TestCase("report")]
+        [TestCase("log")]
         [Category("Size.Small")]
-        public void TryValidateRequest_WithArtifactPathOutsideExpectedLayout_ReturnsFalse ()
+        public void TryValidateRequest_WithArtifactPathOutsideExpectedLayout_ReturnsFalse (string artifact)
         {
             using (var scope = TemporaryDirectoryScope.Create())
             {
                 var identity = CreateProjectIdentity(scope.ProjectPath);
-                var request = CreateRequest(scope.ProjectPath, identity) with
-                {
-                    BuildReportPath = Path.Combine(scope.RootPath, "outside", UcliStoragePathNames.BuildReportFileName),
-                };
+                var request = WithArtifactPath(
+                    CreateRequest(scope.ProjectPath, identity),
+                    artifact,
+                    Path.Combine(scope.RootPath, "outside", artifact));
 
                 var result = BuildRunUnityIpcMethodHandler.TryValidateRequest(request, identity, out var errorMessage);
 
@@ -83,9 +84,11 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         }
 
-        [Test]
+        [TestCase("output")]
+        [TestCase("report")]
+        [TestCase("log")]
         [Category("Size.Small")]
-        public async Task HandleAsync_WithArtifactPathOutsideExpectedLayout_ReturnsInvalidArgumentWithoutSideEffects ()
+        public async Task HandleAsync_WithArtifactPathOutsideExpectedLayout_ReturnsInvalidArgumentWithoutSideEffects (string artifact)
         {
             using (var scope = TemporaryDirectoryScope.Create())
             {
@@ -104,10 +107,10 @@ namespace MackySoft.Ucli.Unity.Tests
                     logRangeExporter,
                     identity,
                     timeoutScopeFactory);
-                var payload = CreateRequest(scope.ProjectPath, identity) with
-                {
-                    BuildReportPath = Path.Combine(scope.RootPath, "outside", UcliStoragePathNames.BuildReportFileName),
-                };
+                var payload = WithArtifactPath(
+                    CreateRequest(scope.ProjectPath, identity),
+                    artifact,
+                    Path.Combine(scope.RootPath, "outside", artifact));
                 var ipcRequest = CreateIpcRequest(payload);
 
                 var response = await handler.HandleAsync(ipcRequest, CancellationToken.None);
@@ -120,6 +123,118 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(buildPipelineRunner.CallCount, Is.EqualTo(0));
                 Assert.That(logRangeExporter.CallCount, Is.EqualTo(0));
                 Assert.That(timeoutScopeFactory.CallCount, Is.EqualTo(0));
+            }
+        }
+
+        [TestCase(IpcBuildReportResult.Succeeded, IpcBuildLogCompletionReason.Completed, 0, 9)]
+        [TestCase(IpcBuildReportResult.Failed, IpcBuildLogCompletionReason.Failed, 1, 2)]
+        [TestCase(IpcBuildReportResult.Canceled, IpcBuildLogCompletionReason.Canceled, 0, 0)]
+        [Category("Size.Small")]
+        public async Task HandleAsync_WithTerminalBuildRun_WritesArtifactsAndReturnsLogSummary (
+            IpcBuildReportResult reportResult,
+            IpcBuildLogCompletionReason completionReason,
+            int reportErrorCount,
+            int reportWarningCount)
+        {
+            Assume.That(
+                !string.IsNullOrWhiteSpace(Application.consoleLogPath) && File.Exists(Application.consoleLogPath),
+                "Unity console log path is not available in this test environment.");
+
+            using (var scope = TemporaryDirectoryScope.Create())
+            {
+                var identity = CreateProjectIdentity(scope.ProjectPath);
+                var requestPayload = CreateRequest(scope.ProjectPath, identity);
+                Directory.CreateDirectory(requestPayload.OutputPath);
+                var reportArtifact = CreateReportArtifact(
+                    ContractLiteralCodec.ToValue(reportResult),
+                    Path.Combine(requestPayload.OutputPath, "build"),
+                    reportErrorCount,
+                    reportWarningCount);
+                var buildPipelineRunner = new CountingBuildPipelineRunner(reportArtifact);
+                var logRangeExporter = new CountingEditorLogRangeExporter(
+                    "Assets/Test.cs(1,1): warning CS0168" + Environment.NewLine
+                    + "Assets/Test.cs(2,1): error CS1001" + Environment.NewLine
+                    + "0 errors, 0 warnings" + Environment.NewLine,
+                    entryCount: 3,
+                    errorCount: 1,
+                    warningCount: 1);
+                var handler = new BuildRunUnityIpcMethodHandler(
+                    new UnityBuildPreconditionProbe(
+                        new CountingReadinessGate(),
+                        identity,
+                        new StubServerVersionProvider("1.2.3"),
+                        new CountingBuildTargetSupportProbe()),
+                    buildPipelineRunner,
+                    logRangeExporter,
+                    identity,
+                    new CountingTimeoutScopeFactory());
+
+                var response = await handler.HandleAsync(CreateIpcRequest(requestPayload), CancellationToken.None);
+
+                Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+                Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcBuildRunResponse payload, out _), Is.True);
+                Assert.That(payload.RunId, Is.EqualTo(RunId));
+                Assert.That(payload.Report.Result, Is.EqualTo(ContractLiteralCodec.ToValue(reportResult)));
+                Assert.That(payload.Logs.CompletionReason, Is.EqualTo(ContractLiteralCodec.ToValue(completionReason)));
+                Assert.That(payload.Logs.EntryCount, Is.EqualTo(3));
+                Assert.That(payload.Logs.ErrorCount, Is.EqualTo(1));
+                Assert.That(payload.Logs.WarningCount, Is.EqualTo(1));
+                Assert.That(buildPipelineRunner.CallCount, Is.EqualTo(1));
+                Assert.That(buildPipelineRunner.LastOptions.locationPathName, Is.EqualTo(Path.Combine(requestPayload.OutputPath, "build")));
+                Assert.That(logRangeExporter.CallCount, Is.EqualTo(1));
+                Assert.That(File.Exists(requestPayload.BuildReportPath), Is.True);
+                Assert.That(File.Exists(requestPayload.BuildLogPath), Is.True);
+
+                var persistedReport = JsonSerializer.Deserialize<IpcBuildReportArtifact>(
+                    File.ReadAllText(requestPayload.BuildReportPath),
+                    IpcJsonSerializerOptions.Default);
+                Assert.That(persistedReport, Is.Not.Null);
+                Assert.That(persistedReport!.Result, Is.EqualTo(reportArtifact.Result));
+                Assert.That(File.ReadAllText(requestPayload.BuildLogPath), Does.Contain("warning CS0168"));
+            }
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task HandleAsync_WithDirtyScenePrecondition_ReturnsDirtyStateWithoutRunningBuild ()
+        {
+            using (var scope = TemporaryDirectoryScope.Create())
+            using (var editorScope = new EditorTestScope())
+            {
+                var (scenePath, scene) = CreateSavedScene(editorScope, "BuildRunHandlerDirty", NewSceneMode.Single);
+                MarkSceneDirty(scene, "DirtyBuildRunRoot");
+                var identity = CreateProjectIdentity(scope.ProjectPath);
+                var requestPayload = CreateRequest(scope.ProjectPath, identity) with
+                {
+                    ScenePaths = new[] { scenePath },
+                };
+                var buildPipelineRunner = new CountingBuildPipelineRunner();
+                var logRangeExporter = new CountingEditorLogRangeExporter();
+                var handler = new BuildRunUnityIpcMethodHandler(
+                    new UnityBuildPreconditionProbe(
+                        new CountingReadinessGate(),
+                        identity,
+                        new StubServerVersionProvider("1.2.3"),
+                        new CountingBuildTargetSupportProbe()),
+                    buildPipelineRunner,
+                    logRangeExporter,
+                    identity,
+                    new CountingTimeoutScopeFactory());
+
+                var response = await handler.HandleAsync(CreateIpcRequest(requestPayload), CancellationToken.None);
+
+                Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+                Assert.That(response.Errors.Count, Is.EqualTo(1));
+                Assert.That(response.Errors[0].Code, Is.EqualTo(BuildErrorCodes.BuildDirtyStatePresent));
+                Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcBuildRunErrorPayload payload, out _), Is.True);
+                Assert.That(payload.DirtyState, Is.Not.Null);
+                Assert.That(payload.DirtyState!.Dirty, Is.True);
+                Assert.That(payload.DirtyState.Items, Has.Count.EqualTo(1));
+                Assert.That(payload.DirtyState.Items[0].Path, Is.EqualTo(scenePath));
+                Assert.That(buildPipelineRunner.CallCount, Is.EqualTo(0));
+                Assert.That(logRangeExporter.CallCount, Is.EqualTo(0));
+                Assert.That(File.Exists(requestPayload.BuildReportPath), Is.False);
+                Assert.That(File.Exists(requestPayload.BuildLogPath), Is.False);
             }
         }
 
@@ -136,20 +251,16 @@ namespace MackySoft.Ucli.Unity.Tests
             IpcProjectIdentity identity)
         {
             var storageRoot = UcliStoragePathResolver.ResolveStorageRoot(projectPath);
-            var runDirectory = UcliStoragePathResolver.ResolveBuildRunArtifactsDirectory(
-                storageRoot,
-                identity.ProjectFingerprint,
-                RunId);
             return new IpcBuildRunRequest(
                 RunId: RunId,
                 TargetStableName: "standaloneLinux64",
                 UnityBuildTarget: "StandaloneLinux64",
                 SceneSource: "explicit",
-                ScenePaths: new[] { "Assets/Scenes/Main.unity" },
+                ScenePaths: new[] { "Assets/Scenes/SampleScene.unity" },
                 Development: true,
-                OutputPath: Path.Combine(runDirectory, UcliStoragePathNames.BuildOutputDirectoryName),
-                BuildReportPath: Path.Combine(runDirectory, UcliStoragePathNames.BuildReportFileName),
-                BuildLogPath: Path.Combine(runDirectory, UcliStoragePathNames.BuildLogFileName));
+                OutputPath: UcliStoragePathResolver.ResolveBuildRunOutputDirectory(storageRoot, identity.ProjectFingerprint, RunId),
+                BuildReportPath: UcliStoragePathResolver.ResolveBuildRunReportPath(storageRoot, identity.ProjectFingerprint, RunId),
+                BuildLogPath: UcliStoragePathResolver.ResolveBuildRunLogPath(storageRoot, identity.ProjectFingerprint, RunId));
         }
 
         private static IpcRequest CreateIpcRequest (IpcBuildRunRequest payload)
@@ -161,6 +272,33 @@ namespace MackySoft.Ucli.Unity.Tests
                 Method: IpcMethodNames.BuildRun,
                 Payload: IpcPayloadCodec.SerializeToElement(payload),
                 responseMode: IpcResponseMode.Single);
+        }
+
+        private static string GetArtifactPath (
+            IpcBuildRunRequest request,
+            string artifact)
+        {
+            return artifact switch
+            {
+                "output" => request.OutputPath,
+                "report" => request.BuildReportPath,
+                "log" => request.BuildLogPath,
+                _ => throw new ArgumentOutOfRangeException(nameof(artifact), artifact, "Unsupported build artifact selector."),
+            };
+        }
+
+        private static IpcBuildRunRequest WithArtifactPath (
+            IpcBuildRunRequest request,
+            string artifact,
+            string path)
+        {
+            return artifact switch
+            {
+                "output" => request with { OutputPath = path },
+                "report" => request with { BuildReportPath = path },
+                "log" => request with { BuildLogPath = path },
+                _ => throw new ArgumentOutOfRangeException(nameof(artifact), artifact, "Unsupported build artifact selector."),
+            };
         }
 
         private static UnityEditorLifecycleSnapshot CreateLifecycleSnapshot ()
@@ -206,6 +344,60 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         }
 
+        private static IpcBuildReportArtifact CreateReportArtifact (
+            string result,
+            string outputPath,
+            int errorCount,
+            int warningCount)
+        {
+            return new IpcBuildReportArtifact(
+                SchemaVersion: 1,
+                Result: result,
+                Target: "StandaloneLinux64",
+                OutputPath: outputPath,
+                DurationMilliseconds: 1234,
+                TotalSizeBytes: 4096,
+                ErrorCount: errorCount,
+                WarningCount: warningCount,
+                Steps: new[]
+                {
+                    new IpcBuildReportStep(
+                        Name: "Build player",
+                        DurationMilliseconds: 1234,
+                        Depth: 0,
+                        MessageCount: 1),
+                },
+                Messages: new[]
+                {
+                    new IpcBuildReportMessage(
+                        Type: warningCount == 0 ? "Info" : "Warning",
+                        Content: "Build report message"),
+                });
+        }
+
+        private static (string Path, Scene Scene) CreateSavedScene (
+            EditorTestScope scope,
+            string prefix,
+            NewSceneMode mode)
+        {
+            var scenePath = scope.CreateScenePath(prefix);
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, mode);
+            var root = new GameObject(prefix + "Root");
+            SceneManager.MoveGameObjectToScene(root, scene);
+            Assert.That(EditorSceneManager.SaveScene(scene, scenePath), Is.True);
+            return (scenePath, scene);
+        }
+
+        private static void MarkSceneDirty (
+            Scene scene,
+            string objectName)
+        {
+            var gameObject = new GameObject(objectName);
+            SceneManager.MoveGameObjectToScene(gameObject, scene);
+            EditorSceneManager.MarkSceneDirty(scene);
+            Assert.That(scene.isDirty, Is.True);
+        }
+
         private sealed class CountingBuildTargetSupportProbe : IUnityBuildTargetSupportProbe
         {
             public int CallCount { get; private set; }
@@ -222,20 +414,57 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private sealed class CountingBuildPipelineRunner : IUnityBuildPipelineRunner
         {
+            private readonly IpcBuildReportArtifact? report;
+
+            public CountingBuildPipelineRunner ()
+            {
+            }
+
+            public CountingBuildPipelineRunner (IpcBuildReportArtifact report)
+            {
+                this.report = report;
+            }
+
             public int CallCount { get; private set; }
 
-            public BuildReport Run (BuildPlayerOptions options)
+            public BuildPlayerOptions LastOptions { get; private set; }
+
+            public IpcBuildReportArtifact? Run (BuildPlayerOptions options)
             {
                 CallCount++;
-                throw new InvalidOperationException("BuildPipeline must not run for an invalid build.run request.");
+                LastOptions = options;
+                if (report == null)
+                {
+                    throw new InvalidOperationException("BuildPipeline must not run for an invalid build.run request.");
+                }
+
+                return report;
             }
         }
 
         private sealed class CountingEditorLogRangeExporter : IEditorLogRangeExporter
         {
+            private readonly string? contents;
+
+            private readonly (int EntryCount, int ErrorCount, int WarningCount) summary;
+
+            public CountingEditorLogRangeExporter ()
+            {
+            }
+
+            public CountingEditorLogRangeExporter (
+                string contents,
+                int entryCount,
+                int errorCount,
+                int warningCount)
+            {
+                this.contents = contents;
+                summary = (entryCount, errorCount, warningCount);
+            }
+
             public int CallCount { get; private set; }
 
-            public Task ExportRangeAsync (
+            public Task<(int EntryCount, int ErrorCount, int WarningCount)> ExportRangeAsync (
                 string sourcePath,
                 string destinationPath,
                 long startOffset,
@@ -244,7 +473,19 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 CallCount++;
-                throw new InvalidOperationException("Log export must not run for an invalid build.run request.");
+                if (contents == null)
+                {
+                    throw new InvalidOperationException("Log export must not run for an invalid build.run request.");
+                }
+
+                var directoryPath = Path.GetDirectoryName(destinationPath);
+                if (!string.IsNullOrWhiteSpace(directoryPath))
+                {
+                    Directory.CreateDirectory(directoryPath);
+                }
+
+                File.WriteAllText(destinationPath, contents);
+                return Task.FromResult(summary);
             }
         }
 

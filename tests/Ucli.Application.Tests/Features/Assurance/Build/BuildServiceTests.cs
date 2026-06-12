@@ -53,10 +53,10 @@ public sealed class BuildServiceTests
     {
         using var tempDirectory = TemporaryDirectory.Create();
         var artifactStore = new StubBuildRunArtifactStore(tempDirectory.Path);
-        var requestExecutor = new StubUnityRequestExecutor(CreateBuildResponseResult(
+        var requestExecutor = CreateBuildResponseExecutor(
             ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
             ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
-            errorCount: 0));
+            errorCount: 0);
         var service = CreateService(
             requestExecutor: requestExecutor,
             artifactStore: artifactStore);
@@ -116,6 +116,24 @@ public sealed class BuildServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Execute_WithCompositeUnityDevelopmentBuildOptions_ReturnsSuccess ()
+    {
+        using var tempDirectory = TemporaryDirectory.Create();
+        var service = CreateService(
+            requestExecutor: CreateBuildResponseExecutor(
+                ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+                errorCount: 0,
+                buildOptions: "ForceOptimizeScriptCompilation, Il2CPP, Development"),
+            artifactStore: new StubBuildRunArtifactStore(tempDirectory.Path));
+
+        var result = await service.ExecuteAsync(CreateInput());
+
+        Assert.True(result.IsSuccess);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Execute_WithEditorBuildSettings_UsesUnityResolvedScenesInPayload ()
     {
         using var tempDirectory = TemporaryDirectory.Create();
@@ -135,12 +153,12 @@ public sealed class BuildServiceTests
             }
             """;
         var artifactStore = new StubBuildRunArtifactStore(tempDirectory.Path);
-        var requestExecutor = new StubUnityRequestExecutor(CreateBuildResponseResult(
+        var requestExecutor = CreateBuildResponseExecutor(
             ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
             ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
             errorCount: 0,
             sceneSource: ContractLiteralCodec.ToValue(BuildProfileSceneSource.EditorBuildSettings),
-            scenes: ["Assets/Scenes/FromSettings.unity"]));
+            scenes: ["Assets/Scenes/FromSettings.unity"]);
         var service = CreateService(
             profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(profileJson, "/workspace/build.ucli.json")),
             requestExecutor: requestExecutor,
@@ -163,11 +181,11 @@ public sealed class BuildServiceTests
     {
         using var tempDirectory = TemporaryDirectory.Create();
         var service = CreateService(
-            requestExecutor: new StubUnityRequestExecutor(CreateBuildResponseResult(
+            requestExecutor: CreateBuildResponseExecutor(
                 ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
                 ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
                 errorCount: 0,
-                lifecycleAfter: CreateLifecycleSnapshot("after", canAcceptExecutionRequests: true, omitAssetRefreshGeneration: true))),
+                lifecycleAfter: CreateLifecycleSnapshot("after", canAcceptExecutionRequests: true, omitAssetRefreshGeneration: true)),
             artifactStore: new StubBuildRunArtifactStore(tempDirectory.Path));
 
         var result = await service.ExecuteAsync(CreateInput());
@@ -191,10 +209,10 @@ public sealed class BuildServiceTests
         var completionReasonLiteral = ContractLiteralCodec.ToValue(completionReason);
         using var tempDirectory = TemporaryDirectory.Create();
         var service = CreateService(
-            requestExecutor: new StubUnityRequestExecutor(CreateBuildResponseResult(
+            requestExecutor: CreateBuildResponseExecutor(
                 reportResultLiteral,
                 completionReasonLiteral,
-                errorCount: 1)),
+                errorCount: 1),
             artifactStore: new StubBuildRunArtifactStore(tempDirectory.Path));
 
         var result = await service.ExecuteAsync(CreateInput());
@@ -340,12 +358,12 @@ public sealed class BuildServiceTests
     {
         using var tempDirectory = TemporaryDirectory.Create();
         var service = CreateService(
-            requestExecutor: new StubUnityRequestExecutor(CreateBuildResponseResult(
+            requestExecutor: CreateBuildResponseExecutor(
                 ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
                 ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
                 errorCount: 0,
                 sceneSource: sceneSource,
-                scenes: [scenePath])),
+                scenes: [scenePath]),
             artifactStore: new StubBuildRunArtifactStore(tempDirectory.Path));
 
         var result = await service.ExecuteAsync(CreateInput());
@@ -353,6 +371,95 @@ public sealed class BuildServiceTests
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("otherTarget", "StandaloneLinux64", "Development")]
+    [InlineData("standaloneLinux64", "StandaloneOSX", "Development")]
+    [InlineData("standaloneLinux64", "StandaloneLinux64", "None")]
+    public async Task Execute_WithMismatchedResolvedInputResponse_ReturnsCommandFailure (
+        string targetStableName,
+        string unityBuildTarget,
+        string buildOptions)
+    {
+        using var tempDirectory = TemporaryDirectory.Create();
+        var service = CreateService(
+            requestExecutor: CreateBuildResponseExecutor(
+                ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+                errorCount: 0,
+                targetStableName: targetStableName,
+                unityBuildTarget: unityBuildTarget,
+                buildOptions: buildOptions),
+            artifactStore: new StubBuildRunArtifactStore(tempDirectory.Path));
+
+        var result = await service.ExecuteAsync(CreateInput());
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithMismatchedExplicitScenesResponse_ReturnsCommandFailure ()
+    {
+        using var tempDirectory = TemporaryDirectory.Create();
+        var service = CreateService(
+            requestExecutor: CreateBuildResponseExecutor(
+                ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+                errorCount: 0,
+                scenes: ["Assets/Scenes/Other.unity"]),
+            artifactStore: new StubBuildRunArtifactStore(tempDirectory.Path));
+
+        var result = await service.ExecuteAsync(CreateInput());
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithMismatchedCompletionReasonResponse_ReturnsCommandFailure ()
+    {
+        using var tempDirectory = TemporaryDirectory.Create();
+        var service = CreateService(
+            requestExecutor: CreateBuildResponseExecutor(
+                ContractLiteralCodec.ToValue(IpcBuildReportResult.Failed),
+                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+                errorCount: 1),
+            artifactStore: new StubBuildRunArtifactStore(tempDirectory.Path));
+
+        var result = await service.ExecuteAsync(CreateInput());
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithReportOutputPathOutsideRequestedOutput_ReturnsCommandFailure ()
+    {
+        using var tempDirectory = TemporaryDirectory.Create();
+        var reportOutputPath = System.IO.Path.Combine(tempDirectory.Path, "outside", "build");
+        var service = CreateService(
+            requestExecutor: CreateBuildResponseExecutor(
+                ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+                errorCount: 0,
+                reportOutputPath: reportOutputPath),
+            artifactStore: new StubBuildRunArtifactStore(tempDirectory.Path));
+
+        var result = await service.ExecuteAsync(CreateInput());
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
+        Assert.Null(result.Output);
     }
 
     private static BuildService CreateService (
@@ -372,10 +479,10 @@ public sealed class BuildServiceTests
                 DaemonRunning: false,
                 UnityExecutionTarget.Oneshot,
                 TimeSpan.FromSeconds(10)))),
-            requestExecutor ?? new StubUnityRequestExecutor(CreateBuildResponseResult(
+            requestExecutor ?? CreateBuildResponseExecutor(
                 ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
                 ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
-                errorCount: 0)),
+                errorCount: 0),
             runIdFactory ?? new StubBuildRunIdFactory(RunId),
             artifactStore ?? new StubBuildRunArtifactStore(TemporaryDirectory.Create().Path),
             timeProvider);
@@ -406,14 +513,49 @@ public sealed class BuildServiceTests
             ConfigSource.Default);
     }
 
+    private static StubUnityRequestExecutor CreateBuildResponseExecutor (
+        string reportResult,
+        string completionReason,
+        int errorCount,
+        string? sceneSource = null,
+        IReadOnlyList<string>? scenes = null,
+        string? targetStableName = null,
+        string? unityBuildTarget = null,
+        string? buildOptions = null,
+        IpcBuildLifecycleSnapshot? lifecycleBefore = null,
+        IpcBuildLifecycleSnapshot? lifecycleAfter = null,
+        string? reportOutputPath = null)
+    {
+        return new StubUnityRequestExecutor(payload =>
+        {
+            var buildRunPayload = (UnityRequestPayload.BuildRun)payload;
+            return CreateBuildResponseResult(
+                reportResult,
+                completionReason,
+                errorCount,
+                sceneSource,
+                scenes,
+                targetStableName,
+                unityBuildTarget,
+                buildOptions,
+                lifecycleBefore,
+                lifecycleAfter,
+                reportOutputPath: reportOutputPath ?? Path.Combine(buildRunPayload.OutputPath, "build"));
+        });
+    }
+
     private static UnityRequestExecutionResult CreateBuildResponseResult (
         string reportResult,
         string completionReason,
         int errorCount,
         string? sceneSource = null,
         IReadOnlyList<string>? scenes = null,
+        string? targetStableName = null,
+        string? unityBuildTarget = null,
+        string? buildOptions = null,
         IpcBuildLifecycleSnapshot? lifecycleBefore = null,
-        IpcBuildLifecycleSnapshot? lifecycleAfter = null)
+        IpcBuildLifecycleSnapshot? lifecycleAfter = null,
+        string? reportOutputPath = null)
     {
         return UnityRequestExecutionResult.Success(new UnityRequestResponse(
             IpcPayloadCodec.SerializeToElement(new IpcBuildRunResponse(
@@ -422,12 +564,12 @@ public sealed class BuildServiceTests
                 LifecycleBefore: lifecycleBefore ?? CreateLifecycleSnapshot("before", canAcceptExecutionRequests: true),
                 LifecycleAfter: lifecycleAfter ?? CreateLifecycleSnapshot("after", canAcceptExecutionRequests: true),
                 DirtyState: new IpcBuildDirtyState(Checked: true, Dirty: false, Items: []),
-                Input: CreateInputProbe(sceneSource, scenes),
+                Input: CreateInputProbe(sceneSource, scenes, targetStableName, unityBuildTarget, buildOptions),
                 Report: new IpcBuildReportArtifact(
                     SchemaVersion: 1,
                     Result: reportResult,
                     Target: "StandaloneLinux64",
-                    OutputPath: "/workspace/.ucli/output/build",
+                    OutputPath: reportOutputPath ?? "/workspace/.ucli/output/build",
                     DurationMilliseconds: 2500,
                     TotalSizeBytes: 4096,
                     ErrorCount: errorCount,
@@ -488,15 +630,18 @@ public sealed class BuildServiceTests
 
     private static IpcBuildInputProbe CreateInputProbe (
         string? sceneSource = null,
-        IReadOnlyList<string>? scenes = null)
+        IReadOnlyList<string>? scenes = null,
+        string? targetStableName = null,
+        string? unityBuildTarget = null,
+        string? buildOptions = null)
     {
         return new IpcBuildInputProbe(
-            TargetStableName: "standaloneLinux64",
-            UnityBuildTarget: "StandaloneLinux64",
+            TargetStableName: targetStableName ?? "standaloneLinux64",
+            UnityBuildTarget: unityBuildTarget ?? "StandaloneLinux64",
             UnityBuildTargetGroup: "Standalone",
             SceneSource: sceneSource ?? ContractLiteralCodec.ToValue(BuildProfileSceneSource.Explicit),
             Scenes: scenes ?? ["Assets/Scenes/Main.unity"],
-            BuildOptions: "Development");
+            BuildOptions: buildOptions ?? "Development");
     }
 
     private static BuildClaimOutput FindClaim (
@@ -572,11 +717,16 @@ public sealed class BuildServiceTests
 
     private sealed class StubUnityRequestExecutor : IUnityRequestExecutor
     {
-        private readonly UnityRequestExecutionResult result;
+        private readonly Func<UnityRequestPayload, UnityRequestExecutionResult> resultFactory;
 
         public StubUnityRequestExecutor (UnityRequestExecutionResult result)
+            : this(_ => result)
         {
-            this.result = result;
+        }
+
+        public StubUnityRequestExecutor (Func<UnityRequestPayload, UnityRequestExecutionResult> resultFactory)
+        {
+            this.resultFactory = resultFactory;
         }
 
         public UnityRequestPayload? CapturedPayload { get; private set; }
@@ -592,7 +742,7 @@ public sealed class BuildServiceTests
         {
             cancellationToken.ThrowIfCancellationRequested();
             CapturedPayload = payload;
-            return ValueTask.FromResult(result);
+            return ValueTask.FromResult(resultFactory(payload));
         }
     }
 
@@ -675,6 +825,21 @@ public sealed class BuildServiceTests
                 ],
                 ManifestDigest: "manifest-digest");
             return ValueTask.FromResult(BuildOutputManifestResult.Success(manifest));
+        }
+
+        public bool ContainsOutputPath (
+            BuildRunArtifactPaths paths,
+            string outputPath)
+        {
+            if (string.IsNullOrWhiteSpace(outputPath))
+            {
+                return false;
+            }
+
+            var relativePath = Path.GetRelativePath(paths.OutputDirectory, outputPath);
+            return string.Equals(relativePath, ".", StringComparison.Ordinal)
+                || (!relativePath.StartsWith("..", StringComparison.Ordinal)
+                    && !Path.IsPathRooted(relativePath));
         }
 
         public ValueTask<BuildArtifactWriteResult> WriteMetadataAsync (

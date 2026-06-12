@@ -34,6 +34,7 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
 
         ValidateReports(payload, violations);
         ValidateBuildOutput(payload, violations);
+        ValidateBuildLogCompletionReason(buildElement, violations);
         ValidateVerifier(payload, violations);
         ValidateClaimEvidence(claimElement, claimPath, claimId, violations);
         if (BuildClaimCodes.UnityBuildSucceeded.EqualsValue(claimId))
@@ -119,6 +120,30 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
         if (!TryReadString(outputElement, "manifestDigest", out _))
         {
             AddViolation(violations, "$.build.output.manifestDigest", "Build output must declare manifestDigest.");
+        }
+    }
+
+    private static void ValidateBuildLogCompletionReason (
+        JsonElement buildElement,
+        List<AssuranceSemanticInvariantViolation> violations)
+    {
+        if (!TryReadBuildResult(buildElement, out var result)
+            || !buildElement.TryGetProperty("logs", out var logsElement)
+            || logsElement.ValueKind != JsonValueKind.Object
+            || !TryReadString(logsElement, "completionReason", out var completionReason)
+            || !ContractLiteralCodec.TryParse<IpcBuildReportResult>(result, out var parsedResult)
+            || !ContractLiteralCodec.TryParse<IpcBuildLogCompletionReason>(completionReason, out var parsedCompletionReason))
+        {
+            return;
+        }
+
+        var expectedCompletionReason = IpcBuildLogCompletionReasonResolver.FromReportResult(parsedResult);
+        if (parsedCompletionReason != expectedCompletionReason)
+        {
+            AddViolation(
+                violations,
+                "$.build.logs.completionReason",
+                "Build log completionReason must match the BuildReport result.");
         }
     }
 

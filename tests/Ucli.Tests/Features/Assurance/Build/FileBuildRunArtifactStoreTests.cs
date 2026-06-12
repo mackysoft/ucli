@@ -129,6 +129,22 @@ public sealed class FileBuildRunArtifactStoreTests
         Assert.False(File.Exists(paths.OutputManifestPath));
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task ContainsOutputPath_ReturnsTrueOnlyForPreparedOutputDirectory ()
+    {
+        using var scope = TestDirectories.CreateTempScope("build-artifact-store", "output-path");
+        var store = new FileBuildRunArtifactStore();
+        var prepareResult = await store.PrepareAsync(CreateProject(scope.FullPath), "run-1", CancellationToken.None);
+        var paths = prepareResult.Paths!;
+
+        Assert.True(store.ContainsOutputPath(paths, paths.OutputDirectory));
+        Assert.True(store.ContainsOutputPath(paths, Path.Combine(paths.OutputDirectory, "Game.x86_64")));
+        Assert.False(store.ContainsOutputPath(paths, Path.Combine(paths.RunDirectory, "sibling")));
+        Assert.False(store.ContainsOutputPath(paths, "relative-output"));
+        Assert.False(store.ContainsOutputPath(paths, string.Empty));
+    }
+
     private static ResolvedUnityProjectContext CreateProject (string repositoryRoot)
     {
         return new ResolvedUnityProjectContext(

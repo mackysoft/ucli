@@ -8,7 +8,6 @@ using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
 
@@ -37,11 +36,26 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
                 runId);
             var paths = new BuildRunArtifactPaths(
                 RunDirectory: runDirectory,
-                BuildJsonPath: Path.Combine(runDirectory, UcliStoragePathNames.BuildMetadataFileName),
-                BuildReportPath: Path.Combine(runDirectory, UcliStoragePathNames.BuildReportFileName),
-                BuildLogPath: Path.Combine(runDirectory, UcliStoragePathNames.BuildLogFileName),
-                OutputManifestPath: Path.Combine(runDirectory, UcliStoragePathNames.BuildOutputManifestFileName),
-                OutputDirectory: Path.Combine(runDirectory, UcliStoragePathNames.BuildOutputDirectoryName));
+                BuildJsonPath: UcliStoragePathResolver.ResolveBuildRunMetadataPath(
+                    unityProject.RepositoryRoot,
+                    unityProject.ProjectFingerprint,
+                    runId),
+                BuildReportPath: UcliStoragePathResolver.ResolveBuildRunReportPath(
+                    unityProject.RepositoryRoot,
+                    unityProject.ProjectFingerprint,
+                    runId),
+                BuildLogPath: UcliStoragePathResolver.ResolveBuildRunLogPath(
+                    unityProject.RepositoryRoot,
+                    unityProject.ProjectFingerprint,
+                    runId),
+                OutputManifestPath: UcliStoragePathResolver.ResolveBuildRunOutputManifestPath(
+                    unityProject.RepositoryRoot,
+                    unityProject.ProjectFingerprint,
+                    runId),
+                OutputDirectory: UcliStoragePathResolver.ResolveBuildRunOutputDirectory(
+                    unityProject.RepositoryRoot,
+                    unityProject.ProjectFingerprint,
+                    runId));
             if (File.Exists(paths.RunDirectory) || Directory.Exists(paths.RunDirectory))
             {
                 return ValueTask.FromResult(BuildRunArtifactPrepareResult.Failure(ExecutionError.InternalError(
@@ -106,6 +120,27 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
             return BuildOutputManifestResult.Failure(ExecutionError.InternalError(
                 $"Failed to write build output manifest. {exception.Message}",
                 BuildErrorCodes.BuildOutputManifestFailed));
+        }
+    }
+
+    /// <inheritdoc />
+    public bool ContainsOutputPath (
+        BuildRunArtifactPaths paths,
+        string outputPath)
+    {
+        ArgumentNullException.ThrowIfNull(paths);
+        if (string.IsNullOrWhiteSpace(outputPath))
+        {
+            return false;
+        }
+
+        try
+        {
+            return IsFullPathUnderOrEqual(outputPath, paths.OutputDirectory);
+        }
+        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
+        {
+            return false;
         }
     }
 
@@ -381,7 +416,6 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
 
         try
         {
-            EnsureWritableArtifactPath(tempPath);
             await using (var stream = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, 8192, useAsync: true))
             {
                 await JsonSerializer.SerializeAsync(
@@ -481,6 +515,25 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         {
             File.Delete(path);
         }
+    }
+
+    private static bool IsFullPathUnderOrEqual (
+        string path,
+        string parentPath)
+    {
+        if (string.IsNullOrWhiteSpace(parentPath)
+            || !Path.IsPathFullyQualified(path)
+            || !Path.IsPathFullyQualified(parentPath))
+        {
+            return false;
+        }
+
+        var normalizedPath = Path.GetFullPath(path);
+        var normalizedParentPath = Path.GetFullPath(parentPath);
+        var relativePath = Path.GetRelativePath(normalizedParentPath, normalizedPath);
+        return string.Equals(relativePath, ".", StringComparison.Ordinal)
+            || (!relativePath.StartsWith("..", StringComparison.Ordinal)
+                && !Path.IsPathRooted(relativePath));
     }
 
     private sealed record BuildOutputManifestContent (

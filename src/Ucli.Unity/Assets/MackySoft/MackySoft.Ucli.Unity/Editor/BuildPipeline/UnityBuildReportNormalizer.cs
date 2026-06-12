@@ -56,19 +56,7 @@ namespace MackySoft.Ucli.Unity.Build
         /// <summary> Maps BuildReport result to a log completion reason. </summary>
         public static IpcBuildLogCompletionReason ToCompletionReason (string result)
         {
-            return ContractLiteralCodec.TryParse<IpcBuildReportResult>(result, out var parsedResult)
-                ? ToCompletionReason(parsedResult)
-                : IpcBuildLogCompletionReason.Failed;
-        }
-
-        private static IpcBuildLogCompletionReason ToCompletionReason (IpcBuildReportResult result)
-        {
-            return result switch
-            {
-                IpcBuildReportResult.Succeeded => IpcBuildLogCompletionReason.Completed,
-                IpcBuildReportResult.Canceled => IpcBuildLogCompletionReason.Canceled,
-                _ => IpcBuildLogCompletionReason.Failed,
-            };
+            return IpcBuildLogCompletionReasonResolver.FromReportResultLiteral(result);
         }
 
         private static IpcBuildReportResult ToIpcResult (BuildResult result)

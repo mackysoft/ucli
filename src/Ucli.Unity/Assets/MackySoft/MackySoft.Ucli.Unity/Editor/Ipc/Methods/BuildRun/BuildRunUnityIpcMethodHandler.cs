@@ -99,13 +99,15 @@ namespace MackySoft.Ucli.Unity.Ipc
                     return CreatePreconditionErrorResponse(request, precondition);
                 }
 
+                FileSystemAccessBoundary.EnsureSecureDirectory(buildRunRequest.OutputPath);
                 var logSourcePath = Application.consoleLogPath;
                 var logStartOffset = GetLogLength(logSourcePath);
                 var startedAtUtc = DateTimeOffset.UtcNow;
                 var buildOptions = UnityBuildPlayerOptionsFactory.Create(buildRunRequest, precondition.ResolvedInput!);
                 executionCancellationToken.ThrowIfCancellationRequested();
-                var report = buildPipelineRunner.Run(buildOptions);
+                var normalizedReport = buildPipelineRunner.Run(buildOptions);
                 executionCancellationToken.ThrowIfCancellationRequested();
+                FileSystemAccessBoundary.EnsureSecureDirectory(buildRunRequest.OutputPath);
                 var completedAtUtc = DateTimeOffset.UtcNow;
                 var lifecycleAfter = preconditionProbe.CaptureAfterBuild();
                 var logEndOffset = GetLogLength(logSourcePath);
@@ -114,7 +116,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     logStartOffset = 0;
                 }
 
-                if (report == null)
+                if (normalizedReport == null)
                 {
                     return CreateErrorResponse(
                         request,
@@ -123,13 +125,12 @@ namespace MackySoft.Ucli.Unity.Ipc
                         precondition);
                 }
 
-                var normalizedReport = UnityBuildReportNormalizer.Normalize(report);
                 await WriteJsonAtomicallyAsync(
                         buildRunRequest.BuildReportPath,
                         normalizedReport,
                         executionCancellationToken)
                     .ConfigureAwait(false);
-                await ExportBuildLogAsync(
+                var logSummaryCounts = await ExportBuildLogAsync(
                         logSourcePath,
                         buildRunRequest.BuildLogPath,
                         logStartOffset,
@@ -138,9 +139,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                     .ConfigureAwait(false);
                 var completionReason = UnityBuildReportNormalizer.ToCompletionReason(normalizedReport.Result);
                 var logs = new IpcBuildLogSummary(
-                    EntryCount: await CountLogEntriesAsync(buildRunRequest.BuildLogPath, executionCancellationToken).ConfigureAwait(false),
-                    ErrorCount: normalizedReport.ErrorCount,
-                    WarningCount: normalizedReport.WarningCount,
+                    EntryCount: logSummaryCounts.EntryCount,
+                    ErrorCount: logSummaryCounts.ErrorCount,
+                    WarningCount: logSummaryCounts.WarningCount,
                     CompletionReason: ContractLiteralCodec.ToValue(completionReason),
                     Window: new IpcBuildLogWindow(startedAtUtc, completedAtUtc));
                 var response = new IpcBuildRunResponse(
@@ -237,7 +238,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 Input: precondition.InputProbe);
         }
 
-        private async Task ExportBuildLogAsync (
+        private async Task<(int EntryCount, int ErrorCount, int WarningCount)> ExportBuildLogAsync (
             string sourcePath,
             string destinationPath,
             long startOffset,
@@ -248,10 +249,10 @@ namespace MackySoft.Ucli.Unity.Ipc
             if (string.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
             {
                 await WriteTextAtomicallyAsync(destinationPath, string.Empty, cancellationToken).ConfigureAwait(false);
-                return;
+                return (0, 0, 0);
             }
 
-            await editorLogRangeExporter.ExportRangeAsync(
+            return await editorLogRangeExporter.ExportRangeAsync(
                     sourcePath,
                     destinationPath,
                     startOffset,
@@ -356,13 +357,18 @@ namespace MackySoft.Ucli.Unity.Ipc
             try
             {
                 var storageRoot = UcliStoragePathResolver.ResolveStorageRoot(projectIdentity.ProjectPath);
-                var runDirectory = UcliStoragePathResolver.ResolveBuildRunArtifactsDirectory(
+                expectedOutputPath = Path.GetFullPath(UcliStoragePathResolver.ResolveBuildRunOutputDirectory(
                     storageRoot,
                     projectIdentity.ProjectFingerprint,
-                    runId);
-                expectedOutputPath = Path.GetFullPath(Path.Combine(runDirectory, UcliStoragePathNames.BuildOutputDirectoryName));
-                expectedBuildReportPath = Path.GetFullPath(Path.Combine(runDirectory, UcliStoragePathNames.BuildReportFileName));
-                expectedBuildLogPath = Path.GetFullPath(Path.Combine(runDirectory, UcliStoragePathNames.BuildLogFileName));
+                    runId));
+                expectedBuildReportPath = Path.GetFullPath(UcliStoragePathResolver.ResolveBuildRunReportPath(
+                    storageRoot,
+                    projectIdentity.ProjectFingerprint,
+                    runId));
+                expectedBuildLogPath = Path.GetFullPath(UcliStoragePathResolver.ResolveBuildRunLogPath(
+                    storageRoot,
+                    projectIdentity.ProjectFingerprint,
+                    runId));
                 errorMessage = null;
                 return true;
             }
@@ -402,20 +408,39 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private static bool IsFullyQualifiedPath (string path)
         {
-            if (!Path.IsPathRooted(path))
+            if (string.IsNullOrWhiteSpace(path) || !Path.IsPathRooted(path))
             {
                 return false;
             }
 
-            return !IsWindowsDriveRelativePath(path);
+            if (Path.DirectorySeparatorChar == '\\')
+            {
+                return IsWindowsDriveAbsolutePath(path) || IsWindowsUncAbsolutePath(path);
+            }
+
+            return path[0] == Path.DirectorySeparatorChar;
         }
 
-        private static bool IsWindowsDriveRelativePath (string path)
+        private static bool IsWindowsDriveAbsolutePath (string path)
         {
             return path.Length >= 2
                 && char.IsLetter(path[0])
                 && path[1] == ':'
-                && (path.Length == 2 || (path[2] != '\\' && path[2] != '/'));
+                && path.Length >= 3
+                && IsDirectorySeparator(path[2]);
+        }
+
+        private static bool IsWindowsUncAbsolutePath (string path)
+        {
+            return path.Length >= 5
+                && IsDirectorySeparator(path[0])
+                && IsDirectorySeparator(path[1])
+                && !IsDirectorySeparator(path[2]);
+        }
+
+        private static bool IsDirectorySeparator (char value)
+        {
+            return value == '\\' || value == '/';
         }
 
         private static long GetLogLength (string path)
@@ -426,44 +451,6 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             return new FileInfo(path).Length;
-        }
-
-        private static async Task<int> CountLogEntriesAsync (
-            string path,
-            CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (!File.Exists(path))
-            {
-                return 0;
-            }
-
-            var count = 0;
-            var totalBytesRead = 0L;
-            var buffer = new byte[81920];
-            using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, buffer.Length, useAsync: true))
-            {
-                var previousWasNewLine = false;
-                while (true)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    var bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length, cancellationToken);
-                    if (bytesRead == 0)
-                    {
-                        break;
-                    }
-
-                    totalBytesRead += bytesRead;
-                    count += CountNewLines(buffer, bytesRead, ref previousWasNewLine);
-                }
-
-                if (totalBytesRead > 0 && !previousWasNewLine)
-                {
-                    count++;
-                }
-            }
-
-            return count;
         }
 
         private static async Task WriteJsonAtomicallyAsync<T> (
@@ -478,7 +465,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new InvalidOperationException($"Artifact directory path could not be resolved: {path}");
             }
 
-            Directory.CreateDirectory(directoryPath);
+            FileSystemAccessBoundary.EnsureSecureDirectory(directoryPath);
             var tempPath = path + $".tmp.{Guid.NewGuid():N}";
             try
             {
@@ -493,7 +480,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                 }
 
                 cancellationToken.ThrowIfCancellationRequested();
+                FileSystemAccessBoundary.EnsureSecureFile(tempPath);
+                EnsureWritableArtifactPath(path);
                 ReplaceFile(tempPath, path);
+                FileSystemAccessBoundary.EnsureSecureFile(path);
             }
             finally
             {
@@ -513,7 +503,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new InvalidOperationException($"Artifact directory path could not be resolved: {path}");
             }
 
-            Directory.CreateDirectory(directoryPath);
+            FileSystemAccessBoundary.EnsureSecureDirectory(directoryPath);
             var tempPath = path + $".tmp.{Guid.NewGuid():N}";
             try
             {
@@ -536,35 +526,15 @@ namespace MackySoft.Ucli.Unity.Ipc
                 }
 
                 cancellationToken.ThrowIfCancellationRequested();
+                FileSystemAccessBoundary.EnsureSecureFile(tempPath);
+                EnsureWritableArtifactPath(path);
                 ReplaceFile(tempPath, path);
+                FileSystemAccessBoundary.EnsureSecureFile(path);
             }
             finally
             {
                 DeleteTemporaryFileIfExists(tempPath);
             }
-        }
-
-        private static int CountNewLines (
-            byte[] buffer,
-            int length,
-            ref bool previousWasNewLine)
-        {
-            var count = 0;
-            var span = buffer.AsSpan(0, length);
-            for (var i = 0; i < span.Length; i++)
-            {
-                if (span[i] == '\n')
-                {
-                    count++;
-                    previousWasNewLine = true;
-                }
-                else
-                {
-                    previousWasNewLine = false;
-                }
-            }
-
-            return count;
         }
 
         private static int EncodeUtf8 (
@@ -575,17 +545,56 @@ namespace MackySoft.Ucli.Unity.Ipc
             return Utf8NoBomEncoding.GetBytes(value.AsSpan(), buffer.AsSpan(0, byteCount));
         }
 
+        private static void EnsureWritableArtifactPath (string path)
+        {
+            if (!File.Exists(path) && !Directory.Exists(path))
+            {
+                return;
+            }
+
+            var attributes = File.GetAttributes(path);
+            if ((attributes & FileAttributes.ReparsePoint) != 0)
+            {
+                throw new IOException($"Build artifact target must not be a reparse point: {path}");
+            }
+
+            if ((attributes & FileAttributes.Directory) != 0)
+            {
+                throw new IOException($"Build artifact target must not be a directory: {path}");
+            }
+        }
+
         private static void ReplaceFile (
             string temporaryPath,
             string path)
         {
-            if (File.Exists(path))
+            try
             {
                 File.Replace(temporaryPath, path, destinationBackupFileName: null, ignoreMetadataErrors: true);
-                return;
             }
+            catch (FileNotFoundException)
+            {
+                MoveOrReplaceWhenCreatedConcurrently(temporaryPath, path);
+            }
+            catch (IOException) when (!File.Exists(path))
+            {
+                MoveOrReplaceWhenCreatedConcurrently(temporaryPath, path);
+            }
+        }
 
-            File.Move(temporaryPath, path);
+        private static void MoveOrReplaceWhenCreatedConcurrently (
+            string temporaryPath,
+            string path)
+        {
+            try
+            {
+                File.Move(temporaryPath, path);
+            }
+            catch (IOException) when (File.Exists(path))
+            {
+                EnsureWritableArtifactPath(path);
+                File.Replace(temporaryPath, path, destinationBackupFileName: null, ignoreMetadataErrors: true);
+            }
         }
 
         private static void DeleteTemporaryFileIfExists (string path)

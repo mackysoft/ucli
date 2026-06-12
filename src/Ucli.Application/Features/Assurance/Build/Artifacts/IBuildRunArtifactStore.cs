@@ -17,6 +17,11 @@ internal interface IBuildRunArtifactStore
         string target,
         CancellationToken cancellationToken = default);
 
+    /// <summary> Returns whether an output path reported by Unity belongs to the prepared output directory. </summary>
+    bool ContainsOutputPath (
+        BuildRunArtifactPaths paths,
+        string outputPath);
+
     /// <summary> Writes the build metadata artifact. </summary>
     ValueTask<BuildArtifactWriteResult> WriteMetadataAsync (
         BuildRunArtifactPaths paths,

@@ -1,5 +1,7 @@
 using UnityEditor;
-using UnityEditor.Build.Reporting;
+using MackySoft.Ucli.Contracts.Ipc;
+
+#nullable enable
 
 namespace MackySoft.Ucli.Unity.Build
 {
@@ -7,9 +9,10 @@ namespace MackySoft.Ucli.Unity.Build
     internal sealed class UnityBuildPipelineRunner : IUnityBuildPipelineRunner
     {
         /// <inheritdoc />
-        public BuildReport Run (BuildPlayerOptions options)
+        public IpcBuildReportArtifact? Run (BuildPlayerOptions options)
         {
-            return BuildPipeline.BuildPlayer(options);
+            var report = BuildPipeline.BuildPlayer(options);
+            return report == null ? null : UnityBuildReportNormalizer.Normalize(report);
         }
     }
 }

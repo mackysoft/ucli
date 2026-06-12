@@ -1,14 +1,16 @@
 using UnityEditor;
-using UnityEditor.Build.Reporting;
+using MackySoft.Ucli.Contracts.Ipc;
+
+#nullable enable
 
 namespace MackySoft.Ucli.Unity.Build
 {
     /// <summary> Runs Unity BuildPipeline for one resolved build invocation. </summary>
     internal interface IUnityBuildPipelineRunner
     {
-        /// <summary> Runs BuildPipeline and returns the produced BuildReport. </summary>
+        /// <summary> Runs BuildPipeline and returns the normalized produced BuildReport artifact. </summary>
         /// <param name="options"> The BuildPipeline options. </param>
-        /// <returns> The Unity BuildReport returned by BuildPipeline. </returns>
-        BuildReport Run (BuildPlayerOptions options);
+        /// <returns> The normalized Unity BuildReport artifact, or <see langword="null" /> when BuildPipeline returned no report. </returns>
+        IpcBuildReportArtifact? Run (BuildPlayerOptions options);
     }
 }

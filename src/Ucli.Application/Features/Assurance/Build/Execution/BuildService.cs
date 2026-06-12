@@ -161,7 +161,13 @@ internal sealed class BuildService : IBuildService
                 project);
         }
 
-        var responseResult = ResolveBuildResponse(executionResult.Response!, runId, context.UnityProject.ProjectFingerprint);
+        var responseResult = ResolveBuildResponse(
+            executionResult.Response!,
+            runId,
+            context.UnityProject.ProjectFingerprint,
+            profile,
+            paths,
+            artifactStore);
         if (!responseResult.IsSuccess)
         {
             var dirtyState = responseResult.Error!.Code == BuildErrorCodes.BuildDirtyStatePresent
@@ -304,7 +310,10 @@ internal sealed class BuildService : IBuildService
     private static BuildResponseResolutionResult ResolveBuildResponse (
         UnityRequestResponse response,
         string expectedRunId,
-        string expectedProjectFingerprint)
+        string expectedProjectFingerprint,
+        ResolvedBuildProfile expectedProfile,
+        BuildRunArtifactPaths expectedPaths,
+        IBuildRunArtifactStore artifactStore)
     {
         if (response.HasFailureStatus || response.Errors.Count != 0)
         {
@@ -322,7 +331,13 @@ internal sealed class BuildService : IBuildService
                 $"Unity build payload is invalid. {payloadError.Message}"));
         }
 
-        var validationFailure = ValidateResponse(buildResponse, expectedRunId, expectedProjectFingerprint);
+        var validationFailure = ValidateResponse(
+            buildResponse,
+            expectedRunId,
+            expectedProjectFingerprint,
+            expectedProfile,
+            expectedPaths,
+            artifactStore);
         return validationFailure != null
             ? BuildResponseResolutionResult.Failure(validationFailure)
             : BuildResponseResolutionResult.Success(buildResponse);
@@ -338,7 +353,10 @@ internal sealed class BuildService : IBuildService
     private static ApplicationFailure? ValidateResponse (
         IpcBuildRunResponse response,
         string expectedRunId,
-        string expectedProjectFingerprint)
+        string expectedProjectFingerprint,
+        ResolvedBuildProfile expectedProfile,
+        BuildRunArtifactPaths expectedPaths,
+        IBuildRunArtifactStore artifactStore)
     {
         if (!string.Equals(response.RunId, expectedRunId, StringComparison.Ordinal))
         {
@@ -352,19 +370,51 @@ internal sealed class BuildService : IBuildService
                 $"Unity build response projectFingerprint mismatch. Requested={expectedProjectFingerprint}, Actual={response.ProjectFingerprint}.");
         }
 
-        if (!ContractLiteralCodec.TryParse<IpcBuildReportResult>(response.Report.Result, out _))
+        if (!string.Equals(response.Input.TargetStableName, expectedProfile.Target.StableName, StringComparison.Ordinal))
+        {
+            return ApplicationFailure.InternalError(
+                $"Unity build response target mismatch. Requested={expectedProfile.Target.StableName}, Actual={response.Input.TargetStableName}.");
+        }
+
+        if (!string.Equals(response.Input.UnityBuildTarget, expectedProfile.Target.UnityBuildTargetLiteral, StringComparison.Ordinal))
+        {
+            return ApplicationFailure.InternalError(
+                $"Unity build response Unity target mismatch. Requested={expectedProfile.Target.UnityBuildTargetLiteral}, Actual={response.Input.UnityBuildTarget}.");
+        }
+
+        var expectedSceneSource = ContractLiteralCodec.ToValue(expectedProfile.Scenes.Source);
+        if (!ContractLiteralCodec.TryParse<BuildProfileSceneSource>(response.Input.SceneSource, out var sceneSource))
+        {
+            return ApplicationFailure.InternalError($"Unity build response contains unsupported scene source: {response.Input.SceneSource}.");
+        }
+
+        if (sceneSource != expectedProfile.Scenes.Source)
+        {
+            return ApplicationFailure.InternalError(
+                $"Unity build response scene source mismatch. Requested={expectedSceneSource}, Actual={response.Input.SceneSource}.");
+        }
+
+        if (!HasExpectedDevelopmentBuildOption(response.Input.BuildOptions, expectedProfile.Options.Development))
+        {
+            return ApplicationFailure.InternalError(
+                $"Unity build response build options mismatch. RequestedDevelopment={expectedProfile.Options.Development}, Actual={response.Input.BuildOptions}.");
+        }
+
+        if (!ContractLiteralCodec.TryParse<IpcBuildReportResult>(response.Report.Result, out var reportResult))
         {
             return ApplicationFailure.InternalError($"Unity build response contains unsupported report result: {response.Report.Result}.");
         }
 
-        if (!ContractLiteralCodec.TryParse<IpcBuildLogCompletionReason>(response.Logs.CompletionReason, out _))
+        if (!ContractLiteralCodec.TryParse<IpcBuildLogCompletionReason>(response.Logs.CompletionReason, out var completionReason))
         {
             return ApplicationFailure.InternalError($"Unity build response contains unsupported log completionReason: {response.Logs.CompletionReason}.");
         }
 
-        if (!ContractLiteralCodec.TryParse<BuildProfileSceneSource>(response.Input.SceneSource, out _))
+        var expectedCompletionReason = IpcBuildLogCompletionReasonResolver.FromReportResult(reportResult);
+        if (completionReason != expectedCompletionReason)
         {
-            return ApplicationFailure.InternalError($"Unity build response contains unsupported scene source: {response.Input.SceneSource}.");
+            return ApplicationFailure.InternalError(
+                $"Unity build response log completionReason mismatch. Expected={ContractLiteralCodec.ToValue(expectedCompletionReason)}, Actual={response.Logs.CompletionReason}.");
         }
 
         if (response.Input.Scenes.Count == 0)
@@ -381,7 +431,63 @@ internal sealed class BuildService : IBuildService
             }
         }
 
+        if (expectedProfile.Scenes.Source == BuildProfileSceneSource.Explicit
+            && !response.Input.Scenes.SequenceEqual(expectedProfile.Scenes.Paths, StringComparer.Ordinal))
+        {
+            return ApplicationFailure.InternalError("Unity build response resolved scenes do not match the requested explicit build scenes.");
+        }
+
+        if (!string.Equals(response.Report.Target, response.Input.UnityBuildTarget, StringComparison.Ordinal))
+        {
+            return ApplicationFailure.InternalError(
+                $"Unity build report target mismatch. Input={response.Input.UnityBuildTarget}, Report={response.Report.Target}.");
+        }
+
+        if (!artifactStore.ContainsOutputPath(expectedPaths, response.Report.OutputPath))
+        {
+            return ApplicationFailure.InternalError("Unity build report output path must remain under the requested build output directory.");
+        }
+
         return null;
+    }
+
+    private static bool HasExpectedDevelopmentBuildOption (
+        string buildOptions,
+        bool expectedDevelopment)
+    {
+        if (string.IsNullOrWhiteSpace(buildOptions))
+        {
+            return false;
+        }
+
+        return ContainsBuildOption(buildOptions, "Development") == expectedDevelopment;
+    }
+
+    private static bool ContainsBuildOption (
+        string buildOptions,
+        string option)
+    {
+        var remaining = buildOptions.AsSpan();
+        while (!remaining.IsEmpty)
+        {
+            var separatorIndex = remaining.IndexOf(',');
+            var part = separatorIndex < 0
+                ? remaining
+                : remaining[..separatorIndex];
+            if (part.Trim().SequenceEqual(option.AsSpan()))
+            {
+                return true;
+            }
+
+            if (separatorIndex < 0)
+            {
+                return false;
+            }
+
+            remaining = remaining[(separatorIndex + 1)..];
+        }
+
+        return false;
     }
 
     private static BuildExecutionOutput CreateOutput (
@@ -520,7 +626,7 @@ internal sealed class BuildService : IBuildService
                     ["path"] = build.Profile.Path,
                     ["digest"] = build.Profile.Digest,
                 },
-                [new BuildEvidenceOutput(Kind: "buildProfile", EvidenceRef: BuildReportRefs.Build, Data: build.Profile)]),
+                [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(BuildEvidenceKind.BuildProfile), EvidenceRef: BuildReportRefs.Build, Data: build.Profile)]),
             CreateClaim(
                 BuildClaimCodes.UnityReadyForBuild,
                 response.LifecycleBefore.CanAcceptExecutionRequests ? BuildClaimStatus.Passed : BuildClaimStatus.Failed,
@@ -539,7 +645,7 @@ internal sealed class BuildService : IBuildService
                     ["target"] = build.Target,
                     ["sceneCount"] = build.Scenes.Paths.Count,
                 },
-                [new BuildEvidenceOutput(Kind: "buildInput", EvidenceRef: BuildReportRefs.Build, Data: response.Input)]),
+                [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(BuildEvidenceKind.BuildInput), EvidenceRef: BuildReportRefs.Build, Data: response.Input)]),
             CreateClaim(
                 BuildClaimCodes.UnityBuildCompleted,
                 knownTerminalResult ? BuildClaimStatus.Passed : BuildClaimStatus.Indeterminate,
