@@ -26,12 +26,6 @@ internal static class SceneTreeLiteAccessUtilities
         return true;
     }
 
-    /// <summary> Returns whether the path can be persisted into scene-tree-lite read-index storage. </summary>
-    public static bool IsLookupEligibleScenePath (string scenePath)
-    {
-        return UnityAssetPathContract.IsNormalizedSceneAssetPath(scenePath);
-    }
-
     /// <summary> Returns one tree snapshot trimmed to the requested depth. </summary>
     public static IReadOnlyList<IndexSceneTreeLiteNodeJsonContract> TrimToDepth (
         IReadOnlyList<IndexSceneTreeLiteNodeJsonContract> roots,
