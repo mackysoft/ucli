@@ -73,6 +73,38 @@ namespace MackySoft.Ucli.Unity.Ipc
                 PlayMode: snapshot.PlayMode);
         }
 
+        /// <summary> Creates one build lifecycle snapshot from Unity editor environment values. </summary>
+        /// <param name="unityVersion"> The Unity editor version string. </param>
+        /// <param name="serverVersion"> The daemon server version string. </param>
+        /// <param name="projectFingerprint"> The Unity project fingerprint served by this IPC host. </param>
+        /// <param name="snapshot"> The normalized editor lifecycle snapshot. </param>
+        /// <returns> The build lifecycle snapshot payload. </returns>
+        /// <exception cref="ArgumentException"> Thrown when <paramref name="unityVersion" />, <paramref name="serverVersion" />, or <paramref name="projectFingerprint" /> is empty or whitespace. </exception>
+        public static IpcBuildLifecycleSnapshot CreateBuildLifecycleSnapshot (
+            string unityVersion,
+            string serverVersion,
+            string projectFingerprint,
+            UnityEditorLifecycleSnapshot snapshot)
+        {
+            ValidateInputs(unityVersion, serverVersion, projectFingerprint, snapshot);
+
+            return new IpcBuildLifecycleSnapshot(
+                ServerVersion: serverVersion,
+                EditorMode: ContractLiteralCodec.ToValue(snapshot.EditorMode),
+                UnityVersion: unityVersion,
+                ProjectFingerprint: projectFingerprint,
+                LifecycleState: snapshot.LifecycleState,
+                BlockingReason: snapshot.BlockingReason,
+                CompileState: snapshot.CompileState,
+                CompileGeneration: snapshot.CompileGeneration,
+                DomainReloadGeneration: snapshot.DomainReloadGeneration,
+                CanAcceptExecutionRequests: snapshot.CanAcceptExecutionRequests,
+                ObservedAtUtc: snapshot.ObservedAtUtc,
+                ActionRequired: snapshot.ActionRequired,
+                PrimaryDiagnostic: snapshot.PrimaryDiagnostic,
+                PlayMode: snapshot.PlayMode);
+        }
+
         private static void ValidateInputs (
             string unityVersion,
             string serverVersion,

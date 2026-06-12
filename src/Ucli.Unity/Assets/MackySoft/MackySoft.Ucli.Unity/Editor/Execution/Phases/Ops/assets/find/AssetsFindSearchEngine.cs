@@ -1,7 +1,8 @@
 using System;
 using System.Collections.Generic;
+using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Unity.Index;
-using MackySoft.Ucli.Unity.Project;
 using UnityEditor;
 using UnityEngine;
 
@@ -60,7 +61,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             var assetPaths = AssetDatabase.GetAllAssetPaths();
             for (var i = 0; i < assetPaths.Length; i++)
             {
-                var normalizedAssetPath = UnityAssetPathUtility.NormalizeAssetPath(assetPaths[i]);
+                var normalizedAssetPath = PathStringNormalizer.ToSlashSeparated(assetPaths[i]);
                 if (!IsSearchableAssetPath(normalizedAssetPath)
                     || !MatchesPathPrefix(criteria, normalizedAssetPath))
                 {
@@ -180,7 +181,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static bool IsSearchableAssetPath (string assetPath)
         {
-            return UnityAssetPathUtility.IsAssetsDescendantPath(assetPath)
+            return UnityAssetPathContract.IsNormalizedAssetsDescendantPath(assetPath)
                    && !AssetDatabase.IsValidFolder(assetPath);
         }
 

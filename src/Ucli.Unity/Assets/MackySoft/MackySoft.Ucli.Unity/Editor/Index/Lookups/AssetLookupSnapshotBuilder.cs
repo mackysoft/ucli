@@ -3,9 +3,10 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Unity.Project;
+using MackySoft.Ucli.Infrastructure.Paths;
 using UnityEditor;
 using UnityEngine;
 
@@ -27,8 +28,8 @@ namespace MackySoft.Ucli.Unity.Index
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                var normalizedAssetPath = UnityAssetPathUtility.NormalizeAssetPath(assetPaths[i]);
-                if (!UnityAssetPathUtility.IsAssetsDescendantPath(normalizedAssetPath)
+                var normalizedAssetPath = PathStringNormalizer.ToSlashSeparated(assetPaths[i]);
+                if (!UnityAssetPathContract.IsNormalizedAssetsDescendantPath(normalizedAssetPath)
                     || AssetDatabase.IsValidFolder(normalizedAssetPath))
                 {
                     continue;

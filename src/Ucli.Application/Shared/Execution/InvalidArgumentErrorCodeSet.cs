@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Vocabulary;
 
 namespace MackySoft.Ucli.Application.Shared.Execution;
@@ -39,10 +38,9 @@ internal static class InvalidArgumentErrorCodeSet
             codes.Add(code);
         }
 
-        foreach (var code in BuildErrorCodes.InvalidArgumentCodes)
-        {
-            codes.Add(code);
-        }
+        codes.Add(BuildErrorCodes.BuildProfileInvalid);
+        codes.Add(BuildErrorCodes.BuildTargetUnsupported);
+        codes.Add(BuildErrorCodes.BuildInputsInvalid);
 
         return codes;
     }

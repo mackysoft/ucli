@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Unity.Build;
 using MackySoft.Ucli.Unity.Execution;
 using MackySoft.Ucli.Unity.Index;
 using MackySoft.Ucli.Unity.Project;
@@ -65,6 +66,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddSingleton<IServerVersionProvider, AssemblyServerVersionProvider>();
             services.AddSingleton<IUnityEditorUpdateAwaiter, UnityEditorUpdateAwaiterAdapter>();
             services.AddSingleton<IUnityPlayModeController, UnityEditorPlayModeController>();
+            services.AddSingleton<IUnityBuildTargetSupportProbe, UnityBuildTargetSupportProbe>();
+            services.AddSingleton<UnityBuildPreconditionProbe>();
             services.AddSingleton<PlayEnterTransitionRunner>();
             services.AddSingleton<PlayExitTransitionRunner>();
             services.AddSingleton<IUnityIpcMethodHandler>(serviceProvider =>

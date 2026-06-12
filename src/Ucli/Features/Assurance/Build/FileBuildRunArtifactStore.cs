@@ -2,7 +2,6 @@ using System.Buffers;
 using System.Security.Cryptography;
 using System.Text;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
-using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Assurance.Build;

@@ -1,6 +1,5 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Diagnostics;
-using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Catalog;
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Catalog;
@@ -103,38 +102,22 @@ public sealed class CodeCatalogTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Constructor_WithApplicationContributors_RegistersBuildProfileErrorCodes ()
+    public void Constructor_WithApplicationContributors_RegistersBuildErrorCodes ()
     {
         var catalog = CreateCatalog();
 
-        Assert.True(catalog.TryFind(BuildErrorCodes.BuildProfileInvalid, out var profileInvalidDescriptor));
-        Assert.Equal(CodeCatalogKindValues.Error, profileInvalidDescriptor.Kind);
-        Assert.Equal("build", profileInvalidDescriptor.Category);
-        Assert.Contains(UcliCommandIds.BuildRun, profileInvalidDescriptor.AppliesTo);
-
-        Assert.True(catalog.TryFind(BuildErrorCodes.BuildTargetUnsupported, out var targetUnsupportedDescriptor));
-        Assert.Equal(CodeCatalogKindValues.Error, targetUnsupportedDescriptor.Kind);
-        Assert.Equal("build", targetUnsupportedDescriptor.Category);
-        Assert.Contains(UcliCommandIds.BuildRun, targetUnsupportedDescriptor.AppliesTo);
-
-        var artifactCodes = new[]
+        foreach (var code in BuildErrorCodes.All)
         {
-            BuildErrorCodes.BuildArtifactWriteFailed,
-            BuildErrorCodes.BuildOutputManifestFailed,
-            BuildErrorCodes.BuildOutputDigestMismatch,
-        };
-        foreach (var artifactCode in artifactCodes)
-        {
-            Assert.True(catalog.TryFind(artifactCode, out var artifactDescriptor));
-            Assert.Equal(CodeCatalogKindValues.Error, artifactDescriptor.Kind);
-            Assert.Equal("build", artifactDescriptor.Category);
-            Assert.Contains(UcliCommandIds.BuildRun, artifactDescriptor.AppliesTo);
+            Assert.True(catalog.TryFind(code, out var descriptor));
+            Assert.Equal(CodeCatalogKindValues.Error, descriptor.Kind);
+            Assert.Equal("build", descriptor.Category);
+            Assert.Contains(UcliCommandIds.BuildRun, descriptor.AppliesTo);
         }
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void ApplicationFailure_FromBuildProfileCodes_UsesInvalidArgumentOutcome ()
+    public void ApplicationFailure_FromInvalidBuildInputCodes_UsesInvalidArgumentOutcome ()
     {
         Assert.Equal(
             ApplicationOutcome.InvalidArgument,
@@ -142,6 +125,21 @@ public sealed class CodeCatalogTests
         Assert.Equal(
             ApplicationOutcome.InvalidArgument,
             ApplicationFailure.FromCode(BuildErrorCodes.BuildTargetUnsupported, "Unsupported build target.").Outcome);
+        Assert.Equal(
+            ApplicationOutcome.InvalidArgument,
+            ApplicationFailure.FromCode(BuildErrorCodes.BuildInputsInvalid, "Invalid build inputs.").Outcome);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ApplicationFailure_FromBuildPreconditionStateCodes_UsesToolErrorOutcome ()
+    {
+        Assert.Equal(
+            ApplicationOutcome.ToolError,
+            ApplicationFailure.FromCode(BuildErrorCodes.BuildTargetModuleMissing, "Build target module is missing.").Outcome);
+        Assert.Equal(
+            ApplicationOutcome.ToolError,
+            ApplicationFailure.FromCode(BuildErrorCodes.BuildDirtyStatePresent, "Dirty scene state is present.").Outcome);
     }
 
     [Fact]

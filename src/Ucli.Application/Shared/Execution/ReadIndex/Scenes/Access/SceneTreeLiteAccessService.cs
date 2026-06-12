@@ -61,7 +61,7 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
             return SceneTreeLiteReadResult.Failure("Property 'depth' must be greater than or equal to 0.", UcliCoreErrorCodes.InvalidArgument);
         }
 
-        var isLookupEligibleScene = SceneTreeLiteAccessUtilities.IsLookupEligibleScenePath(normalizedScenePath);
+        var isLookupEligibleScene = UnityAssetPathContract.IsNormalizedSceneAssetPath(normalizedScenePath);
         if (isLookupEligibleScene)
         {
             var sourceProbeResult = await sourceProbe.EnsureCurrentAssetsSceneExistsAsync(project, normalizedScenePath, cancellationToken).ConfigureAwait(false);

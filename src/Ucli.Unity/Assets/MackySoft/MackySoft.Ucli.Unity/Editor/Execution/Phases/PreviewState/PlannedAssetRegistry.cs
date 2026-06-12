@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using MackySoft.Ucli.Unity.Project;
+using MackySoft.Ucli.Infrastructure.Paths;
 using UnityEngine;
 
 #nullable enable
@@ -39,7 +39,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 throw new ArgumentNullException(nameof(temporaryAliasRegistry));
             }
 
-            var normalizedAssetPath = UnityAssetPathUtility.NormalizeAssetPath(assetPath);
+            var normalizedAssetPath = PathStringNormalizer.ToSlashSeparated(assetPath);
             if (valuesByAssetPath.TryGetValue(normalizedAssetPath, out var previousValue)
                 && previousValue.UnityObject != null
                 && previousValue.UnityObject != unityObject)
@@ -63,7 +63,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            var normalizedAssetPath = UnityAssetPathUtility.NormalizeAssetPath(assetPath);
+            var normalizedAssetPath = PathStringNormalizer.ToSlashSeparated(assetPath);
             if (!valuesByAssetPath.TryGetValue(normalizedAssetPath, out var value))
             {
                 return false;
