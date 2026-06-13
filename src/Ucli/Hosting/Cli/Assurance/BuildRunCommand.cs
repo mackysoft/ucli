@@ -23,12 +23,12 @@ internal sealed class BuildRunCommand
         this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
-    /// <summary> Executes the build run command and emits the JSON result contract. </summary>
-    /// <param name="profilePath"> --profilePath, build profile JSON path. </param>
+    /// <summary> Runs Unity BuildPipeline from a build profile and emits final JSON with build artifact references: build.json, build-report.json, build.log, output-manifest.json, output/. </summary>
+    /// <param name="profilePath"> --profilePath, path to the build profile JSON that defines target, scenes, options, and output policy. </param>
     /// <param name="projectPath"> -p|--projectPath, optional target Unity project path. </param>
     /// <param name="mode"> Unity execution mode (auto|daemon|oneshot). </param>
     /// <param name="timeout"> Timeout in milliseconds. </param>
-    /// <param name="format"> Progress entry format (text|json). </param>
+    /// <param name="format"> Progress entry format (text|json) for entries written to standard error. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.RunSubcommand)]
