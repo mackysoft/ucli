@@ -351,6 +351,26 @@ ucli eval --mode daemon --allowDangerous \
 
 Use normal edit steps for planned, reviewable Unity changes.
 
+## 🏗️ Building Player Artifacts
+
+Use `ucli build run` to run Unity BuildPipeline from a build profile and collect machine-readable build results:
+
+```bash
+ucli build run --profilePath .ucli/build/player.json
+```
+
+The build profile defines the target, scenes, options, and output policy. `ucli build run` writes the final JSON result to standard output, and may write progress entries to standard error before that final result.
+
+Build artifacts are written under `.ucli/local/fingerprints/<projectFingerprint>/artifacts/build/<runId>/`.
+
+| Artifact | Use it for |
+| --- | --- |
+| `build.json` | uCLI build run metadata, resolved inputs, generation validity, summary, and artifact references. |
+| `build-report.json` | Normalized Unity BuildReport data. |
+| `build.log` | Unity log entries for the build execution window. |
+| `output-manifest.json` | File sizes and digests for generated player output files. |
+| `output/` | Generated player output files. |
+
 ## 🧪 Verifying Changes
 
 Run Unity tests after applying edits:
@@ -700,6 +720,7 @@ Custom operations are not hidden shortcuts. Once they are in the catalog, they f
 | `ucli plan` | Prepare a separated review gate and receive a `planToken`. |
 | `ucli validate` | Diagnose static request validation without running `plan` or `call`. |
 | `ucli verify` | Return a JSON verification result for Unity-side checks. |
+| `ucli build run` | Run Unity BuildPipeline from a build profile and return build evidence. |
 | `ucli logs` | Read Unity or daemon logs. |
 | `ucli daemon` | Manage daemon sessions. |
 | `ucli test` | Run Unity Test Framework tests. |
