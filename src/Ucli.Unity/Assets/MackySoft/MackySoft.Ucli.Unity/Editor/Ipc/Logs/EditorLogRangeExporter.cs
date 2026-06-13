@@ -77,8 +77,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                         {
                             cancellationToken.ThrowIfCancellationRequested();
 
-                            var readLength = remaining > buffer.Length
-                                ? buffer.Length
+                            var readLength = remaining > BufferSize
+                                ? BufferSize
                                 : (int)remaining;
                             var bytesRead = await sourceStream.ReadAsync(buffer, 0, readLength, cancellationToken);
                             if (bytesRead == 0)
@@ -248,11 +248,14 @@ namespace MackySoft.Ucli.Unity.Ipc
                     hasLineContent = true;
                     var lowered = ToLowerAscii(value);
                     ObserveAnywherePattern(lowered, ColonErrorPattern, ref colonErrorMatchLength, ref lineHasError);
-                    ObserveAnywherePattern(lowered, ColonWarningPattern, ref colonWarningMatchLength, ref lineHasWarning);
                     ObserveAnywherePattern(lowered, BracketErrorPattern, ref bracketErrorMatchLength, ref lineHasError);
-                    ObserveAnywherePattern(lowered, BracketWarnPattern, ref bracketWarnMatchLength, ref lineHasWarning);
-                    ObserveAnywherePattern(lowered, BracketWarningPattern, ref bracketWarningMatchLength, ref lineHasWarning);
-                    ObservePrefixPatterns(lowered, value);
+                    if (!lineHasError)
+                    {
+                        ObserveAnywherePattern(lowered, ColonWarningPattern, ref colonWarningMatchLength, ref lineHasWarning);
+                        ObserveAnywherePattern(lowered, BracketWarnPattern, ref bracketWarnMatchLength, ref lineHasWarning);
+                        ObserveAnywherePattern(lowered, BracketWarningPattern, ref bracketWarningMatchLength, ref lineHasWarning);
+                        ObservePrefixPatterns(lowered, value);
+                    }
                 }
             }
 

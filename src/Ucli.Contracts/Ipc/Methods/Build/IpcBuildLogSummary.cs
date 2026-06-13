@@ -1,7 +1,7 @@
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Represents the build log artifact summary. </summary>
-/// <param name="EntryCount"> The number of normalized log entries counted in the build window. </param>
+/// <param name="EntryCount"> The number of non-empty raw build log window entries. </param>
 /// <param name="ErrorCount"> The number of raw build log window entries classified as errors. </param>
 /// <param name="WarningCount"> The number of raw build log window entries classified as warnings. </param>
 /// <param name="CompletionReason"> The normalized build log completion reason. </param>
