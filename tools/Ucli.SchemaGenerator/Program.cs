@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -95,6 +96,7 @@ internal static class Program
             CreatePayloadSchema(UcliCommandIds.Status.Name, CreateStatusPayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.Ready.Name, CreateReadyPayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.Compile.Name, CreateCompilePayloadSchema()),
+            CreatePayloadSchema(UcliCommandIds.BuildRun.Name, CreateBuildRunPayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.Verify.Name, CreateVerifyPayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.Init.Name, CreateInitPayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.Validate.Name, CreateValidatePayloadSchema()),
@@ -614,6 +616,135 @@ internal static class Program
                 Required("observedAtUtc", NullableStringSchema()),
                 Required("actionRequired", NullableStringSchema()),
                 Required("primaryDiagnostic", CreatePrimaryDiagnosticSchema()))));
+    }
+
+    private static Dictionary<string, object?> CreateBuildRunPayloadSchema ()
+    {
+        var schema = ObjectSchema(
+            additionalProperties: false,
+            Required("verdict", EnumSchema("pass", "fail", "incomplete")),
+            Required("project", ReferenceSchema("../defs/project.schema.json")),
+            Required("build", CreateBuildRunBuildSchema()),
+            Required("verifiers", ArraySchema(ReferenceSchema("../defs/verifier.schema.json"))),
+            Required("claims", ArraySchema(CreateBuildRunClaimSchema())),
+            Required("reports", CreateBuildRunReportsSchema()),
+            Required("residualRisks", ArraySchema(CreateBuildRunResidualRiskSchema())));
+
+        schema["$defs"] = new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["generation"] = CreateBuildRunGenerationSnapshotSchema(),
+        };
+        return schema;
+    }
+
+    private static Dictionary<string, object?> CreateBuildRunBuildSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("runId", StringSchema()),
+            Required("profile", ObjectSchema(
+                additionalProperties: false,
+                Required("path", StringSchema()),
+                Required("digest", Sha256LowerHexSchema()))),
+            Required("target", StringSchema()),
+            Required("scenes", ObjectSchema(
+                additionalProperties: false,
+                Required(
+                    "source",
+                    EnumSchema(
+                        Literal(BuildProfileSceneSource.EditorBuildSettings),
+                        Literal(BuildProfileSceneSource.Explicit))),
+                Required("paths", ArraySchema(StringSchema())))),
+            Required("options", ObjectSchema(
+                additionalProperties: false,
+                Required("development", BooleanSchema()))),
+            Required("output", ObjectSchema(
+                additionalProperties: false,
+                Required("kind", ConstString("ucliArtifact")),
+                Required("artifactRoot", StringSchema()),
+                Required("outputRoot", StringSchema()),
+                Required("manifestRef", ConstString("buildOutputManifest")),
+                Required("manifestDigest", Sha256LowerHexSchema()),
+                Required("fileCount", IntegerSchema()),
+                Required("totalBytes", IntegerSchema()))),
+            Required("generations", ObjectSchema(
+                additionalProperties: false,
+                Required("before", ReferenceSchema("#/$defs/generation")),
+                Required("after", ReferenceSchema("#/$defs/generation")),
+                Required("validFor", ReferenceSchema("#/$defs/generation")))),
+            Required("summary", ObjectSchema(
+                additionalProperties: false,
+                Required(
+                    "result",
+                    EnumSchema(
+                        Literal(IpcBuildReportResult.Succeeded),
+                        Literal(IpcBuildReportResult.Failed),
+                        Literal(IpcBuildReportResult.Canceled),
+                        Literal(IpcBuildReportResult.Unknown))),
+                Required("durationMilliseconds", IntegerSchema()),
+                Required("errorCount", IntegerSchema()),
+                Required("warningCount", IntegerSchema()),
+                Required("reportRef", ConstString("buildReport")))),
+            Required("logs", ObjectSchema(
+                additionalProperties: false,
+                Required("reportRef", ConstString("buildLog")),
+                Required("entryCount", IntegerSchema()),
+                Required("errorCount", IntegerSchema()),
+                Required("warningCount", IntegerSchema()),
+                Required(
+                    "completionReason",
+                    EnumSchema(
+                        Literal(IpcBuildLogCompletionReason.Completed),
+                        Literal(IpcBuildLogCompletionReason.Failed),
+                        Literal(IpcBuildLogCompletionReason.Canceled))),
+                Required("window", ObjectSchema(
+                    additionalProperties: false,
+                    Required("startedAtUtc", StringSchema()),
+                    Required("completedAtUtc", StringSchema()))))));
+    }
+
+    private static Dictionary<string, object?> CreateBuildRunClaimSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: true,
+            Required("id", StringSchema()),
+            Required("status", EnumSchema("passed", "failed", "indeterminate")),
+            Required("coverage", EnumSchema("full", "none")),
+            Required("required", BooleanSchema()),
+            Required("verifierRef", StringSchema()),
+            Required("statement", StringSchema()),
+            Required("subject", ObjectSchema(additionalProperties: true)),
+            Required("evidence", ArraySchema(ReferenceSchema("../defs/evidence.schema.json"))),
+            Required("residualRisks", ArraySchema(CreateBuildRunResidualRiskSchema())));
+    }
+
+    private static Dictionary<string, object?> CreateBuildRunReportsSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("build", ReferenceSchema("../defs/report-ref.schema.json")),
+            Required("buildReport", ReferenceSchema("../defs/report-ref.schema.json")),
+            Required("buildOutputManifest", ReferenceSchema("../defs/report-ref.schema.json")),
+            Required("buildLog", ReferenceSchema("../defs/report-ref.schema.json")));
+    }
+
+    private static Dictionary<string, object?> CreateBuildRunResidualRiskSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("id", StringSchema()),
+            Required("severity", StringSchema()),
+            Required("blocking", BooleanSchema()),
+            Required("statement", StringSchema()));
+    }
+
+    private static Dictionary<string, object?> CreateBuildRunGenerationSnapshotSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("compileGeneration", StringSchema()),
+            Required("domainReloadGeneration", StringSchema()),
+            Required("assetRefreshGeneration", StringSchema()));
     }
 
     private static Dictionary<string, object?> CreateVerifyPayloadSchema ()

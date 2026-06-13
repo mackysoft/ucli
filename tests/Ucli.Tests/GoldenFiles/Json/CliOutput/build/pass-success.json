@@ -1,0 +1,324 @@
+{
+  "protocolVersion": 1,
+  "command": "build.run",
+  "status": "ok",
+  "exitCode": 0,
+  "message": "Build completed.",
+  "payload": {
+    "verdict": "pass",
+    "project": {
+      "projectPath": "/workspace/UnityProject",
+      "projectFingerprint": "project-fingerprint",
+      "unityVersion": "6000.1.4f1"
+    },
+    "build": {
+      "runId": "build-run-1",
+      "profile": {
+        "path": "/workspace/.ucli/build/player.json",
+        "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "target": "standaloneLinux64",
+      "scenes": {
+        "source": "explicit",
+        "paths": [
+          "Assets/Scenes/Main.unity"
+        ]
+      },
+      "options": {
+        "development": true
+      },
+      "output": {
+        "kind": "ucliArtifact",
+        "artifactRoot": "/workspace/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1",
+        "outputRoot": "/workspace/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/output",
+        "manifestRef": "buildOutputManifest",
+        "manifestDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "fileCount": 1,
+        "totalBytes": 4096
+      },
+      "generations": {
+        "before": {
+          "compileGeneration": "compile-before",
+          "domainReloadGeneration": "domain-before",
+          "assetRefreshGeneration": "asset-before"
+        },
+        "after": {
+          "compileGeneration": "compile-after",
+          "domainReloadGeneration": "domain-after",
+          "assetRefreshGeneration": "asset-after"
+        },
+        "validFor": {
+          "compileGeneration": "compile-after",
+          "domainReloadGeneration": "domain-after",
+          "assetRefreshGeneration": "asset-after"
+        }
+      },
+      "summary": {
+        "result": "succeeded",
+        "durationMilliseconds": 2500,
+        "errorCount": 0,
+        "warningCount": 1,
+        "reportRef": "buildReport"
+      },
+      "logs": {
+        "reportRef": "buildLog",
+        "entryCount": 3,
+        "errorCount": 0,
+        "warningCount": 1,
+        "completionReason": "completed",
+        "window": {
+          "startedAtUtc": "2026-06-12T00:00:00+00:00",
+          "completedAtUtc": "2026-06-12T00:00:03+00:00"
+        }
+      }
+    },
+    "verifiers": [
+      {
+        "id": "build",
+        "kind": "build",
+        "deterministic": false,
+        "required": true,
+        "primaryClaims": [
+          "UNITY_BUILD_PROFILE_RESOLVED",
+          "UNITY_READY_FOR_BUILD",
+          "UNITY_BUILD_INPUTS_RESOLVED",
+          "UNITY_BUILD_COMPLETED",
+          "UNITY_BUILD_SUCCEEDED",
+          "UNITY_BUILD_REPORT_ACCOUNTED",
+          "UNITY_BUILD_ARTIFACTS_ACCOUNTED",
+          "UNITY_BUILD_OUTPUT_DIGESTED",
+          "UNITY_BUILD_LOGS_ACCOUNTED",
+          "UNITY_BUILD_VALID_FOR_GENERATION"
+        ],
+        "effects": [
+          "unityLifecycleRead",
+          "unityBuildPipeline",
+          "unityBuildReportRead",
+          "unityLogWindowRead",
+          "ucliArtifactWrite",
+          "outputManifestWrite",
+          "generationSnapshot"
+        ],
+        "reportRef": "build"
+      }
+    ],
+    "claims": [
+      {
+        "id": "UNITY_BUILD_PROFILE_RESOLVED",
+        "status": "passed",
+        "coverage": "full",
+        "required": true,
+        "verifierRef": "build",
+        "statement": "Build profile resolved.",
+        "subject": {
+          "kind": "build",
+          "runId": "build-run-1"
+        },
+        "evidence": [
+          {
+            "kind": "artifact",
+            "evidenceRef": "build"
+          }
+        ],
+        "residualRisks": []
+      },
+      {
+        "id": "UNITY_READY_FOR_BUILD",
+        "status": "passed",
+        "coverage": "full",
+        "required": true,
+        "verifierRef": "build",
+        "statement": "Unity was ready for build.",
+        "subject": {
+          "kind": "build",
+          "runId": "build-run-1"
+        },
+        "evidence": [
+          {
+            "kind": "lifecycleSnapshot",
+            "data": {
+              "state": "ready"
+            }
+          }
+        ],
+        "residualRisks": []
+      },
+      {
+        "id": "UNITY_BUILD_INPUTS_RESOLVED",
+        "status": "passed",
+        "coverage": "full",
+        "required": true,
+        "verifierRef": "build",
+        "statement": "Build inputs resolved.",
+        "subject": {
+          "kind": "build",
+          "runId": "build-run-1"
+        },
+        "evidence": [
+          {
+            "kind": "artifact",
+            "evidenceRef": "build"
+          }
+        ],
+        "residualRisks": []
+      },
+      {
+        "id": "UNITY_BUILD_COMPLETED",
+        "status": "passed",
+        "coverage": "full",
+        "required": true,
+        "verifierRef": "build",
+        "statement": "BuildPipeline completed.",
+        "subject": {
+          "kind": "build",
+          "runId": "build-run-1"
+        },
+        "evidence": [
+          {
+            "kind": "artifact",
+            "evidenceRef": "buildReport"
+          }
+        ],
+        "residualRisks": []
+      },
+      {
+        "id": "UNITY_BUILD_SUCCEEDED",
+        "status": "passed",
+        "coverage": "full",
+        "required": true,
+        "verifierRef": "build",
+        "statement": "BuildPipeline succeeded.",
+        "subject": {
+          "kind": "build",
+          "runId": "build-run-1"
+        },
+        "evidence": [
+          {
+            "kind": "artifact",
+            "evidenceRef": "buildReport"
+          }
+        ],
+        "residualRisks": []
+      },
+      {
+        "id": "UNITY_BUILD_REPORT_ACCOUNTED",
+        "status": "passed",
+        "coverage": "full",
+        "required": true,
+        "verifierRef": "build",
+        "statement": "BuildReport artifact accounted.",
+        "subject": {
+          "kind": "build",
+          "runId": "build-run-1"
+        },
+        "evidence": [
+          {
+            "kind": "artifact",
+            "evidenceRef": "buildReport"
+          }
+        ],
+        "residualRisks": []
+      },
+      {
+        "id": "UNITY_BUILD_ARTIFACTS_ACCOUNTED",
+        "status": "passed",
+        "coverage": "full",
+        "required": true,
+        "verifierRef": "build",
+        "statement": "Build artifacts accounted.",
+        "subject": {
+          "kind": "build",
+          "runId": "build-run-1"
+        },
+        "evidence": [
+          {
+            "kind": "artifact",
+            "evidenceRef": "build"
+          }
+        ],
+        "residualRisks": []
+      },
+      {
+        "id": "UNITY_BUILD_OUTPUT_DIGESTED",
+        "status": "passed",
+        "coverage": "full",
+        "required": true,
+        "verifierRef": "build",
+        "statement": "Build output digested.",
+        "subject": {
+          "kind": "build",
+          "runId": "build-run-1"
+        },
+        "evidence": [
+          {
+            "kind": "artifact",
+            "evidenceRef": "buildOutputManifest"
+          }
+        ],
+        "residualRisks": []
+      },
+      {
+        "id": "UNITY_BUILD_LOGS_ACCOUNTED",
+        "status": "passed",
+        "coverage": "full",
+        "required": true,
+        "verifierRef": "build",
+        "statement": "Build logs accounted.",
+        "subject": {
+          "kind": "build",
+          "runId": "build-run-1"
+        },
+        "evidence": [
+          {
+            "kind": "artifact",
+            "evidenceRef": "buildLog"
+          }
+        ],
+        "residualRisks": []
+      },
+      {
+        "id": "UNITY_BUILD_VALID_FOR_GENERATION",
+        "status": "passed",
+        "coverage": "full",
+        "required": true,
+        "verifierRef": "build",
+        "statement": "Build generations captured.",
+        "subject": {
+          "kind": "build",
+          "runId": "build-run-1"
+        },
+        "evidence": [
+          {
+            "kind": "artifact",
+            "evidenceRef": "build"
+          }
+        ],
+        "residualRisks": []
+      }
+    ],
+    "reports": {
+      "build": {
+        "kind": "build",
+        "path": "/workspace/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/build.json",
+        "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "buildReport": {
+        "kind": "buildReport",
+        "path": "/workspace/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/build-report.json",
+        "digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      },
+      "buildOutputManifest": {
+        "kind": "buildOutputManifest",
+        "path": "/workspace/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/output-manifest.json",
+        "digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      },
+      "buildLog": {
+        "kind": "buildLog",
+        "path": "/workspace/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/build.log",
+        "digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      }
+    },
+    "residualRisks": []
+  },
+  "errors": []
+}
