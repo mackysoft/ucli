@@ -353,7 +353,7 @@ Use normal edit steps for planned, reviewable Unity changes.
 
 ## 🏗️ Building Player Artifacts
 
-Use `ucli build run` when CI or release automation needs Unity BuildPipeline results as reviewable evidence:
+Use `ucli build run` to run Unity BuildPipeline from a build profile and collect machine-readable build results:
 
 ```bash
 ucli build run --profilePath .ucli/build/player.json

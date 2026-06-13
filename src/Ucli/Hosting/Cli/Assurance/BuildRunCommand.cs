@@ -23,7 +23,7 @@ internal sealed class BuildRunCommand
         this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
-    /// <summary> Runs Unity BuildPipeline from a build profile and emits final JSON with build artifact references: build.json, build-report.json, build.log, output-manifest.json, output/. </summary>
+    /// <summary> Runs Unity BuildPipeline from a build profile and emits final JSON with build artifacts: build.json, build-report.json, build.log, output-manifest.json, output/. </summary>
     /// <param name="profilePath"> --profilePath, path to the build profile JSON that defines target, scenes, options, and output policy. </param>
     /// <param name="projectPath"> -p|--projectPath, optional target Unity project path. </param>
     /// <param name="mode"> Unity execution mode (auto|daemon|oneshot). </param>
