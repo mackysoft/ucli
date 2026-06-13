@@ -42,6 +42,7 @@ public sealed class CliOutputSchemaArtifactTests
         Assert.Contains("status", commandEntries.Keys);
         Assert.Contains("ready", commandEntries.Keys);
         Assert.Contains("compile", commandEntries.Keys);
+        Assert.Contains("build.run", commandEntries.Keys);
         Assert.Contains("verify", commandEntries.Keys);
         Assert.Contains("plan", commandEntries.Keys);
         Assert.Contains("call", commandEntries.Keys);

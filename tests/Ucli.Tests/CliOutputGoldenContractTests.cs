@@ -1,4 +1,6 @@
 using System.Text.Json;
+using MackySoft.Ucli.Application.Features.Assurance.Build.Catalog;
+using MackySoft.Ucli.Application.Features.Assurance.Build.Semantics;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Catalog;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Semantics;
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
@@ -133,6 +135,7 @@ public sealed class CliOutputGoldenContractTests
     {
         return string.Equals(command, "ready", StringComparison.Ordinal)
             || string.Equals(command, "compile", StringComparison.Ordinal)
+            || string.Equals(command, "build.run", StringComparison.Ordinal)
             || string.Equals(command, "verify", StringComparison.Ordinal);
     }
 
@@ -143,6 +146,7 @@ public sealed class CliOutputGoldenContractTests
             [
                 new ReadyAssuranceSemanticInvariantRule(),
                 new CompileAssuranceSemanticInvariantRule(),
+                new BuildAssuranceSemanticInvariantRule(),
                 new VerifyAssuranceSemanticInvariantRule(),
             ]);
     }
@@ -155,6 +159,7 @@ public sealed class CliOutputGoldenContractTests
             new ApplicationCodeCatalogContributor(),
             new ReadyCodeCatalogContributor(),
             new CompileCodeCatalogContributor(),
+            new BuildCodeCatalogContributor(),
             new VerifyCodeCatalogContributor(),
         ]);
     }
