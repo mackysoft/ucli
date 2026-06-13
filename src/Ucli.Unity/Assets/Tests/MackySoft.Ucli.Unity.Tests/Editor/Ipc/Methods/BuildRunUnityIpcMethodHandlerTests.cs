@@ -52,9 +52,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 var identity = CreateProjectIdentity(scope.ProjectPath);
                 var request = CreateRequest(scope.ProjectPath, identity);
-                var relativeArtifactPath = Path.GetRelativePath(
-                    Directory.GetCurrentDirectory(),
-                    GetArtifactPath(request, artifact));
+                var relativeArtifactPath = Path.Combine("relative", artifact);
                 request = WithArtifactPath(request, artifact, relativeArtifactPath);
 
                 var result = BuildRunUnityIpcMethodHandler.TryValidateRequest(request, identity, out var errorMessage);
