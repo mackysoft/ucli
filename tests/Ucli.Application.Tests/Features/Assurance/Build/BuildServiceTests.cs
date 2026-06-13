@@ -79,6 +79,7 @@ public sealed class BuildServiceTests
         Assert.Equal(ContractLiteralCodec.ToValue(BuildProfileOutputKind.UcliArtifact), output.Build.Output.Kind);
         Assert.Equal(artifactStore.PreparedPaths!.ArtifactsDirectory, output.Build.Output.ArtifactRoot);
         Assert.Equal(artifactStore.PreparedPaths.OutputDirectory, output.Build.Output.OutputRoot);
+        Assert.Equal(BuildReportRefs.BuildOutputManifest, output.Build.Output.ManifestRef);
         Assert.Equal("manifest-digest", output.Build.Output.ManifestDigest);
         Assert.Equal(
             [BuildReportRefs.Build, BuildReportRefs.BuildLog, BuildReportRefs.BuildOutputManifest, BuildReportRefs.BuildReport],
@@ -88,6 +89,8 @@ public sealed class BuildServiceTests
         Assert.Equal("output-manifest-artifact-digest", output.Reports[BuildReportRefs.BuildOutputManifest].Digest);
         Assert.Equal("build-log-digest", output.Reports[BuildReportRefs.BuildLog].Digest);
         Assert.All(output.Reports, report => Assert.Equal(report.Key, report.Value.Kind));
+        Assert.True(output.Reports.ContainsKey(output.Build.Output.ManifestRef));
+        AssertEvidenceRefsResolveToReports(output);
         Assert.Equal(10, output.Claims.Count);
         Assert.All(output.Claims, claim => Assert.True(claim.Required));
         var verifier = Assert.Single(output.Verifiers);
@@ -98,6 +101,14 @@ public sealed class BuildServiceTests
         Assert.Equal(
             ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
             artifactStore.WrittenMetadata!.Summary.GetProperty("result").GetString());
+        Assert.Equal(output.Build.Profile.Path, artifactStore.WrittenMetadata.Profile.GetProperty("path").GetString());
+        Assert.Equal(output.Build.Profile.Digest, artifactStore.WrittenMetadata.Profile.GetProperty("digest").GetString());
+        Assert.Equal(output.Build.Summary.ReportRef, artifactStore.WrittenMetadata.Summary.GetProperty("reportRef").GetString());
+        Assert.Equal(output.Build.Logs.ReportRef, artifactStore.WrittenMetadata.Logs.GetProperty("reportRef").GetString());
+        Assert.Equal(output.Build.Output.ManifestRef, artifactStore.WrittenMetadata.Output.GetProperty("manifestRef").GetString());
+        Assert.Equal(output.Build.Generations.Before.CompileGeneration, artifactStore.WrittenMetadata.Generations.GetProperty("before").GetProperty("compileGeneration").GetString());
+        Assert.Equal(output.Build.Generations.After.DomainReloadGeneration, artifactStore.WrittenMetadata.Generations.GetProperty("after").GetProperty("domainReloadGeneration").GetString());
+        Assert.Equal(output.Build.Generations.ValidFor.AssetRefreshGeneration, artifactStore.WrittenMetadata.Generations.GetProperty("validFor").GetProperty("assetRefreshGeneration").GetString());
         Assert.Equal("ready", artifactStore.WrittenMetadata.Lifecycle.GetProperty("before").GetProperty("lifecycleState").GetString());
         Assert.Equal("ready", artifactStore.WrittenMetadata.Lifecycle.GetProperty("after").GetProperty("lifecycleState").GetString());
         AssertProgressEvents(
@@ -692,6 +703,24 @@ public sealed class BuildServiceTests
         UcliCode code)
     {
         return output.Claims.Single(claim => string.Equals(claim.Id, code.Value, StringComparison.Ordinal));
+    }
+
+    private static void AssertEvidenceRefsResolveToReports (BuildExecutionOutput output)
+    {
+        foreach (var claim in output.Claims)
+        {
+            foreach (var evidence in claim.Evidence)
+            {
+                if (evidence.EvidenceRef == null)
+                {
+                    continue;
+                }
+
+                Assert.True(
+                    output.Reports.ContainsKey(evidence.EvidenceRef),
+                    $"Claim {claim.Id} references missing report '{evidence.EvidenceRef}'.");
+            }
+        }
     }
 
     private static AssuranceSemanticInvariantValidator CreateBuildSemanticInvariantValidator ()

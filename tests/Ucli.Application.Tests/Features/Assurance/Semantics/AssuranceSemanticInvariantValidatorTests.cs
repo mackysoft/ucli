@@ -54,6 +54,152 @@ public sealed class AssuranceSemanticInvariantValidatorTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Validate_WithBuildPayloadMissingProfile_ReturnsProfilePath ()
+    {
+        var result = ValidateBuildPayload(CreateBuildPayload(includeBuildProfile: false));
+
+        AssertViolationPath(result, "$.build.profile");
+        Assert.Single(result.Violations, static violation => string.Equals(violation.Path, "$.build.profile", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Validate_WithBuildOutputManifestRefMismatch_ReturnsManifestRefPath ()
+    {
+        var result = ValidateBuildPayload(CreateBuildPayload(buildManifestRef: "build"));
+
+        AssertViolationPath(result, "$.build.output.manifestRef");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Validate_WithBuildSummaryReportRefMismatch_ReturnsSummaryReportRefPath ()
+    {
+        var result = ValidateBuildPayload(CreateBuildPayload(summaryReportRef: "build"));
+
+        AssertViolationPath(result, "$.build.summary.reportRef");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Validate_WithBuildLogsReportRefMismatch_ReturnsLogsReportRefPath ()
+    {
+        var result = ValidateBuildPayload(CreateBuildPayload(logsReportRef: "buildReport"));
+
+        AssertViolationPath(result, "$.build.logs.reportRef");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Validate_WithBuildVerifierEffectsSubset_ReturnsNoViolations ()
+    {
+        var result = ValidateBuildPayload(CreateBuildPayload(verifierEffects: ["unityBuildPipeline"]));
+
+        Assert.True(result.IsValid);
+        Assert.Empty(result.Violations);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Validate_WithBuildVerifierUnknownEffect_ReturnsEffectsPath ()
+    {
+        var result = ValidateBuildPayload(CreateBuildPayload(verifierEffects: ["unknownEffect"]));
+
+        AssertViolationPath(result, "$.verifiers[0].effects[0]");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Validate_WithBuildVerifierNonStringEffect_ReturnsEffectsPath ()
+    {
+        var result = ValidateBuildPayload(CreateBuildPayload(verifierEffects: [1]));
+
+        AssertViolationPath(result, "$.verifiers[0].effects[0]");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Validate_WithBuildVerifierDuplicateEffect_ReturnsEffectsPath ()
+    {
+        var result = ValidateBuildPayload(CreateBuildPayload(verifierEffects: ["unityBuildPipeline", "unityBuildPipeline"]));
+
+        AssertViolationPath(result, "$.verifiers[0].effects[1]");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Validate_WithBuildPayloadMissingGenerations_ReturnsGenerationsPath ()
+    {
+        var result = ValidateBuildPayload(CreateBuildPayload(includeBuildGenerations: false));
+
+        AssertViolationPath(result, "$.build.generations");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Validate_WithIncompleteBuildGenerationAndPassedClaim_ReturnsGenerationClaimStatusPath ()
+    {
+        var result = ValidateBuildPayload(CreateBuildPayload(validForAssetRefreshGeneration: "unknown"));
+
+        AssertViolationPath(result, BuildGenerationClaimPath("status"));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Validate_WithIncompleteBuildGenerationAndUnverifiedClaim_ReturnsNoViolations ()
+    {
+        var result = ValidateBuildPayload(CreateBuildPayload(
+            verdict: "incomplete",
+            buildGenerationClaimStatus: "unverified",
+            validForAssetRefreshGeneration: "unknown"));
+
+        Assert.True(result.IsValid);
+        Assert.Empty(result.Violations);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Validate_WithCompleteBuildGenerationAndUnverifiedClaim_ReturnsGenerationClaimStatusPath ()
+    {
+        var result = ValidateBuildPayload(CreateBuildPayload(
+            verdict: "incomplete",
+            buildGenerationClaimStatus: "unverified"));
+
+        AssertViolationPath(result, BuildGenerationClaimPath("status"));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Validate_WithBuildGenerationValidForMismatch_ReturnsValidForPath ()
+    {
+        var result = ValidateBuildPayload(CreateBuildPayload(validForAssetRefreshGeneration: "asset-other"));
+
+        AssertViolationPath(result, "$.build.generations.validFor");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Validate_WithBuildGenerationDataOnlyEvidence_ReturnsNoViolations ()
+    {
+        var result = ValidateBuildPayload(CreateBuildPayload(buildGenerationEvidenceDataOnly: true));
+
+        Assert.True(result.IsValid);
+        Assert.Empty(result.Violations);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Validate_WithBuildGenerationDataOnlyEvidenceMismatch_ReturnsGenerationClaimEvidencePath ()
+    {
+        var result = ValidateBuildPayload(CreateBuildPayload(
+            buildGenerationEvidenceDataOnly: true,
+            buildGenerationEvidenceDataValidForAssetRefreshGeneration: "asset-evidence"));
+
+        AssertViolationPath(result, BuildGenerationClaimPath("evidence"));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Validate_WithBuildClaimEvidenceRefMismatch_ReturnsClaimEvidencePath ()
     {
         var result = ValidateBuildPayload(CreateBuildPayload(buildSucceededEvidenceRef: "build"));
@@ -71,6 +217,56 @@ public sealed class AssuranceSemanticInvariantValidatorTests
             buildSucceededClaimStatus: "passed"));
 
         AssertViolationPath(result, BuildSucceededClaimPath("status"));
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("failed", "failed")]
+    [InlineData("canceled", "canceled")]
+    public void Validate_WithTerminalUnsuccessfulBuildResultAndExpectedClaims_ReturnsNoViolations (
+        string buildResult,
+        string buildCompletionReason)
+    {
+        var result = ValidateBuildPayload(CreateBuildPayload(
+            verdict: "fail",
+            buildResult: buildResult,
+            buildCompletionReason: buildCompletionReason,
+            buildSucceededClaimStatus: "failed"));
+
+        Assert.True(result.IsValid);
+        Assert.Empty(result.Violations);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("failed", "failed")]
+    [InlineData("canceled", "canceled")]
+    public void Validate_WithTerminalBuildResultAndFailedCompletedClaim_ReturnsCompletedClaimStatusPath (
+        string buildResult,
+        string buildCompletionReason)
+    {
+        var result = ValidateBuildPayload(CreateBuildPayload(
+            verdict: "fail",
+            buildResult: buildResult,
+            buildCompletionReason: buildCompletionReason,
+            buildCompletedClaimStatus: "failed",
+            buildSucceededClaimStatus: "failed"));
+
+        AssertViolationPath(result, BuildCompletedClaimPath("status"));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Validate_WithUnknownBuildResultAndPassedCompletedClaim_ReturnsCompletedClaimStatusPath ()
+    {
+        var result = ValidateBuildPayload(CreateBuildPayload(
+            verdict: "fail",
+            buildResult: "unknown",
+            buildCompletionReason: "failed",
+            buildCompletedClaimStatus: "passed",
+            buildSucceededClaimStatus: "failed"));
+
+        AssertViolationPath(result, BuildCompletedClaimPath("status"));
     }
 
     [Fact]
@@ -809,12 +1005,24 @@ public sealed class AssuranceSemanticInvariantValidatorTests
     }
 
     private static string CreateBuildPayload (
+        string verdict = "pass",
         string buildResult = "succeeded",
         string buildCompletionReason = "completed",
+        string buildCompletedClaimStatus = "passed",
         string buildSucceededClaimStatus = "passed",
+        string buildGenerationClaimStatus = "passed",
         bool includeBuildLogReport = true,
         bool includeBuildLogDigest = true,
-        string? buildSucceededEvidenceRef = null)
+        string? buildSucceededEvidenceRef = null,
+        bool buildGenerationEvidenceDataOnly = false,
+        string? buildGenerationEvidenceDataValidForAssetRefreshGeneration = null,
+        bool includeBuildProfile = true,
+        string buildManifestRef = "buildOutputManifest",
+        string summaryReportRef = "buildReport",
+        string logsReportRef = "buildLog",
+        IReadOnlyList<object>? verifierEffects = null,
+        bool includeBuildGenerations = true,
+        string validForAssetRefreshGeneration = "asset-after")
     {
         var reports = new Dictionary<string, object>(StringComparer.Ordinal)
         {
@@ -853,35 +1061,63 @@ public sealed class AssuranceSemanticInvariantValidatorTests
                 };
         }
 
-        var claims = BuildClaimCodes.All
-            .Select(code => new
+        object? profile = includeBuildProfile
+            ? new
             {
-                id = code.Value,
-                status = code.Equals(BuildClaimCodes.UnityBuildSucceeded) ? buildSucceededClaimStatus : "passed",
-                coverage = "full",
-                required = true,
-                verifierRef = "build",
-                evidence = CreateBuildEvidence(code.Value, buildSucceededEvidenceRef),
-                residualRisks = Array.Empty<object>(),
+                path = ".ucli/build/player.json",
+                digest = "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            }
+            : null;
+        object? generations = includeBuildGenerations
+            ? CreateBuildGenerations(validForAssetRefreshGeneration)
+            : null;
+        var generationEvidenceData = buildGenerationEvidenceDataValidForAssetRefreshGeneration == null
+            ? generations
+            : CreateBuildGenerations(buildGenerationEvidenceDataValidForAssetRefreshGeneration);
+        var claims = BuildClaimCodes.All
+            .Select(code =>
+            {
+                var status = ResolveBuildClaimStatus(
+                    code,
+                    buildCompletedClaimStatus,
+                    buildSucceededClaimStatus,
+                    buildGenerationClaimStatus);
+                return new
+                {
+                    id = code.Value,
+                    status,
+                    coverage = ResolveBuildClaimCoverage(status),
+                    required = true,
+                    verifierRef = "build",
+                    evidence = CreateBuildEvidence(
+                        code.Value,
+                        buildSucceededEvidenceRef,
+                        buildGenerationEvidenceDataOnly,
+                        generationEvidenceData),
+                    residualRisks = Array.Empty<object>(),
+                };
             })
             .ToArray();
         return JsonSerializer.Serialize(new
         {
-            verdict = "pass",
+            verdict,
             build = new
             {
+                profile,
                 output = new
                 {
-                    manifestRef = "buildOutputManifest",
+                    manifestRef = buildManifestRef,
                     manifestDigest = "manifest-digest",
                 },
+                generations,
                 summary = new
                 {
                     result = buildResult,
+                    reportRef = summaryReportRef,
                 },
                 logs = new
                 {
-                    reportRef = "buildLog",
+                    reportRef = logsReportRef,
                     entryCount = 1,
                     errorCount = 0,
                     warningCount = 0,
@@ -897,7 +1133,7 @@ public sealed class AssuranceSemanticInvariantValidatorTests
                     deterministic = false,
                     required = true,
                     primaryClaims = BuildClaimCodes.All.Select(static code => code.Value).ToArray(),
-                    effects = ContractLiteralCodec.GetLiterals<BuildEffect>(),
+                    effects = verifierEffects ?? ContractLiteralCodec.GetLiterals<BuildEffect>().Cast<object>().ToArray(),
                     reportRef = "build",
                 },
             },
@@ -905,6 +1141,63 @@ public sealed class AssuranceSemanticInvariantValidatorTests
             reports,
             residualRisks = Array.Empty<object>(),
         });
+    }
+
+    private static object CreateBuildGenerations (string validForAssetRefreshGeneration)
+    {
+        return new
+        {
+            before = new
+            {
+                compileGeneration = "compile-before",
+                domainReloadGeneration = "domain-before",
+                assetRefreshGeneration = "asset-before",
+            },
+            after = new
+            {
+                compileGeneration = "compile-after",
+                domainReloadGeneration = "domain-after",
+                assetRefreshGeneration = "asset-after",
+            },
+            validFor = new
+            {
+                compileGeneration = "compile-after",
+                domainReloadGeneration = "domain-after",
+                assetRefreshGeneration = validForAssetRefreshGeneration,
+            },
+        };
+    }
+
+    private static string ResolveBuildClaimStatus (
+        UcliCode code,
+        string buildCompletedClaimStatus,
+        string buildSucceededClaimStatus,
+        string buildGenerationClaimStatus)
+    {
+        if (code.Equals(BuildClaimCodes.UnityBuildCompleted))
+        {
+            return buildCompletedClaimStatus;
+        }
+
+        if (code.Equals(BuildClaimCodes.UnityBuildSucceeded))
+        {
+            return buildSucceededClaimStatus;
+        }
+
+        if (code.Equals(BuildClaimCodes.UnityBuildValidForGeneration))
+        {
+            return buildGenerationClaimStatus;
+        }
+
+        return "passed";
+    }
+
+    private static string ResolveBuildClaimCoverage (string status)
+    {
+        return string.Equals(status, "indeterminate", StringComparison.Ordinal)
+            || string.Equals(status, "unverified", StringComparison.Ordinal)
+            ? "none"
+            : "full";
     }
 
     private static string BuildSucceededClaimPath (string propertyName)
@@ -920,10 +1213,50 @@ public sealed class AssuranceSemanticInvariantValidatorTests
         throw new InvalidOperationException("Build claim catalog must contain UNITY_BUILD_SUCCEEDED.");
     }
 
+    private static string BuildCompletedClaimPath (string propertyName)
+    {
+        for (var i = 0; i < BuildClaimCodes.All.Count; i++)
+        {
+            if (BuildClaimCodes.All[i].Equals(BuildClaimCodes.UnityBuildCompleted))
+            {
+                return $"$.claims[{i}].{propertyName}";
+            }
+        }
+
+        throw new InvalidOperationException("Build claim catalog must contain UNITY_BUILD_COMPLETED.");
+    }
+
+    private static string BuildGenerationClaimPath (string propertyName)
+    {
+        for (var i = 0; i < BuildClaimCodes.All.Count; i++)
+        {
+            if (BuildClaimCodes.All[i].Equals(BuildClaimCodes.UnityBuildValidForGeneration))
+            {
+                return $"$.claims[{i}].{propertyName}";
+            }
+        }
+
+        throw new InvalidOperationException("Build claim catalog must contain UNITY_BUILD_VALID_FOR_GENERATION.");
+    }
+
     private static object[] CreateBuildEvidence (
         string claimId,
-        string? buildSucceededEvidenceRef)
+        string? buildSucceededEvidenceRef,
+        bool buildGenerationEvidenceDataOnly,
+        object? buildGenerationEvidenceData)
     {
+        if (BuildClaimCodes.UnityBuildValidForGeneration.EqualsValue(claimId) && buildGenerationEvidenceDataOnly)
+        {
+            return
+            [
+                new
+                {
+                    kind = "evidence",
+                    data = buildGenerationEvidenceData,
+                },
+            ];
+        }
+
         var evidenceRef = ResolveBuildEvidenceRef(claimId);
         if (BuildClaimCodes.UnityBuildSucceeded.EqualsValue(claimId) && buildSucceededEvidenceRef != null)
         {

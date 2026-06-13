@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Features.Assurance.Build.Contracts;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Payload;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
+using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Assurance;
 
@@ -20,6 +21,38 @@ public sealed class BuildRunCommandResultFactoryTests
         Assert.Equal(1, result.ExitCode);
         Assert.Empty(result.Errors);
         Assert.Same(output, result.Payload);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Create_WithDirtySceneCommandFailure_ReturnsErrorStatusAndDirtyStatePayload ()
+    {
+        var dirtyState = new IpcBuildDirtyState(
+            Checked: true,
+            Dirty: true,
+            Items:
+            [
+                new IpcBuildDirtyStateItem(
+                    ContractLiteralCodec.ToValue(IpcBuildDirtyStateItemKind.Scene),
+                    "Assets/Scenes/Main.unity"),
+            ]);
+        var project = new ProjectIdentityInfo(
+            ProjectPath: "/workspace/UnityProject",
+            ProjectFingerprint: "project-fingerprint",
+            UnityVersion: "6000.1.4f1");
+        var executionResult = BuildExecutionResult.Failure(
+            ExecutionError.InternalError("Dirty scene state is present.", BuildErrorCodes.BuildDirtyStatePresent),
+            project,
+            dirtyState);
+
+        var result = BuildRunCommandResultFactory.Create(executionResult);
+
+        Assert.Equal(IpcProtocol.StatusError, result.Status);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(BuildErrorCodes.BuildDirtyStatePresent, error.Code);
+        var payload = Assert.IsAssignableFrom<IReadOnlyDictionary<string, object?>>(result.Payload);
+        Assert.True(payload.ContainsKey("project"));
+        Assert.Same(dirtyState, payload["dirtyState"]);
     }
 
     private static BuildExecutionOutput CreateOutput (string verdict)
