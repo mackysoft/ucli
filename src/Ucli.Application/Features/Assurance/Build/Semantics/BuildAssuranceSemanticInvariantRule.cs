@@ -9,6 +9,8 @@ namespace MackySoft.Ucli.Application.Features.Assurance.Build.Semantics;
 /// <summary> Validates build-specific semantic invariants inside the common assurance payload shape. </summary>
 internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticInvariantRule
 {
+    private const string UnknownGeneration = "unknown";
+
     private static readonly IReadOnlyList<string> RequiredReportKeys =
     [
         BuildReportRefs.Build,
@@ -33,13 +35,22 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
         }
 
         ValidateReports(payload, violations);
+        ValidateBuildProfile(buildElement, violations);
         ValidateBuildOutput(payload, violations);
+        ValidateBuildSummary(buildElement, violations);
+        ValidateBuildLogs(buildElement, violations);
+        ValidateBuildGenerations(buildElement, violations);
         ValidateBuildLogCompletionReason(buildElement, violations);
         ValidateVerifier(payload, violations);
         ValidateClaimEvidence(claimElement, claimPath, claimId, violations);
         if (BuildClaimCodes.UnityBuildSucceeded.EqualsValue(claimId))
         {
             ValidateSucceededClaim(buildElement, claimElement, claimPath, violations);
+        }
+
+        if (BuildClaimCodes.UnityBuildValidForGeneration.EqualsValue(claimId))
+        {
+            ValidateGenerationClaim(buildElement, claimElement, claimPath, violations);
         }
     }
 
@@ -123,6 +134,82 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
         }
     }
 
+    private static void ValidateBuildProfile (
+        JsonElement buildElement,
+        List<AssuranceSemanticInvariantViolation> violations)
+    {
+        if (!buildElement.TryGetProperty("profile", out var profileElement) || profileElement.ValueKind != JsonValueKind.Object)
+        {
+            AddViolation(violations, "$.build.profile", "Build payload must declare profile.");
+            return;
+        }
+
+        if (!TryReadString(profileElement, "path", out _))
+        {
+            AddViolation(violations, "$.build.profile.path", "Build profile must declare path.");
+        }
+
+        if (!TryReadString(profileElement, "digest", out _))
+        {
+            AddViolation(violations, "$.build.profile.digest", "Build profile must declare digest.");
+        }
+    }
+
+    private static void ValidateBuildSummary (
+        JsonElement buildElement,
+        List<AssuranceSemanticInvariantViolation> violations)
+    {
+        if (!buildElement.TryGetProperty("summary", out var summaryElement) || summaryElement.ValueKind != JsonValueKind.Object)
+        {
+            AddViolation(violations, "$.build.summary", "Build payload must declare summary.");
+            return;
+        }
+
+        if (!TryReadString(summaryElement, "reportRef", out var reportRef))
+        {
+            AddViolation(violations, "$.build.summary.reportRef", "Build summary must declare reportRef.");
+        }
+        else if (!string.Equals(reportRef, BuildReportRefs.BuildReport, StringComparison.Ordinal))
+        {
+            AddViolation(violations, "$.build.summary.reportRef", "Build summary reportRef must resolve to reports.buildReport.");
+        }
+    }
+
+    private static void ValidateBuildLogs (
+        JsonElement buildElement,
+        List<AssuranceSemanticInvariantViolation> violations)
+    {
+        if (!buildElement.TryGetProperty("logs", out var logsElement) || logsElement.ValueKind != JsonValueKind.Object)
+        {
+            AddViolation(violations, "$.build.logs", "Build payload must declare logs.");
+            return;
+        }
+
+        if (!TryReadString(logsElement, "reportRef", out var reportRef))
+        {
+            AddViolation(violations, "$.build.logs.reportRef", "Build logs must declare reportRef.");
+        }
+        else if (!string.Equals(reportRef, BuildReportRefs.BuildLog, StringComparison.Ordinal))
+        {
+            AddViolation(violations, "$.build.logs.reportRef", "Build logs reportRef must resolve to reports.buildLog.");
+        }
+    }
+
+    private static void ValidateBuildGenerations (
+        JsonElement buildElement,
+        List<AssuranceSemanticInvariantViolation> violations)
+    {
+        if (!TryReadGenerations(buildElement, out var generationsElement))
+        {
+            AddViolation(violations, "$.build.generations", "Build payload must declare generations.");
+            return;
+        }
+
+        ValidateGenerationSnapshot(generationsElement, "before", "$.build.generations.before", violations);
+        ValidateGenerationSnapshot(generationsElement, "after", "$.build.generations.after", violations);
+        ValidateGenerationSnapshot(generationsElement, "validFor", "$.build.generations.validFor", violations);
+    }
+
     private static void ValidateBuildLogCompletionReason (
         JsonElement buildElement,
         List<AssuranceSemanticInvariantViolation> violations)
@@ -145,6 +232,100 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
                 "$.build.logs.completionReason",
                 "Build log completionReason must match the BuildReport result.");
         }
+    }
+
+    private static void ValidateGenerationClaim (
+        JsonElement buildElement,
+        JsonElement claimElement,
+        string claimPath,
+        List<AssuranceSemanticInvariantViolation> violations)
+    {
+        if (!TryReadString(claimElement, "status", out var status))
+        {
+            return;
+        }
+
+        var expectedStatus = HasCompleteGenerationSnapshots(buildElement)
+            ? ContractLiteralCodec.ToValue(BuildClaimStatus.Passed)
+            : ContractLiteralCodec.ToValue(BuildClaimStatus.Indeterminate);
+        if (!string.Equals(status, expectedStatus, StringComparison.Ordinal))
+        {
+            AddViolation(
+                violations,
+                BuildPropertyPath(claimPath, "status"),
+                $"UNITY_BUILD_VALID_FOR_GENERATION must be {expectedStatus} for the declared generation snapshots.");
+        }
+    }
+
+    private static bool HasCompleteGenerationSnapshots (JsonElement buildElement)
+    {
+        if (!TryReadGenerations(buildElement, out var generationsElement))
+        {
+            return false;
+        }
+
+        return HasCompleteGenerationSnapshot(generationsElement, "before")
+            && HasCompleteGenerationSnapshot(generationsElement, "after")
+            && HasCompleteGenerationSnapshot(generationsElement, "validFor");
+    }
+
+    private static bool HasCompleteGenerationSnapshot (
+        JsonElement generationsElement,
+        string propertyName)
+    {
+        if (!generationsElement.TryGetProperty(propertyName, out var snapshotElement) || snapshotElement.ValueKind != JsonValueKind.Object)
+        {
+            return false;
+        }
+
+        return TryReadKnownGeneration(snapshotElement, "compileGeneration")
+            && TryReadKnownGeneration(snapshotElement, "domainReloadGeneration")
+            && TryReadKnownGeneration(snapshotElement, "assetRefreshGeneration");
+    }
+
+    private static bool TryReadGenerations (
+        JsonElement buildElement,
+        out JsonElement generationsElement)
+    {
+        return buildElement.TryGetProperty("generations", out generationsElement)
+            && generationsElement.ValueKind == JsonValueKind.Object;
+    }
+
+    private static void ValidateGenerationSnapshot (
+        JsonElement generationsElement,
+        string propertyName,
+        string propertyPath,
+        List<AssuranceSemanticInvariantViolation> violations)
+    {
+        if (!generationsElement.TryGetProperty(propertyName, out var snapshotElement) || snapshotElement.ValueKind != JsonValueKind.Object)
+        {
+            AddViolation(violations, propertyPath, $"Build generations must declare {propertyName}.");
+            return;
+        }
+
+        ValidateGenerationValue(snapshotElement, "compileGeneration", propertyPath, violations);
+        ValidateGenerationValue(snapshotElement, "domainReloadGeneration", propertyPath, violations);
+        ValidateGenerationValue(snapshotElement, "assetRefreshGeneration", propertyPath, violations);
+    }
+
+    private static void ValidateGenerationValue (
+        JsonElement snapshotElement,
+        string propertyName,
+        string ownerPath,
+        List<AssuranceSemanticInvariantViolation> violations)
+    {
+        if (!TryReadString(snapshotElement, propertyName, out _))
+        {
+            AddViolation(violations, BuildPropertyPath(ownerPath, propertyName), "Build generation value must be a non-empty string.");
+        }
+    }
+
+    private static bool TryReadKnownGeneration (
+        JsonElement snapshotElement,
+        string propertyName)
+    {
+        return TryReadString(snapshotElement, propertyName, out var generation)
+            && !string.Equals(generation, UnknownGeneration, StringComparison.Ordinal);
     }
 
     private static void ValidateVerifier (
