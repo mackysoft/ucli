@@ -1,0 +1,409 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/build.run.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "verdict": {
+      "type": "string",
+      "enum": [
+        "pass",
+        "fail",
+        "incomplete"
+      ]
+    },
+    "project": {
+      "$ref": "../defs/project.schema.json"
+    },
+    "build": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "runId": {
+          "type": "string"
+        },
+        "profile": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "digest": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "path",
+            "digest"
+          ]
+        },
+        "target": {
+          "type": "string"
+        },
+        "scenes": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "source": {
+              "type": "string",
+              "enum": [
+                "editorBuildSettings",
+                "explicit"
+              ]
+            },
+            "paths": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "source",
+            "paths"
+          ]
+        },
+        "options": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "development": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "development"
+          ]
+        },
+        "output": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "ucliArtifact"
+            },
+            "artifactRoot": {
+              "type": "string"
+            },
+            "outputRoot": {
+              "type": "string"
+            },
+            "manifestRef": {
+              "type": "string",
+              "const": "buildOutputManifest"
+            },
+            "manifestDigest": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "fileCount": {
+              "type": "integer"
+            },
+            "totalBytes": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "kind",
+            "artifactRoot",
+            "outputRoot",
+            "manifestRef",
+            "manifestDigest",
+            "fileCount",
+            "totalBytes"
+          ]
+        },
+        "generations": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "before": {
+              "$ref": "#/$defs/generation"
+            },
+            "after": {
+              "$ref": "#/$defs/generation"
+            },
+            "validFor": {
+              "$ref": "#/$defs/generation"
+            }
+          },
+          "required": [
+            "before",
+            "after",
+            "validFor"
+          ]
+        },
+        "summary": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "result": {
+              "type": "string",
+              "enum": [
+                "succeeded",
+                "failed",
+                "canceled",
+                "unknown"
+              ]
+            },
+            "durationMilliseconds": {
+              "type": "integer"
+            },
+            "errorCount": {
+              "type": "integer"
+            },
+            "warningCount": {
+              "type": "integer"
+            },
+            "reportRef": {
+              "type": "string",
+              "const": "buildReport"
+            }
+          },
+          "required": [
+            "result",
+            "durationMilliseconds",
+            "errorCount",
+            "warningCount",
+            "reportRef"
+          ]
+        },
+        "logs": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "reportRef": {
+              "type": "string",
+              "const": "buildLog"
+            },
+            "entryCount": {
+              "type": "integer"
+            },
+            "errorCount": {
+              "type": "integer"
+            },
+            "warningCount": {
+              "type": "integer"
+            },
+            "completionReason": {
+              "type": "string",
+              "enum": [
+                "completed",
+                "failed",
+                "canceled"
+              ]
+            },
+            "window": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "startedAtUtc": {
+                  "type": "string"
+                },
+                "completedAtUtc": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "startedAtUtc",
+                "completedAtUtc"
+              ]
+            }
+          },
+          "required": [
+            "reportRef",
+            "entryCount",
+            "errorCount",
+            "warningCount",
+            "completionReason",
+            "window"
+          ]
+        }
+      },
+      "required": [
+        "runId",
+        "profile",
+        "target",
+        "scenes",
+        "options",
+        "output",
+        "generations",
+        "summary",
+        "logs"
+      ]
+    },
+    "verifiers": {
+      "type": "array",
+      "items": {
+        "$ref": "../defs/verifier.schema.json"
+      }
+    },
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "passed",
+              "failed",
+              "indeterminate"
+            ]
+          },
+          "coverage": {
+            "type": "string",
+            "enum": [
+              "full",
+              "none"
+            ]
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "verifierRef": {
+            "type": "string"
+          },
+          "statement": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "object"
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "$ref": "../defs/evidence.schema.json"
+            }
+          },
+          "residualRisks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "severity": {
+                  "type": "string"
+                },
+                "blocking": {
+                  "type": "boolean"
+                },
+                "statement": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "severity",
+                "blocking",
+                "statement"
+              ]
+            }
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "coverage",
+          "required",
+          "verifierRef",
+          "statement",
+          "subject",
+          "evidence",
+          "residualRisks"
+        ]
+      }
+    },
+    "reports": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "build": {
+          "$ref": "../defs/report-ref.schema.json"
+        },
+        "buildReport": {
+          "$ref": "../defs/report-ref.schema.json"
+        },
+        "buildOutputManifest": {
+          "$ref": "../defs/report-ref.schema.json"
+        },
+        "buildLog": {
+          "$ref": "../defs/report-ref.schema.json"
+        }
+      },
+      "required": [
+        "build",
+        "buildReport",
+        "buildOutputManifest",
+        "buildLog"
+      ]
+    },
+    "residualRisks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string"
+          },
+          "blocking": {
+            "type": "boolean"
+          },
+          "statement": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "severity",
+          "blocking",
+          "statement"
+        ]
+      }
+    }
+  },
+  "required": [
+    "verdict",
+    "project",
+    "build",
+    "verifiers",
+    "claims",
+    "reports",
+    "residualRisks"
+  ],
+  "$defs": {
+    "generation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "compileGeneration": {
+          "type": "string"
+        },
+        "domainReloadGeneration": {
+          "type": "string"
+        },
+        "assetRefreshGeneration": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "compileGeneration",
+        "domainReloadGeneration",
+        "assetRefreshGeneration"
+      ]
+    }
+  }
+}

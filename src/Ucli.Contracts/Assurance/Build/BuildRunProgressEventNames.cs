@@ -4,8 +4,8 @@ namespace MackySoft.Ucli.Contracts.Assurance;
 public static class BuildRunProgressEventNames
 {
     /// <summary> Gets the event emitted after build run identity, artifacts, and execution target are established. </summary>
-    public const string Started = "build.started";
+    public const string Started = "build.run.started";
 
     /// <summary> Gets the event emitted after the final build payload has been built. </summary>
-    public const string Completed = "build.completed";
+    public const string Completed = "build.run.completed";
 }
