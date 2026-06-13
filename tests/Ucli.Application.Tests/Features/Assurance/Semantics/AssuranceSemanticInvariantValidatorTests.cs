@@ -1,4 +1,6 @@
 using System.Text.Json;
+using MackySoft.Ucli.Application.Features.Assurance.Build.Semantics;
+using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
 using MackySoft.Ucli.Application.Features.Assurance.Semantics;
 using MackySoft.Ucli.Application.Features.CodeCatalog.Catalog;
@@ -20,6 +22,67 @@ public sealed class AssuranceSemanticInvariantValidatorTests
 
         Assert.True(result.IsValid);
         Assert.Empty(result.Violations);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Validate_WithValidBuildPayload_ReturnsNoViolations ()
+    {
+        var result = ValidateBuildPayload(CreateBuildPayload());
+
+        Assert.True(result.IsValid);
+        Assert.Empty(result.Violations);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Validate_WithBuildPayloadMissingStableReport_ReturnsReportsPath ()
+    {
+        var result = ValidateBuildPayload(CreateBuildPayload(includeBuildLogReport: false));
+
+        AssertViolationPath(result, "$.reports");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Validate_WithBuildPayloadReportMissingDigest_ReturnsReportDigestPath ()
+    {
+        var result = ValidateBuildPayload(CreateBuildPayload(includeBuildLogDigest: false));
+
+        AssertViolationPath(result, "$.reports.buildLog.digest");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Validate_WithBuildClaimEvidenceRefMismatch_ReturnsClaimEvidencePath ()
+    {
+        var result = ValidateBuildPayload(CreateBuildPayload(buildSucceededEvidenceRef: "build"));
+
+        AssertViolationPath(result, BuildSucceededClaimPath("evidence"));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Validate_WithFailedBuildResultAndPassedSucceededClaim_ReturnsSucceededClaimStatusPath ()
+    {
+        var result = ValidateBuildPayload(CreateBuildPayload(
+            buildResult: "failed",
+            buildCompletionReason: "failed",
+            buildSucceededClaimStatus: "passed"));
+
+        AssertViolationPath(result, BuildSucceededClaimPath("status"));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Validate_WithBuildCompletionReasonMismatch_ReturnsLogsCompletionReasonPath ()
+    {
+        var result = ValidateBuildPayload(CreateBuildPayload(
+            buildResult: "failed",
+            buildCompletionReason: "completed",
+            buildSucceededClaimStatus: "failed"));
+
+        AssertViolationPath(result, "$.build.logs.completionReason");
     }
 
     [Fact]
@@ -730,6 +793,173 @@ public sealed class AssuranceSemanticInvariantValidatorTests
                 CreateDescriptor(LogUnavailableRisk, CodeCatalogKindValues.Risk),
             ]),
             [new ReadyAssuranceSemanticInvariantRule()]);
+    }
+
+    private static AssuranceSemanticInvariantValidator CreateBuildValidator ()
+    {
+        return new AssuranceSemanticInvariantValidator(
+            new StubCodeCatalog(BuildClaimCodes.All.Select(static code => CreateDescriptor(code.Value, CodeCatalogKindValues.Claim))),
+            [new BuildAssuranceSemanticInvariantRule()]);
+    }
+
+    private static AssuranceSemanticInvariantValidationResult ValidateBuildPayload (string payload)
+    {
+        using var document = JsonDocument.Parse(payload);
+        return CreateBuildValidator().Validate(document.RootElement);
+    }
+
+    private static string CreateBuildPayload (
+        string buildResult = "succeeded",
+        string buildCompletionReason = "completed",
+        string buildSucceededClaimStatus = "passed",
+        bool includeBuildLogReport = true,
+        bool includeBuildLogDigest = true,
+        string? buildSucceededEvidenceRef = null)
+    {
+        var reports = new Dictionary<string, object>(StringComparer.Ordinal)
+        {
+            ["build"] = new
+            {
+                kind = "build",
+                path = "artifacts/build.json",
+                digest = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            },
+            ["buildReport"] = new
+            {
+                kind = "buildReport",
+                path = "artifacts/build-report.json",
+                digest = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            },
+            ["buildOutputManifest"] = new
+            {
+                kind = "buildOutputManifest",
+                path = "artifacts/output-manifest.json",
+                digest = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            },
+        };
+        if (includeBuildLogReport)
+        {
+            reports["buildLog"] = includeBuildLogDigest
+                ? (object)new
+                {
+                    kind = "buildLog",
+                    path = "artifacts/build.log",
+                    digest = "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                }
+                : new
+                {
+                    kind = "buildLog",
+                    path = "artifacts/build.log",
+                };
+        }
+
+        var claims = BuildClaimCodes.All
+            .Select(code => new
+            {
+                id = code.Value,
+                status = code.Equals(BuildClaimCodes.UnityBuildSucceeded) ? buildSucceededClaimStatus : "passed",
+                coverage = "full",
+                required = true,
+                verifierRef = "build",
+                evidence = CreateBuildEvidence(code.Value, buildSucceededEvidenceRef),
+                residualRisks = Array.Empty<object>(),
+            })
+            .ToArray();
+        return JsonSerializer.Serialize(new
+        {
+            verdict = "pass",
+            build = new
+            {
+                output = new
+                {
+                    manifestRef = "buildOutputManifest",
+                    manifestDigest = "manifest-digest",
+                },
+                summary = new
+                {
+                    result = buildResult,
+                },
+                logs = new
+                {
+                    reportRef = "buildLog",
+                    entryCount = 1,
+                    errorCount = 0,
+                    warningCount = 0,
+                    completionReason = buildCompletionReason,
+                },
+            },
+            verifiers = new[]
+            {
+                new
+                {
+                    id = "build",
+                    kind = "build",
+                    deterministic = false,
+                    required = true,
+                    primaryClaims = BuildClaimCodes.All.Select(static code => code.Value).ToArray(),
+                    effects = ContractLiteralCodec.GetLiterals<BuildEffect>(),
+                    reportRef = "build",
+                },
+            },
+            claims,
+            reports,
+            residualRisks = Array.Empty<object>(),
+        });
+    }
+
+    private static string BuildSucceededClaimPath (string propertyName)
+    {
+        for (var i = 0; i < BuildClaimCodes.All.Count; i++)
+        {
+            if (BuildClaimCodes.All[i].Equals(BuildClaimCodes.UnityBuildSucceeded))
+            {
+                return $"$.claims[{i}].{propertyName}";
+            }
+        }
+
+        throw new InvalidOperationException("Build claim catalog must contain UNITY_BUILD_SUCCEEDED.");
+    }
+
+    private static object[] CreateBuildEvidence (
+        string claimId,
+        string? buildSucceededEvidenceRef)
+    {
+        var evidenceRef = ResolveBuildEvidenceRef(claimId);
+        if (BuildClaimCodes.UnityBuildSucceeded.EqualsValue(claimId) && buildSucceededEvidenceRef != null)
+        {
+            evidenceRef = buildSucceededEvidenceRef;
+        }
+
+        return
+        [
+            new
+            {
+                kind = "evidence",
+                evidenceRef,
+            },
+        ];
+    }
+
+    private static string ResolveBuildEvidenceRef (string claimId)
+    {
+        if (BuildClaimCodes.UnityBuildCompleted.EqualsValue(claimId)
+            || BuildClaimCodes.UnityBuildSucceeded.EqualsValue(claimId)
+            || BuildClaimCodes.UnityBuildReportAccounted.EqualsValue(claimId))
+        {
+            return "buildReport";
+        }
+
+        if (BuildClaimCodes.UnityBuildOutputDigested.EqualsValue(claimId))
+        {
+            return "buildOutputManifest";
+        }
+
+        if (BuildClaimCodes.UnityBuildLogsAccounted.EqualsValue(claimId))
+        {
+            return "buildLog";
+        }
+
+        return "build";
     }
 
     private static string ValidReadyPayload (string validityJson)

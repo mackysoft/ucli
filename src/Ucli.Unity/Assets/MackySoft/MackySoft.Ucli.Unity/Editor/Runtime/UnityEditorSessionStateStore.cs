@@ -11,6 +11,7 @@ namespace MackySoft.Ucli.Unity.Runtime
         // NOTE: Unity SessionState survives domain reload but not process exit.
         // Keeping all keys and direct access here prevents recovery identity and
         // lifecycle counters from drifting through duplicate persistence rules.
+        private const string AssetRefreshGenerationKey = "MackySoft.Ucli.Unity.Ipc.AssetRefreshGeneration";
         private const string DomainReloadGenerationKey = "MackySoft.Ucli.Unity.Ipc.DomainReloadGeneration";
         private const string PlayModeGenerationKey = "MackySoft.Ucli.Unity.Ipc.PlayModeGeneration";
         private const string PlayModeStableStateKey = "MackySoft.Ucli.Unity.Ipc.PlayModeStableState";
@@ -58,6 +59,28 @@ namespace MackySoft.Ucli.Unity.Runtime
         internal static void SetDomainReloadGenerationForTests (int value)
         {
             SessionState.SetInt(DomainReloadGenerationKey, value);
+        }
+
+        /// <summary> Restores the last persisted asset-refresh generation. </summary>
+        /// <returns> The persisted asset-refresh generation, or <c>0</c> when none is stored. </returns>
+        public static int RestoreAssetRefreshGeneration ()
+        {
+            return SessionState.GetInt(AssetRefreshGenerationKey, 0);
+        }
+
+        /// <summary> Advances the persisted asset-refresh generation and returns the new value. </summary>
+        /// <param name="minimumValue"> The minimum in-memory generation value that the next persisted generation must exceed. </param>
+        /// <returns> The incremented persisted generation value. </returns>
+        public static int AdvanceAssetRefreshGeneration (int minimumValue = 0)
+        {
+            return AdvanceGeneration(AssetRefreshGenerationKey, RestoreAssetRefreshGeneration(), minimumValue);
+        }
+
+        /// <summary> Stores one persisted asset-refresh generation value for tests. </summary>
+        /// <param name="value"> The persisted generation value to store. </param>
+        internal static void SetAssetRefreshGenerationForTests (int value)
+        {
+            SessionState.SetInt(AssetRefreshGenerationKey, value);
         }
 
         /// <summary> Restores the last persisted Play Mode generation. </summary>

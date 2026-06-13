@@ -209,7 +209,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             public int CallCount { get; private set; }
 
-            public Task ExportRangeAsync (
+            public Task<EditorLogRangeExportResult> ExportRangeAsync (
                 string sourcePath,
                 string destinationPath,
                 long startOffset,
@@ -218,7 +218,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 CallCount++;
-                return Task.CompletedTask;
+                return Task.FromResult(new EditorLogRangeExportResult(0, 0, 0));
             }
         }
 

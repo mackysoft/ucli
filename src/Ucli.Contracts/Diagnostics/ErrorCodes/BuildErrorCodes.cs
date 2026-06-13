@@ -18,13 +18,16 @@ public static class BuildErrorCodes
     /// <summary> Gets the error code emitted when build input scenes have unsaved changes. </summary>
     public static readonly UcliCode BuildDirtyStatePresent = new("BUILD_DIRTY_STATE_PRESENT");
 
-    /// <summary> Gets the error code emitted when build artifacts cannot be persisted. </summary>
+    /// <summary> Gets the error code emitted when Unity did not produce a BuildReport after BuildPipeline execution. </summary>
+    public static readonly UcliCode BuildReportMissing = new("BUILD_REPORT_MISSING");
+
+    /// <summary> Gets the error code emitted when build artifacts cannot be written. </summary>
     public static readonly UcliCode BuildArtifactWriteFailed = new("BUILD_ARTIFACT_WRITE_FAILED");
 
-    /// <summary> Gets the error code emitted when the build output manifest cannot be generated or persisted. </summary>
+    /// <summary> Gets the error code emitted when the build output manifest cannot be generated. </summary>
     public static readonly UcliCode BuildOutputManifestFailed = new("BUILD_OUTPUT_MANIFEST_FAILED");
 
-    /// <summary> Gets the error code emitted when output digest accounting cannot be trusted. </summary>
+    /// <summary> Gets the error code emitted when the output manifest digest does not match persisted artifact content. </summary>
     public static readonly UcliCode BuildOutputDigestMismatch = new("BUILD_OUTPUT_DIGEST_MISMATCH");
 
     /// <summary> Gets all build error codes owned by the build assurance workflow. </summary>
@@ -35,8 +38,10 @@ public static class BuildErrorCodes
         BuildInputsInvalid,
         BuildTargetModuleMissing,
         BuildDirtyStatePresent,
+        BuildReportMissing,
         BuildArtifactWriteFailed,
         BuildOutputManifestFailed,
         BuildOutputDigestMismatch,
     ];
+
 }

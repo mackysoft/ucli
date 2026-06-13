@@ -78,15 +78,13 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
     }
 
     /// <inheritdoc />
-    public async ValueTask<BuildRunArtifactWriteOperationResult> WriteArtifactsAsync (
-        BuildRunArtifactWriteRequest request,
+    public async ValueTask<BuildRunArtifactAccountingOperationResult> AccountArtifactsAsync (
+        BuildRunArtifactAccountingRequest request,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(request.Paths);
-        ArgumentNullException.ThrowIfNull(request.Metadata);
-        ArgumentNullException.ThrowIfNull(request.BuildReportJson);
-        ArgumentNullException.ThrowIfNull(request.BuildLogText);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.ReportedOutputPath);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.TargetStableName);
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -96,13 +94,30 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         }
         catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
-            return BuildRunArtifactWriteOperationResult.Failure(ExecutionError.InvalidArgument(
+            return BuildRunArtifactAccountingOperationResult.Failure(ExecutionError.InvalidArgument(
                 $"Build artifact path layout is invalid. {exception.Message}"));
         }
         catch (InvalidOperationException exception)
         {
-            return BuildRunArtifactWriteOperationResult.Failure(ExecutionError.InvalidArgument(
+            return BuildRunArtifactAccountingOperationResult.Failure(ExecutionError.InvalidArgument(
                 $"Build artifact path layout is invalid. {exception.Message}"));
+        }
+
+        try
+        {
+            EnsureReportedOutputPathUnderOutputDirectory(request.Paths, request.ReportedOutputPath);
+        }
+        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
+        {
+            return BuildRunArtifactAccountingOperationResult.Failure(ExecutionError.InternalError(
+                $"Build report output path is invalid. {exception.Message}",
+                BuildErrorCodes.BuildOutputManifestFailed));
+        }
+        catch (InvalidOperationException exception)
+        {
+            return BuildRunArtifactAccountingOperationResult.Failure(ExecutionError.InternalError(
+                $"Build report output path must remain under the requested output directory. {exception.Message}",
+                BuildErrorCodes.BuildOutputManifestFailed));
         }
 
         OutputManifestArtifacts outputManifestArtifacts;
@@ -116,65 +131,56 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         }
         catch (OutputDigestMismatchException exception)
         {
-            return BuildRunArtifactWriteOperationResult.Failure(ExecutionError.InternalError(
+            return BuildRunArtifactAccountingOperationResult.Failure(ExecutionError.InternalError(
                 $"Build output digest accounting failed. {exception.Message}",
                 BuildErrorCodes.BuildOutputDigestMismatch));
         }
         catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
-            return BuildRunArtifactWriteOperationResult.Failure(ExecutionError.InvalidArgument(
+            return BuildRunArtifactAccountingOperationResult.Failure(ExecutionError.InvalidArgument(
                 $"Build output manifest path is invalid. {exception.Message}"));
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException)
         {
-            return BuildRunArtifactWriteOperationResult.Failure(ExecutionError.InternalError(
+            return BuildRunArtifactAccountingOperationResult.Failure(ExecutionError.InternalError(
                 $"Failed to generate build output manifest. {exception.Message}",
                 BuildErrorCodes.BuildOutputManifestFailed));
         }
 
-        BuildArtifactRef buildReportRef;
-        BuildArtifactRef buildLogRef;
-        try
-        {
-            var buildReportDigest = await WriteTextAtomicallyAsync(
-                    request.Paths.BuildReportJsonPath,
-                    request.BuildReportJson,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            buildReportRef = CreateArtifactRef(
+        var buildReportAccountingResult = await AccountExistingArtifactAsync(
                 BuildArtifactKind.BuildReport,
                 request.Paths.RepositoryRoot,
                 request.Paths.BuildReportJsonPath,
-                buildReportDigest);
+                "BuildReport artifact",
+                BuildErrorCodes.BuildReportMissing,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!buildReportAccountingResult.IsSuccess)
+        {
+            return BuildRunArtifactAccountingOperationResult.Failure(buildReportAccountingResult.Error!);
+        }
 
-            var buildLogDigest = await WriteTextAtomicallyAsync(
-                    request.Paths.BuildLogPath,
-                    request.BuildLogText,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            buildLogRef = CreateArtifactRef(
+        var buildLogAccountingResult = await AccountExistingArtifactAsync(
                 BuildArtifactKind.BuildLog,
                 request.Paths.RepositoryRoot,
                 request.Paths.BuildLogPath,
-                buildLogDigest);
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
+                "Build log artifact",
+                BuildErrorCodes.BuildArtifactWriteFailed,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!buildLogAccountingResult.IsSuccess)
         {
-            return BuildRunArtifactWriteOperationResult.Failure(ExecutionError.InvalidArgument(
-                $"Build artifact path is invalid. {exception.Message}"));
+            return BuildRunArtifactAccountingOperationResult.Failure(buildLogAccountingResult.Error!);
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException)
-        {
-            return BuildRunArtifactWriteOperationResult.Failure(ExecutionError.InternalError(
-                $"Failed to write build artifacts. {exception.Message}",
-                BuildErrorCodes.BuildArtifactWriteFailed));
-        }
+
+        var buildReportRef = buildReportAccountingResult.Artifact!;
+        var buildLogRef = buildLogAccountingResult.Artifact!;
 
         BuildArtifactRef outputManifestRef;
         try
         {
             var outputManifestJson = outputManifestWriter.Write(outputManifestArtifacts.Contract);
-            await WriteTextAtomicallyAsync(
+            var outputManifestDigest = await WriteTextAtomicallyAsync(
                     request.Paths.OutputManifestJsonPath,
                     outputManifestJson,
                     cancellationToken)
@@ -183,18 +189,51 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
                 BuildArtifactKind.BuildOutputManifest,
                 request.Paths.RepositoryRoot,
                 request.Paths.OutputManifestJsonPath,
-                outputManifestArtifacts.Summary.ManifestDigest);
+                outputManifestDigest);
         }
         catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
-            return BuildRunArtifactWriteOperationResult.Failure(ExecutionError.InvalidArgument(
+            return BuildRunArtifactAccountingOperationResult.Failure(ExecutionError.InvalidArgument(
                 $"Build output manifest path is invalid. {exception.Message}"));
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException)
         {
-            return BuildRunArtifactWriteOperationResult.Failure(ExecutionError.InternalError(
+            return BuildRunArtifactAccountingOperationResult.Failure(ExecutionError.InternalError(
                 $"Failed to write build output manifest. {exception.Message}",
                 BuildErrorCodes.BuildOutputManifestFailed));
+        }
+
+        return BuildRunArtifactAccountingOperationResult.Success(new BuildRunArtifactAccountingResult(
+            buildReportRef,
+            outputManifestRef,
+            buildLogRef,
+            outputManifestArtifacts.Summary));
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<BuildArtifactRefWriteResult> WriteMetadataAsync (
+        BuildRunMetadataWriteRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(request.Paths);
+        ArgumentNullException.ThrowIfNull(request.Metadata);
+        ArgumentNullException.ThrowIfNull(request.Accounting);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        try
+        {
+            EnsureExpectedPathLayout(request.Paths);
+        }
+        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
+        {
+            return BuildArtifactRefWriteResult.Failure(ExecutionError.InvalidArgument(
+                $"Build artifact path layout is invalid. {exception.Message}"));
+        }
+        catch (InvalidOperationException exception)
+        {
+            return BuildArtifactRefWriteResult.Failure(ExecutionError.InvalidArgument(
+                $"Build artifact path layout is invalid. {exception.Message}"));
         }
 
         BuildArtifactRef buildRef;
@@ -203,9 +242,9 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
             var buildJson = metadataWriter.Write(
                 request.Metadata,
                 [
-                    buildReportRef,
-                    outputManifestRef,
-                    buildLogRef,
+                    request.Accounting.BuildReport,
+                    request.Accounting.BuildOutputManifest,
+                    request.Accounting.BuildLog,
                 ]);
             var buildDigest = await WriteTextAtomicallyAsync(
                     request.Paths.BuildJsonPath,
@@ -220,22 +259,17 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         }
         catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
-            return BuildRunArtifactWriteOperationResult.Failure(ExecutionError.InvalidArgument(
+            return BuildArtifactRefWriteResult.Failure(ExecutionError.InvalidArgument(
                 $"Build metadata path is invalid. {exception.Message}"));
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException)
         {
-            return BuildRunArtifactWriteOperationResult.Failure(ExecutionError.InternalError(
+            return BuildArtifactRefWriteResult.Failure(ExecutionError.InternalError(
                 $"Failed to write build metadata. {exception.Message}",
                 BuildErrorCodes.BuildArtifactWriteFailed));
         }
 
-        return BuildRunArtifactWriteOperationResult.Success(new BuildRunArtifactWriteResult(
-            buildRef,
-            buildReportRef,
-            outputManifestRef,
-            buildLogRef,
-            outputManifestArtifacts.Summary));
+        return BuildArtifactRefWriteResult.Success(buildRef);
     }
 
     private static BuildRunArtifactPaths ResolvePaths (
@@ -318,8 +352,41 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         if (!string.Equals(normalizedActualPath, expectedPath, GetPathComparison()))
         {
             throw new InvalidOperationException(
-                $"Artifact path must be {expectedPath}: {actualPath}");
+            $"Artifact path must be {expectedPath}: {actualPath}");
         }
+    }
+
+    private static void EnsureReportedOutputPathUnderOutputDirectory (
+        BuildRunArtifactPaths paths,
+        string reportedOutputPath)
+    {
+        if (!Path.IsPathFullyQualified(reportedOutputPath))
+        {
+            throw new InvalidOperationException($"Reported output path must be fully qualified: {reportedOutputPath}");
+        }
+
+        var outputDirectory = Path.GetFullPath(paths.OutputDirectory);
+        var normalizedReportedOutputPath = Path.GetFullPath(reportedOutputPath);
+        var relativePath = Path.GetRelativePath(outputDirectory, normalizedReportedOutputPath);
+        if (string.Equals(relativePath, ".", StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        if (Path.IsPathRooted(relativePath) || IsParentRelativePath(relativePath))
+        {
+            throw new InvalidOperationException($"Reported={reportedOutputPath}, ExpectedRoot={paths.OutputDirectory}.");
+        }
+    }
+
+    private static bool IsParentRelativePath (string relativePath)
+    {
+        return relativePath.Length == 2
+            ? relativePath[0] == '.' && relativePath[1] == '.'
+            : relativePath.Length > 2
+                && relativePath[0] == '.'
+                && relativePath[1] == '.'
+                && (relativePath[2] == Path.DirectorySeparatorChar || relativePath[2] == Path.AltDirectorySeparatorChar);
     }
 
     private async ValueTask<OutputManifestArtifacts> CreateOutputManifestArtifactsAsync (
@@ -522,6 +589,77 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         return Sha256LowerHex.GetHashAndReset(hash);
     }
 
+    private static async ValueTask<BuildArtifactAccountingResult> AccountExistingArtifactAsync (
+        BuildArtifactKind kind,
+        string repositoryRoot,
+        string path,
+        string description,
+        UcliCode missingCode,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var digest = await ComputeExistingArtifactSha256Async(path, cancellationToken).ConfigureAwait(false);
+            return BuildArtifactAccountingResult.Success(CreateArtifactRef(kind, repositoryRoot, path, digest));
+        }
+        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
+        {
+            return BuildArtifactAccountingResult.Failure(ExecutionError.InvalidArgument(
+                $"Build artifact path is invalid. {exception.Message}"));
+        }
+        catch (Exception exception) when (exception is FileNotFoundException or DirectoryNotFoundException)
+        {
+            return BuildArtifactAccountingResult.Failure(ExecutionError.InternalError(
+                $"{description} is missing: {path}. {exception.Message}",
+                missingCode));
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            return BuildArtifactAccountingResult.Failure(ExecutionError.InternalError(
+                $"Failed to digest {description}: {path}. {exception.Message}",
+                BuildErrorCodes.BuildArtifactWriteFailed));
+        }
+    }
+
+    private static async ValueTask<string> ComputeExistingArtifactSha256Async (
+        string path,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        EnsureReadableArtifactFile(path);
+
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        var buffer = ArrayPool<byte>.Shared.Rent(FileStreamBufferSize);
+        try
+        {
+            using var stream = new FileStream(
+                path,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.Read,
+                FileStreamBufferSize,
+                FileOptions.Asynchronous | FileOptions.SequentialScan);
+            while (true)
+            {
+                var bytesRead = await stream
+                    .ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken)
+                    .ConfigureAwait(false);
+                if (bytesRead == 0)
+                {
+                    break;
+                }
+
+                hash.AppendData(buffer, 0, bytesRead);
+            }
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
+
+        return Sha256LowerHex.GetHashAndReset(hash);
+    }
+
     private static void EnsureReadableOutputFile (string filePath)
     {
         if (!File.Exists(filePath) && !Directory.Exists(filePath))
@@ -543,6 +681,30 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         if (!FileSystemNodeClassifier.IsRegularFile(filePath, attributes))
         {
             throw new IOException($"Build output file must be a regular file: {filePath}");
+        }
+    }
+
+    private static void EnsureReadableArtifactFile (string path)
+    {
+        if (!File.Exists(path) && !Directory.Exists(path))
+        {
+            throw new FileNotFoundException($"Build artifact was not found: {path}", path);
+        }
+
+        var attributes = File.GetAttributes(path);
+        if ((attributes & FileAttributes.ReparsePoint) != 0)
+        {
+            throw new IOException($"Build artifact source must not be a reparse point: {path}");
+        }
+
+        if ((attributes & FileAttributes.Directory) != 0)
+        {
+            throw new IOException($"Build artifact source must not be a directory: {path}");
+        }
+
+        if (!FileSystemNodeClassifier.IsRegularFile(path, attributes))
+        {
+            throw new IOException($"Build artifact source must be a regular file: {path}");
         }
     }
 
@@ -698,6 +860,25 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
     private sealed record OutputManifestArtifacts (
         BuildOutputManifestJsonContract Contract,
         BuildOutputManifestSummary Summary);
+
+    private sealed record BuildArtifactAccountingResult (
+        BuildArtifactRef? Artifact,
+        ExecutionError? Error)
+    {
+        public bool IsSuccess => Artifact != null && Error == null;
+
+        public static BuildArtifactAccountingResult Success (BuildArtifactRef artifact)
+        {
+            ArgumentNullException.ThrowIfNull(artifact);
+            return new BuildArtifactAccountingResult(artifact, null);
+        }
+
+        public static BuildArtifactAccountingResult Failure (ExecutionError error)
+        {
+            ArgumentNullException.ThrowIfNull(error);
+            return new BuildArtifactAccountingResult(null, error);
+        }
+    }
 
     private sealed class OutputDigestMismatchException : Exception
     {

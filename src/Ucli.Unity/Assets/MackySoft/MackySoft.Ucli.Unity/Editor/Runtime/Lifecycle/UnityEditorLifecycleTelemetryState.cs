@@ -15,6 +15,8 @@ namespace MackySoft.Ucli.Unity.Runtime
 
         private int domainReloadGeneration;
 
+        private int assetRefreshGeneration;
+
         private int playModeGeneration;
 
         private IpcPlayModeTransition playModeTransition;
@@ -52,6 +54,7 @@ namespace MackySoft.Ucli.Unity.Runtime
         /// <param name="isShuttingDown"> Whether editor shutdown has started. </param>
         /// <param name="isStartupPending"> Whether one startup transition still needs to be reported. </param>
         /// <param name="playModeGeneration"> The initial Play Mode generation counter. </param>
+        /// <param name="assetRefreshGeneration"> The initial asset-refresh generation counter. </param>
         internal UnityEditorLifecycleTelemetryState (
             int compileGeneration,
             int domainReloadGeneration,
@@ -61,10 +64,12 @@ namespace MackySoft.Ucli.Unity.Runtime
             bool isRecoveringPending = false,
             bool hasCompileFailure = false,
             IpcPrimaryDiagnostic primaryDiagnostic = null,
-            int? playModeGeneration = null)
+            int? playModeGeneration = null,
+            int? assetRefreshGeneration = null)
         {
             this.compileGeneration = compileGeneration;
             this.domainReloadGeneration = domainReloadGeneration;
+            this.assetRefreshGeneration = assetRefreshGeneration ?? UnityEditorSessionStateStore.RestoreAssetRefreshGeneration();
             this.playModeGeneration = playModeGeneration ?? UnityEditorSessionStateStore.RestorePlayModeGeneration();
             playModeTransition = IpcPlayModeTransition.None;
             lastStablePlayModeState = UnityEditorSessionStateStore.RestorePlayModeStableState();
@@ -81,6 +86,9 @@ namespace MackySoft.Ucli.Unity.Runtime
 
         /// <summary> Gets the current domain-reload generation counter. </summary>
         public string DomainReloadGeneration => Volatile.Read(ref domainReloadGeneration).ToString(CultureInfo.InvariantCulture);
+
+        /// <summary> Gets the current asset-refresh generation counter. </summary>
+        public string AssetRefreshGeneration => Volatile.Read(ref assetRefreshGeneration).ToString(CultureInfo.InvariantCulture);
 
         /// <summary> Gets the current Play Mode generation counter. </summary>
         public string PlayModeGeneration => Volatile.Read(ref playModeGeneration).ToString(CultureInfo.InvariantCulture);
@@ -187,6 +195,14 @@ namespace MackySoft.Ucli.Unity.Runtime
         public void OnCompilationFinished ()
         {
             Interlocked.Increment(ref compileGeneration);
+        }
+
+        /// <summary> Records that Unity completed an asset refresh pass. </summary>
+        public void OnAssetRefreshCompleted ()
+        {
+            Interlocked.Exchange(
+                ref assetRefreshGeneration,
+                UnityEditorSessionStateStore.AdvanceAssetRefreshGeneration(Volatile.Read(ref assetRefreshGeneration)));
         }
 
         /// <summary> Records the start of one domain reload. </summary>

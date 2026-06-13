@@ -84,7 +84,7 @@ public sealed class FileBuildRunArtifactStoreTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task WriteArtifactsAsync_WritesRequiredArtifactsAndManifest ()
+    public async Task AccountArtifactsAsync_ThenWriteMetadataAsync_WritesRequiredArtifactsAndManifest ()
     {
         using var scope = TestDirectories.CreateTempScope("build-artifact-store", "write-artifacts");
         var store = CreateStore();
@@ -93,18 +93,32 @@ public sealed class FileBuildRunArtifactStoreTests
         var paths = Assert.IsType<BuildRunArtifactPaths>(prepareResult.Paths);
         var configBytes = WriteUtf8(Path.Combine(paths.OutputDirectory, "Data", "config.json"), "{\"quality\":\"high\"}\n");
         var playerBytes = WriteUtf8(Path.Combine(paths.OutputDirectory, "Game.x86_64"), "player binary\n");
+        var buildReportBytes = WriteUtf8(paths.BuildReportJsonPath, "{\"result\":\"succeeded\"}\n");
+        var buildLogBytes = WriteUtf8(paths.BuildLogPath, "build log\n");
 
-        var writeResult = await store.WriteArtifactsAsync(
-            CreateWriteRequest(paths),
+        var accountingOperation = await store.AccountArtifactsAsync(
+            CreateAccountingRequest(paths),
             CancellationToken.None);
 
-        Assert.True(writeResult.IsSuccess);
-        var result = Assert.IsType<BuildRunArtifactWriteResult>(writeResult.Result);
-        Assert.Equal(BuildArtifactKind.Build, result.Build.Kind);
+        Assert.True(accountingOperation.IsSuccess);
+        var result = Assert.IsType<BuildRunArtifactAccountingResult>(accountingOperation.Result);
         Assert.Equal(BuildArtifactKind.BuildReport, result.BuildReport.Kind);
         Assert.Equal(BuildArtifactKind.BuildOutputManifest, result.BuildOutputManifest.Kind);
         Assert.Equal(BuildArtifactKind.BuildLog, result.BuildLog.Kind);
-        AssertLowerSha256(result.Build.Digest);
+        Assert.Equal(Sha256LowerHex.Compute(buildReportBytes), result.BuildReport.Digest);
+        Assert.Equal(Sha256LowerHex.Compute(buildLogBytes), result.BuildLog.Digest);
+
+        var metadataWriteResult = await store.WriteMetadataAsync(
+            new BuildRunMetadataWriteRequest(
+                paths,
+                CreateMetadata(paths.RunId),
+                result),
+            CancellationToken.None);
+
+        Assert.True(metadataWriteResult.IsSuccess);
+        var buildRef = Assert.IsType<BuildArtifactRef>(metadataWriteResult.Artifact);
+        Assert.Equal(BuildArtifactKind.Build, buildRef.Kind);
+        AssertLowerSha256(buildRef.Digest);
 
         var topLevelArtifactNames = Directory
             .EnumerateFileSystemEntries(paths.ArtifactsDirectory)
@@ -148,14 +162,15 @@ public sealed class FileBuildRunArtifactStoreTests
         var recalculatedManifestDigest = new BuildOutputManifestJsonContractWriter().CalculateManifestDigest(
             ReadOutputManifestContent(outputRoot));
         Assert.Equal(recalculatedManifestDigest, result.OutputManifest.ManifestDigest);
-        Assert.Equal(recalculatedManifestDigest, result.BuildOutputManifest.Digest);
+        Assert.NotEqual(recalculatedManifestDigest, result.BuildOutputManifest.Digest);
+        await AssertFileSha256Async(paths.OutputManifestJsonPath, result.BuildOutputManifest.Digest);
 
         using var buildMetadata = JsonDocument.Parse(await File.ReadAllTextAsync(paths.BuildJsonPath, CancellationToken.None));
         var buildRoot = buildMetadata.RootElement;
         Assert.Equal(1, buildRoot.GetProperty("schemaVersion").GetInt32());
         Assert.Equal("run-1", buildRoot.GetProperty("runId").GetString());
         Assert.Equal("ucliArtifact", buildRoot.GetProperty("profile").GetProperty("output").GetProperty("kind").GetString());
-        Assert.Equal("standaloneLinux64", buildRoot.GetProperty("resolved").GetProperty("target").GetProperty("stableName").GetString());
+        Assert.Equal("standaloneLinux64", buildRoot.GetProperty("input").GetProperty("target").GetProperty("stableName").GetString());
 
         var artifacts = buildRoot.GetProperty("artifacts");
         Assert.Equal(
@@ -175,21 +190,20 @@ public sealed class FileBuildRunArtifactStoreTests
             artifacts.GetProperty(GetArtifactKey(BuildArtifactKind.BuildOutputManifest)),
             BuildArtifactKind.BuildOutputManifest,
             ToRepositoryRelativeSlashPath(scope.FullPath, paths.OutputManifestJsonPath),
-            result.OutputManifest.ManifestDigest);
+            result.BuildOutputManifest.Digest);
         AssertArtifactRef(
             artifacts.GetProperty(GetArtifactKey(BuildArtifactKind.BuildLog)),
             BuildArtifactKind.BuildLog,
             ToRepositoryRelativeSlashPath(scope.FullPath, paths.BuildLogPath),
             result.BuildLog.Digest);
-        Assert.Equal(result.OutputManifest.ManifestDigest, result.BuildOutputManifest.Digest);
-        await AssertFileSha256Async(paths.BuildJsonPath, result.Build.Digest);
+        await AssertFileSha256Async(paths.BuildJsonPath, buildRef.Digest);
         await AssertFileSha256Async(paths.BuildReportJsonPath, result.BuildReport.Digest);
         await AssertFileSha256Async(paths.BuildLogPath, result.BuildLog.Digest);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task WriteArtifactsAsync_WhenOutputContainsSymbolicLink_ReturnsOutputManifestFailed ()
+    public async Task AccountArtifactsAsync_WhenOutputContainsSymbolicLink_ReturnsOutputManifestFailed ()
     {
         using var scope = TestDirectories.CreateTempScope("build-artifact-store", "output-symlink");
         var store = CreateStore();
@@ -203,8 +217,8 @@ public sealed class FileBuildRunArtifactStoreTests
             return;
         }
 
-        var writeResult = await store.WriteArtifactsAsync(
-            CreateWriteRequest(paths),
+        var writeResult = await store.AccountArtifactsAsync(
+            CreateAccountingRequest(paths),
             CancellationToken.None);
 
         Assert.False(writeResult.IsSuccess);
@@ -216,7 +230,7 @@ public sealed class FileBuildRunArtifactStoreTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task WriteArtifactsAsync_WhenOutputContainsFifo_ReturnsOutputManifestFailed ()
+    public async Task AccountArtifactsAsync_WhenOutputContainsFifo_ReturnsOutputManifestFailed ()
     {
         if (OperatingSystem.IsWindows())
         {
@@ -234,8 +248,8 @@ public sealed class FileBuildRunArtifactStoreTests
             return;
         }
 
-        var writeResult = await store.WriteArtifactsAsync(
-            CreateWriteRequest(paths),
+        var writeResult = await store.AccountArtifactsAsync(
+            CreateAccountingRequest(paths),
             CancellationToken.None);
 
         Assert.False(writeResult.IsSuccess);
@@ -247,7 +261,7 @@ public sealed class FileBuildRunArtifactStoreTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task WriteArtifactsAsync_WhenOutputPathContainsBackslashTraversalText_ReturnsOutputManifestFailed ()
+    public async Task AccountArtifactsAsync_WhenOutputPathContainsBackslashTraversalText_ReturnsOutputManifestFailed ()
     {
         if (OperatingSystem.IsWindows())
         {
@@ -261,8 +275,8 @@ public sealed class FileBuildRunArtifactStoreTests
         var paths = Assert.IsType<BuildRunArtifactPaths>(prepareResult.Paths);
         File.WriteAllText(Path.Combine(paths.OutputDirectory, "foo\\..\\..\\outside"), "ambiguous");
 
-        var writeResult = await store.WriteArtifactsAsync(
-            CreateWriteRequest(paths),
+        var writeResult = await store.AccountArtifactsAsync(
+            CreateAccountingRequest(paths),
             CancellationToken.None);
 
         Assert.False(writeResult.IsSuccess);
@@ -272,6 +286,30 @@ public sealed class FileBuildRunArtifactStoreTests
         Assert.Contains("escaped", error.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task AccountArtifactsAsync_WhenReportedOutputPathEscapesOutputDirectory_ReturnsOutputManifestFailed ()
+    {
+        using var scope = TestDirectories.CreateTempScope("build-artifact-store", "reported-output-escape");
+        var store = CreateStore();
+        var project = CreateProject(scope);
+        var prepareResult = store.Prepare(project, "run-1");
+        var paths = Assert.IsType<BuildRunArtifactPaths>(prepareResult.Paths);
+        WriteUnityGeneratedArtifacts(paths);
+        var request = CreateAccountingRequest(paths) with
+        {
+            ReportedOutputPath = Path.Combine(scope.FullPath, "outside", "build"),
+        };
+
+        var writeResult = await store.AccountArtifactsAsync(request, CancellationToken.None);
+
+        Assert.False(writeResult.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(writeResult.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.Equal(BuildErrorCodes.BuildOutputManifestFailed, error.Code);
+        Assert.Contains("output path", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
     [Theory]
     [InlineData("buildJson")]
     [InlineData("buildReport")]
@@ -279,7 +317,7 @@ public sealed class FileBuildRunArtifactStoreTests
     [InlineData("outputManifest")]
     [InlineData("output")]
     [Trait("Size", "Small")]
-    public async Task WriteArtifactsAsync_WhenArtifactPathEscapesLayout_ReturnsInvalidArgumentWithoutWriting (string pathKind)
+    public async Task AccountArtifactsAsync_WhenArtifactPathEscapesLayout_ReturnsInvalidArgumentWithoutWriting (string pathKind)
     {
         using var scope = TestDirectories.CreateTempScope("build-artifact-store", $"path-escape-{pathKind}");
         var store = CreateStore();
@@ -289,9 +327,9 @@ public sealed class FileBuildRunArtifactStoreTests
         var escapedPath = pathKind == "output"
             ? scope.CreateDirectory("escaped-output")
             : Path.Combine(scope.FullPath, $"escaped-{pathKind}.json");
-        var request = CreateWriteRequest(EscapeArtifactPath(paths, pathKind, escapedPath));
+        var request = CreateAccountingRequest(EscapeArtifactPath(paths, pathKind, escapedPath));
 
-        var writeResult = await store.WriteArtifactsAsync(request, CancellationToken.None);
+        var writeResult = await store.AccountArtifactsAsync(request, CancellationToken.None);
 
         Assert.False(writeResult.IsSuccess);
         var error = Assert.IsType<ExecutionError>(writeResult.Error);
@@ -309,7 +347,7 @@ public sealed class FileBuildRunArtifactStoreTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task WriteArtifactsAsync_WhenArtifactDirectoryUsesUnexpectedLayout_ReturnsInvalidArgument ()
+    public async Task AccountArtifactsAsync_WhenArtifactDirectoryUsesUnexpectedLayout_ReturnsInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("build-artifact-store", "unexpected-layout");
         var store = CreateStore();
@@ -317,7 +355,7 @@ public sealed class FileBuildRunArtifactStoreTests
         var prepareResult = store.Prepare(project, "run-1");
         var paths = Assert.IsType<BuildRunArtifactPaths>(prepareResult.Paths);
         var artifactsDirectory = scope.CreateDirectory("unexpected-artifacts");
-        var request = CreateWriteRequest(paths with
+        var request = CreateAccountingRequest(paths with
         {
             ArtifactsDirectory = artifactsDirectory,
             BuildJsonPath = Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildMetadataFileName),
@@ -327,7 +365,7 @@ public sealed class FileBuildRunArtifactStoreTests
             OutputDirectory = Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildOutputDirectoryName),
         });
 
-        var writeResult = await store.WriteArtifactsAsync(request, CancellationToken.None);
+        var writeResult = await store.AccountArtifactsAsync(request, CancellationToken.None);
 
         Assert.False(writeResult.IsSuccess);
         var error = Assert.IsType<ExecutionError>(writeResult.Error);
@@ -350,13 +388,11 @@ public sealed class FileBuildRunArtifactStoreTests
             PathSource: UnityProjectPathSource.CommandOption);
     }
 
-    private static BuildRunArtifactWriteRequest CreateWriteRequest (BuildRunArtifactPaths paths)
+    private static BuildRunArtifactAccountingRequest CreateAccountingRequest (BuildRunArtifactPaths paths)
     {
-        return new BuildRunArtifactWriteRequest(
+        return new BuildRunArtifactAccountingRequest(
             paths,
-            CreateMetadata(paths.RunId),
-            "{\"result\":\"succeeded\"}\n",
-            "build log\n",
+            Path.Combine(paths.OutputDirectory, "build"),
             "standaloneLinux64");
     }
 
@@ -391,17 +427,26 @@ public sealed class FileBuildRunArtifactStoreTests
         };
     }
 
+    private static void WriteUnityGeneratedArtifacts (BuildRunArtifactPaths paths)
+    {
+        WriteUtf8(paths.BuildReportJsonPath, "{\"result\":\"succeeded\"}\n");
+        WriteUtf8(paths.BuildLogPath, "build log\n");
+    }
+
     private static BuildRunMetadataDocument CreateMetadata (string runId)
     {
         return new BuildRunMetadataDocument(
             1,
             runId,
+            ParseJsonElement("""{"projectPath":"/repo/UnityProject","projectFingerprint":"fingerprint","unityVersion":"6000.1.4f1"}"""),
             ParseJsonElement("""{"digest":"profile-digest","output":{"kind":"ucliArtifact"}}"""),
             ParseJsonElement("""{"target":{"stableName":"standaloneLinux64"}}"""),
             ParseJsonElement("""{"state":"completed"}"""),
             ParseJsonElement("""{"compile":"42","domainReload":"7"}"""),
             ParseJsonElement("""{"result":"succeeded"}"""),
-            ParseJsonElement("""{"buildLog":{"stream":"file"}}"""));
+            ParseJsonElement("""{"buildLog":{"stream":"file"}}"""),
+            ParseJsonElement("""{"kind":"ucliArtifact","manifestDigest":"manifest-digest"}"""),
+            ParseJsonElement("""{"checked":true,"dirty":false,"items":[]}"""));
     }
 
     private static JsonElement ParseJsonElement (string json)

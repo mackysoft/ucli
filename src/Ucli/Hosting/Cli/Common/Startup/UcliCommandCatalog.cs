@@ -127,6 +127,12 @@ internal static class UcliCommandCatalog
         ],
         ShouldValidateSubcommandsBeforeDispatch: false);
 
+    private static readonly CommandGroupEntry BuildCommandGroup = new(
+        UcliCommandNames.Build,
+        [new CommandLeafEntry(UcliCommandNames.RunSubcommand, UcliCommandNames.BuildRun)],
+        [],
+        ShouldValidateSubcommandsBeforeDispatch: false);
+
     private static readonly CommandGroupEntry[] CommandGroups =
     [
         DaemonCommandGroup,
@@ -137,6 +143,7 @@ internal static class UcliCommandCatalog
         SkillsCommandGroup,
         QueryCommandGroup,
         TestCommandGroup,
+        BuildCommandGroup,
     ];
 
     private static readonly HashSet<string> RegisteredRootCommandSet = new(
@@ -168,6 +175,7 @@ internal static class UcliCommandCatalog
         app.Add<ReadyCommand>();
         app.Add<CompileCommand>();
         app.Add<VerifyCommand>();
+        app.Add<BuildRunCommand>("build");
         app.Add<RefreshCommand>();
         app.Add<ResolveCommand>();
         app.Add<QueryAssetsFindCommand>("query assets");

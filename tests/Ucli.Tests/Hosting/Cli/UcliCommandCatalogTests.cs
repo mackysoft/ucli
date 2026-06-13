@@ -9,7 +9,6 @@ public sealed class UcliCommandCatalogTests
     public void FilterableCommandNames_MatchPublicCommandCatalog ()
     {
         var expected = UcliPublicCommandCatalog.KnownCommands
-            .Where(static command => !IsKnownButNotCliRegistered(command))
             .Select(static command => command.Name)
             .Order(StringComparer.Ordinal)
             .ToArray();
@@ -34,6 +33,7 @@ public sealed class UcliCommandCatalogTests
     [InlineData(UcliCommandNames.Ops, UcliCommandNames.DescribeSubcommand, null, UcliCommandNames.OpsDescribe)]
     [InlineData(UcliCommandNames.Codes, UcliCommandNames.ListSubcommand, null, UcliCommandNames.CodesList)]
     [InlineData(UcliCommandNames.Codes, UcliCommandNames.DescribeSubcommand, null, UcliCommandNames.CodesDescribe)]
+    [InlineData(UcliCommandNames.Build, UcliCommandNames.RunSubcommand, null, UcliCommandNames.BuildRun)]
     [InlineData(UcliCommandNames.Play, UcliCommandNames.Status, null, UcliCommandNames.PlayStatus)]
     [InlineData(UcliCommandNames.Play, UcliCommandNames.EnterSubcommand, null, UcliCommandNames.PlayEnter)]
     [InlineData(UcliCommandNames.Play, UcliCommandNames.ExitSubcommand, null, UcliCommandNames.PlayExit)]
@@ -82,6 +82,7 @@ public sealed class UcliCommandCatalogTests
     [InlineData(UcliCommandNames.Logs)]
     [InlineData(UcliCommandNames.Ops)]
     [InlineData(UcliCommandNames.Codes)]
+    [InlineData(UcliCommandNames.Build)]
     [InlineData(UcliCommandNames.Play)]
     [InlineData(UcliCommandNames.Skills)]
     [InlineData(UcliCommandNames.Test)]
@@ -223,10 +224,5 @@ public sealed class UcliCommandCatalogTests
         }
 
         return commandNames.ToArray();
-    }
-
-    private static bool IsKnownButNotCliRegistered (UcliCommand command)
-    {
-        return command == UcliCommandIds.Build || command == UcliCommandIds.BuildRun;
     }
 }

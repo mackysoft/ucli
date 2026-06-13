@@ -59,6 +59,19 @@ namespace MackySoft.Ucli.Unity.Ipc
             return TryDecodePayload(request, "Compile", out payload, out errorResponse);
         }
 
+        /// <summary> Tries to decode one build-run request payload. </summary>
+        /// <param name="request"> The incoming request envelope. </param>
+        /// <param name="payload"> The decoded payload when successful. </param>
+        /// <param name="errorResponse"> The invalid-argument response when decoding fails. </param>
+        /// <returns> <see langword="true" /> when decoding succeeded; otherwise <see langword="false" />. </returns>
+        public static bool TryDecodeBuildRunRequest (
+            IpcRequest request,
+            out IpcBuildRunRequest? payload,
+            out IpcResponse? errorResponse)
+        {
+            return TryDecodePayload(request, "BuildRun", out payload, out errorResponse);
+        }
+
         /// <summary> Tries to decode one Play Mode status request payload. </summary>
         /// <param name="request"> The incoming request envelope. </param>
         /// <param name="payload"> The decoded payload when successful. </param>

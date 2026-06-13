@@ -60,6 +60,38 @@ public sealed class UnityIpcRequestBuilderTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Build_WithBuildRun_CreatesBuildRunPayload ()
+    {
+        var builder = new UnityIpcRequestBuilder();
+
+        var request = builder.Build(new UnityRequestPayload.BuildRun(
+            RunId: "build-run-1",
+            TargetStableName: "standaloneLinux64",
+            UnityBuildTarget: "StandaloneLinux64",
+            SceneSource: "explicit",
+            ScenePaths: ["Assets/Scenes/Main.unity"],
+            Development: true,
+            OutputPath: "/tmp/ucli/output",
+            BuildReportPath: "/tmp/ucli/build-report.json",
+            BuildLogPath: "/tmp/ucli/build.log"));
+
+        Assert.Equal(IpcMethodNames.BuildRun, request.Method);
+        Assert.False(request.IsRecoverable);
+        Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcBuildRunRequest payload, out _));
+        Assert.Equal("build-run-1", payload.RunId);
+        Assert.Equal("standaloneLinux64", payload.TargetStableName);
+        Assert.Equal("StandaloneLinux64", payload.UnityBuildTarget);
+        Assert.Equal("explicit", payload.SceneSource);
+        Assert.Equal(["Assets/Scenes/Main.unity"], payload.ScenePaths);
+        Assert.True(payload.Development);
+        Assert.Equal("/tmp/ucli/output", payload.OutputPath);
+        Assert.Equal("/tmp/ucli/build-report.json", payload.BuildReportPath);
+        Assert.Equal("/tmp/ucli/build.log", payload.BuildLogPath);
+        Assert.Null(payload.TimeoutMilliseconds);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Build_WithPlayStatus_CreatesPlayStatusPayload ()
     {
         var builder = new UnityIpcRequestBuilder();
@@ -142,6 +174,31 @@ public sealed class UnityIpcRequestBuilderTests
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcTestRunRequest testRunRequest, out _));
         Assert.Equal("run-1", testRunRequest.RunId);
         Assert.Equal(1234, testRunRequest.TimeoutMilliseconds);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void UnityIpcRequestFactory_WithBuildRunDispatchTimeout_InjectsTimeoutPayload ()
+    {
+        var dispatchRequest = new UnityIpcRequestBuilder().Build(new UnityRequestPayload.BuildRun(
+            RunId: "build-run-1",
+            TargetStableName: "standaloneLinux64",
+            UnityBuildTarget: "StandaloneLinux64",
+            SceneSource: "explicit",
+            ScenePaths: ["Assets/Scenes/Main.unity"],
+            Development: false,
+            OutputPath: "/tmp/ucli/output",
+            BuildReportPath: "/tmp/ucli/build-report.json",
+            BuildLogPath: "/tmp/ucli/build.log"));
+
+        var request = UnityIpcRequestFactory.Create(
+            "session-token",
+            dispatchRequest,
+            TimeSpan.FromMilliseconds(1234));
+
+        Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcBuildRunRequest buildRunRequest, out _));
+        Assert.Equal("build-run-1", buildRunRequest.RunId);
+        Assert.Equal(1234, buildRunRequest.TimeoutMilliseconds);
     }
 
     [Fact]

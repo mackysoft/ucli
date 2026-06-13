@@ -1,6 +1,6 @@
 namespace MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
 
-/// <summary> Prepares and writes build-run artifacts under local uCLI storage. </summary>
+/// <summary> Prepares, accounts, and writes build-run artifacts under local uCLI storage. </summary>
 internal interface IBuildRunArtifactStore
 {
     /// <summary> Prepares the build-run artifact directory and player output directory. </summary>
@@ -8,8 +8,13 @@ internal interface IBuildRunArtifactStore
         ResolvedUnityProjectContext unityProject,
         string runId);
 
-    /// <summary> Writes completed build-run artifacts and returns their references. </summary>
-    ValueTask<BuildRunArtifactWriteOperationResult> WriteArtifactsAsync (
-        BuildRunArtifactWriteRequest request,
+    /// <summary> Accounts Unity-generated artifacts and writes the output manifest. </summary>
+    ValueTask<BuildRunArtifactAccountingOperationResult> AccountArtifactsAsync (
+        BuildRunArtifactAccountingRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary> Writes <c>build.json</c> and returns its artifact reference. </summary>
+    ValueTask<BuildArtifactRefWriteResult> WriteMetadataAsync (
+        BuildRunMetadataWriteRequest request,
         CancellationToken cancellationToken = default);
 }

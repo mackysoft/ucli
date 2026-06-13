@@ -15,6 +15,7 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 /// <param name="ActionRequired"> The normalized action required to resolve the current lifecycle state. </param>
 /// <param name="PrimaryDiagnostic"> The primary machine-readable diagnostic for the current lifecycle state. </param>
 /// <param name="PlayMode"> The Play Mode subsystem snapshot. </param>
+/// <param name="AssetRefreshGeneration"> The opaque asset-refresh generation. </param>
 public sealed record IpcBuildLifecycleSnapshot (
     string? ServerVersion,
     string? EditorMode,
@@ -29,4 +30,5 @@ public sealed record IpcBuildLifecycleSnapshot (
     DateTimeOffset? ObservedAtUtc,
     string? ActionRequired,
     IpcPrimaryDiagnostic? PrimaryDiagnostic,
-    IpcPlayModeSnapshot? PlayMode);
+    IpcPlayModeSnapshot? PlayMode,
+    string? AssetRefreshGeneration = null);
