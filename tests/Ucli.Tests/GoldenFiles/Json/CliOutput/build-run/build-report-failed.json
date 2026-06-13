@@ -1,0 +1,387 @@
+{
+  "protocolVersion": 1,
+  "command": "build.run",
+  "status": "ok",
+  "exitCode": 1,
+  "message": "Build completed.",
+  "payload": {
+    "verdict": "fail",
+    "project": {
+      "projectPath": "/workspace/UnityProject",
+      "projectFingerprint": "project-fingerprint",
+      "unityVersion": "6000.1.4f1"
+    },
+    "build": {
+      "runId": "build-run-1",
+      "profile": {
+        "path": "/workspace/UnityProject/.ucli/build/player.json",
+        "digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      },
+      "target": "standaloneLinux64",
+      "scenes": {
+        "source": "explicit",
+        "paths": [
+          "Assets/Scenes/Main.unity"
+        ]
+      },
+      "options": {
+        "development": true
+      },
+      "output": {
+        "kind": "ucliArtifact",
+        "artifactRoot": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1",
+        "outputRoot": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/output",
+        "manifestRef": "buildOutputManifest",
+        "manifestDigest": "ea4ff87cdded978e946d73668e5626dd3fb06b2e65cba15e1d1ecbc78d5ae314",
+        "fileCount": 0,
+        "totalBytes": 0
+      },
+      "generations": {
+        "before": {
+          "compileGeneration": "compile-before",
+          "domainReloadGeneration": "domain-before",
+          "assetRefreshGeneration": "asset-before"
+        },
+        "after": {
+          "compileGeneration": "compile-after",
+          "domainReloadGeneration": "domain-after",
+          "assetRefreshGeneration": "asset-after"
+        },
+        "validFor": {
+          "compileGeneration": "compile-after",
+          "domainReloadGeneration": "domain-after",
+          "assetRefreshGeneration": "asset-after"
+        }
+      },
+      "summary": {
+        "result": "failed",
+        "durationMilliseconds": 2400,
+        "errorCount": 1,
+        "warningCount": 0,
+        "reportRef": "buildReport"
+      },
+      "logs": {
+        "reportRef": "buildLog",
+        "entryCount": 2,
+        "errorCount": 1,
+        "warningCount": 0,
+        "completionReason": "failed",
+        "window": {
+          "startedAtUtc": "2026-06-01T00:00:00+00:00",
+          "completedAtUtc": "2026-06-01T00:00:02.5+00:00"
+        }
+      }
+    },
+    "verifiers": [
+      {
+        "id": "build",
+        "kind": "build",
+        "deterministic": false,
+        "required": true,
+        "primaryClaims": [
+          "UNITY_BUILD_PROFILE_RESOLVED",
+          "UNITY_READY_FOR_BUILD",
+          "UNITY_BUILD_INPUTS_RESOLVED",
+          "UNITY_BUILD_COMPLETED",
+          "UNITY_BUILD_SUCCEEDED",
+          "UNITY_BUILD_REPORT_ACCOUNTED",
+          "UNITY_BUILD_ARTIFACTS_ACCOUNTED",
+          "UNITY_BUILD_OUTPUT_DIGESTED",
+          "UNITY_BUILD_LOGS_ACCOUNTED",
+          "UNITY_BUILD_VALID_FOR_GENERATION"
+        ],
+        "effects": [
+          "unityLifecycleRead",
+          "unityBuildPipeline",
+          "unityBuildReportRead",
+          "unityLogWindowRead",
+          "ucliArtifactWrite",
+          "outputManifestWrite",
+          "generationSnapshot"
+        ],
+        "reportRef": "build"
+      }
+    ],
+    "claims": [
+      {
+        "id": "UNITY_BUILD_PROFILE_RESOLVED",
+        "status": "passed",
+        "coverage": "full",
+        "required": true,
+        "verifierRef": "build",
+        "statement": "Build profile resolved to a deterministic input digest.",
+        "subject": {
+          "path": "/workspace/UnityProject/.ucli/build/player.json",
+          "digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        },
+        "evidence": [
+          {
+            "kind": "buildProfile",
+            "evidenceRef": "build",
+            "data": {
+              "path": "/workspace/UnityProject/.ucli/build/player.json",
+              "digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            }
+          }
+        ],
+        "residualRisks": []
+      },
+      {
+        "id": "UNITY_READY_FOR_BUILD",
+        "status": "passed",
+        "coverage": "full",
+        "required": true,
+        "verifierRef": "build",
+        "statement": "Unity lifecycle was ready before BuildPipeline execution.",
+        "subject": {
+          "lifecycleState": "ready"
+        },
+        "evidence": [
+          {
+            "kind": "unityLifecycleRead",
+            "data": {
+              "lifecycleState": "ready",
+              "compileGeneration": "compile-before"
+            }
+          }
+        ],
+        "residualRisks": []
+      },
+      {
+        "id": "UNITY_BUILD_INPUTS_RESOLVED",
+        "status": "passed",
+        "coverage": "full",
+        "required": true,
+        "verifierRef": "build",
+        "statement": "Unity resolved BuildPipeline target and scenes.",
+        "subject": {
+          "target": "standaloneLinux64",
+          "sceneCount": 1
+        },
+        "evidence": [
+          {
+            "kind": "buildInput",
+            "evidenceRef": "build",
+            "data": {
+              "targetStableName": "standaloneLinux64",
+              "unityBuildTarget": "StandaloneLinux64",
+              "sceneSource": "explicit",
+              "scenes": [
+                "Assets/Scenes/Main.unity"
+              ],
+              "buildOptions": "Development"
+            }
+          }
+        ],
+        "residualRisks": []
+      },
+      {
+        "id": "UNITY_BUILD_COMPLETED",
+        "status": "passed",
+        "coverage": "full",
+        "required": true,
+        "verifierRef": "build",
+        "statement": "Unity BuildPipeline reached a terminal BuildReport result.",
+        "subject": {
+          "result": "failed"
+        },
+        "evidence": [
+          {
+            "kind": "unityBuildPipeline",
+            "evidenceRef": "buildReport",
+            "data": {
+              "result": "failed",
+              "durationMilliseconds": 2400,
+              "errorCount": 1,
+              "warningCount": 0,
+              "reportRef": "buildReport"
+            }
+          }
+        ],
+        "residualRisks": []
+      },
+      {
+        "id": "UNITY_BUILD_SUCCEEDED",
+        "status": "failed",
+        "coverage": "full",
+        "required": true,
+        "verifierRef": "build",
+        "statement": "Unity BuildPipeline reported a successful build result.",
+        "subject": {
+          "result": "failed",
+          "errorCount": 1
+        },
+        "evidence": [
+          {
+            "kind": "unityBuildReportRead",
+            "evidenceRef": "buildReport",
+            "data": {
+              "result": "failed",
+              "durationMilliseconds": 2400,
+              "errorCount": 1,
+              "warningCount": 0,
+              "reportRef": "buildReport"
+            }
+          }
+        ],
+        "residualRisks": []
+      },
+      {
+        "id": "UNITY_BUILD_REPORT_ACCOUNTED",
+        "status": "passed",
+        "coverage": "full",
+        "required": true,
+        "verifierRef": "build",
+        "statement": "BuildReport artifact was written and digested.",
+        "subject": {
+          "reportRef": "buildReport"
+        },
+        "evidence": [
+          {
+            "kind": "unityBuildReportRead",
+            "evidenceRef": "buildReport"
+          }
+        ],
+        "residualRisks": []
+      },
+      {
+        "id": "UNITY_BUILD_ARTIFACTS_ACCOUNTED",
+        "status": "passed",
+        "coverage": "full",
+        "required": true,
+        "verifierRef": "build",
+        "statement": "Build output artifacts were counted in the output manifest.",
+        "subject": {
+          "manifestRef": "buildOutputManifest",
+          "fileCount": 0
+        },
+        "evidence": [
+          {
+            "kind": "outputManifestWrite",
+            "evidenceRef": "build",
+            "data": {
+              "kind": "ucliArtifact",
+              "artifactRoot": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1",
+              "outputRoot": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/output",
+              "manifestRef": "buildOutputManifest",
+              "manifestDigest": "ea4ff87cdded978e946d73668e5626dd3fb06b2e65cba15e1d1ecbc78d5ae314",
+              "fileCount": 0,
+              "totalBytes": 0
+            }
+          }
+        ],
+        "residualRisks": []
+      },
+      {
+        "id": "UNITY_BUILD_OUTPUT_DIGESTED",
+        "status": "passed",
+        "coverage": "full",
+        "required": true,
+        "verifierRef": "build",
+        "statement": "Build output manifest digest was verified against the written artifact.",
+        "subject": {
+          "manifestDigest": "ea4ff87cdded978e946d73668e5626dd3fb06b2e65cba15e1d1ecbc78d5ae314"
+        },
+        "evidence": [
+          {
+            "kind": "outputManifestWrite",
+            "evidenceRef": "buildOutputManifest"
+          }
+        ],
+        "residualRisks": []
+      },
+      {
+        "id": "UNITY_BUILD_LOGS_ACCOUNTED",
+        "status": "passed",
+        "coverage": "full",
+        "required": true,
+        "verifierRef": "build",
+        "statement": "Build log byte range was written and summarized.",
+        "subject": {
+          "reportRef": "buildLog",
+          "entryCount": 2,
+          "completionReason": "failed"
+        },
+        "evidence": [
+          {
+            "kind": "unityLogWindowRead",
+            "evidenceRef": "buildLog",
+            "data": {
+              "reportRef": "buildLog",
+              "entryCount": 2,
+              "errorCount": 1,
+              "warningCount": 0,
+              "completionReason": "failed",
+              "window": {
+                "startedAtUtc": "2026-06-01T00:00:00+00:00",
+                "completedAtUtc": "2026-06-01T00:00:02.5+00:00"
+              }
+            }
+          }
+        ],
+        "residualRisks": []
+      },
+      {
+        "id": "UNITY_BUILD_VALID_FOR_GENERATION",
+        "status": "passed",
+        "coverage": "full",
+        "required": true,
+        "verifierRef": "build",
+        "statement": "Build artifacts declare the Unity lifecycle generations they are valid for.",
+        "subject": {
+          "compileGeneration": "compile-after",
+          "domainReloadGeneration": "domain-after",
+          "assetRefreshGeneration": "asset-after"
+        },
+        "evidence": [
+          {
+            "kind": "generationSnapshot",
+            "evidenceRef": "build",
+            "data": {
+              "before": {
+                "compileGeneration": "compile-before",
+                "domainReloadGeneration": "domain-before",
+                "assetRefreshGeneration": "asset-before"
+              },
+              "after": {
+                "compileGeneration": "compile-after",
+                "domainReloadGeneration": "domain-after",
+                "assetRefreshGeneration": "asset-after"
+              },
+              "validFor": {
+                "compileGeneration": "compile-after",
+                "domainReloadGeneration": "domain-after",
+                "assetRefreshGeneration": "asset-after"
+              }
+            }
+          }
+        ],
+        "residualRisks": []
+      }
+    ],
+    "reports": {
+      "build": {
+        "kind": "build",
+        "path": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/build.json",
+        "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "buildReport": {
+        "kind": "buildReport",
+        "path": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/build-report.json",
+        "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "buildOutputManifest": {
+        "kind": "buildOutputManifest",
+        "path": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/output-manifest.json",
+        "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "buildLog": {
+        "kind": "buildLog",
+        "path": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/build.log",
+        "digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      }
+    },
+    "residualRisks": []
+  },
+  "errors": []
+}

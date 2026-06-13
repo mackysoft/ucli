@@ -110,9 +110,13 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
             AddViolation(violations, BuildPropertyPath(reportPath, "path"), $"Build report {expectedKind} must declare path.");
         }
 
-        if (!TryReadString(reportElement, "digest", out _))
+        if (!TryReadString(reportElement, "digest", out var digest))
         {
             AddViolation(violations, BuildPropertyPath(reportPath, "digest"), $"Build report {expectedKind} must declare digest.");
+        }
+        else if (!IsSha256LowerHex(digest))
+        {
+            AddViolation(violations, BuildPropertyPath(reportPath, "digest"), $"Build report {expectedKind} digest must be lowercase SHA-256 hex.");
         }
     }
 
@@ -716,6 +720,25 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
 
         value = element.GetString() ?? string.Empty;
         return !string.IsNullOrWhiteSpace(value);
+    }
+
+    private static bool IsSha256LowerHex (string value)
+    {
+        if (value.Length != 64)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < value.Length; i++)
+        {
+            var c = value[i];
+            if (c is not (>= '0' and <= '9') and not (>= 'a' and <= 'f'))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static string BuildPropertyPath (

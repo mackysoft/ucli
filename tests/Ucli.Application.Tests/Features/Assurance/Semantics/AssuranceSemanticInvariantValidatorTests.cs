@@ -54,6 +54,24 @@ public sealed class AssuranceSemanticInvariantValidatorTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Validate_WithBuildPayloadDigestOnlyReport_ReturnsReportPath ()
+    {
+        var result = ValidateBuildPayload(CreateBuildPayload(includeBuildLogPath: false));
+
+        AssertViolationPath(result, "$.reports.buildLog.path");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Validate_WithBuildPayloadReportInvalidDigest_ReturnsReportDigestPath ()
+    {
+        var result = ValidateBuildPayload(CreateBuildPayload(buildLogDigest: "sha256:dddd"));
+
+        AssertViolationPath(result, "$.reports.buildLog.digest");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Validate_WithBuildPayloadMissingProfile_ReturnsProfilePath ()
     {
         var result = ValidateBuildPayload(CreateBuildPayload(includeBuildProfile: false));
@@ -1022,7 +1040,9 @@ public sealed class AssuranceSemanticInvariantValidatorTests
         string logsReportRef = "buildLog",
         IReadOnlyList<object>? verifierEffects = null,
         bool includeBuildGenerations = true,
-        string validForAssetRefreshGeneration = "asset-after")
+        string validForAssetRefreshGeneration = "asset-after",
+        bool includeBuildLogPath = true,
+        string buildLogDigest = "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd")
     {
         var reports = new Dictionary<string, object>(StringComparer.Ordinal)
         {
@@ -1051,8 +1071,8 @@ public sealed class AssuranceSemanticInvariantValidatorTests
                 ? (object)new
                 {
                     kind = "buildLog",
-                    path = "artifacts/build.log",
-                    digest = "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                    path = includeBuildLogPath ? "artifacts/build.log" : null,
+                    digest = buildLogDigest,
                 }
                 : new
                 {
@@ -1107,7 +1127,7 @@ public sealed class AssuranceSemanticInvariantValidatorTests
                 output = new
                 {
                     manifestRef = buildManifestRef,
-                    manifestDigest = "manifest-digest",
+                    manifestDigest = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
                 },
                 generations,
                 summary = new

@@ -23,6 +23,11 @@ public sealed class BuildServiceTests
 {
     private const string RunId = "build-run-1";
     private const string ProjectFingerprint = "project-fingerprint";
+    private const string BuildMetadataDigest = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    private const string BuildReportArtifactDigest = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+    private const string BuildOutputManifestArtifactDigest = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
+    private const string BuildLogArtifactDigest = "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd";
+    private const string OutputManifestDigest = "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
 
     private const string ProfileJson = """
         {
@@ -80,14 +85,14 @@ public sealed class BuildServiceTests
         Assert.Equal(artifactStore.PreparedPaths!.ArtifactsDirectory, output.Build.Output.ArtifactRoot);
         Assert.Equal(artifactStore.PreparedPaths.OutputDirectory, output.Build.Output.OutputRoot);
         Assert.Equal(BuildReportRefs.BuildOutputManifest, output.Build.Output.ManifestRef);
-        Assert.Equal("manifest-digest", output.Build.Output.ManifestDigest);
+        Assert.Equal(OutputManifestDigest, output.Build.Output.ManifestDigest);
         Assert.Equal(
             [BuildReportRefs.Build, BuildReportRefs.BuildLog, BuildReportRefs.BuildOutputManifest, BuildReportRefs.BuildReport],
             output.Reports.Keys.Order(StringComparer.Ordinal).ToArray());
-        Assert.Equal("metadata-digest", output.Reports[BuildReportRefs.Build].Digest);
-        Assert.Equal("build-report-digest", output.Reports[BuildReportRefs.BuildReport].Digest);
-        Assert.Equal("output-manifest-artifact-digest", output.Reports[BuildReportRefs.BuildOutputManifest].Digest);
-        Assert.Equal("build-log-digest", output.Reports[BuildReportRefs.BuildLog].Digest);
+        Assert.Equal(BuildMetadataDigest, output.Reports[BuildReportRefs.Build].Digest);
+        Assert.Equal(BuildReportArtifactDigest, output.Reports[BuildReportRefs.BuildReport].Digest);
+        Assert.Equal(BuildOutputManifestArtifactDigest, output.Reports[BuildReportRefs.BuildOutputManifest].Digest);
+        Assert.Equal(BuildLogArtifactDigest, output.Reports[BuildReportRefs.BuildLog].Digest);
         Assert.All(output.Reports, report => Assert.Equal(report.Key, report.Value.Kind));
         Assert.True(output.Reports.ContainsKey(output.Build.Output.ManifestRef));
         AssertEvidenceRefsResolveToReports(output);
@@ -914,11 +919,11 @@ public sealed class BuildServiceTests
             }
 
             return ValueTask.FromResult(BuildRunArtifactAccountingOperationResult.Success(new BuildRunArtifactAccountingResult(
-                BuildReport: new BuildArtifactRef(BuildArtifactKind.BuildReport, "build-report.json", "build-report-digest"),
-                BuildOutputManifest: new BuildArtifactRef(BuildArtifactKind.BuildOutputManifest, "output-manifest.json", "output-manifest-artifact-digest"),
-                BuildLog: new BuildArtifactRef(BuildArtifactKind.BuildLog, "build.log", "build-log-digest"),
+                BuildReport: new BuildArtifactRef(BuildArtifactKind.BuildReport, "build-report.json", BuildReportArtifactDigest),
+                BuildOutputManifest: new BuildArtifactRef(BuildArtifactKind.BuildOutputManifest, "output-manifest.json", BuildOutputManifestArtifactDigest),
+                BuildLog: new BuildArtifactRef(BuildArtifactKind.BuildLog, "build.log", BuildLogArtifactDigest),
                 OutputManifest: new BuildOutputManifestSummary(
-                    ManifestDigest: "manifest-digest",
+                    ManifestDigest: OutputManifestDigest,
                     FileCount: 1,
                     TotalBytes: 12))));
         }
@@ -932,7 +937,7 @@ public sealed class BuildServiceTests
             return ValueTask.FromResult(BuildArtifactRefWriteResult.Success(new BuildArtifactRef(
                 BuildArtifactKind.Build,
                 "build.json",
-                "metadata-digest")));
+                BuildMetadataDigest)));
         }
     }
 

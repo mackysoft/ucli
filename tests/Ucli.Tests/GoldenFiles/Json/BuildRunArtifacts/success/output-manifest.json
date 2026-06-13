@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "outputRoot": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/output",
+  "target": "standaloneLinux64",
+  "fileCount": 2,
+  "totalBytes": 33,
+  "files": [
+    {
+      "path": "Data/config.json",
+      "sizeBytes": 19,
+      "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    {
+      "path": "Game.x86_64",
+      "sizeBytes": 14,
+      "sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+    }
+  ],
+  "manifestDigest": "e167d441934ca84452ea2cb52619e5240ec485c46facd6f921b83459dc3ea6f6"
+}
