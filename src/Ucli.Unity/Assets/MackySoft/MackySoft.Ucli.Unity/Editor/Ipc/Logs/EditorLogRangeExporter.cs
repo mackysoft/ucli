@@ -175,7 +175,10 @@ namespace MackySoft.Ucli.Unity.Ipc
             private const string ColonErrorPattern = ": error ";
             private const string ColonWarningPattern = ": warning ";
             private const string BracketErrorPattern = "[error]";
+            private const string BracketWarnPattern = "[warn]";
             private const string BracketWarningPattern = "[warning]";
+            private const string PrefixWarnSpacePattern = "warn ";
+            private const string PrefixWarnColonPattern = "warn:";
             private const string PrefixErrorSpacePattern = "error ";
             private const string PrefixErrorColonPattern = "error:";
             private const string PrefixWarningSpacePattern = "warning ";
@@ -193,7 +196,13 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             private int bracketErrorMatchLength;
 
+            private int bracketWarnMatchLength;
+
             private int bracketWarningMatchLength;
+
+            private int prefixWarnSpaceMatchLength;
+
+            private int prefixWarnColonMatchLength;
 
             private int prefixErrorSpaceMatchLength;
 
@@ -211,6 +220,10 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             private bool canMatchLinePrefix = true;
 
+            private bool isAnsiEscape;
+
+            private bool isAnsiControlSequence;
+
             public void Append (ReadOnlySpan<byte> bytes)
             {
                 for (var i = 0; i < bytes.Length; i++)
@@ -227,11 +240,17 @@ namespace MackySoft.Ucli.Unity.Ipc
                         continue;
                     }
 
+                    if (ShouldIgnoreForSeverity(value))
+                    {
+                        continue;
+                    }
+
                     hasLineContent = true;
                     var lowered = ToLowerAscii(value);
                     ObserveAnywherePattern(lowered, ColonErrorPattern, ref colonErrorMatchLength, ref lineHasError);
                     ObserveAnywherePattern(lowered, ColonWarningPattern, ref colonWarningMatchLength, ref lineHasWarning);
                     ObserveAnywherePattern(lowered, BracketErrorPattern, ref bracketErrorMatchLength, ref lineHasError);
+                    ObserveAnywherePattern(lowered, BracketWarnPattern, ref bracketWarnMatchLength, ref lineHasWarning);
                     ObserveAnywherePattern(lowered, BracketWarningPattern, ref bracketWarningMatchLength, ref lineHasWarning);
                     ObservePrefixPatterns(lowered, value);
                 }
@@ -260,8 +279,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 {
                     errorCount++;
                 }
-
-                if (lineHasWarning)
+                else if (lineHasWarning)
                 {
                     warningCount++;
                 }
@@ -274,7 +292,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                 colonErrorMatchLength = 0;
                 colonWarningMatchLength = 0;
                 bracketErrorMatchLength = 0;
+                bracketWarnMatchLength = 0;
                 bracketWarningMatchLength = 0;
+                prefixWarnSpaceMatchLength = 0;
+                prefixWarnColonMatchLength = 0;
                 prefixErrorSpaceMatchLength = 0;
                 prefixErrorColonMatchLength = 0;
                 prefixWarningSpaceMatchLength = 0;
@@ -283,6 +304,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                 lineHasError = false;
                 lineHasWarning = false;
                 canMatchLinePrefix = true;
+                isAnsiEscape = false;
+                isAnsiControlSequence = false;
             }
 
             private void ObservePrefixPatterns (
@@ -295,6 +318,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                 }
 
                 if (IsAsciiHorizontalWhitespace(original)
+                    && prefixWarnSpaceMatchLength == 0
+                    && prefixWarnColonMatchLength == 0
                     && prefixErrorSpaceMatchLength == 0
                     && prefixErrorColonMatchLength == 0
                     && prefixWarningSpaceMatchLength == 0
@@ -311,7 +336,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                     return;
                 }
 
-                if (ObservePrefixPattern(lowered, PrefixWarningSpacePattern, ref prefixWarningSpaceMatchLength)
+                if (ObservePrefixPattern(lowered, PrefixWarnSpacePattern, ref prefixWarnSpaceMatchLength)
+                    || ObservePrefixPattern(lowered, PrefixWarnColonPattern, ref prefixWarnColonMatchLength)
+                    || ObservePrefixPattern(lowered, PrefixWarningSpacePattern, ref prefixWarningSpaceMatchLength)
                     || ObservePrefixPattern(lowered, PrefixWarningColonPattern, ref prefixWarningColonMatchLength))
                 {
                     lineHasWarning = true;
@@ -319,7 +346,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                     return;
                 }
 
-                if (prefixErrorSpaceMatchLength < 0
+                if (prefixWarnSpaceMatchLength < 0
+                    && prefixWarnColonMatchLength < 0
+                    && prefixErrorSpaceMatchLength < 0
                     && prefixErrorColonMatchLength < 0
                     && prefixWarningSpaceMatchLength < 0
                     && prefixWarningColonMatchLength < 0)
@@ -377,6 +406,43 @@ namespace MackySoft.Ucli.Unity.Ipc
                 }
 
                 matchLength = -1;
+                return false;
+            }
+
+            private bool ShouldIgnoreForSeverity (byte value)
+            {
+                if (isAnsiEscape)
+                {
+                    if (!isAnsiControlSequence)
+                    {
+                        if (value == '[')
+                        {
+                            isAnsiControlSequence = true;
+                        }
+                        else
+                        {
+                            isAnsiEscape = false;
+                        }
+
+                        return true;
+                    }
+
+                    if (value >= 0x40 && value <= 0x7E)
+                    {
+                        isAnsiEscape = false;
+                        isAnsiControlSequence = false;
+                    }
+
+                    return true;
+                }
+
+                if (value == 0x1B)
+                {
+                    isAnsiEscape = true;
+                    isAnsiControlSequence = false;
+                    return true;
+                }
+
                 return false;
             }
 

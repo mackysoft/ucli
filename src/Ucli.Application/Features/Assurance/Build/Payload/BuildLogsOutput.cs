@@ -1,6 +1,6 @@
 namespace MackySoft.Ucli.Application.Features.Assurance.Build.Payload;
 
-/// <summary> Represents the build log artifact summary. </summary>
+/// <summary> Represents raw build log window counters and completion metadata. </summary>
 internal sealed record BuildLogsOutput (
     string ReportRef,
     int EntryCount,
