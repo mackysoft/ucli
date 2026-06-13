@@ -3,6 +3,7 @@ using MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Artifacts;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Input;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Profiles;
+using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Features.Assurance.Build;
 using MackySoft.Ucli.Features.Assurance.Compile;
 using MackySoft.Ucli.Features.Assurance.Verify;
@@ -18,11 +19,13 @@ internal static class AssuranceServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
+        services.AddSingleton<BuildOutputManifestJsonContractWriter>();
+        services.AddSingleton<BuildRunMetadataDocumentWriter>();
+        services.AddSingleton<IBuildRunArtifactStore, FileBuildRunArtifactStore>();
         services.AddSingleton<FileCompileRunArtifactReader>();
         services.AddSingleton<ICompileRunArtifactReader>(static serviceProvider => serviceProvider.GetRequiredService<FileCompileRunArtifactReader>());
         services.AddSingleton<ICompileRunArtifactStore>(static serviceProvider => serviceProvider.GetRequiredService<FileCompileRunArtifactReader>());
         services.AddSingleton<IBuildProfileFileReader, FileBuildProfileFileReader>();
-        services.AddSingleton<IBuildRunArtifactStore, FileBuildRunArtifactStore>();
         services.AddSingleton<IVerifyProfileFileReader, FileVerifyProfileFileReader>();
         services.AddSingleton<IVerifyFromInputFileReader, FileVerifyFromInputFileReader>();
         return services;

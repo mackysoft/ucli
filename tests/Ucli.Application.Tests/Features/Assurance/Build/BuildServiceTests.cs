@@ -3,7 +3,6 @@ using MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Catalog;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Contracts;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Execution;
-using MackySoft.Ucli.Application.Features.Assurance.Build.Metadata;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Payload;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Semantics;
@@ -13,6 +12,7 @@ using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
+using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Ipc;
 using CodeCatalogModel = MackySoft.Ucli.Application.Features.CodeCatalog.Catalog.CodeCatalog;
@@ -77,7 +77,7 @@ public sealed class BuildServiceTests
         Assert.Equal("asset-after", output.Build.Generations.After.AssetRefreshGeneration);
         Assert.Equal("asset-after", output.Build.Generations.ValidFor.AssetRefreshGeneration);
         Assert.Equal(ContractLiteralCodec.ToValue(BuildProfileOutputKind.UcliArtifact), output.Build.Output.Kind);
-        Assert.Equal(artifactStore.PreparedPaths!.RunDirectory, output.Build.Output.ArtifactRoot);
+        Assert.Equal(artifactStore.PreparedPaths!.ArtifactsDirectory, output.Build.Output.ArtifactRoot);
         Assert.Equal(artifactStore.PreparedPaths.OutputDirectory, output.Build.Output.OutputRoot);
         Assert.Equal("manifest-digest", output.Build.Output.ManifestDigest);
         Assert.Equal(
@@ -95,9 +95,11 @@ public sealed class BuildServiceTests
         Assert.Equal(BuildClaimCodes.All.Select(static code => code.Value).ToArray(), verifier.PrimaryClaims);
         Assert.Equal(ContractLiteralCodec.GetLiterals<BuildEffect>(), verifier.Effects);
         Assert.NotNull(artifactStore.WrittenMetadata);
-        Assert.Equal(ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded), artifactStore.WrittenMetadata!.Summary.Result);
-        Assert.Equal("ready", artifactStore.WrittenMetadata.Lifecycle.Before.LifecycleState);
-        Assert.Equal("ready", artifactStore.WrittenMetadata.Lifecycle.After.LifecycleState);
+        Assert.Equal(
+            ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+            artifactStore.WrittenMetadata!.Summary.GetProperty("result").GetString());
+        Assert.Equal("ready", artifactStore.WrittenMetadata.Lifecycle.GetProperty("before").GetProperty("lifecycleState").GetString());
+        Assert.Equal("ready", artifactStore.WrittenMetadata.Lifecycle.GetProperty("after").GetProperty("lifecycleState").GetString());
         AssertProgressEvents(
             progressSink,
             BuildRunProgressEventNames.Started,
@@ -119,9 +121,9 @@ public sealed class BuildServiceTests
         Assert.Equal(0, completedEntry.ErrorCount);
         Assert.Equal(1, completedEntry.WarningCount);
         Assert.Equal(artifactStore.PreparedPaths.BuildJsonPath, completedEntry.BuildJsonPath);
-        Assert.Equal(artifactStore.PreparedPaths.BuildReportPath, completedEntry.BuildReportPath);
+        Assert.Equal(artifactStore.PreparedPaths.BuildReportJsonPath, completedEntry.BuildReportPath);
         Assert.Equal(artifactStore.PreparedPaths.BuildLogPath, completedEntry.BuildLogPath);
-        Assert.Equal(artifactStore.PreparedPaths.OutputManifestPath, completedEntry.OutputManifestPath);
+        Assert.Equal(artifactStore.PreparedPaths.OutputManifestJsonPath, completedEntry.OutputManifestPath);
 
         var validator = CreateBuildSemanticInvariantValidator();
         var semanticPayload = JsonSerializer.SerializeToElement(output, PayloadSerializerOptions);
@@ -136,7 +138,7 @@ public sealed class BuildServiceTests
         Assert.Equal(["Assets/Scenes/Main.unity"], requestPayload.ScenePaths);
         Assert.True(requestPayload.Development);
         Assert.Equal(artifactStore.PreparedPaths!.OutputDirectory, requestPayload.OutputPath);
-        Assert.Equal(artifactStore.PreparedPaths.BuildReportPath, requestPayload.BuildReportPath);
+        Assert.Equal(artifactStore.PreparedPaths.BuildReportJsonPath, requestPayload.BuildReportPath);
         Assert.Equal(artifactStore.PreparedPaths.BuildLogPath, requestPayload.BuildLogPath);
     }
 
@@ -195,7 +197,13 @@ public sealed class BuildServiceTests
         Assert.True(result.IsSuccess);
         Assert.Equal("editorBuildSettings", result.Output!.Build.Scenes.Source);
         Assert.Equal(["Assets/Scenes/FromSettings.unity"], result.Output.Build.Scenes.Paths);
-        Assert.Equal(["Assets/Scenes/FromSettings.unity"], artifactStore.WrittenMetadata!.Input.Scenes.Paths);
+        var metadataScenePaths = artifactStore.WrittenMetadata!.Input
+            .GetProperty("scenes")
+            .GetProperty("paths")
+            .EnumerateArray()
+            .Select(static item => item.GetString()!)
+            .ToArray();
+        Assert.Equal(["Assets/Scenes/FromSettings.unity"], metadataScenePaths);
         var payload = Assert.IsType<UnityRequestPayload.BuildRun>(requestExecutor.CapturedPayload);
         Assert.Equal("editorBuildSettings", payload.SceneSource);
         Assert.Empty(payload.ScenePaths);
@@ -339,7 +347,7 @@ public sealed class BuildServiceTests
         using var tempDirectory = TemporaryDirectory.Create();
         var artifactStore = new StubBuildRunArtifactStore(
             tempDirectory.Path,
-            writeOutputManifestOverride: async (_, _, cancellationToken) =>
+            accountArtifactsOverride: async (_, cancellationToken) =>
             {
                 await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
                 throw new InvalidOperationException("Unreachable.");
@@ -362,7 +370,7 @@ public sealed class BuildServiceTests
         using var cancellationTokenSource = new CancellationTokenSource();
         var artifactStore = new StubBuildRunArtifactStore(
             tempDirectory.Path,
-            writeOutputManifestOverride: async (_, _, cancellationToken) =>
+            accountArtifactsOverride: async (_, cancellationToken) =>
             {
                 cancellationTokenSource.Cancel();
                 await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
@@ -472,19 +480,28 @@ public sealed class BuildServiceTests
     {
         using var tempDirectory = TemporaryDirectory.Create();
         var reportOutputPath = System.IO.Path.Combine(tempDirectory.Path, "outside", "build");
+        var artifactStore = new StubBuildRunArtifactStore(
+            tempDirectory.Path,
+            (request, _) =>
+            {
+                Assert.Equal(reportOutputPath, request.ReportedOutputPath);
+                return ValueTask.FromResult(BuildRunArtifactAccountingOperationResult.Failure(ExecutionError.InternalError(
+                    "Build report output path must remain under the requested output directory.",
+                    BuildErrorCodes.BuildOutputManifestFailed)));
+            });
         var service = CreateService(
             requestExecutor: CreateBuildResponseExecutor(
                 ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
                 ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
                 errorCount: 0,
                 reportOutputPath: reportOutputPath),
-            artifactStore: new StubBuildRunArtifactStore(tempDirectory.Path));
+            artifactStore: artifactStore);
 
         var result = await service.ExecuteAsync(CreateInput());
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
-        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
+        Assert.Equal(BuildErrorCodes.BuildOutputManifestFailed, error.Code);
         Assert.Null(result.Output);
     }
 
@@ -822,121 +839,71 @@ public sealed class BuildServiceTests
 
     private sealed class StubBuildRunArtifactStore : IBuildRunArtifactStore
     {
-        private readonly HashSet<string> acceptedOutputPaths = new(StringComparer.Ordinal);
-
         private readonly string rootPath;
 
-        private readonly Func<BuildRunArtifactPaths, string, CancellationToken, ValueTask<BuildOutputManifestResult>>? writeOutputManifestOverride;
+        private readonly Func<BuildRunArtifactAccountingRequest, CancellationToken, ValueTask<BuildRunArtifactAccountingOperationResult>>? accountArtifactsOverride;
 
         public StubBuildRunArtifactStore (
             string rootPath,
-            Func<BuildRunArtifactPaths, string, CancellationToken, ValueTask<BuildOutputManifestResult>>? writeOutputManifestOverride = null)
+            Func<BuildRunArtifactAccountingRequest, CancellationToken, ValueTask<BuildRunArtifactAccountingOperationResult>>? accountArtifactsOverride = null)
         {
             this.rootPath = rootPath;
-            this.writeOutputManifestOverride = writeOutputManifestOverride;
+            this.accountArtifactsOverride = accountArtifactsOverride;
         }
 
         public BuildRunArtifactPaths? PreparedPaths { get; private set; }
 
-        public BuildRunMetadata? WrittenMetadata { get; private set; }
+        public BuildRunMetadataDocument? WrittenMetadata { get; private set; }
 
-        public ValueTask<BuildRunArtifactPrepareResult> PrepareAsync (
+        public BuildRunArtifactPreparationResult Prepare (
             ResolvedUnityProjectContext unityProject,
-            string runId,
-            CancellationToken cancellationToken = default)
+            string runId)
         {
-            cancellationToken.ThrowIfCancellationRequested();
             var runDirectory = Path.Combine(rootPath, runId);
             var outputDirectory = Path.Combine(runDirectory, "output");
             Directory.CreateDirectory(outputDirectory);
             PreparedPaths = new BuildRunArtifactPaths(
-                RunDirectory: runDirectory,
+                RepositoryRoot: rootPath,
+                RunId: runId,
+                ArtifactsDirectory: runDirectory,
                 BuildJsonPath: Path.Combine(runDirectory, "build.json"),
-                BuildReportPath: Path.Combine(runDirectory, "build-report.json"),
+                BuildReportJsonPath: Path.Combine(runDirectory, "build-report.json"),
                 BuildLogPath: Path.Combine(runDirectory, "build.log"),
-                OutputManifestPath: Path.Combine(runDirectory, "output-manifest.json"),
+                OutputManifestJsonPath: Path.Combine(runDirectory, "output-manifest.json"),
                 OutputDirectory: outputDirectory);
-            acceptedOutputPaths.Clear();
-            acceptedOutputPaths.Add(PreparedPaths.OutputDirectory);
-            acceptedOutputPaths.Add(Path.Combine(PreparedPaths.OutputDirectory, "build"));
-            File.WriteAllText(PreparedPaths.BuildReportPath, "{}");
-            return ValueTask.FromResult(BuildRunArtifactPrepareResult.Success(PreparedPaths));
+            return BuildRunArtifactPreparationResult.Success(PreparedPaths);
         }
 
-        public ValueTask<BuildOutputManifestResult> WriteOutputManifestAsync (
-            BuildRunArtifactPaths paths,
-            string target,
+        public ValueTask<BuildRunArtifactAccountingOperationResult> AccountArtifactsAsync (
+            BuildRunArtifactAccountingRequest request,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (writeOutputManifestOverride != null)
+            if (accountArtifactsOverride != null)
             {
-                return writeOutputManifestOverride(paths, target, cancellationToken);
+                return accountArtifactsOverride(request, cancellationToken);
             }
 
-            var manifest = new BuildOutputManifest(
-                SchemaVersion: 1,
-                OutputRoot: paths.OutputDirectory,
-                Target: target,
-                FileCount: 1,
-                TotalBytes: 12,
-                Files:
-                [
-                    new BuildOutputManifestFile(
-                        Path: "Game.x86_64",
-                        SizeBytes: 12,
-                        Sha256: "file-digest"),
-                ],
-                ManifestDigest: "manifest-digest");
-            return ValueTask.FromResult(BuildOutputManifestResult.Success(manifest));
+            return ValueTask.FromResult(BuildRunArtifactAccountingOperationResult.Success(new BuildRunArtifactAccountingResult(
+                BuildReport: new BuildArtifactRef(BuildArtifactKind.BuildReport, "build-report.json", "build-report-digest"),
+                BuildOutputManifest: new BuildArtifactRef(BuildArtifactKind.BuildOutputManifest, "output-manifest.json", "output-manifest-artifact-digest"),
+                BuildLog: new BuildArtifactRef(BuildArtifactKind.BuildLog, "build.log", "build-log-digest"),
+                OutputManifest: new BuildOutputManifestSummary(
+                    ManifestDigest: "manifest-digest",
+                    FileCount: 1,
+                    TotalBytes: 12))));
         }
 
-        public bool ContainsOutputPath (
-            BuildRunArtifactPaths paths,
-            string outputPath)
-        {
-            return acceptedOutputPaths.Contains(outputPath);
-        }
-
-        public ValueTask<BuildArtifactWriteResult> WriteMetadataAsync (
-            BuildRunArtifactPaths paths,
-            BuildRunMetadata metadata,
+        public ValueTask<BuildArtifactRefWriteResult> WriteMetadataAsync (
+            BuildRunMetadataWriteRequest request,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            WrittenMetadata = metadata;
-            return ValueTask.FromResult(BuildArtifactWriteResult.Success("metadata-digest"));
-        }
-
-        public ValueTask<BuildArtifactWriteResult> CalculateDigestAsync (
-            string path,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var digest = Path.GetFileName(path) switch
-            {
-                "build-report.json" => "build-report-digest",
-                "build.log" => "build-log-digest",
-                "output-manifest.json" => "output-manifest-artifact-digest",
-                _ => throw new InvalidOperationException($"Unexpected digest path: {path}"),
-            };
-            return ValueTask.FromResult(BuildArtifactWriteResult.Success(digest));
-        }
-
-        public ValueTask<BuildArtifactWriteResult> CalculateOutputManifestContentDigestAsync (
-            string path,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromResult(BuildArtifactWriteResult.Success("manifest-digest"));
-        }
-
-        public ValueTask<BuildArtifactWriteResult> CalculateRequiredDigestAsync (
-            string path,
-            UcliCode missingCode,
-            CancellationToken cancellationToken = default)
-        {
-            return CalculateDigestAsync(path, cancellationToken);
+            WrittenMetadata = request.Metadata;
+            return ValueTask.FromResult(BuildArtifactRefWriteResult.Success(new BuildArtifactRef(
+                BuildArtifactKind.Build,
+                "build.json",
+                "metadata-digest")));
         }
     }
 

@@ -1,444 +1,690 @@
 using System.Buffers;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
-using MackySoft.Ucli.Application.Features.Assurance.Build.Metadata;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Cryptography;
-using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Infrastructure.Cryptography;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Features.Assurance.Build;
 
-/// <summary> Creates and writes build run artifacts in local uCLI storage. </summary>
+/// <summary> Prepares and writes build-run artifacts under local uCLI storage. </summary>
 internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
 {
-    private const int OutputManifestSchemaVersion = 1;
+    private const int FileStreamBufferSize = 81920;
+
+    private static readonly UTF8Encoding Utf8NoBom = new(encoderShouldEmitUTF8Identifier: false);
+
+    private readonly BuildOutputManifestJsonContractWriter outputManifestWriter;
+    private readonly BuildRunMetadataDocumentWriter metadataWriter;
+
+    /// <summary> Initializes a new instance of the <see cref="FileBuildRunArtifactStore" /> class. </summary>
+    public FileBuildRunArtifactStore (
+        BuildOutputManifestJsonContractWriter outputManifestWriter,
+        BuildRunMetadataDocumentWriter metadataWriter)
+    {
+        this.outputManifestWriter = outputManifestWriter ?? throw new ArgumentNullException(nameof(outputManifestWriter));
+        this.metadataWriter = metadataWriter ?? throw new ArgumentNullException(nameof(metadataWriter));
+    }
 
     /// <inheritdoc />
-    public ValueTask<BuildRunArtifactPrepareResult> PrepareAsync (
+    public BuildRunArtifactPreparationResult Prepare (
         ResolvedUnityProjectContext unityProject,
-        string runId,
-        CancellationToken cancellationToken = default)
+        string runId)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentException.ThrowIfNullOrWhiteSpace(runId);
-        cancellationToken.ThrowIfCancellationRequested();
 
+        BuildRunArtifactPaths paths;
         try
         {
-            var runDirectory = UcliStoragePathResolver.ResolveBuildRunArtifactsDirectory(
-                unityProject.RepositoryRoot,
-                unityProject.ProjectFingerprint,
-                runId);
-            var paths = new BuildRunArtifactPaths(
-                RunDirectory: runDirectory,
-                BuildJsonPath: UcliStoragePathResolver.ResolveBuildRunMetadataPath(
-                    unityProject.RepositoryRoot,
-                    unityProject.ProjectFingerprint,
-                    runId),
-                BuildReportPath: UcliStoragePathResolver.ResolveBuildRunReportPath(
-                    unityProject.RepositoryRoot,
-                    unityProject.ProjectFingerprint,
-                    runId),
-                BuildLogPath: UcliStoragePathResolver.ResolveBuildRunLogPath(
-                    unityProject.RepositoryRoot,
-                    unityProject.ProjectFingerprint,
-                    runId),
-                OutputManifestPath: UcliStoragePathResolver.ResolveBuildRunOutputManifestPath(
-                    unityProject.RepositoryRoot,
-                    unityProject.ProjectFingerprint,
-                    runId),
-                OutputDirectory: UcliStoragePathResolver.ResolveBuildRunOutputDirectory(
-                    unityProject.RepositoryRoot,
-                    unityProject.ProjectFingerprint,
-                    runId));
-            if (File.Exists(paths.RunDirectory) || Directory.Exists(paths.RunDirectory))
-            {
-                return ValueTask.FromResult(BuildRunArtifactPrepareResult.Failure(ExecutionError.InternalError(
-                    $"Build run artifact directory already exists: {paths.RunDirectory}.",
-                    BuildErrorCodes.BuildArtifactWriteFailed)));
-            }
-
-            FileSystemAccessBoundary.EnsureSecureDirectory(paths.RunDirectory);
-            FileSystemAccessBoundary.EnsureSecureDirectory(paths.OutputDirectory);
-            return ValueTask.FromResult(BuildRunArtifactPrepareResult.Success(paths));
+            paths = ResolvePaths(unityProject, runId);
         }
         catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
-            return ValueTask.FromResult(BuildRunArtifactPrepareResult.Failure(ExecutionError.InternalError(
-                $"Build artifact path is invalid. {exception.Message}",
-                BuildErrorCodes.BuildArtifactWriteFailed)));
+            return BuildRunArtifactPreparationResult.Failure(ExecutionError.InvalidArgument(
+                $"Build artifact path is invalid. {exception.Message}"));
+        }
+
+        try
+        {
+            if (File.Exists(paths.ArtifactsDirectory) || Directory.Exists(paths.ArtifactsDirectory))
+            {
+                return BuildRunArtifactPreparationResult.Failure(ExecutionError.InternalError(
+                    $"Build artifact directory already exists: {paths.ArtifactsDirectory}.",
+                    BuildErrorCodes.BuildArtifactWriteFailed));
+            }
+
+            FileSystemAccessBoundary.EnsureSecureDirectory(paths.ArtifactsDirectory);
+            FileSystemAccessBoundary.EnsureSecureDirectory(paths.OutputDirectory);
+            return BuildRunArtifactPreparationResult.Success(paths);
+        }
+        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
+        {
+            return BuildRunArtifactPreparationResult.Failure(ExecutionError.InvalidArgument(
+                $"Build artifact path is invalid. {exception.Message}"));
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException)
         {
-            return ValueTask.FromResult(BuildRunArtifactPrepareResult.Failure(ExecutionError.InternalError(
+            return BuildRunArtifactPreparationResult.Failure(ExecutionError.InternalError(
                 $"Failed to prepare build artifact directory. {exception.Message}",
-                BuildErrorCodes.BuildArtifactWriteFailed)));
+                BuildErrorCodes.BuildArtifactWriteFailed));
         }
     }
 
     /// <inheritdoc />
-    public async ValueTask<BuildOutputManifestResult> WriteOutputManifestAsync (
-        BuildRunArtifactPaths paths,
-        string target,
+    public async ValueTask<BuildRunArtifactAccountingOperationResult> AccountArtifactsAsync (
+        BuildRunArtifactAccountingRequest request,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(paths);
-        ArgumentException.ThrowIfNullOrWhiteSpace(target);
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(request.Paths);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.ReportedOutputPath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.TargetStableName);
         cancellationToken.ThrowIfCancellationRequested();
 
         try
         {
-            var files = await ScanOutputFilesAsync(paths.OutputDirectory, cancellationToken).ConfigureAwait(false);
-            files.Sort(static (left, right) => string.CompareOrdinal(left.Path, right.Path));
-            var totalBytes = files.Sum(static file => file.SizeBytes);
-            var manifestContent = new BuildOutputManifestContent(
-                SchemaVersion: OutputManifestSchemaVersion,
-                OutputRoot: paths.OutputDirectory,
-                Target: target,
-                FileCount: files.Count,
-                TotalBytes: totalBytes,
-                Files: files);
-            var manifestDigest = CalculateManifestContentDigest(manifestContent);
-            var manifest = CreateOutputManifest(manifestContent, manifestDigest);
-
-            await WriteJsonAtomicallyAsync(paths.OutputManifestPath, manifest, cancellationToken).ConfigureAwait(false);
-            return BuildOutputManifestResult.Success(manifest);
+            EnsureExpectedPathLayout(request.Paths);
         }
         catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
-            return BuildOutputManifestResult.Failure(ExecutionError.InternalError(
-                $"Build output manifest path is invalid. {exception.Message}",
+            return BuildRunArtifactAccountingOperationResult.Failure(ExecutionError.InvalidArgument(
+                $"Build artifact path layout is invalid. {exception.Message}"));
+        }
+        catch (InvalidOperationException exception)
+        {
+            return BuildRunArtifactAccountingOperationResult.Failure(ExecutionError.InvalidArgument(
+                $"Build artifact path layout is invalid. {exception.Message}"));
+        }
+
+        try
+        {
+            EnsureReportedOutputPathUnderOutputDirectory(request.Paths, request.ReportedOutputPath);
+        }
+        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
+        {
+            return BuildRunArtifactAccountingOperationResult.Failure(ExecutionError.InternalError(
+                $"Build report output path is invalid. {exception.Message}",
                 BuildErrorCodes.BuildOutputManifestFailed));
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or JsonException)
+        catch (InvalidOperationException exception)
         {
-            return BuildOutputManifestResult.Failure(ExecutionError.InternalError(
+            return BuildRunArtifactAccountingOperationResult.Failure(ExecutionError.InternalError(
+                $"Build report output path must remain under the requested output directory. {exception.Message}",
+                BuildErrorCodes.BuildOutputManifestFailed));
+        }
+
+        OutputManifestArtifacts outputManifestArtifacts;
+        try
+        {
+            outputManifestArtifacts = await CreateOutputManifestArtifactsAsync(
+                    request.Paths,
+                    request.TargetStableName,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (OutputDigestMismatchException exception)
+        {
+            return BuildRunArtifactAccountingOperationResult.Failure(ExecutionError.InternalError(
+                $"Build output digest accounting failed. {exception.Message}",
+                BuildErrorCodes.BuildOutputDigestMismatch));
+        }
+        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
+        {
+            return BuildRunArtifactAccountingOperationResult.Failure(ExecutionError.InvalidArgument(
+                $"Build output manifest path is invalid. {exception.Message}"));
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            return BuildRunArtifactAccountingOperationResult.Failure(ExecutionError.InternalError(
+                $"Failed to generate build output manifest. {exception.Message}",
+                BuildErrorCodes.BuildOutputManifestFailed));
+        }
+
+        var buildReportAccountingResult = await AccountExistingArtifactAsync(
+                BuildArtifactKind.BuildReport,
+                request.Paths.RepositoryRoot,
+                request.Paths.BuildReportJsonPath,
+                "BuildReport artifact",
+                BuildErrorCodes.BuildReportMissing,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!buildReportAccountingResult.IsSuccess)
+        {
+            return BuildRunArtifactAccountingOperationResult.Failure(buildReportAccountingResult.Error!);
+        }
+
+        var buildLogAccountingResult = await AccountExistingArtifactAsync(
+                BuildArtifactKind.BuildLog,
+                request.Paths.RepositoryRoot,
+                request.Paths.BuildLogPath,
+                "Build log artifact",
+                BuildErrorCodes.BuildArtifactWriteFailed,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!buildLogAccountingResult.IsSuccess)
+        {
+            return BuildRunArtifactAccountingOperationResult.Failure(buildLogAccountingResult.Error!);
+        }
+
+        var buildReportRef = buildReportAccountingResult.Artifact!;
+        var buildLogRef = buildLogAccountingResult.Artifact!;
+
+        BuildArtifactRef outputManifestRef;
+        try
+        {
+            var outputManifestJson = outputManifestWriter.Write(outputManifestArtifacts.Contract);
+            var outputManifestDigest = await WriteTextAtomicallyAsync(
+                    request.Paths.OutputManifestJsonPath,
+                    outputManifestJson,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            outputManifestRef = CreateArtifactRef(
+                BuildArtifactKind.BuildOutputManifest,
+                request.Paths.RepositoryRoot,
+                request.Paths.OutputManifestJsonPath,
+                outputManifestDigest);
+        }
+        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
+        {
+            return BuildRunArtifactAccountingOperationResult.Failure(ExecutionError.InvalidArgument(
+                $"Build output manifest path is invalid. {exception.Message}"));
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            return BuildRunArtifactAccountingOperationResult.Failure(ExecutionError.InternalError(
                 $"Failed to write build output manifest. {exception.Message}",
                 BuildErrorCodes.BuildOutputManifestFailed));
         }
+
+        return BuildRunArtifactAccountingOperationResult.Success(new BuildRunArtifactAccountingResult(
+            buildReportRef,
+            outputManifestRef,
+            buildLogRef,
+            outputManifestArtifacts.Summary));
     }
 
     /// <inheritdoc />
-    public bool ContainsOutputPath (
-        BuildRunArtifactPaths paths,
-        string outputPath)
-    {
-        ArgumentNullException.ThrowIfNull(paths);
-        if (string.IsNullOrWhiteSpace(outputPath))
-        {
-            return false;
-        }
-
-        try
-        {
-            return IsFullPathUnderOrEqual(outputPath, paths.OutputDirectory);
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return false;
-        }
-    }
-
-    /// <inheritdoc />
-    public async ValueTask<BuildArtifactWriteResult> WriteMetadataAsync (
-        BuildRunArtifactPaths paths,
-        BuildRunMetadata metadata,
+    public async ValueTask<BuildArtifactRefWriteResult> WriteMetadataAsync (
+        BuildRunMetadataWriteRequest request,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(paths);
-        ArgumentNullException.ThrowIfNull(metadata);
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(request.Paths);
+        ArgumentNullException.ThrowIfNull(request.Metadata);
+        ArgumentNullException.ThrowIfNull(request.Accounting);
         cancellationToken.ThrowIfCancellationRequested();
 
         try
         {
-            await WriteJsonAtomicallyAsync(paths.BuildJsonPath, metadata, cancellationToken).ConfigureAwait(false);
-            return await CalculateDigestAsync(paths.BuildJsonPath, cancellationToken).ConfigureAwait(false);
+            EnsureExpectedPathLayout(request.Paths);
         }
         catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
-            return BuildArtifactWriteResult.Failure(ExecutionError.InternalError(
-                $"Build metadata path is invalid. {exception.Message}",
-                BuildErrorCodes.BuildArtifactWriteFailed));
+            return BuildArtifactRefWriteResult.Failure(ExecutionError.InvalidArgument(
+                $"Build artifact path layout is invalid. {exception.Message}"));
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or JsonException)
+        catch (InvalidOperationException exception)
         {
-            return BuildArtifactWriteResult.Failure(ExecutionError.InternalError(
-                $"Failed to write build metadata artifact. {exception.Message}",
-                BuildErrorCodes.BuildArtifactWriteFailed));
+            return BuildArtifactRefWriteResult.Failure(ExecutionError.InvalidArgument(
+                $"Build artifact path layout is invalid. {exception.Message}"));
         }
-    }
 
-    /// <inheritdoc />
-    public async ValueTask<BuildArtifactWriteResult> CalculateDigestAsync (
-        string path,
-        CancellationToken cancellationToken = default)
-    {
-        return await CalculateDigestCoreAsync(path, BuildErrorCodes.BuildArtifactWriteFailed, cancellationToken).ConfigureAwait(false);
-    }
-
-    /// <inheritdoc />
-    public async ValueTask<BuildArtifactWriteResult> CalculateOutputManifestContentDigestAsync (
-        string path,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(path);
-        cancellationToken.ThrowIfCancellationRequested();
-
+        BuildArtifactRef buildRef;
         try
         {
-            EnsureReadableArtifactPath(path);
-            await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 8192, useAsync: true);
-            var manifest = await JsonSerializer.DeserializeAsync<BuildOutputManifest>(
-                    stream,
-                    IpcJsonSerializerOptions.Default,
+            var buildJson = metadataWriter.Write(
+                request.Metadata,
+                [
+                    request.Accounting.BuildReport,
+                    request.Accounting.BuildOutputManifest,
+                    request.Accounting.BuildLog,
+                ]);
+            var buildDigest = await WriteTextAtomicallyAsync(
+                    request.Paths.BuildJsonPath,
+                    buildJson,
                     cancellationToken)
                 .ConfigureAwait(false);
-            if (manifest == null)
-            {
-                throw new JsonException("Build output manifest was empty.");
-            }
-
-            var contentDigest = CalculateManifestContentDigest(CreateManifestContent(manifest));
-            if (!string.Equals(contentDigest, manifest.ManifestDigest, StringComparison.Ordinal))
-            {
-                return BuildArtifactWriteResult.Failure(ExecutionError.InternalError(
-                    "Build output manifest digest did not match the persisted manifest content.",
-                    BuildErrorCodes.BuildOutputDigestMismatch));
-            }
-
-            return BuildArtifactWriteResult.Success(contentDigest);
+            buildRef = CreateArtifactRef(
+                BuildArtifactKind.Build,
+                request.Paths.RepositoryRoot,
+                request.Paths.BuildJsonPath,
+                buildDigest);
         }
         catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
-            return BuildArtifactWriteResult.Failure(ExecutionError.InternalError(
-                $"Build output manifest path is invalid. {exception.Message}",
-                BuildErrorCodes.BuildOutputManifestFailed));
-        }
-        catch (Exception exception) when (exception is FileNotFoundException or DirectoryNotFoundException)
-        {
-            return BuildArtifactWriteResult.Failure(ExecutionError.InternalError(
-                $"Build output manifest is missing: {path}. {exception.Message}",
-                BuildErrorCodes.BuildOutputManifestFailed));
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or JsonException)
-        {
-            return BuildArtifactWriteResult.Failure(ExecutionError.InternalError(
-                $"Failed to digest build output manifest content: {path}. {exception.Message}",
-                BuildErrorCodes.BuildOutputManifestFailed));
-        }
-    }
-
-    /// <inheritdoc />
-    public async ValueTask<BuildArtifactWriteResult> CalculateRequiredDigestAsync (
-        string path,
-        UcliCode missingCode,
-        CancellationToken cancellationToken = default)
-    {
-        if (!missingCode.IsValid)
-        {
-            throw new ArgumentException(UcliCode.InvalidValueMessage, nameof(missingCode));
-        }
-
-        return await CalculateDigestCoreAsync(path, missingCode, cancellationToken).ConfigureAwait(false);
-    }
-
-    private static async ValueTask<BuildArtifactWriteResult> CalculateDigestCoreAsync (
-        string path,
-        UcliCode missingCode,
-        CancellationToken cancellationToken)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(path);
-        cancellationToken.ThrowIfCancellationRequested();
-
-        try
-        {
-            EnsureReadableArtifactPath(path);
-            await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 8192, useAsync: true);
-            using var sha256 = SHA256.Create();
-            var digestBytes = await sha256.ComputeHashAsync(stream, cancellationToken).ConfigureAwait(false);
-            return BuildArtifactWriteResult.Success(Sha256LowerHex.ToLowerHex(digestBytes));
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return BuildArtifactWriteResult.Failure(ExecutionError.InternalError(
-                $"Build artifact path is invalid. {exception.Message}",
-                BuildErrorCodes.BuildArtifactWriteFailed));
-        }
-        catch (Exception exception) when (exception is FileNotFoundException or DirectoryNotFoundException)
-        {
-            return BuildArtifactWriteResult.Failure(ExecutionError.InternalError(
-                $"Build artifact is missing: {path}. {exception.Message}",
-                missingCode));
+            return BuildArtifactRefWriteResult.Failure(ExecutionError.InvalidArgument(
+                $"Build metadata path is invalid. {exception.Message}"));
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException)
         {
-            return BuildArtifactWriteResult.Failure(ExecutionError.InternalError(
-                $"Failed to digest build artifact: {path}. {exception.Message}",
+            return BuildArtifactRefWriteResult.Failure(ExecutionError.InternalError(
+                $"Failed to write build metadata. {exception.Message}",
                 BuildErrorCodes.BuildArtifactWriteFailed));
+        }
+
+        return BuildArtifactRefWriteResult.Success(buildRef);
+    }
+
+    private static BuildRunArtifactPaths ResolvePaths (
+        ResolvedUnityProjectContext unityProject,
+        string runId)
+    {
+        var artifactsDirectory = UcliStoragePathResolver.ResolveBuildRunArtifactsDirectory(
+            unityProject.RepositoryRoot,
+            unityProject.ProjectFingerprint,
+            runId);
+
+        return new BuildRunArtifactPaths(
+            unityProject.RepositoryRoot,
+            runId,
+            artifactsDirectory,
+            Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildMetadataFileName),
+            Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildReportFileName),
+            Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildLogFileName),
+            Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildOutputManifestFileName),
+            Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildOutputDirectoryName));
+    }
+
+    private static void EnsureExpectedPathLayout (BuildRunArtifactPaths paths)
+    {
+        var artifactsDirectory = Path.GetFullPath(paths.ArtifactsDirectory);
+        if (!string.Equals(artifactsDirectory, paths.ArtifactsDirectory, GetPathComparison()))
+        {
+            throw new InvalidOperationException($"Artifact directory must be normalized: {paths.ArtifactsDirectory}");
+        }
+
+        EnsureExpectedArtifactsDirectory(paths, artifactsDirectory);
+        EnsureExpectedPath(
+            artifactsDirectory,
+            paths.BuildJsonPath,
+            UcliStoragePathNames.BuildMetadataFileName);
+        EnsureExpectedPath(
+            artifactsDirectory,
+            paths.BuildReportJsonPath,
+            UcliStoragePathNames.BuildReportFileName);
+        EnsureExpectedPath(
+            artifactsDirectory,
+            paths.BuildLogPath,
+            UcliStoragePathNames.BuildLogFileName);
+        EnsureExpectedPath(
+            artifactsDirectory,
+            paths.OutputManifestJsonPath,
+            UcliStoragePathNames.BuildOutputManifestFileName);
+        EnsureExpectedPath(
+            artifactsDirectory,
+            paths.OutputDirectory,
+            UcliStoragePathNames.BuildOutputDirectoryName);
+    }
+
+    private static void EnsureExpectedArtifactsDirectory (
+        BuildRunArtifactPaths paths,
+        string artifactsDirectory)
+    {
+        var relativePath = NormalizeRepositoryRelativePath(paths.RepositoryRoot, artifactsDirectory);
+        var segments = relativePath.Split('/');
+        if (segments.Length != 7
+            || !string.Equals(segments[0], UcliStoragePathNames.UcliDirectoryName, StringComparison.Ordinal)
+            || !string.Equals(segments[1], UcliStoragePathNames.LocalDirectoryName, StringComparison.Ordinal)
+            || !string.Equals(segments[2], UcliStoragePathNames.FingerprintsDirectoryName, StringComparison.Ordinal)
+            || !string.Equals(segments[4], UcliStoragePathNames.ArtifactsDirectoryName, StringComparison.Ordinal)
+            || !string.Equals(segments[5], UcliStoragePathNames.BuildArtifactsDirectoryName, StringComparison.Ordinal)
+            || !string.Equals(segments[6], paths.RunId, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                $"Artifact directory must use the build-run storage layout: {paths.ArtifactsDirectory}");
         }
     }
 
-    private static async ValueTask<List<BuildOutputManifestFile>> ScanOutputFilesAsync (
-        string outputDirectory,
+    private static void EnsureExpectedPath (
+        string artifactsDirectory,
+        string actualPath,
+        string expectedFileName)
+    {
+        var expectedPath = Path.Combine(artifactsDirectory, expectedFileName);
+        var normalizedActualPath = Path.GetFullPath(actualPath);
+        if (!string.Equals(normalizedActualPath, expectedPath, GetPathComparison()))
+        {
+            throw new InvalidOperationException(
+            $"Artifact path must be {expectedPath}: {actualPath}");
+        }
+    }
+
+    private static void EnsureReportedOutputPathUnderOutputDirectory (
+        BuildRunArtifactPaths paths,
+        string reportedOutputPath)
+    {
+        if (!Path.IsPathFullyQualified(reportedOutputPath))
+        {
+            throw new InvalidOperationException($"Reported output path must be fully qualified: {reportedOutputPath}");
+        }
+
+        var outputDirectory = Path.GetFullPath(paths.OutputDirectory);
+        var normalizedReportedOutputPath = Path.GetFullPath(reportedOutputPath);
+        var relativePath = Path.GetRelativePath(outputDirectory, normalizedReportedOutputPath);
+        if (string.Equals(relativePath, ".", StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        if (Path.IsPathRooted(relativePath) || IsParentRelativePath(relativePath))
+        {
+            throw new InvalidOperationException($"Reported={reportedOutputPath}, ExpectedRoot={paths.OutputDirectory}.");
+        }
+    }
+
+    private static bool IsParentRelativePath (string relativePath)
+    {
+        return relativePath.Length == 2
+            ? relativePath[0] == '.' && relativePath[1] == '.'
+            : relativePath.Length > 2
+                && relativePath[0] == '.'
+                && relativePath[1] == '.'
+                && (relativePath[2] == Path.DirectorySeparatorChar || relativePath[2] == Path.AltDirectorySeparatorChar);
+    }
+
+    private async ValueTask<OutputManifestArtifacts> CreateOutputManifestArtifactsAsync (
+        BuildRunArtifactPaths paths,
+        string targetStableName,
         CancellationToken cancellationToken)
     {
-        if (!Directory.Exists(outputDirectory) && !File.Exists(outputDirectory))
+        var outputRoot = NormalizeRepositoryRelativePath(paths.RepositoryRoot, paths.OutputDirectory);
+        var candidates = EnumerateOutputFileCandidates(paths.OutputDirectory);
+        candidates.Sort(static (left, right) => string.CompareOrdinal(left.RelativePath, right.RelativePath));
+
+        var files = new List<BuildOutputManifestFileJsonContract>(candidates.Count);
+        long totalBytes = 0;
+        for (var i = 0; i < candidates.Count; i++)
+        {
+            var candidate = candidates[i];
+            var fileInfo = new FileInfo(candidate.FullPath);
+            var sizeBytes = fileInfo.Length;
+            var sha256 = await ComputeFileSha256Async(
+                    candidate.FullPath,
+                    sizeBytes,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            totalBytes += sizeBytes;
+            files.Add(new BuildOutputManifestFileJsonContract(
+                candidate.RelativePath,
+                sizeBytes,
+                sha256));
+        }
+
+        var content = new BuildOutputManifestContentJsonContract(
+            BuildOutputManifestJsonContract.CurrentSchemaVersion,
+            outputRoot,
+            targetStableName,
+            files.Count,
+            totalBytes,
+            files);
+        var manifestDigest = outputManifestWriter.CalculateManifestDigest(content);
+        var contract = new BuildOutputManifestJsonContract(
+            content.SchemaVersion,
+            content.OutputRoot,
+            content.Target,
+            content.FileCount,
+            content.TotalBytes,
+            content.Files,
+            manifestDigest);
+
+        return new OutputManifestArtifacts(
+            contract,
+            new BuildOutputManifestSummary(
+                manifestDigest,
+                files.Count,
+                totalBytes));
+    }
+
+    private static List<OutputFileCandidate> EnumerateOutputFileCandidates (string outputDirectory)
+    {
+        if (!Directory.Exists(outputDirectory))
         {
             throw new DirectoryNotFoundException($"Build output directory was not found: {outputDirectory}");
         }
 
-        var rootAttributes = File.GetAttributes(outputDirectory);
-        if ((rootAttributes & FileAttributes.ReparsePoint) != 0)
-        {
-            throw new IOException($"Build output directory must not be a reparse point: {outputDirectory}");
-        }
+        var outputRootFullPath = Path.GetFullPath(outputDirectory);
+        EnsureOutputDirectoryNode(outputRootFullPath);
 
-        if ((rootAttributes & FileAttributes.Directory) == 0)
-        {
-            throw new IOException($"Build output root must be a directory: {outputDirectory}");
-        }
-
-        var files = new List<BuildOutputManifestFile>();
+        var files = new List<OutputFileCandidate>();
         var pendingDirectories = new Stack<string>();
-        pendingDirectories.Push(outputDirectory);
+        pendingDirectories.Push(outputRootFullPath);
         while (pendingDirectories.Count > 0)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            var directory = pendingDirectories.Pop();
-            foreach (var entry in Directory.EnumerateFileSystemEntries(directory))
+            var currentDirectory = pendingDirectories.Pop();
+            foreach (var entryPath in Directory.EnumerateFileSystemEntries(currentDirectory))
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                var attributes = File.GetAttributes(entry);
+                var attributes = File.GetAttributes(entryPath);
                 if ((attributes & FileAttributes.ReparsePoint) != 0)
                 {
-                    throw new IOException($"Build output manifest does not allow reparse points: {entry}");
+                    throw new IOException($"Build output entry must not be a reparse point: {entryPath}");
                 }
 
                 if ((attributes & FileAttributes.Directory) != 0)
                 {
-                    pendingDirectories.Push(entry);
+                    pendingDirectories.Push(Path.GetFullPath(entryPath));
                     continue;
                 }
 
-                files.Add(await CreateManifestFileAsync(outputDirectory, entry, cancellationToken).ConfigureAwait(false));
+                var fullPath = Path.GetFullPath(entryPath);
+                var platformRelativePath = Path.GetRelativePath(outputRootFullPath, fullPath);
+                EnsureSafeOutputRelativePath(platformRelativePath, fullPath);
+                var relativePath = PathStringNormalizer.ToSlashSeparated(platformRelativePath);
+                files.Add(new OutputFileCandidate(fullPath, relativePath));
             }
         }
 
         return files;
     }
 
-    private static async ValueTask<BuildOutputManifestFile> CreateManifestFileAsync (
-        string outputDirectory,
-        string path,
-        CancellationToken cancellationToken)
+    private static void EnsureOutputDirectoryNode (string outputDirectory)
     {
-        var relativePath = Path.GetRelativePath(outputDirectory, path).Replace(Path.DirectorySeparatorChar, '/');
-        var fileInfo = new FileInfo(path);
-        await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 8192, useAsync: true);
-        using var sha256 = SHA256.Create();
-        var digestBytes = await sha256.ComputeHashAsync(stream, cancellationToken).ConfigureAwait(false);
-        return new BuildOutputManifestFile(
-            Path: relativePath,
-            SizeBytes: fileInfo.Length,
-            Sha256: Sha256LowerHex.ToLowerHex(digestBytes));
-    }
-
-    private static string CalculateManifestContentDigest (BuildOutputManifestContent content)
-    {
-        return CalculateUtf8Digest(JsonSerializer.Serialize(content, IpcJsonSerializerOptions.Default));
-    }
-
-    private static string CalculateUtf8Digest (string value)
-    {
-        var byteCount = Encoding.UTF8.GetByteCount(value);
-        if (byteCount == 0)
+        var attributes = File.GetAttributes(outputDirectory);
+        if ((attributes & FileAttributes.ReparsePoint) != 0)
         {
-            return Sha256LowerHex.Compute(ReadOnlySpan<byte>.Empty);
+            throw new IOException($"Build output directory must not be a reparse point: {outputDirectory}");
         }
 
-        var buffer = ArrayPool<byte>.Shared.Rent(byteCount);
+        if ((attributes & FileAttributes.Directory) == 0)
+        {
+            throw new IOException($"Build output path must be a directory: {outputDirectory}");
+        }
+    }
+
+    private static void EnsureSafeOutputRelativePath (
+        string platformRelativePath,
+        string fullPath)
+    {
+        if (string.IsNullOrWhiteSpace(platformRelativePath)
+            || ContainsLiteralBackslash(platformRelativePath)
+            || Path.IsPathRooted(platformRelativePath)
+            || LooksLikeWindowsRootedPath(platformRelativePath))
+        {
+            throw new IOException($"Build output file path escaped the output directory: {fullPath}");
+        }
+
+        var relativePath = PathStringNormalizer.ToSlashSeparated(platformRelativePath);
+        foreach (var segment in relativePath.Split('/'))
+        {
+            if (string.IsNullOrEmpty(segment)
+                || string.Equals(segment, ".", StringComparison.Ordinal)
+                || string.Equals(segment, "..", StringComparison.Ordinal))
+            {
+                throw new IOException($"Build output file path escaped the output directory: {fullPath}");
+            }
+        }
+    }
+
+    private static bool ContainsLiteralBackslash (string path)
+    {
+        return Path.DirectorySeparatorChar != '\\'
+            && path.Contains('\\', StringComparison.Ordinal);
+    }
+
+    private static bool LooksLikeWindowsRootedPath (string path)
+    {
+        return path.Length >= 2
+            && path[1] == ':'
+            && char.IsAsciiLetter(path[0]);
+    }
+
+    private static async ValueTask<string> ComputeFileSha256Async (
+        string filePath,
+        long expectedLength,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        EnsureReadableOutputFile(filePath);
+
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        var buffer = ArrayPool<byte>.Shared.Rent(FileStreamBufferSize);
+        long totalBytesRead = 0;
         try
         {
-            var bytesWritten = Encoding.UTF8.GetBytes(value.AsSpan(), buffer.AsSpan(0, byteCount));
-            return Sha256LowerHex.Compute(buffer.AsSpan(0, bytesWritten));
+            using var stream = new FileStream(
+                filePath,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.Read,
+                FileStreamBufferSize,
+                FileOptions.Asynchronous | FileOptions.SequentialScan);
+            while (true)
+            {
+                var bytesRead = await stream
+                    .ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken)
+                    .ConfigureAwait(false);
+                if (bytesRead == 0)
+                {
+                    break;
+                }
+
+                totalBytesRead += bytesRead;
+                hash.AppendData(buffer, 0, bytesRead);
+            }
         }
         finally
         {
             ArrayPool<byte>.Shared.Return(buffer);
         }
+
+        if (totalBytesRead != expectedLength)
+        {
+            throw new OutputDigestMismatchException(
+                $"Build output file length changed while hashing: {filePath}.");
+        }
+
+        var finalLength = new FileInfo(filePath).Length;
+        if (finalLength != expectedLength)
+        {
+            throw new OutputDigestMismatchException(
+                $"Build output file length changed after hashing: {filePath}.");
+        }
+
+        return Sha256LowerHex.GetHashAndReset(hash);
     }
 
-    private static BuildOutputManifest CreateOutputManifest (
-        BuildOutputManifestContent content,
-        string manifestDigest)
-    {
-        return new BuildOutputManifest(
-            SchemaVersion: content.SchemaVersion,
-            OutputRoot: content.OutputRoot,
-            Target: content.Target,
-            FileCount: content.FileCount,
-            TotalBytes: content.TotalBytes,
-            Files: content.Files,
-            ManifestDigest: manifestDigest);
-    }
-
-    private static BuildOutputManifestContent CreateManifestContent (BuildOutputManifest manifest)
-    {
-        return new BuildOutputManifestContent(
-            SchemaVersion: manifest.SchemaVersion,
-            OutputRoot: manifest.OutputRoot,
-            Target: manifest.Target,
-            FileCount: manifest.FileCount,
-            TotalBytes: manifest.TotalBytes,
-            Files: manifest.Files);
-    }
-
-    private static async ValueTask WriteJsonAtomicallyAsync<T> (
+    private static async ValueTask<BuildArtifactAccountingResult> AccountExistingArtifactAsync (
+        BuildArtifactKind kind,
+        string repositoryRoot,
         string path,
-        T value,
+        string description,
+        UcliCode missingCode,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var digest = await ComputeExistingArtifactSha256Async(path, cancellationToken).ConfigureAwait(false);
+            return BuildArtifactAccountingResult.Success(CreateArtifactRef(kind, repositoryRoot, path, digest));
+        }
+        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
+        {
+            return BuildArtifactAccountingResult.Failure(ExecutionError.InvalidArgument(
+                $"Build artifact path is invalid. {exception.Message}"));
+        }
+        catch (Exception exception) when (exception is FileNotFoundException or DirectoryNotFoundException)
+        {
+            return BuildArtifactAccountingResult.Failure(ExecutionError.InternalError(
+                $"{description} is missing: {path}. {exception.Message}",
+                missingCode));
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            return BuildArtifactAccountingResult.Failure(ExecutionError.InternalError(
+                $"Failed to digest {description}: {path}. {exception.Message}",
+                BuildErrorCodes.BuildArtifactWriteFailed));
+        }
+    }
+
+    private static async ValueTask<string> ComputeExistingArtifactSha256Async (
+        string path,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        EnsureReadableArtifactFile(path);
 
-        var directoryPath = Path.GetDirectoryName(path);
-        if (string.IsNullOrWhiteSpace(directoryPath))
-        {
-            throw new InvalidOperationException($"Artifact directory path could not be resolved: {path}");
-        }
-
-        FileSystemAccessBoundary.EnsureSecureDirectory(directoryPath);
-        var tempPath = path + $".tmp.{Guid.NewGuid():N}";
-
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        var buffer = ArrayPool<byte>.Shared.Rent(FileStreamBufferSize);
         try
         {
-            await using (var stream = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, 8192, useAsync: true))
+            using var stream = new FileStream(
+                path,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.Read,
+                FileStreamBufferSize,
+                FileOptions.Asynchronous | FileOptions.SequentialScan);
+            while (true)
             {
-                await JsonSerializer.SerializeAsync(
-                        stream,
-                        value,
-                        IpcJsonSerializerOptions.Default,
-                        cancellationToken)
+                var bytesRead = await stream
+                    .ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken)
                     .ConfigureAwait(false);
-            }
+                if (bytesRead == 0)
+                {
+                    break;
+                }
 
-            cancellationToken.ThrowIfCancellationRequested();
-            FileSystemAccessBoundary.EnsureSecureFile(tempPath);
-            EnsureWritableArtifactPath(path);
-            ReplaceFile(tempPath, path);
-            FileSystemAccessBoundary.EnsureSecureFile(path);
+                hash.AppendData(buffer, 0, bytesRead);
+            }
         }
         finally
         {
-            DeleteTemporaryFileIfExists(tempPath);
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
+
+        return Sha256LowerHex.GetHashAndReset(hash);
+    }
+
+    private static void EnsureReadableOutputFile (string filePath)
+    {
+        if (!File.Exists(filePath) && !Directory.Exists(filePath))
+        {
+            throw new FileNotFoundException($"Build output file was not found: {filePath}", filePath);
+        }
+
+        var attributes = File.GetAttributes(filePath);
+        if ((attributes & FileAttributes.ReparsePoint) != 0)
+        {
+            throw new IOException($"Build output file must not be a reparse point: {filePath}");
+        }
+
+        if ((attributes & FileAttributes.Directory) != 0)
+        {
+            throw new IOException($"Build output file must not be a directory: {filePath}");
+        }
+
+        if (!FileSystemNodeClassifier.IsRegularFile(filePath, attributes))
+        {
+            throw new IOException($"Build output file must be a regular file: {filePath}");
         }
     }
 
-    private static void EnsureReadableArtifactPath (string path)
+    private static void EnsureReadableArtifactFile (string path)
     {
         if (!File.Exists(path) && !Directory.Exists(path))
         {
@@ -455,6 +701,96 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         {
             throw new IOException($"Build artifact source must not be a directory: {path}");
         }
+
+        if (!FileSystemNodeClassifier.IsRegularFile(path, attributes))
+        {
+            throw new IOException($"Build artifact source must be a regular file: {path}");
+        }
+    }
+
+    private static async ValueTask<string> WriteTextAtomicallyAsync (
+        string path,
+        string text,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var directoryPath = Path.GetDirectoryName(path);
+        if (string.IsNullOrWhiteSpace(directoryPath))
+        {
+            throw new InvalidOperationException($"Artifact directory path could not be resolved: {path}");
+        }
+
+        var digest = ComputeUtf8Sha256(text);
+        FileSystemAccessBoundary.EnsureSecureDirectory(directoryPath);
+        var tempPath = path + $".tmp.{Guid.NewGuid():N}";
+
+        try
+        {
+            EnsureWritableArtifactPath(tempPath);
+            using (var stream = new FileStream(
+                tempPath,
+                FileMode.CreateNew,
+                FileAccess.Write,
+                FileShare.None,
+                FileStreamBufferSize,
+                FileOptions.Asynchronous))
+            using (var writer = new StreamWriter(stream, Utf8NoBom))
+            {
+                await writer
+                    .WriteAsync(text.AsMemory(), cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
+            FileSystemAccessBoundary.EnsureSecureFile(tempPath);
+            EnsureWritableArtifactPath(path);
+            ReplaceFile(tempPath, path);
+            FileSystemAccessBoundary.EnsureSecureFile(path);
+            return digest;
+        }
+        finally
+        {
+            DeleteTemporaryFileIfExists(tempPath);
+        }
+    }
+
+    private static string ComputeUtf8Sha256 (string text)
+    {
+        using var hashWriter = new Utf8Sha256HashWriter();
+        hashWriter.Append(text);
+        return hashWriter.GetHashAndReset();
+    }
+
+    private static BuildArtifactRef CreateArtifactRef (
+        BuildArtifactKind kind,
+        string repositoryRoot,
+        string path,
+        string sha256)
+    {
+        return new BuildArtifactRef(
+            kind,
+            NormalizeRepositoryRelativePath(repositoryRoot, path),
+            sha256);
+    }
+
+    private static string NormalizeRepositoryRelativePath (
+        string repositoryRoot,
+        string path)
+    {
+        var result = RepositoryPathNormalizer.TryNormalize(repositoryRoot, path);
+        if (!result.IsSuccess)
+        {
+            throw new InvalidOperationException(result.DiagnosticMessage);
+        }
+
+        return result.RepositoryRelativeSlashPath!;
+    }
+
+    private static StringComparison GetPathComparison ()
+    {
+        return OperatingSystem.IsWindows()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
     }
 
     private static void EnsureWritableArtifactPath (string path)
@@ -517,40 +853,39 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         }
     }
 
-    private static bool IsFullPathUnderOrEqual (
-        string path,
-        string parentPath)
+    private sealed record OutputFileCandidate (
+        string FullPath,
+        string RelativePath);
+
+    private sealed record OutputManifestArtifacts (
+        BuildOutputManifestJsonContract Contract,
+        BuildOutputManifestSummary Summary);
+
+    private sealed record BuildArtifactAccountingResult (
+        BuildArtifactRef? Artifact,
+        ExecutionError? Error)
     {
-        if (string.IsNullOrWhiteSpace(parentPath)
-            || !Path.IsPathFullyQualified(path)
-            || !Path.IsPathFullyQualified(parentPath))
+        public bool IsSuccess => Artifact != null && Error == null;
+
+        public static BuildArtifactAccountingResult Success (BuildArtifactRef artifact)
         {
-            return false;
+            ArgumentNullException.ThrowIfNull(artifact);
+            return new BuildArtifactAccountingResult(artifact, null);
         }
 
-        var normalizedPath = Path.GetFullPath(path);
-        var normalizedParentPath = Path.GetFullPath(parentPath);
-        var relativePath = Path.GetRelativePath(normalizedParentPath, normalizedPath);
-        return string.Equals(relativePath, ".", StringComparison.Ordinal)
-            || (!IsParentRelativePath(relativePath)
-                && !Path.IsPathRooted(relativePath));
+        public static BuildArtifactAccountingResult Failure (ExecutionError error)
+        {
+            ArgumentNullException.ThrowIfNull(error);
+            return new BuildArtifactAccountingResult(null, error);
+        }
     }
 
-    private static bool IsParentRelativePath (string relativePath)
+    private sealed class OutputDigestMismatchException : Exception
     {
-        return relativePath.Length == 2
-            ? relativePath[0] == '.' && relativePath[1] == '.'
-            : relativePath.Length > 2
-                && relativePath[0] == '.'
-                && relativePath[1] == '.'
-                && (relativePath[2] == Path.DirectorySeparatorChar || relativePath[2] == Path.AltDirectorySeparatorChar);
+        public OutputDigestMismatchException (string message)
+            : base(message)
+        {
+        }
     }
 
-    private sealed record BuildOutputManifestContent (
-        int SchemaVersion,
-        string OutputRoot,
-        string Target,
-        int FileCount,
-        long TotalBytes,
-        IReadOnlyList<BuildOutputManifestFile> Files);
 }

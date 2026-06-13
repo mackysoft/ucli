@@ -493,19 +493,7 @@ public static class UcliStoragePathResolver
         string projectFingerprint,
         string runId)
     {
-        if (!TryTrimToNonEmpty(runId, out var normalizedRunId))
-        {
-            throw new ArgumentException("Run identifier must not be empty.", nameof(runId));
-        }
-
-        if (normalizedRunId.IndexOfAny(PathSegmentInvalidPathChars) >= 0
-            || string.Equals(normalizedRunId, ".", StringComparison.Ordinal)
-            || string.Equals(normalizedRunId, "..", StringComparison.Ordinal))
-        {
-            throw new ArgumentException(
-                "Run identifier must be one path segment and must not contain path separator or traversal tokens.",
-                nameof(runId));
-        }
+        var normalizedRunId = NormalizeRunId(runId);
 
         return Path.Combine(
             ResolveTestArtifactsDirectory(storageRoot, projectFingerprint),
@@ -523,19 +511,7 @@ public static class UcliStoragePathResolver
         string projectFingerprint,
         string runId)
     {
-        if (!TryTrimToNonEmpty(runId, out var normalizedRunId))
-        {
-            throw new ArgumentException("Run identifier must not be empty.", nameof(runId));
-        }
-
-        if (normalizedRunId.IndexOfAny(PathSegmentInvalidPathChars) >= 0
-            || string.Equals(normalizedRunId, ".", StringComparison.Ordinal)
-            || string.Equals(normalizedRunId, "..", StringComparison.Ordinal))
-        {
-            throw new ArgumentException(
-                "Run identifier must be one path segment and must not contain path separator or traversal tokens.",
-                nameof(runId));
-        }
+        var normalizedRunId = NormalizeRunId(runId);
 
         return Path.Combine(
             ResolveCompileArtifactsDirectory(storageRoot, projectFingerprint),
@@ -553,98 +529,11 @@ public static class UcliStoragePathResolver
         string projectFingerprint,
         string runId)
     {
-        if (!TryTrimToNonEmpty(runId, out var normalizedRunId))
-        {
-            throw new ArgumentException("Run identifier must not be empty.", nameof(runId));
-        }
-
-        if (normalizedRunId.IndexOfAny(PathSegmentInvalidPathChars) >= 0
-            || string.Equals(normalizedRunId, ".", StringComparison.Ordinal)
-            || string.Equals(normalizedRunId, "..", StringComparison.Ordinal))
-        {
-            throw new ArgumentException(
-                "Run identifier must be one path segment and must not contain path separator or traversal tokens.",
-                nameof(runId));
-        }
+        var normalizedRunId = NormalizeRunId(runId);
 
         return Path.Combine(
             ResolveBuildArtifactsDirectory(storageRoot, projectFingerprint),
             normalizedRunId);
-    }
-
-    /// <summary> Resolves the absolute path to one build-run <c>build.json</c> artifact. </summary>
-    /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
-    /// <param name="projectFingerprint"> The project fingerprint value. Must not be <see langword="null" />, empty, or whitespace. </param>
-    /// <param name="runId"> The run identifier value. Must not be <see langword="null" />, empty, whitespace, or contain path-segment/control tokens. </param>
-    /// <returns> The absolute build metadata artifact path. </returns>
-    public static string ResolveBuildRunMetadataPath (
-        string storageRoot,
-        string projectFingerprint,
-        string runId)
-    {
-        return Path.Combine(
-            ResolveBuildRunArtifactsDirectory(storageRoot, projectFingerprint, runId),
-            UcliStoragePathNames.BuildMetadataFileName);
-    }
-
-    /// <summary> Resolves the absolute path to one build-run <c>build-report.json</c> artifact. </summary>
-    /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
-    /// <param name="projectFingerprint"> The project fingerprint value. Must not be <see langword="null" />, empty, or whitespace. </param>
-    /// <param name="runId"> The run identifier value. Must not be <see langword="null" />, empty, whitespace, or contain path-segment/control tokens. </param>
-    /// <returns> The absolute normalized BuildReport artifact path. </returns>
-    public static string ResolveBuildRunReportPath (
-        string storageRoot,
-        string projectFingerprint,
-        string runId)
-    {
-        return Path.Combine(
-            ResolveBuildRunArtifactsDirectory(storageRoot, projectFingerprint, runId),
-            UcliStoragePathNames.BuildReportFileName);
-    }
-
-    /// <summary> Resolves the absolute path to one build-run <c>build.log</c> artifact. </summary>
-    /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
-    /// <param name="projectFingerprint"> The project fingerprint value. Must not be <see langword="null" />, empty, or whitespace. </param>
-    /// <param name="runId"> The run identifier value. Must not be <see langword="null" />, empty, whitespace, or contain path-segment/control tokens. </param>
-    /// <returns> The absolute build log artifact path. </returns>
-    public static string ResolveBuildRunLogPath (
-        string storageRoot,
-        string projectFingerprint,
-        string runId)
-    {
-        return Path.Combine(
-            ResolveBuildRunArtifactsDirectory(storageRoot, projectFingerprint, runId),
-            UcliStoragePathNames.BuildLogFileName);
-    }
-
-    /// <summary> Resolves the absolute path to one build-run <c>output-manifest.json</c> artifact. </summary>
-    /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
-    /// <param name="projectFingerprint"> The project fingerprint value. Must not be <see langword="null" />, empty, or whitespace. </param>
-    /// <param name="runId"> The run identifier value. Must not be <see langword="null" />, empty, whitespace, or contain path-segment/control tokens. </param>
-    /// <returns> The absolute build output manifest artifact path. </returns>
-    public static string ResolveBuildRunOutputManifestPath (
-        string storageRoot,
-        string projectFingerprint,
-        string runId)
-    {
-        return Path.Combine(
-            ResolveBuildRunArtifactsDirectory(storageRoot, projectFingerprint, runId),
-            UcliStoragePathNames.BuildOutputManifestFileName);
-    }
-
-    /// <summary> Resolves the absolute path to one build-run player output directory. </summary>
-    /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
-    /// <param name="projectFingerprint"> The project fingerprint value. Must not be <see langword="null" />, empty, or whitespace. </param>
-    /// <param name="runId"> The run identifier value. Must not be <see langword="null" />, empty, whitespace, or contain path-segment/control tokens. </param>
-    /// <returns> The absolute build player output directory path. </returns>
-    public static string ResolveBuildRunOutputDirectory (
-        string storageRoot,
-        string projectFingerprint,
-        string runId)
-    {
-        return Path.Combine(
-            ResolveBuildRunArtifactsDirectory(storageRoot, projectFingerprint, runId),
-            UcliStoragePathNames.BuildOutputDirectoryName);
     }
 
     /// <summary> Resolves the absolute path to daemon <c>session.json</c>. </summary>
@@ -840,6 +729,25 @@ public static class UcliStoragePathResolver
         }
 
         return normalizedProjectFingerprint;
+    }
+
+    private static string NormalizeRunId (string runId)
+    {
+        if (!TryTrimToNonEmpty(runId, out var normalizedRunId))
+        {
+            throw new ArgumentException("Run identifier must not be empty.", nameof(runId));
+        }
+
+        if (normalizedRunId.IndexOfAny(PathSegmentInvalidPathChars) >= 0
+            || string.Equals(normalizedRunId, ".", StringComparison.Ordinal)
+            || string.Equals(normalizedRunId, "..", StringComparison.Ordinal))
+        {
+            throw new ArgumentException(
+                "Run identifier must be one path segment and must not contain path separator or traversal tokens.",
+                nameof(runId));
+        }
+
+        return normalizedRunId;
     }
 
     private static string NormalizeLaunchAttemptId (string launchAttemptId)

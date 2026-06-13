@@ -480,34 +480,43 @@ public sealed class UcliStoragePathResolverContractTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void ResolveBuildRunArtifactPaths_ReturnRunScopedArtifactLayout ()
+    public void ResolveBuildArtifactsDirectory_ReturnsFingerprintScopedPath ()
     {
         var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-infrastructure-storage-root");
-        var runDirectory = Path.Combine(
-            Path.GetFullPath(storageRoot),
-            UcliStoragePathNames.UcliDirectoryName,
-            UcliStoragePathNames.LocalDirectoryName,
-            UcliStoragePathNames.FingerprintsDirectoryName,
-            "abc123",
-            UcliStoragePathNames.ArtifactsDirectoryName,
-            UcliStoragePathNames.BuildArtifactsDirectoryName,
-            "run-id");
+
+        var resolvedPath = UcliStoragePathResolver.ResolveBuildArtifactsDirectory(storageRoot, "abc123");
 
         Assert.Equal(
-            Path.Combine(runDirectory, UcliStoragePathNames.BuildMetadataFileName),
-            UcliStoragePathResolver.ResolveBuildRunMetadataPath(storageRoot, "abc123", "run-id"));
+            Path.Combine(
+                Path.GetFullPath(storageRoot),
+                UcliStoragePathNames.UcliDirectoryName,
+                UcliStoragePathNames.LocalDirectoryName,
+                UcliStoragePathNames.FingerprintsDirectoryName,
+                "abc123",
+                UcliStoragePathNames.ArtifactsDirectoryName,
+                UcliStoragePathNames.BuildArtifactsDirectoryName),
+            resolvedPath);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ResolveBuildRunArtifactsDirectory_ReturnsRunScopedPath ()
+    {
+        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-infrastructure-storage-root");
+
+        var resolvedPath = UcliStoragePathResolver.ResolveBuildRunArtifactsDirectory(storageRoot, "abc123", "run-id");
+
         Assert.Equal(
-            Path.Combine(runDirectory, UcliStoragePathNames.BuildReportFileName),
-            UcliStoragePathResolver.ResolveBuildRunReportPath(storageRoot, "abc123", "run-id"));
-        Assert.Equal(
-            Path.Combine(runDirectory, UcliStoragePathNames.BuildLogFileName),
-            UcliStoragePathResolver.ResolveBuildRunLogPath(storageRoot, "abc123", "run-id"));
-        Assert.Equal(
-            Path.Combine(runDirectory, UcliStoragePathNames.BuildOutputManifestFileName),
-            UcliStoragePathResolver.ResolveBuildRunOutputManifestPath(storageRoot, "abc123", "run-id"));
-        Assert.Equal(
-            Path.Combine(runDirectory, UcliStoragePathNames.BuildOutputDirectoryName),
-            UcliStoragePathResolver.ResolveBuildRunOutputDirectory(storageRoot, "abc123", "run-id"));
+            Path.Combine(
+                Path.GetFullPath(storageRoot),
+                UcliStoragePathNames.UcliDirectoryName,
+                UcliStoragePathNames.LocalDirectoryName,
+                UcliStoragePathNames.FingerprintsDirectoryName,
+                "abc123",
+                UcliStoragePathNames.ArtifactsDirectoryName,
+                UcliStoragePathNames.BuildArtifactsDirectoryName,
+                "run-id"),
+            resolvedPath);
     }
 
     [Theory]
@@ -526,6 +535,26 @@ public sealed class UcliStoragePathResolverContractTests
 
         var exception = Assert.Throws<ArgumentException>(() =>
             UcliStoragePathResolver.ResolveTestRunArtifactsDirectory(storageRoot, "abc123", runId));
+
+        Assert.Equal("runId", exception.ParamName);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("../run-id")]
+    [InlineData("..\\run-id")]
+    [InlineData("run/id")]
+    [InlineData("run\\id")]
+    [InlineData("/absolute")]
+    [InlineData("C:\\absolute")]
+    [InlineData(".")]
+    [InlineData("..")]
+    public void ResolveBuildRunArtifactsDirectory_WithPathSegmentOrTraversalRunId_ThrowsArgumentException (string runId)
+    {
+        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-infrastructure-storage-root");
+
+        var exception = Assert.Throws<ArgumentException>(() =>
+            UcliStoragePathResolver.ResolveBuildRunArtifactsDirectory(storageRoot, "abc123", runId));
 
         Assert.Equal("runId", exception.ParamName);
     }
