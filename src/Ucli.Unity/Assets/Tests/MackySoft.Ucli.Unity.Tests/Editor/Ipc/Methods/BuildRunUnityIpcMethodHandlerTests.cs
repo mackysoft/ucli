@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Build;
@@ -255,6 +256,10 @@ namespace MackySoft.Ucli.Unity.Tests
             IpcProjectIdentity identity)
         {
             var storageRoot = UcliStoragePathResolver.ResolveStorageRoot(projectPath);
+            var artifactsDirectory = UcliStoragePathResolver.ResolveBuildRunArtifactsDirectory(
+                storageRoot,
+                identity.ProjectFingerprint,
+                RunId);
             return new IpcBuildRunRequest(
                 RunId: RunId,
                 TargetStableName: "standaloneLinux64",
@@ -262,9 +267,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 SceneSource: "explicit",
                 ScenePaths: new[] { "Assets/Scenes/SampleScene.unity" },
                 Development: true,
-                OutputPath: UcliStoragePathResolver.ResolveBuildRunOutputDirectory(storageRoot, identity.ProjectFingerprint, RunId),
-                BuildReportPath: UcliStoragePathResolver.ResolveBuildRunReportPath(storageRoot, identity.ProjectFingerprint, RunId),
-                BuildLogPath: UcliStoragePathResolver.ResolveBuildRunLogPath(storageRoot, identity.ProjectFingerprint, RunId));
+                OutputPath: Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildOutputDirectoryName),
+                BuildReportPath: Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildReportFileName),
+                BuildLogPath: Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildLogFileName));
         }
 
         private static IpcRequest CreateIpcRequest (IpcBuildRunRequest payload)

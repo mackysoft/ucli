@@ -7,8 +7,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Infrastructure.Storage;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Build;
 using UnityEngine;
 
@@ -356,18 +357,19 @@ namespace MackySoft.Ucli.Unity.Ipc
             try
             {
                 var storageRoot = UcliStoragePathResolver.ResolveStorageRoot(projectIdentity.ProjectPath);
-                expectedOutputPath = Path.GetFullPath(UcliStoragePathResolver.ResolveBuildRunOutputDirectory(
+                var expectedArtifactsDirectory = UcliStoragePathResolver.ResolveBuildRunArtifactsDirectory(
                     storageRoot,
                     projectIdentity.ProjectFingerprint,
-                    runId));
-                expectedBuildReportPath = Path.GetFullPath(UcliStoragePathResolver.ResolveBuildRunReportPath(
-                    storageRoot,
-                    projectIdentity.ProjectFingerprint,
-                    runId));
-                expectedBuildLogPath = Path.GetFullPath(UcliStoragePathResolver.ResolveBuildRunLogPath(
-                    storageRoot,
-                    projectIdentity.ProjectFingerprint,
-                    runId));
+                    runId);
+                expectedOutputPath = Path.GetFullPath(Path.Combine(
+                    expectedArtifactsDirectory,
+                    UcliStoragePathNames.BuildOutputDirectoryName));
+                expectedBuildReportPath = Path.GetFullPath(Path.Combine(
+                    expectedArtifactsDirectory,
+                    UcliStoragePathNames.BuildReportFileName));
+                expectedBuildLogPath = Path.GetFullPath(Path.Combine(
+                    expectedArtifactsDirectory,
+                    UcliStoragePathNames.BuildLogFileName));
                 errorMessage = null;
                 return true;
             }
