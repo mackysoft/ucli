@@ -10,6 +10,7 @@ namespace MackySoft.Ucli.Application.Features.Assurance.Build.Semantics;
 internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticInvariantRule
 {
     private const string UnknownGeneration = "unknown";
+    private const string UnverifiedClaimStatus = "unverified";
 
     private static readonly IReadOnlyList<string> RequiredReportKeys =
     [
@@ -18,6 +19,9 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
         BuildReportRefs.BuildOutputManifest,
         BuildReportRefs.BuildLog,
     ];
+
+    private static readonly IReadOnlySet<string> AllowedBuildEffects =
+        new HashSet<string>(ContractLiteralCodec.GetLiterals<BuildEffect>(), StringComparer.Ordinal);
 
     /// <inheritdoc />
     public void ValidateClaim (
@@ -42,7 +46,12 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
         ValidateBuildGenerations(buildElement, violations);
         ValidateBuildLogCompletionReason(buildElement, violations);
         ValidateVerifier(payload, violations);
-        ValidateClaimEvidence(claimElement, claimPath, claimId, violations);
+        ValidateClaimEvidence(buildElement, claimElement, claimPath, claimId, violations);
+        if (BuildClaimCodes.UnityBuildCompleted.EqualsValue(claimId))
+        {
+            ValidateCompletedClaim(buildElement, claimElement, claimPath, violations);
+        }
+
         if (BuildClaimCodes.UnityBuildSucceeded.EqualsValue(claimId))
         {
             ValidateSucceededClaim(buildElement, claimElement, claimPath, violations);
@@ -208,6 +217,7 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
         ValidateGenerationSnapshot(generationsElement, "before", "$.build.generations.before", violations);
         ValidateGenerationSnapshot(generationsElement, "after", "$.build.generations.after", violations);
         ValidateGenerationSnapshot(generationsElement, "validFor", "$.build.generations.validFor", violations);
+        ValidateValidForGenerationSnapshot(generationsElement, violations);
     }
 
     private static void ValidateBuildLogCompletionReason (
@@ -245,15 +255,28 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
             return;
         }
 
-        var expectedStatus = HasCompleteGenerationSnapshots(buildElement)
-            ? ContractLiteralCodec.ToValue(BuildClaimStatus.Passed)
-            : ContractLiteralCodec.ToValue(BuildClaimStatus.Indeterminate);
-        if (!string.Equals(status, expectedStatus, StringComparison.Ordinal))
+        if (HasCompleteGenerationSnapshots(buildElement))
+        {
+            var passedLiteral = ContractLiteralCodec.ToValue(BuildClaimStatus.Passed);
+            if (!string.Equals(status, passedLiteral, StringComparison.Ordinal))
+            {
+                AddViolation(
+                    violations,
+                    BuildPropertyPath(claimPath, "status"),
+                    "UNITY_BUILD_VALID_FOR_GENERATION must be passed for complete generation snapshots.");
+            }
+
+            return;
+        }
+
+        var indeterminateLiteral = ContractLiteralCodec.ToValue(BuildClaimStatus.Indeterminate);
+        if (!string.Equals(status, indeterminateLiteral, StringComparison.Ordinal)
+            && !string.Equals(status, UnverifiedClaimStatus, StringComparison.Ordinal))
         {
             AddViolation(
                 violations,
                 BuildPropertyPath(claimPath, "status"),
-                $"UNITY_BUILD_VALID_FOR_GENERATION must be {expectedStatus} for the declared generation snapshots.");
+                "UNITY_BUILD_VALID_FOR_GENERATION must be indeterminate or unverified when generation snapshots are incomplete.");
         }
     }
 
@@ -266,21 +289,18 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
 
         return HasCompleteGenerationSnapshot(generationsElement, "before")
             && HasCompleteGenerationSnapshot(generationsElement, "after")
-            && HasCompleteGenerationSnapshot(generationsElement, "validFor");
+            && HasCompleteGenerationSnapshot(generationsElement, "validFor")
+            && GenerationSnapshotsMatch(generationsElement, "after", "validFor");
     }
 
     private static bool HasCompleteGenerationSnapshot (
         JsonElement generationsElement,
         string propertyName)
     {
-        if (!generationsElement.TryGetProperty(propertyName, out var snapshotElement) || snapshotElement.ValueKind != JsonValueKind.Object)
-        {
-            return false;
-        }
-
-        return TryReadKnownGeneration(snapshotElement, "compileGeneration")
-            && TryReadKnownGeneration(snapshotElement, "domainReloadGeneration")
-            && TryReadKnownGeneration(snapshotElement, "assetRefreshGeneration");
+        return TryReadGenerationSnapshot(generationsElement, propertyName, out var snapshot)
+            && IsKnownGeneration(snapshot.CompileGeneration)
+            && IsKnownGeneration(snapshot.DomainReloadGeneration)
+            && IsKnownGeneration(snapshot.AssetRefreshGeneration);
     }
 
     private static bool TryReadGenerations (
@@ -308,6 +328,25 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
         ValidateGenerationValue(snapshotElement, "assetRefreshGeneration", propertyPath, violations);
     }
 
+    private static void ValidateValidForGenerationSnapshot (
+        JsonElement generationsElement,
+        List<AssuranceSemanticInvariantViolation> violations)
+    {
+        if (!HasCompleteGenerationSnapshot(generationsElement, "after")
+            || !HasCompleteGenerationSnapshot(generationsElement, "validFor"))
+        {
+            return;
+        }
+
+        if (!GenerationSnapshotsMatch(generationsElement, "after", "validFor"))
+        {
+            AddViolation(
+                violations,
+                "$.build.generations.validFor",
+                "Build generations.validFor must match generations.after.");
+        }
+    }
+
     private static void ValidateGenerationValue (
         JsonElement snapshotElement,
         string propertyName,
@@ -320,12 +359,50 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
         }
     }
 
-    private static bool TryReadKnownGeneration (
-        JsonElement snapshotElement,
-        string propertyName)
+    private static bool IsKnownGeneration (string generation)
     {
-        return TryReadString(snapshotElement, propertyName, out var generation)
-            && !string.Equals(generation, UnknownGeneration, StringComparison.Ordinal);
+        return !string.Equals(generation, UnknownGeneration, StringComparison.Ordinal);
+    }
+
+    private static bool GenerationSnapshotsMatch (
+        JsonElement generationsElement,
+        string leftPropertyName,
+        string rightPropertyName)
+    {
+        return TryReadGenerationSnapshot(generationsElement, leftPropertyName, out var left)
+            && TryReadGenerationSnapshot(generationsElement, rightPropertyName, out var right)
+            && GenerationSnapshotsMatch(left, right);
+    }
+
+    private static bool GenerationSnapshotsMatch (
+        (string CompileGeneration, string DomainReloadGeneration, string AssetRefreshGeneration) left,
+        (string CompileGeneration, string DomainReloadGeneration, string AssetRefreshGeneration) right)
+    {
+        return string.Equals(left.CompileGeneration, right.CompileGeneration, StringComparison.Ordinal)
+            && string.Equals(left.DomainReloadGeneration, right.DomainReloadGeneration, StringComparison.Ordinal)
+            && string.Equals(left.AssetRefreshGeneration, right.AssetRefreshGeneration, StringComparison.Ordinal);
+    }
+
+    private static bool TryReadGenerationSnapshot (
+        JsonElement generationsElement,
+        string propertyName,
+        out (string CompileGeneration, string DomainReloadGeneration, string AssetRefreshGeneration) snapshot)
+    {
+        snapshot = default;
+        if (!generationsElement.TryGetProperty(propertyName, out var snapshotElement) || snapshotElement.ValueKind != JsonValueKind.Object)
+        {
+            return false;
+        }
+
+        if (!TryReadString(snapshotElement, "compileGeneration", out var compileGeneration)
+            || !TryReadString(snapshotElement, "domainReloadGeneration", out var domainReloadGeneration)
+            || !TryReadString(snapshotElement, "assetRefreshGeneration", out var assetRefreshGeneration))
+        {
+            return false;
+        }
+
+        snapshot = (compileGeneration, domainReloadGeneration, assetRefreshGeneration);
+        return true;
     }
 
     private static void ValidateVerifier (
@@ -368,14 +445,28 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
             return;
         }
 
-        var effects = effectsElement
-            .EnumerateArray()
-            .Where(static item => item.ValueKind == JsonValueKind.String)
-            .Select(static item => item.GetString() ?? string.Empty)
-            .ToArray();
-        if (!effects.SequenceEqual(ContractLiteralCodec.GetLiterals<BuildEffect>(), StringComparer.Ordinal))
+        var seenEffects = new HashSet<string>(StringComparer.Ordinal);
+        var index = 0;
+        foreach (var effectElement in effectsElement.EnumerateArray())
         {
-            AddViolation(violations, effectsPath, "Build verifier effects must match the build effect literal set.");
+            if (effectElement.ValueKind != JsonValueKind.String || string.IsNullOrWhiteSpace(effectElement.GetString()))
+            {
+                AddViolation(violations, $"{effectsPath}[{index}]", "Build verifier effect must be a non-empty string.");
+                index++;
+                continue;
+            }
+
+            var effect = effectElement.GetString()!;
+            if (!AllowedBuildEffects.Contains(effect))
+            {
+                AddViolation(violations, $"{effectsPath}[{index}]", "Build verifier effect must be one of the build effect literals.");
+            }
+            else if (!seenEffects.Add(effect))
+            {
+                AddViolation(violations, $"{effectsPath}[{index}]", "Build verifier effects must not contain duplicates.");
+            }
+
+            index++;
         }
     }
 
@@ -432,12 +523,46 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
         }
     }
 
+    private static void ValidateCompletedClaim (
+        JsonElement buildElement,
+        JsonElement claimElement,
+        string claimPath,
+        List<AssuranceSemanticInvariantViolation> violations)
+    {
+        if (!TryReadBuildResult(buildElement, out var result)
+            || !TryReadString(claimElement, "status", out var status)
+            || !ContractLiteralCodec.TryParse<IpcBuildReportResult>(result, out var parsedResult))
+        {
+            return;
+        }
+
+        var passedLiteral = ContractLiteralCodec.ToValue(BuildClaimStatus.Passed);
+        var indeterminateLiteral = ContractLiteralCodec.ToValue(BuildClaimStatus.Indeterminate);
+        var expectedStatus = parsedResult is IpcBuildReportResult.Succeeded or IpcBuildReportResult.Failed or IpcBuildReportResult.Canceled
+            ? passedLiteral
+            : indeterminateLiteral;
+        if (!string.Equals(status, expectedStatus, StringComparison.Ordinal))
+        {
+            AddViolation(
+                violations,
+                BuildPropertyPath(claimPath, "status"),
+                $"UNITY_BUILD_COMPLETED must be {expectedStatus} for the BuildReport result.");
+        }
+    }
+
     private static void ValidateClaimEvidence (
+        JsonElement buildElement,
         JsonElement claimElement,
         string claimPath,
         string claimId,
         List<AssuranceSemanticInvariantViolation> violations)
     {
+        if (BuildClaimCodes.UnityBuildValidForGeneration.EqualsValue(claimId))
+        {
+            ValidateGenerationClaimEvidence(buildElement, claimElement, claimPath, violations);
+            return;
+        }
+
         var expectedEvidenceRef = ResolveExpectedEvidenceRef(claimId);
         if (expectedEvidenceRef == null)
         {
@@ -464,6 +589,70 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
             violations,
             BuildPropertyPath(claimPath, "evidence"),
             $"Build claim {claimId} evidence must reference reports.{expectedEvidenceRef}.");
+    }
+
+    private static void ValidateGenerationClaimEvidence (
+        JsonElement buildElement,
+        JsonElement claimElement,
+        string claimPath,
+        List<AssuranceSemanticInvariantViolation> violations)
+    {
+        if (!claimElement.TryGetProperty("evidence", out var evidenceElement) || evidenceElement.ValueKind != JsonValueKind.Array)
+        {
+            AddViolation(violations, BuildPropertyPath(claimPath, "evidence"), "Build claim UNITY_BUILD_VALID_FOR_GENERATION must include evidence.");
+            return;
+        }
+
+        foreach (var evidence in evidenceElement.EnumerateArray())
+        {
+            if (evidence.ValueKind != JsonValueKind.Object)
+            {
+                continue;
+            }
+
+            if (TryReadString(evidence, "evidenceRef", out var evidenceRef)
+                && string.Equals(evidenceRef, BuildReportRefs.Build, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            if (EvidenceDataMatchesBuildGenerations(buildElement, evidence))
+            {
+                return;
+            }
+        }
+
+        AddViolation(
+            violations,
+            BuildPropertyPath(claimPath, "evidence"),
+            "UNITY_BUILD_VALID_FOR_GENERATION evidence must reference reports.build or include payload.build.generations data.");
+    }
+
+    private static bool EvidenceDataMatchesBuildGenerations (
+        JsonElement buildElement,
+        JsonElement evidenceElement)
+    {
+        if (!TryReadGenerations(buildElement, out var generationsElement)
+            || !evidenceElement.TryGetProperty("data", out var dataElement)
+            || dataElement.ValueKind != JsonValueKind.Object)
+        {
+            return false;
+        }
+
+        return GenerationSnapshotsMatch(generationsElement, "before", dataElement, "before")
+            && GenerationSnapshotsMatch(generationsElement, "after", dataElement, "after")
+            && GenerationSnapshotsMatch(generationsElement, "validFor", dataElement, "validFor");
+    }
+
+    private static bool GenerationSnapshotsMatch (
+        JsonElement leftGenerationsElement,
+        string leftPropertyName,
+        JsonElement rightGenerationsElement,
+        string rightPropertyName)
+    {
+        return TryReadGenerationSnapshot(leftGenerationsElement, leftPropertyName, out var left)
+            && TryReadGenerationSnapshot(rightGenerationsElement, rightPropertyName, out var right)
+            && GenerationSnapshotsMatch(left, right);
     }
 
     private static string? ResolveExpectedEvidenceRef (string claimId)
@@ -541,6 +730,16 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
         string path,
         string message)
     {
+        for (var i = 0; i < violations.Count; i++)
+        {
+            var violation = violations[i];
+            if (string.Equals(violation.Path, path, StringComparison.Ordinal)
+                && string.Equals(violation.Message, message, StringComparison.Ordinal))
+            {
+                return;
+            }
+        }
+
         violations.Add(new AssuranceSemanticInvariantViolation(path, message));
     }
 }
