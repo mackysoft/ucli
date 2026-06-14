@@ -96,6 +96,53 @@ If you manage `Assets/packages.config` directly, add:
 
 > **IMPORTANT:** Use the same pinned `<version>` for both the CLI and Unity plugin in released automation, and update them together.
 
+### 🤖 Agent Skills
+
+uCLI ships official agent skills with the CLI package. Install them when an agent host should know the uCLI read, plan, apply, verify, and troubleshooting workflows for a Unity repository.
+
+Install the skills into a repository for the agent host you use:
+
+```bash
+ucli skills install --host openai --scope project
+```
+
+Supported host keys are `openai`, `claude`, and `copilot`. Project scope installs host-native skill files under the repository root:
+
+| Host | Project target |
+| --- | --- |
+| `openai` | `.agents/skills` |
+| `claude` | `.claude/skills` |
+| `copilot` | `.github/skills` |
+
+Run the command from the target repository. Use `--repoRoot <path>` only when the current working directory is outside the repository or when automation needs to select a repository explicitly.
+
+Use `skills list` when you want to inspect the bundled skills, supported hosts, target directories, and reload guidance:
+
+```bash
+ucli skills list
+```
+
+Use user scope only for local, non-repository defaults:
+
+```bash
+ucli skills install --host openai --scope user
+```
+
+Preview file changes before writing:
+
+```bash
+ucli skills install --host openai --scope project --dryRun --printDiff
+```
+
+Keep installed skills aligned with the current CLI version and diagnose drift:
+
+```bash
+ucli skills update --host openai --scope project
+ucli skills doctor --host openai --scope project
+```
+
+After installing or updating, reload the agent host. The command result includes `payload.reloadGuidance`; for Codex, start a new session or restart the app so newly installed skills are loaded.
+
 ## 🚀 Quick Start
 
 Set the target Unity project once for your shell session:
