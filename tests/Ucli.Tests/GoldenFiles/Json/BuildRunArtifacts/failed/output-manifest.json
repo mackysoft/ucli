@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "outputRoot": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/output",
+  "target": "standaloneLinux64",
+  "fileCount": 0,
+  "totalBytes": 0,
+  "files": [],
+  "manifestDigest": "ea4ff87cdded978e946d73668e5626dd3fb06b2e65cba15e1d1ecbc78d5ae314"
+}

@@ -1,0 +1,21 @@
+{
+  "protocolVersion": 1,
+  "command": "build.run",
+  "status": "error",
+  "exitCode": 3,
+  "message": "Build target is unsupported: webgl.",
+  "payload": {
+    "project": {
+      "projectPath": "/workspace/UnityProject",
+      "projectFingerprint": "project-fingerprint",
+      "unityVersion": "6000.1.4f1"
+    }
+  },
+  "errors": [
+    {
+      "code": "BUILD_TARGET_UNSUPPORTED",
+      "message": "Build target is unsupported: webgl.",
+      "opId": null
+    }
+  ]
+}

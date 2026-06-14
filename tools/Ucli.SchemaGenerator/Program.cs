@@ -620,7 +620,21 @@ internal static class Program
 
     private static Dictionary<string, object?> CreateBuildRunPayloadSchema ()
     {
-        var schema = ObjectSchema(
+        var schema = OneOfSchema(
+            CreateBuildRunSuccessPayloadSchema(),
+            CreateBuildRunFailurePayloadSchema());
+
+        schema["$defs"] = new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["generation"] = CreateBuildRunGenerationSnapshotSchema(),
+        };
+
+        return schema;
+    }
+
+    private static Dictionary<string, object?> CreateBuildRunSuccessPayloadSchema ()
+    {
+        return ObjectSchema(
             additionalProperties: false,
             Required("verdict", EnumSchema("pass", "fail", "incomplete")),
             Required("project", ReferenceSchema("../defs/project.schema.json")),
@@ -628,13 +642,19 @@ internal static class Program
             Required("verifiers", ArraySchema(ReferenceSchema("../defs/verifier.schema.json"))),
             Required("claims", ArraySchema(CreateBuildRunClaimSchema())),
             Required("reports", CreateBuildRunReportsSchema()),
-            Required("residualRisks", ArraySchema(CreateBuildRunResidualRiskSchema())));
+            Required("residualRisks", ArraySchema(ReferenceSchema("../defs/residual-risk.schema.json"))));
+    }
 
-        schema["$defs"] = new Dictionary<string, object?>(StringComparer.Ordinal)
-        {
-            ["generation"] = CreateBuildRunGenerationSnapshotSchema(),
-        };
-        return schema;
+    private static Dictionary<string, object?> CreateBuildRunFailurePayloadSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Optional("project", ReferenceSchema("../defs/project.schema.json")),
+            Optional("dirtyState", CreateBuildRunDirtyStateSchema()),
+            Optional("startup", ObjectSchema(additionalProperties: true)),
+            Optional("diagnosis", ObjectSchema(additionalProperties: true)),
+            Optional("retryDisposition", StringSchema()),
+            Optional("safeToRetryImmediately", BooleanSchema()));
     }
 
     private static Dictionary<string, object?> CreateBuildRunBuildSchema ()
@@ -708,34 +728,33 @@ internal static class Program
         return ObjectSchema(
             additionalProperties: true,
             Required("id", StringSchema()),
-            Required("status", EnumSchema("passed", "failed", "indeterminate")),
+            Required("status", EnumSchema("passed", "failed", "indeterminate", "unverified")),
             Required("coverage", EnumSchema("full", "none")),
             Required("required", BooleanSchema()),
             Required("verifierRef", StringSchema()),
             Required("statement", StringSchema()),
             Required("subject", ObjectSchema(additionalProperties: true)),
             Required("evidence", ArraySchema(ReferenceSchema("../defs/evidence.schema.json"))),
-            Required("residualRisks", ArraySchema(CreateBuildRunResidualRiskSchema())));
+            Required("residualRisks", ArraySchema(ReferenceSchema("../defs/residual-risk.schema.json"))));
     }
 
     private static Dictionary<string, object?> CreateBuildRunReportsSchema ()
     {
         return ObjectSchema(
             additionalProperties: false,
-            Required("build", ReferenceSchema("../defs/report-ref.schema.json")),
-            Required("buildReport", ReferenceSchema("../defs/report-ref.schema.json")),
-            Required("buildOutputManifest", ReferenceSchema("../defs/report-ref.schema.json")),
-            Required("buildLog", ReferenceSchema("../defs/report-ref.schema.json")));
+            Required("build", CreateBuildRunReportRefSchema("build")),
+            Required("buildReport", CreateBuildRunReportRefSchema("buildReport")),
+            Required("buildOutputManifest", CreateBuildRunReportRefSchema("buildOutputManifest")),
+            Required("buildLog", CreateBuildRunReportRefSchema("buildLog")));
     }
 
-    private static Dictionary<string, object?> CreateBuildRunResidualRiskSchema ()
+    private static Dictionary<string, object?> CreateBuildRunReportRefSchema (string kind)
     {
         return ObjectSchema(
             additionalProperties: false,
-            Required("id", StringSchema()),
-            Required("severity", StringSchema()),
-            Required("blocking", BooleanSchema()),
-            Required("statement", StringSchema()));
+            Required("kind", ConstString(kind)),
+            Required("path", StringSchema()),
+            Required("digest", Sha256LowerHexSchema()));
     }
 
     private static Dictionary<string, object?> CreateBuildRunGenerationSnapshotSchema ()
@@ -745,6 +764,18 @@ internal static class Program
             Required("compileGeneration", StringSchema()),
             Required("domainReloadGeneration", StringSchema()),
             Required("assetRefreshGeneration", StringSchema()));
+    }
+
+    private static Dictionary<string, object?> CreateBuildRunDirtyStateSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("checked", BooleanSchema()),
+            Required("dirty", BooleanSchema()),
+            Required("items", ArraySchema(ObjectSchema(
+                additionalProperties: false,
+                Required("kind", ConstString("scene")),
+                Required("path", StringSchema())))));
     }
 
     private static Dictionary<string, object?> CreateVerifyPayloadSchema ()

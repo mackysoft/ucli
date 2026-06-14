@@ -1,0 +1,21 @@
+{
+  "protocolVersion": 1,
+  "command": "build.run",
+  "status": "error",
+  "exitCode": 4,
+  "message": "Build artifacts could not be written.",
+  "payload": {
+    "project": {
+      "projectPath": "/workspace/UnityProject",
+      "projectFingerprint": "project-fingerprint",
+      "unityVersion": "6000.1.4f1"
+    }
+  },
+  "errors": [
+    {
+      "code": "BUILD_ARTIFACT_WRITE_FAILED",
+      "message": "Build artifacts could not be written.",
+      "opId": null
+    }
+  ]
+}

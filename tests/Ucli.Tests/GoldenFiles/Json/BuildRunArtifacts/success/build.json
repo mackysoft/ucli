@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "runId": "build-run-1",
+  "project": {
+    "projectPath": "/workspace/UnityProject",
+    "projectFingerprint": "project-fingerprint",
+    "unityVersion": "6000.1.4f1"
+  },
+  "profile": {
+    "path": "/workspace/UnityProject/.ucli/build/player.json",
+    "digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+  },
+  "input": {
+    "target": "standaloneLinux64",
+    "unityBuildTarget": "StandaloneLinux64",
+    "scenes": {
+      "source": "explicit",
+      "paths": [
+        "Assets/Scenes/Main.unity"
+      ]
+    },
+    "options": {
+      "development": true
+    }
+  },
+  "lifecycle": {
+    "before": {
+      "lifecycleState": "ready",
+      "compileGeneration": "compile-before",
+      "domainReloadGeneration": "domain-before",
+      "assetRefreshGeneration": "asset-before"
+    },
+    "after": {
+      "lifecycleState": "ready",
+      "compileGeneration": "compile-after",
+      "domainReloadGeneration": "domain-after",
+      "assetRefreshGeneration": "asset-after"
+    }
+  },
+  "generations": {
+    "before": {
+      "compileGeneration": "compile-before",
+      "domainReloadGeneration": "domain-before",
+      "assetRefreshGeneration": "asset-before"
+    },
+    "after": {
+      "compileGeneration": "compile-after",
+      "domainReloadGeneration": "domain-after",
+      "assetRefreshGeneration": "asset-after"
+    },
+    "validFor": {
+      "compileGeneration": "compile-after",
+      "domainReloadGeneration": "domain-after",
+      "assetRefreshGeneration": "asset-after"
+    }
+  },
+  "summary": {
+    "result": "succeeded",
+    "durationMilliseconds": 2500,
+    "errorCount": 0,
+    "warningCount": 1,
+    "reportRef": "buildReport"
+  },
+  "logs": {
+    "reportRef": "buildLog",
+    "entryCount": 3,
+    "errorCount": 0,
+    "warningCount": 1,
+    "completionReason": "completed",
+    "window": {
+      "startedAtUtc": "2026-06-01T00:00:00\u002B00:00",
+      "completedAtUtc": "2026-06-01T00:00:02.5\u002B00:00"
+    }
+  },
+  "output": {
+    "kind": "ucliArtifact",
+    "artifactRoot": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1",
+    "outputRoot": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/output",
+    "manifestRef": "buildOutputManifest",
+    "manifestDigest": "e167d441934ca84452ea2cb52619e5240ec485c46facd6f921b83459dc3ea6f6",
+    "fileCount": 2,
+    "totalBytes": 33
+  },
+  "artifacts": {
+    "buildReport": {
+      "kind": "buildReport",
+      "path": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/build-report.json",
+      "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    "buildOutputManifest": {
+      "kind": "buildOutputManifest",
+      "path": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/output-manifest.json",
+      "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    "buildLog": {
+      "kind": "buildLog",
+      "path": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/build.log",
+      "digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    }
+  },
+  "dirtyState": {
+    "checked": true,
+    "dirty": false,
+    "items": []
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "protocolVersion": 1,
+  "command": "build.run",
+  "status": "error",
+  "exitCode": 4,
+  "message": "Dirty scene state is present.",
+  "payload": {
+    "project": {
+      "projectPath": "/workspace/UnityProject",
+      "projectFingerprint": "project-fingerprint",
+      "unityVersion": "6000.1.4f1"
+    },
+    "dirtyState": {
+      "checked": true,
+      "dirty": true,
+      "items": [
+        {
+          "kind": "scene",
+          "path": "Assets/Scenes/Main.unity"
+        }
+      ]
+    }
+  },
+  "errors": [
+    {
+      "code": "BUILD_DIRTY_STATE_PRESENT",
+      "message": "Dirty scene state is present.",
+      "opId": null
+    }
+  ]
+}

@@ -1,388 +1,485 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/build.run.schema.json",
-  "type": "object",
-  "additionalProperties": false,
-  "properties": {
-    "verdict": {
-      "type": "string",
-      "enum": [
-        "pass",
-        "fail",
-        "incomplete"
-      ]
-    },
-    "project": {
-      "$ref": "../defs/project.schema.json"
-    },
-    "build": {
+  "oneOf": [
+    {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "runId": {
-          "type": "string"
+        "verdict": {
+          "type": "string",
+          "enum": [
+            "pass",
+            "fail",
+            "incomplete"
+          ]
         },
-        "profile": {
+        "project": {
+          "$ref": "../defs/project.schema.json"
+        },
+        "build": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "path": {
+            "runId": {
               "type": "string"
             },
-            "digest": {
-              "type": "string",
-              "pattern": "^[0-9a-f]{64}$"
+            "profile": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "digest": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              },
+              "required": [
+                "path",
+                "digest"
+              ]
+            },
+            "target": {
+              "type": "string"
+            },
+            "scenes": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "source": {
+                  "type": "string",
+                  "enum": [
+                    "editorBuildSettings",
+                    "explicit"
+                  ]
+                },
+                "paths": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "source",
+                "paths"
+              ]
+            },
+            "options": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "development": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "development"
+              ]
+            },
+            "output": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "const": "ucliArtifact"
+                },
+                "artifactRoot": {
+                  "type": "string"
+                },
+                "outputRoot": {
+                  "type": "string"
+                },
+                "manifestRef": {
+                  "type": "string",
+                  "const": "buildOutputManifest"
+                },
+                "manifestDigest": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "fileCount": {
+                  "type": "integer"
+                },
+                "totalBytes": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "kind",
+                "artifactRoot",
+                "outputRoot",
+                "manifestRef",
+                "manifestDigest",
+                "fileCount",
+                "totalBytes"
+              ]
+            },
+            "generations": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "before": {
+                  "$ref": "#/$defs/generation"
+                },
+                "after": {
+                  "$ref": "#/$defs/generation"
+                },
+                "validFor": {
+                  "$ref": "#/$defs/generation"
+                }
+              },
+              "required": [
+                "before",
+                "after",
+                "validFor"
+              ]
+            },
+            "summary": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "result": {
+                  "type": "string",
+                  "enum": [
+                    "succeeded",
+                    "failed",
+                    "canceled",
+                    "unknown"
+                  ]
+                },
+                "durationMilliseconds": {
+                  "type": "integer"
+                },
+                "errorCount": {
+                  "type": "integer"
+                },
+                "warningCount": {
+                  "type": "integer"
+                },
+                "reportRef": {
+                  "type": "string",
+                  "const": "buildReport"
+                }
+              },
+              "required": [
+                "result",
+                "durationMilliseconds",
+                "errorCount",
+                "warningCount",
+                "reportRef"
+              ]
+            },
+            "logs": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "reportRef": {
+                  "type": "string",
+                  "const": "buildLog"
+                },
+                "entryCount": {
+                  "type": "integer"
+                },
+                "errorCount": {
+                  "type": "integer"
+                },
+                "warningCount": {
+                  "type": "integer"
+                },
+                "completionReason": {
+                  "type": "string",
+                  "enum": [
+                    "completed",
+                    "failed",
+                    "canceled"
+                  ]
+                },
+                "window": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "startedAtUtc": {
+                      "type": "string"
+                    },
+                    "completedAtUtc": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "startedAtUtc",
+                    "completedAtUtc"
+                  ]
+                }
+              },
+              "required": [
+                "reportRef",
+                "entryCount",
+                "errorCount",
+                "warningCount",
+                "completionReason",
+                "window"
+              ]
             }
           },
           "required": [
-            "path",
-            "digest"
+            "runId",
+            "profile",
+            "target",
+            "scenes",
+            "options",
+            "output",
+            "generations",
+            "summary",
+            "logs"
           ]
         },
-        "target": {
-          "type": "string"
+        "verifiers": {
+          "type": "array",
+          "items": {
+            "$ref": "../defs/verifier.schema.json"
+          }
         },
-        "scenes": {
+        "claims": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "passed",
+                  "failed",
+                  "indeterminate",
+                  "unverified"
+                ]
+              },
+              "coverage": {
+                "type": "string",
+                "enum": [
+                  "full",
+                  "none"
+                ]
+              },
+              "required": {
+                "type": "boolean"
+              },
+              "verifierRef": {
+                "type": "string"
+              },
+              "statement": {
+                "type": "string"
+              },
+              "subject": {
+                "type": "object"
+              },
+              "evidence": {
+                "type": "array",
+                "items": {
+                  "$ref": "../defs/evidence.schema.json"
+                }
+              },
+              "residualRisks": {
+                "type": "array",
+                "items": {
+                  "$ref": "../defs/residual-risk.schema.json"
+                }
+              }
+            },
+            "required": [
+              "id",
+              "status",
+              "coverage",
+              "required",
+              "verifierRef",
+              "statement",
+              "subject",
+              "evidence",
+              "residualRisks"
+            ]
+          }
+        },
+        "reports": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "source": {
-              "type": "string",
-              "enum": [
-                "editorBuildSettings",
-                "explicit"
+            "build": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "const": "build"
+                },
+                "path": {
+                  "type": "string"
+                },
+                "digest": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              },
+              "required": [
+                "kind",
+                "path",
+                "digest"
               ]
             },
-            "paths": {
+            "buildReport": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "const": "buildReport"
+                },
+                "path": {
+                  "type": "string"
+                },
+                "digest": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              },
+              "required": [
+                "kind",
+                "path",
+                "digest"
+              ]
+            },
+            "buildOutputManifest": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "const": "buildOutputManifest"
+                },
+                "path": {
+                  "type": "string"
+                },
+                "digest": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              },
+              "required": [
+                "kind",
+                "path",
+                "digest"
+              ]
+            },
+            "buildLog": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "const": "buildLog"
+                },
+                "path": {
+                  "type": "string"
+                },
+                "digest": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              },
+              "required": [
+                "kind",
+                "path",
+                "digest"
+              ]
+            }
+          },
+          "required": [
+            "build",
+            "buildReport",
+            "buildOutputManifest",
+            "buildLog"
+          ]
+        },
+        "residualRisks": {
+          "type": "array",
+          "items": {
+            "$ref": "../defs/residual-risk.schema.json"
+          }
+        }
+      },
+      "required": [
+        "verdict",
+        "project",
+        "build",
+        "verifiers",
+        "claims",
+        "reports",
+        "residualRisks"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "project": {
+          "$ref": "../defs/project.schema.json"
+        },
+        "dirtyState": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "checked": {
+              "type": "boolean"
+            },
+            "dirty": {
+              "type": "boolean"
+            },
+            "items": {
               "type": "array",
               "items": {
-                "type": "string"
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "scene"
+                  },
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "path"
+                ]
               }
             }
           },
           "required": [
-            "source",
-            "paths"
+            "checked",
+            "dirty",
+            "items"
           ]
         },
-        "options": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "development": {
-              "type": "boolean"
-            }
-          },
-          "required": [
-            "development"
-          ]
+        "startup": {
+          "type": "object"
         },
-        "output": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "ucliArtifact"
-            },
-            "artifactRoot": {
-              "type": "string"
-            },
-            "outputRoot": {
-              "type": "string"
-            },
-            "manifestRef": {
-              "type": "string",
-              "const": "buildOutputManifest"
-            },
-            "manifestDigest": {
-              "type": "string",
-              "pattern": "^[0-9a-f]{64}$"
-            },
-            "fileCount": {
-              "type": "integer"
-            },
-            "totalBytes": {
-              "type": "integer"
-            }
-          },
-          "required": [
-            "kind",
-            "artifactRoot",
-            "outputRoot",
-            "manifestRef",
-            "manifestDigest",
-            "fileCount",
-            "totalBytes"
-          ]
+        "diagnosis": {
+          "type": "object"
         },
-        "generations": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "before": {
-              "$ref": "#/$defs/generation"
-            },
-            "after": {
-              "$ref": "#/$defs/generation"
-            },
-            "validFor": {
-              "$ref": "#/$defs/generation"
-            }
-          },
-          "required": [
-            "before",
-            "after",
-            "validFor"
-          ]
+        "retryDisposition": {
+          "type": "string"
         },
-        "summary": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "result": {
-              "type": "string",
-              "enum": [
-                "succeeded",
-                "failed",
-                "canceled",
-                "unknown"
-              ]
-            },
-            "durationMilliseconds": {
-              "type": "integer"
-            },
-            "errorCount": {
-              "type": "integer"
-            },
-            "warningCount": {
-              "type": "integer"
-            },
-            "reportRef": {
-              "type": "string",
-              "const": "buildReport"
-            }
-          },
-          "required": [
-            "result",
-            "durationMilliseconds",
-            "errorCount",
-            "warningCount",
-            "reportRef"
-          ]
-        },
-        "logs": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "reportRef": {
-              "type": "string",
-              "const": "buildLog"
-            },
-            "entryCount": {
-              "type": "integer"
-            },
-            "errorCount": {
-              "type": "integer"
-            },
-            "warningCount": {
-              "type": "integer"
-            },
-            "completionReason": {
-              "type": "string",
-              "enum": [
-                "completed",
-                "failed",
-                "canceled"
-              ]
-            },
-            "window": {
-              "type": "object",
-              "additionalProperties": false,
-              "properties": {
-                "startedAtUtc": {
-                  "type": "string"
-                },
-                "completedAtUtc": {
-                  "type": "string"
-                }
-              },
-              "required": [
-                "startedAtUtc",
-                "completedAtUtc"
-              ]
-            }
-          },
-          "required": [
-            "reportRef",
-            "entryCount",
-            "errorCount",
-            "warningCount",
-            "completionReason",
-            "window"
-          ]
+        "safeToRetryImmediately": {
+          "type": "boolean"
         }
-      },
-      "required": [
-        "runId",
-        "profile",
-        "target",
-        "scenes",
-        "options",
-        "output",
-        "generations",
-        "summary",
-        "logs"
-      ]
-    },
-    "verifiers": {
-      "type": "array",
-      "items": {
-        "$ref": "../defs/verifier.schema.json"
-      }
-    },
-    "claims": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "passed",
-              "failed",
-              "indeterminate"
-            ]
-          },
-          "coverage": {
-            "type": "string",
-            "enum": [
-              "full",
-              "none"
-            ]
-          },
-          "required": {
-            "type": "boolean"
-          },
-          "verifierRef": {
-            "type": "string"
-          },
-          "statement": {
-            "type": "string"
-          },
-          "subject": {
-            "type": "object"
-          },
-          "evidence": {
-            "type": "array",
-            "items": {
-              "$ref": "../defs/evidence.schema.json"
-            }
-          },
-          "residualRisks": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "additionalProperties": false,
-              "properties": {
-                "id": {
-                  "type": "string"
-                },
-                "severity": {
-                  "type": "string"
-                },
-                "blocking": {
-                  "type": "boolean"
-                },
-                "statement": {
-                  "type": "string"
-                }
-              },
-              "required": [
-                "id",
-                "severity",
-                "blocking",
-                "statement"
-              ]
-            }
-          }
-        },
-        "required": [
-          "id",
-          "status",
-          "coverage",
-          "required",
-          "verifierRef",
-          "statement",
-          "subject",
-          "evidence",
-          "residualRisks"
-        ]
-      }
-    },
-    "reports": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "build": {
-          "$ref": "../defs/report-ref.schema.json"
-        },
-        "buildReport": {
-          "$ref": "../defs/report-ref.schema.json"
-        },
-        "buildOutputManifest": {
-          "$ref": "../defs/report-ref.schema.json"
-        },
-        "buildLog": {
-          "$ref": "../defs/report-ref.schema.json"
-        }
-      },
-      "required": [
-        "build",
-        "buildReport",
-        "buildOutputManifest",
-        "buildLog"
-      ]
-    },
-    "residualRisks": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "severity": {
-            "type": "string"
-          },
-          "blocking": {
-            "type": "boolean"
-          },
-          "statement": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "severity",
-          "blocking",
-          "statement"
-        ]
       }
     }
-  },
-  "required": [
-    "verdict",
-    "project",
-    "build",
-    "verifiers",
-    "claims",
-    "reports",
-    "residualRisks"
   ],
   "$defs": {
     "generation": {
