@@ -88,7 +88,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 var executionCancellationToken = requestTimeoutScope.Token;
                 precondition = await preconditionProbe.ProbeBeforeBuildAsync(
                     new UnityBuildPreconditionInput(
-                        TargetStableName: buildRunRequest.TargetStableName,
+                        BuildTarget: buildRunRequest.BuildTarget,
                         UnityBuildTarget: buildRunRequest.UnityBuildTarget,
                         SceneSource: buildRunRequest.SceneSource,
                         ScenePaths: buildRunRequest.ScenePaths,
@@ -288,11 +288,11 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return false;
             }
 
-            if (string.IsNullOrWhiteSpace(request.TargetStableName)
+            if (string.IsNullOrWhiteSpace(request.BuildTarget)
                 || string.IsNullOrWhiteSpace(request.UnityBuildTarget)
                 || string.IsNullOrWhiteSpace(request.SceneSource))
             {
-                errorMessage = "Build target and scene source values must not be empty.";
+                errorMessage = "BuildTarget and scene source values must not be empty.";
                 return false;
             }
 

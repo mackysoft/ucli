@@ -3,7 +3,7 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 /// <summary> Represents the normalized Unity BuildReport artifact. </summary>
 /// <param name="SchemaVersion"> The artifact schema version. </param>
 /// <param name="Result"> The normalized BuildReport result literal. </param>
-/// <param name="Target"> The Unity <c>BuildTarget</c> literal. </param>
+/// <param name="UnityBuildTarget"> The Unity <c>BuildTarget</c> literal. </param>
 /// <param name="OutputPath"> The BuildPipeline output path. </param>
 /// <param name="DurationMilliseconds"> The BuildPipeline duration in milliseconds. </param>
 /// <param name="TotalSizeBytes"> The BuildReport total output size in bytes. </param>
@@ -14,7 +14,7 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 public sealed record IpcBuildReportArtifact (
     int SchemaVersion,
     string Result,
-    string Target,
+    string UnityBuildTarget,
     string OutputPath,
     long DurationMilliseconds,
     long TotalSizeBytes,

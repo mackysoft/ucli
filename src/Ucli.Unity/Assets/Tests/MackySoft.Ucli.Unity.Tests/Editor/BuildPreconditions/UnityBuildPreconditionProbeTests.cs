@@ -38,8 +38,8 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.DirtyState.Dirty, Is.False);
             Assert.That(result.DirtyState.Items, Is.Empty);
             Assert.That(result.ResolvedInput, Is.Not.Null);
-            Assert.That(result.ResolvedInput!.Target, Is.EqualTo(BuildTarget.StandaloneLinux64));
-            Assert.That(result.ResolvedInput.TargetGroup, Is.EqualTo(BuildTargetGroup.Standalone));
+            Assert.That(result.ResolvedInput!.UnityBuildTarget, Is.EqualTo(BuildTarget.StandaloneLinux64));
+            Assert.That(result.ResolvedInput.UnityBuildTargetGroup, Is.EqualTo(BuildTargetGroup.Standalone));
             Assert.That(result.ResolvedInput.ScenePaths, Is.EqualTo(new[] { scenePath }));
             Assert.That(result.ResolvedInput.Options, Is.EqualTo(BuildOptions.None));
             Assert.That(result.InputProbe, Is.Not.Null);
@@ -118,7 +118,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var result = await probe.ProbeBeforeBuildAsync(
                 new UnityBuildPreconditionInput(
-                    TargetStableName: "standaloneLinux64",
+                    BuildTarget: "standaloneLinux64",
                     UnityBuildTarget: "StandaloneLinux64",
                     SceneSource: SceneSourceLiteral(BuildProfileSceneSource.EditorBuildSettings),
                     ScenePaths: Array.Empty<string>(),
@@ -141,7 +141,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var result = await probe.ProbeBeforeBuildAsync(
                 new UnityBuildPreconditionInput(
-                    TargetStableName: "standaloneLinux64",
+                    BuildTarget: "standaloneLinux64",
                     UnityBuildTarget: "StandaloneLinux64",
                     SceneSource: "unsupported",
                     ScenePaths: Array.Empty<string>(),
@@ -161,7 +161,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var result = await probe.ProbeBeforeBuildAsync(
                 new UnityBuildPreconditionInput(
-                    TargetStableName: "standaloneLinux64",
+                    BuildTarget: "standaloneLinux64",
                     UnityBuildTarget: "StandaloneLinux64",
                     SceneSource: SceneSourceLiteral(BuildProfileSceneSource.Explicit),
                     ScenePaths: Array.Empty<string>(),
@@ -183,7 +183,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var result = await probe.ProbeBeforeBuildAsync(
                 new UnityBuildPreconditionInput(
-                    TargetStableName: "standaloneLinux64",
+                    BuildTarget: "standaloneLinux64",
                     UnityBuildTarget: "StandaloneLinux64",
                     SceneSource: SceneSourceLiteral(BuildProfileSceneSource.EditorBuildSettings),
                     ScenePaths: Array.Empty<string>(),
@@ -275,8 +275,8 @@ namespace MackySoft.Ucli.Unity.Tests
             var result = new UnityBuildTargetSupportProbe().Probe("StandaloneLinux64");
 
             Assert.That(result.IsValidTarget, Is.True);
-            Assert.That(result.Target, Is.EqualTo(BuildTarget.StandaloneLinux64));
-            Assert.That(result.TargetGroup, Is.EqualTo(BuildTargetGroup.Standalone));
+            Assert.That(result.UnityBuildTarget, Is.EqualTo(BuildTarget.StandaloneLinux64));
+            Assert.That(result.UnityBuildTargetGroup, Is.EqualTo(BuildTargetGroup.Standalone));
         }
 
         [Test]
@@ -393,7 +393,7 @@ namespace MackySoft.Ucli.Unity.Tests
         private static UnityBuildPreconditionInput CreateExplicitInput (params string[] scenePaths)
         {
             return new UnityBuildPreconditionInput(
-                TargetStableName: "standaloneLinux64",
+                BuildTarget: "standaloneLinux64",
                 UnityBuildTarget: "StandaloneLinux64",
                 SceneSource: SceneSourceLiteral(BuildProfileSceneSource.Explicit),
                 ScenePaths: scenePaths,

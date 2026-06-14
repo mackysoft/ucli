@@ -171,7 +171,7 @@ public sealed class IpcContractSerializationTests
             SerializerOptions));
         using var inputProbe = JsonDocument.Parse(JsonSerializer.Serialize(
             new IpcBuildInputProbe(
-                TargetStableName: "standaloneLinux64",
+                BuildTarget: "standaloneLinux64",
                 UnityBuildTarget: "StandaloneLinux64",
                 UnityBuildTargetGroup: "Standalone",
                 SceneSource: ContractLiteralCodec.ToValue(BuildProfileSceneSource.Explicit),
@@ -216,7 +216,7 @@ public sealed class IpcContractSerializationTests
                 .HasString("kind", ContractLiteralCodec.ToValue(IpcBuildDirtyStateItemKind.Scene))
                 .HasString("path", "Assets/Scenes/Main.unity"));
         JsonAssert.For(inputProbe.RootElement)
-            .HasString("targetStableName", "standaloneLinux64")
+            .HasString("buildTarget", "standaloneLinux64")
             .HasString("unityBuildTarget", "StandaloneLinux64")
             .HasString("unityBuildTargetGroup", "Standalone")
             .HasString("sceneSource", ContractLiteralCodec.ToValue(BuildProfileSceneSource.Explicit))
@@ -268,7 +268,7 @@ public sealed class IpcContractSerializationTests
         using var request = JsonDocument.Parse(JsonSerializer.Serialize(
             new IpcBuildRunRequest(
                 RunId: "build-run-1",
-                TargetStableName: "standaloneLinux64",
+                BuildTarget: "standaloneLinux64",
                 UnityBuildTarget: "StandaloneLinux64",
                 SceneSource: ContractLiteralCodec.ToValue(BuildProfileSceneSource.Explicit),
                 ScenePaths: ["Assets/Scenes/Main.unity"],
@@ -288,7 +288,7 @@ public sealed class IpcContractSerializationTests
                 LifecycleAfter: CreateBuildLifecycleSnapshot("after", canAcceptExecutionRequests: true),
                 DirtyState: new IpcBuildDirtyState(Checked: true, Dirty: false, Items: []),
                 Input: new IpcBuildInputProbe(
-                    TargetStableName: "standaloneLinux64",
+                    BuildTarget: "standaloneLinux64",
                     UnityBuildTarget: "StandaloneLinux64",
                     UnityBuildTargetGroup: "Standalone",
                     SceneSource: ContractLiteralCodec.ToValue(BuildProfileSceneSource.Explicit),
@@ -297,7 +297,7 @@ public sealed class IpcContractSerializationTests
                 Report: new IpcBuildReportArtifact(
                     SchemaVersion: 1,
                     Result: ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
-                    Target: "StandaloneLinux64",
+                    UnityBuildTarget: "StandaloneLinux64",
                     OutputPath: "/tmp/ucli/output/build",
                     DurationMilliseconds: 2500,
                     TotalSizeBytes: 4096,
@@ -329,7 +329,7 @@ public sealed class IpcContractSerializationTests
 
         JsonAssert.For(request.RootElement)
             .HasString("runId", "build-run-1")
-            .HasString("targetStableName", "standaloneLinux64")
+            .HasString("buildTarget", "standaloneLinux64")
             .HasString("unityBuildTarget", "StandaloneLinux64")
             .HasString("sceneSource", ContractLiteralCodec.ToValue(BuildProfileSceneSource.Explicit))
             .HasArrayLength("scenePaths", 1)
@@ -357,12 +357,12 @@ public sealed class IpcContractSerializationTests
                 .HasBoolean("dirty", false)
                 .HasArrayLength("items", 0))
             .HasProperty("input", input => input
-                .HasString("targetStableName", "standaloneLinux64")
+                .HasString("buildTarget", "standaloneLinux64")
                 .HasString("sceneSource", ContractLiteralCodec.ToValue(BuildProfileSceneSource.Explicit)))
             .HasProperty("report", report => report
                 .HasInt32("schemaVersion", 1)
                 .HasString("result", ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded))
-                .HasString("target", "StandaloneLinux64")
+                .HasString("unityBuildTarget", "StandaloneLinux64")
                 .HasString("outputPath", "/tmp/ucli/output/build")
                 .HasInt32("durationMilliseconds", 2500)
                 .HasInt32("totalSizeBytes", 4096)

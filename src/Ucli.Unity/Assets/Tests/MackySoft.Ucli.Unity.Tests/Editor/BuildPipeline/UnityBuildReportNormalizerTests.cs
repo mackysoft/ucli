@@ -16,7 +16,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var snapshot = new UnityBuildReportNormalizer.BuildReportSnapshot(
                 Result: IpcBuildReportResult.Succeeded,
-                Target: "StandaloneLinux64",
+                UnityBuildTarget: "StandaloneLinux64",
                 OutputPath: "/tmp/ucli/output/build",
                 Duration: TimeSpan.FromMilliseconds(1234.6),
                 TotalSizeBytes: 4096,
@@ -40,7 +40,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(artifact.SchemaVersion, Is.EqualTo(1));
             Assert.That(artifact.Result, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded)));
-            Assert.That(artifact.Target, Is.EqualTo("StandaloneLinux64"));
+            Assert.That(artifact.UnityBuildTarget, Is.EqualTo("StandaloneLinux64"));
             Assert.That(artifact.OutputPath, Is.EqualTo("/tmp/ucli/output/build"));
             Assert.That(artifact.DurationMilliseconds, Is.EqualTo(1235));
             Assert.That(artifact.TotalSizeBytes, Is.EqualTo(4096));
@@ -62,7 +62,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var snapshot = new UnityBuildReportNormalizer.BuildReportSnapshot(
                 Result: IpcBuildReportResult.Failed,
-                Target: "StandaloneLinux64",
+                UnityBuildTarget: "StandaloneLinux64",
                 OutputPath: "/tmp/ucli/output/build",
                 Duration: TimeSpan.FromMilliseconds(10),
                 TotalSizeBytes: 0,
@@ -107,7 +107,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var outputPath = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "ucli", "output"));
             var request = new IpcBuildRunRequest(
                 RunId: "build-run-1",
-                TargetStableName: "standaloneLinux64",
+                BuildTarget: "standaloneLinux64",
                 UnityBuildTarget: "StandaloneLinux64",
                 SceneSource: "explicit",
                 ScenePaths: new[] { "Assets/Scenes/Main.unity" },
@@ -116,8 +116,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 BuildReportPath: "/tmp/ucli/build-report.json",
                 BuildLogPath: "/tmp/ucli/build.log");
             var resolvedInput = new UnityBuildResolvedInput(
-                Target: BuildTarget.StandaloneLinux64,
-                TargetGroup: BuildTargetGroup.Standalone,
+                UnityBuildTarget: BuildTarget.StandaloneLinux64,
+                UnityBuildTargetGroup: BuildTargetGroup.Standalone,
                 ScenePaths: new[] { "Assets/Scenes/Main.unity" },
                 Options: BuildOptions.Development);
 

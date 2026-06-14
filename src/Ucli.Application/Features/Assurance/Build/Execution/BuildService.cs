@@ -8,6 +8,7 @@ using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
 using MackySoft.Ucli.Application.Features.Assurance.Semantics;
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Execution.Progress;
+using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
@@ -90,6 +91,12 @@ internal sealed class BuildService : IBuildService
             return BuildExecutionResult.Failure(profileResolutionResult.Error!, project);
         }
 
+        var profileOverrideResult = ApplyCommandOverrides(profileResolutionResult.Profile!, input);
+        if (!profileOverrideResult.IsSuccess)
+        {
+            return BuildExecutionResult.Failure(profileOverrideResult.Error!, project);
+        }
+
         var timeoutResult = IpcCommandTimeoutResolver.ResolveNormalized(
             input.TimeoutMilliseconds,
             UcliCommandIds.BuildRun,
@@ -139,7 +146,7 @@ internal sealed class BuildService : IBuildService
             return BuildExecutionResult.Failure(prepareResult.Error!, project);
         }
 
-        var profile = profileResolutionResult.Profile!;
+        var profile = profileOverrideResult.Profile!;
         var paths = prepareResult.Paths!;
         await EmitStartedAsync(
                 resolvedProgressSink,
@@ -148,7 +155,7 @@ internal sealed class BuildService : IBuildService
                 requestedMode,
                 executionTarget,
                 timeout,
-                profile.Target.StableName,
+                profile.BuildTarget.StableName,
                 paths.OutputDirectory,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -205,7 +212,7 @@ internal sealed class BuildService : IBuildService
                     new BuildRunArtifactAccountingRequest(
                         paths,
                         buildResponse.Report.OutputPath,
-                        profile.Target.StableName),
+                        profile.BuildTarget.StableName),
                     artifactCancellationToken)
                 .ConfigureAwait(false);
             if (!accountingResult.IsSuccess)
@@ -259,6 +266,41 @@ internal sealed class BuildService : IBuildService
         }
     }
 
+    private static BuildProfileResolutionResult ApplyCommandOverrides (
+        ResolvedBuildProfile profile,
+        BuildCommandInput input)
+    {
+        if (input.BuildTarget is null)
+        {
+            return BuildProfileResolutionResult.Success(profile);
+        }
+
+        if (string.IsNullOrWhiteSpace(input.BuildTarget))
+        {
+            return BuildProfileResolutionResult.Failure(ExecutionError.InvalidArgument(
+                "buildTarget must not be empty.",
+                BuildErrorCodes.BuildTargetUnsupported));
+        }
+
+        if (!BuildTargetStableNameCodec.TryResolve(input.BuildTarget, out var buildTarget))
+        {
+            return BuildProfileResolutionResult.Failure(ExecutionError.InvalidArgument(
+                $"buildTarget is unsupported: {input.BuildTarget}.",
+                BuildErrorCodes.BuildTargetUnsupported));
+        }
+
+        return BuildProfileResolutionResult.Success(profile with
+        {
+            BuildTarget = buildTarget,
+            Digest = BuildProfileDigestCalculator.Calculate(
+                profile.SchemaVersion,
+                buildTarget,
+                profile.Scenes,
+                profile.Output,
+                profile.Options),
+        });
+    }
+
     private static ValueTask EmitStartedAsync (
         ICommandProgressSink progressSink,
         string runId,
@@ -266,7 +308,7 @@ internal sealed class BuildService : IBuildService
         UnityExecutionMode requestedMode,
         UnityExecutionTarget executionTarget,
         TimeSpan timeout,
-        string target,
+        string buildTarget,
         string outputPath,
         CancellationToken cancellationToken)
     {
@@ -279,7 +321,7 @@ internal sealed class BuildService : IBuildService
                 ResolvedMode: AssuranceExecutionModeCodec.ToResolvedModeValue(executionTarget),
                 SessionKind: AssuranceExecutionModeCodec.ToSessionKindValue(executionTarget),
                 TimeoutMilliseconds: checked((int)timeout.TotalMilliseconds),
-                Target: target,
+                BuildTarget: buildTarget,
                 OutputPath: outputPath),
             cancellationToken);
     }
@@ -313,8 +355,8 @@ internal sealed class BuildService : IBuildService
     {
         return new UnityRequestPayload.BuildRun(
             RunId: runId,
-            TargetStableName: profile.Target.StableName,
-            UnityBuildTarget: profile.Target.UnityBuildTargetLiteral,
+            BuildTarget: profile.BuildTarget.StableName,
+            UnityBuildTarget: profile.BuildTarget.UnityBuildTargetLiteral,
             SceneSource: ContractLiteralCodec.ToValue(profile.Scenes.Source),
             ScenePaths: profile.Scenes.Paths,
             Development: profile.Options.Development,
@@ -380,16 +422,16 @@ internal sealed class BuildService : IBuildService
                 $"Unity build response projectFingerprint mismatch. Requested={expectedProjectFingerprint}, Actual={response.ProjectFingerprint}.");
         }
 
-        if (!string.Equals(response.Input.TargetStableName, expectedProfile.Target.StableName, StringComparison.Ordinal))
+        if (!string.Equals(response.Input.BuildTarget, expectedProfile.BuildTarget.StableName, StringComparison.Ordinal))
         {
             return ApplicationFailure.InternalError(
-                $"Unity build response target mismatch. Requested={expectedProfile.Target.StableName}, Actual={response.Input.TargetStableName}.");
+                $"Unity build response buildTarget mismatch. Requested={expectedProfile.BuildTarget.StableName}, Actual={response.Input.BuildTarget}.");
         }
 
-        if (!string.Equals(response.Input.UnityBuildTarget, expectedProfile.Target.UnityBuildTargetLiteral, StringComparison.Ordinal))
+        if (!string.Equals(response.Input.UnityBuildTarget, expectedProfile.BuildTarget.UnityBuildTargetLiteral, StringComparison.Ordinal))
         {
             return ApplicationFailure.InternalError(
-                $"Unity build response Unity target mismatch. Requested={expectedProfile.Target.UnityBuildTargetLiteral}, Actual={response.Input.UnityBuildTarget}.");
+                $"Unity build response Unity BuildTarget mismatch. Requested={expectedProfile.BuildTarget.UnityBuildTargetLiteral}, Actual={response.Input.UnityBuildTarget}.");
         }
 
         var expectedSceneSource = ContractLiteralCodec.ToValue(expectedProfile.Scenes.Source);
@@ -447,10 +489,10 @@ internal sealed class BuildService : IBuildService
             return ApplicationFailure.InternalError("Unity build response resolved scenes do not match the requested explicit build scenes.");
         }
 
-        if (!string.Equals(response.Report.Target, response.Input.UnityBuildTarget, StringComparison.Ordinal))
+        if (!string.Equals(response.Report.UnityBuildTarget, response.Input.UnityBuildTarget, StringComparison.Ordinal))
         {
             return ApplicationFailure.InternalError(
-                $"Unity build report target mismatch. Input={response.Input.UnityBuildTarget}, Report={response.Report.Target}.");
+                $"Unity BuildReport BuildTarget mismatch. Input={response.Input.UnityBuildTarget}, Report={response.Report.UnityBuildTarget}.");
         }
 
         return null;
@@ -523,7 +565,7 @@ internal sealed class BuildService : IBuildService
         var build = new BuildOutput(
             RunId: runId,
             Profile: new BuildProfileOutput(profilePath, profile.Digest),
-            Target: profile.Target.StableName,
+            BuildTarget: profile.BuildTarget.StableName,
             Scenes: new BuildScenesOutput(
                 Source: response.Input.SceneSource,
                 Paths: response.Input.Scenes),
@@ -585,7 +627,7 @@ internal sealed class BuildService : IBuildService
             Project: SerializeMetadataElement(project),
             Profile: SerializeMetadataElement(output.Build.Profile),
             Input: SerializeMetadataElement(new BuildRunInputMetadata(
-                Target: output.Build.Target,
+                BuildTarget: output.Build.BuildTarget,
                 UnityBuildTarget: response.Input.UnityBuildTarget,
                 Scenes: output.Build.Scenes,
                 Options: output.Build.Options)),
@@ -663,10 +705,10 @@ internal sealed class BuildService : IBuildService
             CreateClaim(
                 BuildClaimCodes.UnityBuildInputsResolved,
                 BuildClaimStatus.Passed,
-                "Unity resolved BuildPipeline target and scenes.",
+                "Unity resolved BuildPipeline BuildTarget and scenes.",
                 new Dictionary<string, object?>(StringComparer.Ordinal)
                 {
-                    ["target"] = build.Target,
+                    ["buildTarget"] = build.BuildTarget,
                     ["sceneCount"] = build.Scenes.Paths.Count,
                 },
                 [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(BuildEvidenceKind.BuildInput), EvidenceRef: BuildReportRefs.Build, Data: response.Input)]),

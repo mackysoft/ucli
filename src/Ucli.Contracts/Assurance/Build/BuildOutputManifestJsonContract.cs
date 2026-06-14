@@ -3,7 +3,7 @@ namespace MackySoft.Ucli.Contracts.Assurance.Build;
 /// <summary> Represents the persisted <c>output-manifest.json</c> contract. </summary>
 /// <param name="SchemaVersion"> The output-manifest schema version. </param>
 /// <param name="OutputRoot"> The build output root path. </param>
-/// <param name="Target"> The resolved build target stable name. </param>
+/// <param name="BuildTarget"> The resolved canonical buildTarget literal. </param>
 /// <param name="FileCount"> The number of regular files included in the manifest. </param>
 /// <param name="TotalBytes"> The total byte count for manifest files. </param>
 /// <param name="Files"> The manifest file entries in canonical order. </param>
@@ -11,7 +11,7 @@ namespace MackySoft.Ucli.Contracts.Assurance.Build;
 internal sealed record BuildOutputManifestJsonContract (
     int SchemaVersion,
     string OutputRoot,
-    string Target,
+    string BuildTarget,
     int FileCount,
     long TotalBytes,
     IReadOnlyList<BuildOutputManifestFileJsonContract> Files,
@@ -27,7 +27,7 @@ internal sealed record BuildOutputManifestJsonContract (
         return new BuildOutputManifestContentJsonContract(
             SchemaVersion,
             OutputRoot,
-            Target,
+            BuildTarget,
             FileCount,
             TotalBytes,
             Files);

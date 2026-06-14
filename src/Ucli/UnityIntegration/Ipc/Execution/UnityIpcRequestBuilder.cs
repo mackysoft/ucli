@@ -40,7 +40,7 @@ internal sealed class UnityIpcRequestBuilder
                 IpcMethodNames.BuildRun,
                 IpcPayloadCodec.SerializeToElement(new IpcBuildRunRequest(
                     RunId: buildRun.RunId,
-                    TargetStableName: buildRun.TargetStableName,
+                    BuildTarget: buildRun.BuildTarget,
                     UnityBuildTarget: buildRun.UnityBuildTarget,
                     SceneSource: buildRun.SceneSource,
                     ScenePaths: buildRun.ScenePaths,

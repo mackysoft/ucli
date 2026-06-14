@@ -85,7 +85,7 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(request.Paths);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.ReportedOutputPath);
-        ArgumentException.ThrowIfNullOrWhiteSpace(request.TargetStableName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.BuildTarget);
         cancellationToken.ThrowIfCancellationRequested();
 
         try
@@ -125,7 +125,7 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         {
             outputManifestArtifacts = await CreateOutputManifestArtifactsAsync(
                     request.Paths,
-                    request.TargetStableName,
+                    request.BuildTarget,
                     cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -391,7 +391,7 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
 
     private async ValueTask<OutputManifestArtifacts> CreateOutputManifestArtifactsAsync (
         BuildRunArtifactPaths paths,
-        string targetStableName,
+        string buildTarget,
         CancellationToken cancellationToken)
     {
         var outputRoot = NormalizeRepositoryRelativePath(paths.RepositoryRoot, paths.OutputDirectory);
@@ -420,7 +420,7 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         var content = new BuildOutputManifestContentJsonContract(
             BuildOutputManifestJsonContract.CurrentSchemaVersion,
             outputRoot,
-            targetStableName,
+            buildTarget,
             files.Count,
             totalBytes,
             files);
@@ -428,7 +428,7 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         var contract = new BuildOutputManifestJsonContract(
             content.SchemaVersion,
             content.OutputRoot,
-            content.Target,
+            content.BuildTarget,
             content.FileCount,
             content.TotalBytes,
             content.Files,

@@ -32,7 +32,7 @@ public sealed class BuildServiceTests
     private const string ProfileJson = """
         {
           "schemaVersion": 1,
-          "target": "standaloneLinux64",
+          "buildTarget": "standaloneLinux64",
           "scenes": {
             "source": "explicit",
             "paths": [
@@ -70,7 +70,10 @@ public sealed class BuildServiceTests
 
         var result = await service.ExecuteAsync(CreateInput(), progressSink);
 
-        Assert.True(result.IsSuccess);
+        if (!result.IsSuccess)
+        {
+            Assert.Fail(string.Join(Environment.NewLine, result.Errors.Select(static error => $"{error.Code}: {error.Message}")));
+        }
         var output = result.Output!;
         Assert.Equal(ContractLiteralCodec.ToValue(BuildVerdict.Pass), output.Verdict);
         Assert.Equal(RunId, output.Build.RunId);
@@ -127,7 +130,7 @@ public sealed class BuildServiceTests
         Assert.Equal("oneshot", startedEntry.ResolvedMode);
         Assert.Equal("transientProbe", startedEntry.SessionKind);
         Assert.Equal(10000, startedEntry.TimeoutMilliseconds);
-        Assert.Equal("standaloneLinux64", startedEntry.Target);
+        Assert.Equal("standaloneLinux64", startedEntry.BuildTarget);
         Assert.Equal(artifactStore.PreparedPaths.OutputDirectory, startedEntry.OutputPath);
         var completedEntry = Assert.IsType<BuildRunCompletedEntry>(progressSink.Entries[1].Payload);
         Assert.Equal(RunId, completedEntry.RunId);
@@ -148,7 +151,7 @@ public sealed class BuildServiceTests
 
         var requestPayload = Assert.IsType<UnityRequestPayload.BuildRun>(requestExecutor.CapturedPayload);
         Assert.Equal(RunId, requestPayload.RunId);
-        Assert.Equal("standaloneLinux64", requestPayload.TargetStableName);
+        Assert.Equal("standaloneLinux64", requestPayload.BuildTarget);
         Assert.Equal("StandaloneLinux64", requestPayload.UnityBuildTarget);
         Assert.Equal("explicit", requestPayload.SceneSource);
         Assert.Equal(["Assets/Scenes/Main.unity"], requestPayload.ScenePaths);
@@ -173,7 +176,7 @@ public sealed class BuildServiceTests
 
         var result = await service.ExecuteAsync(CreateInput());
 
-        Assert.True(result.IsSuccess);
+        Assert.True(result.IsSuccess, string.Join(Environment.NewLine, result.Errors.Select(static error => $"{error.Code}: {error.Message}")));
     }
 
     [Fact]
@@ -184,7 +187,7 @@ public sealed class BuildServiceTests
         const string profileJson = """
             {
               "schemaVersion": 1,
-              "target": "standaloneLinux64",
+              "buildTarget": "standaloneLinux64",
               "scenes": {
                 "source": "editorBuildSettings"
               },
@@ -210,7 +213,7 @@ public sealed class BuildServiceTests
 
         var result = await service.ExecuteAsync(CreateInput());
 
-        Assert.True(result.IsSuccess);
+        Assert.True(result.IsSuccess, string.Join(Environment.NewLine, result.Errors.Select(static error => $"{error.Code}: {error.Message}")));
         Assert.Equal("editorBuildSettings", result.Output!.Build.Scenes.Source);
         Assert.Equal(["Assets/Scenes/FromSettings.unity"], result.Output.Build.Scenes.Paths);
         var metadataScenePaths = artifactStore.WrittenMetadata!.Input
@@ -223,6 +226,70 @@ public sealed class BuildServiceTests
         var payload = Assert.IsType<UnityRequestPayload.BuildRun>(requestExecutor.CapturedPayload);
         Assert.Equal("editorBuildSettings", payload.SceneSource);
         Assert.Empty(payload.ScenePaths);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithBuildTargetOverride_UsesCommandBuildTarget ()
+    {
+        using var tempDirectory = TemporaryDirectory.Create();
+        var artifactStore = new StubBuildRunArtifactStore(tempDirectory.Path);
+        var requestExecutor = CreateBuildResponseExecutor(
+            ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+            ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+            errorCount: 0,
+            buildTarget: "standaloneOSX",
+            unityBuildTarget: "StandaloneOSX");
+        var progressSink = new CollectingProgressSink();
+        var service = CreateService(
+            requestExecutor: requestExecutor,
+            artifactStore: artifactStore);
+
+        var result = await service.ExecuteAsync(CreateInput(buildTarget: "standaloneOSX"), progressSink);
+
+        if (!result.IsSuccess)
+        {
+            Assert.Fail(string.Join(Environment.NewLine, result.Errors.Select(static error => $"{error.Code}: {error.Message}")));
+        }
+        var output = result.Output!;
+        Assert.Equal("standaloneOSX", output.Build.BuildTarget);
+        Assert.Equal("standaloneOSX", artifactStore.AccountingRequest!.BuildTarget);
+        var startedEntry = Assert.IsType<BuildRunStartedEntry>(progressSink.Entries[0].Payload);
+        Assert.Equal("standaloneOSX", startedEntry.BuildTarget);
+        var requestPayload = Assert.IsType<UnityRequestPayload.BuildRun>(requestExecutor.CapturedPayload);
+        Assert.Equal("standaloneOSX", requestPayload.BuildTarget);
+        Assert.Equal("StandaloneOSX", requestPayload.UnityBuildTarget);
+
+        var profile = BuildProfileResolver.ResolveJson(ProfileJson).Profile!;
+        Assert.True(BuildTargetStableNameCodec.TryResolve("standaloneOSX", out var buildTarget));
+        var expectedDigest = BuildProfileDigestCalculator.Calculate(
+            profile.SchemaVersion,
+            buildTarget,
+            profile.Scenes,
+            profile.Output,
+            profile.Options);
+        Assert.Equal(expectedDigest, output.Build.Profile.Digest);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithUnsupportedBuildTargetOverride_ReturnsBuildTargetUnsupported ()
+    {
+        using var tempDirectory = TemporaryDirectory.Create();
+        var requestExecutor = CreateBuildResponseExecutor(
+            ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+            ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+            errorCount: 0);
+        var service = CreateService(
+            requestExecutor: requestExecutor,
+            artifactStore: new StubBuildRunArtifactStore(tempDirectory.Path));
+
+        var result = await service.ExecuteAsync(CreateInput(buildTarget: "unsupportedTarget"));
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(BuildErrorCodes.BuildTargetUnsupported, error.Code);
+        Assert.Null(requestExecutor.CapturedPayload);
     }
 
     [Fact]
@@ -429,7 +496,7 @@ public sealed class BuildServiceTests
     [InlineData("standaloneLinux64", "StandaloneOSX", "Development")]
     [InlineData("standaloneLinux64", "StandaloneLinux64", "None")]
     public async Task Execute_WithMismatchedResolvedInputResponse_ReturnsCommandFailure (
-        string targetStableName,
+        string buildTarget,
         string unityBuildTarget,
         string buildOptions)
     {
@@ -439,7 +506,7 @@ public sealed class BuildServiceTests
                 ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
                 ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
                 errorCount: 0,
-                targetStableName: targetStableName,
+                buildTarget: buildTarget,
                 unityBuildTarget: unityBuildTarget,
                 buildOptions: buildOptions),
             artifactStore: new StubBuildRunArtifactStore(tempDirectory.Path));
@@ -548,11 +615,13 @@ public sealed class BuildServiceTests
     }
 
     private static BuildCommandInput CreateInput (
-        int timeoutMilliseconds = 10000)
+        int timeoutMilliseconds = 10000,
+        string? buildTarget = null)
     {
         return new BuildCommandInput(
             ProfilePath: null,
             ProjectPath: null,
+            BuildTarget: buildTarget,
             Mode: UnityExecutionMode.Auto,
             TimeoutMilliseconds: timeoutMilliseconds);
     }
@@ -578,7 +647,7 @@ public sealed class BuildServiceTests
         int errorCount,
         string? sceneSource = null,
         IReadOnlyList<string>? scenes = null,
-        string? targetStableName = null,
+        string? buildTarget = null,
         string? unityBuildTarget = null,
         string? buildOptions = null,
         IpcBuildLifecycleSnapshot? lifecycleBefore = null,
@@ -594,7 +663,7 @@ public sealed class BuildServiceTests
                 errorCount,
                 sceneSource,
                 scenes,
-                targetStableName,
+                buildTarget,
                 unityBuildTarget,
                 buildOptions,
                 lifecycleBefore,
@@ -609,7 +678,7 @@ public sealed class BuildServiceTests
         int errorCount,
         string? sceneSource = null,
         IReadOnlyList<string>? scenes = null,
-        string? targetStableName = null,
+        string? buildTarget = null,
         string? unityBuildTarget = null,
         string? buildOptions = null,
         IpcBuildLifecycleSnapshot? lifecycleBefore = null,
@@ -623,11 +692,11 @@ public sealed class BuildServiceTests
                 LifecycleBefore: lifecycleBefore ?? CreateLifecycleSnapshot("before", canAcceptExecutionRequests: true),
                 LifecycleAfter: lifecycleAfter ?? CreateLifecycleSnapshot("after", canAcceptExecutionRequests: true),
                 DirtyState: new IpcBuildDirtyState(Checked: true, Dirty: false, Items: []),
-                Input: CreateInputProbe(sceneSource, scenes, targetStableName, unityBuildTarget, buildOptions),
+                Input: CreateInputProbe(sceneSource, scenes, buildTarget, unityBuildTarget, buildOptions),
                 Report: new IpcBuildReportArtifact(
                     SchemaVersion: 1,
                     Result: reportResult,
-                    Target: "StandaloneLinux64",
+                    UnityBuildTarget: unityBuildTarget ?? "StandaloneLinux64",
                     OutputPath: reportOutputPath ?? "/workspace/.ucli/output/build",
                     DurationMilliseconds: 2500,
                     TotalSizeBytes: 4096,
@@ -690,12 +759,12 @@ public sealed class BuildServiceTests
     private static IpcBuildInputProbe CreateInputProbe (
         string? sceneSource = null,
         IReadOnlyList<string>? scenes = null,
-        string? targetStableName = null,
+        string? buildTarget = null,
         string? unityBuildTarget = null,
         string? buildOptions = null)
     {
         return new IpcBuildInputProbe(
-            TargetStableName: targetStableName ?? "standaloneLinux64",
+            BuildTarget: buildTarget ?? "standaloneLinux64",
             UnityBuildTarget: unityBuildTarget ?? "StandaloneLinux64",
             UnityBuildTargetGroup: "Standalone",
             SceneSource: sceneSource ?? ContractLiteralCodec.ToValue(BuildProfileSceneSource.Explicit),
@@ -889,6 +958,8 @@ public sealed class BuildServiceTests
 
         public BuildRunMetadataDocument? WrittenMetadata { get; private set; }
 
+        public BuildRunArtifactAccountingRequest? AccountingRequest { get; private set; }
+
         public BuildRunArtifactPreparationResult Prepare (
             ResolvedUnityProjectContext unityProject,
             string runId)
@@ -913,6 +984,7 @@ public sealed class BuildServiceTests
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            AccountingRequest = request;
             if (accountArtifactsOverride != null)
             {
                 return accountArtifactsOverride(request, cancellationToken);

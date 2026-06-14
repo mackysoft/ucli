@@ -16,7 +16,7 @@ public sealed class BuildProfileResolverTests
             """
             {
               "schemaVersion": 1,
-              "target": "standaloneLinux64",
+              "buildTarget": "standaloneLinux64",
               "scenes": {
                 "source": "explicit",
                 "paths": [
@@ -36,9 +36,9 @@ public sealed class BuildProfileResolverTests
         Assert.True(result.IsSuccess);
         var profile = result.Profile!;
         Assert.Equal(1, profile.SchemaVersion);
-        Assert.Equal(BuildTargetStableName.StandaloneLinux64, profile.Target.StableNameValue);
-        Assert.Equal("standaloneLinux64", profile.Target.StableName);
-        Assert.Equal("StandaloneLinux64", profile.Target.UnityBuildTargetLiteral);
+        Assert.Equal(BuildTargetStableName.StandaloneLinux64, profile.BuildTarget.StableNameValue);
+        Assert.Equal("standaloneLinux64", profile.BuildTarget.StableName);
+        Assert.Equal("StandaloneLinux64", profile.BuildTarget.UnityBuildTargetLiteral);
         Assert.Equal(BuildProfileSceneSource.Explicit, profile.Scenes.Source);
         Assert.Equal("explicit", ContractLiteralCodec.ToValue(profile.Scenes.Source));
         Assert.Equal(
@@ -62,7 +62,7 @@ public sealed class BuildProfileResolverTests
             """
             {
               "schemaVersion": 1,
-              "target": "standaloneLinux64",
+              "buildTarget": "standaloneLinux64",
               "scenes": {
                 "source": "editorBuildSettings"
               },
@@ -97,13 +97,13 @@ public sealed class BuildProfileResolverTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void ResolveJson_WithUnsupportedTarget_ReturnsBuildTargetUnsupported ()
+    public void ResolveJson_WithUnsupportedBuildTarget_ReturnsBuildTargetUnsupported ()
     {
         var result = BuildProfileResolver.ResolveJson(
             """
             {
               "schemaVersion": 1,
-              "target": "StandaloneWindows64",
+              "buildTarget": "StandaloneWindows64",
               "scenes": {
                 "source": "editorBuildSettings"
               },
@@ -125,7 +125,7 @@ public sealed class BuildProfileResolverTests
     [Trait("Size", "Small")]
     public void ResolveJson_ComputesStableCanonicalDigest ()
     {
-        const string CompactJson = "{\"schemaVersion\":1,\"target\":\"standaloneLinux64\",\"scenes\":{\"source\":\"explicit\",\"paths\":[\"Assets/Scenes/Main.unity\"]},\"output\":{\"kind\":\"ucliArtifact\"},\"options\":{\"development\":false}}";
+        const string CompactJson = "{\"schemaVersion\":1,\"buildTarget\":\"standaloneLinux64\",\"scenes\":{\"source\":\"explicit\",\"paths\":[\"Assets/Scenes/Main.unity\"]},\"output\":{\"kind\":\"ucliArtifact\"},\"options\":{\"development\":false}}";
         const string ReorderedJson = """
             {
               "options": {
@@ -140,7 +140,7 @@ public sealed class BuildProfileResolverTests
                 ],
                 "source": "explicit"
               },
-              "target": "standaloneLinux64",
+              "buildTarget": "standaloneLinux64",
               "schemaVersion": 1
             }
             """;
@@ -162,35 +162,35 @@ public sealed class BuildProfileResolverTests
             """not-json""",
             """ """,
             """[]""",
-            """{"target":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
-            """{"schemaVersion":2,"target":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
-            """{"schemaVersion":1,"target":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"output":{"kind":"ucliArtifact"},"options":{"development":false},"legacy":true}""",
-            """{"schemaVersion":1,"schemaVersion":1,"target":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
-            """{"schemaVersion":1,"target":"","scenes":{"source":"editorBuildSettings"},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
-            """{"schemaVersion":1,"target":"standaloneLinux64","scenes":[],"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
-            """{"schemaVersion":1,"target":"standaloneLinux64","scenes":{"source":"editorBuildSettings","legacy":true},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
-            """{"schemaVersion":1,"target":"standaloneLinux64","scenes":{"source":"editorBuildSettings","source":"editorBuildSettings"},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
-            """{"schemaVersion":1,"target":"standaloneLinux64","scenes":{"source":"unknown"},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
-            """{"schemaVersion":1,"target":"standaloneLinux64","scenes":{"source":"editorBuildSettings","paths":["Assets/Scenes/Main.unity"]},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
-            """{"schemaVersion":1,"target":"standaloneLinux64","scenes":{"source":"explicit"},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
-            """{"schemaVersion":1,"target":"standaloneLinux64","scenes":{"source":"explicit","paths":"Assets/Scenes/Main.unity"},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
-            """{"schemaVersion":1,"target":"standaloneLinux64","scenes":{"source":"explicit","paths":[]},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
-            """{"schemaVersion":1,"target":"standaloneLinux64","scenes":{"source":"explicit","paths":[" "]},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
-            """{"schemaVersion":1,"target":"standaloneLinux64","scenes":{"source":"explicit","paths":["/Assets/Scenes/Main.unity"]},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
-            """{"schemaVersion":1,"target":"standaloneLinux64","scenes":{"source":"explicit","paths":["C:/Project/Assets/Scenes/Main.unity"]},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
-            """{"schemaVersion":1,"target":"standaloneLinux64","scenes":{"source":"explicit","paths":["Assets/Scenes/../Main.unity"]},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
-            """{"schemaVersion":1,"target":"standaloneLinux64","scenes":{"source":"explicit","paths":["Assets\\Scenes\\Main.unity"]},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
-            """{"schemaVersion":1,"target":"standaloneLinux64","scenes":{"source":"explicit","paths":["Assets/Scenes/Main.scene"]},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
-            """{"schemaVersion":1,"target":"standaloneLinux64","scenes":{"source":"explicit","paths":[" Assets/Scenes/Main.unity"]},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
-            """{"schemaVersion":1,"target":"standaloneLinux64","scenes":{"source":"explicit","paths":[1]},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
-            """{"schemaVersion":1,"target":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"output":[],"options":{"development":false}}""",
-            """{"schemaVersion":1,"target":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"output":{"kind":"ucliArtifact","legacy":true},"options":{"development":false}}""",
-            """{"schemaVersion":1,"target":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"output":{"kind":"ucliArtifact","kind":"ucliArtifact"},"options":{"development":false}}""",
-            """{"schemaVersion":1,"target":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"output":{"kind":"fileSystem"},"options":{"development":false}}""",
-            """{"schemaVersion":1,"target":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"output":{"kind":"ucliArtifact"},"options":[]}""",
-            """{"schemaVersion":1,"target":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"output":{"kind":"ucliArtifact"},"options":{"development":false,"legacy":true}}""",
-            """{"schemaVersion":1,"target":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"output":{"kind":"ucliArtifact"},"options":{"development":false,"development":false}}""",
-            """{"schemaVersion":1,"target":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"output":{"kind":"ucliArtifact"},"options":{"development":"false"}}""",
+            """{"buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
+            """{"schemaVersion":2,"buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
+            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"output":{"kind":"ucliArtifact"},"options":{"development":false},"legacy":true}""",
+            """{"schemaVersion":1,"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
+            """{"schemaVersion":1,"buildTarget":"","scenes":{"source":"editorBuildSettings"},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
+            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":[],"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
+            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings","legacy":true},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
+            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings","source":"editorBuildSettings"},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
+            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"unknown"},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
+            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings","paths":["Assets/Scenes/Main.unity"]},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
+            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"explicit"},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
+            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"explicit","paths":"Assets/Scenes/Main.unity"},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
+            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"explicit","paths":[]},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
+            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"explicit","paths":[" "]},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
+            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"explicit","paths":["/Assets/Scenes/Main.unity"]},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
+            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"explicit","paths":["C:/Project/Assets/Scenes/Main.unity"]},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
+            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"explicit","paths":["Assets/Scenes/../Main.unity"]},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
+            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"explicit","paths":["Assets\\Scenes\\Main.unity"]},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
+            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"explicit","paths":["Assets/Scenes/Main.scene"]},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
+            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"explicit","paths":[" Assets/Scenes/Main.unity"]},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
+            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"explicit","paths":[1]},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
+            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"output":[],"options":{"development":false}}""",
+            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"output":{"kind":"ucliArtifact","legacy":true},"options":{"development":false}}""",
+            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"output":{"kind":"ucliArtifact","kind":"ucliArtifact"},"options":{"development":false}}""",
+            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"output":{"kind":"fileSystem"},"options":{"development":false}}""",
+            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"output":{"kind":"ucliArtifact"},"options":[]}""",
+            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"output":{"kind":"ucliArtifact"},"options":{"development":false,"legacy":true}}""",
+            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"output":{"kind":"ucliArtifact"},"options":{"development":false,"development":false}}""",
+            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"output":{"kind":"ucliArtifact"},"options":{"development":"false"}}""",
         ];
     }
 

@@ -22,7 +22,7 @@ namespace MackySoft.Ucli.Unity.Build
             var summary = report.summary;
             return Normalize(new BuildReportSnapshot(
                 Result: ToIpcResult(summary.result),
-                Target: summary.platform.ToString(),
+                UnityBuildTarget: summary.platform.ToString(),
                 OutputPath: summary.outputPath ?? string.Empty,
                 Duration: summary.totalTime,
                 TotalSizeBytes: checked((long)summary.totalSize),
@@ -43,7 +43,7 @@ namespace MackySoft.Ucli.Unity.Build
             return new IpcBuildReportArtifact(
                 SchemaVersion: BuildReportSchemaVersion,
                 Result: ContractLiteralCodec.ToValue(snapshot.Result),
-                Target: snapshot.Target ?? string.Empty,
+                UnityBuildTarget: snapshot.UnityBuildTarget ?? string.Empty,
                 OutputPath: snapshot.OutputPath ?? string.Empty,
                 DurationMilliseconds: ToMilliseconds(snapshot.Duration),
                 TotalSizeBytes: snapshot.TotalSizeBytes,
@@ -165,7 +165,7 @@ namespace MackySoft.Ucli.Unity.Build
 
         internal sealed record BuildReportSnapshot (
             IpcBuildReportResult Result,
-            string Target,
+            string UnityBuildTarget,
             string OutputPath,
             TimeSpan Duration,
             long TotalSizeBytes,

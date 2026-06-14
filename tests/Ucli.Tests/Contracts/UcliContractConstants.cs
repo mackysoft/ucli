@@ -16,6 +16,8 @@ internal static class UcliContractConstants
 
         public const string Timeout = "--timeout";
 
+        public const string BuildTarget = "--buildTarget";
+
         public const string Mode = "--mode";
 
         public const string TestPlatform = "--testPlatform";

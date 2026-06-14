@@ -1123,6 +1123,7 @@ public sealed class AssuranceSemanticInvariantValidatorTests
             verdict,
             build = new
             {
+                buildTarget = "standaloneLinux64",
                 profile,
                 output = new
                 {

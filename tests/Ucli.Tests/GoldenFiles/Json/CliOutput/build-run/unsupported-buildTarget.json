@@ -2,8 +2,8 @@
   "protocolVersion": 1,
   "command": "build.run",
   "status": "error",
-  "exitCode": 4,
-  "message": "Build target module is missing: standaloneLinux64.",
+  "exitCode": 3,
+  "message": "buildTarget is unsupported: webgl.",
   "payload": {
     "project": {
       "projectPath": "/workspace/UnityProject",
@@ -13,8 +13,8 @@
   },
   "errors": [
     {
-      "code": "BUILD_TARGET_MODULE_MISSING",
-      "message": "Build target module is missing: standaloneLinux64.",
+      "code": "BUILD_TARGET_UNSUPPORTED",
+      "message": "buildTarget is unsupported: webgl.",
       "opId": null
     }
   ]

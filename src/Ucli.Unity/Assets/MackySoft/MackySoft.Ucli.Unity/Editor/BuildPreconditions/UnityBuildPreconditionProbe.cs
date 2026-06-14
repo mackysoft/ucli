@@ -93,7 +93,7 @@ namespace MackySoft.Ucli.Unity.Build
                     CreateInputProbe(input, targetSupport, Array.Empty<string>(), BuildOptions.None),
                     new IpcError(
                         BuildErrorCodes.BuildTargetModuleMissing,
-                        $"Unity build target module is not installed or not supported: {targetSupport.Target}.",
+                        $"Unity buildTarget module is not installed or not supported: {targetSupport.UnityBuildTarget}.",
                         null));
             }
 
@@ -130,8 +130,8 @@ namespace MackySoft.Ucli.Unity.Build
                 dirtyState,
                 resolvedInputProbe,
                 new UnityBuildResolvedInput(
-                    targetSupport.Target,
-                    targetSupport.TargetGroup,
+                    targetSupport.UnityBuildTarget,
+                    targetSupport.UnityBuildTargetGroup,
                     scenePaths,
                     buildOptions));
         }
@@ -342,9 +342,9 @@ namespace MackySoft.Ucli.Unity.Build
             BuildOptions buildOptions)
         {
             return new IpcBuildInputProbe(
-                TargetStableName: input.TargetStableName,
-                UnityBuildTarget: targetSupport.Target.ToString(),
-                UnityBuildTargetGroup: targetSupport.TargetGroup.ToString(),
+                BuildTarget: input.BuildTarget,
+                UnityBuildTarget: targetSupport.UnityBuildTarget.ToString(),
+                UnityBuildTargetGroup: targetSupport.UnityBuildTargetGroup.ToString(),
                 SceneSource: input.SceneSource,
                 Scenes: scenePaths,
                 BuildOptions: buildOptions.ToString());

@@ -52,7 +52,7 @@ internal static class BuildRunTestData
             ResolvedMode: "daemon",
             SessionKind: "daemon",
             TimeoutMilliseconds: 120000,
-            Target: "standaloneLinux64",
+            BuildTarget: "standaloneLinux64",
             OutputPath: "/workspace/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/output");
     }
 
@@ -87,7 +87,7 @@ internal static class BuildRunTestData
         return new BuildOutput(
             RunId: RunId,
             Profile: new BuildProfileOutput("/workspace/.ucli/build/player.json", Repeat('a')),
-            Target: "standaloneLinux64",
+            BuildTarget: "standaloneLinux64",
             Scenes: new BuildScenesOutput("explicit", ["Assets/Scenes/Main.unity"]),
             Options: new BuildOptionsOutput(Development: true),
             Output: new BuildArtifactOutput(

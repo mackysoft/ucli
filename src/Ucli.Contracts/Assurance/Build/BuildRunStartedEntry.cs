@@ -8,5 +8,5 @@ public sealed record BuildRunStartedEntry (
     string ResolvedMode,
     string SessionKind,
     int TimeoutMilliseconds,
-    string Target,
+    string BuildTarget,
     string OutputPath);

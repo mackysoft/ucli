@@ -17,7 +17,7 @@
         "path": "/workspace/.ucli/build/player.json",
         "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
       },
-      "target": "standaloneLinux64",
+      "buildTarget": "standaloneLinux64",
       "scenes": {
         "source": "explicit",
         "paths": [

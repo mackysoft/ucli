@@ -24,8 +24,9 @@ internal sealed class BuildRunCommand
     }
 
     /// <summary> Runs Unity BuildPipeline from a build profile and emits final JSON with build artifacts: build.json, build-report.json, build.log, output-manifest.json, output/. </summary>
-    /// <param name="profilePath"> --profilePath, path to the build profile JSON that defines target, scenes, options, and output policy. </param>
+    /// <param name="profilePath"> --profilePath, path to the build profile JSON that defines the default buildTarget, scenes, options, and output policy. </param>
     /// <param name="projectPath"> -p|--projectPath, optional target Unity project path. </param>
+    /// <param name="buildTarget"> --buildTarget, optional buildTarget stable name that overrides the profile buildTarget. </param>
     /// <param name="mode"> Unity execution mode (auto|daemon|oneshot). </param>
     /// <param name="timeout"> Timeout in milliseconds. </param>
     /// <param name="format"> Progress entry format (text|json) for entries written to standard error. </param>
@@ -35,6 +36,7 @@ internal sealed class BuildRunCommand
     public async Task<int> RunAsync (
         string? profilePath = null,
         string? projectPath = null,
+        string? buildTarget = null,
         string? mode = null,
         string? timeout = null,
         string? format = null,
@@ -76,6 +78,7 @@ internal sealed class BuildRunCommand
                 new BuildCommandInput(
                     ProfilePath: profilePath,
                     ProjectPath: projectPath,
+                    BuildTarget: buildTarget,
                     Mode: modeResult.Mode,
                     TimeoutMilliseconds: timeoutResult.TimeoutMilliseconds),
                 progressSink,

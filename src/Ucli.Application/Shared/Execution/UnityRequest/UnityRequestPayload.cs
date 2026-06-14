@@ -22,7 +22,7 @@ internal abstract record UnityRequestPayload
     /// <summary> Represents a build assurance request prepared by application orchestration. </summary>
     internal sealed record BuildRun (
         string RunId,
-        string TargetStableName,
+        string BuildTarget,
         string UnityBuildTarget,
         string SceneSource,
         IReadOnlyList<string> ScenePaths,

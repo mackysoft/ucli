@@ -11,7 +11,7 @@
     "digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
   },
   "input": {
-    "target": "standaloneLinux64",
+    "buildTarget": "standaloneLinux64",
     "unityBuildTarget": "StandaloneLinux64",
     "scenes": {
       "source": "explicit",
@@ -77,7 +77,7 @@
     "artifactRoot": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1",
     "outputRoot": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/output",
     "manifestRef": "buildOutputManifest",
-    "manifestDigest": "ea4ff87cdded978e946d73668e5626dd3fb06b2e65cba15e1d1ecbc78d5ae314",
+    "manifestDigest": "8deb35edf72becffdfe16011c3975ba597d30d506dc484c1d3ccd43224a3a444",
     "fileCount": 0,
     "totalBytes": 0
   },

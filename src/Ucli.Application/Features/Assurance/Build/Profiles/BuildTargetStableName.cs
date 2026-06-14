@@ -2,7 +2,7 @@ using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
 
-/// <summary> Defines uCLI build target stable-name literals. </summary>
+/// <summary> Defines uCLI buildTarget stable-name literals. </summary>
 internal enum BuildTargetStableName
 {
     /// <summary> macOS standalone player build target. </summary>

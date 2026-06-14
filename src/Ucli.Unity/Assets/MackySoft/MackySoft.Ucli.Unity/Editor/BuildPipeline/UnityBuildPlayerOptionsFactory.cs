@@ -28,18 +28,18 @@ namespace MackySoft.Ucli.Unity.Build
             return new BuildPlayerOptions
             {
                 scenes = resolvedInput.ScenePaths,
-                target = resolvedInput.Target,
-                targetGroup = resolvedInput.TargetGroup,
+                target = resolvedInput.UnityBuildTarget,
+                targetGroup = resolvedInput.UnityBuildTargetGroup,
                 options = resolvedInput.Options,
-                locationPathName = ResolveLocationPathName(request.OutputPath, resolvedInput.Target),
+                locationPathName = ResolveLocationPathName(request.OutputPath, resolvedInput.UnityBuildTarget),
             };
         }
 
         private static string ResolveLocationPathName (
             string outputDirectory,
-            BuildTarget target)
+            BuildTarget unityBuildTarget)
         {
-            return target switch
+            return unityBuildTarget switch
             {
                 BuildTarget.StandaloneOSX => Path.Combine(outputDirectory, "build.app"),
                 BuildTarget.StandaloneWindows => Path.Combine(outputDirectory, "build.exe"),

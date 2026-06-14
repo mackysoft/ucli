@@ -14,7 +14,7 @@ internal static class BuildProfileResolver
     private static readonly HashSet<string> AllowedRootProperties = new(StringComparer.Ordinal)
     {
         "schemaVersion",
-        "target",
+        "buildTarget",
         "scenes",
         "output",
         "options",
@@ -72,7 +72,7 @@ internal static class BuildProfileResolver
             return error!;
         }
 
-        if (!TryReadTarget(root, out var target, out error)
+        if (!TryReadBuildTarget(root, out var buildTarget, out error)
             || !TryReadScenes(root, out var scenes, out error)
             || !TryReadOutput(root, out var output, out error)
             || !TryReadOptions(root, out var options, out error))
@@ -82,13 +82,13 @@ internal static class BuildProfileResolver
 
         var digest = BuildProfileDigestCalculator.Calculate(
             schemaVersion,
-            target!,
+            buildTarget!,
             scenes!,
             output!,
             options!);
         return BuildProfileResolutionResult.Success(new ResolvedBuildProfile(
             SchemaVersion: schemaVersion,
-            Target: target!,
+            BuildTarget: buildTarget!,
             Scenes: scenes!,
             Output: output!,
             Options: options!,
@@ -123,15 +123,15 @@ internal static class BuildProfileResolver
         return true;
     }
 
-    private static bool TryReadTarget (
+    private static bool TryReadBuildTarget (
         JsonElement root,
-        out ResolvedBuildTarget? target,
+        out ResolvedBuildTarget? buildTarget,
         out BuildProfileResolutionResult? error)
     {
-        target = null;
+        buildTarget = null;
         if (!JsonObjectPropertyReader.TryReadRequiredString(
             root,
-            "target",
+            "buildTarget",
             CreateMissingRequiredPropertyError,
             CreateStringTypeMismatchError,
             noError: null,
@@ -144,19 +144,19 @@ internal static class BuildProfileResolver
 
         if (string.IsNullOrWhiteSpace(stableName))
         {
-            error = InvalidProfile("Build profile target must not be empty.");
+            error = InvalidProfile("Build profile buildTarget must not be empty.");
             return false;
         }
 
         if (!BuildTargetStableNameCodec.TryResolve(stableName, out var resolvedTarget))
         {
             error = BuildProfileResolutionResult.Failure(ExecutionError.InvalidArgument(
-                $"Build profile target is unsupported: {stableName}.",
+                $"Build profile buildTarget is unsupported: {stableName}.",
                 BuildErrorCodes.BuildTargetUnsupported));
             return false;
         }
 
-        target = resolvedTarget;
+        buildTarget = resolvedTarget;
         error = null;
         return true;
     }
