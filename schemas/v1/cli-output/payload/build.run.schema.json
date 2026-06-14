@@ -123,64 +123,13 @@
               "additionalProperties": false,
               "properties": {
                 "before": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "properties": {
-                    "compileGeneration": {
-                      "type": "string"
-                    },
-                    "domainReloadGeneration": {
-                      "type": "string"
-                    },
-                    "assetRefreshGeneration": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "compileGeneration",
-                    "domainReloadGeneration",
-                    "assetRefreshGeneration"
-                  ]
+                  "$ref": "#/$defs/generation"
                 },
                 "after": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "properties": {
-                    "compileGeneration": {
-                      "type": "string"
-                    },
-                    "domainReloadGeneration": {
-                      "type": "string"
-                    },
-                    "assetRefreshGeneration": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "compileGeneration",
-                    "domainReloadGeneration",
-                    "assetRefreshGeneration"
-                  ]
+                  "$ref": "#/$defs/generation"
                 },
                 "validFor": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "properties": {
-                    "compileGeneration": {
-                      "type": "string"
-                    },
-                    "domainReloadGeneration": {
-                      "type": "string"
-                    },
-                    "assetRefreshGeneration": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "compileGeneration",
-                    "domainReloadGeneration",
-                    "assetRefreshGeneration"
-                  ]
+                  "$ref": "#/$defs/generation"
                 }
               },
               "required": [
@@ -531,5 +480,27 @@
         }
       }
     }
-  ]
+  ],
+  "$defs": {
+    "generation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "compileGeneration": {
+          "type": "string"
+        },
+        "domainReloadGeneration": {
+          "type": "string"
+        },
+        "assetRefreshGeneration": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "compileGeneration",
+        "domainReloadGeneration",
+        "assetRefreshGeneration"
+      ]
+    }
+  }
 }

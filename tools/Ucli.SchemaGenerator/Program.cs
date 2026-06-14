@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -619,9 +620,16 @@ internal static class Program
 
     private static Dictionary<string, object?> CreateBuildRunPayloadSchema ()
     {
-        return OneOfSchema(
+        var schema = OneOfSchema(
             CreateBuildRunSuccessPayloadSchema(),
             CreateBuildRunFailurePayloadSchema());
+
+        schema["$defs"] = new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["generation"] = CreateBuildRunGenerationSnapshotSchema(),
+        };
+
+        return schema;
     }
 
     private static Dictionary<string, object?> CreateBuildRunSuccessPayloadSchema ()
@@ -661,7 +669,11 @@ internal static class Program
             Required("target", StringSchema()),
             Required("scenes", ObjectSchema(
                 additionalProperties: false,
-                Required("source", EnumSchema("editorBuildSettings", "explicit")),
+                Required(
+                    "source",
+                    EnumSchema(
+                        Literal(BuildProfileSceneSource.EditorBuildSettings),
+                        Literal(BuildProfileSceneSource.Explicit))),
                 Required("paths", ArraySchema(StringSchema())))),
             Required("options", ObjectSchema(
                 additionalProperties: false,
@@ -675,10 +687,20 @@ internal static class Program
                 Required("manifestDigest", Sha256LowerHexSchema()),
                 Required("fileCount", IntegerSchema()),
                 Required("totalBytes", IntegerSchema()))),
-            Required("generations", CreateBuildRunGenerationsSchema()),
+            Required("generations", ObjectSchema(
+                additionalProperties: false,
+                Required("before", ReferenceSchema("#/$defs/generation")),
+                Required("after", ReferenceSchema("#/$defs/generation")),
+                Required("validFor", ReferenceSchema("#/$defs/generation")))),
             Required("summary", ObjectSchema(
                 additionalProperties: false,
-                Required("result", EnumSchema("succeeded", "failed", "canceled", "unknown")),
+                Required(
+                    "result",
+                    EnumSchema(
+                        Literal(IpcBuildReportResult.Succeeded),
+                        Literal(IpcBuildReportResult.Failed),
+                        Literal(IpcBuildReportResult.Canceled),
+                        Literal(IpcBuildReportResult.Unknown))),
                 Required("durationMilliseconds", IntegerSchema()),
                 Required("errorCount", IntegerSchema()),
                 Required("warningCount", IntegerSchema()),
@@ -689,29 +711,16 @@ internal static class Program
                 Required("entryCount", IntegerSchema()),
                 Required("errorCount", IntegerSchema()),
                 Required("warningCount", IntegerSchema()),
-                Required("completionReason", EnumSchema("completed", "failed", "canceled")),
+                Required(
+                    "completionReason",
+                    EnumSchema(
+                        Literal(IpcBuildLogCompletionReason.Completed),
+                        Literal(IpcBuildLogCompletionReason.Failed),
+                        Literal(IpcBuildLogCompletionReason.Canceled))),
                 Required("window", ObjectSchema(
                     additionalProperties: false,
                     Required("startedAtUtc", StringSchema()),
                     Required("completedAtUtc", StringSchema()))))));
-    }
-
-    private static Dictionary<string, object?> CreateBuildRunGenerationsSchema ()
-    {
-        return ObjectSchema(
-            additionalProperties: false,
-            Required("before", CreateBuildRunGenerationSnapshotSchema()),
-            Required("after", CreateBuildRunGenerationSnapshotSchema()),
-            Required("validFor", CreateBuildRunGenerationSnapshotSchema()));
-    }
-
-    private static Dictionary<string, object?> CreateBuildRunGenerationSnapshotSchema ()
-    {
-        return ObjectSchema(
-            additionalProperties: false,
-            Required("compileGeneration", StringSchema()),
-            Required("domainReloadGeneration", StringSchema()),
-            Required("assetRefreshGeneration", StringSchema()));
     }
 
     private static Dictionary<string, object?> CreateBuildRunClaimSchema ()
@@ -746,6 +755,15 @@ internal static class Program
             Required("kind", ConstString(kind)),
             Required("path", StringSchema()),
             Required("digest", Sha256LowerHexSchema()));
+    }
+
+    private static Dictionary<string, object?> CreateBuildRunGenerationSnapshotSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("compileGeneration", StringSchema()),
+            Required("domainReloadGeneration", StringSchema()),
+            Required("assetRefreshGeneration", StringSchema()));
     }
 
     private static Dictionary<string, object?> CreateBuildRunDirtyStateSchema ()
