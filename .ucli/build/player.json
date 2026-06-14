@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "buildTarget": "standaloneLinux64",
+  "scenes": {
+    "source": "editorBuildSettings"
+  },
+  "output": {
+    "kind": "ucliArtifact"
+  },
+  "options": {
+    "development": false
+  }
+}
