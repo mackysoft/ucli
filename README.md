@@ -408,7 +408,7 @@ ucli build run \
   --buildTarget standaloneLinux64
 ```
 
-The build profile defines the default BuildTarget, scenes, options, and output policy. Pass `--buildTarget` to override the profile BuildTarget for one run. `ucli build run` writes the final JSON result to standard output, and may write progress entries to standard error before that final result.
+The build profile defines the default `buildTarget`, scenes, options, and output policy. Pass `--buildTarget` to override the profile `buildTarget` for one run. `ucli build run` writes the final JSON result to standard output, and may write progress entries to standard error before that final result.
 
 Build artifacts are written under `.ucli/local/fingerprints/<projectFingerprint>/artifacts/build/<runId>/`.
 

@@ -24,9 +24,9 @@ internal sealed class BuildRunCommand
     }
 
     /// <summary> Runs Unity BuildPipeline from a build profile and emits final JSON with build artifacts: build.json, build-report.json, build.log, output-manifest.json, output/. </summary>
-    /// <param name="profilePath"> --profilePath, path to the build profile JSON that defines the default BuildTarget, scenes, options, and output policy. </param>
+    /// <param name="profilePath"> --profilePath, path to the build profile JSON that defines the default buildTarget, scenes, options, and output policy. </param>
     /// <param name="projectPath"> -p|--projectPath, optional target Unity project path. </param>
-    /// <param name="buildTarget"> --buildTarget, optional BuildTarget stable name that overrides the profile BuildTarget. </param>
+    /// <param name="buildTarget"> --buildTarget, optional buildTarget stable name that overrides the profile buildTarget. </param>
     /// <param name="mode"> Unity execution mode (auto|daemon|oneshot). </param>
     /// <param name="timeout"> Timeout in milliseconds. </param>
     /// <param name="format"> Progress entry format (text|json) for entries written to standard error. </param>

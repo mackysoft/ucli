@@ -10,7 +10,7 @@ Options:
   --repo-root <path>          Repository root. Defaults to git root.
   --project-path <path>       Unity project root. Required unless UCLI_UNITY_PROJECT_PATH is set.
   --profile-path <path>       uCLI build profile JSON path. Required unless UCLI_BUILD_PROFILE_PATH is set.
-  --buildTarget <value>       BuildTarget stable name. Defaults to UCLI_BUILD_TARGET when set.
+  --buildTarget <value>       buildTarget stable name. Defaults to UCLI_BUILD_TARGET when set.
   --mode <mode>               uCLI execution mode. Defaults to oneshot.
   --unity-editor-path <path>  Unity editor executable or directory path.
   --timeout <milliseconds>    Build timeout. Defaults to 900000.
