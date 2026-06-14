@@ -79,7 +79,7 @@ internal sealed class BuildOutputManifestJsonContractWriter : IJsonContractWrite
             writer.WriteStartObject();
             writer.WriteNumber("schemaVersion", content.SchemaVersion);
             writer.WriteString("outputRoot", content.OutputRoot);
-            writer.WriteString("target", content.Target);
+            writer.WriteString("buildTarget", content.BuildTarget);
             writer.WriteNumber("fileCount", content.FileCount);
             writer.WriteNumber("totalBytes", content.TotalBytes);
             writer.WritePropertyName("files");

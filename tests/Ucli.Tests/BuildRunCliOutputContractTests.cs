@@ -22,8 +22,8 @@ public sealed class BuildRunCliOutputContractTests
     private const string BuildArtifactFixtureRoot = "tests/Ucli.Tests/GoldenFiles/Json/BuildRunArtifacts";
     private const string ArtifactRoot = "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1";
     private const string OutputRoot = ArtifactRoot + "/output";
-    private const string SuccessManifestDigest = "e167d441934ca84452ea2cb52619e5240ec485c46facd6f921b83459dc3ea6f6";
-    private const string FailedManifestDigest = "ea4ff87cdded978e946d73668e5626dd3fb06b2e65cba15e1d1ecbc78d5ae314";
+    private const string SuccessManifestDigest = "da24a52f15e07fd877e58e370b776bc7136b18409317bc73b300c1ff3acb52f1";
+    private const string FailedManifestDigest = "8deb35edf72becffdfe16011c3975ba597d30d506dc484c1d3ccd43224a3a444";
 
     private static readonly string RepositoryRoot = FindRepositoryRoot();
     private static readonly string BuildDigest = new('a', 64);
@@ -194,9 +194,9 @@ public sealed class BuildRunCliOutputContractTests
         yield return ["success.json", "success"];
         yield return ["build-report-failed.json", "build-report-failed"];
         yield return ["invalid-profile.json", "invalid-profile"];
-        yield return ["unsupported-target.json", "unsupported-target"];
+        yield return ["unsupported-buildTarget.json", "unsupported-buildTarget"];
         yield return ["dirty-scene.json", "dirty-scene"];
-        yield return ["target-module-missing.json", "target-module-missing"];
+        yield return ["buildTarget-module-missing.json", "buildTarget-module-missing"];
         yield return ["artifact-write-failed.json", "artifact-write-failed"];
         yield return ["output-manifest-failed.json", "output-manifest-failed"];
     }
@@ -210,15 +210,15 @@ public sealed class BuildRunCliOutputContractTests
             "invalid-profile" => BuildRunCommandResultFactory.Create(BuildExecutionResult.Failure(
                 ExecutionError.InvalidArgument("Build profile is invalid: /workspace/UnityProject/.ucli/build/player.json.", BuildErrorCodes.BuildProfileInvalid),
                 CreateProject())),
-            "unsupported-target" => BuildRunCommandResultFactory.Create(BuildExecutionResult.Failure(
-                ExecutionError.InvalidArgument("Build target is unsupported: webgl.", BuildErrorCodes.BuildTargetUnsupported),
+            "unsupported-buildTarget" => BuildRunCommandResultFactory.Create(BuildExecutionResult.Failure(
+                ExecutionError.InvalidArgument("buildTarget is unsupported: webgl.", BuildErrorCodes.BuildTargetUnsupported),
                 CreateProject())),
             "dirty-scene" => BuildRunCommandResultFactory.Create(BuildExecutionResult.Failure(
                 ApplicationFailure.FromCode(BuildErrorCodes.BuildDirtyStatePresent, "Dirty scene state is present."),
                 CreateProject(),
                 CreateDirtyState())),
-            "target-module-missing" => BuildRunCommandResultFactory.Create(BuildExecutionResult.Failure(
-                ApplicationFailure.FromCode(BuildErrorCodes.BuildTargetModuleMissing, "Build target module is missing: standaloneLinux64."),
+            "buildTarget-module-missing" => BuildRunCommandResultFactory.Create(BuildExecutionResult.Failure(
+                ApplicationFailure.FromCode(BuildErrorCodes.BuildTargetModuleMissing, "buildTarget module is missing: standaloneLinux64."),
                 CreateProject())),
             "artifact-write-failed" => BuildRunCommandResultFactory.Create(BuildExecutionResult.Failure(
                 ExecutionError.InternalError("Build artifacts could not be written.", BuildErrorCodes.BuildArtifactWriteFailed),
@@ -243,7 +243,7 @@ public sealed class BuildRunCliOutputContractTests
         var build = new BuildOutput(
             RunId: "build-run-1",
             Profile: new BuildProfileOutput("/workspace/UnityProject/.ucli/build/player.json", ProfileDigest),
-            Target: "standaloneLinux64",
+            BuildTarget: "standaloneLinux64",
             Scenes: new BuildScenesOutput("explicit", ["Assets/Scenes/Main.unity"]),
             Options: new BuildOptionsOutput(Development: true),
             Output: new BuildArtifactOutput(
@@ -346,7 +346,7 @@ public sealed class BuildRunCliOutputContractTests
 
         if (BuildClaimCodes.UnityBuildInputsResolved == code)
         {
-            return "Unity resolved BuildPipeline target and scenes.";
+            return "Unity resolved BuildPipeline BuildTarget and scenes.";
         }
 
         if (BuildClaimCodes.UnityBuildCompleted == code)
@@ -407,7 +407,7 @@ public sealed class BuildRunCliOutputContractTests
         {
             return new Dictionary<string, object?>(StringComparer.Ordinal)
             {
-                ["target"] = build.Target,
+                ["buildTarget"] = build.BuildTarget,
                 ["sceneCount"] = build.Scenes.Paths.Count,
             };
         }
@@ -510,7 +510,7 @@ public sealed class BuildRunCliOutputContractTests
                     BuildReportRefs.Build,
                     new Dictionary<string, object?>(StringComparer.Ordinal)
                     {
-                        ["targetStableName"] = build.Target,
+                        ["buildTarget"] = build.BuildTarget,
                         ["unityBuildTarget"] = "StandaloneLinux64",
                         ["sceneSource"] = build.Scenes.Source,
                         ["scenes"] = build.Scenes.Paths,
@@ -678,7 +678,7 @@ public sealed class BuildRunCliOutputContractTests
         return new BuildOutputManifestContentJsonContract(
             root.GetProperty("schemaVersion").GetInt32(),
             root.GetProperty("outputRoot").GetString()!,
-            root.GetProperty("target").GetString()!,
+            root.GetProperty("buildTarget").GetString()!,
             root.GetProperty("fileCount").GetInt32(),
             root.GetProperty("totalBytes").GetInt64(),
             files);

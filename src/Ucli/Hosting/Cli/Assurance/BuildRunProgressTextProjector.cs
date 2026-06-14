@@ -31,7 +31,7 @@ internal sealed class BuildRunProgressTextProjector : ICliCommandProgressTextPro
     private static string CreateStartedText (BuildRunStartedEntry entry)
     {
         const string Prefix = "build runId=";
-        const string TargetLabel = " target=";
+        const string BuildTargetLabel = " buildTarget=";
         const string RequestedModeLabel = " requestedMode=";
         const string ResolvedModeLabel = " resolvedMode=";
         const string SessionKindLabel = " sessionKind=";
@@ -41,8 +41,8 @@ internal sealed class BuildRunProgressTextProjector : ICliCommandProgressTextPro
         var timeoutLength = SpanTextLength.GetInvariantInt64Length(entry.TimeoutMilliseconds);
         var length = checked(Prefix.Length
             + entry.RunId.Length
-            + TargetLabel.Length
-            + entry.Target.Length
+            + BuildTargetLabel.Length
+            + entry.BuildTarget.Length
             + RequestedModeLabel.Length
             + entry.RequestedMode.Length
             + ResolvedModeLabel.Length
@@ -60,8 +60,8 @@ internal sealed class BuildRunProgressTextProjector : ICliCommandProgressTextPro
                 var writer = new SpanTextWriter(destination);
                 writer.Append(Prefix);
                 writer.Append(state.RunId);
-                writer.Append(TargetLabel);
-                writer.Append(state.Target);
+                writer.Append(BuildTargetLabel);
+                writer.Append(state.BuildTarget);
                 writer.Append(RequestedModeLabel);
                 writer.Append(state.RequestedMode);
                 writer.Append(ResolvedModeLabel);

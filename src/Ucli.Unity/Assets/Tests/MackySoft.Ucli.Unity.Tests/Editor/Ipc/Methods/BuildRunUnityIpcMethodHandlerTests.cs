@@ -260,7 +260,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 RunId);
             return new IpcBuildRunRequest(
                 RunId: RunId,
-                TargetStableName: "standaloneLinux64",
+                BuildTarget: "standaloneLinux64",
                 UnityBuildTarget: "StandaloneLinux64",
                 SceneSource: "explicit",
                 ScenePaths: new[] { "Assets/Scenes/SampleScene.unity" },
@@ -360,7 +360,7 @@ namespace MackySoft.Ucli.Unity.Tests
             return new IpcBuildReportArtifact(
                 SchemaVersion: 1,
                 Result: result,
-                Target: "StandaloneLinux64",
+                UnityBuildTarget: "StandaloneLinux64",
                 OutputPath: outputPath,
                 DurationMilliseconds: 1234,
                 TotalSizeBytes: 4096,

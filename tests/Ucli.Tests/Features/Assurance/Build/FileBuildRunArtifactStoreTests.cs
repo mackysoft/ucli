@@ -144,7 +144,7 @@ public sealed class FileBuildRunArtifactStoreTests
         Assert.Equal(
             ToRepositoryRelativeSlashPath(scope.FullPath, paths.OutputDirectory),
             outputRoot.GetProperty("outputRoot").GetString());
-        Assert.Equal("standaloneLinux64", outputRoot.GetProperty("target").GetString());
+        Assert.Equal("standaloneLinux64", outputRoot.GetProperty("buildTarget").GetString());
         Assert.Equal(2, outputRoot.GetProperty("fileCount").GetInt32());
         Assert.Equal(configBytes.Length + playerBytes.Length, outputRoot.GetProperty("totalBytes").GetInt64());
         Assert.Equal(result.OutputManifest.ManifestDigest, outputRoot.GetProperty("manifestDigest").GetString());
@@ -170,7 +170,7 @@ public sealed class FileBuildRunArtifactStoreTests
         Assert.Equal(1, buildRoot.GetProperty("schemaVersion").GetInt32());
         Assert.Equal("run-1", buildRoot.GetProperty("runId").GetString());
         Assert.Equal("ucliArtifact", buildRoot.GetProperty("profile").GetProperty("output").GetProperty("kind").GetString());
-        Assert.Equal("standaloneLinux64", buildRoot.GetProperty("input").GetProperty("target").GetProperty("stableName").GetString());
+        Assert.Equal("standaloneLinux64", buildRoot.GetProperty("input").GetProperty("buildTarget").GetProperty("stableName").GetString());
 
         var artifacts = buildRoot.GetProperty("artifacts");
         Assert.Equal(
@@ -440,7 +440,7 @@ public sealed class FileBuildRunArtifactStoreTests
             runId,
             ParseJsonElement("""{"projectPath":"/repo/UnityProject","projectFingerprint":"fingerprint","unityVersion":"6000.1.4f1"}"""),
             ParseJsonElement("""{"digest":"profile-digest","output":{"kind":"ucliArtifact"}}"""),
-            ParseJsonElement("""{"target":{"stableName":"standaloneLinux64"}}"""),
+            ParseJsonElement("""{"buildTarget":{"stableName":"standaloneLinux64"}}"""),
             ParseJsonElement("""{"state":"completed"}"""),
             ParseJsonElement("""{"compile":"42","domainReload":"7"}"""),
             ParseJsonElement("""{"result":"succeeded"}"""),
@@ -471,7 +471,7 @@ public sealed class FileBuildRunArtifactStoreTests
         return new BuildOutputManifestContentJsonContract(
             root.GetProperty("schemaVersion").GetInt32(),
             root.GetProperty("outputRoot").GetString()!,
-            root.GetProperty("target").GetString()!,
+            root.GetProperty("buildTarget").GetString()!,
             root.GetProperty("fileCount").GetInt32(),
             root.GetProperty("totalBytes").GetInt64(),
             files);

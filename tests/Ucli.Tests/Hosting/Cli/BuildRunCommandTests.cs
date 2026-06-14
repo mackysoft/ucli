@@ -32,6 +32,7 @@ public sealed class BuildRunCommandTests
         await StandardOutputCapture.ExecuteAsync(() => command.RunAsync(
             profilePath: "/repo/.ucli/build/player.json",
             projectPath: "/repo/UnityProject",
+            buildTarget: "standaloneOSX",
             mode: "daemon",
             timeout: "120000",
             format: "json",
@@ -41,6 +42,7 @@ public sealed class BuildRunCommandTests
         var input = Assert.IsType<BuildCommandInput>(service.CapturedInput);
         Assert.Equal("/repo/.ucli/build/player.json", input.ProfilePath);
         Assert.Equal("/repo/UnityProject", input.ProjectPath);
+        Assert.Equal("standaloneOSX", input.BuildTarget);
         Assert.Equal(UnityExecutionMode.Daemon, input.Mode);
         Assert.Equal(120000, input.TimeoutMilliseconds);
         Assert.NotNull(service.CapturedProgressSink);
@@ -161,7 +163,7 @@ public sealed class BuildRunCommandTests
             IpcProtocol.StatusOk,
             (int)CliExitCode.Success);
         Assert.Equal(
-            "build runId=build-run-1 target=standaloneLinux64 requestedMode=daemon resolvedMode=daemon sessionKind=daemon timeoutMs=120000 started" + Environment.NewLine
+            "build runId=build-run-1 buildTarget=standaloneLinux64 requestedMode=daemon resolvedMode=daemon sessionKind=daemon timeoutMs=120000 started" + Environment.NewLine
                 + "build runId=build-run-1 verdict=pass result=succeeded completionReason=completed errorCount=0 warningCount=1 completed" + Environment.NewLine,
             standardError);
     }
@@ -178,6 +180,7 @@ public sealed class BuildRunCommandTests
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         Assert.Contains(UcliContractConstants.CliOption.ProfilePath, result.StdOut, StringComparison.Ordinal);
         Assert.Contains(UcliContractConstants.CliOption.ProjectPath, result.StdOut, StringComparison.Ordinal);
+        Assert.Contains(UcliContractConstants.CliOption.BuildTarget, result.StdOut, StringComparison.Ordinal);
         Assert.Contains("-p", result.StdOut, StringComparison.Ordinal);
         Assert.Contains(UcliContractConstants.CliOption.Mode, result.StdOut, StringComparison.Ordinal);
         Assert.Contains(UcliContractConstants.CliOption.Timeout, result.StdOut, StringComparison.Ordinal);

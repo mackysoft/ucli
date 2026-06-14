@@ -41,7 +41,7 @@
                 "digest"
               ]
             },
-            "target": {
+            "buildTarget": {
               "type": "string"
             },
             "scenes": {
@@ -228,7 +228,7 @@
           "required": [
             "runId",
             "profile",
-            "target",
+            "buildTarget",
             "scenes",
             "options",
             "output",

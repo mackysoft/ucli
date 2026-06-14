@@ -19,19 +19,19 @@ internal static class BuildProfileDigestCalculator
     /// <summary> Calculates the canonical digest for one resolved build profile content. </summary>
     public static string Calculate (
         int schemaVersion,
-        ResolvedBuildTarget target,
+        ResolvedBuildTarget buildTarget,
         ResolvedBuildScenes scenes,
         ResolvedBuildOutputPolicy output,
         ResolvedBuildOptions options)
     {
-        ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(buildTarget);
         ArgumentNullException.ThrowIfNull(scenes);
         ArgumentNullException.ThrowIfNull(output);
         ArgumentNullException.ThrowIfNull(options);
 
         var canonical = new CanonicalBuildProfile(
             SchemaVersion: schemaVersion,
-            Target: target.StableName,
+            BuildTarget: buildTarget.StableName,
             Scenes: CanonicalBuildScenes.From(scenes),
             Output: new CanonicalBuildOutputPolicy(ContractLiteralCodec.ToValue(output.Kind)),
             Options: new CanonicalBuildOptions(options.Development));
@@ -42,7 +42,7 @@ internal static class BuildProfileDigestCalculator
 
     private sealed record CanonicalBuildProfile (
         int SchemaVersion,
-        string Target,
+        string BuildTarget,
         CanonicalBuildScenes Scenes,
         CanonicalBuildOutputPolicy Output,
         CanonicalBuildOptions Options);

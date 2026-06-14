@@ -66,7 +66,7 @@ public sealed class UnityIpcRequestBuilderTests
 
         var request = builder.Build(new UnityRequestPayload.BuildRun(
             RunId: "build-run-1",
-            TargetStableName: "standaloneLinux64",
+            BuildTarget: "standaloneLinux64",
             UnityBuildTarget: "StandaloneLinux64",
             SceneSource: "explicit",
             ScenePaths: ["Assets/Scenes/Main.unity"],
@@ -79,7 +79,7 @@ public sealed class UnityIpcRequestBuilderTests
         Assert.False(request.IsRecoverable);
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcBuildRunRequest payload, out _));
         Assert.Equal("build-run-1", payload.RunId);
-        Assert.Equal("standaloneLinux64", payload.TargetStableName);
+        Assert.Equal("standaloneLinux64", payload.BuildTarget);
         Assert.Equal("StandaloneLinux64", payload.UnityBuildTarget);
         Assert.Equal("explicit", payload.SceneSource);
         Assert.Equal(["Assets/Scenes/Main.unity"], payload.ScenePaths);
@@ -182,7 +182,7 @@ public sealed class UnityIpcRequestBuilderTests
     {
         var dispatchRequest = new UnityIpcRequestBuilder().Build(new UnityRequestPayload.BuildRun(
             RunId: "build-run-1",
-            TargetStableName: "standaloneLinux64",
+            BuildTarget: "standaloneLinux64",
             UnityBuildTarget: "StandaloneLinux64",
             SceneSource: "explicit",
             ScenePaths: ["Assets/Scenes/Main.unity"],

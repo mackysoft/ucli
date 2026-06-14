@@ -39,6 +39,7 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
         }
 
         ValidateReports(payload, violations);
+        ValidateBuildInput(buildElement, violations);
         ValidateBuildProfile(buildElement, violations);
         ValidateBuildOutput(payload, violations);
         ValidateBuildSummary(buildElement, violations);
@@ -117,6 +118,16 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
         else if (!IsSha256LowerHex(digest))
         {
             AddViolation(violations, BuildPropertyPath(reportPath, "digest"), $"Build report {expectedKind} digest must be lowercase SHA-256 hex.");
+        }
+    }
+
+    private static void ValidateBuildInput (
+        JsonElement buildElement,
+        List<AssuranceSemanticInvariantViolation> violations)
+    {
+        if (!TryReadString(buildElement, "buildTarget", out _))
+        {
+            AddViolation(violations, "$.build.buildTarget", "Build payload must declare buildTarget.");
         }
     }
 

@@ -666,7 +666,7 @@ internal static class Program
                 additionalProperties: false,
                 Required("path", StringSchema()),
                 Required("digest", Sha256LowerHexSchema()))),
-            Required("target", StringSchema()),
+            Required("buildTarget", StringSchema()),
             Required("scenes", ObjectSchema(
                 additionalProperties: false,
                 Required(
