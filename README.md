@@ -403,10 +403,12 @@ Use normal edit steps for planned, reviewable Unity changes.
 Use `ucli build run` to run Unity BuildPipeline from a build profile and collect machine-readable build results:
 
 ```bash
-ucli build run --profilePath .ucli/build/player.json
+ucli build run \
+  --profilePath .ucli/build/player.json \
+  --buildTarget standaloneLinux64
 ```
 
-The build profile defines the target, scenes, options, and output policy. `ucli build run` writes the final JSON result to standard output, and may write progress entries to standard error before that final result.
+The build profile defines the default BuildTarget, scenes, options, and output policy. Pass `--buildTarget` to override the profile BuildTarget for one run. `ucli build run` writes the final JSON result to standard output, and may write progress entries to standard error before that final result.
 
 Build artifacts are written under `.ucli/local/fingerprints/<projectFingerprint>/artifacts/build/<runId>/`.
 
