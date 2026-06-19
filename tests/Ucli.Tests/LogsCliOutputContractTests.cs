@@ -51,6 +51,33 @@ public sealed class LogsCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task LogsDaemonRead_WithInvalidTimeoutOption_ReturnsJsonEnvelopeError ()
+    {
+        var result = await CliProcessRunner.RunCommandAsync(
+            UcliCommandNames.Logs,
+            UcliCommandNames.Daemon,
+            UcliCommandNames.ReadSubcommand,
+            UcliContractConstants.CliOption.Timeout,
+            "0");
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: UcliCommandNames.LogsDaemonRead,
+            status: "error",
+            exitCode: (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(
+            outputJson.RootElement,
+            expectedCode: "INVALID_ARGUMENT");
+        Assert.Contains(
+            "timeout must be a positive integer milliseconds value. Actual: 0.",
+            outputJson.RootElement.GetProperty("message").GetString(),
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task LogsUnityRead_WithInvalidStackTrace_ReturnsJsonEnvelopeError ()
     {
         var result = await CliProcessRunner.RunCommandAsync(
@@ -74,6 +101,33 @@ public sealed class LogsCliOutputContractTests
             expectedCode: "INVALID_ARGUMENT");
         Assert.Contains(
             "stackTrace must be one of: none, error, all. Actual: unsupported.",
+            outputJson.RootElement.GetProperty("message").GetString(),
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task LogsUnityRead_WithInvalidTimeoutOption_ReturnsJsonEnvelopeError ()
+    {
+        var result = await CliProcessRunner.RunCommandAsync(
+            UcliCommandNames.Logs,
+            UcliCommandNames.UnitySubcommand,
+            UcliCommandNames.ReadSubcommand,
+            UcliContractConstants.CliOption.Timeout,
+            "0");
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: UcliCommandNames.LogsUnityRead,
+            status: "error",
+            exitCode: (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(
+            outputJson.RootElement,
+            expectedCode: "INVALID_ARGUMENT");
+        Assert.Contains(
+            "timeout must be a positive integer milliseconds value. Actual: 0.",
             outputJson.RootElement.GetProperty("message").GetString(),
             StringComparison.Ordinal);
     }
