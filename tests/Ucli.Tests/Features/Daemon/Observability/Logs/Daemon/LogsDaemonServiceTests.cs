@@ -51,7 +51,10 @@ public sealed class LogsDaemonServiceTests
                 Category: null,
                 Stream: true,
                 PollIntervalMilliseconds: 50,
-                IdleTimeoutMilliseconds: 1),
+                IdleTimeoutMilliseconds: 1)
+            {
+                TimeoutMilliseconds = 4321,
+            },
             (daemonLogEvent, _, _) =>
             {
                 emittedMessages.Add(daemonLogEvent.Message);
@@ -61,6 +64,7 @@ public sealed class LogsDaemonServiceTests
 
         Assert.True(result.IsSuccess, result.Error?.Message);
         Assert.Equal(UcliCommandIds.LogsDaemonRead, resolver.LastTimeoutCommand);
+        Assert.Equal(4321, resolver.LastTimeoutMilliseconds);
         Assert.Equal(["alpha", "bravo"], emittedMessages);
         Assert.Equal(["stream-1:1", "stream-1:2", "stream-1:3"], daemonLogsClient.CapturedAfterValues);
     }

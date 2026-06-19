@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Artifacts;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Contracts;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Execution;
@@ -58,6 +59,33 @@ public sealed class CompileServiceTests
         var completedEntry = Assert.IsType<CompileCompletedEntry>(progressSink.Entries[2].Payload);
         Assert.Equal(CompileVerdictValues.Pass, completedEntry.Verdict);
         Assert.Equal(0, completedEntry.ErrorCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithoutTimeoutOption_UsesCompileConfigOverride ()
+    {
+        var timeoutOverrides = new Dictionary<string, int?>(UcliConfig.CreateDefault().IpcTimeoutMillisecondsByCommand, StringComparer.Ordinal)
+        {
+            [UcliCommandIds.Compile.Name] = 4321,
+        };
+        var config = UcliConfig.CreateDefault() with
+        {
+            IpcTimeoutMillisecondsByCommand = timeoutOverrides,
+        };
+        var unityRequestExecutor = new StubUnityRequestExecutor(CreateCompileResponseResult(CreateSummary()));
+        var service = CreateService(
+            projectContextResolver: new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateProjectContext(config))),
+            unityRequestExecutor: unityRequestExecutor,
+            timeProvider: new ManualTimeProvider());
+
+        var result = await service.ExecuteAsync(new CompileCommandInput(
+            ProjectPath: null,
+            Mode: UnityExecutionMode.Auto,
+            TimeoutMilliseconds: null));
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(TimeSpan.FromMilliseconds(4321), unityRequestExecutor.CapturedTimeout);
     }
 
     [Fact]
@@ -267,7 +295,7 @@ public sealed class CompileServiceTests
             timeProvider ?? TimeProvider.System);
     }
 
-    private static ProjectContext CreateProjectContext ()
+    private static ProjectContext CreateProjectContext (UcliConfig? config = null)
     {
         var unityProject = new ResolvedUnityProjectContext(
             UnityProjectRoot: "/workspace/UnityProject",
@@ -278,7 +306,7 @@ public sealed class CompileServiceTests
             UnityVersion: "6000.1.4f1");
         return new ProjectContext(
             unityProject,
-            UcliConfig.CreateDefault(),
+            config ?? UcliConfig.CreateDefault(),
             ConfigSource.Default);
     }
 
@@ -497,6 +525,8 @@ public sealed class CompileServiceTests
 
         public UnityRequestPayload? CapturedPayload { get; private set; }
 
+        public TimeSpan? CapturedTimeout { get; private set; }
+
         public ValueTask<UnityRequestExecutionResult> ExecuteAsync (
             UcliCommand command,
             UnityExecutionMode mode,
@@ -508,6 +538,7 @@ public sealed class CompileServiceTests
         {
             cancellationToken.ThrowIfCancellationRequested();
             CapturedPayload = payload;
+            CapturedTimeout = timeout;
             return ValueTask.FromResult(result);
         }
     }

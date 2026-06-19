@@ -108,7 +108,10 @@ public sealed class LogsUnityServiceTests
                 StackTraceMaxChars: null,
                 Stream: true,
                 PollIntervalMilliseconds: 50,
-                IdleTimeoutMilliseconds: 1),
+                IdleTimeoutMilliseconds: 1)
+            {
+                TimeoutMilliseconds = 4321,
+            },
             (unityLogEvent, _, _) =>
             {
                 emittedMessages.Add(unityLogEvent.Message);
@@ -118,6 +121,7 @@ public sealed class LogsUnityServiceTests
 
         Assert.True(result.IsSuccess, result.Error?.Message);
         Assert.Equal(UcliCommandIds.LogsUnityRead, resolver.LastTimeoutCommand);
+        Assert.Equal(4321, resolver.LastTimeoutMilliseconds);
         Assert.Equal(["alpha", "bravo"], emittedMessages);
         Assert.Equal(["stream-1:1", "stream-1:2", "stream-1:3"], unityLogsClient.CapturedAfterValues);
     }

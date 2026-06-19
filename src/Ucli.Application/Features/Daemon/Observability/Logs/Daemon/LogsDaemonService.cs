@@ -53,6 +53,7 @@ internal sealed class LogsDaemonService : ILogsDaemonService
             daemonCommandExecutionContextResolver,
             UcliCommandIds.LogsDaemonRead,
             request.ProjectPath,
+            request.TimeoutMilliseconds,
             query!,
             request.Stream,
             streamOptions!,

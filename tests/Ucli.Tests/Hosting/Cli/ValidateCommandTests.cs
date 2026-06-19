@@ -32,12 +32,14 @@ public sealed class ValidateCommandTests
 
         var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.ValidateAsync(
             projectPath: "/repo/UnityProject",
+            timeout: "1234",
             readIndexMode: "disabled",
             cancellationToken: CancellationToken.None));
 
         Assert.Equal((int)CliExitCode.Success, exitCode);
         Assert.NotNull(service.CapturedInput);
         Assert.Equal("/repo/UnityProject", service.CapturedInput!.ProjectPath);
+        Assert.Equal(1234, service.CapturedInput.TimeoutMilliseconds);
         Assert.Equal(ReadIndexMode.Disabled, service.CapturedInput.ReadIndexMode);
         Assert.Equal(DefaultRequestJson, service.CapturedInput.RequestJson);
 
@@ -47,6 +49,29 @@ public sealed class ValidateCommandTests
             UcliCommandNames.Validate,
             IpcProtocol.StatusOk,
             (int)CliExitCode.Success);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Validate_WhenTimeoutIsInvalid_ReturnsInvalidArgumentWithoutCallingService ()
+    {
+        var service = new StubValidateService((_, _) => throw new InvalidOperationException("Service should not be called."));
+        var command = new ValidateCommand(service, new StubRequestInputReader(RequestInputReadResult.Success(DefaultRequestJson)), CommandResultTestWriter.Create());
+
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.ValidateAsync(
+            timeout: "0",
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.InvalidArgument, exitCode);
+        Assert.Null(service.CapturedInput);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            UcliCommandNames.Validate,
+            IpcProtocol.StatusError,
+            (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.InvalidArgument);
     }
 
     [Fact]

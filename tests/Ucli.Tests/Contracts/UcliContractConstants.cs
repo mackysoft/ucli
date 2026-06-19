@@ -77,6 +77,10 @@ internal static class UcliContractConstants
 
         public const int IpcTimeoutDefaultReadyMilliseconds = 10000;
 
+        public const int IpcTimeoutDefaultCompileMilliseconds = 120000;
+
+        public const int IpcTimeoutDefaultBuildRunMilliseconds = 1800000;
+
         public const int IpcTimeoutDefaultVerifyMilliseconds = 120000;
 
         public const int IpcTimeoutDefaultStatusMilliseconds = 5000;
@@ -122,6 +126,10 @@ internal static class UcliContractConstants
         public const string IpcTimeoutCommandTest = "test";
 
         public const string IpcTimeoutCommandReady = "ready";
+
+        public const string IpcTimeoutCommandCompile = "compile";
+
+        public const string IpcTimeoutCommandBuildRun = "build.run";
 
         public const string IpcTimeoutCommandVerify = "verify";
 

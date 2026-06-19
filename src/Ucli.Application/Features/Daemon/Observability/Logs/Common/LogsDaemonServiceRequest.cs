@@ -25,4 +25,8 @@ internal sealed record LogsDaemonServiceRequest (
     string? Category,
     bool Stream,
     int? PollIntervalMilliseconds,
-    int? IdleTimeoutMilliseconds);
+    int? IdleTimeoutMilliseconds)
+{
+    /// <summary> Gets the optional normalized command timeout in milliseconds. </summary>
+    public int? TimeoutMilliseconds { get; init; }
+}

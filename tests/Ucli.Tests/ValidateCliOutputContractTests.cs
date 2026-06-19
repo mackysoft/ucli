@@ -32,6 +32,31 @@ public sealed class ValidateCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task Validate_WithInvalidTimeoutOption_ReturnsInvalidArgumentErrorAsSingleJson ()
+    {
+        var result = await CliProcessRunner.RunCommandAsync(
+            UcliCommandNames.Validate,
+            UcliContractConstants.CliOption.Timeout,
+            "0");
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: UcliCommandNames.Validate,
+            status: "error",
+            exitCode: (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(
+            outputJson.RootElement,
+            expectedCode: "INVALID_ARGUMENT");
+        Assert.Contains(
+            "timeout must be a positive integer milliseconds value. Actual: 0.",
+            outputJson.RootElement.GetProperty("message").GetString(),
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task Validate_WithPreseededReadIndex_ReturnsJsonEnvelopeSuccess ()
     {
         using var scope = TestDirectories.CreateTempScope("validate-cli-output-contract", "success");

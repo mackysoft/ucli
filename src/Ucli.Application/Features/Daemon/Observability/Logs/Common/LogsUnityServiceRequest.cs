@@ -31,4 +31,8 @@ internal sealed record LogsUnityServiceRequest (
     int? StackTraceMaxChars,
     bool Stream,
     int? PollIntervalMilliseconds,
-    int? IdleTimeoutMilliseconds);
+    int? IdleTimeoutMilliseconds)
+{
+    /// <summary> Gets the optional normalized command timeout in milliseconds. </summary>
+    public int? TimeoutMilliseconds { get; init; }
+}

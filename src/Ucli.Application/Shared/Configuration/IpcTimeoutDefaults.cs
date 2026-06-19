@@ -10,6 +10,8 @@ internal static class IpcTimeoutDefaults
     [
         (UcliCommandIds.Test, 300000),
         (UcliCommandIds.Ready, 10000),
+        (UcliCommandIds.Compile, 120000),
+        (UcliCommandIds.BuildRun, 1800000),
         (UcliCommandIds.Verify, 120000),
         (UcliCommandIds.Status, 5000),
         (UcliCommandIds.Validate, 10000),

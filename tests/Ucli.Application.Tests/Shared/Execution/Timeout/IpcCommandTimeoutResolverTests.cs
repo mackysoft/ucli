@@ -68,6 +68,32 @@ public sealed class IpcCommandTimeoutResolverTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Resolve_WithoutOption_UsesDefaultCompileOverride ()
+    {
+        var config = UcliConfig.CreateDefault();
+
+        var result = IpcCommandTimeoutResolver.ResolveNormalized(null, UcliCommandIds.Compile, config);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(TimeSpan.FromMilliseconds(120000), result.Timeout);
+        Assert.Null(result.Error);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Resolve_WithoutOption_UsesDefaultBuildRunOverride ()
+    {
+        var config = UcliConfig.CreateDefault();
+
+        var result = IpcCommandTimeoutResolver.ResolveNormalized(null, UcliCommandIds.BuildRun, config);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(TimeSpan.FromMilliseconds(1800000), result.Timeout);
+        Assert.Null(result.Error);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Resolve_WithoutOption_UsesConfigDefaultWhenCommandOverrideIsNull ()
     {
         var config = CreateConfig(

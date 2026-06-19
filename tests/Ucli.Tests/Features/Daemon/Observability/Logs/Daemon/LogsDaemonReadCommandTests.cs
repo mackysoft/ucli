@@ -86,6 +86,44 @@ public sealed class LogsDaemonReadCommandTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Read_WithTimeoutOption_PassesTimeoutToServiceRequest ()
+    {
+        var service = new StubLogsDaemonService(static (_, _, _) =>
+        {
+            return ValueTask.FromResult(LogsReadServiceResult.Success(count: 0, nextCursor: "stream-1:1"));
+        });
+        var command = new LogsDaemonReadCommand(service, CommandResultTestWriter.Create());
+
+        var (exitCode, _, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.ReadAsync(timeout: "1234"));
+
+        Assert.Equal((int)CliExitCode.Success, exitCode);
+        Assert.Equal(string.Empty, standardError);
+        Assert.Equal(1234, service.CapturedRequest!.TimeoutMilliseconds);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Read_WhenTimeoutIsInvalid_WritesInvalidArgumentResultWithoutCallingService ()
+    {
+        var service = new StubLogsDaemonService((_, _, _) => throw new InvalidOperationException("service must not be called"));
+        var command = new LogsDaemonReadCommand(service, CommandResultTestWriter.Create());
+
+        var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.ReadAsync(timeout: "0"));
+
+        Assert.Equal(3, exitCode);
+        Assert.Equal(string.Empty, standardError);
+        Assert.Equal(0, service.CallCount);
+        using var commandResult = JsonDocument.Parse(standardOutput);
+        CommandResultAssert.HasStandardEnvelope(
+            commandResult.RootElement,
+            UcliCommandNames.LogsDaemonRead,
+            "error",
+            3);
+        CommandResultAssert.HasSingleError(commandResult.RootElement, UcliCoreErrorCodes.InvalidArgument);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Read_WhenFormatIsInvalid_WritesInvalidArgumentResultWithoutCallingService ()
     {
         var service = new StubLogsDaemonService((_, _, _) => throw new InvalidOperationException("service must not be called"));
@@ -296,12 +334,15 @@ public sealed class LogsDaemonReadCommandTests
 
         public int CallCount { get; private set; }
 
+        public LogsDaemonServiceRequest? CapturedRequest { get; private set; }
+
         public ValueTask<LogsReadServiceResult> ExecuteAsync (
             LogsDaemonServiceRequest request,
             Func<IpcDaemonLogEvent, string, CancellationToken, ValueTask> onEvent,
             CancellationToken cancellationToken = default)
         {
             CallCount++;
+            CapturedRequest = request;
             return handler(request, onEvent, cancellationToken);
         }
     }
