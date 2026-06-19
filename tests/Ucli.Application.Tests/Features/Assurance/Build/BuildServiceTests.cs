@@ -101,7 +101,9 @@ public sealed class BuildServiceTests
         Assert.Equal("asset-before", output.Build.Generations.Before.AssetRefreshGeneration);
         Assert.Equal("asset-after", output.Build.Generations.After.AssetRefreshGeneration);
         Assert.Equal("asset-after", output.Build.Generations.ValidFor.AssetRefreshGeneration);
-        Assert.Equal(ContractLiteralCodec.ToValue(BuildProfileOutputKind.UcliArtifact), output.Build.Output.Kind);
+        var expectedProfileDigest = BuildProfileResolver.ResolveJson(ProfileJson).Profile!.Digest;
+        Assert.Equal(expectedProfileDigest, output.Build.Profile.Digest);
+        Assert.Equal(BuildOutputKinds.UcliArtifact, output.Build.Output.Kind);
         Assert.Equal(artifactStore.PreparedPaths!.ArtifactsDirectory, output.Build.Output.ArtifactRoot);
         Assert.Equal(artifactStore.PreparedPaths.OutputDirectory, output.Build.Output.OutputRoot);
         Assert.Equal(BuildReportRefs.BuildOutputManifest, output.Build.Output.ManifestRef);
@@ -127,7 +129,7 @@ public sealed class BuildServiceTests
             ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
             artifactStore.WrittenMetadata!.Summary.GetProperty("result").GetString());
         Assert.Equal(output.Build.Profile.Path, artifactStore.WrittenMetadata.Profile.GetProperty("path").GetString());
-        Assert.Equal(output.Build.Profile.Digest, artifactStore.WrittenMetadata.Profile.GetProperty("digest").GetString());
+        Assert.Equal(expectedProfileDigest, artifactStore.WrittenMetadata.Profile.GetProperty("digest").GetString());
         Assert.Equal(output.Build.Summary.ReportRef, artifactStore.WrittenMetadata.Summary.GetProperty("reportRef").GetString());
         Assert.Equal(output.Build.Logs.ReportRef, artifactStore.WrittenMetadata.Logs.GetProperty("reportRef").GetString());
         Assert.Equal(output.Build.Output.ManifestRef, artifactStore.WrittenMetadata.Output.GetProperty("manifestRef").GetString());
@@ -616,7 +618,7 @@ public sealed class BuildServiceTests
         int? timeoutMilliseconds = 10000)
     {
         return new BuildCommandInput(
-            ProfilePath: null,
+            ProfilePath: "/workspace/build.ucli.json",
             ProjectPath: null,
             Mode: UnityExecutionMode.Auto,
             TimeoutMilliseconds: timeoutMilliseconds);
@@ -861,7 +863,7 @@ public sealed class BuildServiceTests
         }
 
         public ValueTask<BuildProfileFileReadResult> ReadAsync (
-            string? profilePath,
+            string profilePath,
             ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {

@@ -211,7 +211,7 @@ public sealed class BuildRunCliOutputContractTests
                 ExecutionError.InvalidArgument("Build profile is invalid: /workspace/UnityProject/.ucli/build/player.json.", BuildErrorCodes.BuildProfileInvalid),
                 CreateProject())),
             "unsupported-buildTarget" => BuildRunCommandResultFactory.Create(BuildExecutionResult.Failure(
-                ExecutionError.InvalidArgument("buildTarget is unsupported: webgl.", BuildErrorCodes.BuildTargetUnsupported),
+                ExecutionError.InvalidArgument("Build profile inputs.buildTarget is unsupported: unknownTarget.", BuildErrorCodes.BuildTargetUnsupported),
                 CreateProject())),
             "dirty-scene" => BuildRunCommandResultFactory.Create(BuildExecutionResult.Failure(
                 ApplicationFailure.FromCode(BuildErrorCodes.BuildDirtyStatePresent, "Dirty scene state is present."),

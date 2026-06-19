@@ -12,19 +12,13 @@ internal sealed class FileBuildProfileFileReader : IBuildProfileFileReader
 
     /// <inheritdoc />
     public async ValueTask<BuildProfileFileReadResult> ReadAsync (
-        string? profilePath,
+        string profilePath,
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(profilePath);
         ArgumentNullException.ThrowIfNull(unityProject);
         cancellationToken.ThrowIfCancellationRequested();
-
-        if (string.IsNullOrWhiteSpace(profilePath))
-        {
-            return BuildProfileFileReadResult.Failure(ExecutionError.InvalidArgument(
-                "--profilePath is required for build run.",
-                BuildErrorCodes.BuildProfileInvalid));
-        }
 
         string resolvedPath;
         try

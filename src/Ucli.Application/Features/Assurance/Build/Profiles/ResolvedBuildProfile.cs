@@ -16,7 +16,4 @@ internal sealed record ResolvedBuildProfile (
 
     /// <summary> Gets the resolved build options used by the current BuildPipeline runner. </summary>
     public ResolvedBuildOptions Options => Inputs.Options;
-
-    /// <summary> Gets the build output policy currently owned by the build run contract. </summary>
-    public ResolvedBuildOutputPolicy Output { get; } = new(BuildProfileOutputKind.UcliArtifact);
 }

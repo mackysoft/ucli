@@ -169,7 +169,8 @@ public sealed class FileBuildRunArtifactStoreTests
         var buildRoot = buildMetadata.RootElement;
         Assert.Equal(1, buildRoot.GetProperty("schemaVersion").GetInt32());
         Assert.Equal("run-1", buildRoot.GetProperty("runId").GetString());
-        Assert.Equal("ucliArtifact", buildRoot.GetProperty("profile").GetProperty("output").GetProperty("kind").GetString());
+        Assert.False(buildRoot.GetProperty("profile").TryGetProperty("output", out _));
+        Assert.Equal("ucliArtifact", buildRoot.GetProperty("output").GetProperty("kind").GetString());
         Assert.Equal("standaloneLinux64", buildRoot.GetProperty("input").GetProperty("buildTarget").GetProperty("stableName").GetString());
 
         var artifacts = buildRoot.GetProperty("artifacts");
@@ -439,7 +440,7 @@ public sealed class FileBuildRunArtifactStoreTests
             1,
             runId,
             ParseJsonElement("""{"projectPath":"/repo/UnityProject","projectFingerprint":"fingerprint","unityVersion":"6000.1.4f1"}"""),
-            ParseJsonElement("""{"digest":"profile-digest","output":{"kind":"ucliArtifact"}}"""),
+            ParseJsonElement("""{"path":"/repo/.ucli/build/player.json","digest":"profile-digest"}"""),
             ParseJsonElement("""{"buildTarget":{"stableName":"standaloneLinux64"}}"""),
             ParseJsonElement("""{"state":"completed"}"""),
             ParseJsonElement("""{"compile":"42","domainReload":"7"}"""),
