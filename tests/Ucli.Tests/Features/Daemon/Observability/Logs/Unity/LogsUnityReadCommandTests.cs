@@ -120,6 +120,23 @@ public sealed class LogsUnityReadCommandTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Read_WithTimeoutOption_PassesTimeoutToServiceRequest ()
+    {
+        var service = new StubLogsUnityService(static (_, _, _) =>
+        {
+            return ValueTask.FromResult(LogsReadServiceResult.Success(count: 0, nextCursor: "stream-1:1"));
+        });
+        var command = new LogsUnityReadCommand(service, CommandResultTestWriter.Create());
+
+        var (exitCode, _, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.ReadAsync(timeout: "1234"));
+
+        Assert.Equal((int)CliExitCode.Success, exitCode);
+        Assert.Equal(string.Empty, standardError);
+        Assert.Equal(1234, service.CapturedRequest!.TimeoutMilliseconds);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Read_WhenFormatIsInvalid_WritesInvalidArgumentResultWithoutCallingService ()
     {
         var service = new StubLogsUnityService((_, _, _) => throw new InvalidOperationException("service must not be called"));
@@ -256,12 +273,15 @@ public sealed class LogsUnityReadCommandTests
 
         public int CallCount { get; private set; }
 
+        public LogsUnityServiceRequest? CapturedRequest { get; private set; }
+
         public ValueTask<LogsReadServiceResult> ExecuteAsync (
             LogsUnityServiceRequest request,
             Func<IpcUnityLogEvent, string, CancellationToken, ValueTask> onEvent,
             CancellationToken cancellationToken = default)
         {
             CallCount++;
+            CapturedRequest = request;
             return handler(request, onEvent, cancellationToken);
         }
     }

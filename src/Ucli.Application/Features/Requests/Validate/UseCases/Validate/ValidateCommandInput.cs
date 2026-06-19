@@ -9,4 +9,8 @@ namespace MackySoft.Ucli.Application.Features.Requests.Validate.UseCases.Validat
 internal sealed record ValidateCommandInput (
     string? ProjectPath,
     ReadIndexMode? ReadIndexMode,
-    string RequestJson);
+    string RequestJson)
+{
+    /// <summary> Gets the optional normalized <c>--timeout</c> value in milliseconds. </summary>
+    public int? TimeoutMilliseconds { get; init; }
+}

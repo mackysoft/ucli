@@ -50,9 +50,21 @@ internal sealed class ValidateService : IValidateService
                 output: null);
         }
 
+        var preparedRequest = requestPreparationResult.PreparedRequest!;
+        var timeoutResolutionResult = IpcCommandTimeoutResolver.ResolveNormalized(
+            input.TimeoutMilliseconds,
+            UcliCommandIds.Validate,
+            preparedRequest.ProjectContext.Config);
+        if (!timeoutResolutionResult.IsSuccess)
+        {
+            var error = timeoutResolutionResult.Error!;
+            return ValidateServiceResult.Failure(
+                error.Message,
+                ExecutionErrorCodeMapper.ToCode(error));
+        }
+
         if (input.ReadIndexMode == ReadIndexMode.Disabled)
         {
-            var preparedRequest = requestPreparationResult.PreparedRequest!;
             var disabledOutput = new ValidateExecutionOutput(
                 Project: ProjectIdentityInfo.From(preparedRequest.ProjectContext.UnityProject),
                 ReadIndex: CreateReadIndexDisabledOutput());
@@ -82,13 +94,13 @@ internal sealed class ValidateService : IValidateService
         }
 
         var requestStaticValidationPreflightResult = await requestStaticValidationPreflightService.PrepareAsync(
-                requestPreparationResult.PreparedRequest!,
+                preparedRequest,
                 input.ReadIndexMode,
                 cancellationToken)
             .ConfigureAwait(false);
         var output = requestStaticValidationPreflightResult.ReadIndex != null
             ? new ValidateExecutionOutput(
-                Project: ProjectIdentityInfo.From(requestPreparationResult.PreparedRequest!.ProjectContext.UnityProject),
+                Project: ProjectIdentityInfo.From(preparedRequest.ProjectContext.UnityProject),
                 ReadIndex: requestStaticValidationPreflightResult.ReadIndex)
             : null;
         if (requestStaticValidationPreflightResult.Error != null)

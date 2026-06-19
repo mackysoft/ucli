@@ -12,6 +12,7 @@ internal static class LogsStreamPollingExecutor
         IDaemonCommandExecutionContextResolver daemonCommandExecutionContextResolver,
         UcliCommand commandId,
         string? projectPath,
+        int? timeoutMilliseconds,
         TQuery initialQuery,
         bool stream,
         LogsStreamRuntimeOptions streamOptions,
@@ -46,7 +47,7 @@ internal static class LogsStreamPollingExecutor
         var contextResolutionResult = await daemonCommandExecutionContextResolver.ResolveAsync(
                 commandId,
                 projectPath,
-                timeoutMilliseconds: null,
+                timeoutMilliseconds,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!contextResolutionResult.IsSuccess)

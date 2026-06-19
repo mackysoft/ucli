@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Catalog;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Contracts;
@@ -159,6 +160,35 @@ public sealed class BuildServiceTests
         Assert.Equal(artifactStore.PreparedPaths!.OutputDirectory, requestPayload.OutputPath);
         Assert.Equal(artifactStore.PreparedPaths.BuildReportJsonPath, requestPayload.BuildReportPath);
         Assert.Equal(artifactStore.PreparedPaths.BuildLogPath, requestPayload.BuildLogPath);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithoutTimeoutOption_UsesBuildRunConfigOverride ()
+    {
+        using var tempDirectory = TemporaryDirectory.Create();
+        var timeoutOverrides = new Dictionary<string, int?>(UcliConfig.CreateDefault().IpcTimeoutMillisecondsByCommand, StringComparer.Ordinal)
+        {
+            [UcliCommandIds.BuildRun.Name] = 432100,
+        };
+        var config = UcliConfig.CreateDefault() with
+        {
+            IpcTimeoutMillisecondsByCommand = timeoutOverrides,
+        };
+        var requestExecutor = CreateBuildResponseExecutor(
+            ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+            ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+            errorCount: 0);
+        var service = CreateService(
+            projectContextResolver: new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateProjectContext(config))),
+            requestExecutor: requestExecutor,
+            artifactStore: new StubBuildRunArtifactStore(tempDirectory.Path),
+            timeProvider: new ManualTimeProvider());
+
+        var result = await service.ExecuteAsync(CreateInput(timeoutMilliseconds: null));
+
+        Assert.True(result.IsSuccess, string.Join(Environment.NewLine, result.Errors.Select(static error => $"{error.Code}: {error.Message}")));
+        Assert.Equal(TimeSpan.FromMilliseconds(432100), requestExecutor.CapturedTimeout);
     }
 
     [Fact]
@@ -615,7 +645,7 @@ public sealed class BuildServiceTests
     }
 
     private static BuildCommandInput CreateInput (
-        int timeoutMilliseconds = 10000,
+        int? timeoutMilliseconds = 10000,
         string? buildTarget = null)
     {
         return new BuildCommandInput(
@@ -626,7 +656,7 @@ public sealed class BuildServiceTests
             TimeoutMilliseconds: timeoutMilliseconds);
     }
 
-    private static ProjectContext CreateProjectContext ()
+    private static ProjectContext CreateProjectContext (UcliConfig? config = null)
     {
         var unityProject = new ResolvedUnityProjectContext(
             UnityProjectRoot: "/workspace/UnityProject",
@@ -637,7 +667,7 @@ public sealed class BuildServiceTests
             UnityVersion: "6000.1.4f1");
         return new ProjectContext(
             unityProject,
-            UcliConfig.CreateDefault(),
+            config ?? UcliConfig.CreateDefault(),
             ConfigSource.Default);
     }
 
@@ -910,6 +940,8 @@ public sealed class BuildServiceTests
 
         public UnityRequestPayload? CapturedPayload { get; private set; }
 
+        public TimeSpan? CapturedTimeout { get; private set; }
+
         public ValueTask<UnityRequestExecutionResult> ExecuteAsync (
             UcliCommand command,
             UnityExecutionMode mode,
@@ -921,6 +953,7 @@ public sealed class BuildServiceTests
         {
             cancellationToken.ThrowIfCancellationRequested();
             CapturedPayload = payload;
+            CapturedTimeout = timeout;
             return ValueTask.FromResult(resultFactory(payload));
         }
     }

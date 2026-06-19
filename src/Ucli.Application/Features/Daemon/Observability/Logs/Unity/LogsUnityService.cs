@@ -49,6 +49,7 @@ internal sealed class LogsUnityService : ILogsUnityService
             daemonCommandExecutionContextResolver,
             UcliCommandIds.LogsUnityRead,
             request.ProjectPath,
+            request.TimeoutMilliseconds,
             query!,
             request.Stream,
             streamOptions!,

@@ -15,6 +15,7 @@ internal static class LogsReadCommandExecutor
     /// <typeparam name="TPayload"> The emitted CLI progress payload type. </typeparam>
     /// <param name="commandName"> The command name used in emitted error envelopes. </param>
     /// <param name="format"> The requested output format. </param>
+    /// <param name="timeout"> The requested command timeout in milliseconds. </param>
     /// <param name="commandResultWriter"> The command-result writer dependency. </param>
     /// <param name="executeAsync"> The service execution delegate. </param>
     /// <param name="createProgressEntry"> The output projection for one log event. </param>
@@ -24,8 +25,9 @@ internal static class LogsReadCommandExecutor
     public static async Task<int> ExecuteAsync<TLogEvent, TPayload> (
         string commandName,
         string? format,
+        string? timeout,
         ICommandResultWriter commandResultWriter,
-        Func<Func<TLogEvent, string, CancellationToken, ValueTask>, CancellationToken, ValueTask<LogsReadServiceResult>> executeAsync,
+        Func<int?, Func<TLogEvent, string, CancellationToken, ValueTask>, CancellationToken, ValueTask<LogsReadServiceResult>> executeAsync,
         Func<TLogEvent, string, CliCommandProgressEntry<TPayload>> createProgressEntry,
         ICliCommandProgressTextProjector textProjector,
         CancellationToken cancellationToken)
@@ -55,11 +57,22 @@ internal static class LogsReadCommandExecutor
                 return invalidFormatResult.ExitCode;
             }
 
+            var timeoutResult = TimeoutOptionNormalizer.Normalize(timeout);
+            if (!timeoutResult.IsSuccess)
+            {
+                var invalidTimeoutResult = LogsReadCommandResultFactory.Create(
+                    commandName,
+                    LogsReadServiceResult.Failure(timeoutResult.Error!));
+                commandResultWriter.WriteToStandardOutput(invalidTimeoutResult);
+                return invalidTimeoutResult.ExitCode;
+            }
+
             var progressSink = new CliCommandProgressSink(
                 formatResult.Format,
                 new CliStreamEntryWriter(commandName),
                 textProjector);
             var serviceResult = await executeAsync(
+                    timeoutResult.TimeoutMilliseconds,
                     async (logEvent, nextCursor, callbackCancellationToken) =>
                     {
                         callbackCancellationToken.ThrowIfCancellationRequested();
