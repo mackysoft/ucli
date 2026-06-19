@@ -19,22 +19,19 @@ internal static class BuildProfileDigestCalculator
     /// <summary> Calculates the canonical digest for one resolved build profile content. </summary>
     public static string Calculate (
         int schemaVersion,
-        ResolvedBuildTarget buildTarget,
-        ResolvedBuildScenes scenes,
-        ResolvedBuildOutputPolicy output,
-        ResolvedBuildOptions options)
+        ResolvedBuildInputs inputs,
+        ResolvedBuildRunner runner,
+        ResolvedBuildPolicy policy)
     {
-        ArgumentNullException.ThrowIfNull(buildTarget);
-        ArgumentNullException.ThrowIfNull(scenes);
-        ArgumentNullException.ThrowIfNull(output);
-        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(inputs);
+        ArgumentNullException.ThrowIfNull(runner);
+        ArgumentNullException.ThrowIfNull(policy);
 
         var canonical = new CanonicalBuildProfile(
             SchemaVersion: schemaVersion,
-            BuildTarget: buildTarget.StableName,
-            Scenes: CanonicalBuildScenes.From(scenes),
-            Output: new CanonicalBuildOutputPolicy(ContractLiteralCodec.ToValue(output.Kind)),
-            Options: new CanonicalBuildOptions(options.Development));
+            Inputs: CanonicalBuildInputs.From(inputs),
+            Runner: new CanonicalBuildRunner(ContractLiteralCodec.ToValue(runner.Kind)),
+            Policy: CanonicalBuildPolicy.From(policy));
 
         var json = JsonSerializer.Serialize(canonical, SerializerOptions);
         return Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(json));
@@ -42,10 +39,25 @@ internal static class BuildProfileDigestCalculator
 
     private sealed record CanonicalBuildProfile (
         int SchemaVersion,
+        CanonicalBuildInputs Inputs,
+        CanonicalBuildRunner Runner,
+        CanonicalBuildPolicy Policy);
+
+    private sealed record CanonicalBuildInputs (
+        string Kind,
         string BuildTarget,
         CanonicalBuildScenes Scenes,
-        CanonicalBuildOutputPolicy Output,
-        CanonicalBuildOptions Options);
+        CanonicalBuildOptions Options)
+    {
+        public static CanonicalBuildInputs From (ResolvedBuildInputs inputs)
+        {
+            return new CanonicalBuildInputs(
+                ContractLiteralCodec.ToValue(inputs.Kind),
+                inputs.BuildTarget.StableName,
+                CanonicalBuildScenes.From(inputs.Scenes),
+                new CanonicalBuildOptions(inputs.Options.Development));
+        }
+    }
 
     private sealed record CanonicalBuildScenes (
         string Source,
@@ -60,7 +72,31 @@ internal static class BuildProfileDigestCalculator
         }
     }
 
-    private sealed record CanonicalBuildOutputPolicy (string Kind);
-
     private sealed record CanonicalBuildOptions (bool Development);
+
+    private sealed record CanonicalBuildRunner (string Kind);
+
+    private sealed record CanonicalBuildPolicy (
+        CanonicalBuildRuntimePolicy Runtime,
+        string ProjectMutationMode)
+    {
+        public static CanonicalBuildPolicy From (ResolvedBuildPolicy policy)
+        {
+            return new CanonicalBuildPolicy(
+                CanonicalBuildRuntimePolicy.From(policy.Runtime),
+                ContractLiteralCodec.ToValue(policy.ProjectMutationMode));
+        }
+    }
+
+    private sealed record CanonicalBuildRuntimePolicy (
+        IReadOnlyList<string> AllowedExecutionModes,
+        IReadOnlyList<string> AllowedEditorModes)
+    {
+        public static CanonicalBuildRuntimePolicy From (ResolvedBuildRuntimePolicy runtime)
+        {
+            return new CanonicalBuildRuntimePolicy(
+                runtime.AllowedExecutionModes.Select(ContractLiteralCodec.ToValue).ToArray(),
+                runtime.AllowedEditorModes.Select(ContractLiteralCodec.ToValue).ToArray());
+        }
+    }
 }

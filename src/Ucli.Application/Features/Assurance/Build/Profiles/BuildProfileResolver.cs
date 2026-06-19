@@ -14,9 +14,16 @@ internal static class BuildProfileResolver
     private static readonly HashSet<string> AllowedRootProperties = new(StringComparer.Ordinal)
     {
         "schemaVersion",
+        "inputs",
+        "runner",
+        "policy",
+    };
+
+    private static readonly HashSet<string> AllowedInputsProperties = new(StringComparer.Ordinal)
+    {
+        "kind",
         "buildTarget",
         "scenes",
-        "output",
         "options",
     };
 
@@ -26,14 +33,26 @@ internal static class BuildProfileResolver
         "paths",
     };
 
-    private static readonly HashSet<string> AllowedOutputProperties = new(StringComparer.Ordinal)
+    private static readonly HashSet<string> AllowedOptionsProperties = new(StringComparer.Ordinal)
+    {
+        "development",
+    };
+
+    private static readonly HashSet<string> AllowedRunnerProperties = new(StringComparer.Ordinal)
     {
         "kind",
     };
 
-    private static readonly HashSet<string> AllowedOptionsProperties = new(StringComparer.Ordinal)
+    private static readonly HashSet<string> AllowedPolicyProperties = new(StringComparer.Ordinal)
     {
-        "development",
+        "runtime",
+        "projectMutationMode",
+    };
+
+    private static readonly HashSet<string> AllowedRuntimeProperties = new(StringComparer.Ordinal)
+    {
+        "allowedExecutionModes",
+        "allowedEditorModes",
     };
 
     /// <summary> Resolves one build profile from raw JSON text. </summary>
@@ -67,31 +86,24 @@ internal static class BuildProfileResolver
             return error!;
         }
 
-        if (!TryReadSchemaVersion(root, out var schemaVersion, out error))
-        {
-            return error!;
-        }
-
-        if (!TryReadBuildTarget(root, out var buildTarget, out error)
-            || !TryReadScenes(root, out var scenes, out error)
-            || !TryReadOutput(root, out var output, out error)
-            || !TryReadOptions(root, out var options, out error))
+        if (!TryReadSchemaVersion(root, out var schemaVersion, out error)
+            || !TryReadInputs(root, out var inputs, out error)
+            || !TryReadRunner(root, out var runner, out error)
+            || !TryReadPolicy(root, out var policy, out error))
         {
             return error!;
         }
 
         var digest = BuildProfileDigestCalculator.Calculate(
             schemaVersion,
-            buildTarget!,
-            scenes!,
-            output!,
-            options!);
+            inputs!,
+            runner!,
+            policy!);
         return BuildProfileResolutionResult.Success(new ResolvedBuildProfile(
             SchemaVersion: schemaVersion,
-            BuildTarget: buildTarget!,
-            Scenes: scenes!,
-            Output: output!,
-            Options: options!,
+            Inputs: inputs!,
+            Runner: runner!,
+            Policy: policy!,
             Digest: digest));
     }
 
@@ -123,35 +135,52 @@ internal static class BuildProfileResolver
         return true;
     }
 
-    private static bool TryReadBuildTarget (
+    private static bool TryReadInputs (
         JsonElement root,
+        out ResolvedBuildInputs? inputs,
+        out BuildProfileResolutionResult? error)
+    {
+        inputs = null;
+        if (!TryReadRequiredObject(root, "inputs", "Build profile", out var inputsElement, out error)
+            || !TryValidateObjectProperties(inputsElement, AllowedInputsProperties, "Build profile inputs", out error)
+            || !TryReadRequiredEnum(inputsElement, "kind", "Build profile inputs", out BuildProfileInputsKind kind, out error))
+        {
+            return false;
+        }
+
+        if (kind != BuildProfileInputsKind.Explicit)
+        {
+            error = InvalidProfile($"Build profile inputs.kind is unsupported: {ContractLiteralCodec.ToValue(kind)}.");
+            return false;
+        }
+
+        if (!TryReadBuildTarget(inputsElement, out var buildTarget, out error)
+            || !TryReadScenes(inputsElement, out var scenes, out error)
+            || !TryReadOptions(inputsElement, out var options, out error))
+        {
+            return false;
+        }
+
+        inputs = new ResolvedBuildInputs(kind, buildTarget!, scenes!, options!);
+        error = null;
+        return true;
+    }
+
+    private static bool TryReadBuildTarget (
+        JsonElement inputsElement,
         out ResolvedBuildTarget? buildTarget,
         out BuildProfileResolutionResult? error)
     {
         buildTarget = null;
-        if (!JsonObjectPropertyReader.TryReadRequiredString(
-            root,
-            "buildTarget",
-            CreateMissingRequiredPropertyError,
-            CreateStringTypeMismatchError,
-            noError: null,
-            out var stableName,
-            out var errorMessage))
+        if (!TryReadRequiredString(inputsElement, "buildTarget", "Build profile inputs", out var stableName, out error))
         {
-            error = InvalidProfile(errorMessage!);
-            return false;
-        }
-
-        if (string.IsNullOrWhiteSpace(stableName))
-        {
-            error = InvalidProfile("Build profile buildTarget must not be empty.");
             return false;
         }
 
         if (!BuildTargetStableNameCodec.TryResolve(stableName, out var resolvedTarget))
         {
             error = BuildProfileResolutionResult.Failure(ExecutionError.InvalidArgument(
-                $"Build profile buildTarget is unsupported: {stableName}.",
+                $"Build profile inputs.buildTarget is unsupported: {stableName}.",
                 BuildErrorCodes.BuildTargetUnsupported));
             return false;
         }
@@ -162,57 +191,23 @@ internal static class BuildProfileResolver
     }
 
     private static bool TryReadScenes (
-        JsonElement root,
+        JsonElement inputsElement,
         out ResolvedBuildScenes? scenes,
         out BuildProfileResolutionResult? error)
     {
         scenes = null;
-        if (!JsonObjectPropertyReader.TryReadRequiredProperty(
-            root,
-            "scenes",
-            CreateMissingRequiredPropertyError,
-            out var scenesElement,
-            out var errorMessage))
-        {
-            error = InvalidProfile(errorMessage!);
-            return false;
-        }
-
-        if (scenesElement.ValueKind != JsonValueKind.Object)
-        {
-            error = InvalidProfile("Build profile property 'scenes' must be an object.");
-            return false;
-        }
-
-        if (!TryValidateObjectProperties(scenesElement, AllowedScenesProperties, "Build profile scenes", out error))
+        if (!TryReadRequiredObject(inputsElement, "scenes", "Build profile inputs", out var scenesElement, out error)
+            || !TryValidateObjectProperties(scenesElement, AllowedScenesProperties, "Build profile inputs.scenes", out error)
+            || !TryReadRequiredEnum(scenesElement, "source", "Build profile inputs.scenes", out BuildProfileSceneSource source, out error))
         {
             return false;
         }
 
-        if (!JsonObjectPropertyReader.TryReadRequiredString(
-            scenesElement,
-            "source",
-            CreateMissingRequiredScenesPropertyError,
-            CreateScenesStringTypeMismatchError,
-            noError: null,
-            out var source,
-            out errorMessage))
-        {
-            error = InvalidProfile(errorMessage!);
-            return false;
-        }
-
-        if (!ContractLiteralCodec.TryParse<BuildProfileSceneSource>(source, out var sceneSource))
-        {
-            error = InvalidProfile($"Build profile scenes.source is unsupported: {source}.");
-            return false;
-        }
-
-        if (sceneSource == BuildProfileSceneSource.EditorBuildSettings)
+        if (source == BuildProfileSceneSource.EditorBuildSettings)
         {
             if (scenesElement.TryGetProperty("paths", out _))
             {
-                error = InvalidProfile($"Build profile scenes.paths must not be specified when scenes.source is {ContractLiteralCodec.ToValue(BuildProfileSceneSource.EditorBuildSettings)}.");
+                error = InvalidProfile($"Build profile inputs.scenes.paths must not be specified when source is {ContractLiteralCodec.ToValue(BuildProfileSceneSource.EditorBuildSettings)}.");
                 return false;
             }
 
@@ -221,9 +216,9 @@ internal static class BuildProfileResolver
             return true;
         }
 
-        if (sceneSource != BuildProfileSceneSource.Explicit)
+        if (source != BuildProfileSceneSource.Explicit)
         {
-            error = InvalidProfile($"Build profile scenes.source is unsupported: {source}.");
+            error = InvalidProfile($"Build profile inputs.scenes.source is unsupported: {ContractLiteralCodec.ToValue(source)}.");
             return false;
         }
 
@@ -236,37 +231,40 @@ internal static class BuildProfileResolver
         out BuildProfileResolutionResult? error)
     {
         scenes = null;
-        if (!JsonObjectPropertyReader.TryReadRequiredStringArray(
+        if (!TryReadRequiredStringArray(
             scenesElement,
             "paths",
-            CreateMissingRequiredScenesPropertyError,
-            CreateScenesStringArrayTypeMismatchError,
-            CreateScenesStringArrayTypeMismatchError,
-            noError: null,
+            "Build profile inputs.scenes",
             out var paths,
-            out var errorMessage))
+            out error))
         {
-            error = InvalidProfile(errorMessage!);
             return false;
         }
 
         if (paths.Length == 0)
         {
-            error = InvalidProfile("Build profile scenes.paths must contain at least one path.");
+            error = InvalidProfile("Build profile inputs.scenes.paths must contain at least one path.");
             return false;
         }
 
+        var seenPaths = new HashSet<string>(StringComparer.Ordinal);
         for (var i = 0; i < paths.Length; i++)
         {
-            if (string.IsNullOrWhiteSpace(paths[i]))
+            if (!IsRequiredStringValue(paths[i]))
             {
-                error = InvalidProfile($"Build profile scenes.paths[{i}] must not be empty.");
+                error = InvalidProfile($"Build profile inputs.scenes.paths[{i}] must be a non-empty string without outer whitespace, NUL, or newline characters.");
                 return false;
             }
 
             if (!UnityAssetPathContract.IsNormalizedSceneAssetPath(paths[i]))
             {
-                error = InvalidProfile($"Build profile scenes.paths[{i}] must be a project-relative scene asset path under Assets ending with '{UnityAssetPathContract.SceneAssetExtension}'.");
+                error = InvalidProfile($"Build profile inputs.scenes.paths[{i}] must be a project-relative scene asset path under Assets ending with '{UnityAssetPathContract.SceneAssetExtension}'.");
+                return false;
+            }
+
+            if (!seenPaths.Add(paths[i]))
+            {
+                error = InvalidProfile($"Build profile inputs.scenes.paths contains duplicate value '{paths[i]}'.");
                 return false;
             }
         }
@@ -276,83 +274,14 @@ internal static class BuildProfileResolver
         return true;
     }
 
-    private static bool TryReadOutput (
-        JsonElement root,
-        out ResolvedBuildOutputPolicy? output,
-        out BuildProfileResolutionResult? error)
-    {
-        output = null;
-        if (!JsonObjectPropertyReader.TryReadRequiredProperty(
-            root,
-            "output",
-            CreateMissingRequiredPropertyError,
-            out var outputElement,
-            out var errorMessage))
-        {
-            error = InvalidProfile(errorMessage!);
-            return false;
-        }
-
-        if (outputElement.ValueKind != JsonValueKind.Object)
-        {
-            error = InvalidProfile("Build profile property 'output' must be an object.");
-            return false;
-        }
-
-        if (!TryValidateObjectProperties(outputElement, AllowedOutputProperties, "Build profile output", out error))
-        {
-            return false;
-        }
-
-        if (!JsonObjectPropertyReader.TryReadRequiredString(
-            outputElement,
-            "kind",
-            CreateMissingRequiredOutputPropertyError,
-            CreateOutputStringTypeMismatchError,
-            noError: null,
-            out var kind,
-            out errorMessage))
-        {
-            error = InvalidProfile(errorMessage!);
-            return false;
-        }
-
-        if (!ContractLiteralCodec.TryParse<BuildProfileOutputKind>(kind, out var outputKind)
-            || outputKind != BuildProfileOutputKind.UcliArtifact)
-        {
-            error = InvalidProfile($"Build profile output.kind is unsupported: {kind}.");
-            return false;
-        }
-
-        output = new ResolvedBuildOutputPolicy(BuildProfileOutputKind.UcliArtifact);
-        error = null;
-        return true;
-    }
-
     private static bool TryReadOptions (
-        JsonElement root,
+        JsonElement inputsElement,
         out ResolvedBuildOptions? options,
         out BuildProfileResolutionResult? error)
     {
         options = null;
-        if (!JsonObjectPropertyReader.TryReadRequiredProperty(
-            root,
-            "options",
-            CreateMissingRequiredPropertyError,
-            out var optionsElement,
-            out var errorMessage))
-        {
-            error = InvalidProfile(errorMessage!);
-            return false;
-        }
-
-        if (optionsElement.ValueKind != JsonValueKind.Object)
-        {
-            error = InvalidProfile("Build profile property 'options' must be an object.");
-            return false;
-        }
-
-        if (!TryValidateObjectProperties(optionsElement, AllowedOptionsProperties, "Build profile options", out error))
+        if (!TryReadRequiredObject(inputsElement, "options", "Build profile inputs", out var optionsElement, out error)
+            || !TryValidateObjectProperties(optionsElement, AllowedOptionsProperties, "Build profile inputs.options", out error))
         {
             return false;
         }
@@ -360,21 +289,241 @@ internal static class BuildProfileResolver
         if (!JsonObjectPropertyReader.TryReadRequiredProperty(
             optionsElement,
             "development",
-            CreateMissingRequiredOptionsPropertyError,
+            static propertyName => $"Build profile inputs.options is missing required property '{propertyName}'.",
             out var developmentElement,
-            out errorMessage))
+            out var errorMessage))
         {
-            error = InvalidProfile(errorMessage!);
+            error = InvalidProfile(errorMessage);
             return false;
         }
 
         if (developmentElement.ValueKind != JsonValueKind.True && developmentElement.ValueKind != JsonValueKind.False)
         {
-            error = InvalidProfile("Build profile options.development must be a boolean.");
+            error = InvalidProfile("Build profile inputs.options.development must be a boolean.");
             return false;
         }
 
         options = new ResolvedBuildOptions(developmentElement.GetBoolean());
+        error = null;
+        return true;
+    }
+
+    private static bool TryReadRunner (
+        JsonElement root,
+        out ResolvedBuildRunner? runner,
+        out BuildProfileResolutionResult? error)
+    {
+        runner = null;
+        if (!TryReadRequiredObject(root, "runner", "Build profile", out var runnerElement, out error)
+            || !TryValidateObjectProperties(runnerElement, AllowedRunnerProperties, "Build profile runner", out error)
+            || !TryReadRequiredEnum(runnerElement, "kind", "Build profile runner", out BuildProfileRunnerKind kind, out error))
+        {
+            return false;
+        }
+
+        if (kind != BuildProfileRunnerKind.BuildPipeline)
+        {
+            error = InvalidProfile($"Build profile runner.kind is unsupported: {ContractLiteralCodec.ToValue(kind)}.");
+            return false;
+        }
+
+        runner = new ResolvedBuildRunner(kind);
+        error = null;
+        return true;
+    }
+
+    private static bool TryReadPolicy (
+        JsonElement root,
+        out ResolvedBuildPolicy? policy,
+        out BuildProfileResolutionResult? error)
+    {
+        policy = null;
+        if (!TryReadRequiredObject(root, "policy", "Build profile", out var policyElement, out error)
+            || !TryValidateObjectProperties(policyElement, AllowedPolicyProperties, "Build profile policy", out error)
+            || !TryReadRuntimePolicy(policyElement, out var runtime, out error)
+            || !TryReadRequiredEnum(policyElement, "projectMutationMode", "Build profile policy", out BuildProfileProjectMutationMode projectMutationMode, out error))
+        {
+            return false;
+        }
+
+        policy = new ResolvedBuildPolicy(runtime!, projectMutationMode);
+        error = null;
+        return true;
+    }
+
+    private static bool TryReadRuntimePolicy (
+        JsonElement policyElement,
+        out ResolvedBuildRuntimePolicy? runtime,
+        out BuildProfileResolutionResult? error)
+    {
+        runtime = null;
+        if (!TryReadRequiredObject(policyElement, "runtime", "Build profile policy", out var runtimeElement, out error)
+            || !TryValidateObjectProperties(runtimeElement, AllowedRuntimeProperties, "Build profile policy.runtime", out error)
+            || !TryReadRequiredEnumArray(runtimeElement, "allowedExecutionModes", "Build profile policy.runtime", out IReadOnlyList<BuildProfileRuntimeExecutionMode>? allowedExecutionModes, out error)
+            || !TryReadRequiredEnumArray(runtimeElement, "allowedEditorModes", "Build profile policy.runtime", out IReadOnlyList<DaemonEditorMode>? allowedEditorModes, out error))
+        {
+            return false;
+        }
+
+        runtime = new ResolvedBuildRuntimePolicy(allowedExecutionModes!, allowedEditorModes!);
+        error = null;
+        return true;
+    }
+
+    private static bool TryReadRequiredObject (
+        JsonElement parent,
+        string propertyName,
+        string objectName,
+        out JsonElement jsonObject,
+        out BuildProfileResolutionResult? error)
+    {
+        if (!JsonObjectPropertyReader.TryReadRequiredProperty(
+            parent,
+            propertyName,
+            CreateMissingRequiredPropertyError,
+            out jsonObject,
+            out var errorMessage))
+        {
+            error = InvalidProfile(errorMessage);
+            return false;
+        }
+
+        if (jsonObject.ValueKind != JsonValueKind.Object)
+        {
+            error = InvalidProfile($"{objectName} property '{propertyName}' must be an object.");
+            return false;
+        }
+
+        error = null;
+        return true;
+    }
+
+    private static bool TryReadRequiredString (
+        JsonElement jsonObject,
+        string propertyName,
+        string objectName,
+        out string value,
+        out BuildProfileResolutionResult? error)
+    {
+        if (!JsonObjectPropertyReader.TryReadRequiredString(
+            jsonObject,
+            propertyName,
+            property => $"{objectName} is missing required property '{property}'.",
+            property => $"{objectName}.{property} must be string.",
+            noError: null,
+            out value,
+            out var errorMessage))
+        {
+            error = InvalidProfile(errorMessage!);
+            return false;
+        }
+
+        if (!IsRequiredStringValue(value))
+        {
+            error = InvalidProfile($"{objectName}.{propertyName} must be a non-empty string without outer whitespace, NUL, or newline characters.");
+            return false;
+        }
+
+        error = null;
+        return true;
+    }
+
+    private static bool TryReadRequiredStringArray (
+        JsonElement jsonObject,
+        string propertyName,
+        string objectName,
+        out string[] values,
+        out BuildProfileResolutionResult? error)
+    {
+        if (!JsonObjectPropertyReader.TryReadRequiredStringArray(
+            jsonObject,
+            propertyName,
+            property => $"{objectName} is missing required property '{property}'.",
+            property => $"{objectName}.{property} must be string array.",
+            property => $"{objectName}.{property} must be string array.",
+            noError: null,
+            out values,
+            out var errorMessage))
+        {
+            error = InvalidProfile(errorMessage!);
+            return false;
+        }
+
+        error = null;
+        return true;
+    }
+
+    private static bool TryReadRequiredEnum<TEnum> (
+        JsonElement jsonObject,
+        string propertyName,
+        string objectName,
+        out TEnum value,
+        out BuildProfileResolutionResult? error)
+        where TEnum : struct, Enum
+    {
+        value = default;
+        if (!TryReadRequiredString(jsonObject, propertyName, objectName, out var literal, out error))
+        {
+            return false;
+        }
+
+        if (!ContractLiteralCodec.TryParse(literal, out value))
+        {
+            error = InvalidProfile($"{objectName}.{propertyName} is unsupported: {literal}.");
+            return false;
+        }
+
+        error = null;
+        return true;
+    }
+
+    private static bool TryReadRequiredEnumArray<TEnum> (
+        JsonElement jsonObject,
+        string propertyName,
+        string objectName,
+        out IReadOnlyList<TEnum>? values,
+        out BuildProfileResolutionResult? error)
+        where TEnum : struct, Enum
+    {
+        values = null;
+        if (!TryReadRequiredStringArray(jsonObject, propertyName, objectName, out var literals, out error))
+        {
+            return false;
+        }
+
+        if (literals.Length == 0)
+        {
+            error = InvalidProfile($"{objectName}.{propertyName} must contain at least one value.");
+            return false;
+        }
+
+        var parsedValues = new List<TEnum>(literals.Length);
+        var seenValues = new HashSet<TEnum>();
+        for (var i = 0; i < literals.Length; i++)
+        {
+            var literal = literals[i];
+            if (!IsRequiredStringValue(literal))
+            {
+                error = InvalidProfile($"{objectName}.{propertyName}[{i}] must be a non-empty string without outer whitespace, NUL, or newline characters.");
+                return false;
+            }
+
+            if (!ContractLiteralCodec.TryParse(literal, out TEnum value))
+            {
+                error = InvalidProfile($"{objectName}.{propertyName}[{i}] is unsupported: {literal}.");
+                return false;
+            }
+
+            if (!seenValues.Add(value))
+            {
+                error = InvalidProfile($"{objectName}.{propertyName} contains duplicate value '{literal}'.");
+                return false;
+            }
+
+            parsedValues.Add(value);
+        }
+
+        values = parsedValues;
         error = null;
         return true;
     }
@@ -412,48 +561,22 @@ internal static class BuildProfileResolver
         return true;
     }
 
+    private static bool IsRequiredStringValue (string? value)
+    {
+        return !string.IsNullOrWhiteSpace(value)
+            && !StringValueValidator.HasOuterWhitespace(value)
+            && value.IndexOf('\0') < 0
+            && value.IndexOf('\n') < 0
+            && value.IndexOf('\r') < 0;
+    }
+
     private static string CreateMissingRequiredPropertyError (string propertyName)
     {
         return $"Build profile is missing required property '{propertyName}'.";
     }
 
-    private static string CreateMissingRequiredScenesPropertyError (string propertyName)
-    {
-        return $"Build profile scenes is missing required property '{propertyName}'.";
-    }
-
-    private static string CreateMissingRequiredOutputPropertyError (string propertyName)
-    {
-        return $"Build profile output is missing required property '{propertyName}'.";
-    }
-
-    private static string CreateMissingRequiredOptionsPropertyError (string propertyName)
-    {
-        return $"Build profile options is missing required property '{propertyName}'.";
-    }
-
     private static string CreateInt32TypeMismatchError (string propertyName)
     {
         return $"Build profile property '{propertyName}' must be int32.";
-    }
-
-    private static string CreateStringTypeMismatchError (string propertyName)
-    {
-        return $"Build profile property '{propertyName}' must be string.";
-    }
-
-    private static string CreateScenesStringTypeMismatchError (string propertyName)
-    {
-        return $"Build profile scenes.{propertyName} must be string.";
-    }
-
-    private static string CreateScenesStringArrayTypeMismatchError (string propertyName)
-    {
-        return $"Build profile scenes.{propertyName} must be string array.";
-    }
-
-    private static string CreateOutputStringTypeMismatchError (string propertyName)
-    {
-        return $"Build profile output.{propertyName} must be string.";
     }
 }

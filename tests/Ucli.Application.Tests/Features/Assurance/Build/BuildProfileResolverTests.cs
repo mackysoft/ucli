@@ -8,69 +8,113 @@ namespace MackySoft.Ucli.Application.Tests.Features.Assurance.Build;
 
 public sealed class BuildProfileResolverTests
 {
+    private const string ValidExplicitProfileJson = """
+        {
+          "schemaVersion": 1,
+          "inputs": {
+            "kind": "explicit",
+            "buildTarget": "standaloneLinux64",
+            "scenes": {
+              "source": "explicit",
+              "paths": [
+                "Assets/Scenes/Main.unity",
+                "Assets/Scenes/Bootstrap.unity"
+              ]
+            },
+            "options": {
+              "development": false
+            }
+          },
+          "runner": {
+            "kind": "buildPipeline"
+          },
+          "policy": {
+            "runtime": {
+              "allowedExecutionModes": [
+                "daemon",
+                "oneshot"
+              ],
+              "allowedEditorModes": [
+                "batchmode",
+                "gui"
+              ]
+            },
+            "projectMutationMode": "forbid"
+          }
+        }
+        """;
+
     [Fact]
     [Trait("Size", "Small")]
-    public void ResolveJson_WithExplicitScenesProfile_ReturnsResolvedModel ()
+    public void ResolveJson_WithFinalExplicitBuildPipelineProfile_ReturnsResolvedModel ()
     {
-        var result = BuildProfileResolver.ResolveJson(
-            """
-            {
-              "schemaVersion": 1,
-              "buildTarget": "standaloneLinux64",
-              "scenes": {
-                "source": "explicit",
-                "paths": [
-                  "Assets/Scenes/Main.unity",
-                  "Assets/Scenes/Bootstrap.unity"
-                ]
-              },
-              "output": {
-                "kind": "ucliArtifact"
-              },
-              "options": {
-                "development": false
-              }
-            }
-            """);
+        var result = BuildProfileResolver.ResolveJson(ValidExplicitProfileJson);
 
         Assert.True(result.IsSuccess);
         var profile = result.Profile!;
         Assert.Equal(1, profile.SchemaVersion);
+        Assert.Equal(BuildProfileInputsKind.Explicit, profile.Inputs.Kind);
         Assert.Equal(BuildTargetStableName.StandaloneLinux64, profile.BuildTarget.StableNameValue);
         Assert.Equal("standaloneLinux64", profile.BuildTarget.StableName);
         Assert.Equal("StandaloneLinux64", profile.BuildTarget.UnityBuildTargetLiteral);
         Assert.Equal(BuildProfileSceneSource.Explicit, profile.Scenes.Source);
-        Assert.Equal("explicit", ContractLiteralCodec.ToValue(profile.Scenes.Source));
         Assert.Equal(
             [
                 "Assets/Scenes/Main.unity",
                 "Assets/Scenes/Bootstrap.unity",
             ],
             profile.Scenes.Paths);
-        Assert.Equal(BuildProfileOutputKind.UcliArtifact, profile.Output.Kind);
-        Assert.Equal("ucliArtifact", ContractLiteralCodec.ToValue(profile.Output.Kind));
         Assert.False(profile.Options.Development);
+        Assert.Equal(BuildProfileRunnerKind.BuildPipeline, profile.Runner.Kind);
+        Assert.Equal(
+            [
+                BuildProfileRuntimeExecutionMode.Daemon,
+                BuildProfileRuntimeExecutionMode.Oneshot,
+            ],
+            profile.Policy.Runtime.AllowedExecutionModes);
+        Assert.Equal(
+            [
+                DaemonEditorMode.Batchmode,
+                DaemonEditorMode.Gui,
+            ],
+            profile.Policy.Runtime.AllowedEditorModes);
+        Assert.Equal(BuildProfileProjectMutationMode.Forbid, profile.Policy.ProjectMutationMode);
+        Assert.Equal(BuildProfileOutputKind.UcliArtifact, profile.Output.Kind);
         Assert.Matches("^[0-9a-f]{64}$", profile.Digest);
         Assert.False(profile.Digest.StartsWith("sha256:", StringComparison.Ordinal));
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void ResolveJson_WithEditorBuildSettingsProfile_PreservesSourceWithoutScenePaths ()
+    public void ResolveJson_WithEditorBuildSettingsScenes_PreservesSourceWithoutScenePaths ()
     {
         var result = BuildProfileResolver.ResolveJson(
             """
             {
               "schemaVersion": 1,
-              "buildTarget": "standaloneLinux64",
-              "scenes": {
-                "source": "editorBuildSettings"
+              "inputs": {
+                "kind": "explicit",
+                "buildTarget": "standaloneLinux64",
+                "scenes": {
+                  "source": "editorBuildSettings"
+                },
+                "options": {
+                  "development": true
+                }
               },
-              "output": {
-                "kind": "ucliArtifact"
+              "runner": {
+                "kind": "buildPipeline"
               },
-              "options": {
-                "development": true
+              "policy": {
+                "runtime": {
+                  "allowedExecutionModes": [
+                    "daemon"
+                  ],
+                  "allowedEditorModes": [
+                    "batchmode"
+                  ]
+                },
+                "projectMutationMode": "audit"
               }
             }
             """);
@@ -78,9 +122,11 @@ public sealed class BuildProfileResolverTests
         Assert.True(result.IsSuccess);
         var profile = result.Profile!;
         Assert.Equal(BuildProfileSceneSource.EditorBuildSettings, profile.Scenes.Source);
-        Assert.Equal("editorBuildSettings", ContractLiteralCodec.ToValue(profile.Scenes.Source));
         Assert.Empty(profile.Scenes.Paths);
         Assert.True(profile.Options.Development);
+        Assert.Equal([BuildProfileRuntimeExecutionMode.Daemon], profile.Policy.Runtime.AllowedExecutionModes);
+        Assert.Equal([DaemonEditorMode.Batchmode], profile.Policy.Runtime.AllowedEditorModes);
+        Assert.Equal(BuildProfileProjectMutationMode.Audit, profile.Policy.ProjectMutationMode);
     }
 
     [Theory]
@@ -103,15 +149,29 @@ public sealed class BuildProfileResolverTests
             """
             {
               "schemaVersion": 1,
-              "buildTarget": "StandaloneWindows64",
-              "scenes": {
-                "source": "editorBuildSettings"
+              "inputs": {
+                "kind": "explicit",
+                "buildTarget": "StandaloneWindows64",
+                "scenes": {
+                  "source": "editorBuildSettings"
+                },
+                "options": {
+                  "development": false
+                }
               },
-              "output": {
-                "kind": "ucliArtifact"
+              "runner": {
+                "kind": "buildPipeline"
               },
-              "options": {
-                "development": false
+              "policy": {
+                "runtime": {
+                  "allowedExecutionModes": [
+                    "oneshot"
+                  ],
+                  "allowedEditorModes": [
+                    "batchmode"
+                  ]
+                },
+                "projectMutationMode": "forbid"
               }
             }
             """);
@@ -125,22 +185,38 @@ public sealed class BuildProfileResolverTests
     [Trait("Size", "Small")]
     public void ResolveJson_ComputesStableCanonicalDigest ()
     {
-        const string CompactJson = "{\"schemaVersion\":1,\"buildTarget\":\"standaloneLinux64\",\"scenes\":{\"source\":\"explicit\",\"paths\":[\"Assets/Scenes/Main.unity\"]},\"output\":{\"kind\":\"ucliArtifact\"},\"options\":{\"development\":false}}";
+        const string CompactJson = "{\"schemaVersion\":1,\"inputs\":{\"kind\":\"explicit\",\"buildTarget\":\"standaloneLinux64\",\"scenes\":{\"source\":\"explicit\",\"paths\":[\"Assets/Scenes/Main.unity\"]},\"options\":{\"development\":false}},\"runner\":{\"kind\":\"buildPipeline\"},\"policy\":{\"runtime\":{\"allowedExecutionModes\":[\"daemon\",\"oneshot\"],\"allowedEditorModes\":[\"batchmode\",\"gui\"]},\"projectMutationMode\":\"forbid\"}}";
         const string ReorderedJson = """
             {
-              "options": {
-                "development": false
+              "policy": {
+                "projectMutationMode": "forbid",
+                "runtime": {
+                  "allowedEditorModes": [
+                    "batchmode",
+                    "gui"
+                  ],
+                  "allowedExecutionModes": [
+                    "daemon",
+                    "oneshot"
+                  ]
+                }
               },
-              "output": {
-                "kind": "ucliArtifact"
+              "runner": {
+                "kind": "buildPipeline"
               },
-              "scenes": {
-                "paths": [
-                  "Assets/Scenes/Main.unity"
-                ],
-                "source": "explicit"
+              "inputs": {
+                "options": {
+                  "development": false
+                },
+                "scenes": {
+                  "paths": [
+                    "Assets/Scenes/Main.unity"
+                  ],
+                  "source": "explicit"
+                },
+                "buildTarget": "standaloneLinux64",
+                "kind": "explicit"
               },
-              "buildTarget": "standaloneLinux64",
               "schemaVersion": 1
             }
             """;
@@ -162,36 +238,41 @@ public sealed class BuildProfileResolverTests
             """not-json""",
             """ """,
             """[]""",
-            """{"buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
-            """{"schemaVersion":2,"buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
-            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"output":{"kind":"ucliArtifact"},"options":{"development":false},"legacy":true}""",
-            """{"schemaVersion":1,"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
-            """{"schemaVersion":1,"buildTarget":"","scenes":{"source":"editorBuildSettings"},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
-            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":[],"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
-            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings","legacy":true},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
-            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings","source":"editorBuildSettings"},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
-            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"unknown"},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
-            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings","paths":["Assets/Scenes/Main.unity"]},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
-            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"explicit"},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
-            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"explicit","paths":"Assets/Scenes/Main.unity"},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
-            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"explicit","paths":[]},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
-            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"explicit","paths":[" "]},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
-            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"explicit","paths":["/Assets/Scenes/Main.unity"]},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
-            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"explicit","paths":["C:/Project/Assets/Scenes/Main.unity"]},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
-            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"explicit","paths":["Assets/Scenes/../Main.unity"]},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
-            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"explicit","paths":["Assets\\Scenes\\Main.unity"]},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
-            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"explicit","paths":["Assets/Scenes/Main.scene"]},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
-            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"explicit","paths":[" Assets/Scenes/Main.unity"]},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
-            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"explicit","paths":[1]},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
-            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"output":[],"options":{"development":false}}""",
-            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"output":{"kind":"ucliArtifact","legacy":true},"options":{"development":false}}""",
-            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"output":{"kind":"ucliArtifact","kind":"ucliArtifact"},"options":{"development":false}}""",
-            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"output":{"kind":"fileSystem"},"options":{"development":false}}""",
-            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"output":{"kind":"ucliArtifact"},"options":[]}""",
-            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"output":{"kind":"ucliArtifact"},"options":{"development":false,"legacy":true}}""",
-            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"output":{"kind":"ucliArtifact"},"options":{"development":false,"development":false}}""",
-            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"output":{"kind":"ucliArtifact"},"options":{"development":"false"}}""",
+            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
+            """{"inputs":{"kind":"explicit","buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"options":{"development":false}},"runner":{"kind":"buildPipeline"},"policy":{"runtime":{"allowedExecutionModes":["daemon"],"allowedEditorModes":["batchmode"]},"projectMutationMode":"forbid"}}""",
+            """{"schemaVersion":2,"inputs":{"kind":"explicit","buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"options":{"development":false}},"runner":{"kind":"buildPipeline"},"policy":{"runtime":{"allowedExecutionModes":["daemon"],"allowedEditorModes":["batchmode"]},"projectMutationMode":"forbid"}}""",
+            """{"schemaVersion":1,"schemaVersion":1,"inputs":{"kind":"explicit","buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"options":{"development":false}},"runner":{"kind":"buildPipeline"},"policy":{"runtime":{"allowedExecutionModes":["daemon"],"allowedEditorModes":["batchmode"]},"projectMutationMode":"forbid"}}""",
+            """{"schemaVersion":1,"inputs":{"kind":"explicit","buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"options":{"development":false}},"runner":{"kind":"buildPipeline"},"policy":{"runtime":{"allowedExecutionModes":["daemon"],"allowedEditorModes":["batchmode"]},"projectMutationMode":"forbid"},"legacy":true}""",
+            """{"schemaVersion":1,"inputs":[],"runner":{"kind":"buildPipeline"},"policy":{"runtime":{"allowedExecutionModes":["daemon"],"allowedEditorModes":["batchmode"]},"projectMutationMode":"forbid"}}""",
+            """{"schemaVersion":1,"inputs":{"kind":"unityBuildProfile","buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"options":{"development":false}},"runner":{"kind":"buildPipeline"},"policy":{"runtime":{"allowedExecutionModes":["daemon"],"allowedEditorModes":["batchmode"]},"projectMutationMode":"forbid"}}""",
+            """{"schemaVersion":1,"inputs":{"kind":"explicit","buildTarget":"","scenes":{"source":"editorBuildSettings"},"options":{"development":false}},"runner":{"kind":"buildPipeline"},"policy":{"runtime":{"allowedExecutionModes":["daemon"],"allowedEditorModes":["batchmode"]},"projectMutationMode":"forbid"}}""",
+            """{"schemaVersion":1,"inputs":{"kind":"explicit","buildTarget":" standaloneLinux64","scenes":{"source":"editorBuildSettings"},"options":{"development":false}},"runner":{"kind":"buildPipeline"},"policy":{"runtime":{"allowedExecutionModes":["daemon"],"allowedEditorModes":["batchmode"]},"projectMutationMode":"forbid"}}""",
+            "{\"schemaVersion\":1,\"inputs\":{\"kind\":\"explicit\",\"buildTarget\":\"standaloneLinux64\\n\",\"scenes\":{\"source\":\"editorBuildSettings\"},\"options\":{\"development\":false}},\"runner\":{\"kind\":\"buildPipeline\"},\"policy\":{\"runtime\":{\"allowedExecutionModes\":[\"daemon\"],\"allowedEditorModes\":[\"batchmode\"]},\"projectMutationMode\":\"forbid\"}}",
+            """{"schemaVersion":1,"inputs":{"kind":"explicit","buildTarget":"standaloneLinux64","scenes":[],"options":{"development":false}},"runner":{"kind":"buildPipeline"},"policy":{"runtime":{"allowedExecutionModes":["daemon"],"allowedEditorModes":["batchmode"]},"projectMutationMode":"forbid"}}""",
+            """{"schemaVersion":1,"inputs":{"kind":"explicit","buildTarget":"standaloneLinux64","scenes":{"source":"unknown"},"options":{"development":false}},"runner":{"kind":"buildPipeline"},"policy":{"runtime":{"allowedExecutionModes":["daemon"],"allowedEditorModes":["batchmode"]},"projectMutationMode":"forbid"}}""",
+            """{"schemaVersion":1,"inputs":{"kind":"explicit","buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings","paths":["Assets/Scenes/Main.unity"]},"options":{"development":false}},"runner":{"kind":"buildPipeline"},"policy":{"runtime":{"allowedExecutionModes":["daemon"],"allowedEditorModes":["batchmode"]},"projectMutationMode":"forbid"}}""",
+            """{"schemaVersion":1,"inputs":{"kind":"explicit","buildTarget":"standaloneLinux64","scenes":{"source":"explicit"},"options":{"development":false}},"runner":{"kind":"buildPipeline"},"policy":{"runtime":{"allowedExecutionModes":["daemon"],"allowedEditorModes":["batchmode"]},"projectMutationMode":"forbid"}}""",
+            """{"schemaVersion":1,"inputs":{"kind":"explicit","buildTarget":"standaloneLinux64","scenes":{"source":"explicit","paths":[]},"options":{"development":false}},"runner":{"kind":"buildPipeline"},"policy":{"runtime":{"allowedExecutionModes":["daemon"],"allowedEditorModes":["batchmode"]},"projectMutationMode":"forbid"}}""",
+            """{"schemaVersion":1,"inputs":{"kind":"explicit","buildTarget":"standaloneLinux64","scenes":{"source":"explicit","paths":[" "]},"options":{"development":false}},"runner":{"kind":"buildPipeline"},"policy":{"runtime":{"allowedExecutionModes":["daemon"],"allowedEditorModes":["batchmode"]},"projectMutationMode":"forbid"}}""",
+            """{"schemaVersion":1,"inputs":{"kind":"explicit","buildTarget":"standaloneLinux64","scenes":{"source":"explicit","paths":["Assets/Scenes/Main.unity","Assets/Scenes/Main.unity"]},"options":{"development":false}},"runner":{"kind":"buildPipeline"},"policy":{"runtime":{"allowedExecutionModes":["daemon"],"allowedEditorModes":["batchmode"]},"projectMutationMode":"forbid"}}""",
+            """{"schemaVersion":1,"inputs":{"kind":"explicit","buildTarget":"standaloneLinux64","scenes":{"source":"explicit","paths":["/Assets/Scenes/Main.unity"]},"options":{"development":false}},"runner":{"kind":"buildPipeline"},"policy":{"runtime":{"allowedExecutionModes":["daemon"],"allowedEditorModes":["batchmode"]},"projectMutationMode":"forbid"}}""",
+            """{"schemaVersion":1,"inputs":{"kind":"explicit","buildTarget":"standaloneLinux64","scenes":{"source":"explicit","paths":["Assets/Scenes/../Main.unity"]},"options":{"development":false}},"runner":{"kind":"buildPipeline"},"policy":{"runtime":{"allowedExecutionModes":["daemon"],"allowedEditorModes":["batchmode"]},"projectMutationMode":"forbid"}}""",
+            """{"schemaVersion":1,"inputs":{"kind":"explicit","buildTarget":"standaloneLinux64","scenes":{"source":"explicit","paths":["Assets\\Scenes\\Main.unity"]},"options":{"development":false}},"runner":{"kind":"buildPipeline"},"policy":{"runtime":{"allowedExecutionModes":["daemon"],"allowedEditorModes":["batchmode"]},"projectMutationMode":"forbid"}}""",
+            """{"schemaVersion":1,"inputs":{"kind":"explicit","buildTarget":"standaloneLinux64","scenes":{"source":"explicit","paths":["Assets/Scenes/Main.scene"]},"options":{"development":false}},"runner":{"kind":"buildPipeline"},"policy":{"runtime":{"allowedExecutionModes":["daemon"],"allowedEditorModes":["batchmode"]},"projectMutationMode":"forbid"}}""",
+            """{"schemaVersion":1,"inputs":{"kind":"explicit","buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"options":[]},"runner":{"kind":"buildPipeline"},"policy":{"runtime":{"allowedExecutionModes":["daemon"],"allowedEditorModes":["batchmode"]},"projectMutationMode":"forbid"}}""",
+            """{"schemaVersion":1,"inputs":{"kind":"explicit","buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"options":{"development":"false"}},"runner":{"kind":"buildPipeline"},"policy":{"runtime":{"allowedExecutionModes":["daemon"],"allowedEditorModes":["batchmode"]},"projectMutationMode":"forbid"}}""",
+            """{"schemaVersion":1,"inputs":{"kind":"explicit","buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"options":{"development":false}},"runner":{"kind":"executeMethod"},"policy":{"runtime":{"allowedExecutionModes":["daemon"],"allowedEditorModes":["batchmode"]},"projectMutationMode":"forbid"}}""",
+            """{"schemaVersion":1,"inputs":{"kind":"explicit","buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"options":{"development":false}},"runner":{"kind":"buildPipeline","method":"Build.Run"},"policy":{"runtime":{"allowedExecutionModes":["daemon"],"allowedEditorModes":["batchmode"]},"projectMutationMode":"forbid"}}""",
+            """{"schemaVersion":1,"inputs":{"kind":"explicit","buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"options":{"development":false}},"runner":{"kind":"buildPipeline"},"policy":[]}""",
+            """{"schemaVersion":1,"inputs":{"kind":"explicit","buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"options":{"development":false}},"runner":{"kind":"buildPipeline"},"policy":{"runtime":[],"projectMutationMode":"forbid"}}""",
+            """{"schemaVersion":1,"inputs":{"kind":"explicit","buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"options":{"development":false}},"runner":{"kind":"buildPipeline"},"policy":{"runtime":{"allowedExecutionModes":[],"allowedEditorModes":["batchmode"]},"projectMutationMode":"forbid"}}""",
+            """{"schemaVersion":1,"inputs":{"kind":"explicit","buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"options":{"development":false}},"runner":{"kind":"buildPipeline"},"policy":{"runtime":{"allowedExecutionModes":["auto"],"allowedEditorModes":["batchmode"]},"projectMutationMode":"forbid"}}""",
+            """{"schemaVersion":1,"inputs":{"kind":"explicit","buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"options":{"development":false}},"runner":{"kind":"buildPipeline"},"policy":{"runtime":{"allowedExecutionModes":["daemon","daemon"],"allowedEditorModes":["batchmode"]},"projectMutationMode":"forbid"}}""",
+            """{"schemaVersion":1,"inputs":{"kind":"explicit","buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"options":{"development":false}},"runner":{"kind":"buildPipeline"},"policy":{"runtime":{"allowedExecutionModes":["daemon"],"allowedEditorModes":[]},"projectMutationMode":"forbid"}}""",
+            """{"schemaVersion":1,"inputs":{"kind":"explicit","buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"options":{"development":false}},"runner":{"kind":"buildPipeline"},"policy":{"runtime":{"allowedExecutionModes":["daemon"],"allowedEditorModes":["headless"]},"projectMutationMode":"forbid"}}""",
+            """{"schemaVersion":1,"inputs":{"kind":"explicit","buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"options":{"development":false}},"runner":{"kind":"buildPipeline"},"policy":{"runtime":{"allowedExecutionModes":["daemon"],"allowedEditorModes":["batchmode","batchmode"]},"projectMutationMode":"forbid"}}""",
+            """{"schemaVersion":1,"inputs":{"kind":"explicit","buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"options":{"development":false}},"runner":{"kind":"buildPipeline"},"policy":{"runtime":{"allowedExecutionModes":["daemon"],"allowedEditorModes":["batchmode"]},"projectMutationMode":"legacy"}}""",
+            """{"schemaVersion":1,"inputs":{"kind":"explicit","buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"options":{"development":false}},"runner":{"kind":"buildPipeline"},"policy":{"runtime":{"allowedExecutionModes":["daemon"],"allowedEditorModes":["batchmode"]},"projectMutationMode":" forbid"}}""",
         ];
     }
-
 }

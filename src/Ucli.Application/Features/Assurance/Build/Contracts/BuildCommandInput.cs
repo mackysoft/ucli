@@ -4,6 +4,5 @@ namespace MackySoft.Ucli.Application.Features.Assurance.Build.Contracts;
 internal sealed record BuildCommandInput (
     string? ProfilePath,
     string? ProjectPath,
-    string? BuildTarget,
     UnityExecutionMode? Mode,
     int? TimeoutMilliseconds);

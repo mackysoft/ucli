@@ -8,7 +8,6 @@ using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
 using MackySoft.Ucli.Application.Features.Assurance.Semantics;
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Execution.Progress;
-using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
@@ -91,12 +90,6 @@ internal sealed class BuildService : IBuildService
             return BuildExecutionResult.Failure(profileResolutionResult.Error!, project);
         }
 
-        var profileOverrideResult = ApplyCommandOverrides(profileResolutionResult.Profile!, input);
-        if (!profileOverrideResult.IsSuccess)
-        {
-            return BuildExecutionResult.Failure(profileOverrideResult.Error!, project);
-        }
-
         var timeoutResult = IpcCommandTimeoutResolver.ResolveNormalized(
             input.TimeoutMilliseconds,
             UcliCommandIds.BuildRun,
@@ -146,7 +139,7 @@ internal sealed class BuildService : IBuildService
             return BuildExecutionResult.Failure(prepareResult.Error!, project);
         }
 
-        var profile = profileOverrideResult.Profile!;
+        var profile = profileResolutionResult.Profile!;
         var paths = prepareResult.Paths!;
         await EmitStartedAsync(
                 resolvedProgressSink,
@@ -264,41 +257,6 @@ internal sealed class BuildService : IBuildService
         {
             return BuildExecutionResult.Failure(CreateTimeoutFailure(timeout), project);
         }
-    }
-
-    private static BuildProfileResolutionResult ApplyCommandOverrides (
-        ResolvedBuildProfile profile,
-        BuildCommandInput input)
-    {
-        if (input.BuildTarget is null)
-        {
-            return BuildProfileResolutionResult.Success(profile);
-        }
-
-        if (string.IsNullOrWhiteSpace(input.BuildTarget))
-        {
-            return BuildProfileResolutionResult.Failure(ExecutionError.InvalidArgument(
-                "buildTarget must not be empty.",
-                BuildErrorCodes.BuildTargetUnsupported));
-        }
-
-        if (!BuildTargetStableNameCodec.TryResolve(input.BuildTarget, out var buildTarget))
-        {
-            return BuildProfileResolutionResult.Failure(ExecutionError.InvalidArgument(
-                $"buildTarget is unsupported: {input.BuildTarget}.",
-                BuildErrorCodes.BuildTargetUnsupported));
-        }
-
-        return BuildProfileResolutionResult.Success(profile with
-        {
-            BuildTarget = buildTarget,
-            Digest = BuildProfileDigestCalculator.Calculate(
-                profile.SchemaVersion,
-                buildTarget,
-                profile.Scenes,
-                profile.Output,
-                profile.Options),
-        });
     }
 
     private static ValueTask EmitStartedAsync (

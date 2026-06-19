@@ -33,18 +33,34 @@ public sealed class BuildServiceTests
     private const string ProfileJson = """
         {
           "schemaVersion": 1,
-          "buildTarget": "standaloneLinux64",
-          "scenes": {
-            "source": "explicit",
-            "paths": [
-              "Assets/Scenes/Main.unity"
-            ]
+          "inputs": {
+            "kind": "explicit",
+            "buildTarget": "standaloneLinux64",
+            "scenes": {
+              "source": "explicit",
+              "paths": [
+                "Assets/Scenes/Main.unity"
+              ]
+            },
+            "options": {
+              "development": true
+            }
           },
-          "output": {
-            "kind": "ucliArtifact"
+          "runner": {
+            "kind": "buildPipeline"
           },
-          "options": {
-            "development": true
+          "policy": {
+            "runtime": {
+              "allowedExecutionModes": [
+                "daemon",
+                "oneshot"
+              ],
+              "allowedEditorModes": [
+                "batchmode",
+                "gui"
+              ]
+            },
+            "projectMutationMode": "forbid"
           }
         }
         """;
@@ -217,15 +233,31 @@ public sealed class BuildServiceTests
         const string profileJson = """
             {
               "schemaVersion": 1,
-              "buildTarget": "standaloneLinux64",
-              "scenes": {
-                "source": "editorBuildSettings"
+              "inputs": {
+                "kind": "explicit",
+                "buildTarget": "standaloneLinux64",
+                "scenes": {
+                  "source": "editorBuildSettings"
+                },
+                "options": {
+                  "development": true
+                }
               },
-              "output": {
-                "kind": "ucliArtifact"
+              "runner": {
+                "kind": "buildPipeline"
               },
-              "options": {
-                "development": true
+              "policy": {
+                "runtime": {
+                  "allowedExecutionModes": [
+                    "daemon",
+                    "oneshot"
+                  ],
+                  "allowedEditorModes": [
+                    "batchmode",
+                    "gui"
+                  ]
+                },
+                "projectMutationMode": "forbid"
               }
             }
             """;
@@ -256,70 +288,6 @@ public sealed class BuildServiceTests
         var payload = Assert.IsType<UnityRequestPayload.BuildRun>(requestExecutor.CapturedPayload);
         Assert.Equal("editorBuildSettings", payload.SceneSource);
         Assert.Empty(payload.ScenePaths);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task Execute_WithBuildTargetOverride_UsesCommandBuildTarget ()
-    {
-        using var tempDirectory = TemporaryDirectory.Create();
-        var artifactStore = new StubBuildRunArtifactStore(tempDirectory.Path);
-        var requestExecutor = CreateBuildResponseExecutor(
-            ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
-            ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
-            errorCount: 0,
-            buildTarget: "standaloneOSX",
-            unityBuildTarget: "StandaloneOSX");
-        var progressSink = new CollectingProgressSink();
-        var service = CreateService(
-            requestExecutor: requestExecutor,
-            artifactStore: artifactStore);
-
-        var result = await service.ExecuteAsync(CreateInput(buildTarget: "standaloneOSX"), progressSink);
-
-        if (!result.IsSuccess)
-        {
-            Assert.Fail(string.Join(Environment.NewLine, result.Errors.Select(static error => $"{error.Code}: {error.Message}")));
-        }
-        var output = result.Output!;
-        Assert.Equal("standaloneOSX", output.Build.BuildTarget);
-        Assert.Equal("standaloneOSX", artifactStore.AccountingRequest!.BuildTarget);
-        var startedEntry = Assert.IsType<BuildRunStartedEntry>(progressSink.Entries[0].Payload);
-        Assert.Equal("standaloneOSX", startedEntry.BuildTarget);
-        var requestPayload = Assert.IsType<UnityRequestPayload.BuildRun>(requestExecutor.CapturedPayload);
-        Assert.Equal("standaloneOSX", requestPayload.BuildTarget);
-        Assert.Equal("StandaloneOSX", requestPayload.UnityBuildTarget);
-
-        var profile = BuildProfileResolver.ResolveJson(ProfileJson).Profile!;
-        Assert.True(BuildTargetStableNameCodec.TryResolve("standaloneOSX", out var buildTarget));
-        var expectedDigest = BuildProfileDigestCalculator.Calculate(
-            profile.SchemaVersion,
-            buildTarget,
-            profile.Scenes,
-            profile.Output,
-            profile.Options);
-        Assert.Equal(expectedDigest, output.Build.Profile.Digest);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task Execute_WithUnsupportedBuildTargetOverride_ReturnsBuildTargetUnsupported ()
-    {
-        using var tempDirectory = TemporaryDirectory.Create();
-        var requestExecutor = CreateBuildResponseExecutor(
-            ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
-            ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
-            errorCount: 0);
-        var service = CreateService(
-            requestExecutor: requestExecutor,
-            artifactStore: new StubBuildRunArtifactStore(tempDirectory.Path));
-
-        var result = await service.ExecuteAsync(CreateInput(buildTarget: "unsupportedTarget"));
-
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
-        Assert.Equal(BuildErrorCodes.BuildTargetUnsupported, error.Code);
-        Assert.Null(requestExecutor.CapturedPayload);
     }
 
     [Fact]
@@ -645,13 +613,11 @@ public sealed class BuildServiceTests
     }
 
     private static BuildCommandInput CreateInput (
-        int? timeoutMilliseconds = 10000,
-        string? buildTarget = null)
+        int? timeoutMilliseconds = 10000)
     {
         return new BuildCommandInput(
             ProfilePath: null,
             ProjectPath: null,
-            BuildTarget: buildTarget,
             Mode: UnityExecutionMode.Auto,
             TimeoutMilliseconds: timeoutMilliseconds);
     }
