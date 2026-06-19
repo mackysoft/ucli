@@ -40,6 +40,7 @@ internal sealed class LogsDaemonReadCommand
     /// <param name="stream"> Enables stream polling mode until canceled or timeout conditions are met. </param>
     /// <param name="pollIntervalMilliseconds"> --pollIntervalMilliseconds, The optional polling interval in milliseconds used when stream is enabled. </param>
     /// <param name="idleTimeoutMilliseconds"> --idleTimeoutMilliseconds, The optional idle timeout in milliseconds used when stream is enabled. </param>
+    /// <param name="timeout"> Timeout in milliseconds. </param>
     /// <param name="format"> The output format (text|json). </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The command exit code. </returns>
@@ -57,14 +58,16 @@ internal sealed class LogsDaemonReadCommand
         bool stream = false,
         int? pollIntervalMilliseconds = null,
         int? idleTimeoutMilliseconds = null,
+        string? timeout = null,
         string? format = null,
         CancellationToken cancellationToken = default)
     {
         return await LogsReadCommandExecutor.ExecuteAsync<IpcDaemonLogEvent, JsonLinePayload>(
                 UcliCommandNames.LogsDaemonRead,
                 format,
+                timeout,
                 commandResultWriter,
-                (onLogEvent, executeCancellationToken) => logsDaemonService.ExecuteAsync(
+                (timeoutMilliseconds, onLogEvent, executeCancellationToken) => logsDaemonService.ExecuteAsync(
                     new LogsDaemonServiceRequest(
                         ProjectPath: projectPath,
                         Tail: tail,
@@ -77,7 +80,10 @@ internal sealed class LogsDaemonReadCommand
                         Category: category,
                         Stream: stream,
                         PollIntervalMilliseconds: pollIntervalMilliseconds,
-                        IdleTimeoutMilliseconds: idleTimeoutMilliseconds),
+                        IdleTimeoutMilliseconds: idleTimeoutMilliseconds)
+                    {
+                        TimeoutMilliseconds = timeoutMilliseconds,
+                    },
                     onLogEvent,
                     executeCancellationToken),
                 CreateProgressEntry,

@@ -574,9 +574,11 @@ public sealed class UcliConfigStoreTests
 
     private static void AssertDefaultIpcTimeouts (IReadOnlyDictionary<string, int?> actual)
     {
-        Assert.Equal(23, actual.Count);
+        Assert.Equal(25, actual.Count);
         Assert.True(actual.ContainsKey(UcliContractConstants.Config.IpcTimeoutCommandTest));
         Assert.True(actual.ContainsKey(UcliContractConstants.Config.IpcTimeoutCommandReady));
+        Assert.True(actual.ContainsKey(UcliContractConstants.Config.IpcTimeoutCommandCompile));
+        Assert.True(actual.ContainsKey(UcliContractConstants.Config.IpcTimeoutCommandBuildRun));
         Assert.True(actual.ContainsKey(UcliContractConstants.Config.IpcTimeoutCommandVerify));
         Assert.True(actual.ContainsKey(UcliContractConstants.Config.IpcTimeoutCommandStatus));
         Assert.True(actual.ContainsKey(UcliContractConstants.Config.IpcTimeoutCommandValidate));
@@ -600,6 +602,8 @@ public sealed class UcliConfigStoreTests
         Assert.True(actual.ContainsKey(UcliContractConstants.Config.IpcTimeoutCommandPlayExit));
         Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultTestMilliseconds, actual[UcliContractConstants.Config.IpcTimeoutCommandTest]);
         Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultReadyMilliseconds, actual[UcliContractConstants.Config.IpcTimeoutCommandReady]);
+        Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultCompileMilliseconds, actual[UcliContractConstants.Config.IpcTimeoutCommandCompile]);
+        Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultBuildRunMilliseconds, actual[UcliContractConstants.Config.IpcTimeoutCommandBuildRun]);
         Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultVerifyMilliseconds, actual[UcliContractConstants.Config.IpcTimeoutCommandVerify]);
         Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultStatusMilliseconds, actual[UcliContractConstants.Config.IpcTimeoutCommandStatus]);
         Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultValidateMilliseconds, actual[UcliContractConstants.Config.IpcTimeoutCommandValidate]);

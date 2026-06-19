@@ -344,6 +344,8 @@ public sealed class CliOutputContractTests
         var timeoutByCommand = configJson.RootElement.GetProperty("ipcTimeoutMillisecondsByCommand");
         Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultTestMilliseconds, timeoutByCommand.GetProperty(UcliContractConstants.Config.IpcTimeoutCommandTest).GetInt32());
         Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultReadyMilliseconds, timeoutByCommand.GetProperty(UcliContractConstants.Config.IpcTimeoutCommandReady).GetInt32());
+        Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultCompileMilliseconds, timeoutByCommand.GetProperty(UcliContractConstants.Config.IpcTimeoutCommandCompile).GetInt32());
+        Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultBuildRunMilliseconds, timeoutByCommand.GetProperty(UcliContractConstants.Config.IpcTimeoutCommandBuildRun).GetInt32());
         Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultStatusMilliseconds, timeoutByCommand.GetProperty(UcliContractConstants.Config.IpcTimeoutCommandStatus).GetInt32());
         Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultValidateMilliseconds, timeoutByCommand.GetProperty(UcliContractConstants.Config.IpcTimeoutCommandValidate).GetInt32());
         Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultPlanMilliseconds, timeoutByCommand.GetProperty(UcliContractConstants.Config.IpcTimeoutCommandPlan).GetInt32());

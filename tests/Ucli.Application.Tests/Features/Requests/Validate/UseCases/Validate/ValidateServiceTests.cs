@@ -1,3 +1,4 @@
+using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Application.Features.Requests.Validate.UseCases.Validate;
@@ -63,6 +64,156 @@ public sealed class ValidateServiceTests
         Assert.NotNull(result.Output);
         Assert.False(result.Output!.ReadIndex.Used);
         Assert.Equal(1, preflightService.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenValidateTimeoutConfigIsInvalid_ReturnsFailureWithoutSharedPreflight ()
+    {
+        var timeoutOverrides = new Dictionary<string, int?>(UcliConfig.CreateDefault().IpcTimeoutMillisecondsByCommand, StringComparer.Ordinal)
+        {
+            [UcliCommandIds.Validate.Name] = 0,
+        };
+        var config = UcliConfig.CreateDefault() with
+        {
+            IpcTimeoutMillisecondsByCommand = timeoutOverrides,
+        };
+        var preflightService = new StubRequestStaticValidationPreflightService(RequestStaticValidationPreflightResult.Success(
+            CreatePreparedRequestContext(),
+            CreateReadIndexInfo(
+                used: true,
+                hit: true,
+                freshness: IndexFreshness.Probable)));
+        var service = new ValidateService(
+            new StubRequestPreparationService(RequestPreparationResult.Success(CreatePreparedRequestContext(config))),
+            new StubRequestStaticValidator(ValidationResult.Success()),
+            preflightService);
+
+        var result = await service.ExecuteAsync(
+            new ValidateCommandInput("/tmp/project", null, """{"steps":[]}"""),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Null(result.Output);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, error.Code);
+        Assert.Contains("ipcTimeoutMillisecondsByCommand[validate]", error.Message, StringComparison.Ordinal);
+        Assert.Equal(0, preflightService.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenExplicitTimeoutElapsesDuringSharedPreflight_ReturnsTimeoutFailure ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var preflightService = new StubRequestStaticValidationPreflightService(
+            RequestStaticValidationPreflightResult.Success(
+                CreatePreparedRequestContext(),
+                CreateReadIndexInfo(
+                    used: true,
+                    hit: true,
+                    freshness: IndexFreshness.Probable)),
+            cancellationToken =>
+            {
+                timeProvider.Advance(TimeSpan.FromMilliseconds(101));
+                cancellationToken.ThrowIfCancellationRequested();
+            });
+        var service = new ValidateService(
+            new StubRequestPreparationService(RequestPreparationResult.Success(CreatePreparedRequestContext())),
+            new StubRequestStaticValidator(ValidationResult.Success()),
+            preflightService,
+            timeProvider);
+
+        var result = await service.ExecuteAsync(
+            new ValidateCommandInput("/tmp/project", null, """{"steps":[]}""")
+            {
+                TimeoutMilliseconds = 100,
+            },
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Null(result.Output);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(ApplicationFailureKind.Timeout, error.Kind);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, error.Code);
+        Assert.Equal(1, preflightService.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenConfigTimeoutElapsesDuringSharedPreflight_ReturnsTimeoutFailure ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var config = CreateConfigWithValidateTimeout(timeoutMilliseconds: 100);
+        var preparedRequest = CreatePreparedRequestContext(config);
+        var preflightService = new StubRequestStaticValidationPreflightService(
+            RequestStaticValidationPreflightResult.Success(
+                preparedRequest,
+                CreateReadIndexInfo(
+                    used: true,
+                    hit: true,
+                    freshness: IndexFreshness.Probable)),
+            cancellationToken =>
+            {
+                timeProvider.Advance(TimeSpan.FromMilliseconds(101));
+                cancellationToken.ThrowIfCancellationRequested();
+            });
+        var service = new ValidateService(
+            new StubRequestPreparationService(RequestPreparationResult.Success(preparedRequest)),
+            new StubRequestStaticValidator(ValidationResult.Success()),
+            preflightService,
+            timeProvider);
+
+        var result = await service.ExecuteAsync(
+            new ValidateCommandInput("/tmp/project", null, """{"steps":[]}"""),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Null(result.Output);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(ApplicationFailureKind.Timeout, error.Kind);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, error.Code);
+        Assert.Equal(1, preflightService.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenReadIndexDisabledValidationTimesOut_ReturnsTimeoutFailureWithDisabledOutput ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var validator = new StubRequestStaticValidator(
+            ValidationResult.Success(),
+            cancellationToken =>
+            {
+                timeProvider.Advance(TimeSpan.FromMilliseconds(101));
+                cancellationToken.ThrowIfCancellationRequested();
+            });
+        var preflightService = new StubRequestStaticValidationPreflightService(RequestStaticValidationPreflightResult.Success(
+            CreatePreparedRequestContext(),
+            CreateReadIndexInfo(
+                used: true,
+                hit: true,
+                freshness: IndexFreshness.Probable)));
+        var service = new ValidateService(
+            new StubRequestPreparationService(RequestPreparationResult.Success(CreatePreparedRequestContext())),
+            validator,
+            preflightService,
+            timeProvider);
+
+        var result = await service.ExecuteAsync(
+            new ValidateCommandInput("/tmp/project", ReadIndexMode.Disabled, """{"steps":[]}""")
+            {
+                TimeoutMilliseconds = 100,
+            },
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.NotNull(result.Output);
+        Assert.False(result.Output!.ReadIndex.Used);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(ApplicationFailureKind.Timeout, error.Kind);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, error.Code);
+        Assert.Equal(0, preflightService.CallCount);
     }
 
     [Fact]
@@ -168,7 +319,7 @@ public sealed class ValidateServiceTests
                 Steps: Array.Empty<ValidateRequestStep?>()));
     }
 
-    private static PreparedRequestContext CreatePreparedRequestContext ()
+    private static PreparedRequestContext CreatePreparedRequestContext (UcliConfig? config = null)
     {
         return new PreparedRequestContext(
             RequestJson: """{"protocolVersion":1,"requestId":"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62","steps":[]}""",
@@ -182,8 +333,21 @@ public sealed class ValidateServiceTests
                     RepositoryRoot: "/tmp/repository",
                     ProjectFingerprint: "project-fingerprint",
                     PathSource: UnityProjectPathSource.CommandOption),
-                UcliConfig.CreateDefault(),
+                config ?? UcliConfig.CreateDefault(),
                 ConfigSource.Default));
+    }
+
+    private static UcliConfig CreateConfigWithValidateTimeout (int? timeoutMilliseconds)
+    {
+        var timeoutOverrides = new Dictionary<string, int?>(UcliConfig.CreateDefault().IpcTimeoutMillisecondsByCommand, StringComparer.Ordinal)
+        {
+            [UcliCommandIds.Validate.Name] = timeoutMilliseconds,
+        };
+
+        return UcliConfig.CreateDefault() with
+        {
+            IpcTimeoutMillisecondsByCommand = timeoutOverrides,
+        };
     }
 
     private static ReadIndexInfo CreateReadIndexInfo (
@@ -263,9 +427,14 @@ public sealed class ValidateServiceTests
     {
         private readonly RequestStaticValidationPreflightResult result;
 
-        public StubRequestStaticValidationPreflightService (RequestStaticValidationPreflightResult result)
+        private readonly Action<CancellationToken>? onPrepare;
+
+        public StubRequestStaticValidationPreflightService (
+            RequestStaticValidationPreflightResult result,
+            Action<CancellationToken>? onPrepare = null)
         {
             this.result = result ?? throw new ArgumentNullException(nameof(result));
+            this.onPrepare = onPrepare;
         }
 
         public int CallCount { get; private set; }
@@ -277,6 +446,7 @@ public sealed class ValidateServiceTests
         {
             cancellationToken.ThrowIfCancellationRequested();
             CallCount++;
+            onPrepare?.Invoke(cancellationToken);
             return ValueTask.FromResult(result);
         }
     }
@@ -285,9 +455,14 @@ public sealed class ValidateServiceTests
     {
         private readonly ValidationResult result;
 
-        public StubRequestStaticValidator (ValidationResult result)
+        private readonly Action<CancellationToken>? onValidate;
+
+        public StubRequestStaticValidator (
+            ValidationResult result,
+            Action<CancellationToken>? onValidate = null)
         {
             this.result = result ?? throw new ArgumentNullException(nameof(result));
+            this.onValidate = onValidate;
         }
 
         public ValueTask<ValidationResult> ValidateAsync (
@@ -297,6 +472,7 @@ public sealed class ValidateServiceTests
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            onValidate?.Invoke(cancellationToken);
             return ValueTask.FromResult(result);
         }
     }

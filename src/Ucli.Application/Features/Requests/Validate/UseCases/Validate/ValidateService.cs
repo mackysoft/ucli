@@ -14,18 +14,23 @@ internal sealed class ValidateService : IValidateService
 
     private readonly IRequestStaticValidationPreflightService requestStaticValidationPreflightService;
 
+    private readonly TimeProvider timeProvider;
+
     /// <summary> Initializes a new instance of the <see cref="ValidateService" /> class. </summary>
     /// <param name="requestPreparationService"> The shared request-preparation dependency. </param>
     /// <param name="requestStaticValidator"> The static-validator dependency. </param>
     /// <param name="requestStaticValidationPreflightService"> The shared static-validation preflight dependency. </param>
+    /// <param name="timeProvider"> The time provider used for timeout cancellation. </param>
     public ValidateService (
         IRequestPreparationService requestPreparationService,
         IRequestStaticValidator requestStaticValidator,
-        IRequestStaticValidationPreflightService requestStaticValidationPreflightService)
+        IRequestStaticValidationPreflightService requestStaticValidationPreflightService,
+        TimeProvider? timeProvider = null)
     {
         this.requestPreparationService = requestPreparationService ?? throw new ArgumentNullException(nameof(requestPreparationService));
         this.requestStaticValidator = requestStaticValidator ?? throw new ArgumentNullException(nameof(requestStaticValidator));
         this.requestStaticValidationPreflightService = requestStaticValidationPreflightService ?? throw new ArgumentNullException(nameof(requestStaticValidationPreflightService));
+        this.timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     /// <inheritdoc />
@@ -50,18 +55,68 @@ internal sealed class ValidateService : IValidateService
                 output: null);
         }
 
+        var preparedRequest = requestPreparationResult.PreparedRequest!;
+        var timeoutResolutionResult = IpcCommandTimeoutResolver.ResolveNormalized(
+            input.TimeoutMilliseconds,
+            UcliCommandIds.Validate,
+            preparedRequest.ProjectContext.Config);
+        if (!timeoutResolutionResult.IsSuccess)
+        {
+            var error = timeoutResolutionResult.Error!;
+            return ValidateServiceResult.Failure(
+                error.Message,
+                ExecutionErrorCodeMapper.ToCode(error));
+        }
+
+        var timeout = timeoutResolutionResult.Timeout!.Value;
+        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
         if (input.ReadIndexMode == ReadIndexMode.Disabled)
         {
-            var preparedRequest = requestPreparationResult.PreparedRequest!;
             var disabledOutput = new ValidateExecutionOutput(
                 Project: ProjectIdentityInfo.From(preparedRequest.ProjectContext.UnityProject),
                 ReadIndex: CreateReadIndexDisabledOutput());
-            var disabledValidationResult = await requestStaticValidator.ValidateAsync(
-                    preparedRequest.Request,
-                    RequestStaticValidationCatalog.Unavailable,
-                    preparedRequest.ProjectContext.Config,
-                    cancellationToken)
-                .ConfigureAwait(false);
+            if (!deadline.TryGetRemainingTimeout(out var validationTimeout))
+            {
+                return ValidateServiceResult.Failure(
+                    CreateTimeoutFailureMessage(timeout),
+                    ExecutionErrorCodes.IpcTimeout,
+                    disabledOutput);
+            }
+
+            ValidationResult disabledValidationResult;
+            using (var timeoutCancellationScope = TimeProviderCancellationScope.CreateLinked(cancellationToken, validationTimeout, timeProvider))
+            {
+                try
+                {
+                    disabledValidationResult = await requestStaticValidator.ValidateAsync(
+                            preparedRequest.Request,
+                            RequestStaticValidationCatalog.Unavailable,
+                            preparedRequest.ProjectContext.Config,
+                            timeoutCancellationScope.Token)
+                        .ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (OperationCanceledException) when (timeoutCancellationScope.HasTimedOut
+                    && !cancellationToken.IsCancellationRequested)
+                {
+                    return ValidateServiceResult.Failure(
+                        CreateTimeoutFailureMessage(timeout),
+                        ExecutionErrorCodes.IpcTimeout,
+                        disabledOutput);
+                }
+            }
+
+            if (deadline.IsExpired)
+            {
+                return ValidateServiceResult.Failure(
+                    CreateTimeoutFailureMessage(timeout),
+                    ExecutionErrorCodes.IpcTimeout,
+                    disabledOutput);
+            }
+
             if (disabledValidationResult.Error != null)
             {
                 return ValidateServiceResult.Failure(
@@ -81,14 +136,47 @@ internal sealed class ValidateService : IValidateService
             return ValidateServiceResult.Success(disabledOutput, "Static validation passed.");
         }
 
-        var requestStaticValidationPreflightResult = await requestStaticValidationPreflightService.PrepareAsync(
-                requestPreparationResult.PreparedRequest!,
-                input.ReadIndexMode,
-                cancellationToken)
-            .ConfigureAwait(false);
+        if (!deadline.TryGetRemainingTimeout(out var preflightTimeout))
+        {
+            return ValidateServiceResult.Failure(
+                CreateTimeoutFailureMessage(timeout),
+                ExecutionErrorCodes.IpcTimeout);
+        }
+
+        RequestStaticValidationPreflightResult requestStaticValidationPreflightResult;
+        using (var timeoutCancellationScope = TimeProviderCancellationScope.CreateLinked(cancellationToken, preflightTimeout, timeProvider))
+        {
+            try
+            {
+                requestStaticValidationPreflightResult = await requestStaticValidationPreflightService.PrepareAsync(
+                        preparedRequest,
+                        input.ReadIndexMode,
+                        timeoutCancellationScope.Token)
+                    .ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (OperationCanceledException) when (timeoutCancellationScope.HasTimedOut
+                && !cancellationToken.IsCancellationRequested)
+            {
+                return ValidateServiceResult.Failure(
+                    CreateTimeoutFailureMessage(timeout),
+                    ExecutionErrorCodes.IpcTimeout);
+            }
+        }
+
+        if (deadline.IsExpired)
+        {
+            return ValidateServiceResult.Failure(
+                CreateTimeoutFailureMessage(timeout),
+                ExecutionErrorCodes.IpcTimeout);
+        }
+
         var output = requestStaticValidationPreflightResult.ReadIndex != null
             ? new ValidateExecutionOutput(
-                Project: ProjectIdentityInfo.From(requestPreparationResult.PreparedRequest!.ProjectContext.UnityProject),
+                Project: ProjectIdentityInfo.From(preparedRequest.ProjectContext.UnityProject),
                 ReadIndex: requestStaticValidationPreflightResult.ReadIndex)
             : null;
         if (requestStaticValidationPreflightResult.Error != null)
@@ -108,6 +196,11 @@ internal sealed class ValidateService : IValidateService
         }
 
         return ValidateServiceResult.Success(output!, "Static validation passed.");
+    }
+
+    private static string CreateTimeoutFailureMessage (TimeSpan timeout)
+    {
+        return $"Validate timed out after {timeout.TotalMilliseconds:0} milliseconds.";
     }
 
     private static ReadIndexInfo CreateReadIndexDisabledOutput ()

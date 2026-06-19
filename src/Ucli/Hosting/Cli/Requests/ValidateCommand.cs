@@ -32,17 +32,27 @@ internal sealed class ValidateCommand
 
     /// <summary> Executes the validate command and emits the JSON result contract. </summary>
     /// <param name="projectPath">-p|--projectPath, Optional target Unity project path.</param>
+    /// <param name="timeout">Timeout in milliseconds.</param>
     /// <param name="readIndexMode">--readIndexMode, readIndex mode (disabled|allowStale|requireFresh).</param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.Validate)]
     public async Task<int> ValidateAsync (
         string? projectPath = null,
+        string? timeout = null,
         string? readIndexMode = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         CommandExecutionState.MarkStarted();
+
+        var normalizedTimeoutResult = TimeoutOptionNormalizer.Normalize(timeout);
+        if (!normalizedTimeoutResult.IsSuccess)
+        {
+            var errorResult = ValidateCommandResultFactory.CreateExecutionError(normalizedTimeoutResult.Error!);
+            commandResultWriter.WriteToStandardOutput(errorResult);
+            return errorResult.ExitCode;
+        }
 
         var normalizedReadIndexModeResult = ReadIndexModeOptionNormalizer.Normalize(readIndexMode);
         if (!normalizedReadIndexModeResult.IsSuccess)
@@ -64,7 +74,10 @@ internal sealed class ValidateCommand
                 new ValidateCommandInput(
                     ProjectPath: projectPath,
                     ReadIndexMode: normalizedReadIndexModeResult.Mode,
-                    RequestJson: requestInputReadResult.Json!),
+                    RequestJson: requestInputReadResult.Json!)
+                {
+                    TimeoutMilliseconds = normalizedTimeoutResult.TimeoutMilliseconds,
+                },
                 cancellationToken)
             .ConfigureAwait(false);
         var commandResult = ValidateCommandResultFactory.Create(serviceResult);
