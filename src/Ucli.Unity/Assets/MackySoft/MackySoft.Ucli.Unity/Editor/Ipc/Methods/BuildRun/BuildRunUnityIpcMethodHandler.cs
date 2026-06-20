@@ -149,7 +149,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 var mutationBaseline = projectMutationAuditProbe.CaptureBaseline(projectIdentity.ProjectPath);
                 executionCancellationToken.ThrowIfCancellationRequested();
                 var normalizedReport = IsUnityBuildProfileRequest(buildRunRequest)
-                    ? buildProfileBuildRunner.Run(buildRunRequest, precondition.ResolvedInput!, outputLayout)
+                    ? buildProfileBuildRunner.Run(unityBuildProfile!, precondition.ResolvedInput!, outputLayout)
                     : buildPipelineRunner.Run(UnityBuildPlayerOptionsFactory.Create(buildRunRequest, precondition.ResolvedInput!));
                 executionCancellationToken.ThrowIfCancellationRequested();
                 FileSystemAccessBoundary.EnsureSecureDirectory(buildRunRequest.OutputPath);
@@ -220,6 +220,15 @@ namespace MackySoft.Ucli.Unity.Ipc
             catch (OperationCanceledException)
             {
                 throw;
+            }
+            catch (UnityBuildProfileInputException exception)
+            {
+                return CreateErrorResponse(
+                    request,
+                    BuildErrorCodes.BuildUnityBuildProfileInvalid,
+                    exception.Message,
+                    precondition,
+                    unityBuildProfile);
             }
             catch (ArgumentException exception)
             {
@@ -437,6 +446,12 @@ namespace MackySoft.Ucli.Unity.Ipc
             string expectedOutputPath,
             out string? errorMessage)
         {
+            if (request.UnityBuildProfile != null)
+            {
+                errorMessage = "Build unityBuildProfile input must not be specified for explicit build input.";
+                return false;
+            }
+
             if (string.IsNullOrWhiteSpace(request.BuildTarget)
                 || string.IsNullOrWhiteSpace(request.UnityBuildTarget)
                 || string.IsNullOrWhiteSpace(request.SceneSource))
@@ -484,6 +499,18 @@ namespace MackySoft.Ucli.Unity.Ipc
             IpcBuildRunRequest request,
             out string? errorMessage)
         {
+            if (request.BuildTarget != null
+                || request.UnityBuildTarget != null
+                || request.SceneSource != null
+                || request.OutputLayout != null
+                || request.Development
+                || request.ScenePaths == null
+                || request.ScenePaths.Count != 0)
+            {
+                errorMessage = "Build target, scene, option, and outputLayout values must not be specified for unityBuildProfile input.";
+                return false;
+            }
+
             if (request.UnityBuildProfile == null
                 || !UnityAssetPathContract.IsNormalizedAssetsDescendantPath(request.UnityBuildProfile.Path)
                 || request.UnityBuildProfile.Path.EndsWith(".meta", StringComparison.OrdinalIgnoreCase))

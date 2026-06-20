@@ -238,9 +238,14 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
             return;
         }
 
-        if (!TryReadString(unityBuildProfileElement, "path", out _))
+        if (!TryReadString(unityBuildProfileElement, "path", out var path))
         {
             AddViolation(violations, "$.build.inputs.unityBuildProfile.path", "Unity Build Profile input must declare path.");
+        }
+        else if (!UnityAssetPathContract.IsNormalizedAssetsDescendantPath(path)
+            || path.EndsWith(".meta", StringComparison.OrdinalIgnoreCase))
+        {
+            AddViolation(violations, "$.build.inputs.unityBuildProfile.path", "Unity Build Profile path must be a normalized project-relative asset path under Assets and must not reference a .meta file.");
         }
 
         if (!TryReadString(unityBuildProfileElement, "digest", out var digest))
@@ -252,16 +257,6 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
             AddViolation(violations, "$.build.inputs.unityBuildProfile.digest", "Unity Build Profile digest must be lowercase SHA-256 hex.");
         }
 
-        if (!unityBuildProfileElement.TryGetProperty("applyAudit", out var applyAuditElement) || applyAuditElement.ValueKind != JsonValueKind.Object)
-        {
-            AddViolation(violations, "$.build.inputs.unityBuildProfile.applyAudit", "Unity Build Profile input must declare applyAudit.");
-            return;
-        }
-
-        if (!TryReadBoolean(applyAuditElement, "applied", out var applied) || !applied)
-        {
-            AddViolation(violations, "$.build.inputs.unityBuildProfile.applyAudit.applied", "Unity Build Profile applyAudit.applied must be true.");
-        }
     }
 
     private static void ValidateBuildOutput (

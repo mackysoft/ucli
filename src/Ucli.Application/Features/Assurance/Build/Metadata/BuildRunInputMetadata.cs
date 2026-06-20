@@ -11,4 +11,4 @@ internal sealed record BuildRunInputMetadata (
     BuildScenesOutput Scenes,
     BuildOptionsOutput Options,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    BuildUnityBuildProfileOutput? UnityBuildProfile);
+    BuildRunUnityBuildProfileInputMetadata? UnityBuildProfile);

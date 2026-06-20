@@ -10,7 +10,7 @@ namespace MackySoft.Ucli.Unity.Build
     {
         /// <inheritdoc />
         public IpcBuildReportArtifact? Run (
-            IpcBuildRunRequest request,
+            IpcUnityBuildProfileInput unityBuildProfile,
             UnityBuildResolvedInput resolvedInput,
             IpcBuildOutputLayout outputLayout)
         {

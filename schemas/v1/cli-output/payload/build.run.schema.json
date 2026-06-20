@@ -42,82 +42,136 @@
               ]
             },
             "inputs": {
-              "type": "object",
-              "additionalProperties": false,
-              "properties": {
-                "inputKind": {
-                  "type": "string",
-                  "enum": [
-                    "explicit",
-                    "unityBuildProfile"
-                  ]
-                },
-                "buildTarget": {
-                  "type": "string"
-                },
-                "scenes": {
+              "oneOf": [
+                {
                   "type": "object",
                   "additionalProperties": false,
                   "properties": {
-                    "source": {
+                    "inputKind": {
                       "type": "string",
-                      "enum": [
-                        "editorBuildSettings",
-                        "explicit",
-                        "unityBuildProfile"
-                      ]
+                      "const": "explicit"
                     },
-                    "paths": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
-                    }
-                  },
-                  "required": [
-                    "source",
-                    "paths"
-                  ]
-                },
-                "options": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "properties": {
-                    "development": {
-                      "type": "boolean"
-                    }
-                  },
-                  "required": [
-                    "development"
-                  ]
-                },
-                "unityBuildProfile": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "properties": {
-                    "path": {
+                    "buildTarget": {
                       "type": "string"
                     },
-                    "digest": {
-                      "type": "string",
-                      "pattern": "^[0-9a-f]{64}$"
+                    "scenes": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "source": {
+                          "type": "string",
+                          "enum": [
+                            "editorBuildSettings",
+                            "explicit",
+                            "unityBuildProfile"
+                          ]
+                        },
+                        "paths": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": [
+                        "source",
+                        "paths"
+                      ]
                     },
-                    "applyAudit": {
-                      "type": "object"
+                    "options": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "development": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "development"
+                      ]
                     }
                   },
                   "required": [
-                    "path",
-                    "digest",
-                    "applyAudit"
+                    "inputKind",
+                    "buildTarget",
+                    "scenes",
+                    "options"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "inputKind": {
+                      "type": "string",
+                      "const": "unityBuildProfile"
+                    },
+                    "buildTarget": {
+                      "type": "string"
+                    },
+                    "scenes": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "source": {
+                          "type": "string",
+                          "enum": [
+                            "editorBuildSettings",
+                            "explicit",
+                            "unityBuildProfile"
+                          ]
+                        },
+                        "paths": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": [
+                        "source",
+                        "paths"
+                      ]
+                    },
+                    "options": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "development": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "development"
+                      ]
+                    },
+                    "unityBuildProfile": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "path": {
+                          "type": "string",
+                          "pattern": "^Assets/(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*//)(?!.*\\\\)(?!.*:)(?!.*\\.[Mm][Ee][Tt][Aa]$)(?!.*\\s$).\u002B$"
+                        },
+                        "digest": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{64}$"
+                        }
+                      },
+                      "required": [
+                        "path",
+                        "digest"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "inputKind",
+                    "buildTarget",
+                    "scenes",
+                    "options",
+                    "unityBuildProfile"
                   ]
                 }
-              },
-              "required": [
-                "inputKind",
-                "buildTarget",
-                "scenes",
-                "options"
               ]
             },
             "buildTarget": {

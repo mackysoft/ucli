@@ -65,6 +65,32 @@ public sealed class BuildServiceTests
         }
         """;
 
+    private const string UnityBuildProfileJson = """
+        {
+          "schemaVersion": 1,
+          "inputs": {
+            "kind": "unityBuildProfile",
+            "path": "Assets/BuildProfiles/Linux.asset"
+          },
+          "runner": {
+            "kind": "buildPipeline"
+          },
+          "policy": {
+            "runtime": {
+              "allowedExecutionModes": [
+                "daemon",
+                "oneshot"
+              ],
+              "allowedEditorModes": [
+                "batchmode",
+                "gui"
+              ]
+            },
+            "projectMutationMode": "forbid"
+          }
+        }
+        """;
+
     private static readonly JsonSerializerOptions PayloadSerializerOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -208,31 +234,6 @@ public sealed class BuildServiceTests
         using var tempDirectory = TemporaryDirectory.Create();
         const string unityBuildProfilePath = "Assets/BuildProfiles/Linux.asset";
         var unityBuildProfileDigest = new string('f', 64);
-        const string profileJson = """
-            {
-              "schemaVersion": 1,
-              "inputs": {
-                "kind": "unityBuildProfile",
-                "path": "Assets/BuildProfiles/Linux.asset"
-              },
-              "runner": {
-                "kind": "buildPipeline"
-              },
-              "policy": {
-                "runtime": {
-                  "allowedExecutionModes": [
-                    "daemon",
-                    "oneshot"
-                  ],
-                  "allowedEditorModes": [
-                    "batchmode",
-                    "gui"
-                  ]
-                },
-                "projectMutationMode": "forbid"
-              }
-            }
-            """;
         var artifactStore = new StubBuildRunArtifactStore(tempDirectory.Path);
         var requestExecutor = new StubUnityRequestExecutor(payload =>
         {
@@ -255,7 +256,7 @@ public sealed class BuildServiceTests
                 unityBuildProfile: CreateUnityBuildProfileInput(unityBuildProfilePath, unityBuildProfileDigest));
         });
         var service = CreateService(
-            profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(profileJson, "/workspace/build.ucli.json")),
+            profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(UnityBuildProfileJson, "/workspace/build.ucli.json")),
             requestExecutor: requestExecutor,
             artifactStore: artifactStore);
 
@@ -272,8 +273,6 @@ public sealed class BuildServiceTests
         var outputUnityBuildProfile = Assert.IsType<BuildUnityBuildProfileOutput>(output.Build.Inputs.UnityBuildProfile);
         Assert.Equal(unityBuildProfilePath, outputUnityBuildProfile.Path);
         Assert.Equal(unityBuildProfileDigest, outputUnityBuildProfile.Digest);
-        Assert.NotNull(outputUnityBuildProfile.ApplyAudit);
-        Assert.True(outputUnityBuildProfile.ApplyAudit.Applied);
 
         var requestPayload = Assert.IsType<UnityRequestPayload.BuildRun>(requestExecutor.CapturedPayload);
         Assert.Equal(ContractLiteralCodec.ToValue(BuildProfileInputsKind.UnityBuildProfile), requestPayload.InputKind);
@@ -295,7 +294,11 @@ public sealed class BuildServiceTests
         var metadataUnityBuildProfile = metadataInput.GetProperty("unityBuildProfile");
         Assert.Equal(unityBuildProfilePath, metadataUnityBuildProfile.GetProperty("path").GetString());
         Assert.Equal(unityBuildProfileDigest, metadataUnityBuildProfile.GetProperty("digest").GetString());
-        Assert.True(metadataUnityBuildProfile.GetProperty("applyAudit").GetProperty("applied").GetBoolean());
+        var metadataApplyAudit = metadataUnityBuildProfile.GetProperty("applyAudit");
+        Assert.True(metadataApplyAudit.GetProperty("applied").GetBoolean());
+        Assert.Equal("ready", metadataApplyAudit.GetProperty("lifecycleBefore").GetProperty("lifecycleState").GetString());
+        Assert.Equal("asset-profile-after", metadataApplyAudit.GetProperty("generationsAfter").GetProperty("assetRefreshGeneration").GetString());
+        Assert.False(metadataApplyAudit.GetProperty("dirtyStateAfter").GetProperty("dirty").GetBoolean());
         Assert.Equal(
             CreateExpectedPlayerLocationPathName(artifactStore.PreparedPaths!.OutputDirectory),
             artifactStore.WrittenMetadata.Runner.GetProperty("outputLayout").GetProperty("locationPathName").GetString());
@@ -304,6 +307,72 @@ public sealed class BuildServiceTests
         var semanticPayload = JsonSerializer.SerializeToElement(output, PayloadSerializerOptions);
         var semanticResult = validator.Validate(semanticPayload);
         Assert.True(semanticResult.IsValid, string.Join(Environment.NewLine, semanticResult.Violations.Select(static violation => $"{violation.Path}: {violation.Message}")));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithExplicitResponseContainingUnityBuildProfile_ReturnsCommandFailure ()
+    {
+        using var tempDirectory = TemporaryDirectory.Create();
+        var artifactStore = new StubBuildRunArtifactStore(tempDirectory.Path);
+        var requestExecutor = new StubUnityRequestExecutor(payload =>
+        {
+            var buildRunPayload = (UnityRequestPayload.BuildRun)payload;
+            return CreateBuildResponseResult(
+                ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+                errorCount: 0,
+                reportOutputPath: buildRunPayload.OutputLayout!.LocationPathName,
+                outputLayout: buildRunPayload.OutputLayout,
+                unityBuildProfile: CreateUnityBuildProfileInput("Assets/BuildProfiles/Linux.asset", new string('f', 64)));
+        });
+        var service = CreateService(
+            requestExecutor: requestExecutor,
+            artifactStore: artifactStore);
+
+        var result = await service.ExecuteAsync(CreateInput());
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
+        Assert.Null(artifactStore.WrittenMetadata);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithUnityBuildProfileResponseMismatchedUnityBuildTarget_ReturnsCommandFailure ()
+    {
+        using var tempDirectory = TemporaryDirectory.Create();
+        var artifactStore = new StubBuildRunArtifactStore(tempDirectory.Path);
+        var requestExecutor = new StubUnityRequestExecutor(payload =>
+        {
+            var buildRunPayload = (UnityRequestPayload.BuildRun)payload;
+            var outputLayout = new IpcBuildOutputLayout(
+                Shape: ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.File),
+                LocationPathName: CreateExpectedPlayerLocationPathName(buildRunPayload.OutputPath));
+            return CreateBuildResponseResult(
+                ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+                errorCount: 0,
+                inputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.UnityBuildProfile),
+                sceneSource: ContractLiteralCodec.ToValue(BuildProfileSceneSource.UnityBuildProfile),
+                buildTarget: "standaloneLinux64",
+                unityBuildTarget: "Android",
+                reportOutputPath: outputLayout.LocationPathName,
+                outputLayout: outputLayout,
+                unityBuildProfile: CreateUnityBuildProfileInput("Assets/BuildProfiles/Linux.asset", new string('f', 64)));
+        });
+        var service = CreateService(
+            profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(UnityBuildProfileJson, "/workspace/build.ucli.json")),
+            requestExecutor: requestExecutor,
+            artifactStore: artifactStore);
+
+        var result = await service.ExecuteAsync(CreateInput());
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
+        Assert.Null(artifactStore.WrittenMetadata);
     }
 
     [Fact]
@@ -756,6 +825,36 @@ public sealed class BuildServiceTests
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithMismatchedOutputLayoutResponse_ReturnsCommandFailure ()
+    {
+        using var tempDirectory = TemporaryDirectory.Create();
+        var artifactStore = new StubBuildRunArtifactStore(tempDirectory.Path);
+        var service = CreateService(
+            requestExecutor: new StubUnityRequestExecutor(payload =>
+            {
+                var buildRunPayload = (UnityRequestPayload.BuildRun)payload;
+                var mismatchedLayout = new IpcBuildOutputLayout(
+                    Shape: ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.File),
+                    LocationPathName: Path.Combine(tempDirectory.Path, "other-output", "player", "Player"));
+                return CreateBuildResponseResult(
+                    ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+                    ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+                    errorCount: 0,
+                    reportOutputPath: buildRunPayload.OutputLayout!.LocationPathName,
+                    outputLayout: mismatchedLayout);
+            }),
+            artifactStore: artifactStore);
+
+        var result = await service.ExecuteAsync(CreateInput());
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
+        Assert.Null(artifactStore.WrittenMetadata);
     }
 
     [Fact]

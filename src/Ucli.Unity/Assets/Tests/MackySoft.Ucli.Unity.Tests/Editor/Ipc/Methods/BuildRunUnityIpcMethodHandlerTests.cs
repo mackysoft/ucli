@@ -67,6 +67,59 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
+        public void TryValidateRequest_WithUnityBuildProfileInput_ReturnsTrue ()
+        {
+            using (var scope = TemporaryDirectoryScope.Create())
+            {
+                var identity = CreateProjectIdentity(scope.ProjectPath);
+                var request = CreateUnityBuildProfileRequest(scope.ProjectPath, identity);
+
+                var result = BuildRunUnityIpcMethodHandler.TryValidateRequest(request, identity, out var errorMessage);
+
+                Assert.That(result, Is.True, errorMessage);
+            }
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void TryValidateRequest_WithUnityBuildProfileAndExplicitInputFields_ReturnsFalse ()
+        {
+            using (var scope = TemporaryDirectoryScope.Create())
+            {
+                var identity = CreateProjectIdentity(scope.ProjectPath);
+                var request = CreateUnityBuildProfileRequest(scope.ProjectPath, identity) with
+                {
+                    BuildTarget = "standaloneLinux64",
+                };
+
+                var result = BuildRunUnityIpcMethodHandler.TryValidateRequest(request, identity, out var errorMessage);
+
+                Assert.That(result, Is.False);
+                Assert.That(errorMessage, Does.Contain("must not be specified for unityBuildProfile"));
+            }
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void TryValidateRequest_WithExplicitInputAndUnityBuildProfile_ReturnsFalse ()
+        {
+            using (var scope = TemporaryDirectoryScope.Create())
+            {
+                var identity = CreateProjectIdentity(scope.ProjectPath);
+                var request = CreateRequest(scope.ProjectPath, identity) with
+                {
+                    UnityBuildProfile = new IpcUnityBuildProfileInput("Assets/BuildProfiles/Linux.asset"),
+                };
+
+                var result = BuildRunUnityIpcMethodHandler.TryValidateRequest(request, identity, out var errorMessage);
+
+                Assert.That(result, Is.False);
+                Assert.That(errorMessage, Does.Contain("must not be specified for explicit"));
+            }
+        }
+
+        [Test]
+        [Category("Size.Small")]
         [TestCase("FORBID")]
         [TestCase("legacy")]
         public void TryValidateRequest_WithInvalidProjectMutationMode_ReturnsFalse (string projectMutationMode)
@@ -393,6 +446,48 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         }
 
+        [Test]
+        [Category("Size.Small")]
+        public async Task HandleAsync_WithUnityBuildProfileRunnerInputFailure_ReturnsBuildProfileInvalid ()
+        {
+            using (var scope = TemporaryDirectoryScope.Create())
+            using (var editorScope = new EditorTestScope().SuppressExistingPersistentDirtyObjects())
+            {
+                var identity = CreateProjectIdentity(scope.ProjectPath);
+                var requestPayload = CreateUnityBuildProfileRequest(scope.ProjectPath, identity);
+                Directory.CreateDirectory(requestPayload.OutputPath);
+                var buildProfileInputResolver = new SuccessfulUnityBuildProfileInputResolver();
+                var buildProfileBuildRunner = new FailingUnityBuildProfileBuildRunner();
+                var buildPipelineRunner = new CountingBuildPipelineRunner();
+                var logRangeExporter = new CountingEditorLogRangeExporter();
+                var handler = new BuildRunUnityIpcMethodHandler(
+                    new UnityBuildPreconditionProbe(
+                        new CountingReadinessGate(),
+                        identity,
+                        new StubServerVersionProvider("1.2.3"),
+                        new CountingBuildTargetSupportProbe()),
+                    buildProfileInputResolver,
+                    new UnityProjectMutationAuditProbe(),
+                    buildPipelineRunner,
+                    buildProfileBuildRunner,
+                    logRangeExporter,
+                    identity,
+                    new CountingTimeoutScopeFactory());
+
+                var response = await handler.HandleAsync(CreateIpcRequest(requestPayload), CancellationToken.None);
+
+                Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+                Assert.That(response.Errors.Count, Is.EqualTo(1));
+                Assert.That(response.Errors[0].Code, Is.EqualTo(BuildErrorCodes.BuildUnityBuildProfileInvalid));
+                Assert.That(buildProfileInputResolver.CallCount, Is.EqualTo(1));
+                Assert.That(buildProfileBuildRunner.CallCount, Is.EqualTo(1));
+                Assert.That(buildPipelineRunner.CallCount, Is.EqualTo(0));
+                Assert.That(logRangeExporter.CallCount, Is.EqualTo(0));
+                Assert.That(File.Exists(requestPayload.BuildReportPath), Is.False);
+                Assert.That(File.Exists(requestPayload.BuildLogPath), Is.False);
+            }
+        }
+
         [TestCase(IpcBuildReportResult.Succeeded, IpcBuildLogCompletionReason.Completed, 0, 9)]
         [TestCase(IpcBuildReportResult.Failed, IpcBuildLogCompletionReason.Failed, 1, 2)]
         [TestCase(IpcBuildReportResult.Canceled, IpcBuildLogCompletionReason.Canceled, 0, 0)]
@@ -614,6 +709,24 @@ namespace MackySoft.Ucli.Unity.Tests
                 ProjectMutationMode: ContractLiteralCodec.ToValue(BuildProfileProjectMutationMode.Forbid));
         }
 
+        private static IpcBuildRunRequest CreateUnityBuildProfileRequest (
+            string projectPath,
+            IpcProjectIdentity identity)
+        {
+            var explicitRequest = CreateRequest(projectPath, identity);
+            return explicitRequest with
+            {
+                InputKind = ContractLiteralCodec.ToValue(BuildProfileInputsKind.UnityBuildProfile),
+                BuildTarget = null,
+                UnityBuildTarget = null,
+                SceneSource = null,
+                ScenePaths = Array.Empty<string>(),
+                Development = false,
+                OutputLayout = null,
+                UnityBuildProfile = new IpcUnityBuildProfileInput("Assets/BuildProfiles/Linux.asset"),
+            };
+        }
+
         private static IpcRequest CreateIpcRequest (IpcBuildRunRequest payload)
         {
             return new IpcRequest(
@@ -797,6 +910,97 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 return report;
             }
+        }
+
+        private sealed class SuccessfulUnityBuildProfileInputResolver : IUnityBuildProfileInputResolver
+        {
+            public int CallCount { get; private set; }
+
+            public Task<UnityBuildProfileInputResolutionResult> ResolveAsync (
+                IpcBuildRunRequest request,
+                CancellationToken cancellationToken = default)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                CallCount++;
+                if (!IpcBuildOutputLayoutResolver.TryResolve(request.OutputPath, "standaloneLinux64", out var outputLayout))
+                {
+                    throw new InvalidOperationException("Test output layout must resolve.");
+                }
+
+                var preconditionInput = new UnityBuildPreconditionInput(
+                    InputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.UnityBuildProfile),
+                    BuildTarget: "standaloneLinux64",
+                    UnityBuildTarget: "StandaloneLinux64",
+                    SceneSource: ContractLiteralCodec.ToValue(BuildProfileSceneSource.UnityBuildProfile),
+                    ScenePaths: new[] { "Assets/Scenes/SampleScene.unity" },
+                    Development: false,
+                    AllowedEditorModes: request.AllowedEditorModes);
+                var lifecycle = CreateBuildLifecycleSnapshot();
+                var unityBuildProfile = new IpcUnityBuildProfileInput(
+                    Path: request.UnityBuildProfile!.Path,
+                    Digest: new string('f', 64),
+                    ApplyAudit: new IpcUnityBuildProfileApplyAudit(
+                        Applied: true,
+                        LifecycleBefore: lifecycle,
+                        LifecycleAfter: lifecycle,
+                        GenerationsBefore: new IpcBuildGenerationSnapshot(
+                            lifecycle.CompileGeneration,
+                            lifecycle.DomainReloadGeneration,
+                            lifecycle.AssetRefreshGeneration),
+                        GenerationsAfter: new IpcBuildGenerationSnapshot(
+                            lifecycle.CompileGeneration,
+                            lifecycle.DomainReloadGeneration,
+                            lifecycle.AssetRefreshGeneration),
+                        DirtyStateAfter: new IpcBuildDirtyState(
+                            Checked: true,
+                            Dirty: false,
+                            Coverage: ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Full),
+                            Items: Array.Empty<IpcBuildDirtyStateItem>())));
+
+                return Task.FromResult(UnityBuildProfileInputResolutionResult.Success(
+                    preconditionInput,
+                    outputLayout!,
+                    unityBuildProfile));
+            }
+        }
+
+        private sealed class FailingUnityBuildProfileBuildRunner : IUnityBuildProfileBuildRunner
+        {
+            public int CallCount { get; private set; }
+
+            public IpcBuildReportArtifact? Run (
+                IpcUnityBuildProfileInput unityBuildProfile,
+                UnityBuildResolvedInput resolvedInput,
+                IpcBuildOutputLayout outputLayout)
+            {
+                CallCount++;
+                throw new UnityBuildProfileInputException("Unity Build Profile asset could not be used.");
+            }
+        }
+
+        private static IpcBuildLifecycleSnapshot CreateBuildLifecycleSnapshot ()
+        {
+            return new IpcBuildLifecycleSnapshot(
+                ServerVersion: "1.2.3",
+                EditorMode: ContractLiteralCodec.ToValue(DaemonEditorMode.Batchmode),
+                UnityVersion: "6000.1.4f1",
+                ProjectFingerprint: ProjectFingerprint,
+                LifecycleState: IpcEditorLifecycleStateCodec.Ready,
+                BlockingReason: null,
+                CompileState: IpcCompileStateCodec.Ready,
+                CompileGeneration: "compile-1",
+                DomainReloadGeneration: "domain-1",
+                CanAcceptExecutionRequests: true,
+                ObservedAtUtc: DateTimeOffset.Parse("2026-06-12T00:00:00+00:00"),
+                ActionRequired: null,
+                PrimaryDiagnostic: null,
+                PlayMode: new IpcPlayModeSnapshot(
+                    State: "stopped",
+                    Transition: "none",
+                    IsPlaying: false,
+                    IsPlayingOrWillChangePlaymode: false,
+                    Generation: "play-1"),
+                AssetRefreshGeneration: "asset-1");
         }
 
         private sealed class CountingEditorLogRangeExporter : IEditorLogRangeExporter

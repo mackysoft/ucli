@@ -4,6 +4,7 @@ using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using UnityEditor;
 using UnityEditor.Build.Profile;
+using UnityEditor.Build.Reporting;
 
 #nullable enable
 
@@ -14,13 +15,13 @@ namespace MackySoft.Ucli.Unity.Build
     {
         /// <inheritdoc />
         public IpcBuildReportArtifact? Run (
-            IpcBuildRunRequest request,
+            IpcUnityBuildProfileInput unityBuildProfile,
             UnityBuildResolvedInput resolvedInput,
             IpcBuildOutputLayout outputLayout)
         {
-            if (request == null)
+            if (unityBuildProfile == null)
             {
-                throw new ArgumentNullException(nameof(request));
+                throw new ArgumentNullException(nameof(unityBuildProfile));
             }
 
             if (resolvedInput == null)
@@ -33,23 +34,29 @@ namespace MackySoft.Ucli.Unity.Build
                 throw new ArgumentNullException(nameof(outputLayout));
             }
 
-            if (request.UnityBuildProfile == null)
-            {
-                throw new InvalidOperationException("Unity Build Profile input is missing.");
-            }
-
-            var profile = AssetDatabase.LoadAssetAtPath<BuildProfile>(request.UnityBuildProfile.Path);
+            var profile = AssetDatabase.LoadAssetAtPath<BuildProfile>(unityBuildProfile.Path);
             if (profile == null)
             {
-                throw new InvalidOperationException($"Unity Build Profile asset could not be resolved: {request.UnityBuildProfile.Path}.");
+                throw new UnityBuildProfileInputException($"Unity Build Profile asset could not be resolved: {unityBuildProfile.Path}.");
             }
 
-            var report = BuildPipeline.BuildPlayer(new BuildPlayerWithProfileOptions
+            BuildReport report;
+            try
             {
-                buildProfile = profile,
-                locationPathName = outputLayout.LocationPathName,
-                options = resolvedInput.Options,
-            });
+                report = BuildPipeline.BuildPlayer(new BuildPlayerWithProfileOptions
+                {
+                    buildProfile = profile,
+                    locationPathName = outputLayout.LocationPathName,
+                    options = resolvedInput.Options,
+                });
+            }
+            catch (Exception exception) when (exception is ArgumentException or InvalidOperationException)
+            {
+                throw new UnityBuildProfileInputException(
+                    $"Unity Build Profile build could not be started from asset: {unityBuildProfile.Path}.",
+                    exception);
+            }
+
             return report == null ? null : UnityBuildReportNormalizer.Normalize(report);
         }
     }

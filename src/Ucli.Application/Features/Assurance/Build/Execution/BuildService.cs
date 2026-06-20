@@ -10,6 +10,7 @@ using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Assurance;
+using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 
@@ -211,7 +212,8 @@ internal sealed class BuildService : IBuildService
             executionResult.Response!,
             runId,
             context.UnityProject.ProjectFingerprint,
-            profile);
+            profile,
+            paths.OutputDirectory);
         if (!responseResult.IsSuccess)
         {
             var dirtyState = responseResult.Error!.Code == BuildErrorCodes.BuildDirtyStatePresent
@@ -408,7 +410,8 @@ internal sealed class BuildService : IBuildService
         UnityRequestResponse response,
         string expectedRunId,
         string expectedProjectFingerprint,
-        ResolvedBuildProfile expectedProfile)
+        ResolvedBuildProfile expectedProfile,
+        string expectedOutputDirectory)
     {
         if (response.HasFailureStatus || response.Errors.Count != 0)
         {
@@ -430,7 +433,8 @@ internal sealed class BuildService : IBuildService
             buildResponse,
             expectedRunId,
             expectedProjectFingerprint,
-            expectedProfile);
+            expectedProfile,
+            expectedOutputDirectory);
         return validationFailure != null
             ? BuildResponseResolutionResult.Failure(validationFailure)
             : BuildResponseResolutionResult.Success(buildResponse);
@@ -447,7 +451,8 @@ internal sealed class BuildService : IBuildService
         IpcBuildRunResponse response,
         string expectedRunId,
         string expectedProjectFingerprint,
-        ResolvedBuildProfile expectedProfile)
+        ResolvedBuildProfile expectedProfile,
+        string expectedOutputDirectory)
     {
         if (!string.Equals(response.RunId, expectedRunId, StringComparison.Ordinal))
         {
@@ -470,6 +475,12 @@ internal sealed class BuildService : IBuildService
         {
             return ApplicationFailure.InternalError(
                 $"Unity build response input kind mismatch. Requested={ContractLiteralCodec.ToValue(expectedProfile.Inputs.Kind)}, Actual={response.Input.InputKind}.");
+        }
+
+        var buildTargetValidationFailure = ValidateResponseInputBuildTarget(response.Input);
+        if (buildTargetValidationFailure != null)
+        {
+            return buildTargetValidationFailure;
         }
 
         if (expectedProfile.Inputs.Kind == BuildProfileInputsKind.Explicit)
@@ -499,7 +510,7 @@ internal sealed class BuildService : IBuildService
             return ApplicationFailure.InternalError("Unity build response outputLayout is invalid.");
         }
 
-        if (!IpcBuildOutputLayoutResolver.TryResolve(GetOutputDirectoryFromLayout(response.OutputLayout), response.Input.BuildTarget, out var expectedOutputLayout))
+        if (!IpcBuildOutputLayoutResolver.TryResolve(expectedOutputDirectory, response.Input.BuildTarget, out var expectedOutputLayout))
         {
             return ApplicationFailure.InternalError($"Unity build response buildTarget does not have a supported output layout: {response.Input.BuildTarget}.");
         }
@@ -584,10 +595,31 @@ internal sealed class BuildService : IBuildService
         return ValidateProjectMutationAudit(response.ProjectMutation, expectedProfile.Policy.ProjectMutationMode);
     }
 
+    private static ApplicationFailure? ValidateResponseInputBuildTarget (IpcBuildInputProbe input)
+    {
+        if (!BuildTargetStableNameUnityBuildTargetResolver.TryResolve(input.BuildTarget, out var expectedUnityBuildTarget))
+        {
+            return ApplicationFailure.InternalError($"Unity build response contains unsupported buildTarget: {input.BuildTarget}.");
+        }
+
+        if (!string.Equals(input.UnityBuildTarget, expectedUnityBuildTarget, StringComparison.Ordinal))
+        {
+            return ApplicationFailure.InternalError(
+                $"Unity build response buildTarget and Unity BuildTarget mismatch. BuildTarget={input.BuildTarget}, ExpectedUnityBuildTarget={expectedUnityBuildTarget}, ActualUnityBuildTarget={input.UnityBuildTarget}.");
+        }
+
+        return null;
+    }
+
     private static ApplicationFailure? ValidateExplicitResponseInputs (
         IpcBuildRunResponse response,
         ResolvedBuildProfile expectedProfile)
     {
+        if (response.UnityBuildProfile != null)
+        {
+            return ApplicationFailure.InternalError("Unity build response unityBuildProfile input must be omitted for explicit build inputs.");
+        }
+
         if (!string.Equals(response.Input.BuildTarget, expectedProfile.BuildTarget.StableName, StringComparison.Ordinal))
         {
             return ApplicationFailure.InternalError(
@@ -634,19 +666,6 @@ internal sealed class BuildService : IBuildService
         }
 
         return null;
-    }
-
-    private static string GetOutputDirectoryFromLayout (IpcBuildOutputLayout outputLayout)
-    {
-        var playerDirectory = GetParentPath(outputLayout.LocationPathName);
-        return string.IsNullOrWhiteSpace(playerDirectory) ? string.Empty : GetParentPath(playerDirectory);
-    }
-
-    private static string GetParentPath (string path)
-    {
-        var trimmedPath = path.TrimEnd('/', '\\');
-        var separatorIndex = trimmedPath.LastIndexOfAny(['/', '\\']);
-        return separatorIndex < 0 ? string.Empty : trimmedPath[..separatorIndex];
     }
 
     private static ApplicationFailure? ValidateProjectMutationAudit (
@@ -958,6 +977,20 @@ internal sealed class BuildService : IBuildService
 
         return new BuildUnityBuildProfileOutput(
             Path: unityBuildProfile.Path,
+            Digest: unityBuildProfile.Digest);
+    }
+
+    private static BuildRunUnityBuildProfileInputMetadata? CreateUnityBuildProfileInputMetadata (IpcUnityBuildProfileInput? unityBuildProfile)
+    {
+        if (unityBuildProfile == null
+            || unityBuildProfile.Digest == null
+            || unityBuildProfile.ApplyAudit == null)
+        {
+            return null;
+        }
+
+        return new BuildRunUnityBuildProfileInputMetadata(
+            Path: unityBuildProfile.Path,
             Digest: unityBuildProfile.Digest,
             ApplyAudit: unityBuildProfile.ApplyAudit);
     }
@@ -1001,7 +1034,7 @@ internal sealed class BuildService : IBuildService
                 UnityBuildTarget: response.Input.UnityBuildTarget,
                 Scenes: output.Build.Scenes,
                 Options: output.Build.Options,
-                UnityBuildProfile: output.Build.Inputs.UnityBuildProfile)),
+                UnityBuildProfile: CreateUnityBuildProfileInputMetadata(response.UnityBuildProfile))),
             Lifecycle: SerializeMetadataElement(new BuildRunLifecycleMetadata(
                 Before: response.LifecycleBefore,
                 After: response.LifecycleAfter)),

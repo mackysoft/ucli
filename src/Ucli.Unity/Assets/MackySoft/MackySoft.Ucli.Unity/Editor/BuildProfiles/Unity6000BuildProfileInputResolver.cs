@@ -94,11 +94,24 @@ namespace MackySoft.Ucli.Unity.Build
                     lifecycleBefore));
             }
 
-            var digest = ComputeAssetDigest(profilePath);
-            BuildProfile.SetActiveBuildProfile(profile);
+            string digest;
+            try
+            {
+                digest = ComputeAssetDigest(profilePath);
+                BuildProfile.SetActiveBuildProfile(profile);
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException)
+            {
+                return Task.FromResult(UnityBuildProfileInputResolutionResult.Failure(
+                    CreateInvalidProfileError($"Unity Build Profile asset could not be applied: {profilePath}. {exception.Message}"),
+                    new IpcUnityBuildProfileInput(profilePath),
+                    lifecycleBefore));
+            }
+
             cancellationToken.ThrowIfCancellationRequested();
             var lifecycleAfter = preconditionProbe.CaptureAfterBuild();
             var dirtyStateAfter = UnityBuildPreconditionProbe.CaptureDirtyState(cancellationToken);
+            var development = EditorUserBuildSettings.development;
             var applyAudit = new IpcUnityBuildProfileApplyAudit(
                 Applied: true,
                 LifecycleBefore: lifecycleBefore,
@@ -116,7 +129,7 @@ namespace MackySoft.Ucli.Unity.Build
                 UnityBuildTarget: unityBuildTargetLiteral,
                 SceneSource: ContractLiteralCodec.ToValue(BuildProfileSceneSource.UnityBuildProfile),
                 ScenePaths: scenePaths,
-                Development: false,
+                Development: development,
                 AllowedEditorModes: request.AllowedEditorModes);
             return Task.FromResult(UnityBuildProfileInputResolutionResult.Success(
                 preconditionInput,

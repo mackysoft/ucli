@@ -664,21 +664,7 @@ internal static class Program
                 additionalProperties: false,
                 Required("path", StringSchema()),
                 Required("digest", Sha256LowerHexSchema()))),
-            Required("inputs", ObjectSchema(
-                additionalProperties: false,
-                Required(
-                    "inputKind",
-                    EnumSchema(
-                        Literal(BuildProfileInputsKind.Explicit),
-                        Literal(BuildProfileInputsKind.UnityBuildProfile))),
-                Required("buildTarget", StringSchema()),
-                Required("scenes", CreateBuildRunScenesSchema()),
-                Required("options", CreateBuildRunOptionsSchema()),
-                Optional("unityBuildProfile", ObjectSchema(
-                    additionalProperties: false,
-                    Required("path", StringSchema()),
-                    Required("digest", Sha256LowerHexSchema()),
-                    Required("applyAudit", ObjectSchema(additionalProperties: true)))))),
+            Required("inputs", CreateBuildRunInputsSchema()),
             Required("buildTarget", StringSchema()),
             Required("scenes", CreateBuildRunScenesSchema()),
             Required("options", CreateBuildRunOptionsSchema()),
@@ -736,6 +722,47 @@ internal static class Program
                     Literal(BuildProfileSceneSource.Explicit),
                     Literal(BuildProfileSceneSource.UnityBuildProfile))),
             Required("paths", ArraySchema(StringSchema())));
+    }
+
+    private static Dictionary<string, object?> CreateBuildRunInputsSchema ()
+    {
+        return OneOfSchema(
+            CreateBuildRunExplicitInputsSchema(),
+            CreateBuildRunUnityBuildProfileInputsSchema());
+    }
+
+    private static Dictionary<string, object?> CreateBuildRunExplicitInputsSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("inputKind", ConstString(Literal(BuildProfileInputsKind.Explicit))),
+            Required("buildTarget", StringSchema()),
+            Required("scenes", CreateBuildRunScenesSchema()),
+            Required("options", CreateBuildRunOptionsSchema()));
+    }
+
+    private static Dictionary<string, object?> CreateBuildRunUnityBuildProfileInputsSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("inputKind", ConstString(Literal(BuildProfileInputsKind.UnityBuildProfile))),
+            Required("buildTarget", StringSchema()),
+            Required("scenes", CreateBuildRunScenesSchema()),
+            Required("options", CreateBuildRunOptionsSchema()),
+            Required("unityBuildProfile", CreateBuildRunUnityBuildProfileSchema()));
+    }
+
+    private static Dictionary<string, object?> CreateBuildRunUnityBuildProfileSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("path", CreateBuildRunUnityBuildProfilePathSchema()),
+            Required("digest", Sha256LowerHexSchema()));
+    }
+
+    private static Dictionary<string, object?> CreateBuildRunUnityBuildProfilePathSchema ()
+    {
+        return PatternStringSchema(@"^Assets/(?!.*(?:^|/)\.{1,2}(?:/|$))(?!.*//)(?!.*\\)(?!.*:)(?!.*\.[Mm][Ee][Tt][Aa]$)(?!.*\s$).+$");
     }
 
     private static Dictionary<string, object?> CreateBuildRunOptionsSchema ()

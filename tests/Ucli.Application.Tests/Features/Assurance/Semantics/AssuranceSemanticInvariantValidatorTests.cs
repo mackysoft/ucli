@@ -36,6 +36,31 @@ public sealed class AssuranceSemanticInvariantValidatorTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Validate_WithValidUnityBuildProfileBuildPayload_ReturnsNoViolations ()
+    {
+        var result = ValidateBuildPayload(CreateBuildPayload(useUnityBuildProfileInput: true));
+
+        Assert.True(result.IsValid);
+        Assert.Empty(result.Violations);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("Packages/BuildProfiles/Linux.asset")]
+    [InlineData("Assets/BuildProfiles/Linux.asset.meta")]
+    [InlineData("Assets/../BuildProfiles/Linux.asset")]
+    public void Validate_WithUnityBuildProfileInvalidPath_ReturnsPathViolation (string path)
+    {
+        var result = ValidateBuildPayload(CreateBuildPayload(
+            useUnityBuildProfileInput: true,
+            unityBuildProfilePath: path));
+
+        AssertViolationPath(result, "$.build.inputs.unityBuildProfile.path");
+    }
+
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Validate_WithBuildPayloadMissingStableReport_ReturnsReportsPath ()
     {
         var result = ValidateBuildPayload(CreateBuildPayload(includeBuildLogReport: false));
@@ -1042,7 +1067,9 @@ public sealed class AssuranceSemanticInvariantValidatorTests
         bool includeBuildGenerations = true,
         string validForAssetRefreshGeneration = "asset-after",
         bool includeBuildLogPath = true,
-        string buildLogDigest = "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd")
+        string buildLogDigest = "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        bool useUnityBuildProfileInput = false,
+        string unityBuildProfilePath = "Assets/BuildProfiles/Linux.asset")
     {
         var reports = new Dictionary<string, object>(StringComparer.Ordinal)
         {
@@ -1091,13 +1118,29 @@ public sealed class AssuranceSemanticInvariantValidatorTests
             : CreateBuildGenerations(buildGenerationEvidenceDataValidForAssetRefreshGeneration);
         var scenes = new
         {
-            source = "explicit",
+            source = useUnityBuildProfileInput ? "unityBuildProfile" : "explicit",
             paths = new[] { "Assets/Scenes/Main.unity" },
         };
         var options = new
         {
             development = true,
         };
+        var inputs = new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["inputKind"] = useUnityBuildProfileInput ? "unityBuildProfile" : "explicit",
+            ["buildTarget"] = "standaloneLinux64",
+            ["scenes"] = scenes,
+            ["options"] = options,
+        };
+        if (useUnityBuildProfileInput)
+        {
+            inputs["unityBuildProfile"] = new
+            {
+                path = unityBuildProfilePath,
+                digest = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            };
+        }
+
         var claims = BuildClaimCodes.All
             .Select(code =>
             {
@@ -1129,13 +1172,7 @@ public sealed class AssuranceSemanticInvariantValidatorTests
             {
                 buildTarget = "standaloneLinux64",
                 profile,
-                inputs = new
-                {
-                    inputKind = "explicit",
-                    buildTarget = "standaloneLinux64",
-                    scenes,
-                    options,
-                },
+                inputs,
                 scenes,
                 options,
                 output = new

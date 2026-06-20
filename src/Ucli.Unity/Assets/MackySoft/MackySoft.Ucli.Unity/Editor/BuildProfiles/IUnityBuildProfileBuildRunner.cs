@@ -9,7 +9,7 @@ namespace MackySoft.Ucli.Unity.Build
     {
         /// <summary> Runs the Unity Build Profile build and returns the normalized BuildReport artifact. </summary>
         IpcBuildReportArtifact? Run (
-            IpcBuildRunRequest request,
+            IpcUnityBuildProfileInput unityBuildProfile,
             UnityBuildResolvedInput resolvedInput,
             IpcBuildOutputLayout outputLayout);
     }
