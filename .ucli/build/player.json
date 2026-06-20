@@ -1,13 +1,29 @@
 {
   "schemaVersion": 1,
-  "buildTarget": "standaloneLinux64",
-  "scenes": {
-    "source": "editorBuildSettings"
+  "inputs": {
+    "kind": "explicit",
+    "buildTarget": "standaloneLinux64",
+    "scenes": {
+      "source": "editorBuildSettings"
+    },
+    "options": {
+      "development": false
+    }
   },
-  "output": {
-    "kind": "ucliArtifact"
+  "runner": {
+    "kind": "buildPipeline"
   },
-  "options": {
-    "development": false
+  "policy": {
+    "runtime": {
+      "allowedExecutionModes": [
+        "daemon",
+        "oneshot"
+      ],
+      "allowedEditorModes": [
+        "batchmode",
+        "gui"
+      ]
+    },
+    "projectMutationMode": "forbid"
   }
 }
