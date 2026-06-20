@@ -91,11 +91,9 @@ internal static class BuildRunTestData
             Scenes: new BuildScenesOutput("explicit", ["Assets/Scenes/Main.unity"]),
             Options: new BuildOptionsOutput(Development: true),
             Output: new BuildArtifactOutput(
-                Kind: "ucliArtifact",
-                ArtifactRoot: "/workspace/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1",
-                OutputRoot: "/workspace/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/output",
                 ManifestRef: BuildReportRefs.BuildOutputManifest,
                 ManifestDigest: Repeat('b'),
+                EntryCount: 1,
                 FileCount: 1,
                 TotalBytes: 4096),
             Generations: new BuildGenerationsOutput(

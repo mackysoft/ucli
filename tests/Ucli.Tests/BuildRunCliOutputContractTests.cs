@@ -21,7 +21,6 @@ public sealed class BuildRunCliOutputContractTests
     private const string BuildRunGoldenDirectory = "build-run";
     private const string BuildArtifactFixtureRoot = "tests/Ucli.Tests/GoldenFiles/Json/BuildRunArtifacts";
     private const string ArtifactRoot = "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1";
-    private const string OutputRoot = ArtifactRoot + "/output";
     private const string SuccessManifestDigest = "da24a52f15e07fd877e58e370b776bc7136b18409317bc73b300c1ff3acb52f1";
     private const string FailedManifestDigest = "8deb35edf72becffdfe16011c3975ba597d30d506dc484c1d3ccd43224a3a444";
 
@@ -247,11 +246,9 @@ public sealed class BuildRunCliOutputContractTests
             Scenes: new BuildScenesOutput("explicit", ["Assets/Scenes/Main.unity"]),
             Options: new BuildOptionsOutput(Development: true),
             Output: new BuildArtifactOutput(
-                Kind: "ucliArtifact",
-                ArtifactRoot: ArtifactRoot,
-                OutputRoot: OutputRoot,
                 ManifestRef: BuildReportRefs.BuildOutputManifest,
                 ManifestDigest: manifestDigest,
+                EntryCount: fileCount,
                 FileCount: fileCount,
                 TotalBytes: totalBytes),
             Generations: CreateGenerations(),
@@ -442,6 +439,7 @@ public sealed class BuildRunCliOutputContractTests
             return new Dictionary<string, object?>(StringComparer.Ordinal)
             {
                 ["manifestRef"] = BuildReportRefs.BuildOutputManifest,
+                ["entryCount"] = build.Output.EntryCount,
                 ["fileCount"] = build.Output.FileCount,
             };
         }

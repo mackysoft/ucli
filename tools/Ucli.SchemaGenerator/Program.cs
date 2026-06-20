@@ -680,11 +680,9 @@ internal static class Program
                 Required("development", BooleanSchema()))),
             Required("output", ObjectSchema(
                 additionalProperties: false,
-                Required("kind", ConstString("ucliArtifact")),
-                Required("artifactRoot", StringSchema()),
-                Required("outputRoot", StringSchema()),
                 Required("manifestRef", ConstString("buildOutputManifest")),
                 Required("manifestDigest", Sha256LowerHexSchema()),
+                Required("entryCount", IntegerSchema()),
                 Required("fileCount", IntegerSchema()),
                 Required("totalBytes", IntegerSchema()))),
             Required("generations", ObjectSchema(

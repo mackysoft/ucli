@@ -148,6 +148,7 @@ public sealed class FileBuildRunArtifactStoreTests
         Assert.Equal(2, outputRoot.GetProperty("fileCount").GetInt32());
         Assert.Equal(configBytes.Length + playerBytes.Length, outputRoot.GetProperty("totalBytes").GetInt64());
         Assert.Equal(result.OutputManifest.ManifestDigest, outputRoot.GetProperty("manifestDigest").GetString());
+        Assert.Equal(2, result.OutputManifest.EntryCount);
         Assert.Equal(2, result.OutputManifest.FileCount);
         Assert.Equal(configBytes.Length + playerBytes.Length, result.OutputManifest.TotalBytes);
         AssertLowerSha256(result.OutputManifest.ManifestDigest);
@@ -170,7 +171,9 @@ public sealed class FileBuildRunArtifactStoreTests
         Assert.Equal(1, buildRoot.GetProperty("schemaVersion").GetInt32());
         Assert.Equal("run-1", buildRoot.GetProperty("runId").GetString());
         Assert.False(buildRoot.GetProperty("profile").TryGetProperty("output", out _));
-        Assert.Equal("ucliArtifact", buildRoot.GetProperty("output").GetProperty("kind").GetString());
+        Assert.False(buildRoot.GetProperty("output").TryGetProperty("kind", out _));
+        Assert.False(buildRoot.GetProperty("output").TryGetProperty("artifactRoot", out _));
+        Assert.False(buildRoot.GetProperty("output").TryGetProperty("outputRoot", out _));
         Assert.Equal("standaloneLinux64", buildRoot.GetProperty("input").GetProperty("buildTarget").GetProperty("stableName").GetString());
 
         var artifacts = buildRoot.GetProperty("artifacts");
@@ -446,7 +449,7 @@ public sealed class FileBuildRunArtifactStoreTests
             ParseJsonElement("""{"compile":"42","domainReload":"7"}"""),
             ParseJsonElement("""{"result":"succeeded"}"""),
             ParseJsonElement("""{"buildLog":{"stream":"file"}}"""),
-            ParseJsonElement("""{"kind":"ucliArtifact","manifestDigest":"manifest-digest"}"""),
+            ParseJsonElement("""{"manifestDigest":"manifest-digest"}"""),
             ParseJsonElement("""{"checked":true,"dirty":false,"items":[]}"""));
     }
 

@@ -103,11 +103,10 @@ public sealed class BuildServiceTests
         Assert.Equal("asset-after", output.Build.Generations.ValidFor.AssetRefreshGeneration);
         var expectedProfileDigest = BuildProfileResolver.ResolveJson(ProfileJson).Profile!.Digest;
         Assert.Equal(expectedProfileDigest, output.Build.Profile.Digest);
-        Assert.Equal("ucliArtifact", output.Build.Output.Kind);
-        Assert.Equal(artifactStore.PreparedPaths!.ArtifactsDirectory, output.Build.Output.ArtifactRoot);
-        Assert.Equal(artifactStore.PreparedPaths.OutputDirectory, output.Build.Output.OutputRoot);
         Assert.Equal(BuildReportRefs.BuildOutputManifest, output.Build.Output.ManifestRef);
         Assert.Equal(OutputManifestDigest, output.Build.Output.ManifestDigest);
+        Assert.Equal(1, output.Build.Output.EntryCount);
+        Assert.Equal(1, output.Build.Output.FileCount);
         Assert.Equal(
             [BuildReportRefs.Build, BuildReportRefs.BuildLog, BuildReportRefs.BuildOutputManifest, BuildReportRefs.BuildReport],
             output.Reports.Keys.Order(StringComparer.Ordinal).ToArray());
@@ -124,6 +123,8 @@ public sealed class BuildServiceTests
         Assert.Equal("build", verifier.Id);
         Assert.Equal(BuildClaimCodes.All.Select(static code => code.Value).ToArray(), verifier.PrimaryClaims);
         Assert.Equal(ContractLiteralCodec.GetLiterals<BuildEffect>(), verifier.Effects);
+        var preparedPaths = artifactStore.PreparedPaths;
+        Assert.NotNull(preparedPaths);
         Assert.NotNull(artifactStore.WrittenMetadata);
         Assert.Equal(
             ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
@@ -150,7 +151,7 @@ public sealed class BuildServiceTests
         Assert.Equal("transientProbe", startedEntry.SessionKind);
         Assert.Equal(10000, startedEntry.TimeoutMilliseconds);
         Assert.Equal("standaloneLinux64", startedEntry.BuildTarget);
-        Assert.Equal(artifactStore.PreparedPaths.OutputDirectory, startedEntry.OutputPath);
+        Assert.Equal(preparedPaths.OutputDirectory, startedEntry.OutputPath);
         var completedEntry = Assert.IsType<BuildRunCompletedEntry>(progressSink.Entries[1].Payload);
         Assert.Equal(RunId, completedEntry.RunId);
         Assert.Equal(ContractLiteralCodec.ToValue(BuildVerdict.Pass), completedEntry.Verdict);
@@ -158,10 +159,10 @@ public sealed class BuildServiceTests
         Assert.Equal(ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed), completedEntry.CompletionReason);
         Assert.Equal(0, completedEntry.ErrorCount);
         Assert.Equal(1, completedEntry.WarningCount);
-        Assert.Equal(artifactStore.PreparedPaths.BuildJsonPath, completedEntry.BuildJsonPath);
-        Assert.Equal(artifactStore.PreparedPaths.BuildReportJsonPath, completedEntry.BuildReportPath);
-        Assert.Equal(artifactStore.PreparedPaths.BuildLogPath, completedEntry.BuildLogPath);
-        Assert.Equal(artifactStore.PreparedPaths.OutputManifestJsonPath, completedEntry.OutputManifestPath);
+        Assert.Equal(preparedPaths.BuildJsonPath, completedEntry.BuildJsonPath);
+        Assert.Equal(preparedPaths.BuildReportJsonPath, completedEntry.BuildReportPath);
+        Assert.Equal(preparedPaths.BuildLogPath, completedEntry.BuildLogPath);
+        Assert.Equal(preparedPaths.OutputManifestJsonPath, completedEntry.OutputManifestPath);
 
         var validator = CreateBuildSemanticInvariantValidator();
         var semanticPayload = JsonSerializer.SerializeToElement(output, PayloadSerializerOptions);
@@ -175,9 +176,9 @@ public sealed class BuildServiceTests
         Assert.Equal("explicit", requestPayload.SceneSource);
         Assert.Equal(["Assets/Scenes/Main.unity"], requestPayload.ScenePaths);
         Assert.True(requestPayload.Development);
-        Assert.Equal(artifactStore.PreparedPaths!.OutputDirectory, requestPayload.OutputPath);
-        Assert.Equal(artifactStore.PreparedPaths.BuildReportJsonPath, requestPayload.BuildReportPath);
-        Assert.Equal(artifactStore.PreparedPaths.BuildLogPath, requestPayload.BuildLogPath);
+        Assert.Equal(preparedPaths.OutputDirectory, requestPayload.OutputPath);
+        Assert.Equal(preparedPaths.BuildReportJsonPath, requestPayload.BuildReportPath);
+        Assert.Equal(preparedPaths.BuildLogPath, requestPayload.BuildLogPath);
     }
 
     [Fact]
@@ -997,6 +998,7 @@ public sealed class BuildServiceTests
                 BuildLog: new BuildArtifactRef(BuildArtifactKind.BuildLog, "build.log", BuildLogArtifactDigest),
                 OutputManifest: new BuildOutputManifestSummary(
                     ManifestDigest: OutputManifestDigest,
+                    EntryCount: 1,
                     FileCount: 1,
                     TotalBytes: 12))));
         }

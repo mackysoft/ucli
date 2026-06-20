@@ -83,16 +83,6 @@
               "type": "object",
               "additionalProperties": false,
               "properties": {
-                "kind": {
-                  "type": "string",
-                  "const": "ucliArtifact"
-                },
-                "artifactRoot": {
-                  "type": "string"
-                },
-                "outputRoot": {
-                  "type": "string"
-                },
                 "manifestRef": {
                   "type": "string",
                   "const": "buildOutputManifest"
@@ -100,6 +90,9 @@
                 "manifestDigest": {
                   "type": "string",
                   "pattern": "^[0-9a-f]{64}$"
+                },
+                "entryCount": {
+                  "type": "integer"
                 },
                 "fileCount": {
                   "type": "integer"
@@ -109,11 +102,9 @@
                 }
               },
               "required": [
-                "kind",
-                "artifactRoot",
-                "outputRoot",
                 "manifestRef",
                 "manifestDigest",
+                "entryCount",
                 "fileCount",
                 "totalBytes"
               ]

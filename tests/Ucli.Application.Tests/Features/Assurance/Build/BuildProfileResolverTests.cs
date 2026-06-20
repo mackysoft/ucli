@@ -279,7 +279,7 @@ public sealed class BuildProfileResolverTests
             """not-json""",
             """ """,
             """[]""",
-            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"output":{"kind":"ucliArtifact"},"options":{"development":false}}""",
+            """{"schemaVersion":1,"buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"output":{"kind":"legacyArtifact"},"options":{"development":false}}""",
             """{"inputs":{"kind":"explicit","buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"options":{"development":false}},"runner":{"kind":"buildPipeline"},"policy":{"runtime":{"allowedExecutionModes":["daemon"],"allowedEditorModes":["batchmode"]},"projectMutationMode":"forbid"}}""",
             """{"schemaVersion":2,"inputs":{"kind":"explicit","buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"options":{"development":false}},"runner":{"kind":"buildPipeline"},"policy":{"runtime":{"allowedExecutionModes":["daemon"],"allowedEditorModes":["batchmode"]},"projectMutationMode":"forbid"}}""",
             """{"schemaVersion":1,"schemaVersion":1,"inputs":{"kind":"explicit","buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"options":{"development":false}},"runner":{"kind":"buildPipeline"},"policy":{"runtime":{"allowedExecutionModes":["daemon"],"allowedEditorModes":["batchmode"]},"projectMutationMode":"forbid"}}""",

@@ -28,11 +28,9 @@
         "development": true
       },
       "output": {
-        "kind": "ucliArtifact",
-        "artifactRoot": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1",
-        "outputRoot": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/output",
         "manifestRef": "buildOutputManifest",
         "manifestDigest": "da24a52f15e07fd877e58e370b776bc7136b18409317bc73b300c1ff3acb52f1",
+        "entryCount": 2,
         "fileCount": 2,
         "totalBytes": 33
       },
@@ -253,6 +251,7 @@
         "statement": "Build output artifacts were counted in the output manifest.",
         "subject": {
           "manifestRef": "buildOutputManifest",
+          "entryCount": 2,
           "fileCount": 2
         },
         "evidence": [
@@ -260,11 +259,9 @@
             "kind": "outputManifestWrite",
             "evidenceRef": "build",
             "data": {
-              "kind": "ucliArtifact",
-              "artifactRoot": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1",
-              "outputRoot": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/output",
               "manifestRef": "buildOutputManifest",
               "manifestDigest": "da24a52f15e07fd877e58e370b776bc7136b18409317bc73b300c1ff3acb52f1",
+              "entryCount": 2,
               "fileCount": 2,
               "totalBytes": 33
             }

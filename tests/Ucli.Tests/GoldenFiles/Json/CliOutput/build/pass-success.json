@@ -28,11 +28,9 @@
         "development": true
       },
       "output": {
-        "kind": "ucliArtifact",
-        "artifactRoot": "/workspace/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1",
-        "outputRoot": "/workspace/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/output",
         "manifestRef": "buildOutputManifest",
         "manifestDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "entryCount": 1,
         "fileCount": 1,
         "totalBytes": 4096
       },

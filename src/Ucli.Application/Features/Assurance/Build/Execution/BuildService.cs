@@ -19,7 +19,6 @@ internal sealed class BuildService : IBuildService
 {
     private const int BuildMetadataSchemaVersion = 1;
     private const string UnknownGeneration = "unknown";
-    private const string UcliArtifactOutputKind = "ucliArtifact";
 
     private static readonly IReadOnlyList<BuildResidualRiskOutput> EmptyResidualRisks =
         Array.Empty<BuildResidualRiskOutput>();
@@ -530,11 +529,9 @@ internal sealed class BuildService : IBuildService
                 Paths: response.Input.Scenes),
             Options: new BuildOptionsOutput(profile.Options.Development),
             Output: new BuildArtifactOutput(
-                Kind: UcliArtifactOutputKind,
-                ArtifactRoot: paths.ArtifactsDirectory,
-                OutputRoot: paths.OutputDirectory,
                 ManifestRef: BuildReportRefs.BuildOutputManifest,
                 ManifestDigest: accounting.OutputManifest.ManifestDigest,
+                EntryCount: accounting.OutputManifest.EntryCount,
                 FileCount: accounting.OutputManifest.FileCount,
                 TotalBytes: accounting.OutputManifest.TotalBytes),
             Generations: generations,
@@ -706,6 +703,7 @@ internal sealed class BuildService : IBuildService
                 new Dictionary<string, object?>(StringComparer.Ordinal)
                 {
                     ["manifestRef"] = BuildReportRefs.BuildOutputManifest,
+                    ["entryCount"] = build.Output.EntryCount,
                     ["fileCount"] = build.Output.FileCount,
                 },
                 [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(BuildEffect.OutputManifestWrite), EvidenceRef: BuildReportRefs.Build, Data: build.Output)]),
