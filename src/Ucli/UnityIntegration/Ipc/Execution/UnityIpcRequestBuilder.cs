@@ -46,6 +46,7 @@ internal sealed class UnityIpcRequestBuilder
                     ScenePaths: buildRun.ScenePaths,
                     Development: buildRun.Development,
                     OutputPath: buildRun.OutputPath,
+                    OutputLayout: buildRun.OutputLayout,
                     BuildReportPath: buildRun.BuildReportPath,
                     BuildLogPath: buildRun.BuildLogPath)),
                 dispatchTimeoutPayloadTransformer: ApplyBuildRunDispatchTimeout),

@@ -8,6 +8,7 @@ using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
 using MackySoft.Ucli.Application.Features.Assurance.Semantics;
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Execution.Progress;
+using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
@@ -22,6 +23,12 @@ internal sealed class BuildService : IBuildService
 
     private static readonly IReadOnlyList<BuildResidualRiskOutput> EmptyResidualRisks =
         Array.Empty<BuildResidualRiskOutput>();
+
+    private static readonly IReadOnlyDictionary<string, JsonElement> EmptyRunnerArguments =
+        new Dictionary<string, JsonElement>(StringComparer.Ordinal);
+
+    private static readonly IReadOnlyList<string> EmptyRunnerEnvironment =
+        Array.Empty<string>();
 
     private readonly IProjectContextResolver projectContextResolver;
 
@@ -141,6 +148,22 @@ internal sealed class BuildService : IBuildService
 
         var profile = profileResolutionResult.Profile!;
         var paths = prepareResult.Paths!;
+        if (!IpcBuildOutputLayoutResolver.TryResolve(paths.OutputDirectory, profile.BuildTarget.StableName, out var outputLayout))
+        {
+            return BuildExecutionResult.Failure(ExecutionError.InvalidArgument(
+                $"BuildPipeline output layout could not be resolved for build target: {profile.BuildTarget.StableName}.",
+                BuildErrorCodes.BuildInputsInvalid), project);
+        }
+
+        var outputLayoutPrepareResult = artifactStore.PrepareBuildPipelineOutputLayout(
+            paths,
+            profile.BuildTarget.StableName,
+            outputLayout!);
+        if (!outputLayoutPrepareResult.IsSuccess)
+        {
+            return BuildExecutionResult.Failure(outputLayoutPrepareResult.Error!, project);
+        }
+
         await EmitStartedAsync(
                 resolvedProgressSink,
                 runId,
@@ -153,7 +176,7 @@ internal sealed class BuildService : IBuildService
                 cancellationToken)
             .ConfigureAwait(false);
 
-        var request = CreateBuildRunRequest(profile, paths, runId);
+        var request = CreateBuildRunRequest(profile, paths, outputLayout!, runId);
         var executionResult = await unityRequestExecutor.ExecuteAsync(
                 UcliCommandIds.BuildRun,
                 ResolveExecutionMode(executionTarget),
@@ -225,7 +248,9 @@ internal sealed class BuildService : IBuildService
             var metadata = CreateMetadataDocument(
                 project,
                 output,
-                buildResponse);
+                buildResponse,
+                profile,
+                outputLayout!);
             var metadataWriteResult = await artifactStore.WriteMetadataAsync(
                     new BuildRunMetadataWriteRequest(
                         paths,
@@ -309,6 +334,7 @@ internal sealed class BuildService : IBuildService
     private static UnityRequestPayload.BuildRun CreateBuildRunRequest (
         ResolvedBuildProfile profile,
         BuildRunArtifactPaths paths,
+        IpcBuildOutputLayout outputLayout,
         string runId)
     {
         return new UnityRequestPayload.BuildRun(
@@ -319,6 +345,7 @@ internal sealed class BuildService : IBuildService
             ScenePaths: profile.Scenes.Paths,
             Development: profile.Options.Development,
             OutputPath: paths.OutputDirectory,
+            OutputLayout: outputLayout,
             BuildReportPath: paths.BuildReportJsonPath,
             BuildLogPath: paths.BuildLogPath);
     }
@@ -575,13 +602,22 @@ internal sealed class BuildService : IBuildService
     private static BuildRunMetadataDocument CreateMetadataDocument (
         ProjectIdentityInfo project,
         BuildExecutionOutput output,
-        IpcBuildRunResponse response)
+        IpcBuildRunResponse response,
+        ResolvedBuildProfile profile,
+        IpcBuildOutputLayout outputLayout)
     {
         return new BuildRunMetadataDocument(
             SchemaVersion: BuildMetadataSchemaVersion,
             RunId: output.Build.RunId,
             Project: SerializeMetadataElement(project),
             Profile: SerializeMetadataElement(output.Build.Profile),
+            Runner: SerializeMetadataElement(new BuildRunRunnerMetadata(
+                Kind: ContractLiteralCodec.ToValue(profile.Runner.Kind),
+                Method: null,
+                Invocation: new BuildRunRunnerInvocationMetadata(
+                    Arguments: EmptyRunnerArguments,
+                    Environment: EmptyRunnerEnvironment),
+                OutputLayout: outputLayout)),
             Input: SerializeMetadataElement(new BuildRunInputMetadata(
                 BuildTarget: output.Build.BuildTarget,
                 UnityBuildTarget: response.Input.UnityBuildTarget,
