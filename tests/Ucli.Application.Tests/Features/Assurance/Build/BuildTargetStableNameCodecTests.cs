@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
+using MackySoft.Ucli.Contracts.Assurance.Build;
 
 namespace MackySoft.Ucli.Application.Tests.Features.Assurance.Build;
 
