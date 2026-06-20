@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Assurance;
+using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
@@ -108,6 +109,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 }
 
                 FileSystemAccessBoundary.EnsureSecureDirectory(buildRunRequest.OutputPath);
+                EnsureBuildPipelineOutputLayoutReady(buildRunRequest.OutputLayout);
                 var logSourcePath = Application.consoleLogPath;
                 var logStartOffset = GetLogLength(logSourcePath);
                 var startedAtUtc = DateTimeOffset.UtcNow;
@@ -323,6 +325,18 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return false;
             }
 
+            if (!BuildTargetStableNameUnityBuildTargetResolver.TryResolve(request.BuildTarget, out var expectedUnityBuildTarget))
+            {
+                errorMessage = $"Build buildTarget stable name is unsupported: {request.BuildTarget}.";
+                return false;
+            }
+
+            if (!string.Equals(request.UnityBuildTarget, expectedUnityBuildTarget, StringComparison.Ordinal))
+            {
+                errorMessage = $"Build UnityBuildTarget must match buildTarget. Expected={expectedUnityBuildTarget}, Actual={request.UnityBuildTarget}.";
+                return false;
+            }
+
             if (!TryResolveExpectedArtifactPaths(
                     request.RunId,
                     projectIdentity,
@@ -334,11 +348,25 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return false;
             }
 
+            if (request.OutputLayout == null)
+            {
+                errorMessage = "Build outputLayout must match the expected uCLI build artifact layout.";
+                return false;
+            }
+
+            if (!IpcBuildOutputLayoutResolver.TryResolve(expectedOutputPath!, request.BuildTarget, out var expectedOutputLayout))
+            {
+                errorMessage = $"Build outputLayout could not be resolved for build target: {request.BuildTarget}.";
+                return false;
+            }
+
             if (!PathEquals(request.OutputPath, expectedOutputPath!)
+                || !string.Equals(request.OutputLayout.Shape, expectedOutputLayout!.Shape, StringComparison.Ordinal)
+                || !PathEquals(request.OutputLayout.LocationPathName, expectedOutputLayout.LocationPathName)
                 || !PathEquals(request.BuildReportPath, expectedBuildReportPath!)
                 || !PathEquals(request.BuildLogPath, expectedBuildLogPath!))
             {
-                errorMessage = "Build output and artifact paths must match the expected uCLI build artifact layout.";
+                errorMessage = "Build output, outputLayout, and artifact paths must match the expected uCLI build artifact layout.";
                 return false;
             }
 
@@ -446,7 +474,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 return string.Equals(
                     Path.GetFullPath(actualPath),
-                    expectedPath,
+                    Path.GetFullPath(expectedPath),
                     Path.DirectorySeparatorChar == '\\' ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
             }
             catch (Exception exception) when (exception is ArgumentException or IOException or NotSupportedException)
@@ -490,6 +518,40 @@ namespace MackySoft.Ucli.Unity.Ipc
         private static bool IsDirectorySeparator (char value)
         {
             return value == '\\' || value == '/';
+        }
+
+        private static void EnsureBuildPipelineOutputLayoutReady (IpcBuildOutputLayout outputLayout)
+        {
+            if (outputLayout == null)
+            {
+                throw new InvalidOperationException("BuildPipeline outputLayout must be specified.");
+            }
+
+            var parentDirectory = Path.GetDirectoryName(outputLayout.LocationPathName);
+            if (string.IsNullOrWhiteSpace(parentDirectory))
+            {
+                throw new InvalidOperationException(
+                    $"BuildPipeline output parent directory could not be resolved: {outputLayout.LocationPathName}");
+            }
+
+            FileSystemAccessBoundary.EnsureSecureDirectory(parentDirectory);
+            EnsureBuildPipelineOutputTargetDoesNotExist(outputLayout.LocationPathName);
+        }
+
+        private static void EnsureBuildPipelineOutputTargetDoesNotExist (string locationPathName)
+        {
+            if (!File.Exists(locationPathName) && !Directory.Exists(locationPathName))
+            {
+                return;
+            }
+
+            var attributes = File.GetAttributes(locationPathName);
+            if ((attributes & FileAttributes.ReparsePoint) != 0)
+            {
+                throw new IOException($"BuildPipeline output target must not be a reparse point: {locationPathName}");
+            }
+
+            throw new IOException($"BuildPipeline output target already exists: {locationPathName}");
         }
 
         private static long GetLogLength (string path)

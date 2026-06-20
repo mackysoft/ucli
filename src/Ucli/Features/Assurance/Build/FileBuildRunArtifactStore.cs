@@ -6,6 +6,7 @@ using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Cryptography;
 using MackySoft.Ucli.Infrastructure.Paths;
@@ -73,6 +74,59 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         {
             return BuildRunArtifactPreparationResult.Failure(ExecutionError.InternalError(
                 $"Failed to prepare build artifact directory. {exception.Message}",
+                BuildErrorCodes.BuildArtifactWriteFailed));
+        }
+    }
+
+    /// <inheritdoc />
+    public BuildRunArtifactPreparationResult PrepareBuildPipelineOutputLayout (
+        BuildRunArtifactPaths paths,
+        string buildTarget,
+        IpcBuildOutputLayout outputLayout)
+    {
+        ArgumentNullException.ThrowIfNull(paths);
+        ArgumentException.ThrowIfNullOrWhiteSpace(buildTarget);
+        ArgumentNullException.ThrowIfNull(outputLayout);
+
+        try
+        {
+            EnsureExpectedPathLayout(paths);
+            EnsureExpectedBuildPipelineOutputLayout(paths, buildTarget, outputLayout);
+        }
+        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
+        {
+            return BuildRunArtifactPreparationResult.Failure(ExecutionError.InvalidArgument(
+                $"BuildPipeline output layout path is invalid. {exception.Message}"));
+        }
+        catch (InvalidOperationException exception)
+        {
+            return BuildRunArtifactPreparationResult.Failure(ExecutionError.InvalidArgument(
+                $"BuildPipeline output layout is invalid. {exception.Message}",
+                BuildErrorCodes.BuildInputsInvalid));
+        }
+
+        try
+        {
+            var parentDirectory = Path.GetDirectoryName(outputLayout.LocationPathName);
+            if (string.IsNullOrWhiteSpace(parentDirectory))
+            {
+                throw new InvalidOperationException(
+                    $"BuildPipeline output parent directory could not be resolved: {outputLayout.LocationPathName}");
+            }
+
+            FileSystemAccessBoundary.EnsureSecureDirectory(parentDirectory);
+            EnsureBuildPipelineOutputTargetDoesNotExist(outputLayout.LocationPathName);
+            return BuildRunArtifactPreparationResult.Success(paths);
+        }
+        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
+        {
+            return BuildRunArtifactPreparationResult.Failure(ExecutionError.InvalidArgument(
+                $"BuildPipeline output layout path is invalid. {exception.Message}"));
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            return BuildRunArtifactPreparationResult.Failure(ExecutionError.InternalError(
+                $"Failed to prepare BuildPipeline output layout. {exception.Message}",
                 BuildErrorCodes.BuildArtifactWriteFailed));
         }
     }
@@ -321,6 +375,47 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
             artifactsDirectory,
             paths.OutputDirectory,
             UcliStoragePathNames.BuildOutputDirectoryName);
+    }
+
+    private static void EnsureExpectedBuildPipelineOutputLayout (
+        BuildRunArtifactPaths paths,
+        string buildTarget,
+        IpcBuildOutputLayout outputLayout)
+    {
+        if (!IpcBuildOutputLayoutResolver.TryResolve(paths.OutputDirectory, buildTarget, out var expectedLayout))
+        {
+            throw new InvalidOperationException($"Build target does not have a deterministic BuildPipeline output layout: {buildTarget}");
+        }
+
+        if (!string.Equals(outputLayout.Shape, expectedLayout!.Shape, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                $"BuildPipeline output layout shape must be {expectedLayout.Shape}: {outputLayout.Shape}");
+        }
+
+        var actualLocationPathName = Path.GetFullPath(outputLayout.LocationPathName);
+        var expectedLocationPathName = Path.GetFullPath(expectedLayout.LocationPathName);
+        if (!string.Equals(actualLocationPathName, expectedLocationPathName, GetPathComparison()))
+        {
+            throw new InvalidOperationException(
+                $"BuildPipeline output locationPathName must be {expectedLocationPathName}: {outputLayout.LocationPathName}");
+        }
+    }
+
+    private static void EnsureBuildPipelineOutputTargetDoesNotExist (string locationPathName)
+    {
+        if (!File.Exists(locationPathName) && !Directory.Exists(locationPathName))
+        {
+            return;
+        }
+
+        var attributes = File.GetAttributes(locationPathName);
+        if ((attributes & FileAttributes.ReparsePoint) != 0)
+        {
+            throw new IOException($"BuildPipeline output target must not be a reparse point: {locationPathName}");
+        }
+
+        throw new IOException($"BuildPipeline output target already exists: {locationPathName}");
     }
 
     private static void EnsureExpectedArtifactsDirectory (

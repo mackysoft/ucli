@@ -8,7 +8,7 @@ namespace MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
 /// <param name="BuildReportJsonPath"> The absolute <c>build-report.json</c> path. </param>
 /// <param name="BuildLogPath"> The absolute <c>build.log</c> path. </param>
 /// <param name="OutputManifestJsonPath"> The absolute <c>output-manifest.json</c> path. </param>
-/// <param name="OutputDirectory"> The absolute player output directory path. </param>
+/// <param name="OutputDirectory"> The absolute runner working output root path. </param>
 internal sealed record BuildRunArtifactPaths (
     string RepositoryRoot,
     string RunId,

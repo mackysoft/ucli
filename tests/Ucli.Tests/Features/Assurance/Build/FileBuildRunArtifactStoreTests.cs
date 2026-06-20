@@ -6,6 +6,7 @@ using MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Features.Assurance.Build;
 using MackySoft.Ucli.Infrastructure.Paths;
@@ -80,6 +81,86 @@ public sealed class FileBuildRunArtifactStoreTests
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
         Assert.Equal(BuildErrorCodes.BuildArtifactWriteFailed, error.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void PrepareBuildPipelineOutputLayout_WithResolvedLayout_CreatesPlayerParentDirectory ()
+    {
+        using var scope = TestDirectories.CreateTempScope("build-artifact-store", "prepare-player-layout");
+        var store = CreateStore();
+        var project = CreateProject(scope);
+        var prepareResult = store.Prepare(project, "run-1");
+        var paths = Assert.IsType<BuildRunArtifactPaths>(prepareResult.Paths);
+        Assert.True(IpcBuildOutputLayoutResolver.TryResolve(paths.OutputDirectory, "standaloneLinux64", out var layout));
+
+        var result = store.PrepareBuildPipelineOutputLayout(paths, "standaloneLinux64", layout!);
+
+        Assert.True(result.IsSuccess);
+        Assert.True(Directory.Exists(Path.GetDirectoryName(layout!.LocationPathName)));
+        Assert.False(File.Exists(layout.LocationPathName));
+        Assert.False(Directory.Exists(layout.LocationPathName));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void PrepareBuildPipelineOutputLayout_WhenLocationPathNameAlreadyExists_ReturnsBuildArtifactWriteFailed ()
+    {
+        using var scope = TestDirectories.CreateTempScope("build-artifact-store", "prepare-player-collision");
+        var store = CreateStore();
+        var project = CreateProject(scope);
+        var prepareResult = store.Prepare(project, "run-1");
+        var paths = Assert.IsType<BuildRunArtifactPaths>(prepareResult.Paths);
+        Assert.True(IpcBuildOutputLayoutResolver.TryResolve(paths.OutputDirectory, "standaloneLinux64", out var layout));
+        WriteUtf8(layout!.LocationPathName, "existing player");
+
+        var result = store.PrepareBuildPipelineOutputLayout(paths, "standaloneLinux64", layout);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.Equal(BuildErrorCodes.BuildArtifactWriteFailed, error.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void PrepareBuildPipelineOutputLayout_WhenPlayerParentCannotBeCreated_ReturnsBuildArtifactWriteFailed ()
+    {
+        using var scope = TestDirectories.CreateTempScope("build-artifact-store", "prepare-player-parent-blocked");
+        var store = CreateStore();
+        var project = CreateProject(scope);
+        var prepareResult = store.Prepare(project, "run-1");
+        var paths = Assert.IsType<BuildRunArtifactPaths>(prepareResult.Paths);
+        Assert.True(IpcBuildOutputLayoutResolver.TryResolve(paths.OutputDirectory, "standaloneLinux64", out var layout));
+        WriteUtf8(Path.Combine(paths.OutputDirectory, "player"), "blocking file");
+
+        var result = store.PrepareBuildPipelineOutputLayout(paths, "standaloneLinux64", layout!);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.Equal(BuildErrorCodes.BuildArtifactWriteFailed, error.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void PrepareBuildPipelineOutputLayout_WhenTargetLayoutIsUnsupported_ReturnsBuildInputsInvalid ()
+    {
+        using var scope = TestDirectories.CreateTempScope("build-artifact-store", "prepare-player-unsupported");
+        var store = CreateStore();
+        var project = CreateProject(scope);
+        var prepareResult = store.Prepare(project, "run-1");
+        var paths = Assert.IsType<BuildRunArtifactPaths>(prepareResult.Paths);
+        var layout = new IpcBuildOutputLayout(
+            Shape: ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.File),
+            LocationPathName: Path.Combine(paths.OutputDirectory, "player", "Player"));
+
+        var result = store.PrepareBuildPipelineOutputLayout(paths, "switch", layout);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.Equal(BuildErrorCodes.BuildInputsInvalid, error.Code);
     }
 
     [Fact]
@@ -174,6 +255,11 @@ public sealed class FileBuildRunArtifactStoreTests
         Assert.False(buildRoot.GetProperty("output").TryGetProperty("kind", out _));
         Assert.False(buildRoot.GetProperty("output").TryGetProperty("artifactRoot", out _));
         Assert.False(buildRoot.GetProperty("output").TryGetProperty("outputRoot", out _));
+        Assert.Equal("buildPipeline", buildRoot.GetProperty("runner").GetProperty("kind").GetString());
+        Assert.Equal("file", buildRoot.GetProperty("runner").GetProperty("outputLayout").GetProperty("shape").GetString());
+        Assert.Equal(
+            "/repo/.ucli/local/fingerprints/fingerprint/artifacts/build/run-1/output/player/Player",
+            buildRoot.GetProperty("runner").GetProperty("outputLayout").GetProperty("locationPathName").GetString());
         Assert.Equal("standaloneLinux64", buildRoot.GetProperty("input").GetProperty("buildTarget").GetProperty("stableName").GetString());
 
         var artifacts = buildRoot.GetProperty("artifacts");
@@ -441,6 +527,7 @@ public sealed class FileBuildRunArtifactStoreTests
             runId,
             ParseJsonElement("""{"projectPath":"/repo/UnityProject","projectFingerprint":"fingerprint","unityVersion":"6000.1.4f1"}"""),
             ParseJsonElement("""{"path":"/repo/.ucli/build/player.json","digest":"profile-digest"}"""),
+            ParseJsonElement("""{"kind":"buildPipeline","method":null,"invocation":{"arguments":{},"environment":[]},"outputLayout":{"shape":"file","locationPathName":"/repo/.ucli/local/fingerprints/fingerprint/artifacts/build/run-1/output/player/Player"}}"""),
             ParseJsonElement("""{"buildTarget":{"stableName":"standaloneLinux64"}}"""),
             ParseJsonElement("""{"state":"completed"}"""),
             ParseJsonElement("""{"compile":"42","domainReload":"7"}"""),

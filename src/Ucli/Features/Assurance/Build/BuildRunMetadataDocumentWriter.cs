@@ -32,6 +32,7 @@ internal sealed class BuildRunMetadataDocumentWriter
             writer.WriteString("runId", document.RunId);
             WriteElement(writer, "project", document.Project);
             WriteElement(writer, "profile", document.Profile);
+            WriteElement(writer, "runner", document.Runner);
             WriteElement(writer, "input", document.Input);
             WriteElement(writer, "lifecycle", document.Lifecycle);
             WriteElement(writer, "generations", document.Generations);

@@ -105,6 +105,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public void Create_WithStandaloneLinuxTarget_CreatesBuildPlayerOptions ()
         {
             var outputPath = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "ucli", "output"));
+            var locationPathName = Path.Combine(outputPath, "player", "Player");
             var request = new IpcBuildRunRequest(
                 RunId: "build-run-1",
                 BuildTarget: "standaloneLinux64",
@@ -113,6 +114,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 ScenePaths: new[] { "Assets/Scenes/Main.unity" },
                 Development: true,
                 OutputPath: outputPath,
+                OutputLayout: new IpcBuildOutputLayout(
+                    Shape: ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.File),
+                    LocationPathName: locationPathName),
                 BuildReportPath: "/tmp/ucli/build-report.json",
                 BuildLogPath: "/tmp/ucli/build.log",
                 AllowedEditorModes: new[] { "batchmode" },
@@ -129,7 +133,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(options.target, Is.EqualTo(BuildTarget.StandaloneLinux64));
             Assert.That(options.targetGroup, Is.EqualTo(BuildTargetGroup.Standalone));
             Assert.That(options.options, Is.EqualTo(BuildOptions.Development));
-            Assert.That(options.locationPathName, Is.EqualTo(Path.Combine(outputPath, "build")));
+            Assert.That(options.locationPathName, Is.EqualTo(locationPathName));
         }
     }
 }

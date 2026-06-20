@@ -1,5 +1,4 @@
 using System;
-using System.IO;
 using MackySoft.Ucli.Contracts.Ipc;
 using UnityEditor;
 
@@ -25,31 +24,23 @@ namespace MackySoft.Ucli.Unity.Build
                 throw new ArgumentNullException(nameof(resolvedInput));
             }
 
+            if (request.OutputLayout == null)
+            {
+                throw new ArgumentException("BuildPipeline outputLayout must be specified.", nameof(request));
+            }
+
+            if (string.IsNullOrWhiteSpace(request.OutputLayout.LocationPathName))
+            {
+                throw new ArgumentException("BuildPipeline outputLayout.locationPathName must not be empty.", nameof(request));
+            }
+
             return new BuildPlayerOptions
             {
                 scenes = resolvedInput.ScenePaths,
                 target = resolvedInput.UnityBuildTarget,
                 targetGroup = resolvedInput.UnityBuildTargetGroup,
                 options = resolvedInput.Options,
-                locationPathName = ResolveLocationPathName(request.OutputPath, resolvedInput.UnityBuildTarget),
-            };
-        }
-
-        private static string ResolveLocationPathName (
-            string outputDirectory,
-            BuildTarget unityBuildTarget)
-        {
-            return unityBuildTarget switch
-            {
-                BuildTarget.StandaloneOSX => Path.Combine(outputDirectory, "build.app"),
-                BuildTarget.StandaloneWindows => Path.Combine(outputDirectory, "build.exe"),
-                BuildTarget.StandaloneWindows64 => Path.Combine(outputDirectory, "build.exe"),
-                BuildTarget.StandaloneLinux64 => Path.Combine(outputDirectory, "build"),
-                BuildTarget.Android => Path.Combine(outputDirectory, "build.apk"),
-                BuildTarget.WebGL => outputDirectory,
-                BuildTarget.iOS => outputDirectory,
-                BuildTarget.tvOS => outputDirectory,
-                _ => Path.Combine(outputDirectory, "build"),
+                locationPathName = request.OutputLayout.LocationPathName,
             };
         }
     }

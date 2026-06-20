@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 
@@ -28,6 +29,7 @@ internal abstract record UnityRequestPayload
         IReadOnlyList<string> ScenePaths,
         bool Development,
         string OutputPath,
+        IpcBuildOutputLayout OutputLayout,
         string BuildReportPath,
         string BuildLogPath,
         IReadOnlyList<string> AllowedEditorModes,

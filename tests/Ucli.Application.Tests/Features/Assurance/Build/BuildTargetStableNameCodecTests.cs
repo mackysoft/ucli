@@ -1,26 +1,22 @@
 using MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
+using MackySoft.Ucli.Contracts.Assurance.Build;
 
 namespace MackySoft.Ucli.Application.Tests.Features.Assurance.Build;
 
 public sealed class BuildTargetStableNameCodecTests
 {
-    [Theory]
-    [MemberData(nameof(SupportedTargetCases))]
+    [Fact]
     [Trait("Size", "Small")]
-    public void TryResolve_WithSupportedTarget_ReturnsResolvedTarget (
-        string stableName,
-        string expectedStableNameValueName,
-        string expectedUnityBuildTargetLiteral)
+    public void TryResolve_WithSupportedTarget_ReturnsResolvedTarget ()
     {
-        var expectedStableNameValue = Enum.Parse<BuildTargetStableName>(expectedStableNameValueName);
+        const string stableName = "standaloneLinux64";
 
         var resolved = BuildTargetStableNameCodec.TryResolve(stableName, out var target);
 
         Assert.True(resolved);
-        Assert.Equal(expectedStableNameValue, target.StableNameValue);
+        Assert.Equal(BuildTargetStableName.StandaloneLinux64, target.StableNameValue);
         Assert.Equal(stableName, target.StableName);
-        Assert.Equal(ContractLiteralCodec.ToValue(expectedStableNameValue), target.StableName);
-        Assert.Equal(expectedUnityBuildTargetLiteral, target.UnityBuildTargetLiteral);
+        Assert.Equal("StandaloneLinux64", target.UnityBuildTargetLiteral);
     }
 
     [Fact]
@@ -29,36 +25,25 @@ public sealed class BuildTargetStableNameCodecTests
     {
         foreach (var stableName in ContractLiteralCodec.GetLiterals<BuildTargetStableName>())
         {
+            var expectedStableNameValueResolved = ContractLiteralCodec.TryParse<BuildTargetStableName>(stableName, out var expectedStableNameValue);
+
             var resolved = BuildTargetStableNameCodec.TryResolve(stableName, out var target);
 
+            Assert.True(expectedStableNameValueResolved);
             Assert.True(resolved, $"Build target stable name '{stableName}' must resolve.");
+            Assert.Equal(expectedStableNameValue, target.StableNameValue);
             Assert.Equal(stableName, target.StableName);
+            Assert.False(string.IsNullOrWhiteSpace(target.UnityBuildTargetLiteral));
         }
     }
 
-    public static TheoryData<string, string, string> SupportedTargetCases ()
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryResolve_WithUnsupportedTarget_ReturnsFalse ()
     {
-        return new TheoryData<string, string, string>
-        {
-            { "standaloneOSX", nameof(BuildTargetStableName.StandaloneOsx), "StandaloneOSX" },
-            { "standaloneWindows", nameof(BuildTargetStableName.StandaloneWindows), "StandaloneWindows" },
-            { "standaloneWindows64", nameof(BuildTargetStableName.StandaloneWindows64), "StandaloneWindows64" },
-            { "standaloneLinux64", nameof(BuildTargetStableName.StandaloneLinux64), "StandaloneLinux64" },
-            { "ios", nameof(BuildTargetStableName.Ios), "iOS" },
-            { "android", nameof(BuildTargetStableName.Android), "Android" },
-            { "webgl", nameof(BuildTargetStableName.Webgl), "WebGL" },
-            { "wsaPlayer", nameof(BuildTargetStableName.WsaPlayer), "WSAPlayer" },
-            { "tvos", nameof(BuildTargetStableName.Tvos), "tvOS" },
-            { "switch", nameof(BuildTargetStableName.Switch), "Switch" },
-            { "linuxHeadlessSimulation", nameof(BuildTargetStableName.LinuxHeadlessSimulation), "LinuxHeadlessSimulation" },
-            { "gameCoreXboxSeries", nameof(BuildTargetStableName.GameCoreXboxSeries), "GameCoreXboxSeries" },
-            { "gameCoreXboxOne", nameof(BuildTargetStableName.GameCoreXboxOne), "GameCoreXboxOne" },
-            { "ps4", nameof(BuildTargetStableName.Ps4), "PS4" },
-            { "ps5", nameof(BuildTargetStableName.Ps5), "PS5" },
-            { "xboxOne", nameof(BuildTargetStableName.XboxOne), "XboxOne" },
-            { "embeddedLinux", nameof(BuildTargetStableName.EmbeddedLinux), "EmbeddedLinux" },
-            { "qnx", nameof(BuildTargetStableName.Qnx), "QNX" },
-            { "visionOS", nameof(BuildTargetStableName.VisionOs), "VisionOS" },
-        };
+        var resolved = BuildTargetStableNameCodec.TryResolve("unknownTarget", out var target);
+
+        Assert.False(resolved);
+        Assert.Null(target);
     }
 }

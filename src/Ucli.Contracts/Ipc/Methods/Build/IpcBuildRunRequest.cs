@@ -9,7 +9,8 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 /// <param name="SceneSource"> The resolved scene source literal. </param>
 /// <param name="ScenePaths"> The explicit scene paths, or an empty list when scene source is Editor Build Settings. </param>
 /// <param name="Development"> Whether the development build option is enabled. </param>
-/// <param name="OutputPath"> The absolute output path passed to Unity BuildPipeline. </param>
+/// <param name="OutputPath"> The absolute runner working output root. </param>
+/// <param name="OutputLayout"> The command-derived BuildPipeline output layout. </param>
 /// <param name="BuildReportPath"> The absolute path where Unity writes the normalized BuildReport artifact. </param>
 /// <param name="BuildLogPath"> The absolute path where Unity writes the build log artifact. </param>
 /// <param name="AllowedEditorModes"> The editor mode literals allowed by the resolved build profile runtime policy. </param>
@@ -22,6 +23,7 @@ public sealed record IpcBuildRunRequest (
     IReadOnlyList<string> ScenePaths,
     bool Development,
     string OutputPath,
+    IpcBuildOutputLayout OutputLayout,
     string BuildReportPath,
     string BuildLogPath,
     IReadOnlyList<string> AllowedEditorModes,
