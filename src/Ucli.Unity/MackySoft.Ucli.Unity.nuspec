@@ -17,16 +17,16 @@
       <dependency id="MackySoft.Ucli.Contracts" version="0.0.0" />
       <dependency id="MackySoft.Ucli.Infrastructure" version="0.0.0" />
       <dependency id="Microsoft.Bcl.AsyncInterfaces" version="8.0.0" />
-      <dependency id="Microsoft.CodeAnalysis.Analyzers" version="5.3.0" />
-      <dependency id="Microsoft.CodeAnalysis.Common" version="5.3.0" />
-      <dependency id="Microsoft.CodeAnalysis.CSharp" version="5.3.0" />
+      <dependency id="Microsoft.CodeAnalysis.Analyzers" version="3.11.0" />
+      <dependency id="Microsoft.CodeAnalysis.Common" version="4.13.0" />
+      <dependency id="Microsoft.CodeAnalysis.CSharp" version="4.13.0" />
       <dependency id="Microsoft.Extensions.DependencyInjection" version="6.0.0" />
       <dependency id="Microsoft.Extensions.DependencyInjection.Abstractions" version="6.0.0" />
       <dependency id="System.Buffers" version="4.6.0" />
-      <dependency id="System.Collections.Immutable" version="9.0.0" />
+      <dependency id="System.Collections.Immutable" version="8.0.0" />
       <dependency id="System.Memory" version="4.6.0" />
       <dependency id="System.Numerics.Vectors" version="4.6.0" />
-      <dependency id="System.Reflection.Metadata" version="9.0.0" />
+      <dependency id="System.Reflection.Metadata" version="8.0.0" />
       <dependency id="System.Runtime.CompilerServices.Unsafe" version="6.1.0" />
       <dependency id="System.Text.Encoding.CodePages" version="8.0.0" />
       <dependency id="System.Text.Encodings.Web" version="8.0.0" />

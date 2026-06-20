@@ -11,6 +11,7 @@ internal static class IpcBuildOutputLayoutResolver
     private const string PlayerAppBundleName = "Player.app";
     private const string WindowsPlayerFileName = "Player.exe";
     private const string AndroidPlayerFileName = "Player.apk";
+    private const string AndroidPlayerAppBundleFileName = "Player.aab";
 
     /// <summary> Tries to resolve the BuildPipeline output layout for the target. </summary>
     /// <param name="outputDirectory"> The absolute runner working output root. </param>
@@ -22,6 +23,21 @@ internal static class IpcBuildOutputLayoutResolver
         string buildTarget,
         out IpcBuildOutputLayout? layout)
     {
+        return TryResolve(outputDirectory, buildTarget, androidAppBundle: false, out layout);
+    }
+
+    /// <summary> Tries to resolve the BuildPipeline output layout for the target. </summary>
+    /// <param name="outputDirectory"> The absolute runner working output root. </param>
+    /// <param name="buildTarget"> The uCLI build target stable name. </param>
+    /// <param name="androidAppBundle"> <see langword="true" /> when the Android output is an App Bundle. Ignored for non-Android targets. </param>
+    /// <param name="layout"> The resolved output layout when successful. </param>
+    /// <returns> <see langword="true" /> when the target has a deterministic output layout; otherwise <see langword="false" />. </returns>
+    public static bool TryResolve (
+        string outputDirectory,
+        string buildTarget,
+        bool androidAppBundle,
+        out IpcBuildOutputLayout? layout)
+    {
         layout = null;
         if (string.IsNullOrWhiteSpace(outputDirectory) || string.IsNullOrWhiteSpace(buildTarget))
         {
@@ -29,7 +45,7 @@ internal static class IpcBuildOutputLayoutResolver
         }
 
         if (!ContractLiteralCodec.TryParse<BuildTargetStableName>(buildTarget, out var stableName)
-            || !TryResolveShapeAndFileName(stableName, out var shape, out var fileName))
+            || !TryResolveShapeAndFileName(stableName, androidAppBundle, out var shape, out var fileName))
         {
             return false;
         }
@@ -63,6 +79,7 @@ internal static class IpcBuildOutputLayoutResolver
 
     private static bool TryResolveShapeAndFileName (
         BuildTargetStableName buildTarget,
+        bool androidAppBundle,
         out string shape,
         out string fileName)
     {
@@ -83,7 +100,7 @@ internal static class IpcBuildOutputLayoutResolver
                 return true;
             case BuildTargetStableName.Android:
                 shape = ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.File);
-                fileName = AndroidPlayerFileName;
+                fileName = androidAppBundle ? AndroidPlayerAppBundleFileName : AndroidPlayerFileName;
                 return true;
             case BuildTargetStableName.Ios:
             case BuildTargetStableName.Tvos:

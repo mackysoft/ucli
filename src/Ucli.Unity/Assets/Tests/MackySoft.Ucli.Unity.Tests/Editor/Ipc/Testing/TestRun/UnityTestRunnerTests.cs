@@ -10,6 +10,7 @@ using NUnit.Framework.Interfaces;
 using UnityEditor;
 using UnityEditor.TestTools.TestRunner.Api;
 
+using UnityTestMode = UnityEditor.TestTools.TestRunner.Api.TestMode;
 using UnityTestStatus = UnityEditor.TestTools.TestRunner.Api.TestStatus;
 
 namespace MackySoft.Ucli.Unity.Tests
@@ -23,7 +24,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestContext = new UnityTestRunRequestContext(
                 RunId: "run-id",
                 TestPlatform: "editmode",
-                TestMode: TestMode.EditMode,
+                TestMode: UnityTestMode.EditMode,
                 TargetPlatform: null,
                 TestFilter: "^MackySoft\\.Ucli\\.Unity\\.Tests\\.ExecuteRequestIdempotencyCoordinatorTests$",
                 TestCategories: new[] { "Size.Small" },
@@ -36,7 +37,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(executionSettings.runSynchronously, Is.False);
             Assert.That(executionSettings.filters, Has.Length.EqualTo(1));
-            Assert.That(executionSettings.filters[0].testMode, Is.EqualTo(TestMode.EditMode));
+            Assert.That(executionSettings.filters[0].testMode, Is.EqualTo(UnityTestMode.EditMode));
             Assert.That(executionSettings.filters[0].groupNames, Is.EqualTo(new[] { requestContext.TestFilter }));
             Assert.That(executionSettings.filters[0].categoryNames, Is.EqualTo(requestContext.TestCategories));
             Assert.That(executionSettings.filters[0].assemblyNames, Is.EqualTo(requestContext.AssemblyNames));
@@ -154,7 +155,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestContext = new UnityTestRunRequestContext(
                 RunId: "run-id",
                 TestPlatform: "Android",
-                TestMode: TestMode.PlayMode,
+                TestMode: UnityTestMode.PlayMode,
                 TargetPlatform: BuildTarget.Android,
                 TestFilter: null,
                 TestCategories: new[] { "Size.Small" },
@@ -166,7 +167,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var executionSettings = UnityTestRunner.CreateExecutionSettings(requestContext);
 
             Assert.That(executionSettings.filters, Has.Length.EqualTo(1));
-            Assert.That(executionSettings.filters[0].testMode, Is.EqualTo(TestMode.PlayMode));
+            Assert.That(executionSettings.filters[0].testMode, Is.EqualTo(UnityTestMode.PlayMode));
 #pragma warning disable CS0618
             Assert.That(executionSettings.filters[0].targetPlatform, Is.EqualTo(BuildTarget.Android));
 #pragma warning restore CS0618
@@ -190,7 +191,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var context = factory.Create(request);
 
-            Assert.That(context.TestMode, Is.EqualTo(TestMode.PlayMode));
+            Assert.That(context.TestMode, Is.EqualTo(UnityTestMode.PlayMode));
             Assert.That(context.TargetPlatform, Is.EqualTo(BuildTarget.Android));
         }
 
@@ -199,7 +200,7 @@ namespace MackySoft.Ucli.Unity.Tests
             return new UnityTestRunRequestContext(
                 RunId: "run-id",
                 TestPlatform: "editmode",
-                TestMode: TestMode.EditMode,
+                TestMode: UnityTestMode.EditMode,
                 TargetPlatform: null,
                 TestFilter: null,
                 TestCategories: Array.Empty<string>(),
@@ -286,7 +287,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public int ChildIndex => 0;
 
-            public TestMode TestMode => TestMode.EditMode;
+            public UnityTestMode TestMode => UnityTestMode.EditMode;
         }
 
         private sealed class StubTestResultAdaptor : ITestResultAdaptor

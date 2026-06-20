@@ -311,6 +311,49 @@ public sealed class BuildServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Execute_WithUnityBuildProfileAndroidAppBundleResponse_AcceptsResolvedAabOutputLayout ()
+    {
+        using var tempDirectory = TemporaryDirectory.Create();
+        const string unityBuildProfilePath = "Assets/BuildProfiles/Linux.asset";
+        var unityBuildProfileDigest = new string('f', 64);
+        var artifactStore = new StubBuildRunArtifactStore(tempDirectory.Path);
+        var requestExecutor = new StubUnityRequestExecutor(payload =>
+        {
+            var buildRunPayload = (UnityRequestPayload.BuildRun)payload;
+            var outputLayout = new IpcBuildOutputLayout(
+                Shape: ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.File),
+                LocationPathName: CreateExpectedPlayerLocationPathName(buildRunPayload.OutputPath, "Player.aab"));
+            return CreateBuildResponseResult(
+                ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+                errorCount: 0,
+                inputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.UnityBuildProfile),
+                sceneSource: ContractLiteralCodec.ToValue(BuildProfileSceneSource.UnityBuildProfile),
+                scenes: ["Assets/Scenes/ProfileMain.unity"],
+                buildTarget: "android",
+                unityBuildTarget: "Android",
+                buildOptions: "None",
+                reportOutputPath: outputLayout.LocationPathName,
+                outputLayout: outputLayout,
+                unityBuildProfile: CreateUnityBuildProfileInput(unityBuildProfilePath, unityBuildProfileDigest));
+        });
+        var service = CreateService(
+            profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(UnityBuildProfileJson, "/workspace/build.ucli.json")),
+            requestExecutor: requestExecutor,
+            artifactStore: artifactStore);
+
+        var result = await service.ExecuteAsync(CreateInput());
+
+        Assert.True(result.IsSuccess, string.Join(Environment.NewLine, result.Errors.Select(static error => $"{error.Code}: {error.Message}")));
+        Assert.Equal("android", artifactStore.AccountingRequest!.BuildTarget);
+        Assert.NotNull(artifactStore.WrittenMetadata);
+        Assert.Equal(
+            CreateExpectedPlayerLocationPathName(artifactStore.PreparedPaths!.OutputDirectory, "Player.aab"),
+            artifactStore.WrittenMetadata!.Runner.GetProperty("outputLayout").GetProperty("locationPathName").GetString());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Execute_WithExplicitResponseContainingUnityBuildProfile_ReturnsCommandFailure ()
     {
         using var tempDirectory = TemporaryDirectory.Create();
@@ -1510,11 +1553,14 @@ public sealed class BuildServiceTests
             [new BuildAssuranceSemanticInvariantRule()]);
     }
 
-    private static string CreateExpectedPlayerLocationPathName (string outputDirectory)
+    private static string CreateExpectedPlayerLocationPathName (
+        string outputDirectory,
+        string fileName = "Player")
     {
         return string.Concat(
             outputDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
-            "/player/Player");
+            "/player/",
+            fileName);
     }
 
     private static void AssertProgressEvents (

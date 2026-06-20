@@ -500,25 +500,14 @@ internal sealed class BuildService : IBuildService
             }
         }
 
-        if (response.OutputLayout == null)
+        var outputLayoutValidationFailure = ValidateResponseOutputLayout(
+            response.OutputLayout,
+            response.Input.BuildTarget,
+            expectedOutputDirectory,
+            expectedProfile.Inputs.Kind);
+        if (outputLayoutValidationFailure != null)
         {
-            return ApplicationFailure.InternalError("Unity build response outputLayout is missing.");
-        }
-
-        if (string.IsNullOrWhiteSpace(response.OutputLayout.LocationPathName))
-        {
-            return ApplicationFailure.InternalError("Unity build response outputLayout is invalid.");
-        }
-
-        if (!IpcBuildOutputLayoutResolver.TryResolve(expectedOutputDirectory, response.Input.BuildTarget, out var expectedOutputLayout))
-        {
-            return ApplicationFailure.InternalError($"Unity build response buildTarget does not have a supported output layout: {response.Input.BuildTarget}.");
-        }
-
-        if (!string.Equals(response.OutputLayout.Shape, expectedOutputLayout!.Shape, StringComparison.Ordinal)
-            || !string.Equals(response.OutputLayout.LocationPathName, expectedOutputLayout.LocationPathName, StringComparison.Ordinal))
-        {
-            return ApplicationFailure.InternalError("Unity build response outputLayout does not match the resolved build target.");
+            return outputLayoutValidationFailure;
         }
 
         if (!ContractLiteralCodec.TryParse<BuildProfileSceneSource>(response.Input.SceneSource, out var sceneSource))
@@ -593,6 +582,55 @@ internal sealed class BuildService : IBuildService
         }
 
         return ValidateProjectMutationAudit(response.ProjectMutation, expectedProfile.Policy.ProjectMutationMode);
+    }
+
+    private static ApplicationFailure? ValidateResponseOutputLayout (
+        IpcBuildOutputLayout? outputLayout,
+        string buildTarget,
+        string expectedOutputDirectory,
+        BuildProfileInputsKind inputKind)
+    {
+        if (outputLayout == null)
+        {
+            return ApplicationFailure.InternalError("Unity build response outputLayout is missing.");
+        }
+
+        if (string.IsNullOrWhiteSpace(outputLayout.LocationPathName))
+        {
+            return ApplicationFailure.InternalError("Unity build response outputLayout is invalid.");
+        }
+
+        if (!IpcBuildOutputLayoutResolver.TryResolve(expectedOutputDirectory, buildTarget, out var expectedOutputLayout))
+        {
+            return ApplicationFailure.InternalError($"Unity build response buildTarget does not have a supported output layout: {buildTarget}.");
+        }
+
+        if (IsExpectedOutputLayout(outputLayout, expectedOutputLayout!))
+        {
+            return null;
+        }
+
+        if (inputKind == BuildProfileInputsKind.UnityBuildProfile
+            && string.Equals(buildTarget, ContractLiteralCodec.ToValue(BuildTargetStableName.Android), StringComparison.Ordinal)
+            && IpcBuildOutputLayoutResolver.TryResolve(
+                expectedOutputDirectory,
+                buildTarget,
+                true,
+                out var androidAppBundleLayout)
+            && IsExpectedOutputLayout(outputLayout, androidAppBundleLayout!))
+        {
+            return null;
+        }
+
+        return ApplicationFailure.InternalError("Unity build response outputLayout does not match the resolved build target.");
+    }
+
+    private static bool IsExpectedOutputLayout (
+        IpcBuildOutputLayout actual,
+        IpcBuildOutputLayout expected)
+    {
+        return string.Equals(actual.Shape, expected.Shape, StringComparison.Ordinal)
+            && string.Equals(actual.LocationPathName, expected.LocationPathName, StringComparison.Ordinal);
     }
 
     private static ApplicationFailure? ValidateResponseInputBuildTarget (IpcBuildInputProbe input)

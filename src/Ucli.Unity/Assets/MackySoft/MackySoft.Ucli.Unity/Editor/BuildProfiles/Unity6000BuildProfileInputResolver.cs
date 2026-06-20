@@ -20,6 +20,8 @@ namespace MackySoft.Ucli.Unity.Build
     /// <summary> Resolves Unity 6000 Build Profile asset inputs. </summary>
     internal sealed class Unity6000BuildProfileInputResolver : IUnityBuildProfileInputResolver
     {
+        private const string AndroidPlayerAppBundleFileName = "Player.aab";
+
         private readonly UnityBuildPreconditionProbe preconditionProbe;
 
         /// <summary> Initializes a new instance of the <see cref="Unity6000BuildProfileInputResolver" /> class. </summary>
@@ -40,11 +42,18 @@ namespace MackySoft.Ucli.Unity.Build
 
             cancellationToken.ThrowIfCancellationRequested();
             var lifecycleBefore = preconditionProbe.CaptureAfterBuild();
-            if (request.UnityBuildProfile == null
-                || !TryValidateProfilePath(request.UnityBuildProfile.Path, out var profilePath, out var error))
+            if (request.UnityBuildProfile == null)
             {
                 return Task.FromResult(UnityBuildProfileInputResolutionResult.Failure(
-                    error ?? CreateInvalidProfileError("Unity Build Profile input must specify a profile asset path."),
+                    CreateInvalidProfileError("Unity Build Profile input must specify a profile asset path."),
+                    null,
+                    lifecycleBefore));
+            }
+
+            if (!TryValidateProfilePath(request.UnityBuildProfile.Path, out var profilePath, out var error))
+            {
+                return Task.FromResult(UnityBuildProfileInputResolutionResult.Failure(
+                    error!,
                     request.UnityBuildProfile,
                     lifecycleBefore));
             }
@@ -67,14 +76,6 @@ namespace MackySoft.Ucli.Unity.Build
                     lifecycleBefore));
             }
 
-            if (!TryResolveBuildTarget(profile.buildTarget, out var stableBuildTarget, out var unityBuildTargetLiteral))
-            {
-                return Task.FromResult(UnityBuildProfileInputResolutionResult.Failure(
-                    CreateInvalidProfileError($"Unity Build Profile build target is unsupported: {profile.buildTarget}."),
-                    new IpcUnityBuildProfileInput(profilePath),
-                    lifecycleBefore));
-            }
-
             if (!TryResolveScenePaths(profile, out var scenePaths, out error))
             {
                 return Task.FromResult(UnityBuildProfileInputResolutionResult.Failure(
@@ -83,21 +84,11 @@ namespace MackySoft.Ucli.Unity.Build
                     lifecycleBefore));
             }
 
-            if (!IpcBuildOutputLayoutResolver.TryResolve(request.OutputPath, stableBuildTarget, out var outputLayout))
-            {
-                return Task.FromResult(UnityBuildProfileInputResolutionResult.Failure(
-                    new IpcError(
-                        BuildErrorCodes.BuildInputsInvalid,
-                        $"BuildPipeline output layout could not be resolved for build target: {stableBuildTarget}.",
-                        null),
-                    new IpcUnityBuildProfileInput(profilePath),
-                    lifecycleBefore));
-            }
-
             string digest;
             try
             {
                 digest = ComputeAssetDigest(profilePath);
+                cancellationToken.ThrowIfCancellationRequested();
                 BuildProfile.SetActiveBuildProfile(profile);
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException)
@@ -108,21 +99,30 @@ namespace MackySoft.Ucli.Unity.Build
                     lifecycleBefore));
             }
 
-            cancellationToken.ThrowIfCancellationRequested();
-            var lifecycleAfter = preconditionProbe.CaptureAfterBuild();
-            var dirtyStateAfter = UnityBuildPreconditionProbe.CaptureDirtyState(cancellationToken);
+            var unityBuildProfile = CreateAppliedUnityBuildProfile(profilePath, digest, lifecycleBefore);
+            var activeBuildTarget = EditorUserBuildSettings.activeBuildTarget;
+            if (!TryResolveBuildTarget(activeBuildTarget, out var stableBuildTarget, out var unityBuildTargetLiteral))
+            {
+                return Task.FromResult(UnityBuildProfileInputResolutionResult.Failure(
+                    CreateInvalidProfileError($"Unity Build Profile build target is unsupported: {activeBuildTarget}."),
+                    unityBuildProfile,
+                    unityBuildProfile.ApplyAudit!.LifecycleAfter,
+                    unityBuildProfile.ApplyAudit.DirtyStateAfter));
+            }
+
+            if (!TryResolveOutputLayout(request.OutputPath, stableBuildTarget, out var outputLayout))
+            {
+                return Task.FromResult(UnityBuildProfileInputResolutionResult.Failure(
+                    new IpcError(
+                        BuildErrorCodes.BuildInputsInvalid,
+                        $"BuildPipeline output layout could not be resolved for build target: {stableBuildTarget}.",
+                        null),
+                    unityBuildProfile,
+                    unityBuildProfile.ApplyAudit!.LifecycleAfter,
+                    unityBuildProfile.ApplyAudit.DirtyStateAfter));
+            }
+
             var development = EditorUserBuildSettings.development;
-            var applyAudit = new IpcUnityBuildProfileApplyAudit(
-                Applied: true,
-                LifecycleBefore: lifecycleBefore,
-                LifecycleAfter: lifecycleAfter,
-                GenerationsBefore: CreateGenerationSnapshot(lifecycleBefore),
-                GenerationsAfter: CreateGenerationSnapshot(lifecycleAfter),
-                DirtyStateAfter: dirtyStateAfter);
-            var unityBuildProfile = new IpcUnityBuildProfileInput(
-                Path: profilePath,
-                Digest: digest,
-                ApplyAudit: applyAudit);
             var preconditionInput = new UnityBuildPreconditionInput(
                 InputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.UnityBuildProfile),
                 BuildTarget: stableBuildTarget,
@@ -238,6 +238,61 @@ namespace MackySoft.Ucli.Unity.Build
             scenePaths = paths.ToArray();
             error = null;
             return true;
+        }
+
+        private static bool TryResolveOutputLayout (
+            string outputPath,
+            string stableBuildTarget,
+            out IpcBuildOutputLayout? outputLayout)
+        {
+            if (!IpcBuildOutputLayoutResolver.TryResolve(outputPath, stableBuildTarget, out outputLayout))
+            {
+                return false;
+            }
+
+            if (!string.Equals(stableBuildTarget, ContractLiteralCodec.ToValue(BuildTargetStableName.Android), StringComparison.Ordinal)
+                || !EditorUserBuildSettings.buildAppBundle)
+            {
+                return true;
+            }
+
+            outputLayout = new IpcBuildOutputLayout(
+                outputLayout!.Shape,
+                ReplaceOutputFileName(outputLayout.LocationPathName, AndroidPlayerAppBundleFileName));
+            return true;
+        }
+
+        private static string ReplaceOutputFileName (
+            string locationPathName,
+            string fileName)
+        {
+            var separatorIndex = locationPathName.LastIndexOf('/');
+            return separatorIndex < 0
+                ? fileName
+                : string.Concat(locationPathName.Substring(0, separatorIndex + 1), fileName);
+        }
+
+        private IpcUnityBuildProfileInput CreateAppliedUnityBuildProfile (
+            string profilePath,
+            string digest,
+            IpcBuildLifecycleSnapshot lifecycleBefore)
+        {
+            // NOTE: After SetActiveBuildProfile succeeds, the editor has already been mutated.
+            // Capture audit evidence without observing cancellation so post-apply failures still report
+            // the lifecycle and dirty state that build.json would otherwise use as its baseline.
+            var lifecycleAfter = preconditionProbe.CaptureAfterBuild();
+            var dirtyStateAfter = UnityBuildPreconditionProbe.CaptureDirtyState(CancellationToken.None);
+            var applyAudit = new IpcUnityBuildProfileApplyAudit(
+                Applied: true,
+                LifecycleBefore: lifecycleBefore,
+                LifecycleAfter: lifecycleAfter,
+                GenerationsBefore: CreateGenerationSnapshot(lifecycleBefore),
+                GenerationsAfter: CreateGenerationSnapshot(lifecycleAfter),
+                DirtyStateAfter: dirtyStateAfter);
+            return new IpcUnityBuildProfileInput(
+                Path: profilePath,
+                Digest: digest,
+                ApplyAudit: applyAudit);
         }
 
         private static string ComputeAssetDigest (string profilePath)

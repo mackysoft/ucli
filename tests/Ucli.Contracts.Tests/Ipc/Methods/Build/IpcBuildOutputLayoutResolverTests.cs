@@ -32,6 +32,26 @@ public sealed class IpcBuildOutputLayoutResolverTests
             Path.GetFullPath(layout.LocationPathName));
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryResolve_WithAndroidAppBundle_ReturnsAabPlayerLayout ()
+    {
+        var outputDirectory = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "ucli", "output"));
+
+        var resolved = IpcBuildOutputLayoutResolver.TryResolve(
+            outputDirectory,
+            "android",
+            true,
+            out var layout);
+
+        Assert.True(resolved);
+        Assert.NotNull(layout);
+        Assert.Equal(ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.File), layout!.Shape);
+        Assert.Equal(
+            Path.GetFullPath(Path.Combine(outputDirectory, "player", "Player.aab")),
+            Path.GetFullPath(layout.LocationPathName));
+    }
+
     [Theory]
     [InlineData("switch")]
     [InlineData("unknownTarget")]
