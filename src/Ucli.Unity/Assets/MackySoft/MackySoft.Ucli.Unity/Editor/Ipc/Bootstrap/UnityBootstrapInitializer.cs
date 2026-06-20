@@ -73,6 +73,42 @@ namespace MackySoft.Ucli.Unity.Ipc
             return true;
         }
 
+        /// <summary> Starts the parsed batchmode bootstrap from a Unity <c>-executeMethod</c> entrypoint. </summary>
+        /// <param name="errorMessage"> The failure message when the bootstrap cannot start. </param>
+        /// <returns> <see langword="true" /> when startup was scheduled or was already started; otherwise <see langword="false" />. </returns>
+        internal static bool TryStartBatchmodeFromExecuteMethod (out string? errorMessage)
+        {
+            if (!Application.isBatchMode)
+            {
+                errorMessage = "uCLI executeMethod bridge requires Unity batchmode.";
+                return false;
+            }
+
+            if (startupKind != BootstrapStartupKind.Batchmode)
+            {
+                errorMessage = "uCLI executeMethod bridge requires valid batchmode bootstrap arguments.";
+                return false;
+            }
+
+            if (isStarted)
+            {
+                errorMessage = null;
+                return true;
+            }
+
+            if (!UnityEditorReadinessGate.IsReadyForBootstrapStartup)
+            {
+                errorMessage = "uCLI executeMethod bridge cannot start while Unity scripts are compiling.";
+                return false;
+            }
+
+            isStarted = true;
+            EditorApplication.update -= StartOnEditorUpdate;
+            StartBatchmodeBootstrap();
+            errorMessage = null;
+            return true;
+        }
+
         private static void StartOnEditorUpdate ()
         {
             if (isStarted)

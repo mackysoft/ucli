@@ -41,6 +41,14 @@ internal static class BuildProfileResolver
     private static readonly HashSet<string> AllowedRunnerProperties = new(StringComparer.Ordinal)
     {
         "kind",
+        "method",
+        "invocation",
+    };
+
+    private static readonly HashSet<string> AllowedRunnerInvocationProperties = new(StringComparer.Ordinal)
+    {
+        "arguments",
+        "environment",
     };
 
     private static readonly HashSet<string> AllowedPolicyProperties = new(StringComparer.Ordinal)
@@ -321,13 +329,184 @@ internal static class BuildProfileResolver
             return false;
         }
 
-        if (kind != BuildProfileRunnerKind.BuildPipeline)
+        if (kind == BuildProfileRunnerKind.BuildPipeline)
+        {
+            if (runnerElement.TryGetProperty("method", out _)
+                || runnerElement.TryGetProperty("invocation", out _))
+            {
+                error = InvalidProfile("Build profile runner.method and runner.invocation must not be specified when runner.kind is buildPipeline.");
+                return false;
+            }
+
+            runner = new ResolvedBuildRunner(kind, Method: null, ResolvedBuildRunnerInvocation.Empty);
+            error = null;
+            return true;
+        }
+
+        if (kind != BuildProfileRunnerKind.ExecuteMethod)
         {
             error = InvalidProfile($"Build profile runner.kind is unsupported: {ContractLiteralCodec.ToValue(kind)}.");
             return false;
         }
 
-        runner = new ResolvedBuildRunner(kind);
+        if (!TryReadRequiredString(runnerElement, "method", "Build profile runner", out var method, out error)
+            || !TryValidateRunnerMethod(method, out error)
+            || !TryReadRunnerInvocation(runnerElement, out var invocation, out error))
+        {
+            return false;
+        }
+
+        runner = new ResolvedBuildRunner(kind, method, invocation!);
+        error = null;
+        return true;
+    }
+
+    private static bool TryReadRunnerInvocation (
+        JsonElement runnerElement,
+        out ResolvedBuildRunnerInvocation? invocation,
+        out BuildProfileResolutionResult? error)
+    {
+        invocation = null;
+        if (!runnerElement.TryGetProperty("invocation", out var invocationElement))
+        {
+            invocation = ResolvedBuildRunnerInvocation.Empty;
+            error = null;
+            return true;
+        }
+
+        if (invocationElement.ValueKind != JsonValueKind.Object)
+        {
+            error = InvalidProfile("Build profile runner.invocation must be an object.");
+            return false;
+        }
+
+        if (!TryValidateObjectProperties(invocationElement, AllowedRunnerInvocationProperties, "Build profile runner.invocation", out error)
+            || !TryReadRunnerArguments(invocationElement, out var arguments, out error)
+            || !TryReadRunnerEnvironment(invocationElement, out var environment, out error))
+        {
+            return false;
+        }
+
+        invocation = new ResolvedBuildRunnerInvocation(arguments!, environment!);
+        error = null;
+        return true;
+    }
+
+    private static bool TryReadRunnerArguments (
+        JsonElement invocationElement,
+        out IReadOnlyDictionary<string, string>? arguments,
+        out BuildProfileResolutionResult? error)
+    {
+        arguments = null;
+        if (!invocationElement.TryGetProperty("arguments", out var argumentsElement))
+        {
+            arguments = new Dictionary<string, string>(StringComparer.Ordinal);
+            error = null;
+            return true;
+        }
+
+        if (argumentsElement.ValueKind != JsonValueKind.Object)
+        {
+            error = InvalidProfile("Build profile runner.invocation.arguments must be an object.");
+            return false;
+        }
+
+        var values = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var property in argumentsElement.EnumerateObject())
+        {
+            if (!IsRunnerMapKey(property.Name))
+            {
+                error = InvalidProfile($"Build profile runner.invocation.arguments key '{property.Name}' must be a non-empty string without '=', NUL, or newline characters.");
+                return false;
+            }
+
+            if (property.Value.ValueKind != JsonValueKind.String)
+            {
+                error = InvalidProfile($"Build profile runner.invocation.arguments.{property.Name} must be string.");
+                return false;
+            }
+
+            if (!values.TryAdd(property.Name, property.Value.GetString() ?? string.Empty))
+            {
+                error = InvalidProfile($"Build profile runner.invocation.arguments contains duplicate property '{property.Name}'.");
+                return false;
+            }
+        }
+
+        arguments = values;
+        error = null;
+        return true;
+    }
+
+    private static bool TryReadRunnerEnvironment (
+        JsonElement invocationElement,
+        out IReadOnlyList<string>? environment,
+        out BuildProfileResolutionResult? error)
+    {
+        environment = null;
+        if (!invocationElement.TryGetProperty("environment", out var environmentElement))
+        {
+            environment = Array.Empty<string>();
+            error = null;
+            return true;
+        }
+
+        if (environmentElement.ValueKind != JsonValueKind.Array)
+        {
+            error = InvalidProfile("Build profile runner.invocation.environment must be string array.");
+            return false;
+        }
+
+        var values = new List<string>();
+        var seenValues = new HashSet<string>(StringComparer.Ordinal);
+        var index = 0;
+        foreach (var item in environmentElement.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.String)
+            {
+                error = InvalidProfile($"Build profile runner.invocation.environment[{index}] must be string.");
+                return false;
+            }
+
+            var value = item.GetString() ?? string.Empty;
+            if (!IsRunnerMapKey(value))
+            {
+                error = InvalidProfile($"Build profile runner.invocation.environment[{index}] must be a non-empty string without '=', NUL, or newline characters.");
+                return false;
+            }
+
+            if (!seenValues.Add(value))
+            {
+                error = InvalidProfile($"Build profile runner.invocation.environment contains duplicate value '{value}'.");
+                return false;
+            }
+
+            values.Add(value);
+            index++;
+        }
+
+        environment = values;
+        error = null;
+        return true;
+    }
+
+    private static bool TryValidateRunnerMethod (
+        string method,
+        out BuildProfileResolutionResult? error)
+    {
+        if (method.IndexOf(',') >= 0)
+        {
+            error = InvalidProfile("Build profile runner.method must not contain an assembly-qualified type name.");
+            return false;
+        }
+
+        var separatorIndex = method.LastIndexOf('.');
+        if (separatorIndex <= 0 || separatorIndex == method.Length - 1)
+        {
+            error = InvalidProfile("Build profile runner.method must be Namespace.Type.Method or Type.Method.");
+            return false;
+        }
+
         error = null;
         return true;
     }
@@ -565,6 +744,15 @@ internal static class BuildProfileResolver
     {
         return !string.IsNullOrWhiteSpace(value)
             && !StringValueValidator.HasOuterWhitespace(value)
+            && value.IndexOf('\0') < 0
+            && value.IndexOf('\n') < 0
+            && value.IndexOf('\r') < 0;
+    }
+
+    private static bool IsRunnerMapKey (string? value)
+    {
+        return !string.IsNullOrWhiteSpace(value)
+            && value.IndexOf('=') < 0
             && value.IndexOf('\0') < 0
             && value.IndexOf('\n') < 0
             && value.IndexOf('\r') < 0;

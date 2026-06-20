@@ -528,6 +528,7 @@ public sealed class FileBuildRunArtifactStoreTests
             ParseJsonElement("""{"projectPath":"/repo/UnityProject","projectFingerprint":"fingerprint","unityVersion":"6000.1.4f1"}"""),
             ParseJsonElement("""{"path":"/repo/.ucli/build/player.json","digest":"profile-digest"}"""),
             ParseJsonElement("""{"kind":"buildPipeline","method":null,"invocation":{"arguments":{},"environment":[]},"outputLayout":{"shape":"file","locationPathName":"/repo/.ucli/local/fingerprints/fingerprint/artifacts/build/run-1/output/player/Player"}}"""),
+            ParseJsonElement("""{"source":"buildPipelineBuildReport","status":"succeeded","summary":{"durationMilliseconds":1,"errorCount":0,"warningCount":0},"diagnostics":[],"buildReportRef":"buildReport"}"""),
             ParseJsonElement("""{"buildTarget":{"stableName":"standaloneLinux64"}}"""),
             ParseJsonElement("""{"state":"completed"}"""),
             ParseJsonElement("""{"compile":"42","domainReload":"7"}"""),

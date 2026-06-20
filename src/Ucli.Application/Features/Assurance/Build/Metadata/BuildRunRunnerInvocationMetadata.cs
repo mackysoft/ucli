@@ -1,8 +1,10 @@
-using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Build.Metadata;
 
 /// <summary> Represents the runner invocation summary persisted in <c>build.json</c>. </summary>
 internal sealed record BuildRunRunnerInvocationMetadata (
-    IReadOnlyDictionary<string, JsonElement> Arguments,
-    IReadOnlyList<string> Environment);
+    IReadOnlyDictionary<string, string> Arguments,
+
+    [property: JsonPropertyName("environment")]
+    IReadOnlyList<string> EnvironmentNames);

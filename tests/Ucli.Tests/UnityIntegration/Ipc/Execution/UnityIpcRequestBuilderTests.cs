@@ -90,13 +90,66 @@ public sealed class UnityIpcRequestBuilderTests
         Assert.Equal(["Assets/Scenes/Main.unity"], payload.ScenePaths);
         Assert.True(payload.Development);
         Assert.Equal("/tmp/ucli/output", payload.OutputPath);
-        Assert.Equal(ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.File), payload.OutputLayout.Shape);
+        Assert.NotNull(payload.OutputLayout);
+        Assert.Equal(ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.File), payload.OutputLayout!.Shape);
         Assert.Equal("/tmp/ucli/output/player/Player", payload.OutputLayout.LocationPathName);
         Assert.Equal("/tmp/ucli/build-report.json", payload.BuildReportPath);
         Assert.Equal("/tmp/ucli/build.log", payload.BuildLogPath);
         Assert.Equal(["batchmode"], payload.AllowedEditorModes);
         Assert.Equal("forbid", payload.ProjectMutationMode);
         Assert.Null(payload.TimeoutMilliseconds);
+        Assert.Equal("buildPipeline", payload.RunnerKind);
+        Assert.Null(payload.RunnerMethod);
+        Assert.Empty(payload.RunnerArguments);
+        Assert.Empty(payload.RunnerEnvironment);
+        Assert.Empty(payload.RunnerEnvironmentValues);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Build_WithExecuteMethodBuildRun_CreatesRunnerPayload ()
+    {
+        var builder = new UnityIpcRequestBuilder();
+
+        var request = builder.Build(new UnityRequestPayload.BuildRun(
+            RunId: "build-run-1",
+            BuildTarget: "standaloneLinux64",
+            UnityBuildTarget: "StandaloneLinux64",
+            SceneSource: "explicit",
+            ScenePaths: ["Assets/Scenes/Main.unity"],
+            Development: true,
+            OutputPath: "/tmp/ucli/output",
+            OutputLayout: null,
+            BuildReportPath: "/tmp/ucli/build-report.json",
+            BuildLogPath: "/tmp/ucli/build.log",
+            AllowedEditorModes: ["batchmode"],
+            ProjectMutationMode: "forbid")
+        {
+            RunnerKind = "executeMethod",
+            ProfilePath = "/workspace/build.ucli.json",
+            ProfileDigest = new string('a', 64),
+            RunnerMethod = "Build.Entry.Run",
+            RunnerArguments = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["output"] = "/tmp/ucli/output",
+            },
+            RunnerEnvironment = ["UCLI_SECRET"],
+            RunnerEnvironmentValues = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["UCLI_SECRET"] = "secret-value",
+            },
+        });
+
+        Assert.Equal(IpcMethodNames.BuildRun, request.Method);
+        Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcBuildRunRequest payload, out _));
+        Assert.Equal("executeMethod", payload.RunnerKind);
+        Assert.Null(payload.OutputLayout);
+        Assert.Equal("/workspace/build.ucli.json", payload.ProfilePath);
+        Assert.Equal(new string('a', 64), payload.ProfileDigest);
+        Assert.Equal("Build.Entry.Run", payload.RunnerMethod);
+        Assert.Equal("/tmp/ucli/output", payload.RunnerArguments["output"]);
+        Assert.Equal(["UCLI_SECRET"], payload.RunnerEnvironment);
+        Assert.Equal("secret-value", payload.RunnerEnvironmentValues["UCLI_SECRET"]);
     }
 
     [Fact]

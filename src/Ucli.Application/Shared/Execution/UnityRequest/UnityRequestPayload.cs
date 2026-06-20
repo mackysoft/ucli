@@ -29,11 +29,35 @@ internal abstract record UnityRequestPayload
         IReadOnlyList<string> ScenePaths,
         bool Development,
         string OutputPath,
-        IpcBuildOutputLayout OutputLayout,
+        IpcBuildOutputLayout? OutputLayout,
         string BuildReportPath,
         string BuildLogPath,
         IReadOnlyList<string> AllowedEditorModes,
-        string ProjectMutationMode) : UnityRequestPayload;
+        string ProjectMutationMode) : UnityRequestPayload
+    {
+        /// <summary> Gets the resolved build runner kind literal. </summary>
+        public string RunnerKind { get; init; } = "buildPipeline";
+
+        /// <summary> Gets the resolved build profile path used for runner context construction. </summary>
+        public string? ProfilePath { get; init; }
+
+        /// <summary> Gets the canonical build profile digest used for runner context construction. </summary>
+        public string? ProfileDigest { get; init; }
+
+        /// <summary> Gets the resolved executeMethod runner method identity. </summary>
+        public string? RunnerMethod { get; init; }
+
+        /// <summary> Gets the substitution-resolved non-secret runner arguments. </summary>
+        public IReadOnlyDictionary<string, string> RunnerArguments { get; init; } =
+            new Dictionary<string, string>(StringComparer.Ordinal);
+
+        /// <summary> Gets the requested runner environment entry names. </summary>
+        public IReadOnlyList<string> RunnerEnvironment { get; init; } = Array.Empty<string>();
+
+        /// <summary> Gets the runner environment values resolved by the uCLI runtime for IPC delivery only. </summary>
+        public IReadOnlyDictionary<string, string> RunnerEnvironmentValues { get; init; } =
+            new Dictionary<string, string>(StringComparer.Ordinal);
+    }
 
     /// <summary> Represents a Unity Test Framework run request prepared by application orchestration. </summary>
     internal sealed record TestRun (

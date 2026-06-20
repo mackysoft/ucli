@@ -68,6 +68,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddSingleton<IUnityPlayModeController, UnityEditorPlayModeController>();
             services.AddSingleton<IUnityBuildTargetSupportProbe, UnityBuildTargetSupportProbe>();
             services.AddSingleton<IUnityBuildPipelineRunner, UnityBuildPipelineRunner>();
+            services.AddSingleton<BuildExecuteMethodResolver>();
+            services.AddSingleton<BuildExecuteMethodRunner>();
             services.AddSingleton<UnityBuildPreconditionProbe>();
             services.AddSingleton<UnityProjectMutationAuditProbe>();
             services.AddSingleton<PlayEnterTransitionRunner>();

@@ -39,6 +39,33 @@ public static class BuildErrorCodes
     /// <summary> Gets the error code emitted when project mutation is detected while mutation is forbidden. </summary>
     public static readonly UcliCode BuildProjectMutationForbidden = new("BUILD_PROJECT_MUTATION_FORBIDDEN");
 
+    /// <summary> Gets the error code emitted when an executeMethod runner entrypoint cannot be resolved. </summary>
+    public static readonly UcliCode BuildExecuteMethodNotFound = new("BUILD_EXECUTE_METHOD_NOT_FOUND");
+
+    /// <summary> Gets the error code emitted when an executeMethod runner entrypoint is not static. </summary>
+    public static readonly UcliCode BuildExecuteMethodNotStatic = new("BUILD_EXECUTE_METHOD_NOT_STATIC");
+
+    /// <summary> Gets the error code emitted when an executeMethod runner entrypoint resolution is ambiguous. </summary>
+    public static readonly UcliCode BuildExecuteMethodAmbiguous = new("BUILD_EXECUTE_METHOD_AMBIGUOUS");
+
+    /// <summary> Gets the error code emitted when an executeMethod runner entrypoint has an unsupported signature. </summary>
+    public static readonly UcliCode BuildExecuteMethodUnsupportedSignature = new("BUILD_EXECUTE_METHOD_UNSUPPORTED_SIGNATURE");
+
+    /// <summary> Gets the error code emitted when a requested runner environment entry is missing. </summary>
+    public static readonly UcliCode BuildRunnerEnvironmentMissing = new("BUILD_RUNNER_ENVIRONMENT_MISSING");
+
+    /// <summary> Gets the error code emitted when runner invocation fails before a terminal result is observed. </summary>
+    public static readonly UcliCode BuildRunnerInvocationFailed = new("BUILD_RUNNER_INVOCATION_FAILED");
+
+    /// <summary> Gets the error code emitted when an executeMethod runner body throws before returning a valid result. </summary>
+    public static readonly UcliCode BuildExecuteMethodInvocationFailed = new("BUILD_EXECUTE_METHOD_INVOCATION_FAILED");
+
+    /// <summary> Gets the error code emitted when a required runner result cannot be obtained. </summary>
+    public static readonly UcliCode BuildRunnerResultMissing = new("BUILD_RUNNER_RESULT_MISSING");
+
+    /// <summary> Gets the error code emitted when a runner result does not satisfy the build runner contract. </summary>
+    public static readonly UcliCode BuildRunnerResultInvalid = new("BUILD_RUNNER_RESULT_INVALID");
+
     /// <summary> Gets all build error codes owned by the build assurance workflow. </summary>
     public static IReadOnlyList<UcliCode> All { get; } =
     [
@@ -54,5 +81,14 @@ public static class BuildErrorCodes
         BuildOutputManifestFailed,
         BuildOutputDigestMismatch,
         BuildProjectMutationForbidden,
+        BuildExecuteMethodNotFound,
+        BuildExecuteMethodNotStatic,
+        BuildExecuteMethodAmbiguous,
+        BuildExecuteMethodUnsupportedSignature,
+        BuildRunnerEnvironmentMissing,
+        BuildRunnerInvocationFailed,
+        BuildExecuteMethodInvocationFailed,
+        BuildRunnerResultMissing,
+        BuildRunnerResultInvalid,
     ];
 }

@@ -307,7 +307,8 @@ public sealed class DaemonCliOutputContractTests
             "m_EditorVersion: 0.0.0-ucli-test-missing");
         await UnityProjectTestFactory.WriteUcliUnityPluginMarkerAsync(scope, "UnityProject");
 
-        var result = await CliProcessRunner.RunCommandAsync(
+        var result = await CliProcessRunner.RunCommandWithTimeoutAsync(
+            TimeSpan.FromSeconds(30),
             UcliCommandNames.Daemon,
             UcliCommandNames.StartSubcommand,
             UcliContractConstants.CliOption.ProjectPath,

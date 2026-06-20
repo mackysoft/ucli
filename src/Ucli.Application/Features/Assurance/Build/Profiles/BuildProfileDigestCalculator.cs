@@ -30,7 +30,7 @@ internal static class BuildProfileDigestCalculator
         var canonical = new CanonicalBuildProfile(
             SchemaVersion: schemaVersion,
             Inputs: CanonicalBuildInputs.From(inputs),
-            Runner: new CanonicalBuildRunner(ContractLiteralCodec.ToValue(runner.Kind)),
+            Runner: CanonicalBuildRunner.From(runner),
             Policy: CanonicalBuildPolicy.From(policy));
 
         var json = JsonSerializer.Serialize(canonical, SerializerOptions);
@@ -74,7 +74,42 @@ internal static class BuildProfileDigestCalculator
 
     private sealed record CanonicalBuildOptions (bool Development);
 
-    private sealed record CanonicalBuildRunner (string Kind);
+    private sealed record CanonicalBuildRunner (
+        string Kind,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Method,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] CanonicalBuildRunnerInvocation? Invocation)
+    {
+        public static CanonicalBuildRunner From (ResolvedBuildRunner runner)
+        {
+            return runner.Kind == BuildProfileRunnerKind.ExecuteMethod
+                ? new CanonicalBuildRunner(
+                    ContractLiteralCodec.ToValue(runner.Kind),
+                    runner.Method,
+                    CanonicalBuildRunnerInvocation.From(runner.Invocation))
+                : new CanonicalBuildRunner(
+                    ContractLiteralCodec.ToValue(runner.Kind),
+                    Method: null,
+                    Invocation: null);
+        }
+    }
+
+    private sealed record CanonicalBuildRunnerInvocation (
+        IReadOnlyDictionary<string, string> Arguments,
+        IReadOnlyList<string> Environment)
+    {
+        public static CanonicalBuildRunnerInvocation From (ResolvedBuildRunnerInvocation invocation)
+        {
+            var arguments = new SortedDictionary<string, string>(StringComparer.Ordinal);
+            foreach (var pair in invocation.Arguments)
+            {
+                arguments.Add(pair.Key, pair.Value);
+            }
+
+            return new CanonicalBuildRunnerInvocation(
+                arguments,
+                invocation.EnvironmentNames);
+        }
+    }
 
     private sealed record CanonicalBuildPolicy (
         CanonicalBuildRuntimePolicy Runtime,

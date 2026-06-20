@@ -11,6 +11,7 @@ using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
 using MackySoft.Ucli.Application.Features.Assurance.Semantics;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
+using MackySoft.Ucli.Application.Shared.EnvironmentVariables;
 using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -121,7 +122,7 @@ public sealed class BuildServiceTests
         var verifier = Assert.Single(output.Verifiers);
         Assert.Equal("build", verifier.Id);
         Assert.Equal(BuildClaimCodes.All.Select(static code => code.Value).ToArray(), verifier.PrimaryClaims);
-        Assert.Equal(ContractLiteralCodec.GetLiterals<BuildEffect>(), verifier.Effects);
+        Assert.Equal(BuildPipelineEffectValues, verifier.Effects);
         var preparedPaths = artifactStore.PreparedPaths;
         Assert.NotNull(preparedPaths);
         Assert.NotNull(artifactStore.WrittenMetadata);
@@ -186,12 +187,124 @@ public sealed class BuildServiceTests
         Assert.Equal(["Assets/Scenes/Main.unity"], requestPayload.ScenePaths);
         Assert.True(requestPayload.Development);
         Assert.Equal(preparedPaths.OutputDirectory, requestPayload.OutputPath);
-        Assert.Equal(ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.File), requestPayload.OutputLayout.Shape);
+        Assert.NotNull(requestPayload.OutputLayout);
+        Assert.Equal(ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.File), requestPayload.OutputLayout!.Shape);
         Assert.Equal(CreateExpectedPlayerLocationPathName(preparedPaths.OutputDirectory), requestPayload.OutputLayout.LocationPathName);
         Assert.Equal(preparedPaths.BuildReportJsonPath, requestPayload.BuildReportPath);
         Assert.Equal(preparedPaths.BuildLogPath, requestPayload.BuildLogPath);
         Assert.Equal(["batchmode", "gui"], requestPayload.AllowedEditorModes);
         Assert.Equal("forbid", requestPayload.ProjectMutationMode);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithExecuteMethodRunner_ResolvesInvocationIntoInternalIpcRequest ()
+    {
+        const string SecretValue = "secret-value";
+        const string profilePath = "/workspace/build.ucli.json";
+        var profileJson = CreateExecuteMethodProfileJson(
+            method: "Build.Entry.Run",
+            arguments: """
+                      "run": "${ucli.build.runId}",
+                      "output": "${ucli.build.outputDir}",
+                      "profile": "${ucli.build.profilePath}",
+                      "digest": "${ucli.build.profileDigest}",
+                      "project": "${project.path}",
+                      "fingerprint": "${project.fingerprint}",
+                      "target": "${build.target}"
+                """,
+            environment: """
+                    "UCLI_SECRET"
+                """);
+        using var tempDirectory = TemporaryDirectory.Create();
+        var artifactStore = new StubBuildRunArtifactStore(tempDirectory.Path);
+        var requestExecutor = CreateBuildResponseExecutor(
+            ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+            ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+            errorCount: 0,
+            runnerResult: new IpcBuildRunnerResultArtifact(
+                Source: ContractLiteralCodec.ToValue(IpcBuildRunnerResultSource.UcliBuildRunnerResult),
+                Status: ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+                DurationMilliseconds: 2500,
+                ErrorCount: 0,
+                WarningCount: 1,
+                Diagnostics: []));
+        var service = CreateService(
+            profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(profileJson, profilePath)),
+            environmentVariableReader: new StubEnvironmentVariableReader(new Dictionary<string, string?>(StringComparer.Ordinal)
+            {
+                ["UCLI_SECRET"] = SecretValue,
+            }),
+            requestExecutor: requestExecutor,
+            artifactStore: artifactStore);
+
+        var result = await service.ExecuteAsync(CreateInput());
+
+        if (!result.IsSuccess)
+        {
+            Assert.Fail(string.Join(Environment.NewLine, result.Errors.Select(static error => $"{error.Code}: {error.Message}")));
+        }
+
+        var payload = Assert.IsType<UnityRequestPayload.BuildRun>(requestExecutor.CapturedPayload);
+        var outputDirectory = artifactStore.PreparedPaths!.OutputDirectory;
+        var profileDigest = BuildProfileResolver.ResolveJson(profileJson).Profile!.Digest;
+        Assert.Equal("executeMethod", payload.RunnerKind);
+        Assert.Null(payload.OutputLayout);
+        Assert.Equal(profilePath, payload.ProfilePath);
+        Assert.Equal(profileDigest, payload.ProfileDigest);
+        Assert.Equal("Build.Entry.Run", payload.RunnerMethod);
+        Assert.Equal(RunId, payload.RunnerArguments["run"]);
+        Assert.Equal(outputDirectory, payload.RunnerArguments["output"]);
+        Assert.Equal(profilePath, payload.RunnerArguments["profile"]);
+        Assert.Equal(profileDigest, payload.RunnerArguments["digest"]);
+        Assert.Equal("/workspace/UnityProject", payload.RunnerArguments["project"]);
+        Assert.Equal(ProjectFingerprint, payload.RunnerArguments["fingerprint"]);
+        Assert.Equal("standaloneLinux64", payload.RunnerArguments["target"]);
+        Assert.Equal(["UCLI_SECRET"], payload.RunnerEnvironment);
+        Assert.Equal(SecretValue, payload.RunnerEnvironmentValues["UCLI_SECRET"]);
+
+        var output = result.Output!;
+        Assert.Equal("executeMethod", output.Build.Runner.Kind);
+        Assert.Equal("Build.Entry.Run", output.Build.Runner.Method);
+        Assert.Equal(["UCLI_SECRET"], output.Build.Runner.Invocation.EnvironmentNames);
+        Assert.DoesNotContain(SecretValue, JsonSerializer.Serialize(output, PayloadSerializerOptions));
+        Assert.NotNull(artifactStore.WrittenMetadata);
+        Assert.DoesNotContain(SecretValue, JsonSerializer.Serialize(artifactStore.WrittenMetadata!, PayloadSerializerOptions));
+        Assert.Equal("executeMethod", artifactStore.WrittenMetadata!.Runner.GetProperty("kind").GetString());
+        Assert.Equal(
+            ["UCLI_SECRET"],
+            artifactStore.WrittenMetadata.Runner.GetProperty("invocation").GetProperty("environment").EnumerateArray().Select(static item => item.GetString()!).ToArray());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithMissingExecuteMethodEnvironment_ReturnsBuildRunnerEnvironmentMissingBeforeDispatch ()
+    {
+        var profileJson = CreateExecuteMethodProfileJson(
+            method: "Build.Entry.Run",
+            arguments: """
+                      "output": "${ucli.build.outputDir}"
+                """,
+            environment: """
+                    "UCLI_SECRET"
+                """);
+        using var tempDirectory = TemporaryDirectory.Create();
+        var requestExecutor = CreateBuildResponseExecutor(
+            ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+            ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+            errorCount: 0);
+        var service = CreateService(
+            profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(profileJson, "/workspace/build.ucli.json")),
+            environmentVariableReader: new StubEnvironmentVariableReader(),
+            requestExecutor: requestExecutor,
+            artifactStore: new StubBuildRunArtifactStore(tempDirectory.Path));
+
+        var result = await service.ExecuteAsync(CreateInput());
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(BuildErrorCodes.BuildRunnerEnvironmentMissing, error.Code);
+        Assert.Equal(0, requestExecutor.CallCount);
     }
 
     [Fact]
@@ -976,6 +1089,7 @@ public sealed class BuildServiceTests
         IBuildRunArtifactStore artifactStore,
         IProjectContextResolver? projectContextResolver = null,
         IBuildProfileFileReader? profileFileReader = null,
+        IEnvironmentVariableReader? environmentVariableReader = null,
         IUnityExecutionModeDecisionService? modeDecisionService = null,
         IUnityRequestExecutor? requestExecutor = null,
         IBuildRunIdFactory? runIdFactory = null,
@@ -984,6 +1098,7 @@ public sealed class BuildServiceTests
         return new BuildService(
             projectContextResolver ?? new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateProjectContext())),
             profileFileReader ?? new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(ProfileJson, "/workspace/build.ucli.json")),
+            environmentVariableReader ?? new StubEnvironmentVariableReader(),
             modeDecisionService ?? new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(new UnityExecutionModeDecision(
                 UnityExecutionMode.Auto,
                 DaemonRunning: false,
@@ -1049,6 +1164,56 @@ public sealed class BuildServiceTests
             """;
     }
 
+    private static string CreateExecuteMethodProfileJson (
+        string method,
+        string arguments,
+        string environment)
+    {
+        return $$"""
+            {
+              "schemaVersion": 1,
+              "inputs": {
+                "kind": "explicit",
+                "buildTarget": "standaloneLinux64",
+                "scenes": {
+                  "source": "explicit",
+                  "paths": [
+                    "Assets/Scenes/Main.unity"
+                  ]
+                },
+                "options": {
+                  "development": true
+                }
+              },
+              "runner": {
+                "kind": "executeMethod",
+                "method": "{{method}}",
+                "invocation": {
+                  "arguments": {
+                {{arguments}}
+                  },
+                  "environment": [
+                {{environment}}
+                  ]
+                }
+              },
+              "policy": {
+                "runtime": {
+                  "allowedExecutionModes": [
+                    "daemon",
+                    "oneshot"
+                  ],
+                  "allowedEditorModes": [
+                    "batchmode",
+                    "gui"
+                  ]
+                },
+                "projectMutationMode": "forbid"
+              }
+            }
+            """;
+    }
+
     private static ProjectContext CreateProjectContext (UcliConfig? config = null)
     {
         var unityProject = new ResolvedUnityProjectContext(
@@ -1076,7 +1241,8 @@ public sealed class BuildServiceTests
         IpcBuildLifecycleSnapshot? lifecycleBefore = null,
         IpcBuildLifecycleSnapshot? lifecycleAfter = null,
         string? reportOutputPath = null,
-        IpcBuildProjectMutationAudit? projectMutation = null)
+        IpcBuildProjectMutationAudit? projectMutation = null,
+        IpcBuildRunnerResultArtifact? runnerResult = null)
     {
         return new StubUnityRequestExecutor(payload =>
         {
@@ -1092,8 +1258,9 @@ public sealed class BuildServiceTests
                 buildOptions,
                 lifecycleBefore,
                 lifecycleAfter,
-                reportOutputPath: reportOutputPath ?? buildRunPayload.OutputLayout.LocationPathName,
-                projectMutation: projectMutation);
+                reportOutputPath: reportOutputPath ?? buildRunPayload.OutputLayout?.LocationPathName ?? buildRunPayload.OutputPath,
+                projectMutation: projectMutation,
+                runnerResult: runnerResult);
         });
     }
 
@@ -1109,7 +1276,8 @@ public sealed class BuildServiceTests
         IpcBuildLifecycleSnapshot? lifecycleBefore = null,
         IpcBuildLifecycleSnapshot? lifecycleAfter = null,
         string? reportOutputPath = null,
-        IpcBuildProjectMutationAudit? projectMutation = null)
+        IpcBuildProjectMutationAudit? projectMutation = null,
+        IpcBuildRunnerResultArtifact? runnerResult = null)
     {
         return UnityRequestExecutionResult.Success(new UnityRequestResponse(
             IpcPayloadCodec.SerializeToElement(new IpcBuildRunResponse(
@@ -1154,7 +1322,10 @@ public sealed class BuildServiceTests
                     Window: new IpcBuildLogWindow(
                         StartedAtUtc: DateTimeOffset.Parse("2026-06-12T00:00:00+00:00"),
                         CompletedAtUtc: DateTimeOffset.Parse("2026-06-12T00:00:03+00:00"))),
-                ProjectMutation: projectMutation ?? CreateProjectMutation(mutated: false))),
+                ProjectMutation: projectMutation ?? CreateProjectMutation(mutated: false))
+            {
+                RunnerResult = runnerResult,
+            }),
             [],
             HasFailureStatus: false));
     }
@@ -1338,6 +1509,28 @@ public sealed class BuildServiceTests
         }
     }
 
+    private sealed class StubEnvironmentVariableReader : IEnvironmentVariableReader
+    {
+        private readonly IReadOnlyDictionary<string, string?> values;
+
+        public StubEnvironmentVariableReader ()
+            : this(new Dictionary<string, string?>(StringComparer.Ordinal))
+        {
+        }
+
+        public StubEnvironmentVariableReader (IReadOnlyDictionary<string, string?> values)
+        {
+            this.values = values;
+        }
+
+        public string? Get (string variableName)
+        {
+            return values.TryGetValue(variableName, out var value)
+                ? value
+                : null;
+        }
+    }
+
     private sealed class StubModeDecisionService : IUnityExecutionModeDecisionService
     {
         private readonly UnityExecutionModeDecisionResult result;
@@ -1376,6 +1569,8 @@ public sealed class BuildServiceTests
 
         public TimeSpan? CapturedTimeout { get; private set; }
 
+        public int CallCount { get; private set; }
+
         public ValueTask<UnityRequestExecutionResult> ExecuteAsync (
             UcliCommand command,
             UnityExecutionMode mode,
@@ -1386,6 +1581,7 @@ public sealed class BuildServiceTests
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            CallCount++;
             CapturedPayload = payload;
             CapturedTimeout = timeout;
             return ValueTask.FromResult(resultFactory(payload));
@@ -1516,4 +1712,16 @@ public sealed class BuildServiceTests
             }
         }
     }
+
+    private static readonly string[] BuildPipelineEffectValues =
+    [
+        ContractLiteralCodec.ToValue(BuildEffect.UnityLifecycleRead),
+        ContractLiteralCodec.ToValue(BuildEffect.UnityBuildPipeline),
+        ContractLiteralCodec.ToValue(BuildEffect.UnityBuildReportRead),
+        ContractLiteralCodec.ToValue(BuildEffect.UnityLogWindowRead),
+        ContractLiteralCodec.ToValue(BuildEffect.UcliArtifactWrite),
+        ContractLiteralCodec.ToValue(BuildEffect.OutputManifestWrite),
+        ContractLiteralCodec.ToValue(BuildEffect.GenerationSnapshot),
+        ContractLiteralCodec.ToValue(BuildEffect.ProjectMutationAudit),
+    ];
 }

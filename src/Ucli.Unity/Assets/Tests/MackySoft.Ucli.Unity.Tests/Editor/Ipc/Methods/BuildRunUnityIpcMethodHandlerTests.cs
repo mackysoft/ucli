@@ -246,6 +246,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         new CountingBuildTargetSupportProbe()),
                     new UnityProjectMutationAuditProbe(),
                     buildPipelineRunner,
+                    CreateExecuteMethodRunner(),
                     logRangeExporter,
                     identity,
                     timeoutScopeFactory);
@@ -287,6 +288,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         new CountingBuildTargetSupportProbe()),
                     new UnityProjectMutationAuditProbe(),
                     buildPipelineRunner,
+                    CreateExecuteMethodRunner(),
                     logRangeExporter,
                     identity,
                     timeoutScopeFactory);
@@ -327,6 +329,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         new CountingBuildTargetSupportProbe()),
                     new UnityProjectMutationAuditProbe(),
                     buildPipelineRunner,
+                    CreateExecuteMethodRunner(),
                     logRangeExporter,
                     identity,
                     timeoutScopeFactory);
@@ -368,6 +371,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         new CountingBuildTargetSupportProbe()),
                     new UnityProjectMutationAuditProbe(),
                     buildPipelineRunner,
+                    CreateExecuteMethodRunner(),
                     logRangeExporter,
                     identity,
                     new CountingTimeoutScopeFactory());
@@ -426,6 +430,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         new CountingBuildTargetSupportProbe()),
                     new UnityProjectMutationAuditProbe(),
                     buildPipelineRunner,
+                    CreateExecuteMethodRunner(),
                     logRangeExporter,
                     identity,
                     new CountingTimeoutScopeFactory());
@@ -490,6 +495,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         new CountingBuildTargetSupportProbe()),
                     new UnityProjectMutationAuditProbe(),
                     buildPipelineRunner,
+                    CreateExecuteMethodRunner(),
                     new CountingEditorLogRangeExporter(
                         string.Empty,
                         entryCount: 0,
@@ -540,6 +546,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         new CountingBuildTargetSupportProbe()),
                     new UnityProjectMutationAuditProbe(),
                     buildPipelineRunner,
+                    CreateExecuteMethodRunner(),
                     logRangeExporter,
                     identity,
                     new CountingTimeoutScopeFactory());
@@ -597,6 +604,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 BuildLogPath: Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildLogFileName),
                 AllowedEditorModes: new[] { ContractLiteralCodec.ToValue(DaemonEditorMode.Batchmode) },
                 ProjectMutationMode: ContractLiteralCodec.ToValue(BuildProfileProjectMutationMode.Forbid));
+        }
+
+        private static BuildExecuteMethodRunner CreateExecuteMethodRunner ()
+        {
+            return new BuildExecuteMethodRunner(new BuildExecuteMethodResolver());
         }
 
         private static IpcRequest CreateIpcRequest (IpcBuildRunRequest payload)

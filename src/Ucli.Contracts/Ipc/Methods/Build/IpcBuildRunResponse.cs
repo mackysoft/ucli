@@ -19,4 +19,8 @@ public sealed record IpcBuildRunResponse (
     IpcBuildInputProbe Input,
     IpcBuildReportArtifact Report,
     IpcBuildLogSummary Logs,
-    IpcBuildProjectMutationAudit ProjectMutation);
+    IpcBuildProjectMutationAudit ProjectMutation)
+{
+    /// <summary> Gets the normalized runner terminal result when provided by the Unity runtime. </summary>
+    public IpcBuildRunnerResultArtifact? RunnerResult { get; init; }
+}

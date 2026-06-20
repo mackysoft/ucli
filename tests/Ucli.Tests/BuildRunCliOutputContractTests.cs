@@ -246,6 +246,15 @@ public sealed class BuildRunCliOutputContractTests
             BuildTarget: "standaloneLinux64",
             Scenes: new BuildScenesOutput("explicit", ["Assets/Scenes/Main.unity"]),
             Options: new BuildOptionsOutput(Development: true),
+            Runner: new BuildRunnerOutput(
+                Kind: "buildPipeline",
+                Method: null,
+                Invocation: new BuildRunnerInvocationOutput(
+                    Arguments: new Dictionary<string, string>(StringComparer.Ordinal),
+                    EnvironmentNames: [])),
+            RunnerResult: new BuildRunnerResultOutput(
+                Source: ContractLiteralCodec.ToValue(IpcBuildRunnerResultSource.BuildPipelineBuildReport),
+                Status: reportResult),
             Output: new BuildArtifactOutput(
                 ManifestRef: BuildReportRefs.BuildOutputManifest,
                 ManifestDigest: manifestDigest,
@@ -283,7 +292,7 @@ public sealed class BuildRunCliOutputContractTests
                     Deterministic: false,
                     Required: true,
                     PrimaryClaims: BuildClaimCodes.All.Select(static code => code.Value).ToArray(),
-                    Effects: ContractLiteralCodec.GetLiterals<BuildEffect>(),
+                    Effects: BuildPipelineEffectValues,
                     ReportRef: BuildReportRefs.Build),
             ],
             Claims: CreateClaims(build, succeeded),
@@ -814,4 +823,16 @@ public sealed class BuildRunCliOutputContractTests
 
         throw new InvalidOperationException("Repository root could not be resolved from test base directory.");
     }
+
+    private static readonly string[] BuildPipelineEffectValues =
+    [
+        ContractLiteralCodec.ToValue(BuildEffect.UnityLifecycleRead),
+        ContractLiteralCodec.ToValue(BuildEffect.UnityBuildPipeline),
+        ContractLiteralCodec.ToValue(BuildEffect.UnityBuildReportRead),
+        ContractLiteralCodec.ToValue(BuildEffect.UnityLogWindowRead),
+        ContractLiteralCodec.ToValue(BuildEffect.UcliArtifactWrite),
+        ContractLiteralCodec.ToValue(BuildEffect.OutputManifestWrite),
+        ContractLiteralCodec.ToValue(BuildEffect.GenerationSnapshot),
+        ContractLiteralCodec.ToValue(BuildEffect.ProjectMutationAudit),
+    ];
 }
