@@ -21,14 +21,15 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <summary> Initializes a new instance of the <see cref="UnityLogCollector" /> class. </summary>
         /// <param name="unityLogStream"> The Unity-log stream dependency. </param>
         /// <param name="compileMessageDedupeCache"> The compile-message dedupe cache dependency. </param>
+        /// <param name="unityLogRedactionScopeProvider"> The scoped redaction dependency shared with executeMethod build runs. </param>
         public UnityLogCollector (
             IUnityLogStream unityLogStream,
             UnityCompileMessageDedupeCache compileMessageDedupeCache,
-            UnityLogRedactionScopeProvider unityLogRedactionScopeProvider = null)
+            UnityLogRedactionScopeProvider unityLogRedactionScopeProvider)
         {
             this.unityLogStream = unityLogStream ?? throw new ArgumentNullException(nameof(unityLogStream));
             this.compileMessageDedupeCache = compileMessageDedupeCache ?? throw new ArgumentNullException(nameof(compileMessageDedupeCache));
-            this.unityLogRedactionScopeProvider = unityLogRedactionScopeProvider ?? new UnityLogRedactionScopeProvider();
+            this.unityLogRedactionScopeProvider = unityLogRedactionScopeProvider ?? throw new ArgumentNullException(nameof(unityLogRedactionScopeProvider));
         }
 
         /// <summary> Handles one runtime log callback. </summary>

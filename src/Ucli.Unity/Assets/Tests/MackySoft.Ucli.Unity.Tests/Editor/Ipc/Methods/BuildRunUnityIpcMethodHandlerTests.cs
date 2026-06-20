@@ -253,7 +253,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     CreateExecuteMethodRunner(),
                     logRangeExporter,
                     identity,
-                    timeoutScopeFactory);
+                    timeoutScopeFactory,
+                    new UnityLogRedactionScopeProvider());
                 var payload = WithArtifactPath(
                     CreateRequest(scope.ProjectPath, identity),
                     artifact,
@@ -295,7 +296,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     CreateExecuteMethodRunner(),
                     logRangeExporter,
                     identity,
-                    timeoutScopeFactory);
+                    timeoutScopeFactory,
+                    new UnityLogRedactionScopeProvider());
                 var payload = CreateRequest(scope.ProjectPath, identity) with
                 {
                     UnityBuildTarget = "StandaloneWindows64",
@@ -336,7 +338,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     CreateExecuteMethodRunner(),
                     logRangeExporter,
                     identity,
-                    timeoutScopeFactory);
+                    timeoutScopeFactory,
+                    new UnityLogRedactionScopeProvider());
                 var payload = CreateRequest(scope.ProjectPath, identity) with
                 {
                     BuildTarget = "unknownTarget",
@@ -378,7 +381,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     CreateExecuteMethodRunner(),
                     logRangeExporter,
                     identity,
-                    new CountingTimeoutScopeFactory());
+                    new CountingTimeoutScopeFactory(),
+                    new UnityLogRedactionScopeProvider());
                 var payload = CreateRequest(scope.ProjectPath, identity);
                 Directory.CreateDirectory(Path.GetDirectoryName(payload.OutputLayout.LocationPathName)!);
                 File.WriteAllText(payload.OutputLayout.LocationPathName, "existing player");
@@ -437,7 +441,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     CreateExecuteMethodRunner(),
                     logRangeExporter,
                     identity,
-                    new CountingTimeoutScopeFactory());
+                    new CountingTimeoutScopeFactory(),
+                    new UnityLogRedactionScopeProvider());
 
                 var response = await handler.HandleAsync(CreateIpcRequest(requestPayload), CancellationToken.None);
 
@@ -503,7 +508,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     CreateExecuteMethodRunner(),
                     logRangeExporter,
                     identity,
-                    new CountingTimeoutScopeFactory());
+                    new CountingTimeoutScopeFactory(),
+                    new UnityLogRedactionScopeProvider());
 
                 var response = await handler.HandleAsync(CreateIpcRequest(requestPayload), CancellationToken.None);
 
@@ -633,7 +639,8 @@ namespace MackySoft.Ucli.Unity.Tests
                         errorCount: 0,
                         warningCount: 0),
                     identity,
-                    new CountingTimeoutScopeFactory());
+                    new CountingTimeoutScopeFactory(),
+                    new UnityLogRedactionScopeProvider());
 
                 var response = await handler.HandleAsync(CreateIpcRequest(requestPayload), CancellationToken.None);
 
@@ -680,7 +687,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     CreateExecuteMethodRunner(),
                     logRangeExporter,
                     identity,
-                    new CountingTimeoutScopeFactory());
+                    new CountingTimeoutScopeFactory(),
+                    new UnityLogRedactionScopeProvider());
 
                 var response = await handler.HandleAsync(CreateIpcRequest(requestPayload), CancellationToken.None);
 

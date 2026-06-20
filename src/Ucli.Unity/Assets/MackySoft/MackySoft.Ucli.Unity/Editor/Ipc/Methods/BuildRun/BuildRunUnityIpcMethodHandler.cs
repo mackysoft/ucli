@@ -54,7 +54,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             IEditorLogRangeExporter editorLogRangeExporter,
             IpcProjectIdentity projectIdentity,
             IIpcRequestTimeoutScopeFactory timeoutScopeFactory,
-            UnityLogRedactionScopeProvider unityLogRedactionScopeProvider = null)
+            UnityLogRedactionScopeProvider unityLogRedactionScopeProvider)
         {
             this.preconditionProbe = preconditionProbe ?? throw new ArgumentNullException(nameof(preconditionProbe));
             this.projectMutationAuditProbe = projectMutationAuditProbe ?? throw new ArgumentNullException(nameof(projectMutationAuditProbe));
@@ -63,7 +63,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             this.editorLogRangeExporter = editorLogRangeExporter ?? throw new ArgumentNullException(nameof(editorLogRangeExporter));
             this.projectIdentity = projectIdentity ?? throw new ArgumentNullException(nameof(projectIdentity));
             this.timeoutScopeFactory = timeoutScopeFactory ?? throw new ArgumentNullException(nameof(timeoutScopeFactory));
-            this.unityLogRedactionScopeProvider = unityLogRedactionScopeProvider ?? new UnityLogRedactionScopeProvider();
+            this.unityLogRedactionScopeProvider = unityLogRedactionScopeProvider ?? throw new ArgumentNullException(nameof(unityLogRedactionScopeProvider));
         }
 
         /// <inheritdoc />

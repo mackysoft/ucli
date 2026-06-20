@@ -13,7 +13,10 @@ namespace MackySoft.Ucli.Unity.Tests
         public void HandleRuntimeLog_WhenMessageHasDaemonPrefix_IgnoresEvent ()
         {
             var stream = new UnityLogRingBuffer();
-            var collector = new UnityLogCollector(stream, new UnityCompileMessageDedupeCache());
+            var collector = new UnityLogCollector(
+                stream,
+                new UnityCompileMessageDedupeCache(),
+                new UnityLogRedactionScopeProvider());
 
             collector.HandleRuntimeLog("[ucli][ipc] booted", string.Empty, LogType.Log);
 
@@ -26,7 +29,10 @@ namespace MackySoft.Ucli.Unity.Tests
         public void HandleCompileMessage_ThenMatchingRuntimeLog_DeduplicatesRuntimeCopy ()
         {
             var stream = new UnityLogRingBuffer();
-            var collector = new UnityLogCollector(stream, new UnityCompileMessageDedupeCache());
+            var collector = new UnityLogCollector(
+                stream,
+                new UnityCompileMessageDedupeCache(),
+                new UnityLogRedactionScopeProvider());
             var compileMessage = new CompilerMessage
             {
                 file = "Assets/Test.cs",
