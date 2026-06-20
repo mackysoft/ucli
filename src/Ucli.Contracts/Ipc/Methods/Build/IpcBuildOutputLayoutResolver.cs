@@ -4,7 +4,7 @@ using MackySoft.Ucli.Contracts.Text;
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Resolves command-owned BuildPipeline output layouts from stable build target names. </summary>
-public static class IpcBuildOutputLayoutResolver
+internal static class IpcBuildOutputLayoutResolver
 {
     private const string PlayerDirectoryName = "player";
     private const string PlayerFileName = "Player";

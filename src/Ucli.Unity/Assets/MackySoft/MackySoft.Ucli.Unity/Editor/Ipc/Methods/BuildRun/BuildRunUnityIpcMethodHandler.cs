@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
@@ -294,6 +295,18 @@ namespace MackySoft.Ucli.Unity.Ipc
                 || string.IsNullOrWhiteSpace(request.SceneSource))
             {
                 errorMessage = "BuildTarget and scene source values must not be empty.";
+                return false;
+            }
+
+            if (!BuildTargetStableNameUnityBuildTargetResolver.TryResolve(request.BuildTarget, out var expectedUnityBuildTarget))
+            {
+                errorMessage = $"Build buildTarget stable name is unsupported: {request.BuildTarget}.";
+                return false;
+            }
+
+            if (!string.Equals(request.UnityBuildTarget, expectedUnityBuildTarget, StringComparison.Ordinal))
+            {
+                errorMessage = $"Build UnityBuildTarget must match buildTarget. Expected={expectedUnityBuildTarget}, Actual={request.UnityBuildTarget}.";
                 return false;
             }
 
