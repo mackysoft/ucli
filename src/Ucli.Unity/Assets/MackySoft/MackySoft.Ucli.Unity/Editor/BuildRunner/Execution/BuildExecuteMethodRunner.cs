@@ -137,7 +137,8 @@ namespace MackySoft.Ucli.Unity.Build
                 resolvedInput.ScenePaths,
                 new UcliBuildOptions((resolvedInput.Options & BuildOptions.Development) == BuildOptions.Development),
                 request.RunnerArguments,
-                request.RunnerEnvironmentValues);
+                request.RunnerEnvironmentVariableValues,
+                request.RunnerEnvironmentSecretValues);
         }
 
         private static UcliBuildRunnerResult? Invoke (

@@ -107,10 +107,26 @@
                       }
                     },
                     "environment": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "variables": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "secrets": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": [
+                        "variables",
+                        "secrets"
+                      ]
                     }
                   },
                   "required": [

@@ -475,7 +475,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public async Task HandleAsync_WithExecuteMethodRunner_RunsBridgeAndRedactsEnvironmentValuesFromLog ()
+        public async Task HandleAsync_WithExecuteMethodRunner_RunsBridgeAndRedactsSecretEnvironmentValuesFromLog ()
         {
             Assume.That(
                 !string.IsNullOrWhiteSpace(Application.consoleLogPath) && File.Exists(Application.consoleLogPath),
@@ -493,7 +493,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     ExecuteMethodTypeName + ".HandlerExecuteMethodSuccess");
                 var buildPipelineRunner = new CountingBuildPipelineRunner();
                 var logRangeExporter = new CountingEditorLogRangeExporter(
-                    "runner log contains secret-value-tail and secret-value",
+                    "runner log contains release and secret-value-tail and secret-value",
                     entryCount: 1,
                     errorCount: 0,
                     warningCount: 0);
@@ -518,8 +518,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(buildPipelineRunner.CallCount, Is.EqualTo(0));
                 Assert.That(logRangeExporter.CallCount, Is.EqualTo(1));
                 Assert.That(executeMethodContext, Is.Not.Null);
-                Assert.That(executeMethodContext!.Environment["UCLI_SECRET"], Is.EqualTo("secret-value"));
-                Assert.That(executeMethodContext.Environment["UCLI_SECRET_LONG"], Is.EqualTo("secret-value-tail"));
+                Assert.That(executeMethodContext!.Environment.Variables["UCLI_MODE"], Is.EqualTo("release"));
+                Assert.That(executeMethodContext.Environment.Secrets["UCLI_SECRET"], Is.EqualTo("secret-value"));
+                Assert.That(executeMethodContext.Environment.Secrets["UCLI_SECRET_LONG"], Is.EqualTo("secret-value-tail"));
                 Assert.That(UcliBuildRunnerContext.Current, Is.Null);
                 Assert.That(payload.RunnerResult, Is.Not.Null);
                 Assert.That(payload.RunnerResult!.Source, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildRunnerResultSource.UcliBuildRunnerResult)));
@@ -528,6 +529,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(File.Exists(requestPayload.BuildReportPath), Is.True);
                 Assert.That(File.Exists(requestPayload.BuildLogPath), Is.True);
                 var persistedLog = File.ReadAllText(requestPayload.BuildLogPath);
+                Assert.That(persistedLog, Does.Contain("release"));
                 Assert.That(persistedLog, Does.Not.Contain("secret-value"));
                 Assert.That(persistedLog, Does.Not.Contain("tail"));
                 Assert.That(persistedLog, Does.Contain("[ucli redacted environment value]"));
@@ -536,7 +538,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public async Task HandleAsync_WithExecuteMethodRunner_RedactsEnvironmentValuesFromUnityLogStream ()
+        public async Task HandleAsync_WithExecuteMethodRunner_RedactsSecretEnvironmentValuesFromUnityLogStream ()
         {
             Assume.That(
                 !string.IsNullOrWhiteSpace(Application.consoleLogPath) && File.Exists(Application.consoleLogPath),
@@ -559,7 +561,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     var requestPayload = CreateExecuteMethodRequest(
                         scope.ProjectPath,
                         identity,
-                        ExecuteMethodTypeName + ".HandlerExecuteMethodLogsEnvironmentValue");
+                        ExecuteMethodTypeName + ".HandlerExecuteMethodLogsEnvironmentValues");
                     var handler = new BuildRunUnityIpcMethodHandler(
                         new UnityBuildPreconditionProbe(
                             new CountingReadinessGate(),
@@ -585,11 +587,17 @@ namespace MackySoft.Ucli.Unity.Tests
                     var snapshot = unityLogStream.Snapshot();
                     Assert.That(snapshot.Events.Count, Is.GreaterThanOrEqualTo(1));
                     var foundRedactedRunnerLog = false;
+                    var foundVariableValue = false;
                     for (var i = 0; i < snapshot.Events.Count; i++)
                     {
                         var unityLogEvent = snapshot.Events[i];
                         Assert.That(unityLogEvent.Message, Does.Not.Contain("secret-value"));
                         Assert.That(unityLogEvent.Message, Does.Not.Contain("tail"));
+                        if (unityLogEvent.Message.Contains("release"))
+                        {
+                            foundVariableValue = true;
+                        }
+
                         if (unityLogEvent.Message.Contains(SensitiveValueRedactor.Replacement))
                         {
                             foundRedactedRunnerLog = true;
@@ -597,6 +605,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     }
 
                     Assert.That(foundRedactedRunnerLog, Is.True);
+                    Assert.That(foundVariableValue, Is.True);
                 }
             }
         }
@@ -761,8 +770,13 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                     ["argument"] = "value",
                 },
-                RunnerEnvironment = new[] { "UCLI_SECRET", "UCLI_SECRET_LONG" },
-                RunnerEnvironmentValues = new Dictionary<string, string>(StringComparer.Ordinal)
+                RunnerEnvironmentVariables = new[] { "UCLI_MODE" },
+                RunnerEnvironmentSecrets = new[] { "UCLI_SECRET", "UCLI_SECRET_LONG" },
+                RunnerEnvironmentVariableValues = new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    ["UCLI_MODE"] = "release",
+                },
+                RunnerEnvironmentSecretValues = new Dictionary<string, string>(StringComparer.Ordinal)
                 {
                     ["UCLI_SECRET"] = "secret-value",
                     ["UCLI_SECRET_LONG"] = "secret-value-tail",
@@ -781,10 +795,10 @@ namespace MackySoft.Ucli.Unity.Tests
             return UcliBuildRunnerResult.Succeeded(2500, warningCount: 1);
         }
 
-        public static UcliBuildRunnerResult HandlerExecuteMethodLogsEnvironmentValue (UcliBuildRunnerContext context)
+        public static UcliBuildRunnerResult HandlerExecuteMethodLogsEnvironmentValues (UcliBuildRunnerContext context)
         {
             executeMethodContext = context;
-            Debug.Log("runner log contains " + context.Environment["UCLI_SECRET_LONG"]);
+            Debug.Log("runner log contains " + context.Environment.Variables["UCLI_MODE"] + " and " + context.Environment.Secrets["UCLI_SECRET_LONG"]);
             return UcliBuildRunnerResult.Succeeded(2500, warningCount: 1);
         }
 

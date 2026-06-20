@@ -95,7 +95,7 @@ internal static class BuildProfileDigestCalculator
 
     private sealed record CanonicalBuildRunnerInvocation (
         IReadOnlyDictionary<string, string> Arguments,
-        IReadOnlyList<string> Environment)
+        CanonicalBuildRunnerEnvironment Environment)
     {
         public static CanonicalBuildRunnerInvocation From (ResolvedBuildRunnerInvocation invocation)
         {
@@ -105,11 +105,18 @@ internal static class BuildProfileDigestCalculator
                 arguments.Add(pair.Key, pair.Value);
             }
 
+            var invocationEnv = invocation.Environment;
             return new CanonicalBuildRunnerInvocation(
                 arguments,
-                invocation.EnvironmentNames);
+                new CanonicalBuildRunnerEnvironment(
+                    invocationEnv.Variables,
+                    invocationEnv.Secrets));
         }
     }
+
+    private sealed record CanonicalBuildRunnerEnvironment (
+        IReadOnlyList<string> Variables,
+        IReadOnlyList<string> Secrets);
 
     private sealed record CanonicalBuildPolicy (
         CanonicalBuildRuntimePolicy Runtime,

@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
@@ -30,7 +31,7 @@ public sealed record IpcBuildRunRequest (
     string ProjectMutationMode)
 {
     /// <summary> Gets the resolved build runner kind literal. </summary>
-    public string RunnerKind { get; init; } = "buildPipeline";
+    public string RunnerKind { get; init; } = ContractLiteralCodec.ToValue(IpcBuildRunnerKind.BuildPipeline);
 
     /// <summary> Gets the resolved build profile path used for runner context construction. </summary>
     public string? ProfilePath { get; init; }
@@ -45,11 +46,18 @@ public sealed record IpcBuildRunRequest (
     public IReadOnlyDictionary<string, string> RunnerArguments { get; init; } =
         new Dictionary<string, string>(StringComparer.Ordinal);
 
-    /// <summary> Gets the requested runner environment entry names. </summary>
-    public IReadOnlyList<string> RunnerEnvironment { get; init; } = Array.Empty<string>();
+    /// <summary> Gets the requested non-secret runner environment variable names. </summary>
+    public IReadOnlyList<string> RunnerEnvironmentVariables { get; init; } = Array.Empty<string>();
 
-    /// <summary> Gets the runner environment values resolved by the uCLI runtime for IPC delivery only. </summary>
-    public IReadOnlyDictionary<string, string> RunnerEnvironmentValues { get; init; } =
+    /// <summary> Gets the requested secret runner environment names. </summary>
+    public IReadOnlyList<string> RunnerEnvironmentSecrets { get; init; } = Array.Empty<string>();
+
+    /// <summary> Gets non-secret environment values resolved by the uCLI runtime for IPC delivery only. </summary>
+    public IReadOnlyDictionary<string, string> RunnerEnvironmentVariableValues { get; init; } =
+        new Dictionary<string, string>(StringComparer.Ordinal);
+
+    /// <summary> Gets secret environment values resolved by the uCLI runtime for IPC delivery only. </summary>
+    public IReadOnlyDictionary<string, string> RunnerEnvironmentSecretValues { get; init; } =
         new Dictionary<string, string>(StringComparer.Ordinal);
 
     /// <summary> Gets the request timeout budget propagated by the caller, in milliseconds. </summary>

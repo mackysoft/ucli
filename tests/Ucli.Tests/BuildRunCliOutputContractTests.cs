@@ -251,7 +251,9 @@ public sealed class BuildRunCliOutputContractTests
                 Method: null,
                 Invocation: new BuildRunnerInvocationOutput(
                     Arguments: new Dictionary<string, string>(StringComparer.Ordinal),
-                    EnvironmentNames: [])),
+                    Environment: new BuildRunnerInvocationEnvironmentOutput(
+                        Variables: [],
+                        Secrets: []))),
             RunnerResult: new BuildRunnerResultOutput(
                 Source: ContractLiteralCodec.ToValue(IpcBuildRunnerResultSource.BuildPipelineBuildReport),
                 Status: reportResult),

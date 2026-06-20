@@ -78,7 +78,8 @@ public sealed class UnityIpcRequestBuilderTests
             BuildReportPath: "/tmp/ucli/build-report.json",
             BuildLogPath: "/tmp/ucli/build.log",
             AllowedEditorModes: ["batchmode"],
-            ProjectMutationMode: "forbid"));
+            ProjectMutationMode: "forbid",
+            RunnerKind: "buildPipeline"));
 
         Assert.Equal(IpcMethodNames.BuildRun, request.Method);
         Assert.False(request.IsRecoverable);
@@ -101,8 +102,10 @@ public sealed class UnityIpcRequestBuilderTests
         Assert.Equal("buildPipeline", payload.RunnerKind);
         Assert.Null(payload.RunnerMethod);
         Assert.Empty(payload.RunnerArguments);
-        Assert.Empty(payload.RunnerEnvironment);
-        Assert.Empty(payload.RunnerEnvironmentValues);
+        Assert.Empty(payload.RunnerEnvironmentVariables);
+        Assert.Empty(payload.RunnerEnvironmentSecrets);
+        Assert.Empty(payload.RunnerEnvironmentVariableValues);
+        Assert.Empty(payload.RunnerEnvironmentSecretValues);
     }
 
     [Fact]
@@ -123,9 +126,9 @@ public sealed class UnityIpcRequestBuilderTests
             BuildReportPath: "/tmp/ucli/build-report.json",
             BuildLogPath: "/tmp/ucli/build.log",
             AllowedEditorModes: ["batchmode"],
-            ProjectMutationMode: "forbid")
+            ProjectMutationMode: "forbid",
+            RunnerKind: "executeMethod")
         {
-            RunnerKind = "executeMethod",
             ProfilePath = "/workspace/build.ucli.json",
             ProfileDigest = new string('a', 64),
             RunnerMethod = "Build.Entry.Run",
@@ -133,8 +136,13 @@ public sealed class UnityIpcRequestBuilderTests
             {
                 ["output"] = "/tmp/ucli/output",
             },
-            RunnerEnvironment = ["UCLI_SECRET"],
-            RunnerEnvironmentValues = new Dictionary<string, string>(StringComparer.Ordinal)
+            RunnerEnvironmentVariables = ["UCLI_MODE"],
+            RunnerEnvironmentSecrets = ["UCLI_SECRET"],
+            RunnerEnvironmentVariableValues = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["UCLI_MODE"] = "release",
+            },
+            RunnerEnvironmentSecretValues = new Dictionary<string, string>(StringComparer.Ordinal)
             {
                 ["UCLI_SECRET"] = "secret-value",
             },
@@ -148,8 +156,10 @@ public sealed class UnityIpcRequestBuilderTests
         Assert.Equal(new string('a', 64), payload.ProfileDigest);
         Assert.Equal("Build.Entry.Run", payload.RunnerMethod);
         Assert.Equal("/tmp/ucli/output", payload.RunnerArguments["output"]);
-        Assert.Equal(["UCLI_SECRET"], payload.RunnerEnvironment);
-        Assert.Equal("secret-value", payload.RunnerEnvironmentValues["UCLI_SECRET"]);
+        Assert.Equal(["UCLI_MODE"], payload.RunnerEnvironmentVariables);
+        Assert.Equal(["UCLI_SECRET"], payload.RunnerEnvironmentSecrets);
+        Assert.Equal("release", payload.RunnerEnvironmentVariableValues["UCLI_MODE"]);
+        Assert.Equal("secret-value", payload.RunnerEnvironmentSecretValues["UCLI_SECRET"]);
     }
 
     [Fact]
@@ -256,7 +266,8 @@ public sealed class UnityIpcRequestBuilderTests
             BuildReportPath: "/tmp/ucli/build-report.json",
             BuildLogPath: "/tmp/ucli/build.log",
             AllowedEditorModes: ["batchmode"],
-            ProjectMutationMode: "forbid"));
+            ProjectMutationMode: "forbid",
+            RunnerKind: "buildPipeline"));
 
         var request = UnityIpcRequestFactory.Create(
             "session-token",

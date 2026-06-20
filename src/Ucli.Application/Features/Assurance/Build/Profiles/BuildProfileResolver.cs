@@ -51,6 +51,12 @@ internal static class BuildProfileResolver
         "environment",
     };
 
+    private static readonly HashSet<string> AllowedRunnerInvocationEnvironmentProperties = new(StringComparer.Ordinal)
+    {
+        "variables",
+        "secrets",
+    };
+
     private static readonly HashSet<string> AllowedPolicyProperties = new(StringComparer.Ordinal)
     {
         "runtime",
@@ -440,44 +446,94 @@ internal static class BuildProfileResolver
 
     private static bool TryReadRunnerEnvironment (
         JsonElement invocationElement,
-        out IReadOnlyList<string>? environment,
+        out ResolvedBuildRunnerEnvironment? environment,
         out BuildProfileResolutionResult? error)
     {
         environment = null;
         if (!invocationElement.TryGetProperty("environment", out var environmentElement))
         {
-            environment = Array.Empty<string>();
+            environment = new ResolvedBuildRunnerEnvironment(
+                Array.Empty<string>(),
+                Array.Empty<string>());
             error = null;
             return true;
         }
 
-        if (environmentElement.ValueKind != JsonValueKind.Array)
+        if (environmentElement.ValueKind != JsonValueKind.Object)
         {
-            error = InvalidProfile("Build profile runner.invocation.environment must be string array.");
+            error = InvalidProfile("Build profile runner.invocation.environment must be an object.");
+            return false;
+        }
+
+        if (!TryValidateObjectProperties(
+                environmentElement,
+                AllowedRunnerInvocationEnvironmentProperties,
+                "Build profile runner.invocation.environment",
+                out error)
+            || !TryReadRunnerEnvironmentNames(
+                environmentElement,
+                "variables",
+                out var variables,
+                out error)
+            || !TryReadRunnerEnvironmentNames(
+                environmentElement,
+                "secrets",
+                out var secrets,
+                out error)
+            || !TryValidateDisjointRunnerEnvironment(
+                variables!,
+                secrets!,
+                out error))
+        {
+            return false;
+        }
+
+        environment = new ResolvedBuildRunnerEnvironment(variables!, secrets!);
+        error = null;
+        return true;
+    }
+
+    private static bool TryReadRunnerEnvironmentNames (
+        JsonElement environmentElement,
+        string propertyName,
+        out IReadOnlyList<string>? environmentNames,
+        out BuildProfileResolutionResult? error)
+    {
+        environmentNames = null;
+        if (!environmentElement.TryGetProperty(propertyName, out var namesElement))
+        {
+            environmentNames = Array.Empty<string>();
+            error = null;
+            return true;
+        }
+
+        if (namesElement.ValueKind != JsonValueKind.Array)
+        {
+            error = InvalidProfile($"Build profile runner.invocation.environment.{propertyName} must be string array.");
             return false;
         }
 
         var values = new List<string>();
         var seenValues = new HashSet<string>(StringComparer.Ordinal);
         var index = 0;
-        foreach (var item in environmentElement.EnumerateArray())
+        foreach (var item in namesElement.EnumerateArray())
         {
             if (item.ValueKind != JsonValueKind.String)
             {
-                error = InvalidProfile($"Build profile runner.invocation.environment[{index}] must be string.");
+                error = InvalidProfile($"Build profile runner.invocation.environment.{propertyName}[{index}] must be string.");
                 return false;
             }
 
             var value = item.GetString() ?? string.Empty;
             if (!IsRunnerMapKey(value))
             {
-                error = InvalidProfile($"Build profile runner.invocation.environment[{index}] must be a non-empty string without '=', NUL, or newline characters.");
+                error = InvalidProfile($"Build profile runner.invocation.environment.{propertyName}[{index}] must be a non-empty string without '=', NUL, or newline characters.");
                 return false;
             }
 
             if (!seenValues.Add(value))
             {
-                error = InvalidProfile($"Build profile runner.invocation.environment contains duplicate value '{value}'.");
+                error = InvalidProfile($"Build profile runner.invocation.environment.{propertyName} contains duplicate value '{value}'.");
                 return false;
             }
 
@@ -485,7 +541,26 @@ internal static class BuildProfileResolver
             index++;
         }
 
-        environment = values;
+        environmentNames = values;
+        error = null;
+        return true;
+    }
+
+    private static bool TryValidateDisjointRunnerEnvironment (
+        IReadOnlyList<string> variables,
+        IReadOnlyList<string> secrets,
+        out BuildProfileResolutionResult? error)
+    {
+        var names = new HashSet<string>(variables, StringComparer.Ordinal);
+        for (var i = 0; i < secrets.Count; i++)
+        {
+            if (!names.Add(secrets[i]))
+            {
+                error = InvalidProfile($"Build profile runner.invocation.environment contains duplicate value '{secrets[i]}'.");
+                return false;
+            }
+        }
+
         error = null;
         return true;
     }

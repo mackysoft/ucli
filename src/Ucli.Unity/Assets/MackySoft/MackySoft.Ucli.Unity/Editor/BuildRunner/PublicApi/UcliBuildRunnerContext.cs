@@ -20,7 +20,8 @@ namespace MackySoft.Ucli.Unity
             IReadOnlyList<string> scenes,
             UcliBuildOptions options,
             IReadOnlyDictionary<string, string> arguments,
-            IReadOnlyDictionary<string, string> environment)
+            IReadOnlyDictionary<string, string> environmentVariables,
+            IReadOnlyDictionary<string, string> environmentSecrets)
         {
             RunId = RequireValue(runId, nameof(runId));
             ProjectPath = RequireValue(projectPath, nameof(projectPath));
@@ -32,7 +33,7 @@ namespace MackySoft.Ucli.Unity
             Scenes = scenes ?? throw new ArgumentNullException(nameof(scenes));
             Options = options ?? throw new ArgumentNullException(nameof(options));
             Arguments = arguments ?? throw new ArgumentNullException(nameof(arguments));
-            Environment = environment ?? throw new ArgumentNullException(nameof(environment));
+            Environment = new UcliBuildRunnerEnvironment(environmentVariables, environmentSecrets);
         }
 
         /// <summary> Gets the current runner invocation context while a runner method is active. </summary>
@@ -69,7 +70,7 @@ namespace MackySoft.Ucli.Unity
         public IReadOnlyDictionary<string, string> Arguments { get; }
 
         /// <summary> Gets process environment entries resolved by uCLI for this runner invocation. </summary>
-        public IReadOnlyDictionary<string, string> Environment { get; }
+        public UcliBuildRunnerEnvironment Environment { get; }
 
         private static string RequireValue (
             string value,

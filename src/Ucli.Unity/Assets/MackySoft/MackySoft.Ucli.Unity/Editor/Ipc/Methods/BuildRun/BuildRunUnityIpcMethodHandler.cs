@@ -24,10 +24,9 @@ namespace MackySoft.Ucli.Unity.Ipc
     /// <summary> Handles <c>build.run</c> IPC method requests. </summary>
     internal sealed class BuildRunUnityIpcMethodHandler : IUnityIpcMethodHandler
     {
-        private const string RunnerKindBuildPipeline = "buildPipeline";
-        private const string RunnerKindExecuteMethod = "executeMethod";
-
         private static readonly UTF8Encoding Utf8NoBomEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+        private static readonly string RunnerKindBuildPipeline = ContractLiteralCodec.ToValue(IpcBuildRunnerKind.BuildPipeline);
+        private static readonly string RunnerKindExecuteMethod = ContractLiteralCodec.ToValue(IpcBuildRunnerKind.ExecuteMethod);
 
         private readonly UnityBuildPreconditionProbe preconditionProbe;
 
@@ -128,7 +127,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 var logSourcePath = Application.consoleLogPath;
                 var logStartOffset = GetLogLength(logSourcePath);
                 using var unityLogRedactionScope = IsExecuteMethodRunner(buildRunRequest)
-                    ? unityLogRedactionScopeProvider.BeginScope(buildRunRequest.RunnerEnvironmentValues?.Values)
+                    ? unityLogRedactionScopeProvider.BeginScope(buildRunRequest.RunnerEnvironmentSecretValues.Values)
                     : null;
                 var startedAtUtc = DateTimeOffset.UtcNow;
                 var mutationBaseline = projectMutationAuditProbe.CaptureBaseline(projectIdentity.ProjectPath);
@@ -203,7 +202,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                         buildRunRequest.BuildLogPath,
                         logStartOffset,
                         logEndOffset,
-                        IsExecuteMethodRunner(buildRunRequest) ? buildRunRequest.RunnerEnvironmentValues : null,
+                        IsExecuteMethodRunner(buildRunRequest) ? buildRunRequest.RunnerEnvironmentSecretValues : null,
                         executionCancellationToken)
                     .ConfigureAwait(false);
                 var completionReason = UnityBuildReportNormalizer.ToCompletionReason(normalizedReport.Result);
@@ -489,8 +488,10 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 if (!string.IsNullOrWhiteSpace(request.RunnerMethod)
                     || request.RunnerArguments.Count != 0
-                    || request.RunnerEnvironment.Count != 0
-                    || request.RunnerEnvironmentValues.Count != 0)
+                    || request.RunnerEnvironmentVariables.Count != 0
+                    || request.RunnerEnvironmentSecrets.Count != 0
+                    || request.RunnerEnvironmentVariableValues.Count != 0
+                    || request.RunnerEnvironmentSecretValues.Count != 0)
                 {
                     errorMessage = "BuildPipeline runner must not include executeMethod invocation values.";
                     return false;
@@ -514,22 +515,38 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return false;
             }
 
-            if (request.RunnerEnvironment.Count != request.RunnerEnvironmentValues.Count)
+            if (!HasMatchingEnvironmentValues(
+                    request.RunnerEnvironmentVariables,
+                    request.RunnerEnvironmentVariableValues)
+                || !HasMatchingEnvironmentValues(
+                    request.RunnerEnvironmentSecrets,
+                    request.RunnerEnvironmentSecretValues))
             {
                 errorMessage = "executeMethod runner environment names and values must match.";
                 return false;
             }
 
-            for (var i = 0; i < request.RunnerEnvironment.Count; i++)
+            errorMessage = null;
+            return true;
+        }
+
+        private static bool HasMatchingEnvironmentValues (
+            IReadOnlyList<string> environmentNames,
+            IReadOnlyDictionary<string, string> environmentValues)
+        {
+            if (environmentNames.Count != environmentValues.Count)
             {
-                if (!request.RunnerEnvironmentValues.ContainsKey(request.RunnerEnvironment[i]))
+                return false;
+            }
+
+            for (var i = 0; i < environmentNames.Count; i++)
+            {
+                if (!environmentValues.ContainsKey(environmentNames[i]))
                 {
-                    errorMessage = "executeMethod runner environment names and values must match.";
                     return false;
                 }
             }
 
-            errorMessage = null;
             return true;
         }
 

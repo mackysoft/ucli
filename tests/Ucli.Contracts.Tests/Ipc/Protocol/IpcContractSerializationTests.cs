@@ -310,8 +310,13 @@ public sealed class IpcContractSerializationTests
                 {
                     ["output"] = "/tmp/ucli/output",
                 },
-                RunnerEnvironment = ["UNITY_LICENSE"],
-                RunnerEnvironmentValues = new Dictionary<string, string>(StringComparer.Ordinal)
+                RunnerEnvironmentVariables = ["BUILD_MODE"],
+                RunnerEnvironmentSecrets = ["UNITY_LICENSE"],
+                RunnerEnvironmentVariableValues = new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    ["BUILD_MODE"] = "release",
+                },
+                RunnerEnvironmentSecretValues = new Dictionary<string, string>(StringComparer.Ordinal)
                 {
                     ["UNITY_LICENSE"] = "license-value",
                 },
@@ -410,10 +415,15 @@ public sealed class IpcContractSerializationTests
             .HasString("runnerMethod", "Build.Entry.Run")
             .HasProperty("runnerArguments", arguments => arguments
                 .HasString("output", "/tmp/ucli/output"))
-            .HasArrayLength("runnerEnvironment", 1)
-            .HasProperty("runnerEnvironment", 0, environment => environment
+            .HasArrayLength("runnerEnvironmentVariables", 1)
+            .HasProperty("runnerEnvironmentVariables", 0, environment => environment
+                .HasString("BUILD_MODE"))
+            .HasArrayLength("runnerEnvironmentSecrets", 1)
+            .HasProperty("runnerEnvironmentSecrets", 0, environment => environment
                 .HasString("UNITY_LICENSE"))
-            .HasProperty("runnerEnvironmentValues", environment => environment
+            .HasProperty("runnerEnvironmentVariableValues", environment => environment
+                .HasString("BUILD_MODE", "release"))
+            .HasProperty("runnerEnvironmentSecretValues", environment => environment
                 .HasString("UNITY_LICENSE", "license-value"));
         JsonAssert.For(response.RootElement)
             .HasString("runId", "build-run-1")

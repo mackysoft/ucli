@@ -95,7 +95,8 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(capturedContext.Scenes, Is.EqualTo(new[] { "Assets/Scenes/Main.unity" }));
             Assert.That(capturedContext.Options.Development, Is.True);
             Assert.That(capturedContext.Arguments["output"], Is.EqualTo("/workspace/.ucli/output"));
-            Assert.That(capturedContext.Environment["UCLI_SECRET"], Is.EqualTo("secret-value"));
+            Assert.That(capturedContext.Environment.Variables["UCLI_MODE"], Is.EqualTo("release"));
+            Assert.That(capturedContext.Environment.Secrets["UCLI_SECRET"], Is.EqualTo("secret-value"));
             Assert.That(result.RunnerResult!.Source, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildRunnerResultSource.UcliBuildRunnerResult)));
             Assert.That(result.RunnerResult.Status, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded)));
             Assert.That(result.RunnerResult.DurationMilliseconds, Is.EqualTo(1234));
@@ -200,7 +201,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         public static UcliBuildRunnerResult ReturnsSecretStatus (UcliBuildRunnerContext context)
         {
-            return new UcliBuildRunnerResult(context.Environment["UCLI_SECRET"], 0, 0, 0);
+            return new UcliBuildRunnerResult(context.Environment.Secrets["UCLI_SECRET"], 0, 0, 0);
         }
 
         public UcliBuildRunnerResult NonStatic ()
@@ -286,8 +287,13 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                     ["output"] = "/workspace/.ucli/output",
                 },
-                RunnerEnvironment = new[] { "UCLI_SECRET" },
-                RunnerEnvironmentValues = new Dictionary<string, string>(StringComparer.Ordinal)
+                RunnerEnvironmentVariables = new[] { "UCLI_MODE" },
+                RunnerEnvironmentSecrets = new[] { "UCLI_SECRET" },
+                RunnerEnvironmentVariableValues = new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    ["UCLI_MODE"] = "release",
+                },
+                RunnerEnvironmentSecretValues = new Dictionary<string, string>(StringComparer.Ordinal)
                 {
                     ["UCLI_SECRET"] = "secret-value",
                 },

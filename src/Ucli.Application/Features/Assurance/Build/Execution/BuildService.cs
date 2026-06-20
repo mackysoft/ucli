@@ -373,7 +373,7 @@ internal sealed class BuildService : IBuildService
 
         ArgumentException.ThrowIfNullOrWhiteSpace(projectFingerprint);
 
-        var variables = CreateBuiltInVariableMap(
+        var builtInVariables = CreateBuiltInVariableMap(
             profile,
             profilePath,
             runId,
@@ -385,7 +385,7 @@ internal sealed class BuildService : IBuildService
         {
             if (!TrySubstituteBuiltInVariables(
                 argument.Value,
-                variables,
+                builtInVariables,
                 out var substituted,
                 out var error))
             {
@@ -395,14 +395,38 @@ internal sealed class BuildService : IBuildService
             arguments.Add(argument.Key, substituted!);
         }
 
-        var environmentValues = new SortedDictionary<string, string>(StringComparer.Ordinal);
-        for (var i = 0; i < profile.Runner.Invocation.EnvironmentNames.Count; i++)
+        var requestedEnv = profile.Runner.Invocation.Environment;
+        var environmentVariables = ResolveRunnerEnvironmentValues(requestedEnv.Variables);
+        if (!environmentVariables.IsSuccess)
         {
-            var environmentName = profile.Runner.Invocation.EnvironmentNames[i];
+            return RunnerInvocationResolutionResult.Failure(environmentVariables.Error!);
+        }
+
+        var environmentSecrets = ResolveRunnerEnvironmentValues(requestedEnv.Secrets);
+        if (!environmentSecrets.IsSuccess)
+        {
+            return RunnerInvocationResolutionResult.Failure(environmentSecrets.Error!);
+        }
+
+        return RunnerInvocationResolutionResult.Success(new ResolvedRunnerInvocationInput(
+            profilePath,
+            arguments,
+            requestedEnv.Variables,
+            requestedEnv.Secrets,
+            environmentVariables.Values!,
+            environmentSecrets.Values!));
+    }
+
+    private RunnerEnvironmentResolutionResult ResolveRunnerEnvironmentValues (IReadOnlyList<string> environmentNames)
+    {
+        var environmentValues = new SortedDictionary<string, string>(StringComparer.Ordinal);
+        for (var i = 0; i < environmentNames.Count; i++)
+        {
+            var environmentName = environmentNames[i];
             var value = environmentVariableReader.Get(environmentName);
             if (value == null)
             {
-                return RunnerInvocationResolutionResult.Failure(ExecutionError.InvalidArgument(
+                return RunnerEnvironmentResolutionResult.Failure(ExecutionError.InvalidArgument(
                     $"Build runner environment entry is missing: {environmentName}.",
                     BuildErrorCodes.BuildRunnerEnvironmentMissing));
             }
@@ -410,11 +434,7 @@ internal sealed class BuildService : IBuildService
             environmentValues.Add(environmentName, value);
         }
 
-        return RunnerInvocationResolutionResult.Success(new ResolvedRunnerInvocationInput(
-            profilePath,
-            arguments,
-            profile.Runner.Invocation.EnvironmentNames,
-            environmentValues));
+        return RunnerEnvironmentResolutionResult.Success(environmentValues);
     }
 
     private static IReadOnlyDictionary<string, string> CreateBuiltInVariableMap (
@@ -561,15 +581,17 @@ internal sealed class BuildService : IBuildService
             AllowedEditorModes: profile.Policy.Runtime.AllowedEditorModes
                 .Select(ContractLiteralCodec.ToValue)
                 .ToArray(),
-            ProjectMutationMode: ContractLiteralCodec.ToValue(profile.Policy.ProjectMutationMode))
+            ProjectMutationMode: ContractLiteralCodec.ToValue(profile.Policy.ProjectMutationMode),
+            RunnerKind: ContractLiteralCodec.ToValue(profile.Runner.Kind))
         {
-            RunnerKind = ContractLiteralCodec.ToValue(profile.Runner.Kind),
             ProfilePath = runnerInvocation.ProfilePath,
             ProfileDigest = profile.Digest,
             RunnerMethod = profile.Runner.Method,
             RunnerArguments = runnerInvocation.Arguments,
-            RunnerEnvironment = runnerInvocation.EnvironmentNames,
-            RunnerEnvironmentValues = runnerInvocation.EnvironmentValues,
+            RunnerEnvironmentVariables = runnerInvocation.EnvironmentVariables,
+            RunnerEnvironmentSecrets = runnerInvocation.EnvironmentSecrets,
+            RunnerEnvironmentVariableValues = runnerInvocation.EnvironmentVariableValues,
+            RunnerEnvironmentSecretValues = runnerInvocation.EnvironmentSecretValues,
         };
     }
 
@@ -1034,7 +1056,9 @@ internal sealed class BuildService : IBuildService
                 Method: profile.Runner.Method,
                 Invocation: new BuildRunnerInvocationOutput(
                     Arguments: runnerInvocation.Arguments,
-                    EnvironmentNames: runnerInvocation.EnvironmentNames)),
+                    Environment: new BuildRunnerInvocationEnvironmentOutput(
+                        Variables: runnerInvocation.EnvironmentVariables,
+                        Secrets: runnerInvocation.EnvironmentSecrets))),
             RunnerResult: CreateRunnerResultOutput(profile, response),
             Output: new BuildArtifactOutput(
                 ManifestRef: BuildReportRefs.BuildOutputManifest,
@@ -1132,6 +1156,7 @@ internal sealed class BuildService : IBuildService
         ResolvedBuildProfile profile,
         IpcBuildOutputLayout? outputLayout)
     {
+        var invocationEnv = output.Build.Runner.Invocation.Environment;
         return new BuildRunMetadataDocument(
             SchemaVersion: BuildMetadataSchemaVersion,
             RunId: output.Build.RunId,
@@ -1142,7 +1167,9 @@ internal sealed class BuildService : IBuildService
                 Method: profile.Runner.Method,
                 Invocation: new BuildRunRunnerInvocationMetadata(
                     Arguments: output.Build.Runner.Invocation.Arguments,
-                    EnvironmentNames: output.Build.Runner.Invocation.EnvironmentNames),
+                    Environment: new BuildRunRunnerInvocationEnvironmentMetadata(
+                        Variables: invocationEnv.Variables,
+                        Secrets: invocationEnv.Secrets)),
                 OutputLayout: outputLayout)),
             RunnerResult: SerializeMetadataElement(CreateRunnerResultMetadata(output, response)),
             Input: SerializeMetadataElement(new BuildRunInputMetadata(
@@ -1610,14 +1637,37 @@ internal sealed class BuildService : IBuildService
     private sealed record ResolvedRunnerInvocationInput (
         string ProfilePath,
         IReadOnlyDictionary<string, string> Arguments,
-        IReadOnlyList<string> EnvironmentNames,
-        IReadOnlyDictionary<string, string> EnvironmentValues)
+        IReadOnlyList<string> EnvironmentVariables,
+        IReadOnlyList<string> EnvironmentSecrets,
+        IReadOnlyDictionary<string, string> EnvironmentVariableValues,
+        IReadOnlyDictionary<string, string> EnvironmentSecretValues)
     {
         public static ResolvedRunnerInvocationInput Empty { get; } = new(
             string.Empty,
             new Dictionary<string, string>(StringComparer.Ordinal),
             Array.Empty<string>(),
+            Array.Empty<string>(),
+            new Dictionary<string, string>(StringComparer.Ordinal),
             new Dictionary<string, string>(StringComparer.Ordinal));
+    }
+
+    private sealed record RunnerEnvironmentResolutionResult (
+        IReadOnlyDictionary<string, string>? Values,
+        ExecutionError? Error)
+    {
+        public bool IsSuccess => Values != null && Error == null;
+
+        public static RunnerEnvironmentResolutionResult Success (IReadOnlyDictionary<string, string> values)
+        {
+            ArgumentNullException.ThrowIfNull(values);
+            return new RunnerEnvironmentResolutionResult(values, null);
+        }
+
+        public static RunnerEnvironmentResolutionResult Failure (ExecutionError error)
+        {
+            ArgumentNullException.ThrowIfNull(error);
+            return new RunnerEnvironmentResolutionResult(null, error);
+        }
     }
 
     private sealed record RunnerInvocationResolutionResult (

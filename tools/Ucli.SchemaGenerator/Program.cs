@@ -725,12 +725,19 @@ internal static class Program
     {
         return ObjectSchema(
             additionalProperties: false,
-            Required("kind", EnumSchema("buildPipeline", "executeMethod")),
+            Required(
+                "kind",
+                EnumSchema(
+                    Literal(IpcBuildRunnerKind.BuildPipeline),
+                    Literal(IpcBuildRunnerKind.ExecuteMethod))),
             Required("method", NullableStringSchema()),
             Required("invocation", ObjectSchema(
                 additionalProperties: false,
                 Required("arguments", StringMapSchema()),
-                Required("environment", ArraySchema(StringSchema())))));
+                Required("environment", ObjectSchema(
+                    additionalProperties: false,
+                    Required("variables", ArraySchema(StringSchema())),
+                    Required("secrets", ArraySchema(StringSchema())))))));
     }
 
     private static Dictionary<string, object?> CreateBuildRunRunnerResultSchema ()

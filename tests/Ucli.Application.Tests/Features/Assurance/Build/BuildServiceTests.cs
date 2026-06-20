@@ -134,7 +134,9 @@ public sealed class BuildServiceTests
         Assert.Equal("buildPipeline", artifactStore.WrittenMetadata.Runner.GetProperty("kind").GetString());
         Assert.Equal(JsonValueKind.Null, artifactStore.WrittenMetadata.Runner.GetProperty("method").ValueKind);
         Assert.Equal("{}", artifactStore.WrittenMetadata.Runner.GetProperty("invocation").GetProperty("arguments").GetRawText());
-        Assert.Equal(0, artifactStore.WrittenMetadata.Runner.GetProperty("invocation").GetProperty("environment").GetArrayLength());
+        var runnerEnvironment = artifactStore.WrittenMetadata.Runner.GetProperty("invocation").GetProperty("environment");
+        Assert.Equal(0, runnerEnvironment.GetProperty("variables").GetArrayLength());
+        Assert.Equal(0, runnerEnvironment.GetProperty("secrets").GetArrayLength());
         Assert.Equal(ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.File), artifactStore.WrittenMetadata.Runner.GetProperty("outputLayout").GetProperty("shape").GetString());
         Assert.Equal(
             CreateExpectedPlayerLocationPathName(preparedPaths.OutputDirectory),
@@ -200,6 +202,7 @@ public sealed class BuildServiceTests
     [Trait("Size", "Small")]
     public async Task Execute_WithExecuteMethodRunner_ResolvesInvocationIntoInternalIpcRequest ()
     {
+        const string EnvironmentValue = "release";
         const string SecretValue = "secret-value";
         const string profilePath = "/workspace/build.ucli.json";
         var profileJson = CreateExecuteMethodProfileJson(
@@ -212,6 +215,9 @@ public sealed class BuildServiceTests
                       "project": "${project.path}",
                       "fingerprint": "${project.fingerprint}",
                       "target": "${build.target}"
+                """,
+            environmentVariables: """
+                    "UCLI_MODE"
                 """,
             environment: """
                     "UCLI_SECRET"
@@ -233,6 +239,7 @@ public sealed class BuildServiceTests
             profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(profileJson, profilePath)),
             environmentVariableReader: new StubEnvironmentVariableReader(new Dictionary<string, string?>(StringComparer.Ordinal)
             {
+                ["UCLI_MODE"] = EnvironmentValue,
                 ["UCLI_SECRET"] = SecretValue,
             }),
             requestExecutor: requestExecutor,
@@ -261,21 +268,27 @@ public sealed class BuildServiceTests
         Assert.Equal("/workspace/UnityProject", payload.RunnerArguments["project"]);
         Assert.Equal(ProjectFingerprint, payload.RunnerArguments["fingerprint"]);
         Assert.Equal("standaloneLinux64", payload.RunnerArguments["target"]);
-        Assert.Equal(["UCLI_SECRET"], payload.RunnerEnvironment);
-        Assert.Equal(SecretValue, payload.RunnerEnvironmentValues["UCLI_SECRET"]);
+        Assert.Equal(["UCLI_MODE"], payload.RunnerEnvironmentVariables);
+        Assert.Equal(["UCLI_SECRET"], payload.RunnerEnvironmentSecrets);
+        Assert.Equal(EnvironmentValue, payload.RunnerEnvironmentVariableValues["UCLI_MODE"]);
+        Assert.Equal(SecretValue, payload.RunnerEnvironmentSecretValues["UCLI_SECRET"]);
 
         var output = result.Output!;
         Assert.Equal("executeMethod", output.Build.Runner.Kind);
         Assert.Equal("Build.Entry.Run", output.Build.Runner.Method);
-        Assert.Equal(["UCLI_SECRET"], output.Build.Runner.Invocation.EnvironmentNames);
+        Assert.Equal(["UCLI_MODE"], output.Build.Runner.Invocation.Environment.Variables);
+        Assert.Equal(["UCLI_SECRET"], output.Build.Runner.Invocation.Environment.Secrets);
         Assert.DoesNotContain(SecretValue, JsonSerializer.Serialize(output, PayloadSerializerOptions));
         Assert.NotNull(artifactStore.WrittenMetadata);
         Assert.DoesNotContain(SecretValue, JsonSerializer.Serialize(artifactStore.WrittenMetadata!, PayloadSerializerOptions));
         Assert.DoesNotContain(SecretValue, JsonSerializer.Serialize(progressSink.Entries, PayloadSerializerOptions));
         Assert.Equal("executeMethod", artifactStore.WrittenMetadata!.Runner.GetProperty("kind").GetString());
         Assert.Equal(
+            ["UCLI_MODE"],
+            artifactStore.WrittenMetadata.Runner.GetProperty("invocation").GetProperty("environment").GetProperty("variables").EnumerateArray().Select(static item => item.GetString()!).ToArray());
+        Assert.Equal(
             ["UCLI_SECRET"],
-            artifactStore.WrittenMetadata.Runner.GetProperty("invocation").GetProperty("environment").EnumerateArray().Select(static item => item.GetString()!).ToArray());
+            artifactStore.WrittenMetadata.Runner.GetProperty("invocation").GetProperty("environment").GetProperty("secrets").EnumerateArray().Select(static item => item.GetString()!).ToArray());
     }
 
     [Fact]
@@ -1360,7 +1373,8 @@ public sealed class BuildServiceTests
     private static string CreateExecuteMethodProfileJson (
         string method,
         string arguments,
-        string environment)
+        string environment,
+        string environmentVariables = "")
     {
         return $$"""
             {
@@ -1385,9 +1399,14 @@ public sealed class BuildServiceTests
                   "arguments": {
                 {{arguments}}
                   },
-                  "environment": [
+                  "environment": {
+                    "variables": [
+                {{environmentVariables}}
+                    ],
+                    "secrets": [
                 {{environment}}
-                  ]
+                    ]
+                  }
                 }
               },
               "policy": {

@@ -57,8 +57,10 @@ internal sealed class UnityIpcRequestBuilder
                     ProfileDigest = buildRun.ProfileDigest,
                     RunnerMethod = buildRun.RunnerMethod,
                     RunnerArguments = buildRun.RunnerArguments,
-                    RunnerEnvironment = buildRun.RunnerEnvironment,
-                    RunnerEnvironmentValues = buildRun.RunnerEnvironmentValues,
+                    RunnerEnvironmentVariables = buildRun.RunnerEnvironmentVariables,
+                    RunnerEnvironmentSecrets = buildRun.RunnerEnvironmentSecrets,
+                    RunnerEnvironmentVariableValues = buildRun.RunnerEnvironmentVariableValues,
+                    RunnerEnvironmentSecretValues = buildRun.RunnerEnvironmentSecretValues,
                 }),
                 dispatchTimeoutPayloadTransformer: ApplyBuildRunDispatchTimeout),
             UnityRequestPayload.TestRun testRun => new UnityIpcDispatchRequest(

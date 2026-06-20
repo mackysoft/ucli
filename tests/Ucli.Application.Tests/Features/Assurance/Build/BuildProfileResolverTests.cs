@@ -185,9 +185,14 @@ public sealed class BuildProfileResolverTests
                   "output": "${ucli.build.outputDir}",
                   "target": "${build.target}"
                 },
-                "environment": [
-                  "UNITY_LICENSE"
-                ]
+                "environment": {
+                  "variables": [
+                    "BUILD_MODE"
+                  ],
+                  "secrets": [
+                    "UNITY_LICENSE"
+                  ]
+                }
               }
             }
             """));
@@ -198,7 +203,8 @@ public sealed class BuildProfileResolverTests
         Assert.Equal("Build.Entry.Run", runner.Method);
         Assert.Equal("${ucli.build.outputDir}", runner.Invocation.Arguments["output"]);
         Assert.Equal("${build.target}", runner.Invocation.Arguments["target"]);
-        Assert.Equal(["UNITY_LICENSE"], runner.Invocation.EnvironmentNames);
+        Assert.Equal(["BUILD_MODE"], runner.Invocation.Environment.Variables);
+        Assert.Equal(["UNITY_LICENSE"], runner.Invocation.Environment.Secrets);
     }
 
     [Theory]
@@ -329,10 +335,15 @@ public sealed class BuildProfileResolverTests
                   "b": "2",
                   "a": "1"
                 },
-                "environment": [
-                  "UNITY_LICENSE",
-                  "UNITY_EMAIL"
-                ]
+                "environment": {
+                  "variables": [
+                    "BUILD_MODE"
+                  ],
+                  "secrets": [
+                    "UNITY_LICENSE",
+                    "UNITY_EMAIL"
+                  ]
+                }
               }
             }
             """)).Profile!;
@@ -342,10 +353,15 @@ public sealed class BuildProfileResolverTests
               "kind": "executeMethod",
               "method": "Build.Entry.Run",
               "invocation": {
-                "environment": [
-                  "UNITY_LICENSE",
-                  "UNITY_EMAIL"
-                ],
+                "environment": {
+                  "variables": [
+                    "BUILD_MODE"
+                  ],
+                  "secrets": [
+                    "UNITY_LICENSE",
+                    "UNITY_EMAIL"
+                  ]
+                },
                 "arguments": {
                   "a": "1",
                   "b": "2"
@@ -368,9 +384,12 @@ public sealed class BuildProfileResolverTests
             """{"kind":"executeMethod","method":"Build.Entry.Run","invocation":[]}""",
             """{"kind":"executeMethod","method":"Build.Entry.Run","invocation":{"arguments":[]}}""",
             """{"kind":"executeMethod","method":"Build.Entry.Run","invocation":{"arguments":{"output":1}}}""",
-            """{"kind":"executeMethod","method":"Build.Entry.Run","invocation":{"environment":[1]}}""",
-            """{"kind":"executeMethod","method":"Build.Entry.Run","invocation":{"environment":["UNITY_LICENSE","UNITY_LICENSE"]}}""",
-            """{"kind":"executeMethod","method":"Build.Entry.Run","invocation":{"arguments":{},"environment":[],"legacy":true}}""",
+            """{"kind":"executeMethod","method":"Build.Entry.Run","invocation":{"environment":[]}}""",
+            """{"kind":"executeMethod","method":"Build.Entry.Run","invocation":{"environment":{"variables":[1]}}}""",
+            """{"kind":"executeMethod","method":"Build.Entry.Run","invocation":{"environment":{"variables":["BUILD_MODE","BUILD_MODE"]}}}""",
+            """{"kind":"executeMethod","method":"Build.Entry.Run","invocation":{"environment":{"variables":["BUILD_MODE"],"secrets":["BUILD_MODE"]}}}""",
+            """{"kind":"executeMethod","method":"Build.Entry.Run","invocation":{"environment":{"legacy":[]}}}""",
+            """{"kind":"executeMethod","method":"Build.Entry.Run","invocation":{"arguments":{},"environment":{},"legacy":true}}""",
         ];
     }
 
