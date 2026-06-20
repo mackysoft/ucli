@@ -439,6 +439,7 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
             new BuildOutputManifestSummary(
                 manifestDigest,
                 files.Count,
+                files.Count,
                 totalBytes));
     }
 

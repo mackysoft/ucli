@@ -3,7 +3,7 @@
   "command": "build.run",
   "status": "error",
   "exitCode": 3,
-  "message": "buildTarget is unsupported: webgl.",
+  "message": "Build profile inputs.buildTarget is unsupported: unknownTarget.",
   "payload": {
     "project": {
       "projectPath": "/workspace/UnityProject",
@@ -14,7 +14,7 @@
   "errors": [
     {
       "code": "BUILD_TARGET_UNSUPPORTED",
-      "message": "buildTarget is unsupported: webgl.",
+      "message": "Build profile inputs.buildTarget is unsupported: unknownTarget.",
       "opId": null
     }
   ]

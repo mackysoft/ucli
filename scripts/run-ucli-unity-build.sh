@@ -10,7 +10,6 @@ Options:
   --repo-root <path>          Repository root. Defaults to git root.
   --project-path <path>       Unity project root. Required unless UCLI_UNITY_PROJECT_PATH is set.
   --profile-path <path>       uCLI build profile JSON path. Required unless UCLI_BUILD_PROFILE_PATH is set.
-  --buildTarget <value>       buildTarget stable name. Defaults to UCLI_BUILD_TARGET when set.
   --mode <mode>               uCLI execution mode. Defaults to oneshot.
   --unity-editor-path <path>  Unity editor executable or directory path.
   --timeout <milliseconds>    Build timeout. Defaults to 900000.
@@ -26,7 +25,6 @@ EOF
 repository_root=""
 project_path="${UCLI_UNITY_PROJECT_PATH:-}"
 profile_path="${UCLI_BUILD_PROFILE_PATH:-}"
-buildTarget="${UCLI_BUILD_TARGET:-}"
 execution_mode="oneshot"
 unity_editor_path=""
 timeout_milliseconds="900000"
@@ -64,15 +62,6 @@ while [[ $# -gt 0 ]]; do
       ;;
     --profile-path=*)
       profile_path="${1#--profile-path=}"
-      shift
-      ;;
-    --buildTarget)
-      [[ $# -ge 2 ]] || { print_usage; exit 2; }
-      buildTarget="$2"
-      shift 2
-      ;;
-    --buildTarget=*)
-      buildTarget="${1#--buildTarget=}"
       shift
       ;;
     --mode)
@@ -368,10 +357,6 @@ ucli_build_args=(
   --timeout "${timeout_milliseconds}"
   --format json
 )
-
-if [[ -n "${buildTarget}" ]]; then
-  ucli_build_args+=(--buildTarget "${buildTarget}")
-fi
 
 set +e
 dotnet "${ucli_dll_path}" "${ucli_build_args[@]}" > "${command_result_path}" 2> >(tee "${command_stderr_path}" >&2)

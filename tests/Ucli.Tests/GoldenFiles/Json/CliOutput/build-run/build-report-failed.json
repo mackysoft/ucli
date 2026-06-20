@@ -28,11 +28,9 @@
         "development": true
       },
       "output": {
-        "kind": "ucliArtifact",
-        "artifactRoot": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1",
-        "outputRoot": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/output",
         "manifestRef": "buildOutputManifest",
         "manifestDigest": "8deb35edf72becffdfe16011c3975ba597d30d506dc484c1d3ccd43224a3a444",
+        "entryCount": 0,
         "fileCount": 0,
         "totalBytes": 0
       },
@@ -253,6 +251,7 @@
         "statement": "Build output artifacts were counted in the output manifest.",
         "subject": {
           "manifestRef": "buildOutputManifest",
+          "entryCount": 0,
           "fileCount": 0
         },
         "evidence": [
@@ -260,11 +259,9 @@
             "kind": "outputManifestWrite",
             "evidenceRef": "build",
             "data": {
-              "kind": "ucliArtifact",
-              "artifactRoot": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1",
-              "outputRoot": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/output",
               "manifestRef": "buildOutputManifest",
               "manifestDigest": "8deb35edf72becffdfe16011c3975ba597d30d506dc484c1d3ccd43224a3a444",
+              "entryCount": 0,
               "fileCount": 0,
               "totalBytes": 0
             }
@@ -361,22 +358,18 @@
     ],
     "reports": {
       "build": {
-        "kind": "build",
         "path": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/build.json",
         "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
       },
       "buildReport": {
-        "kind": "buildReport",
         "path": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/build-report.json",
         "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
       },
       "buildOutputManifest": {
-        "kind": "buildOutputManifest",
         "path": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/output-manifest.json",
         "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
       },
       "buildLog": {
-        "kind": "buildLog",
         "path": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/build.log",
         "digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
       }

@@ -33,18 +33,34 @@ public sealed class BuildServiceTests
     private const string ProfileJson = """
         {
           "schemaVersion": 1,
-          "buildTarget": "standaloneLinux64",
-          "scenes": {
-            "source": "explicit",
-            "paths": [
-              "Assets/Scenes/Main.unity"
-            ]
+          "inputs": {
+            "kind": "explicit",
+            "buildTarget": "standaloneLinux64",
+            "scenes": {
+              "source": "explicit",
+              "paths": [
+                "Assets/Scenes/Main.unity"
+              ]
+            },
+            "options": {
+              "development": true
+            }
           },
-          "output": {
-            "kind": "ucliArtifact"
+          "runner": {
+            "kind": "buildPipeline"
           },
-          "options": {
-            "development": true
+          "policy": {
+            "runtime": {
+              "allowedExecutionModes": [
+                "daemon",
+                "oneshot"
+              ],
+              "allowedEditorModes": [
+                "batchmode",
+                "gui"
+              ]
+            },
+            "projectMutationMode": "forbid"
           }
         }
         """;
@@ -85,11 +101,12 @@ public sealed class BuildServiceTests
         Assert.Equal("asset-before", output.Build.Generations.Before.AssetRefreshGeneration);
         Assert.Equal("asset-after", output.Build.Generations.After.AssetRefreshGeneration);
         Assert.Equal("asset-after", output.Build.Generations.ValidFor.AssetRefreshGeneration);
-        Assert.Equal(ContractLiteralCodec.ToValue(BuildProfileOutputKind.UcliArtifact), output.Build.Output.Kind);
-        Assert.Equal(artifactStore.PreparedPaths!.ArtifactsDirectory, output.Build.Output.ArtifactRoot);
-        Assert.Equal(artifactStore.PreparedPaths.OutputDirectory, output.Build.Output.OutputRoot);
+        var expectedProfileDigest = BuildProfileResolver.ResolveJson(ProfileJson).Profile!.Digest;
+        Assert.Equal(expectedProfileDigest, output.Build.Profile.Digest);
         Assert.Equal(BuildReportRefs.BuildOutputManifest, output.Build.Output.ManifestRef);
         Assert.Equal(OutputManifestDigest, output.Build.Output.ManifestDigest);
+        Assert.Equal(1, output.Build.Output.EntryCount);
+        Assert.Equal(1, output.Build.Output.FileCount);
         Assert.Equal(
             [BuildReportRefs.Build, BuildReportRefs.BuildLog, BuildReportRefs.BuildOutputManifest, BuildReportRefs.BuildReport],
             output.Reports.Keys.Order(StringComparer.Ordinal).ToArray());
@@ -97,7 +114,6 @@ public sealed class BuildServiceTests
         Assert.Equal(BuildReportArtifactDigest, output.Reports[BuildReportRefs.BuildReport].Digest);
         Assert.Equal(BuildOutputManifestArtifactDigest, output.Reports[BuildReportRefs.BuildOutputManifest].Digest);
         Assert.Equal(BuildLogArtifactDigest, output.Reports[BuildReportRefs.BuildLog].Digest);
-        Assert.All(output.Reports, report => Assert.Equal(report.Key, report.Value.Kind));
         Assert.True(output.Reports.ContainsKey(output.Build.Output.ManifestRef));
         AssertEvidenceRefsResolveToReports(output);
         Assert.Equal(10, output.Claims.Count);
@@ -106,12 +122,14 @@ public sealed class BuildServiceTests
         Assert.Equal("build", verifier.Id);
         Assert.Equal(BuildClaimCodes.All.Select(static code => code.Value).ToArray(), verifier.PrimaryClaims);
         Assert.Equal(ContractLiteralCodec.GetLiterals<BuildEffect>(), verifier.Effects);
+        var preparedPaths = artifactStore.PreparedPaths;
+        Assert.NotNull(preparedPaths);
         Assert.NotNull(artifactStore.WrittenMetadata);
         Assert.Equal(
             ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
             artifactStore.WrittenMetadata!.Summary.GetProperty("result").GetString());
         Assert.Equal(output.Build.Profile.Path, artifactStore.WrittenMetadata.Profile.GetProperty("path").GetString());
-        Assert.Equal(output.Build.Profile.Digest, artifactStore.WrittenMetadata.Profile.GetProperty("digest").GetString());
+        Assert.Equal(expectedProfileDigest, artifactStore.WrittenMetadata.Profile.GetProperty("digest").GetString());
         Assert.Equal(output.Build.Summary.ReportRef, artifactStore.WrittenMetadata.Summary.GetProperty("reportRef").GetString());
         Assert.Equal(output.Build.Logs.ReportRef, artifactStore.WrittenMetadata.Logs.GetProperty("reportRef").GetString());
         Assert.Equal(output.Build.Output.ManifestRef, artifactStore.WrittenMetadata.Output.GetProperty("manifestRef").GetString());
@@ -132,7 +150,7 @@ public sealed class BuildServiceTests
         Assert.Equal("transientProbe", startedEntry.SessionKind);
         Assert.Equal(10000, startedEntry.TimeoutMilliseconds);
         Assert.Equal("standaloneLinux64", startedEntry.BuildTarget);
-        Assert.Equal(artifactStore.PreparedPaths.OutputDirectory, startedEntry.OutputPath);
+        Assert.Equal(preparedPaths.OutputDirectory, startedEntry.OutputPath);
         var completedEntry = Assert.IsType<BuildRunCompletedEntry>(progressSink.Entries[1].Payload);
         Assert.Equal(RunId, completedEntry.RunId);
         Assert.Equal(ContractLiteralCodec.ToValue(BuildVerdict.Pass), completedEntry.Verdict);
@@ -140,10 +158,10 @@ public sealed class BuildServiceTests
         Assert.Equal(ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed), completedEntry.CompletionReason);
         Assert.Equal(0, completedEntry.ErrorCount);
         Assert.Equal(1, completedEntry.WarningCount);
-        Assert.Equal(artifactStore.PreparedPaths.BuildJsonPath, completedEntry.BuildJsonPath);
-        Assert.Equal(artifactStore.PreparedPaths.BuildReportJsonPath, completedEntry.BuildReportPath);
-        Assert.Equal(artifactStore.PreparedPaths.BuildLogPath, completedEntry.BuildLogPath);
-        Assert.Equal(artifactStore.PreparedPaths.OutputManifestJsonPath, completedEntry.OutputManifestPath);
+        Assert.Equal(preparedPaths.BuildJsonPath, completedEntry.BuildJsonPath);
+        Assert.Equal(preparedPaths.BuildReportJsonPath, completedEntry.BuildReportPath);
+        Assert.Equal(preparedPaths.BuildLogPath, completedEntry.BuildLogPath);
+        Assert.Equal(preparedPaths.OutputManifestJsonPath, completedEntry.OutputManifestPath);
 
         var validator = CreateBuildSemanticInvariantValidator();
         var semanticPayload = JsonSerializer.SerializeToElement(output, PayloadSerializerOptions);
@@ -157,9 +175,9 @@ public sealed class BuildServiceTests
         Assert.Equal("explicit", requestPayload.SceneSource);
         Assert.Equal(["Assets/Scenes/Main.unity"], requestPayload.ScenePaths);
         Assert.True(requestPayload.Development);
-        Assert.Equal(artifactStore.PreparedPaths!.OutputDirectory, requestPayload.OutputPath);
-        Assert.Equal(artifactStore.PreparedPaths.BuildReportJsonPath, requestPayload.BuildReportPath);
-        Assert.Equal(artifactStore.PreparedPaths.BuildLogPath, requestPayload.BuildLogPath);
+        Assert.Equal(preparedPaths.OutputDirectory, requestPayload.OutputPath);
+        Assert.Equal(preparedPaths.BuildReportJsonPath, requestPayload.BuildReportPath);
+        Assert.Equal(preparedPaths.BuildLogPath, requestPayload.BuildLogPath);
     }
 
     [Fact]
@@ -217,15 +235,31 @@ public sealed class BuildServiceTests
         const string profileJson = """
             {
               "schemaVersion": 1,
-              "buildTarget": "standaloneLinux64",
-              "scenes": {
-                "source": "editorBuildSettings"
+              "inputs": {
+                "kind": "explicit",
+                "buildTarget": "standaloneLinux64",
+                "scenes": {
+                  "source": "editorBuildSettings"
+                },
+                "options": {
+                  "development": true
+                }
               },
-              "output": {
-                "kind": "ucliArtifact"
+              "runner": {
+                "kind": "buildPipeline"
               },
-              "options": {
-                "development": true
+              "policy": {
+                "runtime": {
+                  "allowedExecutionModes": [
+                    "daemon",
+                    "oneshot"
+                  ],
+                  "allowedEditorModes": [
+                    "batchmode",
+                    "gui"
+                  ]
+                },
+                "projectMutationMode": "forbid"
               }
             }
             """;
@@ -256,70 +290,6 @@ public sealed class BuildServiceTests
         var payload = Assert.IsType<UnityRequestPayload.BuildRun>(requestExecutor.CapturedPayload);
         Assert.Equal("editorBuildSettings", payload.SceneSource);
         Assert.Empty(payload.ScenePaths);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task Execute_WithBuildTargetOverride_UsesCommandBuildTarget ()
-    {
-        using var tempDirectory = TemporaryDirectory.Create();
-        var artifactStore = new StubBuildRunArtifactStore(tempDirectory.Path);
-        var requestExecutor = CreateBuildResponseExecutor(
-            ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
-            ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
-            errorCount: 0,
-            buildTarget: "standaloneOSX",
-            unityBuildTarget: "StandaloneOSX");
-        var progressSink = new CollectingProgressSink();
-        var service = CreateService(
-            requestExecutor: requestExecutor,
-            artifactStore: artifactStore);
-
-        var result = await service.ExecuteAsync(CreateInput(buildTarget: "standaloneOSX"), progressSink);
-
-        if (!result.IsSuccess)
-        {
-            Assert.Fail(string.Join(Environment.NewLine, result.Errors.Select(static error => $"{error.Code}: {error.Message}")));
-        }
-        var output = result.Output!;
-        Assert.Equal("standaloneOSX", output.Build.BuildTarget);
-        Assert.Equal("standaloneOSX", artifactStore.AccountingRequest!.BuildTarget);
-        var startedEntry = Assert.IsType<BuildRunStartedEntry>(progressSink.Entries[0].Payload);
-        Assert.Equal("standaloneOSX", startedEntry.BuildTarget);
-        var requestPayload = Assert.IsType<UnityRequestPayload.BuildRun>(requestExecutor.CapturedPayload);
-        Assert.Equal("standaloneOSX", requestPayload.BuildTarget);
-        Assert.Equal("StandaloneOSX", requestPayload.UnityBuildTarget);
-
-        var profile = BuildProfileResolver.ResolveJson(ProfileJson).Profile!;
-        Assert.True(BuildTargetStableNameCodec.TryResolve("standaloneOSX", out var buildTarget));
-        var expectedDigest = BuildProfileDigestCalculator.Calculate(
-            profile.SchemaVersion,
-            buildTarget,
-            profile.Scenes,
-            profile.Output,
-            profile.Options);
-        Assert.Equal(expectedDigest, output.Build.Profile.Digest);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task Execute_WithUnsupportedBuildTargetOverride_ReturnsBuildTargetUnsupported ()
-    {
-        using var tempDirectory = TemporaryDirectory.Create();
-        var requestExecutor = CreateBuildResponseExecutor(
-            ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
-            ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
-            errorCount: 0);
-        var service = CreateService(
-            requestExecutor: requestExecutor,
-            artifactStore: new StubBuildRunArtifactStore(tempDirectory.Path));
-
-        var result = await service.ExecuteAsync(CreateInput(buildTarget: "unsupportedTarget"));
-
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
-        Assert.Equal(BuildErrorCodes.BuildTargetUnsupported, error.Code);
-        Assert.Null(requestExecutor.CapturedPayload);
     }
 
     [Fact]
@@ -645,13 +615,11 @@ public sealed class BuildServiceTests
     }
 
     private static BuildCommandInput CreateInput (
-        int? timeoutMilliseconds = 10000,
-        string? buildTarget = null)
+        int? timeoutMilliseconds = 10000)
     {
         return new BuildCommandInput(
-            ProfilePath: null,
+            ProfilePath: "/workspace/build.ucli.json",
             ProjectPath: null,
-            BuildTarget: buildTarget,
             Mode: UnityExecutionMode.Auto,
             TimeoutMilliseconds: timeoutMilliseconds);
     }
@@ -895,7 +863,7 @@ public sealed class BuildServiceTests
         }
 
         public ValueTask<BuildProfileFileReadResult> ReadAsync (
-            string? profilePath,
+            string profilePath,
             ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {
@@ -1029,6 +997,7 @@ public sealed class BuildServiceTests
                 BuildLog: new BuildArtifactRef(BuildArtifactKind.BuildLog, "build.log", BuildLogArtifactDigest),
                 OutputManifest: new BuildOutputManifestSummary(
                     ManifestDigest: OutputManifestDigest,
+                    EntryCount: 1,
                     FileCount: 1,
                     TotalBytes: 12))));
         }

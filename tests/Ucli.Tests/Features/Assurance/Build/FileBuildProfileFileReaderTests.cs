@@ -23,16 +23,13 @@ public sealed class FileBuildProfileFileReaderTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task ReadAsync_WithoutProfilePath_ReturnsBuildProfileInvalid ()
+    public async Task ReadAsync_WithBlankProfilePath_ThrowsArgumentException ()
     {
-        using var repository = TestDirectories.CreateTempScope("ucli-build", nameof(ReadAsync_WithoutProfilePath_ReturnsBuildProfileInvalid));
+        using var repository = TestDirectories.CreateTempScope("ucli-build", nameof(ReadAsync_WithBlankProfilePath_ThrowsArgumentException));
         var reader = new FileBuildProfileFileReader();
 
-        var result = await reader.ReadAsync(null, CreateProject(repository.FullPath));
-
-        Assert.False(result.IsSuccess);
-        Assert.Equal(ExecutionErrorKind.InvalidArgument, result.Error!.Kind);
-        Assert.Equal(BuildErrorCodes.BuildProfileInvalid, result.Error.Code);
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => reader.ReadAsync(" ", CreateProject(repository.FullPath)).AsTask());
     }
 
     [Fact]

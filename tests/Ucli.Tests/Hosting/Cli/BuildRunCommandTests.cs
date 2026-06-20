@@ -32,7 +32,6 @@ public sealed class BuildRunCommandTests
         await StandardOutputCapture.ExecuteAsync(() => command.RunAsync(
             profilePath: "/repo/.ucli/build/player.json",
             projectPath: "/repo/UnityProject",
-            buildTarget: "standaloneOSX",
             mode: "daemon",
             timeout: "120000",
             format: "json",
@@ -42,7 +41,6 @@ public sealed class BuildRunCommandTests
         var input = Assert.IsType<BuildCommandInput>(service.CapturedInput);
         Assert.Equal("/repo/.ucli/build/player.json", input.ProfilePath);
         Assert.Equal("/repo/UnityProject", input.ProjectPath);
-        Assert.Equal("standaloneOSX", input.BuildTarget);
         Assert.Equal(UnityExecutionMode.Daemon, input.Mode);
         Assert.Equal(120000, input.TimeoutMilliseconds);
         Assert.NotNull(service.CapturedProgressSink);
@@ -79,6 +77,32 @@ public sealed class BuildRunCommandTests
         CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.InvalidArgument);
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData(" ")]
+    [Trait("Size", "Small")]
+    public async Task Run_WithoutProfilePath_ReturnsInvalidArgumentWithoutCallingService (string? profilePath)
+    {
+        var service = new StubBuildService((_, _, _) => throw new InvalidOperationException("Service should not be called."));
+        var command = new BuildRunCommand(service, CommandResultTestWriter.Create());
+
+        var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.RunAsync(
+            profilePath: profilePath,
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.InvalidArgument, exitCode);
+        Assert.Equal(string.Empty, standardError);
+        Assert.Null(service.CapturedInput);
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            UcliCommandNames.BuildRun,
+            IpcProtocol.StatusError,
+            (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.InvalidArgument);
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task Run_WithPassOutput_MatchesGolden ()
@@ -87,6 +111,7 @@ public sealed class BuildRunCommandTests
         var command = new BuildRunCommand(service, CommandResultTestWriter.Create());
 
         var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.RunAsync(
+            profilePath: "/repo/.ucli/build/player.json",
             cancellationToken: CancellationToken.None));
 
         Assert.Equal((int)CliExitCode.Success, exitCode);
@@ -113,6 +138,7 @@ public sealed class BuildRunCommandTests
         var command = new BuildRunCommand(service, CommandResultTestWriter.Create());
 
         var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.RunAsync(
+            profilePath: "/repo/.ucli/build/player.json",
             format: "json",
             cancellationToken: CancellationToken.None));
 
@@ -153,6 +179,7 @@ public sealed class BuildRunCommandTests
         var command = new BuildRunCommand(service, CommandResultTestWriter.Create());
 
         var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.RunAsync(
+            profilePath: "/repo/.ucli/build/player.json",
             cancellationToken: CancellationToken.None));
 
         Assert.Equal((int)CliExitCode.Success, exitCode);
@@ -180,7 +207,7 @@ public sealed class BuildRunCommandTests
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         Assert.Contains(UcliContractConstants.CliOption.ProfilePath, result.StdOut, StringComparison.Ordinal);
         Assert.Contains(UcliContractConstants.CliOption.ProjectPath, result.StdOut, StringComparison.Ordinal);
-        Assert.Contains(UcliContractConstants.CliOption.BuildTarget, result.StdOut, StringComparison.Ordinal);
+        Assert.DoesNotContain(UcliContractConstants.CliOption.BuildTarget, result.StdOut, StringComparison.Ordinal);
         Assert.Contains("-p", result.StdOut, StringComparison.Ordinal);
         Assert.Contains(UcliContractConstants.CliOption.Mode, result.StdOut, StringComparison.Ordinal);
         Assert.Contains(UcliContractConstants.CliOption.Timeout, result.StdOut, StringComparison.Ordinal);
@@ -271,16 +298,39 @@ public sealed class BuildRunCommandTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task BuildRun_WithUnspecifiedBuildOption_ReturnsJsonInvalidArgument ()
+    public async Task BuildRun_ProcessWithoutProfilePath_ReturnsJsonInvalidArgument ()
     {
         var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Build,
             UcliCommandNames.RunSubcommand,
-            UcliContractConstants.CliOption.OutputPath,
+            UcliContractConstants.CliOption.Mode,
+            "daemon");
+
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        Assert.True(string.IsNullOrEmpty(result.StdErr), result.StdErr);
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            UcliCommandNames.BuildRun,
+            IpcProtocol.StatusError,
+            (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.InvalidArgument);
+    }
+
+    [Theory]
+    [InlineData(UcliContractConstants.CliOption.OutputPath)]
+    [InlineData(UcliContractConstants.CliOption.BuildTarget)]
+    [Trait("Size", "Medium")]
+    public async Task BuildRun_WithUnspecifiedBuildOption_ReturnsJsonInvalidArgument (string option)
+    {
+        var result = await CliProcessRunner.RunCommandAsync(
+            UcliCommandNames.Build,
+            UcliCommandNames.RunSubcommand,
+            option,
             "/tmp/output");
 
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
-        Assert.Contains("Argument '--outputPath' is not recognized.", result.StdErr, StringComparison.Ordinal);
+        Assert.Contains($"Argument '{option}' is not recognized.", result.StdErr, StringComparison.Ordinal);
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,

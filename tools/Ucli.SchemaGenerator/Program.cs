@@ -363,12 +363,10 @@ internal static class Program
             {
                 ObjectSchema(
                     additionalProperties: false,
-                    Required("kind", StringSchema()),
                     Required("path", StringSchema()),
                     Optional("digest", Sha256LowerHexSchema())),
                 ObjectSchema(
                     additionalProperties: false,
-                    Required("kind", StringSchema()),
                     Required("uri", StringSchema()),
                     Optional("digest", Sha256LowerHexSchema())),
             },
@@ -680,11 +678,9 @@ internal static class Program
                 Required("development", BooleanSchema()))),
             Required("output", ObjectSchema(
                 additionalProperties: false,
-                Required("kind", ConstString("ucliArtifact")),
-                Required("artifactRoot", StringSchema()),
-                Required("outputRoot", StringSchema()),
                 Required("manifestRef", ConstString("buildOutputManifest")),
                 Required("manifestDigest", Sha256LowerHexSchema()),
+                Required("entryCount", IntegerSchema()),
                 Required("fileCount", IntegerSchema()),
                 Required("totalBytes", IntegerSchema()))),
             Required("generations", ObjectSchema(
@@ -742,17 +738,16 @@ internal static class Program
     {
         return ObjectSchema(
             additionalProperties: false,
-            Required("build", CreateBuildRunReportRefSchema("build")),
-            Required("buildReport", CreateBuildRunReportRefSchema("buildReport")),
-            Required("buildOutputManifest", CreateBuildRunReportRefSchema("buildOutputManifest")),
-            Required("buildLog", CreateBuildRunReportRefSchema("buildLog")));
+            Required("build", CreateBuildRunReportRefSchema()),
+            Required("buildReport", CreateBuildRunReportRefSchema()),
+            Required("buildOutputManifest", CreateBuildRunReportRefSchema()),
+            Required("buildLog", CreateBuildRunReportRefSchema()));
     }
 
-    private static Dictionary<string, object?> CreateBuildRunReportRefSchema (string kind)
+    private static Dictionary<string, object?> CreateBuildRunReportRefSchema ()
     {
         return ObjectSchema(
             additionalProperties: false,
-            Required("kind", ConstString(kind)),
             Required("path", StringSchema()),
             Required("digest", Sha256LowerHexSchema()));
     }

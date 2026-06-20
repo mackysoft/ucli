@@ -66,11 +66,6 @@ internal sealed class AssuranceSemanticInvariantValidator
                 continue;
             }
 
-            if (!TryReadRequiredString(reportProperty.Value, "kind", reportPath, violations, out var kind))
-            {
-                continue;
-            }
-
             var hasPath = TryReadOptionalString(reportProperty.Value, "path", reportPath, violations, out var path);
             var hasUri = TryReadOptionalString(reportProperty.Value, "uri", reportPath, violations, out var uri);
             if (hasPath == hasUri)
@@ -78,7 +73,7 @@ internal sealed class AssuranceSemanticInvariantValidator
                 AddViolation(violations, reportPath, "Report entry must contain exactly one locator: path or uri.");
             }
 
-            reports[reportProperty.Name] = new ReportInfo(kind, path, uri);
+            reports[reportProperty.Name] = new ReportInfo(path, uri);
         }
 
         return reports;
@@ -560,7 +555,6 @@ internal sealed class AssuranceSemanticInvariantValidator
     }
 
     private sealed record ReportInfo (
-        string Kind,
         string? Path,
         string? Uri);
 

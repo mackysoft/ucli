@@ -309,8 +309,8 @@ public sealed class CompileCommandTests
             ],
             Reports: new Dictionary<string, CompileReportOutput>(StringComparer.Ordinal)
             {
-                ["compile.summary"] = new CompileReportOutput("compile.summary", "/tmp/ucli/compile/summary.json"),
-                ["compile.diagnostics"] = new CompileReportOutput("compile.diagnostics", "/tmp/ucli/compile/diagnostics.json"),
+                ["compile.summary"] = new CompileReportOutput("/tmp/ucli/compile/summary.json"),
+                ["compile.diagnostics"] = new CompileReportOutput("/tmp/ucli/compile/diagnostics.json"),
             },
             ResidualRisks: [],
             RequestedMode: AssuranceExecutionModeCodec.Auto,

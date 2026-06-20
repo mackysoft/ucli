@@ -89,7 +89,7 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
     private static void ValidateReportEntry (
         JsonElement reportElement,
         string reportPath,
-        string expectedKind,
+        string reportKey,
         List<AssuranceSemanticInvariantViolation> violations)
     {
         if (reportElement.ValueKind != JsonValueKind.Object)
@@ -97,27 +97,18 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
             return;
         }
 
-        if (!TryReadString(reportElement, "kind", out var kind))
-        {
-            AddViolation(violations, BuildPropertyPath(reportPath, "kind"), $"Build report {expectedKind} must declare kind.");
-        }
-        else if (!string.Equals(kind, expectedKind, StringComparison.Ordinal))
-        {
-            AddViolation(violations, BuildPropertyPath(reportPath, "kind"), $"Build report {expectedKind} kind must match its stable report key.");
-        }
-
         if (!TryReadString(reportElement, "path", out _))
         {
-            AddViolation(violations, BuildPropertyPath(reportPath, "path"), $"Build report {expectedKind} must declare path.");
+            AddViolation(violations, BuildPropertyPath(reportPath, "path"), $"Build report {reportKey} must declare path.");
         }
 
         if (!TryReadString(reportElement, "digest", out var digest))
         {
-            AddViolation(violations, BuildPropertyPath(reportPath, "digest"), $"Build report {expectedKind} must declare digest.");
+            AddViolation(violations, BuildPropertyPath(reportPath, "digest"), $"Build report {reportKey} must declare digest.");
         }
         else if (!IsSha256LowerHex(digest))
         {
-            AddViolation(violations, BuildPropertyPath(reportPath, "digest"), $"Build report {expectedKind} digest must be lowercase SHA-256 hex.");
+            AddViolation(violations, BuildPropertyPath(reportPath, "digest"), $"Build report {reportKey} digest must be lowercase SHA-256 hex.");
         }
     }
 

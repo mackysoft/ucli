@@ -462,8 +462,8 @@ internal sealed class CompileService : ICompileService
             Claims: claims,
             Reports: new Dictionary<string, CompileReportOutput>(StringComparer.Ordinal)
             {
-                [SummaryReportRef] = new CompileReportOutput("compile.summary", summaryJsonPath),
-                [DiagnosticsReportRef] = new CompileReportOutput("compile.diagnostics", diagnosticsJsonPath),
+                [SummaryReportRef] = new CompileReportOutput(summaryJsonPath),
+                [DiagnosticsReportRef] = new CompileReportOutput(diagnosticsJsonPath),
             },
             ResidualRisks: EmptyResidualRisks,
             RequestedMode: AssuranceExecutionModeCodec.ToRequestedModeValue(requestedMode),

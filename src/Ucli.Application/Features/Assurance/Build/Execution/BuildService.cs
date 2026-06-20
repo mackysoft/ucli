@@ -8,7 +8,6 @@ using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
 using MackySoft.Ucli.Application.Features.Assurance.Semantics;
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Execution.Progress;
-using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
@@ -91,12 +90,6 @@ internal sealed class BuildService : IBuildService
             return BuildExecutionResult.Failure(profileResolutionResult.Error!, project);
         }
 
-        var profileOverrideResult = ApplyCommandOverrides(profileResolutionResult.Profile!, input);
-        if (!profileOverrideResult.IsSuccess)
-        {
-            return BuildExecutionResult.Failure(profileOverrideResult.Error!, project);
-        }
-
         var timeoutResult = IpcCommandTimeoutResolver.ResolveNormalized(
             input.TimeoutMilliseconds,
             UcliCommandIds.BuildRun,
@@ -146,7 +139,7 @@ internal sealed class BuildService : IBuildService
             return BuildExecutionResult.Failure(prepareResult.Error!, project);
         }
 
-        var profile = profileOverrideResult.Profile!;
+        var profile = profileResolutionResult.Profile!;
         var paths = prepareResult.Paths!;
         await EmitStartedAsync(
                 resolvedProgressSink,
@@ -264,41 +257,6 @@ internal sealed class BuildService : IBuildService
         {
             return BuildExecutionResult.Failure(CreateTimeoutFailure(timeout), project);
         }
-    }
-
-    private static BuildProfileResolutionResult ApplyCommandOverrides (
-        ResolvedBuildProfile profile,
-        BuildCommandInput input)
-    {
-        if (input.BuildTarget is null)
-        {
-            return BuildProfileResolutionResult.Success(profile);
-        }
-
-        if (string.IsNullOrWhiteSpace(input.BuildTarget))
-        {
-            return BuildProfileResolutionResult.Failure(ExecutionError.InvalidArgument(
-                "buildTarget must not be empty.",
-                BuildErrorCodes.BuildTargetUnsupported));
-        }
-
-        if (!BuildTargetStableNameCodec.TryResolve(input.BuildTarget, out var buildTarget))
-        {
-            return BuildProfileResolutionResult.Failure(ExecutionError.InvalidArgument(
-                $"buildTarget is unsupported: {input.BuildTarget}.",
-                BuildErrorCodes.BuildTargetUnsupported));
-        }
-
-        return BuildProfileResolutionResult.Success(profile with
-        {
-            BuildTarget = buildTarget,
-            Digest = BuildProfileDigestCalculator.Calculate(
-                profile.SchemaVersion,
-                buildTarget,
-                profile.Scenes,
-                profile.Output,
-                profile.Options),
-        });
     }
 
     private static ValueTask EmitStartedAsync (
@@ -571,11 +529,9 @@ internal sealed class BuildService : IBuildService
                 Paths: response.Input.Scenes),
             Options: new BuildOptionsOutput(profile.Options.Development),
             Output: new BuildArtifactOutput(
-                Kind: ContractLiteralCodec.ToValue(profile.Output.Kind),
-                ArtifactRoot: paths.ArtifactsDirectory,
-                OutputRoot: paths.OutputDirectory,
                 ManifestRef: BuildReportRefs.BuildOutputManifest,
                 ManifestDigest: accounting.OutputManifest.ManifestDigest,
+                EntryCount: accounting.OutputManifest.EntryCount,
                 FileCount: accounting.OutputManifest.FileCount,
                 TotalBytes: accounting.OutputManifest.TotalBytes),
             Generations: generations,
@@ -609,10 +565,10 @@ internal sealed class BuildService : IBuildService
     {
         return new Dictionary<string, BuildReportOutput>(StringComparer.Ordinal)
         {
-            [BuildReportRefs.Build] = new BuildReportOutput(BuildReportRefs.Build, paths.BuildJsonPath, buildArtifact?.Digest),
-            [BuildReportRefs.BuildReport] = new BuildReportOutput(BuildReportRefs.BuildReport, paths.BuildReportJsonPath, accounting.BuildReport.Digest),
-            [BuildReportRefs.BuildOutputManifest] = new BuildReportOutput(BuildReportRefs.BuildOutputManifest, paths.OutputManifestJsonPath, accounting.BuildOutputManifest.Digest),
-            [BuildReportRefs.BuildLog] = new BuildReportOutput(BuildReportRefs.BuildLog, paths.BuildLogPath, accounting.BuildLog.Digest),
+            [BuildReportRefs.Build] = new BuildReportOutput(paths.BuildJsonPath, buildArtifact?.Digest),
+            [BuildReportRefs.BuildReport] = new BuildReportOutput(paths.BuildReportJsonPath, accounting.BuildReport.Digest),
+            [BuildReportRefs.BuildOutputManifest] = new BuildReportOutput(paths.OutputManifestJsonPath, accounting.BuildOutputManifest.Digest),
+            [BuildReportRefs.BuildLog] = new BuildReportOutput(paths.BuildLogPath, accounting.BuildLog.Digest),
         };
     }
 
@@ -747,6 +703,7 @@ internal sealed class BuildService : IBuildService
                 new Dictionary<string, object?>(StringComparer.Ordinal)
                 {
                     ["manifestRef"] = BuildReportRefs.BuildOutputManifest,
+                    ["entryCount"] = build.Output.EntryCount,
                     ["fileCount"] = build.Output.FileCount,
                 },
                 [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(BuildEffect.OutputManifestWrite), EvidenceRef: BuildReportRefs.Build, Data: build.Output)]),
