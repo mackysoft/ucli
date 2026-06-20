@@ -9,6 +9,7 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 /// <param name="Input"> The resolved BuildPipeline input. </param>
 /// <param name="Report"> The normalized BuildReport artifact payload written by Unity. </param>
 /// <param name="Logs"> The build log artifact summary. </param>
+/// <param name="ProjectMutation"> The project mutation audit captured around runner invocation. </param>
 public sealed record IpcBuildRunResponse (
     string RunId,
     string ProjectFingerprint,
@@ -17,4 +18,5 @@ public sealed record IpcBuildRunResponse (
     IpcBuildDirtyState DirtyState,
     IpcBuildInputProbe Input,
     IpcBuildReportArtifact Report,
-    IpcBuildLogSummary Logs);
+    IpcBuildLogSummary Logs,
+    IpcBuildProjectMutationAudit ProjectMutation);

@@ -1,12 +1,15 @@
 using System;
 using System.Buffers;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Assurance.Build;
+using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
@@ -25,6 +28,8 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private readonly UnityBuildPreconditionProbe preconditionProbe;
 
+        private readonly UnityProjectMutationAuditProbe projectMutationAuditProbe;
+
         private readonly IUnityBuildPipelineRunner buildPipelineRunner;
 
         private readonly IEditorLogRangeExporter editorLogRangeExporter;
@@ -36,12 +41,14 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <summary> Initializes a new instance of the <see cref="BuildRunUnityIpcMethodHandler" /> class. </summary>
         public BuildRunUnityIpcMethodHandler (
             UnityBuildPreconditionProbe preconditionProbe,
+            UnityProjectMutationAuditProbe projectMutationAuditProbe,
             IUnityBuildPipelineRunner buildPipelineRunner,
             IEditorLogRangeExporter editorLogRangeExporter,
             IpcProjectIdentity projectIdentity,
             IIpcRequestTimeoutScopeFactory timeoutScopeFactory)
         {
             this.preconditionProbe = preconditionProbe ?? throw new ArgumentNullException(nameof(preconditionProbe));
+            this.projectMutationAuditProbe = projectMutationAuditProbe ?? throw new ArgumentNullException(nameof(projectMutationAuditProbe));
             this.buildPipelineRunner = buildPipelineRunner ?? throw new ArgumentNullException(nameof(buildPipelineRunner));
             this.editorLogRangeExporter = editorLogRangeExporter ?? throw new ArgumentNullException(nameof(editorLogRangeExporter));
             this.projectIdentity = projectIdentity ?? throw new ArgumentNullException(nameof(projectIdentity));
@@ -93,7 +100,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                         UnityBuildTarget: buildRunRequest.UnityBuildTarget,
                         SceneSource: buildRunRequest.SceneSource,
                         ScenePaths: buildRunRequest.ScenePaths,
-                        Development: buildRunRequest.Development),
+                        Development: buildRunRequest.Development,
+                        AllowedEditorModes: buildRunRequest.AllowedEditorModes),
                     executionCancellationToken);
                 if (!precondition.IsSuccess)
                 {
@@ -105,6 +113,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 var logSourcePath = Application.consoleLogPath;
                 var logStartOffset = GetLogLength(logSourcePath);
                 var startedAtUtc = DateTimeOffset.UtcNow;
+                var mutationBaseline = projectMutationAuditProbe.CaptureBaseline(projectIdentity.ProjectPath);
                 var buildOptions = UnityBuildPlayerOptionsFactory.Create(buildRunRequest, precondition.ResolvedInput!);
                 executionCancellationToken.ThrowIfCancellationRequested();
                 var normalizedReport = buildPipelineRunner.Run(buildOptions);
@@ -112,6 +121,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                 FileSystemAccessBoundary.EnsureSecureDirectory(buildRunRequest.OutputPath);
                 var completedAtUtc = DateTimeOffset.UtcNow;
                 var lifecycleAfter = preconditionProbe.CaptureAfterBuild();
+                var projectMutation = projectMutationAuditProbe.Complete(
+                    projectIdentity.ProjectPath,
+                    buildRunRequest.ProjectMutationMode,
+                    mutationBaseline);
                 var logEndOffset = GetLogLength(logSourcePath);
                 if (logEndOffset < logStartOffset)
                 {
@@ -154,7 +167,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                     DirtyState: precondition.DirtyState!,
                     Input: precondition.InputProbe!,
                     Report: normalizedReport,
-                    Logs: logs);
+                    Logs: logs,
+                    ProjectMutation: projectMutation);
                 return UnityIpcResponseFactory.CreateSuccessResponse(request, response);
             }
             catch (OperationCanceledException) when (IsRequestTimeout(requestTimeoutScope, cancellationToken))
@@ -292,9 +306,22 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             if (string.IsNullOrWhiteSpace(request.BuildTarget)
                 || string.IsNullOrWhiteSpace(request.UnityBuildTarget)
-                || string.IsNullOrWhiteSpace(request.SceneSource))
+                || string.IsNullOrWhiteSpace(request.SceneSource)
+                || string.IsNullOrWhiteSpace(request.ProjectMutationMode))
             {
-                errorMessage = "BuildTarget and scene source values must not be empty.";
+                errorMessage = "BuildTarget, scene source, and project mutation mode values must not be empty.";
+                return false;
+            }
+
+            if (!ContractLiteralCodec.IsDefined<BuildProfileProjectMutationMode>(request.ProjectMutationMode))
+            {
+                errorMessage = $"Build projectMutationMode is invalid: {request.ProjectMutationMode}.";
+                return false;
+            }
+
+            if (!HasValidAllowedEditorModes(request.AllowedEditorModes))
+            {
+                errorMessage = "Build allowedEditorModes must contain at least one supported editor mode.";
                 return false;
             }
 
@@ -344,6 +371,27 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             errorMessage = null;
+            return true;
+        }
+
+        private static bool HasValidAllowedEditorModes (IReadOnlyList<string> allowedEditorModes)
+        {
+            if (allowedEditorModes == null || allowedEditorModes.Count == 0)
+            {
+                return false;
+            }
+
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            for (var i = 0; i < allowedEditorModes.Count; i++)
+            {
+                var allowedEditorMode = allowedEditorModes[i];
+                if (!ContractLiteralCodec.IsDefined<DaemonEditorMode>(allowedEditorMode)
+                    || !seen.Add(allowedEditorMode))
+                {
+                    return false;
+                }
+            }
+
             return true;
         }
 

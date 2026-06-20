@@ -13,6 +13,7 @@
     "dirtyState": {
       "checked": true,
       "dirty": true,
+      "coverage": "full",
       "items": [
         {
           "kind": "scene",

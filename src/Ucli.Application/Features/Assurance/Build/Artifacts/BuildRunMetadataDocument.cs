@@ -14,6 +14,7 @@ namespace MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
 /// <param name="Summary"> The build summary section. </param>
 /// <param name="Logs"> The log reference metadata section. </param>
 /// <param name="Output"> The build output artifact accounting section. </param>
+/// <param name="ProjectMutation"> The project mutation audit section. </param>
 /// <param name="DirtyState"> The build dirty-state evidence section. </param>
 internal sealed record BuildRunMetadataDocument (
     int SchemaVersion,
@@ -27,4 +28,5 @@ internal sealed record BuildRunMetadataDocument (
     JsonElement Summary,
     JsonElement Logs,
     JsonElement Output,
+    JsonElement ProjectMutation,
     JsonElement DirtyState);

@@ -10,10 +10,12 @@ namespace MackySoft.Ucli.Unity.Build
     /// <param name="SceneSource"> The build profile scene source literal. </param>
     /// <param name="ScenePaths"> The explicit scene paths, or an empty list when scene source is Editor Build Settings. </param>
     /// <param name="Development"> Whether the development build option is enabled. </param>
+    /// <param name="AllowedEditorModes"> The editor mode literals allowed by the resolved build runtime policy. </param>
     internal sealed record UnityBuildPreconditionInput (
         string BuildTarget,
         string UnityBuildTarget,
         string SceneSource,
         IReadOnlyList<string> ScenePaths,
-        bool Development);
+        bool Development,
+        IReadOnlyList<string> AllowedEditorModes);
 }

@@ -133,7 +133,14 @@ internal sealed class BuildService : IBuildService
             return BuildExecutionResult.Failure(modeDecisionResult.Error!, project);
         }
 
+        var profile = profileResolutionResult.Profile!;
         var executionTarget = modeDecisionResult.Decision!.Target;
+        var runtimePolicyFailure = ValidateRuntimePolicy(profile.Policy.Runtime, executionTarget);
+        if (runtimePolicyFailure != null)
+        {
+            return BuildExecutionResult.Failure(runtimePolicyFailure, project);
+        }
+
         if (!deadline.TryGetRemainingTimeout(out var requestTimeout))
         {
             return BuildExecutionResult.Failure(CreateTimeoutFailure(timeout), project);
@@ -146,7 +153,6 @@ internal sealed class BuildService : IBuildService
             return BuildExecutionResult.Failure(prepareResult.Error!, project);
         }
 
-        var profile = profileResolutionResult.Profile!;
         var paths = prepareResult.Paths!;
         if (!IpcBuildOutputLayoutResolver.TryResolve(paths.OutputDirectory, profile.BuildTarget.StableName, out var outputLayout))
         {
@@ -205,6 +211,7 @@ internal sealed class BuildService : IBuildService
         if (!responseResult.IsSuccess)
         {
             var dirtyState = responseResult.Error!.Code == BuildErrorCodes.BuildDirtyStatePresent
+                || responseResult.Error.Code == BuildErrorCodes.BuildDirtyStateIndeterminate
                 ? responseResult.ErrorPayload?.DirtyState
                 : null;
             return BuildExecutionResult.Failure(
@@ -261,6 +268,15 @@ internal sealed class BuildService : IBuildService
             if (!metadataWriteResult.IsSuccess)
             {
                 return BuildExecutionResult.Failure(metadataWriteResult.Error!, project);
+            }
+
+            if (IsForbiddenProjectMutationViolation(profile.Policy.ProjectMutationMode, buildResponse.ProjectMutation))
+            {
+                return BuildExecutionResult.Failure(
+                    ApplicationFailure.FromCode(
+                        BuildErrorCodes.BuildProjectMutationForbidden,
+                        "Build project mutation policy forbids project changes or incomplete mutation audit coverage during runner invocation."),
+                    project);
             }
 
             var completedOutput = output with
@@ -347,7 +363,11 @@ internal sealed class BuildService : IBuildService
             OutputPath: paths.OutputDirectory,
             OutputLayout: outputLayout,
             BuildReportPath: paths.BuildReportJsonPath,
-            BuildLogPath: paths.BuildLogPath);
+            BuildLogPath: paths.BuildLogPath,
+            AllowedEditorModes: profile.Policy.Runtime.AllowedEditorModes
+                .Select(ContractLiteralCodec.ToValue)
+                .ToArray(),
+            ProjectMutationMode: ContractLiteralCodec.ToValue(profile.Policy.ProjectMutationMode));
     }
 
     private static BuildResponseResolutionResult ResolveBuildResponse (
@@ -480,7 +500,194 @@ internal sealed class BuildService : IBuildService
                 $"Unity BuildReport BuildTarget mismatch. Input={response.Input.UnityBuildTarget}, Report={response.Report.UnityBuildTarget}.");
         }
 
+        return ValidateProjectMutationAudit(response.ProjectMutation, expectedProfile.Policy.ProjectMutationMode);
+    }
+
+    private static ApplicationFailure? ValidateProjectMutationAudit (
+        IpcBuildProjectMutationAudit projectMutation,
+        BuildProfileProjectMutationMode expectedMode)
+    {
+        if (projectMutation == null)
+        {
+            return ApplicationFailure.InternalError("Unity build response projectMutation audit is missing.");
+        }
+
+        var expectedModeLiteral = ContractLiteralCodec.ToValue(expectedMode);
+        if (!ContractLiteralCodec.TryParse<BuildProfileProjectMutationMode>(projectMutation.Mode, out var mode))
+        {
+            return ApplicationFailure.InternalError($"Unity build response contains unsupported projectMutation mode: {projectMutation.Mode}.");
+        }
+
+        if (mode != expectedMode)
+        {
+            return ApplicationFailure.InternalError(
+                $"Unity build response projectMutation mode mismatch. Requested={expectedModeLiteral}, Actual={projectMutation.Mode}.");
+        }
+
+        if (!ContractLiteralCodec.TryParse<IpcBuildProjectMutationAuditCoverage>(projectMutation.Coverage, out _))
+        {
+            return ApplicationFailure.InternalError($"Unity build response contains unsupported projectMutation coverage: {projectMutation.Coverage}.");
+        }
+
+        if (!IsSha256LowerHex(projectMutation.BeforeDigest))
+        {
+            return ApplicationFailure.InternalError("Unity build response projectMutation beforeDigest must be lowercase SHA-256 hex.");
+        }
+
+        if (!IsSha256LowerHex(projectMutation.AfterDigest))
+        {
+            return ApplicationFailure.InternalError("Unity build response projectMutation afterDigest must be lowercase SHA-256 hex.");
+        }
+
+        if (projectMutation.Items == null)
+        {
+            return ApplicationFailure.InternalError("Unity build response projectMutation items must be present.");
+        }
+
+        var hasItems = projectMutation.Items.Count != 0;
+        if (projectMutation.Mutated != hasItems)
+        {
+            return ApplicationFailure.InternalError("Unity build response projectMutation mutated flag must match the item set.");
+        }
+
+        if (!projectMutation.Mutated
+            && !string.Equals(projectMutation.BeforeDigest, projectMutation.AfterDigest, StringComparison.Ordinal))
+        {
+            return ApplicationFailure.InternalError("Unity build response projectMutation digests must match when no items changed.");
+        }
+
+        if (projectMutation.Mutated
+            && string.Equals(projectMutation.BeforeDigest, projectMutation.AfterDigest, StringComparison.Ordinal))
+        {
+            return ApplicationFailure.InternalError("Unity build response projectMutation digests must differ when items changed.");
+        }
+
+        string? previousPath = null;
+        for (var i = 0; i < projectMutation.Items.Count; i++)
+        {
+            var item = projectMutation.Items[i];
+            var validationFailure = ValidateProjectMutationAuditItem(item, previousPath, i);
+            if (validationFailure != null)
+            {
+                return validationFailure;
+            }
+
+            previousPath = item.Path;
+        }
+
         return null;
+    }
+
+    private static ApplicationFailure? ValidateProjectMutationAuditItem (
+        IpcBuildProjectMutationAuditItem item,
+        string? previousPath,
+        int index)
+    {
+        if (item == null)
+        {
+            return ApplicationFailure.InternalError($"Unity build response projectMutation item at index {index} is missing.");
+        }
+
+        if (!UnityAssetPathContract.IsNormalizedProjectRelativePath(item.Path)
+            || !IsAuditedProjectMutationPath(item.Path))
+        {
+            return ApplicationFailure.InternalError(
+                $"Unity build response projectMutation item at index {index} has an invalid audited project path: {item.Path}.");
+        }
+
+        if (previousPath != null && string.CompareOrdinal(previousPath, item.Path) >= 0)
+        {
+            return ApplicationFailure.InternalError("Unity build response projectMutation items must be ordered by unique project-relative path.");
+        }
+
+        if (!ContractLiteralCodec.TryParse<IpcBuildProjectMutationChangeKind>(item.ChangeKind, out var changeKind))
+        {
+            return ApplicationFailure.InternalError(
+                $"Unity build response projectMutation item at index {index} contains unsupported changeKind: {item.ChangeKind}.");
+        }
+
+        return changeKind switch
+        {
+            IpcBuildProjectMutationChangeKind.Added => ValidateProjectMutationAddedItem(item, index),
+            IpcBuildProjectMutationChangeKind.Modified => ValidateProjectMutationModifiedItem(item, index),
+            IpcBuildProjectMutationChangeKind.Deleted => ValidateProjectMutationDeletedItem(item, index),
+            _ => ApplicationFailure.InternalError(
+                $"Unity build response projectMutation item at index {index} contains unsupported changeKind: {item.ChangeKind}."),
+        };
+    }
+
+    private static ApplicationFailure? ValidateProjectMutationAddedItem (
+        IpcBuildProjectMutationAuditItem item,
+        int index)
+    {
+        if (item.BeforeSha256 != null)
+        {
+            return ApplicationFailure.InternalError(
+                $"Unity build response projectMutation added item at index {index} must not contain beforeSha256.");
+        }
+
+        return IsSha256LowerHex(item.AfterSha256)
+            ? null
+            : ApplicationFailure.InternalError(
+                $"Unity build response projectMutation added item at index {index} must contain afterSha256.");
+    }
+
+    private static ApplicationFailure? ValidateProjectMutationModifiedItem (
+        IpcBuildProjectMutationAuditItem item,
+        int index)
+    {
+        if (!IsSha256LowerHex(item.BeforeSha256) || !IsSha256LowerHex(item.AfterSha256))
+        {
+            return ApplicationFailure.InternalError(
+                $"Unity build response projectMutation modified item at index {index} must contain beforeSha256 and afterSha256.");
+        }
+
+        return !string.Equals(item.BeforeSha256, item.AfterSha256, StringComparison.Ordinal)
+            ? null
+            : ApplicationFailure.InternalError(
+                $"Unity build response projectMutation modified item at index {index} must change digest.");
+    }
+
+    private static ApplicationFailure? ValidateProjectMutationDeletedItem (
+        IpcBuildProjectMutationAuditItem item,
+        int index)
+    {
+        if (item.AfterSha256 != null)
+        {
+            return ApplicationFailure.InternalError(
+                $"Unity build response projectMutation deleted item at index {index} must not contain afterSha256.");
+        }
+
+        return IsSha256LowerHex(item.BeforeSha256)
+            ? null
+            : ApplicationFailure.InternalError(
+                $"Unity build response projectMutation deleted item at index {index} must contain beforeSha256.");
+    }
+
+    private static bool IsAuditedProjectMutationPath (string path)
+    {
+        return path.StartsWith("Assets/", StringComparison.Ordinal)
+            || path.StartsWith("ProjectSettings/", StringComparison.Ordinal)
+            || path.StartsWith("Packages/", StringComparison.Ordinal);
+    }
+
+    private static bool IsSha256LowerHex (string? value)
+    {
+        if (value == null || value.Length != 64)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < value.Length; i++)
+        {
+            var character = value[i];
+            if (!((character >= '0' && character <= '9') || (character >= 'a' && character <= 'f')))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static bool HasExpectedDevelopmentBuildOption (
@@ -564,9 +771,10 @@ internal sealed class BuildService : IBuildService
             Generations: generations,
             Summary: summary,
             Logs: logs);
+        var residualRisks = CreateResidualRisks(profile.Policy.ProjectMutationMode, response.ProjectMutation);
         var claims = CreateClaims(response, build);
         return new BuildExecutionOutput(
-            Verdict: RecalculateVerdict(claims),
+            Verdict: RecalculateVerdict(claims, residualRisks),
             Project: project,
             Build: build,
             Verifiers:
@@ -582,7 +790,7 @@ internal sealed class BuildService : IBuildService
             ],
             Claims: claims,
             Reports: CreateReports(paths, accounting, buildArtifact: null),
-            ResidualRisks: EmptyResidualRisks);
+            ResidualRisks: residualRisks);
     }
 
     private static IReadOnlyDictionary<string, BuildReportOutput> CreateReports (
@@ -630,6 +838,7 @@ internal sealed class BuildService : IBuildService
             Summary: SerializeMetadataElement(output.Build.Summary),
             Logs: SerializeMetadataElement(output.Build.Logs),
             Output: SerializeMetadataElement(output.Build.Output),
+            ProjectMutation: SerializeMetadataElement(response.ProjectMutation),
             DirtyState: SerializeMetadataElement(response.DirtyState));
     }
 
@@ -705,6 +914,15 @@ internal sealed class BuildService : IBuildService
                 },
                 [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(BuildEvidenceKind.BuildInput), EvidenceRef: BuildReportRefs.Build, Data: response.Input)]),
             CreateClaim(
+                BuildClaimCodes.UnityBuildRunnerResolved,
+                BuildClaimStatus.Passed,
+                "Build runner was resolved before invocation.",
+                new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["kind"] = "buildPipeline",
+                },
+                [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(BuildEffect.UnityBuildPipeline), EvidenceRef: BuildReportRefs.Build)]),
+            CreateClaim(
                 BuildClaimCodes.UnityBuildCompleted,
                 knownTerminalResult ? BuildClaimStatus.Passed : BuildClaimStatus.Indeterminate,
                 "Unity BuildPipeline reached a terminal BuildReport result.",
@@ -723,6 +941,15 @@ internal sealed class BuildService : IBuildService
                     ["errorCount"] = build.Summary.ErrorCount,
                 },
                 [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(BuildEffect.UnityBuildReportRead), EvidenceRef: BuildReportRefs.BuildReport, Data: build.Summary)]),
+            CreateClaim(
+                BuildClaimCodes.UnityBuildResultAccounted,
+                BuildClaimStatus.Passed,
+                "Build runner terminal result was persisted in build metadata.",
+                new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["result"] = build.Summary.Result,
+                },
+                [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(BuildEffect.UnityBuildReportRead), EvidenceRef: BuildReportRefs.Build, Data: build.Summary)]),
             CreateClaim(
                 BuildClaimCodes.UnityBuildReportAccounted,
                 BuildClaimStatus.Passed,
@@ -764,6 +991,17 @@ internal sealed class BuildService : IBuildService
                 },
                 [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(BuildEffect.UnityLogWindowRead), EvidenceRef: BuildReportRefs.BuildLog, Data: build.Logs)]),
             CreateClaim(
+                BuildClaimCodes.UnityBuildProjectMutationAccounted,
+                ResolveProjectMutationClaimStatus(response.ProjectMutation),
+                "Project mutation audit was recorded according to build policy.",
+                new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["mode"] = response.ProjectMutation.Mode,
+                    ["coverage"] = response.ProjectMutation.Coverage,
+                    ["mutated"] = response.ProjectMutation.Mutated,
+                },
+                [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(BuildEffect.ProjectMutationAudit), EvidenceRef: BuildReportRefs.Build, Data: response.ProjectMutation)]),
+            CreateClaim(
                 BuildClaimCodes.UnityBuildValidForGeneration,
                 HasCompleteGenerationSnapshot(build.Generations) ? BuildClaimStatus.Passed : BuildClaimStatus.Indeterminate,
                 "Build artifacts declare the Unity lifecycle generations they are valid for.",
@@ -775,6 +1013,70 @@ internal sealed class BuildService : IBuildService
                 },
                 [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(BuildEffect.GenerationSnapshot), EvidenceRef: BuildReportRefs.Build, Data: build.Generations)]),
         ];
+    }
+
+    private static BuildClaimStatus ResolveProjectMutationClaimStatus (IpcBuildProjectMutationAudit projectMutation)
+    {
+        return IsFullProjectMutationCoverage(projectMutation)
+            ? BuildClaimStatus.Passed
+            : BuildClaimStatus.Indeterminate;
+    }
+
+    private static IReadOnlyList<BuildResidualRiskOutput> CreateResidualRisks (
+        BuildProfileProjectMutationMode mode,
+        IpcBuildProjectMutationAudit projectMutation)
+    {
+        var risks = new List<BuildResidualRiskOutput>(capacity: 2);
+        if (mode == BuildProfileProjectMutationMode.Audit && projectMutation.Mutated)
+        {
+            risks.Add(CreateProjectMutationRisk(
+                BuildRiskCodes.ProjectMutationDetected,
+                "Project mutation audit evidence should be reviewed for this build run."));
+        }
+
+        if ((mode == BuildProfileProjectMutationMode.Audit || mode == BuildProfileProjectMutationMode.AllowWithAudit)
+            && !IsFullProjectMutationCoverage(projectMutation))
+        {
+            risks.Add(CreateProjectMutationRisk(
+                BuildRiskCodes.ProjectMutationAuditCoverageIncomplete,
+                "Project mutation audit did not cover every configured project path for this build run."));
+        }
+
+        return risks.Count == 0
+            ? EmptyResidualRisks
+            : risks;
+    }
+
+    private static BuildResidualRiskOutput CreateProjectMutationRisk (
+        UcliCode code,
+        string statement)
+    {
+        return new BuildResidualRiskOutput(
+            Code: code.Value,
+            Severity: IpcExecuteDiagnosticSeverityNames.Warning,
+            Blocking: false,
+            Statement: statement);
+    }
+
+    private static bool IsForbiddenProjectMutationViolation (
+        BuildProfileProjectMutationMode mode,
+        IpcBuildProjectMutationAudit projectMutation)
+    {
+        return mode == BuildProfileProjectMutationMode.Forbid
+            && (projectMutation.Mutated || !IsFullProjectMutationCoverage(projectMutation));
+    }
+
+    private static bool IsFullProjectMutationCoverage (IpcBuildProjectMutationAudit projectMutation)
+    {
+        if (projectMutation == null)
+        {
+            return false;
+        }
+
+        return string.Equals(
+            projectMutation.Coverage,
+            ContractLiteralCodec.ToValue(IpcBuildProjectMutationAuditCoverage.Full),
+            StringComparison.Ordinal);
     }
 
     private static bool HasCompleteGenerationSnapshot (BuildGenerationsOutput generations)
@@ -815,7 +1117,9 @@ internal sealed class BuildService : IBuildService
             ResidualRisks: EmptyResidualRisks);
     }
 
-    private static string RecalculateVerdict (IReadOnlyList<BuildClaimOutput> claims)
+    private static string RecalculateVerdict (
+        IReadOnlyList<BuildClaimOutput> claims,
+        IReadOnlyList<BuildResidualRiskOutput> residualRisks)
     {
         return AssuranceVerdictCalculator.Calculate(
             claims
@@ -825,9 +1129,43 @@ internal sealed class BuildService : IBuildService
                     Required: claim.Required,
                     HasBlockingResidualRisk: claim.ResidualRisks.Any(static risk => risk.Blocking)))
                 .ToArray(),
-            EmptyResidualRisks
+            residualRisks
                 .Select(static risk => new AssuranceVerdictResidualRiskState(risk.Blocking))
                 .ToArray());
+    }
+
+    private static ApplicationFailure? ValidateRuntimePolicy (
+        ResolvedBuildRuntimePolicy policy,
+        UnityExecutionTarget executionTarget)
+    {
+        var resolvedExecutionMode = ResolveProfileRuntimeExecutionMode(executionTarget);
+        if (!policy.AllowedExecutionModes.Contains(resolvedExecutionMode))
+        {
+            var modeLiteral = ContractLiteralCodec.ToValue(resolvedExecutionMode);
+            return ApplicationFailure.FromCode(
+                BuildErrorCodes.BuildRuntimePolicyViolation,
+                $"Build runtime policy does not allow resolved execution mode '{modeLiteral}'.");
+        }
+
+        if (executionTarget == UnityExecutionTarget.Oneshot
+            && !policy.AllowedEditorModes.Contains(DaemonEditorMode.Batchmode))
+        {
+            return ApplicationFailure.FromCode(
+                BuildErrorCodes.BuildRuntimePolicyViolation,
+                "Build runtime policy does not allow oneshot batchmode editor execution.");
+        }
+
+        return null;
+    }
+
+    private static BuildProfileRuntimeExecutionMode ResolveProfileRuntimeExecutionMode (UnityExecutionTarget executionTarget)
+    {
+        return executionTarget switch
+        {
+            UnityExecutionTarget.Daemon => BuildProfileRuntimeExecutionMode.Daemon,
+            UnityExecutionTarget.Oneshot => BuildProfileRuntimeExecutionMode.Oneshot,
+            _ => throw new ArgumentOutOfRangeException(nameof(executionTarget), executionTarget, "Unsupported execution target."),
+        };
     }
 
     private static UnityExecutionMode ResolveExecutionMode (UnityExecutionTarget executionTarget)

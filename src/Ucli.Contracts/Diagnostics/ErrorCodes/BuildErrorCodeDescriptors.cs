@@ -85,23 +85,61 @@ internal static class BuildErrorCodeDescriptors
             relatedCodes: [BuildErrorCodes.BuildInputsInvalid]),
 
         UcliErrorDescriptorFactory.Create(
+            code: BuildErrorCodes.BuildRuntimePolicyViolation,
+            category: "build",
+            summary: "The build runtime policy rejected the selected runtime.",
+            meaning: "The resolved execution mode or Unity editor mode is not allowed by the build profile runtime policy.",
+            appliesTo: AppliesToBuildRun,
+            possiblePhases: ["runtimePolicy", "preconditionProbe"],
+            impliesNotApplied: true,
+            mayBeIndeterminate: false,
+            safeToRetry: UcliErrorRetryClassValues.No,
+            inspect: ["errors[].code", "errors[].message", "payload.project"],
+            nextActions:
+            [
+                new UcliErrorNextActionDescriptor(
+                    When: null,
+                    Action: "Run the build with an allowed execution/editor mode or update the build profile runtime policy."),
+            ],
+            relatedCodes: [BuildErrorCodes.BuildProfileInvalid]),
+
+        UcliErrorDescriptorFactory.Create(
             code: BuildErrorCodes.BuildDirtyStatePresent,
             category: "build",
-            summary: "Build input scenes have unsaved changes.",
-            meaning: "One or more loaded scenes included in the build input are dirty, so the BuildPipeline precondition probe stopped before starting the build.",
+            summary: "Audited project items have unsaved changes.",
+            meaning: "One or more loaded scenes or persistent project assets are dirty, so the BuildPipeline precondition probe stopped before starting the build.",
             appliesTo: AppliesToBuildRun,
             possiblePhases: ["preconditionProbe", "dirtyStateCheck"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
             safeToRetry: UcliErrorRetryClassValues.No,
-            inspect: ["errors[].code", "errors[].message", "payload.dirtyState.checked", "payload.dirtyState.dirty", "payload.dirtyState.items[].path"],
+            inspect: ["errors[].code", "errors[].message", "payload.dirtyState.checked", "payload.dirtyState.dirty", "payload.dirtyState.coverage", "payload.dirtyState.items[].path"],
             nextActions:
             [
                 new UcliErrorNextActionDescriptor(
                     When: null,
-                    Action: "Save or revert the dirty scenes listed in dirtyState.items before running the build again."),
+                    Action: "Save or revert the dirty project items listed in dirtyState.items before running the build again."),
             ],
             relatedCodes: [BuildErrorCodes.BuildInputsInvalid]),
+
+        UcliErrorDescriptorFactory.Create(
+            code: BuildErrorCodes.BuildDirtyStateIndeterminate,
+            category: "build",
+            summary: "Build dirty state could not be fully checked.",
+            meaning: "The build precondition probe did not find dirty items, but dirty-state coverage was partial, so runner invocation was blocked.",
+            appliesTo: AppliesToBuildRun,
+            possiblePhases: ["preconditionProbe", "dirtyStateCheck"],
+            impliesNotApplied: true,
+            mayBeIndeterminate: true,
+            safeToRetry: UcliErrorRetryClassValues.Unknown,
+            inspect: ["errors[].code", "errors[].message", "payload.dirtyState.checked", "payload.dirtyState.coverage"],
+            nextActions:
+            [
+                new UcliErrorNextActionDescriptor(
+                    When: null,
+                    Action: "Inspect dirtyState.coverage and rerun after Unity can provide complete dirty-state evidence."),
+            ],
+            relatedCodes: [BuildErrorCodes.BuildDirtyStatePresent]),
 
         UcliErrorDescriptorFactory.Create(
             code: BuildErrorCodes.BuildReportMissing,
@@ -178,5 +216,24 @@ internal static class BuildErrorCodeDescriptors
                     Action: "Rerun the build and inspect concurrent writes to the build artifact directory if the mismatch repeats."),
             ],
             relatedCodes: [BuildErrorCodes.BuildOutputManifestFailed]),
+
+        UcliErrorDescriptorFactory.Create(
+            code: BuildErrorCodes.BuildProjectMutationForbidden,
+            category: "build",
+            summary: "Project mutation was detected while mutation is forbidden.",
+            meaning: "The build profile projectMutationMode is forbid and the project mutation audit detected file changes across runner invocation.",
+            appliesTo: AppliesToBuildRun,
+            possiblePhases: ["projectMutationAudit"],
+            impliesNotApplied: false,
+            mayBeIndeterminate: false,
+            safeToRetry: UcliErrorRetryClassValues.No,
+            inspect: ["errors[].code", "errors[].message", "payload.project"],
+            nextActions:
+            [
+                new UcliErrorNextActionDescriptor(
+                    When: null,
+                    Action: "Review build.json projectMutation evidence and either remove the mutation or use an audit policy."),
+            ],
+            relatedCodes: [BuildErrorCodes.BuildRuntimePolicyViolation]),
     ];
 }

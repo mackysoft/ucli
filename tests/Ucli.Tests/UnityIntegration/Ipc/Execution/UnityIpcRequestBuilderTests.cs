@@ -76,7 +76,9 @@ public sealed class UnityIpcRequestBuilderTests
                 Shape: ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.File),
                 LocationPathName: "/tmp/ucli/output/player/Player"),
             BuildReportPath: "/tmp/ucli/build-report.json",
-            BuildLogPath: "/tmp/ucli/build.log"));
+            BuildLogPath: "/tmp/ucli/build.log",
+            AllowedEditorModes: ["batchmode"],
+            ProjectMutationMode: "forbid"));
 
         Assert.Equal(IpcMethodNames.BuildRun, request.Method);
         Assert.False(request.IsRecoverable);
@@ -92,6 +94,8 @@ public sealed class UnityIpcRequestBuilderTests
         Assert.Equal("/tmp/ucli/output/player/Player", payload.OutputLayout.LocationPathName);
         Assert.Equal("/tmp/ucli/build-report.json", payload.BuildReportPath);
         Assert.Equal("/tmp/ucli/build.log", payload.BuildLogPath);
+        Assert.Equal(["batchmode"], payload.AllowedEditorModes);
+        Assert.Equal("forbid", payload.ProjectMutationMode);
         Assert.Null(payload.TimeoutMilliseconds);
     }
 
@@ -197,7 +201,9 @@ public sealed class UnityIpcRequestBuilderTests
                 Shape: ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.File),
                 LocationPathName: "/tmp/ucli/output/player/Player"),
             BuildReportPath: "/tmp/ucli/build-report.json",
-            BuildLogPath: "/tmp/ucli/build.log"));
+            BuildLogPath: "/tmp/ucli/build.log",
+            AllowedEditorModes: ["batchmode"],
+            ProjectMutationMode: "forbid"));
 
         var request = UnityIpcRequestFactory.Create(
             "session-token",

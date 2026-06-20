@@ -129,12 +129,15 @@ internal static class BuildRunTestData
             CreateClaim(BuildClaimCodes.UnityBuildProfileResolved, passed, "Build profile resolved.", BuildReportRefs.Build),
             CreateClaim(BuildClaimCodes.UnityReadyForBuild, passed, "Unity was ready for build.", null),
             CreateClaim(BuildClaimCodes.UnityBuildInputsResolved, passed, "Build inputs resolved.", BuildReportRefs.Build),
+            CreateClaim(BuildClaimCodes.UnityBuildRunnerResolved, passed, "Build runner resolved.", BuildReportRefs.Build),
             CreateClaim(BuildClaimCodes.UnityBuildCompleted, passed, "BuildPipeline completed.", BuildReportRefs.BuildReport),
             CreateClaim(BuildClaimCodes.UnityBuildSucceeded, succeededStatus, "BuildPipeline succeeded.", BuildReportRefs.BuildReport),
+            CreateClaim(BuildClaimCodes.UnityBuildResultAccounted, passed, "Build result accounted.", BuildReportRefs.Build),
             CreateClaim(BuildClaimCodes.UnityBuildReportAccounted, passed, "BuildReport artifact accounted.", BuildReportRefs.BuildReport),
             CreateClaim(BuildClaimCodes.UnityBuildArtifactsAccounted, passed, "Build artifacts accounted.", BuildReportRefs.Build),
             CreateClaim(BuildClaimCodes.UnityBuildOutputDigested, passed, "Build output digested.", BuildReportRefs.BuildOutputManifest),
             CreateClaim(BuildClaimCodes.UnityBuildLogsAccounted, passed, "Build logs accounted.", BuildReportRefs.BuildLog),
+            CreateClaim(BuildClaimCodes.UnityBuildProjectMutationAccounted, passed, "Project mutation accounted.", BuildReportRefs.Build),
             CreateClaim(BuildClaimCodes.UnityBuildValidForGeneration, passed, "Build generations captured.", BuildReportRefs.Build),
         ];
     }

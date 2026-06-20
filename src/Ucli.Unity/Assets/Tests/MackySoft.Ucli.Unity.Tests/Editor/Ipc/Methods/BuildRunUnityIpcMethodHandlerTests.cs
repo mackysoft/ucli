@@ -4,6 +4,8 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Assurance;
+using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
@@ -39,6 +41,48 @@ namespace MackySoft.Ucli.Unity.Tests
                 var result = BuildRunUnityIpcMethodHandler.TryValidateRequest(request, identity, out var errorMessage);
 
                 Assert.That(result, Is.True, errorMessage);
+            }
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        [TestCase(BuildProfileProjectMutationMode.Forbid)]
+        [TestCase(BuildProfileProjectMutationMode.Audit)]
+        [TestCase(BuildProfileProjectMutationMode.AllowWithAudit)]
+        public void TryValidateRequest_WithKnownProjectMutationMode_ReturnsTrue (BuildProfileProjectMutationMode mode)
+        {
+            using (var scope = TemporaryDirectoryScope.Create())
+            {
+                var identity = CreateProjectIdentity(scope.ProjectPath);
+                var request = CreateRequest(scope.ProjectPath, identity) with
+                {
+                    ProjectMutationMode = ContractLiteralCodec.ToValue(mode),
+                };
+
+                var result = BuildRunUnityIpcMethodHandler.TryValidateRequest(request, identity, out var errorMessage);
+
+                Assert.That(result, Is.True, errorMessage);
+            }
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        [TestCase("FORBID")]
+        [TestCase("legacy")]
+        public void TryValidateRequest_WithInvalidProjectMutationMode_ReturnsFalse (string projectMutationMode)
+        {
+            using (var scope = TemporaryDirectoryScope.Create())
+            {
+                var identity = CreateProjectIdentity(scope.ProjectPath);
+                var request = CreateRequest(scope.ProjectPath, identity) with
+                {
+                    ProjectMutationMode = projectMutationMode,
+                };
+
+                var result = BuildRunUnityIpcMethodHandler.TryValidateRequest(request, identity, out var errorMessage);
+
+                Assert.That(result, Is.False);
+                Assert.That(errorMessage, Does.Contain("projectMutationMode is invalid"));
             }
         }
 
@@ -200,6 +244,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         identity,
                         new StubServerVersionProvider("1.2.3"),
                         new CountingBuildTargetSupportProbe()),
+                    new UnityProjectMutationAuditProbe(),
                     buildPipelineRunner,
                     logRangeExporter,
                     identity,
@@ -240,6 +285,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         identity,
                         new StubServerVersionProvider("1.2.3"),
                         new CountingBuildTargetSupportProbe()),
+                    new UnityProjectMutationAuditProbe(),
                     buildPipelineRunner,
                     logRangeExporter,
                     identity,
@@ -279,6 +325,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         identity,
                         new StubServerVersionProvider("1.2.3"),
                         new CountingBuildTargetSupportProbe()),
+                    new UnityProjectMutationAuditProbe(),
                     buildPipelineRunner,
                     logRangeExporter,
                     identity,
@@ -307,6 +354,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public async Task HandleAsync_WithExistingOutputLayoutTarget_ReturnsBuildArtifactWriteFailedWithoutRunningBuild ()
         {
             using (var scope = TemporaryDirectoryScope.Create())
+            using (var editorScope = new EditorTestScope().SuppressExistingPersistentDirtyObjects())
             {
                 var identity = CreateProjectIdentity(scope.ProjectPath);
                 var readinessGate = new CountingReadinessGate();
@@ -318,6 +366,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         identity,
                         new StubServerVersionProvider("1.2.3"),
                         new CountingBuildTargetSupportProbe()),
+                    new UnityProjectMutationAuditProbe(),
                     buildPipelineRunner,
                     logRangeExporter,
                     identity,
@@ -351,6 +400,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 "Unity console log path is not available in this test environment.");
 
             using (var scope = TemporaryDirectoryScope.Create())
+            using (var editorScope = new EditorTestScope().SuppressExistingPersistentDirtyObjects())
             {
                 var identity = CreateProjectIdentity(scope.ProjectPath);
                 var requestPayload = CreateRequest(scope.ProjectPath, identity);
@@ -374,6 +424,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         identity,
                         new StubServerVersionProvider("1.2.3"),
                         new CountingBuildTargetSupportProbe()),
+                    new UnityProjectMutationAuditProbe(),
                     buildPipelineRunner,
                     logRangeExporter,
                     identity,
@@ -410,10 +461,67 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
+        public async Task HandleAsync_WithRunnerProjectMutation_ReturnsMutationAudit ()
+        {
+            using (var scope = TemporaryDirectoryScope.Create())
+            using (var editorScope = new EditorTestScope().SuppressExistingPersistentDirtyObjects())
+            {
+                var identity = CreateProjectIdentity(scope.ProjectPath);
+                var requestPayload = CreateRequest(scope.ProjectPath, identity) with
+                {
+                    ProjectMutationMode = ContractLiteralCodec.ToValue(BuildProfileProjectMutationMode.Audit),
+                };
+                Directory.CreateDirectory(requestPayload.OutputPath);
+                const string MutatedPath = "Assets/GeneratedByRunner.txt";
+                var mutatedFullPath = Path.Combine(scope.ProjectPath, MutatedPath);
+                var reportArtifact = CreateReportArtifact(
+                    ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+                    Path.Combine(requestPayload.OutputPath, "build"),
+                    errorCount: 0,
+                    warningCount: 0);
+                var buildPipelineRunner = new CountingBuildPipelineRunner(
+                    reportArtifact,
+                    _ => File.WriteAllText(mutatedFullPath, "generated by runner"));
+                var handler = new BuildRunUnityIpcMethodHandler(
+                    new UnityBuildPreconditionProbe(
+                        new CountingReadinessGate(),
+                        identity,
+                        new StubServerVersionProvider("1.2.3"),
+                        new CountingBuildTargetSupportProbe()),
+                    new UnityProjectMutationAuditProbe(),
+                    buildPipelineRunner,
+                    new CountingEditorLogRangeExporter(
+                        string.Empty,
+                        entryCount: 0,
+                        errorCount: 0,
+                        warningCount: 0),
+                    identity,
+                    new CountingTimeoutScopeFactory());
+
+                var response = await handler.HandleAsync(CreateIpcRequest(requestPayload), CancellationToken.None);
+
+                Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+                Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcBuildRunResponse payload, out _), Is.True);
+                Assert.That(buildPipelineRunner.CallCount, Is.EqualTo(1));
+                Assert.That(payload.ProjectMutation.Mode, Is.EqualTo(ContractLiteralCodec.ToValue(BuildProfileProjectMutationMode.Audit)));
+                Assert.That(payload.ProjectMutation.Coverage, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildProjectMutationAuditCoverage.Full)));
+                Assert.That(payload.ProjectMutation.Mutated, Is.True);
+                Assert.That(payload.ProjectMutation.BeforeDigest, Is.Not.EqualTo(payload.ProjectMutation.AfterDigest));
+                Assert.That(payload.ProjectMutation.Items, Has.Count.EqualTo(1));
+                var item = payload.ProjectMutation.Items[0];
+                Assert.That(item.Path, Is.EqualTo(MutatedPath));
+                Assert.That(item.ChangeKind, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildProjectMutationChangeKind.Added)));
+                Assert.That(item.BeforeSha256, Is.Null);
+                Assert.That(item.AfterSha256, Is.Not.Null);
+            }
+        }
+
+        [Test]
+        [Category("Size.Small")]
         public async Task HandleAsync_WithDirtyScenePrecondition_ReturnsDirtyStateWithoutRunningBuild ()
         {
             using (var scope = TemporaryDirectoryScope.Create())
-            using (var editorScope = new EditorTestScope())
+            using (var editorScope = new EditorTestScope().SuppressExistingPersistentDirtyObjects())
             {
                 var (scenePath, scene) = CreateSavedScene(editorScope, "BuildRunHandlerDirty", NewSceneMode.Single);
                 MarkSceneDirty(scene, "DirtyBuildRunRoot");
@@ -430,6 +538,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         identity,
                         new StubServerVersionProvider("1.2.3"),
                         new CountingBuildTargetSupportProbe()),
+                    new UnityProjectMutationAuditProbe(),
                     buildPipelineRunner,
                     logRangeExporter,
                     identity,
@@ -485,7 +594,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 OutputPath: outputPath,
                 OutputLayout: outputLayout!,
                 BuildReportPath: Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildReportFileName),
-                BuildLogPath: Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildLogFileName));
+                BuildLogPath: Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildLogFileName),
+                AllowedEditorModes: new[] { ContractLiteralCodec.ToValue(DaemonEditorMode.Batchmode) },
+                ProjectMutationMode: ContractLiteralCodec.ToValue(BuildProfileProjectMutationMode.Forbid));
         }
 
         private static IpcRequest CreateIpcRequest (IpcBuildRunRequest payload)
@@ -639,15 +750,20 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private sealed class CountingBuildPipelineRunner : IUnityBuildPipelineRunner
         {
+            private readonly Action<BuildPlayerOptions>? onRun;
+
             private readonly IpcBuildReportArtifact? report;
 
             public CountingBuildPipelineRunner ()
             {
             }
 
-            public CountingBuildPipelineRunner (IpcBuildReportArtifact report)
+            public CountingBuildPipelineRunner (
+                IpcBuildReportArtifact report,
+                Action<BuildPlayerOptions>? onRun = null)
             {
                 this.report = report;
+                this.onRun = onRun;
             }
 
             public int CallCount { get; private set; }
@@ -658,6 +774,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 CallCount++;
                 LastOptions = options;
+                onRun?.Invoke(options);
                 if (report == null)
                 {
                     throw new InvalidOperationException("BuildPipeline must not run for an invalid build.run request.");
@@ -765,6 +882,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 RootPath = rootPath;
                 ProjectPath = Path.Combine(rootPath, "UnityProject");
                 Directory.CreateDirectory(ProjectPath);
+                for (var i = 0; i < UnityProjectMutationAuditScope.RootRelativePaths.Count; i++)
+                {
+                    Directory.CreateDirectory(Path.Combine(ProjectPath, UnityProjectMutationAuditScope.RootRelativePaths[i]));
+                }
             }
 
             public string RootPath { get; }

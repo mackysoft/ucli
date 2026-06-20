@@ -80,12 +80,15 @@
           "UNITY_BUILD_PROFILE_RESOLVED",
           "UNITY_READY_FOR_BUILD",
           "UNITY_BUILD_INPUTS_RESOLVED",
+          "UNITY_BUILD_RUNNER_RESOLVED",
           "UNITY_BUILD_COMPLETED",
           "UNITY_BUILD_SUCCEEDED",
+          "UNITY_BUILD_RESULT_ACCOUNTED",
           "UNITY_BUILD_REPORT_ACCOUNTED",
           "UNITY_BUILD_ARTIFACTS_ACCOUNTED",
           "UNITY_BUILD_OUTPUT_DIGESTED",
           "UNITY_BUILD_LOGS_ACCOUNTED",
+          "UNITY_BUILD_PROJECT_MUTATION_ACCOUNTED",
           "UNITY_BUILD_VALID_FOR_GENERATION"
         ],
         "effects": [
@@ -95,7 +98,8 @@
           "unityLogWindowRead",
           "ucliArtifactWrite",
           "outputManifestWrite",
-          "generationSnapshot"
+          "generationSnapshot",
+          "projectMutationAudit"
         ],
         "reportRef": "build"
       }
@@ -174,6 +178,24 @@
         "residualRisks": []
       },
       {
+        "id": "UNITY_BUILD_RUNNER_RESOLVED",
+        "status": "passed",
+        "coverage": "full",
+        "required": true,
+        "verifierRef": "build",
+        "statement": "Build runner was resolved before invocation.",
+        "subject": {
+          "kind": "buildPipeline"
+        },
+        "evidence": [
+          {
+            "kind": "unityBuildPipeline",
+            "evidenceRef": "build"
+          }
+        ],
+        "residualRisks": []
+      },
+      {
         "id": "UNITY_BUILD_COMPLETED",
         "status": "passed",
         "coverage": "full",
@@ -213,6 +235,31 @@
           {
             "kind": "unityBuildReportRead",
             "evidenceRef": "buildReport",
+            "data": {
+              "result": "failed",
+              "durationMilliseconds": 2400,
+              "errorCount": 1,
+              "warningCount": 0,
+              "reportRef": "buildReport"
+            }
+          }
+        ],
+        "residualRisks": []
+      },
+      {
+        "id": "UNITY_BUILD_RESULT_ACCOUNTED",
+        "status": "passed",
+        "coverage": "full",
+        "required": true,
+        "verifierRef": "build",
+        "statement": "Build runner terminal result was persisted in build metadata.",
+        "subject": {
+          "result": "failed"
+        },
+        "evidence": [
+          {
+            "kind": "unityBuildReportRead",
+            "evidenceRef": "build",
             "data": {
               "result": "failed",
               "durationMilliseconds": 2400,
@@ -313,6 +360,34 @@
                 "startedAtUtc": "2026-06-01T00:00:00+00:00",
                 "completedAtUtc": "2026-06-01T00:00:02.5+00:00"
               }
+            }
+          }
+        ],
+        "residualRisks": []
+      },
+      {
+        "id": "UNITY_BUILD_PROJECT_MUTATION_ACCOUNTED",
+        "status": "passed",
+        "coverage": "full",
+        "required": true,
+        "verifierRef": "build",
+        "statement": "Project mutation audit was recorded according to build policy.",
+        "subject": {
+          "mode": "forbid",
+          "coverage": "full",
+          "mutated": false
+        },
+        "evidence": [
+          {
+            "kind": "projectMutationAudit",
+            "evidenceRef": "build",
+            "data": {
+              "mode": "forbid",
+              "coverage": "full",
+              "mutated": false,
+              "beforeDigest": "1111111111111111111111111111111111111111111111111111111111111111",
+              "afterDigest": "1111111111111111111111111111111111111111111111111111111111111111",
+              "items": []
             }
           }
         ],

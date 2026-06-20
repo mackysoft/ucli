@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
@@ -10,7 +11,9 @@ using MackySoft.Ucli.Unity.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
 using UnityEditor;
 using UnityEditor.SceneManagement;
+using UnityEngine;
 using UnityEngine.SceneManagement;
+using Object = UnityEngine.Object;
 
 #nullable enable
 
@@ -69,6 +72,19 @@ namespace MackySoft.Ucli.Unity.Build
                     readiness.Error ?? CreateInternalPreconditionError("Unity editor readiness probe failed without an error."));
             }
 
+            if (!IsEditorModeAllowed(lifecycleBefore.EditorMode, input.AllowedEditorModes))
+            {
+                return UnityBuildPreconditionProbeResult.Failure(
+                    projectIdentity,
+                    lifecycleBefore,
+                    null,
+                    null,
+                    new IpcError(
+                        BuildErrorCodes.BuildRuntimePolicyViolation,
+                        $"Build runtime policy does not allow Unity editor mode '{lifecycleBefore.EditorMode}'.",
+                        null));
+            }
+
             var targetSupport = targetSupportProbe.Probe(input.UnityBuildTarget);
             cancellationToken.ThrowIfCancellationRequested();
             if (!targetSupport.IsValidTarget)
@@ -109,7 +125,7 @@ namespace MackySoft.Ucli.Unity.Build
 
             var buildOptions = CreateBuildOptions(input);
             var resolvedInputProbe = CreateInputProbe(input, targetSupport, scenePaths, buildOptions);
-            var dirtyState = CaptureDirtyState(scenePaths, cancellationToken);
+            var dirtyState = CaptureDirtyState(cancellationToken);
             if (dirtyState.Dirty)
             {
                 return UnityBuildPreconditionProbeResult.Failure(
@@ -119,7 +135,20 @@ namespace MackySoft.Ucli.Unity.Build
                     resolvedInputProbe,
                     new IpcError(
                         BuildErrorCodes.BuildDirtyStatePresent,
-                        "One or more build input scenes have unsaved changes.",
+                        "One or more project items have unsaved changes.",
+                        null));
+            }
+
+            if (IsPartialCoverage(dirtyState))
+            {
+                return UnityBuildPreconditionProbeResult.Failure(
+                    projectIdentity,
+                    lifecycleBefore,
+                    dirtyState,
+                    resolvedInputProbe,
+                    new IpcError(
+                        BuildErrorCodes.BuildDirtyStateIndeterminate,
+                        "Build dirty state could not be checked with full coverage.",
                         null));
             }
 
@@ -151,12 +180,11 @@ namespace MackySoft.Ucli.Unity.Build
         }
 
         private static IpcBuildDirtyState CaptureDirtyState (
-            IReadOnlyList<string> scenePaths,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var buildInputScenePaths = new HashSet<string>(scenePaths, StringComparer.Ordinal);
-            var items = new List<IpcBuildDirtyStateItem>();
+            var itemsByPath = new Dictionary<string, IpcBuildDirtyStateItem>(StringComparer.Ordinal);
+            var coverage = IpcBuildDirtyStateCoverage.Full;
             for (var sceneIndex = 0; sceneIndex < SceneManager.sceneCount; sceneIndex++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -172,21 +200,165 @@ namespace MackySoft.Ucli.Unity.Build
                 }
 
                 var normalizedPath = NormalizeLoadedScenePath(scene.path);
-                if (!buildInputScenePaths.Contains(normalizedPath))
-                {
-                    continue;
-                }
-
-                items.Add(new IpcBuildDirtyStateItem(
+                AddDirtyItem(
+                    itemsByPath,
                     ContractLiteralCodec.ToValue(IpcBuildDirtyStateItemKind.Scene),
-                    normalizedPath));
+                    normalizedPath);
             }
 
+            try
+            {
+                CapturePersistentDirtyObjects(itemsByPath, cancellationToken);
+            }
+            catch (Exception exception) when (exception is InvalidOperationException or ArgumentException)
+            {
+                coverage = IpcBuildDirtyStateCoverage.Partial;
+            }
+
+            var items = new List<IpcBuildDirtyStateItem>(itemsByPath.Values);
             items.Sort(static (left, right) => string.Compare(left.Path, right.Path, StringComparison.Ordinal));
             return new IpcBuildDirtyState(
                 Checked: true,
                 Dirty: items.Count != 0,
+                Coverage: ContractLiteralCodec.ToValue(coverage),
                 Items: items);
+        }
+
+        private static void CapturePersistentDirtyObjects (
+            Dictionary<string, IpcBuildDirtyStateItem> itemsByPath,
+            CancellationToken cancellationToken)
+        {
+            var objects = Resources.FindObjectsOfTypeAll<Object>();
+            for (var i = 0; i < objects.Length; i++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var target = objects[i];
+                if (target == null
+                    || !EditorUtility.IsPersistent(target)
+                    || !EditorUtility.IsDirty(target))
+                {
+                    continue;
+                }
+
+                var path = NormalizeLoadedScenePath(AssetDatabase.GetAssetPath(target));
+                if (string.IsNullOrWhiteSpace(path))
+                {
+                    continue;
+                }
+
+                if (!IsPersistentDirtyObjectAuditedPath(path))
+                {
+                    continue;
+                }
+
+                AddDirtyItem(itemsByPath, ContractLiteralCodec.ToValue(ClassifyDirtyItem(path)), path);
+            }
+        }
+
+        private static void AddDirtyItem (
+            Dictionary<string, IpcBuildDirtyStateItem> itemsByPath,
+            string kind,
+            string path)
+        {
+            if (!itemsByPath.ContainsKey(path))
+            {
+                itemsByPath[path] = new IpcBuildDirtyStateItem(kind, path);
+            }
+        }
+
+        internal static bool IsPersistentDirtyObjectAuditedPath (string path)
+        {
+            if (!UnityProjectMutationAuditScope.IsAuditedProjectPath(path))
+            {
+                return false;
+            }
+
+            if (!path.StartsWith("Packages/", StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            return HasProjectLocalPackagePath(path);
+        }
+
+        private static bool HasProjectLocalPackagePath (string path)
+        {
+            var projectRootPath = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+            var packageRootPath = Path.GetFullPath(Path.Combine(projectRootPath, "Packages"));
+            var absolutePath = Path.GetFullPath(Path.Combine(projectRootPath, path.Replace('/', Path.DirectorySeparatorChar)));
+            if (!IsEqualOrChildPath(packageRootPath, absolutePath))
+            {
+                return false;
+            }
+
+            return File.Exists(absolutePath) || Directory.Exists(absolutePath);
+        }
+
+        private static bool IsEqualOrChildPath (
+            string parentPath,
+            string candidatePath)
+        {
+            if (string.Equals(parentPath, candidatePath, StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            return candidatePath.StartsWith(parentPath + Path.DirectorySeparatorChar, StringComparison.Ordinal);
+        }
+
+        private static IpcBuildDirtyStateItemKind ClassifyDirtyItem (string path)
+        {
+            if (path.EndsWith(".unity", StringComparison.OrdinalIgnoreCase))
+            {
+                return IpcBuildDirtyStateItemKind.Scene;
+            }
+
+            if (path.EndsWith(".prefab", StringComparison.OrdinalIgnoreCase))
+            {
+                return IpcBuildDirtyStateItemKind.Prefab;
+            }
+
+            if (path.StartsWith("ProjectSettings/", StringComparison.Ordinal))
+            {
+                return IpcBuildDirtyStateItemKind.ProjectSettings;
+            }
+
+            if (path.StartsWith("Assets/", StringComparison.Ordinal)
+                || path.StartsWith("Packages/", StringComparison.Ordinal))
+            {
+                return IpcBuildDirtyStateItemKind.Asset;
+            }
+
+            return IpcBuildDirtyStateItemKind.Unknown;
+        }
+
+        private static bool IsEditorModeAllowed (
+            string editorMode,
+            IReadOnlyList<string> allowedEditorModes)
+        {
+            if (allowedEditorModes == null || allowedEditorModes.Count == 0)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < allowedEditorModes.Count; i++)
+            {
+                if (string.Equals(editorMode, allowedEditorModes[i], StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool IsPartialCoverage (IpcBuildDirtyState dirtyState)
+        {
+            return string.Equals(
+                dirtyState.Coverage,
+                ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Partial),
+                StringComparison.Ordinal);
         }
 
         private static bool TryResolveScenePaths (

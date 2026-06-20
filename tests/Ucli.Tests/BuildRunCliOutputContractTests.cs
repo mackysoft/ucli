@@ -93,6 +93,7 @@ public sealed class BuildRunCliOutputContractTests
         Assert.Equal(BuildErrorCodes.BuildDirtyStatePresent.Value, root.GetProperty("errors")[0].GetProperty("code").GetString());
         Assert.True(dirtyState.GetProperty("checked").GetBoolean());
         Assert.True(dirtyState.GetProperty("dirty").GetBoolean());
+        Assert.Equal("full", dirtyState.GetProperty("coverage").GetString());
         Assert.Equal("scene", dirtyItem.GetProperty("kind").GetString());
         Assert.Equal("Assets/Scenes/Main.unity", dirtyItem.GetProperty("path").GetString());
     }
@@ -346,6 +347,11 @@ public sealed class BuildRunCliOutputContractTests
             return "Unity resolved BuildPipeline BuildTarget and scenes.";
         }
 
+        if (BuildClaimCodes.UnityBuildRunnerResolved == code)
+        {
+            return "Build runner was resolved before invocation.";
+        }
+
         if (BuildClaimCodes.UnityBuildCompleted == code)
         {
             return "Unity BuildPipeline reached a terminal BuildReport result.";
@@ -354,6 +360,11 @@ public sealed class BuildRunCliOutputContractTests
         if (BuildClaimCodes.UnityBuildSucceeded == code)
         {
             return "Unity BuildPipeline reported a successful build result.";
+        }
+
+        if (BuildClaimCodes.UnityBuildResultAccounted == code)
+        {
+            return "Build runner terminal result was persisted in build metadata.";
         }
 
         if (BuildClaimCodes.UnityBuildReportAccounted == code)
@@ -374,6 +385,11 @@ public sealed class BuildRunCliOutputContractTests
         if (BuildClaimCodes.UnityBuildLogsAccounted == code)
         {
             return "Build log byte range was written and summarized.";
+        }
+
+        if (BuildClaimCodes.UnityBuildProjectMutationAccounted == code)
+        {
+            return "Project mutation audit was recorded according to build policy.";
         }
 
         return "Build artifacts declare the Unity lifecycle generations they are valid for.";
@@ -409,6 +425,14 @@ public sealed class BuildRunCliOutputContractTests
             };
         }
 
+        if (BuildClaimCodes.UnityBuildRunnerResolved == code)
+        {
+            return new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["kind"] = "buildPipeline",
+            };
+        }
+
         if (BuildClaimCodes.UnityBuildCompleted == code)
         {
             return new Dictionary<string, object?>(StringComparer.Ordinal)
@@ -423,6 +447,14 @@ public sealed class BuildRunCliOutputContractTests
             {
                 ["result"] = build.Summary.Result,
                 ["errorCount"] = build.Summary.ErrorCount,
+            };
+        }
+
+        if (BuildClaimCodes.UnityBuildResultAccounted == code)
+        {
+            return new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["result"] = build.Summary.Result,
             };
         }
 
@@ -459,6 +491,16 @@ public sealed class BuildRunCliOutputContractTests
                 ["reportRef"] = BuildReportRefs.BuildLog,
                 ["entryCount"] = build.Logs.EntryCount,
                 ["completionReason"] = build.Logs.CompletionReason,
+            };
+        }
+
+        if (BuildClaimCodes.UnityBuildProjectMutationAccounted == code)
+        {
+            return new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["mode"] = "forbid",
+                ["coverage"] = "full",
+                ["mutated"] = false,
             };
         }
 
@@ -517,6 +559,11 @@ public sealed class BuildRunCliOutputContractTests
             ];
         }
 
+        if (BuildClaimCodes.UnityBuildRunnerResolved == code)
+        {
+            return [new BuildEvidenceOutput(ContractLiteralCodec.ToValue(BuildEffect.UnityBuildPipeline), BuildReportRefs.Build)];
+        }
+
         if (BuildClaimCodes.UnityBuildCompleted == code)
         {
             return [new BuildEvidenceOutput(ContractLiteralCodec.ToValue(BuildEffect.UnityBuildPipeline), BuildReportRefs.BuildReport, build.Summary)];
@@ -525,6 +572,11 @@ public sealed class BuildRunCliOutputContractTests
         if (BuildClaimCodes.UnityBuildSucceeded == code)
         {
             return [new BuildEvidenceOutput(ContractLiteralCodec.ToValue(BuildEffect.UnityBuildReportRead), BuildReportRefs.BuildReport, build.Summary)];
+        }
+
+        if (BuildClaimCodes.UnityBuildResultAccounted == code)
+        {
+            return [new BuildEvidenceOutput(ContractLiteralCodec.ToValue(BuildEffect.UnityBuildReportRead), BuildReportRefs.Build, build.Summary)];
         }
 
         if (BuildClaimCodes.UnityBuildReportAccounted == code)
@@ -545,6 +597,25 @@ public sealed class BuildRunCliOutputContractTests
         if (BuildClaimCodes.UnityBuildLogsAccounted == code)
         {
             return [new BuildEvidenceOutput(ContractLiteralCodec.ToValue(BuildEffect.UnityLogWindowRead), BuildReportRefs.BuildLog, build.Logs)];
+        }
+
+        if (BuildClaimCodes.UnityBuildProjectMutationAccounted == code)
+        {
+            return
+            [
+                new BuildEvidenceOutput(
+                    ContractLiteralCodec.ToValue(BuildEffect.ProjectMutationAudit),
+                    BuildReportRefs.Build,
+                    new Dictionary<string, object?>(StringComparer.Ordinal)
+                    {
+                        ["mode"] = "forbid",
+                        ["coverage"] = "full",
+                        ["mutated"] = false,
+                        ["beforeDigest"] = new string('1', 64),
+                        ["afterDigest"] = new string('1', 64),
+                        ["items"] = Array.Empty<object>(),
+                    }),
+            ];
         }
 
         return [new BuildEvidenceOutput(ContractLiteralCodec.ToValue(BuildEffect.GenerationSnapshot), BuildReportRefs.Build, build.Generations)];
@@ -582,6 +653,7 @@ public sealed class BuildRunCliOutputContractTests
         return new IpcBuildDirtyState(
             Checked: true,
             Dirty: true,
+            Coverage: ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Full),
             Items:
             [
                 new IpcBuildDirtyStateItem(
