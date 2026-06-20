@@ -13,7 +13,6 @@ using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Ipc;
 using CodeCatalogModel = MackySoft.Ucli.Application.Features.CodeCatalog.Catalog.CodeCatalog;
@@ -136,7 +135,7 @@ public sealed class BuildServiceTests
         Assert.Equal(0, artifactStore.WrittenMetadata.Runner.GetProperty("invocation").GetProperty("environment").GetArrayLength());
         Assert.Equal(ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.File), artifactStore.WrittenMetadata.Runner.GetProperty("outputLayout").GetProperty("shape").GetString());
         Assert.Equal(
-            CreateExpectedPlayerLocationPathName(preparedPaths.OutputDirectory),
+            CreateExpectedPlayerLocationPathName(preparedPaths.RunnerOutputDirectory),
             artifactStore.WrittenMetadata.Runner.GetProperty("outputLayout").GetProperty("locationPathName").GetString());
         Assert.Equal(output.Build.Summary.ReportRef, artifactStore.WrittenMetadata.Summary.GetProperty("reportRef").GetString());
         Assert.Equal(output.Build.Logs.ReportRef, artifactStore.WrittenMetadata.Logs.GetProperty("reportRef").GetString());
@@ -160,7 +159,7 @@ public sealed class BuildServiceTests
         Assert.Equal("transientProbe", startedEntry.SessionKind);
         Assert.Equal(10000, startedEntry.TimeoutMilliseconds);
         Assert.Equal("standaloneLinux64", startedEntry.BuildTarget);
-        Assert.Equal(preparedPaths.OutputDirectory, startedEntry.OutputPath);
+        Assert.Equal(preparedPaths.RunnerOutputDirectory, startedEntry.OutputPath);
         var completedEntry = Assert.IsType<BuildRunCompletedEntry>(progressSink.Entries[1].Payload);
         Assert.Equal(RunId, completedEntry.RunId);
         Assert.Equal(ContractLiteralCodec.ToValue(BuildVerdict.Pass), completedEntry.Verdict);
@@ -185,13 +184,20 @@ public sealed class BuildServiceTests
         Assert.Equal("explicit", requestPayload.SceneSource);
         Assert.Equal(["Assets/Scenes/Main.unity"], requestPayload.ScenePaths);
         Assert.True(requestPayload.Development);
-        Assert.Equal(preparedPaths.OutputDirectory, requestPayload.OutputPath);
+        Assert.Equal(preparedPaths.RunnerOutputDirectory, requestPayload.OutputPath);
         Assert.Equal(ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.File), requestPayload.OutputLayout.Shape);
-        Assert.Equal(CreateExpectedPlayerLocationPathName(preparedPaths.OutputDirectory), requestPayload.OutputLayout.LocationPathName);
+        Assert.Equal(CreateExpectedPlayerLocationPathName(preparedPaths.RunnerOutputDirectory), requestPayload.OutputLayout.LocationPathName);
         Assert.Equal(preparedPaths.BuildReportJsonPath, requestPayload.BuildReportPath);
         Assert.Equal(preparedPaths.BuildLogPath, requestPayload.BuildLogPath);
         Assert.Equal(["batchmode", "gui"], requestPayload.AllowedEditorModes);
         Assert.Equal("forbid", requestPayload.ProjectMutationMode);
+        Assert.NotEqual(preparedPaths.RunnerOutputDirectory, preparedPaths.ArtifactOutputDirectory);
+        var accountingRequest = Assert.IsType<BuildRunArtifactAccountingRequest>(artifactStore.AccountingRequest);
+        var outputSource = Assert.Single(accountingRequest.OutputSources);
+        Assert.Equal(requestPayload.OutputLayout.LocationPathName, outputSource.SourcePath);
+        Assert.Equal("standaloneLinux64", accountingRequest.BuildTarget);
+        Assert.Equal("StandaloneLinux64", accountingRequest.UnityBuildTarget);
+        Assert.False(accountingRequest.AllowEmptyOutputManifest);
     }
 
     [Fact]
@@ -665,35 +671,43 @@ public sealed class BuildServiceTests
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
     }
 
-    [Fact]
+    [Theory]
     [Trait("Size", "Small")]
-    public async Task Execute_WithReportOutputPathOutsideRequestedOutput_ReturnsCommandFailure ()
+    [InlineData(IpcBuildReportResult.Failed, IpcBuildLogCompletionReason.Failed)]
+    [InlineData(IpcBuildReportResult.Canceled, IpcBuildLogCompletionReason.Canceled)]
+    public async Task Execute_WithUnsuccessfulBuildResponse_AllowsEmptyOutputManifest (
+        IpcBuildReportResult reportResult,
+        IpcBuildLogCompletionReason completionReason)
     {
         using var tempDirectory = TemporaryDirectory.Create();
-        var reportOutputPath = System.IO.Path.Combine(tempDirectory.Path, "outside", "build");
         var artifactStore = new StubBuildRunArtifactStore(
             tempDirectory.Path,
             (request, _) =>
             {
-                Assert.Equal(reportOutputPath, request.ReportedOutputPath);
-                return ValueTask.FromResult(BuildRunArtifactAccountingOperationResult.Failure(ExecutionError.InternalError(
-                    "Build report output path must remain under the requested output directory.",
-                    BuildErrorCodes.BuildOutputManifestFailed)));
+                Assert.True(request.AllowEmptyOutputManifest);
+                return ValueTask.FromResult(BuildRunArtifactAccountingOperationResult.Success(new BuildRunArtifactAccountingResult(
+                    BuildReport: new BuildArtifactRef(BuildArtifactKind.BuildReport, "build-report.json", BuildReportArtifactDigest),
+                    BuildOutputManifest: new BuildArtifactRef(BuildArtifactKind.BuildOutputManifest, "output-manifest.json", BuildOutputManifestArtifactDigest),
+                    BuildLog: new BuildArtifactRef(BuildArtifactKind.BuildLog, "build.log", BuildLogArtifactDigest),
+                    OutputManifest: new BuildOutputManifestSummary(
+                        ManifestDigest: OutputManifestDigest,
+                        EntryCount: 0,
+                        FileCount: 0,
+                        TotalBytes: 0))));
             });
         var service = CreateService(
             requestExecutor: CreateBuildResponseExecutor(
-                ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
-                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
-                errorCount: 0,
-                reportOutputPath: reportOutputPath),
+                ContractLiteralCodec.ToValue(reportResult),
+                ContractLiteralCodec.ToValue(completionReason),
+                errorCount: 1),
             artifactStore: artifactStore);
 
         var result = await service.ExecuteAsync(CreateInput());
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
-        Assert.Equal(BuildErrorCodes.BuildOutputManifestFailed, error.Code);
-        Assert.Null(result.Output);
+        Assert.True(result.IsSuccess);
+        Assert.Equal(0, result.Output!.Build.Output.EntryCount);
+        Assert.Equal(0, result.Output.Build.Output.FileCount);
+        Assert.Equal(0, result.Output.Build.Output.TotalBytes);
     }
 
     [Fact]
@@ -1434,8 +1448,9 @@ public sealed class BuildServiceTests
             string runId)
         {
             var runDirectory = Path.Combine(rootPath, runId);
-            var outputDirectory = Path.Combine(runDirectory, "output");
-            Directory.CreateDirectory(outputDirectory);
+            var runnerOutputDirectory = Path.Combine(rootPath, "work", runId, "output");
+            var artifactOutputDirectory = Path.Combine(runDirectory, "output");
+            Directory.CreateDirectory(runnerOutputDirectory);
             PreparedPaths = new BuildRunArtifactPaths(
                 RepositoryRoot: rootPath,
                 RunId: runId,
@@ -1444,7 +1459,8 @@ public sealed class BuildServiceTests
                 BuildReportJsonPath: Path.Combine(runDirectory, "build-report.json"),
                 BuildLogPath: Path.Combine(runDirectory, "build.log"),
                 OutputManifestJsonPath: Path.Combine(runDirectory, "output-manifest.json"),
-                OutputDirectory: outputDirectory);
+                RunnerOutputDirectory: runnerOutputDirectory,
+                ArtifactOutputDirectory: artifactOutputDirectory);
             return BuildRunArtifactPreparationResult.Success(PreparedPaths);
         }
 
