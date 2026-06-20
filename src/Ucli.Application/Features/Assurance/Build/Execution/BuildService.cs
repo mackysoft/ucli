@@ -231,16 +231,14 @@ internal sealed class BuildService : IBuildService
         var artifactCancellationToken = artifactAccountingCancellationTokenSource.Token;
         try
         {
+            var reportResult = ResolveTerminalBuildReportResult(buildResponse.Report.Result);
             var accountingResult = await artifactStore.AccountArtifactsAsync(
                     new BuildRunArtifactAccountingRequest(
                         paths,
                         profile.BuildTarget.StableName,
                         profile.BuildTarget.UnityBuildTargetLiteral,
                         [new BuildOutputSourceEntry(outputLayout!.LocationPathName)],
-                        !string.Equals(
-                            buildResponse.Report.Result,
-                            ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
-                            StringComparison.Ordinal)),
+                        CanWriteEmptyOutputManifest(reportResult)),
                     artifactCancellationToken)
                 .ConfigureAwait(false);
             if (!accountingResult.IsSuccess)
@@ -467,6 +465,11 @@ internal sealed class BuildService : IBuildService
             return ApplicationFailure.InternalError($"Unity build response contains unsupported report result: {response.Report.Result}.");
         }
 
+        if (!IsTerminalBuildReportResult(reportResult))
+        {
+            return ApplicationFailure.InternalError($"Unity build response contains non-terminal report result: {response.Report.Result}.");
+        }
+
         if (!ContractLiteralCodec.TryParse<IpcBuildLogCompletionReason>(response.Logs.CompletionReason, out var completionReason))
         {
             return ApplicationFailure.InternalError($"Unity build response contains unsupported log completionReason: {response.Logs.CompletionReason}.");
@@ -581,6 +584,27 @@ internal sealed class BuildService : IBuildService
         }
 
         return null;
+    }
+
+    private static IpcBuildReportResult ResolveTerminalBuildReportResult (string result)
+    {
+        if (!ContractLiteralCodec.TryParse<IpcBuildReportResult>(result, out var reportResult)
+            || !IsTerminalBuildReportResult(reportResult))
+        {
+            throw new InvalidOperationException($"Build report result is not terminal: {result}");
+        }
+
+        return reportResult;
+    }
+
+    private static bool CanWriteEmptyOutputManifest (IpcBuildReportResult reportResult)
+    {
+        return reportResult is IpcBuildReportResult.Failed or IpcBuildReportResult.Canceled;
+    }
+
+    private static bool IsTerminalBuildReportResult (IpcBuildReportResult reportResult)
+    {
+        return reportResult is IpcBuildReportResult.Succeeded or IpcBuildReportResult.Failed or IpcBuildReportResult.Canceled;
     }
 
     private static ApplicationFailure? ValidateProjectMutationAuditItem (

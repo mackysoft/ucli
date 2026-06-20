@@ -1,10 +1,19 @@
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Assurance.Build;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Tests.Assurance.Build;
 
 public sealed class BuildOutputManifestJsonContractWriterTests
 {
+    [Fact]
+    [Trait("Size", "Small")]
+    public void BuildOutputManifestEntryKind_HasStableContractLiterals ()
+    {
+        Assert.Equal("file", ContractLiteralCodec.ToValue(BuildOutputManifestEntryKind.File));
+        Assert.Equal("directory", ContractLiteralCodec.ToValue(BuildOutputManifestEntryKind.Directory));
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public void Write_WritesStablePublicShapeWithTrailingNewline ()

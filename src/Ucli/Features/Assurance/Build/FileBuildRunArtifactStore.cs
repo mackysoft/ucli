@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
@@ -8,6 +9,7 @@ using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Cryptography;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
@@ -19,9 +21,19 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
 {
     private const int FileStreamBufferSize = 81920;
     private const string OutputEntryIdPrefix = "output-";
-    private const string OutputEntryKindDirectory = "directory";
-    private const string OutputEntryKindFile = "file";
+    private const int PosixFileStatusBufferSize = 256;
+    private const int PosixFileTypeMask = 0xF000;
+    private const int PosixRegularFileType = 0x8000;
+    private const int LinuxFileModeOffset = 24;
+    private const int LinuxArm64FileModeOffset = 16;
+    private const int LinuxDeviceOffset = 0;
+    private const int LinuxInodeOffset = 8;
+    private const int MacOsDeviceOffset = 0;
+    private const int MacOsFileModeOffset = 4;
+    private const int MacOsInodeOffset = 8;
 
+    private static readonly string OutputEntryKindDirectory = ContractLiteralCodec.ToValue(BuildOutputManifestEntryKind.Directory);
+    private static readonly string OutputEntryKindFile = ContractLiteralCodec.ToValue(BuildOutputManifestEntryKind.File);
     private static readonly UTF8Encoding Utf8NoBom = new(encoderShouldEmitUTF8Identifier: false);
 
     private readonly BuildOutputManifestJsonContractWriter outputManifestWriter;
@@ -642,12 +654,14 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
 
             var sourcePath = Path.GetFullPath(outputSource.SourcePath);
             EnsureOutputSourceOutsideArtifactRoot(paths, sourcePath);
+            EnsureOutputSourceInsideRunnerOutputRoot(paths, sourcePath);
             if (!File.Exists(sourcePath) && !Directory.Exists(sourcePath))
             {
                 missingSourcePath = sourcePath;
                 continue;
             }
 
+            EnsureOutputSourcePathHasNoReparsePoint(paths.RunnerOutputDirectory, sourcePath);
             var kind = ResolveOutputSourceEntryKind(sourcePath);
             entries.Add(new ResolvedOutputSourceEntry(sourcePath, kind));
         }
@@ -670,6 +684,18 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         return entries;
     }
 
+    private static void EnsureOutputSourceInsideRunnerOutputRoot (
+        BuildRunArtifactPaths paths,
+        string sourcePath)
+    {
+        var runnerOutputRoot = Path.GetFullPath(paths.RunnerOutputDirectory);
+        if (!PathsAreSameOrNested(runnerOutputRoot, sourcePath))
+        {
+            throw new OutputPathPolicyException(
+                $"Output source path must resolve inside the runner output root. Source={sourcePath}, RunnerOutputRoot={runnerOutputRoot}.");
+        }
+    }
+
     private static void EnsureOutputSourceOutsideArtifactRoot (
         BuildRunArtifactPaths paths,
         string sourcePath)
@@ -679,6 +705,38 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         {
             throw new OutputPathPolicyException(
                 $"Output source path must not resolve inside the artifact root. Source={sourcePath}, ArtifactRoot={artifactRoot}.");
+        }
+    }
+
+    private static void EnsureOutputSourcePathHasNoReparsePoint (
+        string runnerOutputRoot,
+        string sourcePath)
+    {
+        var rootPath = Path.GetFullPath(runnerOutputRoot);
+        var relativePath = Path.GetRelativePath(rootPath, sourcePath);
+        if (string.Equals(relativePath, ".", StringComparison.Ordinal))
+        {
+            EnsureOutputPathNodeIsNotReparsePoint(sourcePath);
+            return;
+        }
+
+        var currentPath = rootPath;
+        var segments = relativePath.Split(
+            [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
+            StringSplitOptions.RemoveEmptyEntries);
+        for (var i = 0; i < segments.Length; i++)
+        {
+            currentPath = Path.Combine(currentPath, segments[i]);
+            EnsureOutputPathNodeIsNotReparsePoint(currentPath);
+        }
+    }
+
+    private static void EnsureOutputPathNodeIsNotReparsePoint (string path)
+    {
+        var attributes = File.GetAttributes(path);
+        if ((attributes & FileAttributes.ReparsePoint) != 0)
+        {
+            throw new IOException($"Build output path must not contain a reparse point: {path}");
         }
     }
 
@@ -800,6 +858,7 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
     {
         cancellationToken.ThrowIfCancellationRequested();
         EnsureReadableOutputFile(sourcePath);
+        var sourceIdentity = CaptureOutputFileIdentity(sourcePath);
 
         var destinationDirectoryPath = Path.GetDirectoryName(destinationPath);
         if (string.IsNullOrWhiteSpace(destinationDirectoryPath))
@@ -819,6 +878,8 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
                 FileShare.Read,
                 FileStreamBufferSize,
                 FileOptions.Asynchronous | FileOptions.SequentialScan);
+            EnsureOpenedOutputFileMatchesIdentity(sourcePath, sourceStream, sourceIdentity);
+
             using var destinationStream = new FileStream(
                 destinationPath,
                 FileMode.CreateNew,
@@ -847,6 +908,107 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         }
 
         FileSystemAccessBoundary.EnsureSecureFile(destinationPath);
+    }
+
+    private static OutputFileIdentity CaptureOutputFileIdentity (string sourcePath)
+    {
+        if (!CanCapturePosixFileIdentity())
+        {
+            return OutputFileIdentity.Unavailable;
+        }
+
+        var buffer = ArrayPool<byte>.Shared.Rent(PosixFileStatusBufferSize);
+        try
+        {
+            if (LStat(sourcePath, buffer) != 0)
+            {
+                throw new IOException($"Build output file identity could not be inspected: {sourcePath}. errno={Marshal.GetLastWin32Error()}");
+            }
+
+            return ReadOutputFileIdentity(buffer);
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
+    }
+
+    private static void EnsureOpenedOutputFileMatchesIdentity (
+        string sourcePath,
+        FileStream sourceStream,
+        OutputFileIdentity expectedIdentity)
+    {
+        if (!expectedIdentity.IsAvailable)
+        {
+            EnsureReadableOutputFile(sourcePath);
+            return;
+        }
+
+        var actualIdentity = CaptureOpenedOutputFileIdentity(sourcePath, sourceStream);
+        if (!actualIdentity.IsRegularFile)
+        {
+            throw new IOException($"Build output file must be a regular file after opening: {sourcePath}");
+        }
+
+        if (actualIdentity.Device != expectedIdentity.Device || actualIdentity.Inode != expectedIdentity.Inode)
+        {
+            throw new IOException($"Build output file changed before it could be copied: {sourcePath}");
+        }
+    }
+
+    private static OutputFileIdentity CaptureOpenedOutputFileIdentity (
+        string sourcePath,
+        FileStream sourceStream)
+    {
+        var buffer = ArrayPool<byte>.Shared.Rent(PosixFileStatusBufferSize);
+        try
+        {
+            if (FStat(sourceStream.SafeFileHandle.DangerousGetHandle(), buffer) != 0)
+            {
+                throw new IOException($"Opened build output file identity could not be inspected: {sourcePath}. errno={Marshal.GetLastWin32Error()}");
+            }
+
+            return ReadOutputFileIdentity(buffer);
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
+    }
+
+    private static OutputFileIdentity ReadOutputFileIdentity (byte[] buffer)
+    {
+        if (OperatingSystem.IsLinux())
+        {
+            return new OutputFileIdentity(
+                IsAvailable: true,
+                Device: BitConverter.ToUInt64(buffer, LinuxDeviceOffset),
+                Inode: BitConverter.ToUInt64(buffer, LinuxInodeOffset),
+                Mode: BitConverter.ToInt32(buffer, GetLinuxFileModeOffset()));
+        }
+
+        if (OperatingSystem.IsMacOS())
+        {
+            return new OutputFileIdentity(
+                IsAvailable: true,
+                Device: BitConverter.ToUInt32(buffer, MacOsDeviceOffset),
+                Inode: BitConverter.ToUInt64(buffer, MacOsInodeOffset),
+                Mode: BitConverter.ToUInt16(buffer, MacOsFileModeOffset));
+        }
+
+        return OutputFileIdentity.Unavailable;
+    }
+
+    private static int GetLinuxFileModeOffset ()
+    {
+        return RuntimeInformation.ProcessArchitecture == Architecture.Arm64
+            ? LinuxArm64FileModeOffset
+            : LinuxFileModeOffset;
+    }
+
+    private static bool CanCapturePosixFileIdentity ()
+    {
+        return OperatingSystem.IsLinux() || OperatingSystem.IsMacOS();
     }
 
     private static async ValueTask<long> AddArtifactFileEntryAsync (
@@ -1297,6 +1459,17 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         }
     }
 
+    private readonly record struct OutputFileIdentity (
+        bool IsAvailable,
+        ulong Device,
+        ulong Inode,
+        int Mode)
+    {
+        public static OutputFileIdentity Unavailable => default;
+
+        public bool IsRegularFile => (Mode & PosixFileTypeMask) == PosixRegularFileType;
+    }
+
     private sealed record ResolvedOutputSourceEntry (
         string SourcePath,
         string Kind);
@@ -1351,5 +1524,15 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         {
         }
     }
+
+    [DllImport("libc", SetLastError = true, EntryPoint = "lstat")]
+    private static extern int LStat (
+        string path,
+        byte[] fileStatus);
+
+    [DllImport("libc", SetLastError = true, EntryPoint = "fstat")]
+    private static extern int FStat (
+        IntPtr fileDescriptor,
+        byte[] fileStatus);
 
 }

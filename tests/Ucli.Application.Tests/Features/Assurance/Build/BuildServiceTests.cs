@@ -671,6 +671,28 @@ public sealed class BuildServiceTests
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithUnknownBuildReportResult_ReturnsCommandFailureBeforeArtifactAccounting ()
+    {
+        using var tempDirectory = TemporaryDirectory.Create();
+        var artifactStore = new StubBuildRunArtifactStore(tempDirectory.Path);
+        var service = CreateService(
+            requestExecutor: CreateBuildResponseExecutor(
+                ContractLiteralCodec.ToValue(IpcBuildReportResult.Unknown),
+                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Failed),
+                errorCount: 1),
+            artifactStore: artifactStore);
+
+        var result = await service.ExecuteAsync(CreateInput());
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
+        Assert.Null(artifactStore.AccountingRequest);
+        Assert.Null(artifactStore.WrittenMetadata);
+    }
+
     [Theory]
     [Trait("Size", "Small")]
     [InlineData(IpcBuildReportResult.Failed, IpcBuildLogCompletionReason.Failed)]
