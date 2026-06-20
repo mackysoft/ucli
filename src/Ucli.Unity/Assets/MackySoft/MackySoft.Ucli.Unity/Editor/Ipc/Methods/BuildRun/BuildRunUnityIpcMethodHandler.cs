@@ -426,7 +426,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 return string.Equals(
                     Path.GetFullPath(actualPath),
-                    expectedPath,
+                    Path.GetFullPath(expectedPath),
                     Path.DirectorySeparatorChar == '\\' ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
             }
             catch (Exception exception) when (exception is ArgumentException or IOException or NotSupportedException)
