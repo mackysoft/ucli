@@ -28,9 +28,13 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private readonly UnityBuildPreconditionProbe preconditionProbe;
 
+        private readonly IUnityBuildProfileInputResolver buildProfileInputResolver;
+
         private readonly UnityProjectMutationAuditProbe projectMutationAuditProbe;
 
         private readonly IUnityBuildPipelineRunner buildPipelineRunner;
+
+        private readonly IUnityBuildProfileBuildRunner buildProfileBuildRunner;
 
         private readonly IEditorLogRangeExporter editorLogRangeExporter;
 
@@ -41,15 +45,19 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <summary> Initializes a new instance of the <see cref="BuildRunUnityIpcMethodHandler" /> class. </summary>
         public BuildRunUnityIpcMethodHandler (
             UnityBuildPreconditionProbe preconditionProbe,
+            IUnityBuildProfileInputResolver buildProfileInputResolver,
             UnityProjectMutationAuditProbe projectMutationAuditProbe,
             IUnityBuildPipelineRunner buildPipelineRunner,
+            IUnityBuildProfileBuildRunner buildProfileBuildRunner,
             IEditorLogRangeExporter editorLogRangeExporter,
             IpcProjectIdentity projectIdentity,
             IIpcRequestTimeoutScopeFactory timeoutScopeFactory)
         {
             this.preconditionProbe = preconditionProbe ?? throw new ArgumentNullException(nameof(preconditionProbe));
+            this.buildProfileInputResolver = buildProfileInputResolver ?? throw new ArgumentNullException(nameof(buildProfileInputResolver));
             this.projectMutationAuditProbe = projectMutationAuditProbe ?? throw new ArgumentNullException(nameof(projectMutationAuditProbe));
             this.buildPipelineRunner = buildPipelineRunner ?? throw new ArgumentNullException(nameof(buildPipelineRunner));
+            this.buildProfileBuildRunner = buildProfileBuildRunner ?? throw new ArgumentNullException(nameof(buildProfileBuildRunner));
             this.editorLogRangeExporter = editorLogRangeExporter ?? throw new ArgumentNullException(nameof(editorLogRangeExporter));
             this.projectIdentity = projectIdentity ?? throw new ArgumentNullException(nameof(projectIdentity));
             this.timeoutScopeFactory = timeoutScopeFactory ?? throw new ArgumentNullException(nameof(timeoutScopeFactory));
@@ -88,35 +96,61 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             IIpcRequestTimeoutScope? requestTimeoutScope = null;
             UnityBuildPreconditionProbeResult? precondition = null;
+            IpcUnityBuildProfileInput? unityBuildProfile = null;
             try
             {
                 requestTimeoutScope = timeoutScopeFactory.CreateLinked(
                     buildRunRequest!.TimeoutMilliseconds,
                     cancellationToken);
                 var executionCancellationToken = requestTimeoutScope.Token;
-                precondition = await preconditionProbe.ProbeBeforeBuildAsync(
-                    new UnityBuildPreconditionInput(
-                        BuildTarget: buildRunRequest.BuildTarget,
-                        UnityBuildTarget: buildRunRequest.UnityBuildTarget,
-                        SceneSource: buildRunRequest.SceneSource,
+                UnityBuildPreconditionInput preconditionInput;
+                IpcBuildOutputLayout outputLayout;
+                if (IsUnityBuildProfileRequest(buildRunRequest))
+                {
+                    var profileResolution = await buildProfileInputResolver.ResolveAsync(
+                            buildRunRequest,
+                            executionCancellationToken)
+                        .ConfigureAwait(false);
+                    unityBuildProfile = profileResolution.UnityBuildProfile;
+                    if (!profileResolution.IsSuccess)
+                    {
+                        return CreateBuildProfileInputErrorResponse(request, profileResolution);
+                    }
+
+                    preconditionInput = profileResolution.PreconditionInput!;
+                    outputLayout = profileResolution.OutputLayout!;
+                }
+                else
+                {
+                    preconditionInput = new UnityBuildPreconditionInput(
+                        InputKind: buildRunRequest.InputKind,
+                        BuildTarget: buildRunRequest.BuildTarget!,
+                        UnityBuildTarget: buildRunRequest.UnityBuildTarget!,
+                        SceneSource: buildRunRequest.SceneSource!,
                         ScenePaths: buildRunRequest.ScenePaths,
                         Development: buildRunRequest.Development,
-                        AllowedEditorModes: buildRunRequest.AllowedEditorModes),
+                        AllowedEditorModes: buildRunRequest.AllowedEditorModes);
+                    outputLayout = buildRunRequest.OutputLayout!;
+                }
+
+                precondition = await preconditionProbe.ProbeBeforeBuildAsync(
+                    preconditionInput,
                     executionCancellationToken);
                 if (!precondition.IsSuccess)
                 {
-                    return CreatePreconditionErrorResponse(request, precondition);
+                    return CreatePreconditionErrorResponse(request, precondition, unityBuildProfile);
                 }
 
                 FileSystemAccessBoundary.EnsureSecureDirectory(buildRunRequest.OutputPath);
-                EnsureBuildPipelineOutputLayoutReady(buildRunRequest.OutputLayout);
+                EnsureBuildPipelineOutputLayoutReady(outputLayout);
                 var logSourcePath = Application.consoleLogPath;
                 var logStartOffset = GetLogLength(logSourcePath);
                 var startedAtUtc = DateTimeOffset.UtcNow;
                 var mutationBaseline = projectMutationAuditProbe.CaptureBaseline(projectIdentity.ProjectPath);
-                var buildOptions = UnityBuildPlayerOptionsFactory.Create(buildRunRequest, precondition.ResolvedInput!);
                 executionCancellationToken.ThrowIfCancellationRequested();
-                var normalizedReport = buildPipelineRunner.Run(buildOptions);
+                var normalizedReport = IsUnityBuildProfileRequest(buildRunRequest)
+                    ? buildProfileBuildRunner.Run(buildRunRequest, precondition.ResolvedInput!, outputLayout)
+                    : buildPipelineRunner.Run(UnityBuildPlayerOptionsFactory.Create(buildRunRequest, precondition.ResolvedInput!));
                 executionCancellationToken.ThrowIfCancellationRequested();
                 FileSystemAccessBoundary.EnsureSecureDirectory(buildRunRequest.OutputPath);
                 var completedAtUtc = DateTimeOffset.UtcNow;
@@ -137,7 +171,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                         request,
                         BuildErrorCodes.BuildReportMissing,
                         "Unity BuildPipeline did not return a BuildReport.",
-                        precondition);
+                        precondition,
+                        unityBuildProfile);
                 }
 
                 await WriteJsonAtomicallyAsync(
@@ -166,6 +201,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                     LifecycleAfter: lifecycleAfter,
                     DirtyState: precondition.DirtyState!,
                     Input: precondition.InputProbe!,
+                    OutputLayout: outputLayout,
+                    UnityBuildProfile: unityBuildProfile,
                     Report: normalizedReport,
                     Logs: logs,
                     ProjectMutation: projectMutation);
@@ -177,7 +214,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                     request,
                     IpcTransportErrorCodes.IpcTimeout,
                     $"Unity build run timed out after {buildRunRequest!.TimeoutMilliseconds!.Value} milliseconds.",
-                    precondition);
+                    precondition,
+                    unityBuildProfile);
             }
             catch (OperationCanceledException)
             {
@@ -189,7 +227,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                     request,
                     UcliCoreErrorCodes.InvalidArgument,
                     exception.Message,
-                    precondition);
+                    precondition,
+                    unityBuildProfile);
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
             {
@@ -197,7 +236,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                     request,
                     BuildErrorCodes.BuildArtifactWriteFailed,
                     $"Unity build artifact write failed. {exception.Message}",
-                    precondition);
+                    precondition,
+                    unityBuildProfile);
             }
             catch (Exception exception)
             {
@@ -205,7 +245,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                     request,
                     UcliCoreErrorCodes.InternalError,
                     $"Unity build run failed. {exception.Message}",
-                    precondition);
+                    precondition,
+                    unityBuildProfile);
             }
             finally
             {
@@ -215,7 +256,8 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private static IpcResponse CreatePreconditionErrorResponse (
             IpcRequest request,
-            UnityBuildPreconditionProbeResult precondition)
+            UnityBuildPreconditionProbeResult precondition,
+            IpcUnityBuildProfileInput? unityBuildProfile)
         {
             var error = precondition.Error!;
             return UnityIpcResponseFactory.CreateErrorResponse(
@@ -223,14 +265,34 @@ namespace MackySoft.Ucli.Unity.Ipc
                 error.Code,
                 error.Message,
                 error.OpId,
-                CreateErrorPayload(precondition));
+                CreateErrorPayload(precondition, unityBuildProfile));
+        }
+
+        private static IpcResponse CreateBuildProfileInputErrorResponse (
+            IpcRequest request,
+            UnityBuildProfileInputResolutionResult result)
+        {
+            var error = result.Error!;
+            var payload = new IpcBuildRunErrorPayload(
+                Project: null,
+                LifecycleBefore: result.LifecycleBefore,
+                DirtyState: result.DirtyState,
+                Input: null,
+                UnityBuildProfile: result.UnityBuildProfile);
+            return UnityIpcResponseFactory.CreateErrorResponse(
+                request,
+                error.Code,
+                error.Message,
+                error.OpId,
+                payload);
         }
 
         private static IpcResponse CreateErrorResponse (
             IpcRequest request,
             UcliCode code,
             string message,
-            UnityBuildPreconditionProbeResult? precondition)
+            UnityBuildPreconditionProbeResult? precondition,
+            IpcUnityBuildProfileInput? unityBuildProfile)
         {
             if (precondition == null)
             {
@@ -242,16 +304,19 @@ namespace MackySoft.Ucli.Unity.Ipc
                 code,
                 message,
                 null,
-                CreateErrorPayload(precondition));
+                CreateErrorPayload(precondition, unityBuildProfile));
         }
 
-        private static IpcBuildRunErrorPayload CreateErrorPayload (UnityBuildPreconditionProbeResult precondition)
+        private static IpcBuildRunErrorPayload CreateErrorPayload (
+            UnityBuildPreconditionProbeResult precondition,
+            IpcUnityBuildProfileInput? unityBuildProfile)
         {
             return new IpcBuildRunErrorPayload(
                 Project: precondition.Project,
                 LifecycleBefore: precondition.LifecycleBefore,
                 DirtyState: precondition.DirtyState,
-                Input: precondition.InputProbe);
+                Input: precondition.InputProbe,
+                UnityBuildProfile: unityBuildProfile);
         }
 
         private async Task<EditorLogRangeExportResult> ExportBuildLogAsync (
@@ -274,7 +339,13 @@ namespace MackySoft.Ucli.Unity.Ipc
                     startOffset,
                     endOffset,
                     cancellationToken)
-                .ConfigureAwait(false);
+                    .ConfigureAwait(false);
+        }
+
+        private static bool IsUnityBuildProfileRequest (IpcBuildRunRequest request)
+        {
+            return ContractLiteralCodec.TryParse<BuildProfileInputsKind>(request.InputKind, out var inputKind)
+                && inputKind == BuildProfileInputsKind.UnityBuildProfile;
         }
 
         internal static bool TryValidateRequest (
@@ -304,12 +375,15 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return false;
             }
 
-            if (string.IsNullOrWhiteSpace(request.BuildTarget)
-                || string.IsNullOrWhiteSpace(request.UnityBuildTarget)
-                || string.IsNullOrWhiteSpace(request.SceneSource)
-                || string.IsNullOrWhiteSpace(request.ProjectMutationMode))
+            if (!ContractLiteralCodec.TryParse<BuildProfileInputsKind>(request.InputKind, out var inputKind))
             {
-                errorMessage = "BuildTarget, scene source, and project mutation mode values must not be empty.";
+                errorMessage = $"Build inputKind is invalid: {request.InputKind}.";
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(request.ProjectMutationMode))
+            {
+                errorMessage = "Build project mutation mode value must not be empty.";
                 return false;
             }
 
@@ -325,6 +399,52 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return false;
             }
 
+            if (!TryResolveExpectedArtifactPaths(
+                    request.RunId,
+                    projectIdentity,
+                    out var expectedOutputPath,
+                    out var expectedBuildReportPath,
+                    out var expectedBuildLogPath,
+                    out errorMessage))
+            {
+                return false;
+            }
+
+            if (!PathEquals(request.OutputPath, expectedOutputPath!)
+                || !PathEquals(request.BuildReportPath, expectedBuildReportPath!)
+                || !PathEquals(request.BuildLogPath, expectedBuildLogPath!))
+            {
+                errorMessage = "Build output and artifact paths must match the expected uCLI build artifact layout.";
+                return false;
+            }
+
+            if (inputKind == BuildProfileInputsKind.UnityBuildProfile)
+            {
+                return TryValidateUnityBuildProfileRequest(request, out errorMessage);
+            }
+
+            if (inputKind != BuildProfileInputsKind.Explicit)
+            {
+                errorMessage = $"Build inputKind is unsupported: {request.InputKind}.";
+                return false;
+            }
+
+            return TryValidateExplicitRequest(request, expectedOutputPath!, out errorMessage);
+        }
+
+        private static bool TryValidateExplicitRequest (
+            IpcBuildRunRequest request,
+            string expectedOutputPath,
+            out string? errorMessage)
+        {
+            if (string.IsNullOrWhiteSpace(request.BuildTarget)
+                || string.IsNullOrWhiteSpace(request.UnityBuildTarget)
+                || string.IsNullOrWhiteSpace(request.SceneSource))
+            {
+                errorMessage = "BuildTarget and scene source values must not be empty for explicit build input.";
+                return false;
+            }
+
             if (!BuildTargetStableNameUnityBuildTargetResolver.TryResolve(request.BuildTarget, out var expectedUnityBuildTarget))
             {
                 errorMessage = $"Build buildTarget stable name is unsupported: {request.BuildTarget}.";
@@ -337,36 +457,38 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return false;
             }
 
-            if (!TryResolveExpectedArtifactPaths(
-                    request.RunId,
-                    projectIdentity,
-                    out var expectedOutputPath,
-                    out var expectedBuildReportPath,
-                    out var expectedBuildLogPath,
-                    out errorMessage))
-            {
-                return false;
-            }
-
             if (request.OutputLayout == null)
             {
                 errorMessage = "Build outputLayout must match the expected uCLI build artifact layout.";
                 return false;
             }
 
-            if (!IpcBuildOutputLayoutResolver.TryResolve(expectedOutputPath!, request.BuildTarget, out var expectedOutputLayout))
+            if (!IpcBuildOutputLayoutResolver.TryResolve(expectedOutputPath, request.BuildTarget, out var expectedOutputLayout))
             {
                 errorMessage = $"Build outputLayout could not be resolved for build target: {request.BuildTarget}.";
                 return false;
             }
 
-            if (!PathEquals(request.OutputPath, expectedOutputPath!)
-                || !string.Equals(request.OutputLayout.Shape, expectedOutputLayout!.Shape, StringComparison.Ordinal)
-                || !PathEquals(request.OutputLayout.LocationPathName, expectedOutputLayout.LocationPathName)
-                || !PathEquals(request.BuildReportPath, expectedBuildReportPath!)
-                || !PathEquals(request.BuildLogPath, expectedBuildLogPath!))
+            if (!string.Equals(request.OutputLayout.Shape, expectedOutputLayout!.Shape, StringComparison.Ordinal)
+                || !PathEquals(request.OutputLayout.LocationPathName, expectedOutputLayout.LocationPathName))
             {
-                errorMessage = "Build output, outputLayout, and artifact paths must match the expected uCLI build artifact layout.";
+                errorMessage = "Build outputLayout must match the expected uCLI build artifact layout.";
+                return false;
+            }
+
+            errorMessage = null;
+            return true;
+        }
+
+        private static bool TryValidateUnityBuildProfileRequest (
+            IpcBuildRunRequest request,
+            out string? errorMessage)
+        {
+            if (request.UnityBuildProfile == null
+                || !UnityAssetPathContract.IsNormalizedAssetsDescendantPath(request.UnityBuildProfile.Path)
+                || request.UnityBuildProfile.Path.EndsWith(".meta", StringComparison.OrdinalIgnoreCase))
+            {
+                errorMessage = "Build unityBuildProfile.path must be a normalized project-relative asset path under Assets and must not reference a .meta file.";
                 return false;
             }
 

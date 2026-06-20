@@ -41,6 +41,85 @@
                 "digest"
               ]
             },
+            "inputs": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "inputKind": {
+                  "type": "string",
+                  "enum": [
+                    "explicit",
+                    "unityBuildProfile"
+                  ]
+                },
+                "buildTarget": {
+                  "type": "string"
+                },
+                "scenes": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "source": {
+                      "type": "string",
+                      "enum": [
+                        "editorBuildSettings",
+                        "explicit",
+                        "unityBuildProfile"
+                      ]
+                    },
+                    "paths": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "source",
+                    "paths"
+                  ]
+                },
+                "options": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "development": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "development"
+                  ]
+                },
+                "unityBuildProfile": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    },
+                    "digest": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    },
+                    "applyAudit": {
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "path",
+                    "digest",
+                    "applyAudit"
+                  ]
+                }
+              },
+              "required": [
+                "inputKind",
+                "buildTarget",
+                "scenes",
+                "options"
+              ]
+            },
             "buildTarget": {
               "type": "string"
             },
@@ -52,7 +131,8 @@
                   "type": "string",
                   "enum": [
                     "editorBuildSettings",
-                    "explicit"
+                    "explicit",
+                    "unityBuildProfile"
                   ]
                 },
                 "paths": {
@@ -219,6 +299,7 @@
           "required": [
             "runId",
             "profile",
+            "inputs",
             "buildTarget",
             "scenes",
             "options",

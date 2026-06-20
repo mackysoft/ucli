@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Represents a <c>build.run</c> IPC response payload. </summary>
@@ -7,6 +9,8 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 /// <param name="LifecycleAfter"> The lifecycle snapshot captured after BuildPipeline execution. </param>
 /// <param name="DirtyState"> The dirty-state precondition probe result. </param>
 /// <param name="Input"> The resolved BuildPipeline input. </param>
+/// <param name="OutputLayout"> The BuildPipeline output layout used by Unity. </param>
+/// <param name="UnityBuildProfile"> The resolved Unity Build Profile input when one was used. </param>
 /// <param name="Report"> The normalized BuildReport artifact payload written by Unity. </param>
 /// <param name="Logs"> The build log artifact summary. </param>
 /// <param name="ProjectMutation"> The project mutation audit captured around runner invocation. </param>
@@ -17,6 +21,9 @@ public sealed record IpcBuildRunResponse (
     IpcBuildLifecycleSnapshot LifecycleAfter,
     IpcBuildDirtyState DirtyState,
     IpcBuildInputProbe Input,
+    IpcBuildOutputLayout OutputLayout,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    IpcUnityBuildProfileInput? UnityBuildProfile,
     IpcBuildReportArtifact Report,
     IpcBuildLogSummary Logs,
     IpcBuildProjectMutationAudit ProjectMutation);

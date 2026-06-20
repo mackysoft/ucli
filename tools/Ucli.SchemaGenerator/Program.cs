@@ -664,18 +664,24 @@ internal static class Program
                 additionalProperties: false,
                 Required("path", StringSchema()),
                 Required("digest", Sha256LowerHexSchema()))),
-            Required("buildTarget", StringSchema()),
-            Required("scenes", ObjectSchema(
+            Required("inputs", ObjectSchema(
                 additionalProperties: false,
                 Required(
-                    "source",
+                    "inputKind",
                     EnumSchema(
-                        Literal(BuildProfileSceneSource.EditorBuildSettings),
-                        Literal(BuildProfileSceneSource.Explicit))),
-                Required("paths", ArraySchema(StringSchema())))),
-            Required("options", ObjectSchema(
-                additionalProperties: false,
-                Required("development", BooleanSchema()))),
+                        Literal(BuildProfileInputsKind.Explicit),
+                        Literal(BuildProfileInputsKind.UnityBuildProfile))),
+                Required("buildTarget", StringSchema()),
+                Required("scenes", CreateBuildRunScenesSchema()),
+                Required("options", CreateBuildRunOptionsSchema()),
+                Optional("unityBuildProfile", ObjectSchema(
+                    additionalProperties: false,
+                    Required("path", StringSchema()),
+                    Required("digest", Sha256LowerHexSchema()),
+                    Required("applyAudit", ObjectSchema(additionalProperties: true)))))),
+            Required("buildTarget", StringSchema()),
+            Required("scenes", CreateBuildRunScenesSchema()),
+            Required("options", CreateBuildRunOptionsSchema()),
             Required("output", ObjectSchema(
                 additionalProperties: false,
                 Required("manifestRef", ConstString("buildOutputManifest")),
@@ -717,6 +723,26 @@ internal static class Program
                     additionalProperties: false,
                     Required("startedAtUtc", StringSchema()),
                     Required("completedAtUtc", StringSchema()))))));
+    }
+
+    private static Dictionary<string, object?> CreateBuildRunScenesSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required(
+                "source",
+                EnumSchema(
+                    Literal(BuildProfileSceneSource.EditorBuildSettings),
+                    Literal(BuildProfileSceneSource.Explicit),
+                    Literal(BuildProfileSceneSource.UnityBuildProfile))),
+            Required("paths", ArraySchema(StringSchema())));
+    }
+
+    private static Dictionary<string, object?> CreateBuildRunOptionsSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("development", BooleanSchema()));
     }
 
     private static Dictionary<string, object?> CreateBuildRunClaimSchema ()

@@ -23,17 +23,19 @@ internal abstract record UnityRequestPayload
     /// <summary> Represents a build assurance request prepared by application orchestration. </summary>
     internal sealed record BuildRun (
         string RunId,
-        string BuildTarget,
-        string UnityBuildTarget,
-        string SceneSource,
+        string InputKind,
+        string? BuildTarget,
+        string? UnityBuildTarget,
+        string? SceneSource,
         IReadOnlyList<string> ScenePaths,
         bool Development,
         string OutputPath,
-        IpcBuildOutputLayout OutputLayout,
+        IpcBuildOutputLayout? OutputLayout,
         string BuildReportPath,
         string BuildLogPath,
         IReadOnlyList<string> AllowedEditorModes,
-        string ProjectMutationMode) : UnityRequestPayload;
+        string ProjectMutationMode,
+        IpcUnityBuildProfileInput? UnityBuildProfile = null) : UnityRequestPayload;
 
     /// <summary> Represents a Unity Test Framework run request prepared by application orchestration. </summary>
     internal sealed record TestRun (

@@ -12,4 +12,8 @@ public enum BuildProfileSceneSource
     /// <summary> Uses explicit profile scene paths. </summary>
     [UcliContractLiteral("explicit")]
     Explicit = 1,
+
+    /// <summary> Uses scenes resolved from a Unity Build Profile asset. </summary>
+    [UcliContractLiteral("unityBuildProfile")]
+    UnityBuildProfile = 2,
 }

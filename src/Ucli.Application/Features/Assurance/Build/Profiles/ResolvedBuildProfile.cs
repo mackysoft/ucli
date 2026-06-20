@@ -9,11 +9,11 @@ internal sealed record ResolvedBuildProfile (
     string Digest)
 {
     /// <summary> Gets the resolved build target used by the current BuildPipeline runner. </summary>
-    public ResolvedBuildTarget BuildTarget => Inputs.BuildTarget;
+    public ResolvedBuildTarget BuildTarget => Inputs.RequireBuildTarget();
 
     /// <summary> Gets the resolved build scenes used by the current BuildPipeline runner. </summary>
-    public ResolvedBuildScenes Scenes => Inputs.Scenes;
+    public ResolvedBuildScenes Scenes => Inputs.RequireScenes();
 
     /// <summary> Gets the resolved build options used by the current BuildPipeline runner. </summary>
-    public ResolvedBuildOptions Options => Inputs.Options;
+    public ResolvedBuildOptions Options => Inputs.RequireOptions();
 }

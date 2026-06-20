@@ -45,17 +45,29 @@ internal static class BuildProfileDigestCalculator
 
     private sealed record CanonicalBuildInputs (
         string Kind,
-        string BuildTarget,
-        CanonicalBuildScenes Scenes,
-        CanonicalBuildOptions Options)
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? BuildTarget,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] CanonicalBuildScenes? Scenes,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] CanonicalBuildOptions? Options,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Path)
     {
         public static CanonicalBuildInputs From (ResolvedBuildInputs inputs)
         {
+            if (inputs.Kind == BuildProfileInputsKind.UnityBuildProfile)
+            {
+                return new CanonicalBuildInputs(
+                    ContractLiteralCodec.ToValue(inputs.Kind),
+                    null,
+                    null,
+                    null,
+                    inputs.RequireUnityBuildProfilePath());
+            }
+
             return new CanonicalBuildInputs(
                 ContractLiteralCodec.ToValue(inputs.Kind),
-                inputs.BuildTarget.StableName,
-                CanonicalBuildScenes.From(inputs.Scenes),
-                new CanonicalBuildOptions(inputs.Options.Development));
+                inputs.RequireBuildTarget().StableName,
+                CanonicalBuildScenes.From(inputs.RequireScenes()),
+                new CanonicalBuildOptions(inputs.RequireOptions().Development),
+                null);
         }
     }
 

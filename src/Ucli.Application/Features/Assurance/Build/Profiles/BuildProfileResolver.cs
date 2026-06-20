@@ -19,12 +19,18 @@ internal static class BuildProfileResolver
         "policy",
     };
 
-    private static readonly HashSet<string> AllowedInputsProperties = new(StringComparer.Ordinal)
+    private static readonly HashSet<string> AllowedExplicitInputsProperties = new(StringComparer.Ordinal)
     {
         "kind",
         "buildTarget",
         "scenes",
         "options",
+    };
+
+    private static readonly HashSet<string> AllowedUnityBuildProfileInputsProperties = new(StringComparer.Ordinal)
+    {
+        "kind",
+        "path",
     };
 
     private static readonly HashSet<string> AllowedScenesProperties = new(StringComparer.Ordinal)
@@ -142,15 +148,24 @@ internal static class BuildProfileResolver
     {
         inputs = null;
         if (!TryReadRequiredObject(root, "inputs", "Build profile", out var inputsElement, out error)
-            || !TryValidateObjectProperties(inputsElement, AllowedInputsProperties, "Build profile inputs", out error)
             || !TryReadRequiredEnum(inputsElement, "kind", "Build profile inputs", out BuildProfileInputsKind kind, out error))
         {
             return false;
         }
 
+        if (kind == BuildProfileInputsKind.UnityBuildProfile)
+        {
+            return TryReadUnityBuildProfileInputs(inputsElement, out inputs, out error);
+        }
+
         if (kind != BuildProfileInputsKind.Explicit)
         {
             error = InvalidProfile($"Build profile inputs.kind is unsupported: {ContractLiteralCodec.ToValue(kind)}.");
+            return false;
+        }
+
+        if (!TryValidateObjectProperties(inputsElement, AllowedExplicitInputsProperties, "Build profile inputs", out error))
+        {
             return false;
         }
 
@@ -161,7 +176,32 @@ internal static class BuildProfileResolver
             return false;
         }
 
-        inputs = new ResolvedBuildInputs(kind, buildTarget!, scenes!, options!);
+        inputs = ResolvedBuildInputs.Explicit(buildTarget!, scenes!, options!);
+        error = null;
+        return true;
+    }
+
+    private static bool TryReadUnityBuildProfileInputs (
+        JsonElement inputsElement,
+        out ResolvedBuildInputs? inputs,
+        out BuildProfileResolutionResult? error)
+    {
+        inputs = null;
+        if (!TryValidateObjectProperties(inputsElement, AllowedUnityBuildProfileInputsProperties, "Build profile inputs", out error)
+            || !TryReadRequiredString(inputsElement, "path", "Build profile inputs", out var path, out error))
+        {
+            return false;
+        }
+
+        if (!UnityAssetPathContract.TryNormalizeAssetsDescendantPath(path, out var normalizedPath)
+            || !string.Equals(path, normalizedPath, StringComparison.Ordinal)
+            || path.EndsWith(".meta", StringComparison.OrdinalIgnoreCase))
+        {
+            error = InvalidProfile("Build profile inputs.path must be a normalized project-relative asset path under Assets and must not reference a .meta file.");
+            return false;
+        }
+
+        inputs = ResolvedBuildInputs.UnityBuildProfile(path);
         error = null;
         return true;
     }

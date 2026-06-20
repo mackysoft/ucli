@@ -68,6 +68,13 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddSingleton<IUnityPlayModeController, UnityEditorPlayModeController>();
             services.AddSingleton<IUnityBuildTargetSupportProbe, UnityBuildTargetSupportProbe>();
             services.AddSingleton<IUnityBuildPipelineRunner, UnityBuildPipelineRunner>();
+#if UNITY_6000_0_OR_NEWER
+            services.AddSingleton<IUnityBuildProfileInputResolver, Unity6000BuildProfileInputResolver>();
+            services.AddSingleton<IUnityBuildProfileBuildRunner, Unity6000BuildProfileBuildRunner>();
+#else
+            services.AddSingleton<IUnityBuildProfileInputResolver, UnsupportedUnityBuildProfileInputResolver>();
+            services.AddSingleton<IUnityBuildProfileBuildRunner, UnsupportedUnityBuildProfileBuildRunner>();
+#endif
             services.AddSingleton<UnityBuildPreconditionProbe>();
             services.AddSingleton<UnityProjectMutationAuditProbe>();
             services.AddSingleton<PlayEnterTransitionRunner>();
