@@ -665,7 +665,10 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
     {
         if (BuildClaimCodes.UnityBuildProfileResolved.EqualsValue(claimId)
             || BuildClaimCodes.UnityBuildInputsResolved.EqualsValue(claimId)
+            || BuildClaimCodes.UnityBuildRunnerResolved.EqualsValue(claimId)
+            || BuildClaimCodes.UnityBuildResultAccounted.EqualsValue(claimId)
             || BuildClaimCodes.UnityBuildArtifactsAccounted.EqualsValue(claimId)
+            || BuildClaimCodes.UnityBuildProjectMutationAccounted.EqualsValue(claimId)
             || BuildClaimCodes.UnityBuildValidForGeneration.EqualsValue(claimId))
         {
             return BuildReportRefs.Build;

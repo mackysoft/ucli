@@ -32,4 +32,8 @@ internal enum BuildEffect
     /// <summary> Captures lifecycle generation snapshots. </summary>
     [UcliContractLiteral("generationSnapshot")]
     GenerationSnapshot = 6,
+
+    /// <summary> Audits project mutations around build runner invocation. </summary>
+    [UcliContractLiteral("projectMutationAudit")]
+    ProjectMutationAudit = 7,
 }

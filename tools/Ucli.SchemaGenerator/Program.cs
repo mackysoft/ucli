@@ -767,9 +767,21 @@ internal static class Program
             additionalProperties: false,
             Required("checked", BooleanSchema()),
             Required("dirty", BooleanSchema()),
+            Required(
+                "coverage",
+                EnumSchema(
+                    Literal(IpcBuildDirtyStateCoverage.Full),
+                    Literal(IpcBuildDirtyStateCoverage.Partial))),
             Required("items", ArraySchema(ObjectSchema(
                 additionalProperties: false,
-                Required("kind", ConstString("scene")),
+                Required(
+                    "kind",
+                    EnumSchema(
+                        Literal(IpcBuildDirtyStateItemKind.Scene),
+                        Literal(IpcBuildDirtyStateItemKind.Prefab),
+                        Literal(IpcBuildDirtyStateItemKind.Asset),
+                        Literal(IpcBuildDirtyStateItemKind.ProjectSettings),
+                        Literal(IpcBuildDirtyStateItemKind.Unknown))),
                 Required("path", StringSchema())))));
     }
 

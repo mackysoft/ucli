@@ -38,6 +38,7 @@ internal sealed class BuildRunMetadataDocumentWriter
             WriteElement(writer, "summary", document.Summary);
             WriteElement(writer, "logs", document.Logs);
             WriteElement(writer, "output", document.Output);
+            WriteElement(writer, "projectMutation", document.ProjectMutation);
             WriteArtifacts(writer, artifacts);
             WriteElement(writer, "dirtyState", document.DirtyState);
             writer.WriteEndObject();

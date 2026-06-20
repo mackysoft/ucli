@@ -47,7 +47,9 @@ internal sealed class UnityIpcRequestBuilder
                     Development: buildRun.Development,
                     OutputPath: buildRun.OutputPath,
                     BuildReportPath: buildRun.BuildReportPath,
-                    BuildLogPath: buildRun.BuildLogPath)),
+                    BuildLogPath: buildRun.BuildLogPath,
+                    AllowedEditorModes: buildRun.AllowedEditorModes,
+                    ProjectMutationMode: buildRun.ProjectMutationMode)),
                 dispatchTimeoutPayloadTransformer: ApplyBuildRunDispatchTimeout),
             UnityRequestPayload.TestRun testRun => new UnityIpcDispatchRequest(
                 IpcMethodNames.TestRun,

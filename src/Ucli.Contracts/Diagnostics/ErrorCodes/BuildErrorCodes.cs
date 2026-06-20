@@ -15,8 +15,14 @@ public static class BuildErrorCodes
     /// <summary> Gets the error code emitted when the Unity installation does not support the requested build target. </summary>
     public static readonly UcliCode BuildTargetModuleMissing = new("BUILD_TARGET_MODULE_MISSING");
 
-    /// <summary> Gets the error code emitted when build input scenes have unsaved changes. </summary>
+    /// <summary> Gets the error code emitted when resolved runtime policy rejects the selected execution or editor mode. </summary>
+    public static readonly UcliCode BuildRuntimePolicyViolation = new("BUILD_RUNTIME_POLICY_VIOLATION");
+
+    /// <summary> Gets the error code emitted when audited project items have unsaved changes. </summary>
     public static readonly UcliCode BuildDirtyStatePresent = new("BUILD_DIRTY_STATE_PRESENT");
+
+    /// <summary> Gets the error code emitted when dirty-state coverage is not complete enough to run a build. </summary>
+    public static readonly UcliCode BuildDirtyStateIndeterminate = new("BUILD_DIRTY_STATE_INDETERMINATE");
 
     /// <summary> Gets the error code emitted when Unity did not produce a BuildReport after BuildPipeline execution. </summary>
     public static readonly UcliCode BuildReportMissing = new("BUILD_REPORT_MISSING");
@@ -30,6 +36,9 @@ public static class BuildErrorCodes
     /// <summary> Gets the error code emitted when the output manifest digest does not match persisted artifact content. </summary>
     public static readonly UcliCode BuildOutputDigestMismatch = new("BUILD_OUTPUT_DIGEST_MISMATCH");
 
+    /// <summary> Gets the error code emitted when project mutation is detected while mutation is forbidden. </summary>
+    public static readonly UcliCode BuildProjectMutationForbidden = new("BUILD_PROJECT_MUTATION_FORBIDDEN");
+
     /// <summary> Gets all build error codes owned by the build assurance workflow. </summary>
     public static IReadOnlyList<UcliCode> All { get; } =
     [
@@ -37,11 +46,13 @@ public static class BuildErrorCodes
         BuildTargetUnsupported,
         BuildInputsInvalid,
         BuildTargetModuleMissing,
+        BuildRuntimePolicyViolation,
         BuildDirtyStatePresent,
+        BuildDirtyStateIndeterminate,
         BuildReportMissing,
         BuildArtifactWriteFailed,
         BuildOutputManifestFailed,
         BuildOutputDigestMismatch,
+        BuildProjectMutationForbidden,
     ];
-
 }

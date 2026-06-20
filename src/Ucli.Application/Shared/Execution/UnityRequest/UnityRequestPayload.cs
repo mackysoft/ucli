@@ -29,7 +29,9 @@ internal abstract record UnityRequestPayload
         bool Development,
         string OutputPath,
         string BuildReportPath,
-        string BuildLogPath) : UnityRequestPayload;
+        string BuildLogPath,
+        IReadOnlyList<string> AllowedEditorModes,
+        string ProjectMutationMode) : UnityRequestPayload;
 
     /// <summary> Represents a Unity Test Framework run request prepared by application orchestration. </summary>
     internal sealed record TestRun (

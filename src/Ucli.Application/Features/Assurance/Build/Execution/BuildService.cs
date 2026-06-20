@@ -126,7 +126,14 @@ internal sealed class BuildService : IBuildService
             return BuildExecutionResult.Failure(modeDecisionResult.Error!, project);
         }
 
+        var profile = profileResolutionResult.Profile!;
         var executionTarget = modeDecisionResult.Decision!.Target;
+        var runtimePolicyFailure = ValidateRuntimePolicy(profile.Policy.Runtime, executionTarget);
+        if (runtimePolicyFailure != null)
+        {
+            return BuildExecutionResult.Failure(runtimePolicyFailure, project);
+        }
+
         if (!deadline.TryGetRemainingTimeout(out var requestTimeout))
         {
             return BuildExecutionResult.Failure(CreateTimeoutFailure(timeout), project);
@@ -139,7 +146,6 @@ internal sealed class BuildService : IBuildService
             return BuildExecutionResult.Failure(prepareResult.Error!, project);
         }
 
-        var profile = profileResolutionResult.Profile!;
         var paths = prepareResult.Paths!;
         await EmitStartedAsync(
                 resolvedProgressSink,
@@ -182,6 +188,7 @@ internal sealed class BuildService : IBuildService
         if (!responseResult.IsSuccess)
         {
             var dirtyState = responseResult.Error!.Code == BuildErrorCodes.BuildDirtyStatePresent
+                || responseResult.Error.Code == BuildErrorCodes.BuildDirtyStateIndeterminate
                 ? responseResult.ErrorPayload?.DirtyState
                 : null;
             return BuildExecutionResult.Failure(
@@ -236,6 +243,16 @@ internal sealed class BuildService : IBuildService
             if (!metadataWriteResult.IsSuccess)
             {
                 return BuildExecutionResult.Failure(metadataWriteResult.Error!, project);
+            }
+
+            if (profile.Policy.ProjectMutationMode == BuildProfileProjectMutationMode.Forbid
+                && buildResponse.ProjectMutation.Mutated)
+            {
+                return BuildExecutionResult.Failure(
+                    ApplicationFailure.FromCode(
+                        BuildErrorCodes.BuildProjectMutationForbidden,
+                        "Build project mutation policy forbids the project changes detected during runner invocation."),
+                    project);
             }
 
             var completedOutput = output with
@@ -320,7 +337,11 @@ internal sealed class BuildService : IBuildService
             Development: profile.Options.Development,
             OutputPath: paths.OutputDirectory,
             BuildReportPath: paths.BuildReportJsonPath,
-            BuildLogPath: paths.BuildLogPath);
+            BuildLogPath: paths.BuildLogPath,
+            AllowedEditorModes: profile.Policy.Runtime.AllowedEditorModes
+                .Select(ContractLiteralCodec.ToValue)
+                .ToArray(),
+            ProjectMutationMode: ContractLiteralCodec.ToValue(profile.Policy.ProjectMutationMode));
     }
 
     private static BuildResponseResolutionResult ResolveBuildResponse (
@@ -537,9 +558,10 @@ internal sealed class BuildService : IBuildService
             Generations: generations,
             Summary: summary,
             Logs: logs);
+        var residualRisks = CreateResidualRisks(profile.Policy.ProjectMutationMode, response.ProjectMutation);
         var claims = CreateClaims(response, build);
         return new BuildExecutionOutput(
-            Verdict: RecalculateVerdict(claims),
+            Verdict: RecalculateVerdict(claims, residualRisks),
             Project: project,
             Build: build,
             Verifiers:
@@ -555,7 +577,7 @@ internal sealed class BuildService : IBuildService
             ],
             Claims: claims,
             Reports: CreateReports(paths, accounting, buildArtifact: null),
-            ResidualRisks: EmptyResidualRisks);
+            ResidualRisks: residualRisks);
     }
 
     private static IReadOnlyDictionary<string, BuildReportOutput> CreateReports (
@@ -594,6 +616,7 @@ internal sealed class BuildService : IBuildService
             Summary: SerializeMetadataElement(output.Build.Summary),
             Logs: SerializeMetadataElement(output.Build.Logs),
             Output: SerializeMetadataElement(output.Build.Output),
+            ProjectMutation: SerializeMetadataElement(response.ProjectMutation),
             DirtyState: SerializeMetadataElement(response.DirtyState));
     }
 
@@ -669,6 +692,15 @@ internal sealed class BuildService : IBuildService
                 },
                 [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(BuildEvidenceKind.BuildInput), EvidenceRef: BuildReportRefs.Build, Data: response.Input)]),
             CreateClaim(
+                BuildClaimCodes.UnityBuildRunnerResolved,
+                BuildClaimStatus.Passed,
+                "Build runner was resolved before invocation.",
+                new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["kind"] = "buildPipeline",
+                },
+                [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(BuildEffect.UnityBuildPipeline), EvidenceRef: BuildReportRefs.Build)]),
+            CreateClaim(
                 BuildClaimCodes.UnityBuildCompleted,
                 knownTerminalResult ? BuildClaimStatus.Passed : BuildClaimStatus.Indeterminate,
                 "Unity BuildPipeline reached a terminal BuildReport result.",
@@ -687,6 +719,15 @@ internal sealed class BuildService : IBuildService
                     ["errorCount"] = build.Summary.ErrorCount,
                 },
                 [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(BuildEffect.UnityBuildReportRead), EvidenceRef: BuildReportRefs.BuildReport, Data: build.Summary)]),
+            CreateClaim(
+                BuildClaimCodes.UnityBuildResultAccounted,
+                BuildClaimStatus.Passed,
+                "Build runner terminal result was persisted in build metadata.",
+                new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["result"] = build.Summary.Result,
+                },
+                [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(BuildEffect.UnityBuildReportRead), EvidenceRef: BuildReportRefs.Build, Data: build.Summary)]),
             CreateClaim(
                 BuildClaimCodes.UnityBuildReportAccounted,
                 BuildClaimStatus.Passed,
@@ -728,6 +769,17 @@ internal sealed class BuildService : IBuildService
                 },
                 [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(BuildEffect.UnityLogWindowRead), EvidenceRef: BuildReportRefs.BuildLog, Data: build.Logs)]),
             CreateClaim(
+                BuildClaimCodes.UnityBuildProjectMutationAccounted,
+                ResolveProjectMutationClaimStatus(response.ProjectMutation),
+                "Project mutation audit was recorded according to build policy.",
+                new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["mode"] = response.ProjectMutation.Mode,
+                    ["coverage"] = response.ProjectMutation.Coverage,
+                    ["mutated"] = response.ProjectMutation.Mutated,
+                },
+                [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(BuildEffect.ProjectMutationAudit), EvidenceRef: BuildReportRefs.Build, Data: response.ProjectMutation)]),
+            CreateClaim(
                 BuildClaimCodes.UnityBuildValidForGeneration,
                 HasCompleteGenerationSnapshot(build.Generations) ? BuildClaimStatus.Passed : BuildClaimStatus.Indeterminate,
                 "Build artifacts declare the Unity lifecycle generations they are valid for.",
@@ -738,6 +790,41 @@ internal sealed class BuildService : IBuildService
                     ["assetRefreshGeneration"] = build.Generations.ValidFor.AssetRefreshGeneration,
                 },
                 [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(BuildEffect.GenerationSnapshot), EvidenceRef: BuildReportRefs.Build, Data: build.Generations)]),
+        ];
+    }
+
+    private static BuildClaimStatus ResolveProjectMutationClaimStatus (IpcBuildProjectMutationAudit projectMutation)
+    {
+        return string.Equals(
+            projectMutation.Coverage,
+            ContractLiteralCodec.ToValue(IpcBuildProjectMutationAuditCoverage.Indeterminate),
+            StringComparison.Ordinal)
+            ? BuildClaimStatus.Indeterminate
+            : BuildClaimStatus.Passed;
+    }
+
+    private static IReadOnlyList<BuildResidualRiskOutput> CreateResidualRisks (
+        BuildProfileProjectMutationMode mode,
+        IpcBuildProjectMutationAudit projectMutation)
+    {
+        var fullCoverage = string.Equals(
+            projectMutation.Coverage,
+            ContractLiteralCodec.ToValue(IpcBuildProjectMutationAuditCoverage.Full),
+            StringComparison.Ordinal);
+        var mutationRiskRequired = (mode == BuildProfileProjectMutationMode.Audit && projectMutation.Mutated)
+            || (mode == BuildProfileProjectMutationMode.AllowWithAudit && !fullCoverage);
+        if (!mutationRiskRequired)
+        {
+            return EmptyResidualRisks;
+        }
+
+        return
+        [
+            new BuildResidualRiskOutput(
+                Code: BuildRiskCodes.ProjectMutationDetected.Value,
+                Severity: "warning",
+                Blocking: false,
+                Statement: "Project mutation audit evidence should be reviewed for this build run."),
         ];
     }
 
@@ -779,7 +866,9 @@ internal sealed class BuildService : IBuildService
             ResidualRisks: EmptyResidualRisks);
     }
 
-    private static string RecalculateVerdict (IReadOnlyList<BuildClaimOutput> claims)
+    private static string RecalculateVerdict (
+        IReadOnlyList<BuildClaimOutput> claims,
+        IReadOnlyList<BuildResidualRiskOutput> residualRisks)
     {
         return AssuranceVerdictCalculator.Calculate(
             claims
@@ -789,9 +878,43 @@ internal sealed class BuildService : IBuildService
                     Required: claim.Required,
                     HasBlockingResidualRisk: claim.ResidualRisks.Any(static risk => risk.Blocking)))
                 .ToArray(),
-            EmptyResidualRisks
+            residualRisks
                 .Select(static risk => new AssuranceVerdictResidualRiskState(risk.Blocking))
                 .ToArray());
+    }
+
+    private static ApplicationFailure? ValidateRuntimePolicy (
+        ResolvedBuildRuntimePolicy policy,
+        UnityExecutionTarget executionTarget)
+    {
+        var resolvedExecutionMode = ResolveProfileRuntimeExecutionMode(executionTarget);
+        if (!policy.AllowedExecutionModes.Contains(resolvedExecutionMode))
+        {
+            var modeLiteral = ContractLiteralCodec.ToValue(resolvedExecutionMode);
+            return ApplicationFailure.FromCode(
+                BuildErrorCodes.BuildRuntimePolicyViolation,
+                $"Build runtime policy does not allow resolved execution mode '{modeLiteral}'.");
+        }
+
+        if (executionTarget == UnityExecutionTarget.Oneshot
+            && !policy.AllowedEditorModes.Contains(DaemonEditorMode.Batchmode))
+        {
+            return ApplicationFailure.FromCode(
+                BuildErrorCodes.BuildRuntimePolicyViolation,
+                "Build runtime policy does not allow oneshot batchmode editor execution.");
+        }
+
+        return null;
+    }
+
+    private static BuildProfileRuntimeExecutionMode ResolveProfileRuntimeExecutionMode (UnityExecutionTarget executionTarget)
+    {
+        return executionTarget switch
+        {
+            UnityExecutionTarget.Daemon => BuildProfileRuntimeExecutionMode.Daemon,
+            UnityExecutionTarget.Oneshot => BuildProfileRuntimeExecutionMode.Oneshot,
+            _ => throw new ArgumentOutOfRangeException(nameof(executionTarget), executionTarget, "Unsupported execution target."),
+        };
     }
 
     private static UnityExecutionMode ResolveExecutionMode (UnityExecutionTarget executionTarget)
