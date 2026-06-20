@@ -714,6 +714,34 @@ public sealed class BuildServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Execute_WithForbidProjectMutationPartialCoverage_ReturnsCommandFailureAfterWritingMetadata ()
+    {
+        using var tempDirectory = TemporaryDirectory.Create();
+        var artifactStore = new StubBuildRunArtifactStore(tempDirectory.Path);
+        var service = CreateService(
+            requestExecutor: CreateBuildResponseExecutor(
+                ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+                errorCount: 0,
+                projectMutation: CreateProjectMutation(
+                    mutated: false,
+                    mode: ContractLiteralCodec.ToValue(BuildProfileProjectMutationMode.Forbid),
+                    coverage: ContractLiteralCodec.ToValue(IpcBuildProjectMutationAuditCoverage.Partial))),
+            artifactStore: artifactStore);
+
+        var result = await service.ExecuteAsync(CreateInput());
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(BuildErrorCodes.BuildProjectMutationForbidden, error.Code);
+        Assert.NotNull(artifactStore.WrittenMetadata);
+        Assert.False(artifactStore.WrittenMetadata!.ProjectMutation.GetProperty("mutated").GetBoolean());
+        Assert.Equal("partial", artifactStore.WrittenMetadata.ProjectMutation.GetProperty("coverage").GetString());
+        Assert.Null(result.Output);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Execute_WithAuditProjectMutation_ReturnsNonBlockingResidualRisk ()
     {
         using var tempDirectory = TemporaryDirectory.Create();
@@ -787,10 +815,95 @@ public sealed class BuildServiceTests
         var result = await service.ExecuteAsync(CreateInput());
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(ContractLiteralCodec.ToValue(BuildVerdict.Pass), result.Output!.Verdict);
+        Assert.Equal(ContractLiteralCodec.ToValue(BuildVerdict.Incomplete), result.Output!.Verdict);
         var risk = Assert.Single(result.Output.ResidualRisks);
-        Assert.Equal(BuildRiskCodes.ProjectMutationDetected.Value, risk.Code);
+        Assert.Equal(BuildRiskCodes.ProjectMutationAuditCoverageIncomplete.Value, risk.Code);
         Assert.False(risk.Blocking);
+        Assert.Equal(ContractLiteralCodec.ToValue(BuildClaimStatus.Indeterminate), FindClaim(result.Output, BuildClaimCodes.UnityBuildProjectMutationAccounted).Status);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithMismatchedProjectMutationModeResponse_ReturnsCommandFailure ()
+    {
+        using var tempDirectory = TemporaryDirectory.Create();
+        var artifactStore = new StubBuildRunArtifactStore(tempDirectory.Path);
+        var service = CreateService(
+            requestExecutor: CreateBuildResponseExecutor(
+                ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+                errorCount: 0,
+                projectMutation: CreateProjectMutation(
+                    mutated: false,
+                    mode: ContractLiteralCodec.ToValue(BuildProfileProjectMutationMode.Audit))),
+            artifactStore: artifactStore);
+
+        var result = await service.ExecuteAsync(CreateInput());
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
+        Assert.Null(artifactStore.WrittenMetadata);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithInvalidProjectMutationCoverageResponse_ReturnsCommandFailure ()
+    {
+        using var tempDirectory = TemporaryDirectory.Create();
+        var artifactStore = new StubBuildRunArtifactStore(tempDirectory.Path);
+        var service = CreateService(
+            requestExecutor: CreateBuildResponseExecutor(
+                ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+                errorCount: 0,
+                projectMutation: CreateProjectMutation(
+                    mutated: false,
+                    mode: ContractLiteralCodec.ToValue(BuildProfileProjectMutationMode.Forbid),
+                    coverage: "legacy")),
+            artifactStore: artifactStore);
+
+        var result = await service.ExecuteAsync(CreateInput());
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
+        Assert.Null(artifactStore.WrittenMetadata);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithInconsistentProjectMutationItemsResponse_ReturnsCommandFailure ()
+    {
+        using var tempDirectory = TemporaryDirectory.Create();
+        var artifactStore = new StubBuildRunArtifactStore(tempDirectory.Path);
+        var service = CreateService(
+            requestExecutor: CreateBuildResponseExecutor(
+                ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+                errorCount: 0,
+                projectMutation: new IpcBuildProjectMutationAudit(
+                    Mode: ContractLiteralCodec.ToValue(BuildProfileProjectMutationMode.Forbid),
+                    Coverage: ContractLiteralCodec.ToValue(IpcBuildProjectMutationAuditCoverage.Full),
+                    Mutated: false,
+                    BeforeDigest: new string('1', 64),
+                    AfterDigest: new string('2', 64),
+                    Items:
+                    [
+                        new IpcBuildProjectMutationAuditItem(
+                            Path: "Assets/Generated.asset",
+                            ChangeKind: ContractLiteralCodec.ToValue(IpcBuildProjectMutationChangeKind.Added),
+                            BeforeSha256: null,
+                            AfterSha256: new string('2', 64)),
+                    ])),
+            artifactStore: artifactStore);
+
+        var result = await service.ExecuteAsync(CreateInput());
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
+        Assert.Null(artifactStore.WrittenMetadata);
     }
 
     private static BuildService CreateService (

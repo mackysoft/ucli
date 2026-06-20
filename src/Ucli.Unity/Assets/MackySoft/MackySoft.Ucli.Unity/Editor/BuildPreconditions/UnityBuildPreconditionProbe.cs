@@ -268,9 +268,7 @@ namespace MackySoft.Ucli.Unity.Build
 
         private static bool IsAuditedProjectPath (string path)
         {
-            return path.StartsWith("Assets/", StringComparison.Ordinal)
-                || path.StartsWith("ProjectSettings/", StringComparison.Ordinal)
-                || path.StartsWith("Packages/", StringComparison.Ordinal);
+            return UnityProjectMutationAuditScope.IsAuditedProjectPath(path);
         }
 
         private static IpcBuildDirtyStateItemKind ClassifyDirtyItem (string path)

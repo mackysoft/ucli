@@ -245,13 +245,12 @@ internal sealed class BuildService : IBuildService
                 return BuildExecutionResult.Failure(metadataWriteResult.Error!, project);
             }
 
-            if (profile.Policy.ProjectMutationMode == BuildProfileProjectMutationMode.Forbid
-                && buildResponse.ProjectMutation.Mutated)
+            if (IsForbiddenProjectMutationViolation(profile.Policy.ProjectMutationMode, buildResponse.ProjectMutation))
             {
                 return BuildExecutionResult.Failure(
                     ApplicationFailure.FromCode(
                         BuildErrorCodes.BuildProjectMutationForbidden,
-                        "Build project mutation policy forbids the project changes detected during runner invocation."),
+                        "Build project mutation policy forbids project changes or incomplete mutation audit coverage during runner invocation."),
                     project);
             }
 
@@ -474,7 +473,194 @@ internal sealed class BuildService : IBuildService
                 $"Unity BuildReport BuildTarget mismatch. Input={response.Input.UnityBuildTarget}, Report={response.Report.UnityBuildTarget}.");
         }
 
+        return ValidateProjectMutationAudit(response.ProjectMutation, expectedProfile.Policy.ProjectMutationMode);
+    }
+
+    private static ApplicationFailure? ValidateProjectMutationAudit (
+        IpcBuildProjectMutationAudit projectMutation,
+        BuildProfileProjectMutationMode expectedMode)
+    {
+        if (projectMutation == null)
+        {
+            return ApplicationFailure.InternalError("Unity build response projectMutation audit is missing.");
+        }
+
+        var expectedModeLiteral = ContractLiteralCodec.ToValue(expectedMode);
+        if (!ContractLiteralCodec.TryParse<BuildProfileProjectMutationMode>(projectMutation.Mode, out var mode))
+        {
+            return ApplicationFailure.InternalError($"Unity build response contains unsupported projectMutation mode: {projectMutation.Mode}.");
+        }
+
+        if (mode != expectedMode)
+        {
+            return ApplicationFailure.InternalError(
+                $"Unity build response projectMutation mode mismatch. Requested={expectedModeLiteral}, Actual={projectMutation.Mode}.");
+        }
+
+        if (!ContractLiteralCodec.TryParse<IpcBuildProjectMutationAuditCoverage>(projectMutation.Coverage, out _))
+        {
+            return ApplicationFailure.InternalError($"Unity build response contains unsupported projectMutation coverage: {projectMutation.Coverage}.");
+        }
+
+        if (!IsSha256LowerHex(projectMutation.BeforeDigest))
+        {
+            return ApplicationFailure.InternalError("Unity build response projectMutation beforeDigest must be lowercase SHA-256 hex.");
+        }
+
+        if (!IsSha256LowerHex(projectMutation.AfterDigest))
+        {
+            return ApplicationFailure.InternalError("Unity build response projectMutation afterDigest must be lowercase SHA-256 hex.");
+        }
+
+        if (projectMutation.Items == null)
+        {
+            return ApplicationFailure.InternalError("Unity build response projectMutation items must be present.");
+        }
+
+        var hasItems = projectMutation.Items.Count != 0;
+        if (projectMutation.Mutated != hasItems)
+        {
+            return ApplicationFailure.InternalError("Unity build response projectMutation mutated flag must match the item set.");
+        }
+
+        if (!projectMutation.Mutated
+            && !string.Equals(projectMutation.BeforeDigest, projectMutation.AfterDigest, StringComparison.Ordinal))
+        {
+            return ApplicationFailure.InternalError("Unity build response projectMutation digests must match when no items changed.");
+        }
+
+        if (projectMutation.Mutated
+            && string.Equals(projectMutation.BeforeDigest, projectMutation.AfterDigest, StringComparison.Ordinal))
+        {
+            return ApplicationFailure.InternalError("Unity build response projectMutation digests must differ when items changed.");
+        }
+
+        string? previousPath = null;
+        for (var i = 0; i < projectMutation.Items.Count; i++)
+        {
+            var item = projectMutation.Items[i];
+            var validationFailure = ValidateProjectMutationAuditItem(item, previousPath, i);
+            if (validationFailure != null)
+            {
+                return validationFailure;
+            }
+
+            previousPath = item.Path;
+        }
+
         return null;
+    }
+
+    private static ApplicationFailure? ValidateProjectMutationAuditItem (
+        IpcBuildProjectMutationAuditItem item,
+        string? previousPath,
+        int index)
+    {
+        if (item == null)
+        {
+            return ApplicationFailure.InternalError($"Unity build response projectMutation item at index {index} is missing.");
+        }
+
+        if (!UnityAssetPathContract.IsNormalizedProjectRelativePath(item.Path)
+            || !IsAuditedProjectMutationPath(item.Path))
+        {
+            return ApplicationFailure.InternalError(
+                $"Unity build response projectMutation item at index {index} has an invalid audited project path: {item.Path}.");
+        }
+
+        if (previousPath != null && string.CompareOrdinal(previousPath, item.Path) >= 0)
+        {
+            return ApplicationFailure.InternalError("Unity build response projectMutation items must be ordered by unique project-relative path.");
+        }
+
+        if (!ContractLiteralCodec.TryParse<IpcBuildProjectMutationChangeKind>(item.ChangeKind, out var changeKind))
+        {
+            return ApplicationFailure.InternalError(
+                $"Unity build response projectMutation item at index {index} contains unsupported changeKind: {item.ChangeKind}.");
+        }
+
+        return changeKind switch
+        {
+            IpcBuildProjectMutationChangeKind.Added => ValidateProjectMutationAddedItem(item, index),
+            IpcBuildProjectMutationChangeKind.Modified => ValidateProjectMutationModifiedItem(item, index),
+            IpcBuildProjectMutationChangeKind.Deleted => ValidateProjectMutationDeletedItem(item, index),
+            _ => ApplicationFailure.InternalError(
+                $"Unity build response projectMutation item at index {index} contains unsupported changeKind: {item.ChangeKind}."),
+        };
+    }
+
+    private static ApplicationFailure? ValidateProjectMutationAddedItem (
+        IpcBuildProjectMutationAuditItem item,
+        int index)
+    {
+        if (item.BeforeSha256 != null)
+        {
+            return ApplicationFailure.InternalError(
+                $"Unity build response projectMutation added item at index {index} must not contain beforeSha256.");
+        }
+
+        return IsSha256LowerHex(item.AfterSha256)
+            ? null
+            : ApplicationFailure.InternalError(
+                $"Unity build response projectMutation added item at index {index} must contain afterSha256.");
+    }
+
+    private static ApplicationFailure? ValidateProjectMutationModifiedItem (
+        IpcBuildProjectMutationAuditItem item,
+        int index)
+    {
+        if (!IsSha256LowerHex(item.BeforeSha256) || !IsSha256LowerHex(item.AfterSha256))
+        {
+            return ApplicationFailure.InternalError(
+                $"Unity build response projectMutation modified item at index {index} must contain beforeSha256 and afterSha256.");
+        }
+
+        return !string.Equals(item.BeforeSha256, item.AfterSha256, StringComparison.Ordinal)
+            ? null
+            : ApplicationFailure.InternalError(
+                $"Unity build response projectMutation modified item at index {index} must change digest.");
+    }
+
+    private static ApplicationFailure? ValidateProjectMutationDeletedItem (
+        IpcBuildProjectMutationAuditItem item,
+        int index)
+    {
+        if (item.AfterSha256 != null)
+        {
+            return ApplicationFailure.InternalError(
+                $"Unity build response projectMutation deleted item at index {index} must not contain afterSha256.");
+        }
+
+        return IsSha256LowerHex(item.BeforeSha256)
+            ? null
+            : ApplicationFailure.InternalError(
+                $"Unity build response projectMutation deleted item at index {index} must contain beforeSha256.");
+    }
+
+    private static bool IsAuditedProjectMutationPath (string path)
+    {
+        return path.StartsWith("Assets/", StringComparison.Ordinal)
+            || path.StartsWith("ProjectSettings/", StringComparison.Ordinal)
+            || path.StartsWith("Packages/", StringComparison.Ordinal);
+    }
+
+    private static bool IsSha256LowerHex (string? value)
+    {
+        if (value == null || value.Length != 64)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < value.Length; i++)
+        {
+            var character = value[i];
+            if (!((character >= '0' && character <= '9') || (character >= 'a' && character <= 'f')))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static bool HasExpectedDevelopmentBuildOption (
@@ -795,37 +981,66 @@ internal sealed class BuildService : IBuildService
 
     private static BuildClaimStatus ResolveProjectMutationClaimStatus (IpcBuildProjectMutationAudit projectMutation)
     {
-        return string.Equals(
-            projectMutation.Coverage,
-            ContractLiteralCodec.ToValue(IpcBuildProjectMutationAuditCoverage.Indeterminate),
-            StringComparison.Ordinal)
-            ? BuildClaimStatus.Indeterminate
-            : BuildClaimStatus.Passed;
+        return IsFullProjectMutationCoverage(projectMutation)
+            ? BuildClaimStatus.Passed
+            : BuildClaimStatus.Indeterminate;
     }
 
     private static IReadOnlyList<BuildResidualRiskOutput> CreateResidualRisks (
         BuildProfileProjectMutationMode mode,
         IpcBuildProjectMutationAudit projectMutation)
     {
-        var fullCoverage = string.Equals(
+        var risks = new List<BuildResidualRiskOutput>(capacity: 2);
+        if (mode == BuildProfileProjectMutationMode.Audit && projectMutation.Mutated)
+        {
+            risks.Add(CreateProjectMutationRisk(
+                BuildRiskCodes.ProjectMutationDetected,
+                "Project mutation audit evidence should be reviewed for this build run."));
+        }
+
+        if ((mode == BuildProfileProjectMutationMode.Audit || mode == BuildProfileProjectMutationMode.AllowWithAudit)
+            && !IsFullProjectMutationCoverage(projectMutation))
+        {
+            risks.Add(CreateProjectMutationRisk(
+                BuildRiskCodes.ProjectMutationAuditCoverageIncomplete,
+                "Project mutation audit did not cover every configured project path for this build run."));
+        }
+
+        return risks.Count == 0
+            ? EmptyResidualRisks
+            : risks;
+    }
+
+    private static BuildResidualRiskOutput CreateProjectMutationRisk (
+        UcliCode code,
+        string statement)
+    {
+        return new BuildResidualRiskOutput(
+            Code: code.Value,
+            Severity: "warning",
+            Blocking: false,
+            Statement: statement);
+    }
+
+    private static bool IsForbiddenProjectMutationViolation (
+        BuildProfileProjectMutationMode mode,
+        IpcBuildProjectMutationAudit projectMutation)
+    {
+        return mode == BuildProfileProjectMutationMode.Forbid
+            && (projectMutation.Mutated || !IsFullProjectMutationCoverage(projectMutation));
+    }
+
+    private static bool IsFullProjectMutationCoverage (IpcBuildProjectMutationAudit projectMutation)
+    {
+        if (projectMutation == null)
+        {
+            return false;
+        }
+
+        return string.Equals(
             projectMutation.Coverage,
             ContractLiteralCodec.ToValue(IpcBuildProjectMutationAuditCoverage.Full),
             StringComparison.Ordinal);
-        var mutationRiskRequired = (mode == BuildProfileProjectMutationMode.Audit && projectMutation.Mutated)
-            || (mode == BuildProfileProjectMutationMode.AllowWithAudit && !fullCoverage);
-        if (!mutationRiskRequired)
-        {
-            return EmptyResidualRisks;
-        }
-
-        return
-        [
-            new BuildResidualRiskOutput(
-                Code: BuildRiskCodes.ProjectMutationDetected.Value,
-                Severity: "warning",
-                Blocking: false,
-                Statement: "Project mutation audit evidence should be reviewed for this build run."),
-        ];
     }
 
     private static bool HasCompleteGenerationSnapshot (BuildGenerationsOutput generations)

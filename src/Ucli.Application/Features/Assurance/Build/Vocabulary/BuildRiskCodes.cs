@@ -5,8 +5,11 @@ internal static class BuildRiskCodes
 {
     public static readonly UcliCode ProjectMutationDetected = new("BUILD_PROJECT_MUTATION_DETECTED");
 
+    public static readonly UcliCode ProjectMutationAuditCoverageIncomplete = new("BUILD_PROJECT_MUTATION_AUDIT_COVERAGE_INCOMPLETE");
+
     public static IReadOnlyList<UcliCode> All { get; } =
     [
         ProjectMutationDetected,
+        ProjectMutationAuditCoverageIncomplete,
     ];
 }

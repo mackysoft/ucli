@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Threading;
+using MackySoft.Ucli.Unity.Build;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -336,14 +337,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static bool IsProjectPersistentAssetPath (string assetPath)
         {
-            if (string.IsNullOrWhiteSpace(assetPath))
-            {
-                return false;
-            }
-
-            return assetPath.StartsWith("Assets/", StringComparison.Ordinal)
-                || assetPath.StartsWith("ProjectSettings/", StringComparison.Ordinal)
-                || assetPath.StartsWith("Packages/", StringComparison.Ordinal);
+            return UnityProjectMutationAuditScope.IsAuditedProjectPath(assetPath);
         }
 
         private void DisposeTrackedResources ()

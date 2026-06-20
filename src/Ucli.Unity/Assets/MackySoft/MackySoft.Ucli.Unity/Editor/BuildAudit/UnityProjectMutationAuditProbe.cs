@@ -15,13 +15,6 @@ namespace MackySoft.Ucli.Unity.Build
     {
         private const int FileStreamBufferSize = 81920;
 
-        private static readonly string[] AuditedRootRelativePaths =
-        {
-            "Assets",
-            "ProjectSettings",
-            "Packages",
-        };
-
         /// <summary> Captures the current project mutation audit baseline. </summary>
         /// <param name="projectPath"> The Unity project root path. </param>
         /// <returns> The captured project snapshot. </returns>
@@ -67,23 +60,36 @@ namespace MackySoft.Ucli.Unity.Build
             var projectRoot = Path.GetFullPath(projectPath);
             var files = new List<ProjectMutationFileEntry>();
             var coverage = IpcBuildProjectMutationAuditCoverage.Full;
-            for (var i = 0; i < AuditedRootRelativePaths.Length; i++)
+            var scannedRootCount = 0;
+            var auditedRootRelativePaths = UnityProjectMutationAuditScope.RootRelativePaths;
+            for (var i = 0; i < auditedRootRelativePaths.Count; i++)
             {
-                var rootRelativePath = AuditedRootRelativePaths[i];
+                var rootRelativePath = auditedRootRelativePaths[i];
                 var rootPath = Path.Combine(projectRoot, rootRelativePath);
                 if (!Directory.Exists(rootPath))
                 {
+                    coverage = IpcBuildProjectMutationAuditCoverage.Partial;
                     continue;
                 }
 
                 try
                 {
-                    CaptureRoot(projectRoot, rootPath, files);
+                    if (!CaptureRoot(projectRoot, rootPath, files))
+                    {
+                        coverage = IpcBuildProjectMutationAuditCoverage.Partial;
+                    }
+
+                    scannedRootCount++;
                 }
                 catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or NotSupportedException)
                 {
                     coverage = IpcBuildProjectMutationAuditCoverage.Partial;
                 }
+            }
+
+            if (scannedRootCount == 0)
+            {
+                coverage = IpcBuildProjectMutationAuditCoverage.Indeterminate;
             }
 
             files.Sort(static (left, right) => string.CompareOrdinal(left.Path, right.Path));
@@ -99,13 +105,21 @@ namespace MackySoft.Ucli.Unity.Build
                 filesByPath);
         }
 
-        private static void CaptureRoot (
+        private static bool CaptureRoot (
             string projectRoot,
             string rootPath,
             List<ProjectMutationFileEntry> files)
         {
+            var fullCoverage = true;
             var pendingDirectories = new Stack<string>();
-            pendingDirectories.Push(Path.GetFullPath(rootPath));
+            var normalizedRootPath = Path.GetFullPath(rootPath);
+            var rootAttributes = File.GetAttributes(normalizedRootPath);
+            if ((rootAttributes & FileAttributes.ReparsePoint) != 0)
+            {
+                return false;
+            }
+
+            pendingDirectories.Push(normalizedRootPath);
             while (pendingDirectories.Count > 0)
             {
                 var currentDirectory = pendingDirectories.Pop();
@@ -114,6 +128,7 @@ namespace MackySoft.Ucli.Unity.Build
                     var attributes = File.GetAttributes(entryPath);
                     if ((attributes & FileAttributes.ReparsePoint) != 0)
                     {
+                        fullCoverage = false;
                         continue;
                     }
 
@@ -128,6 +143,8 @@ namespace MackySoft.Ucli.Unity.Build
                     files.Add(new ProjectMutationFileEntry(relativePath, ComputeFileSha256(fullPath)));
                 }
             }
+
+            return fullCoverage;
         }
 
         private static IReadOnlyList<IpcBuildProjectMutationAuditItem> CreateItems (
@@ -189,6 +206,13 @@ namespace MackySoft.Ucli.Unity.Build
             string baselineCoverage,
             string afterCoverage)
         {
+            var indeterminate = ContractLiteralCodec.ToValue(IpcBuildProjectMutationAuditCoverage.Indeterminate);
+            if (string.Equals(baselineCoverage, indeterminate, StringComparison.Ordinal)
+                || string.Equals(afterCoverage, indeterminate, StringComparison.Ordinal))
+            {
+                return indeterminate;
+            }
+
             var partial = ContractLiteralCodec.ToValue(IpcBuildProjectMutationAuditCoverage.Partial);
             if (string.Equals(baselineCoverage, partial, StringComparison.Ordinal)
                 || string.Equals(afterCoverage, partial, StringComparison.Ordinal))
