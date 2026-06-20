@@ -92,7 +92,7 @@ public sealed class CliOutputSchemaArtifactTests
     [Theory]
     [MemberData(nameof(GetReportRefContractCases))]
     [Trait("Size", "Small")]
-    public void ReportRefSchema_RequiresKindAndExactlyOneLocation (
+    public void ReportRefSchema_RequiresExactlyOneLocation (
         string reportJson,
         bool expectedValid)
     {
@@ -953,7 +953,6 @@ public sealed class CliOutputSchemaArtifactTests
         {
             """
             {
-              "kind": "log",
               "path": "artifacts/ready.log",
               "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
             }
@@ -964,7 +963,6 @@ public sealed class CliOutputSchemaArtifactTests
         {
             """
             {
-              "kind": "report",
               "uri": "https://example.test/report"
             }
             """,
@@ -974,7 +972,6 @@ public sealed class CliOutputSchemaArtifactTests
         {
             """
             {
-              "kind": "report",
               "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
             }
             """,
@@ -984,7 +981,6 @@ public sealed class CliOutputSchemaArtifactTests
         {
             """
             {
-              "kind": "report",
               "path": "artifacts/ready.log",
               "uri": "https://example.test/report"
             }

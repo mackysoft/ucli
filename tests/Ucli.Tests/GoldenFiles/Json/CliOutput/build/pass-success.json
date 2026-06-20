@@ -296,22 +296,18 @@
     ],
     "reports": {
       "build": {
-        "kind": "build",
         "path": "/workspace/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/build.json",
         "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
       },
       "buildReport": {
-        "kind": "buildReport",
         "path": "/workspace/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/build-report.json",
         "digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
       },
       "buildOutputManifest": {
-        "kind": "buildOutputManifest",
         "path": "/workspace/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/output-manifest.json",
         "digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
       },
       "buildLog": {
-        "kind": "buildLog",
         "path": "/workspace/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/build.log",
         "digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
       }

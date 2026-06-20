@@ -49,7 +49,6 @@
     ],
     "reports": {
       "test.summary": {
-        "kind": "test.summary",
         "path": ".ucli/local/test/test-run-1/summary.json"
       }
     },

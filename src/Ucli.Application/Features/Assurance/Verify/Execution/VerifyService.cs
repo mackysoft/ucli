@@ -354,7 +354,7 @@ internal sealed class VerifyService : IVerifyService
 
         foreach (var report in output.Reports)
         {
-            builder.AddReport(report.Key, new VerifyReportOutput(report.Value.Kind)
+            builder.AddReport(report.Key, new VerifyReportOutput
             {
                 Path = report.Value.Path,
                 Uri = report.Value.Uri,
@@ -407,7 +407,7 @@ internal sealed class VerifyService : IVerifyService
 
         foreach (var report in output.Reports)
         {
-            builder.AddReport(report.Key, new VerifyReportOutput(report.Value.Kind)
+            builder.AddReport(report.Key, new VerifyReportOutput
             {
                 Path = report.Value.Path,
                 Digest = report.Value.Digest,
@@ -511,7 +511,7 @@ internal sealed class VerifyService : IVerifyService
         });
         if (reportRef != null)
         {
-            builder.AddReport(reportRef, new VerifyReportOutput("test.summary")
+            builder.AddReport(reportRef, new VerifyReportOutput
             {
                 Path = result.SummaryJsonPath,
             });
@@ -584,7 +584,7 @@ internal sealed class VerifyService : IVerifyService
         var reportUri = result.IsSuccess
             ? $"ucli://logs/unity?tail=200&count={eventCount}"
             : $"ucli://logs/unity?tail=200&status=failed";
-        builder.AddReport(LogsReportRef, new VerifyReportOutput("unityLog")
+        builder.AddReport(LogsReportRef, new VerifyReportOutput
         {
             Uri = reportUri,
         });

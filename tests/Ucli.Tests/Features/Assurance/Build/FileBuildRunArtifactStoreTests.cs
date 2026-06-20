@@ -187,17 +187,14 @@ public sealed class FileBuildRunArtifactStoreTests
         Assert.False(artifacts.TryGetProperty(GetArtifactKey(BuildArtifactKind.Build), out _));
         AssertArtifactRef(
             artifacts.GetProperty(GetArtifactKey(BuildArtifactKind.BuildReport)),
-            BuildArtifactKind.BuildReport,
             ToRepositoryRelativeSlashPath(scope.FullPath, paths.BuildReportJsonPath),
             result.BuildReport.Digest);
         AssertArtifactRef(
             artifacts.GetProperty(GetArtifactKey(BuildArtifactKind.BuildOutputManifest)),
-            BuildArtifactKind.BuildOutputManifest,
             ToRepositoryRelativeSlashPath(scope.FullPath, paths.OutputManifestJsonPath),
             result.BuildOutputManifest.Digest);
         AssertArtifactRef(
             artifacts.GetProperty(GetArtifactKey(BuildArtifactKind.BuildLog)),
-            BuildArtifactKind.BuildLog,
             ToRepositoryRelativeSlashPath(scope.FullPath, paths.BuildLogPath),
             result.BuildLog.Digest);
         await AssertFileSha256Async(paths.BuildJsonPath, buildRef.Digest);
@@ -495,11 +492,9 @@ public sealed class FileBuildRunArtifactStoreTests
 
     private static void AssertArtifactRef (
         JsonElement artifact,
-        BuildArtifactKind expectedKind,
         string expectedPath,
         string expectedDigest)
     {
-        Assert.Equal(ContractLiteralCodec.ToValue(expectedKind), artifact.GetProperty("kind").GetString());
         Assert.Equal(expectedPath, artifact.GetProperty("path").GetString());
         Assert.Equal(expectedDigest, artifact.GetProperty("digest").GetString());
         AssertLowerSha256(expectedDigest);

@@ -1048,19 +1048,16 @@ public sealed class AssuranceSemanticInvariantValidatorTests
         {
             ["build"] = new
             {
-                kind = "build",
                 path = "artifacts/build.json",
                 digest = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             },
             ["buildReport"] = new
             {
-                kind = "buildReport",
                 path = "artifacts/build-report.json",
                 digest = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
             },
             ["buildOutputManifest"] = new
             {
-                kind = "buildOutputManifest",
                 path = "artifacts/output-manifest.json",
                 digest = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
             },
@@ -1070,13 +1067,11 @@ public sealed class AssuranceSemanticInvariantValidatorTests
             reports["buildLog"] = includeBuildLogDigest
                 ? (object)new
                 {
-                    kind = "buildLog",
                     path = includeBuildLogPath ? "artifacts/build.log" : null,
                     digest = buildLogDigest,
                 }
                 : new
                 {
-                    kind = "buildLog",
                     path = "artifacts/build.log",
                 };
         }

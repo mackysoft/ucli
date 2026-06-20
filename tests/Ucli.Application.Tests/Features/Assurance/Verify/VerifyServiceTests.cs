@@ -925,7 +925,7 @@ public sealed class VerifyServiceTests
             ],
             Reports: new Dictionary<string, CompileReportOutput>(StringComparer.Ordinal)
             {
-                ["compile.summary"] = new CompileReportOutput("compileSummary", "/repo/.ucli/local/compile/run-1/summary.json"),
+                ["compile.summary"] = new CompileReportOutput("/repo/.ucli/local/compile/run-1/summary.json"),
             },
             ResidualRisks: [],
             RequestedMode: AssuranceExecutionModeCodec.Auto,

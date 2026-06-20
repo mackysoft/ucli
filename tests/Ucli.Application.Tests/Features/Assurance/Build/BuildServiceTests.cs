@@ -114,7 +114,6 @@ public sealed class BuildServiceTests
         Assert.Equal(BuildReportArtifactDigest, output.Reports[BuildReportRefs.BuildReport].Digest);
         Assert.Equal(BuildOutputManifestArtifactDigest, output.Reports[BuildReportRefs.BuildOutputManifest].Digest);
         Assert.Equal(BuildLogArtifactDigest, output.Reports[BuildReportRefs.BuildLog].Digest);
-        Assert.All(output.Reports, report => Assert.Equal(report.Key, report.Value.Kind));
         Assert.True(output.Reports.ContainsKey(output.Build.Output.ManifestRef));
         AssertEvidenceRefsResolveToReports(output);
         Assert.Equal(10, output.Claims.Count);

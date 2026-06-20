@@ -358,22 +358,18 @@
     ],
     "reports": {
       "build": {
-        "kind": "build",
         "path": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/build.json",
         "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
       },
       "buildReport": {
-        "kind": "buildReport",
         "path": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/build-report.json",
         "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
       },
       "buildOutputManifest": {
-        "kind": "buildOutputManifest",
         "path": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/output-manifest.json",
         "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
       },
       "buildLog": {
-        "kind": "buildLog",
         "path": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/build.log",
         "digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
       }

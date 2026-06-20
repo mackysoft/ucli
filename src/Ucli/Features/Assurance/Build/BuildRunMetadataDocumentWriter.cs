@@ -77,10 +77,9 @@ internal sealed class BuildRunMetadataDocumentWriter
         for (var i = 0; i < artifacts.Count; i++)
         {
             var artifact = artifacts[i];
-            var artifactKindLiteral = ContractLiteralCodec.ToValue(artifact.Kind);
-            writer.WritePropertyName(artifactKindLiteral);
+            var artifactKey = ContractLiteralCodec.ToValue(artifact.Kind);
+            writer.WritePropertyName(artifactKey);
             writer.WriteStartObject();
-            writer.WriteString("kind", artifactKindLiteral);
             writer.WriteString("path", artifact.Path);
             writer.WriteString("digest", artifact.Digest);
             writer.WriteEndObject();

@@ -554,10 +554,10 @@ public sealed class BuildRunCliOutputContractTests
     {
         return new Dictionary<string, BuildReportOutput>(StringComparer.Ordinal)
         {
-            [BuildReportRefs.Build] = new(BuildReportRefs.Build, ArtifactRoot + "/build.json", BuildDigest),
-            [BuildReportRefs.BuildReport] = new(BuildReportRefs.BuildReport, ArtifactRoot + "/build-report.json", BuildReportDigest),
-            [BuildReportRefs.BuildOutputManifest] = new(BuildReportRefs.BuildOutputManifest, ArtifactRoot + "/output-manifest.json", BuildOutputManifestArtifactDigest),
-            [BuildReportRefs.BuildLog] = new(BuildReportRefs.BuildLog, ArtifactRoot + "/build.log", BuildLogDigest),
+            [BuildReportRefs.Build] = new(ArtifactRoot + "/build.json", BuildDigest),
+            [BuildReportRefs.BuildReport] = new(ArtifactRoot + "/build-report.json", BuildReportDigest),
+            [BuildReportRefs.BuildOutputManifest] = new(ArtifactRoot + "/output-manifest.json", BuildOutputManifestArtifactDigest),
+            [BuildReportRefs.BuildLog] = new(ArtifactRoot + "/build.log", BuildLogDigest),
         };
     }
 

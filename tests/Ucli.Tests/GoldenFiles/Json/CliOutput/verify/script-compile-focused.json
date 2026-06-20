@@ -77,7 +77,6 @@
     ],
     "reports": {
       "compile.summary": {
-        "kind": "compileSummary",
         "path": ".ucli/local/compile/run-1/summary.json"
       }
     },

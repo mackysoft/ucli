@@ -428,7 +428,7 @@ public sealed class VerifyCommandTests
             ],
             Reports: new Dictionary<string, VerifyReportOutput>(StringComparer.Ordinal)
             {
-                ["compile.summary"] = new VerifyReportOutput("compileSummary")
+                ["compile.summary"] = new VerifyReportOutput
                 {
                     Path = ".ucli/local/compile/run-1/summary.json",
                 },

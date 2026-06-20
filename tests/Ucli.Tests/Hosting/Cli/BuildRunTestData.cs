@@ -170,10 +170,10 @@ internal static class BuildRunTestData
     {
         return new Dictionary<string, BuildReportOutput>(StringComparer.Ordinal)
         {
-            [BuildReportRefs.Build] = new(BuildReportRefs.Build, "/workspace/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/build.json", Repeat('c')),
-            [BuildReportRefs.BuildReport] = new(BuildReportRefs.BuildReport, "/workspace/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/build-report.json", Repeat('d')),
-            [BuildReportRefs.BuildOutputManifest] = new(BuildReportRefs.BuildOutputManifest, "/workspace/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/output-manifest.json", Repeat('e')),
-            [BuildReportRefs.BuildLog] = new(BuildReportRefs.BuildLog, "/workspace/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/build.log", Repeat('f')),
+            [BuildReportRefs.Build] = new("/workspace/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/build.json", Repeat('c')),
+            [BuildReportRefs.BuildReport] = new("/workspace/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/build-report.json", Repeat('d')),
+            [BuildReportRefs.BuildOutputManifest] = new("/workspace/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/output-manifest.json", Repeat('e')),
+            [BuildReportRefs.BuildLog] = new("/workspace/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/build.log", Repeat('f')),
         };
     }
 

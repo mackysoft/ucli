@@ -304,10 +304,6 @@
               "type": "object",
               "additionalProperties": false,
               "properties": {
-                "kind": {
-                  "type": "string",
-                  "const": "build"
-                },
                 "path": {
                   "type": "string"
                 },
@@ -317,7 +313,6 @@
                 }
               },
               "required": [
-                "kind",
                 "path",
                 "digest"
               ]
@@ -326,10 +321,6 @@
               "type": "object",
               "additionalProperties": false,
               "properties": {
-                "kind": {
-                  "type": "string",
-                  "const": "buildReport"
-                },
                 "path": {
                   "type": "string"
                 },
@@ -339,7 +330,6 @@
                 }
               },
               "required": [
-                "kind",
                 "path",
                 "digest"
               ]
@@ -348,10 +338,6 @@
               "type": "object",
               "additionalProperties": false,
               "properties": {
-                "kind": {
-                  "type": "string",
-                  "const": "buildOutputManifest"
-                },
                 "path": {
                   "type": "string"
                 },
@@ -361,7 +347,6 @@
                 }
               },
               "required": [
-                "kind",
                 "path",
                 "digest"
               ]
@@ -370,10 +355,6 @@
               "type": "object",
               "additionalProperties": false,
               "properties": {
-                "kind": {
-                  "type": "string",
-                  "const": "buildLog"
-                },
                 "path": {
                   "type": "string"
                 },
@@ -383,7 +364,6 @@
                 }
               },
               "required": [
-                "kind",
                 "path",
                 "digest"
               ]

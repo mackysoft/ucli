@@ -565,10 +565,10 @@ internal sealed class BuildService : IBuildService
     {
         return new Dictionary<string, BuildReportOutput>(StringComparer.Ordinal)
         {
-            [BuildReportRefs.Build] = new BuildReportOutput(BuildReportRefs.Build, paths.BuildJsonPath, buildArtifact?.Digest),
-            [BuildReportRefs.BuildReport] = new BuildReportOutput(BuildReportRefs.BuildReport, paths.BuildReportJsonPath, accounting.BuildReport.Digest),
-            [BuildReportRefs.BuildOutputManifest] = new BuildReportOutput(BuildReportRefs.BuildOutputManifest, paths.OutputManifestJsonPath, accounting.BuildOutputManifest.Digest),
-            [BuildReportRefs.BuildLog] = new BuildReportOutput(BuildReportRefs.BuildLog, paths.BuildLogPath, accounting.BuildLog.Digest),
+            [BuildReportRefs.Build] = new BuildReportOutput(paths.BuildJsonPath, buildArtifact?.Digest),
+            [BuildReportRefs.BuildReport] = new BuildReportOutput(paths.BuildReportJsonPath, accounting.BuildReport.Digest),
+            [BuildReportRefs.BuildOutputManifest] = new BuildReportOutput(paths.OutputManifestJsonPath, accounting.BuildOutputManifest.Digest),
+            [BuildReportRefs.BuildLog] = new BuildReportOutput(paths.BuildLogPath, accounting.BuildLog.Digest),
         };
     }
 

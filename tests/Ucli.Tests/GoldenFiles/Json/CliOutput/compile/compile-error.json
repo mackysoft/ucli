@@ -135,11 +135,9 @@
     ],
     "reports": {
       "compile.summary": {
-        "kind": "compile.summary",
         "path": "/tmp/ucli/compile/summary.json"
       },
       "compile.diagnostics": {
-        "kind": "compile.diagnostics",
         "path": "/tmp/ucli/compile/diagnostics.json"
       }
     },
