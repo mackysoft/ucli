@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
@@ -246,7 +247,7 @@ namespace MackySoft.Ucli.Unity.Build
                     continue;
                 }
 
-                if (!UnityProjectMutationAuditScope.IsAuditedProjectPath(path))
+                if (!IsPersistentDirtyObjectAuditedPath(path))
                 {
                     continue;
                 }
@@ -264,6 +265,46 @@ namespace MackySoft.Ucli.Unity.Build
             {
                 itemsByPath[path] = new IpcBuildDirtyStateItem(kind, path);
             }
+        }
+
+        internal static bool IsPersistentDirtyObjectAuditedPath (string path)
+        {
+            if (!UnityProjectMutationAuditScope.IsAuditedProjectPath(path))
+            {
+                return false;
+            }
+
+            if (!path.StartsWith("Packages/", StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            return HasProjectLocalPackagePath(path);
+        }
+
+        private static bool HasProjectLocalPackagePath (string path)
+        {
+            var projectRootPath = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+            var packageRootPath = Path.GetFullPath(Path.Combine(projectRootPath, "Packages"));
+            var absolutePath = Path.GetFullPath(Path.Combine(projectRootPath, path.Replace('/', Path.DirectorySeparatorChar)));
+            if (!IsEqualOrChildPath(packageRootPath, absolutePath))
+            {
+                return false;
+            }
+
+            return File.Exists(absolutePath) || Directory.Exists(absolutePath);
+        }
+
+        private static bool IsEqualOrChildPath (
+            string parentPath,
+            string candidatePath)
+        {
+            if (string.Equals(parentPath, candidatePath, StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            return candidatePath.StartsWith(parentPath + Path.DirectorySeparatorChar, StringComparison.Ordinal);
         }
 
         private static IpcBuildDirtyStateItemKind ClassifyDirtyItem (string path)

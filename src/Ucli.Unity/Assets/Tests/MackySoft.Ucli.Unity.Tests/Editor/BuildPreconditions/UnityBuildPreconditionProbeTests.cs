@@ -166,6 +166,19 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
+        [TestCase("Assets/Any.asset", true)]
+        [TestCase("ProjectSettings/TagManager.asset", true)]
+        [TestCase("Packages/com.mackysoft.ucli.missing-dirty-state-test-6f3d4c9e/Runtime/Generated.asset", false)]
+        [TestCase("Library/PackageCache/com.unity.render-pipelines.universal/Shaders/Unlit.shader", false)]
+        public void IsPersistentDirtyObjectAuditedPath_WhenPathIsClassified_ReturnsExpected (
+            string path,
+            bool expected)
+        {
+            Assert.That(UnityBuildPreconditionProbe.IsPersistentDirtyObjectAuditedPath(path), Is.EqualTo(expected));
+        }
+
+        [Test]
+        [Category("Size.Small")]
         public async Task ProbeBeforeBuildAsync_WhenEditorBuildSettingsSourceIsUsed_UsesEnabledScenesOnly ()
         {
             using var scope = new EditorTestScope().SuppressExistingPersistentDirtyObjects();
