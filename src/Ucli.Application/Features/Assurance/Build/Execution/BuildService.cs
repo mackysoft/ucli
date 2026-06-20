@@ -529,7 +529,7 @@ internal sealed class BuildService : IBuildService
                 Paths: response.Input.Scenes),
             Options: new BuildOptionsOutput(profile.Options.Development),
             Output: new BuildArtifactOutput(
-                Kind: BuildOutputKinds.UcliArtifact,
+                Kind: ContractLiteralCodec.ToValue(BuildOutputKind.UcliArtifact),
                 ArtifactRoot: paths.ArtifactsDirectory,
                 OutputRoot: paths.OutputDirectory,
                 ManifestRef: BuildReportRefs.BuildOutputManifest,
