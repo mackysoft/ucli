@@ -61,6 +61,7 @@ public sealed class BuildRunCommandResultFactoryTests
         var dirtyState = new IpcBuildDirtyState(
             Checked: true,
             Dirty: true,
+            Coverage: ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Full),
             Items:
             [
                 new IpcBuildDirtyStateItem(

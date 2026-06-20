@@ -114,7 +114,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 Development: true,
                 OutputPath: outputPath,
                 BuildReportPath: "/tmp/ucli/build-report.json",
-                BuildLogPath: "/tmp/ucli/build.log");
+                BuildLogPath: "/tmp/ucli/build.log",
+                AllowedEditorModes: new[] { "batchmode" },
+                ProjectMutationMode: "forbid");
             var resolvedInput = new UnityBuildResolvedInput(
                 UnityBuildTarget: BuildTarget.StandaloneLinux64,
                 UnityBuildTargetGroup: BuildTargetGroup.Standalone,

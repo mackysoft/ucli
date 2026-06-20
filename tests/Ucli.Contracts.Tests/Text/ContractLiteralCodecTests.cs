@@ -1,4 +1,5 @@
 using System.Reflection;
+using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Index;
@@ -149,6 +150,8 @@ public sealed class ContractLiteralCodecTests
             yield return new object[] { typeof(OperationPolicy) };
             yield return new object[] { typeof(PlanTokenMode) };
             yield return new object[] { typeof(ReadIndexMode) };
+            yield return new object[] { typeof(BuildProfileProjectMutationMode) };
+            yield return new object[] { typeof(BuildProfileSceneSource) };
             yield return new object[] { typeof(DaemonEditorMode) };
             yield return new object[] { typeof(DaemonSessionOwnerKind) };
             yield return new object[] { typeof(DaemonStartupBlockedProcessPolicy) };

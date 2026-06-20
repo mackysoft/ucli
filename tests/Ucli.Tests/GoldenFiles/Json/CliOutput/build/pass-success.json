@@ -80,12 +80,15 @@
           "UNITY_BUILD_PROFILE_RESOLVED",
           "UNITY_READY_FOR_BUILD",
           "UNITY_BUILD_INPUTS_RESOLVED",
+          "UNITY_BUILD_RUNNER_RESOLVED",
           "UNITY_BUILD_COMPLETED",
           "UNITY_BUILD_SUCCEEDED",
+          "UNITY_BUILD_RESULT_ACCOUNTED",
           "UNITY_BUILD_REPORT_ACCOUNTED",
           "UNITY_BUILD_ARTIFACTS_ACCOUNTED",
           "UNITY_BUILD_OUTPUT_DIGESTED",
           "UNITY_BUILD_LOGS_ACCOUNTED",
+          "UNITY_BUILD_PROJECT_MUTATION_ACCOUNTED",
           "UNITY_BUILD_VALID_FOR_GENERATION"
         ],
         "effects": [
@@ -95,7 +98,8 @@
           "unityLogWindowRead",
           "ucliArtifactWrite",
           "outputManifestWrite",
-          "generationSnapshot"
+          "generationSnapshot",
+          "projectMutationAudit"
         ],
         "reportRef": "build"
       }
@@ -161,6 +165,25 @@
         "residualRisks": []
       },
       {
+        "id": "UNITY_BUILD_RUNNER_RESOLVED",
+        "status": "passed",
+        "coverage": "full",
+        "required": true,
+        "verifierRef": "build",
+        "statement": "Build runner resolved.",
+        "subject": {
+          "kind": "build",
+          "runId": "build-run-1"
+        },
+        "evidence": [
+          {
+            "kind": "artifact",
+            "evidenceRef": "build"
+          }
+        ],
+        "residualRisks": []
+      },
+      {
         "id": "UNITY_BUILD_COMPLETED",
         "status": "passed",
         "coverage": "full",
@@ -194,6 +217,25 @@
           {
             "kind": "artifact",
             "evidenceRef": "buildReport"
+          }
+        ],
+        "residualRisks": []
+      },
+      {
+        "id": "UNITY_BUILD_RESULT_ACCOUNTED",
+        "status": "passed",
+        "coverage": "full",
+        "required": true,
+        "verifierRef": "build",
+        "statement": "Build result accounted.",
+        "subject": {
+          "kind": "build",
+          "runId": "build-run-1"
+        },
+        "evidence": [
+          {
+            "kind": "artifact",
+            "evidenceRef": "build"
           }
         ],
         "residualRisks": []
@@ -270,6 +312,25 @@
           {
             "kind": "artifact",
             "evidenceRef": "buildLog"
+          }
+        ],
+        "residualRisks": []
+      },
+      {
+        "id": "UNITY_BUILD_PROJECT_MUTATION_ACCOUNTED",
+        "status": "passed",
+        "coverage": "full",
+        "required": true,
+        "verifierRef": "build",
+        "statement": "Project mutation accounted.",
+        "subject": {
+          "kind": "build",
+          "runId": "build-run-1"
+        },
+        "evidence": [
+          {
+            "kind": "artifact",
+            "evidenceRef": "build"
           }
         ],
         "residualRisks": []

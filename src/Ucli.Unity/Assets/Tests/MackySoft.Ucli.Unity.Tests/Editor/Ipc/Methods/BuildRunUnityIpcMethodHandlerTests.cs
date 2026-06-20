@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
@@ -39,6 +40,48 @@ namespace MackySoft.Ucli.Unity.Tests
                 var result = BuildRunUnityIpcMethodHandler.TryValidateRequest(request, identity, out var errorMessage);
 
                 Assert.That(result, Is.True, errorMessage);
+            }
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        [TestCase(BuildProfileProjectMutationMode.Forbid)]
+        [TestCase(BuildProfileProjectMutationMode.Audit)]
+        [TestCase(BuildProfileProjectMutationMode.AllowWithAudit)]
+        public void TryValidateRequest_WithKnownProjectMutationMode_ReturnsTrue (BuildProfileProjectMutationMode mode)
+        {
+            using (var scope = TemporaryDirectoryScope.Create())
+            {
+                var identity = CreateProjectIdentity(scope.ProjectPath);
+                var request = CreateRequest(scope.ProjectPath, identity) with
+                {
+                    ProjectMutationMode = ContractLiteralCodec.ToValue(mode),
+                };
+
+                var result = BuildRunUnityIpcMethodHandler.TryValidateRequest(request, identity, out var errorMessage);
+
+                Assert.That(result, Is.True, errorMessage);
+            }
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        [TestCase("FORBID")]
+        [TestCase("legacy")]
+        public void TryValidateRequest_WithInvalidProjectMutationMode_ReturnsFalse (string projectMutationMode)
+        {
+            using (var scope = TemporaryDirectoryScope.Create())
+            {
+                var identity = CreateProjectIdentity(scope.ProjectPath);
+                var request = CreateRequest(scope.ProjectPath, identity) with
+                {
+                    ProjectMutationMode = projectMutationMode,
+                };
+
+                var result = BuildRunUnityIpcMethodHandler.TryValidateRequest(request, identity, out var errorMessage);
+
+                Assert.That(result, Is.False);
+                Assert.That(errorMessage, Does.Contain("projectMutationMode is invalid"));
             }
         }
 
@@ -102,6 +145,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         identity,
                         new StubServerVersionProvider("1.2.3"),
                         new CountingBuildTargetSupportProbe()),
+                    new UnityProjectMutationAuditProbe(),
                     buildPipelineRunner,
                     logRangeExporter,
                     identity,
@@ -140,6 +184,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 "Unity console log path is not available in this test environment.");
 
             using (var scope = TemporaryDirectoryScope.Create())
+            using (var editorScope = new EditorTestScope().SuppressExistingPersistentDirtyObjects())
             {
                 var identity = CreateProjectIdentity(scope.ProjectPath);
                 var requestPayload = CreateRequest(scope.ProjectPath, identity);
@@ -163,6 +208,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         identity,
                         new StubServerVersionProvider("1.2.3"),
                         new CountingBuildTargetSupportProbe()),
+                    new UnityProjectMutationAuditProbe(),
                     buildPipelineRunner,
                     logRangeExporter,
                     identity,
@@ -202,7 +248,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public async Task HandleAsync_WithDirtyScenePrecondition_ReturnsDirtyStateWithoutRunningBuild ()
         {
             using (var scope = TemporaryDirectoryScope.Create())
-            using (var editorScope = new EditorTestScope())
+            using (var editorScope = new EditorTestScope().SuppressExistingPersistentDirtyObjects())
             {
                 var (scenePath, scene) = CreateSavedScene(editorScope, "BuildRunHandlerDirty", NewSceneMode.Single);
                 MarkSceneDirty(scene, "DirtyBuildRunRoot");
@@ -219,6 +265,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         identity,
                         new StubServerVersionProvider("1.2.3"),
                         new CountingBuildTargetSupportProbe()),
+                    new UnityProjectMutationAuditProbe(),
                     buildPipelineRunner,
                     logRangeExporter,
                     identity,
@@ -267,7 +314,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 Development: true,
                 OutputPath: Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildOutputDirectoryName),
                 BuildReportPath: Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildReportFileName),
-                BuildLogPath: Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildLogFileName));
+                BuildLogPath: Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildLogFileName),
+                AllowedEditorModes: new[] { ContractLiteralCodec.ToValue(DaemonEditorMode.Batchmode) },
+                ProjectMutationMode: ContractLiteralCodec.ToValue(BuildProfileProjectMutationMode.Forbid));
         }
 
         private static IpcRequest CreateIpcRequest (IpcBuildRunRequest payload)

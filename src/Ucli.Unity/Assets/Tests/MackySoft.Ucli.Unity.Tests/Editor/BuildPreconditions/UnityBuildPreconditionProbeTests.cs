@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
@@ -25,7 +27,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public async Task ProbeBeforeBuildAsync_WhenExplicitCleanSceneInputIsValid_ReturnsResolvedInput ()
         {
-            using var scope = new EditorTestScope();
+            using var scope = new EditorTestScope().SuppressExistingPersistentDirtyObjects();
             var (scenePath, _) = CreateSavedScene(scope, "BuildPreconditionClean", NewSceneMode.Single);
             var probe = CreateProbe();
 
@@ -36,6 +38,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.DirtyState, Is.Not.Null);
             Assert.That(result.DirtyState!.Checked, Is.True);
             Assert.That(result.DirtyState.Dirty, Is.False);
+            Assert.That(result.DirtyState.Coverage, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Full)));
             Assert.That(result.DirtyState.Items, Is.Empty);
             Assert.That(result.ResolvedInput, Is.Not.Null);
             Assert.That(result.ResolvedInput!.UnityBuildTarget, Is.EqualTo(BuildTarget.StandaloneLinux64));
@@ -51,7 +54,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public async Task ProbeBeforeBuildAsync_WhenInputScenesAreDirty_ReturnsOrderedDirtyState ()
         {
-            using var scope = new EditorTestScope();
+            using var scope = new EditorTestScope().SuppressExistingPersistentDirtyObjects();
             var (zScenePath, zScene) = CreateSavedScene(scope, "ZBuildPreconditionDirty", NewSceneMode.Single);
             var (aScenePath, aScene) = CreateSavedScene(scope, "ABuildPreconditionDirty", NewSceneMode.Additive);
             MarkSceneDirty(zScene, "DirtyZ");
@@ -68,6 +71,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.DirtyState, Is.Not.Null);
             Assert.That(result.DirtyState!.Checked, Is.True);
             Assert.That(result.DirtyState.Dirty, Is.True);
+            Assert.That(result.DirtyState.Coverage, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Full)));
             Assert.That(result.DirtyState.Items, Has.Count.EqualTo(2));
             Assert.That(result.DirtyState.Items[0].Kind, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildDirtyStateItemKind.Scene)));
             Assert.That(result.DirtyState.Items[0].Path, Is.EqualTo(aScenePath));
@@ -77,43 +81,103 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public async Task ProbeBeforeBuildAsync_WhenNonInputSceneAndPrefabStageAreDirty_IgnoresThem ()
+        public async Task ProbeBeforeBuildAsync_WhenLoadedNonInputSceneIsDirty_ReturnsDirtyState ()
         {
-            using var scope = new EditorTestScope().EnablePrefabStageCleanup();
+            using var scope = new EditorTestScope().SuppressExistingPersistentDirtyObjects();
             var (targetScenePath, _) = CreateSavedScene(scope, "BuildPreconditionTarget", NewSceneMode.Single);
-            var (_, unrelatedScene) = CreateSavedScene(scope, "BuildPreconditionUnrelated", NewSceneMode.Additive);
+            var (unrelatedScenePath, unrelatedScene) = CreateSavedScene(scope, "BuildPreconditionUnrelated", NewSceneMode.Additive);
             MarkSceneDirty(unrelatedScene, "UnrelatedDirty");
-            var prefabPath = scope.CreatePrefabAsset(nameof(UnityBuildPreconditionProbeTests), "PrefabRoot");
-            var prefabStage = PrefabStageUtility.OpenPrefab(prefabPath);
-            Assert.That(prefabStage, Is.Not.Null);
-            var dirtyPrefabChild = new GameObject("DirtyPrefabChild");
-            dirtyPrefabChild.transform.SetParent(prefabStage!.prefabContentsRoot.transform, worldPositionStays: false);
-            EditorSceneManager.MarkSceneDirty(prefabStage.scene);
             var probe = CreateProbe();
 
             var result = await probe.ProbeBeforeBuildAsync(CreateExplicitInput(targetScenePath), CancellationToken.None);
 
-            Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error, Is.Not.Null);
+            Assert.That(result.Error!.Code, Is.EqualTo(BuildErrorCodes.BuildDirtyStatePresent));
             Assert.That(result.DirtyState, Is.Not.Null);
             Assert.That(result.DirtyState!.Checked, Is.True);
-            Assert.That(result.DirtyState.Dirty, Is.False);
-            Assert.That(result.DirtyState.Items, Is.Empty);
+            Assert.That(result.DirtyState.Dirty, Is.True);
+            Assert.That(result.DirtyState.Coverage, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Full)));
+            Assert.That(result.DirtyState.Items, Has.Count.EqualTo(1));
+            Assert.That(result.DirtyState.Items[0].Kind, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildDirtyStateItemKind.Scene)));
+            Assert.That(result.DirtyState.Items[0].Path, Is.EqualTo(unrelatedScenePath));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task ProbeBeforeBuildAsync_WhenPersistentAssetsAreDirty_ReturnsClassifiedOrderedItems ()
+        {
+            using var scope = new EditorTestScope().SuppressExistingPersistentDirtyObjects();
+            var (scenePath, _) = CreateSavedScene(scope, "BuildPreconditionPersistentAssetTarget", NewSceneMode.Single);
+            var prefabPath = scope.CreatePrefabAsset(nameof(UnityBuildPreconditionProbeTests), "PrefabRoot");
+            var asset = scope.CreateScriptableAsset<BuildPreconditionDirtyAsset>(nameof(UnityBuildPreconditionProbeTests), out var assetPath);
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+            Assert.That(prefab, Is.Not.Null);
+            asset.Name = "Dirty";
+            EditorUtility.SetDirty(asset);
+            EditorUtility.SetDirty(prefab);
+            var probe = CreateProbe();
+
+            var result = await probe.ProbeBeforeBuildAsync(CreateExplicitInput(scenePath), CancellationToken.None);
+
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error, Is.Not.Null);
+            Assert.That(result.Error!.Code, Is.EqualTo(BuildErrorCodes.BuildDirtyStatePresent));
+            Assert.That(result.DirtyState, Is.Not.Null);
+            Assert.That(result.DirtyState!.Coverage, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Full)));
+            Assert.That(result.DirtyState.Items, Has.Count.EqualTo(2));
+            AssertOrderedByPath(result.DirtyState.Items);
+            var assetItem = FindDirtyItem(result.DirtyState.Items, assetPath);
+            var prefabItem = FindDirtyItem(result.DirtyState.Items, prefabPath);
+            Assert.That(assetItem.Kind, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildDirtyStateItemKind.Asset)));
+            Assert.That(prefabItem.Kind, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildDirtyStateItemKind.Prefab)));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task ProbeBeforeBuildAsync_WhenProjectSettingsAssetIsDirty_ReturnsProjectSettingsItem ()
+        {
+            using var scope = new EditorTestScope().SuppressExistingPersistentDirtyObjects();
+            var (scenePath, _) = CreateSavedScene(scope, "BuildPreconditionProjectSettingsTarget", NewSceneMode.Single);
+            const string projectSettingsPath = "ProjectSettings/TagManager.asset";
+            var projectSettingsAsset = AssetDatabase.LoadMainAssetAtPath(projectSettingsPath);
+            Assert.That(projectSettingsAsset == null, Is.False);
+            EditorUtility.SetDirty(projectSettingsAsset);
+            var probe = CreateProbe();
+
+            try
+            {
+                var result = await probe.ProbeBeforeBuildAsync(CreateExplicitInput(scenePath), CancellationToken.None);
+
+                Assert.That(result.IsSuccess, Is.False);
+                Assert.That(result.Error, Is.Not.Null);
+                Assert.That(result.Error!.Code, Is.EqualTo(BuildErrorCodes.BuildDirtyStatePresent));
+                Assert.That(result.DirtyState, Is.Not.Null);
+                Assert.That(result.DirtyState!.Coverage, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Full)));
+                Assert.That(result.DirtyState.Items, Has.Count.EqualTo(1));
+                Assert.That(result.DirtyState.Items[0].Path, Is.EqualTo(projectSettingsPath));
+                Assert.That(result.DirtyState.Items[0].Kind, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildDirtyStateItemKind.ProjectSettings)));
+            }
+            finally
+            {
+                EditorUtility.ClearDirty(projectSettingsAsset);
+            }
         }
 
         [Test]
         [Category("Size.Small")]
         public async Task ProbeBeforeBuildAsync_WhenEditorBuildSettingsSourceIsUsed_UsesEnabledScenesOnly ()
         {
-            using var scope = new EditorTestScope();
+            using var scope = new EditorTestScope().SuppressExistingPersistentDirtyObjects();
             using var editorBuildSettingsScope = new EditorBuildSettingsScope();
             var (enabledScenePath, _) = CreateSavedScene(scope, "BuildPreconditionEnabled", NewSceneMode.Single);
-            var (disabledScenePath, disabledScene) = CreateSavedScene(scope, "BuildPreconditionDisabled", NewSceneMode.Additive);
-            MarkSceneDirty(disabledScene, "DisabledDirty");
+            var (disabledScenePath, _) = CreateSavedScene(scope, "BuildPreconditionDisabled", NewSceneMode.Additive);
             EditorBuildSettings.scenes = new[]
             {
                 new EditorBuildSettingsScene(disabledScenePath, enabled: false),
                 new EditorBuildSettingsScene(enabledScenePath, enabled: true),
             };
+            scope.SuppressExistingPersistentDirtyObjects();
             var probe = CreateProbe();
 
             var result = await probe.ProbeBeforeBuildAsync(
@@ -122,6 +186,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     UnityBuildTarget: "StandaloneLinux64",
                     SceneSource: SceneSourceLiteral(BuildProfileSceneSource.EditorBuildSettings),
                     ScenePaths: Array.Empty<string>(),
+                    AllowedEditorModes: AllowedBatchmodeEditorModes(),
                     Development: true),
                 CancellationToken.None);
 
@@ -131,6 +196,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.ResolvedInput.Options, Is.EqualTo(BuildOptions.Development));
             Assert.That(result.DirtyState, Is.Not.Null);
             Assert.That(result.DirtyState!.Dirty, Is.False);
+            Assert.That(result.DirtyState.Coverage, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Full)));
         }
 
         [Test]
@@ -145,6 +211,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     UnityBuildTarget: "StandaloneLinux64",
                     SceneSource: "unsupported",
                     ScenePaths: Array.Empty<string>(),
+                    AllowedEditorModes: AllowedBatchmodeEditorModes(),
                     Development: false),
                 CancellationToken.None);
 
@@ -165,6 +232,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     UnityBuildTarget: "StandaloneLinux64",
                     SceneSource: SceneSourceLiteral(BuildProfileSceneSource.Explicit),
                     ScenePaths: Array.Empty<string>(),
+                    AllowedEditorModes: AllowedBatchmodeEditorModes(),
                     Development: false),
                 CancellationToken.None);
 
@@ -187,6 +255,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     UnityBuildTarget: "StandaloneLinux64",
                     SceneSource: SceneSourceLiteral(BuildProfileSceneSource.EditorBuildSettings),
                     ScenePaths: Array.Empty<string>(),
+                    AllowedEditorModes: AllowedBatchmodeEditorModes(),
                     Development: false),
                 CancellationToken.None);
 
@@ -220,7 +289,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public async Task ProbeBeforeBuildAsync_WhenExplicitScenePathCaseDiffersFromAssetPath_ReturnsBuildInputsInvalid ()
         {
-            using var scope = new EditorTestScope();
+            using var scope = new EditorTestScope().SuppressExistingPersistentDirtyObjects();
             var (scenePath, _) = CreateSavedScene(scope, "BuildPreconditionCanonicalCase", NewSceneMode.Single);
             var caseMismatchedPath = "Assets/" + scenePath.Substring("Assets/".Length).ToLowerInvariant();
             var probe = CreateProbe();
@@ -320,7 +389,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public async Task CaptureAfterBuild_WhenSnapshotChanges_ReturnsIndependentAfterSnapshot ()
         {
-            using var scope = new EditorTestScope();
+            using var scope = new EditorTestScope().SuppressExistingPersistentDirtyObjects();
             var (scenePath, _) = CreateSavedScene(scope, "BuildPreconditionLifecycle", NewSceneMode.Single);
             var readinessGate = new MutableReadinessGate(CreateSnapshot(
                 compileGeneration: "compile-before",
@@ -372,6 +441,79 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(targetSupportProbe.CallCount, Is.EqualTo(0));
         }
 
+        [Test]
+        [Category("Size.Small")]
+        public async Task ProbeBeforeBuildAsync_WhenEditorModeIsDisallowed_ReturnsRuntimePolicyViolationBeforeTargetProbe ()
+        {
+            var readinessGate = new MutableReadinessGate(CreateSnapshot(editorMode: DaemonEditorMode.Gui));
+            var targetSupportProbe = new CountingBuildTargetSupportProbe(
+                UnityBuildTargetSupportProbeResult.Resolved(
+                    BuildTarget.StandaloneLinux64,
+                    BuildTargetGroup.Standalone,
+                    isSupported: true));
+            var probe = CreateProbe(readinessGate, targetSupportProbe);
+
+            var result = await probe.ProbeBeforeBuildAsync(
+                CreateExplicitInput("Assets/Scenes/NotReached.unity"),
+                CancellationToken.None);
+
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error, Is.Not.Null);
+            Assert.That(result.Error!.Code, Is.EqualTo(BuildErrorCodes.BuildRuntimePolicyViolation));
+            Assert.That(result.DirtyState, Is.Null);
+            Assert.That(result.InputProbe, Is.Null);
+            Assert.That(result.ResolvedInput, Is.Null);
+            Assert.That(targetSupportProbe.CallCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void ProjectMutationAuditProbe_WhenProjectFilesChange_ReturnsAddedModifiedDeletedItems ()
+        {
+            using var scope = new EditorTestScope().SuppressExistingPersistentDirtyObjects();
+            var projectRootPath = Path.GetDirectoryName(Application.dataPath);
+            Assert.That(string.IsNullOrWhiteSpace(projectRootPath), Is.False);
+            var addedPath = scope.CreateAssetPath(nameof(UnityBuildPreconditionProbeTests), ".txt");
+            var modifiedPath = scope.CreateAssetPath(nameof(UnityBuildPreconditionProbeTests), ".txt");
+            var deletedPath = scope.CreateAssetPath(nameof(UnityBuildPreconditionProbeTests), ".txt");
+            WriteProjectFile(projectRootPath!, modifiedPath, "before");
+            WriteProjectFile(projectRootPath!, deletedPath, "before");
+            AssetDatabase.ImportAsset(modifiedPath);
+            AssetDatabase.ImportAsset(deletedPath);
+            var probe = new UnityProjectMutationAuditProbe();
+            var baseline = probe.CaptureBaseline(projectRootPath!);
+
+            WriteProjectFile(projectRootPath!, addedPath, "added");
+            WriteProjectFile(projectRootPath!, modifiedPath, "after");
+            AssetDatabase.ImportAsset(addedPath);
+            AssetDatabase.ImportAsset(modifiedPath);
+            Assert.That(AssetDatabase.DeleteAsset(deletedPath), Is.True);
+
+            var audit = probe.Complete(
+                projectRootPath!,
+                ContractLiteralCodec.ToValue(BuildProfileProjectMutationMode.Audit),
+                baseline);
+
+            Assert.That(audit.Mode, Is.EqualTo(ContractLiteralCodec.ToValue(BuildProfileProjectMutationMode.Audit)));
+            Assert.That(audit.Coverage, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildProjectMutationAuditCoverage.Full)));
+            Assert.That(audit.Mutated, Is.True);
+            Assert.That(audit.BeforeDigest, Is.Not.EqualTo(audit.AfterDigest));
+            AssertOrderedByPath(audit.Items);
+            var addedItem = FindMutationItem(audit.Items, addedPath);
+            var modifiedItem = FindMutationItem(audit.Items, modifiedPath);
+            var deletedItem = FindMutationItem(audit.Items, deletedPath);
+            Assert.That(addedItem.ChangeKind, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildProjectMutationChangeKind.Added)));
+            Assert.That(addedItem.BeforeSha256, Is.Null);
+            Assert.That(addedItem.AfterSha256, Is.Not.Null);
+            Assert.That(modifiedItem.ChangeKind, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildProjectMutationChangeKind.Modified)));
+            Assert.That(modifiedItem.BeforeSha256, Is.Not.Null);
+            Assert.That(modifiedItem.AfterSha256, Is.Not.Null);
+            Assert.That(modifiedItem.BeforeSha256, Is.Not.EqualTo(modifiedItem.AfterSha256));
+            Assert.That(deletedItem.ChangeKind, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildProjectMutationChangeKind.Deleted)));
+            Assert.That(deletedItem.BeforeSha256, Is.Not.Null);
+            Assert.That(deletedItem.AfterSha256, Is.Null);
+        }
+
         private static UnityBuildPreconditionProbe CreateProbe (
             MutableReadinessGate? readinessGate = null,
             IUnityBuildTargetSupportProbe? targetSupportProbe = null)
@@ -397,7 +539,13 @@ namespace MackySoft.Ucli.Unity.Tests
                 UnityBuildTarget: "StandaloneLinux64",
                 SceneSource: SceneSourceLiteral(BuildProfileSceneSource.Explicit),
                 ScenePaths: scenePaths,
+                AllowedEditorModes: AllowedBatchmodeEditorModes(),
                 Development: false);
+        }
+
+        private static string[] AllowedBatchmodeEditorModes ()
+        {
+            return new[] { ContractLiteralCodec.ToValue(DaemonEditorMode.Batchmode) };
         }
 
         private static void AssertBuildInputsInvalidResult (UnityBuildPreconditionProbeResult result)
@@ -435,12 +583,72 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(scene.isDirty, Is.True);
         }
 
+        private static void WriteProjectFile (
+            string projectRootPath,
+            string projectRelativePath,
+            string contents)
+        {
+            var absolutePath = Path.Combine(projectRootPath, projectRelativePath.Replace('/', Path.DirectorySeparatorChar));
+            File.WriteAllText(absolutePath, contents);
+        }
+
+        private static IpcBuildProjectMutationAuditItem FindMutationItem (
+            IReadOnlyList<IpcBuildProjectMutationAuditItem> items,
+            string path)
+        {
+            for (var i = 0; i < items.Count; i++)
+            {
+                if (string.Equals(items[i].Path, path, StringComparison.Ordinal))
+                {
+                    return items[i];
+                }
+            }
+
+            throw new AssertionException($"Project mutation audit item was not found: {path}");
+        }
+
+        private static IpcBuildDirtyStateItem FindDirtyItem (
+            IReadOnlyList<IpcBuildDirtyStateItem> items,
+            string path)
+        {
+            for (var i = 0; i < items.Count; i++)
+            {
+                if (string.Equals(items[i].Path, path, StringComparison.Ordinal))
+                {
+                    return items[i];
+                }
+            }
+
+            throw new AssertionException($"Dirty state item was not found: {path}");
+        }
+
+        private static void AssertOrderedByPath (IReadOnlyList<IpcBuildProjectMutationAuditItem> items)
+        {
+            for (var i = 1; i < items.Count; i++)
+            {
+                Assert.That(
+                    string.Compare(items[i - 1].Path, items[i].Path, StringComparison.Ordinal),
+                    Is.LessThanOrEqualTo(0));
+            }
+        }
+
+        private static void AssertOrderedByPath (IReadOnlyList<IpcBuildDirtyStateItem> items)
+        {
+            for (var i = 1; i < items.Count; i++)
+            {
+                Assert.That(
+                    string.Compare(items[i - 1].Path, items[i].Path, StringComparison.Ordinal),
+                    Is.LessThanOrEqualTo(0));
+            }
+        }
+
         private static UnityEditorLifecycleSnapshot CreateSnapshot (
+            DaemonEditorMode editorMode = DaemonEditorMode.Batchmode,
             string compileGeneration = "compile-1",
             string domainReloadGeneration = "domain-1")
         {
             return new UnityEditorLifecycleSnapshot(
-                EditorMode: DaemonEditorMode.Batchmode,
+                EditorMode: editorMode,
                 LifecycleState: IpcEditorLifecycleStateCodec.Ready,
                 BlockingReason: null,
                 CompileState: IpcCompileStateCodec.Ready,
@@ -454,6 +662,11 @@ namespace MackySoft.Ucli.Unity.Tests
                     IsPlaying: false,
                     IsPlayingOrWillChangePlaymode: false,
                     Generation: "play-1"));
+        }
+
+        private sealed class BuildPreconditionDirtyAsset : ScriptableObject
+        {
+            public string Name = string.Empty;
         }
 
         private sealed class MutableReadinessGate : IUnityEditorReadinessGate

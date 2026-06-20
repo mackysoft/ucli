@@ -25,6 +25,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private readonly List<UnityEngine.Object> trackedUnityObjects = new List<UnityEngine.Object>();
 
+        private readonly List<UnityEngine.Object> suppressedPersistentDirtyObjects = new List<UnityEngine.Object>();
+
         private bool closePrefabStage;
 
         private bool resetEditorSceneState;
@@ -266,6 +268,38 @@ namespace MackySoft.Ucli.Unity.Tests
             return this;
         }
 
+        /// <summary> Temporarily clears persistent dirty objects that predate this scope. </summary>
+        /// <returns> The current scope. </returns>
+        public EditorTestScope SuppressExistingPersistentDirtyObjects ()
+        {
+            var objects = Resources.FindObjectsOfTypeAll<UnityEngine.Object>();
+            for (var i = 0; i < objects.Length; i++)
+            {
+                var target = objects[i];
+                if (target == null
+                    || !EditorUtility.IsPersistent(target)
+                    || !EditorUtility.IsDirty(target))
+                {
+                    continue;
+                }
+
+                var assetPath = AssetDatabase.GetAssetPath(target);
+                if (!IsProjectPersistentAssetPath(assetPath))
+                {
+                    continue;
+                }
+
+                if (!ContainsSuppressedPersistentDirtyObject(target))
+                {
+                    suppressedPersistentDirtyObjects.Add(target);
+                }
+
+                EditorUtility.ClearDirty(target);
+            }
+
+            return this;
+        }
+
         /// <summary> Registers one Unity object for destruction during cleanup. </summary>
         /// <typeparam name="TUnityObject"> The Unity object type. </typeparam>
         /// <param name="unityObject"> The tracked Unity object. </param>
@@ -297,6 +331,19 @@ namespace MackySoft.Ucli.Unity.Tests
             ResetEditorSceneIfRequested(editorSceneWasReset);
             DeleteTrackedAssets();
             DestroyTrackedUnityObjects();
+            RestoreSuppressedPersistentDirtyObjects();
+        }
+
+        private static bool IsProjectPersistentAssetPath (string assetPath)
+        {
+            if (string.IsNullOrWhiteSpace(assetPath))
+            {
+                return false;
+            }
+
+            return assetPath.StartsWith("Assets/", StringComparison.Ordinal)
+                || assetPath.StartsWith("ProjectSettings/", StringComparison.Ordinal)
+                || assetPath.StartsWith("Packages/", StringComparison.Ordinal);
         }
 
         private void DisposeTrackedResources ()
@@ -371,6 +418,19 @@ namespace MackySoft.Ucli.Unity.Tests
                 || File.Exists(metaPath);
         }
 
+        private bool ContainsSuppressedPersistentDirtyObject (UnityEngine.Object target)
+        {
+            for (var i = 0; i < suppressedPersistentDirtyObjects.Count; i++)
+            {
+                if (ReferenceEquals(suppressedPersistentDirtyObjects[i], target))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         private void DestroyTrackedUnityObjects ()
         {
             for (var i = trackedUnityObjects.Count - 1; i >= 0; i--)
@@ -382,6 +442,19 @@ namespace MackySoft.Ucli.Unity.Tests
             }
 
             trackedUnityObjects.Clear();
+        }
+
+        private void RestoreSuppressedPersistentDirtyObjects ()
+        {
+            for (var i = suppressedPersistentDirtyObjects.Count - 1; i >= 0; i--)
+            {
+                if (suppressedPersistentDirtyObjects[i] != null)
+                {
+                    EditorUtility.SetDirty(suppressedPersistentDirtyObjects[i]);
+                }
+            }
+
+            suppressedPersistentDirtyObjects.Clear();
         }
     }
 }

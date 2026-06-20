@@ -157,11 +157,18 @@ public sealed class IpcContractSerializationTests
         Assert.Equal("explicit", ContractLiteralCodec.ToValue(BuildProfileSceneSource.Explicit));
         Assert.Equal("editorBuildSettings", ContractLiteralCodec.ToValue(BuildProfileSceneSource.EditorBuildSettings));
         Assert.Equal("scene", ContractLiteralCodec.ToValue(IpcBuildDirtyStateItemKind.Scene));
+        Assert.Equal("prefab", ContractLiteralCodec.ToValue(IpcBuildDirtyStateItemKind.Prefab));
+        Assert.Equal("asset", ContractLiteralCodec.ToValue(IpcBuildDirtyStateItemKind.Asset));
+        Assert.Equal("projectSettings", ContractLiteralCodec.ToValue(IpcBuildDirtyStateItemKind.ProjectSettings));
+        Assert.Equal("unknown", ContractLiteralCodec.ToValue(IpcBuildDirtyStateItemKind.Unknown));
+        Assert.Equal("full", ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Full));
+        Assert.Equal("partial", ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Partial));
 
         using var dirtyState = JsonDocument.Parse(JsonSerializer.Serialize(
             new IpcBuildDirtyState(
                 Checked: true,
                 Dirty: true,
+                Coverage: ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Full),
                 Items:
                 [
                     new IpcBuildDirtyStateItem(
@@ -211,6 +218,7 @@ public sealed class IpcContractSerializationTests
         JsonAssert.For(dirtyState.RootElement)
             .HasBoolean("checked", true)
             .HasBoolean("dirty", true)
+            .HasString("coverage", ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Full))
             .HasArrayLength("items", 1)
             .HasProperty("items", 0, item => item
                 .HasString("kind", ContractLiteralCodec.ToValue(IpcBuildDirtyStateItemKind.Scene))
@@ -264,6 +272,15 @@ public sealed class IpcContractSerializationTests
         Assert.Equal("completed", ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed));
         Assert.Equal("failed", ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Failed));
         Assert.Equal("canceled", ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Canceled));
+        Assert.Equal("forbid", ContractLiteralCodec.ToValue(BuildProfileProjectMutationMode.Forbid));
+        Assert.Equal("audit", ContractLiteralCodec.ToValue(BuildProfileProjectMutationMode.Audit));
+        Assert.Equal("allowWithAudit", ContractLiteralCodec.ToValue(BuildProfileProjectMutationMode.AllowWithAudit));
+        Assert.Equal("full", ContractLiteralCodec.ToValue(IpcBuildProjectMutationAuditCoverage.Full));
+        Assert.Equal("partial", ContractLiteralCodec.ToValue(IpcBuildProjectMutationAuditCoverage.Partial));
+        Assert.Equal("indeterminate", ContractLiteralCodec.ToValue(IpcBuildProjectMutationAuditCoverage.Indeterminate));
+        Assert.Equal("added", ContractLiteralCodec.ToValue(IpcBuildProjectMutationChangeKind.Added));
+        Assert.Equal("modified", ContractLiteralCodec.ToValue(IpcBuildProjectMutationChangeKind.Modified));
+        Assert.Equal("deleted", ContractLiteralCodec.ToValue(IpcBuildProjectMutationChangeKind.Deleted));
 
         using var request = JsonDocument.Parse(JsonSerializer.Serialize(
             new IpcBuildRunRequest(
@@ -275,7 +292,9 @@ public sealed class IpcContractSerializationTests
                 Development: true,
                 OutputPath: "/tmp/ucli/output",
                 BuildReportPath: "/tmp/ucli/build-report.json",
-                BuildLogPath: "/tmp/ucli/build.log")
+                BuildLogPath: "/tmp/ucli/build.log",
+                AllowedEditorModes: ["batchmode"],
+                ProjectMutationMode: "forbid")
             {
                 TimeoutMilliseconds = 1234,
             },
@@ -286,7 +305,11 @@ public sealed class IpcContractSerializationTests
                 ProjectFingerprint: "project-fingerprint",
                 LifecycleBefore: CreateBuildLifecycleSnapshot("before", canAcceptExecutionRequests: true),
                 LifecycleAfter: CreateBuildLifecycleSnapshot("after", canAcceptExecutionRequests: true),
-                DirtyState: new IpcBuildDirtyState(Checked: true, Dirty: false, Items: []),
+                DirtyState: new IpcBuildDirtyState(
+                    Checked: true,
+                    Dirty: false,
+                    Coverage: ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Full),
+                    Items: []),
                 Input: new IpcBuildInputProbe(
                     BuildTarget: "standaloneLinux64",
                     UnityBuildTarget: "StandaloneLinux64",
@@ -324,7 +347,8 @@ public sealed class IpcContractSerializationTests
                     CompletionReason: ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
                     Window: new IpcBuildLogWindow(
                         StartedAtUtc: DateTimeOffset.Parse("2026-06-12T00:00:00+00:00"),
-                        CompletedAtUtc: DateTimeOffset.Parse("2026-06-12T00:00:03+00:00")))),
+                        CompletedAtUtc: DateTimeOffset.Parse("2026-06-12T00:00:03+00:00"))),
+                ProjectMutation: CreateProjectMutationAudit()),
             SerializerOptions));
 
         JsonAssert.For(request.RootElement)
@@ -339,6 +363,10 @@ public sealed class IpcContractSerializationTests
             .HasString("outputPath", "/tmp/ucli/output")
             .HasString("buildReportPath", "/tmp/ucli/build-report.json")
             .HasString("buildLogPath", "/tmp/ucli/build.log")
+            .HasArrayLength("allowedEditorModes", 1)
+            .HasProperty("allowedEditorModes", 0, mode => mode
+                .HasString("batchmode"))
+            .HasString("projectMutationMode", "forbid")
             .HasInt32("timeoutMilliseconds", 1234);
         JsonAssert.For(response.RootElement)
             .HasString("runId", "build-run-1")
@@ -355,6 +383,7 @@ public sealed class IpcContractSerializationTests
             .HasProperty("dirtyState", dirty => dirty
                 .HasBoolean("checked", true)
                 .HasBoolean("dirty", false)
+                .HasString("coverage", ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Full))
                 .HasArrayLength("items", 0))
             .HasProperty("input", input => input
                 .HasString("buildTarget", "standaloneLinux64")
@@ -385,7 +414,19 @@ public sealed class IpcContractSerializationTests
                 .HasString("completionReason", ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed))
                 .HasProperty("window", window => window
                     .HasString("startedAtUtc", "2026-06-12T00:00:00+00:00")
-                    .HasString("completedAtUtc", "2026-06-12T00:00:03+00:00")));
+                    .HasString("completedAtUtc", "2026-06-12T00:00:03+00:00")))
+            .HasProperty("projectMutation", mutation => mutation
+                .HasString("mode", "forbid")
+                .HasString("coverage", ContractLiteralCodec.ToValue(IpcBuildProjectMutationAuditCoverage.Full))
+                .HasBoolean("mutated", true)
+                .HasString("beforeDigest", new string('a', 64))
+                .HasString("afterDigest", new string('b', 64))
+                .HasArrayLength("items", 1)
+                .HasProperty("items", 0, item => item
+                    .HasString("path", "Assets/Generated.asset")
+                    .HasString("changeKind", ContractLiteralCodec.ToValue(IpcBuildProjectMutationChangeKind.Added))
+                    .HasValueKind("beforeSha256", JsonValueKind.Null)
+                    .HasString("afterSha256", new string('b', 64))));
     }
 
     [Fact]
@@ -1917,6 +1958,24 @@ public sealed class IpcContractSerializationTests
                 IsPlayingOrWillChangePlaymode: false,
                 Generation: $"play-{generationSuffix}"),
             AssetRefreshGeneration: $"asset-{generationSuffix}");
+    }
+
+    private static IpcBuildProjectMutationAudit CreateProjectMutationAudit ()
+    {
+        return new IpcBuildProjectMutationAudit(
+            Mode: "forbid",
+            Coverage: ContractLiteralCodec.ToValue(IpcBuildProjectMutationAuditCoverage.Full),
+            Mutated: true,
+            BeforeDigest: new string('a', 64),
+            AfterDigest: new string('b', 64),
+            Items:
+            [
+                new IpcBuildProjectMutationAuditItem(
+                    Path: "Assets/Generated.asset",
+                    ChangeKind: ContractLiteralCodec.ToValue(IpcBuildProjectMutationChangeKind.Added),
+                    BeforeSha256: null,
+                    AfterSha256: new string('b', 64)),
+            ]);
     }
 
     private static IpcPlayLifecycleSnapshot CreatePlayLifecycleSnapshot (

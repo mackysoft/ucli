@@ -116,7 +116,7 @@ public sealed class BuildServiceTests
         Assert.Equal(BuildLogArtifactDigest, output.Reports[BuildReportRefs.BuildLog].Digest);
         Assert.True(output.Reports.ContainsKey(output.Build.Output.ManifestRef));
         AssertEvidenceRefsResolveToReports(output);
-        Assert.Equal(10, output.Claims.Count);
+        Assert.Equal(BuildClaimCodes.All.Count, output.Claims.Count);
         Assert.All(output.Claims, claim => Assert.True(claim.Required));
         var verifier = Assert.Single(output.Verifiers);
         Assert.Equal("build", verifier.Id);
@@ -133,6 +133,8 @@ public sealed class BuildServiceTests
         Assert.Equal(output.Build.Summary.ReportRef, artifactStore.WrittenMetadata.Summary.GetProperty("reportRef").GetString());
         Assert.Equal(output.Build.Logs.ReportRef, artifactStore.WrittenMetadata.Logs.GetProperty("reportRef").GetString());
         Assert.Equal(output.Build.Output.ManifestRef, artifactStore.WrittenMetadata.Output.GetProperty("manifestRef").GetString());
+        Assert.False(artifactStore.WrittenMetadata.ProjectMutation.GetProperty("mutated").GetBoolean());
+        Assert.Equal("full", artifactStore.WrittenMetadata.ProjectMutation.GetProperty("coverage").GetString());
         Assert.Equal(output.Build.Generations.Before.CompileGeneration, artifactStore.WrittenMetadata.Generations.GetProperty("before").GetProperty("compileGeneration").GetString());
         Assert.Equal(output.Build.Generations.After.DomainReloadGeneration, artifactStore.WrittenMetadata.Generations.GetProperty("after").GetProperty("domainReloadGeneration").GetString());
         Assert.Equal(output.Build.Generations.ValidFor.AssetRefreshGeneration, artifactStore.WrittenMetadata.Generations.GetProperty("validFor").GetProperty("assetRefreshGeneration").GetString());
@@ -178,6 +180,8 @@ public sealed class BuildServiceTests
         Assert.Equal(preparedPaths.OutputDirectory, requestPayload.OutputPath);
         Assert.Equal(preparedPaths.BuildReportJsonPath, requestPayload.BuildReportPath);
         Assert.Equal(preparedPaths.BuildLogPath, requestPayload.BuildLogPath);
+        Assert.Equal(["batchmode", "gui"], requestPayload.AllowedEditorModes);
+        Assert.Equal("forbid", requestPayload.ProjectMutationMode);
     }
 
     [Fact]
@@ -345,12 +349,71 @@ public sealed class BuildServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Execute_WithAutoResolvedDaemonRejectedByRuntimePolicy_DoesNotBypassDaemon ()
+    {
+        using var tempDirectory = TemporaryDirectory.Create();
+        var requestExecutor = CreateBuildResponseExecutor(
+            ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+            ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+            errorCount: 0);
+        var service = CreateService(
+            profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(
+                CreateProfileJson(["oneshot"], ["batchmode", "gui"], "forbid"),
+                "/workspace/build.ucli.json")),
+            modeDecisionService: new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(new UnityExecutionModeDecision(
+                UnityExecutionMode.Auto,
+                DaemonRunning: true,
+                UnityExecutionTarget.Daemon,
+                TimeSpan.FromSeconds(10)))),
+            requestExecutor: requestExecutor,
+            artifactStore: new StubBuildRunArtifactStore(tempDirectory.Path));
+
+        var result = await service.ExecuteAsync(CreateInput());
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(BuildErrorCodes.BuildRuntimePolicyViolation, error.Code);
+        Assert.Null(requestExecutor.CapturedPayload);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithOneshotBatchmodeRejectedByRuntimePolicy_ReturnsRuntimePolicyViolation ()
+    {
+        using var tempDirectory = TemporaryDirectory.Create();
+        var requestExecutor = CreateBuildResponseExecutor(
+            ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+            ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+            errorCount: 0);
+        var service = CreateService(
+            profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(
+                CreateProfileJson(["oneshot"], ["gui"], "forbid"),
+                "/workspace/build.ucli.json")),
+            modeDecisionService: new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(new UnityExecutionModeDecision(
+                UnityExecutionMode.Oneshot,
+                DaemonRunning: false,
+                UnityExecutionTarget.Oneshot,
+                TimeSpan.FromSeconds(10)))),
+            requestExecutor: requestExecutor,
+            artifactStore: new StubBuildRunArtifactStore(tempDirectory.Path));
+
+        var result = await service.ExecuteAsync(CreateInput());
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(BuildErrorCodes.BuildRuntimePolicyViolation, error.Code);
+        Assert.Null(requestExecutor.CapturedPayload);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Execute_WithDirtySceneResponse_ReturnsCommandFailureWithProbePayload ()
     {
         using var tempDirectory = TemporaryDirectory.Create();
         var dirtyState = new IpcBuildDirtyState(
             Checked: true,
             Dirty: true,
+            Coverage: ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Full),
             Items:
             [
                 new IpcBuildDirtyStateItem(
@@ -388,12 +451,47 @@ public sealed class BuildServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Execute_WithDirtyStateIndeterminateResponse_ReturnsCommandFailureWithProbePayload ()
+    {
+        using var tempDirectory = TemporaryDirectory.Create();
+        var dirtyState = new IpcBuildDirtyState(
+            Checked: true,
+            Dirty: false,
+            Coverage: ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Partial),
+            Items: []);
+        var errorPayload = new IpcBuildRunErrorPayload(
+            Project: new IpcProjectIdentity("/workspace/UnityProject", ProjectFingerprint, "6000.1.4f1"),
+            LifecycleBefore: CreateLifecycleSnapshot("before", canAcceptExecutionRequests: true),
+            DirtyState: dirtyState,
+            Input: CreateInputProbe());
+        var response = new UnityRequestResponse(
+            IpcPayloadCodec.SerializeToElement(errorPayload),
+            [new OperationExecutionError(BuildErrorCodes.BuildDirtyStateIndeterminate, "Dirty state coverage is partial.", null)],
+            HasFailureStatus: true,
+            FailureStatus: IpcProtocol.StatusError);
+        var service = CreateService(
+            requestExecutor: new StubUnityRequestExecutor(UnityRequestExecutionResult.Success(response)),
+            artifactStore: new StubBuildRunArtifactStore(tempDirectory.Path));
+
+        var result = await service.ExecuteAsync(CreateInput());
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(BuildErrorCodes.BuildDirtyStateIndeterminate, error.Code);
+        Assert.NotNull(result.DirtyState);
+        Assert.Equal(ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Partial), result.DirtyState!.Coverage);
+        Assert.Empty(result.DirtyState.Items);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Execute_WithNonDirtyFailurePayload_DoesNotReturnDirtyState ()
     {
         using var tempDirectory = TemporaryDirectory.Create();
         var dirtyState = new IpcBuildDirtyState(
             Checked: true,
             Dirty: true,
+            Coverage: ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Full),
             Items:
             [
                 new IpcBuildDirtyStateItem(
@@ -588,6 +686,113 @@ public sealed class BuildServiceTests
         Assert.Null(result.Output);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithForbidProjectMutation_ReturnsCommandFailureAfterWritingMetadata ()
+    {
+        using var tempDirectory = TemporaryDirectory.Create();
+        var artifactStore = new StubBuildRunArtifactStore(tempDirectory.Path);
+        var service = CreateService(
+            requestExecutor: CreateBuildResponseExecutor(
+                ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+                errorCount: 0,
+                projectMutation: CreateProjectMutation(
+                    mutated: true,
+                    mode: ContractLiteralCodec.ToValue(BuildProfileProjectMutationMode.Forbid))),
+            artifactStore: artifactStore);
+
+        var result = await service.ExecuteAsync(CreateInput());
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(BuildErrorCodes.BuildProjectMutationForbidden, error.Code);
+        Assert.NotNull(artifactStore.WrittenMetadata);
+        Assert.True(artifactStore.WrittenMetadata!.ProjectMutation.GetProperty("mutated").GetBoolean());
+        Assert.Null(result.Output);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithAuditProjectMutation_ReturnsNonBlockingResidualRisk ()
+    {
+        using var tempDirectory = TemporaryDirectory.Create();
+        var service = CreateService(
+            profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(
+                CreateProfileJson(["daemon", "oneshot"], ["batchmode", "gui"], "audit"),
+                "/workspace/build.ucli.json")),
+            requestExecutor: CreateBuildResponseExecutor(
+                ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+                errorCount: 0,
+                projectMutation: CreateProjectMutation(
+                    mutated: true,
+                    mode: ContractLiteralCodec.ToValue(BuildProfileProjectMutationMode.Audit))),
+            artifactStore: new StubBuildRunArtifactStore(tempDirectory.Path));
+
+        var result = await service.ExecuteAsync(CreateInput());
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(ContractLiteralCodec.ToValue(BuildVerdict.Pass), result.Output!.Verdict);
+        var risk = Assert.Single(result.Output.ResidualRisks);
+        Assert.Equal(BuildRiskCodes.ProjectMutationDetected.Value, risk.Code);
+        Assert.False(risk.Blocking);
+        Assert.Equal(ContractLiteralCodec.ToValue(BuildClaimStatus.Passed), FindClaim(result.Output, BuildClaimCodes.UnityBuildProjectMutationAccounted).Status);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithAllowWithAuditFullCoverage_ReturnsSuccessWithoutResidualRisk ()
+    {
+        using var tempDirectory = TemporaryDirectory.Create();
+        var service = CreateService(
+            profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(
+                CreateProfileJson(["daemon", "oneshot"], ["batchmode", "gui"], "allowWithAudit"),
+                "/workspace/build.ucli.json")),
+            requestExecutor: CreateBuildResponseExecutor(
+                ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+                errorCount: 0,
+                projectMutation: CreateProjectMutation(
+                    mutated: true,
+                    mode: ContractLiteralCodec.ToValue(BuildProfileProjectMutationMode.AllowWithAudit))),
+            artifactStore: new StubBuildRunArtifactStore(tempDirectory.Path));
+
+        var result = await service.ExecuteAsync(CreateInput());
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(ContractLiteralCodec.ToValue(BuildVerdict.Pass), result.Output!.Verdict);
+        Assert.Empty(result.Output.ResidualRisks);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithAllowWithAuditPartialCoverage_ReturnsNonBlockingResidualRisk ()
+    {
+        using var tempDirectory = TemporaryDirectory.Create();
+        var service = CreateService(
+            profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(
+                CreateProfileJson(["daemon", "oneshot"], ["batchmode", "gui"], "allowWithAudit"),
+                "/workspace/build.ucli.json")),
+            requestExecutor: CreateBuildResponseExecutor(
+                ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+                errorCount: 0,
+                projectMutation: CreateProjectMutation(
+                    mutated: false,
+                    mode: ContractLiteralCodec.ToValue(BuildProfileProjectMutationMode.AllowWithAudit),
+                    coverage: ContractLiteralCodec.ToValue(IpcBuildProjectMutationAuditCoverage.Partial))),
+            artifactStore: new StubBuildRunArtifactStore(tempDirectory.Path));
+
+        var result = await service.ExecuteAsync(CreateInput());
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(ContractLiteralCodec.ToValue(BuildVerdict.Pass), result.Output!.Verdict);
+        var risk = Assert.Single(result.Output.ResidualRisks);
+        Assert.Equal(BuildRiskCodes.ProjectMutationDetected.Value, risk.Code);
+        Assert.False(risk.Blocking);
+    }
+
     private static BuildService CreateService (
         IBuildRunArtifactStore artifactStore,
         IProjectContextResolver? projectContextResolver = null,
@@ -624,6 +829,47 @@ public sealed class BuildServiceTests
             TimeoutMilliseconds: timeoutMilliseconds);
     }
 
+    private static string CreateProfileJson (
+        IReadOnlyList<string> allowedExecutionModes,
+        IReadOnlyList<string> allowedEditorModes,
+        string projectMutationMode)
+    {
+        var executionModesJson = string.Join(",\n                  ", allowedExecutionModes.Select(static mode => $"\"{mode}\""));
+        var editorModesJson = string.Join(",\n                  ", allowedEditorModes.Select(static mode => $"\"{mode}\""));
+        return $$"""
+            {
+              "schemaVersion": 1,
+              "inputs": {
+                "kind": "explicit",
+                "buildTarget": "standaloneLinux64",
+                "scenes": {
+                  "source": "explicit",
+                  "paths": [
+                    "Assets/Scenes/Main.unity"
+                  ]
+                },
+                "options": {
+                  "development": true
+                }
+              },
+              "runner": {
+                "kind": "buildPipeline"
+              },
+              "policy": {
+                "runtime": {
+                  "allowedExecutionModes": [
+                  {{executionModesJson}}
+                  ],
+                  "allowedEditorModes": [
+                  {{editorModesJson}}
+                  ]
+                },
+                "projectMutationMode": "{{projectMutationMode}}"
+              }
+            }
+            """;
+    }
+
     private static ProjectContext CreateProjectContext (UcliConfig? config = null)
     {
         var unityProject = new ResolvedUnityProjectContext(
@@ -650,7 +896,8 @@ public sealed class BuildServiceTests
         string? buildOptions = null,
         IpcBuildLifecycleSnapshot? lifecycleBefore = null,
         IpcBuildLifecycleSnapshot? lifecycleAfter = null,
-        string? reportOutputPath = null)
+        string? reportOutputPath = null,
+        IpcBuildProjectMutationAudit? projectMutation = null)
     {
         return new StubUnityRequestExecutor(payload =>
         {
@@ -666,7 +913,8 @@ public sealed class BuildServiceTests
                 buildOptions,
                 lifecycleBefore,
                 lifecycleAfter,
-                reportOutputPath: reportOutputPath ?? Path.Combine(buildRunPayload.OutputPath, "build"));
+                reportOutputPath: reportOutputPath ?? Path.Combine(buildRunPayload.OutputPath, "build"),
+                projectMutation: projectMutation);
         });
     }
 
@@ -681,7 +929,8 @@ public sealed class BuildServiceTests
         string? buildOptions = null,
         IpcBuildLifecycleSnapshot? lifecycleBefore = null,
         IpcBuildLifecycleSnapshot? lifecycleAfter = null,
-        string? reportOutputPath = null)
+        string? reportOutputPath = null,
+        IpcBuildProjectMutationAudit? projectMutation = null)
     {
         return UnityRequestExecutionResult.Success(new UnityRequestResponse(
             IpcPayloadCodec.SerializeToElement(new IpcBuildRunResponse(
@@ -689,7 +938,11 @@ public sealed class BuildServiceTests
                 ProjectFingerprint: ProjectFingerprint,
                 LifecycleBefore: lifecycleBefore ?? CreateLifecycleSnapshot("before", canAcceptExecutionRequests: true),
                 LifecycleAfter: lifecycleAfter ?? CreateLifecycleSnapshot("after", canAcceptExecutionRequests: true),
-                DirtyState: new IpcBuildDirtyState(Checked: true, Dirty: false, Items: []),
+                DirtyState: new IpcBuildDirtyState(
+                    Checked: true,
+                    Dirty: false,
+                    Coverage: ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Full),
+                    Items: []),
                 Input: CreateInputProbe(sceneSource, scenes, buildTarget, unityBuildTarget, buildOptions),
                 Report: new IpcBuildReportArtifact(
                     SchemaVersion: 1,
@@ -721,7 +974,8 @@ public sealed class BuildServiceTests
                     CompletionReason: completionReason,
                     Window: new IpcBuildLogWindow(
                         StartedAtUtc: DateTimeOffset.Parse("2026-06-12T00:00:00+00:00"),
-                        CompletedAtUtc: DateTimeOffset.Parse("2026-06-12T00:00:03+00:00"))))),
+                        CompletedAtUtc: DateTimeOffset.Parse("2026-06-12T00:00:03+00:00"))),
+                ProjectMutation: projectMutation ?? CreateProjectMutation(mutated: false))),
             [],
             HasFailureStatus: false));
     }
@@ -752,6 +1006,32 @@ public sealed class BuildServiceTests
                 IsPlayingOrWillChangePlaymode: false,
                 Generation: $"play-{generationSuffix}"),
             AssetRefreshGeneration: omitAssetRefreshGeneration ? null : $"asset-{generationSuffix}");
+    }
+
+    private static IpcBuildProjectMutationAudit CreateProjectMutation (
+        bool mutated,
+        string mode = "forbid",
+        string? coverage = null)
+    {
+        var resolvedCoverage = coverage ?? ContractLiteralCodec.ToValue(IpcBuildProjectMutationAuditCoverage.Full);
+        var beforeDigest = new string('1', 64);
+        var afterDigest = mutated ? new string('2', 64) : beforeDigest;
+        return new IpcBuildProjectMutationAudit(
+            Mode: mode,
+            Coverage: resolvedCoverage,
+            Mutated: mutated,
+            BeforeDigest: beforeDigest,
+            AfterDigest: afterDigest,
+            Items: mutated
+                ?
+                [
+                    new IpcBuildProjectMutationAuditItem(
+                        Path: "Assets/Generated.asset",
+                        ChangeKind: ContractLiteralCodec.ToValue(IpcBuildProjectMutationChangeKind.Added),
+                        BeforeSha256: null,
+                        AfterSha256: new string('2', 64)),
+                ]
+                : []);
     }
 
     private static IpcBuildInputProbe CreateInputProbe (

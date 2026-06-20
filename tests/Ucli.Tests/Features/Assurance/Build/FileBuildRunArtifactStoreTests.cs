@@ -447,7 +447,8 @@ public sealed class FileBuildRunArtifactStoreTests
             ParseJsonElement("""{"result":"succeeded"}"""),
             ParseJsonElement("""{"buildLog":{"stream":"file"}}"""),
             ParseJsonElement("""{"manifestDigest":"manifest-digest"}"""),
-            ParseJsonElement("""{"checked":true,"dirty":false,"items":[]}"""));
+            ParseJsonElement("""{"mode":"forbid","coverage":"full","mutated":false,"beforeDigest":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","afterDigest":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","items":[]}"""),
+            ParseJsonElement("""{"checked":true,"dirty":false,"coverage":"full","items":[]}"""));
     }
 
     private static JsonElement ParseJsonElement (string json)
