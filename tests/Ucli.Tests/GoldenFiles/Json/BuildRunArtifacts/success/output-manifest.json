@@ -1,20 +1,36 @@
 {
   "schemaVersion": 1,
-  "outputRoot": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/output",
-  "buildTarget": "standaloneLinux64",
+  "target": {
+    "stableName": "standaloneLinux64",
+    "unityBuildTarget": "StandaloneLinux64"
+  },
+  "entries": [
+    {
+      "id": "output-0001",
+      "kind": "directory",
+      "sourcePath": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/work/build/build-run-1/output/player"
+    }
+  ],
+  "entryCount": 1,
   "fileCount": 2,
   "totalBytes": 33,
   "files": [
     {
-      "path": "Data/config.json",
+      "entryId": "output-0001",
+      "logicalPath": "output-0001/Data/config.json",
+      "sourcePath": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/work/build/build-run-1/output/player/Data/config.json",
+      "artifactPath": "output/output-0001/Data/config.json",
       "sizeBytes": 19,
       "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
     },
     {
-      "path": "Game.x86_64",
+      "entryId": "output-0001",
+      "logicalPath": "output-0001/Game.x86_64",
+      "sourcePath": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/work/build/build-run-1/output/player/Game.x86_64",
+      "artifactPath": "output/output-0001/Game.x86_64",
       "sizeBytes": 14,
       "sha256": "2222222222222222222222222222222222222222222222222222222222222222"
     }
   ],
-  "manifestDigest": "da24a52f15e07fd877e58e370b776bc7136b18409317bc73b300c1ff3acb52f1"
+  "manifestDigest": "59a71d71a244ad7a978be0bbfe8f87328c036091bb4b5aefef9e89b855d82b9b"
 }

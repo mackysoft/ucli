@@ -199,16 +199,54 @@ internal static class BuildErrorCodeDescriptors
             relatedCodes: [BuildErrorCodes.BuildArtifactWriteFailed]),
 
         UcliErrorDescriptorFactory.Create(
-            code: BuildErrorCodes.BuildOutputDigestMismatch,
+            code: BuildErrorCodes.BuildOutputPathInvalid,
+            category: "build",
+            summary: "Build output path violates output path policy.",
+            meaning: "A build output source path was empty, malformed, or resolved inside the artifact root.",
+            appliesTo: AppliesToBuildRun,
+            possiblePhases: ["outputSourceResolution", "outputManifest"],
+            impliesNotApplied: false,
+            mayBeIndeterminate: false,
+            safeToRetry: UcliErrorRetryClassValues.No,
+            inspect: ["errors[].code", "errors[].message", "payload.build.output"],
+            nextActions:
+            [
+                new UcliErrorNextActionDescriptor(
+                    When: null,
+                    Action: "Ensure build output source entries are absolute runner output paths and are not artifact-store paths."),
+            ],
+            relatedCodes: [BuildErrorCodes.BuildOutputManifestFailed]),
+
+        UcliErrorDescriptorFactory.Create(
+            code: BuildErrorCodes.BuildOutputManifestDigestMismatch,
             category: "build",
             summary: "Build output manifest digest mismatch.",
-            meaning: "The persisted output manifest digest did not match the digest recalculated from manifest content.",
+            meaning: "The output-manifest.json manifestDigest value did not match the digest recalculated from canonical manifest content.",
             appliesTo: AppliesToBuildRun,
             possiblePhases: ["outputManifest", "artifactAccounting"],
             impliesNotApplied: false,
             mayBeIndeterminate: true,
             safeToRetry: UcliErrorRetryClassValues.Yes,
             inspect: ["errors[].code", "errors[].message", "payload.build.output.manifestDigest"],
+            nextActions:
+            [
+                new UcliErrorNextActionDescriptor(
+                    When: null,
+                    Action: "Rerun the build and inspect concurrent writes to the build artifact directory if the mismatch repeats."),
+            ],
+            relatedCodes: [BuildErrorCodes.BuildOutputManifestFailed]),
+
+        UcliErrorDescriptorFactory.Create(
+            code: BuildErrorCodes.BuildOutputManifestArtifactDigestMismatch,
+            category: "build",
+            summary: "Build output manifest artifact digest mismatch.",
+            meaning: "The reports.buildOutputManifest digest did not match the bytes stored in output-manifest.json.",
+            appliesTo: AppliesToBuildRun,
+            possiblePhases: ["outputManifest", "artifactAccounting"],
+            impliesNotApplied: false,
+            mayBeIndeterminate: true,
+            safeToRetry: UcliErrorRetryClassValues.Yes,
+            inspect: ["errors[].code", "errors[].message", "payload.reports.buildOutputManifest.digest"],
             nextActions:
             [
                 new UcliErrorNextActionDescriptor(

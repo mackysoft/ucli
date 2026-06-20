@@ -74,8 +74,8 @@
   },
   "output": {
     "manifestRef": "buildOutputManifest",
-    "manifestDigest": "da24a52f15e07fd877e58e370b776bc7136b18409317bc73b300c1ff3acb52f1",
-    "entryCount": 2,
+    "manifestDigest": "59a71d71a244ad7a978be0bbfe8f87328c036091bb4b5aefef9e89b855d82b9b",
+    "entryCount": 1,
     "fileCount": 2,
     "totalBytes": 33
   },

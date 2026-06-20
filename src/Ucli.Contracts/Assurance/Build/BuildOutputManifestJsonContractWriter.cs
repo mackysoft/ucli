@@ -78,8 +78,25 @@ internal sealed class BuildOutputManifestJsonContractWriter : IJsonContractWrite
         {
             writer.WriteStartObject();
             writer.WriteNumber("schemaVersion", content.SchemaVersion);
-            writer.WriteString("outputRoot", content.OutputRoot);
-            writer.WriteString("buildTarget", content.BuildTarget);
+            writer.WritePropertyName("target");
+            writer.WriteStartObject();
+            writer.WriteString("stableName", content.Target.StableName);
+            writer.WriteString("unityBuildTarget", content.Target.UnityBuildTarget);
+            writer.WriteEndObject();
+            writer.WritePropertyName("entries");
+            writer.WriteStartArray();
+            for (var i = 0; i < content.Entries.Count; i++)
+            {
+                var entry = content.Entries[i];
+                writer.WriteStartObject();
+                writer.WriteString("id", entry.Id);
+                writer.WriteString("kind", entry.Kind);
+                writer.WriteString("sourcePath", entry.SourcePath);
+                writer.WriteEndObject();
+            }
+
+            writer.WriteEndArray();
+            writer.WriteNumber("entryCount", content.EntryCount);
             writer.WriteNumber("fileCount", content.FileCount);
             writer.WriteNumber("totalBytes", content.TotalBytes);
             writer.WritePropertyName("files");
@@ -88,7 +105,10 @@ internal sealed class BuildOutputManifestJsonContractWriter : IJsonContractWrite
             {
                 var file = content.Files[i];
                 writer.WriteStartObject();
-                writer.WriteString("path", file.Path);
+                writer.WriteString("entryId", file.EntryId);
+                writer.WriteString("logicalPath", file.LogicalPath);
+                writer.WriteString("sourcePath", file.SourcePath);
+                writer.WriteString("artifactPath", file.ArtifactPath);
                 writer.WriteNumber("sizeBytes", file.SizeBytes);
                 writer.WriteString("sha256", file.Sha256);
                 writer.WriteEndObject();

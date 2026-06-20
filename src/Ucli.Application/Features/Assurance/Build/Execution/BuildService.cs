@@ -154,7 +154,7 @@ internal sealed class BuildService : IBuildService
         }
 
         var paths = prepareResult.Paths!;
-        if (!IpcBuildOutputLayoutResolver.TryResolve(paths.OutputDirectory, profile.BuildTarget.StableName, out var outputLayout))
+        if (!IpcBuildOutputLayoutResolver.TryResolve(paths.RunnerOutputDirectory, profile.BuildTarget.StableName, out var outputLayout))
         {
             return BuildExecutionResult.Failure(ExecutionError.InvalidArgument(
                 $"BuildPipeline output layout could not be resolved for build target: {profile.BuildTarget.StableName}.",
@@ -178,7 +178,7 @@ internal sealed class BuildService : IBuildService
                 executionTarget,
                 timeout,
                 profile.BuildTarget.StableName,
-                paths.OutputDirectory,
+                paths.RunnerOutputDirectory,
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -231,11 +231,14 @@ internal sealed class BuildService : IBuildService
         var artifactCancellationToken = artifactAccountingCancellationTokenSource.Token;
         try
         {
+            var reportResult = ResolveTerminalBuildReportResult(buildResponse.Report.Result);
             var accountingResult = await artifactStore.AccountArtifactsAsync(
                     new BuildRunArtifactAccountingRequest(
                         paths,
-                        buildResponse.Report.OutputPath,
-                        profile.BuildTarget.StableName),
+                        profile.BuildTarget.StableName,
+                        profile.BuildTarget.UnityBuildTargetLiteral,
+                        [new BuildOutputSourceEntry(outputLayout!.LocationPathName)],
+                        CanWriteEmptyOutputManifest(reportResult)),
                     artifactCancellationToken)
                 .ConfigureAwait(false);
             if (!accountingResult.IsSuccess)
@@ -360,7 +363,7 @@ internal sealed class BuildService : IBuildService
             SceneSource: ContractLiteralCodec.ToValue(profile.Scenes.Source),
             ScenePaths: profile.Scenes.Paths,
             Development: profile.Options.Development,
-            OutputPath: paths.OutputDirectory,
+            OutputPath: paths.RunnerOutputDirectory,
             OutputLayout: outputLayout,
             BuildReportPath: paths.BuildReportJsonPath,
             BuildLogPath: paths.BuildLogPath,
@@ -460,6 +463,11 @@ internal sealed class BuildService : IBuildService
         if (!ContractLiteralCodec.TryParse<IpcBuildReportResult>(response.Report.Result, out var reportResult))
         {
             return ApplicationFailure.InternalError($"Unity build response contains unsupported report result: {response.Report.Result}.");
+        }
+
+        if (!IsTerminalBuildReportResult(reportResult))
+        {
+            return ApplicationFailure.InternalError($"Unity build response contains non-terminal report result: {response.Report.Result}.");
         }
 
         if (!ContractLiteralCodec.TryParse<IpcBuildLogCompletionReason>(response.Logs.CompletionReason, out var completionReason))
@@ -576,6 +584,27 @@ internal sealed class BuildService : IBuildService
         }
 
         return null;
+    }
+
+    private static IpcBuildReportResult ResolveTerminalBuildReportResult (string result)
+    {
+        if (!ContractLiteralCodec.TryParse<IpcBuildReportResult>(result, out var reportResult)
+            || !IsTerminalBuildReportResult(reportResult))
+        {
+            throw new InvalidOperationException($"Build report result is not terminal: {result}");
+        }
+
+        return reportResult;
+    }
+
+    private static bool CanWriteEmptyOutputManifest (IpcBuildReportResult reportResult)
+    {
+        return reportResult is IpcBuildReportResult.Failed or IpcBuildReportResult.Canceled;
+    }
+
+    private static bool IsTerminalBuildReportResult (IpcBuildReportResult reportResult)
+    {
+        return reportResult is IpcBuildReportResult.Succeeded or IpcBuildReportResult.Failed or IpcBuildReportResult.Canceled;
     }
 
     private static ApplicationFailure? ValidateProjectMutationAuditItem (
