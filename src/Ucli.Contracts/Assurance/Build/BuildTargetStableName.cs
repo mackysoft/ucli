@@ -1,9 +1,9 @@
 using MackySoft.Ucli.Contracts.Text;
 
-namespace MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
+namespace MackySoft.Ucli.Contracts.Assurance.Build;
 
 /// <summary> Defines uCLI buildTarget stable-name literals. </summary>
-internal enum BuildTargetStableName
+public enum BuildTargetStableName
 {
     /// <summary> macOS standalone player build target. </summary>
     [UcliContractLiteral("standaloneOSX")]

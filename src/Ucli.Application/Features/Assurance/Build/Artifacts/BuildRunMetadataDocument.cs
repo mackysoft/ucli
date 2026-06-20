@@ -7,6 +7,7 @@ namespace MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
 /// <param name="RunId"> The build run identifier. </param>
 /// <param name="Project"> The project identity section. </param>
 /// <param name="Profile"> The profile metadata section. </param>
+/// <param name="Runner"> The resolved runner metadata section. </param>
 /// <param name="Input"> The resolved build inputs section. </param>
 /// <param name="Lifecycle"> The lifecycle evidence section. </param>
 /// <param name="Generations"> The Unity generation evidence section. </param>
@@ -19,6 +20,7 @@ internal sealed record BuildRunMetadataDocument (
     string RunId,
     JsonElement Project,
     JsonElement Profile,
+    JsonElement Runner,
     JsonElement Input,
     JsonElement Lifecycle,
     JsonElement Generations,

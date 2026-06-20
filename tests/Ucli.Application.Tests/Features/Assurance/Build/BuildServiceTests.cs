@@ -130,6 +130,14 @@ public sealed class BuildServiceTests
             artifactStore.WrittenMetadata!.Summary.GetProperty("result").GetString());
         Assert.Equal(output.Build.Profile.Path, artifactStore.WrittenMetadata.Profile.GetProperty("path").GetString());
         Assert.Equal(expectedProfileDigest, artifactStore.WrittenMetadata.Profile.GetProperty("digest").GetString());
+        Assert.Equal("buildPipeline", artifactStore.WrittenMetadata.Runner.GetProperty("kind").GetString());
+        Assert.Equal(JsonValueKind.Null, artifactStore.WrittenMetadata.Runner.GetProperty("method").ValueKind);
+        Assert.Equal("{}", artifactStore.WrittenMetadata.Runner.GetProperty("invocation").GetProperty("arguments").GetRawText());
+        Assert.Equal(0, artifactStore.WrittenMetadata.Runner.GetProperty("invocation").GetProperty("environment").GetArrayLength());
+        Assert.Equal(ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.File), artifactStore.WrittenMetadata.Runner.GetProperty("outputLayout").GetProperty("shape").GetString());
+        Assert.Equal(
+            CreateExpectedPlayerLocationPathName(preparedPaths.OutputDirectory),
+            artifactStore.WrittenMetadata.Runner.GetProperty("outputLayout").GetProperty("locationPathName").GetString());
         Assert.Equal(output.Build.Summary.ReportRef, artifactStore.WrittenMetadata.Summary.GetProperty("reportRef").GetString());
         Assert.Equal(output.Build.Logs.ReportRef, artifactStore.WrittenMetadata.Logs.GetProperty("reportRef").GetString());
         Assert.Equal(output.Build.Output.ManifestRef, artifactStore.WrittenMetadata.Output.GetProperty("manifestRef").GetString());
@@ -176,6 +184,8 @@ public sealed class BuildServiceTests
         Assert.Equal(["Assets/Scenes/Main.unity"], requestPayload.ScenePaths);
         Assert.True(requestPayload.Development);
         Assert.Equal(preparedPaths.OutputDirectory, requestPayload.OutputPath);
+        Assert.Equal(ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.File), requestPayload.OutputLayout.Shape);
+        Assert.Equal(CreateExpectedPlayerLocationPathName(preparedPaths.OutputDirectory), requestPayload.OutputLayout.LocationPathName);
         Assert.Equal(preparedPaths.BuildReportJsonPath, requestPayload.BuildReportPath);
         Assert.Equal(preparedPaths.BuildLogPath, requestPayload.BuildLogPath);
     }
@@ -588,6 +598,62 @@ public sealed class BuildServiceTests
         Assert.Null(result.Output);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithBuildTargetWithoutDeterministicBuildPipelineOutputLayout_ReturnsBuildInputsInvalid ()
+    {
+        using var tempDirectory = TemporaryDirectory.Create();
+        const string profileJson = """
+            {
+              "schemaVersion": 1,
+              "inputs": {
+                "kind": "explicit",
+                "buildTarget": "switch",
+                "scenes": {
+                  "source": "explicit",
+                  "paths": [
+                    "Assets/Scenes/Main.unity"
+                  ]
+                },
+                "options": {
+                  "development": true
+                }
+              },
+              "runner": {
+                "kind": "buildPipeline"
+              },
+              "policy": {
+                "runtime": {
+                  "allowedExecutionModes": [
+                    "daemon",
+                    "oneshot"
+                  ],
+                  "allowedEditorModes": [
+                    "batchmode",
+                    "gui"
+                  ]
+                },
+                "projectMutationMode": "forbid"
+              }
+            }
+            """;
+        var requestExecutor = CreateBuildResponseExecutor(
+            ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+            ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+            errorCount: 0);
+        var service = CreateService(
+            profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(profileJson, "/workspace/build.ucli.json")),
+            requestExecutor: requestExecutor,
+            artifactStore: new StubBuildRunArtifactStore(tempDirectory.Path));
+
+        var result = await service.ExecuteAsync(CreateInput());
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(BuildErrorCodes.BuildInputsInvalid, error.Code);
+        Assert.Null(requestExecutor.CapturedPayload);
+    }
+
     private static BuildService CreateService (
         IBuildRunArtifactStore artifactStore,
         IProjectContextResolver? projectContextResolver = null,
@@ -666,7 +732,7 @@ public sealed class BuildServiceTests
                 buildOptions,
                 lifecycleBefore,
                 lifecycleAfter,
-                reportOutputPath: reportOutputPath ?? Path.Combine(buildRunPayload.OutputPath, "build"));
+                reportOutputPath: reportOutputPath ?? buildRunPayload.OutputLayout.LocationPathName);
         });
     }
 
@@ -695,7 +761,7 @@ public sealed class BuildServiceTests
                     SchemaVersion: 1,
                     Result: reportResult,
                     UnityBuildTarget: unityBuildTarget ?? "StandaloneLinux64",
-                    OutputPath: reportOutputPath ?? "/workspace/.ucli/output/build",
+                    OutputPath: reportOutputPath ?? "/workspace/.ucli/output/player/Player",
                     DurationMilliseconds: 2500,
                     TotalSizeBytes: 4096,
                     ErrorCount: errorCount,
@@ -800,6 +866,13 @@ public sealed class BuildServiceTests
         return new AssuranceSemanticInvariantValidator(
             new CodeCatalogModel([new BuildCodeCatalogContributor()]),
             [new BuildAssuranceSemanticInvariantRule()]);
+    }
+
+    private static string CreateExpectedPlayerLocationPathName (string outputDirectory)
+    {
+        return string.Concat(
+            outputDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+            "/player/Player");
     }
 
     private static void AssertProgressEvents (
@@ -961,6 +1034,8 @@ public sealed class BuildServiceTests
 
         public BuildRunArtifactAccountingRequest? AccountingRequest { get; private set; }
 
+        public IpcBuildOutputLayout? PreparedOutputLayout { get; private set; }
+
         public BuildRunArtifactPreparationResult Prepare (
             ResolvedUnityProjectContext unityProject,
             string runId)
@@ -978,6 +1053,15 @@ public sealed class BuildServiceTests
                 OutputManifestJsonPath: Path.Combine(runDirectory, "output-manifest.json"),
                 OutputDirectory: outputDirectory);
             return BuildRunArtifactPreparationResult.Success(PreparedPaths);
+        }
+
+        public BuildRunArtifactPreparationResult PrepareBuildPipelineOutputLayout (
+            BuildRunArtifactPaths paths,
+            string buildTarget,
+            IpcBuildOutputLayout outputLayout)
+        {
+            PreparedOutputLayout = outputLayout;
+            return BuildRunArtifactPreparationResult.Success(paths);
         }
 
         public ValueTask<BuildRunArtifactAccountingOperationResult> AccountArtifactsAsync (

@@ -274,6 +274,9 @@ public sealed class IpcContractSerializationTests
                 ScenePaths: ["Assets/Scenes/Main.unity"],
                 Development: true,
                 OutputPath: "/tmp/ucli/output",
+                OutputLayout: new IpcBuildOutputLayout(
+                    Shape: ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.File),
+                    LocationPathName: "/tmp/ucli/output/player/Player"),
                 BuildReportPath: "/tmp/ucli/build-report.json",
                 BuildLogPath: "/tmp/ucli/build.log")
             {
@@ -337,6 +340,9 @@ public sealed class IpcContractSerializationTests
                 .HasString("Assets/Scenes/Main.unity"))
             .HasBoolean("development", true)
             .HasString("outputPath", "/tmp/ucli/output")
+            .HasProperty("outputLayout", outputLayout => outputLayout
+                .HasString("shape", ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.File))
+                .HasString("locationPathName", "/tmp/ucli/output/player/Player"))
             .HasString("buildReportPath", "/tmp/ucli/build-report.json")
             .HasString("buildLogPath", "/tmp/ucli/build.log")
             .HasInt32("timeoutMilliseconds", 1234);

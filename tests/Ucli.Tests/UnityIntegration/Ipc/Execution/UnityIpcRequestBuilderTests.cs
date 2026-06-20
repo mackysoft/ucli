@@ -72,6 +72,9 @@ public sealed class UnityIpcRequestBuilderTests
             ScenePaths: ["Assets/Scenes/Main.unity"],
             Development: true,
             OutputPath: "/tmp/ucli/output",
+            OutputLayout: new IpcBuildOutputLayout(
+                Shape: ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.File),
+                LocationPathName: "/tmp/ucli/output/player/Player"),
             BuildReportPath: "/tmp/ucli/build-report.json",
             BuildLogPath: "/tmp/ucli/build.log"));
 
@@ -85,6 +88,8 @@ public sealed class UnityIpcRequestBuilderTests
         Assert.Equal(["Assets/Scenes/Main.unity"], payload.ScenePaths);
         Assert.True(payload.Development);
         Assert.Equal("/tmp/ucli/output", payload.OutputPath);
+        Assert.Equal(ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.File), payload.OutputLayout.Shape);
+        Assert.Equal("/tmp/ucli/output/player/Player", payload.OutputLayout.LocationPathName);
         Assert.Equal("/tmp/ucli/build-report.json", payload.BuildReportPath);
         Assert.Equal("/tmp/ucli/build.log", payload.BuildLogPath);
         Assert.Null(payload.TimeoutMilliseconds);
@@ -188,6 +193,9 @@ public sealed class UnityIpcRequestBuilderTests
             ScenePaths: ["Assets/Scenes/Main.unity"],
             Development: false,
             OutputPath: "/tmp/ucli/output",
+            OutputLayout: new IpcBuildOutputLayout(
+                Shape: ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.File),
+                LocationPathName: "/tmp/ucli/output/player/Player"),
             BuildReportPath: "/tmp/ucli/build-report.json",
             BuildLogPath: "/tmp/ucli/build.log"));
 
