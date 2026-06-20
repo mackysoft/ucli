@@ -1089,6 +1089,15 @@ public sealed class AssuranceSemanticInvariantValidatorTests
         var generationEvidenceData = buildGenerationEvidenceDataValidForAssetRefreshGeneration == null
             ? generations
             : CreateBuildGenerations(buildGenerationEvidenceDataValidForAssetRefreshGeneration);
+        var scenes = new
+        {
+            source = "explicit",
+            paths = new[] { "Assets/Scenes/Main.unity" },
+        };
+        var options = new
+        {
+            development = true,
+        };
         var claims = BuildClaimCodes.All
             .Select(code =>
             {
@@ -1120,6 +1129,15 @@ public sealed class AssuranceSemanticInvariantValidatorTests
             {
                 buildTarget = "standaloneLinux64",
                 profile,
+                inputs = new
+                {
+                    inputKind = "explicit",
+                    buildTarget = "standaloneLinux64",
+                    scenes,
+                    options,
+                },
+                scenes,
+                options,
                 output = new
                 {
                     manifestRef = buildManifestRef,

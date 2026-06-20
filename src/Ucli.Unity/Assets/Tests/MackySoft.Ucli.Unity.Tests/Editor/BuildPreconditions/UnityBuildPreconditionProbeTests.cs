@@ -195,6 +195,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var result = await probe.ProbeBeforeBuildAsync(
                 new UnityBuildPreconditionInput(
+                    InputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit),
                     BuildTarget: "standaloneLinux64",
                     UnityBuildTarget: "StandaloneLinux64",
                     SceneSource: SceneSourceLiteral(BuildProfileSceneSource.EditorBuildSettings),
@@ -220,6 +221,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var result = await probe.ProbeBeforeBuildAsync(
                 new UnityBuildPreconditionInput(
+                    InputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit),
                     BuildTarget: "standaloneLinux64",
                     UnityBuildTarget: "StandaloneLinux64",
                     SceneSource: "unsupported",
@@ -241,6 +243,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var result = await probe.ProbeBeforeBuildAsync(
                 new UnityBuildPreconditionInput(
+                    InputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit),
                     BuildTarget: "standaloneLinux64",
                     UnityBuildTarget: "StandaloneLinux64",
                     SceneSource: SceneSourceLiteral(BuildProfileSceneSource.Explicit),
@@ -264,6 +267,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var result = await probe.ProbeBeforeBuildAsync(
                 new UnityBuildPreconditionInput(
+                    InputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit),
                     BuildTarget: "standaloneLinux64",
                     UnityBuildTarget: "StandaloneLinux64",
                     SceneSource: SceneSourceLiteral(BuildProfileSceneSource.EditorBuildSettings),
@@ -548,6 +552,7 @@ namespace MackySoft.Ucli.Unity.Tests
         private static UnityBuildPreconditionInput CreateExplicitInput (params string[] scenePaths)
         {
             return new UnityBuildPreconditionInput(
+                InputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit),
                 BuildTarget: "standaloneLinux64",
                 UnityBuildTarget: "StandaloneLinux64",
                 SceneSource: SceneSourceLiteral(BuildProfileSceneSource.Explicit),

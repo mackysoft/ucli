@@ -155,7 +155,10 @@ public sealed class IpcContractSerializationTests
     public void IpcBuildPreconditionContracts_SerializeWithCamelCaseFields ()
     {
         Assert.Equal("explicit", ContractLiteralCodec.ToValue(BuildProfileSceneSource.Explicit));
+        Assert.Equal("explicit", ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit));
+        Assert.Equal("unityBuildProfile", ContractLiteralCodec.ToValue(BuildProfileInputsKind.UnityBuildProfile));
         Assert.Equal("editorBuildSettings", ContractLiteralCodec.ToValue(BuildProfileSceneSource.EditorBuildSettings));
+        Assert.Equal("unityBuildProfile", ContractLiteralCodec.ToValue(BuildProfileSceneSource.UnityBuildProfile));
         Assert.Equal("scene", ContractLiteralCodec.ToValue(IpcBuildDirtyStateItemKind.Scene));
         Assert.Equal("prefab", ContractLiteralCodec.ToValue(IpcBuildDirtyStateItemKind.Prefab));
         Assert.Equal("asset", ContractLiteralCodec.ToValue(IpcBuildDirtyStateItemKind.Asset));
@@ -178,6 +181,7 @@ public sealed class IpcContractSerializationTests
             SerializerOptions));
         using var inputProbe = JsonDocument.Parse(JsonSerializer.Serialize(
             new IpcBuildInputProbe(
+                InputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit),
                 BuildTarget: "standaloneLinux64",
                 UnityBuildTarget: "StandaloneLinux64",
                 UnityBuildTargetGroup: "Standalone",
@@ -224,6 +228,7 @@ public sealed class IpcContractSerializationTests
                 .HasString("kind", ContractLiteralCodec.ToValue(IpcBuildDirtyStateItemKind.Scene))
                 .HasString("path", "Assets/Scenes/Main.unity"));
         JsonAssert.For(inputProbe.RootElement)
+            .HasString("inputKind", ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit))
             .HasString("buildTarget", "standaloneLinux64")
             .HasString("unityBuildTarget", "StandaloneLinux64")
             .HasString("unityBuildTargetGroup", "Standalone")
@@ -285,6 +290,7 @@ public sealed class IpcContractSerializationTests
         using var request = JsonDocument.Parse(JsonSerializer.Serialize(
             new IpcBuildRunRequest(
                 RunId: "build-run-1",
+                InputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit),
                 BuildTarget: "standaloneLinux64",
                 UnityBuildTarget: "StandaloneLinux64",
                 SceneSource: ContractLiteralCodec.ToValue(BuildProfileSceneSource.Explicit),
@@ -314,12 +320,17 @@ public sealed class IpcContractSerializationTests
                     Coverage: ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Full),
                     Items: []),
                 Input: new IpcBuildInputProbe(
+                    InputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit),
                     BuildTarget: "standaloneLinux64",
                     UnityBuildTarget: "StandaloneLinux64",
                     UnityBuildTargetGroup: "Standalone",
                     SceneSource: ContractLiteralCodec.ToValue(BuildProfileSceneSource.Explicit),
                     Scenes: ["Assets/Scenes/Main.unity"],
                     BuildOptions: "Development"),
+                OutputLayout: new IpcBuildOutputLayout(
+                    Shape: ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.File),
+                    LocationPathName: "/tmp/ucli/output/player/Player"),
+                UnityBuildProfile: null,
                 Report: new IpcBuildReportArtifact(
                     SchemaVersion: 1,
                     Result: ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
@@ -356,6 +367,7 @@ public sealed class IpcContractSerializationTests
 
         JsonAssert.For(request.RootElement)
             .HasString("runId", "build-run-1")
+            .HasString("inputKind", ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit))
             .HasString("buildTarget", "standaloneLinux64")
             .HasString("unityBuildTarget", "StandaloneLinux64")
             .HasString("sceneSource", ContractLiteralCodec.ToValue(BuildProfileSceneSource.Explicit))
@@ -392,8 +404,12 @@ public sealed class IpcContractSerializationTests
                 .HasString("coverage", ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Full))
                 .HasArrayLength("items", 0))
             .HasProperty("input", input => input
+                .HasString("inputKind", ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit))
                 .HasString("buildTarget", "standaloneLinux64")
                 .HasString("sceneSource", ContractLiteralCodec.ToValue(BuildProfileSceneSource.Explicit)))
+            .HasProperty("outputLayout", outputLayout => outputLayout
+                .HasString("shape", ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.File))
+                .HasString("locationPathName", "/tmp/ucli/output/player/Player"))
             .HasProperty("report", report => report
                 .HasInt32("schemaVersion", 1)
                 .HasString("result", ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded))

@@ -103,6 +103,11 @@ public sealed class BuildServiceTests
         Assert.Equal("asset-after", output.Build.Generations.ValidFor.AssetRefreshGeneration);
         var expectedProfileDigest = BuildProfileResolver.ResolveJson(ProfileJson).Profile!.Digest;
         Assert.Equal(expectedProfileDigest, output.Build.Profile.Digest);
+        Assert.Equal(ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit), output.Build.Inputs.InputKind);
+        Assert.Equal(output.Build.BuildTarget, output.Build.Inputs.BuildTarget);
+        Assert.Same(output.Build.Scenes, output.Build.Inputs.Scenes);
+        Assert.Same(output.Build.Options, output.Build.Inputs.Options);
+        Assert.Null(output.Build.Inputs.UnityBuildProfile);
         Assert.Equal(BuildReportRefs.BuildOutputManifest, output.Build.Output.ManifestRef);
         Assert.Equal(OutputManifestDigest, output.Build.Output.ManifestDigest);
         Assert.Equal(1, output.Build.Output.EntryCount);
@@ -130,6 +135,7 @@ public sealed class BuildServiceTests
             artifactStore.WrittenMetadata!.Summary.GetProperty("result").GetString());
         Assert.Equal(output.Build.Profile.Path, artifactStore.WrittenMetadata.Profile.GetProperty("path").GetString());
         Assert.Equal(expectedProfileDigest, artifactStore.WrittenMetadata.Profile.GetProperty("digest").GetString());
+        Assert.Equal(ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit), artifactStore.WrittenMetadata.Input.GetProperty("inputKind").GetString());
         Assert.Equal("buildPipeline", artifactStore.WrittenMetadata.Runner.GetProperty("kind").GetString());
         Assert.Equal(JsonValueKind.Null, artifactStore.WrittenMetadata.Runner.GetProperty("method").ValueKind);
         Assert.Equal("{}", artifactStore.WrittenMetadata.Runner.GetProperty("invocation").GetProperty("arguments").GetRawText());
@@ -180,18 +186,124 @@ public sealed class BuildServiceTests
 
         var requestPayload = Assert.IsType<UnityRequestPayload.BuildRun>(requestExecutor.CapturedPayload);
         Assert.Equal(RunId, requestPayload.RunId);
+        Assert.Equal(ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit), requestPayload.InputKind);
         Assert.Equal("standaloneLinux64", requestPayload.BuildTarget);
         Assert.Equal("StandaloneLinux64", requestPayload.UnityBuildTarget);
         Assert.Equal("explicit", requestPayload.SceneSource);
         Assert.Equal(["Assets/Scenes/Main.unity"], requestPayload.ScenePaths);
         Assert.True(requestPayload.Development);
         Assert.Equal(preparedPaths.OutputDirectory, requestPayload.OutputPath);
-        Assert.Equal(ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.File), requestPayload.OutputLayout.Shape);
+        Assert.Equal(ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.File), requestPayload.OutputLayout!.Shape);
         Assert.Equal(CreateExpectedPlayerLocationPathName(preparedPaths.OutputDirectory), requestPayload.OutputLayout.LocationPathName);
         Assert.Equal(preparedPaths.BuildReportJsonPath, requestPayload.BuildReportPath);
         Assert.Equal(preparedPaths.BuildLogPath, requestPayload.BuildLogPath);
         Assert.Equal(["batchmode", "gui"], requestPayload.AllowedEditorModes);
         Assert.Equal("forbid", requestPayload.ProjectMutationMode);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithUnityBuildProfileInput_DelegatesInputResolutionToUnityAndProjectsResponse ()
+    {
+        using var tempDirectory = TemporaryDirectory.Create();
+        const string unityBuildProfilePath = "Assets/BuildProfiles/Linux.asset";
+        var unityBuildProfileDigest = new string('f', 64);
+        const string profileJson = """
+            {
+              "schemaVersion": 1,
+              "inputs": {
+                "kind": "unityBuildProfile",
+                "path": "Assets/BuildProfiles/Linux.asset"
+              },
+              "runner": {
+                "kind": "buildPipeline"
+              },
+              "policy": {
+                "runtime": {
+                  "allowedExecutionModes": [
+                    "daemon",
+                    "oneshot"
+                  ],
+                  "allowedEditorModes": [
+                    "batchmode",
+                    "gui"
+                  ]
+                },
+                "projectMutationMode": "forbid"
+              }
+            }
+            """;
+        var artifactStore = new StubBuildRunArtifactStore(tempDirectory.Path);
+        var requestExecutor = new StubUnityRequestExecutor(payload =>
+        {
+            var buildRunPayload = (UnityRequestPayload.BuildRun)payload;
+            var outputLayout = new IpcBuildOutputLayout(
+                Shape: ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.File),
+                LocationPathName: CreateExpectedPlayerLocationPathName(buildRunPayload.OutputPath));
+            return CreateBuildResponseResult(
+                ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+                errorCount: 0,
+                inputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.UnityBuildProfile),
+                sceneSource: ContractLiteralCodec.ToValue(BuildProfileSceneSource.UnityBuildProfile),
+                scenes: ["Assets/Scenes/ProfileMain.unity"],
+                buildTarget: "standaloneLinux64",
+                unityBuildTarget: "StandaloneLinux64",
+                buildOptions: "None",
+                reportOutputPath: outputLayout.LocationPathName,
+                outputLayout: outputLayout,
+                unityBuildProfile: CreateUnityBuildProfileInput(unityBuildProfilePath, unityBuildProfileDigest));
+        });
+        var service = CreateService(
+            profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(profileJson, "/workspace/build.ucli.json")),
+            requestExecutor: requestExecutor,
+            artifactStore: artifactStore);
+
+        var result = await service.ExecuteAsync(CreateInput());
+
+        Assert.True(result.IsSuccess, string.Join(Environment.NewLine, result.Errors.Select(static error => $"{error.Code}: {error.Message}")));
+        var output = result.Output!;
+        Assert.Equal(ContractLiteralCodec.ToValue(BuildProfileInputsKind.UnityBuildProfile), output.Build.Inputs.InputKind);
+        Assert.Equal("standaloneLinux64", output.Build.BuildTarget);
+        Assert.Equal(output.Build.BuildTarget, output.Build.Inputs.BuildTarget);
+        Assert.Equal(ContractLiteralCodec.ToValue(BuildProfileSceneSource.UnityBuildProfile), output.Build.Scenes.Source);
+        Assert.Equal(["Assets/Scenes/ProfileMain.unity"], output.Build.Scenes.Paths);
+        Assert.False(output.Build.Options.Development);
+        var outputUnityBuildProfile = Assert.IsType<BuildUnityBuildProfileOutput>(output.Build.Inputs.UnityBuildProfile);
+        Assert.Equal(unityBuildProfilePath, outputUnityBuildProfile.Path);
+        Assert.Equal(unityBuildProfileDigest, outputUnityBuildProfile.Digest);
+        Assert.NotNull(outputUnityBuildProfile.ApplyAudit);
+        Assert.True(outputUnityBuildProfile.ApplyAudit.Applied);
+
+        var requestPayload = Assert.IsType<UnityRequestPayload.BuildRun>(requestExecutor.CapturedPayload);
+        Assert.Equal(ContractLiteralCodec.ToValue(BuildProfileInputsKind.UnityBuildProfile), requestPayload.InputKind);
+        Assert.Null(requestPayload.BuildTarget);
+        Assert.Null(requestPayload.UnityBuildTarget);
+        Assert.Null(requestPayload.SceneSource);
+        Assert.Empty(requestPayload.ScenePaths);
+        Assert.False(requestPayload.Development);
+        Assert.Null(requestPayload.OutputLayout);
+        Assert.Equal(unityBuildProfilePath, requestPayload.UnityBuildProfile!.Path);
+        Assert.Null(requestPayload.UnityBuildProfile.Digest);
+        Assert.Null(requestPayload.UnityBuildProfile.ApplyAudit);
+        Assert.Null(artifactStore.PreparedOutputLayout);
+        Assert.Equal("standaloneLinux64", artifactStore.AccountingRequest!.BuildTarget);
+
+        Assert.NotNull(artifactStore.WrittenMetadata);
+        var metadataInput = artifactStore.WrittenMetadata!.Input;
+        Assert.Equal(ContractLiteralCodec.ToValue(BuildProfileInputsKind.UnityBuildProfile), metadataInput.GetProperty("inputKind").GetString());
+        var metadataUnityBuildProfile = metadataInput.GetProperty("unityBuildProfile");
+        Assert.Equal(unityBuildProfilePath, metadataUnityBuildProfile.GetProperty("path").GetString());
+        Assert.Equal(unityBuildProfileDigest, metadataUnityBuildProfile.GetProperty("digest").GetString());
+        Assert.True(metadataUnityBuildProfile.GetProperty("applyAudit").GetProperty("applied").GetBoolean());
+        Assert.Equal(
+            CreateExpectedPlayerLocationPathName(artifactStore.PreparedPaths!.OutputDirectory),
+            artifactStore.WrittenMetadata.Runner.GetProperty("outputLayout").GetProperty("locationPathName").GetString());
+
+        var validator = CreateBuildSemanticInvariantValidator();
+        var semanticPayload = JsonSerializer.SerializeToElement(output, PayloadSerializerOptions);
+        var semanticResult = validator.Validate(semanticPayload);
+        Assert.True(semanticResult.IsValid, string.Join(Environment.NewLine, semanticResult.Violations.Select(static violation => $"{violation.Path}: {violation.Message}")));
     }
 
     [Fact]
@@ -1085,14 +1197,15 @@ public sealed class BuildServiceTests
                 reportResult,
                 completionReason,
                 errorCount,
-                sceneSource,
-                scenes,
-                buildTarget,
-                unityBuildTarget,
-                buildOptions,
-                lifecycleBefore,
-                lifecycleAfter,
-                reportOutputPath: reportOutputPath ?? buildRunPayload.OutputLayout.LocationPathName,
+                sceneSource: sceneSource,
+                scenes: scenes,
+                buildTarget: buildTarget,
+                unityBuildTarget: unityBuildTarget,
+                buildOptions: buildOptions,
+                lifecycleBefore: lifecycleBefore,
+                lifecycleAfter: lifecycleAfter,
+                reportOutputPath: reportOutputPath ?? buildRunPayload.OutputLayout!.LocationPathName,
+                outputLayout: buildRunPayload.OutputLayout,
                 projectMutation: projectMutation);
         });
     }
@@ -1101,6 +1214,7 @@ public sealed class BuildServiceTests
         string reportResult,
         string completionReason,
         int errorCount,
+        string? inputKind = null,
         string? sceneSource = null,
         IReadOnlyList<string>? scenes = null,
         string? buildTarget = null,
@@ -1109,7 +1223,9 @@ public sealed class BuildServiceTests
         IpcBuildLifecycleSnapshot? lifecycleBefore = null,
         IpcBuildLifecycleSnapshot? lifecycleAfter = null,
         string? reportOutputPath = null,
-        IpcBuildProjectMutationAudit? projectMutation = null)
+        IpcBuildOutputLayout? outputLayout = null,
+        IpcBuildProjectMutationAudit? projectMutation = null,
+        IpcUnityBuildProfileInput? unityBuildProfile = null)
     {
         return UnityRequestExecutionResult.Success(new UnityRequestResponse(
             IpcPayloadCodec.SerializeToElement(new IpcBuildRunResponse(
@@ -1122,7 +1238,11 @@ public sealed class BuildServiceTests
                     Dirty: false,
                     Coverage: ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Full),
                     Items: []),
-                Input: CreateInputProbe(sceneSource, scenes, buildTarget, unityBuildTarget, buildOptions),
+                Input: CreateInputProbe(inputKind, sceneSource, scenes, buildTarget, unityBuildTarget, buildOptions),
+                OutputLayout: outputLayout ?? new IpcBuildOutputLayout(
+                    Shape: ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.File),
+                    LocationPathName: "/workspace/.ucli/output/player/Player"),
+                UnityBuildProfile: unityBuildProfile,
                 Report: new IpcBuildReportArtifact(
                     SchemaVersion: 1,
                     Result: reportResult,
@@ -1157,6 +1277,34 @@ public sealed class BuildServiceTests
                 ProjectMutation: projectMutation ?? CreateProjectMutation(mutated: false))),
             [],
             HasFailureStatus: false));
+    }
+
+    private static IpcUnityBuildProfileInput CreateUnityBuildProfileInput (
+        string path,
+        string digest)
+    {
+        var lifecycleBefore = CreateLifecycleSnapshot("profile-before", canAcceptExecutionRequests: true);
+        var lifecycleAfter = CreateLifecycleSnapshot("profile-after", canAcceptExecutionRequests: true);
+        return new IpcUnityBuildProfileInput(
+            Path: path,
+            Digest: digest,
+            ApplyAudit: new IpcUnityBuildProfileApplyAudit(
+                Applied: true,
+                LifecycleBefore: lifecycleBefore,
+                LifecycleAfter: lifecycleAfter,
+                GenerationsBefore: new IpcBuildGenerationSnapshot(
+                    lifecycleBefore.CompileGeneration,
+                    lifecycleBefore.DomainReloadGeneration,
+                    lifecycleBefore.AssetRefreshGeneration),
+                GenerationsAfter: new IpcBuildGenerationSnapshot(
+                    lifecycleAfter.CompileGeneration,
+                    lifecycleAfter.DomainReloadGeneration,
+                    lifecycleAfter.AssetRefreshGeneration),
+                DirtyStateAfter: new IpcBuildDirtyState(
+                    Checked: true,
+                    Dirty: false,
+                    Coverage: ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Full),
+                    Items: [])));
     }
 
     private static IpcBuildLifecycleSnapshot CreateLifecycleSnapshot (
@@ -1214,6 +1362,7 @@ public sealed class BuildServiceTests
     }
 
     private static IpcBuildInputProbe CreateInputProbe (
+        string? inputKind = null,
         string? sceneSource = null,
         IReadOnlyList<string>? scenes = null,
         string? buildTarget = null,
@@ -1221,6 +1370,7 @@ public sealed class BuildServiceTests
         string? buildOptions = null)
     {
         return new IpcBuildInputProbe(
+            InputKind: inputKind ?? ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit),
             BuildTarget: buildTarget ?? "standaloneLinux64",
             UnityBuildTarget: unityBuildTarget ?? "StandaloneLinux64",
             UnityBuildTargetGroup: "Standalone",

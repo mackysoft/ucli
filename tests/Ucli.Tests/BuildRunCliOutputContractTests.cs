@@ -9,6 +9,7 @@ using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
 using MackySoft.Ucli.Application.Features.Assurance.Semantics;
 using MackySoft.Ucli.Application.Features.CodeCatalog.Catalog;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Assurance;
@@ -243,6 +244,12 @@ public sealed class BuildRunCliOutputContractTests
         var build = new BuildOutput(
             RunId: "build-run-1",
             Profile: new BuildProfileOutput("/workspace/UnityProject/.ucli/build/player.json", ProfileDigest),
+            Inputs: new BuildInputsOutput(
+                InputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit),
+                BuildTarget: "standaloneLinux64",
+                Scenes: new BuildScenesOutput("explicit", ["Assets/Scenes/Main.unity"]),
+                Options: new BuildOptionsOutput(Development: true),
+                UnityBuildProfile: null),
             BuildTarget: "standaloneLinux64",
             Scenes: new BuildScenesOutput("explicit", ["Assets/Scenes/Main.unity"]),
             Options: new BuildOptionsOutput(Development: true),

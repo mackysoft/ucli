@@ -87,6 +87,12 @@ internal static class BuildRunTestData
         return new BuildOutput(
             RunId: RunId,
             Profile: new BuildProfileOutput("/workspace/.ucli/build/player.json", Repeat('a')),
+            Inputs: new BuildInputsOutput(
+                InputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit),
+                BuildTarget: "standaloneLinux64",
+                Scenes: new BuildScenesOutput("explicit", ["Assets/Scenes/Main.unity"]),
+                Options: new BuildOptionsOutput(Development: true),
+                UnityBuildProfile: null),
             BuildTarget: "standaloneLinux64",
             Scenes: new BuildScenesOutput("explicit", ["Assets/Scenes/Main.unity"]),
             Options: new BuildOptionsOutput(Development: true),

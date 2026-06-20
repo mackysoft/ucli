@@ -260,7 +260,9 @@ public sealed class FileBuildRunArtifactStoreTests
         Assert.Equal(
             "/repo/.ucli/local/fingerprints/fingerprint/artifacts/build/run-1/output/player/Player",
             buildRoot.GetProperty("runner").GetProperty("outputLayout").GetProperty("locationPathName").GetString());
-        Assert.Equal("standaloneLinux64", buildRoot.GetProperty("input").GetProperty("buildTarget").GetProperty("stableName").GetString());
+        var inputs = buildRoot.GetProperty("inputs");
+        Assert.Equal("explicit", inputs.GetProperty("inputKind").GetString());
+        Assert.Equal("standaloneLinux64", inputs.GetProperty("buildTarget").GetProperty("stableName").GetString());
 
         var artifacts = buildRoot.GetProperty("artifacts");
         Assert.Equal(
@@ -528,7 +530,7 @@ public sealed class FileBuildRunArtifactStoreTests
             ParseJsonElement("""{"projectPath":"/repo/UnityProject","projectFingerprint":"fingerprint","unityVersion":"6000.1.4f1"}"""),
             ParseJsonElement("""{"path":"/repo/.ucli/build/player.json","digest":"profile-digest"}"""),
             ParseJsonElement("""{"kind":"buildPipeline","method":null,"invocation":{"arguments":{},"environment":[]},"outputLayout":{"shape":"file","locationPathName":"/repo/.ucli/local/fingerprints/fingerprint/artifacts/build/run-1/output/player/Player"}}"""),
-            ParseJsonElement("""{"buildTarget":{"stableName":"standaloneLinux64"}}"""),
+            ParseJsonElement("""{"inputKind":"explicit","buildTarget":{"stableName":"standaloneLinux64"},"scenes":{"source":"explicit","paths":["Assets/Scenes/Main.unity"]},"options":{"development":true}}"""),
             ParseJsonElement("""{"state":"completed"}"""),
             ParseJsonElement("""{"compile":"42","domainReload":"7"}"""),
             ParseJsonElement("""{"result":"succeeded"}"""),

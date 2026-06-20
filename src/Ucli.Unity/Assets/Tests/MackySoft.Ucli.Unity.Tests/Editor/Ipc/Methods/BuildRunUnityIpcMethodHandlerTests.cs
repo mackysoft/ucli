@@ -244,8 +244,10 @@ namespace MackySoft.Ucli.Unity.Tests
                         identity,
                         new StubServerVersionProvider("1.2.3"),
                         new CountingBuildTargetSupportProbe()),
+                    new UnsupportedUnityBuildProfileInputResolver(),
                     new UnityProjectMutationAuditProbe(),
                     buildPipelineRunner,
+                    new UnsupportedUnityBuildProfileBuildRunner(),
                     logRangeExporter,
                     identity,
                     timeoutScopeFactory);
@@ -285,8 +287,10 @@ namespace MackySoft.Ucli.Unity.Tests
                         identity,
                         new StubServerVersionProvider("1.2.3"),
                         new CountingBuildTargetSupportProbe()),
+                    new UnsupportedUnityBuildProfileInputResolver(),
                     new UnityProjectMutationAuditProbe(),
                     buildPipelineRunner,
+                    new UnsupportedUnityBuildProfileBuildRunner(),
                     logRangeExporter,
                     identity,
                     timeoutScopeFactory);
@@ -325,8 +329,10 @@ namespace MackySoft.Ucli.Unity.Tests
                         identity,
                         new StubServerVersionProvider("1.2.3"),
                         new CountingBuildTargetSupportProbe()),
+                    new UnsupportedUnityBuildProfileInputResolver(),
                     new UnityProjectMutationAuditProbe(),
                     buildPipelineRunner,
+                    new UnsupportedUnityBuildProfileBuildRunner(),
                     logRangeExporter,
                     identity,
                     timeoutScopeFactory);
@@ -366,8 +372,10 @@ namespace MackySoft.Ucli.Unity.Tests
                         identity,
                         new StubServerVersionProvider("1.2.3"),
                         new CountingBuildTargetSupportProbe()),
+                    new UnsupportedUnityBuildProfileInputResolver(),
                     new UnityProjectMutationAuditProbe(),
                     buildPipelineRunner,
+                    new UnsupportedUnityBuildProfileBuildRunner(),
                     logRangeExporter,
                     identity,
                     new CountingTimeoutScopeFactory());
@@ -424,8 +432,10 @@ namespace MackySoft.Ucli.Unity.Tests
                         identity,
                         new StubServerVersionProvider("1.2.3"),
                         new CountingBuildTargetSupportProbe()),
+                    new UnsupportedUnityBuildProfileInputResolver(),
                     new UnityProjectMutationAuditProbe(),
                     buildPipelineRunner,
+                    new UnsupportedUnityBuildProfileBuildRunner(),
                     logRangeExporter,
                     identity,
                     new CountingTimeoutScopeFactory());
@@ -488,8 +498,10 @@ namespace MackySoft.Ucli.Unity.Tests
                         identity,
                         new StubServerVersionProvider("1.2.3"),
                         new CountingBuildTargetSupportProbe()),
+                    new UnsupportedUnityBuildProfileInputResolver(),
                     new UnityProjectMutationAuditProbe(),
                     buildPipelineRunner,
+                    new UnsupportedUnityBuildProfileBuildRunner(),
                     new CountingEditorLogRangeExporter(
                         string.Empty,
                         entryCount: 0,
@@ -538,8 +550,10 @@ namespace MackySoft.Ucli.Unity.Tests
                         identity,
                         new StubServerVersionProvider("1.2.3"),
                         new CountingBuildTargetSupportProbe()),
+                    new UnsupportedUnityBuildProfileInputResolver(),
                     new UnityProjectMutationAuditProbe(),
                     buildPipelineRunner,
+                    new UnsupportedUnityBuildProfileBuildRunner(),
                     logRangeExporter,
                     identity,
                     new CountingTimeoutScopeFactory());
@@ -586,6 +600,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             return new IpcBuildRunRequest(
                 RunId: RunId,
+                InputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit),
                 BuildTarget: "standaloneLinux64",
                 UnityBuildTarget: "StandaloneLinux64",
                 SceneSource: "explicit",

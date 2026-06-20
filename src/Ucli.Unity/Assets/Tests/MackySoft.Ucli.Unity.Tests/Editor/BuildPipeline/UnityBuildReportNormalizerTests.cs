@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Unity.Build;
@@ -108,6 +109,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var locationPathName = Path.Combine(outputPath, "player", "Player");
             var request = new IpcBuildRunRequest(
                 RunId: "build-run-1",
+                InputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit),
                 BuildTarget: "standaloneLinux64",
                 UnityBuildTarget: "StandaloneLinux64",
                 SceneSource: "explicit",

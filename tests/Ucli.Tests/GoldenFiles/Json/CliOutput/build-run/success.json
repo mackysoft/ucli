@@ -17,6 +17,19 @@
         "path": "/workspace/UnityProject/.ucli/build/player.json",
         "digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
       },
+      "inputs": {
+        "inputKind": "explicit",
+        "buildTarget": "standaloneLinux64",
+        "scenes": {
+          "source": "explicit",
+          "paths": [
+            "Assets/Scenes/Main.unity"
+          ]
+        },
+        "options": {
+          "development": true
+        }
+      },
       "buildTarget": "standaloneLinux64",
       "scenes": {
         "source": "explicit",
