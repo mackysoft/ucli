@@ -136,7 +136,7 @@ public sealed class BuildServiceTests
         Assert.Equal(0, artifactStore.WrittenMetadata.Runner.GetProperty("invocation").GetProperty("environment").GetArrayLength());
         Assert.Equal(ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.File), artifactStore.WrittenMetadata.Runner.GetProperty("outputLayout").GetProperty("shape").GetString());
         Assert.Equal(
-            Path.Combine(preparedPaths.OutputDirectory, "player", "Player"),
+            CreateExpectedPlayerLocationPathName(preparedPaths.OutputDirectory),
             artifactStore.WrittenMetadata.Runner.GetProperty("outputLayout").GetProperty("locationPathName").GetString());
         Assert.Equal(output.Build.Summary.ReportRef, artifactStore.WrittenMetadata.Summary.GetProperty("reportRef").GetString());
         Assert.Equal(output.Build.Logs.ReportRef, artifactStore.WrittenMetadata.Logs.GetProperty("reportRef").GetString());
@@ -185,7 +185,7 @@ public sealed class BuildServiceTests
         Assert.True(requestPayload.Development);
         Assert.Equal(preparedPaths.OutputDirectory, requestPayload.OutputPath);
         Assert.Equal(ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.File), requestPayload.OutputLayout.Shape);
-        Assert.Equal(Path.Combine(preparedPaths.OutputDirectory, "player", "Player"), requestPayload.OutputLayout.LocationPathName);
+        Assert.Equal(CreateExpectedPlayerLocationPathName(preparedPaths.OutputDirectory), requestPayload.OutputLayout.LocationPathName);
         Assert.Equal(preparedPaths.BuildReportJsonPath, requestPayload.BuildReportPath);
         Assert.Equal(preparedPaths.BuildLogPath, requestPayload.BuildLogPath);
     }
@@ -866,6 +866,13 @@ public sealed class BuildServiceTests
         return new AssuranceSemanticInvariantValidator(
             new CodeCatalogModel([new BuildCodeCatalogContributor()]),
             [new BuildAssuranceSemanticInvariantRule()]);
+    }
+
+    private static string CreateExpectedPlayerLocationPathName (string outputDirectory)
+    {
+        return string.Concat(
+            outputDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+            "/player/Player");
     }
 
     private static void AssertProgressEvents (
