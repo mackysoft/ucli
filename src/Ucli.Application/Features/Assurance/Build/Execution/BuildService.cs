@@ -1017,7 +1017,7 @@ internal sealed class BuildService : IBuildService
     {
         return new BuildResidualRiskOutput(
             Code: code.Value,
-            Severity: "warning",
+            Severity: IpcExecuteDiagnosticSeverityNames.Warning,
             Blocking: false,
             Statement: statement);
     }
