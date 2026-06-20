@@ -16,15 +16,19 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private readonly UnityCompileMessageDedupeCache compileMessageDedupeCache;
 
+        private readonly UnityLogRedactionScopeProvider unityLogRedactionScopeProvider;
+
         /// <summary> Initializes a new instance of the <see cref="UnityLogCollector" /> class. </summary>
         /// <param name="unityLogStream"> The Unity-log stream dependency. </param>
         /// <param name="compileMessageDedupeCache"> The compile-message dedupe cache dependency. </param>
         public UnityLogCollector (
             IUnityLogStream unityLogStream,
-            UnityCompileMessageDedupeCache compileMessageDedupeCache)
+            UnityCompileMessageDedupeCache compileMessageDedupeCache,
+            UnityLogRedactionScopeProvider unityLogRedactionScopeProvider = null)
         {
             this.unityLogStream = unityLogStream ?? throw new ArgumentNullException(nameof(unityLogStream));
             this.compileMessageDedupeCache = compileMessageDedupeCache ?? throw new ArgumentNullException(nameof(compileMessageDedupeCache));
+            this.unityLogRedactionScopeProvider = unityLogRedactionScopeProvider ?? new UnityLogRedactionScopeProvider();
         }
 
         /// <summary> Handles one runtime log callback. </summary>
@@ -50,8 +54,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             unityLogStream.Write(
                 IpcUnityLogsSourceCodec.Runtime,
                 NormalizeLevel(logType),
-                normalizedCondition,
-                StringValueNormalizer.TrimToNull(stackTrace));
+                unityLogRedactionScopeProvider.Redact(normalizedCondition),
+                unityLogRedactionScopeProvider.RedactOrNull(StringValueNormalizer.TrimToNull(stackTrace)));
         }
 
         /// <summary> Handles one compile message callback. </summary>
@@ -68,7 +72,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             unityLogStream.Write(
                 IpcUnityLogsSourceCodec.Compile,
                 NormalizeCompileLevel(message.type),
-                normalizedMessage,
+                unityLogRedactionScopeProvider.Redact(normalizedMessage),
                 null);
         }
 

@@ -154,6 +154,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddSingleton<IRecoverableIpcOperationStore>(serviceProvider =>
                 FileRecoverableIpcOperationStore.Create(serviceProvider.GetRequiredService<IpcProjectIdentity>()));
             services.AddSingleton<IUnityLogStream, UnityLogRingBuffer>();
+            services.AddSingleton<UnityLogRedactionScopeProvider>();
             services.AddSingleton<UnityCompileMessageDedupeCache>();
             services.AddSingleton<UnityLogCollector>();
             services.AddSingleton<UnityLogCaptureService>();

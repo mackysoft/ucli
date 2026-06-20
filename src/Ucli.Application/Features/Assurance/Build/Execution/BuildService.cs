@@ -353,16 +353,25 @@ internal sealed class BuildService : IBuildService
         string projectFingerprint)
     {
         ArgumentNullException.ThrowIfNull(profile);
-        ArgumentException.ThrowIfNullOrWhiteSpace(profilePath);
         ArgumentException.ThrowIfNullOrWhiteSpace(runId);
-        ArgumentException.ThrowIfNullOrWhiteSpace(outputDirectory);
-        ArgumentException.ThrowIfNullOrWhiteSpace(projectPath);
-        ArgumentException.ThrowIfNullOrWhiteSpace(projectFingerprint);
 
         if (profile.Runner.Kind == BuildProfileRunnerKind.BuildPipeline)
         {
+            ArgumentException.ThrowIfNullOrWhiteSpace(profilePath);
+            ArgumentException.ThrowIfNullOrWhiteSpace(outputDirectory);
+            ArgumentException.ThrowIfNullOrWhiteSpace(projectPath);
+            ArgumentException.ThrowIfNullOrWhiteSpace(projectFingerprint);
             return RunnerInvocationResolutionResult.Success(ResolvedRunnerInvocationInput.Empty);
         }
+
+        if (!TryValidateRequiredPathVariable("ucli.build.profilePath", profilePath, out var pathError)
+            || !TryValidateRequiredPathVariable("ucli.build.outputDir", outputDirectory, out pathError)
+            || !TryValidateRequiredPathVariable("project.path", projectPath, out pathError))
+        {
+            return RunnerInvocationResolutionResult.Failure(pathError!);
+        }
+
+        ArgumentException.ThrowIfNullOrWhiteSpace(projectFingerprint);
 
         var variables = CreateBuiltInVariableMap(
             profile,
@@ -469,7 +478,7 @@ internal sealed class BuildService : IBuildService
             }
 
             if (RequiresNonEmptyVariableValue(variableName)
-                && string.IsNullOrEmpty(variableValue))
+                && string.IsNullOrWhiteSpace(variableValue))
             {
                 error = ExecutionError.InvalidArgument(
                     $"Build profile runner.invocation.arguments built-in variable resolves to an empty required path: {variableName}.",
@@ -483,6 +492,23 @@ internal sealed class BuildService : IBuildService
 
         substituted = builder.ToString();
         return true;
+    }
+
+    private static bool TryValidateRequiredPathVariable (
+        string variableName,
+        string value,
+        out ExecutionError? error)
+    {
+        error = null;
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            return true;
+        }
+
+        error = ExecutionError.InvalidArgument(
+            $"Build profile runner.invocation.arguments built-in variable resolves to an empty required path: {variableName}.",
+            BuildErrorCodes.BuildProfileInvalid);
+        return false;
     }
 
     private static bool RequiresNonEmptyVariableValue (string variableName)
@@ -639,6 +665,11 @@ internal sealed class BuildService : IBuildService
             return ApplicationFailure.InternalError($"Unity build response contains unsupported report result: {response.Report.Result}.");
         }
 
+        if (reportResult == IpcBuildReportResult.Unknown)
+        {
+            return ApplicationFailure.InternalError($"Unity build response report result is invalid: {response.Report.Result}.");
+        }
+
         if (!ContractLiteralCodec.TryParse<IpcBuildLogCompletionReason>(response.Logs.CompletionReason, out var completionReason))
         {
             return ApplicationFailure.InternalError($"Unity build response contains unsupported log completionReason: {response.Logs.CompletionReason}.");
@@ -677,23 +708,65 @@ internal sealed class BuildService : IBuildService
                 $"Unity BuildReport BuildTarget mismatch. Input={response.Input.UnityBuildTarget}, Report={response.Report.UnityBuildTarget}.");
         }
 
-        if (expectedProfile.Runner.Kind == BuildProfileRunnerKind.ExecuteMethod)
+        var runnerResultValidationFailure = ValidateRunnerResult(
+            response.RunnerResult,
+            expectedProfile.Runner.Kind,
+            response.Report,
+            reportResult);
+        if (runnerResultValidationFailure != null)
         {
-            if (response.RunnerResult == null)
-            {
-                return ApplicationFailure.InternalError("Unity build response runnerResult is missing for executeMethod runner.");
-            }
-
-            if (!string.Equals(
-                    response.RunnerResult.Source,
-                    ContractLiteralCodec.ToValue(IpcBuildRunnerResultSource.UcliBuildRunnerResult),
-                    StringComparison.Ordinal))
-            {
-                return ApplicationFailure.InternalError($"Unity build response runnerResult source is invalid for executeMethod runner: {response.RunnerResult.Source}.");
-            }
+            return runnerResultValidationFailure;
         }
 
         return ValidateProjectMutationAudit(response.ProjectMutation, expectedProfile.Policy.ProjectMutationMode);
+    }
+
+    private static ApplicationFailure? ValidateRunnerResult (
+        IpcBuildRunnerResultArtifact? runnerResult,
+        BuildProfileRunnerKind expectedRunnerKind,
+        IpcBuildReportArtifact report,
+        IpcBuildReportResult reportResult)
+    {
+        ArgumentNullException.ThrowIfNull(report);
+
+        if (runnerResult == null)
+        {
+            return expectedRunnerKind == BuildProfileRunnerKind.ExecuteMethod
+                ? ApplicationFailure.InternalError("Unity build response runnerResult is missing for executeMethod runner.")
+                : null;
+        }
+
+        var expectedSource = expectedRunnerKind == BuildProfileRunnerKind.ExecuteMethod
+            ? IpcBuildRunnerResultSource.UcliBuildRunnerResult
+            : IpcBuildRunnerResultSource.BuildPipelineBuildReport;
+        if (!ContractLiteralCodec.TryParse<IpcBuildRunnerResultSource>(runnerResult.Source, out var source)
+            || source != expectedSource)
+        {
+            return ApplicationFailure.InternalError(
+                $"Unity build response runnerResult source is invalid for {ContractLiteralCodec.ToValue(expectedRunnerKind)} runner: {runnerResult.Source}.");
+        }
+
+        if (!ContractLiteralCodec.TryParse<IpcBuildReportResult>(runnerResult.Status, out var status)
+            || status == IpcBuildReportResult.Unknown)
+        {
+            return ApplicationFailure.InternalError(
+                $"Unity build response runnerResult status is invalid: {runnerResult.Status}.");
+        }
+
+        if (status != reportResult)
+        {
+            return ApplicationFailure.InternalError(
+                $"Unity build response runnerResult status mismatch. Report={ContractLiteralCodec.ToValue(reportResult)}, RunnerResult={runnerResult.Status}.");
+        }
+
+        if (runnerResult.DurationMilliseconds != report.DurationMilliseconds
+            || runnerResult.ErrorCount != report.ErrorCount
+            || runnerResult.WarningCount != report.WarningCount)
+        {
+            return ApplicationFailure.InternalError("Unity build response runnerResult summary does not match report summary.");
+        }
+
+        return null;
     }
 
     private static ApplicationFailure? ValidateProjectMutationAudit (

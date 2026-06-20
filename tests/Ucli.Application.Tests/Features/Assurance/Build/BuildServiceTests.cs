@@ -237,8 +237,9 @@ public sealed class BuildServiceTests
             }),
             requestExecutor: requestExecutor,
             artifactStore: artifactStore);
+        var progressSink = new CollectingProgressSink();
 
-        var result = await service.ExecuteAsync(CreateInput());
+        var result = await service.ExecuteAsync(CreateInput(), progressSink);
 
         if (!result.IsSuccess)
         {
@@ -270,6 +271,7 @@ public sealed class BuildServiceTests
         Assert.DoesNotContain(SecretValue, JsonSerializer.Serialize(output, PayloadSerializerOptions));
         Assert.NotNull(artifactStore.WrittenMetadata);
         Assert.DoesNotContain(SecretValue, JsonSerializer.Serialize(artifactStore.WrittenMetadata!, PayloadSerializerOptions));
+        Assert.DoesNotContain(SecretValue, JsonSerializer.Serialize(progressSink.Entries, PayloadSerializerOptions));
         Assert.Equal("executeMethod", artifactStore.WrittenMetadata!.Runner.GetProperty("kind").GetString());
         Assert.Equal(
             ["UCLI_SECRET"],
@@ -305,6 +307,197 @@ public sealed class BuildServiceTests
         var error = Assert.Single(result.Errors);
         Assert.Equal(BuildErrorCodes.BuildRunnerEnvironmentMissing, error.Code);
         Assert.Equal(0, requestExecutor.CallCount);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("\"bad\": \"${ucli.build.unknown}\"")]
+    [InlineData("\"bad\": \"${ucli.build.outputDir\"")]
+    public async Task Execute_WithInvalidExecuteMethodArgumentVariable_ReturnsBuildProfileInvalidBeforeDispatch (
+        string arguments)
+    {
+        var profileJson = CreateExecuteMethodProfileJson(
+            method: "Build.Entry.Run",
+            arguments: arguments,
+            environment: string.Empty);
+        using var tempDirectory = TemporaryDirectory.Create();
+        var requestExecutor = CreateBuildResponseExecutor(
+            ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+            ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+            errorCount: 0);
+        var service = CreateService(
+            profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(profileJson, "/workspace/build.ucli.json")),
+            requestExecutor: requestExecutor,
+            artifactStore: new StubBuildRunArtifactStore(tempDirectory.Path));
+
+        var result = await service.ExecuteAsync(CreateInput());
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(BuildErrorCodes.BuildProfileInvalid, error.Code);
+        Assert.Equal(0, requestExecutor.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithEmptyExecuteMethodProfilePathVariable_ReturnsBuildProfileInvalidBeforeDispatch ()
+    {
+        var profileJson = CreateExecuteMethodProfileJson(
+            method: "Build.Entry.Run",
+            arguments: """
+                      "profile": "${ucli.build.profilePath}"
+                """,
+            environment: string.Empty);
+        using var tempDirectory = TemporaryDirectory.Create();
+        var requestExecutor = CreateBuildResponseExecutor(
+            ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+            ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+            errorCount: 0);
+        var service = CreateService(
+            profileFileReader: new StubBuildProfileFileReader(new BuildProfileFileReadResult(profileJson, string.Empty, null)),
+            requestExecutor: requestExecutor,
+            artifactStore: new StubBuildRunArtifactStore(tempDirectory.Path));
+
+        var result = await service.ExecuteAsync(CreateInput());
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(BuildErrorCodes.BuildProfileInvalid, error.Code);
+        Assert.Equal(0, requestExecutor.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithVariableLikeExecuteMethodEnvironmentName_DoesNotSubstituteBeforeLookup ()
+    {
+        var profileJson = CreateExecuteMethodProfileJson(
+            method: "Build.Entry.Run",
+            arguments: string.Empty,
+            environment: """
+                    "${UCLI_SECRET}"
+                """);
+        using var tempDirectory = TemporaryDirectory.Create();
+        var requestExecutor = CreateBuildResponseExecutor(
+            ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+            ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+            errorCount: 0);
+        var service = CreateService(
+            profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(profileJson, "/workspace/build.ucli.json")),
+            environmentVariableReader: new StubEnvironmentVariableReader(new Dictionary<string, string?>(StringComparer.Ordinal)
+            {
+                ["UCLI_SECRET"] = "secret-value",
+            }),
+            requestExecutor: requestExecutor,
+            artifactStore: new StubBuildRunArtifactStore(tempDirectory.Path));
+
+        var result = await service.ExecuteAsync(CreateInput());
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(BuildErrorCodes.BuildRunnerEnvironmentMissing, error.Code);
+        Assert.Equal(0, requestExecutor.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithExecuteMethodRunnerResultStatusMismatch_ReturnsCommandFailure ()
+    {
+        var profileJson = CreateExecuteMethodProfileJson(
+            method: "Build.Entry.Run",
+            arguments: string.Empty,
+            environment: string.Empty);
+        using var tempDirectory = TemporaryDirectory.Create();
+        var service = CreateService(
+            profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(profileJson, "/workspace/build.ucli.json")),
+            requestExecutor: CreateBuildResponseExecutor(
+                ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+                errorCount: 0,
+                runnerResult: new IpcBuildRunnerResultArtifact(
+                    Source: ContractLiteralCodec.ToValue(IpcBuildRunnerResultSource.UcliBuildRunnerResult),
+                    Status: ContractLiteralCodec.ToValue(IpcBuildReportResult.Failed),
+                    DurationMilliseconds: 2500,
+                    ErrorCount: 1,
+                    WarningCount: 0,
+                    Diagnostics: [])),
+            artifactStore: new StubBuildRunArtifactStore(tempDirectory.Path));
+
+        var result = await service.ExecuteAsync(CreateInput());
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithBuildPipelineRunnerResultSourceMismatch_ReturnsCommandFailure ()
+    {
+        using var tempDirectory = TemporaryDirectory.Create();
+        var service = CreateService(
+            requestExecutor: CreateBuildResponseExecutor(
+                ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+                errorCount: 0,
+                runnerResult: new IpcBuildRunnerResultArtifact(
+                    Source: ContractLiteralCodec.ToValue(IpcBuildRunnerResultSource.UcliBuildRunnerResult),
+                    Status: ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+                    DurationMilliseconds: 2500,
+                    ErrorCount: 0,
+                    WarningCount: 0,
+                    Diagnostics: [])),
+            artifactStore: new StubBuildRunArtifactStore(tempDirectory.Path));
+
+        var result = await service.ExecuteAsync(CreateInput());
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithBuildPipelineRunnerResultSummaryMismatch_ReturnsCommandFailure ()
+    {
+        using var tempDirectory = TemporaryDirectory.Create();
+        var service = CreateService(
+            requestExecutor: CreateBuildResponseExecutor(
+                ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+                errorCount: 0,
+                runnerResult: new IpcBuildRunnerResultArtifact(
+                    Source: ContractLiteralCodec.ToValue(IpcBuildRunnerResultSource.BuildPipelineBuildReport),
+                    Status: ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+                    DurationMilliseconds: 9999,
+                    ErrorCount: 0,
+                    WarningCount: 0,
+                    Diagnostics: [])),
+            artifactStore: new StubBuildRunArtifactStore(tempDirectory.Path));
+
+        var result = await service.ExecuteAsync(CreateInput());
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithUnknownBuildPipelineReportResult_ReturnsCommandFailure ()
+    {
+        using var tempDirectory = TemporaryDirectory.Create();
+        var service = CreateService(
+            requestExecutor: CreateBuildResponseExecutor(
+                ContractLiteralCodec.ToValue(IpcBuildReportResult.Unknown),
+                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Failed),
+                errorCount: 0),
+            artifactStore: new StubBuildRunArtifactStore(tempDirectory.Path));
+
+        var result = await service.ExecuteAsync(CreateInput());
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
     }
 
     [Fact]

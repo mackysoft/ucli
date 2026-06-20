@@ -73,13 +73,13 @@ namespace MackySoft.Ucli.Unity.Build
             {
                 return Failure(
                     BuildErrorCodes.BuildExecuteMethodInvocationFailed,
-                    $"Build executeMethod runner threw an exception. {exception.InnerException.Message}");
+                    "Build executeMethod runner threw an exception.");
             }
             catch (Exception exception) when (exception is ArgumentException or InvalidOperationException)
             {
                 return Failure(
                     BuildErrorCodes.BuildExecuteMethodInvocationFailed,
-                    $"Build executeMethod runner invocation failed. {exception.Message}");
+                    "Build executeMethod runner invocation failed.");
             }
             finally
             {
@@ -158,7 +158,7 @@ namespace MackySoft.Ucli.Unity.Build
             if (!ContractLiteralCodec.IsDefined<IpcBuildReportResult>(result.Status)
                 || string.Equals(result.Status, ContractLiteralCodec.ToValue(IpcBuildReportResult.Unknown), StringComparison.Ordinal))
             {
-                errorMessage = $"Build executeMethod runner result status is invalid: {result.Status}.";
+                errorMessage = "Build executeMethod runner result status is invalid.";
                 return false;
             }
 

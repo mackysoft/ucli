@@ -101,7 +101,10 @@
                   "additionalProperties": false,
                   "properties": {
                     "arguments": {
-                      "type": "object"
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
+                      }
                     },
                     "environment": {
                       "type": "array",
@@ -138,8 +141,7 @@
                   "enum": [
                     "succeeded",
                     "failed",
-                    "canceled",
-                    "unknown"
+                    "canceled"
                   ]
                 }
               },

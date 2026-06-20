@@ -43,6 +43,8 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private readonly IIpcRequestTimeoutScopeFactory timeoutScopeFactory;
 
+        private readonly UnityLogRedactionScopeProvider unityLogRedactionScopeProvider;
+
         /// <summary> Initializes a new instance of the <see cref="BuildRunUnityIpcMethodHandler" /> class. </summary>
         public BuildRunUnityIpcMethodHandler (
             UnityBuildPreconditionProbe preconditionProbe,
@@ -51,7 +53,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             BuildExecuteMethodRunner executeMethodRunner,
             IEditorLogRangeExporter editorLogRangeExporter,
             IpcProjectIdentity projectIdentity,
-            IIpcRequestTimeoutScopeFactory timeoutScopeFactory)
+            IIpcRequestTimeoutScopeFactory timeoutScopeFactory,
+            UnityLogRedactionScopeProvider unityLogRedactionScopeProvider = null)
         {
             this.preconditionProbe = preconditionProbe ?? throw new ArgumentNullException(nameof(preconditionProbe));
             this.projectMutationAuditProbe = projectMutationAuditProbe ?? throw new ArgumentNullException(nameof(projectMutationAuditProbe));
@@ -60,6 +63,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             this.editorLogRangeExporter = editorLogRangeExporter ?? throw new ArgumentNullException(nameof(editorLogRangeExporter));
             this.projectIdentity = projectIdentity ?? throw new ArgumentNullException(nameof(projectIdentity));
             this.timeoutScopeFactory = timeoutScopeFactory ?? throw new ArgumentNullException(nameof(timeoutScopeFactory));
+            this.unityLogRedactionScopeProvider = unityLogRedactionScopeProvider ?? new UnityLogRedactionScopeProvider();
         }
 
         /// <inheritdoc />
@@ -123,6 +127,9 @@ namespace MackySoft.Ucli.Unity.Ipc
 
                 var logSourcePath = Application.consoleLogPath;
                 var logStartOffset = GetLogLength(logSourcePath);
+                using var unityLogRedactionScope = IsExecuteMethodRunner(buildRunRequest)
+                    ? unityLogRedactionScopeProvider.BeginScope(buildRunRequest.RunnerEnvironmentValues?.Values)
+                    : null;
                 var startedAtUtc = DateTimeOffset.UtcNow;
                 var mutationBaseline = projectMutationAuditProbe.CaptureBaseline(projectIdentity.ProjectPath);
                 executionCancellationToken.ThrowIfCancellationRequested();
@@ -196,6 +203,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                         buildRunRequest.BuildLogPath,
                         logStartOffset,
                         logEndOffset,
+                        IsExecuteMethodRunner(buildRunRequest) ? buildRunRequest.RunnerEnvironmentValues : null,
                         executionCancellationToken)
                     .ConfigureAwait(false);
                 var completionReason = UnityBuildReportNormalizer.ToCompletionReason(normalizedReport.Result);
@@ -308,6 +316,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             string destinationPath,
             long startOffset,
             long endOffset,
+            IReadOnlyDictionary<string, string>? sensitiveValues,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -317,13 +326,43 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return new EditorLogRangeExportResult(0, 0, 0);
             }
 
+            if (!HasRedactableSensitiveValues(sensitiveValues))
+            {
+                return await editorLogRangeExporter.ExportRangeAsync(
+                        sourcePath,
+                        destinationPath,
+                        startOffset,
+                        endOffset,
+                        cancellationToken: cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
             return await editorLogRangeExporter.ExportRangeAsync(
                     sourcePath,
                     destinationPath,
                     startOffset,
                     endOffset,
+                    sensitiveValues!.Values,
                     cancellationToken)
                 .ConfigureAwait(false);
+        }
+
+        private static bool HasRedactableSensitiveValues (IReadOnlyDictionary<string, string>? sensitiveValues)
+        {
+            if (sensitiveValues == null || sensitiveValues.Count == 0)
+            {
+                return false;
+            }
+
+            foreach (var sensitiveValue in sensitiveValues.Values)
+            {
+                if (!string.IsNullOrEmpty(sensitiveValue))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         internal static bool TryValidateRequest (

@@ -43,6 +43,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(resolver.Resolve(TypeName + ".ContextualSuccess").IsSuccess, Is.True);
             Assert.That(resolver.Resolve("BuildExecuteMethodRunnerTests.InternalSuccess").IsSuccess, Is.True);
+            Assert.That(resolver.Resolve("InternalNestedRunner.Success").IsSuccess, Is.True);
             Assert.That(resolver.Resolve(TypeName + ".ParameterlessSuccess").IsSuccess, Is.True);
         }
 
@@ -55,6 +56,8 @@ namespace MackySoft.Ucli.Unity.Tests
         [TestCase(TypeName + ".Ambiguous", "BUILD_EXECUTE_METHOD_AMBIGUOUS")]
         [TestCase(TypeName + ".Generic", "BUILD_EXECUTE_METHOD_UNSUPPORTED_SIGNATURE")]
         [TestCase(TypeName + ".PrivateSuccess", "BUILD_EXECUTE_METHOD_UNSUPPORTED_SIGNATURE")]
+        [TestCase("PrivateNestedRunner.Success", "BUILD_EXECUTE_METHOD_UNSUPPORTED_SIGNATURE")]
+        [TestCase("GenericNestedRunner`1.Success", "BUILD_EXECUTE_METHOD_UNSUPPORTED_SIGNATURE")]
         [TestCase(TypeName + ".UnsupportedReturn", "BUILD_EXECUTE_METHOD_UNSUPPORTED_SIGNATURE")]
         [TestCase(TypeName + ".UnsupportedParameter", "BUILD_EXECUTE_METHOD_UNSUPPORTED_SIGNATURE")]
         public void Resolve_WithUnsupportedMethod_ReturnsExpectedErrorCode (
@@ -131,6 +134,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(UcliBuildRunnerContext.Current, Is.Null);
             Assert.That(result.Error!.Code, Is.EqualTo(BuildErrorCodes.BuildExecuteMethodInvocationFailed));
+            Assert.That(result.Error.Message, Does.Not.Contain("secret-value"));
         }
 
         [Test]
@@ -147,6 +151,23 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(UcliBuildRunnerContext.Current, Is.Null);
             Assert.That(result.Error!.Code, Is.EqualTo(BuildErrorCodes.BuildRunnerResultMissing));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Run_WhenMethodReturnsEnvironmentValueAsStatus_ReturnsRunnerResultInvalidWithoutLeakingValue ()
+        {
+            var runner = new BuildExecuteMethodRunner(new BuildExecuteMethodResolver());
+
+            var result = runner.Run(
+                CreateRequest(TypeName + ".ReturnsSecretStatus"),
+                CreateProjectIdentity(),
+                CreateResolvedInput());
+
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(UcliBuildRunnerContext.Current, Is.Null);
+            Assert.That(result.Error!.Code, Is.EqualTo(BuildErrorCodes.BuildRunnerResultInvalid));
+            Assert.That(result.Error.Message, Does.Not.Contain("secret-value"));
         }
 
         public static UcliBuildRunnerResult ContextualSuccess (UcliBuildRunnerContext context)
@@ -169,12 +190,17 @@ namespace MackySoft.Ucli.Unity.Tests
 
         public static UcliBuildRunnerResult Throws (UcliBuildRunnerContext context)
         {
-            throw new InvalidOperationException("runner failed");
+            throw new InvalidOperationException("runner failed with secret-value");
         }
 
         public static UcliBuildRunnerResult? ReturnsNull ()
         {
             return null;
+        }
+
+        public static UcliBuildRunnerResult ReturnsSecretStatus (UcliBuildRunnerContext context)
+        {
+            return new UcliBuildRunnerResult(context.Environment["UCLI_SECRET"], 0, 0, 0);
         }
 
         public UcliBuildRunnerResult NonStatic ()
@@ -200,6 +226,30 @@ namespace MackySoft.Ucli.Unity.Tests
         private static UcliBuildRunnerResult PrivateSuccess ()
         {
             return UcliBuildRunnerResult.Succeeded(1);
+        }
+
+        internal sealed class InternalNestedRunner
+        {
+            public static UcliBuildRunnerResult Success ()
+            {
+                return UcliBuildRunnerResult.Succeeded(1);
+            }
+        }
+
+        private sealed class PrivateNestedRunner
+        {
+            public static UcliBuildRunnerResult Success ()
+            {
+                return UcliBuildRunnerResult.Succeeded(1);
+            }
+        }
+
+        public sealed class GenericNestedRunner<T>
+        {
+            public static UcliBuildRunnerResult Success ()
+            {
+                return UcliBuildRunnerResult.Succeeded(1);
+            }
         }
 
         public static int UnsupportedReturn ()

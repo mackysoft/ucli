@@ -729,7 +729,7 @@ internal static class Program
             Required("method", NullableStringSchema()),
             Required("invocation", ObjectSchema(
                 additionalProperties: false,
-                Required("arguments", ObjectSchema(additionalProperties: true)),
+                Required("arguments", StringMapSchema()),
                 Required("environment", ArraySchema(StringSchema())))));
     }
 
@@ -747,8 +747,7 @@ internal static class Program
                 EnumSchema(
                     Literal(IpcBuildReportResult.Succeeded),
                     Literal(IpcBuildReportResult.Failed),
-                    Literal(IpcBuildReportResult.Canceled),
-                    Literal(IpcBuildReportResult.Unknown))));
+                    Literal(IpcBuildReportResult.Canceled))));
     }
 
     private static Dictionary<string, object?> CreateBuildRunClaimSchema ()
@@ -1729,6 +1728,13 @@ internal static class Program
             }
         }
 
+        return schema;
+    }
+
+    private static Dictionary<string, object?> StringMapSchema ()
+    {
+        var schema = ObjectSchema(additionalProperties: true);
+        schema["additionalProperties"] = StringSchema();
         return schema;
     }
 

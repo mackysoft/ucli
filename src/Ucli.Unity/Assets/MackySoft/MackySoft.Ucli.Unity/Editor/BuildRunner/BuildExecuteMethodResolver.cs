@@ -80,7 +80,10 @@ namespace MackySoft.Ucli.Unity.Build
                     $"Build executeMethod runner method must be static: {methodName}.");
             }
 
-            if (!HasSupportedVisibility(method) || method.IsGenericMethodDefinition || !HasSupportedSignature(method))
+            if (!HasSupportedVisibility(method)
+                || HasUnsupportedDeclaringType(method)
+                || method.IsGenericMethodDefinition
+                || !HasSupportedSignature(method))
             {
                 return BuildExecuteMethodResolutionResult.Failure(
                     BuildErrorCodes.BuildExecuteMethodUnsupportedSignature,
@@ -124,6 +127,29 @@ namespace MackySoft.Ucli.Unity.Build
         private static bool HasSupportedVisibility (MethodInfo method)
         {
             return method.IsPublic || method.IsAssembly;
+        }
+
+        private static bool HasUnsupportedDeclaringType (MethodInfo method)
+        {
+            var type = method.DeclaringType;
+            while (type != null)
+            {
+                if (type.ContainsGenericParameters || !HasSupportedTypeVisibility(type))
+                {
+                    return true;
+                }
+
+                type = type.DeclaringType;
+            }
+
+            return false;
+        }
+
+        private static bool HasSupportedTypeVisibility (Type type)
+        {
+            return type.IsNested
+                ? type.IsNestedPublic || type.IsNestedAssembly
+                : type.IsPublic || type.IsNotPublic;
         }
 
         private static bool HasSupportedSignature (MethodInfo method)

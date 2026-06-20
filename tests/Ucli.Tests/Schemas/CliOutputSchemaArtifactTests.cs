@@ -113,6 +113,60 @@ public sealed class CliOutputSchemaArtifactTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void BuildRunPayloadSchema_RejectsNonStringRunnerArguments ()
+    {
+        using var schemaSet = JsonSchemaArtifactSet.Load(Path.Combine(RepositoryRoot, "schemas", "v1"));
+        var goldenPath = Path.Combine(
+            RepositoryRoot,
+            "tests",
+            "Ucli.Tests",
+            "GoldenFiles",
+            "Json",
+            "CliOutput",
+            "build-run",
+            "success.json");
+        var json = File.ReadAllText(goldenPath).Replace(
+            "\"arguments\": {}",
+            "\"arguments\": {\"count\": 1}",
+            StringComparison.Ordinal);
+        using var document = JsonDocument.Parse(json);
+
+        var errors = schemaSet.Validate(
+            "cli-output/payload/build.run.schema.json",
+            document.RootElement.GetProperty("payload"));
+
+        Assert.NotEmpty(errors);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void BuildRunPayloadSchema_RejectsUnknownRunnerResultStatus ()
+    {
+        using var schemaSet = JsonSchemaArtifactSet.Load(Path.Combine(RepositoryRoot, "schemas", "v1"));
+        var goldenPath = Path.Combine(
+            RepositoryRoot,
+            "tests",
+            "Ucli.Tests",
+            "GoldenFiles",
+            "Json",
+            "CliOutput",
+            "build-run",
+            "success.json");
+        var json = File.ReadAllText(goldenPath).Replace(
+            "\"runnerResult\": {\n        \"source\": \"buildPipelineBuildReport\",\n        \"status\": \"succeeded\"\n      }",
+            "\"runnerResult\": {\n        \"source\": \"buildPipelineBuildReport\",\n        \"status\": \"unknown\"\n      }",
+            StringComparison.Ordinal);
+        using var document = JsonDocument.Parse(json);
+
+        var errors = schemaSet.Validate(
+            "cli-output/payload/build.run.schema.json",
+            document.RootElement.GetProperty("payload"));
+
+        Assert.NotEmpty(errors);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void ReadyPayloadSchema_RequiresClaimValidity ()
     {
         using var schemaSet = JsonSchemaArtifactSet.Load(Path.Combine(RepositoryRoot, "schemas", "v1"));
