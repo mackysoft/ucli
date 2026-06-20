@@ -124,6 +124,26 @@ public sealed class FileBuildRunArtifactStoreTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void PrepareBuildPipelineOutputLayout_WhenPlayerParentCannotBeCreated_ReturnsBuildArtifactWriteFailed ()
+    {
+        using var scope = TestDirectories.CreateTempScope("build-artifact-store", "prepare-player-parent-blocked");
+        var store = CreateStore();
+        var project = CreateProject(scope);
+        var prepareResult = store.Prepare(project, "run-1");
+        var paths = Assert.IsType<BuildRunArtifactPaths>(prepareResult.Paths);
+        Assert.True(IpcBuildOutputLayoutResolver.TryResolve(paths.OutputDirectory, "standaloneLinux64", out var layout));
+        WriteUtf8(Path.Combine(paths.OutputDirectory, "player"), "blocking file");
+
+        var result = store.PrepareBuildPipelineOutputLayout(paths, "standaloneLinux64", layout!);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.Equal(BuildErrorCodes.BuildArtifactWriteFailed, error.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void PrepareBuildPipelineOutputLayout_WhenTargetLayoutIsUnsupported_ReturnsBuildInputsInvalid ()
     {
         using var scope = TestDirectories.CreateTempScope("build-artifact-store", "prepare-player-unsupported");

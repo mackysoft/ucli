@@ -63,6 +63,83 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         }
 
+        [TestCase("missing")]
+        [TestCase("shapeMismatch")]
+        [TestCase("unsupportedTarget")]
+        [Category("Size.Small")]
+        public void TryValidateRequest_WithInvalidOutputLayout_ReturnsFalse (string scenario)
+        {
+            using (var scope = TemporaryDirectoryScope.Create())
+            {
+                var identity = CreateProjectIdentity(scope.ProjectPath);
+                var request = CreateRequest(scope.ProjectPath, identity);
+                request = scenario switch
+                {
+                    "missing" => request with
+                    {
+                        OutputLayout = null!,
+                    },
+                    "shapeMismatch" => request with
+                    {
+                        OutputLayout = request.OutputLayout with
+                        {
+                            Shape = ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.Directory),
+                        },
+                    },
+                    "unsupportedTarget" => request with
+                    {
+                        BuildTarget = "switch",
+                        UnityBuildTarget = "Switch",
+                    },
+                    _ => throw new ArgumentOutOfRangeException(nameof(scenario), scenario, "Unsupported output layout validation scenario."),
+                };
+
+                var result = BuildRunUnityIpcMethodHandler.TryValidateRequest(request, identity, out var errorMessage);
+
+                Assert.That(result, Is.False);
+                Assert.That(errorMessage, Does.Contain("outputLayout"));
+            }
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void TryValidateRequest_WithUnknownBuildTarget_ReturnsFalse ()
+        {
+            using (var scope = TemporaryDirectoryScope.Create())
+            {
+                var identity = CreateProjectIdentity(scope.ProjectPath);
+                var request = CreateRequest(scope.ProjectPath, identity) with
+                {
+                    BuildTarget = "unknownTarget",
+                    UnityBuildTarget = "UnknownTarget",
+                };
+
+                var result = BuildRunUnityIpcMethodHandler.TryValidateRequest(request, identity, out var errorMessage);
+
+                Assert.That(result, Is.False);
+                Assert.That(errorMessage, Does.Contain("buildTarget"));
+            }
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void TryValidateRequest_WithMismatchedUnityBuildTarget_ReturnsFalse ()
+        {
+            using (var scope = TemporaryDirectoryScope.Create())
+            {
+                var identity = CreateProjectIdentity(scope.ProjectPath);
+                var request = CreateRequest(scope.ProjectPath, identity) with
+                {
+                    UnityBuildTarget = "StandaloneWindows64",
+                };
+
+                var result = BuildRunUnityIpcMethodHandler.TryValidateRequest(request, identity, out var errorMessage);
+
+                Assert.That(result, Is.False);
+                Assert.That(errorMessage, Does.Contain("UnityBuildTarget"));
+            }
+        }
+
         [TestCase("output")]
         [TestCase("report")]
         [TestCase("log")]
@@ -134,6 +211,85 @@ namespace MackySoft.Ucli.Unity.Tests
                 var ipcRequest = CreateIpcRequest(payload);
 
                 var response = await handler.HandleAsync(ipcRequest, CancellationToken.None);
+
+                Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+                Assert.That(response.Errors.Count, Is.EqualTo(1));
+                Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
+                Assert.That(readinessGate.EnsureExecutionReadyCallCount, Is.EqualTo(0));
+                Assert.That(readinessGate.CaptureSnapshotCallCount, Is.EqualTo(0));
+                Assert.That(buildPipelineRunner.CallCount, Is.EqualTo(0));
+                Assert.That(logRangeExporter.CallCount, Is.EqualTo(0));
+                Assert.That(timeoutScopeFactory.CallCount, Is.EqualTo(0));
+            }
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task HandleAsync_WithMismatchedUnityBuildTarget_ReturnsInvalidArgumentWithoutSideEffects ()
+        {
+            using (var scope = TemporaryDirectoryScope.Create())
+            {
+                var identity = CreateProjectIdentity(scope.ProjectPath);
+                var readinessGate = new CountingReadinessGate();
+                var buildPipelineRunner = new CountingBuildPipelineRunner();
+                var logRangeExporter = new CountingEditorLogRangeExporter();
+                var timeoutScopeFactory = new CountingTimeoutScopeFactory();
+                var handler = new BuildRunUnityIpcMethodHandler(
+                    new UnityBuildPreconditionProbe(
+                        readinessGate,
+                        identity,
+                        new StubServerVersionProvider("1.2.3"),
+                        new CountingBuildTargetSupportProbe()),
+                    buildPipelineRunner,
+                    logRangeExporter,
+                    identity,
+                    timeoutScopeFactory);
+                var payload = CreateRequest(scope.ProjectPath, identity) with
+                {
+                    UnityBuildTarget = "StandaloneWindows64",
+                };
+
+                var response = await handler.HandleAsync(CreateIpcRequest(payload), CancellationToken.None);
+
+                Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+                Assert.That(response.Errors.Count, Is.EqualTo(1));
+                Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
+                Assert.That(readinessGate.EnsureExecutionReadyCallCount, Is.EqualTo(0));
+                Assert.That(readinessGate.CaptureSnapshotCallCount, Is.EqualTo(0));
+                Assert.That(buildPipelineRunner.CallCount, Is.EqualTo(0));
+                Assert.That(logRangeExporter.CallCount, Is.EqualTo(0));
+                Assert.That(timeoutScopeFactory.CallCount, Is.EqualTo(0));
+            }
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task HandleAsync_WithUnknownBuildTarget_ReturnsInvalidArgumentWithoutSideEffects ()
+        {
+            using (var scope = TemporaryDirectoryScope.Create())
+            {
+                var identity = CreateProjectIdentity(scope.ProjectPath);
+                var readinessGate = new CountingReadinessGate();
+                var buildPipelineRunner = new CountingBuildPipelineRunner();
+                var logRangeExporter = new CountingEditorLogRangeExporter();
+                var timeoutScopeFactory = new CountingTimeoutScopeFactory();
+                var handler = new BuildRunUnityIpcMethodHandler(
+                    new UnityBuildPreconditionProbe(
+                        readinessGate,
+                        identity,
+                        new StubServerVersionProvider("1.2.3"),
+                        new CountingBuildTargetSupportProbe()),
+                    buildPipelineRunner,
+                    logRangeExporter,
+                    identity,
+                    timeoutScopeFactory);
+                var payload = CreateRequest(scope.ProjectPath, identity) with
+                {
+                    BuildTarget = "unknownTarget",
+                    UnityBuildTarget = "UnknownTarget",
+                };
+
+                var response = await handler.HandleAsync(CreateIpcRequest(payload), CancellationToken.None);
 
                 Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
                 Assert.That(response.Errors.Count, Is.EqualTo(1));
