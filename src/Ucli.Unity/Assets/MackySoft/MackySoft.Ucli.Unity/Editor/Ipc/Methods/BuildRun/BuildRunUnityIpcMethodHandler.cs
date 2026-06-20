@@ -311,7 +311,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return false;
             }
 
-            if (!IsKnownProjectMutationMode(request.ProjectMutationMode))
+            if (!ContractLiteralCodec.IsDefined<BuildProfileProjectMutationMode>(request.ProjectMutationMode))
             {
                 errorMessage = $"Build projectMutationMode is invalid: {request.ProjectMutationMode}.";
                 return false;
@@ -357,7 +357,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             for (var i = 0; i < allowedEditorModes.Count; i++)
             {
                 var allowedEditorMode = allowedEditorModes[i];
-                if (!ContractLiteralCodec.TryParse<DaemonEditorMode>(allowedEditorMode, out _)
+                if (!ContractLiteralCodec.IsDefined<DaemonEditorMode>(allowedEditorMode)
                     || !seen.Add(allowedEditorMode))
                 {
                     return false;
@@ -365,11 +365,6 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             return true;
-        }
-
-        private static bool IsKnownProjectMutationMode (string projectMutationMode)
-        {
-            return ContractLiteralCodec.TryParse<BuildProfileProjectMutationMode>(projectMutationMode, out _);
         }
 
         private static bool IsValidPathSegment (string value)

@@ -246,7 +246,7 @@ namespace MackySoft.Ucli.Unity.Build
                     continue;
                 }
 
-                if (!IsAuditedProjectPath(path))
+                if (!UnityProjectMutationAuditScope.IsAuditedProjectPath(path))
                 {
                     continue;
                 }
@@ -264,11 +264,6 @@ namespace MackySoft.Ucli.Unity.Build
             {
                 itemsByPath[path] = new IpcBuildDirtyStateItem(kind, path);
             }
-        }
-
-        private static bool IsAuditedProjectPath (string path)
-        {
-            return UnityProjectMutationAuditScope.IsAuditedProjectPath(path);
         }
 
         private static IpcBuildDirtyStateItemKind ClassifyDirtyItem (string path)
