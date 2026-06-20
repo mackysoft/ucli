@@ -103,7 +103,7 @@ public sealed class BuildServiceTests
         Assert.Equal("asset-after", output.Build.Generations.ValidFor.AssetRefreshGeneration);
         var expectedProfileDigest = BuildProfileResolver.ResolveJson(ProfileJson).Profile!.Digest;
         Assert.Equal(expectedProfileDigest, output.Build.Profile.Digest);
-        Assert.Equal(ContractLiteralCodec.ToValue(BuildOutputKind.UcliArtifact), output.Build.Output.Kind);
+        Assert.Equal("ucliArtifact", output.Build.Output.Kind);
         Assert.Equal(artifactStore.PreparedPaths!.ArtifactsDirectory, output.Build.Output.ArtifactRoot);
         Assert.Equal(artifactStore.PreparedPaths.OutputDirectory, output.Build.Output.OutputRoot);
         Assert.Equal(BuildReportRefs.BuildOutputManifest, output.Build.Output.ManifestRef);
