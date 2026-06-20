@@ -154,7 +154,7 @@ internal sealed class BuildService : IBuildService
         }
 
         var paths = prepareResult.Paths!;
-        if (!IpcBuildOutputLayoutResolver.TryResolve(paths.OutputDirectory, profile.BuildTarget.StableName, out var outputLayout))
+        if (!IpcBuildOutputLayoutResolver.TryResolve(paths.RunnerOutputDirectory, profile.BuildTarget.StableName, out var outputLayout))
         {
             return BuildExecutionResult.Failure(ExecutionError.InvalidArgument(
                 $"BuildPipeline output layout could not be resolved for build target: {profile.BuildTarget.StableName}.",
@@ -178,7 +178,7 @@ internal sealed class BuildService : IBuildService
                 executionTarget,
                 timeout,
                 profile.BuildTarget.StableName,
-                paths.OutputDirectory,
+                paths.RunnerOutputDirectory,
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -234,8 +234,13 @@ internal sealed class BuildService : IBuildService
             var accountingResult = await artifactStore.AccountArtifactsAsync(
                     new BuildRunArtifactAccountingRequest(
                         paths,
-                        buildResponse.Report.OutputPath,
-                        profile.BuildTarget.StableName),
+                        profile.BuildTarget.StableName,
+                        profile.BuildTarget.UnityBuildTargetLiteral,
+                        [new BuildOutputSourceEntry(outputLayout!.LocationPathName)],
+                        !string.Equals(
+                            buildResponse.Report.Result,
+                            ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+                            StringComparison.Ordinal)),
                     artifactCancellationToken)
                 .ConfigureAwait(false);
             if (!accountingResult.IsSuccess)
@@ -360,7 +365,7 @@ internal sealed class BuildService : IBuildService
             SceneSource: ContractLiteralCodec.ToValue(profile.Scenes.Source),
             ScenePaths: profile.Scenes.Paths,
             Development: profile.Options.Development,
-            OutputPath: paths.OutputDirectory,
+            OutputPath: paths.RunnerOutputDirectory,
             OutputLayout: outputLayout,
             BuildReportPath: paths.BuildReportJsonPath,
             BuildLogPath: paths.BuildLogPath,

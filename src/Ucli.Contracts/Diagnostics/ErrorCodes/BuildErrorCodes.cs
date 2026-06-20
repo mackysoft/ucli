@@ -33,8 +33,14 @@ public static class BuildErrorCodes
     /// <summary> Gets the error code emitted when the build output manifest cannot be generated. </summary>
     public static readonly UcliCode BuildOutputManifestFailed = new("BUILD_OUTPUT_MANIFEST_FAILED");
 
-    /// <summary> Gets the error code emitted when the output manifest digest does not match persisted artifact content. </summary>
-    public static readonly UcliCode BuildOutputDigestMismatch = new("BUILD_OUTPUT_DIGEST_MISMATCH");
+    /// <summary> Gets the error code emitted when an output source path violates build output path policy. </summary>
+    public static readonly UcliCode BuildOutputPathInvalid = new("BUILD_OUTPUT_PATH_INVALID");
+
+    /// <summary> Gets the error code emitted when <c>output-manifest.json.manifestDigest</c> does not match manifest content. </summary>
+    public static readonly UcliCode BuildOutputManifestDigestMismatch = new("BUILD_OUTPUT_MANIFEST_DIGEST_MISMATCH");
+
+    /// <summary> Gets the error code emitted when the output manifest artifact digest does not match file bytes. </summary>
+    public static readonly UcliCode BuildOutputManifestArtifactDigestMismatch = new("BUILD_OUTPUT_MANIFEST_ARTIFACT_DIGEST_MISMATCH");
 
     /// <summary> Gets the error code emitted when project mutation is detected while mutation is forbidden. </summary>
     public static readonly UcliCode BuildProjectMutationForbidden = new("BUILD_PROJECT_MUTATION_FORBIDDEN");
@@ -52,7 +58,9 @@ public static class BuildErrorCodes
         BuildReportMissing,
         BuildArtifactWriteFailed,
         BuildOutputManifestFailed,
-        BuildOutputDigestMismatch,
+        BuildOutputPathInvalid,
+        BuildOutputManifestDigestMismatch,
+        BuildOutputManifestArtifactDigestMismatch,
         BuildProjectMutationForbidden,
     ];
 }
