@@ -552,6 +552,7 @@ public sealed class IpcContractSerializationTests
                 BuildLogPath: "/tmp/ucli/build.log",
                 AllowedEditorModes: ["batchmode"],
                 ProjectMutationMode: "forbid",
+                RunnerKind: ContractLiteralCodec.ToValue(IpcBuildRunnerKind.BuildPipeline),
                 UnityBuildProfile: new IpcUnityBuildProfileInput("Assets/BuildProfiles/Linux.asset")),
             SerializerOptions));
         using var response = JsonDocument.Parse(JsonSerializer.Serialize(

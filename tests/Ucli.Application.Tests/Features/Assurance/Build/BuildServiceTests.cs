@@ -751,6 +751,97 @@ public sealed class BuildServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Execute_WithUnityBuildProfileResponseMissingApplyAuditDirtyState_ReturnsCommandFailure ()
+    {
+        using var tempDirectory = TemporaryDirectory.Create();
+        var artifactStore = new StubBuildRunArtifactStore(tempDirectory.Path);
+        var requestExecutor = new StubUnityRequestExecutor(payload =>
+        {
+            var buildRunPayload = (UnityRequestPayload.BuildRun)payload;
+            var outputLayout = new IpcBuildOutputLayout(
+                Shape: ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.File),
+                LocationPathName: CreateExpectedPlayerLocationPathName(buildRunPayload.OutputPath));
+            return CreateBuildResponseResult(
+                ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+                errorCount: 0,
+                inputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.UnityBuildProfile),
+                sceneSource: ContractLiteralCodec.ToValue(BuildProfileSceneSource.UnityBuildProfile),
+                scenes: ["Assets/Scenes/ProfileMain.unity"],
+                buildTarget: "standaloneLinux64",
+                unityBuildTarget: "StandaloneLinux64",
+                reportOutputPath: outputLayout.LocationPathName,
+                outputLayout: outputLayout,
+                unityBuildProfile: CreateUnityBuildProfileInput(
+                    "Assets/BuildProfiles/Linux.asset",
+                    new string('f', 64),
+                    static audit => audit with
+                    {
+                        DirtyStateAfter = null!,
+                    }));
+        });
+        var service = CreateService(
+            profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(UnityBuildProfileJson, "/workspace/build.ucli.json")),
+            requestExecutor: requestExecutor,
+            artifactStore: artifactStore);
+
+        var result = await service.ExecuteAsync(CreateInput());
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
+        Assert.Null(artifactStore.WrittenMetadata);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithUnityBuildProfileResponseMismatchedApplyAuditGeneration_ReturnsCommandFailure ()
+    {
+        using var tempDirectory = TemporaryDirectory.Create();
+        var artifactStore = new StubBuildRunArtifactStore(tempDirectory.Path);
+        var requestExecutor = new StubUnityRequestExecutor(payload =>
+        {
+            var buildRunPayload = (UnityRequestPayload.BuildRun)payload;
+            var outputLayout = new IpcBuildOutputLayout(
+                Shape: ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.File),
+                LocationPathName: CreateExpectedPlayerLocationPathName(buildRunPayload.OutputPath));
+            return CreateBuildResponseResult(
+                ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+                errorCount: 0,
+                inputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.UnityBuildProfile),
+                sceneSource: ContractLiteralCodec.ToValue(BuildProfileSceneSource.UnityBuildProfile),
+                scenes: ["Assets/Scenes/ProfileMain.unity"],
+                buildTarget: "standaloneLinux64",
+                unityBuildTarget: "StandaloneLinux64",
+                reportOutputPath: outputLayout.LocationPathName,
+                outputLayout: outputLayout,
+                unityBuildProfile: CreateUnityBuildProfileInput(
+                    "Assets/BuildProfiles/Linux.asset",
+                    new string('f', 64),
+                    static audit => audit with
+                    {
+                        GenerationsAfter = audit.GenerationsAfter with
+                        {
+                            CompileGeneration = "different-compile-generation",
+                        },
+                    }));
+        });
+        var service = CreateService(
+            profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(UnityBuildProfileJson, "/workspace/build.ucli.json")),
+            requestExecutor: requestExecutor,
+            artifactStore: artifactStore);
+
+        var result = await service.ExecuteAsync(CreateInput());
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
+        Assert.Null(artifactStore.WrittenMetadata);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Execute_WithoutTimeoutOption_UsesBuildRunConfigOverride ()
     {
         using var tempDirectory = TemporaryDirectory.Create();
@@ -1852,30 +1943,32 @@ public sealed class BuildServiceTests
 
     private static IpcUnityBuildProfileInput CreateUnityBuildProfileInput (
         string path,
-        string digest)
+        string digest,
+        Func<IpcUnityBuildProfileApplyAudit, IpcUnityBuildProfileApplyAudit>? configureApplyAudit = null)
     {
         var lifecycleBefore = CreateLifecycleSnapshot("profile-before", canAcceptExecutionRequests: true);
         var lifecycleAfter = CreateLifecycleSnapshot("profile-after", canAcceptExecutionRequests: true);
+        var applyAudit = new IpcUnityBuildProfileApplyAudit(
+            Applied: true,
+            LifecycleBefore: lifecycleBefore,
+            LifecycleAfter: lifecycleAfter,
+            GenerationsBefore: new IpcBuildGenerationSnapshot(
+                lifecycleBefore.CompileGeneration,
+                lifecycleBefore.DomainReloadGeneration,
+                lifecycleBefore.AssetRefreshGeneration),
+            GenerationsAfter: new IpcBuildGenerationSnapshot(
+                lifecycleAfter.CompileGeneration,
+                lifecycleAfter.DomainReloadGeneration,
+                lifecycleAfter.AssetRefreshGeneration),
+            DirtyStateAfter: new IpcBuildDirtyState(
+                Checked: true,
+                Dirty: false,
+                Coverage: ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Full),
+                Items: []));
         return new IpcUnityBuildProfileInput(
             Path: path,
             Digest: digest,
-            ApplyAudit: new IpcUnityBuildProfileApplyAudit(
-                Applied: true,
-                LifecycleBefore: lifecycleBefore,
-                LifecycleAfter: lifecycleAfter,
-                GenerationsBefore: new IpcBuildGenerationSnapshot(
-                    lifecycleBefore.CompileGeneration,
-                    lifecycleBefore.DomainReloadGeneration,
-                    lifecycleBefore.AssetRefreshGeneration),
-                GenerationsAfter: new IpcBuildGenerationSnapshot(
-                    lifecycleAfter.CompileGeneration,
-                    lifecycleAfter.DomainReloadGeneration,
-                    lifecycleAfter.AssetRefreshGeneration),
-                DirtyStateAfter: new IpcBuildDirtyState(
-                    Checked: true,
-                    Dirty: false,
-                    Coverage: ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Full),
-                    Items: [])));
+            ApplyAudit: configureApplyAudit == null ? applyAudit : configureApplyAudit(applyAudit));
     }
 
     private static IpcBuildLifecycleSnapshot CreateLifecycleSnapshot (

@@ -1,6 +1,7 @@
 #if UNITY_6000_0_OR_NEWER
 using System;
 using System.IO;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
@@ -28,9 +29,6 @@ namespace MackySoft.Ucli.Unity.Tests
     {
         private const string ProjectFingerprint = "unity-6000-build-profile-project";
         private const string RunId = "unity-6000-build-profile-run";
-        private const string BuildProfileSettingsFolderPath = "Assets/Settings";
-        private const string BuildProfileDefaultFolderPath = "Assets/Settings/Build Profiles";
-
         [Test]
         [Category("Size.Small")]
         public async Task ResolveAsync_WithRequestedBuildProfileAsset_AppliesAssetAndReturnsResolvedInput ()
@@ -262,6 +260,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 BuildLogPath: Path.Combine(outputPath, "build.log"),
                 AllowedEditorModes: new[] { ContractLiteralCodec.ToValue(DaemonEditorMode.Batchmode) },
                 ProjectMutationMode: ContractLiteralCodec.ToValue(BuildProfileProjectMutationMode.Forbid),
+                RunnerKind: ContractLiteralCodec.ToValue(IpcBuildRunnerKind.BuildPipeline),
                 UnityBuildProfile: new IpcUnityBuildProfileInput(profilePath));
         }
 
@@ -274,70 +273,45 @@ namespace MackySoft.Ucli.Unity.Tests
             out string unityBuildTargetLiteral,
             out string profilePath)
         {
-            var platforms = BuildProfile.GetInstalledPlatformModules();
-            foreach (var platform in platforms)
+            var buildTarget = EditorUserBuildSettings.activeBuildTarget;
+            if (!TryResolveStableBuildTarget(
+                buildTarget,
+                out stableBuildTarget,
+                out unityBuildTargetLiteral))
             {
-                var settingsFolderExisted = AssetDatabase.IsValidFolder(BuildProfileSettingsFolderPath);
-                var defaultFolderExisted = AssetDatabase.IsValidFolder(BuildProfileDefaultFolderPath);
-                var profile = BuildProfile.CreateBuildProfile(
-                    platform.platformGuid,
-                    prefix + "_" + Guid.NewGuid().ToString("N"),
-                    null);
-                if (profile == null)
-                {
-                    continue;
-                }
-
-                var createdPath = AssetDatabase.GetAssetPath(profile);
-                profilePath = MoveProfileToTrackedAssetPath(
-                    scope,
-                    prefix,
-                    createdPath,
-                    settingsFolderExisted,
-                    defaultFolderExisted);
-                ConfigureProfileScenes(profile, scenePaths, scenesEnabled);
-                BuildProfile.SetActiveBuildProfile(profile);
-                if (!TryResolveStableBuildTarget(
-                    EditorUserBuildSettings.activeBuildTarget,
-                    out stableBuildTarget,
-                    out unityBuildTargetLiteral))
-                {
-                    continue;
-                }
-
-                return profile;
+                Assert.Fail($"Active Unity build target is not mapped to a supported uCLI build target: {buildTarget}.");
+                profilePath = string.Empty;
+                throw new InvalidOperationException("Active Unity build target was unsupported.");
             }
 
-            Assert.Fail("No installed Unity Build Profile platform maps to a supported uCLI build target.");
-            stableBuildTarget = string.Empty;
-            unityBuildTargetLiteral = string.Empty;
-            profilePath = string.Empty;
-            throw new InvalidOperationException("No supported Unity Build Profile platform was available.");
+            profilePath = scope.CreateAssetPath(prefix);
+            var profile = CreateBuildProfileInstance(buildTarget);
+            if (profile == null)
+            {
+                Assert.Fail($"Unity Build Profile asset could not be created for build target: {buildTarget}.");
+                throw new InvalidOperationException("Unity Build Profile asset could not be created.");
+            }
+
+            profile.name = prefix + "_" + Guid.NewGuid().ToString("N");
+            AssetDatabase.CreateAsset(profile, profilePath);
+            scope.TrackUnityObject(profile);
+            ConfigureProfileScenes(profile, scenePaths, scenesEnabled);
+            BuildProfile.SetActiveBuildProfile(profile);
+
+            return profile;
         }
 
-        private static string MoveProfileToTrackedAssetPath (
-            EditorTestScope scope,
-            string prefix,
-            string createdPath,
-            bool settingsFolderExisted,
-            bool defaultFolderExisted)
+        private static BuildProfile? CreateBuildProfileInstance (BuildTarget buildTarget)
         {
-            var profilePath = scope.CreateAssetPath(prefix);
-            var moveError = AssetDatabase.MoveAsset(createdPath, profilePath);
-            Assert.That(moveError, Is.Empty);
-            if (!defaultFolderExisted)
-            {
-                AssetDatabase.DeleteAsset(BuildProfileDefaultFolderPath);
-            }
-
-            if (!settingsFolderExisted)
-            {
-                AssetDatabase.DeleteAsset(BuildProfileSettingsFolderPath);
-            }
-
-            AssetDatabase.SaveAssets();
-            AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
-            return profilePath;
+            const BindingFlags staticMethodFlags = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
+            var method = typeof(BuildProfile).GetMethod(
+                "CreateInstance",
+                staticMethodFlags,
+                null,
+                new[] { typeof(BuildTarget), typeof(StandaloneBuildSubtarget) },
+                null);
+            Assert.That(method, Is.Not.Null, "Unity 6000 BuildProfile internal creation API was not found.");
+            return method!.Invoke(null, new object[] { buildTarget, StandaloneBuildSubtarget.Default }) as BuildProfile;
         }
 
         private static void ConfigureProfileScenes (

@@ -98,8 +98,10 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             if (!UnityEditorReadinessGate.IsReadyForBootstrapStartup)
             {
-                errorMessage = "uCLI executeMethod bridge cannot start while Unity scripts are compiling.";
-                return false;
+                // NOTE: Unity 6000 can invoke -executeMethod before the initial script compilation settles.
+                // The InitializeOnLoad update hook remains subscribed and starts batchmode bootstrap once ready.
+                errorMessage = null;
+                return true;
             }
 
             isStarted = true;

@@ -16,12 +16,15 @@ namespace MackySoft.Ucli.Unity.Build
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            var unityBuildProfile = request.UnityBuildProfile == null
+                ? null
+                : new IpcUnityBuildProfileInput(request.UnityBuildProfile.Path);
             return Task.FromResult(UnityBuildProfileInputResolutionResult.Failure(
                 new IpcError(
                     BuildErrorCodes.BuildUnityBuildProfileInvalid,
                     "Unity Build Profile input requires Unity 6000.0 or newer.",
                     null),
-                request.UnityBuildProfile));
+                unityBuildProfile));
         }
     }
 }

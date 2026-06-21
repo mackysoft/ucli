@@ -474,13 +474,14 @@ namespace MackySoft.Ucli.Unity.Tests
                 isCompiling: false,
                 isUpdating: true,
                 out _,
-                out var activityProbe);
+                out var activityProbe,
+                out var waitSignalBus);
 
             var resultTask = gate.EnsureExecutionReadyAsync(failFast: false);
             Assert.That(resultTask.IsCompleted, Is.False);
 
             activityProbe.IsUpdating = false;
-            await UniTask.Yield();
+            waitSignalBus.RaiseEditorUpdate();
             var result = await TestAwaiter.WaitAsync(
                 resultTask,
                 "Readiness gate default-wait completion",
@@ -505,12 +506,13 @@ namespace MackySoft.Ucli.Unity.Tests
                 isCompiling: false,
                 isUpdating: false,
                 out _,
-                out _);
+                out _,
+                out var waitSignalBus);
 
             var resultTask = gate.EnsureExecutionReadyAsync(failFast: false);
             Assert.That(resultTask.IsCompleted, Is.False);
 
-            await UniTask.Yield();
+            waitSignalBus.RaiseEditorUpdate();
             var result = await TestAwaiter.WaitAsync(
                 resultTask,
                 "Readiness gate startup update completion",
@@ -653,13 +655,17 @@ namespace MackySoft.Ucli.Unity.Tests
                 isShuttingDown: false,
                 isStartupPending: false,
                 isPlaymodeActive: false,
-                out var lifecycleTelemetryState);
+                isCompiling: false,
+                isUpdating: false,
+                out var lifecycleTelemetryState,
+                out _,
+                out var waitSignalBus);
 
             var resultTask = gate.EnsureExecutionReadyAsync(failFast: false);
             Assert.That(resultTask.IsCompleted, Is.False);
 
             lifecycleTelemetryState.SetDomainReloading(false);
-            await UniTask.Yield();
+            waitSignalBus.RaiseEditorUpdate();
             var result = await TestAwaiter.WaitAsync(
                 resultTask,
                 "Readiness gate domain reload completion",
@@ -801,6 +807,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 static _ => { },
                 static _ => { },
                 static _ => { },
+                static _ => { },
+                static _ => { },
                 subscribeToEditorEvents: false);
         }
 
@@ -891,6 +899,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 () => probe.IsPlaymodeActive,
                 signalBus.SubscribeBeforeAssemblyReload,
                 signalBus.UnsubscribeBeforeAssemblyReload,
+                signalBus.SubscribeEditorUpdate,
+                signalBus.UnsubscribeEditorUpdate,
                 signalBus.SubscribeQuitting,
                 signalBus.UnsubscribeQuitting,
                 subscribeToEditorEvents: false);
@@ -912,6 +922,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     isPlaymodeActiveProvider,
                     isPlaymodeActiveProvider),
                 isPlaymodeActiveProvider,
+                static _ => { },
+                static _ => { },
                 static _ => { },
                 static _ => { },
                 static _ => { },
@@ -951,6 +963,8 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             private event AssemblyReloadEvents.AssemblyReloadCallback BeforeAssemblyReload;
 
+            private event EditorApplication.CallbackFunction EditorUpdate;
+
             private event Action Quitting;
 
             public void SubscribeBeforeAssemblyReload (AssemblyReloadEvents.AssemblyReloadCallback handler)
@@ -961,6 +975,16 @@ namespace MackySoft.Ucli.Unity.Tests
             public void UnsubscribeBeforeAssemblyReload (AssemblyReloadEvents.AssemblyReloadCallback handler)
             {
                 BeforeAssemblyReload -= handler;
+            }
+
+            public void SubscribeEditorUpdate (EditorApplication.CallbackFunction handler)
+            {
+                EditorUpdate += handler;
+            }
+
+            public void UnsubscribeEditorUpdate (EditorApplication.CallbackFunction handler)
+            {
+                EditorUpdate -= handler;
             }
 
             public void SubscribeQuitting (Action handler)
@@ -976,6 +1000,11 @@ namespace MackySoft.Ucli.Unity.Tests
             public void RaiseBeforeAssemblyReload ()
             {
                 BeforeAssemblyReload?.Invoke();
+            }
+
+            public void RaiseEditorUpdate ()
+            {
+                EditorUpdate?.Invoke();
             }
 
             public void RaiseQuitting ()

@@ -184,7 +184,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                             request,
                             error.Code,
                             error.Message,
-                            precondition);
+                            precondition,
+                            unityBuildProfile);
                     }
 
                     runnerResult = invocationResult.RunnerResult!;
@@ -365,7 +366,12 @@ namespace MackySoft.Ucli.Unity.Ipc
         {
             if (precondition == null)
             {
-                return UnityIpcResponseFactory.CreateErrorResponse(request, code, message, null);
+                return UnityIpcResponseFactory.CreateErrorResponse(
+                    request,
+                    code,
+                    message,
+                    null,
+                    CreateErrorPayload(unityBuildProfile));
             }
 
             return UnityIpcResponseFactory.CreateErrorResponse(
@@ -385,6 +391,22 @@ namespace MackySoft.Ucli.Unity.Ipc
                 LifecycleBefore: precondition.LifecycleBefore,
                 DirtyState: precondition.DirtyState,
                 Input: precondition.InputProbe,
+                UnityBuildProfile: unityBuildProfile);
+        }
+
+        private static IpcBuildRunErrorPayload? CreateErrorPayload (IpcUnityBuildProfileInput? unityBuildProfile)
+        {
+            if (unityBuildProfile == null)
+            {
+                return null;
+            }
+
+            var applyAudit = unityBuildProfile.ApplyAudit;
+            return new IpcBuildRunErrorPayload(
+                Project: null,
+                LifecycleBefore: applyAudit?.LifecycleAfter,
+                DirtyState: applyAudit?.DirtyStateAfter,
+                Input: null,
                 UnityBuildProfile: unityBuildProfile);
         }
 
@@ -621,6 +643,13 @@ namespace MackySoft.Ucli.Unity.Ipc
                 || request.UnityBuildProfile.Path.EndsWith(".meta", StringComparison.OrdinalIgnoreCase))
             {
                 errorMessage = "Build unityBuildProfile.path must be a normalized project-relative asset path under Assets and must not reference a .meta file.";
+                return false;
+            }
+
+            if (request.UnityBuildProfile.Digest != null
+                || request.UnityBuildProfile.ApplyAudit != null)
+            {
+                errorMessage = "Build unityBuildProfile input may only specify path.";
                 return false;
             }
 

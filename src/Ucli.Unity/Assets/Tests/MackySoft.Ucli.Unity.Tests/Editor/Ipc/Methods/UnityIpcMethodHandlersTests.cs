@@ -1354,6 +1354,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 static _ => { },
                 static _ => { },
                 static _ => { },
+                static _ => { },
+                static _ => { },
                 subscribeToEditorEvents: false);
         }
 

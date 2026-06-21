@@ -965,6 +965,117 @@ internal sealed class BuildService : IBuildService
             return ApplicationFailure.InternalError("Unity build response unityBuildProfile applyAudit.applied must be true.");
         }
 
+        return ValidateUnityBuildProfileApplyAudit(response.UnityBuildProfile.ApplyAudit);
+    }
+
+    private static ApplicationFailure? ValidateUnityBuildProfileApplyAudit (IpcUnityBuildProfileApplyAudit applyAudit)
+    {
+        if (applyAudit.LifecycleBefore == null)
+        {
+            return ApplicationFailure.InternalError("Unity build response unityBuildProfile applyAudit.lifecycleBefore is missing.");
+        }
+
+        if (applyAudit.LifecycleAfter == null)
+        {
+            return ApplicationFailure.InternalError("Unity build response unityBuildProfile applyAudit.lifecycleAfter is missing.");
+        }
+
+        if (applyAudit.GenerationsBefore == null)
+        {
+            return ApplicationFailure.InternalError("Unity build response unityBuildProfile applyAudit.generationsBefore is missing.");
+        }
+
+        if (applyAudit.GenerationsAfter == null)
+        {
+            return ApplicationFailure.InternalError("Unity build response unityBuildProfile applyAudit.generationsAfter is missing.");
+        }
+
+        if (applyAudit.DirtyStateAfter == null)
+        {
+            return ApplicationFailure.InternalError("Unity build response unityBuildProfile applyAudit.dirtyStateAfter is missing.");
+        }
+
+        var beforeFailure = ValidateUnityBuildProfileGenerationSnapshot(
+            applyAudit.GenerationsBefore,
+            applyAudit.LifecycleBefore,
+            "generationsBefore");
+        if (beforeFailure != null)
+        {
+            return beforeFailure;
+        }
+
+        var afterFailure = ValidateUnityBuildProfileGenerationSnapshot(
+            applyAudit.GenerationsAfter,
+            applyAudit.LifecycleAfter,
+            "generationsAfter");
+        if (afterFailure != null)
+        {
+            return afterFailure;
+        }
+
+        return ValidateUnityBuildProfileDirtyStateAfter(applyAudit.DirtyStateAfter);
+    }
+
+    private static ApplicationFailure? ValidateUnityBuildProfileGenerationSnapshot (
+        IpcBuildGenerationSnapshot generations,
+        IpcBuildLifecycleSnapshot lifecycle,
+        string propertyName)
+    {
+        if (!string.Equals(generations.CompileGeneration, lifecycle.CompileGeneration, StringComparison.Ordinal)
+            || !string.Equals(generations.DomainReloadGeneration, lifecycle.DomainReloadGeneration, StringComparison.Ordinal)
+            || !string.Equals(generations.AssetRefreshGeneration, lifecycle.AssetRefreshGeneration, StringComparison.Ordinal))
+        {
+            return ApplicationFailure.InternalError(
+                $"Unity build response unityBuildProfile applyAudit.{propertyName} must match its lifecycle snapshot generations.");
+        }
+
+        return null;
+    }
+
+    private static ApplicationFailure? ValidateUnityBuildProfileDirtyStateAfter (IpcBuildDirtyState dirtyState)
+    {
+        if (!ContractLiteralCodec.TryParse<IpcBuildDirtyStateCoverage>(dirtyState.Coverage, out _))
+        {
+            return ApplicationFailure.InternalError(
+                $"Unity build response unityBuildProfile applyAudit.dirtyStateAfter contains unsupported coverage: {dirtyState.Coverage}.");
+        }
+
+        if (dirtyState.Items == null)
+        {
+            return ApplicationFailure.InternalError("Unity build response unityBuildProfile applyAudit.dirtyStateAfter items must be present.");
+        }
+
+        string? previousPath = null;
+        for (var i = 0; i < dirtyState.Items.Count; i++)
+        {
+            var item = dirtyState.Items[i];
+            if (item == null)
+            {
+                return ApplicationFailure.InternalError(
+                    $"Unity build response unityBuildProfile applyAudit.dirtyStateAfter item at index {i} is missing.");
+            }
+
+            if (!ContractLiteralCodec.TryParse<IpcBuildDirtyStateItemKind>(item.Kind, out _))
+            {
+                return ApplicationFailure.InternalError(
+                    $"Unity build response unityBuildProfile applyAudit.dirtyStateAfter item at index {i} contains unsupported kind: {item.Kind}.");
+            }
+
+            if (!IsAuditedProjectMutationPath(item.Path))
+            {
+                return ApplicationFailure.InternalError(
+                    $"Unity build response unityBuildProfile applyAudit.dirtyStateAfter item at index {i} contains invalid path: {item.Path}.");
+            }
+
+            if (previousPath != null
+                && string.CompareOrdinal(previousPath, item.Path) >= 0)
+            {
+                return ApplicationFailure.InternalError("Unity build response unityBuildProfile applyAudit.dirtyStateAfter items must be ordered by unique project-relative path.");
+            }
+
+            previousPath = item.Path;
+        }
+
         return null;
     }
 

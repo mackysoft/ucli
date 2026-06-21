@@ -309,7 +309,7 @@ public sealed class FileBuildRunArtifactStoreTests
             buildRoot.GetProperty("runner").GetProperty("outputLayout").GetProperty("locationPathName").GetString());
         var inputs = buildRoot.GetProperty("inputs");
         Assert.Equal("explicit", inputs.GetProperty("inputKind").GetString());
-        Assert.Equal("standaloneLinux64", inputs.GetProperty("buildTarget").GetProperty("stableName").GetString());
+        Assert.Equal("standaloneLinux64", inputs.GetProperty("buildTarget").GetString());
 
         var artifacts = buildRoot.GetProperty("artifacts");
         Assert.Equal(

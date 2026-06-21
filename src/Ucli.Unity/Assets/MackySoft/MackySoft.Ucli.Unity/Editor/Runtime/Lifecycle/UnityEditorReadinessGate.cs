@@ -32,6 +32,10 @@ namespace MackySoft.Ucli.Unity.Runtime
 
         private readonly Action<AssemblyReloadEvents.AssemblyReloadCallback> beforeAssemblyReloadUnsubscriber;
 
+        private readonly Action<EditorApplication.CallbackFunction> editorUpdateSubscriber;
+
+        private readonly Action<EditorApplication.CallbackFunction> editorUpdateUnsubscriber;
+
         private readonly Action<Action> quittingSubscriber;
 
         private readonly Action<Action> quittingUnsubscriber;
@@ -54,6 +58,8 @@ namespace MackySoft.Ucli.Unity.Runtime
                 static () => EditorApplication.isPlaying,
                 static handler => AssemblyReloadEvents.beforeAssemblyReload += handler,
                 static handler => AssemblyReloadEvents.beforeAssemblyReload -= handler,
+                static handler => EditorApplication.update += handler,
+                static handler => EditorApplication.update -= handler,
                 static handler => EditorApplication.quitting += handler,
                 static handler => EditorApplication.quitting -= handler,
                 subscribeToEditorEvents: true)
@@ -66,6 +72,8 @@ namespace MackySoft.Ucli.Unity.Runtime
         /// <param name="isPlayModeMutationActiveProvider"> The active Play Mode observer used by Play Mode mutation readiness. </param>
         /// <param name="beforeAssemblyReloadSubscriber"> Subscribes one handler to the assembly-reload start event. </param>
         /// <param name="beforeAssemblyReloadUnsubscriber"> Unsubscribes one handler from the assembly-reload start event. </param>
+        /// <param name="editorUpdateSubscriber"> Subscribes one handler to the editor update event. </param>
+        /// <param name="editorUpdateUnsubscriber"> Unsubscribes one handler from the editor update event. </param>
         /// <param name="quittingSubscriber"> Subscribes one handler to the editor-quitting event. </param>
         /// <param name="quittingUnsubscriber"> Unsubscribes one handler from the editor-quitting event. </param>
         /// <param name="subscribeToEditorEvents"> Whether this instance should subscribe shared Unity editor lifecycle callbacks. </param>
@@ -75,6 +83,8 @@ namespace MackySoft.Ucli.Unity.Runtime
             Func<bool> isPlayModeMutationActiveProvider,
             Action<AssemblyReloadEvents.AssemblyReloadCallback> beforeAssemblyReloadSubscriber,
             Action<AssemblyReloadEvents.AssemblyReloadCallback> beforeAssemblyReloadUnsubscriber,
+            Action<EditorApplication.CallbackFunction> editorUpdateSubscriber,
+            Action<EditorApplication.CallbackFunction> editorUpdateUnsubscriber,
             Action<Action> quittingSubscriber,
             Action<Action> quittingUnsubscriber,
             bool subscribeToEditorEvents)
@@ -85,6 +95,8 @@ namespace MackySoft.Ucli.Unity.Runtime
             this.editorMode = editorMode;
             this.beforeAssemblyReloadSubscriber = beforeAssemblyReloadSubscriber ?? throw new ArgumentNullException(nameof(beforeAssemblyReloadSubscriber));
             this.beforeAssemblyReloadUnsubscriber = beforeAssemblyReloadUnsubscriber ?? throw new ArgumentNullException(nameof(beforeAssemblyReloadUnsubscriber));
+            this.editorUpdateSubscriber = editorUpdateSubscriber ?? throw new ArgumentNullException(nameof(editorUpdateSubscriber));
+            this.editorUpdateUnsubscriber = editorUpdateUnsubscriber ?? throw new ArgumentNullException(nameof(editorUpdateUnsubscriber));
             this.quittingSubscriber = quittingSubscriber ?? throw new ArgumentNullException(nameof(quittingSubscriber));
             this.quittingUnsubscriber = quittingUnsubscriber ?? throw new ArgumentNullException(nameof(quittingUnsubscriber));
             if (!subscribeToEditorEvents)
@@ -231,7 +243,7 @@ namespace MackySoft.Ucli.Unity.Runtime
 
             public Task<UnityEditorExecutionReadinessResult> AttachAndWaitAsync ()
             {
-                EditorApplication.update += OnEditorUpdate;
+                readinessGate.editorUpdateSubscriber(OnEditorUpdate);
                 readinessGate.beforeAssemblyReloadSubscriber(OnBeforeAssemblyReload);
                 readinessGate.quittingSubscriber(OnQuitting);
                 if (cancellationToken.CanBeCanceled)
@@ -334,7 +346,7 @@ namespace MackySoft.Ucli.Unity.Runtime
                 }
 
                 isDetached = true;
-                EditorApplication.update -= OnEditorUpdate;
+                readinessGate.editorUpdateUnsubscriber(OnEditorUpdate);
                 readinessGate.beforeAssemblyReloadUnsubscriber(OnBeforeAssemblyReload);
                 readinessGate.quittingUnsubscriber(OnQuitting);
                 cancellationRegistration.Dispose();
