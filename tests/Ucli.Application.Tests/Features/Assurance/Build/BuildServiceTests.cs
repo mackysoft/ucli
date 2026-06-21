@@ -225,18 +225,18 @@ public sealed class BuildServiceTests
         var startedEntry = Assert.IsType<BuildProgressEntry>(progressSink.Entries[0].Payload);
         Assert.Equal(RunId, startedEntry.RunId);
         Assert.Equal(expectedProfileDigest, startedEntry.ProfileDigest);
-        Assert.Equal("started", startedEntry.Phase);
+        Assert.Equal(BuildRunProgressPhaseNames.Started, startedEntry.Phase);
         Assert.Null(startedEntry.RunnerKind);
         Assert.Empty(startedEntry.ReportRefs);
 
         var runnerCompletedEntry = Assert.IsType<BuildProgressEntry>(progressSink.Entries[4].Payload);
-        Assert.Equal("runnerResult", runnerCompletedEntry.Phase);
+        Assert.Equal(BuildRunProgressPhaseNames.RunnerResult, runnerCompletedEntry.Phase);
         Assert.Equal(ContractLiteralCodec.ToValue(BuildProfileRunnerKind.BuildPipeline), runnerCompletedEntry.RunnerKind);
         Assert.Equal(ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded), runnerCompletedEntry.RunnerStatus);
 
         var completedEntry = Assert.IsType<BuildProgressEntry>(progressSink.Entries[7].Payload);
         Assert.Equal(RunId, completedEntry.RunId);
-        Assert.Equal("completed", completedEntry.Phase);
+        Assert.Equal(BuildRunProgressPhaseNames.Completed, completedEntry.Phase);
         Assert.Equal(ContractLiteralCodec.ToValue(BuildVerdict.Pass), completedEntry.Verdict);
         Assert.Equal(
             [
@@ -408,43 +408,108 @@ public sealed class BuildServiceTests
     public async Task Execute_WithInvalidUnityProgressFrame_ReturnsRunnerInvocationFailedAndDiagnostic ()
     {
         using var tempDirectory = TemporaryDirectory.Create();
+        var profileDigest = ResolveProfileDigest();
         var invalidProgressFrame = new UnityRequestProgressFrame(
             BuildRunProgressEventNames.ReadinessCompleted,
             IpcPayloadCodec.SerializeToElement(new BuildProgressEntry(
                 RunId: RunId,
-                ProfileDigest: new string('a', 64),
+                ProfileDigest: profileDigest,
                 Phase: "invalidPhase",
                 RunnerKind: null,
                 RunnerStatus: null,
                 Verdict: null,
                 ReportRefs: [],
                 ErrorCode: null)));
-        var requestExecutor = new StubUnityRequestExecutor(
-            _ =>
-                CreateBuildResponseResult(
-                    ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
-                    ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
-                    errorCount: 0),
-            [invalidProgressFrame]);
-        var progressSink = new CollectingProgressSink();
-        var service = CreateService(
-            requestExecutor: requestExecutor,
-            artifactStore: new StubBuildRunArtifactStore(tempDirectory.Path));
+        await AssertInvalidUnityProgressFrameReturnsRunnerInvocationFailedAsync(tempDirectory.Path, invalidProgressFrame);
+    }
 
-        var result = await service.ExecuteAsync(CreateInput(), progressSink);
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithMismatchedUnityProgressProfileDigest_ReturnsRunnerInvocationFailedAndDiagnostic ()
+    {
+        using var tempDirectory = TemporaryDirectory.Create();
+        var invalidProgressFrame = new UnityRequestProgressFrame(
+            BuildRunProgressEventNames.ReadinessCompleted,
+            IpcPayloadCodec.SerializeToElement(new BuildProgressEntry(
+                RunId: RunId,
+                ProfileDigest: new string('f', 64),
+                Phase: BuildRunProgressPhaseNames.Readiness,
+                RunnerKind: null,
+                RunnerStatus: null,
+                Verdict: null,
+                ReportRefs: [],
+                ErrorCode: null)));
+        await AssertInvalidUnityProgressFrameReturnsRunnerInvocationFailedAsync(tempDirectory.Path, invalidProgressFrame);
+    }
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
-        Assert.Equal(BuildErrorCodes.BuildRunnerInvocationFailed, error.Code);
-        AssertProgressEvents(
-            progressSink,
-            BuildRunProgressEventNames.Started,
-            BuildRunProgressEventNames.Diagnostic);
-        var diagnostic = Assert.IsType<BuildDiagnosticEntry>(progressSink.Entries[1].Payload);
-        Assert.Equal(RunId, diagnostic.RunId);
-        Assert.Equal(BuildErrorCodes.BuildRunnerInvocationFailed.Value, diagnostic.Code);
-        Assert.Equal(IpcExecuteDiagnosticSeverityNames.Error, diagnostic.Severity);
-        Assert.Equal("runnerInvocation", diagnostic.Phase);
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithMismatchedUnityProgressEventPhase_ReturnsRunnerInvocationFailedAndDiagnostic ()
+    {
+        using var tempDirectory = TemporaryDirectory.Create();
+        var invalidProgressFrame = new UnityRequestProgressFrame(
+            BuildRunProgressEventNames.ReadinessCompleted,
+            IpcPayloadCodec.SerializeToElement(new BuildProgressEntry(
+                RunId: RunId,
+                ProfileDigest: ResolveProfileDigest(),
+                Phase: BuildRunProgressPhaseNames.RunnerInvocation,
+                RunnerKind: null,
+                RunnerStatus: null,
+                Verdict: null,
+                ReportRefs: [],
+                ErrorCode: null)));
+        await AssertInvalidUnityProgressFrameReturnsRunnerInvocationFailedAsync(tempDirectory.Path, invalidProgressFrame);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithMissingUnityLogEntryTimestamp_ReturnsRunnerInvocationFailedAndDiagnostic ()
+    {
+        using var tempDirectory = TemporaryDirectory.Create();
+        var invalidProgressFrame = new UnityRequestProgressFrame(
+            BuildRunProgressEventNames.LogEntry,
+            IpcPayloadCodec.SerializeToElement(new BuildLogEntry(
+                RunId: RunId,
+                TimestampUtc: default,
+                Level: BuildLogEntryLevelNames.Info,
+                Message: "build log entry",
+                Cursor: null,
+                Source: BuildLogEntrySourceNames.UnityLog)));
+        await AssertInvalidUnityProgressFrameReturnsRunnerInvocationFailedAsync(tempDirectory.Path, invalidProgressFrame);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithNonUtcUnityLogEntryTimestamp_ReturnsRunnerInvocationFailedAndDiagnostic ()
+    {
+        using var tempDirectory = TemporaryDirectory.Create();
+        var invalidProgressFrame = new UnityRequestProgressFrame(
+            BuildRunProgressEventNames.LogEntry,
+            IpcPayloadCodec.SerializeToElement(new BuildLogEntry(
+                RunId: RunId,
+                TimestampUtc: new DateTimeOffset(2026, 6, 12, 9, 0, 0, TimeSpan.FromHours(9)),
+                Level: BuildLogEntryLevelNames.Info,
+                Message: "build log entry",
+                Cursor: null,
+                Source: BuildLogEntrySourceNames.UnityLog)));
+        await AssertInvalidUnityProgressFrameReturnsRunnerInvocationFailedAsync(tempDirectory.Path, invalidProgressFrame);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithOversizedUnityLogEntryMessage_ReturnsRunnerInvocationFailedAndDiagnostic ()
+    {
+        using var tempDirectory = TemporaryDirectory.Create();
+        var invalidProgressFrame = new UnityRequestProgressFrame(
+            BuildRunProgressEventNames.LogEntry,
+            IpcPayloadCodec.SerializeToElement(new BuildLogEntry(
+                RunId: RunId,
+                TimestampUtc: DateTimeOffset.Parse("2026-06-12T00:00:00+00:00"),
+                Level: BuildLogEntryLevelNames.Info,
+                Message: new string('x', BuildLogEntryLimits.MaxMessageUtf8Bytes + 1),
+                Cursor: null,
+                Source: BuildLogEntrySourceNames.UnityLog)));
+        await AssertInvalidUnityProgressFrameReturnsRunnerInvocationFailedAsync(tempDirectory.Path, invalidProgressFrame);
     }
 
     [Fact]
@@ -2149,6 +2214,11 @@ public sealed class BuildServiceTests
             """;
     }
 
+    private static string ResolveProfileDigest ()
+    {
+        return BuildProfileResolver.ResolveJson(ProfileJson).Profile!.Digest;
+    }
+
     private static string CreateExecuteMethodProfileJson (
         string method,
         string arguments,
@@ -2272,6 +2342,38 @@ public sealed class BuildServiceTests
                 runnerResult: runnerResult,
                 omitReport: omitReport);
         });
+    }
+
+    private static async Task AssertInvalidUnityProgressFrameReturnsRunnerInvocationFailedAsync (
+        string artifactStoreRoot,
+        UnityRequestProgressFrame invalidProgressFrame)
+    {
+        var requestExecutor = new StubUnityRequestExecutor(
+            _ =>
+                CreateBuildResponseResult(
+                    ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+                    ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+                    errorCount: 0),
+            [invalidProgressFrame]);
+        var progressSink = new CollectingProgressSink();
+        var service = CreateService(
+            requestExecutor: requestExecutor,
+            artifactStore: new StubBuildRunArtifactStore(artifactStoreRoot));
+
+        var result = await service.ExecuteAsync(CreateInput(), progressSink);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(BuildErrorCodes.BuildRunnerInvocationFailed, error.Code);
+        AssertProgressEvents(
+            progressSink,
+            BuildRunProgressEventNames.Started,
+            BuildRunProgressEventNames.Diagnostic);
+        var diagnostic = Assert.IsType<BuildDiagnosticEntry>(progressSink.Entries[1].Payload);
+        Assert.Equal(RunId, diagnostic.RunId);
+        Assert.Equal(BuildErrorCodes.BuildRunnerInvocationFailed.Value, diagnostic.Code);
+        Assert.Equal(IpcExecuteDiagnosticSeverityNames.Error, diagnostic.Severity);
+        Assert.Equal(BuildRunProgressPhaseNames.RunnerInvocation, diagnostic.Phase);
     }
 
     private static async Task<BuildExecutionResult> ExecuteWithExecuteMethodRunnerResultAsync (
@@ -2912,25 +3014,25 @@ public sealed class BuildServiceTests
                 CreateProgressFrame(
                     BuildRunProgressEventNames.ReadinessCompleted,
                     request,
-                    "readiness",
+                    BuildRunProgressPhaseNames.Readiness,
                     runnerKind: null,
                     runnerStatus: null),
                 CreateProgressFrame(
                     BuildRunProgressEventNames.RunnerResolved,
                     request,
-                    "runnerResolution",
+                    BuildRunProgressPhaseNames.RunnerResolution,
                     runnerKind,
                     runnerStatus: null),
                 CreateProgressFrame(
                     BuildRunProgressEventNames.RunnerStarted,
                     request,
-                    "runnerInvocation",
+                    BuildRunProgressPhaseNames.RunnerInvocation,
                     runnerKind,
                     runnerStatus: null),
                 CreateProgressFrame(
                     BuildRunProgressEventNames.RunnerCompleted,
                     request,
-                    "runnerResult",
+                    BuildRunProgressPhaseNames.RunnerResult,
                     runnerKind,
                     ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded)),
             ];

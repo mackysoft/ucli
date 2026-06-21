@@ -50,7 +50,7 @@ internal static class BuildRunTestData
         return new BuildProgressEntry(
             RunId: RunId,
             ProfileDigest: Repeat('a'),
-            Phase: "started",
+            Phase: BuildRunProgressPhaseNames.Started,
             RunnerKind: null,
             RunnerStatus: null,
             Verdict: null,
@@ -63,7 +63,7 @@ internal static class BuildRunTestData
         return new BuildProgressEntry(
             RunId: RunId,
             ProfileDigest: Repeat('a'),
-            Phase: "completed",
+            Phase: BuildRunProgressPhaseNames.Completed,
             RunnerKind: ContractLiteralCodec.ToValue(BuildProfileRunnerKind.BuildPipeline),
             RunnerStatus: ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
             Verdict: ContractLiteralCodec.ToValue(BuildVerdict.Pass),

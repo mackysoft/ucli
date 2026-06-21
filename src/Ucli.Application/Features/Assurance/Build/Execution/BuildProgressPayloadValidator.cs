@@ -1,3 +1,4 @@
+using System.Text;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
 using MackySoft.Ucli.Contracts.Assurance;
@@ -9,31 +10,16 @@ namespace MackySoft.Ucli.Application.Features.Assurance.Build.Execution;
 /// <summary> Validates build progress stream payloads before they are exposed by the CLI. </summary>
 internal static class BuildProgressPayloadValidator
 {
-    private static readonly IReadOnlySet<string> ProgressPhases = new HashSet<string>(StringComparer.Ordinal)
-    {
-        "started",
-        "readiness",
-        "runnerResolution",
-        "runnerInvocation",
-        "runnerResult",
-        "artifactAccounting",
-        "completed",
-    };
+    private const int Sha256LowerHexLength = 64;
 
-    private static readonly IReadOnlySet<string> LogLevels = new HashSet<string>(StringComparer.Ordinal)
-    {
-        "trace",
-        "debug",
-        "info",
-        "warning",
-        "error",
-    };
+    private static readonly IReadOnlySet<string> ProgressPhases =
+        new HashSet<string>(BuildRunProgressPhaseNames.All, StringComparer.Ordinal);
 
-    private static readonly IReadOnlySet<string> LogSources = new HashSet<string>(StringComparer.Ordinal)
-    {
-        "unityLog",
-        "ucli",
-    };
+    private static readonly IReadOnlySet<string> LogLevels =
+        new HashSet<string>(BuildLogEntryLevelNames.All, StringComparer.Ordinal);
+
+    private static readonly IReadOnlySet<string> LogSources =
+        new HashSet<string>(BuildLogEntrySourceNames.All, StringComparer.Ordinal);
 
     private static readonly IReadOnlySet<string> ReportRefs = new HashSet<string>(StringComparer.Ordinal)
     {
@@ -47,7 +33,8 @@ internal static class BuildProgressPayloadValidator
     public static void Validate<TPayload> (
         string eventName,
         TPayload payload,
-        string expectedRunId)
+        string expectedRunId,
+        string expectedProfileDigest)
         where TPayload : notnull
     {
         switch (eventName)
@@ -62,7 +49,7 @@ internal static class BuildProgressPayloadValidator
             case BuildRunProgressEventNames.Completed:
                 if (payload is BuildProgressEntry progressEntry)
                 {
-                    ValidateProgressEntry(eventName, progressEntry, expectedRunId);
+                    ValidateProgressEntry(eventName, progressEntry, expectedRunId, expectedProfileDigest);
                     return;
                 }
 
@@ -94,13 +81,20 @@ internal static class BuildProgressPayloadValidator
     private static void ValidateProgressEntry (
         string eventName,
         BuildProgressEntry entry,
-        string expectedRunId)
+        string expectedRunId,
+        string expectedProfileDigest)
     {
         ValidateRunId(eventName, entry.RunId, expectedRunId);
-        RequireNonEmpty(eventName, nameof(entry.ProfileDigest), entry.ProfileDigest);
+        ValidateProfileDigest(eventName, entry.ProfileDigest, expectedProfileDigest);
         if (!ProgressPhases.Contains(entry.Phase))
         {
             FailField(eventName, nameof(entry.Phase), "must be one of the build progress phases.");
+        }
+
+        var expectedPhase = GetExpectedPhase(eventName);
+        if (expectedPhase != null && !string.Equals(entry.Phase, expectedPhase, StringComparison.Ordinal))
+        {
+            FailField(eventName, nameof(entry.Phase), $"must be '{expectedPhase}' for this event.");
         }
 
         if (entry.RunnerKind != null
@@ -153,12 +147,27 @@ internal static class BuildProgressPayloadValidator
         string expectedRunId)
     {
         ValidateRunId(eventName, entry.RunId, expectedRunId);
+        if (entry.TimestampUtc == default)
+        {
+            FailField(eventName, nameof(entry.TimestampUtc), "must be present.");
+        }
+
+        if (entry.TimestampUtc.Offset != TimeSpan.Zero)
+        {
+            FailField(eventName, nameof(entry.TimestampUtc), "must use UTC offset.");
+        }
+
         if (!LogLevels.Contains(entry.Level))
         {
             FailField(eventName, nameof(entry.Level), "must be a supported log level.");
         }
 
         RequireNonEmpty(eventName, nameof(entry.Message), entry.Message);
+        if (Encoding.UTF8.GetByteCount(entry.Message) > BuildLogEntryLimits.MaxMessageUtf8Bytes)
+        {
+            FailField(eventName, nameof(entry.Message), "must fit within the progress log message size limit.");
+        }
+
         if (entry.Cursor != null)
         {
             RequireNonEmpty(eventName, nameof(entry.Cursor), entry.Cursor);
@@ -206,6 +215,58 @@ internal static class BuildProgressPayloadValidator
             throw new BuildProgressProtocolException(
                 $"Unity build progress payload runId mismatch for event '{eventName}'. Expected={expectedRunId}, Actual={actualRunId}.");
         }
+    }
+
+    private static void ValidateProfileDigest (
+        string eventName,
+        string actualProfileDigest,
+        string expectedProfileDigest)
+    {
+        if (!IsSha256LowerHex(actualProfileDigest))
+        {
+            FailField(eventName, nameof(BuildProgressEntry.ProfileDigest), "must be a lowercase SHA-256 digest.");
+        }
+
+        if (!string.Equals(actualProfileDigest, expectedProfileDigest, StringComparison.Ordinal))
+        {
+            throw new BuildProgressProtocolException(
+                $"Unity build progress payload profileDigest mismatch for event '{eventName}'. Expected={expectedProfileDigest}, Actual={actualProfileDigest}.");
+        }
+    }
+
+    private static string? GetExpectedPhase (string eventName)
+    {
+        return eventName switch
+        {
+            BuildRunProgressEventNames.Started => BuildRunProgressPhaseNames.Started,
+            BuildRunProgressEventNames.ReadinessCompleted => BuildRunProgressPhaseNames.Readiness,
+            BuildRunProgressEventNames.RunnerResolved => BuildRunProgressPhaseNames.RunnerResolution,
+            BuildRunProgressEventNames.RunnerStarted => BuildRunProgressPhaseNames.RunnerInvocation,
+            BuildRunProgressEventNames.RunnerCompleted => BuildRunProgressPhaseNames.RunnerResult,
+            BuildRunProgressEventNames.RunnerResultCompleted => BuildRunProgressPhaseNames.RunnerResult,
+            BuildRunProgressEventNames.ArtifactsCompleted => BuildRunProgressPhaseNames.ArtifactAccounting,
+            BuildRunProgressEventNames.Completed => BuildRunProgressPhaseNames.Completed,
+            _ => null,
+        };
+    }
+
+    private static bool IsSha256LowerHex (string? value)
+    {
+        if (value == null || value.Length != Sha256LowerHexLength)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < value.Length; i++)
+        {
+            var character = value[i];
+            if (!((character >= '0' && character <= '9') || (character >= 'a' && character <= 'f')))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static void RequireNonEmpty (

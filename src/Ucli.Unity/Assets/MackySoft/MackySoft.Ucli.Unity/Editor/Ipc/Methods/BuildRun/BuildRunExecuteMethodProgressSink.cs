@@ -25,7 +25,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         {
             Publish(
                 BuildRunProgressEventNames.RunnerResolved,
-                "runnerResolution",
+                BuildRunProgressPhaseNames.RunnerResolution,
                 runnerStatus: null);
         }
 
@@ -34,7 +34,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         {
             Publish(
                 BuildRunProgressEventNames.RunnerStarted,
-                "runnerInvocation",
+                BuildRunProgressPhaseNames.RunnerInvocation,
                 runnerStatus: null);
         }
 
@@ -46,10 +46,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentNullException(nameof(runnerResult));
             }
 
-            Publish(
-                BuildRunProgressEventNames.RunnerCompleted,
-                "runnerResult",
-                runnerResult.Status);
+            // NOTE: BuildRunUnityIpcMethodHandler publishes completion after log entry replay so
+            // runner-window logs always precede the terminal runner event.
         }
 
         private void Publish (

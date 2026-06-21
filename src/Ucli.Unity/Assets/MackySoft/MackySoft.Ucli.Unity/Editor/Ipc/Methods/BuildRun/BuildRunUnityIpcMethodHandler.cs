@@ -27,6 +27,8 @@ namespace MackySoft.Ucli.Unity.Ipc
     /// <summary> Handles <c>build.run</c> IPC method requests. </summary>
     internal sealed class BuildRunUnityIpcMethodHandler : IStreamingUnityIpcMethodHandler
     {
+        private const string ProgressLogEntryTruncatedSuffix = "... [truncated for build progress stream]";
+
         private static readonly UTF8Encoding Utf8NoBomEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
         private static readonly string RunnerKindBuildPipeline = ContractLiteralCodec.ToValue(IpcBuildRunnerKind.BuildPipeline);
         private static readonly string RunnerKindExecuteMethod = ContractLiteralCodec.ToValue(IpcBuildRunnerKind.ExecuteMethod);
@@ -213,7 +215,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     progressSink,
                     buildRunRequest,
                     BuildRunProgressEventNames.ReadinessCompleted,
-                    "readiness",
+                    BuildRunProgressPhaseNames.Readiness,
                     runnerKind: null,
                     runnerStatus: null,
                     errorCode: null);
@@ -234,7 +236,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                         progressSink,
                         buildRunRequest,
                         BuildRunProgressEventNames.RunnerResolved,
-                        "runnerResolution",
+                        BuildRunProgressPhaseNames.RunnerResolution,
                         buildRunRequest.RunnerKind,
                         runnerStatus: null,
                         errorCode: null);
@@ -277,7 +279,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                         progressSink,
                         buildRunRequest,
                         BuildRunProgressEventNames.RunnerStarted,
-                        "runnerInvocation",
+                        BuildRunProgressPhaseNames.RunnerInvocation,
                         buildRunRequest.RunnerKind,
                         runnerStatus: null,
                         errorCode: null);
@@ -293,14 +295,6 @@ namespace MackySoft.Ucli.Unity.Ipc
                             ErrorCount: normalizedReport.ErrorCount,
                             WarningCount: normalizedReport.WarningCount,
                             Diagnostics: Array.Empty<IpcBuildRunnerDiagnostic>());
-                        PublishProgress(
-                            progressSink,
-                            buildRunRequest,
-                            BuildRunProgressEventNames.RunnerCompleted,
-                            "runnerResult",
-                            buildRunRequest.RunnerKind,
-                            normalizedReport.Result,
-                            errorCode: null);
                     }
                 }
 
@@ -309,6 +303,18 @@ namespace MackySoft.Ucli.Unity.Ipc
                 var completedAtUtc = DateTimeOffset.UtcNow;
                 var logEndSnapshot = unityLogStream.Snapshot();
                 PublishLogEntries(progressSink, buildRunRequest.RunId, logStartSnapshot, logEndSnapshot);
+                if (runnerResult != null)
+                {
+                    PublishProgress(
+                        progressSink,
+                        buildRunRequest,
+                        BuildRunProgressEventNames.RunnerCompleted,
+                        BuildRunProgressPhaseNames.RunnerResult,
+                        buildRunRequest.RunnerKind,
+                        runnerResult.Status,
+                        errorCode: null);
+                }
+
                 var lifecycleAfter = preconditionProbe.CaptureAfterBuild();
                 var projectMutation = projectMutationAuditProbe.Complete(
                     projectIdentity.ProjectPath,
@@ -527,9 +533,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                             ? timestamp
                             : DateTimeOffset.UtcNow,
                         Level: unityLogEvent.Level,
-                        Message: unityLogEvent.Message,
+                        Message: LimitProgressLogMessage(unityLogEvent.Message),
                         Cursor: unityLogEvent.Cursor,
-                        Source: "unityLog"));
+                        Source: BuildLogEntrySourceNames.UnityLog));
             }
         }
 
@@ -542,6 +548,45 @@ namespace MackySoft.Ucli.Unity.Ipc
                 CultureInfo.InvariantCulture,
                 DateTimeStyles.RoundtripKind,
                 out timestamp);
+        }
+
+        private static string LimitProgressLogMessage (string message)
+        {
+            if (Utf8NoBomEncoding.GetByteCount(message) <= BuildLogEntryLimits.MaxMessageUtf8Bytes)
+            {
+                return message;
+            }
+
+            var suffixByteCount = Utf8NoBomEncoding.GetByteCount(ProgressLogEntryTruncatedSuffix);
+            var byteBudget = BuildLogEntryLimits.MaxMessageUtf8Bytes - suffixByteCount;
+            if (byteBudget <= 0)
+            {
+                return ProgressLogEntryTruncatedSuffix;
+            }
+
+            var byteCount = 0;
+            var endIndex = 0;
+            while (endIndex < message.Length)
+            {
+                var charCount = 1;
+                if (char.IsHighSurrogate(message[endIndex])
+                    && endIndex + 1 < message.Length
+                    && char.IsLowSurrogate(message[endIndex + 1]))
+                {
+                    charCount = 2;
+                }
+
+                var nextByteCount = Utf8NoBomEncoding.GetByteCount(message, endIndex, charCount);
+                if (byteCount + nextByteCount > byteBudget)
+                {
+                    break;
+                }
+
+                byteCount += nextByteCount;
+                endIndex += charCount;
+            }
+
+            return message.Substring(0, endIndex) + ProgressLogEntryTruncatedSuffix;
         }
 
         private static IpcResponse CreateErrorResponse (

@@ -80,7 +80,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                         "BUILD_PROGRESS_DROPPED",
                         IpcExecuteDiagnosticSeverityNames.Warning,
                         "Build progress entries exceeded the pending IPC frame limit; additional progress entries were dropped.",
-                        "runnerInvocation");
+                        BuildRunProgressPhaseNames.RunnerInvocation);
                 }
 
                 pendingFrames.Enqueue(new QueuedProgressFrame(eventName, payload));

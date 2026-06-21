@@ -218,6 +218,7 @@ internal sealed class BuildService : IBuildService
                     requestTimeout,
                     request,
                     runId,
+                    profile.Digest,
                     resolvedProgressSink,
                     useProgressStream: progressSink != null,
                     cancellationToken)
@@ -231,7 +232,7 @@ internal sealed class BuildService : IBuildService
                     BuildErrorCodes.BuildRunnerInvocationFailed.Value,
                     IpcExecuteDiagnosticSeverityNames.Error,
                     exception.Message,
-                    "runnerInvocation",
+                    BuildRunProgressPhaseNames.RunnerInvocation,
                     cancellationToken)
                 .ConfigureAwait(false);
             return BuildExecutionResult.Failure(
@@ -276,7 +277,7 @@ internal sealed class BuildService : IBuildService
                 BuildRunProgressEventNames.RunnerResultCompleted,
                 runId,
                 profile.Digest,
-                "runnerResult",
+                BuildRunProgressPhaseNames.RunnerResult,
                 ContractLiteralCodec.ToValue(profile.Runner.Kind),
                 GetTerminalResult(buildResponse),
                 verdict: null,
@@ -375,7 +376,7 @@ internal sealed class BuildService : IBuildService
                     BuildRunProgressEventNames.ArtifactsCompleted,
                     runId,
                     profile.Digest,
-                    "artifactAccounting",
+                    BuildRunProgressPhaseNames.ArtifactAccounting,
                     completedOutput.Build.Runner.Kind,
                     completedOutput.Build.RunnerResult.Status,
                     verdict: null,
@@ -407,7 +408,7 @@ internal sealed class BuildService : IBuildService
             BuildRunProgressEventNames.Started,
             runId,
             profileDigest,
-            "started",
+            BuildRunProgressPhaseNames.Started,
             runnerKind: null,
             runnerStatus: null,
             verdict: null,
@@ -619,7 +620,7 @@ internal sealed class BuildService : IBuildService
             BuildRunProgressEventNames.Completed,
             output.Build.RunId,
             output.Build.Profile.Digest,
-            "completed",
+            BuildRunProgressPhaseNames.Completed,
             output.Build.Runner.Kind,
             output.Build.RunnerResult.Status,
             output.Verdict,
@@ -676,6 +677,7 @@ internal sealed class BuildService : IBuildService
         TimeSpan requestTimeout,
         UnityRequestPayload.BuildRun request,
         string runId,
+        string profileDigest,
         ICommandProgressSink progressSink,
         bool useProgressStream,
         CancellationToken cancellationToken)
@@ -703,6 +705,7 @@ internal sealed class BuildService : IBuildService
                 (frame, progressCancellationToken) => ForwardBuildProgressFrameAsync(
                     frame,
                     runId,
+                    profileDigest,
                     progressSink,
                     progressCancellationToken),
                 cancellationToken)
@@ -712,12 +715,14 @@ internal sealed class BuildService : IBuildService
     private static async ValueTask ForwardBuildProgressFrameAsync (
         UnityRequestProgressFrame frame,
         string expectedRunId,
+        string expectedProfileDigest,
         ICommandProgressSink progressSink,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(frame);
         ArgumentException.ThrowIfNullOrWhiteSpace(expectedRunId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(expectedProfileDigest);
         ArgumentNullException.ThrowIfNull(progressSink);
 
         switch (frame.Event)
@@ -726,13 +731,13 @@ internal sealed class BuildService : IBuildService
             case BuildRunProgressEventNames.RunnerResolved:
             case BuildRunProgressEventNames.RunnerStarted:
             case BuildRunProgressEventNames.RunnerCompleted:
-                await ForwardProgressPayloadAsync<BuildProgressEntry>(frame, expectedRunId, progressSink, cancellationToken).ConfigureAwait(false);
+                await ForwardProgressPayloadAsync<BuildProgressEntry>(frame, expectedRunId, expectedProfileDigest, progressSink, cancellationToken).ConfigureAwait(false);
                 return;
             case BuildRunProgressEventNames.LogEntry:
-                await ForwardProgressPayloadAsync<BuildLogEntry>(frame, expectedRunId, progressSink, cancellationToken).ConfigureAwait(false);
+                await ForwardProgressPayloadAsync<BuildLogEntry>(frame, expectedRunId, expectedProfileDigest, progressSink, cancellationToken).ConfigureAwait(false);
                 return;
             case BuildRunProgressEventNames.Diagnostic:
-                await ForwardProgressPayloadAsync<BuildDiagnosticEntry>(frame, expectedRunId, progressSink, cancellationToken).ConfigureAwait(false);
+                await ForwardProgressPayloadAsync<BuildDiagnosticEntry>(frame, expectedRunId, expectedProfileDigest, progressSink, cancellationToken).ConfigureAwait(false);
                 return;
             default:
                 throw new BuildProgressProtocolException($"Unity build progress event is not supported: {frame.Event}.");
@@ -742,6 +747,7 @@ internal sealed class BuildService : IBuildService
     private static async ValueTask ForwardProgressPayloadAsync<TPayload> (
         UnityRequestProgressFrame frame,
         string expectedRunId,
+        string expectedProfileDigest,
         ICommandProgressSink progressSink,
         CancellationToken cancellationToken)
         where TPayload : notnull
@@ -752,7 +758,7 @@ internal sealed class BuildService : IBuildService
                 $"Unity build progress payload is invalid for event '{frame.Event}'. {error}");
         }
 
-        BuildProgressPayloadValidator.Validate(frame.Event, payload!, expectedRunId);
+        BuildProgressPayloadValidator.Validate(frame.Event, payload!, expectedRunId, expectedProfileDigest);
         await progressSink.OnEntryAsync(
                 frame.Event,
                 payload!,
