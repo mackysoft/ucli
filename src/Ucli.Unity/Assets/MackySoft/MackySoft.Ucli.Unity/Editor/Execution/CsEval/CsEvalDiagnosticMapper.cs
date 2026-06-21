@@ -1,7 +1,6 @@
 using MackySoft.Ucli.Contracts.Ipc;
 using Microsoft.CodeAnalysis;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 
 #nullable enable
@@ -44,27 +43,34 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
 
         public static IReadOnlyList<CsEvalDiagnostic> Limit (IEnumerable<CsEvalDiagnostic> diagnostics)
         {
-            var items = diagnostics
-                .Select(static diagnostic => new CsEvalDiagnostic(
+            var items = new List<CsEvalDiagnostic>();
+            var truncatedCount = 0;
+            foreach (var diagnostic in diagnostics)
+            {
+                if (items.Count >= CsEvalSafetyLimits.MaxDiagnostics)
+                {
+                    truncatedCount++;
+                    continue;
+                }
+
+                items.Add(new CsEvalDiagnostic(
                     diagnostic.Severity,
                     diagnostic.Id,
                     LimitMessage(diagnostic.Message),
                     diagnostic.Line,
-                    diagnostic.Column))
-                .ToList();
-            if (items.Count <= CsEvalSafetyLimits.MaxDiagnostics)
-            {
-                return items;
+                    diagnostic.Column));
             }
 
-            var truncatedCount = items.Count - CsEvalSafetyLimits.MaxDiagnostics;
-            items = items.Take(CsEvalSafetyLimits.MaxDiagnostics).ToList();
-            items.Add(new CsEvalDiagnostic(
-                "warning",
-                CsEvalDiagnosticIds.DiagnosticsTruncated,
-                $"C# eval diagnostics were truncated. Omitted diagnostics: {truncatedCount}.",
-                line: null,
-                column: null));
+            if (truncatedCount > 0)
+            {
+                items.Add(new CsEvalDiagnostic(
+                    "warning",
+                    CsEvalDiagnosticIds.DiagnosticsTruncated,
+                    $"C# eval diagnostics were truncated. Omitted diagnostics: {truncatedCount}.",
+                    line: null,
+                    column: null));
+            }
+
             return items;
         }
 
