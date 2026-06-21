@@ -107,39 +107,6 @@ internal sealed class PropertyListXmlBuilder
         writer.WriteEndElement();
     }
 
-    /// <summary> Writes one string dictionary value to the current dictionary. </summary>
-    /// <param name="key"> The plist dictionary key. </param>
-    /// <param name="values"> The ordered key-value entries. </param>
-    /// <exception cref="ArgumentException"> Thrown when <paramref name="key" /> or one entry key is empty or whitespace. </exception>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="values" /> or one entry value is <see langword="null" />. </exception>
-    public void WriteStringDictionary (
-        string key,
-        IReadOnlyList<KeyValuePair<string, string>> values)
-    {
-        ThrowIfInvalidKey(key);
-        if (values == null)
-        {
-            throw new ArgumentNullException(nameof(values));
-        }
-
-        writer.WriteElementString("key", key);
-        writer.WriteStartElement("dict");
-        for (var i = 0; i < values.Count; i++)
-        {
-            var entry = values[i];
-            ThrowIfInvalidKey(entry.Key);
-            if (entry.Value == null)
-            {
-                throw new ArgumentNullException(nameof(values), "Dictionary values must not contain null.");
-            }
-
-            writer.WriteElementString("key", entry.Key);
-            writer.WriteElementString("string", entry.Value);
-        }
-
-        writer.WriteEndElement();
-    }
-
     private static XmlWriterSettings CreateWriterSettings ()
     {
         return new XmlWriterSettings

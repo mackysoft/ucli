@@ -34,11 +34,7 @@ internal sealed class SystemdRunSupervisorProcessLauncher
         {
             var normalizedStorageRoot = UcliStoragePathResolver.NormalizeStorageRootPath(storageRoot);
             var unitName = BuildSystemdUnitName(normalizedStorageRoot);
-            var arguments = BuildArguments(
-                normalizedStorageRoot,
-                unitName,
-                launchCommand,
-                SupervisorRuntimeTraceEnvironment.Capture());
+            var arguments = BuildArguments(normalizedStorageRoot, unitName, launchCommand);
 
             var launchResult = await processRunner.RunAsync(
                     "systemd-run",
@@ -73,21 +69,7 @@ internal sealed class SystemdRunSupervisorProcessLauncher
         string unitName,
         SupervisorLaunchCommand launchCommand)
     {
-        return BuildArguments(
-            normalizedStorageRoot,
-            unitName,
-            launchCommand,
-            Array.Empty<KeyValuePair<string, string>>());
-    }
-
-    internal static IReadOnlyList<string> BuildArguments (
-        string normalizedStorageRoot,
-        string unitName,
-        SupervisorLaunchCommand launchCommand,
-        IReadOnlyList<KeyValuePair<string, string>> environmentVariables)
-    {
         ArgumentNullException.ThrowIfNull(launchCommand);
-        ArgumentNullException.ThrowIfNull(environmentVariables);
 
         var arguments = new List<string>
         {
@@ -98,25 +80,8 @@ internal sealed class SystemdRunSupervisorProcessLauncher
             unitName,
             "--working-directory",
             normalizedStorageRoot,
+            launchCommand.FileName,
         };
-        for (var i = 0; i < environmentVariables.Count; i++)
-        {
-            var environmentVariable = environmentVariables[i];
-            if (string.IsNullOrWhiteSpace(environmentVariable.Key))
-            {
-                throw new ArgumentException("Environment variable name must not be empty.", nameof(environmentVariables));
-            }
-
-            if (environmentVariable.Value == null)
-            {
-                throw new ArgumentNullException(nameof(environmentVariables), "Environment variable values must not contain null.");
-            }
-
-            arguments.Add("--setenv");
-            arguments.Add($"{environmentVariable.Key}={environmentVariable.Value}");
-        }
-
-        arguments.Add(launchCommand.FileName);
         arguments.AddRange(launchCommand.Arguments);
         arguments.AddRange(SupervisorInvocationArguments.Build(normalizedStorageRoot));
         return arguments;

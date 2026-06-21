@@ -1,5 +1,6 @@
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Unity.Runtime;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -15,7 +16,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Task.FromResult(true);
+            return CachedTask.FromResult(true);
         }
     }
 }

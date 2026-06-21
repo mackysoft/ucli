@@ -31,7 +31,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="cancellationToken"> The cancellation token propagated by host execution. </param>
         /// <returns> The processed IPC response envelope. </returns>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="request" /> is <see langword="null" />. </exception>
-        public async Task<IpcResponse> ProcessAsync (
+        public Task<IpcResponse> ProcessAsync (
             IpcRequest request,
             CancellationToken cancellationToken = default)
         {
@@ -41,16 +41,13 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             cancellationToken.ThrowIfCancellationRequested();
-            using (RuntimePerformanceTracer.Measure(RuntimePerformanceTracer.SectionNames.UnityMainThread))
-            {
-                return await mainThreadRequestExecutor.ExecuteAsync(
-                    () => requestHandler.HandleAsync(request, cancellationToken),
-                    cancellationToken);
-            }
+            return mainThreadRequestExecutor.ExecuteAsync(
+                () => requestHandler.HandleAsync(request, cancellationToken),
+                cancellationToken);
         }
 
         /// <inheritdoc />
-        public async Task<IpcResponse> ProcessStreamingAsync (
+        public Task<IpcResponse> ProcessStreamingAsync (
             IpcRequest request,
             IIpcStreamFrameWriter streamWriter,
             CancellationToken cancellationToken = default)
@@ -66,12 +63,9 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             cancellationToken.ThrowIfCancellationRequested();
-            using (RuntimePerformanceTracer.Measure(RuntimePerformanceTracer.SectionNames.UnityMainThread))
-            {
-                return await mainThreadRequestExecutor.ExecuteAsync(
-                    () => requestHandler.HandleStreamingAsync(request, streamWriter, cancellationToken),
-                    cancellationToken);
-            }
+            return mainThreadRequestExecutor.ExecuteAsync(
+                () => requestHandler.HandleStreamingAsync(request, streamWriter, cancellationToken),
+                cancellationToken);
         }
     }
 }
