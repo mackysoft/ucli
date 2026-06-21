@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
 
@@ -152,11 +153,9 @@ public sealed class CliOutputSchemaArtifactTests
             "CliOutput",
             "build-run",
             "success.json");
-        var json = File.ReadAllText(goldenPath).Replace(
-            "\"runnerResult\": {\n        \"source\": \"buildPipelineBuildReport\",\n        \"status\": \"succeeded\"\n      }",
-            "\"runnerResult\": {\n        \"source\": \"buildPipelineBuildReport\",\n        \"status\": \"unknown\"\n      }",
-            StringComparison.Ordinal);
-        using var document = JsonDocument.Parse(json);
+        var root = JsonNode.Parse(File.ReadAllText(goldenPath))!.AsObject();
+        root["payload"]!["build"]!["runnerResult"]!["status"] = "unknown";
+        using var document = JsonDocument.Parse(root.ToJsonString());
 
         var errors = schemaSet.Validate(
             "cli-output/payload/build.run.schema.json",
