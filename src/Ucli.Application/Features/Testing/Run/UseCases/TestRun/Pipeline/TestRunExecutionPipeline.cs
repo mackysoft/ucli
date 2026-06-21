@@ -92,11 +92,16 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
         var conversionResult = UnityResultsConversionResult.Success(hasFailedTests: false);
         ExecutionError? conversionUnexpectedError = null;
 
-        if (unityExecutionResult.IsSuccess)
+        if (unityExecutionResult.IsSuccess
+            || CanRecoverCompletedOneshotResults(unityExecutionResult, context.Target, artifactsSession))
         {
             try
             {
                 conversionResult = await ConvertResultsSafelyAsync(artifactsSession, cancellationToken).ConfigureAwait(false);
+                if (!unityExecutionResult.IsSuccess && conversionResult.IsSuccess)
+                {
+                    unityExecutionResult = UnityTestExecutionResult.Success(conversionResult.HasFailedTests ? 2 : 0);
+                }
             }
             catch (Exception exception)
             {
@@ -375,6 +380,36 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
         }
 
         return UnityTestExecutionResult.Success(exitCode);
+    }
+
+    private bool CanRecoverCompletedOneshotResults (
+        UnityTestExecutionResult unityExecutionResult,
+        UnityExecutionTarget target,
+        ArtifactsSession session)
+    {
+        if (target != UnityExecutionTarget.Oneshot
+            || unityExecutionResult.FailureKind != UnityTestExecutionFailureKind.AbnormalExit
+            || unityExecutionResult.ErrorCode != UcliCoreErrorCodes.InternalError
+            || string.IsNullOrWhiteSpace(unityExecutionResult.ErrorMessage))
+        {
+            return false;
+        }
+
+        // NOTE:
+        // Unity Test Runner can close oneshot IPC during post-test domain reload after it has
+        // already written complete results. Treat only that exact transport loss as recoverable;
+        // all other abnormal exits preserve the primary execution failure.
+        if (!unityExecutionResult.ErrorMessage.StartsWith(
+                "Failed to execute Unity oneshot IPC request.",
+                StringComparison.Ordinal)
+            || !unityExecutionResult.ErrorMessage.Contains(
+                "IPC stream ended before a complete frame was read.",
+                StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        return artifactExistenceProbe.ValidateGeneratedFiles(session.Paths).IsSuccess;
     }
 
     private static UnityTestExecutionResult CreateRequestFailure (
