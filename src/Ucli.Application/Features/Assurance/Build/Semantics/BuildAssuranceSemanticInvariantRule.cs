@@ -21,8 +21,36 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
         BuildReportRefs.BuildLog,
     ];
 
+    private static readonly IReadOnlySet<string> RequiredReportKeySet =
+        new HashSet<string>(RequiredReportKeys, StringComparer.Ordinal);
+
     private static readonly IReadOnlySet<string> AllowedBuildEffects =
         new HashSet<string>(ContractLiteralCodec.GetLiterals<BuildEffect>(), StringComparer.Ordinal);
+
+    /// <inheritdoc />
+    public void ValidatePayload (
+        JsonElement payload,
+        List<AssuranceSemanticInvariantViolation> violations)
+    {
+        ArgumentNullException.ThrowIfNull(violations);
+
+        if (!payload.TryGetProperty("build", out var buildElement) || buildElement.ValueKind != JsonValueKind.Object)
+        {
+            return;
+        }
+
+        ValidateReports(payload, violations);
+        ValidateBuildInput(buildElement, violations);
+        ValidateBuildProfile(buildElement, violations);
+        ValidateBuildRunner(buildElement, violations);
+        ValidateBuildRunnerResult(buildElement, violations);
+        ValidateBuildOutput(payload, violations);
+        ValidateBuildSummary(buildElement, violations);
+        ValidateBuildLogs(buildElement, violations);
+        ValidateBuildGenerations(buildElement, violations);
+        ValidateBuildLogCompletionReason(buildElement, violations);
+        ValidateVerifier(payload, violations);
+    }
 
     /// <inheritdoc />
     public void ValidateClaim (
@@ -39,15 +67,6 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
             return;
         }
 
-        ValidateReports(payload, violations);
-        ValidateBuildInput(buildElement, violations);
-        ValidateBuildProfile(buildElement, violations);
-        ValidateBuildOutput(payload, violations);
-        ValidateBuildSummary(buildElement, violations);
-        ValidateBuildLogs(buildElement, violations);
-        ValidateBuildGenerations(buildElement, violations);
-        ValidateBuildLogCompletionReason(buildElement, violations);
-        ValidateVerifier(payload, violations);
         ValidateClaimEvidence(buildElement, claimElement, claimPath, claimId, violations);
         if (BuildClaimCodes.UnityBuildCompleted.EqualsValue(claimId))
         {
@@ -74,6 +93,15 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
             return;
         }
 
+        foreach (var reportProperty in reportsElement.EnumerateObject())
+        {
+            if (!RequiredReportKeySet.Contains(reportProperty.Name))
+            {
+                AddViolation(violations, "$.reports", $"Build payload must not contain reports.{reportProperty.Name}.");
+                continue;
+            }
+        }
+
         for (var i = 0; i < RequiredReportKeys.Count; i++)
         {
             var reportKey = RequiredReportKeys[i];
@@ -98,9 +126,23 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
             return;
         }
 
-        if (!TryReadString(reportElement, "path", out _))
+        if (reportElement.TryGetProperty("kind", out _))
+        {
+            AddViolation(violations, BuildPropertyPath(reportPath, "kind"), $"Build report {reportKey} must not expose kind.");
+        }
+
+        if (reportElement.TryGetProperty("category", out _))
+        {
+            AddViolation(violations, BuildPropertyPath(reportPath, "category"), $"Build report {reportKey} must not expose category.");
+        }
+
+        if (!TryReadString(reportElement, "path", out var path))
         {
             AddViolation(violations, BuildPropertyPath(reportPath, "path"), $"Build report {reportKey} must declare path.");
+        }
+        else if (!IsArtifactRootRelativePath(path))
+        {
+            AddViolation(violations, BuildPropertyPath(reportPath, "path"), $"Build report {reportKey} path must be artifact-root relative.");
         }
 
         if (!TryReadString(reportElement, "digest", out var digest))
@@ -117,15 +159,9 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
         JsonElement buildElement,
         List<AssuranceSemanticInvariantViolation> violations)
     {
-        var hasBuildTarget = TryReadString(buildElement, "buildTarget", out var buildTarget);
-        if (!hasBuildTarget)
-        {
-            AddViolation(violations, "$.build.buildTarget", "Build payload must declare buildTarget.");
-        }
-
         if (!buildElement.TryGetProperty("inputs", out var inputsElement) || inputsElement.ValueKind != JsonValueKind.Object)
         {
-            AddViolation(violations, "$.build.inputs", "Build payload must declare resolved inputs.");
+            AddViolation(violations, "$.build.inputs", "Build payload must declare inputs.");
             return;
         }
 
@@ -141,72 +177,131 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
             return;
         }
 
-        if (!TryReadString(inputsElement, "buildTarget", out var inputBuildTarget))
+        if (!inputsElement.TryGetProperty("target", out var targetElement) || targetElement.ValueKind != JsonValueKind.Object)
         {
-            AddViolation(violations, "$.build.inputs.buildTarget", "Build inputs must declare resolved buildTarget.");
+            AddViolation(violations, "$.build.inputs.target", "Build inputs must declare target.");
         }
-        else if (hasBuildTarget && !string.Equals(inputBuildTarget, buildTarget, StringComparison.Ordinal))
+        else
         {
-            AddViolation(violations, "$.build.inputs.buildTarget", "Build inputs buildTarget must match build.buildTarget.");
+            if (!TryReadString(targetElement, "stableName", out _))
+            {
+                AddViolation(violations, "$.build.inputs.target.stableName", "Build inputs target must declare stableName.");
+            }
+
+            if (!TryReadString(targetElement, "unityBuildTarget", out _))
+            {
+                AddViolation(violations, "$.build.inputs.target.unityBuildTarget", "Build inputs target must declare unityBuildTarget.");
+            }
         }
 
-        ValidateBuildInputScenes(buildElement, inputsElement, violations);
-        ValidateBuildInputOptions(buildElement, inputsElement, violations);
+        if (!inputsElement.TryGetProperty("scenes", out var scenesElement) || scenesElement.ValueKind != JsonValueKind.Object)
+        {
+            AddViolation(violations, "$.build.inputs.scenes", "Build inputs must declare scenes.");
+        }
+        else
+        {
+            if (!TryReadString(scenesElement, "source", out var sceneSourceLiteral))
+            {
+                AddViolation(violations, "$.build.inputs.scenes.source", "Build inputs scenes must declare source.");
+            }
+            else if (!ContractLiteralCodec.TryParse<BuildProfileSceneSource>(sceneSourceLiteral, out _))
+            {
+                AddViolation(violations, "$.build.inputs.scenes.source", "Build inputs scenes.source must be a supported scene-source literal.");
+            }
+
+            if (!scenesElement.TryGetProperty("paths", out var pathsElement) || pathsElement.ValueKind != JsonValueKind.Array)
+            {
+                AddViolation(violations, "$.build.inputs.scenes.paths", "Build inputs scenes must declare paths.");
+            }
+        }
+
+        if (!inputsElement.TryGetProperty("options", out var optionsElement) || optionsElement.ValueKind != JsonValueKind.Object)
+        {
+            AddViolation(violations, "$.build.inputs.options", "Build inputs must declare options.");
+        }
+        else if (!optionsElement.TryGetProperty("development", out var developmentElement)
+            || developmentElement.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+        {
+            AddViolation(violations, "$.build.inputs.options.development", "Build inputs options must declare development.");
+        }
+
         ValidateUnityBuildProfileInput(inputsElement, inputKind, violations);
     }
 
-    private static void ValidateBuildInputScenes (
+    private static void ValidateBuildRunner (
         JsonElement buildElement,
-        JsonElement inputsElement,
         List<AssuranceSemanticInvariantViolation> violations)
     {
-        if (!inputsElement.TryGetProperty("scenes", out var inputScenesElement) || inputScenesElement.ValueKind != JsonValueKind.Object)
+        if (!buildElement.TryGetProperty("runner", out var runnerElement) || runnerElement.ValueKind != JsonValueKind.Object)
         {
-            AddViolation(violations, "$.build.inputs.scenes", "Build inputs must declare resolved scenes.");
+            AddViolation(violations, "$.build.runner", "Build payload must declare runner.");
             return;
         }
 
-        if (!buildElement.TryGetProperty("scenes", out var buildScenesElement) || buildScenesElement.ValueKind != JsonValueKind.Object)
+        if (!TryReadString(runnerElement, "kind", out _))
         {
+            AddViolation(violations, "$.build.runner.kind", "Build runner must declare kind.");
+        }
+
+        if (!runnerElement.TryGetProperty("method", out var methodElement)
+            || methodElement.ValueKind is not (JsonValueKind.String or JsonValueKind.Null))
+        {
+            AddViolation(violations, "$.build.runner.method", "Build runner must declare method.");
+        }
+
+        if (!runnerElement.TryGetProperty("invocation", out var invocationElement) || invocationElement.ValueKind != JsonValueKind.Object)
+        {
+            AddViolation(violations, "$.build.runner.invocation", "Build runner must declare invocation.");
             return;
         }
 
-        if (TryReadString(inputScenesElement, "source", out var inputSource)
-            && TryReadString(buildScenesElement, "source", out var buildSource)
-            && !string.Equals(inputSource, buildSource, StringComparison.Ordinal))
+        if (!invocationElement.TryGetProperty("arguments", out var argumentsElement) || argumentsElement.ValueKind != JsonValueKind.Object)
         {
-            AddViolation(violations, "$.build.inputs.scenes.source", "Build inputs scenes.source must match build.scenes.source.");
+            AddViolation(violations, "$.build.runner.invocation.arguments", "Build runner invocation must declare arguments.");
         }
 
-        if (TryReadStringArray(inputScenesElement, "paths", out var inputPaths)
-            && TryReadStringArray(buildScenesElement, "paths", out var buildPaths)
-            && !inputPaths.SequenceEqual(buildPaths, StringComparer.Ordinal))
+        if (!invocationElement.TryGetProperty("environment", out var environmentElement) || environmentElement.ValueKind != JsonValueKind.Object)
         {
-            AddViolation(violations, "$.build.inputs.scenes.paths", "Build inputs scenes.paths must match build.scenes.paths.");
+            AddViolation(violations, "$.build.runner.invocation.environment", "Build runner invocation must declare environment.");
+            return;
+        }
+
+        if (!environmentElement.TryGetProperty("variables", out var variablesElement) || variablesElement.ValueKind != JsonValueKind.Array)
+        {
+            AddViolation(violations, "$.build.runner.invocation.environment.variables", "Build runner invocation environment must declare variables.");
+        }
+
+        if (!environmentElement.TryGetProperty("secrets", out var secretsElement) || secretsElement.ValueKind != JsonValueKind.Array)
+        {
+            AddViolation(violations, "$.build.runner.invocation.environment.secrets", "Build runner invocation environment must declare secrets.");
         }
     }
 
-    private static void ValidateBuildInputOptions (
+    private static void ValidateBuildRunnerResult (
         JsonElement buildElement,
-        JsonElement inputsElement,
         List<AssuranceSemanticInvariantViolation> violations)
     {
-        if (!inputsElement.TryGetProperty("options", out var inputOptionsElement) || inputOptionsElement.ValueKind != JsonValueKind.Object)
+        if (!buildElement.TryGetProperty("runnerResult", out var runnerResultElement) || runnerResultElement.ValueKind != JsonValueKind.Object)
         {
-            AddViolation(violations, "$.build.inputs.options", "Build inputs must declare resolved options.");
+            AddViolation(violations, "$.build.runnerResult", "Build payload must declare runnerResult.");
             return;
         }
 
-        if (!buildElement.TryGetProperty("options", out var buildOptionsElement) || buildOptionsElement.ValueKind != JsonValueKind.Object)
+        if (!TryReadString(runnerResultElement, "source", out _))
         {
+            AddViolation(violations, "$.build.runnerResult.source", "Build runnerResult must declare source.");
+        }
+
+        if (!TryReadString(runnerResultElement, "status", out var status))
+        {
+            AddViolation(violations, "$.build.runnerResult.status", "Build runnerResult must declare status.");
             return;
         }
 
-        if (TryReadBoolean(inputOptionsElement, "development", out var inputDevelopment)
-            && TryReadBoolean(buildOptionsElement, "development", out var buildDevelopment)
-            && inputDevelopment != buildDevelopment)
+        if (TryReadBuildResult(buildElement, out var result)
+            && !string.Equals(status, result, StringComparison.Ordinal))
         {
-            AddViolation(violations, "$.build.inputs.options.development", "Build inputs options.development must match build.options.development.");
+            AddViolation(violations, "$.build.summary.result", "Build summary result must match runnerResult status.");
         }
     }
 
@@ -256,7 +351,6 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
         {
             AddViolation(violations, "$.build.inputs.unityBuildProfile.digest", "Unity Build Profile digest must be lowercase SHA-256 hex.");
         }
-
     }
 
     private static void ValidateBuildOutput (
@@ -718,20 +812,55 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
             return;
         }
 
+        var expectedRefFound = false;
         foreach (var evidence in evidenceElement.EnumerateArray())
         {
             if (evidence.ValueKind == JsonValueKind.Object
                 && TryReadString(evidence, "evidenceRef", out var evidenceRef)
                 && string.Equals(evidenceRef, expectedEvidenceRef, StringComparison.Ordinal))
             {
-                return;
+                expectedRefFound = true;
+                if (!BuildClaimCodes.UnityBuildResultAccounted.EqualsValue(claimId)
+                    || EvidenceDataMatchesBuildRunnerResult(buildElement, evidence))
+                {
+                    return;
+                }
             }
+        }
+
+        if (expectedRefFound && BuildClaimCodes.UnityBuildResultAccounted.EqualsValue(claimId))
+        {
+            AddViolation(
+                violations,
+                BuildPropertyPath(claimPath, "evidence"),
+                "UNITY_BUILD_RESULT_ACCOUNTED evidence data must match payload.build.runnerResult.");
+            return;
         }
 
         AddViolation(
             violations,
             BuildPropertyPath(claimPath, "evidence"),
             $"Build claim {claimId} evidence must reference reports.{expectedEvidenceRef}.");
+    }
+
+    private static bool EvidenceDataMatchesBuildRunnerResult (
+        JsonElement buildElement,
+        JsonElement evidenceElement)
+    {
+        if (!buildElement.TryGetProperty("runnerResult", out var runnerResultElement)
+            || runnerResultElement.ValueKind != JsonValueKind.Object
+            || !evidenceElement.TryGetProperty("data", out var dataElement)
+            || dataElement.ValueKind != JsonValueKind.Object
+            || !TryReadString(runnerResultElement, "source", out var expectedSource)
+            || !TryReadString(runnerResultElement, "status", out var expectedStatus)
+            || !TryReadString(dataElement, "source", out var actualSource)
+            || !TryReadString(dataElement, "status", out var actualStatus))
+        {
+            return false;
+        }
+
+        return string.Equals(actualSource, expectedSource, StringComparison.Ordinal)
+            && string.Equals(actualStatus, expectedStatus, StringComparison.Ordinal);
     }
 
     private static void ValidateGenerationClaimEvidence (
@@ -929,6 +1058,49 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
         }
 
         return true;
+    }
+
+    private static bool IsArtifactRootRelativePath (string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)
+            || value.Contains('\\', StringComparison.Ordinal)
+            || value.Contains("//", StringComparison.Ordinal)
+            || value.StartsWith("/", StringComparison.Ordinal)
+            || value.StartsWith("\\", StringComparison.Ordinal)
+            || value.EndsWith("/", StringComparison.Ordinal)
+            || IsWindowsDriveQualifiedPath(value))
+        {
+            return false;
+        }
+
+        var remaining = value.AsSpan();
+        while (!remaining.IsEmpty)
+        {
+            var separatorIndex = remaining.IndexOf('/');
+            var segment = separatorIndex < 0 ? remaining : remaining[..separatorIndex];
+            if (segment.IsEmpty
+                || segment.SequenceEqual(".")
+                || segment.SequenceEqual(".."))
+            {
+                return false;
+            }
+
+            if (separatorIndex < 0)
+            {
+                return true;
+            }
+
+            remaining = remaining[(separatorIndex + 1)..];
+        }
+
+        return true;
+    }
+
+    private static bool IsWindowsDriveQualifiedPath (string value)
+    {
+        return value.Length >= 2
+            && char.IsAsciiLetter(value[0])
+            && value[1] == ':';
     }
 
     private static string BuildPropertyPath (

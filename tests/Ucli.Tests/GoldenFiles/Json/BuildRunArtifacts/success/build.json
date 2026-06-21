@@ -1,18 +1,16 @@
 {
   "schemaVersion": 1,
   "runId": "build-run-1",
-  "project": {
-    "projectPath": "/workspace/UnityProject",
-    "projectFingerprint": "project-fingerprint",
-    "unityVersion": "6000.1.4f1"
-  },
   "profile": {
     "path": "/workspace/UnityProject/.ucli/build/player.json",
     "digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
   },
-  "input": {
-    "buildTarget": "standaloneLinux64",
-    "unityBuildTarget": "StandaloneLinux64",
+  "inputs": {
+    "inputKind": "explicit",
+    "target": {
+      "stableName": "standaloneLinux64",
+      "unityBuildTarget": "StandaloneLinux64"
+    },
     "scenes": {
       "source": "explicit",
       "paths": [
@@ -22,6 +20,32 @@
     "options": {
       "development": true
     }
+  },
+  "runner": {
+    "kind": "buildPipeline",
+    "method": null,
+    "invocation": {
+      "arguments": {},
+      "environment": {
+        "variables": [],
+        "secrets": []
+      }
+    },
+    "outputLayout": {
+      "shape": "file",
+      "locationPathName": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/work/build/build-run-1/output/player/Player"
+    }
+  },
+  "runnerResult": {
+    "source": "buildPipelineBuildReport",
+    "status": "succeeded",
+    "summary": {
+      "durationMilliseconds": 2500,
+      "errorCount": 0,
+      "warningCount": 1
+    },
+    "diagnostics": [],
+    "buildReportRef": "buildReport"
   },
   "lifecycle": {
     "before": {
@@ -72,13 +96,6 @@
       "completedAtUtc": "2026-06-01T00:00:02.5+00:00"
     }
   },
-  "output": {
-    "manifestRef": "buildOutputManifest",
-    "manifestDigest": "59a71d71a244ad7a978be0bbfe8f87328c036091bb4b5aefef9e89b855d82b9b",
-    "entryCount": 1,
-    "fileCount": 2,
-    "totalBytes": 33
-  },
   "projectMutation": {
     "mode": "forbid",
     "coverage": "full",
@@ -89,22 +106,16 @@
   },
   "artifacts": {
     "buildReport": {
-      "path": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/build-report.json",
+      "path": "build-report.json",
       "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
     },
     "buildOutputManifest": {
-      "path": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/output-manifest.json",
+      "path": "output-manifest.json",
       "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
     },
     "buildLog": {
-      "path": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/build.log",
+      "path": "build.log",
       "digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
     }
-  },
-  "dirtyState": {
-    "checked": true,
-    "dirty": false,
-    "coverage": "full",
-    "items": []
   }
 }

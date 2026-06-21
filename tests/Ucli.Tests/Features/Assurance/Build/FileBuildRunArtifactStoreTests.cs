@@ -298,10 +298,11 @@ public sealed class FileBuildRunArtifactStoreTests
         var buildRoot = buildMetadata.RootElement;
         Assert.Equal(1, buildRoot.GetProperty("schemaVersion").GetInt32());
         Assert.Equal("run-1", buildRoot.GetProperty("runId").GetString());
+        Assert.False(buildRoot.TryGetProperty("project", out _));
+        Assert.False(buildRoot.TryGetProperty("input", out _));
+        Assert.False(buildRoot.TryGetProperty("output", out _));
+        Assert.False(buildRoot.TryGetProperty("dirtyState", out _));
         Assert.False(buildRoot.GetProperty("profile").TryGetProperty("output", out _));
-        Assert.False(buildRoot.GetProperty("output").TryGetProperty("kind", out _));
-        Assert.False(buildRoot.GetProperty("output").TryGetProperty("artifactRoot", out _));
-        Assert.False(buildRoot.GetProperty("output").TryGetProperty("outputRoot", out _));
         Assert.Equal("buildPipeline", buildRoot.GetProperty("runner").GetProperty("kind").GetString());
         Assert.Equal("file", buildRoot.GetProperty("runner").GetProperty("outputLayout").GetProperty("shape").GetString());
         Assert.Equal(
@@ -309,7 +310,8 @@ public sealed class FileBuildRunArtifactStoreTests
             buildRoot.GetProperty("runner").GetProperty("outputLayout").GetProperty("locationPathName").GetString());
         var inputs = buildRoot.GetProperty("inputs");
         Assert.Equal("explicit", inputs.GetProperty("inputKind").GetString());
-        Assert.Equal("standaloneLinux64", inputs.GetProperty("buildTarget").GetString());
+        Assert.Equal("standaloneLinux64", inputs.GetProperty("target").GetProperty("stableName").GetString());
+        Assert.Equal("StandaloneLinux64", inputs.GetProperty("target").GetProperty("unityBuildTarget").GetString());
 
         var artifacts = buildRoot.GetProperty("artifacts");
         Assert.Equal(
@@ -322,15 +324,15 @@ public sealed class FileBuildRunArtifactStoreTests
         Assert.False(artifacts.TryGetProperty(GetArtifactKey(BuildArtifactKind.Build), out _));
         AssertArtifactRef(
             artifacts.GetProperty(GetArtifactKey(BuildArtifactKind.BuildReport)),
-            ToRepositoryRelativeSlashPath(scope.FullPath, paths.BuildReportJsonPath),
+            UcliStoragePathNames.BuildReportFileName,
             result.BuildReport.Digest);
         AssertArtifactRef(
             artifacts.GetProperty(GetArtifactKey(BuildArtifactKind.BuildOutputManifest)),
-            ToRepositoryRelativeSlashPath(scope.FullPath, paths.OutputManifestJsonPath),
+            UcliStoragePathNames.BuildOutputManifestFileName,
             result.BuildOutputManifest.Digest);
         AssertArtifactRef(
             artifacts.GetProperty(GetArtifactKey(BuildArtifactKind.BuildLog)),
-            ToRepositoryRelativeSlashPath(scope.FullPath, paths.BuildLogPath),
+            UcliStoragePathNames.BuildLogFileName,
             result.BuildLog.Digest);
         await AssertFileSha256Async(paths.BuildJsonPath, buildRef.Digest);
         await AssertFileSha256Async(paths.BuildReportJsonPath, result.BuildReport.Digest);
@@ -781,18 +783,15 @@ public sealed class FileBuildRunArtifactStoreTests
         return new BuildRunMetadataDocument(
             1,
             runId,
-            ParseJsonElement("""{"projectPath":"/repo/UnityProject","projectFingerprint":"fingerprint","unityVersion":"6000.1.4f1"}"""),
             ParseJsonElement("""{"path":"/repo/.ucli/build/player.json","digest":"profile-digest"}"""),
+            ParseJsonElement("""{"inputKind":"explicit","target":{"stableName":"standaloneLinux64","unityBuildTarget":"StandaloneLinux64"},"scenes":{"source":"explicit","paths":["Assets/Scenes/Main.unity"]},"options":{"development":true}}"""),
             ParseJsonElement("""{"kind":"buildPipeline","method":null,"invocation":{"arguments":{},"environment":{"variables":[],"secrets":[]}},"outputLayout":{"shape":"file","locationPathName":"/repo/.ucli/local/fingerprints/fingerprint/work/build/run-1/output/player/Player"}}"""),
             ParseJsonElement("""{"source":"buildPipelineBuildReport","status":"succeeded","summary":{"durationMilliseconds":1,"errorCount":0,"warningCount":0},"diagnostics":[],"buildReportRef":"buildReport"}"""),
-            ParseJsonElement("""{"inputKind":"explicit","buildTarget":"standaloneLinux64","unityBuildTarget":"StandaloneLinux64","scenes":{"source":"explicit","paths":["Assets/Scenes/Main.unity"]},"options":{"development":true}}"""),
             ParseJsonElement("""{"state":"completed"}"""),
             ParseJsonElement("""{"compile":"42","domainReload":"7"}"""),
             ParseJsonElement("""{"result":"succeeded"}"""),
             ParseJsonElement("""{"buildLog":{"stream":"file"}}"""),
-            ParseJsonElement("""{"manifestDigest":"manifest-digest"}"""),
-            ParseJsonElement("""{"mode":"forbid","coverage":"full","mutated":false,"beforeDigest":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","afterDigest":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","items":[]}"""),
-            ParseJsonElement("""{"checked":true,"dirty":false,"coverage":"full","items":[]}"""));
+            ParseJsonElement("""{"mode":"forbid","coverage":"full","mutated":false,"beforeDigest":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","afterDigest":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","items":[]}"""));
     }
 
     private static JsonElement ParseJsonElement (string json)

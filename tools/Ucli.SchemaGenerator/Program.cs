@@ -665,9 +665,6 @@ internal static class Program
                 Required("path", StringSchema()),
                 Required("digest", Sha256LowerHexSchema()))),
             Required("inputs", CreateBuildRunInputsSchema()),
-            Required("buildTarget", StringSchema()),
-            Required("scenes", CreateBuildRunScenesSchema()),
-            Required("options", CreateBuildRunOptionsSchema()),
             Required("runner", CreateBuildRunRunnerSchema()),
             Required("runnerResult", CreateBuildRunRunnerResultSchema()),
             Required("output", ObjectSchema(
@@ -686,11 +683,7 @@ internal static class Program
                 additionalProperties: false,
                 Required(
                     "result",
-                    EnumSchema(
-                        Literal(IpcBuildReportResult.Succeeded),
-                        Literal(IpcBuildReportResult.Failed),
-                        Literal(IpcBuildReportResult.Canceled),
-                        Literal(IpcBuildReportResult.Unknown))),
+                    BuildRunTerminalResultSchema()),
                 Required("durationMilliseconds", IntegerSchema()),
                 Required("errorCount", IntegerSchema()),
                 Required("warningCount", IntegerSchema()),
@@ -706,24 +699,74 @@ internal static class Program
                     EnumSchema(
                         Literal(IpcBuildLogCompletionReason.Completed),
                         Literal(IpcBuildLogCompletionReason.Failed),
-                        Literal(IpcBuildLogCompletionReason.Canceled))),
+                    Literal(IpcBuildLogCompletionReason.Canceled))),
                 Required("window", ObjectSchema(
                     additionalProperties: false,
                     Required("startedAtUtc", StringSchema()),
                     Required("completedAtUtc", StringSchema()))))));
     }
 
-    private static Dictionary<string, object?> CreateBuildRunScenesSchema ()
+    private static Dictionary<string, object?> CreateBuildRunInputsSchema ()
     {
+        return OneOfSchema(
+            CreateBuildRunExplicitInputsSchema(),
+            CreateBuildRunUnityBuildProfileInputsSchema());
+    }
+
+    private static Dictionary<string, object?> CreateBuildRunExplicitInputsSchema ()
+    {
+        return CreateBuildRunResolvedInputsSchema(
+            inputKind: Literal(BuildProfileInputsKind.Explicit),
+            sceneSources:
+            [
+                Literal(BuildProfileSceneSource.EditorBuildSettings),
+                Literal(BuildProfileSceneSource.Explicit),
+            ],
+            extraProperties: []);
+    }
+
+    private static Dictionary<string, object?> CreateBuildRunUnityBuildProfileInputsSchema ()
+    {
+        return CreateBuildRunResolvedInputsSchema(
+            inputKind: Literal(BuildProfileInputsKind.UnityBuildProfile),
+            sceneSources:
+            [
+                Literal(BuildProfileSceneSource.UnityBuildProfile),
+            ],
+            extraProperties:
+            [
+                Required("unityBuildProfile", ObjectSchema(
+                    additionalProperties: false,
+                    Required("path", CreateBuildRunUnityBuildProfilePathSchema()),
+                    Required("digest", Sha256LowerHexSchema()))),
+            ]);
+    }
+
+    private static Dictionary<string, object?> CreateBuildRunResolvedInputsSchema (
+        string inputKind,
+        string[] sceneSources,
+        SchemaProperty[] extraProperties)
+    {
+        var properties = new List<SchemaProperty>
+        {
+            Required("inputKind", ConstString(inputKind)),
+            Required("target", ObjectSchema(
+                additionalProperties: false,
+                Required("stableName", StringSchema()),
+                Required("unityBuildTarget", StringSchema()))),
+            Required("scenes", ObjectSchema(
+                additionalProperties: false,
+                Required("source", EnumSchema(sceneSources)),
+                Required("paths", ArraySchema(StringSchema())))),
+            Required("options", ObjectSchema(
+                additionalProperties: false,
+                Required("development", BooleanSchema()))),
+        };
+        properties.AddRange(extraProperties);
+
         return ObjectSchema(
             additionalProperties: false,
-            Required(
-                "source",
-                EnumSchema(
-                    Literal(BuildProfileSceneSource.EditorBuildSettings),
-                    Literal(BuildProfileSceneSource.Explicit),
-                    Literal(BuildProfileSceneSource.UnityBuildProfile))),
-            Required("paths", ArraySchema(StringSchema())));
+            properties.ToArray());
     }
 
     private static Dictionary<string, object?> CreateBuildRunRunnerSchema ()
@@ -756,46 +799,15 @@ internal static class Program
                     Literal(IpcBuildRunnerResultSource.UcliBuildRunnerResult))),
             Required(
                 "status",
-                EnumSchema(
-                    Literal(IpcBuildReportResult.Succeeded),
-                    Literal(IpcBuildReportResult.Failed),
-                    Literal(IpcBuildReportResult.Canceled))));
+                BuildRunTerminalResultSchema()));
     }
 
-    private static Dictionary<string, object?> CreateBuildRunInputsSchema ()
+    private static Dictionary<string, object?> BuildRunTerminalResultSchema ()
     {
-        return OneOfSchema(
-            CreateBuildRunExplicitInputsSchema(),
-            CreateBuildRunUnityBuildProfileInputsSchema());
-    }
-
-    private static Dictionary<string, object?> CreateBuildRunExplicitInputsSchema ()
-    {
-        return ObjectSchema(
-            additionalProperties: false,
-            Required("inputKind", ConstString(Literal(BuildProfileInputsKind.Explicit))),
-            Required("buildTarget", StringSchema()),
-            Required("scenes", CreateBuildRunScenesSchema()),
-            Required("options", CreateBuildRunOptionsSchema()));
-    }
-
-    private static Dictionary<string, object?> CreateBuildRunUnityBuildProfileInputsSchema ()
-    {
-        return ObjectSchema(
-            additionalProperties: false,
-            Required("inputKind", ConstString(Literal(BuildProfileInputsKind.UnityBuildProfile))),
-            Required("buildTarget", StringSchema()),
-            Required("scenes", CreateBuildRunScenesSchema()),
-            Required("options", CreateBuildRunOptionsSchema()),
-            Required("unityBuildProfile", CreateBuildRunUnityBuildProfileSchema()));
-    }
-
-    private static Dictionary<string, object?> CreateBuildRunUnityBuildProfileSchema ()
-    {
-        return ObjectSchema(
-            additionalProperties: false,
-            Required("path", CreateBuildRunUnityBuildProfilePathSchema()),
-            Required("digest", Sha256LowerHexSchema()));
+        return EnumSchema(
+            Literal(IpcBuildReportResult.Succeeded),
+            Literal(IpcBuildReportResult.Failed),
+            Literal(IpcBuildReportResult.Canceled));
     }
 
     private static Dictionary<string, object?> CreateBuildRunUnityBuildProfilePathSchema ()

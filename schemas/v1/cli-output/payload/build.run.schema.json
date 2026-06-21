@@ -51,8 +51,21 @@
                       "type": "string",
                       "const": "explicit"
                     },
-                    "buildTarget": {
-                      "type": "string"
+                    "target": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "stableName": {
+                          "type": "string"
+                        },
+                        "unityBuildTarget": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "stableName",
+                        "unityBuildTarget"
+                      ]
                     },
                     "scenes": {
                       "type": "object",
@@ -62,8 +75,7 @@
                           "type": "string",
                           "enum": [
                             "editorBuildSettings",
-                            "explicit",
-                            "unityBuildProfile"
+                            "explicit"
                           ]
                         },
                         "paths": {
@@ -93,7 +105,7 @@
                   },
                   "required": [
                     "inputKind",
-                    "buildTarget",
+                    "target",
                     "scenes",
                     "options"
                   ]
@@ -106,8 +118,21 @@
                       "type": "string",
                       "const": "unityBuildProfile"
                     },
-                    "buildTarget": {
-                      "type": "string"
+                    "target": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "stableName": {
+                          "type": "string"
+                        },
+                        "unityBuildTarget": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "stableName",
+                        "unityBuildTarget"
+                      ]
                     },
                     "scenes": {
                       "type": "object",
@@ -116,8 +141,6 @@
                         "source": {
                           "type": "string",
                           "enum": [
-                            "editorBuildSettings",
-                            "explicit",
                             "unityBuildProfile"
                           ]
                         },
@@ -166,51 +189,12 @@
                   },
                   "required": [
                     "inputKind",
-                    "buildTarget",
+                    "target",
                     "scenes",
                     "options",
                     "unityBuildProfile"
                   ]
                 }
-              ]
-            },
-            "buildTarget": {
-              "type": "string"
-            },
-            "scenes": {
-              "type": "object",
-              "additionalProperties": false,
-              "properties": {
-                "source": {
-                  "type": "string",
-                  "enum": [
-                    "editorBuildSettings",
-                    "explicit",
-                    "unityBuildProfile"
-                  ]
-                },
-                "paths": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                }
-              },
-              "required": [
-                "source",
-                "paths"
-              ]
-            },
-            "options": {
-              "type": "object",
-              "additionalProperties": false,
-              "properties": {
-                "development": {
-                  "type": "boolean"
-                }
-              },
-              "required": [
-                "development"
               ]
             },
             "runner": {
@@ -359,8 +343,7 @@
                   "enum": [
                     "succeeded",
                     "failed",
-                    "canceled",
-                    "unknown"
+                    "canceled"
                   ]
                 },
                 "durationMilliseconds": {
@@ -441,9 +424,6 @@
             "runId",
             "profile",
             "inputs",
-            "buildTarget",
-            "scenes",
-            "options",
             "runner",
             "runnerResult",
             "output",

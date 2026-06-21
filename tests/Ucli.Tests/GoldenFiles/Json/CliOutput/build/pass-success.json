@@ -19,7 +19,10 @@
       },
       "inputs": {
         "inputKind": "explicit",
-        "buildTarget": "standaloneLinux64",
+        "target": {
+          "stableName": "standaloneLinux64",
+          "unityBuildTarget": "StandaloneLinux64"
+        },
         "scenes": {
           "source": "explicit",
           "paths": [
@@ -29,16 +32,6 @@
         "options": {
           "development": true
         }
-      },
-      "buildTarget": "standaloneLinux64",
-      "scenes": {
-        "source": "explicit",
-        "paths": [
-          "Assets/Scenes/Main.unity"
-        ]
-      },
-      "options": {
-        "development": true
       },
       "runner": {
         "kind": "buildPipeline",
@@ -257,13 +250,17 @@
         "verifierRef": "build",
         "statement": "Build result accounted.",
         "subject": {
-          "kind": "build",
-          "runId": "build-run-1"
+          "source": "buildPipelineBuildReport",
+          "status": "succeeded"
         },
         "evidence": [
           {
             "kind": "artifact",
-            "evidenceRef": "build"
+            "evidenceRef": "build",
+            "data": {
+              "source": "buildPipelineBuildReport",
+              "status": "succeeded"
+            }
           }
         ],
         "residualRisks": []
@@ -385,19 +382,19 @@
     ],
     "reports": {
       "build": {
-        "path": "/workspace/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/build.json",
+        "path": "build.json",
         "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
       },
       "buildReport": {
-        "path": "/workspace/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/build-report.json",
+        "path": "build-report.json",
         "digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
       },
       "buildOutputManifest": {
-        "path": "/workspace/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/output-manifest.json",
+        "path": "output-manifest.json",
         "digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
       },
       "buildLog": {
-        "path": "/workspace/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/build.log",
+        "path": "build.log",
         "digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
       }
     },

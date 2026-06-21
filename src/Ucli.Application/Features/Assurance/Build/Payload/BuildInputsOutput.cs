@@ -2,10 +2,10 @@ using System.Text.Json.Serialization;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Build.Payload;
 
-/// <summary> Represents the resolved build input source and derived BuildPipeline inputs. </summary>
+/// <summary> Represents the resolved build inputs emitted in public output. </summary>
 internal sealed record BuildInputsOutput (
     string InputKind,
-    string BuildTarget,
+    BuildTargetOutput Target,
     BuildScenesOutput Scenes,
     BuildOptionsOutput Options,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

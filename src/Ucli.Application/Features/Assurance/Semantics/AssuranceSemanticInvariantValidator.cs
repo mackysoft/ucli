@@ -39,6 +39,7 @@ internal sealed class AssuranceSemanticInvariantValidator
         var claims = ReadClaims(payload, reports, violations);
         var payloadResidualRisks = ReadResidualRisks(payload, "$.residualRisks", violations);
 
+        ValidateCommandSpecificPayload(payload, violations);
         ValidateClaimVerifierReferences(claims, verifiers, violations);
         ValidatePrimaryClaims(verifiers, claims, violations);
         ValidateVerdict(payload, claims, payloadResidualRisks, violations);
@@ -399,6 +400,16 @@ internal sealed class AssuranceSemanticInvariantValidator
             }
 
             index++;
+        }
+    }
+
+    private void ValidateCommandSpecificPayload (
+        JsonElement payload,
+        List<AssuranceSemanticInvariantViolation> violations)
+    {
+        for (var i = 0; i < rules.Count; i++)
+        {
+            rules[i].ValidatePayload(payload, violations);
         }
     }
 

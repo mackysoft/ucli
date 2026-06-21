@@ -19,7 +19,10 @@
       },
       "inputs": {
         "inputKind": "explicit",
-        "buildTarget": "standaloneLinux64",
+        "target": {
+          "stableName": "standaloneLinux64",
+          "unityBuildTarget": "StandaloneLinux64"
+        },
         "scenes": {
           "source": "explicit",
           "paths": [
@@ -29,16 +32,6 @@
         "options": {
           "development": true
         }
-      },
-      "buildTarget": "standaloneLinux64",
-      "scenes": {
-        "source": "explicit",
-        "paths": [
-          "Assets/Scenes/Main.unity"
-        ]
-      },
-      "options": {
-        "development": true
       },
       "runner": {
         "kind": "buildPipeline",
@@ -282,18 +275,16 @@
         "verifierRef": "build",
         "statement": "Build runner terminal result was persisted in build metadata.",
         "subject": {
-          "result": "succeeded"
+          "source": "buildPipelineBuildReport",
+          "status": "succeeded"
         },
         "evidence": [
           {
             "kind": "unityBuildReportRead",
             "evidenceRef": "build",
             "data": {
-              "result": "succeeded",
-              "durationMilliseconds": 2500,
-              "errorCount": 0,
-              "warningCount": 1,
-              "reportRef": "buildReport"
+              "source": "buildPipelineBuildReport",
+              "status": "succeeded"
             }
           }
         ],
@@ -461,19 +452,19 @@
     ],
     "reports": {
       "build": {
-        "path": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/build.json",
+        "path": "build.json",
         "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
       },
       "buildReport": {
-        "path": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/build-report.json",
+        "path": "build-report.json",
         "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
       },
       "buildOutputManifest": {
-        "path": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/output-manifest.json",
+        "path": "output-manifest.json",
         "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
       },
       "buildLog": {
-        "path": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/build.log",
+        "path": "build.log",
         "digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
       }
     },

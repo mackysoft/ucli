@@ -30,19 +30,16 @@ internal sealed class BuildRunMetadataDocumentWriter
             writer.WriteStartObject();
             writer.WriteNumber("schemaVersion", document.SchemaVersion);
             writer.WriteString("runId", document.RunId);
-            WriteElement(writer, "project", document.Project);
             WriteElement(writer, "profile", document.Profile);
+            WriteElement(writer, "inputs", document.Inputs);
             WriteElement(writer, "runner", document.Runner);
             WriteElement(writer, "runnerResult", document.RunnerResult);
-            WriteElement(writer, "inputs", document.Input);
             WriteElement(writer, "lifecycle", document.Lifecycle);
             WriteElement(writer, "generations", document.Generations);
             WriteElement(writer, "summary", document.Summary);
             WriteElement(writer, "logs", document.Logs);
-            WriteElement(writer, "output", document.Output);
             WriteElement(writer, "projectMutation", document.ProjectMutation);
             WriteArtifacts(writer, artifacts);
-            WriteElement(writer, "dirtyState", document.DirtyState);
             writer.WriteEndObject();
         }
 
