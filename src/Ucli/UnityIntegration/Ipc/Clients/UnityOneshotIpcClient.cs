@@ -12,6 +12,7 @@ using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
@@ -42,8 +43,6 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
 
     private readonly IUnityBatchmodeProcessLauncher batchmodeProcessLauncher;
 
-    private readonly IIpcEndpointResolver endpointResolver;
-
     private readonly IUnityIpcTransportClient transportClient;
 
     private readonly IProjectLifecycleLockProvider lifecycleLockProvider;
@@ -58,20 +57,17 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
 
     /// <summary> Initializes a new instance of the <see cref="UnityOneshotIpcClient" /> class. </summary>
     /// <param name="batchmodeProcessLauncher"> The Unity batchmode process launcher dependency. </param>
-    /// <param name="endpointResolver"> The IPC endpoint resolver dependency. </param>
     /// <param name="transportClient"> The shared IPC transport client dependency. </param>
     /// <param name="lifecycleLockProvider"> The project lifecycle lock provider dependency. </param>
     /// <param name="unityProjectLockPreflightService"> The Unity project lock preflight service dependency. </param>
     public UnityOneshotIpcClient (
         IUnityBatchmodeProcessLauncher batchmodeProcessLauncher,
-        IIpcEndpointResolver endpointResolver,
         IUnityIpcTransportClient transportClient,
         IProjectLifecycleLockProvider lifecycleLockProvider,
         IUnityProjectLockPreflightService unityProjectLockPreflightService,
         IUnityLogReader? unityLogReader = null)
         : this(
             batchmodeProcessLauncher,
-            endpointResolver,
             transportClient,
             lifecycleLockProvider,
             unityProjectLockPreflightService,
@@ -83,7 +79,6 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
 
     internal UnityOneshotIpcClient (
         IUnityBatchmodeProcessLauncher batchmodeProcessLauncher,
-        IIpcEndpointResolver endpointResolver,
         IUnityIpcTransportClient transportClient,
         IProjectLifecycleLockProvider lifecycleLockProvider,
         IUnityProjectLockPreflightService unityProjectLockPreflightService,
@@ -91,7 +86,6 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         TimeSpan cleanupRetryDelay)
         : this(
             batchmodeProcessLauncher,
-            endpointResolver,
             transportClient,
             lifecycleLockProvider,
             unityProjectLockPreflightService,
@@ -103,7 +97,6 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
 
     internal UnityOneshotIpcClient (
         IUnityBatchmodeProcessLauncher batchmodeProcessLauncher,
-        IIpcEndpointResolver endpointResolver,
         IUnityIpcTransportClient transportClient,
         IProjectLifecycleLockProvider lifecycleLockProvider,
         IUnityProjectLockPreflightService unityProjectLockPreflightService,
@@ -115,7 +108,6 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(cleanupRetryDelay, TimeSpan.Zero);
 
         this.batchmodeProcessLauncher = batchmodeProcessLauncher ?? throw new ArgumentNullException(nameof(batchmodeProcessLauncher));
-        this.endpointResolver = endpointResolver ?? throw new ArgumentNullException(nameof(endpointResolver));
         this.transportClient = transportClient ?? throw new ArgumentNullException(nameof(transportClient));
         this.lifecycleLockProvider = lifecycleLockProvider ?? throw new ArgumentNullException(nameof(lifecycleLockProvider));
         this.unityProjectLockPreflightService = unityProjectLockPreflightService ?? throw new ArgumentNullException(nameof(unityProjectLockPreflightService));
@@ -185,7 +177,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         var unityLogPath = UcliStoragePathResolver.ResolveUnityLogPath(
             unityProject.RepositoryRoot,
             unityProject.ProjectFingerprint);
-        var endpoint = endpointResolver.Resolve(
+        var endpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(
             unityProject.RepositoryRoot,
             unityProject.ProjectFingerprint);
 

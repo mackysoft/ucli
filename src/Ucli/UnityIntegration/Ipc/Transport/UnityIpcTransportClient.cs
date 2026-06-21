@@ -1,22 +1,18 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Infrastructure.Ipc;
 
 namespace MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 /// <summary> Implements transport-level IPC communication with Unity IPC endpoints. </summary>
 internal sealed class UnityIpcTransportClient : IUnityIpcTransportClient
 {
-    private readonly IIpcEndpointResolver endpointResolver;
-
     private readonly IIpcTransportClient transportClient;
 
     /// <summary> Initializes a new instance of the <see cref="UnityIpcTransportClient" /> class. </summary>
-    /// <param name="endpointResolver"> The endpoint resolver used to locate Unity IPC endpoints. </param>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="endpointResolver" /> is <see langword="null" />. </exception>
-    public UnityIpcTransportClient (
-        IIpcEndpointResolver endpointResolver,
-        IIpcTransportClient transportClient)
+    /// <param name="transportClient"> The IPC transport client dependency. </param>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="transportClient" /> is <see langword="null" />. </exception>
+    public UnityIpcTransportClient (IIpcTransportClient transportClient)
     {
-        this.endpointResolver = endpointResolver ?? throw new ArgumentNullException(nameof(endpointResolver));
         this.transportClient = transportClient ?? throw new ArgumentNullException(nameof(transportClient));
     }
 
@@ -42,7 +38,7 @@ internal sealed class UnityIpcTransportClient : IUnityIpcTransportClient
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         cancellationToken.ThrowIfCancellationRequested();
 
-        var endpoint = endpointResolver.Resolve(storageRoot, projectFingerprint);
+        var endpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(storageRoot, projectFingerprint);
         return await transportClient.SendAsync(endpoint, request, timeout, cancellationToken).ConfigureAwait(false);
     }
 
@@ -60,7 +56,7 @@ internal sealed class UnityIpcTransportClient : IUnityIpcTransportClient
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         cancellationToken.ThrowIfCancellationRequested();
 
-        var endpoint = endpointResolver.Resolve(storageRoot, projectFingerprint);
+        var endpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(storageRoot, projectFingerprint);
         return await transportClient.SendStreamingAsync(
                 endpoint,
                 request,

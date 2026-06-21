@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Catalog;
@@ -14,6 +15,7 @@ using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.EnvironmentVariables;
 using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
+using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Ipc;
 using CodeCatalogModel = MackySoft.Ucli.Application.Features.CodeCatalog.Catalog.CodeCatalog;
@@ -231,7 +233,8 @@ public sealed class BuildServiceTests
         Assert.NotEqual(preparedPaths.RunnerOutputDirectory, preparedPaths.ArtifactOutputDirectory);
         var accountingRequest = Assert.IsType<BuildRunArtifactAccountingRequest>(artifactStore.AccountingRequest);
         var outputSource = Assert.Single(accountingRequest.OutputSources);
-        Assert.Equal(requestPayload.OutputLayout.LocationPathName, outputSource.SourcePath);
+        Assert.False(outputSource.IsRunnerOutputRelative);
+        Assert.Equal(requestPayload.OutputLayout.LocationPathName, outputSource.Path);
         Assert.Equal("standaloneLinux64", accountingRequest.BuildTarget);
         Assert.Equal("StandaloneLinux64", accountingRequest.UnityBuildTarget);
         Assert.False(accountingRequest.AllowEmptyOutputManifest);
@@ -267,13 +270,8 @@ public sealed class BuildServiceTests
             ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
             ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
             errorCount: 0,
-            runnerResult: new IpcBuildRunnerResultArtifact(
-                Source: ContractLiteralCodec.ToValue(IpcBuildRunnerResultSource.UcliBuildRunnerResult),
-                Status: ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
-                DurationMilliseconds: 2500,
-                ErrorCount: 0,
-                WarningCount: 1,
-                Diagnostics: []));
+            runnerResult: CreateExecuteMethodRunnerResult(),
+            omitReport: true);
         var service = CreateService(
             profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(profileJson, profilePath)),
             environmentVariableReader: new StubEnvironmentVariableReader(new Dictionary<string, string?>(StringComparer.Ordinal)
@@ -312,8 +310,11 @@ public sealed class BuildServiceTests
         Assert.Equal(EnvironmentValue, payload.RunnerEnvironmentVariableValues["UCLI_MODE"]);
         Assert.Equal(SecretValue, payload.RunnerEnvironmentSecretValues["UCLI_SECRET"]);
         var accountingRequest = Assert.IsType<BuildRunArtifactAccountingRequest>(artifactStore.AccountingRequest);
-        Assert.Empty(accountingRequest.OutputSources);
-        Assert.True(accountingRequest.AllowEmptyOutputManifest);
+        Assert.Null(accountingRequest.BuildReport);
+        var outputSource = Assert.Single(accountingRequest.OutputSources);
+        Assert.True(outputSource.IsRunnerOutputRelative);
+        Assert.Equal("player.txt", outputSource.Path);
+        Assert.False(accountingRequest.AllowEmptyOutputManifest);
 
         var output = result.Output!;
         Assert.Equal("executeMethod", output.Build.Runner.Kind);
@@ -322,8 +323,13 @@ public sealed class BuildServiceTests
         Assert.Equal(output.Build.RunnerResult.Status, output.Build.Summary.Result);
         Assert.Equal(["UCLI_MODE"], output.Build.Runner.Invocation.Environment.Variables);
         Assert.Equal(["UCLI_SECRET"], output.Build.Runner.Invocation.Environment.Secrets);
+        Assert.Null(output.Build.Summary.ReportRef);
+        Assert.False(output.Reports.ContainsKey(BuildReportRefs.BuildReport));
+        Assert.DoesNotContain(output.Claims, static claim => claim.Id == BuildClaimCodes.UnityBuildReportAccounted.Value);
         Assert.DoesNotContain(EnvironmentValue, JsonSerializer.Serialize(output, PayloadSerializerOptions));
         Assert.DoesNotContain(SecretValue, JsonSerializer.Serialize(output, PayloadSerializerOptions));
+        var semanticResult = CreateBuildSemanticInvariantValidator().Validate(JsonSerializer.SerializeToElement(output, PayloadSerializerOptions));
+        Assert.True(semanticResult.IsValid, string.Join(Environment.NewLine, semanticResult.Violations.Select(static violation => $"{violation.Path}: {violation.Message}")));
         Assert.NotNull(artifactStore.WrittenMetadata);
         Assert.DoesNotContain(EnvironmentValue, JsonSerializer.Serialize(artifactStore.WrittenMetadata!, PayloadSerializerOptions));
         Assert.DoesNotContain(SecretValue, JsonSerializer.Serialize(artifactStore.WrittenMetadata!, PayloadSerializerOptions));
@@ -339,6 +345,41 @@ public sealed class BuildServiceTests
         Assert.Equal(
             ["UCLI_SECRET"],
             artifactStore.WrittenMetadata.Runner.GetProperty("invocation").GetProperty("environment").GetProperty("secrets").EnumerateArray().Select(static item => item.GetString()!).ToArray());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithExecuteMethodRunnerBuildReportPath_AccountsOptionalBuildReport ()
+    {
+        var profileJson = CreateExecuteMethodProfileJson(
+            method: "Build.Entry.Run",
+            arguments: string.Empty,
+            environment: string.Empty);
+        using var tempDirectory = TemporaryDirectory.Create();
+        var artifactStore = new StubBuildRunArtifactStore(tempDirectory.Path);
+        var service = CreateService(
+            profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(profileJson, "/workspace/build.ucli.json")),
+            requestExecutor: CreateBuildResponseExecutor(
+                ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+                errorCount: 0,
+                runnerResult: CreateExecuteMethodRunnerResult(buildReport: new IpcBuildRunnerResultBuildReport("reports/build-report.json")),
+                omitReport: true),
+            artifactStore: artifactStore);
+
+        var result = await service.ExecuteAsync(CreateInput());
+
+        Assert.True(result.IsSuccess, string.Join(Environment.NewLine, result.Errors.Select(static error => $"{error.Code}: {error.Message}")));
+        var accountingRequest = Assert.IsType<BuildRunArtifactAccountingRequest>(artifactStore.AccountingRequest);
+        Assert.NotNull(accountingRequest.BuildReport);
+        Assert.Equal("reports/build-report.json", accountingRequest.BuildReport.RunnerOutputRelativePath);
+        var output = result.Output!;
+        Assert.Equal(BuildReportRefs.BuildReport, output.Build.Summary.ReportRef);
+        Assert.True(output.Reports.ContainsKey(BuildReportRefs.BuildReport));
+        var reportClaim = Assert.Single(output.Claims, static claim => claim.Id == BuildClaimCodes.UnityBuildReportAccounted.Value);
+        Assert.False(reportClaim.Required);
+        var semanticResult = CreateBuildSemanticInvariantValidator().Validate(JsonSerializer.SerializeToElement(output, PayloadSerializerOptions));
+        Assert.True(semanticResult.IsValid, string.Join(Environment.NewLine, semanticResult.Violations.Select(static violation => $"{violation.Path}: {violation.Message}")));
     }
 
     [Fact]
@@ -476,13 +517,12 @@ public sealed class BuildServiceTests
                 ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
                 ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
                 errorCount: 0,
-                runnerResult: new IpcBuildRunnerResultArtifact(
-                    Source: ContractLiteralCodec.ToValue(IpcBuildRunnerResultSource.UcliBuildRunnerResult),
-                    Status: ContractLiteralCodec.ToValue(IpcBuildReportResult.Failed),
-                    DurationMilliseconds: 2500,
-                    ErrorCount: 1,
-                    WarningCount: 0,
-                    Diagnostics: [])),
+                runnerResult: CreateExecuteMethodRunnerResult(
+                    status: ContractLiteralCodec.ToValue(IpcBuildReportResult.Failed),
+                    outputs: [],
+                    errorCount: 1,
+                    warningCount: 0),
+                omitReport: true),
             artifactStore: new StubBuildRunArtifactStore(tempDirectory.Path));
 
         var result = await service.ExecuteAsync(CreateInput());
@@ -490,6 +530,247 @@ public sealed class BuildServiceTests
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithMissingExecuteMethodRunnerResult_ReturnsBuildRunnerResultMissing ()
+    {
+        var profileJson = CreateExecuteMethodProfileJson(
+            method: "Build.Entry.Run",
+            arguments: string.Empty,
+            environment: string.Empty);
+        using var tempDirectory = TemporaryDirectory.Create();
+        var service = CreateService(
+            profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(profileJson, "/workspace/build.ucli.json")),
+            requestExecutor: CreateBuildResponseExecutor(
+                ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+                errorCount: 0,
+                omitReport: true),
+            artifactStore: new StubBuildRunArtifactStore(tempDirectory.Path));
+
+        var result = await service.ExecuteAsync(CreateInput());
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(BuildErrorCodes.BuildRunnerResultMissing, error.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithExecuteMethodSucceededAndEmptyOutputs_ReturnsBuildRunnerResultInvalid ()
+    {
+        var result = await ExecuteWithExecuteMethodRunnerResultAsync(
+            CreateExecuteMethodRunnerResult(outputs: []));
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(BuildErrorCodes.BuildRunnerResultInvalid, error.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithExecuteMethodRunnerResultOutputsNull_ReturnsBuildRunnerResultInvalid ()
+    {
+        var result = await ExecuteWithMalformedExecuteMethodRunnerResultPayloadAsync(
+            static payload => payload["runnerResult"]!.AsObject()["outputs"] = null);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(BuildErrorCodes.BuildRunnerResultInvalid, error.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithExecuteMethodRunnerResultOutputsMissing_ReturnsBuildRunnerResultInvalid ()
+    {
+        var result = await ExecuteWithMalformedExecuteMethodRunnerResultPayloadAsync(
+            static payload => payload["runnerResult"]!.AsObject().Remove("outputs"));
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(BuildErrorCodes.BuildRunnerResultInvalid, error.Code);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [MemberData(nameof(GetInvalidExecuteMethodRunnerResultShapeCases))]
+    public async Task Execute_WithInvalidExecuteMethodRunnerResultPayloadShape_ReturnsBuildRunnerResultInvalid (
+        Action<JsonObject> mutatePayload)
+    {
+        var result = await ExecuteWithMalformedExecuteMethodRunnerResultPayloadAsync(mutatePayload);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(BuildErrorCodes.BuildRunnerResultInvalid, error.Code);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [MemberData(nameof(GetDuplicateExecuteMethodRunnerResultPropertyCases))]
+    public async Task Execute_WithDuplicateExecuteMethodRunnerResultProperty_ReturnsBuildRunnerResultInvalid (
+        Func<string, string> mutatePayloadJson)
+    {
+        var result = await ExecuteWithMalformedExecuteMethodRunnerResultRawPayloadAsync(mutatePayloadJson);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(BuildErrorCodes.BuildRunnerResultInvalid, error.Code);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData(IpcBuildReportResult.Failed, IpcBuildLogCompletionReason.Failed)]
+    [InlineData(IpcBuildReportResult.Canceled, IpcBuildLogCompletionReason.Canceled)]
+    public async Task Execute_WithUnsuccessfulExecuteMethodAndEmptyOutputs_AllowsEmptyOutputManifest (
+        IpcBuildReportResult runnerStatus,
+        IpcBuildLogCompletionReason completionReason)
+    {
+        using var tempDirectory = TemporaryDirectory.Create();
+        var artifactStore = new StubBuildRunArtifactStore(tempDirectory.Path);
+        var result = await ExecuteWithExecuteMethodRunnerResultAsync(
+            CreateExecuteMethodRunnerResult(
+                status: ContractLiteralCodec.ToValue(runnerStatus),
+                outputs: [],
+                errorCount: runnerStatus == IpcBuildReportResult.Failed ? 1 : 0,
+                warningCount: 0),
+            ContractLiteralCodec.ToValue(completionReason),
+            artifactStore);
+
+        Assert.True(result.IsSuccess, string.Join(Environment.NewLine, result.Errors.Select(static error => $"{error.Code}: {error.Message}")));
+        var accountingRequest = Assert.IsType<BuildRunArtifactAccountingRequest>(artifactStore.AccountingRequest);
+        Assert.Empty(accountingRequest.OutputSources);
+        Assert.True(accountingRequest.AllowEmptyOutputManifest);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithInvalidExecuteMethodOutputPath_ReturnsBuildOutputPathInvalid ()
+    {
+        var result = await ExecuteWithExecuteMethodRunnerResultAsync(
+            CreateExecuteMethodRunnerResult(outputs: ["../player"]),
+            writeRunnerResultOutputs: false);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(BuildErrorCodes.BuildOutputPathInvalid, error.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithMissingDeclaredExecuteMethodOutput_ReturnsBuildRunnerResultInvalid ()
+    {
+        using var tempDirectory = TemporaryDirectory.Create();
+        var artifactStore = new StubBuildRunArtifactStore(
+            tempDirectory.Path,
+            accountArtifactsOverride: static (_, _) => ValueTask.FromResult(BuildRunArtifactAccountingOperationResult.Failure(
+                ExecutionError.InvalidArgument(
+                    "Build runner result declared an output source that does not exist.",
+                    BuildErrorCodes.BuildRunnerResultInvalid))));
+        var result = await ExecuteWithExecuteMethodRunnerResultAsync(
+            CreateExecuteMethodRunnerResult(outputs: ["missing-player"]),
+            "completed",
+            artifactStore);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(BuildErrorCodes.BuildRunnerResultInvalid, error.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithInvalidExecuteMethodBuildReportPath_ReturnsBuildRunnerResultInvalid ()
+    {
+        var result = await ExecuteWithExecuteMethodRunnerResultAsync(
+            CreateExecuteMethodRunnerResult(buildReport: new IpcBuildRunnerResultBuildReport("../build-report.json")),
+            writeRunnerBuildReportSource: false);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(BuildErrorCodes.BuildRunnerResultInvalid, error.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithMissingExecuteMethodBuildReportSource_ReturnsBuildReportMissing ()
+    {
+        using var tempDirectory = TemporaryDirectory.Create();
+        var artifactStore = new StubBuildRunArtifactStore(
+            tempDirectory.Path,
+            accountArtifactsOverride: static (_, _) => ValueTask.FromResult(BuildRunArtifactAccountingOperationResult.Failure(
+                ExecutionError.InternalError(
+                    "BuildReport source file was not found.",
+                    BuildErrorCodes.BuildReportMissing))));
+        var result = await ExecuteWithExecuteMethodRunnerResultAsync(
+            CreateExecuteMethodRunnerResult(buildReport: new IpcBuildRunnerResultBuildReport("reports/build-report.json")),
+            "completed",
+            artifactStore);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(BuildErrorCodes.BuildReportMissing, error.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithInvalidExecuteMethodBuildReportSource_ReturnsBuildReportMissing ()
+    {
+        using var tempDirectory = TemporaryDirectory.Create();
+        var artifactStore = new StubBuildRunArtifactStore(
+            tempDirectory.Path,
+            accountArtifactsOverride: static (_, _) => ValueTask.FromResult(BuildRunArtifactAccountingOperationResult.Failure(
+                ExecutionError.InternalError(
+                    "BuildReport source is not a valid uCLI BuildReport JSON artifact.",
+                    BuildErrorCodes.BuildReportMissing))));
+        var result = await ExecuteWithExecuteMethodRunnerResultAsync(
+            CreateExecuteMethodRunnerResult(buildReport: new IpcBuildRunnerResultBuildReport("reports/build-report.json")),
+            "completed",
+            artifactStore);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(BuildErrorCodes.BuildReportMissing, error.Code);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("unsupported", 2500, 0, 1)]
+    [InlineData("succeeded", -1, 0, 1)]
+    public async Task Execute_WithInvalidExecuteMethodRunnerResultShape_ReturnsBuildRunnerResultInvalid (
+        string status,
+        long durationMilliseconds,
+        int errorCount,
+        int warningCount)
+    {
+        var result = await ExecuteWithExecuteMethodRunnerResultAsync(
+            CreateExecuteMethodRunnerResult(
+                status: status,
+                durationMilliseconds: durationMilliseconds,
+                errorCount: errorCount,
+                warningCount: warningCount));
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(BuildErrorCodes.BuildRunnerResultInvalid, error.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithInvalidExecuteMethodDiagnostics_ReturnsBuildRunnerResultInvalid ()
+    {
+        var result = await ExecuteWithExecuteMethodRunnerResultAsync(
+            CreateExecuteMethodRunnerResult(diagnostics:
+            [
+                new IpcBuildRunnerDiagnostic(
+                    Severity: "verbose",
+                    Code: "diagnostic",
+                    Message: "Unsupported severity"),
+            ]));
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(BuildErrorCodes.BuildRunnerResultInvalid, error.Code);
     }
 
     [Fact]
@@ -1534,11 +1815,27 @@ public sealed class BuildServiceTests
         IpcBuildLifecycleSnapshot? lifecycleAfter = null,
         string? reportOutputPath = null,
         IpcBuildProjectMutationAudit? projectMutation = null,
-        IpcBuildRunnerResultArtifact? runnerResult = null)
+        IpcBuildRunnerResultArtifact? runnerResult = null,
+        bool omitReport = false,
+        bool writeRunnerResultOutputs = true,
+        bool writeRunnerBuildReportSource = true,
+        string? runnerBuildReportSourceJson = null)
     {
         return new StubUnityRequestExecutor(payload =>
         {
             var buildRunPayload = (UnityRequestPayload.BuildRun)payload;
+            if (runnerResult != null)
+            {
+                WriteRunnerResultFiles(
+                    buildRunPayload,
+                    runnerResult,
+                    reportResult,
+                    errorCount,
+                    writeRunnerResultOutputs,
+                    writeRunnerBuildReportSource,
+                    runnerBuildReportSourceJson);
+            }
+
             return CreateBuildResponseResult(
                 reportResult,
                 completionReason,
@@ -1552,8 +1849,162 @@ public sealed class BuildServiceTests
                 lifecycleAfter,
                 reportOutputPath: reportOutputPath ?? buildRunPayload.OutputLayout?.LocationPathName ?? buildRunPayload.OutputPath,
                 projectMutation: projectMutation,
-                runnerResult: runnerResult);
+                runnerResult: runnerResult,
+                omitReport: omitReport);
         });
+    }
+
+    private static async Task<BuildExecutionResult> ExecuteWithExecuteMethodRunnerResultAsync (
+        IpcBuildRunnerResultArtifact runnerResult,
+        string completionReason,
+        StubBuildRunArtifactStore artifactStore,
+        bool writeRunnerResultOutputs = true,
+        bool writeRunnerBuildReportSource = true,
+        string? runnerBuildReportSourceJson = null)
+    {
+        var profileJson = CreateExecuteMethodProfileJson(
+            method: "Build.Entry.Run",
+            arguments: string.Empty,
+            environment: string.Empty);
+        var service = CreateService(
+            profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(profileJson, "/workspace/build.ucli.json")),
+            requestExecutor: CreateBuildResponseExecutor(
+                runnerResult.Status,
+                completionReason,
+                runnerResult.ErrorCount,
+                runnerResult: runnerResult,
+                omitReport: true,
+                writeRunnerResultOutputs: writeRunnerResultOutputs,
+                writeRunnerBuildReportSource: writeRunnerBuildReportSource,
+                runnerBuildReportSourceJson: runnerBuildReportSourceJson),
+            artifactStore: artifactStore);
+
+        return await service.ExecuteAsync(CreateInput());
+    }
+
+    private static async Task<BuildExecutionResult> ExecuteWithExecuteMethodRunnerResultAsync (
+        IpcBuildRunnerResultArtifact runnerResult,
+        string completionReason = "completed",
+        bool writeRunnerResultOutputs = true,
+        bool writeRunnerBuildReportSource = true,
+        string? runnerBuildReportSourceJson = null)
+    {
+        using var tempDirectory = TemporaryDirectory.Create();
+        return await ExecuteWithExecuteMethodRunnerResultAsync(
+            runnerResult,
+            completionReason,
+            new StubBuildRunArtifactStore(tempDirectory.Path),
+            writeRunnerResultOutputs,
+            writeRunnerBuildReportSource,
+            runnerBuildReportSourceJson);
+    }
+
+    public static IEnumerable<object[]> GetInvalidExecuteMethodRunnerResultShapeCases ()
+    {
+        yield return
+        [
+            (Action<JsonObject>)(static payload => payload["runnerResult"] = new JsonArray()),
+        ];
+        yield return
+        [
+            (Action<JsonObject>)(static payload => payload["runnerResult"]!.AsObject()["extra"] = true),
+        ];
+        yield return
+        [
+            (Action<JsonObject>)(static payload => payload["runnerResult"]!.AsObject()["outputs"] = "player.txt"),
+        ];
+        yield return
+        [
+            (Action<JsonObject>)(static payload => payload["runnerResult"]!.AsObject()["outputs"] = new JsonArray(1)),
+        ];
+        yield return
+        [
+            (Action<JsonObject>)(static payload => payload["runnerResult"]!.AsObject()["buildReport"] = new JsonObject
+            {
+                ["path"] = 1,
+            }),
+        ];
+    }
+
+    public static IEnumerable<object[]> GetDuplicateExecuteMethodRunnerResultPropertyCases ()
+    {
+        yield return
+        [
+            (Func<string, string>)(static json => json.Replace(
+                "\"outputs\":[]",
+                "\"outputs\":[],\"Outputs\":[]",
+                StringComparison.Ordinal)),
+        ];
+        yield return
+        [
+            (Func<string, string>)(static json => json.Replace(
+                "\"diagnostics\":[]",
+                "\"diagnostics\":[{\"code\":\"D\",\"Code\":\"E\",\"severity\":\"error\",\"message\":\"m\"}]",
+                StringComparison.Ordinal)),
+        ];
+        yield return
+        [
+            (Func<string, string>)(static json => json.Replace(
+                "\"buildReport\":null",
+                "\"buildReport\":{\"path\":\"reports/a.json\",\"Path\":\"reports/b.json\"}",
+                StringComparison.Ordinal)),
+        ];
+    }
+
+    private static Task<BuildExecutionResult> ExecuteWithMalformedExecuteMethodRunnerResultPayloadAsync (
+        Action<JsonObject> mutatePayload)
+    {
+        return ExecuteWithMalformedExecuteMethodRunnerResultRawPayloadAsync(payloadJson =>
+        {
+            var payloadObject = JsonNode.Parse(payloadJson)!.AsObject();
+            mutatePayload(payloadObject);
+            return payloadObject.ToJsonString();
+        });
+    }
+
+    private static async Task<BuildExecutionResult> ExecuteWithMalformedExecuteMethodRunnerResultRawPayloadAsync (
+        Func<string, string> mutatePayloadJson)
+    {
+        using var tempDirectory = TemporaryDirectory.Create();
+        var runnerResult = CreateExecuteMethodRunnerResult(
+            status: ContractLiteralCodec.ToValue(IpcBuildReportResult.Failed),
+            outputs: [],
+            errorCount: 1,
+            warningCount: 0);
+        var profileJson = CreateExecuteMethodProfileJson(
+            method: "Build.Entry.Run",
+            arguments: string.Empty,
+            environment: string.Empty);
+        var service = CreateService(
+            profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(profileJson, "/workspace/build.ucli.json")),
+            requestExecutor: new StubUnityRequestExecutor(payload =>
+            {
+                var buildRunPayload = (UnityRequestPayload.BuildRun)payload;
+                WriteRunnerResultFiles(
+                    buildRunPayload,
+                    runnerResult,
+                    runnerResult.Status,
+                    runnerResult.ErrorCount,
+                    writeOutputs: true,
+                    writeBuildReportSource: true,
+                    buildReportSourceJson: null);
+                var result = CreateBuildResponseResult(
+                    runnerResult.Status,
+                    ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Failed),
+                    runnerResult.ErrorCount,
+                    reportOutputPath: buildRunPayload.OutputPath,
+                    runnerResult: runnerResult,
+                    omitReport: true);
+                var response = result.Response!;
+                using var document = JsonDocument.Parse(mutatePayloadJson(response.Payload.GetRawText()));
+                return UnityRequestExecutionResult.Success(response with
+                {
+                    Payload = document.RootElement.Clone(),
+                });
+            }),
+            artifactStore: new StubBuildRunArtifactStore(tempDirectory.Path));
+
+        return await service.ExecuteAsync(CreateInput());
     }
 
     private static UnityRequestExecutionResult CreateBuildResponseResult (
@@ -1569,7 +2020,8 @@ public sealed class BuildServiceTests
         IpcBuildLifecycleSnapshot? lifecycleAfter = null,
         string? reportOutputPath = null,
         IpcBuildProjectMutationAudit? projectMutation = null,
-        IpcBuildRunnerResultArtifact? runnerResult = null)
+        IpcBuildRunnerResultArtifact? runnerResult = null,
+        bool omitReport = false)
     {
         return UnityRequestExecutionResult.Success(new UnityRequestResponse(
             IpcPayloadCodec.SerializeToElement(new IpcBuildRunResponse(
@@ -1583,29 +2035,13 @@ public sealed class BuildServiceTests
                     Coverage: ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Full),
                     Items: []),
                 Input: CreateInputProbe(sceneSource, scenes, buildTarget, unityBuildTarget, buildOptions),
-                Report: new IpcBuildReportArtifact(
-                    SchemaVersion: 1,
-                    Result: reportResult,
-                    UnityBuildTarget: unityBuildTarget ?? "StandaloneLinux64",
-                    OutputPath: reportOutputPath ?? "/workspace/.ucli/output/player/Player",
-                    DurationMilliseconds: 2500,
-                    TotalSizeBytes: 4096,
-                    ErrorCount: errorCount,
-                    WarningCount: 1,
-                    Steps:
-                    [
-                        new IpcBuildReportStep(
-                            Name: "Build player",
-                            DurationMilliseconds: 2500,
-                            Depth: 0,
-                            MessageCount: 1),
-                    ],
-                    Messages:
-                    [
-                        new IpcBuildReportMessage(
-                            Type: errorCount == 0 ? "warning" : "error",
-                            Content: errorCount == 0 ? "Sample warning" : "Sample error"),
-                    ]),
+                Report: omitReport
+                    ? null
+                    : CreateBuildReportArtifact(
+                        reportResult,
+                        unityBuildTarget ?? "StandaloneLinux64",
+                        reportOutputPath ?? "/workspace/.ucli/output/player/Player",
+                        errorCount),
                 Logs: new IpcBuildLogSummary(
                     EntryCount: errorCount == 0 ? 3 : 4,
                     ErrorCount: errorCount,
@@ -1620,6 +2056,98 @@ public sealed class BuildServiceTests
             }),
             [],
             HasFailureStatus: false));
+    }
+
+    private static void WriteRunnerResultFiles (
+        UnityRequestPayload.BuildRun buildRunPayload,
+        IpcBuildRunnerResultArtifact runnerResult,
+        string reportResult,
+        int errorCount,
+        bool writeOutputs,
+        bool writeBuildReportSource,
+        string? buildReportSourceJson)
+    {
+        if (writeOutputs)
+        {
+            foreach (var output in runnerResult.Outputs)
+            {
+                var outputPath = Path.Combine(buildRunPayload.OutputPath, output);
+                Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
+                File.WriteAllText(outputPath, "runner output");
+            }
+        }
+
+        if (writeBuildReportSource && runnerResult.BuildReport != null)
+        {
+            var buildReportSourcePath = Path.Combine(buildRunPayload.OutputPath, runnerResult.BuildReport.Path);
+            Directory.CreateDirectory(Path.GetDirectoryName(buildReportSourcePath)!);
+            if (buildReportSourceJson != null)
+            {
+                File.WriteAllText(buildReportSourcePath, buildReportSourceJson);
+            }
+            else
+            {
+                var buildReport = CreateBuildReportArtifact(
+                    reportResult,
+                    buildRunPayload.UnityBuildTarget,
+                    buildRunPayload.OutputPath,
+                    errorCount);
+                File.WriteAllText(buildReportSourcePath, IpcPayloadCodec.SerializeToElement(buildReport).GetRawText());
+            }
+        }
+    }
+
+    private static IpcBuildRunnerResultArtifact CreateExecuteMethodRunnerResult (
+        string? status = null,
+        IReadOnlyList<string>? outputs = null,
+        IpcBuildRunnerResultBuildReport? buildReport = null,
+        long durationMilliseconds = 2500,
+        int errorCount = 0,
+        int warningCount = 1,
+        IReadOnlyList<IpcBuildRunnerDiagnostic>? diagnostics = null)
+    {
+        return new IpcBuildRunnerResultArtifact(
+            Source: ContractLiteralCodec.ToValue(IpcBuildRunnerResultSource.UcliBuildRunnerResult),
+            Status: status ?? ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+            DurationMilliseconds: durationMilliseconds,
+            ErrorCount: errorCount,
+            WarningCount: warningCount,
+            Diagnostics: diagnostics ?? [])
+        {
+            Outputs = outputs ?? ["player.txt"],
+            BuildReport = buildReport,
+        };
+    }
+
+    private static IpcBuildReportArtifact CreateBuildReportArtifact (
+        string reportResult,
+        string unityBuildTarget,
+        string outputPath,
+        int errorCount)
+    {
+        return new IpcBuildReportArtifact(
+            SchemaVersion: 1,
+            Result: reportResult,
+            UnityBuildTarget: unityBuildTarget,
+            OutputPath: outputPath,
+            DurationMilliseconds: 2500,
+            TotalSizeBytes: 4096,
+            ErrorCount: errorCount,
+            WarningCount: 1,
+            Steps:
+            [
+                new IpcBuildReportStep(
+                    Name: "Build player",
+                    DurationMilliseconds: 2500,
+                    Depth: 0,
+                    MessageCount: 1),
+            ],
+            Messages:
+            [
+                new IpcBuildReportMessage(
+                    Type: errorCount == 0 ? "warning" : "error",
+                    Content: errorCount == 0 ? "Sample warning" : "Sample error"),
+            ]);
     }
 
     private static IpcBuildLifecycleSnapshot CreateLifecycleSnapshot (
@@ -1958,15 +2486,18 @@ public sealed class BuildServiceTests
                 return accountArtifactsOverride(request, cancellationToken);
             }
 
+            var buildReport = request.BuildReport == null
+                ? null
+                : new BuildArtifactRef(BuildArtifactKind.BuildReport, "build-report.json", BuildReportArtifactDigest);
             return ValueTask.FromResult(BuildRunArtifactAccountingOperationResult.Success(new BuildRunArtifactAccountingResult(
-                BuildReport: new BuildArtifactRef(BuildArtifactKind.BuildReport, "build-report.json", BuildReportArtifactDigest),
+                BuildReport: buildReport,
                 BuildOutputManifest: new BuildArtifactRef(BuildArtifactKind.BuildOutputManifest, "output-manifest.json", BuildOutputManifestArtifactDigest),
                 BuildLog: new BuildArtifactRef(BuildArtifactKind.BuildLog, "build.log", BuildLogArtifactDigest),
                 OutputManifest: new BuildOutputManifestSummary(
                     ManifestDigest: OutputManifestDigest,
-                    EntryCount: 1,
-                    FileCount: 1,
-                    TotalBytes: 12))));
+                    EntryCount: request.OutputSources.Count,
+                    FileCount: request.OutputSources.Count,
+                    TotalBytes: request.OutputSources.Count == 0 ? 0 : 12))));
         }
 
         public ValueTask<BuildArtifactRefWriteResult> WriteMetadataAsync (

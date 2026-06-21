@@ -1,7 +1,7 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Contracts.Ipc;
-
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Features.Daemon.Supervisor.Host;
 
@@ -132,7 +132,7 @@ internal sealed class SupervisorHost
 
     private SupervisorRuntimeContext CreateRuntimeContext (string repositoryRoot)
     {
-        var storageRoot = Path.GetFullPath(repositoryRoot);
+        var storageRoot = UcliStoragePathResolver.NormalizeStorageRootPath(repositoryRoot);
         var endpoint = endpointResolver.Resolve(storageRoot);
         return new SupervisorRuntimeContext(
             storageRoot,

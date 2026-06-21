@@ -13,4 +13,11 @@ public sealed record IpcBuildRunnerResultArtifact (
     long DurationMilliseconds,
     int ErrorCount,
     int WarningCount,
-    IReadOnlyList<IpcBuildRunnerDiagnostic> Diagnostics);
+    IReadOnlyList<IpcBuildRunnerDiagnostic> Diagnostics)
+{
+    /// <summary> Gets the runner-declared output paths relative to the runner output directory. </summary>
+    public IReadOnlyList<string> Outputs { get; init; } = Array.Empty<string>();
+
+    /// <summary> Gets optional BuildReport evidence source declared by the runner. </summary>
+    public IpcBuildRunnerResultBuildReport? BuildReport { get; init; }
+}

@@ -9,7 +9,6 @@ using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Tests.TestDoubles;
 
 public sealed class DaemonCleanupOperationTests
@@ -28,8 +27,7 @@ public sealed class DaemonCleanupOperationTests
                 ReadResult = DaemonSessionReadResult.Success(null),
             },
             daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new SocketException((int)SocketError.ConnectionRefused))),
-            artifactCleaner: artifactCleaner,
-            endpointResolver: new StubEndpointResolver(new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test")));
+            artifactCleaner: artifactCleaner);
 
         var result = await operation.CleanupAsync(CreateContext("fingerprint-cleanup-none"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
@@ -51,8 +49,7 @@ public sealed class DaemonCleanupOperationTests
             artifactCleaner: new StubDaemonArtifactCleaner
             {
                 NextResult = DaemonArtifactCleanupResult.Success(deletedLaunchAttemptCount: 3),
-            },
-            endpointResolver: new StubEndpointResolver(new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test")));
+            });
 
         var result = await operation.CleanupAsync(CreateContext("fingerprint-cleanup-deleted-attempts"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
@@ -72,8 +69,7 @@ public sealed class DaemonCleanupOperationTests
                 ReadResult = DaemonSessionReadResult.Success(null),
             },
             daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new DaemonPingResponseException("token invalid", IpcSessionErrorCodes.SessionTokenInvalid))),
-            artifactCleaner: artifactCleaner,
-            endpointResolver: new StubEndpointResolver(new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test")));
+            artifactCleaner: artifactCleaner);
 
         var result = await operation.CleanupAsync(CreateContext("fingerprint-cleanup-none-live"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
@@ -95,8 +91,7 @@ public sealed class DaemonCleanupOperationTests
                 ReadResult = DaemonSessionReadResult.Success(session),
             },
             daemonPingClient: new StubDaemonPingClient(static () => ValueTask.CompletedTask),
-            artifactCleaner: artifactCleaner,
-            endpointResolver: new StubEndpointResolver(new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test")));
+            artifactCleaner: artifactCleaner);
 
         var result = await operation.CleanupAsync(CreateContext("fingerprint-cleanup-running"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
@@ -118,8 +113,7 @@ public sealed class DaemonCleanupOperationTests
                 ReadResult = DaemonSessionReadResult.Success(session),
             },
             daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new DaemonPingResponseException("token invalid", IpcSessionErrorCodes.SessionTokenInvalid))),
-            artifactCleaner: artifactCleaner,
-            endpointResolver: new StubEndpointResolver(new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test")));
+            artifactCleaner: artifactCleaner);
 
         var result = await operation.CleanupAsync(CreateContext("fingerprint-cleanup-token-invalid"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
@@ -141,8 +135,7 @@ public sealed class DaemonCleanupOperationTests
                 ReadResult = DaemonSessionReadResult.Success(session),
             },
             daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new DaemonPingResponseException("token required", IpcSessionErrorCodes.SessionTokenRequired))),
-            artifactCleaner: artifactCleaner,
-            endpointResolver: new StubEndpointResolver(new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test")));
+            artifactCleaner: artifactCleaner);
 
         var result = await operation.CleanupAsync(CreateContext("fingerprint-cleanup-token-required"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
@@ -167,8 +160,7 @@ public sealed class DaemonCleanupOperationTests
                 ReadResult = DaemonSessionReadResult.Success(session),
             },
             daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new SocketException((int)SocketError.ConnectionRefused))),
-            artifactCleaner: artifactCleaner,
-            endpointResolver: new StubEndpointResolver(new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test")));
+            artifactCleaner: artifactCleaner);
 
         var result = await operation.CleanupAsync(CreateContext("fingerprint-cleanup-stale"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
@@ -189,8 +181,7 @@ public sealed class DaemonCleanupOperationTests
                 ReadResult = DaemonSessionReadResult.Success(session),
             },
             daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new SocketException((int)SocketError.AccessDenied))),
-            artifactCleaner: artifactCleaner,
-            endpointResolver: new StubEndpointResolver(new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test")));
+            artifactCleaner: artifactCleaner);
 
         var result = await operation.CleanupAsync(CreateContext("fingerprint-cleanup-access-denied"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
@@ -314,8 +305,7 @@ public sealed class DaemonCleanupOperationTests
             invalidSessionCleanupSafetyEvaluator: new StubDaemonInvalidSessionCleanupSafetyEvaluator
             {
                 RequiresUnsafeSkipResult = false,
-            },
-            endpointResolver: new StubEndpointResolver(new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test")));
+            });
 
         var result = await operation.CleanupAsync(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
@@ -341,8 +331,7 @@ public sealed class DaemonCleanupOperationTests
                     DaemonSessionReadFailureKind.InvalidSession),
             },
             daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new SocketException((int)SocketError.ConnectionRefused))),
-            artifactCleaner: artifactCleaner,
-            endpointResolver: new StubEndpointResolver(new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test")));
+            artifactCleaner: artifactCleaner);
 
         var result = await operation.CleanupAsync(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
@@ -399,8 +388,7 @@ public sealed class DaemonCleanupOperationTests
             invalidSessionCleanupSafetyEvaluator: new StubDaemonInvalidSessionCleanupSafetyEvaluator
             {
                 RequiresUnsafeSkipResult = true,
-            },
-            endpointResolver: new StubEndpointResolver(new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test")));
+            });
 
         var result = await operation.CleanupAsync(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
@@ -444,8 +432,7 @@ public sealed class DaemonCleanupOperationTests
                 ReadResult = DaemonSessionReadResult.Success(CreateSession(processId: 2005)),
             },
             daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new TimeoutException("probe timeout"))),
-            artifactCleaner: artifactCleaner,
-            endpointResolver: new StubEndpointResolver(new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test")));
+            artifactCleaner: artifactCleaner);
 
         var result = await operation.CleanupAsync(CreateContext("fingerprint-cleanup-timeout"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
@@ -498,11 +485,9 @@ public sealed class DaemonCleanupOperationTests
         IDaemonPingClient? daemonPingClient = null,
         IDaemonArtifactCleaner? artifactCleaner = null,
         IDaemonInvalidSessionCleanupSafetyEvaluator? invalidSessionCleanupSafetyEvaluator = null,
-        IIpcEndpointResolver? endpointResolver = null,
         IDaemonCleanupReachabilityProbe? cleanupReachabilityProbe = null)
     {
         var effectivePingClient = daemonPingClient ?? new StubDaemonPingClient(static () => ValueTask.CompletedTask);
-        _ = endpointResolver;
         return new DaemonCleanupOperation(
             lifecycleLockProvider ?? new StubProjectLifecycleLockProvider(),
             daemonSessionStore ?? new StubDaemonSessionStore(),
@@ -615,20 +600,4 @@ public sealed class DaemonCleanupOperationTests
         }
     }
 
-    private sealed class StubEndpointResolver : IIpcEndpointResolver
-    {
-        private readonly IpcEndpoint endpoint;
-
-        public StubEndpointResolver (IpcEndpoint endpoint)
-        {
-            this.endpoint = endpoint;
-        }
-
-        public IpcEndpoint Resolve (
-            string storageRoot,
-            string projectFingerprint)
-        {
-            return endpoint;
-        }
-    }
 }

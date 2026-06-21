@@ -3,7 +3,6 @@ using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
 using MackySoft.Ucli.UnityIntegration.Ipc.Process;
-using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.Tests.Ipc;
 
@@ -43,7 +42,6 @@ public sealed class UnityBatchmodeProcessLauncherTests
         var launcher = new UnityBatchmodeProcessLauncher(
             versionResolver,
             new StubUnityEditorPathResolver(),
-            new StubIpcEndpointResolver(),
             new StubUnityUcliPluginLocator
             {
                 Result = UnityUcliPluginLocateResult.NotFound(ExecutionError.InvalidArgument(
@@ -81,7 +79,6 @@ public sealed class UnityBatchmodeProcessLauncherTests
         var launcher = new UnityBatchmodeProcessLauncher(
             versionResolver,
             new StubUnityEditorPathResolver(),
-            new StubIpcEndpointResolver(),
             new StubUnityUcliPluginLocator(),
             new StubUnityProjectLockFileProbe(UnityProjectLockFileProbeResult.Locked("/tmp/unity-project/Temp/UnityLockfile")));
 
@@ -117,7 +114,6 @@ public sealed class UnityBatchmodeProcessLauncherTests
         var launcher = new UnityBatchmodeProcessLauncher(
             versionResolver,
             new StubUnityEditorPathResolver(),
-            new StubIpcEndpointResolver(),
             new StubUnityUcliPluginLocator(),
             new StubUnityProjectLockPreflightService(UnityProjectLockPreflightResult.Ambiguous(
                 "/tmp/unity-project/Temp/UnityLockfile",
@@ -158,7 +154,6 @@ public sealed class UnityBatchmodeProcessLauncherTests
         var launcher = new UnityBatchmodeProcessLauncher(
             versionResolver,
             new StubUnityEditorPathResolver("/path/that/must/not/exist/ucli-unity"),
-            new StubIpcEndpointResolver(),
             new StubUnityUcliPluginLocator(),
             lockFileProbe);
 
@@ -197,7 +192,6 @@ public sealed class UnityBatchmodeProcessLauncherTests
         var launcher = new UnityBatchmodeProcessLauncher(
             new StubUnityVersionResolver(),
             new StubUnityEditorPathResolver("/path/that/must/not/exist/ucli-unity"),
-            new StubIpcEndpointResolver(),
             new StubUnityUcliPluginLocator
             {
                 OnLocate = cancellationTokenSource.Cancel,
@@ -253,16 +247,6 @@ public sealed class UnityBatchmodeProcessLauncherTests
             string? preferredUnityEditorPath)
         {
             return UnityEditorPathResolutionResult.Success(unityEditorPath);
-        }
-    }
-
-    private sealed class StubIpcEndpointResolver : IIpcEndpointResolver
-    {
-        public IpcEndpoint Resolve (
-            string repositoryRoot,
-            string projectFingerprint)
-        {
-            return new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli.sock");
         }
     }
 

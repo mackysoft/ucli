@@ -5,10 +5,10 @@ using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Application.Shared.Unity.Resolution;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
-using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.UnityIntegration.Ipc.Process;
 
@@ -21,8 +21,6 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
 
     private readonly IUnityEditorPathResolver unityEditorPathResolver;
 
-    private readonly IIpcEndpointResolver endpointResolver;
-
     private readonly IUnityUcliPluginLocator unityUcliPluginLocator;
 
     private readonly IUnityProjectLockPreflightService unityProjectLockPreflightService;
@@ -30,20 +28,17 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
     /// <summary> Initializes a new instance of the <see cref="UnityBatchmodeProcessLauncher" /> class. </summary>
     /// <param name="unityVersionResolver"> The Unity version resolver dependency. </param>
     /// <param name="unityEditorPathResolver"> The Unity editor path resolver dependency. </param>
-    /// <param name="endpointResolver"> The IPC endpoint resolver dependency. </param>
     /// <param name="unityUcliPluginLocator"> The Unity uCLI plugin locator dependency. </param>
     /// <param name="unityProjectLockPreflightService"> The Unity project lock preflight service dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public UnityBatchmodeProcessLauncher (
         IUnityVersionResolver unityVersionResolver,
         IUnityEditorPathResolver unityEditorPathResolver,
-        IIpcEndpointResolver endpointResolver,
         IUnityUcliPluginLocator unityUcliPluginLocator,
         IUnityProjectLockPreflightService unityProjectLockPreflightService)
     {
         this.unityVersionResolver = unityVersionResolver ?? throw new ArgumentNullException(nameof(unityVersionResolver));
         this.unityEditorPathResolver = unityEditorPathResolver ?? throw new ArgumentNullException(nameof(unityEditorPathResolver));
-        this.endpointResolver = endpointResolver ?? throw new ArgumentNullException(nameof(endpointResolver));
         this.unityUcliPluginLocator = unityUcliPluginLocator ?? throw new ArgumentNullException(nameof(unityUcliPluginLocator));
         this.unityProjectLockPreflightService = unityProjectLockPreflightService ?? throw new ArgumentNullException(nameof(unityProjectLockPreflightService));
     }
@@ -64,7 +59,7 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentNullException.ThrowIfNull(session);
 
-        var endpoint = endpointResolver.Resolve(
+        var endpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(
             unityProject.RepositoryRoot,
             unityProject.ProjectFingerprint);
         var batchmodeLaunchResult = await LaunchAsync(

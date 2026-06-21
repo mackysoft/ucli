@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
 using MackySoft.Ucli.Application.Features.Assurance.Semantics;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -15,13 +16,15 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
     private static readonly IReadOnlyList<string> RequiredReportKeys =
     [
         BuildReportRefs.Build,
-        BuildReportRefs.BuildReport,
         BuildReportRefs.BuildOutputManifest,
         BuildReportRefs.BuildLog,
     ];
 
     private static readonly IReadOnlySet<string> RequiredReportKeySet =
         new HashSet<string>(RequiredReportKeys, StringComparer.Ordinal);
+
+    private static readonly IReadOnlySet<string> AllowedReportKeySet =
+        new HashSet<string>(RequiredReportKeys.Append(BuildReportRefs.BuildReport), StringComparer.Ordinal);
 
     private static readonly IReadOnlySet<string> AllowedBuildEffects =
         new HashSet<string>(ContractLiteralCodec.GetLiterals<BuildEffect>(), StringComparer.Ordinal);
@@ -94,7 +97,7 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
 
         foreach (var reportProperty in reportsElement.EnumerateObject())
         {
-            if (!RequiredReportKeySet.Contains(reportProperty.Name))
+            if (!AllowedReportKeySet.Contains(reportProperty.Name))
             {
                 AddViolation(violations, "$.reports", $"Build payload must not contain reports.{reportProperty.Name}.");
                 continue;
@@ -111,6 +114,15 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
             }
 
             ValidateReportEntry(reportElement, BuildPropertyPath("$.reports", reportKey), reportKey, violations);
+        }
+
+        if (reportsElement.TryGetProperty(BuildReportRefs.BuildReport, out var buildReportElement))
+        {
+            ValidateReportEntry(
+                buildReportElement,
+                BuildPropertyPath("$.reports", BuildReportRefs.BuildReport),
+                BuildReportRefs.BuildReport,
+                violations);
         }
     }
 
@@ -349,11 +361,17 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
             return;
         }
 
-        if (!TryReadString(summaryElement, "reportRef", out var reportRef))
+        if (!summaryElement.TryGetProperty("reportRef", out var reportRefElement))
         {
-            AddViolation(violations, "$.build.summary.reportRef", "Build summary must declare reportRef.");
+            return;
         }
-        else if (!string.Equals(reportRef, BuildReportRefs.BuildReport, StringComparison.Ordinal))
+
+        if (reportRefElement.ValueKind != JsonValueKind.String
+            || string.IsNullOrWhiteSpace(reportRefElement.GetString()))
+        {
+            AddViolation(violations, "$.build.summary.reportRef", "Build summary reportRef must be a non-empty string.");
+        }
+        else if (!string.Equals(reportRefElement.GetString(), BuildReportRefs.BuildReport, StringComparison.Ordinal))
         {
             AddViolation(violations, "$.build.summary.reportRef", "Build summary reportRef must resolve to reports.buildReport.");
         }
@@ -598,7 +616,7 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
                 && string.Equals(id, BuildReportRefs.Build, StringComparison.Ordinal))
             {
                 ValidateVerifierEffects(verifierElement, verifierPath, violations);
-                ValidatePrimaryClaims(verifierElement, verifierPath, violations);
+                ValidatePrimaryClaims(payload, verifierElement, verifierPath, violations);
                 return;
             }
 
@@ -646,6 +664,7 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
     }
 
     private static void ValidatePrimaryClaims (
+        JsonElement payload,
         JsonElement verifierElement,
         string verifierPath,
         List<AssuranceSemanticInvariantViolation> violations)
@@ -662,7 +681,8 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
             .Where(static item => item.ValueKind == JsonValueKind.String)
             .Select(static item => item.GetString() ?? string.Empty)
             .ToArray();
-        if (!primaryClaims.SequenceEqual(BuildClaimCodes.All.Select(static code => code.Value), StringComparer.Ordinal))
+        var expectedPrimaryClaims = CreateExpectedPrimaryClaims(payload);
+        if (!primaryClaims.SequenceEqual(expectedPrimaryClaims, StringComparer.Ordinal))
         {
             AddViolation(violations, primaryClaimsPath, "Build verifier primaryClaims must match the build claim set.");
         }
@@ -738,7 +758,7 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
             return;
         }
 
-        var expectedEvidenceRef = ResolveExpectedEvidenceRef(claimId);
+        var expectedEvidenceRef = ResolveExpectedEvidenceRef(buildElement, claimId);
         if (expectedEvidenceRef == null)
         {
             return;
@@ -865,7 +885,9 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
             && GenerationSnapshotsMatch(left, right);
     }
 
-    private static string? ResolveExpectedEvidenceRef (string claimId)
+    private static string? ResolveExpectedEvidenceRef (
+        JsonElement buildElement,
+        string claimId)
     {
         if (BuildClaimCodes.UnityBuildProfileResolved.EqualsValue(claimId)
             || BuildClaimCodes.UnityBuildInputsResolved.EqualsValue(claimId)
@@ -879,8 +901,12 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
         }
 
         if (BuildClaimCodes.UnityBuildCompleted.EqualsValue(claimId)
-            || BuildClaimCodes.UnityBuildSucceeded.EqualsValue(claimId)
-            || BuildClaimCodes.UnityBuildReportAccounted.EqualsValue(claimId))
+            || BuildClaimCodes.UnityBuildSucceeded.EqualsValue(claimId))
+        {
+            return IsExecuteMethodRunner(buildElement) ? BuildReportRefs.Build : BuildReportRefs.BuildReport;
+        }
+
+        if (BuildClaimCodes.UnityBuildReportAccounted.EqualsValue(claimId))
         {
             return BuildReportRefs.BuildReport;
         }
@@ -896,6 +922,67 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
         }
 
         return null;
+    }
+
+    private static IReadOnlyList<string> CreateExpectedPrimaryClaims (JsonElement payload)
+    {
+        var hasBuildReport = HasBuildReport(payload);
+        var isExecuteMethod = payload.TryGetProperty("build", out var buildElement)
+            && IsExecuteMethodRunner(buildElement);
+        var claims = new List<string>
+        {
+            BuildClaimCodes.UnityBuildProfileResolved.Value,
+            BuildClaimCodes.UnityReadyForBuild.Value,
+            BuildClaimCodes.UnityBuildInputsResolved.Value,
+            BuildClaimCodes.UnityBuildRunnerResolved.Value,
+        };
+
+        if (isExecuteMethod)
+        {
+            claims.Add(BuildClaimCodes.UnityBuildExecuteMethodResolved.Value);
+            claims.Add(BuildClaimCodes.UnityBuildExecuteMethodInvoked.Value);
+            claims.Add(BuildClaimCodes.UnityBuildExecuteMethodCompleted.Value);
+        }
+
+        claims.Add(BuildClaimCodes.UnityBuildCompleted.Value);
+        claims.Add(BuildClaimCodes.UnityBuildSucceeded.Value);
+        claims.Add(BuildClaimCodes.UnityBuildResultAccounted.Value);
+        if (hasBuildReport && !isExecuteMethod)
+        {
+            claims.Add(BuildClaimCodes.UnityBuildReportAccounted.Value);
+        }
+
+        claims.Add(BuildClaimCodes.UnityBuildArtifactsAccounted.Value);
+        claims.Add(BuildClaimCodes.UnityBuildOutputDigested.Value);
+        claims.Add(BuildClaimCodes.UnityBuildLogsAccounted.Value);
+        claims.Add(BuildClaimCodes.UnityBuildProjectMutationAccounted.Value);
+        claims.Add(BuildClaimCodes.UnityBuildValidForGeneration.Value);
+        return claims;
+    }
+
+    private static bool HasBuildReport (JsonElement payload)
+    {
+        if (payload.TryGetProperty("reports", out var reportsElement)
+            && reportsElement.ValueKind == JsonValueKind.Object
+            && reportsElement.TryGetProperty(BuildReportRefs.BuildReport, out _))
+        {
+            return true;
+        }
+
+        return payload.TryGetProperty("build", out var buildElement)
+            && buildElement.ValueKind == JsonValueKind.Object
+            && buildElement.TryGetProperty("summary", out var summaryElement)
+            && summaryElement.ValueKind == JsonValueKind.Object
+            && TryReadString(summaryElement, "reportRef", out var reportRef)
+            && string.Equals(reportRef, BuildReportRefs.BuildReport, StringComparison.Ordinal);
+    }
+
+    private static bool IsExecuteMethodRunner (JsonElement buildElement)
+    {
+        return buildElement.TryGetProperty("runner", out var runnerElement)
+            && runnerElement.ValueKind == JsonValueKind.Object
+            && TryReadString(runnerElement, "kind", out var runnerKind)
+            && string.Equals(runnerKind, ContractLiteralCodec.ToValue(BuildProfileRunnerKind.ExecuteMethod), StringComparison.Ordinal);
     }
 
     private static bool TryReadBuildResult (

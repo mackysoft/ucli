@@ -3,30 +3,25 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Launch;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Text;
-using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
+using MackySoft.Ucli.Infrastructure.Ipc;
 
 namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Start.Launch;
 
 /// <summary> Implements launch-session creation and persistence for daemon startup workflow. </summary>
 internal sealed class DaemonLaunchSessionService : IDaemonLaunchSessionService
 {
-    private readonly IIpcEndpointResolver endpointResolver;
-
     private readonly IDaemonSessionStore daemonSessionStore;
 
     private readonly IDaemonSessionTokenGenerator sessionTokenGenerator;
 
     /// <summary> Initializes a new instance of the <see cref="DaemonLaunchSessionService" /> class. </summary>
-    /// <param name="endpointResolver"> The IPC endpoint resolver dependency. </param>
     /// <param name="daemonSessionStore"> The daemon session-store dependency. </param>
     /// <param name="sessionTokenGenerator"> The daemon session-token generator dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public DaemonLaunchSessionService (
-        IIpcEndpointResolver endpointResolver,
         IDaemonSessionStore daemonSessionStore,
         IDaemonSessionTokenGenerator sessionTokenGenerator)
     {
-        this.endpointResolver = endpointResolver ?? throw new ArgumentNullException(nameof(endpointResolver));
         this.daemonSessionStore = daemonSessionStore ?? throw new ArgumentNullException(nameof(daemonSessionStore));
         this.sessionTokenGenerator = sessionTokenGenerator ?? throw new ArgumentNullException(nameof(sessionTokenGenerator));
     }
@@ -50,7 +45,7 @@ internal sealed class DaemonLaunchSessionService : IDaemonLaunchSessionService
             return DaemonLaunchSessionWriteResult.Failure(editorModeError!);
         }
 
-        var endpoint = endpointResolver.Resolve(unityProject.RepositoryRoot, unityProject.ProjectFingerprint);
+        var endpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(unityProject.RepositoryRoot, unityProject.ProjectFingerprint);
         var session = new DaemonSession(
             SchemaVersion: DaemonSession.CurrentSchemaVersion,
             SessionToken: sessionTokenGenerator.Create(),

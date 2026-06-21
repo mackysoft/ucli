@@ -10,6 +10,7 @@ using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Ipc;
+using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Project;
 
 namespace MackySoft.Ucli.Features.Daemon.Supervisor.Host;
@@ -458,7 +459,14 @@ internal sealed class SupervisorRequestDispatcher
 
         try
         {
-            var normalizedUnityProjectRoot = Path.GetFullPath(unityProjectRoot);
+            var projectRootResult = PathNormalizer.TryNormalizeFullPath(unityProjectRoot);
+            if (!projectRootResult.IsSuccess)
+            {
+                return ProjectContextResult.Failure(ExecutionError.InvalidArgument(
+                    $"Unity project root path is invalid. {projectRootResult.DiagnosticMessage}"));
+            }
+
+            var normalizedUnityProjectRoot = projectRootResult.FullPath!;
             var expectedFingerprint = UnityProjectFingerprintCalculator.Create(
                 runtimeContext.StorageRoot,
                 normalizedUnityProjectRoot);

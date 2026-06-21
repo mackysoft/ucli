@@ -140,7 +140,7 @@ internal sealed class FileSystemProjectLifecycleLockProvider : IProjectLifecycle
         for (var i = 0; i < 8; i++)
         {
             var resolvedPath = ResolveSymbolicLinks(currentPath);
-            if (string.Equals(resolvedPath, currentPath, GetPathComparison()))
+            if (PathIdentity.IsSamePath(resolvedPath, currentPath))
             {
                 return resolvedPath;
             }
@@ -258,13 +258,6 @@ internal sealed class FileSystemProjectLifecycleLockProvider : IProjectLifecycle
         }
 
         return pathResult.FullPath!;
-    }
-
-    private static StringComparison GetPathComparison ()
-    {
-        return OperatingSystem.IsWindows()
-            ? StringComparison.OrdinalIgnoreCase
-            : StringComparison.Ordinal;
     }
 
     private static bool IsLockContentionException (IOException exception)

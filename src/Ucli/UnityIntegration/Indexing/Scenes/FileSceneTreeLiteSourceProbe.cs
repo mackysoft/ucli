@@ -57,7 +57,7 @@ internal sealed class FileSceneTreeLiteSourceProbe : ISceneTreeLiteSourceProbe
             var candidatePath = Path.GetFullPath(Path.Combine(
                 projectRoot,
                 PathStringNormalizer.ToPlatformSeparated(scenePath)));
-            if (!IsSameOrChildPath(projectRoot, candidatePath))
+            if (!PathIdentity.IsSameOrChildPath(projectRoot, candidatePath))
             {
                 errorMessage = $"Scene path could not be resolved to a scene asset: {scenePath}.";
                 return false;
@@ -73,20 +73,4 @@ internal sealed class FileSceneTreeLiteSourceProbe : ISceneTreeLiteSourceProbe
         }
     }
 
-    private static bool IsSameOrChildPath (
-        string parentPath,
-        string childPath)
-    {
-        var normalizedParentPath = PathStringNormalizer.NormalizeCaseForCurrentPlatform(Path.GetFullPath(parentPath));
-        var normalizedChildPath = PathStringNormalizer.NormalizeCaseForCurrentPlatform(Path.GetFullPath(childPath));
-        if (string.Equals(normalizedParentPath, normalizedChildPath, StringComparison.Ordinal))
-        {
-            return true;
-        }
-
-        var parentPrefix = normalizedParentPath.EndsWith(Path.DirectorySeparatorChar)
-            ? normalizedParentPath
-            : normalizedParentPath + Path.DirectorySeparatorChar;
-        return normalizedChildPath.StartsWith(parentPrefix, StringComparison.Ordinal);
-    }
 }

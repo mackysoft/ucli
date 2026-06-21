@@ -13,6 +13,7 @@ using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Build;
 using UnityEngine;
@@ -133,7 +134,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 var mutationBaseline = projectMutationAuditProbe.CaptureBaseline(projectIdentity.ProjectPath);
                 executionCancellationToken.ThrowIfCancellationRequested();
                 IpcBuildRunnerResultArtifact? runnerResult = null;
-                IpcBuildReportArtifact? normalizedReport;
+                IpcBuildReportArtifact? normalizedReport = null;
                 if (IsExecuteMethodRunner(buildRunRequest))
                 {
                     var invocationResult = executeMethodRunner.Run(
@@ -151,7 +152,6 @@ namespace MackySoft.Ucli.Unity.Ipc
                     }
 
                     runnerResult = invocationResult.RunnerResult!;
-                    normalizedReport = invocationResult.SyntheticReport;
                 }
                 else
                 {
@@ -183,7 +183,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     logStartOffset = 0;
                 }
 
-                if (normalizedReport == null)
+                if (normalizedReport == null && IsBuildPipelineRunner(buildRunRequest))
                 {
                     return CreateErrorResponse(
                         request,
@@ -192,11 +192,15 @@ namespace MackySoft.Ucli.Unity.Ipc
                         precondition);
                 }
 
-                await WriteJsonAtomicallyAsync(
-                        buildRunRequest.BuildReportPath,
-                        normalizedReport,
-                        executionCancellationToken)
-                    .ConfigureAwait(false);
+                if (normalizedReport != null)
+                {
+                    await WriteJsonAtomicallyAsync(
+                            buildRunRequest.BuildReportPath,
+                            normalizedReport,
+                            executionCancellationToken)
+                        .ConfigureAwait(false);
+                }
+
                 var logSummaryCounts = await ExportBuildLogAsync(
                         logSourcePath,
                         buildRunRequest.BuildLogPath,
@@ -205,7 +209,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                         IsExecuteMethodRunner(buildRunRequest) ? buildRunRequest.RunnerEnvironmentSecretValues : null,
                         executionCancellationToken)
                     .ConfigureAwait(false);
-                var completionReason = UnityBuildReportNormalizer.ToCompletionReason(normalizedReport.Result);
+                var completionReason = UnityBuildReportNormalizer.ToCompletionReason(
+                    normalizedReport?.Result ?? runnerResult!.Status);
                 var logs = new IpcBuildLogSummary(
                     EntryCount: logSummaryCounts.EntryCount,
                     ErrorCount: logSummaryCounts.ErrorCount,
@@ -652,59 +657,19 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return false;
             }
 
-            if (!IsFullyQualifiedPath(actualPath))
+            if (!PathNormalizer.IsFullyQualifiedPath(actualPath))
             {
                 return false;
             }
 
             try
             {
-                return string.Equals(
-                    Path.GetFullPath(actualPath),
-                    Path.GetFullPath(expectedPath),
-                    Path.DirectorySeparatorChar == '\\' ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+                return PathIdentity.IsSamePath(actualPath, expectedPath);
             }
             catch (Exception exception) when (exception is ArgumentException or IOException or NotSupportedException)
             {
                 return false;
             }
-        }
-
-        private static bool IsFullyQualifiedPath (string path)
-        {
-            if (string.IsNullOrWhiteSpace(path) || !Path.IsPathRooted(path))
-            {
-                return false;
-            }
-
-            if (Path.DirectorySeparatorChar == '\\')
-            {
-                return IsWindowsDriveAbsolutePath(path) || IsWindowsUncAbsolutePath(path);
-            }
-
-            return path[0] == Path.DirectorySeparatorChar;
-        }
-
-        private static bool IsWindowsDriveAbsolutePath (string path)
-        {
-            return path.Length >= 2
-                && char.IsLetter(path[0])
-                && path[1] == ':'
-                && path.Length >= 3
-                && IsDirectorySeparator(path[2]);
-        }
-
-        private static bool IsWindowsUncAbsolutePath (string path)
-        {
-            return path.Length >= 5
-                && IsDirectorySeparator(path[0])
-                && IsDirectorySeparator(path[1])
-                && !IsDirectorySeparator(path[2]);
-        }
-
-        private static bool IsDirectorySeparator (char value)
-        {
-            return value == '\\' || value == '/';
         }
 
         private static void EnsureBuildPipelineOutputLayoutReady (IpcBuildOutputLayout outputLayout)

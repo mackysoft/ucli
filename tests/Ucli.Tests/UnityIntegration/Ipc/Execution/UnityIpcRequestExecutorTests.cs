@@ -645,7 +645,6 @@ public sealed class UnityIpcRequestExecutorTests
             new UnityDaemonIpcClient(daemonTransportClient, sessionConnectionProvider),
             new UnityOneshotIpcClient(
                 launcher,
-                new StubIpcEndpointResolver(new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-oneshot.sock")),
                 oneshotTransportClient,
                 new StubProjectLifecycleLockProvider(),
                 new StubUnityProjectLockFileProbe()),
@@ -1046,23 +1045,6 @@ public sealed class UnityIpcRequestExecutorTests
         public ValueTask DisposeAsync ()
         {
             return ValueTask.CompletedTask;
-        }
-    }
-
-    private sealed class StubIpcEndpointResolver : IIpcEndpointResolver
-    {
-        private readonly IpcEndpoint endpoint;
-
-        public StubIpcEndpointResolver (IpcEndpoint endpoint)
-        {
-            this.endpoint = endpoint;
-        }
-
-        public IpcEndpoint Resolve (
-            string storageRoot,
-            string projectFingerprint)
-        {
-            return endpoint;
         }
     }
 

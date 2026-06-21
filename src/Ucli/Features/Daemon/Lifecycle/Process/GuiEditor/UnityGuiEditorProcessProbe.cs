@@ -1,6 +1,6 @@
-using System.Runtime.InteropServices;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.EditorInstance;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.GuiEditor;
+using MackySoft.Ucli.Infrastructure.Paths;
 
 namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Process.GuiEditor;
 
@@ -131,17 +131,7 @@ internal sealed class UnityGuiEditorProcessProbe : IUnityGuiEditorProcessProbe
             return false;
         }
 
-        var comparison = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-            ? StringComparison.OrdinalIgnoreCase
-            : StringComparison.Ordinal;
-        if (string.Equals(normalizedExecutablePath, normalizedMarkerPath, comparison))
-        {
-            return true;
-        }
-
-        return normalizedExecutablePath.Length > normalizedMarkerPath.Length
-            && normalizedExecutablePath.StartsWith(normalizedMarkerPath, comparison)
-            && IsDirectorySeparator(normalizedExecutablePath[normalizedMarkerPath.Length]);
+        return PathIdentity.IsSameOrChildPath(normalizedMarkerPath, normalizedExecutablePath);
     }
 
     private static string? NormalizePath (string path)
@@ -153,7 +143,7 @@ internal sealed class UnityGuiEditorProcessProbe : IUnityGuiEditorProcessProbe
 
         try
         {
-            var normalizedPath = Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var normalizedPath = PathStringNormalizer.NormalizeAbsolutePathForStableIdentity(path);
             return string.IsNullOrWhiteSpace(normalizedPath)
                 ? null
                 : normalizedPath;
@@ -162,12 +152,6 @@ internal sealed class UnityGuiEditorProcessProbe : IUnityGuiEditorProcessProbe
         {
             return null;
         }
-    }
-
-    private static bool IsDirectorySeparator (char value)
-    {
-        return value == Path.DirectorySeparatorChar
-            || value == Path.AltDirectorySeparatorChar;
     }
 
     private static bool IsSpecificUnityApplicationPath (string normalizedMarkerPath)
@@ -197,7 +181,7 @@ internal sealed class UnityGuiEditorProcessProbe : IUnityGuiEditorProcessProbe
         }
 
         return path.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-            .Any(value => string.Equals(value, segment, GetPathComparison()));
+            .Any(value => string.Equals(value, segment, PathStringNormalizer.CurrentPlatformPathComparison));
     }
 
     private static bool HasUnityExecutableFileName (string? path)
@@ -208,7 +192,7 @@ internal sealed class UnityGuiEditorProcessProbe : IUnityGuiEditorProcessProbe
         }
 
         var fileName = Path.GetFileName(path);
-        return string.Equals(fileName, UnityExecutableName, GetPathComparison())
+        return string.Equals(fileName, UnityExecutableName, PathStringNormalizer.CurrentPlatformPathComparison)
             || string.Equals(fileName, WindowsUnityExecutableName, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -217,12 +201,5 @@ internal sealed class UnityGuiEditorProcessProbe : IUnityGuiEditorProcessProbe
         return commandLine != null
             && commandLine.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                 .Any(static x => string.Equals(x, ProjectPathArgument, StringComparison.Ordinal));
-    }
-
-    private static StringComparison GetPathComparison ()
-    {
-        return RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-            ? StringComparison.OrdinalIgnoreCase
-            : StringComparison.Ordinal;
     }
 }

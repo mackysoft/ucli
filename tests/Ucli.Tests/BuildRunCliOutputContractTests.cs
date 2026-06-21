@@ -207,7 +207,7 @@ public sealed class BuildRunCliOutputContractTests
     }
 
     [Theory]
-    [InlineData("missing-report-ref", "$.reports")]
+    [InlineData("missing-report-ref", "$.claims[4].evidence[0].evidenceRef")]
     [InlineData("digest-only-entry", "$.reports.buildLog.path")]
     [InlineData("invalid-digest", "$.reports.buildLog.digest")]
     [InlineData("manifest-ref-mismatch", "$.build.output.manifestRef")]

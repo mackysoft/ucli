@@ -7,7 +7,7 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 /// <param name="LifecycleAfter"> The lifecycle snapshot captured after BuildPipeline execution. </param>
 /// <param name="DirtyState"> The dirty-state precondition probe result. </param>
 /// <param name="Input"> The resolved BuildPipeline input. </param>
-/// <param name="Report"> The normalized BuildReport artifact payload written by Unity. </param>
+/// <param name="Report"> The normalized BuildReport artifact payload written by Unity, or <see langword="null" /> when an executeMethod runner did not provide BuildReport evidence. </param>
 /// <param name="Logs"> The build log artifact summary. </param>
 /// <param name="ProjectMutation"> The project mutation audit captured around runner invocation. </param>
 public sealed record IpcBuildRunResponse (
@@ -17,7 +17,7 @@ public sealed record IpcBuildRunResponse (
     IpcBuildLifecycleSnapshot LifecycleAfter,
     IpcBuildDirtyState DirtyState,
     IpcBuildInputProbe Input,
-    IpcBuildReportArtifact Report,
+    IpcBuildReportArtifact? Report,
     IpcBuildLogSummary Logs,
     IpcBuildProjectMutationAudit ProjectMutation)
 {

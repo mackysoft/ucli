@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Features.Daemon.Supervisor.Launch;
 
@@ -38,7 +39,7 @@ internal sealed class WindowsDetachedSupervisorProcessLauncher
     {
         ArgumentNullException.ThrowIfNull(launchCommand);
 
-        var normalizedStorageRoot = Path.GetFullPath(storageRoot);
+        var normalizedStorageRoot = UcliStoragePathResolver.NormalizeStorageRootPath(storageRoot);
         var startInfo = new ProcessStartInfo
         {
             FileName = launchCommand.FileName,

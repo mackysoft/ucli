@@ -19,7 +19,7 @@ internal sealed class SupervisorEndpointResolver
             throw new ArgumentException("Storage root must not be empty.", nameof(storageRoot));
         }
 
-        var normalizedStorageRoot = Path.GetFullPath(storageRoot);
+        var normalizedStorageRoot = UcliStoragePathResolver.NormalizeStorageRootPath(storageRoot);
 
         if (OperatingSystem.IsWindows())
         {

@@ -16,7 +16,7 @@ internal static class SceneTreeLiteAccessUtilities
             return false;
         }
 
-        if (!UnityAssetPathContract.TryNormalizeProjectRelativePath(scenePath, out normalizedScenePath))
+        if (!RelativePathContract.TryNormalize(scenePath, out normalizedScenePath))
         {
             errorMessage = "Property 'path' must be a project-relative path without leading or trailing whitespace, empty segments, '.' segments, or '..' segments.";
             return false;

@@ -192,7 +192,6 @@ public sealed class FileBuildRunArtifactStoreTests
         var zConfigBytes = WriteUtf8(zConfigSourcePath, "{\"quality\":\"high\"}\n");
         var aConfigBytes = WriteUtf8(aConfigSourcePath, "{\"quality\":\"low\"}\n");
         var playerBytes = WriteUtf8(fileSourcePath, "player binary\n");
-        var buildReportBytes = WriteUtf8(paths.BuildReportJsonPath, "{\"result\":\"succeeded\"}\n");
         var buildLogBytes = WriteUtf8(paths.BuildLogPath, "build log\n");
 
         var accountingOperation = await store.AccountArtifactsAsync(
@@ -201,11 +200,13 @@ public sealed class FileBuildRunArtifactStoreTests
 
         Assert.True(accountingOperation.IsSuccess);
         var result = Assert.IsType<BuildRunArtifactAccountingResult>(accountingOperation.Result);
-        Assert.Equal(BuildArtifactKind.BuildReport, result.BuildReport.Kind);
+        Assert.NotNull(result.BuildReport);
+        Assert.Equal(BuildArtifactKind.BuildReport, result.BuildReport!.Kind);
         Assert.Equal(BuildArtifactKind.BuildOutputManifest, result.BuildOutputManifest.Kind);
         Assert.Equal(BuildArtifactKind.BuildLog, result.BuildLog.Kind);
-        Assert.Equal(Sha256LowerHex.Compute(buildReportBytes), result.BuildReport.Digest);
         Assert.Equal(Sha256LowerHex.Compute(buildLogBytes), result.BuildLog.Digest);
+        var buildReportBytes = await File.ReadAllBytesAsync(paths.BuildReportJsonPath, CancellationToken.None);
+        Assert.Equal(Sha256LowerHex.Compute(buildReportBytes), result.BuildReport.Digest);
 
         var metadataWriteResult = await store.WriteMetadataAsync(
             new BuildRunMetadataWriteRequest(
@@ -399,6 +400,133 @@ public sealed class FileBuildRunArtifactStoreTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task AccountArtifactsAsync_WhenBuildReportSourceContainsSymbolicLinkAncestor_ReturnsBuildReportMissing ()
+    {
+        using var scope = TestDirectories.CreateTempScope("build-artifact-store", "build-report-symlink-ancestor");
+        var store = CreateStore();
+        var project = CreateProject(scope);
+        var prepareResult = store.Prepare(project, "run-1");
+        var paths = Assert.IsType<BuildRunArtifactPaths>(prepareResult.Paths);
+        var outputSourcePath = Path.Combine(paths.RunnerOutputDirectory, "build");
+        WriteUtf8(outputSourcePath, "player output");
+        var targetDirectory = scope.CreateDirectory("outside-output");
+        var targetBuildReportPath = Path.Combine(targetDirectory, "build-report.json");
+        WriteUtf8(
+            targetBuildReportPath,
+            IpcPayloadCodec.SerializeToElement(CreateBuildReportArtifact(paths)).GetRawText());
+        var reportDirectory = Path.Combine(paths.RunnerOutputDirectory, "reports");
+        Directory.CreateDirectory(reportDirectory);
+        var linkPath = Path.Combine(reportDirectory, "linked");
+        if (!TryCreateDirectorySymbolicLink(linkPath, targetDirectory))
+        {
+            return;
+        }
+
+        var writeResult = await store.AccountArtifactsAsync(
+            CreateAccountingRequest(
+                paths,
+                BuildReportSourceEntry.FromRunnerOutputRelativePath("reports/linked/build-report.json"),
+                outputSourcePath),
+            CancellationToken.None);
+
+        Assert.False(writeResult.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(writeResult.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.Equal(BuildErrorCodes.BuildReportMissing, error.Code);
+        Assert.Contains("reparse point", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task AccountArtifactsAsync_WhenRunnerOutputRootIsSymbolicLink_ReturnsBuildReportMissing ()
+    {
+        using var scope = TestDirectories.CreateTempScope("build-artifact-store", "build-report-symlink-root");
+        using var targetScope = TestDirectories.CreateTempScope("build-artifact-store", "build-report-symlink-root-target");
+        var store = CreateStore();
+        var project = CreateProject(scope);
+        var prepareResult = store.Prepare(project, "run-1");
+        var paths = Assert.IsType<BuildRunArtifactPaths>(prepareResult.Paths);
+        var targetOutputRoot = targetScope.CreateDirectory("output");
+        WriteUtf8(
+            Path.Combine(targetOutputRoot, "reports", "build-report.json"),
+            IpcPayloadCodec.SerializeToElement(CreateBuildReportArtifact(paths)).GetRawText());
+        Directory.Delete(paths.RunnerOutputDirectory);
+        if (!TryCreateDirectorySymbolicLink(paths.RunnerOutputDirectory, targetOutputRoot))
+        {
+            return;
+        }
+
+        var writeResult = await store.AccountArtifactsAsync(
+            CreateBuildReportOnlyAccountingRequest(paths, "reports/build-report.json"),
+            CancellationToken.None);
+
+        Assert.False(writeResult.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(writeResult.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.Equal(BuildErrorCodes.BuildReportMissing, error.Code);
+        Assert.Contains("reparse point", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task AccountArtifactsAsync_WhenBuildReportSourceIsMissing_ReturnsBuildReportMissingWithNotFoundMessage ()
+    {
+        using var scope = TestDirectories.CreateTempScope("build-artifact-store", "build-report-source-missing");
+        var store = CreateStore();
+        var project = CreateProject(scope);
+        var prepareResult = store.Prepare(project, "run-1");
+        var paths = Assert.IsType<BuildRunArtifactPaths>(prepareResult.Paths);
+        var outputSourcePath = Path.Combine(paths.RunnerOutputDirectory, "build");
+        WriteUtf8(outputSourcePath, "player output");
+
+        var writeResult = await store.AccountArtifactsAsync(
+            CreateAccountingRequest(
+                paths,
+                BuildReportSourceEntry.FromRunnerOutputRelativePath("reports/missing-build-report.json"),
+                outputSourcePath),
+            CancellationToken.None);
+
+        Assert.False(writeResult.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(writeResult.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.Equal(BuildErrorCodes.BuildReportMissing, error.Code);
+        Assert.Contains("not found", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task AccountArtifactsAsync_WhenBuildReportSourceIsFifo_ReturnsBuildReportMissing ()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        using var scope = TestDirectories.CreateTempScope("build-artifact-store", "build-report-source-fifo");
+        var store = CreateStore();
+        var project = CreateProject(scope);
+        var prepareResult = store.Prepare(project, "run-1");
+        var paths = Assert.IsType<BuildRunArtifactPaths>(prepareResult.Paths);
+        var buildReportPath = Path.Combine(paths.RunnerOutputDirectory, "reports", "build-report.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(buildReportPath)!);
+        if (!TryCreateFifo(buildReportPath))
+        {
+            return;
+        }
+
+        var writeResult = await store.AccountArtifactsAsync(
+            CreateBuildReportOnlyAccountingRequest(paths, "reports/build-report.json"),
+            CancellationToken.None);
+
+        Assert.False(writeResult.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(writeResult.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.Equal(BuildErrorCodes.BuildReportMissing, error.Code);
+        Assert.Contains("regular file", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task AccountArtifactsAsync_WhenOutputContainsFifo_ReturnsOutputManifestFailed ()
     {
         if (OperatingSystem.IsWindows())
@@ -550,7 +678,7 @@ public sealed class FileBuildRunArtifactStoreTests
         WriteUnityGeneratedArtifacts(paths);
         var request = CreateAccountingRequest(paths) with
         {
-            OutputSources = [new BuildOutputSourceEntry(Path.Combine(paths.ArtifactsDirectory, "source"))],
+            OutputSources = [BuildOutputSourceEntry.FromAbsolutePath(Path.Combine(paths.ArtifactsDirectory, "source"))],
         };
 
         var writeResult = await store.AccountArtifactsAsync(request, CancellationToken.None);
@@ -575,7 +703,7 @@ public sealed class FileBuildRunArtifactStoreTests
         var outsideSourcePath = scope.WriteFile("external-output.bin", "external");
         var request = CreateAccountingRequest(paths) with
         {
-            OutputSources = [new BuildOutputSourceEntry(outsideSourcePath)],
+            OutputSources = [BuildOutputSourceEntry.FromAbsolutePath(outsideSourcePath)],
         };
 
         var writeResult = await store.AccountArtifactsAsync(request, CancellationToken.None);
@@ -726,6 +854,17 @@ public sealed class FileBuildRunArtifactStoreTests
         BuildRunArtifactPaths paths,
         params string[] outputSourcePaths)
     {
+        return CreateAccountingRequest(
+            paths,
+            BuildReportSourceEntry.FromArtifact(CreateBuildReportArtifact(paths)),
+            outputSourcePaths);
+    }
+
+    private static BuildRunArtifactAccountingRequest CreateAccountingRequest (
+        BuildRunArtifactPaths paths,
+        BuildReportSourceEntry buildReportSource,
+        params string[] outputSourcePaths)
+    {
         var sourcePaths = outputSourcePaths.Length == 0
             ? [Path.Combine(paths.RunnerOutputDirectory, "build")]
             : outputSourcePaths;
@@ -733,8 +872,49 @@ public sealed class FileBuildRunArtifactStoreTests
             paths,
             "standaloneLinux64",
             "StandaloneLinux64",
-            sourcePaths.Select(static path => new BuildOutputSourceEntry(path)).ToArray(),
+            buildReportSource,
+            sourcePaths.Select(static path => BuildOutputSourceEntry.FromAbsolutePath(path)).ToArray(),
             AllowEmptyOutputManifest: false);
+    }
+
+    private static BuildRunArtifactAccountingRequest CreateBuildReportOnlyAccountingRequest (
+        BuildRunArtifactPaths paths,
+        string buildReportSourcePath)
+    {
+        return new BuildRunArtifactAccountingRequest(
+            paths,
+            "standaloneLinux64",
+            "StandaloneLinux64",
+            BuildReportSourceEntry.FromRunnerOutputRelativePath(buildReportSourcePath),
+            Array.Empty<BuildOutputSourceEntry>(),
+            AllowEmptyOutputManifest: true);
+    }
+
+    private static IpcBuildReportArtifact CreateBuildReportArtifact (BuildRunArtifactPaths paths)
+    {
+        return new IpcBuildReportArtifact(
+            SchemaVersion: 1,
+            Result: ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+            UnityBuildTarget: "StandaloneLinux64",
+            OutputPath: Path.Combine(paths.RunnerOutputDirectory, "build"),
+            DurationMilliseconds: 2500,
+            TotalSizeBytes: 4096,
+            ErrorCount: 0,
+            WarningCount: 1,
+            Steps:
+            [
+                new IpcBuildReportStep(
+                    Name: "Build player",
+                    DurationMilliseconds: 2500,
+                    Depth: 0,
+                    MessageCount: 1),
+            ],
+            Messages:
+            [
+                new IpcBuildReportMessage(
+                    Type: "warning",
+                    Content: "Sample warning"),
+            ]);
     }
 
     private static BuildRunArtifactPaths EscapeArtifactPath (
