@@ -196,6 +196,9 @@ public sealed class BuildServiceTests
         Assert.Equal(preparedPaths.BuildLogPath, requestPayload.BuildLogPath);
         Assert.Equal(["batchmode", "gui"], requestPayload.AllowedEditorModes);
         Assert.Equal("forbid", requestPayload.ProjectMutationMode);
+        Assert.Equal("buildPipeline", requestPayload.RunnerKind);
+        Assert.Null(requestPayload.ProfilePath);
+        Assert.Null(requestPayload.RunnerMethod);
     }
 
     [Fact]

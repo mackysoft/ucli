@@ -200,7 +200,13 @@ internal sealed class BuildService : IBuildService
             .ConfigureAwait(false);
 
         var runnerInvocation = runnerInvocationResult.Invocation!;
-        var request = CreateBuildRunRequest(profile, paths, outputLayout, runId, runnerInvocation);
+        var request = CreateBuildRunRequest(
+            profile,
+            profileReadResult.DisplayPath!,
+            paths,
+            outputLayout,
+            runId,
+            runnerInvocation);
         var executionResult = await unityRequestExecutor.ExecuteAsync(
                 UcliCommandIds.BuildRun,
                 ResolveExecutionMode(executionTarget),
@@ -409,7 +415,6 @@ internal sealed class BuildService : IBuildService
         }
 
         return RunnerInvocationResolutionResult.Success(new ResolvedRunnerInvocationInput(
-            profilePath,
             arguments,
             requestedEnv.Variables,
             requestedEnv.Secrets,
@@ -562,6 +567,7 @@ internal sealed class BuildService : IBuildService
 
     private static UnityRequestPayload.BuildRun CreateBuildRunRequest (
         ResolvedBuildProfile profile,
+        string profilePath,
         BuildRunArtifactPaths paths,
         IpcBuildOutputLayout? outputLayout,
         string runId,
@@ -584,7 +590,7 @@ internal sealed class BuildService : IBuildService
             ProjectMutationMode: ContractLiteralCodec.ToValue(profile.Policy.ProjectMutationMode),
             RunnerKind: ContractLiteralCodec.ToValue(profile.Runner.Kind))
         {
-            ProfilePath = runnerInvocation.ProfilePath,
+            ProfilePath = profile.Runner.Kind == BuildProfileRunnerKind.ExecuteMethod ? profilePath : null,
             ProfileDigest = profile.Digest,
             RunnerMethod = profile.Runner.Method,
             RunnerArguments = runnerInvocation.Arguments,
@@ -1635,7 +1641,6 @@ internal sealed class BuildService : IBuildService
     }
 
     private sealed record ResolvedRunnerInvocationInput (
-        string? ProfilePath,
         IReadOnlyDictionary<string, string> Arguments,
         IReadOnlyList<string> EnvironmentVariables,
         IReadOnlyList<string> EnvironmentSecrets,
@@ -1643,7 +1648,6 @@ internal sealed class BuildService : IBuildService
         IReadOnlyDictionary<string, string> EnvironmentSecretValues)
     {
         public static ResolvedRunnerInvocationInput Empty { get; } = new(
-            null,
             new Dictionary<string, string>(StringComparer.Ordinal),
             Array.Empty<string>(),
             Array.Empty<string>(),

@@ -100,6 +100,7 @@ public sealed class UnityIpcRequestBuilderTests
         Assert.Equal("forbid", payload.ProjectMutationMode);
         Assert.Null(payload.TimeoutMilliseconds);
         Assert.Equal("buildPipeline", payload.RunnerKind);
+        Assert.Null(payload.ProfilePath);
         Assert.Null(payload.RunnerMethod);
         Assert.Empty(payload.RunnerArguments);
         Assert.Empty(payload.RunnerEnvironmentVariables);
