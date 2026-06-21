@@ -15,6 +15,9 @@ public static class BuildErrorCodes
     /// <summary> Gets the error code emitted when resolved build inputs cannot be converted to Unity BuildPipeline inputs. </summary>
     public static readonly UcliCode BuildInputsInvalid = new("BUILD_INPUTS_INVALID");
 
+    /// <summary> Gets the error code emitted when a selected build scene does not exist. </summary>
+    public static readonly UcliCode BuildSceneNotFound = new("BUILD_SCENE_NOT_FOUND");
+
     /// <summary> Gets the error code emitted when a selected build scene is disabled. </summary>
     public static readonly UcliCode BuildSceneDisabled = new("BUILD_SCENE_DISABLED");
 
@@ -85,6 +88,7 @@ public static class BuildErrorCodes
         BuildUnityBuildProfileInvalid,
         BuildTargetUnsupported,
         BuildInputsInvalid,
+        BuildSceneNotFound,
         BuildSceneDisabled,
         BuildTargetModuleMissing,
         BuildRuntimePolicyViolation,

@@ -3,6 +3,7 @@ using MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
 using MackySoft.Ucli.Application.Features.Assurance.Semantics;
 using MackySoft.Ucli.Contracts.Assurance;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 
@@ -47,6 +48,7 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
         ValidateBuildProfile(buildElement, violations);
         ValidateBuildRunner(buildElement, violations);
         ValidateBuildRunnerResult(buildElement, violations);
+        ValidateBuildPipelineReportPresence(payload, buildElement, violations);
         ValidateBuildOutput(payload, violations);
         ValidateBuildSummary(buildElement, violations);
         ValidateBuildLogs(buildElement, violations);
@@ -161,9 +163,28 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
         {
             AddViolation(violations, BuildPropertyPath(reportPath, "digest"), $"Build report {reportKey} must declare digest.");
         }
-        else if (!IsSha256LowerHex(digest))
+        else if (!Sha256LowerHex.IsLowerHexDigest(digest))
         {
             AddViolation(violations, BuildPropertyPath(reportPath, "digest"), $"Build report {reportKey} digest must be lowercase SHA-256 hex.");
+        }
+    }
+
+    private static void ValidateBuildPipelineReportPresence (
+        JsonElement payload,
+        JsonElement buildElement,
+        List<AssuranceSemanticInvariantViolation> violations)
+    {
+        if (!TryReadRunnerKind(buildElement, out var runnerKind)
+            || runnerKind != BuildProfileRunnerKind.BuildPipeline)
+        {
+            return;
+        }
+
+        if (!payload.TryGetProperty("reports", out var reportsElement)
+            || reportsElement.ValueKind != JsonValueKind.Object
+            || !reportsElement.TryGetProperty(BuildReportRefs.BuildReport, out _))
+        {
+            AddViolation(violations, "$.reports.buildReport", "BuildPipeline runner payload must contain reports.buildReport.");
         }
     }
 
@@ -250,9 +271,13 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
             return;
         }
 
-        if (!TryReadString(runnerElement, "kind", out _))
+        if (!TryReadString(runnerElement, "kind", out var runnerKindLiteral))
         {
             AddViolation(violations, "$.build.runner.kind", "Build runner must declare kind.");
+        }
+        else if (!ContractLiteralCodec.TryParse<BuildProfileRunnerKind>(runnerKindLiteral, out _))
+        {
+            AddViolation(violations, "$.build.runner.kind", "Build runner kind must be a supported build runner literal.");
         }
 
         if (!runnerElement.TryGetProperty("method", out var methodElement)
@@ -299,14 +324,35 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
             return;
         }
 
-        if (!TryReadString(runnerResultElement, "source", out _))
+        if (!TryReadString(runnerResultElement, "source", out var source))
         {
             AddViolation(violations, "$.build.runnerResult.source", "Build runnerResult must declare source.");
+        }
+        else if (!ContractLiteralCodec.TryParse<IpcBuildRunnerResultSource>(source, out var runnerResultSource))
+        {
+            AddViolation(violations, "$.build.runnerResult.source", "Build runnerResult source must be a supported runner result source literal.");
+        }
+        else if (TryReadRunnerKind(buildElement, out var runnerKind))
+        {
+            var expectedSource = runnerKind == BuildProfileRunnerKind.ExecuteMethod
+                ? IpcBuildRunnerResultSource.UcliBuildRunnerResult
+                : IpcBuildRunnerResultSource.BuildPipelineBuildReport;
+            if (runnerResultSource != expectedSource)
+            {
+                AddViolation(violations, "$.build.runnerResult.source", "Build runnerResult source must match the build runner kind.");
+            }
         }
 
         if (!TryReadString(runnerResultElement, "status", out var status))
         {
             AddViolation(violations, "$.build.runnerResult.status", "Build runnerResult must declare status.");
+            return;
+        }
+
+        if (!ContractLiteralCodec.TryParse<IpcBuildReportResult>(status, out var parsedStatus)
+            || parsedStatus == IpcBuildReportResult.Unknown)
+        {
+            AddViolation(violations, "$.build.runnerResult.status", "Build runnerResult status must be a terminal build result literal.");
             return;
         }
 
@@ -358,7 +404,7 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
         {
             AddViolation(violations, "$.build.inputs.unityBuildProfile.digest", "Unity Build Profile input must declare digest.");
         }
-        else if (!IsSha256LowerHex(digest))
+        else if (!Sha256LowerHex.IsLowerHexDigest(digest))
         {
             AddViolation(violations, "$.build.inputs.unityBuildProfile.digest", "Unity Build Profile digest must be lowercase SHA-256 hex.");
         }
@@ -385,9 +431,13 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
             AddViolation(violations, "$.build.output.manifestRef", "Build output manifestRef must resolve to reports.buildOutputManifest.");
         }
 
-        if (!TryReadString(outputElement, "manifestDigest", out _))
+        if (!TryReadString(outputElement, "manifestDigest", out var manifestDigest))
         {
             AddViolation(violations, "$.build.output.manifestDigest", "Build output must declare manifestDigest.");
+        }
+        else if (!Sha256LowerHex.IsLowerHexDigest(manifestDigest))
+        {
+            AddViolation(violations, "$.build.output.manifestDigest", "Build output manifestDigest must be lowercase SHA-256 hex.");
         }
     }
 
@@ -456,6 +506,39 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
         {
             AddViolation(violations, "$.build.logs.reportRef", "Build logs reportRef must resolve to reports.buildLog.");
         }
+
+        ValidateBuildLogWindow(logsElement, violations);
+    }
+
+    private static void ValidateBuildLogWindow (
+        JsonElement logsElement,
+        List<AssuranceSemanticInvariantViolation> violations)
+    {
+        if (!logsElement.TryGetProperty("window", out var windowElement) || windowElement.ValueKind != JsonValueKind.Object)
+        {
+            AddViolation(violations, "$.build.logs.window", "Build logs must declare window.");
+            return;
+        }
+
+        var hasStartedAt = TryReadTimestamp(windowElement, "startedAtUtc", out var startedAt);
+        var hasCompletedAt = TryReadTimestamp(windowElement, "completedAtUtc", out var completedAt);
+        if (!hasStartedAt)
+        {
+            AddViolation(violations, "$.build.logs.window.startedAtUtc", "Build logs window must declare startedAtUtc.");
+        }
+
+        if (!hasCompletedAt)
+        {
+            AddViolation(violations, "$.build.logs.window.completedAtUtc", "Build logs window must declare completedAtUtc.");
+        }
+
+        if (hasStartedAt && hasCompletedAt && completedAt < startedAt)
+        {
+            AddViolation(violations, "$.build.logs.window.completedAtUtc", "Build logs window completedAtUtc must be at or after startedAtUtc.");
+        }
+
+        ValidateNullableString(windowElement, "cursorStart", "$.build.logs.window.cursorStart", violations);
+        ValidateNullableString(windowElement, "cursorEnd", "$.build.logs.window.cursorEnd", violations);
     }
 
     private static void ValidateBuildGenerations (
@@ -1040,10 +1123,19 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
 
     private static bool IsExecuteMethodRunner (JsonElement buildElement)
     {
+        return TryReadRunnerKind(buildElement, out var runnerKind)
+            && runnerKind == BuildProfileRunnerKind.ExecuteMethod;
+    }
+
+    private static bool TryReadRunnerKind (
+        JsonElement buildElement,
+        out BuildProfileRunnerKind runnerKind)
+    {
+        runnerKind = default;
         return buildElement.TryGetProperty("runner", out var runnerElement)
             && runnerElement.ValueKind == JsonValueKind.Object
-            && TryReadString(runnerElement, "kind", out var runnerKind)
-            && string.Equals(runnerKind, ContractLiteralCodec.ToValue(BuildProfileRunnerKind.ExecuteMethod), StringComparison.Ordinal);
+            && TryReadString(runnerElement, "kind", out var runnerKindLiteral)
+            && ContractLiteralCodec.TryParse(runnerKindLiteral, out runnerKind);
     }
 
     private static bool TryReadBuildResult (
@@ -1077,6 +1169,39 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
 
         value = element.GetString() ?? string.Empty;
         return !string.IsNullOrWhiteSpace(value);
+    }
+
+    private static bool TryReadTimestamp (
+        JsonElement owner,
+        string propertyName,
+        out DateTimeOffset value)
+    {
+        value = default;
+        return TryReadString(owner, propertyName, out var text)
+            && DateTimeOffset.TryParse(text, out value);
+    }
+
+    private static void ValidateNullableString (
+        JsonElement owner,
+        string propertyName,
+        string propertyPath,
+        List<AssuranceSemanticInvariantViolation> violations)
+    {
+        if (!owner.TryGetProperty(propertyName, out var element))
+        {
+            AddViolation(violations, propertyPath, $"Build logs window must declare {propertyName}.");
+            return;
+        }
+
+        if (element.ValueKind == JsonValueKind.Null)
+        {
+            return;
+        }
+
+        if (element.ValueKind != JsonValueKind.String || string.IsNullOrWhiteSpace(element.GetString()))
+        {
+            AddViolation(violations, propertyPath, $"Build logs window {propertyName} must be a string or null.");
+        }
     }
 
     private static bool TryReadStringArray (
@@ -1124,25 +1249,6 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
         }
 
         value = element.GetBoolean();
-        return true;
-    }
-
-    private static bool IsSha256LowerHex (string value)
-    {
-        if (value.Length != 64)
-        {
-            return false;
-        }
-
-        for (var i = 0; i < value.Length; i++)
-        {
-            var c = value[i];
-            if (c is not (>= '0' and <= '9') and not (>= 'a' and <= 'f'))
-            {
-                return false;
-            }
-        }
-
         return true;
     }
 

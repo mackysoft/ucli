@@ -1,6 +1,8 @@
 using System.Text.Json;
 using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
+using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 
 namespace MackySoft.Ucli.UnityIntegration.Ipc.Execution;
@@ -64,7 +66,8 @@ internal sealed class UnityIpcRequestBuilder
                     RunnerEnvironmentVariableValues = buildRun.RunnerEnvironmentVariableValues,
                     RunnerEnvironmentSecretValues = buildRun.RunnerEnvironmentSecretValues,
                 }),
-                dispatchTimeoutPayloadTransformer: ApplyBuildRunDispatchTimeout),
+                dispatchTimeoutPayloadTransformer: ApplyBuildRunDispatchTimeout,
+                oneshotActiveBuildProfilePath: ResolveOneshotActiveBuildProfilePath(buildRun)),
             UnityRequestPayload.TestRun testRun => new UnityIpcDispatchRequest(
                 IpcMethodNames.TestRun,
                 IpcPayloadCodec.SerializeToElement(new IpcTestRunRequest(
@@ -166,6 +169,21 @@ internal sealed class UnityIpcRequestBuilder
         {
             TimeoutMilliseconds = ToTimeoutMilliseconds(dispatchTimeout),
         });
+    }
+
+    private static string? ResolveOneshotActiveBuildProfilePath (UnityRequestPayload.BuildRun buildRun)
+    {
+        if (!string.Equals(
+                buildRun.InputKind,
+                ContractLiteralCodec.ToValue(BuildProfileInputsKind.UnityBuildProfile),
+                StringComparison.Ordinal)
+            || buildRun.UnityBuildProfile?.Path == null
+            || !UnityAssetPathContract.IsNormalizedBuildProfileAssetPath(buildRun.UnityBuildProfile.Path))
+        {
+            return null;
+        }
+
+        return buildRun.UnityBuildProfile.Path;
     }
 
     private static int ToTimeoutMilliseconds (TimeSpan timeout)

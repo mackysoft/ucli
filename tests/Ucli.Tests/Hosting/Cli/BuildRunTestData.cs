@@ -1,7 +1,6 @@
 using MackySoft.Ucli.Application.Features.Assurance.Build.Payload;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
 using MackySoft.Ucli.Contracts.Assurance;
-using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -17,11 +16,12 @@ internal static class BuildRunTestData
         string? completionReason = null,
         int errorCount = 0)
     {
-        var normalizedReportResult = reportResult ?? ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded);
-        var normalizedCompletionReason = completionReason ?? ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed);
-        var normalizedVerdict = verdict ?? ContractLiteralCodec.ToValue(BuildVerdict.Pass);
+        var normalizedReportResult = reportResult ?? "succeeded";
+        var normalizedCompletionReason = completionReason ?? "completed";
+        var normalizedVerdict = verdict ?? "pass";
         var project = CreateProject();
         var build = CreateBuild(normalizedReportResult, normalizedCompletionReason, errorCount);
+        var claims = CreateClaims(normalizedReportResult);
 
         return new BuildExecutionOutput(
             Verdict: normalizedVerdict,
@@ -34,41 +34,45 @@ internal static class BuildRunTestData
                     Kind: BuildReportRefs.Build,
                     Deterministic: false,
                     Required: true,
-                    PrimaryClaims: BuildClaimCodes.All.Select(static code => code.Value).ToArray(),
+                    PrimaryClaims: claims.Where(static claim => claim.Required).Select(static claim => claim.Id).ToArray(),
                     Effects: BuildPipelineEffectValues,
                     ReportRef: BuildReportRefs.Build),
             ],
-            Claims: CreateClaims(normalizedReportResult),
+            Claims: claims,
             Reports: CreateReports(),
             ResidualRisks: []);
     }
 
-    public static BuildRunStartedEntry CreateStartedEntry ()
+    public static BuildProgressEntry CreateStartedEntry ()
     {
-        return new BuildRunStartedEntry(
+        return new BuildProgressEntry(
             RunId: RunId,
-            ProjectFingerprint: ProjectFingerprint,
-            RequestedMode: "daemon",
-            ResolvedMode: "daemon",
-            SessionKind: "daemon",
-            TimeoutMilliseconds: 120000,
-            BuildTarget: "standaloneLinux64",
-            OutputPath: "/workspace/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/output");
+            ProfileDigest: Repeat('a'),
+            Phase: "started",
+            RunnerKind: null,
+            RunnerStatus: null,
+            Verdict: null,
+            ReportRefs: [],
+            ErrorCode: null);
     }
 
-    public static BuildRunCompletedEntry CreateCompletedEntry ()
+    public static BuildProgressEntry CreateCompletedEntry ()
     {
-        return new BuildRunCompletedEntry(
+        return new BuildProgressEntry(
             RunId: RunId,
-            Verdict: ContractLiteralCodec.ToValue(BuildVerdict.Pass),
-            Result: ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
-            CompletionReason: ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
-            ErrorCount: 0,
-            WarningCount: 1,
-            BuildJsonPath: "/workspace/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/build.json",
-            BuildReportPath: "/workspace/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/build-report.json",
-            BuildLogPath: "/workspace/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/build.log",
-            OutputManifestPath: "/workspace/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/output-manifest.json");
+            ProfileDigest: Repeat('a'),
+            Phase: "completed",
+            RunnerKind: "buildPipeline",
+            RunnerStatus: "succeeded",
+            Verdict: "pass",
+            ReportRefs:
+            [
+                BuildReportRefs.Build,
+                BuildReportRefs.BuildReport,
+                BuildReportRefs.BuildOutputManifest,
+                BuildReportRefs.BuildLog,
+            ],
+            ErrorCode: null);
     }
 
     private static ProjectIdentityInfo CreateProject ()
@@ -88,7 +92,7 @@ internal static class BuildRunTestData
             RunId: RunId,
             Profile: new BuildProfileOutput("/workspace/.ucli/build/player.json", Repeat('a')),
             Inputs: new BuildInputsOutput(
-                InputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit),
+                InputKind: "explicit",
                 Target: new BuildTargetOutput("standaloneLinux64", "StandaloneLinux64"),
                 Scenes: new BuildScenesOutput("explicit", ["Assets/Scenes/Main.unity"]),
                 Options: new BuildOptionsOutput(Development: true),
@@ -102,7 +106,7 @@ internal static class BuildRunTestData
                         Variables: [],
                         Secrets: []))),
             RunnerResult: new BuildRunnerResultOutput(
-                Source: ContractLiteralCodec.ToValue(IpcBuildRunnerResultSource.BuildPipelineBuildReport),
+                Source: "buildPipelineBuildReport",
                 Status: reportResult),
             Output: new BuildArtifactOutput(
                 ManifestRef: BuildReportRefs.BuildOutputManifest,
@@ -133,10 +137,10 @@ internal static class BuildRunTestData
 
     private static IReadOnlyList<BuildClaimOutput> CreateClaims (string reportResult)
     {
-        var passed = ContractLiteralCodec.ToValue(BuildClaimStatus.Passed);
-        var succeededStatus = string.Equals(reportResult, ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded), StringComparison.Ordinal)
+        const string passed = "passed";
+        var succeededStatus = string.Equals(reportResult, "succeeded", StringComparison.Ordinal)
             ? passed
-            : ContractLiteralCodec.ToValue(BuildClaimStatus.Failed);
+            : "failed";
 
         return
         [
@@ -166,7 +170,7 @@ internal static class BuildRunTestData
         var subject = BuildClaimCodes.UnityBuildResultAccounted.Equals(code) && reportResult != null
             ? new Dictionary<string, object?>(StringComparer.Ordinal)
             {
-                ["source"] = ContractLiteralCodec.ToValue(IpcBuildRunnerResultSource.BuildPipelineBuildReport),
+                ["source"] = "buildPipelineBuildReport",
                 ["status"] = reportResult,
             }
             : new Dictionary<string, object?>(StringComparer.Ordinal)
@@ -180,7 +184,7 @@ internal static class BuildRunTestData
                 evidenceRef,
                 new
                 {
-                    source = ContractLiteralCodec.ToValue(IpcBuildRunnerResultSource.BuildPipelineBuildReport),
+                    source = "buildPipelineBuildReport",
                     status = reportResult,
                 })
             : evidenceRef == null
@@ -190,7 +194,7 @@ internal static class BuildRunTestData
         return new BuildClaimOutput(
             Id: code.Value,
             Status: status,
-            Coverage: ContractLiteralCodec.ToValue(BuildCoverage.Full),
+            Coverage: "full",
             Required: true,
             VerifierRef: BuildReportRefs.Build,
             Statement: statement,
@@ -217,13 +221,13 @@ internal static class BuildRunTestData
 
     private static readonly string[] BuildPipelineEffectValues =
     [
-        ContractLiteralCodec.ToValue(BuildEffect.UnityLifecycleRead),
-        ContractLiteralCodec.ToValue(BuildEffect.UnityBuildPipeline),
-        ContractLiteralCodec.ToValue(BuildEffect.UnityBuildReportRead),
-        ContractLiteralCodec.ToValue(BuildEffect.UnityLogWindowRead),
-        ContractLiteralCodec.ToValue(BuildEffect.UcliArtifactWrite),
-        ContractLiteralCodec.ToValue(BuildEffect.OutputManifestWrite),
-        ContractLiteralCodec.ToValue(BuildEffect.GenerationSnapshot),
-        ContractLiteralCodec.ToValue(BuildEffect.ProjectMutationAudit),
+        "unityLifecycleRead",
+        "unityBuildPipeline",
+        "unityBuildReportRead",
+        "unityLogWindowRead",
+        "ucliArtifactWrite",
+        "outputManifestWrite",
+        "generationSnapshot",
+        "projectMutationAudit",
     ];
 }

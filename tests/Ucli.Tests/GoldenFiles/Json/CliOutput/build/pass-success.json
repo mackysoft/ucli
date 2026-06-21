@@ -87,7 +87,9 @@
         "completionReason": "completed",
         "window": {
           "startedAtUtc": "2026-06-12T00:00:00+00:00",
-          "completedAtUtc": "2026-06-12T00:00:03+00:00"
+          "completedAtUtc": "2026-06-12T00:00:03+00:00",
+          "cursorStart": null,
+          "cursorEnd": null
         }
       }
     },

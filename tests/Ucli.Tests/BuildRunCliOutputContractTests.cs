@@ -32,6 +32,22 @@ public sealed class BuildRunCliOutputContractTests
     private static readonly string ProfileDigest = new('e', 64);
     private static readonly DateTimeOffset BuildStartedAtUtc = new(2026, 6, 1, 0, 0, 0, TimeSpan.Zero);
     private static readonly DateTimeOffset BuildCompletedAtUtc = new(2026, 6, 1, 0, 0, 2, 500, TimeSpan.Zero);
+    private static readonly UcliCode[] BuildPipelineClaimCodes =
+    [
+        BuildClaimCodes.UnityBuildProfileResolved,
+        BuildClaimCodes.UnityReadyForBuild,
+        BuildClaimCodes.UnityBuildInputsResolved,
+        BuildClaimCodes.UnityBuildRunnerResolved,
+        BuildClaimCodes.UnityBuildCompleted,
+        BuildClaimCodes.UnityBuildSucceeded,
+        BuildClaimCodes.UnityBuildResultAccounted,
+        BuildClaimCodes.UnityBuildReportAccounted,
+        BuildClaimCodes.UnityBuildArtifactsAccounted,
+        BuildClaimCodes.UnityBuildOutputDigested,
+        BuildClaimCodes.UnityBuildLogsAccounted,
+        BuildClaimCodes.UnityBuildProjectMutationAccounted,
+        BuildClaimCodes.UnityBuildValidForGeneration,
+    ];
 
     [Theory]
     [MemberData(nameof(GetGoldenCases))]
@@ -351,6 +367,7 @@ public sealed class BuildRunCliOutputContractTests
                     ? ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed)
                     : ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Failed),
                 Window: new BuildLogWindowOutput(BuildStartedAtUtc, BuildCompletedAtUtc)));
+        var claims = CreateClaims(build, succeeded);
 
         return new BuildExecutionOutput(
             Verdict: succeeded
@@ -365,11 +382,11 @@ public sealed class BuildRunCliOutputContractTests
                     Kind: BuildReportRefs.Build,
                     Deterministic: false,
                     Required: true,
-                    PrimaryClaims: BuildClaimCodes.All.Select(static code => code.Value).ToArray(),
+                    PrimaryClaims: claims.Where(static claim => claim.Required).Select(static claim => claim.Id).ToArray(),
                     Effects: BuildPipelineEffectValues,
                     ReportRef: BuildReportRefs.Build),
             ],
-            Claims: CreateClaims(build, succeeded),
+            Claims: claims,
             Reports: CreateReports(),
             ResidualRisks: []);
     }
@@ -378,7 +395,7 @@ public sealed class BuildRunCliOutputContractTests
         BuildOutput build,
         bool succeeded)
     {
-        return BuildClaimCodes.All
+        return BuildPipelineClaimCodes
             .Select(code => CreateClaim(code, build, succeeded))
             .ToArray();
     }

@@ -58,6 +58,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddSingleton<ISessionTokenValidator>(sessionTokenValidator);
             services.AddSingleton<IDaemonLogger>(daemonLogger);
             services.AddSingleton<UnityLogRedactionScopeProvider>();
+            services.AddSingleton<IUnityLogStream, UnityLogRingBuffer>();
             services.AddSingleton<IEditorLogRangeExporter, EditorLogRangeExporter>();
             services.AddSingleton<IUnityTestRunRequestContextFactory, UnityTestRunRequestContextFactory>();
             services.AddSingleton<IUnityTestRunner, UnityTestRunner>();
@@ -161,7 +162,6 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddSingleton<IDaemonLogStream>(daemonLogStream);
             services.AddSingleton<IRecoverableIpcOperationStore>(serviceProvider =>
                 FileRecoverableIpcOperationStore.Create(serviceProvider.GetRequiredService<IpcProjectIdentity>()));
-            services.AddSingleton<IUnityLogStream, UnityLogRingBuffer>();
             services.AddSingleton<UnityCompileMessageDedupeCache>();
             services.AddSingleton<UnityLogCollector>();
             services.AddSingleton<UnityLogCaptureService>();

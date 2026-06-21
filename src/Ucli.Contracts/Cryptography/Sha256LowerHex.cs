@@ -98,4 +98,26 @@ internal static class Sha256LowerHex
 
         return new string(chars);
     }
+
+    /// <summary> Determines whether a value is one lowercase hexadecimal SHA-256 digest. </summary>
+    /// <param name="value"> The value to inspect. </param>
+    /// <returns> <see langword="true" /> when <paramref name="value" /> is exactly one lowercase SHA-256 digest; otherwise <see langword="false" />. </returns>
+    internal static bool IsLowerHexDigest (string? value)
+    {
+        if (value == null || value.Length != HexCharCount)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < value.Length; i++)
+        {
+            var character = value[i];
+            if (character is not (>= '0' and <= '9') and not (>= 'a' and <= 'f'))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 }

@@ -26,8 +26,10 @@ public sealed class BuildTargetStableNameUnityBuildTargetResolverTests
     [Trait("Size", "Small")]
     public void TryResolve_SupportsEveryBuildTargetStableNameLiteral ()
     {
-        foreach (var stableName in ContractLiteralCodec.GetLiterals<BuildTargetStableName>())
+        foreach (var stableNameValue in Enum.GetValues<BuildTargetStableName>())
         {
+            var stableName = ContractLiteralCodec.ToValue(stableNameValue);
+
             var resolved = BuildTargetStableNameUnityBuildTargetResolver.TryResolve(stableName, out var unityBuildTargetLiteral);
 
             Assert.True(resolved, $"Build target stable name '{stableName}' must resolve.");

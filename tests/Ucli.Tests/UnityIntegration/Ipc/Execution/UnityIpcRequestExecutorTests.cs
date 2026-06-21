@@ -967,6 +967,7 @@ public sealed class UnityIpcRequestExecutorTests
             ResolvedUnityProjectContext unityProject,
             IpcBatchmodeBootstrapArguments bootstrapArguments,
             string unityLogPath,
+            UnityBatchmodeLaunchOptions? launchOptions = null,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();

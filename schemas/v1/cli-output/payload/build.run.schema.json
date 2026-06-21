@@ -401,11 +401,25 @@
                     },
                     "completedAtUtc": {
                       "type": "string"
+                    },
+                    "cursorStart": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "cursorEnd": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
                     "startedAtUtc",
-                    "completedAtUtc"
+                    "completedAtUtc",
+                    "cursorStart",
+                    "cursorEnd"
                   ]
                 }
               },

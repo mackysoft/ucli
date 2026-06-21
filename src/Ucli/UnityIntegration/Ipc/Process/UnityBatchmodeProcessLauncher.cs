@@ -74,6 +74,7 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
                     EndpointTransportKind: ContractLiteralCodec.ToValue(endpoint.TransportKind),
                     EndpointAddress: endpoint.Address),
                 unityLogPath,
+                UnityBatchmodeLaunchOptions.Default,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!batchmodeLaunchResult.IsSuccess)
@@ -96,6 +97,7 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
         ResolvedUnityProjectContext unityProject,
         IpcBatchmodeBootstrapArguments bootstrapArguments,
         string unityLogPath,
+        UnityBatchmodeLaunchOptions? launchOptions = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -112,6 +114,7 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
             unityProject,
             bootstrapArguments,
             unityLogPath,
+            launchOptions ?? UnityBatchmodeLaunchOptions.Default,
             cancellationToken);
     }
 
@@ -119,8 +122,11 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
         ResolvedUnityProjectContext unityProject,
         IpcBatchmodeBootstrapArguments bootstrapArguments,
         string unityLogPath,
+        UnityBatchmodeLaunchOptions launchOptions,
         CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(launchOptions);
+
         var projectLockValidationError = await ValidateProjectLockAsync(unityProject, cancellationToken).ConfigureAwait(false);
         if (projectLockValidationError != null)
         {
@@ -169,7 +175,7 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
                 RedirectStandardError = true,
             };
 
-            var argumentTokens = BuildArgumentTokens(unityProject.UnityProjectRoot, unityLogPath, bootstrapArguments);
+            var argumentTokens = BuildArgumentTokens(unityProject.UnityProjectRoot, unityLogPath, bootstrapArguments, launchOptions);
             for (var i = 0; i < argumentTokens.Count; i++)
             {
                 processStartInfo.ArgumentList.Add(argumentTokens[i]);
@@ -251,11 +257,13 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
     internal static IReadOnlyList<string> BuildArgumentTokens (
         string unityProjectRoot,
         string unityLogPath,
-        IpcBatchmodeBootstrapArguments bootstrapArguments)
+        IpcBatchmodeBootstrapArguments bootstrapArguments,
+        UnityBatchmodeLaunchOptions? launchOptions = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(unityProjectRoot);
         ArgumentException.ThrowIfNullOrWhiteSpace(unityLogPath);
         ArgumentNullException.ThrowIfNull(bootstrapArguments);
+        launchOptions ??= UnityBatchmodeLaunchOptions.Default;
 
         var tokens = new List<string>
         {
@@ -266,6 +274,12 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
             "-logFile",
             unityLogPath,
         };
+        if (!string.IsNullOrWhiteSpace(launchOptions.ActiveBuildProfilePath))
+        {
+            tokens.Add("-activeBuildProfile");
+            tokens.Add(launchOptions.ActiveBuildProfilePath);
+        }
+
         IpcBatchmodeBootstrapArgumentsCodec.AppendTokens(tokens, bootstrapArguments);
         if (bootstrapArguments is IpcOneshotBootstrapArguments)
         {

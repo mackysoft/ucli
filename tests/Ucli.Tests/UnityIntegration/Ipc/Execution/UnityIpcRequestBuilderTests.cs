@@ -111,6 +111,39 @@ public sealed class UnityIpcRequestBuilderTests
         Assert.Empty(payload.RunnerEnvironmentVariableValues);
         Assert.Empty(payload.RunnerEnvironmentSecretValues);
         Assert.Null(payload.UnityBuildProfile);
+        Assert.Null(request.OneshotActiveBuildProfilePath);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Build_WithUnityBuildProfileBuildRun_SetsOneshotActiveBuildProfilePath ()
+    {
+        var builder = new UnityIpcRequestBuilder();
+
+        var request = builder.Build(new UnityRequestPayload.BuildRun(
+            RunId: "build-run-1",
+            InputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.UnityBuildProfile),
+            BuildTarget: null,
+            UnityBuildTarget: null,
+            SceneSource: null,
+            ScenePaths: [],
+            Development: false,
+            OutputPath: "/tmp/ucli/output",
+            OutputLayout: null,
+            BuildReportPath: "/tmp/ucli/build-report.json",
+            BuildLogPath: "/tmp/ucli/build.log",
+            AllowedEditorModes: ["batchmode"],
+            ProjectMutationMode: "audit",
+            RunnerKind: "buildPipeline")
+        {
+            UnityBuildProfile = new IpcUnityBuildProfileInput("Assets/BuildProfiles/LinuxPlayer.asset"),
+        });
+
+        Assert.Equal(IpcMethodNames.BuildRun, request.Method);
+        Assert.Equal("Assets/BuildProfiles/LinuxPlayer.asset", request.OneshotActiveBuildProfilePath);
+        Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcBuildRunRequest payload, out _));
+        Assert.NotNull(payload.UnityBuildProfile);
+        Assert.Equal("Assets/BuildProfiles/LinuxPlayer.asset", payload.UnityBuildProfile!.Path);
     }
 
     [Fact]

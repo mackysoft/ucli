@@ -13,6 +13,7 @@ using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Assurance.Build;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Json;
 using MackySoft.Ucli.Contracts.Text;
@@ -38,6 +39,8 @@ internal sealed class BuildService : IBuildService
 
     private readonly IUnityRequestExecutor unityRequestExecutor;
 
+    private readonly IUnityStreamingRequestExecutor unityStreamingRequestExecutor;
+
     private readonly IBuildRunIdFactory runIdFactory;
 
     private readonly IBuildRunArtifactStore artifactStore;
@@ -51,6 +54,7 @@ internal sealed class BuildService : IBuildService
         IEnvironmentVariableReader environmentVariableReader,
         IUnityExecutionModeDecisionService executionModeDecisionService,
         IUnityRequestExecutor unityRequestExecutor,
+        IUnityStreamingRequestExecutor unityStreamingRequestExecutor,
         IBuildRunIdFactory runIdFactory,
         IBuildRunArtifactStore artifactStore,
         TimeProvider? timeProvider = null)
@@ -60,6 +64,7 @@ internal sealed class BuildService : IBuildService
         this.environmentVariableReader = environmentVariableReader ?? throw new ArgumentNullException(nameof(environmentVariableReader));
         this.executionModeDecisionService = executionModeDecisionService ?? throw new ArgumentNullException(nameof(executionModeDecisionService));
         this.unityRequestExecutor = unityRequestExecutor ?? throw new ArgumentNullException(nameof(unityRequestExecutor));
+        this.unityStreamingRequestExecutor = unityStreamingRequestExecutor ?? throw new ArgumentNullException(nameof(unityStreamingRequestExecutor));
         this.runIdFactory = runIdFactory ?? throw new ArgumentNullException(nameof(runIdFactory));
         this.artifactStore = artifactStore ?? throw new ArgumentNullException(nameof(artifactStore));
         this.timeProvider = timeProvider ?? TimeProvider.System;
@@ -193,12 +198,7 @@ internal sealed class BuildService : IBuildService
         await EmitStartedAsync(
                 resolvedProgressSink,
                 runId,
-                project,
-                requestedMode,
-                executionTarget,
-                timeout,
-                ResolveStartedBuildTarget(profile),
-                paths.RunnerOutputDirectory,
+                profile.Digest,
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -210,15 +210,39 @@ internal sealed class BuildService : IBuildService
             outputLayout,
             runId,
             runnerInvocation);
-        var executionResult = await unityRequestExecutor.ExecuteAsync(
-                UcliCommandIds.BuildRun,
-                ResolveExecutionMode(executionTarget),
-                requestTimeout,
-                context.Config,
-                context.UnityProject,
-                request,
-                cancellationToken)
-            .ConfigureAwait(false);
+        UnityRequestExecutionResult executionResult;
+        try
+        {
+            executionResult = await ExecuteUnityRequestAsync(
+                    context,
+                    executionTarget,
+                    requestTimeout,
+                    request,
+                    runId,
+                    profile.Digest,
+                    resolvedProgressSink,
+                    useProgressStream: progressSink != null,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (BuildProgressProtocolException exception)
+        {
+            await EmitDiagnosticAsync(
+                    resolvedProgressSink,
+                    runId,
+                    BuildErrorCodes.BuildRunnerInvocationFailed.Value,
+                    IpcExecuteDiagnosticSeverityNames.Error,
+                    exception.Message,
+                    ContractLiteralCodec.ToValue(BuildRunProgressPhase.RunnerInvocation),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return BuildExecutionResult.Failure(
+                ApplicationFailure.FromCode(
+                    BuildErrorCodes.BuildRunnerInvocationFailed,
+                    exception.Message),
+                project);
+        }
+
         if (!executionResult.IsSuccess)
         {
             var failureInfo = executionResult.FailureInfo!;
@@ -249,6 +273,20 @@ internal sealed class BuildService : IBuildService
         }
 
         var buildResponse = responseResult.Response!;
+        await EmitProgressAsync(
+                resolvedProgressSink,
+                BuildRunProgressEventNames.RunnerResultCompleted,
+                runId,
+                profile.Digest,
+                ContractLiteralCodec.ToValue(BuildRunProgressPhase.RunnerResult),
+                ContractLiteralCodec.ToValue(profile.Runner.Kind),
+                GetTerminalResult(buildResponse),
+                verdict: null,
+                reportRefs: [],
+                errorCode: null,
+                cancellationToken)
+            .ConfigureAwait(false);
+
         if (!deadline.TryGetRemainingTimeout(out var artifactAccountingTimeout))
         {
             return BuildExecutionResult.Failure(CreateTimeoutFailure(timeout), project);
@@ -334,10 +372,22 @@ internal sealed class BuildService : IBuildService
                     accounting,
                     metadataWriteResult.Artifact!),
             };
+            await EmitProgressAsync(
+                    resolvedProgressSink,
+                    BuildRunProgressEventNames.ArtifactsCompleted,
+                    runId,
+                    profile.Digest,
+                    ContractLiteralCodec.ToValue(BuildRunProgressPhase.ArtifactAccounting),
+                    completedOutput.Build.Runner.Kind,
+                    completedOutput.Build.RunnerResult.Status,
+                    verdict: null,
+                    reportRefs: CreateReportRefs(completedOutput.Reports),
+                    errorCode: null,
+                    cancellationToken)
+                .ConfigureAwait(false);
             await EmitCompletedAsync(
                     resolvedProgressSink,
                     completedOutput,
-                    paths,
                     cancellationToken)
                 .ConfigureAwait(false);
             return BuildExecutionResult.Success(completedOutput);
@@ -351,25 +401,20 @@ internal sealed class BuildService : IBuildService
     private static ValueTask EmitStartedAsync (
         ICommandProgressSink progressSink,
         string runId,
-        ProjectIdentityInfo project,
-        UnityExecutionMode requestedMode,
-        UnityExecutionTarget executionTarget,
-        TimeSpan timeout,
-        string buildTarget,
-        string outputPath,
+        string profileDigest,
         CancellationToken cancellationToken)
     {
-        return progressSink.OnEntryAsync(
+        return EmitProgressAsync(
+            progressSink,
             BuildRunProgressEventNames.Started,
-            new BuildRunStartedEntry(
-                RunId: runId,
-                ProjectFingerprint: project.ProjectFingerprint,
-                RequestedMode: AssuranceExecutionModeCodec.ToRequestedModeValue(requestedMode),
-                ResolvedMode: AssuranceExecutionModeCodec.ToResolvedModeValue(executionTarget),
-                SessionKind: AssuranceExecutionModeCodec.ToSessionKindValue(executionTarget),
-                TimeoutMilliseconds: checked((int)timeout.TotalMilliseconds),
-                BuildTarget: buildTarget,
-                OutputPath: outputPath),
+            runId,
+            profileDigest,
+            ContractLiteralCodec.ToValue(BuildRunProgressPhase.Started),
+            runnerKind: null,
+            runnerStatus: null,
+            verdict: null,
+            reportRefs: [],
+            errorCode: null,
             cancellationToken);
     }
 
@@ -569,29 +614,157 @@ internal sealed class BuildService : IBuildService
     private static ValueTask EmitCompletedAsync (
         ICommandProgressSink progressSink,
         BuildExecutionOutput output,
-        BuildRunArtifactPaths paths,
         CancellationToken cancellationToken)
     {
-        return progressSink.OnEntryAsync(
+        return EmitProgressAsync(
+            progressSink,
             BuildRunProgressEventNames.Completed,
-            new BuildRunCompletedEntry(
-                RunId: output.Build.RunId,
-                Verdict: output.Verdict,
-                Result: output.Build.Summary.Result,
-                CompletionReason: output.Build.Logs.CompletionReason,
-                ErrorCount: output.Build.Summary.ErrorCount,
-                WarningCount: output.Build.Summary.WarningCount,
-                BuildJsonPath: paths.BuildJsonPath,
-                BuildReportPath: paths.BuildReportJsonPath,
-                BuildLogPath: paths.BuildLogPath,
-                OutputManifestPath: paths.OutputManifestJsonPath),
+            output.Build.RunId,
+            output.Build.Profile.Digest,
+            ContractLiteralCodec.ToValue(BuildRunProgressPhase.Completed),
+            output.Build.Runner.Kind,
+            output.Build.RunnerResult.Status,
+            output.Verdict,
+            CreateReportRefs(output.Reports),
+            errorCode: null,
             cancellationToken);
     }
 
-    private static string ResolveStartedBuildTarget (ResolvedBuildProfile profile)
+    private static ValueTask EmitDiagnosticAsync (
+        ICommandProgressSink progressSink,
+        string runId,
+        string code,
+        string severity,
+        string message,
+        string phase,
+        CancellationToken cancellationToken)
     {
-        return profile.Inputs.BuildTarget?.StableName
-            ?? ContractLiteralCodec.ToValue(profile.Inputs.Kind);
+        return progressSink.OnEntryAsync(
+            BuildRunProgressEventNames.Diagnostic,
+            new BuildDiagnosticEntry(runId, code, severity, message, phase),
+            cancellationToken);
+    }
+
+    private static ValueTask EmitProgressAsync (
+        ICommandProgressSink progressSink,
+        string eventName,
+        string runId,
+        string profileDigest,
+        string phase,
+        string? runnerKind,
+        string? runnerStatus,
+        string? verdict,
+        string[] reportRefs,
+        string? errorCode,
+        CancellationToken cancellationToken)
+    {
+        return progressSink.OnEntryAsync(
+            eventName,
+            new BuildProgressEntry(
+                RunId: runId,
+                ProfileDigest: profileDigest,
+                Phase: phase,
+                RunnerKind: runnerKind,
+                RunnerStatus: runnerStatus,
+                Verdict: verdict,
+                ReportRefs: reportRefs,
+                ErrorCode: errorCode),
+            cancellationToken);
+    }
+
+    private async ValueTask<UnityRequestExecutionResult> ExecuteUnityRequestAsync (
+        ProjectContext context,
+        UnityExecutionTarget executionTarget,
+        TimeSpan requestTimeout,
+        UnityRequestPayload.BuildRun request,
+        string runId,
+        string profileDigest,
+        ICommandProgressSink progressSink,
+        bool useProgressStream,
+        CancellationToken cancellationToken)
+    {
+        if (!useProgressStream)
+        {
+            return await unityRequestExecutor.ExecuteAsync(
+                    UcliCommandIds.BuildRun,
+                    ResolveExecutionMode(executionTarget),
+                    requestTimeout,
+                    context.Config,
+                    context.UnityProject,
+                    request,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        return await unityStreamingRequestExecutor.ExecuteAsync(
+                UcliCommandIds.BuildRun,
+                ResolveExecutionMode(executionTarget),
+                requestTimeout,
+                context.Config,
+                context.UnityProject,
+                request,
+                (frame, progressCancellationToken) => ForwardBuildProgressFrameAsync(
+                    frame,
+                    runId,
+                    profileDigest,
+                    progressSink,
+                    progressCancellationToken),
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private static async ValueTask ForwardBuildProgressFrameAsync (
+        UnityRequestProgressFrame frame,
+        string expectedRunId,
+        string expectedProfileDigest,
+        ICommandProgressSink progressSink,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(frame);
+        ArgumentException.ThrowIfNullOrWhiteSpace(expectedRunId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(expectedProfileDigest);
+        ArgumentNullException.ThrowIfNull(progressSink);
+
+        switch (frame.Event)
+        {
+            case BuildRunProgressEventNames.ReadinessCompleted:
+            case BuildRunProgressEventNames.RunnerResolved:
+            case BuildRunProgressEventNames.RunnerStarted:
+            case BuildRunProgressEventNames.RunnerCompleted:
+                await ForwardProgressPayloadAsync<BuildProgressEntry>(frame, expectedRunId, expectedProfileDigest, progressSink, cancellationToken).ConfigureAwait(false);
+                return;
+            case BuildRunProgressEventNames.LogEntry:
+                await ForwardProgressPayloadAsync<BuildLogEntry>(frame, expectedRunId, expectedProfileDigest, progressSink, cancellationToken).ConfigureAwait(false);
+                return;
+            case BuildRunProgressEventNames.Diagnostic:
+                await ForwardProgressPayloadAsync<BuildDiagnosticEntry>(frame, expectedRunId, expectedProfileDigest, progressSink, cancellationToken).ConfigureAwait(false);
+                return;
+            default:
+                throw new BuildProgressProtocolException($"Unity build progress event is not supported: {frame.Event}.");
+        }
+    }
+
+    private static async ValueTask ForwardProgressPayloadAsync<TPayload> (
+        UnityRequestProgressFrame frame,
+        string expectedRunId,
+        string expectedProfileDigest,
+        ICommandProgressSink progressSink,
+        CancellationToken cancellationToken)
+        where TPayload : notnull
+    {
+        if (!IpcPayloadCodec.TryDeserialize<TPayload>(frame.Payload, out var payload, out var error))
+        {
+            throw new BuildProgressProtocolException(
+                $"Unity build progress payload is invalid for event '{frame.Event}'. {error}");
+        }
+
+        BuildProgressPayloadValidator.Validate(frame.Event, payload!, expectedRunId, expectedProfileDigest);
+        await progressSink.OnEntryAsync(
+                frame.Event,
+                payload!,
+                cancellationToken)
+            .ConfigureAwait(false);
     }
 
     private static UnityRequestPayload.BuildRun CreateBuildRunRequest (
@@ -1072,7 +1245,7 @@ internal sealed class BuildService : IBuildService
                 $"Unity build response unityBuildProfile path mismatch. Requested={expectedProfile.Inputs.RequireUnityBuildProfilePath()}, Actual={response.UnityBuildProfile.Path}.");
         }
 
-        if (!IsSha256LowerHex(response.UnityBuildProfile.Digest))
+        if (!Sha256LowerHex.IsLowerHexDigest(response.UnityBuildProfile.Digest))
         {
             return ApplicationFailure.InternalError("Unity build response unityBuildProfile digest must be lowercase SHA-256 hex.");
         }
@@ -1542,12 +1715,12 @@ internal sealed class BuildService : IBuildService
             return ApplicationFailure.InternalError($"Unity build response contains unsupported projectMutation coverage: {projectMutation.Coverage}.");
         }
 
-        if (!IsSha256LowerHex(projectMutation.BeforeDigest))
+        if (!Sha256LowerHex.IsLowerHexDigest(projectMutation.BeforeDigest))
         {
             return ApplicationFailure.InternalError("Unity build response projectMutation beforeDigest must be lowercase SHA-256 hex.");
         }
 
-        if (!IsSha256LowerHex(projectMutation.AfterDigest))
+        if (!Sha256LowerHex.IsLowerHexDigest(projectMutation.AfterDigest))
         {
             return ApplicationFailure.InternalError("Unity build response projectMutation afterDigest must be lowercase SHA-256 hex.");
         }
@@ -1660,7 +1833,7 @@ internal sealed class BuildService : IBuildService
                 $"Unity build response projectMutation added item at index {index} must not contain beforeSha256.");
         }
 
-        return IsSha256LowerHex(item.AfterSha256)
+        return Sha256LowerHex.IsLowerHexDigest(item.AfterSha256)
             ? null
             : ApplicationFailure.InternalError(
                 $"Unity build response projectMutation added item at index {index} must contain afterSha256.");
@@ -1670,7 +1843,8 @@ internal sealed class BuildService : IBuildService
         IpcBuildProjectMutationAuditItem item,
         int index)
     {
-        if (!IsSha256LowerHex(item.BeforeSha256) || !IsSha256LowerHex(item.AfterSha256))
+        if (!Sha256LowerHex.IsLowerHexDigest(item.BeforeSha256)
+            || !Sha256LowerHex.IsLowerHexDigest(item.AfterSha256))
         {
             return ApplicationFailure.InternalError(
                 $"Unity build response projectMutation modified item at index {index} must contain beforeSha256 and afterSha256.");
@@ -1692,7 +1866,7 @@ internal sealed class BuildService : IBuildService
                 $"Unity build response projectMutation deleted item at index {index} must not contain afterSha256.");
         }
 
-        return IsSha256LowerHex(item.BeforeSha256)
+        return Sha256LowerHex.IsLowerHexDigest(item.BeforeSha256)
             ? null
             : ApplicationFailure.InternalError(
                 $"Unity build response projectMutation deleted item at index {index} must contain beforeSha256.");
@@ -1703,25 +1877,6 @@ internal sealed class BuildService : IBuildService
         return path.StartsWith("Assets/", StringComparison.Ordinal)
             || path.StartsWith("ProjectSettings/", StringComparison.Ordinal)
             || path.StartsWith("Packages/", StringComparison.Ordinal);
-    }
-
-    private static bool IsSha256LowerHex (string? value)
-    {
-        if (value == null || value.Length != 64)
-        {
-            return false;
-        }
-
-        for (var i = 0; i < value.Length; i++)
-        {
-            var character = value[i];
-            if (!((character >= '0' && character <= '9') || (character >= 'a' && character <= 'f')))
-            {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     private static bool HasExpectedDevelopmentBuildOption (
@@ -1795,7 +1950,9 @@ internal sealed class BuildService : IBuildService
             CompletionReason: response.Logs.CompletionReason,
             Window: new BuildLogWindowOutput(
                 StartedAtUtc: response.Logs.Window.StartedAtUtc,
-                CompletedAtUtc: response.Logs.Window.CompletedAtUtc));
+                CompletedAtUtc: response.Logs.Window.CompletedAtUtc,
+                CursorStart: response.Logs.Window.CursorStart,
+                CursorEnd: response.Logs.Window.CursorEnd));
         var scenes = new BuildScenesOutput(
             Source: response.Input.SceneSource,
             Paths: response.Input.Scenes);
@@ -1946,6 +2103,28 @@ internal sealed class BuildService : IBuildService
         }
 
         return reports;
+    }
+
+    private static string[] CreateReportRefs (IReadOnlyDictionary<string, BuildReportOutput> reports)
+    {
+        ArgumentNullException.ThrowIfNull(reports);
+        var refs = new List<string>(capacity: 4);
+        AddReportRefIfPresent(refs, reports, BuildReportRefs.Build);
+        AddReportRefIfPresent(refs, reports, BuildReportRefs.BuildReport);
+        AddReportRefIfPresent(refs, reports, BuildReportRefs.BuildOutputManifest);
+        AddReportRefIfPresent(refs, reports, BuildReportRefs.BuildLog);
+        return refs.ToArray();
+    }
+
+    private static void AddReportRefIfPresent (
+        List<string> refs,
+        IReadOnlyDictionary<string, BuildReportOutput> reports,
+        string reportRef)
+    {
+        if (reports.ContainsKey(reportRef))
+        {
+            refs.Add(reportRef);
+        }
     }
 
     private static BuildRunMetadataDocument CreateMetadataDocument (
@@ -2271,25 +2450,22 @@ internal sealed class BuildService : IBuildService
         BuildProfileProjectMutationMode mode,
         IpcBuildProjectMutationAudit projectMutation)
     {
-        var risks = new List<BuildResidualRiskOutput>(capacity: 2);
-        if (mode == BuildProfileProjectMutationMode.Audit && projectMutation.Mutated)
+        var hasMutationRisk = mode == BuildProfileProjectMutationMode.Audit && projectMutation.Mutated;
+        var hasCoverageRisk = (mode == BuildProfileProjectMutationMode.Audit || mode == BuildProfileProjectMutationMode.AllowWithAudit)
+            && !IsFullProjectMutationCoverage(projectMutation);
+        if (hasMutationRisk || hasCoverageRisk)
         {
-            risks.Add(CreateProjectMutationRisk(
-                BuildRiskCodes.ProjectMutationDetected,
-                "Project mutation audit evidence should be reviewed for this build run."));
+            return
+            [
+                CreateProjectMutationRisk(
+                    BuildRiskCodes.ProjectMutationDetected,
+                    hasCoverageRisk
+                        ? "Project mutation audit evidence or incomplete audit coverage should be reviewed for this build run."
+                        : "Project mutation audit evidence should be reviewed for this build run."),
+            ];
         }
 
-        if ((mode == BuildProfileProjectMutationMode.Audit || mode == BuildProfileProjectMutationMode.AllowWithAudit)
-            && !IsFullProjectMutationCoverage(projectMutation))
-        {
-            risks.Add(CreateProjectMutationRisk(
-                BuildRiskCodes.ProjectMutationAuditCoverageIncomplete,
-                "Project mutation audit did not cover every configured project path for this build run."));
-        }
-
-        return risks.Count == 0
-            ? EmptyResidualRisks
-            : risks;
+        return EmptyResidualRisks;
     }
 
     private static BuildResidualRiskOutput CreateProjectMutationRisk (

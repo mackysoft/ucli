@@ -88,7 +88,10 @@ namespace MackySoft.Ucli.Unity.Build
             {
                 digest = ComputeAssetDigest(profilePath);
                 cancellationToken.ThrowIfCancellationRequested();
-                BuildProfile.SetActiveBuildProfile(profile);
+                if (BuildProfile.GetActiveBuildProfile() != profile)
+                {
+                    BuildProfile.SetActiveBuildProfile(profile);
+                }
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException)
             {

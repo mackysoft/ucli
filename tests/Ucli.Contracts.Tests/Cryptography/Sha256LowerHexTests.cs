@@ -75,6 +75,27 @@ public sealed class Sha256LowerHexTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void IsLowerHexDigest_ReturnsTrue_ForLowercaseSha256Digest ()
+    {
+        var digest = Sha256LowerHex.Compute(Encoding.UTF8.GetBytes("abc"));
+
+        Assert.True(Sha256LowerHex.IsLowerHexDigest(digest));
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015a")]
+    [InlineData("BA7816BF8F01CFEA414140DE5DAE2223B00361A396177A9CB410FF61F20015AD")]
+    [InlineData("za7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")]
+    public void IsLowerHexDigest_ReturnsFalse_ForInvalidDigest (string? digest)
+    {
+        Assert.False(Sha256LowerHex.IsLowerHexDigest(digest));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Compute_Throws_WhenInputArrayIsNull ()
     {
         Assert.Throws<ArgumentNullException>(() =>

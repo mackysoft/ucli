@@ -41,6 +41,7 @@ internal static class InvalidArgumentErrorCodeSet
         codes.Add(BuildErrorCodes.BuildProfileInvalid);
         codes.Add(BuildErrorCodes.BuildTargetUnsupported);
         codes.Add(BuildErrorCodes.BuildInputsInvalid);
+        codes.Add(BuildErrorCodes.BuildSceneNotFound);
 
         return codes;
     }

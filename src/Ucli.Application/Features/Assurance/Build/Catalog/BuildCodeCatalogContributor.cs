@@ -52,8 +52,7 @@ internal sealed class BuildCodeCatalogContributor : ICodeCatalogContributor
             Create(BuildClaimCodes.UnityBuildLogsAccounted, "The build log artifact was written and summarized."),
             Create(BuildClaimCodes.UnityBuildProjectMutationAccounted, "Project mutation audit was recorded according to build policy."),
             Create(BuildClaimCodes.UnityBuildValidForGeneration, "Build artifacts declare lifecycle generations they are valid for."),
-            CreateRisk(BuildRiskCodes.ProjectMutationDetected, "Project mutation was detected by a non-blocking build audit policy."),
-            CreateRisk(BuildRiskCodes.ProjectMutationAuditCoverageIncomplete, "Project mutation audit coverage was incomplete under a non-blocking build audit policy."),
+            CreateRisk(BuildRiskCodes.ProjectMutationDetected, "Project mutation or incomplete mutation audit coverage was detected by a non-blocking build policy."),
         ];
     }
 

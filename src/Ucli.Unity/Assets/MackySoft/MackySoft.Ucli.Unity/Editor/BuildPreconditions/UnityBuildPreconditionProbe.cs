@@ -481,7 +481,7 @@ namespace MackySoft.Ucli.Unity.Build
                 {
                     scenePaths = Array.Empty<string>();
                     error = new IpcError(
-                        BuildErrorCodes.BuildInputsInvalid,
+                        BuildErrorCodes.BuildSceneNotFound,
                         $"Build scene path at index {i} does not resolve to a scene asset: {rawPath}.",
                         null);
                     return false;
