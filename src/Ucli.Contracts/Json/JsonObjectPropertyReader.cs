@@ -24,6 +24,68 @@ internal static class JsonObjectPropertyReader
         return null;
     }
 
+    /// <summary> Reads one property from a JSON object using ordinal-ignore-case name comparison. </summary>
+    /// <param name="root"> The source JSON object. </param>
+    /// <param name="propertyName"> The property name to read. </param>
+    /// <param name="property"> The property value when the property exists. </param>
+    /// <returns> <see langword="true" /> when the property exists; otherwise <see langword="false" />. </returns>
+    public static bool TryGetPropertyIgnoreCase (
+        JsonElement root,
+        string propertyName,
+        out JsonElement property)
+    {
+        if (root.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var candidate in root.EnumerateObject())
+            {
+                if (string.Equals(candidate.Name, propertyName, StringComparison.OrdinalIgnoreCase))
+                {
+                    property = candidate.Value;
+                    return true;
+                }
+            }
+        }
+
+        property = default;
+        return false;
+    }
+
+    /// <summary> Finds a duplicate object property by ordinal-ignore-case name comparison. </summary>
+    /// <param name="root"> The source JSON value. </param>
+    /// <param name="rootPath"> The property path label used in diagnostics. </param>
+    /// <param name="duplicatePropertyPath"> The duplicate property path when found. </param>
+    /// <returns> <see langword="true" /> when a duplicate object property exists; otherwise <see langword="false" />. </returns>
+    public static bool TryFindDuplicatePropertyIgnoreCase (
+        JsonElement root,
+        string rootPath,
+        out string duplicatePropertyPath)
+    {
+        switch (root.ValueKind)
+        {
+            case JsonValueKind.Object:
+                return TryFindDuplicateObjectPropertyIgnoreCase(root, rootPath, out duplicatePropertyPath);
+
+            case JsonValueKind.Array:
+                var index = 0;
+                foreach (var item in root.EnumerateArray())
+                {
+                    if (TryFindDuplicatePropertyIgnoreCase(item, $"{rootPath}[{index}]", out duplicatePropertyPath))
+                    {
+                        return true;
+                    }
+
+                    index++;
+                }
+
+                duplicatePropertyPath = string.Empty;
+                return false;
+
+            default:
+                duplicatePropertyPath = string.Empty;
+                return false;
+        }
+    }
+
     /// <summary> Reads one required property from JSON object. </summary>
     /// <typeparam name="TError"> The parse error type. </typeparam>
     /// <param name="root"> The source JSON root object. </param>
@@ -303,5 +365,30 @@ internal static class JsonObjectPropertyReader
         values = parsedValues.ToArray();
         error = default!;
         return true;
+    }
+
+    private static bool TryFindDuplicateObjectPropertyIgnoreCase (
+        JsonElement root,
+        string rootPath,
+        out string duplicatePropertyPath)
+    {
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var property in root.EnumerateObject())
+        {
+            var propertyPath = $"{rootPath}.{property.Name}";
+            if (!names.Add(property.Name))
+            {
+                duplicatePropertyPath = propertyPath;
+                return true;
+            }
+
+            if (TryFindDuplicatePropertyIgnoreCase(property.Value, propertyPath, out duplicatePropertyPath))
+            {
+                return true;
+            }
+        }
+
+        duplicatePropertyPath = string.Empty;
+        return false;
     }
 }

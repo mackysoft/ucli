@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Catalog;
@@ -524,6 +525,56 @@ public sealed class BuildServiceTests
     {
         var result = await ExecuteWithExecuteMethodRunnerResultAsync(
             CreateExecuteMethodRunnerResult(outputs: []));
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(BuildErrorCodes.BuildRunnerResultInvalid, error.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithExecuteMethodRunnerResultOutputsNull_ReturnsBuildRunnerResultInvalid ()
+    {
+        var result = await ExecuteWithMalformedExecuteMethodRunnerResultPayloadAsync(
+            static payload => payload["runnerResult"]!.AsObject()["outputs"] = null);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(BuildErrorCodes.BuildRunnerResultInvalid, error.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithExecuteMethodRunnerResultOutputsMissing_ReturnsBuildRunnerResultInvalid ()
+    {
+        var result = await ExecuteWithMalformedExecuteMethodRunnerResultPayloadAsync(
+            static payload => payload["runnerResult"]!.AsObject().Remove("outputs"));
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(BuildErrorCodes.BuildRunnerResultInvalid, error.Code);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [MemberData(nameof(GetInvalidExecuteMethodRunnerResultShapeCases))]
+    public async Task Execute_WithInvalidExecuteMethodRunnerResultPayloadShape_ReturnsBuildRunnerResultInvalid (
+        Action<JsonObject> mutatePayload)
+    {
+        var result = await ExecuteWithMalformedExecuteMethodRunnerResultPayloadAsync(mutatePayload);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(BuildErrorCodes.BuildRunnerResultInvalid, error.Code);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [MemberData(nameof(GetDuplicateExecuteMethodRunnerResultPropertyCases))]
+    public async Task Execute_WithDuplicateExecuteMethodRunnerResultProperty_ReturnsBuildRunnerResultInvalid (
+        Func<string, string> mutatePayloadJson)
+    {
+        var result = await ExecuteWithMalformedExecuteMethodRunnerResultRawPayloadAsync(mutatePayloadJson);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
@@ -1808,6 +1859,114 @@ public sealed class BuildServiceTests
             writeRunnerResultOutputs,
             writeRunnerBuildReportSource,
             runnerBuildReportSourceJson);
+    }
+
+    public static IEnumerable<object[]> GetInvalidExecuteMethodRunnerResultShapeCases ()
+    {
+        yield return
+        [
+            (Action<JsonObject>)(static payload => payload["runnerResult"] = new JsonArray()),
+        ];
+        yield return
+        [
+            (Action<JsonObject>)(static payload => payload["runnerResult"]!.AsObject()["extra"] = true),
+        ];
+        yield return
+        [
+            (Action<JsonObject>)(static payload => payload["runnerResult"]!.AsObject()["outputs"] = "player.txt"),
+        ];
+        yield return
+        [
+            (Action<JsonObject>)(static payload => payload["runnerResult"]!.AsObject()["outputs"] = new JsonArray(1)),
+        ];
+        yield return
+        [
+            (Action<JsonObject>)(static payload => payload["runnerResult"]!.AsObject()["buildReport"] = new JsonObject
+            {
+                ["path"] = 1,
+            }),
+        ];
+    }
+
+    public static IEnumerable<object[]> GetDuplicateExecuteMethodRunnerResultPropertyCases ()
+    {
+        yield return
+        [
+            (Func<string, string>)(static json => json.Replace(
+                "\"outputs\":[]",
+                "\"outputs\":[],\"Outputs\":[]",
+                StringComparison.Ordinal)),
+        ];
+        yield return
+        [
+            (Func<string, string>)(static json => json.Replace(
+                "\"diagnostics\":[]",
+                "\"diagnostics\":[{\"code\":\"D\",\"Code\":\"E\",\"severity\":\"error\",\"message\":\"m\"}]",
+                StringComparison.Ordinal)),
+        ];
+        yield return
+        [
+            (Func<string, string>)(static json => json.Replace(
+                "\"buildReport\":null",
+                "\"buildReport\":{\"path\":\"reports/a.json\",\"Path\":\"reports/b.json\"}",
+                StringComparison.Ordinal)),
+        ];
+    }
+
+    private static Task<BuildExecutionResult> ExecuteWithMalformedExecuteMethodRunnerResultPayloadAsync (
+        Action<JsonObject> mutatePayload)
+    {
+        return ExecuteWithMalformedExecuteMethodRunnerResultRawPayloadAsync(payloadJson =>
+        {
+            var payloadObject = JsonNode.Parse(payloadJson)!.AsObject();
+            mutatePayload(payloadObject);
+            return payloadObject.ToJsonString();
+        });
+    }
+
+    private static async Task<BuildExecutionResult> ExecuteWithMalformedExecuteMethodRunnerResultRawPayloadAsync (
+        Func<string, string> mutatePayloadJson)
+    {
+        using var tempDirectory = TemporaryDirectory.Create();
+        var runnerResult = CreateExecuteMethodRunnerResult(
+            status: ContractLiteralCodec.ToValue(IpcBuildReportResult.Failed),
+            outputs: [],
+            errorCount: 1,
+            warningCount: 0);
+        var profileJson = CreateExecuteMethodProfileJson(
+            method: "Build.Entry.Run",
+            arguments: string.Empty,
+            environment: string.Empty);
+        var service = CreateService(
+            profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(profileJson, "/workspace/build.ucli.json")),
+            requestExecutor: new StubUnityRequestExecutor(payload =>
+            {
+                var buildRunPayload = (UnityRequestPayload.BuildRun)payload;
+                WriteRunnerResultFiles(
+                    buildRunPayload,
+                    runnerResult,
+                    runnerResult.Status,
+                    runnerResult.ErrorCount,
+                    writeOutputs: true,
+                    writeBuildReportSource: true,
+                    buildReportSourceJson: null);
+                var result = CreateBuildResponseResult(
+                    runnerResult.Status,
+                    ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Failed),
+                    runnerResult.ErrorCount,
+                    reportOutputPath: buildRunPayload.OutputPath,
+                    runnerResult: runnerResult,
+                    omitReport: true);
+                var response = result.Response!;
+                using var document = JsonDocument.Parse(mutatePayloadJson(response.Payload.GetRawText()));
+                return UnityRequestExecutionResult.Success(response with
+                {
+                    Payload = document.RootElement.Clone(),
+                });
+            }),
+            artifactStore: new StubBuildRunArtifactStore(tempDirectory.Path));
+
+        return await service.ExecuteAsync(CreateInput());
     }
 
     private static UnityRequestExecutionResult CreateBuildResponseResult (

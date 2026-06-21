@@ -434,10 +434,13 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
             return source.Artifact!;
         }
 
-        var sourcePath = ResolveOutputSourcePath(
-            paths,
-            BuildOutputSourceEntry.FromRunnerOutputRelativePath(source.RunnerOutputRelativePath!));
+        var sourcePath = ResolveBuildReportSourcePath(paths, source);
         EnsureReadableBuildReportSourceFile(sourcePath);
+        EnsureRunnerOutputSourcePathHasNoReparsePoint(
+            paths.RunnerOutputDirectory,
+            sourcePath,
+            "BuildReport source");
+        var sourceIdentity = CaptureSourceFileIdentity(sourcePath, "BuildReport source file");
         await using var stream = new FileStream(
             sourcePath,
             FileMode.Open,
@@ -445,6 +448,12 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
             FileShare.Read,
             FileStreamBufferSize,
             FileOptions.Asynchronous | FileOptions.SequentialScan);
+        EnsureOpenedSourceFileMatchesIdentity(
+            sourcePath,
+            stream,
+            sourceIdentity,
+            "BuildReport source file",
+            EnsureReadableBuildReportSourceFile);
         var buildReport = await JsonSerializer.DeserializeAsync<IpcBuildReportArtifact>(
                 stream,
                 IpcJsonSerializerOptions.Default,
@@ -474,6 +483,11 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         if ((attributes & FileAttributes.Directory) != 0)
         {
             throw new BuildReportSourceException($"BuildReport source file must not be a directory: {sourcePath}");
+        }
+
+        if (!FileSystemNodeClassifier.IsRegularFile(sourcePath, attributes))
+        {
+            throw new BuildReportSourceException($"BuildReport source file must be a regular file: {sourcePath}");
         }
     }
 
@@ -816,7 +830,10 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
                 continue;
             }
 
-            EnsureOutputSourcePathHasNoReparsePoint(paths.RunnerOutputDirectory, sourcePath);
+            EnsureRunnerOutputSourcePathHasNoReparsePoint(
+                paths.RunnerOutputDirectory,
+                sourcePath,
+                "Build output source");
             var kind = ResolveOutputSourceEntryKind(sourcePath);
             entries.Add(new ResolvedOutputSourceEntry(sourcePath, kind));
         }
@@ -839,6 +856,16 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         return entries;
     }
 
+    private static string ResolveBuildReportSourcePath (
+        BuildRunArtifactPaths paths,
+        BuildReportSourceEntry source)
+    {
+        return ResolveRunnerOutputRelativeSourcePath(
+            paths,
+            source.RunnerOutputRelativePath!,
+            "BuildReport source");
+    }
+
     private static string ResolveOutputSourcePath (
         BuildRunArtifactPaths paths,
         BuildOutputSourceEntry outputSource)
@@ -858,15 +885,26 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
             return Path.GetFullPath(outputSource.Path);
         }
 
-        if (!RelativePathContract.TryNormalize(outputSource.Path, out var normalizedPath))
+        return ResolveRunnerOutputRelativeSourcePath(
+            paths,
+            outputSource.Path,
+            "Output source");
+    }
+
+    private static string ResolveRunnerOutputRelativeSourcePath (
+        BuildRunArtifactPaths paths,
+        string relativePath,
+        string sourceKind)
+    {
+        if (!RelativePathContract.TryNormalize(relativePath, out var normalizedPath))
         {
-            throw new OutputPathPolicyException($"Output source path must be relative to the runner output directory: {outputSource.Path}");
+            throw new OutputPathPolicyException($"{sourceKind} path must be relative to the runner output directory: {relativePath}");
         }
 
         var result = RepositoryPathNormalizer.TryNormalize(paths.RunnerOutputDirectory, normalizedPath);
         if (!result.IsSuccess)
         {
-            throw new OutputPathPolicyException($"Output source path must resolve inside the runner output root: {outputSource.Path}. {result.DiagnosticMessage}");
+            throw new OutputPathPolicyException($"{sourceKind} path must resolve inside the runner output root: {relativePath}. {result.DiagnosticMessage}");
         }
 
         return result.FullPath!;
@@ -896,9 +934,10 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         }
     }
 
-    private static void EnsureOutputSourcePathHasNoReparsePoint (
+    private static void EnsureRunnerOutputSourcePathHasNoReparsePoint (
         string runnerOutputRoot,
-        string sourcePath)
+        string sourcePath,
+        string sourceKind)
     {
         var rootPath = Path.GetFullPath(runnerOutputRoot);
         var relativePathResult = RepositoryPathNormalizer.TryNormalize(rootPath, sourcePath);
@@ -909,9 +948,9 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         }
 
         var relativePath = relativePathResult.RepositoryRelativeSlashPath!;
+        EnsureRunnerOutputPathNodeIsNotReparsePoint(rootPath, sourceKind);
         if (string.Equals(relativePath, ".", StringComparison.Ordinal))
         {
-            EnsureOutputPathNodeIsNotReparsePoint(sourcePath);
             return;
         }
 
@@ -920,16 +959,18 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         for (var i = 0; i < segments.Length; i++)
         {
             currentPath = Path.Combine(currentPath, segments[i]);
-            EnsureOutputPathNodeIsNotReparsePoint(currentPath);
+            EnsureRunnerOutputPathNodeIsNotReparsePoint(currentPath, sourceKind);
         }
     }
 
-    private static void EnsureOutputPathNodeIsNotReparsePoint (string path)
+    private static void EnsureRunnerOutputPathNodeIsNotReparsePoint (
+        string path,
+        string sourceKind)
     {
         var attributes = File.GetAttributes(path);
         if ((attributes & FileAttributes.ReparsePoint) != 0)
         {
-            throw new IOException($"Build output path must not contain a reparse point: {path}");
+            throw new IOException($"{sourceKind} path must not contain a reparse point: {path}");
         }
     }
 
@@ -1056,7 +1097,7 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
     {
         cancellationToken.ThrowIfCancellationRequested();
         EnsureReadableOutputFile(sourcePath);
-        var sourceIdentity = CaptureOutputFileIdentity(sourcePath);
+        var sourceIdentity = CaptureSourceFileIdentity(sourcePath, "Build output file");
 
         var destinationDirectoryPath = Path.GetDirectoryName(destinationPath);
         if (string.IsNullOrWhiteSpace(destinationDirectoryPath))
@@ -1076,7 +1117,12 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
                 FileShare.Read,
                 FileStreamBufferSize,
                 FileOptions.Asynchronous | FileOptions.SequentialScan);
-            EnsureOpenedOutputFileMatchesIdentity(sourcePath, sourceStream, sourceIdentity);
+            EnsureOpenedSourceFileMatchesIdentity(
+                sourcePath,
+                sourceStream,
+                sourceIdentity,
+                "Build output file",
+                EnsureReadableOutputFile);
 
             using var destinationStream = new FileStream(
                 destinationPath,
@@ -1108,7 +1154,9 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         FileSystemAccessBoundary.EnsureSecureFile(destinationPath);
     }
 
-    private static OutputFileIdentity CaptureOutputFileIdentity (string sourcePath)
+    private static OutputFileIdentity CaptureSourceFileIdentity (
+        string sourcePath,
+        string sourceKind)
     {
         if (!CanCapturePosixFileIdentity())
         {
@@ -1120,7 +1168,7 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         {
             if (LStat(sourcePath, buffer) != 0)
             {
-                throw new IOException($"Build output file identity could not be inspected: {sourcePath}. errno={Marshal.GetLastWin32Error()}");
+                throw new IOException($"{sourceKind} identity could not be inspected: {sourcePath}. errno={Marshal.GetLastWin32Error()}");
             }
 
             return ReadOutputFileIdentity(buffer);
@@ -1131,39 +1179,42 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         }
     }
 
-    private static void EnsureOpenedOutputFileMatchesIdentity (
+    private static void EnsureOpenedSourceFileMatchesIdentity (
         string sourcePath,
         FileStream sourceStream,
-        OutputFileIdentity expectedIdentity)
+        OutputFileIdentity expectedIdentity,
+        string sourceKind,
+        Action<string> validateWhenIdentityUnavailable)
     {
         if (!expectedIdentity.IsAvailable)
         {
-            EnsureReadableOutputFile(sourcePath);
+            validateWhenIdentityUnavailable(sourcePath);
             return;
         }
 
-        var actualIdentity = CaptureOpenedOutputFileIdentity(sourcePath, sourceStream);
+        var actualIdentity = CaptureOpenedSourceFileIdentity(sourcePath, sourceStream, sourceKind);
         if (!actualIdentity.IsRegularFile)
         {
-            throw new IOException($"Build output file must be a regular file after opening: {sourcePath}");
+            throw new IOException($"{sourceKind} must be a regular file after opening: {sourcePath}");
         }
 
         if (actualIdentity.Device != expectedIdentity.Device || actualIdentity.Inode != expectedIdentity.Inode)
         {
-            throw new IOException($"Build output file changed before it could be copied: {sourcePath}");
+            throw new IOException($"{sourceKind} changed before it could be read: {sourcePath}");
         }
     }
 
-    private static OutputFileIdentity CaptureOpenedOutputFileIdentity (
+    private static OutputFileIdentity CaptureOpenedSourceFileIdentity (
         string sourcePath,
-        FileStream sourceStream)
+        FileStream sourceStream,
+        string sourceKind)
     {
         var buffer = ArrayPool<byte>.Shared.Rent(PosixFileStatusBufferSize);
         try
         {
             if (FStat(sourceStream.SafeFileHandle.DangerousGetHandle(), buffer) != 0)
             {
-                throw new IOException($"Opened build output file identity could not be inspected: {sourcePath}. errno={Marshal.GetLastWin32Error()}");
+                throw new IOException($"Opened {sourceKind} identity could not be inspected: {sourcePath}. errno={Marshal.GetLastWin32Error()}");
             }
 
             return ReadOutputFileIdentity(buffer);

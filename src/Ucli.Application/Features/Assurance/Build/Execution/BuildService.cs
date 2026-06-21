@@ -13,6 +13,7 @@ using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Json;
 using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Build.Execution;
@@ -720,6 +721,14 @@ internal sealed class BuildService : IBuildService
             return BuildResponseResolutionResult.Failure(failure, TryReadErrorPayload(response));
         }
 
+        var runnerResultPayloadShapeFailure = ValidateExecuteMethodRunnerResultPayloadShape(
+            response.Payload,
+            expectedProfile.Runner.Kind);
+        if (runnerResultPayloadShapeFailure != null)
+        {
+            return BuildResponseResolutionResult.Failure(runnerResultPayloadShapeFailure);
+        }
+
         if (!IpcPayloadCodec.TryDeserialize(response.Payload, out IpcBuildRunResponse buildResponse, out var payloadError))
         {
             return BuildResponseResolutionResult.Failure(ApplicationFailure.InternalError(
@@ -944,6 +953,217 @@ internal sealed class BuildService : IBuildService
         }
 
         return null;
+    }
+
+    private static ApplicationFailure? ValidateExecuteMethodRunnerResultPayloadShape (
+        JsonElement payload,
+        BuildProfileRunnerKind expectedRunnerKind)
+    {
+        if (expectedRunnerKind != BuildProfileRunnerKind.ExecuteMethod)
+        {
+            return null;
+        }
+
+        if (JsonObjectPropertyReader.TryFindDuplicatePropertyIgnoreCase(payload, "$", out var duplicatePropertyPath)
+            && IsRunnerResultPropertyPath(duplicatePropertyPath))
+        {
+            return CreateBuildRunnerResultInvalidFailure(
+                $"Unity build response runnerResult contains a duplicated property: {duplicatePropertyPath}.");
+        }
+
+        if (!JsonObjectPropertyReader.TryGetPropertyIgnoreCase(payload, "runnerResult", out var runnerResult)
+            || runnerResult.ValueKind == JsonValueKind.Null)
+        {
+            return null;
+        }
+
+        if (runnerResult.ValueKind != JsonValueKind.Object)
+        {
+            return ApplicationFailure.FromCode(
+                BuildErrorCodes.BuildRunnerResultInvalid,
+                "Unity build response runnerResult must be an object for executeMethod runner.");
+        }
+
+        if (JsonObjectPropertyReader.TryFindDuplicatePropertyIgnoreCase(runnerResult, "$.runnerResult", out duplicatePropertyPath))
+        {
+            return CreateBuildRunnerResultInvalidFailure(
+                $"Unity build response runnerResult contains a duplicated property: {duplicatePropertyPath}.");
+        }
+
+        foreach (var property in runnerResult.EnumerateObject())
+        {
+            if (!IsKnownRunnerResultProperty(property.Name))
+            {
+                return ApplicationFailure.FromCode(
+                    BuildErrorCodes.BuildRunnerResultInvalid,
+                    $"Unity build response runnerResult contains an unsupported property: {property.Name}.");
+            }
+        }
+
+        var propertyFailure = ValidateRequiredStringProperty(runnerResult, "source", "runnerResult.source")
+                              ?? ValidateRequiredStringProperty(runnerResult, "status", "runnerResult.status")
+                              ?? ValidateRequiredInt64Property(runnerResult, "durationMilliseconds", "runnerResult.durationMilliseconds")
+                              ?? ValidateRequiredInt32Property(runnerResult, "errorCount", "runnerResult.errorCount")
+                              ?? ValidateRequiredInt32Property(runnerResult, "warningCount", "runnerResult.warningCount")
+                              ?? ValidateRunnerResultDiagnosticsPayloadShape(runnerResult)
+                              ?? ValidateRunnerResultOutputsPayloadShape(runnerResult)
+                              ?? ValidateRunnerResultBuildReportPayloadShape(runnerResult);
+        return propertyFailure;
+    }
+
+    private static bool IsRunnerResultPropertyPath (string propertyPath)
+    {
+        return propertyPath.Equals("$.runnerResult", StringComparison.OrdinalIgnoreCase)
+               || propertyPath.StartsWith("$.runnerResult.", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsKnownRunnerResultProperty (string propertyName)
+    {
+        return propertyName.Equals("source", StringComparison.OrdinalIgnoreCase)
+               || propertyName.Equals("status", StringComparison.OrdinalIgnoreCase)
+               || propertyName.Equals("durationMilliseconds", StringComparison.OrdinalIgnoreCase)
+               || propertyName.Equals("errorCount", StringComparison.OrdinalIgnoreCase)
+               || propertyName.Equals("warningCount", StringComparison.OrdinalIgnoreCase)
+               || propertyName.Equals("diagnostics", StringComparison.OrdinalIgnoreCase)
+               || propertyName.Equals("outputs", StringComparison.OrdinalIgnoreCase)
+               || propertyName.Equals("buildReport", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static ApplicationFailure? ValidateRunnerResultDiagnosticsPayloadShape (JsonElement runnerResult)
+    {
+        if (!JsonObjectPropertyReader.TryGetPropertyIgnoreCase(runnerResult, "diagnostics", out var diagnostics)
+            || diagnostics.ValueKind != JsonValueKind.Array)
+        {
+            return CreateBuildRunnerResultInvalidFailure(
+                "Unity build response runnerResult diagnostics must be present as an array.");
+        }
+
+        foreach (var diagnostic in diagnostics.EnumerateArray())
+        {
+            if (diagnostic.ValueKind != JsonValueKind.Object)
+            {
+                return CreateBuildRunnerResultInvalidFailure(
+                    "Unity build response runnerResult diagnostics entries must be objects.");
+            }
+
+            foreach (var property in diagnostic.EnumerateObject())
+            {
+                if (!IsKnownRunnerDiagnosticProperty(property.Name))
+                {
+                    return CreateBuildRunnerResultInvalidFailure(
+                        $"Unity build response runnerResult diagnostics contain an unsupported property: {property.Name}.");
+                }
+            }
+
+            var propertyFailure = ValidateRequiredStringProperty(diagnostic, "code", "runnerResult.diagnostics[].code")
+                                  ?? ValidateRequiredStringProperty(diagnostic, "severity", "runnerResult.diagnostics[].severity")
+                                  ?? ValidateRequiredStringProperty(diagnostic, "message", "runnerResult.diagnostics[].message");
+            if (propertyFailure != null)
+            {
+                return propertyFailure;
+            }
+        }
+
+        return null;
+    }
+
+    private static bool IsKnownRunnerDiagnosticProperty (string propertyName)
+    {
+        return propertyName.Equals("code", StringComparison.OrdinalIgnoreCase)
+               || propertyName.Equals("severity", StringComparison.OrdinalIgnoreCase)
+               || propertyName.Equals("message", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static ApplicationFailure? ValidateRunnerResultOutputsPayloadShape (JsonElement runnerResult)
+    {
+        if (!JsonObjectPropertyReader.TryGetPropertyIgnoreCase(runnerResult, "outputs", out var outputs)
+            || outputs.ValueKind != JsonValueKind.Array)
+        {
+            return CreateBuildRunnerResultInvalidFailure(
+                "Unity build response runnerResult outputs must be present as an array.");
+        }
+
+        foreach (var output in outputs.EnumerateArray())
+        {
+            if (output.ValueKind != JsonValueKind.String)
+            {
+                return CreateBuildRunnerResultInvalidFailure(
+                    "Unity build response runnerResult outputs entries must be strings.");
+            }
+        }
+
+        return null;
+    }
+
+    private static ApplicationFailure? ValidateRunnerResultBuildReportPayloadShape (JsonElement runnerResult)
+    {
+        if (!JsonObjectPropertyReader.TryGetPropertyIgnoreCase(runnerResult, "buildReport", out var buildReport)
+            || buildReport.ValueKind == JsonValueKind.Null)
+        {
+            return null;
+        }
+
+        if (buildReport.ValueKind != JsonValueKind.Object)
+        {
+            return CreateBuildRunnerResultInvalidFailure(
+                "Unity build response runnerResult buildReport must be an object.");
+        }
+
+        foreach (var property in buildReport.EnumerateObject())
+        {
+            if (!property.Name.Equals("path", StringComparison.OrdinalIgnoreCase))
+            {
+                return CreateBuildRunnerResultInvalidFailure(
+                    $"Unity build response runnerResult buildReport contains an unsupported property: {property.Name}.");
+            }
+        }
+
+        return ValidateRequiredStringProperty(buildReport, "path", "runnerResult.buildReport.path");
+    }
+
+    private static ApplicationFailure? ValidateRequiredStringProperty (
+        JsonElement owner,
+        string propertyName,
+        string propertyPath)
+    {
+        return !JsonObjectPropertyReader.TryGetPropertyIgnoreCase(owner, propertyName, out var property)
+               || property.ValueKind != JsonValueKind.String
+            ? CreateBuildRunnerResultInvalidFailure(
+                $"Unity build response {propertyPath} must be present as a string.")
+            : null;
+    }
+
+    private static ApplicationFailure? ValidateRequiredInt32Property (
+        JsonElement owner,
+        string propertyName,
+        string propertyPath)
+    {
+        return !JsonObjectPropertyReader.TryGetPropertyIgnoreCase(owner, propertyName, out var property)
+               || property.ValueKind != JsonValueKind.Number
+               || !property.TryGetInt32(out _)
+            ? CreateBuildRunnerResultInvalidFailure(
+                $"Unity build response {propertyPath} must be present as an integer.")
+            : null;
+    }
+
+    private static ApplicationFailure? ValidateRequiredInt64Property (
+        JsonElement owner,
+        string propertyName,
+        string propertyPath)
+    {
+        return !JsonObjectPropertyReader.TryGetPropertyIgnoreCase(owner, propertyName, out var property)
+               || property.ValueKind != JsonValueKind.Number
+               || !property.TryGetInt64(out _)
+            ? CreateBuildRunnerResultInvalidFailure(
+                $"Unity build response {propertyPath} must be present as an integer.")
+            : null;
+    }
+
+    private static ApplicationFailure CreateBuildRunnerResultInvalidFailure (string message)
+    {
+        return ApplicationFailure.FromCode(
+            BuildErrorCodes.BuildRunnerResultInvalid,
+            message);
     }
 
     private static bool HasValidRunnerDiagnostics (IReadOnlyList<IpcBuildRunnerDiagnostic> diagnostics)
