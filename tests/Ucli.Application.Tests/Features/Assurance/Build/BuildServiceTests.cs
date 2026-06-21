@@ -2472,7 +2472,7 @@ public sealed class BuildServiceTests
             {
                 var buildReport = CreateBuildReportArtifact(
                     reportResult,
-                    buildRunPayload.UnityBuildTarget,
+                    buildRunPayload.UnityBuildTarget ?? "StandaloneLinux64",
                     buildRunPayload.OutputPath,
                     errorCount);
                 File.WriteAllText(buildReportSourcePath, IpcPayloadCodec.SerializeToElement(buildReport).GetRawText());
