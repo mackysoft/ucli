@@ -349,8 +349,7 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
         {
             AddViolation(violations, "$.build.inputs.unityBuildProfile.path", "Unity Build Profile input must declare path.");
         }
-        else if (!UnityAssetPathContract.IsNormalizedAssetsDescendantPath(path)
-            || path.EndsWith(".meta", StringComparison.OrdinalIgnoreCase))
+        else if (!UnityAssetPathContract.IsNormalizedBuildProfileAssetPath(path))
         {
             AddViolation(violations, "$.build.inputs.unityBuildProfile.path", "Unity Build Profile path must be a normalized project-relative asset path under Assets and must not reference a .meta file.");
         }

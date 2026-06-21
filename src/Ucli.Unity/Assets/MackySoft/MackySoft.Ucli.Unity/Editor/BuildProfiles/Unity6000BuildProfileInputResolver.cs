@@ -10,6 +10,7 @@ using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Unity.Project;
 using UnityEditor;
 using UnityEditor.Build.Profile;
 
@@ -20,8 +21,6 @@ namespace MackySoft.Ucli.Unity.Build
     /// <summary> Resolves Unity 6000 Build Profile asset inputs. </summary>
     internal sealed class Unity6000BuildProfileInputResolver : IUnityBuildProfileInputResolver
     {
-        private const string AndroidPlayerAppBundleFileName = "Player.aab";
-
         private readonly UnityBuildPreconditionProbe preconditionProbe;
 
         /// <summary> Initializes a new instance of the <see cref="Unity6000BuildProfileInputResolver" /> class. </summary>
@@ -143,9 +142,8 @@ namespace MackySoft.Ucli.Unity.Build
             out IpcError? error)
         {
             profilePath = string.Empty;
-            if (!UnityAssetPathContract.TryNormalizeAssetsDescendantPath(path, out var normalizedPath)
-                || !string.Equals(path, normalizedPath, StringComparison.Ordinal)
-                || normalizedPath.EndsWith(".meta", StringComparison.OrdinalIgnoreCase))
+            if (!UnityAssetPathContract.TryNormalizeBuildProfileAssetPath(path, out var normalizedPath)
+                || !string.Equals(path, normalizedPath, StringComparison.Ordinal))
             {
                 error = CreateInvalidProfileError("Unity Build Profile path must be a normalized project-relative asset path under Assets and must not reference a .meta file.");
                 return false;
@@ -245,31 +243,13 @@ namespace MackySoft.Ucli.Unity.Build
             string stableBuildTarget,
             out IpcBuildOutputLayout? outputLayout)
         {
-            if (!IpcBuildOutputLayoutResolver.TryResolve(outputPath, stableBuildTarget, out outputLayout))
-            {
-                return false;
-            }
-
-            if (!string.Equals(stableBuildTarget, ContractLiteralCodec.ToValue(BuildTargetStableName.Android), StringComparison.Ordinal)
-                || !EditorUserBuildSettings.buildAppBundle)
-            {
-                return true;
-            }
-
-            outputLayout = new IpcBuildOutputLayout(
-                outputLayout!.Shape,
-                ReplaceOutputFileName(outputLayout.LocationPathName, AndroidPlayerAppBundleFileName));
-            return true;
-        }
-
-        private static string ReplaceOutputFileName (
-            string locationPathName,
-            string fileName)
-        {
-            var separatorIndex = locationPathName.LastIndexOf('/');
-            return separatorIndex < 0
-                ? fileName
-                : string.Concat(locationPathName.Substring(0, separatorIndex + 1), fileName);
+            var androidAppBundle = string.Equals(stableBuildTarget, ContractLiteralCodec.ToValue(BuildTargetStableName.Android), StringComparison.Ordinal)
+                && EditorUserBuildSettings.buildAppBundle;
+            return IpcBuildOutputLayoutResolver.TryResolve(
+                outputPath,
+                stableBuildTarget,
+                androidAppBundle,
+                out outputLayout);
         }
 
         private IpcUnityBuildProfileInput CreateAppliedUnityBuildProfile (
@@ -297,8 +277,7 @@ namespace MackySoft.Ucli.Unity.Build
 
         private static string ComputeAssetDigest (string profilePath)
         {
-            var projectRootPath = Path.GetFullPath(Path.Combine(UnityEngine.Application.dataPath, ".."));
-            var absolutePath = Path.GetFullPath(Path.Combine(projectRootPath, profilePath.Replace('/', Path.DirectorySeparatorChar)));
+            var absolutePath = UnityAssetPathUtility.ToAbsolutePath(profilePath);
             return Sha256LowerHex.Compute(File.ReadAllBytes(absolutePath));
         }
 

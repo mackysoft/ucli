@@ -216,9 +216,8 @@ internal static class BuildProfileResolver
             return false;
         }
 
-        if (!UnityAssetPathContract.TryNormalizeAssetsDescendantPath(path, out var normalizedPath)
-            || !string.Equals(path, normalizedPath, StringComparison.Ordinal)
-            || path.EndsWith(".meta", StringComparison.OrdinalIgnoreCase))
+        if (!UnityAssetPathContract.TryNormalizeBuildProfileAssetPath(path, out var normalizedPath)
+            || !string.Equals(path, normalizedPath, StringComparison.Ordinal))
         {
             error = InvalidProfile("Build profile inputs.path must be a normalized project-relative asset path under Assets and must not reference a .meta file.");
             return false;

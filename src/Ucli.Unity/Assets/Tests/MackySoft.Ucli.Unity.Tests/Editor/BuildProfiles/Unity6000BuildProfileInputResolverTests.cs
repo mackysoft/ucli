@@ -13,6 +13,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Unity.Build;
 using MackySoft.Ucli.Unity.Ipc;
+using MackySoft.Ucli.Unity.Project;
 using MackySoft.Ucli.Unity.Runtime;
 using NUnit.Framework;
 using UnityEditor;
@@ -77,16 +78,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(IpcBuildOutputLayoutResolver.TryResolve(
                     outputScope.OutputPath,
                     stableBuildTarget,
+                    string.Equals(stableBuildTarget, ContractLiteralCodec.ToValue(BuildTargetStableName.Android), StringComparison.Ordinal)
+                        && EditorUserBuildSettings.buildAppBundle,
                     out var expectedOutputLayout), Is.True);
-                var expectedLocationPathName = string.Equals(
-                        stableBuildTarget,
-                        ContractLiteralCodec.ToValue(BuildTargetStableName.Android),
-                        StringComparison.Ordinal)
-                    && EditorUserBuildSettings.buildAppBundle
-                        ? ReplaceOutputFileName(expectedOutputLayout!.LocationPathName, "Player.aab")
-                        : expectedOutputLayout!.LocationPathName;
                 Assert.That(result.OutputLayout!.Shape, Is.EqualTo(expectedOutputLayout!.Shape));
-                Assert.That(result.OutputLayout.LocationPathName, Is.EqualTo(expectedLocationPathName));
+                Assert.That(result.OutputLayout.LocationPathName, Is.EqualTo(expectedOutputLayout.LocationPathName));
 
                 var unityBuildProfile = result.UnityBuildProfile!;
                 Assert.That(unityBuildProfile.Path, Is.EqualTo(requestedProfilePath));
@@ -237,7 +233,7 @@ namespace MackySoft.Ucli.Unity.Tests
         private static IpcProjectIdentity CreateProjectIdentity ()
         {
             return new IpcProjectIdentity(
-                ProjectPath: ResolveProjectRootPath(),
+                ProjectPath: UnityProjectPathResolver.ResolveProjectRootPath(),
                 ProjectFingerprint: ProjectFingerprint,
                 UnityVersion: Application.unityVersion);
         }
@@ -368,25 +364,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static string ComputeAssetDigest (string assetPath)
         {
-            var absolutePath = Path.GetFullPath(Path.Combine(
-                ResolveProjectRootPath(),
-                assetPath.Replace('/', Path.DirectorySeparatorChar)));
-            return Sha256LowerHex.Compute(File.ReadAllBytes(absolutePath));
-        }
-
-        private static string ReplaceOutputFileName (
-            string locationPathName,
-            string fileName)
-        {
-            var separatorIndex = locationPathName.LastIndexOf('/');
-            return separatorIndex < 0
-                ? fileName
-                : string.Concat(locationPathName.Substring(0, separatorIndex + 1), fileName);
-        }
-
-        private static string ResolveProjectRootPath ()
-        {
-            return Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+            return Sha256LowerHex.Compute(File.ReadAllBytes(UnityAssetPathUtility.ToAbsolutePath(assetPath)));
         }
 
         private static UnityEditorLifecycleSnapshot CreateLifecycleSnapshot (int captureIndex)

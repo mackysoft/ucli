@@ -644,8 +644,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             if (request.UnityBuildProfile == null
-                || !UnityAssetPathContract.IsNormalizedAssetsDescendantPath(request.UnityBuildProfile.Path)
-                || request.UnityBuildProfile.Path.EndsWith(".meta", StringComparison.OrdinalIgnoreCase))
+                || !UnityAssetPathContract.IsNormalizedBuildProfileAssetPath(request.UnityBuildProfile.Path))
             {
                 errorMessage = "Build unityBuildProfile.path must be a normalized project-relative asset path under Assets and must not reference a .meta file.";
                 return false;

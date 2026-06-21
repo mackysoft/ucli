@@ -15,6 +15,9 @@ public static class UnityAssetPathContract
     /// <summary> Gets the Unity prefab asset extension. </summary>
     public const string PrefabAssetExtension = ".prefab";
 
+    /// <summary> Gets the Unity meta-file extension. </summary>
+    public const string MetaFileExtension = ".meta";
+
     /// <summary> Determines whether <paramref name="path" /> is the normalized <c>Assets</c> root or a normalized path under it. </summary>
     /// <param name="path"> The path to inspect. </param>
     /// <returns> <see langword="true" /> when <paramref name="path" /> is <c>Assets</c> or an <c>Assets/</c> descendant; otherwise <see langword="false" />. </returns>
@@ -67,6 +70,34 @@ public static class UnityAssetPathContract
     {
         if (RelativePathContract.TryNormalize(path, out normalizedPath)
             && IsNormalizedAssetsDescendantPath(normalizedPath))
+        {
+            return true;
+        }
+
+        normalizedPath = string.Empty;
+        return false;
+    }
+
+    /// <summary> Determines whether <paramref name="path" /> is a normalized Unity Build Profile asset path under <c>Assets/</c> and not a <c>.meta</c> file. </summary>
+    /// <param name="path"> The path to inspect. </param>
+    /// <returns> <see langword="true" /> when <paramref name="path" /> is slash-separated, normalized, under <c>Assets/</c>, and does not reference a Unity <c>.meta</c> file; otherwise <see langword="false" />. </returns>
+    public static bool IsNormalizedBuildProfileAssetPath (string? path)
+    {
+        return path != null
+            && IsNormalizedAssetsDescendantPath(path)
+            && !path.EndsWith(MetaFileExtension, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary> Normalizes and validates one Unity Build Profile asset path under <c>Assets/</c> that must not reference a <c>.meta</c> file. </summary>
+    /// <param name="path"> The input path. </param>
+    /// <param name="normalizedPath"> The slash-separated normalized Unity Build Profile asset path under <c>Assets/</c> when validation succeeds. </param>
+    /// <returns> <see langword="true" /> when <paramref name="path" /> can be normalized to an <c>Assets/</c> descendant Unity Build Profile asset path that does not reference a Unity <c>.meta</c> file; otherwise <see langword="false" />. </returns>
+    public static bool TryNormalizeBuildProfileAssetPath (
+        string? path,
+        out string normalizedPath)
+    {
+        if (TryNormalizeAssetsDescendantPath(path, out normalizedPath)
+            && IsNormalizedBuildProfileAssetPath(normalizedPath))
         {
             return true;
         }
