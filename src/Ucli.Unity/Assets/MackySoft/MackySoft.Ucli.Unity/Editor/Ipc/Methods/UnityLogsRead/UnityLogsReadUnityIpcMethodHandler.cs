@@ -3,7 +3,6 @@ using MackySoft.Ucli.Contracts;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Unity.Runtime;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -61,35 +60,23 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return new ValueTask<IpcResponse>(decodeErrorResponse);
             }
 
-            UnityLogSnapshot snapshot;
-            using (RuntimePerformanceTracer.Measure(RuntimePerformanceTracer.SectionNames.LogExport))
+            var snapshot = unityLogStream.Snapshot();
+            if (!requestValidator.TryValidate(payload, snapshot.StreamId, out var filter, out var errorMessage))
             {
-                snapshot = unityLogStream.Snapshot();
+                daemonLogger.Warning(
+                    DaemonLogCategories.Ipc,
+                    "Unity logs read rejected due to invalid argument.",
+                    errorMessage);
+                return new ValueTask<IpcResponse>(UnityIpcResponseFactory.CreateErrorResponse(
+                    request,
+                    UcliCoreErrorCodes.InvalidArgument,
+                    errorMessage,
+                    null));
             }
 
-            UnityLogsReadFilter filter;
-            using (RuntimePerformanceTracer.Measure(RuntimePerformanceTracer.SectionNames.Validate))
-            {
-                if (!requestValidator.TryValidate(payload, snapshot.StreamId, out filter, out var errorMessage))
-                {
-                    daemonLogger.Warning(
-                        DaemonLogCategories.Ipc,
-                        "Unity logs read rejected due to invalid argument.",
-                        errorMessage);
-                    return new ValueTask<IpcResponse>(UnityIpcResponseFactory.CreateErrorResponse(
-                        request,
-                        UcliCoreErrorCodes.InvalidArgument,
-                        errorMessage,
-                        null));
-                }
-            }
-
-            using (RuntimePerformanceTracer.Measure(RuntimePerformanceTracer.SectionNames.LogExport))
-            {
-                var filteredEvents = queryEngine.Filter(snapshot.Events, filter);
-                var responsePayload = responseFactory.Create(filteredEvents, snapshot.NextCursor);
-                return new ValueTask<IpcResponse>(UnityIpcResponseFactory.CreateSuccessResponse(request, responsePayload));
-            }
+            var filteredEvents = queryEngine.Filter(snapshot.Events, filter);
+            var responsePayload = responseFactory.Create(filteredEvents, snapshot.NextCursor);
+            return new ValueTask<IpcResponse>(UnityIpcResponseFactory.CreateSuccessResponse(request, responsePayload));
         }
     }
 }

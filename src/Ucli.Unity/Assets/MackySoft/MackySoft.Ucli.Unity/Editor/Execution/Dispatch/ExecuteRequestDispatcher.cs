@@ -128,12 +128,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                     SerializerOptions);
             }
 
-            ExecuteRequestNormalizationResult normalizationResult;
-            using (RuntimePerformanceTracer.Measure(RuntimePerformanceTracer.SectionNames.Normalize))
-            {
-                normalizationResult = requestNormalizer.Normalize(request, cancellationToken);
-            }
-
+            var normalizationResult = requestNormalizer.Normalize(request, cancellationToken);
             if (!normalizationResult.IsSuccess)
             {
                 var normalizationError = normalizationResult.Error!;

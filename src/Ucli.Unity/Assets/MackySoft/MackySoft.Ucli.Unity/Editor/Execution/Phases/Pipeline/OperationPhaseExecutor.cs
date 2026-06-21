@@ -7,7 +7,6 @@ using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
 using MackySoft.Ucli.Unity.Execution.Requests;
-using MackySoft.Ucli.Unity.Runtime;
 
 #nullable enable
 
@@ -79,12 +78,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             using var executionContext = new OperationExecutionContext();
             var operationPreflight = CreateOperationPreflight(command, request.AllowDangerous);
-            PlanPassResult planPassResult;
-            using (RuntimePerformanceTracer.Measure(RuntimePerformanceTracer.SectionNames.PhasePlan))
-            {
-                planPassResult = await planPassExecutor.ExecuteAsync(request, executionContext, operationPreflight, cancellationToken).ConfigureAwait(false);
-            }
-
+            var planPassResult = await planPassExecutor.ExecuteAsync(request, executionContext, operationPreflight, cancellationToken).ConfigureAwait(false);
             if (!planPassResult.IsSuccess)
             {
                 if (command == PhaseExecutionCommand.Call
@@ -174,15 +168,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     errors: new[]
                     {
                         dangerousCallFailure!,
-                });
+                    });
             }
 
-            CallPassResult callPassResult;
-            using (RuntimePerformanceTracer.Measure(RuntimePerformanceTracer.SectionNames.PhaseCall))
-            {
-                callPassResult = await callPassExecutor.ExecuteAsync(planPassResult.PreparedOperations, executionContext, cancellationToken).ConfigureAwait(false);
-            }
-
+            var callPassResult = await callPassExecutor.ExecuteAsync(planPassResult.PreparedOperations, executionContext, cancellationToken).ConfigureAwait(false);
             return callPassResult.IsSuccess
                 ? PhaseExecutionTrace.Success(request.ProtocolVersion, request.RequestId, planPassResult.CompiledSteps, callPassResult.OperationTraces)
                 : PhaseExecutionTrace.Failure(request.ProtocolVersion, request.RequestId, planPassResult.CompiledSteps, callPassResult.OperationTraces, callPassResult.Errors);

@@ -3,7 +3,6 @@ using MackySoft.Ucli.Contracts;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Unity.Runtime;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -66,35 +65,24 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return new ValueTask<IpcResponse>(decodeErrorResponse);
             }
 
-            DaemonLogSnapshot snapshot;
-            using (RuntimePerformanceTracer.Measure(RuntimePerformanceTracer.SectionNames.LogExport))
+            var snapshot = daemonLogStream.Snapshot();
+
+            if (!requestValidator.TryValidate(
+                    payload,
+                    snapshot.StreamId,
+                    out var filter,
+                    out var errorMessage))
             {
-                snapshot = daemonLogStream.Snapshot();
+                daemonLogger.Warning(
+                    DaemonLogCategories.Ipc,
+                    "Daemon logs read rejected due to invalid argument.",
+                    errorMessage);
+                return new ValueTask<IpcResponse>(CreateInvalidArgumentResponse(request, errorMessage));
             }
 
-            DaemonLogsReadFilter filter;
-            using (RuntimePerformanceTracer.Measure(RuntimePerformanceTracer.SectionNames.Validate))
-            {
-                if (!requestValidator.TryValidate(
-                        payload,
-                        snapshot.StreamId,
-                        out filter,
-                        out var errorMessage))
-                {
-                    daemonLogger.Warning(
-                        DaemonLogCategories.Ipc,
-                        "Daemon logs read rejected due to invalid argument.",
-                        errorMessage);
-                    return new ValueTask<IpcResponse>(CreateInvalidArgumentResponse(request, errorMessage));
-                }
-            }
-
-            using (RuntimePerformanceTracer.Measure(RuntimePerformanceTracer.SectionNames.LogExport))
-            {
-                var filteredEvents = queryEngine.Filter(snapshot.Events, filter);
-                var responsePayload = responseFactory.Create(filteredEvents, snapshot.NextCursor);
-                return new ValueTask<IpcResponse>(UnityIpcResponseFactory.CreateSuccessResponse(request, responsePayload));
-            }
+            var filteredEvents = queryEngine.Filter(snapshot.Events, filter);
+            var responsePayload = responseFactory.Create(filteredEvents, snapshot.NextCursor);
+            return new ValueTask<IpcResponse>(UnityIpcResponseFactory.CreateSuccessResponse(request, responsePayload));
         }
 
         /// <summary> Creates one invalid-argument response envelope. </summary>
