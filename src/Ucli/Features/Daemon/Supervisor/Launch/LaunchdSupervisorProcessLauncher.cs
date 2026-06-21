@@ -49,7 +49,12 @@ internal sealed class LaunchdSupervisorProcessLauncher
                 FileSystemAccessBoundary.EnsureSecureDirectory(plistDirectoryPath);
             }
 
-            var plistContents = LaunchAgentPlistDocumentFactory.Build(label, launchCommand, normalizedStorageRoot, logPath);
+            var plistContents = LaunchAgentPlistDocumentFactory.Build(
+                label,
+                launchCommand,
+                normalizedStorageRoot,
+                logPath,
+                SupervisorRuntimeTraceEnvironment.Capture());
             await FileUtilities.WriteAllTextAtomicallyAsync(plistPath, plistContents + Environment.NewLine, cancellationToken).ConfigureAwait(false);
 
             await processRunner.RunIgnoringExitCodeAsync(

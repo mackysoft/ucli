@@ -19,10 +19,35 @@ internal static class LaunchAgentPlistDocumentFactory
         string storageRoot,
         string logPath)
     {
+        return Build(
+            label,
+            launchCommand,
+            storageRoot,
+            logPath,
+            Array.Empty<KeyValuePair<string, string>>());
+    }
+
+    /// <summary> Builds one LaunchAgent plist document. </summary>
+    /// <param name="label"> The LaunchAgent label. </param>
+    /// <param name="launchCommand"> The base command used to relaunch uCLI. </param>
+    /// <param name="storageRoot"> The supervisor storage root. </param>
+    /// <param name="logPath"> The shared stdout and stderr log path. </param>
+    /// <param name="environmentVariables"> The ordered environment variables to pass to the LaunchAgent. </param>
+    /// <returns> The complete plist XML document without a trailing newline. </returns>
+    /// <exception cref="ArgumentException"> Thrown when a required string value is empty or whitespace. </exception>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="launchCommand" /> or <paramref name="environmentVariables" /> is <see langword="null" />. </exception>
+    public static string Build (
+        string label,
+        SupervisorLaunchCommand launchCommand,
+        string storageRoot,
+        string logPath,
+        IReadOnlyList<KeyValuePair<string, string>> environmentVariables)
+    {
         ThrowIfNullOrWhiteSpace(label, nameof(label));
         ArgumentNullException.ThrowIfNull(launchCommand);
         ThrowIfNullOrWhiteSpace(storageRoot, nameof(storageRoot));
         ThrowIfNullOrWhiteSpace(logPath, nameof(logPath));
+        ArgumentNullException.ThrowIfNull(environmentVariables);
 
         var programArguments = BuildProgramArguments(launchCommand, storageRoot);
         return PropertyListXmlBuilder.BuildRootDictionary(builder =>
@@ -33,6 +58,10 @@ internal static class LaunchAgentPlistDocumentFactory
             builder.WriteBoolean("RunAtLoad", true);
             builder.WriteString("StandardOutPath", logPath);
             builder.WriteString("StandardErrorPath", logPath);
+            if (environmentVariables.Count != 0)
+            {
+                builder.WriteStringDictionary("EnvironmentVariables", environmentVariables);
+            }
         });
     }
 

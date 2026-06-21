@@ -1,6 +1,7 @@
 using System;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Unity.Runtime;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -220,26 +221,29 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentNullException(nameof(request));
             }
 
-            if (IpcPayloadCodec.TryDeserialize(
-                request.Payload,
-                out TPayload parsedPayload,
-                out var readError))
+            using (RuntimePerformanceTracer.Measure(RuntimePerformanceTracer.SectionNames.Validate))
             {
-                payload = parsedPayload;
-                errorResponse = null;
-                return true;
-            }
+                if (IpcPayloadCodec.TryDeserialize(
+                    request.Payload,
+                    out TPayload parsedPayload,
+                    out var readError))
+                {
+                    payload = parsedPayload;
+                    errorResponse = null;
+                    return true;
+                }
 
-            payload = default;
-            var message = readError.Kind == IpcPayloadReadErrorKind.NullPayload
-                ? $"{methodName} payload is null."
-                : readError.Message;
-            errorResponse = UnityIpcResponseFactory.CreateErrorResponse(
-                request,
-                UcliCoreErrorCodes.InvalidArgument,
-                $"{methodName} payload is invalid. {message}",
-                null);
-            return false;
+                payload = default;
+                var message = readError.Kind == IpcPayloadReadErrorKind.NullPayload
+                    ? $"{methodName} payload is null."
+                    : readError.Message;
+                errorResponse = UnityIpcResponseFactory.CreateErrorResponse(
+                    request,
+                    UcliCoreErrorCodes.InvalidArgument,
+                    $"{methodName} payload is invalid. {message}",
+                    null);
+                return false;
+            }
         }
     }
 }
