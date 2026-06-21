@@ -1635,7 +1635,7 @@ internal sealed class BuildService : IBuildService
     }
 
     private sealed record ResolvedRunnerInvocationInput (
-        string ProfilePath,
+        string? ProfilePath,
         IReadOnlyDictionary<string, string> Arguments,
         IReadOnlyList<string> EnvironmentVariables,
         IReadOnlyList<string> EnvironmentSecrets,
@@ -1643,7 +1643,7 @@ internal sealed class BuildService : IBuildService
         IReadOnlyDictionary<string, string> EnvironmentSecretValues)
     {
         public static ResolvedRunnerInvocationInput Empty { get; } = new(
-            string.Empty,
+            null,
             new Dictionary<string, string>(StringComparer.Ordinal),
             Array.Empty<string>(),
             Array.Empty<string>(),
