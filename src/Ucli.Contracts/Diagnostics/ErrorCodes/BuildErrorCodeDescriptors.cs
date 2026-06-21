@@ -85,6 +85,25 @@ internal static class BuildErrorCodeDescriptors
             relatedCodes: [BuildErrorCodes.BuildProfileInvalid, BuildErrorCodes.BuildTargetUnsupported]),
 
         UcliErrorDescriptorFactory.Create(
+            code: BuildErrorCodes.BuildSceneNotFound,
+            category: "build",
+            summary: "A selected build scene was not found.",
+            meaning: "The resolved scene input references a Unity scene asset path that does not exist in the project.",
+            appliesTo: AppliesToBuildRun,
+            possiblePhases: ["buildInputResolution", "preconditionProbe"],
+            impliesNotApplied: true,
+            mayBeIndeterminate: false,
+            safeToRetry: UcliErrorRetryClassValues.No,
+            inspect: ["errors[].code", "errors[].message", "payload.build.inputs.scenes"],
+            nextActions:
+            [
+                new UcliErrorNextActionDescriptor(
+                    When: null,
+                    Action: "Create the referenced scene asset or remove the missing scene path from the build input."),
+            ],
+            relatedCodes: [BuildErrorCodes.BuildInputsInvalid, BuildErrorCodes.BuildUnityBuildProfileInvalid]),
+
+        UcliErrorDescriptorFactory.Create(
             code: BuildErrorCodes.BuildSceneDisabled,
             category: "build",
             summary: "A selected build scene is disabled.",

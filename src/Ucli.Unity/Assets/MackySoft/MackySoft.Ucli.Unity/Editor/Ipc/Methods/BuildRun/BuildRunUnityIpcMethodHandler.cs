@@ -1,6 +1,7 @@
 using System;
 using System.Buffers;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Text.Json;
@@ -13,6 +14,7 @@ using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Build;
@@ -23,7 +25,7 @@ using UnityEngine;
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Handles <c>build.run</c> IPC method requests. </summary>
-    internal sealed class BuildRunUnityIpcMethodHandler : IUnityIpcMethodHandler
+    internal sealed class BuildRunUnityIpcMethodHandler : IStreamingUnityIpcMethodHandler
     {
         private static readonly UTF8Encoding Utf8NoBomEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
         private static readonly string RunnerKindBuildPipeline = ContractLiteralCodec.ToValue(IpcBuildRunnerKind.BuildPipeline);
@@ -49,6 +51,8 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private readonly UnityLogRedactionScopeProvider unityLogRedactionScopeProvider;
 
+        private readonly IUnityLogStream unityLogStream;
+
         /// <summary> Initializes a new instance of the <see cref="BuildRunUnityIpcMethodHandler" /> class. </summary>
         public BuildRunUnityIpcMethodHandler (
             UnityBuildPreconditionProbe preconditionProbe,
@@ -60,7 +64,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             IEditorLogRangeExporter editorLogRangeExporter,
             IpcProjectIdentity projectIdentity,
             IIpcRequestTimeoutScopeFactory timeoutScopeFactory,
-            UnityLogRedactionScopeProvider unityLogRedactionScopeProvider)
+            UnityLogRedactionScopeProvider unityLogRedactionScopeProvider,
+            IUnityLogStream unityLogStream)
         {
             this.preconditionProbe = preconditionProbe ?? throw new ArgumentNullException(nameof(preconditionProbe));
             this.buildProfileInputResolver = buildProfileInputResolver ?? throw new ArgumentNullException(nameof(buildProfileInputResolver));
@@ -72,6 +77,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             this.projectIdentity = projectIdentity ?? throw new ArgumentNullException(nameof(projectIdentity));
             this.timeoutScopeFactory = timeoutScopeFactory ?? throw new ArgumentNullException(nameof(timeoutScopeFactory));
             this.unityLogRedactionScopeProvider = unityLogRedactionScopeProvider ?? throw new ArgumentNullException(nameof(unityLogRedactionScopeProvider));
+            this.unityLogStream = unityLogStream ?? throw new ArgumentNullException(nameof(unityLogStream));
         }
 
         /// <inheritdoc />
@@ -96,6 +102,55 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return errorResponse!;
             }
 
+            return await HandleDecodedAsync(
+                request,
+                buildRunRequest!,
+                progressSinkFactory: null,
+                cancellationToken);
+        }
+
+        /// <inheritdoc />
+        public async ValueTask<IpcResponse> HandleStreamingAsync (
+            IpcRequest request,
+            IIpcStreamFrameWriter streamWriter,
+            CancellationToken cancellationToken)
+        {
+            if (streamWriter == null)
+            {
+                throw new ArgumentNullException(nameof(streamWriter));
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            if (request == null)
+            {
+                throw new ArgumentNullException(nameof(request));
+            }
+
+            if (!UnityIpcRequestCodec.TryDecodeBuildRunRequest(
+                    request,
+                    out IpcBuildRunRequest? buildRunRequest,
+                    out var errorResponse))
+            {
+                return errorResponse!;
+            }
+
+            return await HandleDecodedAsync(
+                request,
+                buildRunRequest!,
+                executionCancellationToken => new UnityIpcBuildRunProgressSink(
+                    streamWriter,
+                    buildRunRequest!.RunId,
+                    executionCancellationToken,
+                    cancellationToken),
+                cancellationToken);
+        }
+
+        private async ValueTask<IpcResponse> HandleDecodedAsync (
+            IpcRequest request,
+            IpcBuildRunRequest buildRunRequest,
+            Func<CancellationToken, UnityIpcBuildRunProgressSink>? progressSinkFactory,
+            CancellationToken cancellationToken)
+        {
             if (!TryValidateRequest(buildRunRequest!, projectIdentity, out var validationErrorMessage))
             {
                 return UnityIpcResponseFactory.CreateErrorResponse(
@@ -108,12 +163,14 @@ namespace MackySoft.Ucli.Unity.Ipc
             IIpcRequestTimeoutScope? requestTimeoutScope = null;
             UnityBuildPreconditionProbeResult? precondition = null;
             IpcUnityBuildProfileInput? unityBuildProfile = null;
+            UnityIpcBuildRunProgressSink? progressSink = null;
             try
             {
                 requestTimeoutScope = timeoutScopeFactory.CreateLinked(
                     buildRunRequest!.TimeoutMilliseconds,
                     cancellationToken);
                 var executionCancellationToken = requestTimeoutScope.Token;
+                progressSink = progressSinkFactory?.Invoke(executionCancellationToken);
                 UnityBuildPreconditionInput preconditionInput;
                 IpcBuildOutputLayout? outputLayout;
                 if (IsUnityBuildProfileRequest(buildRunRequest))
@@ -152,6 +209,15 @@ namespace MackySoft.Ucli.Unity.Ipc
                     return CreatePreconditionErrorResponse(request, precondition, unityBuildProfile);
                 }
 
+                PublishProgress(
+                    progressSink,
+                    buildRunRequest,
+                    BuildRunProgressEventNames.ReadinessCompleted,
+                    "readiness",
+                    runnerKind: null,
+                    runnerStatus: null,
+                    errorCode: null);
+
                 FileSystemAccessBoundary.EnsureSecureDirectory(buildRunRequest.OutputPath);
                 if (IsUnityBuildProfileRequest(buildRunRequest))
                 {
@@ -162,8 +228,21 @@ namespace MackySoft.Ucli.Unity.Ipc
                     EnsureBuildPipelineOutputLayoutReady(buildRunRequest.OutputLayout!);
                 }
 
+                if (IsBuildPipelineRunner(buildRunRequest))
+                {
+                    PublishProgress(
+                        progressSink,
+                        buildRunRequest,
+                        BuildRunProgressEventNames.RunnerResolved,
+                        "runnerResolution",
+                        buildRunRequest.RunnerKind,
+                        runnerStatus: null,
+                        errorCode: null);
+                }
+
                 var logSourcePath = Application.consoleLogPath;
                 var logStartOffset = GetLogLength(logSourcePath);
+                var logStartSnapshot = unityLogStream.Snapshot();
                 using var unityLogRedactionScope = IsExecuteMethodRunner(buildRunRequest)
                     ? unityLogRedactionScopeProvider.BeginScope(buildRunRequest.RunnerEnvironmentSecretValues.Values)
                     : null;
@@ -177,7 +256,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                     var invocationResult = executeMethodRunner.Run(
                         buildRunRequest,
                         projectIdentity,
-                        precondition.ResolvedInput!);
+                        precondition.ResolvedInput!,
+                        new BuildRunExecuteMethodProgressSink(progressSink, buildRunRequest));
                     if (!invocationResult.IsSuccess)
                     {
                         var error = invocationResult.Error!;
@@ -193,6 +273,14 @@ namespace MackySoft.Ucli.Unity.Ipc
                 }
                 else
                 {
+                    PublishProgress(
+                        progressSink,
+                        buildRunRequest,
+                        BuildRunProgressEventNames.RunnerStarted,
+                        "runnerInvocation",
+                        buildRunRequest.RunnerKind,
+                        runnerStatus: null,
+                        errorCode: null);
                     normalizedReport = IsUnityBuildProfileRequest(buildRunRequest)
                         ? buildProfileBuildRunner.Run(unityBuildProfile!, precondition.ResolvedInput!, outputLayout!)
                         : buildPipelineRunner.Run(UnityBuildPlayerOptionsFactory.Create(buildRunRequest, precondition.ResolvedInput!));
@@ -205,12 +293,22 @@ namespace MackySoft.Ucli.Unity.Ipc
                             ErrorCount: normalizedReport.ErrorCount,
                             WarningCount: normalizedReport.WarningCount,
                             Diagnostics: Array.Empty<IpcBuildRunnerDiagnostic>());
+                        PublishProgress(
+                            progressSink,
+                            buildRunRequest,
+                            BuildRunProgressEventNames.RunnerCompleted,
+                            "runnerResult",
+                            buildRunRequest.RunnerKind,
+                            normalizedReport.Result,
+                            errorCode: null);
                     }
                 }
 
                 executionCancellationToken.ThrowIfCancellationRequested();
                 FileSystemAccessBoundary.EnsureSecureDirectory(buildRunRequest.OutputPath);
                 var completedAtUtc = DateTimeOffset.UtcNow;
+                var logEndSnapshot = unityLogStream.Snapshot();
+                PublishLogEntries(progressSink, buildRunRequest.RunId, logStartSnapshot, logEndSnapshot);
                 var lifecycleAfter = preconditionProbe.CaptureAfterBuild();
                 var projectMutation = projectMutationAuditProbe.Complete(
                     projectIdentity.ProjectPath,
@@ -256,7 +354,11 @@ namespace MackySoft.Ucli.Unity.Ipc
                     ErrorCount: logSummaryCounts.ErrorCount,
                     WarningCount: logSummaryCounts.WarningCount,
                     CompletionReason: ContractLiteralCodec.ToValue(completionReason),
-                    Window: new IpcBuildLogWindow(startedAtUtc, completedAtUtc));
+                    Window: new IpcBuildLogWindow(
+                        startedAtUtc,
+                        completedAtUtc,
+                        logStartSnapshot.NextCursor,
+                        logEndSnapshot.NextCursor));
                 var response = new IpcBuildRunResponse(
                     RunId: buildRunRequest.RunId,
                     ProjectFingerprint: precondition.Project.ProjectFingerprint,
@@ -325,6 +427,11 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
             finally
             {
+                if (progressSink != null)
+                {
+                    await progressSink.FlushAsync(cancellationToken).ConfigureAwait(false);
+                }
+
                 requestTimeoutScope?.Dispose();
             }
         }
@@ -360,6 +467,81 @@ namespace MackySoft.Ucli.Unity.Ipc
                 error.Message,
                 error.OpId,
                 payload);
+        }
+
+        private static void PublishProgress (
+            UnityIpcBuildRunProgressSink? progressSink,
+            IpcBuildRunRequest request,
+            string eventName,
+            string phase,
+            string? runnerKind,
+            string? runnerStatus,
+            string? errorCode)
+        {
+            if (progressSink == null)
+            {
+                return;
+            }
+
+            progressSink.Publish(
+                eventName,
+                new BuildProgressEntry(
+                    RunId: request.RunId,
+                    ProfileDigest: request.ProfileDigest!,
+                    Phase: phase,
+                    RunnerKind: runnerKind,
+                    RunnerStatus: runnerStatus,
+                    Verdict: null,
+                    ReportRefs: Array.Empty<string>(),
+                    ErrorCode: errorCode));
+        }
+
+        private static void PublishLogEntries (
+            UnityIpcBuildRunProgressSink? progressSink,
+            string runId,
+            UnityLogSnapshot startSnapshot,
+            UnityLogSnapshot endSnapshot)
+        {
+            if (progressSink == null
+                || !IpcLogCursorCodec.TryParse(startSnapshot.NextCursor, out var startStreamId, out var startSequence)
+                || !IpcLogCursorCodec.TryParse(endSnapshot.NextCursor, out var endStreamId, out var endSequence)
+                || !string.Equals(startStreamId, endStreamId, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            var events = endSnapshot.Events;
+            for (var i = 0; i < events.Count; i++)
+            {
+                var unityLogEvent = events[i];
+                if (unityLogEvent.Sequence < startSequence || unityLogEvent.Sequence >= endSequence)
+                {
+                    continue;
+                }
+
+                progressSink.Publish(
+                    BuildRunProgressEventNames.LogEntry,
+                    new BuildLogEntry(
+                        RunId: runId,
+                        TimestampUtc: TryParseLogTimestamp(unityLogEvent.Timestamp, out var timestamp)
+                            ? timestamp
+                            : DateTimeOffset.UtcNow,
+                        Level: unityLogEvent.Level,
+                        Message: unityLogEvent.Message,
+                        Cursor: unityLogEvent.Cursor,
+                        Source: "unityLog"));
+            }
+        }
+
+        private static bool TryParseLogTimestamp (
+            string value,
+            out DateTimeOffset timestamp)
+        {
+            return DateTimeOffset.TryParse(
+                value,
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.RoundtripKind,
+                out timestamp);
         }
 
         private static IpcResponse CreateErrorResponse (
@@ -511,6 +693,12 @@ namespace MackySoft.Ucli.Unity.Ipc
             if (string.IsNullOrWhiteSpace(request.ProjectMutationMode))
             {
                 errorMessage = "Build project mutation mode value must not be empty.";
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(request.ProfileDigest))
+            {
+                errorMessage = "Build profileDigest must not be empty.";
                 return false;
             }
 

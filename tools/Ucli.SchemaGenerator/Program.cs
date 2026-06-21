@@ -703,7 +703,9 @@ internal static class Program
                 Required("window", ObjectSchema(
                     additionalProperties: false,
                     Required("startedAtUtc", StringSchema()),
-                    Required("completedAtUtc", StringSchema()))))));
+                    Required("completedAtUtc", StringSchema()),
+                    Required("cursorStart", NullableStringSchema()),
+                    Required("cursorEnd", NullableStringSchema()))))));
     }
 
     private static Dictionary<string, object?> CreateBuildRunInputsSchema ()

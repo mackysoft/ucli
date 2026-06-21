@@ -27,7 +27,8 @@ namespace MackySoft.Ucli.Unity.Build
         public BuildExecuteMethodInvocationResult Run (
             IpcBuildRunRequest request,
             IpcProjectIdentity projectIdentity,
-            UnityBuildResolvedInput resolvedInput)
+            UnityBuildResolvedInput resolvedInput,
+            IBuildExecuteMethodProgressSink? progressSink = null)
         {
             if (request == null)
             {
@@ -64,11 +65,14 @@ namespace MackySoft.Ucli.Unity.Build
                 return Failure(resolution.ErrorCode!.Value, resolution.ErrorMessage!);
             }
 
+            progressSink?.OnRunnerResolved();
+
             var context = CreateContext(request, projectIdentity, resolvedInput);
             UcliBuildRunnerResult? result;
             try
             {
                 UcliBuildRunnerContext.Current = context;
+                progressSink?.OnRunnerStarted();
                 result = Invoke(resolution.Method!, context);
             }
             catch (TargetInvocationException exception) when (exception.InnerException != null)
@@ -115,6 +119,7 @@ namespace MackySoft.Ucli.Unity.Build
                     ? null
                     : new IpcBuildRunnerResultBuildReport(result.BuildReport.Path),
             };
+            progressSink?.OnRunnerCompleted(runnerResult);
             return BuildExecuteMethodInvocationResult.Success(runnerResult);
         }
 
