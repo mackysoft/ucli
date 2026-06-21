@@ -812,7 +812,8 @@ internal static class Program
 
     private static Dictionary<string, object?> CreateBuildRunUnityBuildProfilePathSchema ()
     {
-        return PatternStringSchema(@"^Assets/(?!.*(?:^|/)\.{1,2}(?:/|$))(?!.*//)(?!.*\\)(?!.*:)(?!.*\.[Mm][Ee][Tt][Aa]$)(?!.*\s$).+$");
+        // NOTE: Keep this pattern aligned with UnityAssetPathContract.IsNormalizedBuildProfileAssetPath.
+        return PatternStringSchema(@"^(?!.*[\u0000-\u001F])(?!.*(?:^|/)\.{1,2}(?:/|$))(?!.*//)Assets/(?!.*\\)(?!.*:)(?!.*\.[Mm][Ee][Tt][Aa]$)(?!.*\s$).+$");
     }
 
     private static Dictionary<string, object?> CreateBuildRunOptionsSchema ()
