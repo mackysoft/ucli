@@ -296,10 +296,8 @@ internal sealed class BuildService : IBuildService
                 profile,
                 buildResponse,
                 accounting,
-                paths,
                 runnerInvocation);
             var metadata = CreateMetadataDocument(
-                project,
                 output,
                 buildResponse,
                 profile,
@@ -329,7 +327,6 @@ internal sealed class BuildService : IBuildService
             var completedOutput = output with
             {
                 Reports = CreateReports(
-                    paths,
                     accounting,
                     metadataWriteResult.Artifact!),
             };
@@ -1449,7 +1446,6 @@ internal sealed class BuildService : IBuildService
         ResolvedBuildProfile profile,
         IpcBuildRunResponse response,
         BuildRunArtifactAccountingResult accounting,
-        BuildRunArtifactPaths paths,
         ResolvedRunnerInvocationInput runnerInvocation)
     {
         var generations = CreateGenerations(response.LifecycleBefore, response.LifecycleAfter);
@@ -1479,11 +1475,15 @@ internal sealed class BuildService : IBuildService
         var build = new BuildOutput(
             RunId: runId,
             Profile: new BuildProfileOutput(profilePath, profile.Digest),
-            BuildTarget: profile.BuildTarget.StableName,
-            Scenes: new BuildScenesOutput(
-                Source: response.Input.SceneSource,
-                Paths: response.Input.Scenes),
-            Options: new BuildOptionsOutput(profile.Options.Development),
+            Inputs: new BuildInputsOutput(
+                InputKind: ContractLiteralCodec.ToValue(profile.Inputs.Kind),
+                Target: new BuildTargetOutput(
+                    StableName: profile.BuildTarget.StableName,
+                    UnityBuildTarget: response.Input.UnityBuildTarget),
+                Scenes: new BuildScenesOutput(
+                    Source: response.Input.SceneSource,
+                    Paths: response.Input.Scenes),
+                Options: new BuildOptionsOutput(profile.Options.Development)),
             Runner: new BuildRunnerOutput(
                 Kind: ContractLiteralCodec.ToValue(profile.Runner.Kind),
                 Method: profile.Runner.Method,
@@ -1520,7 +1520,7 @@ internal sealed class BuildService : IBuildService
                     ReportRef: BuildReportRefs.Build),
             ],
             Claims: claims,
-            Reports: CreateReports(paths, accounting, buildArtifact: null),
+            Reports: CreateReports(accounting, buildArtifact: null),
             ResidualRisks: residualRisks);
     }
 
@@ -1575,26 +1575,24 @@ internal sealed class BuildService : IBuildService
     }
 
     private static IReadOnlyDictionary<string, BuildReportOutput> CreateReports (
-        BuildRunArtifactPaths paths,
         BuildRunArtifactAccountingResult accounting,
         BuildArtifactRef? buildArtifact)
     {
         var reports = new Dictionary<string, BuildReportOutput>(StringComparer.Ordinal)
         {
-            [BuildReportRefs.Build] = new BuildReportOutput(paths.BuildJsonPath, buildArtifact?.Digest),
-            [BuildReportRefs.BuildOutputManifest] = new BuildReportOutput(paths.OutputManifestJsonPath, accounting.BuildOutputManifest.Digest),
-            [BuildReportRefs.BuildLog] = new BuildReportOutput(paths.BuildLogPath, accounting.BuildLog.Digest),
+            [BuildReportRefs.Build] = new BuildReportOutput(buildArtifact?.Path ?? "build.json", buildArtifact?.Digest),
+            [BuildReportRefs.BuildOutputManifest] = new BuildReportOutput(accounting.BuildOutputManifest.Path, accounting.BuildOutputManifest.Digest),
+            [BuildReportRefs.BuildLog] = new BuildReportOutput(accounting.BuildLog.Path, accounting.BuildLog.Digest),
         };
         if (accounting.BuildReport != null)
         {
-            reports.Add(BuildReportRefs.BuildReport, new BuildReportOutput(paths.BuildReportJsonPath, accounting.BuildReport.Digest));
+            reports.Add(BuildReportRefs.BuildReport, new BuildReportOutput(accounting.BuildReport.Path, accounting.BuildReport.Digest));
         }
 
         return reports;
     }
 
     private static BuildRunMetadataDocument CreateMetadataDocument (
-        ProjectIdentityInfo project,
         BuildExecutionOutput output,
         IpcBuildRunResponse response,
         ResolvedBuildProfile profile,
@@ -1605,8 +1603,8 @@ internal sealed class BuildService : IBuildService
         return new BuildRunMetadataDocument(
             SchemaVersion: BuildMetadataSchemaVersion,
             RunId: output.Build.RunId,
-            Project: SerializeMetadataElement(project),
             Profile: SerializeMetadataElement(output.Build.Profile),
+            Inputs: SerializeMetadataElement(CreateInputMetadata(output.Build.Inputs)),
             Runner: SerializeMetadataElement(new BuildRunRunnerMetadata(
                 Kind: ContractLiteralCodec.ToValue(profile.Runner.Kind),
                 Method: profile.Runner.Method,
@@ -1617,20 +1615,26 @@ internal sealed class BuildService : IBuildService
                         Secrets: invocationEnv.Secrets)),
                 OutputLayout: outputLayout)),
             RunnerResult: SerializeMetadataElement(CreateRunnerResultMetadata(output, response, accounting.BuildReport != null)),
-            Input: SerializeMetadataElement(new BuildRunInputMetadata(
-                BuildTarget: output.Build.BuildTarget,
-                UnityBuildTarget: response.Input.UnityBuildTarget,
-                Scenes: output.Build.Scenes,
-                Options: output.Build.Options)),
             Lifecycle: SerializeMetadataElement(new BuildRunLifecycleMetadata(
                 Before: response.LifecycleBefore,
                 After: response.LifecycleAfter)),
             Generations: SerializeMetadataElement(output.Build.Generations),
             Summary: SerializeMetadataElement(output.Build.Summary),
             Logs: SerializeMetadataElement(output.Build.Logs),
-            Output: SerializeMetadataElement(output.Build.Output),
-            ProjectMutation: SerializeMetadataElement(response.ProjectMutation),
-            DirtyState: SerializeMetadataElement(response.DirtyState));
+            ProjectMutation: SerializeMetadataElement(response.ProjectMutation));
+    }
+
+    private static BuildRunInputMetadata CreateInputMetadata (BuildInputsOutput inputs)
+    {
+        return new BuildRunInputMetadata(
+            InputKind: inputs.InputKind,
+            Target: new BuildRunTargetMetadata(
+                StableName: inputs.Target.StableName,
+                UnityBuildTarget: inputs.Target.UnityBuildTarget),
+            Scenes: new BuildRunScenesMetadata(
+                Source: inputs.Scenes.Source,
+                Paths: inputs.Scenes.Paths),
+            Options: new BuildRunOptionsMetadata(inputs.Options.Development));
     }
 
     private static object CreateRunnerResultMetadata (
@@ -1746,8 +1750,8 @@ internal sealed class BuildService : IBuildService
                 "Unity resolved BuildPipeline BuildTarget and scenes.",
                 new Dictionary<string, object?>(StringComparer.Ordinal)
                 {
-                    ["buildTarget"] = build.BuildTarget,
-                    ["sceneCount"] = build.Scenes.Paths.Count,
+                    ["buildTarget"] = build.Inputs.Target.StableName,
+                    ["sceneCount"] = build.Inputs.Scenes.Paths.Count,
                 },
                 [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(BuildEvidenceKind.BuildInput), EvidenceRef: BuildReportRefs.Build, Data: response.Input)]),
             CreateClaim(
@@ -1784,7 +1788,8 @@ internal sealed class BuildService : IBuildService
                 "Build runner terminal result was persisted in build metadata.",
                 new Dictionary<string, object?>(StringComparer.Ordinal)
                 {
-                    ["result"] = build.Summary.Result,
+                    ["source"] = build.RunnerResult.Source,
+                    ["status"] = build.RunnerResult.Status,
                 },
                 [new BuildEvidenceOutput(Kind: terminalEvidenceKind, EvidenceRef: BuildReportRefs.Build, Data: build.RunnerResult)]),
             CreateClaim(

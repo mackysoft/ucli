@@ -70,6 +70,44 @@ public sealed class AssuranceSemanticInvariantValidatorTests
         AssertViolationPath(result, "$.reports.buildLog.digest");
     }
 
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("/workspace/.ucli/build.log")]
+    [InlineData("C:/workspace/.ucli/build.log")]
+    [InlineData("C:workspace/.ucli/build.log")]
+    [InlineData("../build.log")]
+    [InlineData("artifacts/../build.log")]
+    [InlineData("artifacts//build.log")]
+    [InlineData("artifacts\\build.log")]
+    [InlineData(".")]
+    [InlineData("")]
+    public void Validate_WithBuildPayloadReportNonArtifactRootRelativePath_ReturnsReportPath (string buildLogPath)
+    {
+        var result = ValidateBuildPayload(CreateBuildPayload(buildLogPath: buildLogPath));
+
+        AssertViolationPath(result, "$.reports.buildLog.path");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Validate_WithBuildPayloadReportKind_ReturnsReportKindPath ()
+    {
+        var result = ValidateBuildPayload(CreateBuildPayload(includeBuildLogKind: true));
+
+        AssertViolationPath(result, "$.reports.buildLog.kind");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Validate_WithBuildPayloadReportNonArtifactRootRelativePathAndNoClaims_ReturnsReportPath ()
+    {
+        var result = ValidateBuildPayload(CreateBuildPayload(
+            includeBuildClaims: false,
+            buildLogPath: "../build.log"));
+
+        AssertViolationPath(result, "$.reports.buildLog.path");
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public void Validate_WithBuildPayloadMissingProfile_ReturnsProfilePath ()
@@ -297,6 +335,17 @@ public sealed class AssuranceSemanticInvariantValidatorTests
             buildSucceededClaimStatus: "failed"));
 
         AssertViolationPath(result, "$.build.logs.completionReason");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Validate_WithBuildSummaryResultMismatch_ReturnsSummaryResultPath ()
+    {
+        var result = ValidateBuildPayload(CreateBuildPayload(
+            buildResult: "succeeded",
+            summaryResult: "failed"));
+
+        AssertViolationPath(result, "$.build.summary.result");
     }
 
     [Fact]
@@ -1037,43 +1086,53 @@ public sealed class AssuranceSemanticInvariantValidatorTests
         bool includeBuildProfile = true,
         string buildManifestRef = "buildOutputManifest",
         string summaryReportRef = "buildReport",
+        string? summaryResult = null,
         string logsReportRef = "buildLog",
         IReadOnlyList<object>? verifierEffects = null,
         bool includeBuildGenerations = true,
         string validForAssetRefreshGeneration = "asset-after",
         bool includeBuildLogPath = true,
+        bool includeBuildClaims = true,
+        string? buildLogPath = null,
+        bool includeBuildLogKind = false,
         string buildLogDigest = "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd")
     {
         var reports = new Dictionary<string, object>(StringComparer.Ordinal)
         {
             ["build"] = new
             {
-                path = "artifacts/build.json",
+                path = "build.json",
                 digest = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             },
             ["buildReport"] = new
             {
-                path = "artifacts/build-report.json",
+                path = "build-report.json",
                 digest = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
             },
             ["buildOutputManifest"] = new
             {
-                path = "artifacts/output-manifest.json",
+                path = "output-manifest.json",
                 digest = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
             },
         };
         if (includeBuildLogReport)
         {
-            reports["buildLog"] = includeBuildLogDigest
-                ? (object)new
+            var buildLogReport = includeBuildLogDigest
+                ? new Dictionary<string, object?>(StringComparer.Ordinal)
                 {
-                    path = includeBuildLogPath ? "artifacts/build.log" : null,
-                    digest = buildLogDigest,
+                    ["path"] = includeBuildLogPath ? buildLogPath ?? "build.log" : null,
+                    ["digest"] = buildLogDigest,
                 }
-                : new
+                : new Dictionary<string, object?>(StringComparer.Ordinal)
                 {
-                    path = "artifacts/build.log",
+                    ["path"] = buildLogPath ?? "build.log",
                 };
+            if (includeBuildLogKind)
+            {
+                buildLogReport["kind"] = "buildLog";
+            }
+
+            reports["buildLog"] = buildLogReport;
         }
 
         object? profile = includeBuildProfile
@@ -1089,37 +1148,79 @@ public sealed class AssuranceSemanticInvariantValidatorTests
         var generationEvidenceData = buildGenerationEvidenceDataValidForAssetRefreshGeneration == null
             ? generations
             : CreateBuildGenerations(buildGenerationEvidenceDataValidForAssetRefreshGeneration);
-        var claims = BuildClaimCodes.All
-            .Select(code =>
-            {
-                var status = ResolveBuildClaimStatus(
-                    code,
-                    buildCompletedClaimStatus,
-                    buildSucceededClaimStatus,
-                    buildGenerationClaimStatus);
-                return new
+        var claims = includeBuildClaims
+            ? BuildClaimCodes.All
+                .Select(code =>
                 {
-                    id = code.Value,
-                    status,
-                    coverage = ResolveBuildClaimCoverage(status),
-                    required = true,
-                    verifierRef = "build",
-                    evidence = CreateBuildEvidence(
-                        code.Value,
-                        buildSucceededEvidenceRef,
-                        buildGenerationEvidenceDataOnly,
-                        generationEvidenceData),
-                    residualRisks = Array.Empty<object>(),
-                };
-            })
-            .ToArray();
+                    var status = ResolveBuildClaimStatus(
+                        code,
+                        buildCompletedClaimStatus,
+                        buildSucceededClaimStatus,
+                        buildGenerationClaimStatus);
+                    return (object)new
+                    {
+                        id = code.Value,
+                        status,
+                        coverage = ResolveBuildClaimCoverage(status),
+                        required = true,
+                        verifierRef = "build",
+                        evidence = CreateBuildEvidence(
+                            code.Value,
+                            buildResult,
+                            buildSucceededEvidenceRef,
+                            buildGenerationEvidenceDataOnly,
+                            generationEvidenceData),
+                        residualRisks = Array.Empty<object>(),
+                    };
+                })
+                .ToArray()
+            : Array.Empty<object>();
         return JsonSerializer.Serialize(new
         {
             verdict,
             build = new
             {
-                buildTarget = "standaloneLinux64",
                 profile,
+                inputs = new
+                {
+                    inputKind = "explicit",
+                    target = new
+                    {
+                        stableName = "standaloneLinux64",
+                        unityBuildTarget = "StandaloneLinux64",
+                    },
+                    scenes = new
+                    {
+                        source = "explicit",
+                        paths = new[]
+                        {
+                            "Assets/Scenes/Main.unity",
+                        },
+                    },
+                    options = new
+                    {
+                        development = true,
+                    },
+                },
+                runner = new
+                {
+                    kind = "buildPipeline",
+                    method = (string?)null,
+                    invocation = new
+                    {
+                        arguments = new Dictionary<string, string>(StringComparer.Ordinal),
+                        environment = new
+                        {
+                            variables = Array.Empty<string>(),
+                            secrets = Array.Empty<string>(),
+                        },
+                    },
+                },
+                runnerResult = new
+                {
+                    source = "buildPipelineBuildReport",
+                    status = buildResult,
+                },
                 output = new
                 {
                     manifestRef = buildManifestRef,
@@ -1128,7 +1229,7 @@ public sealed class AssuranceSemanticInvariantValidatorTests
                 generations,
                 summary = new
                 {
-                    result = buildResult,
+                    result = summaryResult ?? buildResult,
                     reportRef = summaryReportRef,
                 },
                 logs = new
@@ -1257,6 +1358,7 @@ public sealed class AssuranceSemanticInvariantValidatorTests
 
     private static object[] CreateBuildEvidence (
         string claimId,
+        string buildResult,
         string? buildSucceededEvidenceRef,
         bool buildGenerationEvidenceDataOnly,
         object? buildGenerationEvidenceData)
@@ -1277,6 +1379,23 @@ public sealed class AssuranceSemanticInvariantValidatorTests
         if (BuildClaimCodes.UnityBuildSucceeded.EqualsValue(claimId) && buildSucceededEvidenceRef != null)
         {
             evidenceRef = buildSucceededEvidenceRef;
+        }
+
+        if (BuildClaimCodes.UnityBuildResultAccounted.EqualsValue(claimId))
+        {
+            return
+            [
+                new
+                {
+                    kind = "evidence",
+                    evidenceRef,
+                    data = new
+                    {
+                        source = "buildPipelineBuildReport",
+                        status = buildResult,
+                    },
+                },
+            ];
         }
 
         return

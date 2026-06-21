@@ -242,7 +242,7 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
 
         var buildLogAccountingResult = await AccountExistingArtifactAsync(
                 BuildArtifactKind.BuildLog,
-                request.Paths.RepositoryRoot,
+                request.Paths.ArtifactsDirectory,
                 request.Paths.BuildLogPath,
                 "Build log artifact",
                 BuildErrorCodes.BuildArtifactWriteFailed,
@@ -277,7 +277,7 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
 
             outputManifestRef = CreateArtifactRef(
                 BuildArtifactKind.BuildOutputManifest,
-                request.Paths.RepositoryRoot,
+                request.Paths.ArtifactsDirectory,
                 request.Paths.OutputManifestJsonPath,
                 persistedOutputManifestDigest);
         }
@@ -352,7 +352,7 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
                 .ConfigureAwait(false);
             buildRef = CreateArtifactRef(
                 BuildArtifactKind.Build,
-                request.Paths.RepositoryRoot,
+                request.Paths.ArtifactsDirectory,
                 request.Paths.BuildJsonPath,
                 buildDigest);
         }
@@ -393,7 +393,7 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
                 .ConfigureAwait(false);
             return BuildArtifactAccountingResult.Success(CreateArtifactRef(
                 BuildArtifactKind.BuildReport,
-                paths.RepositoryRoot,
+                paths.ArtifactsDirectory,
                 paths.BuildReportJsonPath,
                 digest));
         }
@@ -1436,7 +1436,7 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
 
     private static async ValueTask<BuildArtifactAccountingResult> AccountExistingArtifactAsync (
         BuildArtifactKind kind,
-        string repositoryRoot,
+        string artifactRoot,
         string path,
         string description,
         UcliCode missingCode,
@@ -1445,7 +1445,7 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         try
         {
             var digest = await ComputeExistingArtifactSha256Async(path, cancellationToken).ConfigureAwait(false);
-            return BuildArtifactAccountingResult.Success(CreateArtifactRef(kind, repositoryRoot, path, digest));
+            return BuildArtifactAccountingResult.Success(CreateArtifactRef(kind, artifactRoot, path, digest));
         }
         catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
@@ -1608,14 +1608,40 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
 
     private static BuildArtifactRef CreateArtifactRef (
         BuildArtifactKind kind,
-        string repositoryRoot,
+        string artifactRoot,
         string path,
         string sha256)
     {
         return new BuildArtifactRef(
             kind,
-            NormalizeRepositoryRelativePath(repositoryRoot, path),
+            NormalizeArtifactRelativePath(artifactRoot, path),
             sha256);
+    }
+
+    private static string NormalizeArtifactRelativePath (
+        string artifactRoot,
+        string path)
+    {
+        var normalizedArtifactRoot = Path.GetFullPath(artifactRoot);
+        var normalizedPath = Path.GetFullPath(path);
+        var result = RepositoryPathNormalizer.TryNormalize(normalizedArtifactRoot, normalizedPath);
+        if (!result.IsSuccess)
+        {
+            throw new InvalidOperationException(
+                $"Build artifact path must resolve inside the artifact root. ArtifactRoot={normalizedArtifactRoot}, Path={normalizedPath}.");
+        }
+
+        var relativePath = result.RepositoryRelativeSlashPath!;
+        if (string.IsNullOrWhiteSpace(relativePath)
+            || relativePath.StartsWith("../", StringComparison.Ordinal)
+            || string.Equals(relativePath, "..", StringComparison.Ordinal)
+            || Path.IsPathRooted(relativePath))
+        {
+            throw new InvalidOperationException(
+                $"Build artifact path could not be normalized relative to the artifact root: {path}.");
+        }
+
+        return relativePath;
     }
 
     private static string NormalizeRepositoryRelativePath (
