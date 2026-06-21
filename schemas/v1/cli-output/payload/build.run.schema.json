@@ -270,14 +270,14 @@
                   "type": "string",
                   "const": "buildReport"
                 }
-	              },
-	              "required": [
-	                "result",
-	                "durationMilliseconds",
-	                "errorCount",
-	                "warningCount"
-	              ]
-	            },
+              },
+              "required": [
+                "result",
+                "durationMilliseconds",
+                "errorCount",
+                "warningCount"
+              ]
+            },
             "logs": {
               "type": "object",
               "additionalProperties": false,
@@ -482,13 +482,13 @@
                 "digest"
               ]
             }
-	          },
-	          "required": [
-	            "build",
-	            "buildOutputManifest",
-	            "buildLog"
-	          ]
-	        },
+          },
+          "required": [
+            "build",
+            "buildOutputManifest",
+            "buildLog"
+          ]
+        },
         "residualRisks": {
           "type": "array",
           "items": {
