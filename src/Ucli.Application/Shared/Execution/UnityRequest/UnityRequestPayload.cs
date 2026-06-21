@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
 
@@ -6,6 +7,9 @@ namespace MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 /// <summary> Represents a host-executed Unity request without owning the IPC wire envelope. </summary>
 internal abstract record UnityRequestPayload
 {
+    private static readonly IReadOnlyDictionary<string, string> EmptyStringMap =
+        new ReadOnlyDictionary<string, string>(new Dictionary<string, string>(StringComparer.Ordinal));
+
     /// <summary> Represents a request whose method and payload are already owned by a host adapter. </summary>
     internal sealed record Raw (
         string Method,
@@ -35,7 +39,35 @@ internal abstract record UnityRequestPayload
         string BuildLogPath,
         IReadOnlyList<string> AllowedEditorModes,
         string ProjectMutationMode,
-        IpcUnityBuildProfileInput? UnityBuildProfile = null) : UnityRequestPayload;
+        string RunnerKind) : UnityRequestPayload
+    {
+        /// <summary> Gets the Unity Build Profile asset input when Unity resolves build inputs. </summary>
+        public IpcUnityBuildProfileInput? UnityBuildProfile { get; init; }
+
+        /// <summary> Gets the resolved build profile path used for runner context construction. </summary>
+        public string? ProfilePath { get; init; }
+
+        /// <summary> Gets the canonical build profile digest used for runner context construction. </summary>
+        public string? ProfileDigest { get; init; }
+
+        /// <summary> Gets the resolved executeMethod runner method identity. </summary>
+        public string? RunnerMethod { get; init; }
+
+        /// <summary> Gets the substitution-resolved non-secret runner arguments. </summary>
+        public IReadOnlyDictionary<string, string> RunnerArguments { get; init; } = EmptyStringMap;
+
+        /// <summary> Gets the requested non-secret runner environment variable names. </summary>
+        public IReadOnlyList<string> RunnerEnvironmentVariables { get; init; } = Array.Empty<string>();
+
+        /// <summary> Gets the requested secret runner environment names. </summary>
+        public IReadOnlyList<string> RunnerEnvironmentSecrets { get; init; } = Array.Empty<string>();
+
+        /// <summary> Gets non-secret environment values resolved by the uCLI runtime for IPC delivery only. </summary>
+        public IReadOnlyDictionary<string, string> RunnerEnvironmentVariableValues { get; init; } = EmptyStringMap;
+
+        /// <summary> Gets secret environment values resolved by the uCLI runtime for IPC delivery only. </summary>
+        public IReadOnlyDictionary<string, string> RunnerEnvironmentSecretValues { get; init; } = EmptyStringMap;
+    }
 
     /// <summary> Represents a Unity Test Framework run request prepared by application orchestration. </summary>
     internal sealed record TestRun (

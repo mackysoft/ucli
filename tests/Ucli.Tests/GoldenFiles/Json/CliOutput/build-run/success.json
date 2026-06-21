@@ -40,10 +40,25 @@
       "options": {
         "development": true
       },
+      "runner": {
+        "kind": "buildPipeline",
+        "method": null,
+        "invocation": {
+          "arguments": {},
+          "environment": {
+            "variables": [],
+            "secrets": []
+          }
+        }
+      },
+      "runnerResult": {
+        "source": "buildPipelineBuildReport",
+        "status": "succeeded"
+      },
       "output": {
         "manifestRef": "buildOutputManifest",
-        "manifestDigest": "da24a52f15e07fd877e58e370b776bc7136b18409317bc73b300c1ff3acb52f1",
-        "entryCount": 2,
+        "manifestDigest": "59a71d71a244ad7a978be0bbfe8f87328c036091bb4b5aefef9e89b855d82b9b",
+        "entryCount": 1,
         "fileCount": 2,
         "totalBytes": 33
       },
@@ -311,7 +326,7 @@
         "statement": "Build output artifacts were counted in the output manifest.",
         "subject": {
           "manifestRef": "buildOutputManifest",
-          "entryCount": 2,
+          "entryCount": 1,
           "fileCount": 2
         },
         "evidence": [
@@ -320,8 +335,8 @@
             "evidenceRef": "build",
             "data": {
               "manifestRef": "buildOutputManifest",
-              "manifestDigest": "da24a52f15e07fd877e58e370b776bc7136b18409317bc73b300c1ff3acb52f1",
-              "entryCount": 2,
+              "manifestDigest": "59a71d71a244ad7a978be0bbfe8f87328c036091bb4b5aefef9e89b855d82b9b",
+              "entryCount": 1,
               "fileCount": 2,
               "totalBytes": 33
             }
@@ -337,7 +352,7 @@
         "verifierRef": "build",
         "statement": "Build output manifest digest was verified against the written artifact.",
         "subject": {
-          "manifestDigest": "da24a52f15e07fd877e58e370b776bc7136b18409317bc73b300c1ff3acb52f1"
+          "manifestDigest": "59a71d71a244ad7a978be0bbfe8f87328c036091bb4b5aefef9e89b855d82b9b"
         },
         "evidence": [
           {

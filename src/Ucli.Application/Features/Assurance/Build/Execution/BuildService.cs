@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Contracts;
@@ -7,6 +8,7 @@ using MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
 using MackySoft.Ucli.Application.Features.Assurance.Semantics;
 using MackySoft.Ucli.Application.Shared.Context;
+using MackySoft.Ucli.Application.Shared.EnvironmentVariables;
 using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Assurance;
@@ -25,15 +27,11 @@ internal sealed class BuildService : IBuildService
     private static readonly IReadOnlyList<BuildResidualRiskOutput> EmptyResidualRisks =
         Array.Empty<BuildResidualRiskOutput>();
 
-    private static readonly IReadOnlyDictionary<string, JsonElement> EmptyRunnerArguments =
-        new Dictionary<string, JsonElement>(StringComparer.Ordinal);
-
-    private static readonly IReadOnlyList<string> EmptyRunnerEnvironment =
-        Array.Empty<string>();
-
     private readonly IProjectContextResolver projectContextResolver;
 
     private readonly IBuildProfileFileReader profileFileReader;
+
+    private readonly IEnvironmentVariableReader environmentVariableReader;
 
     private readonly IUnityExecutionModeDecisionService executionModeDecisionService;
 
@@ -49,6 +47,7 @@ internal sealed class BuildService : IBuildService
     public BuildService (
         IProjectContextResolver projectContextResolver,
         IBuildProfileFileReader profileFileReader,
+        IEnvironmentVariableReader environmentVariableReader,
         IUnityExecutionModeDecisionService executionModeDecisionService,
         IUnityRequestExecutor unityRequestExecutor,
         IBuildRunIdFactory runIdFactory,
@@ -57,6 +56,7 @@ internal sealed class BuildService : IBuildService
     {
         this.projectContextResolver = projectContextResolver ?? throw new ArgumentNullException(nameof(projectContextResolver));
         this.profileFileReader = profileFileReader ?? throw new ArgumentNullException(nameof(profileFileReader));
+        this.environmentVariableReader = environmentVariableReader ?? throw new ArgumentNullException(nameof(environmentVariableReader));
         this.executionModeDecisionService = executionModeDecisionService ?? throw new ArgumentNullException(nameof(executionModeDecisionService));
         this.unityRequestExecutor = unityRequestExecutor ?? throw new ArgumentNullException(nameof(unityRequestExecutor));
         this.runIdFactory = runIdFactory ?? throw new ArgumentNullException(nameof(runIdFactory));
@@ -156,23 +156,37 @@ internal sealed class BuildService : IBuildService
 
         var paths = prepareResult.Paths!;
         IpcBuildOutputLayout? outputLayout = null;
-        if (profile.Inputs.Kind == BuildProfileInputsKind.Explicit)
+        if (profile.Inputs.Kind == BuildProfileInputsKind.Explicit
+            && profile.Runner.Kind == BuildProfileRunnerKind.BuildPipeline
+            && !IpcBuildOutputLayoutResolver.TryResolve(paths.RunnerOutputDirectory, profile.BuildTarget.StableName, out outputLayout))
         {
-            if (!IpcBuildOutputLayoutResolver.TryResolve(paths.OutputDirectory, profile.BuildTarget.StableName, out outputLayout))
-            {
-                return BuildExecutionResult.Failure(ExecutionError.InvalidArgument(
-                    $"BuildPipeline output layout could not be resolved for build target: {profile.BuildTarget.StableName}.",
-                    BuildErrorCodes.BuildInputsInvalid), project);
-            }
+            return BuildExecutionResult.Failure(ExecutionError.InvalidArgument(
+                $"BuildPipeline output layout could not be resolved for build target: {profile.BuildTarget.StableName}.",
+                BuildErrorCodes.BuildInputsInvalid), project);
+        }
 
+        if (outputLayout != null)
+        {
             var outputLayoutPrepareResult = artifactStore.PrepareBuildPipelineOutputLayout(
                 paths,
                 profile.BuildTarget.StableName,
-                outputLayout!);
+                outputLayout);
             if (!outputLayoutPrepareResult.IsSuccess)
             {
                 return BuildExecutionResult.Failure(outputLayoutPrepareResult.Error!, project);
             }
+        }
+
+        var runnerInvocationResult = ResolveRunnerInvocation(
+            profile,
+            profileReadResult.DisplayPath!,
+            runId,
+            paths.RunnerOutputDirectory,
+            context.UnityProject.UnityProjectRoot,
+            context.UnityProject.ProjectFingerprint);
+        if (!runnerInvocationResult.IsSuccess)
+        {
+            return BuildExecutionResult.Failure(runnerInvocationResult.Error!, project);
         }
 
         await EmitStartedAsync(
@@ -183,11 +197,18 @@ internal sealed class BuildService : IBuildService
                 executionTarget,
                 timeout,
                 ResolveStartedBuildTarget(profile),
-                paths.OutputDirectory,
+                paths.RunnerOutputDirectory,
                 cancellationToken)
             .ConfigureAwait(false);
 
-        var request = CreateBuildRunRequest(profile, paths, outputLayout, runId);
+        var runnerInvocation = runnerInvocationResult.Invocation!;
+        var request = CreateBuildRunRequest(
+            profile,
+            profileReadResult.DisplayPath!,
+            paths,
+            outputLayout,
+            runId,
+            runnerInvocation);
         var executionResult = await unityRequestExecutor.ExecuteAsync(
                 UcliCommandIds.BuildRun,
                 ResolveExecutionMode(executionTarget),
@@ -213,7 +234,7 @@ internal sealed class BuildService : IBuildService
             runId,
             context.UnityProject.ProjectFingerprint,
             profile,
-            paths.OutputDirectory);
+            paths.RunnerOutputDirectory);
         if (!responseResult.IsSuccess)
         {
             var dirtyState = responseResult.Error!.Code == BuildErrorCodes.BuildDirtyStatePresent
@@ -237,11 +258,18 @@ internal sealed class BuildService : IBuildService
         var artifactCancellationToken = artifactAccountingCancellationTokenSource.Token;
         try
         {
+            var reportResult = ResolveTerminalBuildReportResult(buildResponse.Report.Result);
+            var resolvedOutputLayout = buildResponse.OutputLayout ?? outputLayout;
+            var outputSources = resolvedOutputLayout != null
+                ? [new BuildOutputSourceEntry(resolvedOutputLayout.LocationPathName)]
+                : Array.Empty<BuildOutputSourceEntry>();
             var accountingResult = await artifactStore.AccountArtifactsAsync(
                     new BuildRunArtifactAccountingRequest(
                         paths,
-                        buildResponse.Report.OutputPath,
-                        buildResponse.Input.BuildTarget),
+                        buildResponse.Input.BuildTarget,
+                        buildResponse.Input.UnityBuildTarget,
+                        outputSources,
+                        CanWriteEmptyOutputManifest(reportResult) || profile.Runner.Kind == BuildProfileRunnerKind.ExecuteMethod),
                     artifactCancellationToken)
                 .ConfigureAwait(false);
             if (!accountingResult.IsSuccess)
@@ -257,8 +285,8 @@ internal sealed class BuildService : IBuildService
                 profile,
                 buildResponse,
                 accounting,
-                paths);
-            var resolvedOutputLayout = buildResponse.OutputLayout;
+                paths,
+                runnerInvocation);
             var metadata = CreateMetadataDocument(
                 project,
                 output,
@@ -332,6 +360,199 @@ internal sealed class BuildService : IBuildService
             cancellationToken);
     }
 
+    private RunnerInvocationResolutionResult ResolveRunnerInvocation (
+        ResolvedBuildProfile profile,
+        string profilePath,
+        string runId,
+        string outputDirectory,
+        string projectPath,
+        string projectFingerprint)
+    {
+        ArgumentNullException.ThrowIfNull(profile);
+        ArgumentException.ThrowIfNullOrWhiteSpace(runId);
+
+        if (profile.Runner.Kind == BuildProfileRunnerKind.BuildPipeline)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(profilePath);
+            ArgumentException.ThrowIfNullOrWhiteSpace(outputDirectory);
+            ArgumentException.ThrowIfNullOrWhiteSpace(projectPath);
+            ArgumentException.ThrowIfNullOrWhiteSpace(projectFingerprint);
+            return RunnerInvocationResolutionResult.Success(ResolvedRunnerInvocationInput.Empty);
+        }
+
+        if (!TryValidateRequiredPathVariable("ucli.build.profilePath", profilePath, out var pathError)
+            || !TryValidateRequiredPathVariable("ucli.build.outputDir", outputDirectory, out pathError)
+            || !TryValidateRequiredPathVariable("project.path", projectPath, out pathError))
+        {
+            return RunnerInvocationResolutionResult.Failure(pathError!);
+        }
+
+        ArgumentException.ThrowIfNullOrWhiteSpace(projectFingerprint);
+
+        var builtInVariables = CreateBuiltInVariableMap(
+            profile,
+            profilePath,
+            runId,
+            outputDirectory,
+            projectPath,
+            projectFingerprint);
+        var arguments = new SortedDictionary<string, string>(StringComparer.Ordinal);
+        foreach (var argument in profile.Runner.Invocation.Arguments)
+        {
+            if (!TrySubstituteBuiltInVariables(
+                argument.Value,
+                builtInVariables,
+                out var substituted,
+                out var error))
+            {
+                return RunnerInvocationResolutionResult.Failure(error!);
+            }
+
+            arguments.Add(argument.Key, substituted!);
+        }
+
+        var requestedEnv = profile.Runner.Invocation.Environment;
+        var environmentVariables = ResolveRunnerEnvironmentValues(requestedEnv.Variables);
+        if (!environmentVariables.IsSuccess)
+        {
+            return RunnerInvocationResolutionResult.Failure(environmentVariables.Error!);
+        }
+
+        var environmentSecrets = ResolveRunnerEnvironmentValues(requestedEnv.Secrets);
+        if (!environmentSecrets.IsSuccess)
+        {
+            return RunnerInvocationResolutionResult.Failure(environmentSecrets.Error!);
+        }
+
+        return RunnerInvocationResolutionResult.Success(new ResolvedRunnerInvocationInput(
+            arguments,
+            requestedEnv.Variables,
+            requestedEnv.Secrets,
+            environmentVariables.Values!,
+            environmentSecrets.Values!));
+    }
+
+    private RunnerEnvironmentResolutionResult ResolveRunnerEnvironmentValues (IReadOnlyList<string> environmentNames)
+    {
+        var environmentValues = new SortedDictionary<string, string>(StringComparer.Ordinal);
+        for (var i = 0; i < environmentNames.Count; i++)
+        {
+            var environmentName = environmentNames[i];
+            var value = environmentVariableReader.Get(environmentName);
+            if (value == null)
+            {
+                return RunnerEnvironmentResolutionResult.Failure(ExecutionError.InvalidArgument(
+                    $"Build runner environment entry is missing: {environmentName}.",
+                    BuildErrorCodes.BuildRunnerEnvironmentMissing));
+            }
+
+            environmentValues.Add(environmentName, value);
+        }
+
+        return RunnerEnvironmentResolutionResult.Success(environmentValues);
+    }
+
+    private static IReadOnlyDictionary<string, string> CreateBuiltInVariableMap (
+        ResolvedBuildProfile profile,
+        string profilePath,
+        string runId,
+        string outputDirectory,
+        string projectPath,
+        string projectFingerprint)
+    {
+        return new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["ucli.build.runId"] = runId,
+            ["ucli.build.outputDir"] = outputDirectory,
+            ["ucli.build.profilePath"] = profilePath,
+            ["ucli.build.profileDigest"] = profile.Digest,
+            ["project.path"] = projectPath,
+            ["project.fingerprint"] = projectFingerprint,
+            ["build.target"] = profile.BuildTarget.StableName,
+        };
+    }
+
+    private static bool TrySubstituteBuiltInVariables (
+        string value,
+        IReadOnlyDictionary<string, string> variables,
+        out string? substituted,
+        out ExecutionError? error)
+    {
+        substituted = null;
+        error = null;
+
+        var builder = new StringBuilder(value.Length);
+        var index = 0;
+        while (index < value.Length)
+        {
+            var variableStart = value.IndexOf("${", index, StringComparison.Ordinal);
+            if (variableStart < 0)
+            {
+                builder.Append(value, index, value.Length - index);
+                substituted = builder.ToString();
+                return true;
+            }
+
+            builder.Append(value, index, variableStart - index);
+            var variableEnd = value.IndexOf('}', variableStart + 2);
+            if (variableEnd < 0)
+            {
+                error = ExecutionError.InvalidArgument(
+                    "Build profile runner.invocation.arguments contains an unterminated built-in variable reference.",
+                    BuildErrorCodes.BuildProfileInvalid);
+                return false;
+            }
+
+            var variableName = value.Substring(variableStart + 2, variableEnd - variableStart - 2);
+            if (!variables.TryGetValue(variableName, out var variableValue))
+            {
+                error = ExecutionError.InvalidArgument(
+                    $"Build profile runner.invocation.arguments references unknown built-in variable: {variableName}.",
+                    BuildErrorCodes.BuildProfileInvalid);
+                return false;
+            }
+
+            if (RequiresNonEmptyVariableValue(variableName)
+                && string.IsNullOrWhiteSpace(variableValue))
+            {
+                error = ExecutionError.InvalidArgument(
+                    $"Build profile runner.invocation.arguments built-in variable resolves to an empty required path: {variableName}.",
+                    BuildErrorCodes.BuildProfileInvalid);
+                return false;
+            }
+
+            builder.Append(variableValue);
+            index = variableEnd + 1;
+        }
+
+        substituted = builder.ToString();
+        return true;
+    }
+
+    private static bool TryValidateRequiredPathVariable (
+        string variableName,
+        string value,
+        out ExecutionError? error)
+    {
+        error = null;
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            return true;
+        }
+
+        error = ExecutionError.InvalidArgument(
+            $"Build profile runner.invocation.arguments built-in variable resolves to an empty required path: {variableName}.",
+            BuildErrorCodes.BuildProfileInvalid);
+        return false;
+    }
+
+    private static bool RequiresNonEmptyVariableValue (string variableName)
+    {
+        return string.Equals(variableName, "ucli.build.outputDir", StringComparison.Ordinal)
+            || string.Equals(variableName, "ucli.build.profilePath", StringComparison.Ordinal)
+            || string.Equals(variableName, "project.path", StringComparison.Ordinal);
+    }
+
     private static ValueTask EmitCompletedAsync (
         ICommandProgressSink progressSink,
         BuildExecutionOutput output,
@@ -362,9 +583,11 @@ internal sealed class BuildService : IBuildService
 
     private static UnityRequestPayload.BuildRun CreateBuildRunRequest (
         ResolvedBuildProfile profile,
+        string profilePath,
         BuildRunArtifactPaths paths,
         IpcBuildOutputLayout? outputLayout,
-        string runId)
+        string runId,
+        ResolvedRunnerInvocationInput runnerInvocation)
     {
         var inputKind = ContractLiteralCodec.ToValue(profile.Inputs.Kind);
         if (profile.Inputs.Kind == BuildProfileInputsKind.UnityBuildProfile)
@@ -377,7 +600,7 @@ internal sealed class BuildService : IBuildService
                 SceneSource: null,
                 ScenePaths: Array.Empty<string>(),
                 Development: false,
-                OutputPath: paths.OutputDirectory,
+                OutputPath: paths.RunnerOutputDirectory,
                 OutputLayout: null,
                 BuildReportPath: paths.BuildReportJsonPath,
                 BuildLogPath: paths.BuildLogPath,
@@ -385,7 +608,11 @@ internal sealed class BuildService : IBuildService
                     .Select(ContractLiteralCodec.ToValue)
                     .ToArray(),
                 ProjectMutationMode: ContractLiteralCodec.ToValue(profile.Policy.ProjectMutationMode),
-                UnityBuildProfile: new IpcUnityBuildProfileInput(profile.Inputs.RequireUnityBuildProfilePath()));
+                RunnerKind: ContractLiteralCodec.ToValue(profile.Runner.Kind))
+            {
+                ProfileDigest = profile.Digest,
+                UnityBuildProfile = new IpcUnityBuildProfileInput(profile.Inputs.RequireUnityBuildProfilePath()),
+            };
         }
 
         return new UnityRequestPayload.BuildRun(
@@ -396,14 +623,25 @@ internal sealed class BuildService : IBuildService
             SceneSource: ContractLiteralCodec.ToValue(profile.Scenes.Source),
             ScenePaths: profile.Scenes.Paths,
             Development: profile.Options.Development,
-            OutputPath: paths.OutputDirectory,
+            OutputPath: paths.RunnerOutputDirectory,
             OutputLayout: outputLayout,
             BuildReportPath: paths.BuildReportJsonPath,
             BuildLogPath: paths.BuildLogPath,
             AllowedEditorModes: profile.Policy.Runtime.AllowedEditorModes
                 .Select(ContractLiteralCodec.ToValue)
                 .ToArray(),
-            ProjectMutationMode: ContractLiteralCodec.ToValue(profile.Policy.ProjectMutationMode));
+            ProjectMutationMode: ContractLiteralCodec.ToValue(profile.Policy.ProjectMutationMode),
+            RunnerKind: ContractLiteralCodec.ToValue(profile.Runner.Kind))
+        {
+            ProfilePath = profile.Runner.Kind == BuildProfileRunnerKind.ExecuteMethod ? profilePath : null,
+            ProfileDigest = profile.Digest,
+            RunnerMethod = profile.Runner.Method,
+            RunnerArguments = runnerInvocation.Arguments,
+            RunnerEnvironmentVariables = runnerInvocation.EnvironmentVariables,
+            RunnerEnvironmentSecrets = runnerInvocation.EnvironmentSecrets,
+            RunnerEnvironmentVariableValues = runnerInvocation.EnvironmentVariableValues,
+            RunnerEnvironmentSecretValues = runnerInvocation.EnvironmentSecretValues,
+        };
     }
 
     private static BuildResponseResolutionResult ResolveBuildResponse (
@@ -504,7 +742,8 @@ internal sealed class BuildService : IBuildService
             response.OutputLayout,
             response.Input.BuildTarget,
             expectedOutputDirectory,
-            expectedProfile.Inputs.Kind);
+            expectedProfile.Inputs.Kind,
+            expectedProfile.Runner.Kind);
         if (outputLayoutValidationFailure != null)
         {
             return outputLayoutValidationFailure;
@@ -540,6 +779,11 @@ internal sealed class BuildService : IBuildService
         if (!ContractLiteralCodec.TryParse<IpcBuildReportResult>(response.Report.Result, out var reportResult))
         {
             return ApplicationFailure.InternalError($"Unity build response contains unsupported report result: {response.Report.Result}.");
+        }
+
+        if (!IsTerminalBuildReportResult(reportResult))
+        {
+            return ApplicationFailure.InternalError($"Unity build response contains non-terminal report result: {response.Report.Result}.");
         }
 
         if (!ContractLiteralCodec.TryParse<IpcBuildLogCompletionReason>(response.Logs.CompletionReason, out var completionReason))
@@ -581,6 +825,16 @@ internal sealed class BuildService : IBuildService
                 $"Unity BuildReport BuildTarget mismatch. Input={response.Input.UnityBuildTarget}, Report={response.Report.UnityBuildTarget}.");
         }
 
+        var runnerResultValidationFailure = ValidateRunnerResult(
+            response.RunnerResult,
+            expectedProfile.Runner.Kind,
+            response.Report,
+            reportResult);
+        if (runnerResultValidationFailure != null)
+        {
+            return runnerResultValidationFailure;
+        }
+
         return ValidateProjectMutationAudit(response.ProjectMutation, expectedProfile.Policy.ProjectMutationMode);
     }
 
@@ -588,8 +842,16 @@ internal sealed class BuildService : IBuildService
         IpcBuildOutputLayout? outputLayout,
         string buildTarget,
         string expectedOutputDirectory,
-        BuildProfileInputsKind inputKind)
+        BuildProfileInputsKind inputKind,
+        BuildProfileRunnerKind runnerKind)
     {
+        if (runnerKind == BuildProfileRunnerKind.ExecuteMethod)
+        {
+            return outputLayout == null
+                ? null
+                : ApplicationFailure.InternalError("Unity build response outputLayout must be omitted for executeMethod runner.");
+        }
+
         if (outputLayout == null)
         {
             return ApplicationFailure.InternalError("Unity build response outputLayout is missing.");
@@ -706,6 +968,54 @@ internal sealed class BuildService : IBuildService
         return null;
     }
 
+    private static ApplicationFailure? ValidateRunnerResult (
+        IpcBuildRunnerResultArtifact? runnerResult,
+        BuildProfileRunnerKind expectedRunnerKind,
+        IpcBuildReportArtifact report,
+        IpcBuildReportResult reportResult)
+    {
+        ArgumentNullException.ThrowIfNull(report);
+
+        if (runnerResult == null)
+        {
+            return expectedRunnerKind == BuildProfileRunnerKind.ExecuteMethod
+                ? ApplicationFailure.InternalError("Unity build response runnerResult is missing for executeMethod runner.")
+                : null;
+        }
+
+        var expectedSource = expectedRunnerKind == BuildProfileRunnerKind.ExecuteMethod
+            ? IpcBuildRunnerResultSource.UcliBuildRunnerResult
+            : IpcBuildRunnerResultSource.BuildPipelineBuildReport;
+        if (!ContractLiteralCodec.TryParse<IpcBuildRunnerResultSource>(runnerResult.Source, out var source)
+            || source != expectedSource)
+        {
+            return ApplicationFailure.InternalError(
+                $"Unity build response runnerResult source is invalid for {ContractLiteralCodec.ToValue(expectedRunnerKind)} runner: {runnerResult.Source}.");
+        }
+
+        if (!ContractLiteralCodec.TryParse<IpcBuildReportResult>(runnerResult.Status, out var status)
+            || status == IpcBuildReportResult.Unknown)
+        {
+            return ApplicationFailure.InternalError(
+                $"Unity build response runnerResult status is invalid: {runnerResult.Status}.");
+        }
+
+        if (status != reportResult)
+        {
+            return ApplicationFailure.InternalError(
+                $"Unity build response runnerResult status mismatch. Report={ContractLiteralCodec.ToValue(reportResult)}, RunnerResult={runnerResult.Status}.");
+        }
+
+        if (runnerResult.DurationMilliseconds != report.DurationMilliseconds
+            || runnerResult.ErrorCount != report.ErrorCount
+            || runnerResult.WarningCount != report.WarningCount)
+        {
+            return ApplicationFailure.InternalError("Unity build response runnerResult summary does not match report summary.");
+        }
+
+        return null;
+    }
+
     private static ApplicationFailure? ValidateProjectMutationAudit (
         IpcBuildProjectMutationAudit projectMutation,
         BuildProfileProjectMutationMode expectedMode)
@@ -779,6 +1089,27 @@ internal sealed class BuildService : IBuildService
         }
 
         return null;
+    }
+
+    private static IpcBuildReportResult ResolveTerminalBuildReportResult (string result)
+    {
+        if (!ContractLiteralCodec.TryParse<IpcBuildReportResult>(result, out var reportResult)
+            || !IsTerminalBuildReportResult(reportResult))
+        {
+            throw new InvalidOperationException($"Build report result is not terminal: {result}");
+        }
+
+        return reportResult;
+    }
+
+    private static bool CanWriteEmptyOutputManifest (IpcBuildReportResult reportResult)
+    {
+        return reportResult is IpcBuildReportResult.Failed or IpcBuildReportResult.Canceled;
+    }
+
+    private static bool IsTerminalBuildReportResult (IpcBuildReportResult reportResult)
+    {
+        return reportResult is IpcBuildReportResult.Succeeded or IpcBuildReportResult.Failed or IpcBuildReportResult.Canceled;
     }
 
     private static ApplicationFailure? ValidateProjectMutationAuditItem (
@@ -939,7 +1270,8 @@ internal sealed class BuildService : IBuildService
         ResolvedBuildProfile profile,
         IpcBuildRunResponse response,
         BuildRunArtifactAccountingResult accounting,
-        BuildRunArtifactPaths paths)
+        BuildRunArtifactPaths paths,
+        ResolvedRunnerInvocationInput runnerInvocation)
     {
         var generations = CreateGenerations(response.LifecycleBefore, response.LifecycleAfter);
         var summary = new BuildSummaryOutput(
@@ -975,6 +1307,15 @@ internal sealed class BuildService : IBuildService
             BuildTarget: response.Input.BuildTarget,
             Scenes: scenes,
             Options: options,
+            Runner: new BuildRunnerOutput(
+                Kind: ContractLiteralCodec.ToValue(profile.Runner.Kind),
+                Method: profile.Runner.Method,
+                Invocation: new BuildRunnerInvocationOutput(
+                    Arguments: runnerInvocation.Arguments,
+                    Environment: new BuildRunnerInvocationEnvironmentOutput(
+                        Variables: runnerInvocation.EnvironmentVariables,
+                        Secrets: runnerInvocation.EnvironmentSecrets))),
+            RunnerResult: CreateRunnerResultOutput(profile, response),
             Output: new BuildArtifactOutput(
                 ManifestRef: BuildReportRefs.BuildOutputManifest,
                 ManifestDigest: accounting.OutputManifest.ManifestDigest,
@@ -997,8 +1338,8 @@ internal sealed class BuildService : IBuildService
                     Kind: BuildReportRefs.Build,
                     Deterministic: false,
                     Required: true,
-                    PrimaryClaims: BuildClaimCodes.All.Select(static code => code.Value).ToArray(),
-                    Effects: ContractLiteralCodec.GetLiterals<BuildEffect>(),
+                    PrimaryClaims: claims.Select(static claim => claim.Id).ToArray(),
+                    Effects: CreateVerifierEffects(build.Runner.Kind),
                     ReportRef: BuildReportRefs.Build),
             ],
             Claims: claims,
@@ -1033,6 +1374,50 @@ internal sealed class BuildService : IBuildService
             ApplyAudit: unityBuildProfile.ApplyAudit);
     }
 
+    private static IReadOnlyList<string> CreateVerifierEffects (string runnerKind)
+    {
+        var effects = new List<string>
+        {
+            ContractLiteralCodec.ToValue(BuildEffect.UnityLifecycleRead),
+            ContractLiteralCodec.ToValue(BuildEffect.UnityBuildReportRead),
+            ContractLiteralCodec.ToValue(BuildEffect.UnityLogWindowRead),
+            ContractLiteralCodec.ToValue(BuildEffect.UcliArtifactWrite),
+            ContractLiteralCodec.ToValue(BuildEffect.OutputManifestWrite),
+            ContractLiteralCodec.ToValue(BuildEffect.GenerationSnapshot),
+            ContractLiteralCodec.ToValue(BuildEffect.ProjectMutationAudit),
+        };
+        if (string.Equals(runnerKind, ContractLiteralCodec.ToValue(BuildProfileRunnerKind.ExecuteMethod), StringComparison.Ordinal))
+        {
+            effects.Insert(1, ContractLiteralCodec.ToValue(BuildEffect.UnityExecuteMethod));
+        }
+        else
+        {
+            effects.Insert(1, ContractLiteralCodec.ToValue(BuildEffect.UnityBuildPipeline));
+        }
+
+        return effects;
+    }
+
+    private static BuildRunnerResultOutput CreateRunnerResultOutput (
+        ResolvedBuildProfile profile,
+        IpcBuildRunResponse response)
+    {
+        var runnerResult = response.RunnerResult;
+        if (runnerResult != null)
+        {
+            return new BuildRunnerResultOutput(
+                Source: runnerResult.Source,
+                Status: runnerResult.Status);
+        }
+
+        var source = profile.Runner.Kind == BuildProfileRunnerKind.ExecuteMethod
+            ? ContractLiteralCodec.ToValue(IpcBuildRunnerResultSource.UcliBuildRunnerResult)
+            : ContractLiteralCodec.ToValue(IpcBuildRunnerResultSource.BuildPipelineBuildReport);
+        return new BuildRunnerResultOutput(
+            Source: source,
+            Status: response.Report.Result);
+    }
+
     private static IReadOnlyDictionary<string, BuildReportOutput> CreateReports (
         BuildRunArtifactPaths paths,
         BuildRunArtifactAccountingResult accounting,
@@ -1052,8 +1437,9 @@ internal sealed class BuildService : IBuildService
         BuildExecutionOutput output,
         IpcBuildRunResponse response,
         ResolvedBuildProfile profile,
-        IpcBuildOutputLayout outputLayout)
+        IpcBuildOutputLayout? outputLayout)
     {
+        var invocationEnv = output.Build.Runner.Invocation.Environment;
         return new BuildRunMetadataDocument(
             SchemaVersion: BuildMetadataSchemaVersion,
             RunId: output.Build.RunId,
@@ -1061,11 +1447,14 @@ internal sealed class BuildService : IBuildService
             Profile: SerializeMetadataElement(output.Build.Profile),
             Runner: SerializeMetadataElement(new BuildRunRunnerMetadata(
                 Kind: ContractLiteralCodec.ToValue(profile.Runner.Kind),
-                Method: null,
+                Method: profile.Runner.Method,
                 Invocation: new BuildRunRunnerInvocationMetadata(
-                    Arguments: EmptyRunnerArguments,
-                    Environment: EmptyRunnerEnvironment),
+                    Arguments: output.Build.Runner.Invocation.Arguments,
+                    Environment: new BuildRunRunnerInvocationEnvironmentMetadata(
+                        Variables: invocationEnv.Variables,
+                        Secrets: invocationEnv.Secrets)),
                 OutputLayout: outputLayout)),
+            RunnerResult: SerializeMetadataElement(CreateRunnerResultMetadata(output, response)),
             Input: SerializeMetadataElement(new BuildRunInputMetadata(
                 InputKind: output.Build.Inputs.InputKind,
                 BuildTarget: output.Build.BuildTarget,
@@ -1082,6 +1471,43 @@ internal sealed class BuildService : IBuildService
             Output: SerializeMetadataElement(output.Build.Output),
             ProjectMutation: SerializeMetadataElement(response.ProjectMutation),
             DirtyState: SerializeMetadataElement(response.DirtyState));
+    }
+
+    private static object CreateRunnerResultMetadata (
+        BuildExecutionOutput output,
+        IpcBuildRunResponse response)
+    {
+        var runnerResult = response.RunnerResult;
+        if (runnerResult != null)
+        {
+            return new
+            {
+                runnerResult.Source,
+                runnerResult.Status,
+                summary = new
+                {
+                    runnerResult.DurationMilliseconds,
+                    runnerResult.ErrorCount,
+                    runnerResult.WarningCount,
+                },
+                runnerResult.Diagnostics,
+                buildReportRef = BuildReportRefs.BuildReport,
+            };
+        }
+
+        return new
+        {
+            output.Build.RunnerResult.Source,
+            output.Build.RunnerResult.Status,
+            summary = new
+            {
+                output.Build.Summary.DurationMilliseconds,
+                output.Build.Summary.ErrorCount,
+                output.Build.Summary.WarningCount,
+            },
+            diagnostics = Array.Empty<IpcBuildRunnerDiagnostic>(),
+            buildReportRef = BuildReportRefs.BuildReport,
+        };
     }
 
     private static JsonElement SerializeMetadataElement<T> (T value)
@@ -1124,8 +1550,8 @@ internal sealed class BuildService : IBuildService
         var succeeded = reportResult == IpcBuildReportResult.Succeeded;
         var knownTerminalResult = reportResult is IpcBuildReportResult.Succeeded or IpcBuildReportResult.Failed or IpcBuildReportResult.Canceled;
 
-        return
-        [
+        var claims = new List<BuildClaimOutput>
+        {
             CreateClaim(
                 BuildClaimCodes.UnityBuildProfileResolved,
                 BuildClaimStatus.Passed,
@@ -1161,9 +1587,9 @@ internal sealed class BuildService : IBuildService
                 "Build runner was resolved before invocation.",
                 new Dictionary<string, object?>(StringComparer.Ordinal)
                 {
-                    ["kind"] = "buildPipeline",
+                    ["kind"] = build.Runner.Kind,
                 },
-                [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(BuildEffect.UnityBuildPipeline), EvidenceRef: BuildReportRefs.Build)]),
+                [new BuildEvidenceOutput(Kind: ResolveRunnerEffect(build.Runner.Kind), EvidenceRef: BuildReportRefs.Build)]),
             CreateClaim(
                 BuildClaimCodes.UnityBuildCompleted,
                 knownTerminalResult ? BuildClaimStatus.Passed : BuildClaimStatus.Indeterminate,
@@ -1254,7 +1680,44 @@ internal sealed class BuildService : IBuildService
                     ["assetRefreshGeneration"] = build.Generations.ValidFor.AssetRefreshGeneration,
                 },
                 [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(BuildEffect.GenerationSnapshot), EvidenceRef: BuildReportRefs.Build, Data: build.Generations)]),
-        ];
+        };
+
+        if (string.Equals(build.Runner.Kind, ContractLiteralCodec.ToValue(BuildProfileRunnerKind.ExecuteMethod), StringComparison.Ordinal))
+        {
+            claims.InsertRange(
+                4,
+                [
+                    CreateClaim(
+                        BuildClaimCodes.UnityBuildExecuteMethodResolved,
+                        BuildClaimStatus.Passed,
+                        "executeMethod runner method resolved before invocation.",
+                        new Dictionary<string, object?>(StringComparer.Ordinal)
+                        {
+                            ["method"] = build.Runner.Method,
+                        },
+                        [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(BuildEffect.UnityExecuteMethod), EvidenceRef: BuildReportRefs.Build)]),
+                    CreateClaim(
+                        BuildClaimCodes.UnityBuildExecuteMethodInvoked,
+                        BuildClaimStatus.Passed,
+                        "executeMethod runner method invocation started.",
+                        new Dictionary<string, object?>(StringComparer.Ordinal)
+                        {
+                            ["method"] = build.Runner.Method,
+                        },
+                        [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(BuildEffect.UnityExecuteMethod), EvidenceRef: BuildReportRefs.Build)]),
+                    CreateClaim(
+                        BuildClaimCodes.UnityBuildExecuteMethodCompleted,
+                        BuildClaimStatus.Passed,
+                        "executeMethod runner terminal result was observed.",
+                        new Dictionary<string, object?>(StringComparer.Ordinal)
+                        {
+                            ["status"] = build.RunnerResult.Status,
+                        },
+                        [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(BuildEffect.UnityExecuteMethod), EvidenceRef: BuildReportRefs.Build, Data: build.RunnerResult)]),
+                ]);
+        }
+
+        return claims;
     }
 
     private static BuildClaimStatus ResolveProjectMutationClaimStatus (IpcBuildProjectMutationAudit projectMutation)
@@ -1319,6 +1782,13 @@ internal sealed class BuildService : IBuildService
             projectMutation.Coverage,
             ContractLiteralCodec.ToValue(IpcBuildProjectMutationAuditCoverage.Full),
             StringComparison.Ordinal);
+    }
+
+    private static string ResolveRunnerEffect (string runnerKind)
+    {
+        return string.Equals(runnerKind, ContractLiteralCodec.ToValue(BuildProfileRunnerKind.ExecuteMethod), StringComparison.Ordinal)
+            ? ContractLiteralCodec.ToValue(BuildEffect.UnityExecuteMethod)
+            : ContractLiteralCodec.ToValue(BuildEffect.UnityBuildPipeline);
     }
 
     private static bool HasCompleteGenerationSnapshot (BuildGenerationsOutput generations)
@@ -1446,6 +1916,59 @@ internal sealed class BuildService : IBuildService
         {
             ArgumentNullException.ThrowIfNull(failure);
             return new BuildResponseResolutionResult(null, failure, errorPayload);
+        }
+    }
+
+    private sealed record ResolvedRunnerInvocationInput (
+        IReadOnlyDictionary<string, string> Arguments,
+        IReadOnlyList<string> EnvironmentVariables,
+        IReadOnlyList<string> EnvironmentSecrets,
+        IReadOnlyDictionary<string, string> EnvironmentVariableValues,
+        IReadOnlyDictionary<string, string> EnvironmentSecretValues)
+    {
+        public static ResolvedRunnerInvocationInput Empty { get; } = new(
+            new Dictionary<string, string>(StringComparer.Ordinal),
+            Array.Empty<string>(),
+            Array.Empty<string>(),
+            new Dictionary<string, string>(StringComparer.Ordinal),
+            new Dictionary<string, string>(StringComparer.Ordinal));
+    }
+
+    private sealed record RunnerEnvironmentResolutionResult (
+        IReadOnlyDictionary<string, string>? Values,
+        ExecutionError? Error)
+    {
+        public bool IsSuccess => Values != null && Error == null;
+
+        public static RunnerEnvironmentResolutionResult Success (IReadOnlyDictionary<string, string> values)
+        {
+            ArgumentNullException.ThrowIfNull(values);
+            return new RunnerEnvironmentResolutionResult(values, null);
+        }
+
+        public static RunnerEnvironmentResolutionResult Failure (ExecutionError error)
+        {
+            ArgumentNullException.ThrowIfNull(error);
+            return new RunnerEnvironmentResolutionResult(null, error);
+        }
+    }
+
+    private sealed record RunnerInvocationResolutionResult (
+        ResolvedRunnerInvocationInput? Invocation,
+        ExecutionError? Error)
+    {
+        public bool IsSuccess => Invocation != null && Error == null;
+
+        public static RunnerInvocationResolutionResult Success (ResolvedRunnerInvocationInput invocation)
+        {
+            ArgumentNullException.ThrowIfNull(invocation);
+            return new RunnerInvocationResolutionResult(invocation, null);
+        }
+
+        public static RunnerInvocationResolutionResult Failure (ExecutionError error)
+        {
+            ArgumentNullException.ThrowIfNull(error);
+            return new RunnerInvocationResolutionResult(null, error);
         }
     }
 }

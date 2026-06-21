@@ -52,7 +52,18 @@ internal sealed class UnityIpcRequestBuilder
                     BuildLogPath: buildRun.BuildLogPath,
                     AllowedEditorModes: buildRun.AllowedEditorModes,
                     ProjectMutationMode: buildRun.ProjectMutationMode,
-                    UnityBuildProfile: buildRun.UnityBuildProfile)),
+                    RunnerKind: buildRun.RunnerKind,
+                    UnityBuildProfile: buildRun.UnityBuildProfile)
+                {
+                    ProfilePath = buildRun.ProfilePath,
+                    ProfileDigest = buildRun.ProfileDigest,
+                    RunnerMethod = buildRun.RunnerMethod,
+                    RunnerArguments = buildRun.RunnerArguments,
+                    RunnerEnvironmentVariables = buildRun.RunnerEnvironmentVariables,
+                    RunnerEnvironmentSecrets = buildRun.RunnerEnvironmentSecrets,
+                    RunnerEnvironmentVariableValues = buildRun.RunnerEnvironmentVariableValues,
+                    RunnerEnvironmentSecretValues = buildRun.RunnerEnvironmentSecretValues,
+                }),
                 dispatchTimeoutPayloadTransformer: ApplyBuildRunDispatchTimeout),
             UnityRequestPayload.TestRun testRun => new UnityIpcDispatchRequest(
                 IpcMethodNames.TestRun,

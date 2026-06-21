@@ -24,6 +24,9 @@ public static class UcliStoragePathNames
     /// <summary> Gets the artifacts directory name under one fingerprint directory. </summary>
     public const string ArtifactsDirectoryName = "artifacts";
 
+    /// <summary> Gets the work directory name under one fingerprint directory. </summary>
+    public const string WorkDirectoryName = "work";
+
     /// <summary> Gets the read-index directory name under one fingerprint directory. </summary>
     public const string IndexDirectoryName = "index";
 
@@ -74,6 +77,9 @@ public static class UcliStoragePathNames
 
     /// <summary> Gets the build-artifacts directory name under one fingerprint artifacts directory. </summary>
     public const string BuildArtifactsDirectoryName = "build";
+
+    /// <summary> Gets the build-work directory name under one fingerprint work directory. </summary>
+    public const string BuildWorkDirectoryName = "build";
 
     /// <summary> Gets the recoverable IPC operation directory name under one fingerprint directory. </summary>
     public const string IpcOperationsDirectoryName = "ipc-operations";

@@ -28,7 +28,7 @@ namespace MackySoft.Ucli.Unity.Tests
             try
             {
                 var summary = await TestAwaiter.WaitAsync(
-                    exporter.ExportRangeAsync(sourcePath, destinationPath, 2, 7, CancellationToken.None).AsUniTask(),
+                    exporter.ExportRangeAsync(sourcePath, destinationPath, 2, 7, cancellationToken: CancellationToken.None).AsUniTask(),
                     "Editor log range export",
                     AsyncWaitTimeout);
 
@@ -62,7 +62,7 @@ namespace MackySoft.Ucli.Unity.Tests
             try
             {
                 var summary = await TestAwaiter.WaitAsync(
-                    exporter.ExportRangeAsync(sourcePath, destinationPath, 0, new FileInfo(sourcePath).Length, CancellationToken.None).AsUniTask(),
+                    exporter.ExportRangeAsync(sourcePath, destinationPath, 0, new FileInfo(sourcePath).Length, cancellationToken: CancellationToken.None).AsUniTask(),
                     "Editor log severity summary export",
                     AsyncWaitTimeout);
 
@@ -103,7 +103,7 @@ namespace MackySoft.Ucli.Unity.Tests
             try
             {
                 var summary = await TestAwaiter.WaitAsync(
-                    exporter.ExportRangeAsync(sourcePath, destinationPath, 0, new FileInfo(sourcePath).Length, CancellationToken.None).AsUniTask(),
+                    exporter.ExportRangeAsync(sourcePath, destinationPath, 0, new FileInfo(sourcePath).Length, cancellationToken: CancellationToken.None).AsUniTask(),
                     "Editor log normalized severity summary export",
                     AsyncWaitTimeout);
 
@@ -131,7 +131,7 @@ namespace MackySoft.Ucli.Unity.Tests
             try
             {
                 var summary = await TestAwaiter.WaitAsync(
-                    exporter.ExportRangeAsync(sourcePath, destinationPath, 0, new FileInfo(sourcePath).Length, CancellationToken.None).AsUniTask(),
+                    exporter.ExportRangeAsync(sourcePath, destinationPath, 0, new FileInfo(sourcePath).Length, cancellationToken: CancellationToken.None).AsUniTask(),
                     "Editor log split prefix severity export",
                     AsyncWaitTimeout);
 
@@ -141,12 +141,53 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 File.WriteAllText(sourcePath, new string(' ', ExportBufferSize - 2) + "\u001b[33mwarning: split ansi" + Environment.NewLine);
                 summary = await TestAwaiter.WaitAsync(
-                    exporter.ExportRangeAsync(sourcePath, destinationPath, 0, new FileInfo(sourcePath).Length, CancellationToken.None).AsUniTask(),
+                    exporter.ExportRangeAsync(sourcePath, destinationPath, 0, new FileInfo(sourcePath).Length, cancellationToken: CancellationToken.None).AsUniTask(),
                     "Editor log split ANSI severity export",
                     AsyncWaitTimeout);
 
                 Assert.That(summary.EntryCount, Is.EqualTo(1));
                 Assert.That(summary.ErrorCount, Is.EqualTo(0));
+                Assert.That(summary.WarningCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                TryDeleteFile(sourcePath);
+                TryDeleteFile(destinationPath);
+            }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator ExportRange_WithOverlappingRedactionValues_WritesOnlyRedactedLog () => UniTask.ToCoroutine(async () =>
+        {
+            var sourcePath = Path.Combine(Application.temporaryCachePath, $"editor-log-source-{Guid.NewGuid():N}.log");
+            var destinationPath = Path.Combine(Application.temporaryCachePath, $"editor-log-destination-{Guid.NewGuid():N}.log");
+            File.WriteAllText(
+                sourcePath,
+                "warning: token-secret and token" + Environment.NewLine
+                + "abcdef abc" + Environment.NewLine);
+            var exporter = new EditorLogRangeExporter();
+
+            try
+            {
+                var summary = await TestAwaiter.WaitAsync(
+                    exporter.ExportRangeAsync(
+                        sourcePath,
+                        destinationPath,
+                        0,
+                        new FileInfo(sourcePath).Length,
+                        new[] { "token", "token-secret", "abc", "abcdef" },
+                        cancellationToken: CancellationToken.None).AsUniTask(),
+                    "Editor log redaction export",
+                    AsyncWaitTimeout);
+
+                var redactedLog = File.ReadAllText(destinationPath);
+                Assert.That(redactedLog, Does.Not.Contain("token"));
+                Assert.That(redactedLog, Does.Not.Contain("secret"));
+                Assert.That(redactedLog, Does.Not.Contain("abc"));
+                Assert.That(redactedLog, Does.Not.Contain("def"));
+                Assert.That(redactedLog, Does.Contain("[ucli redacted environment value]"));
+                Assert.That(summary.EntryCount, Is.EqualTo(2));
                 Assert.That(summary.WarningCount, Is.EqualTo(1));
             }
             finally
@@ -169,7 +210,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 await AsyncExceptionCapture.CaptureAsync<ArgumentOutOfRangeException>(async () =>
                 {
-                    await exporter.ExportRangeAsync(sourcePath, destinationPath, 5, 1, CancellationToken.None).AsUniTask();
+                    await exporter.ExportRangeAsync(sourcePath, destinationPath, 5, 1, cancellationToken: CancellationToken.None).AsUniTask();
                 }, "Invalid editor log offset", AsyncWaitTimeout);
             }
             finally
@@ -189,7 +230,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             await AsyncExceptionCapture.CaptureAsync<FileNotFoundException>(async () =>
             {
-                await exporter.ExportRangeAsync(sourcePath, destinationPath, 0, 0, CancellationToken.None).AsUniTask();
+                await exporter.ExportRangeAsync(sourcePath, destinationPath, 0, 0, cancellationToken: CancellationToken.None).AsUniTask();
             }, "Missing editor log source", AsyncWaitTimeout);
             TryDeleteFile(destinationPath);
         });
@@ -207,7 +248,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 await AsyncExceptionCapture.CaptureAsync<UnauthorizedAccessException>(async () =>
                 {
-                    await exporter.ExportRangeAsync(sourceDirectoryPath, destinationPath, 0, 0, CancellationToken.None).AsUniTask();
+                    await exporter.ExportRangeAsync(sourceDirectoryPath, destinationPath, 0, 0, cancellationToken: CancellationToken.None).AsUniTask();
                 }, "Directory source editor log export", AsyncWaitTimeout);
             }
             finally
@@ -231,7 +272,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 await AsyncExceptionCapture.CaptureAsync<IOException>(async () =>
                 {
-                    await exporter.ExportRangeAsync(sourcePath, destinationDirectoryPath, 0, 1, CancellationToken.None).AsUniTask();
+                    await exporter.ExportRangeAsync(sourcePath, destinationDirectoryPath, 0, 1, cancellationToken: CancellationToken.None).AsUniTask();
                 }, "Directory destination editor log export", AsyncWaitTimeout);
             }
             finally

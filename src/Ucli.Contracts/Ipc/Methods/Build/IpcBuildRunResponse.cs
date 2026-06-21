@@ -9,7 +9,7 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 /// <param name="LifecycleAfter"> The lifecycle snapshot captured after BuildPipeline execution. </param>
 /// <param name="DirtyState"> The dirty-state precondition probe result. </param>
 /// <param name="Input"> The resolved BuildPipeline input. </param>
-/// <param name="OutputLayout"> The BuildPipeline output layout used by Unity. </param>
+/// <param name="OutputLayout"> The BuildPipeline output layout used by Unity, or <see langword="null" /> when the runner does not produce BuildPipeline output. </param>
 /// <param name="UnityBuildProfile"> The resolved Unity Build Profile input when one was used. </param>
 /// <param name="Report"> The normalized BuildReport artifact payload written by Unity. </param>
 /// <param name="Logs"> The build log artifact summary. </param>
@@ -21,9 +21,14 @@ public sealed record IpcBuildRunResponse (
     IpcBuildLifecycleSnapshot LifecycleAfter,
     IpcBuildDirtyState DirtyState,
     IpcBuildInputProbe Input,
-    IpcBuildOutputLayout OutputLayout,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    IpcBuildOutputLayout? OutputLayout,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     IpcUnityBuildProfileInput? UnityBuildProfile,
     IpcBuildReportArtifact Report,
     IpcBuildLogSummary Logs,
-    IpcBuildProjectMutationAudit ProjectMutation);
+    IpcBuildProjectMutationAudit ProjectMutation)
+{
+    /// <summary> Gets the normalized runner terminal result when provided by the Unity runtime. </summary>
+    public IpcBuildRunnerResultArtifact? RunnerResult { get; init; }
+}

@@ -237,16 +237,54 @@ internal static class BuildErrorCodeDescriptors
             relatedCodes: [BuildErrorCodes.BuildArtifactWriteFailed]),
 
         UcliErrorDescriptorFactory.Create(
-            code: BuildErrorCodes.BuildOutputDigestMismatch,
+            code: BuildErrorCodes.BuildOutputPathInvalid,
+            category: "build",
+            summary: "Build output path violates output path policy.",
+            meaning: "A build output source path was empty, malformed, or resolved inside the artifact root.",
+            appliesTo: AppliesToBuildRun,
+            possiblePhases: ["outputSourceResolution", "outputManifest"],
+            impliesNotApplied: false,
+            mayBeIndeterminate: false,
+            safeToRetry: UcliErrorRetryClassValues.No,
+            inspect: ["errors[].code", "errors[].message", "payload.build.output"],
+            nextActions:
+            [
+                new UcliErrorNextActionDescriptor(
+                    When: null,
+                    Action: "Ensure build output source entries are absolute runner output paths and are not artifact-store paths."),
+            ],
+            relatedCodes: [BuildErrorCodes.BuildOutputManifestFailed]),
+
+        UcliErrorDescriptorFactory.Create(
+            code: BuildErrorCodes.BuildOutputManifestDigestMismatch,
             category: "build",
             summary: "Build output manifest digest mismatch.",
-            meaning: "The persisted output manifest digest did not match the digest recalculated from manifest content.",
+            meaning: "The output-manifest.json manifestDigest value did not match the digest recalculated from canonical manifest content.",
             appliesTo: AppliesToBuildRun,
             possiblePhases: ["outputManifest", "artifactAccounting"],
             impliesNotApplied: false,
             mayBeIndeterminate: true,
             safeToRetry: UcliErrorRetryClassValues.Yes,
             inspect: ["errors[].code", "errors[].message", "payload.build.output.manifestDigest"],
+            nextActions:
+            [
+                new UcliErrorNextActionDescriptor(
+                    When: null,
+                    Action: "Rerun the build and inspect concurrent writes to the build artifact directory if the mismatch repeats."),
+            ],
+            relatedCodes: [BuildErrorCodes.BuildOutputManifestFailed]),
+
+        UcliErrorDescriptorFactory.Create(
+            code: BuildErrorCodes.BuildOutputManifestArtifactDigestMismatch,
+            category: "build",
+            summary: "Build output manifest artifact digest mismatch.",
+            meaning: "The reports.buildOutputManifest digest did not match the bytes stored in output-manifest.json.",
+            appliesTo: AppliesToBuildRun,
+            possiblePhases: ["outputManifest", "artifactAccounting"],
+            impliesNotApplied: false,
+            mayBeIndeterminate: true,
+            safeToRetry: UcliErrorRetryClassValues.Yes,
+            inspect: ["errors[].code", "errors[].message", "payload.reports.buildOutputManifest.digest"],
             nextActions:
             [
                 new UcliErrorNextActionDescriptor(
@@ -273,5 +311,176 @@ internal static class BuildErrorCodeDescriptors
                     Action: "Review build.json projectMutation evidence and either remove the mutation or use an audit policy."),
             ],
             relatedCodes: [BuildErrorCodes.BuildRuntimePolicyViolation]),
+
+        UcliErrorDescriptorFactory.Create(
+            code: BuildErrorCodes.BuildExecuteMethodNotFound,
+            category: "build",
+            summary: "The executeMethod runner entrypoint was not found.",
+            meaning: "The runner.method value did not resolve to a Unity editor type and method.",
+            appliesTo: AppliesToBuildRun,
+            possiblePhases: ["runnerResolution"],
+            impliesNotApplied: true,
+            mayBeIndeterminate: false,
+            safeToRetry: UcliErrorRetryClassValues.No,
+            inspect: ["errors[].code", "errors[].message", "payload.build.runner.method"],
+            nextActions:
+            [
+                new UcliErrorNextActionDescriptor(
+                    When: null,
+                    Action: "Fix runner.method so it names a loadable public or internal static Unity editor method."),
+            ],
+            relatedCodes: [BuildErrorCodes.BuildProfileInvalid]),
+
+        UcliErrorDescriptorFactory.Create(
+            code: BuildErrorCodes.BuildExecuteMethodNotStatic,
+            category: "build",
+            summary: "The executeMethod runner entrypoint is not static.",
+            meaning: "The resolved runner.method exists but cannot be invoked as a static uCLI build runner entrypoint.",
+            appliesTo: AppliesToBuildRun,
+            possiblePhases: ["runnerResolution"],
+            impliesNotApplied: true,
+            mayBeIndeterminate: false,
+            safeToRetry: UcliErrorRetryClassValues.No,
+            inspect: ["errors[].code", "errors[].message", "payload.build.runner.method"],
+            nextActions:
+            [
+                new UcliErrorNextActionDescriptor(
+                    When: null,
+                    Action: "Change the build runner entrypoint method to static."),
+            ],
+            relatedCodes: [BuildErrorCodes.BuildExecuteMethodUnsupportedSignature]),
+
+        UcliErrorDescriptorFactory.Create(
+            code: BuildErrorCodes.BuildExecuteMethodAmbiguous,
+            category: "build",
+            summary: "The executeMethod runner entrypoint is ambiguous.",
+            meaning: "The runner.method value resolved to more than one possible type or method overload.",
+            appliesTo: AppliesToBuildRun,
+            possiblePhases: ["runnerResolution"],
+            impliesNotApplied: true,
+            mayBeIndeterminate: false,
+            safeToRetry: UcliErrorRetryClassValues.No,
+            inspect: ["errors[].code", "errors[].message", "payload.build.runner.method"],
+            nextActions:
+            [
+                new UcliErrorNextActionDescriptor(
+                    When: null,
+                    Action: "Use a type name that resolves uniquely and remove overloaded runner entrypoint methods."),
+            ],
+            relatedCodes: [BuildErrorCodes.BuildProfileInvalid]),
+
+        UcliErrorDescriptorFactory.Create(
+            code: BuildErrorCodes.BuildExecuteMethodUnsupportedSignature,
+            category: "build",
+            summary: "The executeMethod runner entrypoint signature is unsupported.",
+            meaning: "The resolved runner method does not return UcliBuildRunnerResult or does not use one of the supported argument shapes.",
+            appliesTo: AppliesToBuildRun,
+            possiblePhases: ["runnerResolution"],
+            impliesNotApplied: true,
+            mayBeIndeterminate: false,
+            safeToRetry: UcliErrorRetryClassValues.No,
+            inspect: ["errors[].code", "errors[].message", "payload.build.runner.method"],
+            nextActions:
+            [
+                new UcliErrorNextActionDescriptor(
+                    When: null,
+                    Action: "Use a public or internal static method returning UcliBuildRunnerResult with no arguments or one UcliBuildRunnerContext argument."),
+            ],
+            relatedCodes: [BuildErrorCodes.BuildExecuteMethodNotStatic]),
+
+        UcliErrorDescriptorFactory.Create(
+            code: BuildErrorCodes.BuildRunnerEnvironmentMissing,
+            category: "build",
+            summary: "A requested runner environment entry is missing.",
+            meaning: "runner.invocation.environment named a process environment entry that was not available to the uCLI runtime.",
+            appliesTo: AppliesToBuildRun,
+            possiblePhases: ["profileResolution", "runnerInvocation"],
+            impliesNotApplied: true,
+            mayBeIndeterminate: false,
+            safeToRetry: UcliErrorRetryClassValues.ContextDependent,
+            inspect: ["errors[].code", "errors[].message", "payload.build.runner.invocation.environment"],
+            nextActions:
+            [
+                new UcliErrorNextActionDescriptor(
+                    When: null,
+                    Action: "Set the missing process environment entry before running build.run again."),
+            ],
+            relatedCodes: [BuildErrorCodes.BuildProfileInvalid]),
+
+        UcliErrorDescriptorFactory.Create(
+            code: BuildErrorCodes.BuildRunnerInvocationFailed,
+            category: "build",
+            summary: "The build runner invocation failed.",
+            meaning: "The runner invocation ended before uCLI observed a valid terminal runner result.",
+            appliesTo: AppliesToBuildRun,
+            possiblePhases: ["runnerInvocation"],
+            impliesNotApplied: false,
+            mayBeIndeterminate: true,
+            safeToRetry: UcliErrorRetryClassValues.Unknown,
+            inspect: ["errors[].code", "errors[].message", "payload.build.runner"],
+            nextActions:
+            [
+                new UcliErrorNextActionDescriptor(
+                    When: null,
+                    Action: "Inspect the Unity log and retry after resolving the runner invocation failure."),
+            ],
+            relatedCodes: [IpcTransportErrorCodes.IpcTimeout]),
+
+        UcliErrorDescriptorFactory.Create(
+            code: BuildErrorCodes.BuildExecuteMethodInvocationFailed,
+            category: "build",
+            summary: "The executeMethod runner threw an exception.",
+            meaning: "The executeMethod runner method body failed before returning a valid UcliBuildRunnerResult.",
+            appliesTo: AppliesToBuildRun,
+            possiblePhases: ["runnerInvocation"],
+            impliesNotApplied: false,
+            mayBeIndeterminate: true,
+            safeToRetry: UcliErrorRetryClassValues.ContextDependent,
+            inspect: ["errors[].code", "errors[].message", "payload.build.runner.method"],
+            nextActions:
+            [
+                new UcliErrorNextActionDescriptor(
+                    When: null,
+                    Action: "Fix the runner method exception reported by errors[].message and rerun build.run."),
+            ],
+            relatedCodes: [BuildErrorCodes.BuildRunnerInvocationFailed]),
+
+        UcliErrorDescriptorFactory.Create(
+            code: BuildErrorCodes.BuildRunnerResultMissing,
+            category: "build",
+            summary: "The build runner result is missing.",
+            meaning: "The build runner method completed without producing a required terminal runner result.",
+            appliesTo: AppliesToBuildRun,
+            possiblePhases: ["runnerResult"],
+            impliesNotApplied: false,
+            mayBeIndeterminate: true,
+            safeToRetry: UcliErrorRetryClassValues.Unknown,
+            inspect: ["errors[].code", "errors[].message", "payload.build.runnerResult"],
+            nextActions:
+            [
+                new UcliErrorNextActionDescriptor(
+                    When: null,
+                    Action: "Ensure the executeMethod runner returns a non-null UcliBuildRunnerResult."),
+            ],
+            relatedCodes: [BuildErrorCodes.BuildRunnerInvocationFailed]),
+
+        UcliErrorDescriptorFactory.Create(
+            code: BuildErrorCodes.BuildRunnerResultInvalid,
+            category: "build",
+            summary: "The build runner result is invalid.",
+            meaning: "The returned runner result does not satisfy the uCLI build runner result contract.",
+            appliesTo: AppliesToBuildRun,
+            possiblePhases: ["runnerResult"],
+            impliesNotApplied: false,
+            mayBeIndeterminate: true,
+            safeToRetry: UcliErrorRetryClassValues.No,
+            inspect: ["errors[].code", "errors[].message", "payload.build.runnerResult"],
+            nextActions:
+            [
+                new UcliErrorNextActionDescriptor(
+                    When: null,
+                    Action: "Fix the runner result status and summary fields so they match the UcliBuildRunnerResult contract."),
+            ],
+            relatedCodes: [BuildErrorCodes.BuildRunnerResultMissing]),
     ];
 }

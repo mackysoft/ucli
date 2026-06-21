@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Assurance.Build;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Tests.Assurance.Build;
 
@@ -7,18 +8,29 @@ public sealed class BuildOutputManifestJsonContractWriterTests
 {
     [Fact]
     [Trait("Size", "Small")]
+    public void BuildOutputManifestEntryKind_HasStableContractLiterals ()
+    {
+        Assert.Equal("file", ContractLiteralCodec.ToValue(BuildOutputManifestEntryKind.File));
+        Assert.Equal("directory", ContractLiteralCodec.ToValue(BuildOutputManifestEntryKind.Directory));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Write_WritesStablePublicShapeWithTrailingNewline ()
     {
         var writer = new BuildOutputManifestJsonContractWriter();
         var contract = new BuildOutputManifestJsonContract(
             BuildOutputManifestJsonContract.CurrentSchemaVersion,
-            ".ucli/local/fingerprints/fingerprint/artifacts/build/run-1/output",
-            "standaloneLinux64",
+            new BuildOutputManifestTargetJsonContract("standaloneLinux64", "StandaloneLinux64"),
+            [
+                new BuildOutputManifestEntryJsonContract("output-0001", "directory", "/workspace/build/player"),
+            ],
+            1,
             2,
             17,
             [
-                new BuildOutputManifestFileJsonContract("Data/config.json", 5, new string('a', 64)),
-                new BuildOutputManifestFileJsonContract("Game.x86_64", 12, new string('b', 64)),
+                new BuildOutputManifestFileJsonContract("output-0001", "output-0001/Data/config.json", "/workspace/build/player/Data/config.json", "output/output-0001/Data/config.json", 5, new string('a', 64)),
+                new BuildOutputManifestFileJsonContract("output-0001", "output-0001/Game.x86_64", "/workspace/build/player/Game.x86_64", "output/output-0001/Game.x86_64", 12, new string('b', 64)),
             ],
             new string('c', 64));
 
@@ -30,8 +42,9 @@ public sealed class BuildOutputManifestJsonContractWriterTests
         Assert.Equal(
             [
                 "schemaVersion",
-                "outputRoot",
-                "buildTarget",
+                "target",
+                "entries",
+                "entryCount",
                 "fileCount",
                 "totalBytes",
                 "files",
@@ -39,10 +52,30 @@ public sealed class BuildOutputManifestJsonContractWriterTests
             ],
             root.EnumerateObject().Select(static property => property.Name).ToArray());
 
+        var target = root.GetProperty("target");
+        Assert.Equal(
+            [
+                "stableName",
+                "unityBuildTarget",
+            ],
+            target.EnumerateObject().Select(static property => property.Name).ToArray());
+
+        var firstEntry = root.GetProperty("entries")[0];
+        Assert.Equal(
+            [
+                "id",
+                "kind",
+                "sourcePath",
+            ],
+            firstEntry.EnumerateObject().Select(static property => property.Name).ToArray());
+
         var firstFile = root.GetProperty("files")[0];
         Assert.Equal(
             [
-                "path",
+                "entryId",
+                "logicalPath",
+                "sourcePath",
+                "artifactPath",
                 "sizeBytes",
                 "sha256",
             ],
@@ -56,21 +89,24 @@ public sealed class BuildOutputManifestJsonContractWriterTests
         var writer = new BuildOutputManifestJsonContractWriter();
         var content = new BuildOutputManifestContentJsonContract(
             BuildOutputManifestJsonContract.CurrentSchemaVersion,
-            ".ucli/local/fingerprints/fingerprint/artifacts/build/run-1/output",
-            "standaloneLinux64",
+            new BuildOutputManifestTargetJsonContract("standaloneLinux64", "StandaloneLinux64"),
+            [
+                new BuildOutputManifestEntryJsonContract("output-0001", "file", "/workspace/build/player/Player"),
+            ],
+            1,
             1,
             12,
             [
-                new BuildOutputManifestFileJsonContract("Game.x86_64", 12, new string('b', 64)),
+                new BuildOutputManifestFileJsonContract("output-0001", "output-0001/Player", "/workspace/build/player/Player", "output/output-0001/Player", 12, new string('b', 64)),
             ]);
 
         var digestSource = writer.WriteDigestSource(content);
         var digest = writer.CalculateManifestDigest(content);
 
         Assert.Equal(
-            "{\"schemaVersion\":1,\"outputRoot\":\".ucli/local/fingerprints/fingerprint/artifacts/build/run-1/output\",\"buildTarget\":\"standaloneLinux64\",\"fileCount\":1,\"totalBytes\":12,\"files\":[{\"path\":\"Game.x86_64\",\"sizeBytes\":12,\"sha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"}]}",
+            "{\"schemaVersion\":1,\"target\":{\"stableName\":\"standaloneLinux64\",\"unityBuildTarget\":\"StandaloneLinux64\"},\"entries\":[{\"id\":\"output-0001\",\"kind\":\"file\",\"sourcePath\":\"/workspace/build/player/Player\"}],\"entryCount\":1,\"fileCount\":1,\"totalBytes\":12,\"files\":[{\"entryId\":\"output-0001\",\"logicalPath\":\"output-0001/Player\",\"sourcePath\":\"/workspace/build/player/Player\",\"artifactPath\":\"output/output-0001/Player\",\"sizeBytes\":12,\"sha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"}]}",
             digestSource);
-        Assert.Equal("0b6ea568d0262e545935b9a5a573e52a86fb1cc1576aae647fc1b7c9c8606404", digest);
+        Assert.Equal("d1280d23359f281aceca8d928adaca97dc3f9b940cdc30648fdf20edd4a216d3", digest);
         Assert.DoesNotContain("manifestDigest", digestSource, StringComparison.Ordinal);
         Assert.All(digest, static c => Assert.True(
             (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'),

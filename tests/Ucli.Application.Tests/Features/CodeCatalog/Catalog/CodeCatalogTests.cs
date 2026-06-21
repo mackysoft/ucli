@@ -154,7 +154,10 @@ public sealed class CodeCatalogTests
             ApplicationFailure.FromCode(BuildErrorCodes.BuildOutputManifestFailed, "Output manifest failed.").Outcome);
         Assert.Equal(
             ApplicationOutcome.ToolError,
-            ApplicationFailure.FromCode(BuildErrorCodes.BuildOutputDigestMismatch, "Digest mismatch.").Outcome);
+            ApplicationFailure.FromCode(BuildErrorCodes.BuildOutputManifestDigestMismatch, "Digest mismatch.").Outcome);
+        Assert.Equal(
+            ApplicationOutcome.ToolError,
+            ApplicationFailure.FromCode(BuildErrorCodes.BuildOutputManifestArtifactDigestMismatch, "Artifact digest mismatch.").Outcome);
     }
 
     [Fact]

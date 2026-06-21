@@ -426,6 +426,20 @@ public static class UcliStoragePathResolver
             UcliStoragePathNames.ArtifactsDirectoryName);
     }
 
+    /// <summary> Resolves the absolute path to one fingerprint work directory under <c>.ucli/local/fingerprints/&lt;projectFingerprint&gt;/work</c>. </summary>
+    /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
+    /// <param name="projectFingerprint"> The project fingerprint value. Must not be <see langword="null" />, empty, or whitespace. </param>
+    /// <returns> The absolute fingerprint work directory path. </returns>
+    /// <exception cref="ArgumentException"> Thrown when any argument is <see langword="null" />, empty, or whitespace. </exception>
+    public static string ResolveWorkDirectory (
+        string storageRoot,
+        string projectFingerprint)
+    {
+        return Path.Combine(
+            ResolveFingerprintDirectory(storageRoot, projectFingerprint),
+            UcliStoragePathNames.WorkDirectoryName);
+    }
+
     /// <summary> Resolves the absolute path to one fingerprint test-artifacts directory under <c>.ucli/local/fingerprints/&lt;projectFingerprint&gt;/artifacts/test</c>. </summary>
     /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
     /// <param name="projectFingerprint"> The project fingerprint value. Must not be <see langword="null" />, empty, or whitespace. </param>
@@ -466,6 +480,20 @@ public static class UcliStoragePathResolver
         return Path.Combine(
             ResolveArtifactsDirectory(storageRoot, projectFingerprint),
             UcliStoragePathNames.BuildArtifactsDirectoryName);
+    }
+
+    /// <summary> Resolves the absolute path to one fingerprint build-work directory under <c>.ucli/local/fingerprints/&lt;projectFingerprint&gt;/work/build</c>. </summary>
+    /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
+    /// <param name="projectFingerprint"> The project fingerprint value. Must not be <see langword="null" />, empty, or whitespace. </param>
+    /// <returns> The absolute fingerprint build-work directory path. </returns>
+    /// <exception cref="ArgumentException"> Thrown when any argument is <see langword="null" />, empty, or whitespace. </exception>
+    public static string ResolveBuildWorkDirectory (
+        string storageRoot,
+        string projectFingerprint)
+    {
+        return Path.Combine(
+            ResolveWorkDirectory(storageRoot, projectFingerprint),
+            UcliStoragePathNames.BuildWorkDirectoryName);
     }
 
     /// <summary> Resolves the absolute path to one mutation read-postcondition file under one fingerprint directory. </summary>
@@ -534,6 +562,25 @@ public static class UcliStoragePathResolver
         return Path.Combine(
             ResolveBuildArtifactsDirectory(storageRoot, projectFingerprint),
             normalizedRunId);
+    }
+
+    /// <summary> Resolves the absolute runner output directory for one build run under <c>.ucli/local/fingerprints/&lt;projectFingerprint&gt;/work/build/&lt;runId&gt;/output</c>. </summary>
+    /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
+    /// <param name="projectFingerprint"> The project fingerprint value. Must not be <see langword="null" />, empty, or whitespace. </param>
+    /// <param name="runId"> The run identifier value. Must not be <see langword="null" />, empty, whitespace, or contain path-segment/control tokens. </param>
+    /// <returns> The absolute runner output directory path. </returns>
+    /// <exception cref="ArgumentException"> Thrown when any argument is <see langword="null" />, empty, or whitespace. </exception>
+    public static string ResolveBuildRunOutputDirectory (
+        string storageRoot,
+        string projectFingerprint,
+        string runId)
+    {
+        var normalizedRunId = NormalizeRunId(runId);
+
+        return Path.Combine(
+            ResolveBuildWorkDirectory(storageRoot, projectFingerprint),
+            normalizedRunId,
+            UcliStoragePathNames.BuildOutputDirectoryName);
     }
 
     /// <summary> Resolves the absolute path to daemon <c>session.json</c>. </summary>

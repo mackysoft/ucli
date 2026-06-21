@@ -519,6 +519,28 @@ public sealed class UcliStoragePathResolverContractTests
             resolvedPath);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ResolveBuildRunOutputDirectory_ReturnsRunScopedWorkPath ()
+    {
+        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-infrastructure-storage-root");
+
+        var resolvedPath = UcliStoragePathResolver.ResolveBuildRunOutputDirectory(storageRoot, "abc123", "run-id");
+
+        Assert.Equal(
+            Path.Combine(
+                Path.GetFullPath(storageRoot),
+                UcliStoragePathNames.UcliDirectoryName,
+                UcliStoragePathNames.LocalDirectoryName,
+                UcliStoragePathNames.FingerprintsDirectoryName,
+                "abc123",
+                UcliStoragePathNames.WorkDirectoryName,
+                UcliStoragePathNames.BuildWorkDirectoryName,
+                "run-id",
+                UcliStoragePathNames.BuildOutputDirectoryName),
+            resolvedPath);
+    }
+
     [Theory]
     [Trait("Size", "Small")]
     [InlineData("../run-id")]
@@ -555,6 +577,26 @@ public sealed class UcliStoragePathResolverContractTests
 
         var exception = Assert.Throws<ArgumentException>(() =>
             UcliStoragePathResolver.ResolveBuildRunArtifactsDirectory(storageRoot, "abc123", runId));
+
+        Assert.Equal("runId", exception.ParamName);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("../run-id")]
+    [InlineData("..\\run-id")]
+    [InlineData("run/id")]
+    [InlineData("run\\id")]
+    [InlineData("/absolute")]
+    [InlineData("C:\\absolute")]
+    [InlineData(".")]
+    [InlineData("..")]
+    public void ResolveBuildRunOutputDirectory_WithPathSegmentOrTraversalRunId_ThrowsArgumentException (string runId)
+    {
+        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-infrastructure-storage-root");
+
+        var exception = Assert.Throws<ArgumentException>(() =>
+            UcliStoragePathResolver.ResolveBuildRunOutputDirectory(storageRoot, "abc123", runId));
 
         Assert.Equal("runId", exception.ParamName);
     }

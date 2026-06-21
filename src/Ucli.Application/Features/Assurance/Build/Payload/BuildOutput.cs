@@ -8,6 +8,8 @@ internal sealed record BuildOutput (
     string BuildTarget,
     BuildScenesOutput Scenes,
     BuildOptionsOutput Options,
+    BuildRunnerOutput Runner,
+    BuildRunnerResultOutput RunnerResult,
     BuildArtifactOutput Output,
     BuildGenerationsOutput Generations,
     BuildSummaryOutput Summary,

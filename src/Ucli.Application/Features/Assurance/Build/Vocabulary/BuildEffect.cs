@@ -36,4 +36,8 @@ internal enum BuildEffect
     /// <summary> Audits project mutations around build runner invocation. </summary>
     [UcliContractLiteral("projectMutationAudit")]
     ProjectMutationAudit = 7,
+
+    /// <summary> Invokes a uCLI executeMethod build runner. </summary>
+    [UcliContractLiteral("unityExecuteMethod")]
+    UnityExecuteMethod = 8,
 }

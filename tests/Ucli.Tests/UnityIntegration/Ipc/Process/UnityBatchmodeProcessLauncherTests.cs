@@ -29,6 +29,8 @@ public sealed class UnityBatchmodeProcessLauncherTests
         Assert.Equal(projectPath, arguments[3]);
         Assert.Equal("-logFile", arguments[4]);
         Assert.Equal(unityLogPath, arguments[5]);
+        Assert.Contains("-executeMethod", arguments);
+        Assert.Contains("MackySoft.Ucli.Unity.Editor.BuildExecuteMethodBridge.Run", arguments);
         Assert.DoesNotContain(@"C:\\Users\\Foo Bar\\Project", arguments, StringComparer.Ordinal);
         Assert.DoesNotContain(@"C:\\Users\\Foo Bar\\Project\\.ucli\\unity.log", arguments, StringComparer.Ordinal);
     }
