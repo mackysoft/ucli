@@ -21,8 +21,8 @@ public sealed class BuildRunCliOutputContractTests
     private const string BuildRunGoldenDirectory = "build-run";
     private const string BuildArtifactFixtureRoot = "tests/Ucli.Tests/GoldenFiles/Json/BuildRunArtifacts";
     private const string ArtifactRoot = "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1";
-    private const string SuccessManifestDigest = "da24a52f15e07fd877e58e370b776bc7136b18409317bc73b300c1ff3acb52f1";
-    private const string FailedManifestDigest = "8deb35edf72becffdfe16011c3975ba597d30d506dc484c1d3ccd43224a3a444";
+    private const string SuccessManifestDigest = "59a71d71a244ad7a978be0bbfe8f87328c036091bb4b5aefef9e89b855d82b9b";
+    private const string FailedManifestDigest = "04d7d7e1eb32bc4521986964ba5e86b772fe46a3b50a73e4dd3783d4c4577d21";
 
     private static readonly string RepositoryRoot = FindRepositoryRoot();
     private static readonly string BuildDigest = new('a', 64);
@@ -238,6 +238,7 @@ public sealed class BuildRunCliOutputContractTests
         var manifestDigest = succeeded ? SuccessManifestDigest : FailedManifestDigest;
         var errorCount = succeeded ? 0 : 1;
         var warningCount = succeeded ? 1 : 0;
+        var entryCount = succeeded ? 1 : 0;
         var fileCount = succeeded ? 2 : 0;
         var totalBytes = succeeded ? 33 : 0;
         var build = new BuildOutput(
@@ -260,7 +261,7 @@ public sealed class BuildRunCliOutputContractTests
             Output: new BuildArtifactOutput(
                 ManifestRef: BuildReportRefs.BuildOutputManifest,
                 ManifestDigest: manifestDigest,
-                EntryCount: fileCount,
+                EntryCount: entryCount,
                 FileCount: fileCount,
                 TotalBytes: totalBytes),
             Generations: CreateGenerations(),
@@ -746,20 +747,37 @@ public sealed class BuildRunCliOutputContractTests
 
     private static BuildOutputManifestContentJsonContract ReadOutputManifestContent (JsonElement root)
     {
+        var targetElement = root.GetProperty("target");
+        var entryElements = root.GetProperty("entries");
+        var entries = new List<BuildOutputManifestEntryJsonContract>(entryElements.GetArrayLength());
+        foreach (var entry in entryElements.EnumerateArray())
+        {
+            entries.Add(new BuildOutputManifestEntryJsonContract(
+                entry.GetProperty("id").GetString()!,
+                entry.GetProperty("kind").GetString()!,
+                entry.GetProperty("sourcePath").GetString()!));
+        }
+
         var fileElements = root.GetProperty("files");
         var files = new List<BuildOutputManifestFileJsonContract>(fileElements.GetArrayLength());
         foreach (var file in fileElements.EnumerateArray())
         {
             files.Add(new BuildOutputManifestFileJsonContract(
-                file.GetProperty("path").GetString()!,
+                file.GetProperty("entryId").GetString()!,
+                file.GetProperty("logicalPath").GetString()!,
+                file.GetProperty("sourcePath").GetString()!,
+                file.GetProperty("artifactPath").GetString()!,
                 file.GetProperty("sizeBytes").GetInt64(),
                 file.GetProperty("sha256").GetString()!));
         }
 
         return new BuildOutputManifestContentJsonContract(
             root.GetProperty("schemaVersion").GetInt32(),
-            root.GetProperty("outputRoot").GetString()!,
-            root.GetProperty("buildTarget").GetString()!,
+            new BuildOutputManifestTargetJsonContract(
+                targetElement.GetProperty("stableName").GetString()!,
+                targetElement.GetProperty("unityBuildTarget").GetString()!),
+            entries,
+            root.GetProperty("entryCount").GetInt32(),
             root.GetProperty("fileCount").GetInt32(),
             root.GetProperty("totalBytes").GetInt64(),
             files);

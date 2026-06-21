@@ -733,7 +733,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 storageRoot,
                 identity.ProjectFingerprint,
                 RunId);
-            var outputPath = Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildOutputDirectoryName);
+            var outputPath = UcliStoragePathResolver.ResolveBuildRunOutputDirectory(
+                storageRoot,
+                identity.ProjectFingerprint,
+                RunId);
             if (!IpcBuildOutputLayoutResolver.TryResolve(outputPath, "standaloneLinux64", out var outputLayout))
             {
                 throw new InvalidOperationException("Test build target must resolve a BuildPipeline output layout.");

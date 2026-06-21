@@ -623,9 +623,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                     storageRoot,
                     projectIdentity.ProjectFingerprint,
                     runId);
-                expectedOutputPath = Path.GetFullPath(Path.Combine(
-                    expectedArtifactsDirectory,
-                    UcliStoragePathNames.BuildOutputDirectoryName));
+                expectedOutputPath = UcliStoragePathResolver.ResolveBuildRunOutputDirectory(
+                    storageRoot,
+                    projectIdentity.ProjectFingerprint,
+                    runId);
                 expectedBuildReportPath = Path.GetFullPath(Path.Combine(
                     expectedArtifactsDirectory,
                     UcliStoragePathNames.BuildReportFileName));

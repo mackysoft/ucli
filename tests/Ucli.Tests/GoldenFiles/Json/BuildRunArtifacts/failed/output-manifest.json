@@ -1,9 +1,13 @@
 {
   "schemaVersion": 1,
-  "outputRoot": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/output",
-  "buildTarget": "standaloneLinux64",
+  "target": {
+    "stableName": "standaloneLinux64",
+    "unityBuildTarget": "StandaloneLinux64"
+  },
+  "entries": [],
+  "entryCount": 0,
   "fileCount": 0,
   "totalBytes": 0,
   "files": [],
-  "manifestDigest": "8deb35edf72becffdfe16011c3975ba597d30d506dc484c1d3ccd43224a3a444"
+  "manifestDigest": "04d7d7e1eb32bc4521986964ba5e86b772fe46a3b50a73e4dd3783d4c4577d21"
 }
