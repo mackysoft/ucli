@@ -14,4 +14,23 @@ public sealed class UnityEditorSearchRootBuilderTests
         Assert.ThrowsAny<ArgumentException>(() => builder.Add(string.Empty));
         Assert.ThrowsAny<ArgumentException>(() => builder.Add(" "));
     }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Add_WhenRootPathIsDuplicated_KeepsFirstOccurrence ()
+    {
+        var builder = new UnityEditorSearchRootBuilder(StringComparer.Ordinal);
+
+        builder.Add("/Root");
+        builder.Add("/Another");
+        builder.Add("/Root");
+
+        Assert.Equal(
+            new[]
+            {
+                "/Root",
+                "/Another",
+            },
+            builder.ToArray());
+    }
 }

@@ -396,7 +396,11 @@ public sealed class IpcContractSerializationTests
                             Severity: "warning",
                             Code: "sample-warning",
                             Message: "Sample warning"),
-                    ]),
+                    ])
+                {
+                    Outputs = ["player/Player"],
+                    BuildReport = new IpcBuildRunnerResultBuildReport("reports/build-report.json"),
+                },
             },
             SerializerOptions));
 
@@ -494,6 +498,11 @@ public sealed class IpcContractSerializationTests
                 .HasInt32("durationMilliseconds", 2500)
                 .HasInt32("errorCount", 0)
                 .HasInt32("warningCount", 1)
+                .HasArrayLength("outputs", 1)
+                .HasProperty("outputs", 0, output => output
+                    .HasString("player/Player"))
+                .HasProperty("buildReport", buildReport => buildReport
+                    .HasString("path", "reports/build-report.json"))
                 .HasArrayLength("diagnostics", 1)
                 .HasProperty("diagnostics", 0, diagnostic => diagnostic
                     .HasString("severity", "warning")

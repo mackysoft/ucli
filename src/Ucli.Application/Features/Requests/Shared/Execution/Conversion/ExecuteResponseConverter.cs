@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Json;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Conversion;
 
@@ -67,13 +68,13 @@ internal static class ExecuteResponseConverter
             return false;
         }
 
-        if (!TryGetProperty(payload, "project", out _))
+        if (!JsonObjectPropertyReader.TryGetPropertyIgnoreCase(payload, "project", out _))
         {
             errorMessage = "Execute response payload is invalid. The 'project' field is missing.";
             return false;
         }
 
-        if (!TryGetProperty(payload, "opResults", out var opResults)
+        if (!JsonObjectPropertyReader.TryGetPropertyIgnoreCase(payload, "opResults", out var opResults)
             || opResults.ValueKind != JsonValueKind.Array)
         {
             return true;
@@ -83,7 +84,7 @@ internal static class ExecuteResponseConverter
         foreach (var opResult in opResults.EnumerateArray())
         {
             if (opResult.ValueKind == JsonValueKind.Object
-                && !TryGetProperty(opResult, "diagnostics", out _))
+                && !JsonObjectPropertyReader.TryGetPropertyIgnoreCase(opResult, "diagnostics", out _))
             {
                 errorMessage = $"Execute response payload is invalid. The 'opResults[{opResultIndex}].diagnostics' field is missing.";
                 return false;
@@ -93,24 +94,6 @@ internal static class ExecuteResponseConverter
         }
 
         return true;
-    }
-
-    private static bool TryGetProperty (
-        JsonElement element,
-        string propertyName,
-        out JsonElement propertyValue)
-    {
-        foreach (var property in element.EnumerateObject())
-        {
-            if (string.Equals(property.Name, propertyName, StringComparison.OrdinalIgnoreCase))
-            {
-                propertyValue = property.Value;
-                return true;
-            }
-        }
-
-        propertyValue = default;
-        return false;
     }
 
     private static IReadOnlyList<OperationExecutionError> NormalizeErrors (
@@ -391,7 +374,7 @@ internal static class ExecuteResponseConverter
         out string errorMessage)
     {
         errorMessage = string.Empty;
-        if (!TryGetProperty(payloadElement, "postReadSource", out var postReadSourceElement))
+        if (!JsonObjectPropertyReader.TryGetPropertyIgnoreCase(payloadElement, "postReadSource", out var postReadSourceElement))
         {
             return true;
         }
@@ -420,7 +403,7 @@ internal static class ExecuteResponseConverter
             return false;
         }
 
-        if (!TryGetProperty(postReadSourceElement, "steps", out var postReadSourceStepsElement)
+        if (!JsonObjectPropertyReader.TryGetPropertyIgnoreCase(postReadSourceElement, "steps", out var postReadSourceStepsElement)
             || postReadSourceStepsElement.ValueKind != JsonValueKind.Array)
         {
             errorMessage = "Execute response payload is invalid. The 'postReadSource.steps' field is missing.";
@@ -532,21 +515,21 @@ internal static class ExecuteResponseConverter
             return false;
         }
 
-        if (!TryGetProperty(stepElement, "playModeMutation", out var playModeMutationElement)
+        if (!JsonObjectPropertyReader.TryGetPropertyIgnoreCase(stepElement, "playModeMutation", out var playModeMutationElement)
             || playModeMutationElement.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
         {
             errorMessage = $"Execute response payload is invalid. The 'postReadSource.steps[{stepIndex}].playModeMutation' field is missing.";
             return false;
         }
 
-        if (!TryGetProperty(stepElement, "commit", out var commitElement)
+        if (!JsonObjectPropertyReader.TryGetPropertyIgnoreCase(stepElement, "commit", out var commitElement)
             || commitElement.ValueKind is not (JsonValueKind.String or JsonValueKind.Null))
         {
             errorMessage = $"Execute response payload is invalid. The 'postReadSource.steps[{stepIndex}].commit' field is missing.";
             return false;
         }
 
-        if (!TryGetProperty(stepElement, "persistenceExpected", out var persistenceExpectedElement)
+        if (!JsonObjectPropertyReader.TryGetPropertyIgnoreCase(stepElement, "persistenceExpected", out var persistenceExpectedElement)
             || persistenceExpectedElement.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
         {
             errorMessage = $"Execute response payload is invalid. The 'postReadSource.steps[{stepIndex}].persistenceExpected' field is missing.";

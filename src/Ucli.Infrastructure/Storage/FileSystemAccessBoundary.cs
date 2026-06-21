@@ -109,7 +109,7 @@ internal static class FileSystemAccessBoundary
         string boundaryRootPath,
         string directoryPath)
     {
-        if (!IsPathUnderOrEqual(directoryPath, boundaryRootPath))
+        if (!RepositoryPathNormalizer.TryNormalize(boundaryRootPath, directoryPath).IsSuccess)
         {
             throw new InvalidOperationException(
                 $"Secure directory target must remain under the local storage root. Root={boundaryRootPath}, Target={directoryPath}");
@@ -120,7 +120,7 @@ internal static class FileSystemAccessBoundary
         while (true)
         {
             pendingDirectories.Push(currentDirectoryPath);
-            if (string.Equals(currentDirectoryPath, boundaryRootPath, GetPathComparison()))
+            if (PathIdentity.IsSamePath(currentDirectoryPath, boundaryRootPath))
             {
                 break;
             }
@@ -250,9 +250,9 @@ internal static class FileSystemAccessBoundary
         while (currentDirectory != null)
         {
             var parentDirectory = currentDirectory.Parent;
-            if (string.Equals(currentDirectory.Name, UcliStoragePathNames.LocalDirectoryName, GetPathComparison())
+            if (string.Equals(currentDirectory.Name, UcliStoragePathNames.LocalDirectoryName, PathStringNormalizer.CurrentPlatformPathComparison)
                 && parentDirectory != null
-                && string.Equals(parentDirectory.Name, UcliStoragePathNames.UcliDirectoryName, GetPathComparison()))
+                && string.Equals(parentDirectory.Name, UcliStoragePathNames.UcliDirectoryName, PathStringNormalizer.CurrentPlatformPathComparison))
             {
                 localDirectoryRoot = currentDirectory.FullName;
                 return true;
@@ -263,13 +263,6 @@ internal static class FileSystemAccessBoundary
 
         localDirectoryRoot = null;
         return false;
-    }
-
-    private static bool IsPathUnderOrEqual (
-        string path,
-        string rootPath)
-    {
-        return RepositoryPathNormalizer.TryNormalize(rootPath, path).IsSuccess;
     }
 
     private static string NormalizeDirectoryPath (string directoryPath)
@@ -289,13 +282,6 @@ internal static class FileSystemAccessBoundary
         }
 
         return pathResult.FullPath!;
-    }
-
-    private static StringComparison GetPathComparison ()
-    {
-        return IsWindows()
-            ? StringComparison.OrdinalIgnoreCase
-            : StringComparison.Ordinal;
     }
 
     private static bool IsWindows ()

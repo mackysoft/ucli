@@ -26,17 +26,14 @@ internal sealed class UnityVersionResolver : IUnityVersionResolver
                 "Unity project path must not be null, empty, or whitespace."));
         }
 
-        string normalizedProjectPath;
-        try
-        {
-            normalizedProjectPath = Path.GetFullPath(projectPath);
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
+        var projectPathResult = PathNormalizer.TryNormalizeFullPath(projectPath);
+        if (!projectPathResult.IsSuccess)
         {
             return UnityVersionResolutionResult.Failure(ExecutionError.InvalidArgument(
                 $"Unity project path is invalid: {projectPath}"));
         }
 
+        var normalizedProjectPath = projectPathResult.FullPath!;
         var projectVersionPath = UnityProjectVersionFileReader.GetProjectVersionPath(normalizedProjectPath);
         if (!File.Exists(projectVersionPath))
         {

@@ -1,10 +1,8 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
-using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 namespace MackySoft.Ucli.Tests.Daemon;
 
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Ipc;
 
 public sealed class DaemonLaunchSessionServiceTests
 {
@@ -15,7 +13,6 @@ public sealed class DaemonLaunchSessionServiceTests
         var sessionStore = new StubDaemonSessionStore();
         sessionStore.WriteResults.Enqueue(DaemonSessionStoreOperationResult.Success());
         var service = new DaemonLaunchSessionService(
-            endpointResolver: new StubIpcEndpointResolver(),
             daemonSessionStore: sessionStore,
             sessionTokenGenerator: new StubDaemonSessionTokenGenerator());
         var context = CreateContext("fingerprint-session-init");
@@ -36,7 +33,6 @@ public sealed class DaemonLaunchSessionServiceTests
         var sessionStore = new StubDaemonSessionStore();
         sessionStore.WriteResults.Enqueue(DaemonSessionStoreOperationResult.Failure(expectedError));
         var service = new DaemonLaunchSessionService(
-            endpointResolver: new StubIpcEndpointResolver(),
             daemonSessionStore: sessionStore,
             sessionTokenGenerator: new StubDaemonSessionTokenGenerator());
 
@@ -54,7 +50,6 @@ public sealed class DaemonLaunchSessionServiceTests
         var sessionStore = new StubDaemonSessionStore();
         sessionStore.WriteResults.Enqueue(DaemonSessionStoreOperationResult.Success());
         var service = new DaemonLaunchSessionService(
-            endpointResolver: new StubIpcEndpointResolver(),
             daemonSessionStore: sessionStore,
             sessionTokenGenerator: new StubDaemonSessionTokenGenerator());
 
@@ -72,7 +67,6 @@ public sealed class DaemonLaunchSessionServiceTests
     {
         var sessionStore = new StubDaemonSessionStore();
         var service = new DaemonLaunchSessionService(
-            endpointResolver: new StubIpcEndpointResolver(),
             daemonSessionStore: sessionStore,
             sessionTokenGenerator: new StubDaemonSessionTokenGenerator());
         var session = CreateSession(processId: null);
@@ -97,7 +91,6 @@ public sealed class DaemonLaunchSessionServiceTests
         var sessionStore = new StubDaemonSessionStore();
         sessionStore.WriteResults.Enqueue(DaemonSessionStoreOperationResult.Failure(expectedError));
         var service = new DaemonLaunchSessionService(
-            endpointResolver: new StubIpcEndpointResolver(),
             daemonSessionStore: sessionStore,
             sessionTokenGenerator: new StubDaemonSessionTokenGenerator());
         var session = CreateSession(processId: null);
@@ -121,7 +114,6 @@ public sealed class DaemonLaunchSessionServiceTests
     {
         var sessionStore = new StubDaemonSessionStore();
         var service = new DaemonLaunchSessionService(
-            endpointResolver: new StubIpcEndpointResolver(),
             daemonSessionStore: sessionStore,
             sessionTokenGenerator: new StubDaemonSessionTokenGenerator());
         var session = CreateSession(processId: null);
@@ -147,7 +139,6 @@ public sealed class DaemonLaunchSessionServiceTests
         var sessionStore = new StubDaemonSessionStore();
         sessionStore.WriteResults.Enqueue(DaemonSessionStoreOperationResult.Success());
         var service = new DaemonLaunchSessionService(
-            endpointResolver: new StubIpcEndpointResolver(),
             daemonSessionStore: sessionStore,
             sessionTokenGenerator: new StubDaemonSessionTokenGenerator());
         var session = CreateSession(processId: null);
@@ -190,16 +181,6 @@ public sealed class DaemonLaunchSessionServiceTests
             ProcessId: processId,
             ProcessStartedAtUtc: processId is null ? null : DateTimeOffset.UtcNow,
             OwnerProcessId: 9876);
-    }
-
-    private sealed class StubIpcEndpointResolver : IIpcEndpointResolver
-    {
-        public IpcEndpoint Resolve (
-            string storageRoot,
-            string projectFingerprint)
-        {
-            return new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-daemon-endpoint");
-        }
     }
 
     private sealed class StubDaemonSessionStore : IDaemonSessionStore

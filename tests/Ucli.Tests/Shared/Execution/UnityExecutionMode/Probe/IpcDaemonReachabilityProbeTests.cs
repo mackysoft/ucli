@@ -3,6 +3,7 @@ using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.Tests.Execution.Mode;
@@ -19,12 +20,14 @@ public sealed class IpcDaemonReachabilityProbeTests
     [Trait("Size", "Small")]
     public async Task Probe_WhenUnixSocketFileDoesNotExist_ReturnsNotRunningWithoutSendingPing ()
     {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
         using var scope = TestDirectories.CreateTempScope("mode-probe", "unix-socket-missing");
-        var socketPath = scope.GetPath("ipc.sock");
-        var endpointResolver = new StubEndpointResolver(
-            new IpcEndpoint(IpcTransportKind.UnixDomainSocket, socketPath));
         var daemonPingClient = new StubDaemonPingClient((_, _) => ValueTask.CompletedTask);
-        var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
+        var probe = new IpcDaemonReachabilityProbe(daemonPingClient);
 
         var result = await probe.ProbeAsync(CreateContext(scope.FullPath), DefaultProbeTimeout, CancellationToken.None);
 
@@ -38,12 +41,11 @@ public sealed class IpcDaemonReachabilityProbeTests
     [Trait("Size", "Small")]
     public async Task Probe_WhenPingSucceeds_ReturnsRunning ()
     {
-        var endpointResolver = new StubEndpointResolver(
-            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test"));
+        using var scope = TestDirectories.CreateTempScope("mode-probe", "ping-success");
         var daemonPingClient = new StubDaemonPingClient((_, _) => ValueTask.CompletedTask);
-        var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
+        var probe = new IpcDaemonReachabilityProbe(daemonPingClient);
 
-        var context = CreateContext(Path.GetFullPath("."));
+        var context = CreateReadyContext(scope);
         var result = await probe.ProbeAsync(context, DefaultProbeTimeout, CancellationToken.None);
 
         Assert.True(result.IsRunning);
@@ -52,8 +54,6 @@ public sealed class IpcDaemonReachabilityProbeTests
         Assert.Equal(1, daemonPingClient.CallCount);
         var observedProject = Assert.IsType<ResolvedUnityProjectContext>(daemonPingClient.LastUnityProject);
         Assert.Equal(context.UnityProjectRoot, observedProject.UnityProjectRoot);
-        Assert.Equal(context.RepositoryRoot, endpointResolver.LastStorageRoot);
-        Assert.Equal(context.ProjectFingerprint, endpointResolver.LastProjectFingerprint);
         Assert.Equal(context.ProjectFingerprint, observedProject.ProjectFingerprint);
         Assert.Equal(ProbeAttemptTimeoutCap, daemonPingClient.LastTimeout);
     }
@@ -62,13 +62,12 @@ public sealed class IpcDaemonReachabilityProbeTests
     [Trait("Size", "Small")]
     public async Task Probe_WhenPingTimesOut_ReturnsTimeoutFailure ()
     {
-        var endpointResolver = new StubEndpointResolver(
-            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-timeout"));
+        using var scope = TestDirectories.CreateTempScope("mode-probe", "ping-timeout");
         var daemonPingClient = new StubDaemonPingClient((_, _) => throw new TimeoutException("timeout"));
-        var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
+        var probe = new IpcDaemonReachabilityProbe(daemonPingClient);
         var probeTimeout = TimeSpan.FromMilliseconds(150);
 
-        var result = await probe.ProbeAsync(CreateContext(Path.GetFullPath(".")), probeTimeout, CancellationToken.None);
+        var result = await probe.ProbeAsync(CreateReadyContext(scope), probeTimeout, CancellationToken.None);
 
         Assert.False(result.IsRunning);
         Assert.True(result.HasError);
@@ -82,13 +81,12 @@ public sealed class IpcDaemonReachabilityProbeTests
     [Trait("Size", "Small")]
     public async Task Probe_WhenConnectTimeoutOccurs_ReturnsTimeoutFailure ()
     {
-        var endpointResolver = new StubEndpointResolver(
-            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-connect-timeout"));
+        using var scope = TestDirectories.CreateTempScope("mode-probe", "connect-timeout");
         var daemonPingClient = new StubDaemonPingClient((_, _) => throw new IpcConnectTimeoutException("connect timeout"));
-        var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
+        var probe = new IpcDaemonReachabilityProbe(daemonPingClient);
         var probeTimeout = TimeSpan.FromMilliseconds(150);
 
-        var result = await probe.ProbeAsync(CreateContext(Path.GetFullPath(".")), probeTimeout, CancellationToken.None);
+        var result = await probe.ProbeAsync(CreateReadyContext(scope), probeTimeout, CancellationToken.None);
 
         Assert.False(result.IsRunning);
         Assert.True(result.HasError);
@@ -102,8 +100,7 @@ public sealed class IpcDaemonReachabilityProbeTests
     [Trait("Size", "Small")]
     public async Task Probe_WhenConnectTimeoutOccursBeforeDeadlineAndSubsequentPingSucceeds_ReturnsRunning ()
     {
-        var endpointResolver = new StubEndpointResolver(
-            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-connect-timeout-retry-success"));
+        using var scope = TestDirectories.CreateTempScope("mode-probe", "connect-timeout-retry-success");
         var pingAttemptCount = 0;
         var daemonPingClient = new StubDaemonPingClient((_, _) =>
         {
@@ -115,9 +112,9 @@ public sealed class IpcDaemonReachabilityProbeTests
 
             return ValueTask.CompletedTask;
         });
-        var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
+        var probe = new IpcDaemonReachabilityProbe(daemonPingClient);
 
-        var result = await probe.ProbeAsync(CreateContext(Path.GetFullPath(".")), DefaultProbeTimeout, CancellationToken.None);
+        var result = await probe.ProbeAsync(CreateReadyContext(scope), DefaultProbeTimeout, CancellationToken.None);
 
         Assert.True(result.IsRunning);
         Assert.False(result.HasError);
@@ -130,8 +127,7 @@ public sealed class IpcDaemonReachabilityProbeTests
     [Trait("Size", "Small")]
     public async Task Probe_WhenTimeoutOccursBeforeDeadlineAndSubsequentPingSucceeds_ReturnsRunning ()
     {
-        var endpointResolver = new StubEndpointResolver(
-            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-retry-success"));
+        using var scope = TestDirectories.CreateTempScope("mode-probe", "timeout-retry-success");
         var pingAttemptCount = 0;
         var daemonPingClient = new StubDaemonPingClient((_, _) =>
         {
@@ -143,9 +139,9 @@ public sealed class IpcDaemonReachabilityProbeTests
 
             return ValueTask.CompletedTask;
         });
-        var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
+        var probe = new IpcDaemonReachabilityProbe(daemonPingClient);
 
-        var result = await probe.ProbeAsync(CreateContext(Path.GetFullPath(".")), DefaultProbeTimeout, CancellationToken.None);
+        var result = await probe.ProbeAsync(CreateReadyContext(scope), DefaultProbeTimeout, CancellationToken.None);
 
         Assert.True(result.IsRunning);
         Assert.False(result.HasError);
@@ -159,12 +155,11 @@ public sealed class IpcDaemonReachabilityProbeTests
     [MemberData(nameof(NotRunningConnectivityExceptions))]
     public async Task Probe_WhenConnectivityExceptionOccurs_ReturnsNotRunning (Exception exception)
     {
-        var endpointResolver = new StubEndpointResolver(
-            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-connectivity"));
+        using var scope = TestDirectories.CreateTempScope("mode-probe", "connectivity");
         var daemonPingClient = new StubDaemonPingClient((_, _) => throw exception);
-        var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
+        var probe = new IpcDaemonReachabilityProbe(daemonPingClient);
 
-        var result = await probe.ProbeAsync(CreateContext(Path.GetFullPath(".")), DefaultProbeTimeout, CancellationToken.None);
+        var result = await probe.ProbeAsync(CreateReadyContext(scope), DefaultProbeTimeout, CancellationToken.None);
 
         Assert.False(result.IsRunning);
         Assert.False(result.HasError);
@@ -189,12 +184,11 @@ public sealed class IpcDaemonReachabilityProbeTests
     [Trait("Size", "Small")]
     public async Task Probe_WhenUnexpectedExceptionOccurs_ReturnsInternalError ()
     {
-        var endpointResolver = new StubEndpointResolver(
-            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-failure"));
+        using var scope = TestDirectories.CreateTempScope("mode-probe", "unexpected");
         var daemonPingClient = new StubDaemonPingClient((_, _) => throw new InvalidOperationException("boom"));
-        var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
+        var probe = new IpcDaemonReachabilityProbe(daemonPingClient);
 
-        var result = await probe.ProbeAsync(CreateContext(Path.GetFullPath(".")), DefaultProbeTimeout, CancellationToken.None);
+        var result = await probe.ProbeAsync(CreateReadyContext(scope), DefaultProbeTimeout, CancellationToken.None);
 
         Assert.False(result.IsRunning);
         Assert.True(result.HasError);
@@ -208,12 +202,11 @@ public sealed class IpcDaemonReachabilityProbeTests
     [MemberData(nameof(IoFailureExceptions))]
     public async Task Probe_WhenIoFailureOccurs_ReturnsInternalError (Exception exception)
     {
-        var endpointResolver = new StubEndpointResolver(
-            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-io-failure"));
+        using var scope = TestDirectories.CreateTempScope("mode-probe", "io-failure");
         var daemonPingClient = new StubDaemonPingClient((_, _) => throw exception);
-        var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
+        var probe = new IpcDaemonReachabilityProbe(daemonPingClient);
 
-        var result = await probe.ProbeAsync(CreateContext(Path.GetFullPath(".")), DefaultProbeTimeout, CancellationToken.None);
+        var result = await probe.ProbeAsync(CreateReadyContext(scope), DefaultProbeTimeout, CancellationToken.None);
 
         Assert.False(result.IsRunning);
         Assert.True(result.HasError);
@@ -226,12 +219,11 @@ public sealed class IpcDaemonReachabilityProbeTests
     [Trait("Size", "Small")]
     public async Task Probe_WhenPingResponseIsRejected_ReturnsInternalError ()
     {
-        var endpointResolver = new StubEndpointResolver(
-            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-ping-response-error"));
+        using var scope = TestDirectories.CreateTempScope("mode-probe", "ping-response-rejected");
         var daemonPingClient = new StubDaemonPingClient((_, _) => throw new DaemonPingResponseException("status=error", UcliCoreErrorCodes.InternalError));
-        var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
+        var probe = new IpcDaemonReachabilityProbe(daemonPingClient);
 
-        var result = await probe.ProbeAsync(CreateContext(Path.GetFullPath(".")), DefaultProbeTimeout, CancellationToken.None);
+        var result = await probe.ProbeAsync(CreateReadyContext(scope), DefaultProbeTimeout, CancellationToken.None);
 
         Assert.False(result.IsRunning);
         Assert.True(result.HasError);
@@ -244,12 +236,11 @@ public sealed class IpcDaemonReachabilityProbeTests
     [Trait("Size", "Small")]
     public async Task Probe_WhenUnauthorizedAccessOccurs_ReturnsInternalError ()
     {
-        var endpointResolver = new StubEndpointResolver(
-            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-unauthorized"));
+        using var scope = TestDirectories.CreateTempScope("mode-probe", "unauthorized");
         var daemonPingClient = new StubDaemonPingClient((_, _) => throw new UnauthorizedAccessException("unauthorized"));
-        var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
+        var probe = new IpcDaemonReachabilityProbe(daemonPingClient);
 
-        var result = await probe.ProbeAsync(CreateContext(Path.GetFullPath(".")), DefaultProbeTimeout, CancellationToken.None);
+        var result = await probe.ProbeAsync(CreateReadyContext(scope), DefaultProbeTimeout, CancellationToken.None);
 
         Assert.False(result.IsRunning);
         Assert.True(result.HasError);
@@ -262,10 +253,8 @@ public sealed class IpcDaemonReachabilityProbeTests
     [Trait("Size", "Small")]
     public async Task Probe_WhenCanceled_ThrowsOperationCanceledException ()
     {
-        var endpointResolver = new StubEndpointResolver(
-            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-canceled"));
         var daemonPingClient = new StubDaemonPingClient((_, _) => ValueTask.CompletedTask);
-        var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
+        var probe = new IpcDaemonReachabilityProbe(daemonPingClient);
         using var cancellationTokenSource = new CancellationTokenSource();
         cancellationTokenSource.Cancel();
 
@@ -283,18 +272,17 @@ public sealed class IpcDaemonReachabilityProbeTests
     [Trait("Size", "Small")]
     public async Task Probe_WhenCanceledDuringPing_ThrowsOperationCanceledException ()
     {
-        var endpointResolver = new StubEndpointResolver(
-            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-canceled-during-ping"));
+        using var scope = TestDirectories.CreateTempScope("mode-probe", "canceled-during-ping");
         var pingStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var daemonPingClient = new StubDaemonPingClient((_, cancellationToken) =>
         {
             pingStarted.TrySetResult();
             return new ValueTask(Task.Delay(System.Threading.Timeout.Infinite, cancellationToken));
         });
-        var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
+        var probe = new IpcDaemonReachabilityProbe(daemonPingClient);
         using var cancellationTokenSource = new CancellationTokenSource();
 
-        var probeTask = probe.ProbeAsync(CreateContext(Path.GetFullPath(".")), DefaultProbeTimeout, cancellationTokenSource.Token).AsTask();
+        var probeTask = probe.ProbeAsync(CreateReadyContext(scope), DefaultProbeTimeout, cancellationTokenSource.Token).AsTask();
         await TestAwaiter.WaitAsync(pingStarted.Task, "Daemon reachability ping start", SignalWaitTimeout);
         cancellationTokenSource.Cancel();
 
@@ -309,18 +297,19 @@ public sealed class IpcDaemonReachabilityProbeTests
     [Trait("Size", "Small")]
     public async Task Probe_WithNestedUnityProject_UsesRepositoryRootForEndpointResolution ()
     {
-        var endpointResolver = new StubEndpointResolver(
-            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-nested-project"));
+        using var scope = TestDirectories.CreateTempScope("mode-probe", "nested-project");
         var daemonPingClient = new StubDaemonPingClient((_, _) => ValueTask.CompletedTask);
-        var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
-        var repositoryRoot = Path.GetFullPath(Path.Combine(".", "sandbox", "Repo"));
+        var probe = new IpcDaemonReachabilityProbe(daemonPingClient);
+        var repositoryRoot = scope.CreateDirectory("Repo");
         var unityProjectRoot = Path.Combine(repositoryRoot, "UnityProject");
+        var context = CreateContext(unityProjectRoot, repositoryRoot);
+        EnsureEndpointAllowsPing(context);
 
-        var result = await probe.ProbeAsync(CreateContext(unityProjectRoot, repositoryRoot), DefaultProbeTimeout, CancellationToken.None);
+        var result = await probe.ProbeAsync(context, DefaultProbeTimeout, CancellationToken.None);
 
         Assert.True(result.IsRunning);
-        Assert.Equal(repositoryRoot, endpointResolver.LastStorageRoot);
-        Assert.NotEqual(unityProjectRoot, endpointResolver.LastStorageRoot);
+        Assert.Equal(repositoryRoot, daemonPingClient.LastUnityProject?.RepositoryRoot);
+        Assert.NotEqual(unityProjectRoot, daemonPingClient.LastUnityProject?.RepositoryRoot);
     }
 
     [Theory]
@@ -329,10 +318,8 @@ public sealed class IpcDaemonReachabilityProbeTests
     [InlineData(-1)]
     public async Task Probe_WithNonPositiveTimeout_ThrowsArgumentOutOfRangeException (int timeoutMilliseconds)
     {
-        var endpointResolver = new StubEndpointResolver(
-            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-invalid-timeout"));
         var daemonPingClient = new StubDaemonPingClient((_, _) => ValueTask.CompletedTask);
-        var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
+        var probe = new IpcDaemonReachabilityProbe(daemonPingClient);
         var timeout = TimeSpan.FromMilliseconds(timeoutMilliseconds);
 
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () =>
@@ -357,27 +344,23 @@ public sealed class IpcDaemonReachabilityProbeTests
             PathSource: UnityProjectPathSource.CommandOption);
     }
 
-    private sealed class StubEndpointResolver : IIpcEndpointResolver
+    private static ResolvedUnityProjectContext CreateReadyContext (TestDirectoryScope scope)
     {
-        private readonly IpcEndpoint endpoint;
+        var context = CreateContext(scope.FullPath);
+        EnsureEndpointAllowsPing(context);
+        return context;
+    }
 
-        public StubEndpointResolver (IpcEndpoint endpoint)
+    private static void EnsureEndpointAllowsPing (ResolvedUnityProjectContext context)
+    {
+        var endpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(context.RepositoryRoot, context.ProjectFingerprint);
+        if (endpoint.TransportKind != IpcTransportKind.UnixDomainSocket)
         {
-            this.endpoint = endpoint;
+            return;
         }
 
-        public string? LastStorageRoot { get; private set; }
-
-        public string? LastProjectFingerprint { get; private set; }
-
-        public IpcEndpoint Resolve (
-            string storageRoot,
-            string projectFingerprint)
-        {
-            LastStorageRoot = storageRoot;
-            LastProjectFingerprint = projectFingerprint;
-            return endpoint;
-        }
+        Directory.CreateDirectory(Path.GetDirectoryName(endpoint.Address)!);
+        File.WriteAllText(endpoint.Address, string.Empty);
     }
 
     private sealed class StubDaemonPingClient : IDaemonPingClient

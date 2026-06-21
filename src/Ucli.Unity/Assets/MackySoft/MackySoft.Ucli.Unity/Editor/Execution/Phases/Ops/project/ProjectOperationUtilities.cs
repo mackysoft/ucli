@@ -62,8 +62,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             foreach (var filePath in Directory.EnumerateFiles(projectSettingsDirectoryPath, "*", SearchOption.AllDirectories))
             {
                 var fileInfo = new FileInfo(filePath);
-                var relativePath = PathStringNormalizer.ToSlashSeparated(Path.GetRelativePath(projectRoot, filePath));
-                snapshot[relativePath] = new ProjectOperationFileSnapshot(
+                var relativePathResult = RepositoryPathNormalizer.TryNormalize(projectRoot, filePath);
+                if (!relativePathResult.IsSuccess)
+                {
+                    throw new InvalidOperationException(relativePathResult.DiagnosticMessage);
+                }
+
+                snapshot[relativePathResult.RepositoryRelativeSlashPath!] = new ProjectOperationFileSnapshot(
                     fileInfo.Length,
                     fileInfo.LastWriteTimeUtc.Ticks);
             }
@@ -260,7 +265,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (!UnityAssetPathContract.TryNormalizeProjectRelativePath(candidatePath, out var normalizedPath))
+            if (!RelativePathContract.TryNormalize(candidatePath, out var normalizedPath))
             {
                 return false;
             }

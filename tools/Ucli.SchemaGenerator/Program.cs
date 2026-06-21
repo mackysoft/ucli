@@ -687,7 +687,7 @@ internal static class Program
                 Required("durationMilliseconds", IntegerSchema()),
                 Required("errorCount", IntegerSchema()),
                 Required("warningCount", IntegerSchema()),
-                Required("reportRef", ConstString("buildReport")))),
+                Optional("reportRef", ConstString("buildReport")))),
             Required("logs", ObjectSchema(
                 additionalProperties: false,
                 Required("reportRef", ConstString("buildLog")),
@@ -842,7 +842,7 @@ internal static class Program
         return ObjectSchema(
             additionalProperties: false,
             Required("build", CreateBuildRunReportRefSchema()),
-            Required("buildReport", CreateBuildRunReportRefSchema()),
+            Optional("buildReport", CreateBuildRunReportRefSchema()),
             Required("buildOutputManifest", CreateBuildRunReportRefSchema()),
             Required("buildLog", CreateBuildRunReportRefSchema()));
     }

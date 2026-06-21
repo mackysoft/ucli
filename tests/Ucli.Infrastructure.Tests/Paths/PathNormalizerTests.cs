@@ -6,6 +6,30 @@ public sealed class PathNormalizerTests
 {
     [Fact]
     [Trait("Size", "Small")]
+    public void IsFullyQualifiedPath_WithFullPath_ReturnsTrue ()
+    {
+        var path = Path.GetFullPath("src");
+
+        var result = PathNormalizer.IsFullyQualifiedPath(path);
+
+        Assert.True(result);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("relative/path")]
+    public void IsFullyQualifiedPath_WithRelativeOrEmptyPath_ReturnsFalse (string? path)
+    {
+        var result = PathNormalizer.IsFullyQualifiedPath(path);
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void TryNormalizeFullPath_WithRelativePath_ReturnsFullPath ()
     {
         var result = PathNormalizer.TryNormalizeFullPath("src");

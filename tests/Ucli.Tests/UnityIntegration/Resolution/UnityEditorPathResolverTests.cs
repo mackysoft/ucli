@@ -12,7 +12,7 @@ public sealed class UnityEditorPathResolverTests
     {
         using var scope = TestDirectories.CreateTempScope("unity-editor-path-resolver", "preferred-file");
         var executablePath = EnsureEditorInstallation(scope, "Editors", "6000.1.4f1");
-        var resolver = CreateResolver(new StubSearchRootProvider(Array.Empty<string>()));
+        var resolver = CreateResolver();
 
         var result = resolver.Resolve("6000.1.4f1", executablePath);
 
@@ -28,7 +28,7 @@ public sealed class UnityEditorPathResolverTests
         using var scope = TestDirectories.CreateTempScope("unity-editor-path-resolver", "preferred-directory");
         var executablePath = EnsureEditorInstallation(scope, "Editors", "6000.1.4f1");
         var versionDirectoryPath = Path.GetDirectoryName(Path.GetDirectoryName(executablePath)!)!;
-        var resolver = CreateResolver(new StubSearchRootProvider(Array.Empty<string>()));
+        var resolver = CreateResolver();
 
         var result = resolver.Resolve("6000.1.4f1", versionDirectoryPath);
 
@@ -43,7 +43,7 @@ public sealed class UnityEditorPathResolverTests
     {
         using var scope = TestDirectories.CreateTempScope("unity-editor-path-resolver", "missing-preferred-path");
         var missingPath = scope.GetPath(Path.Combine("Missing", "Editor", "Unity.exe"));
-        var resolver = CreateResolver(new StubSearchRootProvider(Array.Empty<string>()));
+        var resolver = CreateResolver();
 
         var result = resolver.Resolve("6000.1.4f1", missingPath);
 
@@ -60,7 +60,7 @@ public sealed class UnityEditorPathResolverTests
     {
         using var scope = TestDirectories.CreateTempScope("unity-editor-path-resolver", "unsupported-executable");
         var filePath = scope.WriteFile(Path.Combine("Editors", "not-unity-binary"), string.Empty);
-        var resolver = CreateResolver(new StubSearchRootProvider(Array.Empty<string>()));
+        var resolver = CreateResolver();
 
         var result = resolver.Resolve("6000.1.4f1", filePath);
 
@@ -77,7 +77,7 @@ public sealed class UnityEditorPathResolverTests
     {
         using var scope = TestDirectories.CreateTempScope("unity-editor-path-resolver", "version-mismatch");
         var executablePath = EnsureEditorInstallation(scope, "Editors", "6000.1.3f1");
-        var resolver = CreateResolver(new StubSearchRootProvider(Array.Empty<string>()));
+        var resolver = CreateResolver();
 
         var result = resolver.Resolve("6000.1.4f1", executablePath);
 
@@ -95,7 +95,7 @@ public sealed class UnityEditorPathResolverTests
         using var scope = TestDirectories.CreateTempScope("unity-editor-path-resolver", "c-suffix");
         const string unityVersion = "2022.3.5f1c1";
         var executablePath = EnsureEditorInstallation(scope, "Editors", unityVersion);
-        var resolver = CreateResolver(new StubSearchRootProvider(Array.Empty<string>()));
+        var resolver = CreateResolver();
 
         var result = resolver.Resolve(unityVersion, executablePath);
 
@@ -106,42 +106,9 @@ public sealed class UnityEditorPathResolverTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Resolve_WithoutPreferredPath_UsesSearchRoots ()
-    {
-        using var scope = TestDirectories.CreateTempScope("unity-editor-path-resolver", "search-root-success");
-        var searchRootPath = scope.CreateDirectory("SearchRoot");
-        var executablePath = EnsureEditorInstallation(scope, "SearchRoot", "6000.1.4f1");
-        var resolver = CreateResolver(new StubSearchRootProvider(searchRootPath));
-
-        var result = resolver.Resolve("6000.1.4f1", null);
-
-        Assert.True(result.IsSuccess);
-        Assert.Equal(Path.GetFullPath(executablePath), result.UnityEditorPath);
-        Assert.Null(result.Error);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void Resolve_WithoutPreferredPath_WhenInstallationMissing_ReturnsInvalidArgumentError ()
-    {
-        using var scope = TestDirectories.CreateTempScope("unity-editor-path-resolver", "search-root-missing");
-        var searchRootPath = scope.CreateDirectory("SearchRoot");
-        var resolver = CreateResolver(new StubSearchRootProvider(searchRootPath));
-
-        var result = resolver.Resolve("6000.1.4f1", null);
-
-        Assert.False(result.IsSuccess);
-        Assert.Null(result.UnityEditorPath);
-        var error = Assert.IsType<ExecutionError>(result.Error);
-        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Contains("not installed", error.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
     public void Resolve_WhenUnityVersionIsWhitespace_ReturnsInvalidArgumentError ()
     {
-        var resolver = CreateResolver(new StubSearchRootProvider(Array.Empty<string>()));
+        var resolver = CreateResolver();
 
         var result = resolver.Resolve(" ", null);
 
@@ -161,26 +128,8 @@ public sealed class UnityEditorPathResolverTests
         return scope.WriteFile(Path.Combine(versionRelativePath, "Editor", "Unity.exe"), string.Empty);
     }
 
-    private static UnityEditorPathResolver CreateResolver (IUnityEditorSearchRootProvider searchRootProvider)
+    private static UnityEditorPathResolver CreateResolver ()
     {
-        return new UnityEditorPathResolver(
-            searchRootProvider,
-            new UnityEditorExecutablePathLocator(),
-            new UnityEditorVersionConsistencyValidator());
-    }
-
-    private sealed class StubSearchRootProvider : IUnityEditorSearchRootProvider
-    {
-        private readonly IReadOnlyList<string> searchRoots;
-
-        public StubSearchRootProvider (params string[] searchRoots)
-        {
-            this.searchRoots = searchRoots;
-        }
-
-        public IReadOnlyList<string> GetSearchRoots ()
-        {
-            return searchRoots;
-        }
+        return new UnityEditorPathResolver();
     }
 }

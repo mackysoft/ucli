@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Assurance.Build;
@@ -18,6 +19,7 @@ namespace MackySoft.Ucli.Unity.Tests
         private const string TypeName = "MackySoft.Ucli.Unity.Tests.BuildExecuteMethodRunnerTests";
         private const string RunId = "build-run-1";
         private const string ProjectFingerprint = "project-fingerprint";
+        private static readonly string OutputDirectory = Path.Combine(Path.GetTempPath(), "ucli-build-execute-method-runner-tests", RunId, "output");
 
         private static UcliBuildRunnerContext? capturedContext;
         private static UcliBuildRunnerContext? currentAtInvocation;
@@ -28,6 +30,10 @@ namespace MackySoft.Ucli.Unity.Tests
             capturedContext = null;
             currentAtInvocation = null;
             UcliBuildRunnerContext.Current = null;
+            if (Directory.Exists(OutputDirectory))
+            {
+                Directory.Delete(OutputDirectory, recursive: true);
+            }
         }
 
         [TearDown]
@@ -91,18 +97,20 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(capturedContext.ProfileDigest, Is.EqualTo(new string('a', 64)));
             Assert.That(capturedContext.ProjectPath, Is.EqualTo("/workspace/UnityProject"));
             Assert.That(capturedContext.ProjectFingerprint, Is.EqualTo(ProjectFingerprint));
+            Assert.That(capturedContext.OutputDir, Is.EqualTo(OutputDirectory));
             Assert.That(capturedContext.Target.StableName, Is.EqualTo("standaloneLinux64"));
             Assert.That(capturedContext.Target.UnityBuildTarget, Is.EqualTo(BuildTarget.StandaloneLinux64));
             Assert.That(capturedContext.Scenes, Is.EqualTo(new[] { "Assets/Scenes/Main.unity" }));
             Assert.That(capturedContext.Options.Development, Is.True);
-            Assert.That(capturedContext.Arguments["output"], Is.EqualTo("/workspace/.ucli/output"));
+            Assert.That(capturedContext.Arguments["output"], Is.EqualTo(OutputDirectory));
             Assert.That(capturedContext.Environment.Variables["UCLI_MODE"], Is.EqualTo("release"));
             Assert.That(capturedContext.Environment.Secrets["UCLI_SECRET"], Is.EqualTo("secret-value"));
             Assert.That(result.RunnerResult!.Source, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildRunnerResultSource.UcliBuildRunnerResult)));
             Assert.That(result.RunnerResult.Status, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded)));
             Assert.That(result.RunnerResult.DurationMilliseconds, Is.EqualTo(1234));
             Assert.That(result.RunnerResult.WarningCount, Is.EqualTo(2));
-            Assert.That(result.SyntheticReport!.Result, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded)));
+            Assert.That(result.RunnerResult.Outputs, Is.EqualTo(new[] { "player.txt" }));
+            Assert.That(result.RunnerResult.BuildReport, Is.Null);
         }
 
         [Test]
@@ -176,12 +184,13 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             capturedContext = context;
             currentAtInvocation = UcliBuildRunnerContext.Current;
-            return UcliBuildRunnerResult.Succeeded(1234, warningCount: 2);
+            WriteRunnerOutput(context, "player.txt");
+            return UcliBuildRunnerResult.Succeeded(new[] { "player.txt" }, 1234, warningCount: 2);
         }
 
         internal static UcliBuildRunnerResult InternalSuccess ()
         {
-            return UcliBuildRunnerResult.Succeeded(1);
+            return UcliBuildRunnerResult.Succeeded(new[] { "player.txt" }, 1);
         }
 
         public static UcliBuildRunnerResult ParameterlessSuccess ()
@@ -202,39 +211,42 @@ namespace MackySoft.Ucli.Unity.Tests
 
         public static UcliBuildRunnerResult ReturnsSecretStatus (UcliBuildRunnerContext context)
         {
-            return new UcliBuildRunnerResult(context.Environment.Secrets["UCLI_SECRET"], 0, 0, 0);
+            return new UcliBuildRunnerResult(
+                context.Environment.Secrets["UCLI_SECRET"],
+                Array.Empty<string>(),
+                new UcliBuildRunnerSummary(0, 0, 0));
         }
 
         public UcliBuildRunnerResult NonStatic ()
         {
-            return UcliBuildRunnerResult.Succeeded(1);
+            return UcliBuildRunnerResult.Succeeded(new[] { "player.txt" }, 1);
         }
 
         public static UcliBuildRunnerResult Ambiguous ()
         {
-            return UcliBuildRunnerResult.Succeeded(1);
+            return UcliBuildRunnerResult.Succeeded(new[] { "player.txt" }, 1);
         }
 
         public static UcliBuildRunnerResult Ambiguous (UcliBuildRunnerContext context)
         {
-            return UcliBuildRunnerResult.Succeeded(1);
+            return UcliBuildRunnerResult.Succeeded(new[] { "player.txt" }, 1);
         }
 
         public static UcliBuildRunnerResult Generic<T> ()
         {
-            return UcliBuildRunnerResult.Succeeded(1);
+            return UcliBuildRunnerResult.Succeeded(new[] { "player.txt" }, 1);
         }
 
         private static UcliBuildRunnerResult PrivateSuccess ()
         {
-            return UcliBuildRunnerResult.Succeeded(1);
+            return UcliBuildRunnerResult.Succeeded(new[] { "player.txt" }, 1);
         }
 
         internal sealed class InternalNestedRunner
         {
             public static UcliBuildRunnerResult Success ()
             {
-                return UcliBuildRunnerResult.Succeeded(1);
+                return UcliBuildRunnerResult.Succeeded(new[] { "player.txt" }, 1);
             }
         }
 
@@ -242,7 +254,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             public static UcliBuildRunnerResult Success ()
             {
-                return UcliBuildRunnerResult.Succeeded(1);
+                return UcliBuildRunnerResult.Succeeded(new[] { "player.txt" }, 1);
             }
         }
 
@@ -250,7 +262,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             public static UcliBuildRunnerResult Success ()
             {
-                return UcliBuildRunnerResult.Succeeded(1);
+                return UcliBuildRunnerResult.Succeeded(new[] { "player.txt" }, 1);
             }
         }
 
@@ -261,7 +273,16 @@ namespace MackySoft.Ucli.Unity.Tests
 
         public static UcliBuildRunnerResult UnsupportedParameter (string value)
         {
-            return UcliBuildRunnerResult.Succeeded(1);
+            return UcliBuildRunnerResult.Succeeded(new[] { "player.txt" }, 1);
+        }
+
+        private static void WriteRunnerOutput (
+            UcliBuildRunnerContext context,
+            string relativePath)
+        {
+            var outputPath = Path.Combine(context.OutputDir, relativePath);
+            Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
+            File.WriteAllText(outputPath, "player output");
         }
 
         private static IpcBuildRunRequest CreateRequest (string method)
@@ -274,7 +295,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 SceneSource: "explicit",
                 ScenePaths: new[] { "Assets/Scenes/Main.unity" },
                 Development: true,
-                OutputPath: "/workspace/.ucli/output",
+                OutputPath: OutputDirectory,
                 OutputLayout: null,
                 BuildReportPath: "/workspace/.ucli/build-report.json",
                 BuildLogPath: "/workspace/.ucli/build.log",
@@ -287,7 +308,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 RunnerMethod = method,
                 RunnerArguments = new Dictionary<string, string>(StringComparer.Ordinal)
                 {
-                    ["output"] = "/workspace/.ucli/output",
+                    ["output"] = OutputDirectory,
                 },
                 RunnerEnvironmentVariables = new[] { "UCLI_MODE" },
                 RunnerEnvironmentSecrets = new[] { "UCLI_SECRET" },

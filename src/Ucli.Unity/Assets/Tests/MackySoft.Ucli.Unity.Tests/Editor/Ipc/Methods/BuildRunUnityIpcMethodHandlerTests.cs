@@ -725,8 +725,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(payload.RunnerResult, Is.Not.Null);
                 Assert.That(payload.RunnerResult!.Source, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildRunnerResultSource.UcliBuildRunnerResult)));
                 Assert.That(payload.RunnerResult.Status, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded)));
-                Assert.That(payload.Report.Result, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded)));
-                Assert.That(File.Exists(requestPayload.BuildReportPath), Is.True);
+                Assert.That(payload.RunnerResult.Outputs, Is.EqualTo(new[] { "player.txt" }));
+                Assert.That(payload.RunnerResult.BuildReport, Is.Null);
+                Assert.That(payload.Report, Is.Null);
+                Assert.That(File.Exists(requestPayload.BuildReportPath), Is.False);
                 Assert.That(File.Exists(requestPayload.BuildLogPath), Is.True);
                 var persistedLog = File.ReadAllText(requestPayload.BuildLogPath);
                 Assert.That(persistedLog, Does.Contain("release"));
@@ -1003,14 +1005,25 @@ namespace MackySoft.Ucli.Unity.Tests
         public static UcliBuildRunnerResult HandlerExecuteMethodSuccess (UcliBuildRunnerContext context)
         {
             executeMethodContext = context;
-            return UcliBuildRunnerResult.Succeeded(2500, warningCount: 1);
+            WriteExecuteMethodOutput(context, "player.txt");
+            return UcliBuildRunnerResult.Succeeded(new[] { "player.txt" }, 2500, warningCount: 1);
         }
 
         public static UcliBuildRunnerResult HandlerExecuteMethodLogsEnvironmentValues (UcliBuildRunnerContext context)
         {
             executeMethodContext = context;
             Debug.Log("runner log contains " + context.Environment.Variables["UCLI_MODE"] + " and " + context.Environment.Secrets["UCLI_SECRET_LONG"]);
-            return UcliBuildRunnerResult.Succeeded(2500, warningCount: 1);
+            WriteExecuteMethodOutput(context, "player.txt");
+            return UcliBuildRunnerResult.Succeeded(new[] { "player.txt" }, 2500, warningCount: 1);
+        }
+
+        private static void WriteExecuteMethodOutput (
+            UcliBuildRunnerContext context,
+            string relativePath)
+        {
+            var outputPath = Path.Combine(context.OutputDir, relativePath);
+            Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
+            File.WriteAllText(outputPath, "player output");
         }
 
         private static IpcBuildRunRequest CreateUnityBuildProfileRequest (

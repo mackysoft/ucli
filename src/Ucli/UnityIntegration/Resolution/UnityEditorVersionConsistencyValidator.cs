@@ -1,11 +1,12 @@
 using System.Text.RegularExpressions;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Application.Shared.Unity.Resolution;
+using MackySoft.Ucli.Infrastructure.Paths;
 
 namespace MackySoft.Ucli.UnityIntegration.Resolution;
 
 /// <summary> Validates version consistency between Unity editor executable paths and target Unity versions. </summary>
-internal sealed class UnityEditorVersionConsistencyValidator
+internal static class UnityEditorVersionConsistencyValidator
 {
     private static readonly Regex UnityVersionRegex = new(
         @"^\d+\.\d+\.\d+[abcfp]\d+(?:c\d+)?$",
@@ -16,7 +17,7 @@ internal sealed class UnityEditorVersionConsistencyValidator
     /// <param name="unityVersion"> The target Unity version. </param>
     /// <returns> The validation result as editor-path resolution output. </returns>
     /// <exception cref="ArgumentException"> Thrown when one input value is <see langword="null" />, empty, or whitespace. </exception>
-    public UnityEditorPathResolutionResult Validate (
+    public static UnityEditorPathResolutionResult Validate (
         string unityEditorPath,
         string unityVersion)
     {
@@ -48,7 +49,7 @@ internal sealed class UnityEditorVersionConsistencyValidator
     {
         detectedVersion = string.Empty;
 
-        var normalizedPath = unityEditorPath.Replace('\\', '/');
+        var normalizedPath = PathStringNormalizer.ToSlashSeparated(unityEditorPath);
         var segments = normalizedPath.Split('/', StringSplitOptions.RemoveEmptyEntries);
         for (var index = 0; index < segments.Length; index++)
         {
@@ -59,8 +60,8 @@ internal sealed class UnityEditorVersionConsistencyValidator
 
             var previousSegment = index > 0 ? segments[index - 1] : null;
             var nextSegment = index < segments.Length - 1 ? segments[index + 1] : null;
-            if (string.Equals(previousSegment, "Editor", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(nextSegment, "Editor", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(previousSegment, "Editor", PathStringNormalizer.CurrentPlatformPathComparison)
+                || string.Equals(nextSegment, "Editor", PathStringNormalizer.CurrentPlatformPathComparison))
             {
                 detectedVersion = segments[index];
                 return true;

@@ -1,6 +1,7 @@
 using System.Text;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Features.Daemon.Supervisor.Launch;
 
@@ -31,7 +32,7 @@ internal sealed class SystemdRunSupervisorProcessLauncher
 
         try
         {
-            var normalizedStorageRoot = Path.GetFullPath(storageRoot);
+            var normalizedStorageRoot = UcliStoragePathResolver.NormalizeStorageRootPath(storageRoot);
             var unitName = BuildSystemdUnitName(normalizedStorageRoot);
             var arguments = BuildArguments(normalizedStorageRoot, unitName, launchCommand);
 

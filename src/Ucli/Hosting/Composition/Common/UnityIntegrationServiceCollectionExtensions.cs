@@ -43,13 +43,6 @@ internal static class UnityIntegrationServiceCollectionExtensions
         services.AddSingleton<IUnityUcliPluginLocator, UnityUcliPluginLocator>();
         services.AddSingleton<IUnityPluginVerifier, UnityPluginVerifier>();
         services.AddSingleton<IUnityVersionResolver, UnityVersionResolver>();
-        services.AddSingleton<IUnityEditorSearchRootSource, WindowsUnityEditorSearchRootSource>();
-        services.AddSingleton<IUnityEditorSearchRootSource, MacUnityEditorSearchRootSource>();
-        services.AddSingleton<IUnityEditorSearchRootSource, LinuxUnityEditorSearchRootSource>();
-        services.AddSingleton<IUnityPathComparerProvider, UnityPathComparerProvider>();
-        services.AddSingleton<UnityEditorExecutablePathLocator>();
-        services.AddSingleton<UnityEditorVersionConsistencyValidator>();
-        services.AddSingleton<IUnityEditorSearchRootProvider, DefaultUnityEditorSearchRootProvider>();
         services.AddSingleton<IUnityEditorPathResolver, UnityEditorPathResolver>();
         services.AddSingleton<IReadIndexArtifactReader, FileReadIndexArtifactReader>();
         services.AddSingleton<IReadIndexArtifactWriter, FileReadIndexArtifactWriter>();
@@ -65,7 +58,6 @@ internal static class UnityIntegrationServiceCollectionExtensions
         services.AddSingleton<ISceneTreeLiteDirtySourceProbeService, SceneTreeLiteDirtySourceProbeService>();
         services.AddSingleton<ISceneTreeLiteSourceRefreshService, SceneTreeLiteSourceRefreshService>();
         services.AddSingleton<IPersistedOpsCatalogPersistenceArtifactsReader, PersistedOpsCatalogPersistenceArtifactsReader>();
-        services.AddSingleton<IIpcEndpointResolver, IpcEndpointResolver>();
         services.AddSingleton<IIpcTransportClient, IpcTransportClient>();
         services.AddSingleton<IUnityIpcTransportClient, UnityIpcTransportClient>();
         services.AddSingleton<UnityDaemonRecoveryWaiter>();

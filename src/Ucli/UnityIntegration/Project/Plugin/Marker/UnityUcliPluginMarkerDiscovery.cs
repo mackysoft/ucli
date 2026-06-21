@@ -35,10 +35,7 @@ internal sealed class UnityUcliPluginMarkerDiscovery
 
         try
         {
-            var pathComparer = OperatingSystem.IsWindows()
-                ? StringComparer.OrdinalIgnoreCase
-                : StringComparer.Ordinal;
-            var markerPaths = new SortedSet<string>(pathComparer);
+            var markerPaths = new SortedSet<string>(PathStringNormalizer.CurrentPlatformPathComparer);
             CollectStandardMarkerPaths(unityProjectRoot, markerPaths);
 
             foreach (var searchRootDirectoryName in SearchRootDirectoryNames)

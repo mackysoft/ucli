@@ -2,6 +2,7 @@ using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
@@ -21,7 +22,6 @@ public sealed class UnityOneshotIpcClientTests
     {
         using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "success");
         var unityProject = CreateUnityProject(scope);
-        var endpoint = new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-oneshot.sock");
         var processHandle = new StubUnityBatchmodeProcessHandle();
         var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var transportClient = new StubUnityIpcTransportClient(request =>
@@ -36,7 +36,6 @@ public sealed class UnityOneshotIpcClientTests
         var lockProvider = new StubProjectLifecycleLockProvider();
         var client = new UnityOneshotIpcClient(
             launcher,
-            new StubIpcEndpointResolver(endpoint),
             transportClient,
             lockProvider,
             new StubUnityProjectLockFileProbe());
@@ -58,8 +57,9 @@ public sealed class UnityOneshotIpcClientTests
         Assert.Equal(Environment.ProcessId, bootstrapArguments.ParentProcessId);
         Assert.False(string.IsNullOrWhiteSpace(bootstrapArguments.SessionToken));
         Assert.True(bootstrapArguments.ExitDeadlineUtc > DateTimeOffset.UtcNow);
-        Assert.Equal("unixDomainSocket", bootstrapArguments.EndpointTransportKind);
-        Assert.Equal(endpoint.Address, bootstrapArguments.EndpointAddress);
+        var expectedEndpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(unityProject.RepositoryRoot, unityProject.ProjectFingerprint);
+        Assert.Equal(ContractLiteralCodec.ToValue(expectedEndpoint.TransportKind), bootstrapArguments.EndpointTransportKind);
+        Assert.Equal(expectedEndpoint.Address, bootstrapArguments.EndpointAddress);
 
         Assert.Equal(2, transportClient.CallCount);
         Assert.Equal(IpcMethodNames.Ping, transportClient.Requests[0].Method);
@@ -78,7 +78,6 @@ public sealed class UnityOneshotIpcClientTests
     {
         using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "streaming-success");
         var unityProject = CreateUnityProject(scope);
-        var endpoint = new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-oneshot.sock");
         var processHandle = new StubUnityBatchmodeProcessHandle();
         var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var transportClient = new StubUnityIpcTransportClient(
@@ -101,7 +100,6 @@ public sealed class UnityOneshotIpcClientTests
                 null));
         var client = new UnityOneshotIpcClient(
             launcher,
-            new StubIpcEndpointResolver(endpoint),
             transportClient,
             new StubProjectLifecycleLockProvider(),
             new StubUnityProjectLockFileProbe());
@@ -136,7 +134,6 @@ public sealed class UnityOneshotIpcClientTests
     {
         using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "streaming-progress-handler-failure");
         var unityProject = CreateUnityProject(scope);
-        var endpoint = new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-oneshot.sock");
         var processHandle = new StubUnityBatchmodeProcessHandle();
         var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var handlerException = new InvalidOperationException("progress frame rejected");
@@ -152,7 +149,6 @@ public sealed class UnityOneshotIpcClientTests
         });
         var client = new UnityOneshotIpcClient(
             launcher,
-            new StubIpcEndpointResolver(endpoint),
             transportClient,
             new StubProjectLifecycleLockProvider(),
             new StubUnityProjectLockFileProbe());
@@ -179,7 +175,6 @@ public sealed class UnityOneshotIpcClientTests
     {
         using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "startup-fingerprint-mismatch");
         var unityProject = CreateUnityProject(scope);
-        var endpoint = new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-oneshot.sock");
         var processHandle = new StubUnityBatchmodeProcessHandle();
         var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var transportClient = new StubUnityIpcTransportClient(request =>
@@ -193,7 +188,6 @@ public sealed class UnityOneshotIpcClientTests
         });
         var client = new UnityOneshotIpcClient(
             launcher,
-            new StubIpcEndpointResolver(endpoint),
             transportClient,
             new StubProjectLifecycleLockProvider(),
             new StubUnityProjectLockFileProbe());
@@ -223,7 +217,6 @@ public sealed class UnityOneshotIpcClientTests
     {
         using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", $"startup-retry-{lifecycleState}");
         var unityProject = CreateUnityProject(scope);
-        var endpoint = new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-oneshot.sock");
         var processHandle = new StubUnityBatchmodeProcessHandle();
         var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var pingAttempt = 0;
@@ -241,7 +234,6 @@ public sealed class UnityOneshotIpcClientTests
         });
         var client = new UnityOneshotIpcClient(
             launcher,
-            new StubIpcEndpointResolver(endpoint),
             transportClient,
             new StubProjectLifecycleLockProvider(),
             new StubUnityProjectLockFileProbe());
@@ -268,7 +260,6 @@ public sealed class UnityOneshotIpcClientTests
     {
         using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", $"startup-allowed-{lifecycleState}");
         var unityProject = CreateUnityProject(scope);
-        var endpoint = new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-oneshot.sock");
         var processHandle = new StubUnityBatchmodeProcessHandle();
         var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var transportClient = new StubUnityIpcTransportClient(request =>
@@ -285,7 +276,6 @@ public sealed class UnityOneshotIpcClientTests
         });
         var client = new UnityOneshotIpcClient(
             launcher,
-            new StubIpcEndpointResolver(endpoint),
             transportClient,
             new StubProjectLifecycleLockProvider(),
             new StubUnityProjectLockFileProbe());
@@ -308,7 +298,6 @@ public sealed class UnityOneshotIpcClientTests
     {
         using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "startup-fail-fast");
         var unityProject = CreateUnityProject(scope);
-        var endpoint = new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-oneshot.sock");
         var processHandle = new StubUnityBatchmodeProcessHandle();
         var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var transportClient = new StubUnityIpcTransportClient(request =>
@@ -324,7 +313,6 @@ public sealed class UnityOneshotIpcClientTests
         });
         var client = new UnityOneshotIpcClient(
             launcher,
-            new StubIpcEndpointResolver(endpoint),
             transportClient,
             new StubProjectLifecycleLockProvider(),
             new StubUnityProjectLockFileProbe());
@@ -349,7 +337,6 @@ public sealed class UnityOneshotIpcClientTests
     {
         using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "ready-ping-shutdown");
         var unityProject = CreateUnityProject(scope);
-        var endpoint = new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-oneshot.sock");
         var processHandle = new StubUnityBatchmodeProcessHandle();
         var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var transportClient = new StubUnityIpcTransportClient(request =>
@@ -363,7 +350,6 @@ public sealed class UnityOneshotIpcClientTests
         });
         var client = new UnityOneshotIpcClient(
             launcher,
-            new StubIpcEndpointResolver(endpoint),
             transportClient,
             new StubProjectLifecycleLockProvider(),
             new StubUnityProjectLockFileProbe());
@@ -402,7 +388,6 @@ public sealed class UnityOneshotIpcClientTests
     {
         using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "ready-ping-startup-fail-fast");
         var unityProject = CreateUnityProject(scope);
-        var endpoint = new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-oneshot.sock");
         var processHandle = new StubUnityBatchmodeProcessHandle();
         var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var transportClient = new StubUnityIpcTransportClient(request =>
@@ -416,7 +401,6 @@ public sealed class UnityOneshotIpcClientTests
         });
         var client = new UnityOneshotIpcClient(
             launcher,
-            new StubIpcEndpointResolver(endpoint),
             transportClient,
             new StubProjectLifecycleLockProvider(),
             new StubUnityProjectLockFileProbe());
@@ -453,7 +437,6 @@ public sealed class UnityOneshotIpcClientTests
     {
         using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "startup-timeout-retry");
         var unityProject = CreateUnityProject(scope);
-        var endpoint = new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-oneshot.sock");
         var processHandle = new StubUnityBatchmodeProcessHandle();
         var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var pingAttempt = 0;
@@ -469,7 +452,6 @@ public sealed class UnityOneshotIpcClientTests
         });
         var client = new UnityOneshotIpcClient(
             launcher,
-            new StubIpcEndpointResolver(endpoint),
             transportClient,
             new StubProjectLifecycleLockProvider(),
             new StubUnityProjectLockFileProbe());
@@ -493,7 +475,6 @@ public sealed class UnityOneshotIpcClientTests
         var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(new StubUnityBatchmodeProcessHandle()));
         var client = new UnityOneshotIpcClient(
             launcher,
-            new StubIpcEndpointResolver(new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-oneshot.sock")),
             new StubUnityIpcTransportClient(_ => CreateSuccessResponse("unused")),
             new StubProjectLifecycleLockProvider((_, _, cancellationToken) =>
             {
@@ -523,7 +504,6 @@ public sealed class UnityOneshotIpcClientTests
         var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var client = new UnityOneshotIpcClient(
             launcher,
-            new StubIpcEndpointResolver(new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-oneshot.sock")),
             new StubUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Transport should not be called.")),
             new StubProjectLifecycleLockProvider(),
             new StubUnityProjectLockFileProbe(
@@ -555,7 +535,6 @@ public sealed class UnityOneshotIpcClientTests
         var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var client = new UnityOneshotIpcClient(
             launcher,
-            new StubIpcEndpointResolver(new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-oneshot.sock")),
             new StubUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Transport should not be called.")),
             new StubProjectLifecycleLockProvider(),
             new StubUnityProjectLockFileProbe(
@@ -595,7 +574,6 @@ public sealed class UnityOneshotIpcClientTests
             sizeBytes: 192));
         var client = new UnityOneshotIpcClient(
             launcher,
-            new StubIpcEndpointResolver(new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-oneshot.sock")),
             new StubUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Transport should not be called.")),
             new StubProjectLifecycleLockProvider(),
             new StubUnityProjectLockFileProbe(
@@ -641,7 +619,6 @@ public sealed class UnityOneshotIpcClientTests
             sizeBytes: 224));
         var client = new UnityOneshotIpcClient(
             launcher,
-            new StubIpcEndpointResolver(new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-oneshot.sock")),
             new StubUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Transport should not be called.")),
             new StubProjectLifecycleLockProvider(),
             new StubUnityProjectLockFileProbe(
@@ -687,7 +664,6 @@ public sealed class UnityOneshotIpcClientTests
             sizeBytes: 192));
         var client = new UnityOneshotIpcClient(
             launcher,
-            new StubIpcEndpointResolver(new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-oneshot.sock")),
             new StubUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Transport should not be called.")),
             new StubProjectLifecycleLockProvider(),
             new StubUnityProjectLockFileProbe(
@@ -712,7 +688,6 @@ public sealed class UnityOneshotIpcClientTests
     {
         using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "request-timeout");
         var unityProject = CreateUnityProject(scope);
-        var endpoint = new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-oneshot.sock");
         var processHandle = new StubUnityBatchmodeProcessHandle();
         var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var transportClient = new StubUnityIpcTransportClient(request =>
@@ -727,7 +702,6 @@ public sealed class UnityOneshotIpcClientTests
         });
         var client = new UnityOneshotIpcClient(
             launcher,
-            new StubIpcEndpointResolver(endpoint),
             transportClient,
             new StubProjectLifecycleLockProvider(),
             new StubUnityProjectLockFileProbe());
@@ -754,7 +728,6 @@ public sealed class UnityOneshotIpcClientTests
     {
         using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "startup-timeout-shutdown");
         var unityProject = CreateUnityProject(scope);
-        var endpoint = new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-oneshot.sock");
         var processHandle = new StubUnityBatchmodeProcessHandle();
         var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var transportClient = new StubUnityIpcTransportClient(request =>
@@ -768,7 +741,6 @@ public sealed class UnityOneshotIpcClientTests
         });
         var client = CreateClient(
             launcher,
-            new StubIpcEndpointResolver(endpoint),
             transportClient,
             new StubProjectLifecycleLockProvider(),
             new StubUnityProjectLockFileProbe(),
@@ -778,7 +750,7 @@ public sealed class UnityOneshotIpcClientTests
         var result = await client.SendAsync(
             unityProject,
             CreateDispatchRequest(),
-            TimeSpan.FromMilliseconds(20),
+            TimeSpan.FromMilliseconds(150),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -804,7 +776,6 @@ public sealed class UnityOneshotIpcClientTests
     {
         using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "response-before-deadline-cleanup-budget");
         var unityProject = CreateUnityProject(scope);
-        var endpoint = new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-oneshot.sock");
         var processHandle = new StubUnityBatchmodeProcessHandle(
             waitForExitBehavior: async cancellationToken =>
             {
@@ -822,7 +793,6 @@ public sealed class UnityOneshotIpcClientTests
         });
         var client = CreateClient(
             launcher,
-            new StubIpcEndpointResolver(endpoint),
             transportClient,
             new StubProjectLifecycleLockProvider(),
             new StubUnityProjectLockFileProbe(),
@@ -846,7 +816,6 @@ public sealed class UnityOneshotIpcClientTests
     {
         using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "response-success-process-stays-alive");
         var unityProject = CreateUnityProject(scope);
-        var endpoint = new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-oneshot.sock");
         var processHandle = new StubUnityBatchmodeProcessHandle(
             waitForExitBehavior: static async cancellationToken =>
             {
@@ -865,7 +834,6 @@ public sealed class UnityOneshotIpcClientTests
         });
         var client = CreateClient(
             launcher,
-            new StubIpcEndpointResolver(endpoint),
             transportClient,
             new StubProjectLifecycleLockProvider(),
             new StubUnityProjectLockFileProbe(),
@@ -892,7 +860,6 @@ public sealed class UnityOneshotIpcClientTests
     {
         using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "ready-ping-process-stays-alive");
         var unityProject = CreateUnityProject(scope);
-        var endpoint = new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-oneshot.sock");
         var processHandle = new StubUnityBatchmodeProcessHandle(
             waitForExitBehavior: static async cancellationToken =>
             {
@@ -910,7 +877,6 @@ public sealed class UnityOneshotIpcClientTests
         });
         var client = CreateClient(
             launcher,
-            new StubIpcEndpointResolver(endpoint),
             transportClient,
             new StubProjectLifecycleLockProvider(),
             new StubUnityProjectLockFileProbe(),
@@ -948,7 +914,6 @@ public sealed class UnityOneshotIpcClientTests
     {
         using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "shutdown-accepted-process-stays-alive");
         var unityProject = CreateUnityProject(scope);
-        var endpoint = new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-oneshot.sock");
         var processHandle = new StubUnityBatchmodeProcessHandle(
             waitForExitBehavior: async cancellationToken =>
             {
@@ -967,7 +932,6 @@ public sealed class UnityOneshotIpcClientTests
         });
         var client = CreateClient(
             launcher,
-            new StubIpcEndpointResolver(endpoint),
             transportClient,
             new StubProjectLifecycleLockProvider(),
             new StubUnityProjectLockFileProbe(),
@@ -997,7 +961,6 @@ public sealed class UnityOneshotIpcClientTests
         using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "request-timeout-stale-lock");
         var unityProject = CreateUnityProject(scope);
         var lockFilePath = scope.GetPath("UnityProject/Temp/UnityLockfile");
-        var endpoint = new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-oneshot.sock");
         var processHandle = new StubUnityBatchmodeProcessHandle();
         var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var transportClient = new StubUnityIpcTransportClient(request =>
@@ -1011,7 +974,6 @@ public sealed class UnityOneshotIpcClientTests
         });
         var client = new UnityOneshotIpcClient(
             launcher,
-            new StubIpcEndpointResolver(endpoint),
             transportClient,
             new StubProjectLifecycleLockProvider(),
             new StubUnityProjectLockFileProbe(UnityProjectLockFileProbeResult.Locked(lockFilePath)));
@@ -1031,7 +993,6 @@ public sealed class UnityOneshotIpcClientTests
 
     private static UnityOneshotIpcClient CreateClient (
         IUnityBatchmodeProcessLauncher launcher,
-        IIpcEndpointResolver endpointResolver,
         IUnityIpcTransportClient transportClient,
         IProjectLifecycleLockProvider lifecycleLockProvider,
         IUnityProjectLockPreflightService unityProjectLockPreflightService,
@@ -1040,7 +1001,6 @@ public sealed class UnityOneshotIpcClientTests
     {
         return new UnityOneshotIpcClient(
             launcher,
-            endpointResolver,
             transportClient,
             lifecycleLockProvider,
             unityProjectLockPreflightService,
@@ -1290,23 +1250,6 @@ public sealed class UnityOneshotIpcClientTests
             }
 
             return await SendAsync(storageRoot, projectFingerprint, request, timeout, cancellationToken);
-        }
-    }
-
-    private sealed class StubIpcEndpointResolver : IIpcEndpointResolver
-    {
-        private readonly IpcEndpoint endpoint;
-
-        public StubIpcEndpointResolver (IpcEndpoint endpoint)
-        {
-            this.endpoint = endpoint;
-        }
-
-        public IpcEndpoint Resolve (
-            string storageRoot,
-            string projectFingerprint)
-        {
-            return endpoint;
         }
     }
 

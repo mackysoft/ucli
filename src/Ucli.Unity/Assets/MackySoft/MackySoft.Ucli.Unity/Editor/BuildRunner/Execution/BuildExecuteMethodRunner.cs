@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Reflection;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -93,32 +95,27 @@ namespace MackySoft.Ucli.Unity.Build
                     "Build executeMethod runner returned no UcliBuildRunnerResult.");
             }
 
-            if (!TryValidateResult(result, out var validationMessage))
+            if (!TryValidateResult(result, context.OutputDir, out var validationCode, out var validationMessage))
             {
                 return Failure(
-                    BuildErrorCodes.BuildRunnerResultInvalid,
+                    validationCode!.Value,
                     validationMessage!);
             }
 
             var runnerResult = new IpcBuildRunnerResultArtifact(
                 Source: ContractLiteralCodec.ToValue(IpcBuildRunnerResultSource.UcliBuildRunnerResult),
                 Status: result.Status,
-                DurationMilliseconds: result.DurationMilliseconds,
-                ErrorCount: result.ErrorCount,
-                WarningCount: result.WarningCount,
-                Diagnostics: Array.Empty<IpcBuildRunnerDiagnostic>());
-            var syntheticReport = new IpcBuildReportArtifact(
-                SchemaVersion: 1,
-                Result: result.Status,
-                UnityBuildTarget: resolvedInput.UnityBuildTarget.ToString(),
-                OutputPath: request.OutputPath,
-                DurationMilliseconds: result.DurationMilliseconds,
-                TotalSizeBytes: 0,
-                ErrorCount: result.ErrorCount,
-                WarningCount: result.WarningCount,
-                Steps: Array.Empty<IpcBuildReportStep>(),
-                Messages: Array.Empty<IpcBuildReportMessage>());
-            return BuildExecuteMethodInvocationResult.Success(runnerResult, syntheticReport);
+                DurationMilliseconds: result.Summary.DurationMilliseconds,
+                ErrorCount: result.Summary.ErrorCount,
+                WarningCount: result.Summary.WarningCount,
+                Diagnostics: CreateDiagnostics(result.Diagnostics))
+            {
+                Outputs = CopyOutputs(result.Outputs),
+                BuildReport = result.BuildReport == null
+                    ? null
+                    : new IpcBuildRunnerResultBuildReport(result.BuildReport.Path),
+            };
+            return BuildExecuteMethodInvocationResult.Success(runnerResult);
         }
 
         private static UcliBuildRunnerContext CreateContext (
@@ -154,17 +151,136 @@ namespace MackySoft.Ucli.Unity.Build
 
         private static bool TryValidateResult (
             UcliBuildRunnerResult result,
+            string outputDirectory,
+            out UcliCode? errorCode,
             out string? errorMessage)
         {
             if (!ContractLiteralCodec.IsDefined<IpcBuildReportResult>(result.Status)
                 || string.Equals(result.Status, ContractLiteralCodec.ToValue(IpcBuildReportResult.Unknown), StringComparison.Ordinal))
             {
+                errorCode = BuildErrorCodes.BuildRunnerResultInvalid;
                 errorMessage = "Build executeMethod runner result status is invalid.";
                 return false;
             }
 
+            if (result.Summary.DurationMilliseconds < 0
+                || result.Summary.ErrorCount < 0
+                || result.Summary.WarningCount < 0)
+            {
+                errorCode = BuildErrorCodes.BuildRunnerResultInvalid;
+                errorMessage = "Build executeMethod runner result summary is invalid.";
+                return false;
+            }
+
+            if (!HasValidDiagnostics(result.Diagnostics))
+            {
+                errorCode = BuildErrorCodes.BuildRunnerResultInvalid;
+                errorMessage = "Build executeMethod runner result diagnostics are invalid.";
+                return false;
+            }
+
+            if (string.Equals(result.Status, ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded), StringComparison.Ordinal)
+                && result.Outputs.Count == 0)
+            {
+                errorCode = BuildErrorCodes.BuildRunnerResultInvalid;
+                errorMessage = "Build executeMethod runner result requires at least one output when status is succeeded.";
+                return false;
+            }
+
+            for (var i = 0; i < result.Outputs.Count; i++)
+            {
+                var output = result.Outputs[i];
+                if (!BuildRunnerOutputSourcePathResolver.TryResolve(outputDirectory, output, out var sourcePath))
+                {
+                    errorCode = BuildErrorCodes.BuildOutputPathInvalid;
+                    errorMessage = "Build executeMethod runner result output path is invalid.";
+                    return false;
+                }
+
+                if (!File.Exists(sourcePath) && !Directory.Exists(sourcePath))
+                {
+                    errorCode = BuildErrorCodes.BuildRunnerResultInvalid;
+                    errorMessage = "Build executeMethod runner result output does not exist.";
+                    return false;
+                }
+            }
+
+            if (result.BuildReport != null
+                && !BuildRunnerOutputSourcePathResolver.TryResolve(outputDirectory, result.BuildReport.Path, out _))
+            {
+                errorCode = BuildErrorCodes.BuildRunnerResultInvalid;
+                errorMessage = "Build executeMethod runner result buildReport.path is invalid.";
+                return false;
+            }
+
+            errorCode = null;
             errorMessage = null;
             return true;
+        }
+
+        private static IpcBuildRunnerDiagnostic[] CreateDiagnostics (IReadOnlyList<UcliBuildRunnerDiagnostic> diagnostics)
+        {
+            if (diagnostics.Count == 0)
+            {
+                return Array.Empty<IpcBuildRunnerDiagnostic>();
+            }
+
+            var output = new IpcBuildRunnerDiagnostic[diagnostics.Count];
+            for (var i = 0; i < diagnostics.Count; i++)
+            {
+                var diagnostic = diagnostics[i];
+                output[i] = new IpcBuildRunnerDiagnostic(
+                    diagnostic.Code,
+                    diagnostic.Severity,
+                    diagnostic.Message);
+            }
+
+            return output;
+        }
+
+        private static string[] CopyOutputs (IReadOnlyList<string> outputs)
+        {
+            if (outputs.Count == 0)
+            {
+                return Array.Empty<string>();
+            }
+
+            var copy = new string[outputs.Count];
+            for (var i = 0; i < outputs.Count; i++)
+            {
+                copy[i] = outputs[i];
+            }
+
+            return copy;
+        }
+
+        private static bool HasValidDiagnostics (IReadOnlyList<UcliBuildRunnerDiagnostic> diagnostics)
+        {
+            if (diagnostics == null)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < diagnostics.Count; i++)
+            {
+                var diagnostic = diagnostics[i];
+                if (diagnostic == null
+                    || string.IsNullOrWhiteSpace(diagnostic.Code)
+                    || !IsKnownDiagnosticSeverity(diagnostic.Severity)
+                    || string.IsNullOrWhiteSpace(diagnostic.Message))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static bool IsKnownDiagnosticSeverity (string severity)
+        {
+            return severity is IpcExecuteDiagnosticSeverityNames.Info
+                or IpcExecuteDiagnosticSeverityNames.Warning
+                or IpcExecuteDiagnosticSeverityNames.Error;
         }
 
         private static BuildExecuteMethodInvocationResult Failure (

@@ -1,10 +1,10 @@
+using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.LaunchAttempts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
-using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.Tests.Daemon;
 
@@ -19,7 +19,13 @@ public sealed class DaemonArtifactCleanerTests
             return;
         }
 
-        var socketPath = UnixSocketPathUtilities.BuildFallbackSocketPath(UcliIpcEndpointNames.DaemonAddressPrefix, Guid.NewGuid().ToString("N"));
+        using var scope = TestDirectories.CreateTempScope("daemon-artifact-cleaner", "fallback-socket");
+        var storageRoot = Path.Combine(scope.FullPath, new string('a', 160), new string('b', 160));
+        const string projectFingerprint = "fingerprint-cleanup";
+        var endpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(storageRoot, projectFingerprint);
+        Assert.Equal(IpcTransportKind.UnixDomainSocket, endpoint.TransportKind);
+
+        var socketPath = endpoint.Address;
         var socketDirectoryPath = Path.GetDirectoryName(socketPath)!;
         Directory.CreateDirectory(socketDirectoryPath);
         await File.WriteAllTextAsync(socketPath, string.Empty, CancellationToken.None);
@@ -27,14 +33,13 @@ public sealed class DaemonArtifactCleanerTests
         var cleaner = new DaemonArtifactCleaner(
             new StubDaemonSessionStore(),
             new StubDaemonLifecycleStore(),
-            new StubDaemonLaunchAttemptStore(),
-            new StubEndpointResolver(new IpcEndpoint(IpcTransportKind.UnixDomainSocket, socketPath)));
+            new StubDaemonLaunchAttemptStore());
 
         var result = await cleaner.CleanupAsync(
             new ResolvedUnityProjectContext(
                 UnityProjectRoot: "/tmp/unity-project",
-                RepositoryRoot: "/tmp/repo-root",
-                ProjectFingerprint: "fingerprint-cleanup",
+                RepositoryRoot: storageRoot,
+                ProjectFingerprint: projectFingerprint,
                 PathSource: UnityProjectPathSource.CommandOption),
             CancellationToken.None);
 
@@ -54,8 +59,7 @@ public sealed class DaemonArtifactCleanerTests
         var cleaner = new DaemonArtifactCleaner(
             new StubDaemonSessionStore(),
             new StubDaemonLifecycleStore(),
-            launchAttemptStore,
-            new StubEndpointResolver(new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-test-pipe")));
+            launchAttemptStore);
 
         var result = await cleaner.CleanupAsync(
             new ResolvedUnityProjectContext(
@@ -80,8 +84,7 @@ public sealed class DaemonArtifactCleanerTests
             new StubDaemonLaunchAttemptStore
             {
                 PruneResult = DaemonLaunchAttemptStoreOperationResult.Failure(pruneError),
-            },
-            new StubEndpointResolver(new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-test-pipe")));
+            });
 
         var result = await cleaner.CleanupAsync(
             new ResolvedUnityProjectContext(
@@ -172,20 +175,4 @@ public sealed class DaemonArtifactCleanerTests
         }
     }
 
-    private sealed class StubEndpointResolver : IIpcEndpointResolver
-    {
-        private readonly IpcEndpoint endpoint;
-
-        public StubEndpointResolver (IpcEndpoint endpoint)
-        {
-            this.endpoint = endpoint;
-        }
-
-        public IpcEndpoint Resolve (
-            string storageRoot,
-            string projectFingerprint)
-        {
-            return endpoint;
-        }
-    }
 }

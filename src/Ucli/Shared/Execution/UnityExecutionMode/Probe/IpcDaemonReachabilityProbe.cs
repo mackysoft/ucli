@@ -4,31 +4,26 @@ using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Recovery;
-using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 
 /// <summary> Probes daemon reachability by attempting an IPC ping call. </summary>
 internal sealed class IpcDaemonReachabilityProbe : IDaemonReachabilityProbe
 {
-    private readonly IIpcEndpointResolver endpointResolver;
-
     private readonly IDaemonPingClient daemonPingClient;
 
     private readonly UnityDaemonRecoveryWaiter? recoveryWaiter;
 
     /// <summary> Initializes a new instance of the <see cref="IpcDaemonReachabilityProbe" /> class. </summary>
-    /// <param name="endpointResolver"> The endpoint resolver dependency. </param>
     /// <param name="daemonPingClient"> The daemon ping client dependency. </param>
     /// <param name="recoveryWaiter"> The daemon lifecycle recovery waiter dependency. </param>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="endpointResolver" /> or <paramref name="daemonPingClient" /> is <see langword="null" />. </exception>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="daemonPingClient" /> is <see langword="null" />. </exception>
     public IpcDaemonReachabilityProbe (
-        IIpcEndpointResolver endpointResolver,
         IDaemonPingClient daemonPingClient,
         UnityDaemonRecoveryWaiter? recoveryWaiter = null)
     {
-        this.endpointResolver = endpointResolver ?? throw new ArgumentNullException(nameof(endpointResolver));
         this.daemonPingClient = daemonPingClient ?? throw new ArgumentNullException(nameof(daemonPingClient));
         this.recoveryWaiter = recoveryWaiter;
     }
@@ -50,7 +45,7 @@ internal sealed class IpcDaemonReachabilityProbe : IDaemonReachabilityProbe
         cancellationToken.ThrowIfCancellationRequested();
         var deadline = ExecutionDeadline.Start(timeout);
 
-        var endpoint = endpointResolver.Resolve(
+        var endpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(
             unityProject.RepositoryRoot,
             unityProject.ProjectFingerprint);
 

@@ -364,8 +364,7 @@
                 "result",
                 "durationMilliseconds",
                 "errorCount",
-                "warningCount",
-                "reportRef"
+                "warningCount"
               ]
             },
             "logs": {
@@ -575,7 +574,6 @@
           },
           "required": [
             "build",
-            "buildReport",
             "buildOutputManifest",
             "buildLog"
           ]

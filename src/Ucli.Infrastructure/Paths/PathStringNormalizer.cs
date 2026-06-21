@@ -5,6 +5,14 @@ namespace MackySoft.Ucli.Infrastructure.Paths;
 /// <summary> Provides reusable normalization helpers for path text values. </summary>
 internal static class PathStringNormalizer
 {
+    /// <summary> Gets the string comparison used for path identity on the current platform. </summary>
+    public static StringComparison CurrentPlatformPathComparison =>
+        RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+
+    /// <summary> Gets the string comparer used for path identity on the current platform. </summary>
+    public static StringComparer CurrentPlatformPathComparer =>
+        CurrentPlatformPathComparison == StringComparison.OrdinalIgnoreCase ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+
     /// <summary> Replaces backslashes with forward slashes. </summary>
     /// <param name="pathValue"> The path text value. </param>
     /// <returns> The slash-separated path text. </returns>
@@ -64,6 +72,22 @@ internal static class PathStringNormalizer
         return pathValue.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
     }
 
+    /// <summary> Determines whether <paramref name="pathValue" /> is the current-platform filesystem root path. </summary>
+    /// <param name="pathValue"> The path text value. </param>
+    /// <returns> <see langword="true" /> when the path is a filesystem root; otherwise <see langword="false" />. </returns>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="pathValue" /> is <see langword="null" />. </exception>
+    public static bool IsPathRoot (string pathValue)
+    {
+        if (pathValue == null)
+        {
+            throw new ArgumentNullException(nameof(pathValue));
+        }
+
+        var pathRoot = Path.GetPathRoot(pathValue);
+        return !string.IsNullOrEmpty(pathRoot)
+            && string.Equals(pathValue, pathRoot, CurrentPlatformPathComparison);
+    }
+
     /// <summary> Normalizes path casing for platforms with case-insensitive path semantics. </summary>
     /// <param name="pathValue"> The path text value. </param>
     /// <returns> The path text where case differences are normalized on case-insensitive platforms. </returns>
@@ -75,7 +99,7 @@ internal static class PathStringNormalizer
             throw new ArgumentNullException(nameof(pathValue));
         }
 
-        return RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+        return CurrentPlatformPathComparison == StringComparison.OrdinalIgnoreCase
             ? pathValue.ToUpperInvariant()
             : pathValue;
     }
@@ -119,19 +143,11 @@ internal static class PathStringNormalizer
         }
 
         var fullPath = ReplaceAltSeparatorWithPlatformSeparator(pathResult.FullPath!);
-        var pathRoot = Path.GetPathRoot(fullPath);
-        if (!string.IsNullOrEmpty(pathRoot) && string.Equals(fullPath, pathRoot, GetPathComparison()))
+        if (IsPathRoot(fullPath))
         {
             return NormalizeCaseForCurrentPlatform(fullPath);
         }
 
         return NormalizeCaseForCurrentPlatform(TrimTrailingDirectorySeparators(fullPath));
-    }
-
-    private static StringComparison GetPathComparison ()
-    {
-        return RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-            ? StringComparison.OrdinalIgnoreCase
-            : StringComparison.Ordinal;
     }
 }

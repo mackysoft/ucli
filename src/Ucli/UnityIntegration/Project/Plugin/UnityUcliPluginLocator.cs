@@ -105,7 +105,13 @@ internal sealed class UnityUcliPluginLocator : IUnityUcliPluginLocator
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(unityProjectRoot);
 
-        var normalizedUnityProjectRoot = Path.GetFullPath(unityProjectRoot);
+        var projectRootResult = PathNormalizer.TryNormalizeFullPath(unityProjectRoot);
+        if (!projectRootResult.IsSuccess)
+        {
+            throw new ArgumentException(projectRootResult.DiagnosticMessage, nameof(unityProjectRoot));
+        }
+
+        var normalizedUnityProjectRoot = projectRootResult.FullPath!;
         var storageRoot = UcliStoragePathResolver.ResolveStorageRoot(normalizedUnityProjectRoot);
         var projectFingerprint = UnityProjectFingerprintCalculator.Create(storageRoot, normalizedUnityProjectRoot);
         return new LocateContext(normalizedUnityProjectRoot, storageRoot, projectFingerprint);

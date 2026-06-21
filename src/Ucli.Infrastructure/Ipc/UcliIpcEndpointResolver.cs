@@ -28,7 +28,7 @@ internal static class UcliIpcEndpointResolver
             throw new ArgumentException("Project fingerprint must not be empty.", nameof(projectFingerprint));
         }
 
-        var normalizedStorageRoot = Path.GetFullPath(storageRoot);
+        var normalizedStorageRoot = UcliStoragePathResolver.NormalizeStorageRootPath(storageRoot);
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
@@ -69,7 +69,7 @@ internal static class UcliIpcEndpointResolver
             throw new ArgumentException("Project fingerprint must not be empty.", nameof(projectFingerprint));
         }
 
-        var normalizedStorageRoot = Path.GetFullPath(storageRoot);
+        var normalizedStorageRoot = UcliStoragePathResolver.NormalizeStorageRootPath(storageRoot);
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
