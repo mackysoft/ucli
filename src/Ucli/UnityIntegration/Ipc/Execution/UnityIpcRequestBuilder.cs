@@ -50,9 +50,9 @@ internal sealed class UnityIpcRequestBuilder
                     BuildReportPath: buildRun.BuildReportPath,
                     BuildLogPath: buildRun.BuildLogPath,
                     AllowedEditorModes: buildRun.AllowedEditorModes,
-                    ProjectMutationMode: buildRun.ProjectMutationMode)
+                    ProjectMutationMode: buildRun.ProjectMutationMode,
+                    RunnerKind: buildRun.RunnerKind)
                 {
-                    RunnerKind = buildRun.RunnerKind,
                     ProfilePath = buildRun.ProfilePath,
                     ProfileDigest = buildRun.ProfileDigest,
                     RunnerMethod = buildRun.RunnerMethod,

@@ -751,7 +751,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 BuildReportPath: Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildReportFileName),
                 BuildLogPath: Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildLogFileName),
                 AllowedEditorModes: new[] { ContractLiteralCodec.ToValue(DaemonEditorMode.Batchmode) },
-                ProjectMutationMode: ContractLiteralCodec.ToValue(BuildProfileProjectMutationMode.Forbid));
+                ProjectMutationMode: ContractLiteralCodec.ToValue(BuildProfileProjectMutationMode.Forbid),
+                RunnerKind: ContractLiteralCodec.ToValue(IpcBuildRunnerKind.BuildPipeline));
         }
 
         private static IpcBuildRunRequest CreateExecuteMethodRequest (
@@ -762,7 +763,7 @@ namespace MackySoft.Ucli.Unity.Tests
             return CreateRequest(projectPath, identity) with
             {
                 OutputLayout = null,
-                RunnerKind = "executeMethod",
+                RunnerKind = ContractLiteralCodec.ToValue(IpcBuildRunnerKind.ExecuteMethod),
                 ProfilePath = Path.Combine(projectPath, "build.ucli.json"),
                 ProfileDigest = new string('a', 64),
                 RunnerMethod = method,

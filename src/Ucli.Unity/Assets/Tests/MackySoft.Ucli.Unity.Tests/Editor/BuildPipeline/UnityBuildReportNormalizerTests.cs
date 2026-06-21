@@ -120,7 +120,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 BuildReportPath: "/tmp/ucli/build-report.json",
                 BuildLogPath: "/tmp/ucli/build.log",
                 AllowedEditorModes: new[] { "batchmode" },
-                ProjectMutationMode: "forbid");
+                ProjectMutationMode: "forbid",
+                RunnerKind: ContractLiteralCodec.ToValue(IpcBuildRunnerKind.BuildPipeline));
             var resolvedInput = new UnityBuildResolvedInput(
                 UnityBuildTarget: BuildTarget.StandaloneLinux64,
                 UnityBuildTargetGroup: BuildTargetGroup.Standalone,

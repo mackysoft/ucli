@@ -1,5 +1,4 @@
 using System.Text.Json.Serialization;
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
@@ -16,6 +15,7 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 /// <param name="BuildLogPath"> The absolute path where Unity writes the build log artifact. </param>
 /// <param name="AllowedEditorModes"> The editor mode literals allowed by the resolved build profile runtime policy. </param>
 /// <param name="ProjectMutationMode"> The project mutation mode literal from the resolved build profile. </param>
+/// <param name="RunnerKind"> The resolved build runner kind literal. </param>
 public sealed record IpcBuildRunRequest (
     string RunId,
     string BuildTarget,
@@ -28,11 +28,9 @@ public sealed record IpcBuildRunRequest (
     string BuildReportPath,
     string BuildLogPath,
     IReadOnlyList<string> AllowedEditorModes,
-    string ProjectMutationMode)
+    string ProjectMutationMode,
+    string RunnerKind)
 {
-    /// <summary> Gets the resolved build runner kind literal. </summary>
-    public string RunnerKind { get; init; } = ContractLiteralCodec.ToValue(IpcBuildRunnerKind.BuildPipeline);
-
     /// <summary> Gets the resolved build profile path used for runner context construction. </summary>
     public string? ProfilePath { get; init; }
 

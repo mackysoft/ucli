@@ -277,9 +277,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 BuildReportPath: "/workspace/.ucli/build-report.json",
                 BuildLogPath: "/workspace/.ucli/build.log",
                 AllowedEditorModes: new[] { "batchmode" },
-                ProjectMutationMode: "forbid")
+                ProjectMutationMode: "forbid",
+                RunnerKind: ContractLiteralCodec.ToValue(IpcBuildRunnerKind.ExecuteMethod))
             {
-                RunnerKind = "executeMethod",
                 ProfilePath = "/workspace/build.ucli.json",
                 ProfileDigest = new string('a', 64),
                 RunnerMethod = method,

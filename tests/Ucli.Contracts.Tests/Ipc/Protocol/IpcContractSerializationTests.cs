@@ -299,10 +299,10 @@ public sealed class IpcContractSerializationTests
                 BuildReportPath: "/tmp/ucli/build-report.json",
                 BuildLogPath: "/tmp/ucli/build.log",
                 AllowedEditorModes: ["batchmode"],
-                ProjectMutationMode: "forbid")
+                ProjectMutationMode: "forbid",
+                RunnerKind: ContractLiteralCodec.ToValue(IpcBuildRunnerKind.ExecuteMethod))
             {
                 TimeoutMilliseconds = 1234,
-                RunnerKind = "executeMethod",
                 ProfilePath = "/workspace/UnityProject/.ucli/build/player.json",
                 ProfileDigest = new string('c', 64),
                 RunnerMethod = "Build.Entry.Run",
