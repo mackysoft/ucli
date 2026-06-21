@@ -744,12 +744,12 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 Assert.That(IpcPayloadCodec.TryDeserialize(streamWriter.ProgressFrames[4].Payload, out BuildProgressEntry runnerCompleted, out _), Is.True);
                 Assert.That(runnerCompleted.RunId, Is.EqualTo(RunId));
-                Assert.That(runnerCompleted.Phase, Is.EqualTo(BuildRunProgressPhaseNames.RunnerResult));
-                Assert.That(runnerCompleted.RunnerStatus, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded)));
+                Assert.That(runnerCompleted.Phase, Is.EqualTo("runnerResult"));
+                Assert.That(runnerCompleted.RunnerStatus, Is.EqualTo("succeeded"));
 
                 Assert.That(IpcPayloadCodec.TryDeserialize(streamWriter.ProgressFrames[3].Payload, out BuildLogEntry logEntry, out _), Is.True);
                 Assert.That(logEntry.Message, Is.EqualTo("build pipeline progress log"));
-                Assert.That(logEntry.Source, Is.EqualTo(BuildLogEntrySourceNames.UnityLog));
+                Assert.That(logEntry.Source, Is.EqualTo("unityLog"));
                 Assert.That(logEntry.Cursor, Is.Not.Null);
                 Assert.That(IpcLogCursorCodec.TryParse(logEntry.Cursor!, out _, out var logSequence), Is.True);
                 Assert.That(logSequence, Is.EqualTo(1));
@@ -892,28 +892,28 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(streamWriter.ProgressFrames[4].Event, Is.EqualTo(BuildRunProgressEventNames.RunnerCompleted));
 
                 Assert.That(IpcPayloadCodec.TryDeserialize(streamWriter.ProgressFrames[1].Payload, out BuildProgressEntry runnerResolved, out _), Is.True);
-                Assert.That(runnerResolved.Phase, Is.EqualTo(BuildRunProgressPhaseNames.RunnerResolution));
-                Assert.That(runnerResolved.RunnerKind, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildRunnerKind.ExecuteMethod)));
+                Assert.That(runnerResolved.Phase, Is.EqualTo("runnerResolution"));
+                Assert.That(runnerResolved.RunnerKind, Is.EqualTo("executeMethod"));
                 Assert.That(runnerResolved.RunnerStatus, Is.Null);
 
                 Assert.That(IpcPayloadCodec.TryDeserialize(streamWriter.ProgressFrames[2].Payload, out BuildProgressEntry runnerStarted, out _), Is.True);
-                Assert.That(runnerStarted.Phase, Is.EqualTo(BuildRunProgressPhaseNames.RunnerInvocation));
-                Assert.That(runnerStarted.RunnerKind, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildRunnerKind.ExecuteMethod)));
+                Assert.That(runnerStarted.Phase, Is.EqualTo("runnerInvocation"));
+                Assert.That(runnerStarted.RunnerKind, Is.EqualTo("executeMethod"));
                 Assert.That(runnerStarted.RunnerStatus, Is.Null);
 
                 Assert.That(IpcPayloadCodec.TryDeserialize(streamWriter.ProgressFrames[3].Payload, out BuildLogEntry logEntry, out _), Is.True);
                 Assert.That(logEntry.Message, Is.EqualTo("executeMethod progress log"));
-                Assert.That(logEntry.Source, Is.EqualTo(BuildLogEntrySourceNames.UnityLog));
+                Assert.That(logEntry.Source, Is.EqualTo("unityLog"));
 
                 Assert.That(IpcPayloadCodec.TryDeserialize(streamWriter.ProgressFrames[4].Payload, out BuildProgressEntry runnerCompleted, out _), Is.True);
-                Assert.That(runnerCompleted.Phase, Is.EqualTo(BuildRunProgressPhaseNames.RunnerResult));
-                Assert.That(runnerCompleted.RunnerKind, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildRunnerKind.ExecuteMethod)));
-                Assert.That(runnerCompleted.RunnerStatus, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded)));
+                Assert.That(runnerCompleted.Phase, Is.EqualTo("runnerResult"));
+                Assert.That(runnerCompleted.RunnerKind, Is.EqualTo("executeMethod"));
+                Assert.That(runnerCompleted.RunnerStatus, Is.EqualTo("succeeded"));
 
                 Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcBuildRunResponse payload, out _), Is.True);
                 Assert.That(payload.RunnerResult, Is.Not.Null);
-                Assert.That(payload.RunnerResult!.Source, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildRunnerResultSource.UcliBuildRunnerResult)));
-                Assert.That(payload.RunnerResult.Status, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded)));
+                Assert.That(payload.RunnerResult!.Source, Is.EqualTo("ucliBuildRunnerResult"));
+                Assert.That(payload.RunnerResult.Status, Is.EqualTo("succeeded"));
             }
         }
 
@@ -970,8 +970,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(executeMethodContext.Environment.Secrets["UCLI_SECRET_LONG"], Is.EqualTo("secret-value-tail"));
                 Assert.That(UcliBuildRunnerContext.Current, Is.Null);
                 Assert.That(payload.RunnerResult, Is.Not.Null);
-                Assert.That(payload.RunnerResult!.Source, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildRunnerResultSource.UcliBuildRunnerResult)));
-                Assert.That(payload.RunnerResult.Status, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded)));
+                Assert.That(payload.RunnerResult!.Source, Is.EqualTo("ucliBuildRunnerResult"));
+                Assert.That(payload.RunnerResult.Status, Is.EqualTo("succeeded"));
                 Assert.That(payload.RunnerResult.Outputs, Is.EqualTo(new[] { "player.txt" }));
                 Assert.That(payload.RunnerResult.BuildReport, Is.Null);
                 Assert.That(payload.Report, Is.Null);

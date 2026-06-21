@@ -215,7 +215,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     progressSink,
                     buildRunRequest,
                     BuildRunProgressEventNames.ReadinessCompleted,
-                    BuildRunProgressPhaseNames.Readiness,
+                    ContractLiteralCodec.ToValue(BuildRunProgressPhase.Readiness),
                     runnerKind: null,
                     runnerStatus: null,
                     errorCode: null);
@@ -236,7 +236,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                         progressSink,
                         buildRunRequest,
                         BuildRunProgressEventNames.RunnerResolved,
-                        BuildRunProgressPhaseNames.RunnerResolution,
+                        ContractLiteralCodec.ToValue(BuildRunProgressPhase.RunnerResolution),
                         buildRunRequest.RunnerKind,
                         runnerStatus: null,
                         errorCode: null);
@@ -279,7 +279,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                         progressSink,
                         buildRunRequest,
                         BuildRunProgressEventNames.RunnerStarted,
-                        BuildRunProgressPhaseNames.RunnerInvocation,
+                        ContractLiteralCodec.ToValue(BuildRunProgressPhase.RunnerInvocation),
                         buildRunRequest.RunnerKind,
                         runnerStatus: null,
                         errorCode: null);
@@ -309,7 +309,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                         progressSink,
                         buildRunRequest,
                         BuildRunProgressEventNames.RunnerCompleted,
-                        BuildRunProgressPhaseNames.RunnerResult,
+                        ContractLiteralCodec.ToValue(BuildRunProgressPhase.RunnerResult),
                         buildRunRequest.RunnerKind,
                         runnerResult.Status,
                         errorCode: null);
@@ -535,7 +535,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                         Level: unityLogEvent.Level,
                         Message: LimitProgressLogMessage(unityLogEvent.Message),
                         Cursor: unityLogEvent.Cursor,
-                        Source: BuildLogEntrySourceNames.UnityLog));
+                        Source: ContractLiteralCodec.ToValue(BuildLogEntrySource.UnityLog)));
             }
         }
 

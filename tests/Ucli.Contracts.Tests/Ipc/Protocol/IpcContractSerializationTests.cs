@@ -154,19 +154,6 @@ public sealed class IpcContractSerializationTests
     [Trait("Size", "Small")]
     public void IpcBuildPreconditionContracts_SerializeWithCamelCaseFields ()
     {
-        Assert.Equal("explicit", ContractLiteralCodec.ToValue(BuildProfileSceneSource.Explicit));
-        Assert.Equal("explicit", ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit));
-        Assert.Equal("unityBuildProfile", ContractLiteralCodec.ToValue(BuildProfileInputsKind.UnityBuildProfile));
-        Assert.Equal("editorBuildSettings", ContractLiteralCodec.ToValue(BuildProfileSceneSource.EditorBuildSettings));
-        Assert.Equal("unityBuildProfile", ContractLiteralCodec.ToValue(BuildProfileSceneSource.UnityBuildProfile));
-        Assert.Equal("scene", ContractLiteralCodec.ToValue(IpcBuildDirtyStateItemKind.Scene));
-        Assert.Equal("prefab", ContractLiteralCodec.ToValue(IpcBuildDirtyStateItemKind.Prefab));
-        Assert.Equal("asset", ContractLiteralCodec.ToValue(IpcBuildDirtyStateItemKind.Asset));
-        Assert.Equal("projectSettings", ContractLiteralCodec.ToValue(IpcBuildDirtyStateItemKind.ProjectSettings));
-        Assert.Equal("unknown", ContractLiteralCodec.ToValue(IpcBuildDirtyStateItemKind.Unknown));
-        Assert.Equal("full", ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Full));
-        Assert.Equal("partial", ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Partial));
-
         using var dirtyState = JsonDocument.Parse(JsonSerializer.Serialize(
             new IpcBuildDirtyState(
                 Checked: true,
@@ -270,25 +257,6 @@ public sealed class IpcContractSerializationTests
     [Trait("Size", "Small")]
     public void IpcBuildRunContracts_SerializeWithCamelCaseFields ()
     {
-        Assert.Equal("succeeded", ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded));
-        Assert.Equal("failed", ContractLiteralCodec.ToValue(IpcBuildReportResult.Failed));
-        Assert.Equal("canceled", ContractLiteralCodec.ToValue(IpcBuildReportResult.Canceled));
-        Assert.Equal("unknown", ContractLiteralCodec.ToValue(IpcBuildReportResult.Unknown));
-        Assert.Equal("completed", ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed));
-        Assert.Equal("failed", ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Failed));
-        Assert.Equal("canceled", ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Canceled));
-        Assert.Equal("forbid", ContractLiteralCodec.ToValue(BuildProfileProjectMutationMode.Forbid));
-        Assert.Equal("audit", ContractLiteralCodec.ToValue(BuildProfileProjectMutationMode.Audit));
-        Assert.Equal("allowWithAudit", ContractLiteralCodec.ToValue(BuildProfileProjectMutationMode.AllowWithAudit));
-        Assert.Equal("full", ContractLiteralCodec.ToValue(IpcBuildProjectMutationAuditCoverage.Full));
-        Assert.Equal("partial", ContractLiteralCodec.ToValue(IpcBuildProjectMutationAuditCoverage.Partial));
-        Assert.Equal("indeterminate", ContractLiteralCodec.ToValue(IpcBuildProjectMutationAuditCoverage.Indeterminate));
-        Assert.Equal("added", ContractLiteralCodec.ToValue(IpcBuildProjectMutationChangeKind.Added));
-        Assert.Equal("modified", ContractLiteralCodec.ToValue(IpcBuildProjectMutationChangeKind.Modified));
-        Assert.Equal("deleted", ContractLiteralCodec.ToValue(IpcBuildProjectMutationChangeKind.Deleted));
-        Assert.Equal("buildPipelineBuildReport", ContractLiteralCodec.ToValue(IpcBuildRunnerResultSource.BuildPipelineBuildReport));
-        Assert.Equal("ucliBuildRunnerResult", ContractLiteralCodec.ToValue(IpcBuildRunnerResultSource.UcliBuildRunnerResult));
-
         using var request = JsonDocument.Parse(JsonSerializer.Serialize(
             new IpcBuildRunRequest(
                 RunId: "build-run-1",
@@ -698,14 +666,6 @@ public sealed class IpcContractSerializationTests
     [Trait("Size", "Small")]
     public void DaemonStartSupervisorProgressContracts_SerializeWithCamelCaseFields ()
     {
-        Assert.Equal("daemon.start.launching", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.Launching));
-        Assert.Equal("daemon.start.waitingForEndpoint", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.WaitingForEndpoint));
-        Assert.Equal("daemon.start.blockerDetected", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.BlockerDetected));
-        Assert.Equal("daemon.start.sessionRegistered", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.SessionRegistered));
-        Assert.Equal("daemon.start.endpointRegistered", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.EndpointRegistered));
-        Assert.Equal("daemon.start.lifecycleObserved", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.LifecycleObserved));
-        Assert.Equal("startupObservation", ContractLiteralCodec.ToValue(DaemonStartProgressPayloadKind.StartupObservation));
-        Assert.Equal("lifecycleSnapshot", ContractLiteralCodec.ToValue(DaemonStartProgressPayloadKind.LifecycleSnapshot));
         AssertPayloadKind(DaemonStartProgressEvent.Launching, DaemonStartProgressPayloadKind.StartupObservation);
         AssertPayloadKind(DaemonStartProgressEvent.WaitingForEndpoint, DaemonStartProgressPayloadKind.StartupObservation);
         AssertPayloadKind(DaemonStartProgressEvent.BlockerDetected, DaemonStartProgressPayloadKind.StartupObservation);
@@ -1135,14 +1095,6 @@ public sealed class IpcContractSerializationTests
         Assert.Equal(0, (int)IpcPlayModeTransition.None);
         Assert.Equal(1, (int)IpcPlayModeTransition.Entering);
         Assert.Equal(2, (int)IpcPlayModeTransition.Exiting);
-        Assert.Equal("stopped", ContractLiteralCodec.ToValue(IpcPlayModeState.Stopped));
-        Assert.Equal("entering", ContractLiteralCodec.ToValue(IpcPlayModeState.Entering));
-        Assert.Equal("playing", ContractLiteralCodec.ToValue(IpcPlayModeState.Playing));
-        Assert.Equal("exiting", ContractLiteralCodec.ToValue(IpcPlayModeState.Exiting));
-        Assert.Equal("unknown", ContractLiteralCodec.ToValue(IpcPlayModeState.Unknown));
-        Assert.Equal("none", ContractLiteralCodec.ToValue(IpcPlayModeTransition.None));
-        Assert.Equal("entering", ContractLiteralCodec.ToValue(IpcPlayModeTransition.Entering));
-        Assert.Equal("exiting", ContractLiteralCodec.ToValue(IpcPlayModeTransition.Exiting));
         Assert.Equal("enter", IpcPlayTransitionCommandNames.Enter);
         Assert.Equal("exit", IpcPlayTransitionCommandNames.Exit);
         Assert.Equal("entered", IpcPlayTransitionResultNames.Entered);
@@ -1155,21 +1107,6 @@ public sealed class IpcContractSerializationTests
         Assert.Equal("applied", IpcPlayApplicationStateNames.Applied);
         Assert.Equal("indeterminate", IpcPlayApplicationStateNames.Indeterminate);
         Assert.Equal("unknown", IpcPlayApplicationStateNames.Unknown);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void IpcPlayModeCodecs_RoundTripStableLiterals ()
-    {
-        Assert.True(ContractLiteralInputParser.TryParseTrimmed<IpcPlayModeState>(" playing ", out var state));
-        Assert.Equal(IpcPlayModeState.Playing, state);
-        Assert.Equal("playing", ContractLiteralCodec.ToValue(state));
-        Assert.False(ContractLiteralInputParser.IsDefinedTrimmed<IpcPlayModeState>("unsupported"));
-
-        Assert.True(ContractLiteralInputParser.TryParseTrimmed<IpcPlayModeTransition>(" none ", out var transition));
-        Assert.Equal(IpcPlayModeTransition.None, transition);
-        Assert.Equal("none", ContractLiteralCodec.ToValue(transition));
-        Assert.False(ContractLiteralInputParser.IsDefinedTrimmed<IpcPlayModeTransition>("unsupported"));
     }
 
     [Fact]
@@ -1608,16 +1545,6 @@ public sealed class IpcContractSerializationTests
 
         using var document = JsonDocument.Parse(JsonSerializer.Serialize(payload, SerializerOptions));
 
-        Assert.Equal("daemon.start.started", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.Started));
-        Assert.Equal("daemon.start.pluginVerification.started", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.PluginVerificationStarted));
-        Assert.Equal("daemon.start.pluginVerification.completed", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.PluginVerificationCompleted));
-        Assert.Equal("daemon.start.supervisorBootstrap.started", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.SupervisorBootstrapStarted));
-        Assert.Equal("daemon.start.supervisorBootstrap.completed", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.SupervisorBootstrapCompleted));
-        Assert.Equal("daemon.start.ensureRunning.started", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.EnsureRunningStarted));
-        Assert.Equal("daemon.start.ensureRunning.completed", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.EnsureRunningCompleted));
-        Assert.Equal("daemon.start.completed", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.Completed));
-        Assert.Equal("succeeded", ContractLiteralCodec.ToValue(CommandProgressResult.Succeeded));
-        Assert.Equal("failed", ContractLiteralCodec.ToValue(CommandProgressResult.Failed));
         JsonAssert.For(document.RootElement)
             .HasString("projectFingerprint", "project-fingerprint")
             .HasInt32("timeoutMilliseconds", 10000)

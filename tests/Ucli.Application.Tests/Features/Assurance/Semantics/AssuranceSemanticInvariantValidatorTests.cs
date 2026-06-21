@@ -1309,7 +1309,10 @@ public sealed class AssuranceSemanticInvariantValidatorTests
                     deterministic = false,
                     required = true,
                     primaryClaims = BuildPipelineClaimCodes.Select(static code => code.Value).ToArray(),
-                    effects = verifierEffects ?? ContractLiteralCodec.GetLiterals<BuildEffect>().Cast<object>().ToArray(),
+                    effects = verifierEffects ?? Enum
+                        .GetValues<BuildEffect>()
+                        .Select(static effect => (object)ContractLiteralCodec.ToValue(effect))
+                        .ToArray(),
                     reportRef = "build",
                 },
             },

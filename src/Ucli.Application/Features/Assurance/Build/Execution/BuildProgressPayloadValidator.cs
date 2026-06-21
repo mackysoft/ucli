@@ -228,14 +228,14 @@ internal static class BuildProgressPayloadValidator
     {
         return eventName switch
         {
-            BuildRunProgressEventNames.Started => BuildRunProgressPhaseNames.Started,
-            BuildRunProgressEventNames.ReadinessCompleted => BuildRunProgressPhaseNames.Readiness,
-            BuildRunProgressEventNames.RunnerResolved => BuildRunProgressPhaseNames.RunnerResolution,
-            BuildRunProgressEventNames.RunnerStarted => BuildRunProgressPhaseNames.RunnerInvocation,
-            BuildRunProgressEventNames.RunnerCompleted => BuildRunProgressPhaseNames.RunnerResult,
-            BuildRunProgressEventNames.RunnerResultCompleted => BuildRunProgressPhaseNames.RunnerResult,
-            BuildRunProgressEventNames.ArtifactsCompleted => BuildRunProgressPhaseNames.ArtifactAccounting,
-            BuildRunProgressEventNames.Completed => BuildRunProgressPhaseNames.Completed,
+            BuildRunProgressEventNames.Started => ContractLiteralCodec.ToValue(BuildRunProgressPhase.Started),
+            BuildRunProgressEventNames.ReadinessCompleted => ContractLiteralCodec.ToValue(BuildRunProgressPhase.Readiness),
+            BuildRunProgressEventNames.RunnerResolved => ContractLiteralCodec.ToValue(BuildRunProgressPhase.RunnerResolution),
+            BuildRunProgressEventNames.RunnerStarted => ContractLiteralCodec.ToValue(BuildRunProgressPhase.RunnerInvocation),
+            BuildRunProgressEventNames.RunnerCompleted => ContractLiteralCodec.ToValue(BuildRunProgressPhase.RunnerResult),
+            BuildRunProgressEventNames.RunnerResultCompleted => ContractLiteralCodec.ToValue(BuildRunProgressPhase.RunnerResult),
+            BuildRunProgressEventNames.ArtifactsCompleted => ContractLiteralCodec.ToValue(BuildRunProgressPhase.ArtifactAccounting),
+            BuildRunProgressEventNames.Completed => ContractLiteralCodec.ToValue(BuildRunProgressPhase.Completed),
             _ => null,
         };
     }

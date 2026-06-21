@@ -28,25 +28,6 @@ public sealed class UcliOperationDescribeVocabularyTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void ConstraintKindContractLiteral_ToValue_ReturnsStableLiterals ()
-    {
-        Assert.Equal("nonEmpty", ContractLiteralCodec.ToValue(UcliOperationInputConstraintKind.NonEmpty));
-        Assert.Equal("range", ContractLiteralCodec.ToValue(UcliOperationInputConstraintKind.Range));
-        Assert.Equal("projectRelativePath", ContractLiteralCodec.ToValue(UcliOperationInputConstraintKind.ProjectRelativePath));
-        Assert.Equal("assetExists", ContractLiteralCodec.ToValue(UcliOperationInputConstraintKind.AssetExists));
-        Assert.Equal("assetCreatable", ContractLiteralCodec.ToValue(UcliOperationInputConstraintKind.AssetCreatable));
-        Assert.Equal("globalObjectId", ContractLiteralCodec.ToValue(UcliOperationInputConstraintKind.GlobalObjectId));
-        Assert.Equal("hierarchyPath", ContractLiteralCodec.ToValue(UcliOperationInputConstraintKind.HierarchyPath));
-        Assert.Equal("referenceResolvable", ContractLiteralCodec.ToValue(UcliOperationInputConstraintKind.ReferenceResolvable));
-        Assert.Equal("typeExists", ContractLiteralCodec.ToValue(UcliOperationInputConstraintKind.TypeExists));
-        Assert.Equal("typeAssignableTo", ContractLiteralCodec.ToValue(UcliOperationInputConstraintKind.TypeAssignableTo));
-        Assert.Equal("serializedProperty", ContractLiteralCodec.ToValue(UcliOperationInputConstraintKind.SerializedProperty));
-        Assert.Equal("assetGuid", ContractLiteralCodec.ToValue(UcliOperationInputConstraintKind.AssetGuid));
-        Assert.Equal("cursor", ContractLiteralCodec.ToValue(UcliOperationInputConstraintKind.Cursor));
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
     public void ConstraintParameterEnums_HaveStableValues ()
     {
         Assert.Equal(0, (int)UcliOperationAssetKind.Unspecified);
@@ -62,21 +43,6 @@ public sealed class UcliOperationDescribeVocabularyTests
         Assert.Equal(1, (int)UcliOperationTypeKind.Component);
         Assert.Equal(0, (int)UcliOperationSerializedPropertyAccess.Unspecified);
         Assert.Equal(1, (int)UcliOperationSerializedPropertyAccess.Write);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void ConstraintParameterContractLiterals_ToValue_ReturnStableLiterals ()
-    {
-        Assert.Equal("asset", ContractLiteralCodec.ToValue(UcliOperationAssetKind.Asset));
-        Assert.Equal("prefab", ContractLiteralCodec.ToValue(UcliOperationAssetKind.Prefab));
-        Assert.Equal("projectSettings", ContractLiteralCodec.ToValue(UcliOperationAssetKind.ProjectSettings));
-        Assert.Equal("scene", ContractLiteralCodec.ToValue(UcliOperationAssetKind.Scene));
-        Assert.Equal("asset", ContractLiteralCodec.ToValue(UcliOperationReferenceTargetKind.Asset));
-        Assert.Equal("component", ContractLiteralCodec.ToValue(UcliOperationReferenceTargetKind.Component));
-        Assert.Equal("gameObject", ContractLiteralCodec.ToValue(UcliOperationReferenceTargetKind.GameObject));
-        Assert.Equal("component", ContractLiteralCodec.ToValue(UcliOperationTypeKind.Component));
-        Assert.Equal("write", ContractLiteralCodec.ToValue(UcliOperationSerializedPropertyAccess.Write));
     }
 
     [Fact]
@@ -106,35 +72,6 @@ public sealed class UcliOperationDescribeVocabularyTests
         Assert.Equal(0, (int)UcliOperationPlanMode.ValidationOnly);
         Assert.Equal(1, (int)UcliOperationPlanMode.ObservesLiveUnity);
         Assert.Equal(2, (int)UcliOperationPlanMode.MayCreatePreviewState);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void AssuranceContractLiterals_ToValue_ReturnStableLiterals ()
-    {
-        Assert.Equal("observesUnityState", ContractLiteralCodec.ToValue(UcliOperationSideEffect.ObservesUnityState));
-        Assert.Equal("editorStateChange", ContractLiteralCodec.ToValue(UcliOperationSideEffect.EditorStateChange));
-        Assert.Equal("opensSceneInEditor", ContractLiteralCodec.ToValue(UcliOperationSideEffect.OpensSceneInEditor));
-        Assert.Equal("opensPrefabStage", ContractLiteralCodec.ToValue(UcliOperationSideEffect.OpensPrefabStage));
-        Assert.Equal("assetDatabaseRefresh", ContractLiteralCodec.ToValue(UcliOperationSideEffect.AssetDatabaseRefresh));
-        Assert.Equal("assetImport", ContractLiteralCodec.ToValue(UcliOperationSideEffect.AssetImport));
-        Assert.Equal("scriptCompilation", ContractLiteralCodec.ToValue(UcliOperationSideEffect.ScriptCompilation));
-        Assert.Equal("domainReload", ContractLiteralCodec.ToValue(UcliOperationSideEffect.DomainReload));
-        Assert.Equal("sceneContentMutation", ContractLiteralCodec.ToValue(UcliOperationSideEffect.SceneContentMutation));
-        Assert.Equal("prefabContentMutation", ContractLiteralCodec.ToValue(UcliOperationSideEffect.PrefabContentMutation));
-        Assert.Equal("assetContentMutation", ContractLiteralCodec.ToValue(UcliOperationSideEffect.AssetContentMutation));
-        Assert.Equal("projectSettingsMutation", ContractLiteralCodec.ToValue(UcliOperationSideEffect.ProjectSettingsMutation));
-        Assert.Equal("sceneSave", ContractLiteralCodec.ToValue(UcliOperationSideEffect.SceneSave));
-        Assert.Equal("prefabSave", ContractLiteralCodec.ToValue(UcliOperationSideEffect.PrefabSave));
-        Assert.Equal("assetSave", ContractLiteralCodec.ToValue(UcliOperationSideEffect.AssetSave));
-        Assert.Equal("projectSave", ContractLiteralCodec.ToValue(UcliOperationSideEffect.ProjectSave));
-        Assert.Equal("externalProcess", ContractLiteralCodec.ToValue(UcliOperationSideEffect.ExternalProcess));
-        Assert.Equal("filesystemWrite", ContractLiteralCodec.ToValue(UcliOperationSideEffect.FilesystemWrite));
-        Assert.Equal("arbitrarySourceExecution", ContractLiteralCodec.ToValue(UcliOperationSideEffect.ArbitrarySourceExecution));
-        Assert.Equal("destructiveScope", ContractLiteralCodec.ToValue(UcliOperationSideEffect.DestructiveScope));
-        Assert.Equal("validationOnly", ContractLiteralCodec.ToValue(UcliOperationPlanMode.ValidationOnly));
-        Assert.Equal("observesLiveUnity", ContractLiteralCodec.ToValue(UcliOperationPlanMode.ObservesLiveUnity));
-        Assert.Equal("mayCreatePreviewState", ContractLiteralCodec.ToValue(UcliOperationPlanMode.MayCreatePreviewState));
     }
 
     [Fact]

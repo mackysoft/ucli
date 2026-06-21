@@ -1,6 +1,7 @@
 using System;
 using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Unity.Build;
 
 namespace MackySoft.Ucli.Unity.Ipc
@@ -25,7 +26,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         {
             Publish(
                 BuildRunProgressEventNames.RunnerResolved,
-                BuildRunProgressPhaseNames.RunnerResolution,
+                ContractLiteralCodec.ToValue(BuildRunProgressPhase.RunnerResolution),
                 runnerStatus: null);
         }
 
@@ -34,7 +35,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         {
             Publish(
                 BuildRunProgressEventNames.RunnerStarted,
-                BuildRunProgressPhaseNames.RunnerInvocation,
+                ContractLiteralCodec.ToValue(BuildRunProgressPhase.RunnerInvocation),
                 runnerStatus: null);
         }
 

@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Ipc;
 
 namespace MackySoft.Ucli.Unity.Ipc
@@ -80,7 +81,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                         "BUILD_PROGRESS_DROPPED",
                         IpcExecuteDiagnosticSeverityNames.Warning,
                         "Build progress entries exceeded the pending IPC frame limit; additional progress entries were dropped.",
-                        BuildRunProgressPhaseNames.RunnerInvocation);
+                        ContractLiteralCodec.ToValue(BuildRunProgressPhase.RunnerInvocation));
                 }
 
                 pendingFrames.Enqueue(new QueuedProgressFrame(eventName, payload));
