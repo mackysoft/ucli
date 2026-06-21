@@ -190,8 +190,8 @@ public sealed class BuildRunCommandTests
             IpcProtocol.StatusOk,
             (int)CliExitCode.Success);
         Assert.Equal(
-            "build runId=build-run-1 buildTarget=standaloneLinux64 requestedMode=daemon resolvedMode=daemon sessionKind=daemon timeoutMs=120000 started" + Environment.NewLine
-                + "build runId=build-run-1 verdict=pass result=succeeded completionReason=completed errorCount=0 warningCount=1 completed" + Environment.NewLine,
+            "build runId=build-run-1 phase=started runnerKind=null runnerStatus=null verdict=null" + Environment.NewLine
+                + "build runId=build-run-1 phase=completed runnerKind=buildPipeline runnerStatus=succeeded verdict=pass" + Environment.NewLine,
             standardError);
     }
 

@@ -290,7 +290,6 @@ namespace MackySoft.Ucli.Unity.Tests
         [TestCase("/Assets/Scenes/Main.unity")]
         [TestCase("C:/Project/Assets/Scenes/Main.unity")]
         [TestCase("Packages/Scenes/Main.unity")]
-        [TestCase("Assets/Scenes/Missing.unity")]
         public async Task ProbeBeforeBuildAsync_WhenExplicitScenePathIsInvalid_ReturnsBuildInputsInvalid (string scenePath)
         {
             var probe = CreateProbe();
@@ -298,6 +297,23 @@ namespace MackySoft.Ucli.Unity.Tests
             var result = await probe.ProbeBeforeBuildAsync(CreateExplicitInput(scenePath), CancellationToken.None);
 
             AssertBuildInputsInvalidResult(result);
+            Assert.That(result.InputProbe, Is.Not.Null);
+            Assert.That(result.InputProbe!.Scenes, Is.Empty);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task ProbeBeforeBuildAsync_WhenExplicitScenePathDoesNotExist_ReturnsBuildSceneNotFound ()
+        {
+            var probe = CreateProbe();
+
+            var result = await probe.ProbeBeforeBuildAsync(CreateExplicitInput("Assets/Scenes/Missing.unity"), CancellationToken.None);
+
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error, Is.Not.Null);
+            Assert.That(result.Error!.Code, Is.EqualTo(BuildErrorCodes.BuildSceneNotFound));
+            Assert.That(result.DirtyState, Is.Null);
+            Assert.That(result.ResolvedInput, Is.Null);
             Assert.That(result.InputProbe, Is.Not.Null);
             Assert.That(result.InputProbe!.Scenes, Is.Empty);
         }

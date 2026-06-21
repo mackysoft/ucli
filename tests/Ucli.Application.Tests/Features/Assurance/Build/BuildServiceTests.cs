@@ -157,11 +157,13 @@ public sealed class BuildServiceTests
         Assert.Equal("build.log", output.Reports[BuildReportRefs.BuildLog].Path);
         Assert.True(output.Reports.ContainsKey(output.Build.Output.ManifestRef));
         AssertEvidenceRefsResolveToReports(output);
-        Assert.Equal(BuildClaimCodes.All.Count, output.Claims.Count);
+        Assert.DoesNotContain(output.Claims, static claim => claim.Id == BuildClaimCodes.UnityBuildExecuteMethodResolved.Value);
+        Assert.DoesNotContain(output.Claims, static claim => claim.Id == BuildClaimCodes.UnityBuildExecuteMethodInvoked.Value);
+        Assert.DoesNotContain(output.Claims, static claim => claim.Id == BuildClaimCodes.UnityBuildExecuteMethodCompleted.Value);
         Assert.All(output.Claims, claim => Assert.True(claim.Required));
         var verifier = Assert.Single(output.Verifiers);
         Assert.Equal("build", verifier.Id);
-        Assert.Equal(BuildClaimCodes.All.Select(static code => code.Value).ToArray(), verifier.PrimaryClaims);
+        Assert.Equal(output.Claims.Where(static claim => claim.Required).Select(static claim => claim.Id).ToArray(), verifier.PrimaryClaims);
         Assert.Equal(BuildPipelineEffectValues, verifier.Effects);
         var preparedPaths = artifactStore.PreparedPaths;
         Assert.NotNull(preparedPaths);
@@ -213,27 +215,37 @@ public sealed class BuildServiceTests
         AssertProgressEvents(
             progressSink,
             BuildRunProgressEventNames.Started,
+            BuildRunProgressEventNames.ReadinessCompleted,
+            BuildRunProgressEventNames.RunnerResolved,
+            BuildRunProgressEventNames.RunnerStarted,
+            BuildRunProgressEventNames.RunnerCompleted,
+            BuildRunProgressEventNames.RunnerResultCompleted,
+            BuildRunProgressEventNames.ArtifactsCompleted,
             BuildRunProgressEventNames.Completed);
-        var startedEntry = Assert.IsType<BuildRunStartedEntry>(progressSink.Entries[0].Payload);
+        var startedEntry = Assert.IsType<BuildProgressEntry>(progressSink.Entries[0].Payload);
         Assert.Equal(RunId, startedEntry.RunId);
-        Assert.Equal(ProjectFingerprint, startedEntry.ProjectFingerprint);
-        Assert.Equal("auto", startedEntry.RequestedMode);
-        Assert.Equal("oneshot", startedEntry.ResolvedMode);
-        Assert.Equal("transientProbe", startedEntry.SessionKind);
-        Assert.Equal(10000, startedEntry.TimeoutMilliseconds);
-        Assert.Equal("standaloneLinux64", startedEntry.BuildTarget);
-        Assert.Equal(preparedPaths.RunnerOutputDirectory, startedEntry.OutputPath);
-        var completedEntry = Assert.IsType<BuildRunCompletedEntry>(progressSink.Entries[1].Payload);
+        Assert.Equal(expectedProfileDigest, startedEntry.ProfileDigest);
+        Assert.Equal("started", startedEntry.Phase);
+        Assert.Null(startedEntry.RunnerKind);
+        Assert.Empty(startedEntry.ReportRefs);
+
+        var runnerCompletedEntry = Assert.IsType<BuildProgressEntry>(progressSink.Entries[4].Payload);
+        Assert.Equal("runnerResult", runnerCompletedEntry.Phase);
+        Assert.Equal(ContractLiteralCodec.ToValue(BuildProfileRunnerKind.BuildPipeline), runnerCompletedEntry.RunnerKind);
+        Assert.Equal(ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded), runnerCompletedEntry.RunnerStatus);
+
+        var completedEntry = Assert.IsType<BuildProgressEntry>(progressSink.Entries[7].Payload);
         Assert.Equal(RunId, completedEntry.RunId);
+        Assert.Equal("completed", completedEntry.Phase);
         Assert.Equal(ContractLiteralCodec.ToValue(BuildVerdict.Pass), completedEntry.Verdict);
-        Assert.Equal(ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded), completedEntry.Result);
-        Assert.Equal(ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed), completedEntry.CompletionReason);
-        Assert.Equal(0, completedEntry.ErrorCount);
-        Assert.Equal(1, completedEntry.WarningCount);
-        Assert.Equal(preparedPaths.BuildJsonPath, completedEntry.BuildJsonPath);
-        Assert.Equal(preparedPaths.BuildReportJsonPath, completedEntry.BuildReportPath);
-        Assert.Equal(preparedPaths.BuildLogPath, completedEntry.BuildLogPath);
-        Assert.Equal(preparedPaths.OutputManifestJsonPath, completedEntry.OutputManifestPath);
+        Assert.Equal(
+            [
+                BuildReportRefs.Build,
+                BuildReportRefs.BuildReport,
+                BuildReportRefs.BuildOutputManifest,
+                BuildReportRefs.BuildLog,
+            ],
+            completedEntry.ReportRefs);
 
         var validator = CreateBuildSemanticInvariantValidator();
         var semanticPayload = JsonSerializer.SerializeToElement(output, PayloadSerializerOptions);
@@ -364,6 +376,21 @@ public sealed class BuildServiceTests
         Assert.DoesNotContain(SecretValue, JsonSerializer.Serialize(artifactStore.WrittenMetadata!, PayloadSerializerOptions));
         Assert.DoesNotContain(EnvironmentValue, JsonSerializer.Serialize(progressSink.Entries, PayloadSerializerOptions));
         Assert.DoesNotContain(SecretValue, JsonSerializer.Serialize(progressSink.Entries, PayloadSerializerOptions));
+        AssertProgressEvents(
+            progressSink,
+            BuildRunProgressEventNames.Started,
+            BuildRunProgressEventNames.ReadinessCompleted,
+            BuildRunProgressEventNames.RunnerResolved,
+            BuildRunProgressEventNames.RunnerStarted,
+            BuildRunProgressEventNames.RunnerCompleted,
+            BuildRunProgressEventNames.RunnerResultCompleted,
+            BuildRunProgressEventNames.ArtifactsCompleted,
+            BuildRunProgressEventNames.Completed);
+        var executeMethodRunnerResolved = Assert.IsType<BuildProgressEntry>(progressSink.Entries[2].Payload);
+        Assert.Equal(ContractLiteralCodec.ToValue(BuildProfileRunnerKind.ExecuteMethod), executeMethodRunnerResolved.RunnerKind);
+        var executeMethodRunnerCompleted = Assert.IsType<BuildProgressEntry>(progressSink.Entries[4].Payload);
+        Assert.Equal(ContractLiteralCodec.ToValue(BuildProfileRunnerKind.ExecuteMethod), executeMethodRunnerCompleted.RunnerKind);
+        Assert.Equal(ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded), executeMethodRunnerCompleted.RunnerStatus);
         Assert.Equal("executeMethod", artifactStore.WrittenMetadata!.Runner.GetProperty("kind").GetString());
         Assert.Equal(JsonValueKind.Null, artifactStore.WrittenMetadata.Runner.GetProperty("outputLayout").ValueKind);
         Assert.Equal(output.Build.RunnerResult.Source, artifactStore.WrittenMetadata.RunnerResult.GetProperty("source").GetString());
@@ -374,6 +401,50 @@ public sealed class BuildServiceTests
         Assert.Equal(
             ["UCLI_SECRET"],
             artifactStore.WrittenMetadata.Runner.GetProperty("invocation").GetProperty("environment").GetProperty("secrets").EnumerateArray().Select(static item => item.GetString()!).ToArray());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithInvalidUnityProgressFrame_ReturnsRunnerInvocationFailedAndDiagnostic ()
+    {
+        using var tempDirectory = TemporaryDirectory.Create();
+        var invalidProgressFrame = new UnityRequestProgressFrame(
+            BuildRunProgressEventNames.ReadinessCompleted,
+            IpcPayloadCodec.SerializeToElement(new BuildProgressEntry(
+                RunId: RunId,
+                ProfileDigest: new string('a', 64),
+                Phase: "invalidPhase",
+                RunnerKind: null,
+                RunnerStatus: null,
+                Verdict: null,
+                ReportRefs: [],
+                ErrorCode: null)));
+        var requestExecutor = new StubUnityRequestExecutor(
+            _ =>
+                CreateBuildResponseResult(
+                    ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+                    ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+                    errorCount: 0),
+            [invalidProgressFrame]);
+        var progressSink = new CollectingProgressSink();
+        var service = CreateService(
+            requestExecutor: requestExecutor,
+            artifactStore: new StubBuildRunArtifactStore(tempDirectory.Path));
+
+        var result = await service.ExecuteAsync(CreateInput(), progressSink);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(BuildErrorCodes.BuildRunnerInvocationFailed, error.Code);
+        AssertProgressEvents(
+            progressSink,
+            BuildRunProgressEventNames.Started,
+            BuildRunProgressEventNames.Diagnostic);
+        var diagnostic = Assert.IsType<BuildDiagnosticEntry>(progressSink.Entries[1].Payload);
+        Assert.Equal(RunId, diagnostic.RunId);
+        Assert.Equal(BuildErrorCodes.BuildRunnerInvocationFailed.Value, diagnostic.Code);
+        Assert.Equal(IpcExecuteDiagnosticSeverityNames.Error, diagnostic.Severity);
+        Assert.Equal("runnerInvocation", diagnostic.Phase);
     }
 
     [Fact]
@@ -1904,7 +1975,7 @@ public sealed class BuildServiceTests
         Assert.True(result.IsSuccess);
         Assert.Equal(ContractLiteralCodec.ToValue(BuildVerdict.Incomplete), result.Output!.Verdict);
         var risk = Assert.Single(result.Output.ResidualRisks);
-        Assert.Equal(BuildRiskCodes.ProjectMutationAuditCoverageIncomplete.Value, risk.Code);
+        Assert.Equal(BuildRiskCodes.ProjectMutationDetected.Value, risk.Code);
         Assert.False(risk.Blocking);
         Assert.Equal(ContractLiteralCodec.ToValue(BuildClaimStatus.Indeterminate), FindClaim(result.Output, BuildClaimCodes.UnityBuildProjectMutationAccounted).Status);
     }
@@ -2000,9 +2071,17 @@ public sealed class BuildServiceTests
         IEnvironmentVariableReader? environmentVariableReader = null,
         IUnityExecutionModeDecisionService? modeDecisionService = null,
         IUnityRequestExecutor? requestExecutor = null,
+        IUnityStreamingRequestExecutor? streamingRequestExecutor = null,
         IBuildRunIdFactory? runIdFactory = null,
         TimeProvider? timeProvider = null)
     {
+        var resolvedRequestExecutor = requestExecutor ?? CreateBuildResponseExecutor(
+            ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+            ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+            errorCount: 0);
+        var resolvedStreamingRequestExecutor = streamingRequestExecutor
+            ?? resolvedRequestExecutor as IUnityStreamingRequestExecutor
+            ?? throw new InvalidOperationException("BuildService tests require a streaming request executor.");
         return new BuildService(
             projectContextResolver ?? new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateProjectContext())),
             profileFileReader ?? new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(ProfileJson, "/workspace/build.ucli.json")),
@@ -2012,10 +2091,8 @@ public sealed class BuildServiceTests
                 DaemonRunning: false,
                 UnityExecutionTarget.Oneshot,
                 TimeSpan.FromSeconds(10)))),
-            requestExecutor ?? CreateBuildResponseExecutor(
-                ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
-                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
-                errorCount: 0),
+            resolvedRequestExecutor,
+            resolvedStreamingRequestExecutor,
             runIdFactory ?? new StubBuildRunIdFactory(RunId),
             artifactStore,
             timeProvider);
@@ -2470,9 +2547,11 @@ public sealed class BuildServiceTests
             }
             else
             {
+                var unityBuildTarget = buildRunPayload.UnityBuildTarget
+                    ?? throw new InvalidOperationException("Test build report source requires a Unity build target.");
                 var buildReport = CreateBuildReportArtifact(
                     reportResult,
-                    buildRunPayload.UnityBuildTarget,
+                    unityBuildTarget,
                     buildRunPayload.OutputPath,
                     errorCount);
                 File.WriteAllText(buildReportSourcePath, IpcPayloadCodec.SerializeToElement(buildReport).GetRawText());
@@ -2759,18 +2838,22 @@ public sealed class BuildServiceTests
         }
     }
 
-    private sealed class StubUnityRequestExecutor : IUnityRequestExecutor
+    private sealed class StubUnityRequestExecutor : IUnityRequestExecutor, IUnityStreamingRequestExecutor
     {
         private readonly Func<UnityRequestPayload, UnityRequestExecutionResult> resultFactory;
+        private readonly IReadOnlyList<UnityRequestProgressFrame>? streamingProgressFrames;
 
         public StubUnityRequestExecutor (UnityRequestExecutionResult result)
             : this(_ => result)
         {
         }
 
-        public StubUnityRequestExecutor (Func<UnityRequestPayload, UnityRequestExecutionResult> resultFactory)
+        public StubUnityRequestExecutor (
+            Func<UnityRequestPayload, UnityRequestExecutionResult> resultFactory,
+            IReadOnlyList<UnityRequestProgressFrame>? streamingProgressFrames = null)
         {
             this.resultFactory = resultFactory;
+            this.streamingProgressFrames = streamingProgressFrames;
         }
 
         public UnityRequestPayload? CapturedPayload { get; private set; }
@@ -2778,6 +2861,8 @@ public sealed class BuildServiceTests
         public TimeSpan? CapturedTimeout { get; private set; }
 
         public int CallCount { get; private set; }
+
+        public int StreamingCallCount { get; private set; }
 
         public ValueTask<UnityRequestExecutionResult> ExecuteAsync (
             UcliCommand command,
@@ -2793,6 +2878,82 @@ public sealed class BuildServiceTests
             CapturedPayload = payload;
             CapturedTimeout = timeout;
             return ValueTask.FromResult(resultFactory(payload));
+        }
+
+        public async ValueTask<UnityRequestExecutionResult> ExecuteAsync (
+            UcliCommand command,
+            UnityExecutionMode mode,
+            TimeSpan timeout,
+            UcliConfig config,
+            ResolvedUnityProjectContext unityProject,
+            UnityRequestPayload payload,
+            Func<UnityRequestProgressFrame, CancellationToken, ValueTask> onProgressFrame,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            StreamingCallCount++;
+            CapturedPayload = payload;
+            CapturedTimeout = timeout;
+
+            var progressFrames = streamingProgressFrames ?? CreateDefaultProgressFrames((UnityRequestPayload.BuildRun)payload);
+            for (var i = 0; i < progressFrames.Count; i++)
+            {
+                await onProgressFrame(progressFrames[i], cancellationToken).ConfigureAwait(false);
+            }
+
+            return resultFactory(payload);
+        }
+
+        private static IReadOnlyList<UnityRequestProgressFrame> CreateDefaultProgressFrames (UnityRequestPayload.BuildRun request)
+        {
+            var runnerKind = request.RunnerKind ?? ContractLiteralCodec.ToValue(BuildProfileRunnerKind.BuildPipeline);
+            return
+            [
+                CreateProgressFrame(
+                    BuildRunProgressEventNames.ReadinessCompleted,
+                    request,
+                    "readiness",
+                    runnerKind: null,
+                    runnerStatus: null),
+                CreateProgressFrame(
+                    BuildRunProgressEventNames.RunnerResolved,
+                    request,
+                    "runnerResolution",
+                    runnerKind,
+                    runnerStatus: null),
+                CreateProgressFrame(
+                    BuildRunProgressEventNames.RunnerStarted,
+                    request,
+                    "runnerInvocation",
+                    runnerKind,
+                    runnerStatus: null),
+                CreateProgressFrame(
+                    BuildRunProgressEventNames.RunnerCompleted,
+                    request,
+                    "runnerResult",
+                    runnerKind,
+                    ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded)),
+            ];
+        }
+
+        private static UnityRequestProgressFrame CreateProgressFrame (
+            string eventName,
+            UnityRequestPayload.BuildRun request,
+            string phase,
+            string? runnerKind,
+            string? runnerStatus)
+        {
+            return new UnityRequestProgressFrame(
+                eventName,
+                IpcPayloadCodec.SerializeToElement(new BuildProgressEntry(
+                    RunId: request.RunId,
+                    ProfileDigest: request.ProfileDigest!,
+                    Phase: phase,
+                    RunnerKind: runnerKind,
+                    RunnerStatus: runnerStatus,
+                    Verdict: null,
+                    ReportRefs: [],
+                    ErrorCode: null)));
         }
     }
 

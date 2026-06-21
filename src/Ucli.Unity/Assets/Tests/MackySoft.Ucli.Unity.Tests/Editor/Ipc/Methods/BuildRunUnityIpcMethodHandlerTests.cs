@@ -11,6 +11,7 @@ using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Build;
 using MackySoft.Ucli.Unity.Ipc;
@@ -349,7 +350,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     logRangeExporter,
                     identity,
                     timeoutScopeFactory,
-                    new UnityLogRedactionScopeProvider());
+                    new UnityLogRedactionScopeProvider(),
+                    new UnityLogRingBuffer());
                 var payload = WithArtifactPath(
                     CreateRequest(scope.ProjectPath, identity),
                     artifact,
@@ -394,7 +396,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     logRangeExporter,
                     identity,
                     timeoutScopeFactory,
-                    new UnityLogRedactionScopeProvider());
+                    new UnityLogRedactionScopeProvider(),
+                    new UnityLogRingBuffer());
                 var payload = CreateRequest(scope.ProjectPath, identity) with
                 {
                     UnityBuildTarget = "StandaloneWindows64",
@@ -438,7 +441,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     logRangeExporter,
                     identity,
                     timeoutScopeFactory,
-                    new UnityLogRedactionScopeProvider());
+                    new UnityLogRedactionScopeProvider(),
+                    new UnityLogRingBuffer());
                 var payload = CreateRequest(scope.ProjectPath, identity) with
                 {
                     BuildTarget = "unknownTarget",
@@ -483,7 +487,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     logRangeExporter,
                     identity,
                     new CountingTimeoutScopeFactory(),
-                    new UnityLogRedactionScopeProvider());
+                    new UnityLogRedactionScopeProvider(),
+                    new UnityLogRingBuffer());
                 var payload = CreateRequest(scope.ProjectPath, identity);
                 Directory.CreateDirectory(Path.GetDirectoryName(payload.OutputLayout.LocationPathName)!);
                 File.WriteAllText(payload.OutputLayout.LocationPathName, "existing player");
@@ -526,7 +531,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     logRangeExporter,
                     identity,
                     new CountingTimeoutScopeFactory(),
-                    new UnityLogRedactionScopeProvider());
+                    new UnityLogRedactionScopeProvider(),
+                    new UnityLogRingBuffer());
 
                 var response = await handler.HandleAsync(CreateIpcRequest(requestPayload), CancellationToken.None);
 
@@ -572,7 +578,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     logRangeExporter,
                     identity,
                     timeoutScopeFactory,
-                    new UnityLogRedactionScopeProvider());
+                    new UnityLogRedactionScopeProvider(),
+                    new UnityLogRingBuffer());
 
                 var response = await handler.HandleAsync(CreateIpcRequest(requestPayload), CancellationToken.None);
 
@@ -640,7 +647,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     logRangeExporter,
                     identity,
                     new CountingTimeoutScopeFactory(),
-                    new UnityLogRedactionScopeProvider());
+                    new UnityLogRedactionScopeProvider(),
+                    new UnityLogRingBuffer());
 
                 var response = await handler.HandleAsync(CreateIpcRequest(requestPayload), CancellationToken.None);
 
@@ -668,6 +676,85 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(persistedReport.ErrorCount, Is.EqualTo(reportErrorCount));
                 Assert.That(persistedReport.WarningCount, Is.EqualTo(reportWarningCount));
                 Assert.That(File.ReadAllText(requestPayload.BuildLogPath), Does.Contain("warning CS0168"));
+            }
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task HandleStreamingAsync_WithBuildPipelineRunner_WritesProgressFramesAndLogEntriesWithCursor ()
+        {
+            Assume.That(
+                !string.IsNullOrWhiteSpace(Application.consoleLogPath) && File.Exists(Application.consoleLogPath),
+                "Unity console log path is not available in this test environment.");
+
+            using (var scope = TemporaryDirectoryScope.Create())
+            using (var editorScope = new EditorTestScope().SuppressExistingPersistentDirtyObjects())
+            {
+                var identity = CreateProjectIdentity(scope.ProjectPath);
+                var requestPayload = CreateRequest(scope.ProjectPath, identity);
+                Directory.CreateDirectory(requestPayload.OutputPath);
+                var unityLogStream = new UnityLogRingBuffer();
+                var reportArtifact = CreateReportArtifact(
+                    ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+                    requestPayload.OutputLayout.LocationPathName,
+                    errorCount: 0,
+                    warningCount: 1);
+                var buildPipelineRunner = new CountingBuildPipelineRunner(
+                    reportArtifact,
+                    _ => unityLogStream.Write(
+                        IpcUnityLogsSourceCodec.Runtime,
+                        IpcDaemonLogsLevelCodec.Info,
+                        "build pipeline progress log"));
+                var handler = new BuildRunUnityIpcMethodHandler(
+                    new UnityBuildPreconditionProbe(
+                        new CountingReadinessGate(),
+                        identity,
+                        new StubServerVersionProvider("1.2.3"),
+                        new CountingBuildTargetSupportProbe()),
+                    new UnsupportedUnityBuildProfileInputResolver(),
+                    new UnityProjectMutationAuditProbe(),
+                    buildPipelineRunner,
+                    new UnsupportedUnityBuildProfileBuildRunner(),
+                    CreateExecuteMethodRunner(),
+                    new CountingEditorLogRangeExporter(
+                        string.Empty,
+                        entryCount: 0,
+                        errorCount: 0,
+                        warningCount: 0),
+                    identity,
+                    new CountingTimeoutScopeFactory(),
+                    new UnityLogRedactionScopeProvider(),
+                    unityLogStream);
+                var streamWriter = new CollectingIpcStreamFrameWriter("request-build-run-stream");
+
+                var response = await handler.HandleStreamingAsync(
+                    CreateStreamingIpcRequest(requestPayload),
+                    streamWriter,
+                    CancellationToken.None);
+
+                Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+                Assert.That(streamWriter.ProgressFrames, Has.Count.EqualTo(5));
+                Assert.That(streamWriter.ProgressFrames[0].Event, Is.EqualTo(BuildRunProgressEventNames.ReadinessCompleted));
+                Assert.That(streamWriter.ProgressFrames[1].Event, Is.EqualTo(BuildRunProgressEventNames.RunnerResolved));
+                Assert.That(streamWriter.ProgressFrames[2].Event, Is.EqualTo(BuildRunProgressEventNames.RunnerStarted));
+                Assert.That(streamWriter.ProgressFrames[3].Event, Is.EqualTo(BuildRunProgressEventNames.RunnerCompleted));
+                Assert.That(streamWriter.ProgressFrames[4].Event, Is.EqualTo(BuildRunProgressEventNames.LogEntry));
+
+                Assert.That(IpcPayloadCodec.TryDeserialize(streamWriter.ProgressFrames[3].Payload, out BuildProgressEntry runnerCompleted, out _), Is.True);
+                Assert.That(runnerCompleted.RunId, Is.EqualTo(RunId));
+                Assert.That(runnerCompleted.Phase, Is.EqualTo("runnerResult"));
+                Assert.That(runnerCompleted.RunnerStatus, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded)));
+
+                Assert.That(IpcPayloadCodec.TryDeserialize(streamWriter.ProgressFrames[4].Payload, out BuildLogEntry logEntry, out _), Is.True);
+                Assert.That(logEntry.Message, Is.EqualTo("build pipeline progress log"));
+                Assert.That(logEntry.Source, Is.EqualTo("unityLog"));
+                Assert.That(logEntry.Cursor, Is.Not.Null);
+                Assert.That(IpcLogCursorCodec.TryParse(logEntry.Cursor!, out _, out var logSequence), Is.True);
+                Assert.That(logSequence, Is.EqualTo(1));
+
+                Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcBuildRunResponse payload, out _), Is.True);
+                Assert.That(payload.Logs.Window.CursorStart, Is.Not.Null);
+                Assert.That(payload.Logs.Window.CursorEnd, Is.Not.Null);
             }
         }
 
@@ -709,7 +796,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     logRangeExporter,
                     identity,
                     new CountingTimeoutScopeFactory(),
-                    new UnityLogRedactionScopeProvider());
+                    new UnityLogRedactionScopeProvider(),
+                    new UnityLogRingBuffer());
 
                 var response = await handler.HandleAsync(CreateIpcRequest(requestPayload), CancellationToken.None);
 
@@ -782,7 +870,8 @@ namespace MackySoft.Ucli.Unity.Tests
                             warningCount: 0),
                         identity,
                         new CountingTimeoutScopeFactory(),
-                        redactionScopeProvider);
+                        redactionScopeProvider,
+                        unityLogStream);
 
                     var response = await handler.HandleAsync(CreateIpcRequest(requestPayload), CancellationToken.None);
 
@@ -855,7 +944,8 @@ namespace MackySoft.Ucli.Unity.Tests
                         warningCount: 0),
                     identity,
                     new CountingTimeoutScopeFactory(),
-                    new UnityLogRedactionScopeProvider());
+                    new UnityLogRedactionScopeProvider(),
+                    new UnityLogRingBuffer());
 
                 var response = await handler.HandleAsync(CreateIpcRequest(requestPayload), CancellationToken.None);
 
@@ -905,7 +995,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     logRangeExporter,
                     identity,
                     new CountingTimeoutScopeFactory(),
-                    new UnityLogRedactionScopeProvider());
+                    new UnityLogRedactionScopeProvider(),
+                    new UnityLogRingBuffer());
 
                 var response = await handler.HandleAsync(CreateIpcRequest(requestPayload), CancellationToken.None);
 
@@ -964,7 +1055,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 BuildLogPath: Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildLogFileName),
                 AllowedEditorModes: new[] { ContractLiteralCodec.ToValue(DaemonEditorMode.Batchmode) },
                 ProjectMutationMode: ContractLiteralCodec.ToValue(BuildProfileProjectMutationMode.Forbid),
-                RunnerKind: ContractLiteralCodec.ToValue(IpcBuildRunnerKind.BuildPipeline));
+                RunnerKind: ContractLiteralCodec.ToValue(IpcBuildRunnerKind.BuildPipeline))
+            {
+                ProfileDigest = new string('a', 64),
+            };
         }
 
         private static IpcBuildRunRequest CreateExecuteMethodRequest (
@@ -1078,6 +1172,17 @@ namespace MackySoft.Ucli.Unity.Tests
                 Method: IpcMethodNames.BuildRun,
                 Payload: IpcPayloadCodec.SerializeToElement(payload),
                 responseMode: IpcResponseMode.Single);
+        }
+
+        private static IpcRequest CreateStreamingIpcRequest (IpcBuildRunRequest payload)
+        {
+            return new IpcRequest(
+                ProtocolVersion: IpcProtocol.CurrentVersion,
+                RequestId: "request-build-run-stream",
+                SessionToken: "session-token",
+                Method: IpcMethodNames.BuildRun,
+                Payload: IpcPayloadCodec.SerializeToElement(payload),
+                responseMode: IpcResponseMode.Stream);
         }
 
         private static string GetArtifactPath (
@@ -1436,6 +1541,43 @@ namespace MackySoft.Ucli.Unity.Tests
                 }
 
                 return redacted;
+            }
+        }
+
+        private sealed class CollectingIpcStreamFrameWriter : IIpcStreamFrameWriter
+        {
+            private readonly string requestId;
+
+            public CollectingIpcStreamFrameWriter (string requestId)
+            {
+                this.requestId = requestId;
+            }
+
+            public List<IpcStreamFrame> ProgressFrames { get; } = new List<IpcStreamFrame>();
+
+            public ValueTask WriteProgressAsync<TPayload> (
+                string eventName,
+                TPayload payload,
+                CancellationToken cancellationToken = default)
+                where TPayload : notnull
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                ProgressFrames.Add(new IpcStreamFrame(
+                    IpcProtocol.CurrentVersion,
+                    requestId,
+                    IpcStreamFrameKinds.Progress,
+                    eventName,
+                    IpcPayloadCodec.SerializeToElement(payload),
+                    null));
+                return default;
+            }
+
+            public ValueTask WriteTerminalAsync (
+                IpcResponse response,
+                CancellationToken cancellationToken = default)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                throw new InvalidOperationException("build.run handler returns the terminal response to the dispatcher.");
             }
         }
 

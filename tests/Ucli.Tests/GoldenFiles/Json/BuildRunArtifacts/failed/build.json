@@ -93,7 +93,9 @@
     "completionReason": "failed",
     "window": {
       "startedAtUtc": "2026-06-01T00:00:00+00:00",
-      "completedAtUtc": "2026-06-01T00:00:02.5+00:00"
+      "completedAtUtc": "2026-06-01T00:00:02.5+00:00",
+      "cursorStart": null,
+      "cursorEnd": null
     }
   },
   "projectMutation": {

@@ -12,6 +12,22 @@ public sealed class AssuranceSemanticInvariantValidatorTests
     private const string ReadyClaim = "UNITY_READY_EXECUTION";
     private const string CompileClaim = "UNITY_COMPILE_NO_ERRORS";
     private const string LogUnavailableRisk = "UNITY_LOG_UNAVAILABLE";
+    private static readonly UcliCode[] BuildPipelineClaimCodes =
+    [
+        BuildClaimCodes.UnityBuildProfileResolved,
+        BuildClaimCodes.UnityReadyForBuild,
+        BuildClaimCodes.UnityBuildInputsResolved,
+        BuildClaimCodes.UnityBuildRunnerResolved,
+        BuildClaimCodes.UnityBuildCompleted,
+        BuildClaimCodes.UnityBuildSucceeded,
+        BuildClaimCodes.UnityBuildResultAccounted,
+        BuildClaimCodes.UnityBuildReportAccounted,
+        BuildClaimCodes.UnityBuildArtifactsAccounted,
+        BuildClaimCodes.UnityBuildOutputDigested,
+        BuildClaimCodes.UnityBuildLogsAccounted,
+        BuildClaimCodes.UnityBuildProjectMutationAccounted,
+        BuildClaimCodes.UnityBuildValidForGeneration,
+    ];
 
     [Fact]
     [Trait("Size", "Small")]
@@ -1205,7 +1221,7 @@ public sealed class AssuranceSemanticInvariantValidatorTests
         }
 
         var claims = includeBuildClaims
-            ? BuildClaimCodes.All
+            ? BuildPipelineClaimCodes
                 .Select(code =>
                 {
                     var status = ResolveBuildClaimStatus(
@@ -1275,6 +1291,13 @@ public sealed class AssuranceSemanticInvariantValidatorTests
                     errorCount = 0,
                     warningCount = 0,
                     completionReason = buildCompletionReason,
+                    window = new
+                    {
+                        startedAtUtc = "2026-06-12T00:00:00+00:00",
+                        completedAtUtc = "2026-06-12T00:00:03+00:00",
+                        cursorStart = (string?)null,
+                        cursorEnd = (string?)null,
+                    },
                 },
             },
             verifiers = new[]
@@ -1285,7 +1308,7 @@ public sealed class AssuranceSemanticInvariantValidatorTests
                     kind = "build",
                     deterministic = false,
                     required = true,
-                    primaryClaims = BuildClaimCodes.All.Select(static code => code.Value).ToArray(),
+                    primaryClaims = BuildPipelineClaimCodes.Select(static code => code.Value).ToArray(),
                     effects = verifierEffects ?? ContractLiteralCodec.GetLiterals<BuildEffect>().Cast<object>().ToArray(),
                     reportRef = "build",
                 },
@@ -1355,9 +1378,9 @@ public sealed class AssuranceSemanticInvariantValidatorTests
 
     private static string BuildSucceededClaimPath (string propertyName)
     {
-        for (var i = 0; i < BuildClaimCodes.All.Count; i++)
+        for (var i = 0; i < BuildPipelineClaimCodes.Length; i++)
         {
-            if (BuildClaimCodes.All[i].Equals(BuildClaimCodes.UnityBuildSucceeded))
+            if (BuildPipelineClaimCodes[i].Equals(BuildClaimCodes.UnityBuildSucceeded))
             {
                 return $"$.claims[{i}].{propertyName}";
             }
@@ -1368,9 +1391,9 @@ public sealed class AssuranceSemanticInvariantValidatorTests
 
     private static string BuildCompletedClaimPath (string propertyName)
     {
-        for (var i = 0; i < BuildClaimCodes.All.Count; i++)
+        for (var i = 0; i < BuildPipelineClaimCodes.Length; i++)
         {
-            if (BuildClaimCodes.All[i].Equals(BuildClaimCodes.UnityBuildCompleted))
+            if (BuildPipelineClaimCodes[i].Equals(BuildClaimCodes.UnityBuildCompleted))
             {
                 return $"$.claims[{i}].{propertyName}";
             }
@@ -1381,9 +1404,9 @@ public sealed class AssuranceSemanticInvariantValidatorTests
 
     private static string BuildGenerationClaimPath (string propertyName)
     {
-        for (var i = 0; i < BuildClaimCodes.All.Count; i++)
+        for (var i = 0; i < BuildPipelineClaimCodes.Length; i++)
         {
-            if (BuildClaimCodes.All[i].Equals(BuildClaimCodes.UnityBuildValidForGeneration))
+            if (BuildPipelineClaimCodes[i].Equals(BuildClaimCodes.UnityBuildValidForGeneration))
             {
                 return $"$.claims[{i}].{propertyName}";
             }

@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Assurance.Build.Payload;
+using MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
 using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -22,6 +23,7 @@ internal static class BuildRunTestData
         var normalizedVerdict = verdict ?? ContractLiteralCodec.ToValue(BuildVerdict.Pass);
         var project = CreateProject();
         var build = CreateBuild(normalizedReportResult, normalizedCompletionReason, errorCount);
+        var claims = CreateClaims(normalizedReportResult);
 
         return new BuildExecutionOutput(
             Verdict: normalizedVerdict,
@@ -34,41 +36,45 @@ internal static class BuildRunTestData
                     Kind: BuildReportRefs.Build,
                     Deterministic: false,
                     Required: true,
-                    PrimaryClaims: BuildClaimCodes.All.Select(static code => code.Value).ToArray(),
+                    PrimaryClaims: claims.Where(static claim => claim.Required).Select(static claim => claim.Id).ToArray(),
                     Effects: BuildPipelineEffectValues,
                     ReportRef: BuildReportRefs.Build),
             ],
-            Claims: CreateClaims(normalizedReportResult),
+            Claims: claims,
             Reports: CreateReports(),
             ResidualRisks: []);
     }
 
-    public static BuildRunStartedEntry CreateStartedEntry ()
+    public static BuildProgressEntry CreateStartedEntry ()
     {
-        return new BuildRunStartedEntry(
+        return new BuildProgressEntry(
             RunId: RunId,
-            ProjectFingerprint: ProjectFingerprint,
-            RequestedMode: "daemon",
-            ResolvedMode: "daemon",
-            SessionKind: "daemon",
-            TimeoutMilliseconds: 120000,
-            BuildTarget: "standaloneLinux64",
-            OutputPath: "/workspace/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/output");
+            ProfileDigest: Repeat('a'),
+            Phase: "started",
+            RunnerKind: null,
+            RunnerStatus: null,
+            Verdict: null,
+            ReportRefs: [],
+            ErrorCode: null);
     }
 
-    public static BuildRunCompletedEntry CreateCompletedEntry ()
+    public static BuildProgressEntry CreateCompletedEntry ()
     {
-        return new BuildRunCompletedEntry(
+        return new BuildProgressEntry(
             RunId: RunId,
+            ProfileDigest: Repeat('a'),
+            Phase: "completed",
+            RunnerKind: ContractLiteralCodec.ToValue(BuildProfileRunnerKind.BuildPipeline),
+            RunnerStatus: ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
             Verdict: ContractLiteralCodec.ToValue(BuildVerdict.Pass),
-            Result: ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
-            CompletionReason: ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
-            ErrorCount: 0,
-            WarningCount: 1,
-            BuildJsonPath: "/workspace/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/build.json",
-            BuildReportPath: "/workspace/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/build-report.json",
-            BuildLogPath: "/workspace/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/build.log",
-            OutputManifestPath: "/workspace/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/output-manifest.json");
+            ReportRefs:
+            [
+                BuildReportRefs.Build,
+                BuildReportRefs.BuildReport,
+                BuildReportRefs.BuildOutputManifest,
+                BuildReportRefs.BuildLog,
+            ],
+            ErrorCode: null);
     }
 
     private static ProjectIdentityInfo CreateProject ()
