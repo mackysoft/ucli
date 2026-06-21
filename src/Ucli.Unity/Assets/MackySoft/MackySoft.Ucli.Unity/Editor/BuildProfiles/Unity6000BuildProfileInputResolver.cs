@@ -88,7 +88,10 @@ namespace MackySoft.Ucli.Unity.Build
             {
                 digest = ComputeAssetDigest(profilePath);
                 cancellationToken.ThrowIfCancellationRequested();
-                BuildProfile.SetActiveBuildProfile(profile);
+                if (!IsActiveBuildProfile(profilePath))
+                {
+                    BuildProfile.SetActiveBuildProfile(profile);
+                }
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException)
             {
@@ -134,6 +137,13 @@ namespace MackySoft.Ucli.Unity.Build
                 preconditionInput,
                 outputLayout!,
                 unityBuildProfile));
+        }
+
+        private static bool IsActiveBuildProfile (string profilePath)
+        {
+            var activeProfile = BuildProfile.GetActiveBuildProfile();
+            return activeProfile != null
+                && string.Equals(AssetDatabase.GetAssetPath(activeProfile), profilePath, StringComparison.Ordinal);
         }
 
         private static bool TryValidateProfilePath (

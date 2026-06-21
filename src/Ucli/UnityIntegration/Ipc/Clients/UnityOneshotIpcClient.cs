@@ -216,6 +216,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                         EndpointTransportKind: ContractLiteralCodec.ToValue(endpoint.TransportKind),
                         EndpointAddress: endpoint.Address),
                     unityLogPath,
+                    ResolveLaunchOptions(dispatchRequest),
                     cancellationToken)
                 .ConfigureAwait(false);
             if (!launchResult.IsSuccess)
@@ -346,6 +347,14 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
             request,
             timeout,
             cancellationToken);
+    }
+
+    private static UnityBatchmodeLaunchOptions ResolveLaunchOptions (UnityIpcDispatchRequest dispatchRequest)
+    {
+        ArgumentNullException.ThrowIfNull(dispatchRequest);
+        return dispatchRequest.OneshotActiveBuildProfilePath == null
+            ? UnityBatchmodeLaunchOptions.Default
+            : new UnityBatchmodeLaunchOptions(dispatchRequest.OneshotActiveBuildProfilePath);
     }
 
     private ValueTask<IpcResponse> SendPreparedStreamingRequestAsync (

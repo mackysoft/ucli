@@ -52,6 +52,7 @@ public sealed class UnityOneshotIpcClientTests
         Assert.Equal(
             UcliStoragePathResolver.ResolveUnityLogPath(unityProject.RepositoryRoot, unityProject.ProjectFingerprint),
             launcher.LastUnityLogPath);
+        Assert.Same(UnityBatchmodeLaunchOptions.Default, launcher.LastLaunchOptions);
 
         var bootstrapArguments = Assert.IsType<IpcOneshotBootstrapArguments>(launcher.LastBootstrapArguments);
         Assert.Equal(Environment.ProcessId, bootstrapArguments.ParentProcessId);
@@ -70,6 +71,43 @@ public sealed class UnityOneshotIpcClientTests
             request => Assert.Equal(bootstrapArguments.SessionToken, request.SessionToken));
         Assert.Equal(1, processHandle.WaitForExitCallCount);
         Assert.Equal(0, processHandle.TerminateCallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendAsync_WithOneshotActiveBuildProfilePath_PassesLaunchOptions ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "active-build-profile");
+        var unityProject = CreateUnityProject(scope);
+        var processHandle = new StubUnityBatchmodeProcessHandle();
+        var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
+        var transportClient = new StubUnityIpcTransportClient(request =>
+        {
+            return request.Method switch
+            {
+                IpcMethodNames.Ping => CreatePingResponse(request.RequestId),
+                IpcMethodNames.OpsRead => CreateSuccessResponse(request.RequestId),
+                _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
+            };
+        });
+        var client = new UnityOneshotIpcClient(
+            launcher,
+            transportClient,
+            new StubProjectLifecycleLockProvider(),
+            new StubUnityProjectLockFileProbe());
+
+        var result = await client.SendAsync(
+            unityProject,
+            new UnityIpcDispatchRequest(
+                IpcMethodNames.OpsRead,
+                CreateDispatchPayload(),
+                oneshotActiveBuildProfilePath: "Assets/BuildProfiles/LinuxPlayer.asset"),
+            TimeSpan.FromSeconds(30),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(launcher.LastLaunchOptions);
+        Assert.Equal("Assets/BuildProfiles/LinuxPlayer.asset", launcher.LastLaunchOptions!.ActiveBuildProfilePath);
     }
 
     [Fact]
@@ -1124,16 +1162,20 @@ public sealed class UnityOneshotIpcClientTests
 
         public string? LastUnityLogPath { get; private set; }
 
+        public UnityBatchmodeLaunchOptions? LastLaunchOptions { get; private set; }
+
         public ValueTask<UnityBatchmodeProcessLaunchResult> LaunchAsync (
             ResolvedUnityProjectContext unityProject,
             IpcBatchmodeBootstrapArguments bootstrapArguments,
             string unityLogPath,
+            UnityBatchmodeLaunchOptions? launchOptions = null,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             CallCount++;
             LastBootstrapArguments = bootstrapArguments;
             LastUnityLogPath = unityLogPath;
+            LastLaunchOptions = launchOptions;
             return ValueTask.FromResult(result);
         }
     }

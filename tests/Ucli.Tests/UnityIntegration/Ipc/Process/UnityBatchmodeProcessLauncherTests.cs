@@ -36,6 +36,31 @@ public sealed class UnityBatchmodeProcessLauncherTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void BuildArgumentTokens_WithActiveBuildProfile_AddsUnityActiveBuildProfileArguments ()
+    {
+        var bootstrapArguments = new IpcOneshotBootstrapArguments(
+            ParentProcessId: 1234,
+            ProjectFingerprint: "project-fingerprint",
+            SessionToken: "session-token",
+            ExitDeadlineUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 0, TimeSpan.Zero),
+            EndpointTransportKind: "unixDomainSocket",
+            EndpointAddress: "/tmp/ucli.sock");
+
+        var arguments = UnityBatchmodeProcessLauncher.BuildArgumentTokens(
+            "/tmp/unity-project",
+            "/tmp/unity.log",
+            bootstrapArguments,
+            new UnityBatchmodeLaunchOptions("Assets/BuildProfiles/LinuxPlayer.asset"));
+
+        var argumentArray = arguments.ToArray();
+        var activeBuildProfileIndex = Array.IndexOf(argumentArray, "-activeBuildProfile");
+        Assert.True(activeBuildProfileIndex >= 0);
+        Assert.Equal("Assets/BuildProfiles/LinuxPlayer.asset", arguments[activeBuildProfileIndex + 1]);
+        Assert.True(activeBuildProfileIndex < Array.IndexOf(argumentArray, "-executeMethod"));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Launch_WhenUnityPluginMarkerIsMissing_ReturnsInvalidArgumentWithoutResolvingUnityVersion ()
     {
         var versionResolver = new StubUnityVersionResolver();
@@ -63,6 +88,7 @@ public sealed class UnityBatchmodeProcessLauncherTests
                 EndpointTransportKind: "unixDomainSocket",
                 EndpointAddress: "/tmp/ucli.sock"),
             "/tmp/unity.log",
+            UnityBatchmodeLaunchOptions.Default,
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -96,6 +122,7 @@ public sealed class UnityBatchmodeProcessLauncherTests
                 EndpointTransportKind: "unixDomainSocket",
                 EndpointAddress: "/tmp/ucli.sock"),
             "/tmp/unity.log",
+            UnityBatchmodeLaunchOptions.Default,
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -133,6 +160,7 @@ public sealed class UnityBatchmodeProcessLauncherTests
                 EndpointTransportKind: "unixDomainSocket",
                 EndpointAddress: "/tmp/ucli.sock"),
             "/tmp/unity.log",
+            UnityBatchmodeLaunchOptions.Default,
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -171,6 +199,7 @@ public sealed class UnityBatchmodeProcessLauncherTests
                 EndpointTransportKind: "unixDomainSocket",
                 EndpointAddress: "/tmp/ucli.sock"),
             scope.GetPath("unity.log"),
+            UnityBatchmodeLaunchOptions.Default,
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -214,6 +243,7 @@ public sealed class UnityBatchmodeProcessLauncherTests
                     EndpointTransportKind: "unixDomainSocket",
                     EndpointAddress: "/tmp/ucli.sock"),
                 scope.GetPath("unity.log"),
+                UnityBatchmodeLaunchOptions.Default,
                 cancellationTokenSource.Token);
         });
 

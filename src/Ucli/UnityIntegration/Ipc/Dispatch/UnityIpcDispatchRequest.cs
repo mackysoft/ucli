@@ -15,6 +15,7 @@ internal sealed record UnityIpcDispatchRequest
     /// <param name="recoverableResponseAttemptTimeout"> The bounded response wait for one recoverable dispatch attempt, or <see langword="null" /> to use the full remaining timeout. </param>
     /// <param name="responseMode"> The IPC response framing mode. </param>
     /// <param name="dispatchTimeoutPayloadTransformer"> Optional method-owned transformer that projects the final dispatch timeout into the payload. </param>
+    /// <param name="oneshotActiveBuildProfilePath"> The optional project-relative Unity Build Profile path that oneshot launch should pass to Unity <c>-activeBuildProfile</c>. </param>
     public UnityIpcDispatchRequest (
         string method,
         JsonElement payload,
@@ -22,7 +23,8 @@ internal sealed record UnityIpcDispatchRequest
         bool isRecoverable = false,
         TimeSpan? recoverableResponseAttemptTimeout = null,
         IpcResponseMode responseMode = IpcResponseMode.Single,
-        Func<JsonElement, TimeSpan, JsonElement>? dispatchTimeoutPayloadTransformer = null)
+        Func<JsonElement, TimeSpan, JsonElement>? dispatchTimeoutPayloadTransformer = null,
+        string? oneshotActiveBuildProfilePath = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(method);
         if (recoverableResponseAttemptTimeout.HasValue)
@@ -35,6 +37,14 @@ internal sealed record UnityIpcDispatchRequest
             throw new ArgumentException($"Unsupported IPC response mode: {responseMode}.", nameof(responseMode));
         }
 
+        if (oneshotActiveBuildProfilePath != null
+            && !UnityAssetPathContract.IsNormalizedBuildProfileAssetPath(oneshotActiveBuildProfilePath))
+        {
+            throw new ArgumentException(
+                "Oneshot active Build Profile path must be a normalized project-relative asset path under Assets and must not reference a .meta file.",
+                nameof(oneshotActiveBuildProfilePath));
+        }
+
         Method = method;
         Payload = payload;
         AllowedStartupLifecycleStates = allowedStartupLifecycleStates ?? Array.Empty<string>();
@@ -42,6 +52,7 @@ internal sealed record UnityIpcDispatchRequest
         RecoverableResponseAttemptTimeout = recoverableResponseAttemptTimeout;
         ResponseMode = responseMode;
         DispatchTimeoutPayloadTransformer = dispatchTimeoutPayloadTransformer;
+        OneshotActiveBuildProfilePath = oneshotActiveBuildProfilePath;
     }
 
     /// <summary> Gets the IPC method name. </summary>
@@ -62,6 +73,9 @@ internal sealed record UnityIpcDispatchRequest
     /// <summary> Gets the IPC response framing mode requested for this dispatch. </summary>
     public IpcResponseMode ResponseMode { get; }
 
+    /// <summary> Gets the optional Unity Build Profile path that oneshot launch should activate before uCLI bootstrap. </summary>
+    public string? OneshotActiveBuildProfilePath { get; }
+
     private Func<JsonElement, TimeSpan, JsonElement>? DispatchTimeoutPayloadTransformer { get; }
 
     /// <summary> Creates a copy of this request with a different response framing mode. </summary>
@@ -76,7 +90,8 @@ internal sealed record UnityIpcDispatchRequest
             IsRecoverable,
             RecoverableResponseAttemptTimeout,
             responseMode,
-            DispatchTimeoutPayloadTransformer);
+            DispatchTimeoutPayloadTransformer,
+            OneshotActiveBuildProfilePath);
     }
 
     /// <summary> Creates the payload element for one concrete dispatch attempt. </summary>
