@@ -32,10 +32,12 @@ namespace MackySoft.Ucli.Unity.Ipc
             Stream stream,
             CancellationToken cancellationToken = default)
         {
+            var receiveMeasurement = RuntimePerformanceTracer.StartDetachedSection(RuntimePerformanceTracer.SectionNames.IpcReceive);
             var readResult = await IpcFrameCodec.TryReadModelAsync<IpcRequest>(
                 stream,
                 IpcJsonSerializerOptions.Default,
                 cancellationToken: cancellationToken);
+            var receiveSection = receiveMeasurement.Stop();
             if (!readResult.IsSuccess)
             {
                 var errorResponse = UnityIpcResponseFactory.CreateMalformedFrameResponse(
@@ -64,6 +66,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             var request = readResult.Value;
+            using var requestTrace = RuntimePerformanceTracer.BeginRequest(request, receiveSection);
             if (IsStreamingResponse(request))
             {
                 using var requestCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -76,16 +79,25 @@ namespace MackySoft.Ucli.Unity.Ipc
                     streamWriter,
                     requestCancellationTokenSource,
                     cancellationToken);
-                await WriteTerminalSafelyAsync(streamWriter, streamingResponse, cancellationToken);
+                requestTrace.SetResponse(streamingResponse);
+                using (RuntimePerformanceTracer.Measure(RuntimePerformanceTracer.SectionNames.IpcResponseWrite))
+                {
+                    await WriteTerminalSafelyAsync(streamWriter, streamingResponse, cancellationToken);
+                }
+
                 return new UnityIpcConnectionHandleResult(request, streamingResponse);
             }
 
             var response = await requestProcessor.ProcessAsync(request, cancellationToken);
-            await IpcFrameCodec.WriteModelAsync(
-                stream,
-                response,
-                IpcJsonSerializerOptions.Default,
-                cancellationToken: cancellationToken);
+            requestTrace.SetResponse(response);
+            using (RuntimePerformanceTracer.Measure(RuntimePerformanceTracer.SectionNames.IpcResponseWrite))
+            {
+                await IpcFrameCodec.WriteModelAsync(
+                    stream,
+                    response,
+                    IpcJsonSerializerOptions.Default,
+                    cancellationToken: cancellationToken);
+            }
 
             return new UnityIpcConnectionHandleResult(request, response);
         }
