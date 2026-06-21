@@ -70,11 +70,20 @@ public sealed class AssuranceSemanticInvariantValidatorTests
         AssertViolationPath(result, "$.reports.buildLog.digest");
     }
 
-    [Fact]
+    [Theory]
     [Trait("Size", "Small")]
-    public void Validate_WithBuildPayloadReportAbsolutePath_ReturnsReportPath ()
+    [InlineData("/workspace/.ucli/build.log")]
+    [InlineData("C:/workspace/.ucli/build.log")]
+    [InlineData("C:workspace/.ucli/build.log")]
+    [InlineData("../build.log")]
+    [InlineData("artifacts/../build.log")]
+    [InlineData("artifacts//build.log")]
+    [InlineData("artifacts\\build.log")]
+    [InlineData(".")]
+    [InlineData("")]
+    public void Validate_WithBuildPayloadReportNonArtifactRootRelativePath_ReturnsReportPath (string buildLogPath)
     {
-        var result = ValidateBuildPayload(CreateBuildPayload(buildLogPath: "/workspace/.ucli/build.log"));
+        var result = ValidateBuildPayload(CreateBuildPayload(buildLogPath: buildLogPath));
 
         AssertViolationPath(result, "$.reports.buildLog.path");
     }
@@ -86,6 +95,17 @@ public sealed class AssuranceSemanticInvariantValidatorTests
         var result = ValidateBuildPayload(CreateBuildPayload(includeBuildLogKind: true));
 
         AssertViolationPath(result, "$.reports.buildLog.kind");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Validate_WithBuildPayloadReportNonArtifactRootRelativePathAndNoClaims_ReturnsReportPath ()
+    {
+        var result = ValidateBuildPayload(CreateBuildPayload(
+            includeBuildClaims: false,
+            buildLogPath: "../build.log"));
+
+        AssertViolationPath(result, "$.reports.buildLog.path");
     }
 
     [Fact]
@@ -315,6 +335,17 @@ public sealed class AssuranceSemanticInvariantValidatorTests
             buildSucceededClaimStatus: "failed"));
 
         AssertViolationPath(result, "$.build.logs.completionReason");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Validate_WithBuildSummaryResultMismatch_ReturnsSummaryResultPath ()
+    {
+        var result = ValidateBuildPayload(CreateBuildPayload(
+            buildResult: "succeeded",
+            summaryResult: "failed"));
+
+        AssertViolationPath(result, "$.build.summary.result");
     }
 
     [Fact]
@@ -1055,11 +1086,13 @@ public sealed class AssuranceSemanticInvariantValidatorTests
         bool includeBuildProfile = true,
         string buildManifestRef = "buildOutputManifest",
         string summaryReportRef = "buildReport",
+        string? summaryResult = null,
         string logsReportRef = "buildLog",
         IReadOnlyList<object>? verifierEffects = null,
         bool includeBuildGenerations = true,
         string validForAssetRefreshGeneration = "asset-after",
         bool includeBuildLogPath = true,
+        bool includeBuildClaims = true,
         string? buildLogPath = null,
         bool includeBuildLogKind = false,
         string buildLogDigest = "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd")
@@ -1115,31 +1148,33 @@ public sealed class AssuranceSemanticInvariantValidatorTests
         var generationEvidenceData = buildGenerationEvidenceDataValidForAssetRefreshGeneration == null
             ? generations
             : CreateBuildGenerations(buildGenerationEvidenceDataValidForAssetRefreshGeneration);
-        var claims = BuildClaimCodes.All
-            .Select(code =>
-            {
-                var status = ResolveBuildClaimStatus(
-                    code,
-                    buildCompletedClaimStatus,
-                    buildSucceededClaimStatus,
-                    buildGenerationClaimStatus);
-                return new
+        var claims = includeBuildClaims
+            ? BuildClaimCodes.All
+                .Select(code =>
                 {
-                    id = code.Value,
-                    status,
-                    coverage = ResolveBuildClaimCoverage(status),
-                    required = true,
-                    verifierRef = "build",
-                    evidence = CreateBuildEvidence(
-                        code.Value,
-                        buildResult,
-                        buildSucceededEvidenceRef,
-                        buildGenerationEvidenceDataOnly,
-                        generationEvidenceData),
-                    residualRisks = Array.Empty<object>(),
-                };
-            })
-            .ToArray();
+                    var status = ResolveBuildClaimStatus(
+                        code,
+                        buildCompletedClaimStatus,
+                        buildSucceededClaimStatus,
+                        buildGenerationClaimStatus);
+                    return (object)new
+                    {
+                        id = code.Value,
+                        status,
+                        coverage = ResolveBuildClaimCoverage(status),
+                        required = true,
+                        verifierRef = "build",
+                        evidence = CreateBuildEvidence(
+                            code.Value,
+                            buildResult,
+                            buildSucceededEvidenceRef,
+                            buildGenerationEvidenceDataOnly,
+                            generationEvidenceData),
+                        residualRisks = Array.Empty<object>(),
+                    };
+                })
+                .ToArray()
+            : Array.Empty<object>();
         return JsonSerializer.Serialize(new
         {
             verdict,
@@ -1194,7 +1229,7 @@ public sealed class AssuranceSemanticInvariantValidatorTests
                 generations,
                 summary = new
                 {
-                    result = buildResult,
+                    result = summaryResult ?? buildResult,
                     reportRef = summaryReportRef,
                 },
                 logs = new

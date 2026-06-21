@@ -186,8 +186,7 @@
                   "enum": [
                     "succeeded",
                     "failed",
-                    "canceled",
-                    "unknown"
+                    "canceled"
                   ]
                 }
               },
@@ -255,8 +254,7 @@
                   "enum": [
                     "succeeded",
                     "failed",
-                    "canceled",
-                    "unknown"
+                    "canceled"
                   ]
                 },
                 "durationMilliseconds": {

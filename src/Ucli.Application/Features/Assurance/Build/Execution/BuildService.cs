@@ -281,10 +281,8 @@ internal sealed class BuildService : IBuildService
                 profile,
                 buildResponse,
                 accounting,
-                paths,
                 runnerInvocation);
             var metadata = CreateMetadataDocument(
-                project,
                 output,
                 buildResponse,
                 profile,
@@ -313,7 +311,6 @@ internal sealed class BuildService : IBuildService
             var completedOutput = output with
             {
                 Reports = CreateReports(
-                    paths,
                     accounting,
                     metadataWriteResult.Artifact!),
             };
@@ -1057,7 +1054,6 @@ internal sealed class BuildService : IBuildService
         ResolvedBuildProfile profile,
         IpcBuildRunResponse response,
         BuildRunArtifactAccountingResult accounting,
-        BuildRunArtifactPaths paths,
         ResolvedRunnerInvocationInput runnerInvocation)
     {
         var generations = CreateGenerations(response.LifecycleBefore, response.LifecycleAfter);
@@ -1124,7 +1120,7 @@ internal sealed class BuildService : IBuildService
                     ReportRef: BuildReportRefs.Build),
             ],
             Claims: claims,
-            Reports: CreateReports(paths, accounting, buildArtifact: null),
+            Reports: CreateReports(accounting, buildArtifact: null),
             ResidualRisks: residualRisks);
     }
 
@@ -1173,7 +1169,6 @@ internal sealed class BuildService : IBuildService
     }
 
     private static IReadOnlyDictionary<string, BuildReportOutput> CreateReports (
-        BuildRunArtifactPaths paths,
         BuildRunArtifactAccountingResult accounting,
         BuildArtifactRef? buildArtifact)
     {
@@ -1187,7 +1182,6 @@ internal sealed class BuildService : IBuildService
     }
 
     private static BuildRunMetadataDocument CreateMetadataDocument (
-        ProjectIdentityInfo project,
         BuildExecutionOutput output,
         IpcBuildRunResponse response,
         ResolvedBuildProfile profile,
@@ -1198,11 +1192,7 @@ internal sealed class BuildService : IBuildService
             SchemaVersion: BuildMetadataSchemaVersion,
             RunId: output.Build.RunId,
             Profile: SerializeMetadataElement(output.Build.Profile),
-            Inputs: SerializeMetadataElement(new BuildRunInputMetadata(
-                InputKind: output.Build.Inputs.InputKind,
-                Target: output.Build.Inputs.Target,
-                Scenes: output.Build.Inputs.Scenes,
-                Options: output.Build.Inputs.Options)),
+            Inputs: SerializeMetadataElement(CreateInputMetadata(output.Build.Inputs)),
             Runner: SerializeMetadataElement(new BuildRunRunnerMetadata(
                 Kind: ContractLiteralCodec.ToValue(profile.Runner.Kind),
                 Method: profile.Runner.Method,
@@ -1220,6 +1210,19 @@ internal sealed class BuildService : IBuildService
             Summary: SerializeMetadataElement(output.Build.Summary),
             Logs: SerializeMetadataElement(output.Build.Logs),
             ProjectMutation: SerializeMetadataElement(response.ProjectMutation));
+    }
+
+    private static BuildRunInputMetadata CreateInputMetadata (BuildInputsOutput inputs)
+    {
+        return new BuildRunInputMetadata(
+            InputKind: inputs.InputKind,
+            Target: new BuildRunTargetMetadata(
+                StableName: inputs.Target.StableName,
+                UnityBuildTarget: inputs.Target.UnityBuildTarget),
+            Scenes: new BuildRunScenesMetadata(
+                Source: inputs.Scenes.Source,
+                Paths: inputs.Scenes.Paths),
+            Options: new BuildRunOptionsMetadata(inputs.Options.Development));
     }
 
     private static object CreateRunnerResultMetadata (

@@ -9,6 +9,14 @@ namespace MackySoft.Ucli.Application.Features.Assurance.Verify.Semantics;
 internal sealed class VerifyAssuranceSemanticInvariantRule : IAssuranceSemanticInvariantRule
 {
     /// <inheritdoc />
+    public void ValidatePayload (
+        JsonElement payload,
+        List<AssuranceSemanticInvariantViolation> violations)
+    {
+        ArgumentNullException.ThrowIfNull(violations);
+    }
+
+    /// <inheritdoc />
     public void ValidateClaim (
         JsonElement payload,
         JsonElement claimElement,

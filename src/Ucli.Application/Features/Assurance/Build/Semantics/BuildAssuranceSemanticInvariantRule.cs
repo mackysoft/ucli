@@ -27,16 +27,13 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
         new HashSet<string>(ContractLiteralCodec.GetLiterals<BuildEffect>(), StringComparer.Ordinal);
 
     /// <inheritdoc />
-    public void ValidateClaim (
+    public void ValidatePayload (
         JsonElement payload,
-        JsonElement claimElement,
-        string claimPath,
-        string claimId,
         List<AssuranceSemanticInvariantViolation> violations)
     {
         ArgumentNullException.ThrowIfNull(violations);
 
-        if (!IsBuildClaim(claimId) || !payload.TryGetProperty("build", out var buildElement))
+        if (!payload.TryGetProperty("build", out var buildElement) || buildElement.ValueKind != JsonValueKind.Object)
         {
             return;
         }
@@ -52,6 +49,23 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
         ValidateBuildGenerations(buildElement, violations);
         ValidateBuildLogCompletionReason(buildElement, violations);
         ValidateVerifier(payload, violations);
+    }
+
+    /// <inheritdoc />
+    public void ValidateClaim (
+        JsonElement payload,
+        JsonElement claimElement,
+        string claimPath,
+        string claimId,
+        List<AssuranceSemanticInvariantViolation> violations)
+    {
+        ArgumentNullException.ThrowIfNull(violations);
+
+        if (!IsBuildClaim(claimId) || !payload.TryGetProperty("build", out var buildElement))
+        {
+            return;
+        }
+
         ValidateClaimEvidence(buildElement, claimElement, claimPath, claimId, violations);
         if (BuildClaimCodes.UnityBuildCompleted.EqualsValue(claimId))
         {
@@ -125,7 +139,7 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
         {
             AddViolation(violations, BuildPropertyPath(reportPath, "path"), $"Build report {reportKey} must declare path.");
         }
-        else if (IsAbsoluteLikePath(path))
+        else if (!IsArtifactRootRelativePath(path))
         {
             AddViolation(violations, BuildPropertyPath(reportPath, "path"), $"Build report {reportKey} path must be artifact-root relative.");
         }
@@ -936,14 +950,47 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
         return true;
     }
 
-    private static bool IsAbsoluteLikePath (string value)
+    private static bool IsArtifactRootRelativePath (string value)
     {
-        return value.StartsWith("/", StringComparison.Ordinal)
+        if (string.IsNullOrWhiteSpace(value)
+            || value.Contains('\\', StringComparison.Ordinal)
+            || value.Contains("//", StringComparison.Ordinal)
+            || value.StartsWith("/", StringComparison.Ordinal)
             || value.StartsWith("\\", StringComparison.Ordinal)
-            || (value.Length >= 3
-                && char.IsAsciiLetter(value[0])
-                && value[1] == ':'
-                && (value[2] == '/' || value[2] == '\\'));
+            || value.EndsWith("/", StringComparison.Ordinal)
+            || IsWindowsDriveQualifiedPath(value))
+        {
+            return false;
+        }
+
+        var remaining = value.AsSpan();
+        while (!remaining.IsEmpty)
+        {
+            var separatorIndex = remaining.IndexOf('/');
+            var segment = separatorIndex < 0 ? remaining : remaining[..separatorIndex];
+            if (segment.IsEmpty
+                || segment.SequenceEqual(".")
+                || segment.SequenceEqual(".."))
+            {
+                return false;
+            }
+
+            if (separatorIndex < 0)
+            {
+                return true;
+            }
+
+            remaining = remaining[(separatorIndex + 1)..];
+        }
+
+        return true;
+    }
+
+    private static bool IsWindowsDriveQualifiedPath (string value)
+    {
+        return value.Length >= 2
+            && char.IsAsciiLetter(value[0])
+            && value[1] == ':';
     }
 
     private static string BuildPropertyPath (

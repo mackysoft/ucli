@@ -683,11 +683,7 @@ internal static class Program
                 additionalProperties: false,
                 Required(
                     "result",
-                    EnumSchema(
-                        Literal(IpcBuildReportResult.Succeeded),
-                        Literal(IpcBuildReportResult.Failed),
-                        Literal(IpcBuildReportResult.Canceled),
-                        Literal(IpcBuildReportResult.Unknown))),
+                    BuildRunTerminalResultSchema()),
                 Required("durationMilliseconds", IntegerSchema()),
                 Required("errorCount", IntegerSchema()),
                 Required("warningCount", IntegerSchema()),
@@ -762,11 +758,15 @@ internal static class Program
                     Literal(IpcBuildRunnerResultSource.UcliBuildRunnerResult))),
             Required(
                 "status",
-                EnumSchema(
-                    Literal(IpcBuildReportResult.Succeeded),
-                    Literal(IpcBuildReportResult.Failed),
-                    Literal(IpcBuildReportResult.Canceled),
-                    Literal(IpcBuildReportResult.Unknown))));
+                BuildRunTerminalResultSchema()));
+    }
+
+    private static Dictionary<string, object?> BuildRunTerminalResultSchema ()
+    {
+        return EnumSchema(
+            Literal(IpcBuildReportResult.Succeeded),
+            Literal(IpcBuildReportResult.Failed),
+            Literal(IpcBuildReportResult.Canceled));
     }
 
     private static Dictionary<string, object?> CreateBuildRunClaimSchema ()

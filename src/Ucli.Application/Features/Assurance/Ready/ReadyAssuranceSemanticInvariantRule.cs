@@ -7,6 +7,14 @@ namespace MackySoft.Ucli.Application.Features.Assurance.Ready;
 internal sealed class ReadyAssuranceSemanticInvariantRule : IAssuranceSemanticInvariantRule
 {
     /// <inheritdoc />
+    public void ValidatePayload (
+        JsonElement payload,
+        List<AssuranceSemanticInvariantViolation> violations)
+    {
+        ArgumentNullException.ThrowIfNull(violations);
+    }
+
+    /// <inheritdoc />
     public void ValidateClaim (
         JsonElement payload,
         JsonElement claimElement,
