@@ -664,18 +664,7 @@ internal static class Program
                 additionalProperties: false,
                 Required("path", StringSchema()),
                 Required("digest", Sha256LowerHexSchema()))),
-            Required("buildTarget", StringSchema()),
-            Required("scenes", ObjectSchema(
-                additionalProperties: false,
-                Required(
-                    "source",
-                    EnumSchema(
-                        Literal(BuildProfileSceneSource.EditorBuildSettings),
-                        Literal(BuildProfileSceneSource.Explicit))),
-                Required("paths", ArraySchema(StringSchema())))),
-            Required("options", ObjectSchema(
-                additionalProperties: false,
-                Required("development", BooleanSchema()))),
+            Required("inputs", CreateBuildRunInputsSchema()),
             Required("runner", CreateBuildRunRunnerSchema()),
             Required("runnerResult", CreateBuildRunRunnerResultSchema()),
             Required("output", ObjectSchema(
@@ -694,11 +683,7 @@ internal static class Program
                 additionalProperties: false,
                 Required(
                     "result",
-                    EnumSchema(
-                        Literal(IpcBuildReportResult.Succeeded),
-                        Literal(IpcBuildReportResult.Failed),
-                        Literal(IpcBuildReportResult.Canceled),
-                        Literal(IpcBuildReportResult.Unknown))),
+                    BuildRunTerminalResultSchema()),
                 Required("durationMilliseconds", IntegerSchema()),
                 Required("errorCount", IntegerSchema()),
                 Required("warningCount", IntegerSchema()),
@@ -714,11 +699,33 @@ internal static class Program
                     EnumSchema(
                         Literal(IpcBuildLogCompletionReason.Completed),
                         Literal(IpcBuildLogCompletionReason.Failed),
-                        Literal(IpcBuildLogCompletionReason.Canceled))),
+                    Literal(IpcBuildLogCompletionReason.Canceled))),
                 Required("window", ObjectSchema(
                     additionalProperties: false,
                     Required("startedAtUtc", StringSchema()),
                     Required("completedAtUtc", StringSchema()))))));
+    }
+
+    private static Dictionary<string, object?> CreateBuildRunInputsSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("inputKind", ConstString("explicit")),
+            Required("target", ObjectSchema(
+                additionalProperties: false,
+                Required("stableName", StringSchema()),
+                Required("unityBuildTarget", StringSchema()))),
+            Required("scenes", ObjectSchema(
+                additionalProperties: false,
+                Required(
+                    "source",
+                    EnumSchema(
+                        Literal(BuildProfileSceneSource.EditorBuildSettings),
+                        Literal(BuildProfileSceneSource.Explicit))),
+                Required("paths", ArraySchema(StringSchema())))),
+            Required("options", ObjectSchema(
+                additionalProperties: false,
+                Required("development", BooleanSchema()))));
     }
 
     private static Dictionary<string, object?> CreateBuildRunRunnerSchema ()
@@ -751,10 +758,15 @@ internal static class Program
                     Literal(IpcBuildRunnerResultSource.UcliBuildRunnerResult))),
             Required(
                 "status",
-                EnumSchema(
-                    Literal(IpcBuildReportResult.Succeeded),
-                    Literal(IpcBuildReportResult.Failed),
-                    Literal(IpcBuildReportResult.Canceled))));
+                BuildRunTerminalResultSchema()));
+    }
+
+    private static Dictionary<string, object?> BuildRunTerminalResultSchema ()
+    {
+        return EnumSchema(
+            Literal(IpcBuildReportResult.Succeeded),
+            Literal(IpcBuildReportResult.Failed),
+            Literal(IpcBuildReportResult.Canceled));
     }
 
     private static Dictionary<string, object?> CreateBuildRunClaimSchema ()

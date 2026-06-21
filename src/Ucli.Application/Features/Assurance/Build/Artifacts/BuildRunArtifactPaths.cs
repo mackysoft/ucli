@@ -1,7 +1,7 @@
 namespace MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
 
 /// <summary> Represents the resolved filesystem layout for one build run. </summary>
-/// <param name="RepositoryRoot"> The repository root used to derive repository-relative artifact references. </param>
+/// <param name="RepositoryRoot"> The repository root used to resolve storage layout identity for this build run. </param>
 /// <param name="RunId"> The build run identifier. </param>
 /// <param name="ArtifactsDirectory"> The absolute build-run artifact directory path. </param>
 /// <param name="BuildJsonPath"> The absolute <c>build.json</c> path. </param>

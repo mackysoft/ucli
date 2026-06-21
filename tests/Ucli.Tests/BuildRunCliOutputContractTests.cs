@@ -20,7 +20,6 @@ public sealed class BuildRunCliOutputContractTests
 {
     private const string BuildRunGoldenDirectory = "build-run";
     private const string BuildArtifactFixtureRoot = "tests/Ucli.Tests/GoldenFiles/Json/BuildRunArtifacts";
-    private const string ArtifactRoot = "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1";
     private const string SuccessManifestDigest = "59a71d71a244ad7a978be0bbfe8f87328c036091bb4b5aefef9e89b855d82b9b";
     private const string FailedManifestDigest = "04d7d7e1eb32bc4521986964ba5e86b772fe46a3b50a73e4dd3783d4c4577d21";
 
@@ -111,9 +110,77 @@ public sealed class BuildRunCliOutputContractTests
         var buildRoot = fixture.RootElement;
 
         AssertEquivalentJson(buildRoot.GetProperty("profile"), payloadBuild.GetProperty("profile"));
+        AssertEquivalentJson(buildRoot.GetProperty("inputs"), payloadBuild.GetProperty("inputs"));
         AssertEquivalentJson(buildRoot.GetProperty("summary"), payloadBuild.GetProperty("summary"));
         AssertEquivalentJson(buildRoot.GetProperty("logs"), payloadBuild.GetProperty("logs"));
         AssertEquivalentJson(buildRoot.GetProperty("generations"), payloadBuild.GetProperty("generations"));
+        Assert.Equal(
+            buildRoot.GetProperty("runner").GetProperty("kind").GetString(),
+            payloadBuild.GetProperty("runner").GetProperty("kind").GetString());
+        Assert.Equal(
+            buildRoot.GetProperty("runner").GetProperty("method").ValueKind,
+            payloadBuild.GetProperty("runner").GetProperty("method").ValueKind);
+        Assert.Equal(
+            buildRoot.GetProperty("runnerResult").GetProperty("source").GetString(),
+            payloadBuild.GetProperty("runnerResult").GetProperty("source").GetString());
+        Assert.Equal(
+            buildRoot.GetProperty("runnerResult").GetProperty("status").GetString(),
+            payloadBuild.GetProperty("runnerResult").GetProperty("status").GetString());
+        Assert.False(payloadBuild.TryGetProperty("buildTarget", out _));
+        Assert.False(payloadBuild.TryGetProperty("scenes", out _));
+        Assert.False(payloadBuild.TryGetProperty("options", out _));
+    }
+
+    [Theory]
+    [InlineData("success.json")]
+    [InlineData("build-report-failed.json")]
+    [Trait("Size", "Small")]
+    public void BuildRunPayloadGoldens_UseArtifactRelativeReportsWithoutLegacyKeys (string fileName)
+    {
+        var payload = ReadGoldenPayload(fileName);
+        var reports = payload.GetProperty("reports");
+
+        Assert.False(reports.TryGetProperty("buildResult", out _));
+        foreach (var report in reports.EnumerateObject())
+        {
+            Assert.False(report.Value.TryGetProperty("kind", out _));
+            Assert.False(report.Value.TryGetProperty("category", out _));
+            var path = report.Value.GetProperty("path").GetString()!;
+            Assert.False(IsAbsoluteLikePath(path), path);
+        }
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void BuildRunPayloadSchema_UsesInputsAndReportRefs ()
+    {
+        using var document = JsonDocument.Parse(File.ReadAllText(Path.Combine(
+            RepositoryRoot,
+            "schemas",
+            "v1",
+            "cli-output",
+            "payload",
+            "build.run.schema.json")));
+        var successSchema = document.RootElement.GetProperty("oneOf")[0];
+        var buildProperties = successSchema.GetProperty("properties").GetProperty("build").GetProperty("properties");
+        var reportProperties = successSchema.GetProperty("properties").GetProperty("reports").GetProperty("properties");
+
+        Assert.True(buildProperties.TryGetProperty("inputs", out _));
+        Assert.False(buildProperties.TryGetProperty("buildTarget", out _));
+        Assert.False(buildProperties.TryGetProperty("scenes", out _));
+        Assert.False(buildProperties.TryGetProperty("options", out _));
+        Assert.Equal(
+            [BuildReportRefs.Build, BuildReportRefs.BuildReport, BuildReportRefs.BuildOutputManifest, BuildReportRefs.BuildLog],
+            reportProperties.EnumerateObject().Select(static property => property.Name).ToArray());
+        foreach (var reportSchema in reportProperties.EnumerateObject())
+        {
+            var properties = reportSchema.Value.GetProperty("properties");
+            Assert.True(properties.TryGetProperty("path", out _));
+            Assert.True(properties.TryGetProperty("digest", out _));
+            Assert.False(properties.TryGetProperty("kind", out _));
+            Assert.False(properties.TryGetProperty("category", out _));
+            Assert.False(properties.TryGetProperty("buildResult", out _));
+        }
     }
 
     [Theory]
@@ -244,9 +311,11 @@ public sealed class BuildRunCliOutputContractTests
         var build = new BuildOutput(
             RunId: "build-run-1",
             Profile: new BuildProfileOutput("/workspace/UnityProject/.ucli/build/player.json", ProfileDigest),
-            BuildTarget: "standaloneLinux64",
-            Scenes: new BuildScenesOutput("explicit", ["Assets/Scenes/Main.unity"]),
-            Options: new BuildOptionsOutput(Development: true),
+            Inputs: new BuildInputsOutput(
+                InputKind: "explicit",
+                Target: new BuildTargetOutput("standaloneLinux64", "StandaloneLinux64"),
+                Scenes: new BuildScenesOutput("explicit", ["Assets/Scenes/Main.unity"]),
+                Options: new BuildOptionsOutput(Development: true)),
             Runner: new BuildRunnerOutput(
                 Kind: "buildPipeline",
                 Method: null,
@@ -432,8 +501,8 @@ public sealed class BuildRunCliOutputContractTests
         {
             return new Dictionary<string, object?>(StringComparer.Ordinal)
             {
-                ["buildTarget"] = build.BuildTarget,
-                ["sceneCount"] = build.Scenes.Paths.Count,
+                ["buildTarget"] = build.Inputs.Target.StableName,
+                ["sceneCount"] = build.Inputs.Scenes.Paths.Count,
             };
         }
 
@@ -466,7 +535,8 @@ public sealed class BuildRunCliOutputContractTests
         {
             return new Dictionary<string, object?>(StringComparer.Ordinal)
             {
-                ["result"] = build.Summary.Result,
+                ["source"] = build.RunnerResult.Source,
+                ["status"] = build.RunnerResult.Status,
             };
         }
 
@@ -562,10 +632,10 @@ public sealed class BuildRunCliOutputContractTests
                     BuildReportRefs.Build,
                     new Dictionary<string, object?>(StringComparer.Ordinal)
                     {
-                        ["buildTarget"] = build.BuildTarget,
-                        ["unityBuildTarget"] = "StandaloneLinux64",
-                        ["sceneSource"] = build.Scenes.Source,
-                        ["scenes"] = build.Scenes.Paths,
+                        ["buildTarget"] = build.Inputs.Target.StableName,
+                        ["unityBuildTarget"] = build.Inputs.Target.UnityBuildTarget,
+                        ["sceneSource"] = build.Inputs.Scenes.Source,
+                        ["scenes"] = build.Inputs.Scenes.Paths,
                         ["buildOptions"] = "Development",
                     }),
             ];
@@ -588,7 +658,7 @@ public sealed class BuildRunCliOutputContractTests
 
         if (BuildClaimCodes.UnityBuildResultAccounted == code)
         {
-            return [new BuildEvidenceOutput(ContractLiteralCodec.ToValue(BuildEffect.UnityBuildReportRead), BuildReportRefs.Build, build.Summary)];
+            return [new BuildEvidenceOutput(ContractLiteralCodec.ToValue(BuildEffect.UnityBuildReportRead), BuildReportRefs.Build, build.RunnerResult)];
         }
 
         if (BuildClaimCodes.UnityBuildReportAccounted == code)
@@ -637,10 +707,10 @@ public sealed class BuildRunCliOutputContractTests
     {
         return new Dictionary<string, BuildReportOutput>(StringComparer.Ordinal)
         {
-            [BuildReportRefs.Build] = new(ArtifactRoot + "/build.json", BuildDigest),
-            [BuildReportRefs.BuildReport] = new(ArtifactRoot + "/build-report.json", BuildReportDigest),
-            [BuildReportRefs.BuildOutputManifest] = new(ArtifactRoot + "/output-manifest.json", BuildOutputManifestArtifactDigest),
-            [BuildReportRefs.BuildLog] = new(ArtifactRoot + "/build.log", BuildLogDigest),
+            [BuildReportRefs.Build] = new("build.json", BuildDigest),
+            [BuildReportRefs.BuildReport] = new("build-report.json", BuildReportDigest),
+            [BuildReportRefs.BuildOutputManifest] = new("output-manifest.json", BuildOutputManifestArtifactDigest),
+            [BuildReportRefs.BuildLog] = new("build.log", BuildLogDigest),
         };
     }
 
@@ -788,6 +858,20 @@ public sealed class BuildRunCliOutputContractTests
         JsonElement actual)
     {
         Assert.Equal(JsonSerializer.Serialize(expected), JsonSerializer.Serialize(actual));
+    }
+
+    private static bool IsAbsoluteLikePath (string path)
+    {
+        return Path.IsPathRooted(path)
+            || path.StartsWith("/", StringComparison.Ordinal)
+            || path.StartsWith("\\", StringComparison.Ordinal)
+            || (path.Length >= 3 && IsAsciiLetter(path[0]) && path[1] == ':' && (path[2] == '\\' || path[2] == '/'));
+    }
+
+    private static bool IsAsciiLetter (char value)
+    {
+        return value is (>= 'A' and <= 'Z')
+            or (>= 'a' and <= 'z');
     }
 
     private static void AssertNoRemovedPathSegment (
