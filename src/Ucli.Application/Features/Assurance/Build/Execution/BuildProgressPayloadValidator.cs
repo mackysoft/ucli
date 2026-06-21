@@ -2,6 +2,7 @@ using System.Text;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
 using MackySoft.Ucli.Contracts.Assurance;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 
@@ -10,17 +11,6 @@ namespace MackySoft.Ucli.Application.Features.Assurance.Build.Execution;
 /// <summary> Validates build progress stream payloads before they are exposed by the CLI. </summary>
 internal static class BuildProgressPayloadValidator
 {
-    private const int Sha256LowerHexLength = 64;
-
-    private static readonly IReadOnlySet<string> ProgressPhases =
-        new HashSet<string>(BuildRunProgressPhaseNames.All, StringComparer.Ordinal);
-
-    private static readonly IReadOnlySet<string> LogLevels =
-        new HashSet<string>(BuildLogEntryLevelNames.All, StringComparer.Ordinal);
-
-    private static readonly IReadOnlySet<string> LogSources =
-        new HashSet<string>(BuildLogEntrySourceNames.All, StringComparer.Ordinal);
-
     private static readonly IReadOnlySet<string> ReportRefs = new HashSet<string>(StringComparer.Ordinal)
     {
         BuildReportRefs.Build,
@@ -86,7 +76,7 @@ internal static class BuildProgressPayloadValidator
     {
         ValidateRunId(eventName, entry.RunId, expectedRunId);
         ValidateProfileDigest(eventName, entry.ProfileDigest, expectedProfileDigest);
-        if (!ProgressPhases.Contains(entry.Phase))
+        if (!ContractLiteralCodec.IsDefined<BuildRunProgressPhase>(entry.Phase))
         {
             FailField(eventName, nameof(entry.Phase), "must be one of the build progress phases.");
         }
@@ -157,7 +147,7 @@ internal static class BuildProgressPayloadValidator
             FailField(eventName, nameof(entry.TimestampUtc), "must use UTC offset.");
         }
 
-        if (!LogLevels.Contains(entry.Level))
+        if (!ContractLiteralCodec.IsDefined<BuildLogEntryLevel>(entry.Level))
         {
             FailField(eventName, nameof(entry.Level), "must be a supported log level.");
         }
@@ -173,7 +163,7 @@ internal static class BuildProgressPayloadValidator
             RequireNonEmpty(eventName, nameof(entry.Cursor), entry.Cursor);
         }
 
-        if (!LogSources.Contains(entry.Source))
+        if (!ContractLiteralCodec.IsDefined<BuildLogEntrySource>(entry.Source))
         {
             FailField(eventName, nameof(entry.Source), "must be a supported log source.");
         }
@@ -192,7 +182,7 @@ internal static class BuildProgressPayloadValidator
         }
 
         RequireNonEmpty(eventName, nameof(entry.Message), entry.Message);
-        if (!ProgressPhases.Contains(entry.Phase))
+        if (!ContractLiteralCodec.IsDefined<BuildRunProgressPhase>(entry.Phase))
         {
             FailField(eventName, nameof(entry.Phase), "must be one of the build progress phases.");
         }
@@ -222,7 +212,7 @@ internal static class BuildProgressPayloadValidator
         string actualProfileDigest,
         string expectedProfileDigest)
     {
-        if (!IsSha256LowerHex(actualProfileDigest))
+        if (!Sha256LowerHex.IsLowerHexDigest(actualProfileDigest))
         {
             FailField(eventName, nameof(BuildProgressEntry.ProfileDigest), "must be a lowercase SHA-256 digest.");
         }
@@ -248,25 +238,6 @@ internal static class BuildProgressPayloadValidator
             BuildRunProgressEventNames.Completed => BuildRunProgressPhaseNames.Completed,
             _ => null,
         };
-    }
-
-    private static bool IsSha256LowerHex (string? value)
-    {
-        if (value == null || value.Length != Sha256LowerHexLength)
-        {
-            return false;
-        }
-
-        for (var i = 0; i < value.Length; i++)
-        {
-            var character = value[i];
-            if (!((character >= '0' && character <= '9') || (character >= 'a' && character <= 'f')))
-            {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     private static void RequireNonEmpty (

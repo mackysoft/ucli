@@ -1,30 +1,25 @@
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Contracts.Assurance;
 
 /// <summary> Defines the closed <c>build.log.entry</c> level set. </summary>
 public static class BuildLogEntryLevelNames
 {
     /// <summary> Gets the trace log level. </summary>
-    public const string Trace = "trace";
+    public static string Trace => ContractLiteralCodec.ToValue(BuildLogEntryLevel.Trace);
 
     /// <summary> Gets the debug log level. </summary>
-    public const string Debug = "debug";
+    public static string Debug => ContractLiteralCodec.ToValue(BuildLogEntryLevel.Debug);
 
     /// <summary> Gets the informational log level. </summary>
-    public const string Info = "info";
+    public static string Info => ContractLiteralCodec.ToValue(BuildLogEntryLevel.Info);
 
     /// <summary> Gets the warning log level. </summary>
-    public const string Warning = "warning";
+    public static string Warning => ContractLiteralCodec.ToValue(BuildLogEntryLevel.Warning);
 
     /// <summary> Gets the error log level. </summary>
-    public const string Error = "error";
+    public static string Error => ContractLiteralCodec.ToValue(BuildLogEntryLevel.Error);
 
     /// <summary> Gets the complete closed log level set. </summary>
-    public static IReadOnlyList<string> All { get; } = Array.AsReadOnly(new[]
-    {
-        Trace,
-        Debug,
-        Info,
-        Warning,
-        Error,
-    });
+    public static IReadOnlyList<string> All => ContractLiteralCodec.GetLiterals<BuildLogEntryLevel>();
 }

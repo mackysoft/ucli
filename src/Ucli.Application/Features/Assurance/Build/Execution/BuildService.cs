@@ -13,6 +13,7 @@ using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Assurance.Build;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Json;
 using MackySoft.Ucli.Contracts.Text;
@@ -1244,7 +1245,7 @@ internal sealed class BuildService : IBuildService
                 $"Unity build response unityBuildProfile path mismatch. Requested={expectedProfile.Inputs.RequireUnityBuildProfilePath()}, Actual={response.UnityBuildProfile.Path}.");
         }
 
-        if (!IsSha256LowerHex(response.UnityBuildProfile.Digest))
+        if (!Sha256LowerHex.IsLowerHexDigest(response.UnityBuildProfile.Digest))
         {
             return ApplicationFailure.InternalError("Unity build response unityBuildProfile digest must be lowercase SHA-256 hex.");
         }
@@ -1714,12 +1715,12 @@ internal sealed class BuildService : IBuildService
             return ApplicationFailure.InternalError($"Unity build response contains unsupported projectMutation coverage: {projectMutation.Coverage}.");
         }
 
-        if (!IsSha256LowerHex(projectMutation.BeforeDigest))
+        if (!Sha256LowerHex.IsLowerHexDigest(projectMutation.BeforeDigest))
         {
             return ApplicationFailure.InternalError("Unity build response projectMutation beforeDigest must be lowercase SHA-256 hex.");
         }
 
-        if (!IsSha256LowerHex(projectMutation.AfterDigest))
+        if (!Sha256LowerHex.IsLowerHexDigest(projectMutation.AfterDigest))
         {
             return ApplicationFailure.InternalError("Unity build response projectMutation afterDigest must be lowercase SHA-256 hex.");
         }
@@ -1832,7 +1833,7 @@ internal sealed class BuildService : IBuildService
                 $"Unity build response projectMutation added item at index {index} must not contain beforeSha256.");
         }
 
-        return IsSha256LowerHex(item.AfterSha256)
+        return Sha256LowerHex.IsLowerHexDigest(item.AfterSha256)
             ? null
             : ApplicationFailure.InternalError(
                 $"Unity build response projectMutation added item at index {index} must contain afterSha256.");
@@ -1842,7 +1843,8 @@ internal sealed class BuildService : IBuildService
         IpcBuildProjectMutationAuditItem item,
         int index)
     {
-        if (!IsSha256LowerHex(item.BeforeSha256) || !IsSha256LowerHex(item.AfterSha256))
+        if (!Sha256LowerHex.IsLowerHexDigest(item.BeforeSha256)
+            || !Sha256LowerHex.IsLowerHexDigest(item.AfterSha256))
         {
             return ApplicationFailure.InternalError(
                 $"Unity build response projectMutation modified item at index {index} must contain beforeSha256 and afterSha256.");
@@ -1864,7 +1866,7 @@ internal sealed class BuildService : IBuildService
                 $"Unity build response projectMutation deleted item at index {index} must not contain afterSha256.");
         }
 
-        return IsSha256LowerHex(item.BeforeSha256)
+        return Sha256LowerHex.IsLowerHexDigest(item.BeforeSha256)
             ? null
             : ApplicationFailure.InternalError(
                 $"Unity build response projectMutation deleted item at index {index} must contain beforeSha256.");
@@ -1875,25 +1877,6 @@ internal sealed class BuildService : IBuildService
         return path.StartsWith("Assets/", StringComparison.Ordinal)
             || path.StartsWith("ProjectSettings/", StringComparison.Ordinal)
             || path.StartsWith("Packages/", StringComparison.Ordinal);
-    }
-
-    private static bool IsSha256LowerHex (string? value)
-    {
-        if (value == null || value.Length != 64)
-        {
-            return false;
-        }
-
-        for (var i = 0; i < value.Length; i++)
-        {
-            var character = value[i];
-            if (!((character >= '0' && character <= '9') || (character >= 'a' && character <= 'f')))
-            {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     private static bool HasExpectedDevelopmentBuildOption (

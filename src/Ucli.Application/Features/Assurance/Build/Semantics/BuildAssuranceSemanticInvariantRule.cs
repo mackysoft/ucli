@@ -3,6 +3,7 @@ using MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
 using MackySoft.Ucli.Application.Features.Assurance.Semantics;
 using MackySoft.Ucli.Contracts.Assurance;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 
@@ -162,7 +163,7 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
         {
             AddViolation(violations, BuildPropertyPath(reportPath, "digest"), $"Build report {reportKey} must declare digest.");
         }
-        else if (!IsSha256LowerHex(digest))
+        else if (!Sha256LowerHex.IsLowerHexDigest(digest))
         {
             AddViolation(violations, BuildPropertyPath(reportPath, "digest"), $"Build report {reportKey} digest must be lowercase SHA-256 hex.");
         }
@@ -403,7 +404,7 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
         {
             AddViolation(violations, "$.build.inputs.unityBuildProfile.digest", "Unity Build Profile input must declare digest.");
         }
-        else if (!IsSha256LowerHex(digest))
+        else if (!Sha256LowerHex.IsLowerHexDigest(digest))
         {
             AddViolation(violations, "$.build.inputs.unityBuildProfile.digest", "Unity Build Profile digest must be lowercase SHA-256 hex.");
         }
@@ -434,7 +435,7 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
         {
             AddViolation(violations, "$.build.output.manifestDigest", "Build output must declare manifestDigest.");
         }
-        else if (!IsSha256LowerHex(manifestDigest))
+        else if (!Sha256LowerHex.IsLowerHexDigest(manifestDigest))
         {
             AddViolation(violations, "$.build.output.manifestDigest", "Build output manifestDigest must be lowercase SHA-256 hex.");
         }
@@ -1248,25 +1249,6 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
         }
 
         value = element.GetBoolean();
-        return true;
-    }
-
-    private static bool IsSha256LowerHex (string value)
-    {
-        if (value.Length != 64)
-        {
-            return false;
-        }
-
-        for (var i = 0; i < value.Length; i++)
-        {
-            var c = value[i];
-            if (c is not (>= '0' and <= '9') and not (>= 'a' and <= 'f'))
-            {
-                return false;
-            }
-        }
-
         return true;
     }
 

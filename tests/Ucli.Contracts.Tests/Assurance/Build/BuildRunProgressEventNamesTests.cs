@@ -1,6 +1,7 @@
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Tests.Assurance.Build;
 
@@ -50,6 +51,20 @@ public sealed class BuildRunProgressEventNamesTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Constants_ExposeBuildRunPhasesFromContractLiteralCodec ()
+    {
+        Assert.Equal(ContractLiteralCodec.GetLiterals<BuildRunProgressPhase>(), BuildRunProgressPhaseNames.All);
+        Assert.Equal(BuildRunProgressPhaseNames.Started, ContractLiteralCodec.ToValue(BuildRunProgressPhase.Started));
+        Assert.Equal(BuildRunProgressPhaseNames.Readiness, ContractLiteralCodec.ToValue(BuildRunProgressPhase.Readiness));
+        Assert.Equal(BuildRunProgressPhaseNames.RunnerResolution, ContractLiteralCodec.ToValue(BuildRunProgressPhase.RunnerResolution));
+        Assert.Equal(BuildRunProgressPhaseNames.RunnerInvocation, ContractLiteralCodec.ToValue(BuildRunProgressPhase.RunnerInvocation));
+        Assert.Equal(BuildRunProgressPhaseNames.RunnerResult, ContractLiteralCodec.ToValue(BuildRunProgressPhase.RunnerResult));
+        Assert.Equal(BuildRunProgressPhaseNames.ArtifactAccounting, ContractLiteralCodec.ToValue(BuildRunProgressPhase.ArtifactAccounting));
+        Assert.Equal(BuildRunProgressPhaseNames.Completed, ContractLiteralCodec.ToValue(BuildRunProgressPhase.Completed));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Constants_ExposePublicBuildLogEntryLevelNames ()
     {
         Assert.Equal("trace", BuildLogEntryLevelNames.Trace);
@@ -72,6 +87,18 @@ public sealed class BuildRunProgressEventNamesTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Constants_ExposeBuildLogEntryLevelsFromContractLiteralCodec ()
+    {
+        Assert.Equal(ContractLiteralCodec.GetLiterals<BuildLogEntryLevel>(), BuildLogEntryLevelNames.All);
+        Assert.Equal(BuildLogEntryLevelNames.Trace, ContractLiteralCodec.ToValue(BuildLogEntryLevel.Trace));
+        Assert.Equal(BuildLogEntryLevelNames.Debug, ContractLiteralCodec.ToValue(BuildLogEntryLevel.Debug));
+        Assert.Equal(BuildLogEntryLevelNames.Info, ContractLiteralCodec.ToValue(BuildLogEntryLevel.Info));
+        Assert.Equal(BuildLogEntryLevelNames.Warning, ContractLiteralCodec.ToValue(BuildLogEntryLevel.Warning));
+        Assert.Equal(BuildLogEntryLevelNames.Error, ContractLiteralCodec.ToValue(BuildLogEntryLevel.Error));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Constants_ExposePublicBuildLogEntrySourceNames ()
     {
         Assert.Equal("unityLog", BuildLogEntrySourceNames.UnityLog);
@@ -84,6 +111,15 @@ public sealed class BuildRunProgressEventNamesTests
             },
             BuildLogEntrySourceNames.All);
         AssertClosedSetIsReadOnly(BuildLogEntrySourceNames.All);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Constants_ExposeBuildLogEntrySourcesFromContractLiteralCodec ()
+    {
+        Assert.Equal(ContractLiteralCodec.GetLiterals<BuildLogEntrySource>(), BuildLogEntrySourceNames.All);
+        Assert.Equal(BuildLogEntrySourceNames.UnityLog, ContractLiteralCodec.ToValue(BuildLogEntrySource.UnityLog));
+        Assert.Equal(BuildLogEntrySourceNames.Ucli, ContractLiteralCodec.ToValue(BuildLogEntrySource.Ucli));
     }
 
     [Fact]
