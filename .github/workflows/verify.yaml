@@ -137,7 +137,7 @@ jobs:
           if-no-files-found: warn
 
   unity:
-    name: unity (${{ matrix.os_name }})
+    name: unity (${{ matrix.os_name }} / ${{ matrix.unity_version }})
     needs:
       - changes
       - access_guard
@@ -185,6 +185,16 @@ jobs:
           Add-Content -Path $env:GITHUB_PATH -Value $nugetDir
         shell: pwsh
 
+      - name: Select Unity project version
+        run: |
+          set -euo pipefail
+
+          printf 'm_EditorVersion: %s\nm_EditorVersionWithRevision: %s\n' \
+            '${{ matrix.unity_version }}' \
+            '${{ matrix.unity_version_with_revision }}' \
+            > src/Ucli.Unity/ProjectSettings/ProjectVersion.txt
+        shell: bash
+
       - name: Setup Unity Editor
         id: unity_setup
         uses: buildalon/unity-setup@v2
@@ -203,9 +213,9 @@ jobs:
         uses: actions/cache@v5
         with:
           path: src/Ucli.Unity/Library
-          key: ${{ runner.os }}-unity-library-${{ hashFiles('src/Ucli.Unity/ProjectSettings/ProjectVersion.txt', 'src/Ucli.Unity/Packages/manifest.json', 'src/Ucli.Unity/Packages/packages-lock.json', 'src/Ucli.Unity/Assets/packages.config') }}
+          key: ${{ runner.os }}-unity-library-${{ matrix.os_name }}-${{ matrix.unity_version }}-${{ hashFiles('src/Ucli.Unity/ProjectSettings/ProjectVersion.txt', 'src/Ucli.Unity/Packages/manifest.json', 'src/Ucli.Unity/Packages/packages-lock.json', 'src/Ucli.Unity/Assets/packages.config') }}
           restore-keys: |
-            ${{ runner.os }}-unity-library-
+            ${{ runner.os }}-unity-library-${{ matrix.os_name }}-${{ matrix.unity_version }}-
 
       - name: Run Unity EditMode tests
         id: unity_test
