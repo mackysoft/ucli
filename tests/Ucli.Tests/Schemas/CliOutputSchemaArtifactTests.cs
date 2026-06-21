@@ -141,7 +141,7 @@ public sealed class CliOutputSchemaArtifactTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void BuildRunPayloadSchema_RejectsUnknownRunnerResultStatus ()
+    public void BuildRunPayloadSchema_AcceptsUnknownRunnerResultStatus ()
     {
         using var schemaSet = JsonSchemaArtifactSet.Load(Path.Combine(RepositoryRoot, "schemas", "v1"));
         var goldenPath = Path.Combine(
@@ -155,13 +155,14 @@ public sealed class CliOutputSchemaArtifactTests
             "success.json");
         var root = JsonNode.Parse(File.ReadAllText(goldenPath))!.AsObject();
         root["payload"]!["build"]!["runnerResult"]!["status"] = "unknown";
+        root["payload"]!["build"]!["summary"]!["result"] = "unknown";
         using var document = JsonDocument.Parse(root.ToJsonString());
 
         var errors = schemaSet.Validate(
             "cli-output/payload/build.run.schema.json",
             document.RootElement.GetProperty("payload"));
 
-        Assert.NotEmpty(errors);
+        Assert.Empty(errors);
     }
 
     [Fact]

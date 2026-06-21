@@ -41,42 +41,71 @@
                 "digest"
               ]
             },
-            "buildTarget": {
-              "type": "string"
-            },
-            "scenes": {
+            "inputs": {
               "type": "object",
               "additionalProperties": false,
               "properties": {
-                "source": {
+                "inputKind": {
                   "type": "string",
-                  "enum": [
-                    "editorBuildSettings",
-                    "explicit"
+                  "const": "explicit"
+                },
+                "target": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "stableName": {
+                      "type": "string"
+                    },
+                    "unityBuildTarget": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "stableName",
+                    "unityBuildTarget"
                   ]
                 },
-                "paths": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
+                "scenes": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "source": {
+                      "type": "string",
+                      "enum": [
+                        "editorBuildSettings",
+                        "explicit"
+                      ]
+                    },
+                    "paths": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "source",
+                    "paths"
+                  ]
+                },
+                "options": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "development": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "development"
+                  ]
                 }
               },
               "required": [
-                "source",
-                "paths"
-              ]
-            },
-            "options": {
-              "type": "object",
-              "additionalProperties": false,
-              "properties": {
-                "development": {
-                  "type": "boolean"
-                }
-              },
-              "required": [
-                "development"
+                "inputKind",
+                "target",
+                "scenes",
+                "options"
               ]
             },
             "runner": {
@@ -157,7 +186,8 @@
                   "enum": [
                     "succeeded",
                     "failed",
-                    "canceled"
+                    "canceled",
+                    "unknown"
                   ]
                 }
               },
@@ -306,9 +336,7 @@
           "required": [
             "runId",
             "profile",
-            "buildTarget",
-            "scenes",
-            "options",
+            "inputs",
             "runner",
             "runnerResult",
             "output",

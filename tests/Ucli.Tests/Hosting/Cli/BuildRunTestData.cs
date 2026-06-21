@@ -87,9 +87,11 @@ internal static class BuildRunTestData
         return new BuildOutput(
             RunId: RunId,
             Profile: new BuildProfileOutput("/workspace/.ucli/build/player.json", Repeat('a')),
-            BuildTarget: "standaloneLinux64",
-            Scenes: new BuildScenesOutput("explicit", ["Assets/Scenes/Main.unity"]),
-            Options: new BuildOptionsOutput(Development: true),
+            Inputs: new BuildInputsOutput(
+                InputKind: "explicit",
+                Target: new BuildTargetOutput("standaloneLinux64", "StandaloneLinux64"),
+                Scenes: new BuildScenesOutput("explicit", ["Assets/Scenes/Main.unity"]),
+                Options: new BuildOptionsOutput(Development: true)),
             Runner: new BuildRunnerOutput(
                 Kind: "buildPipeline",
                 Method: null,
@@ -143,7 +145,7 @@ internal static class BuildRunTestData
             CreateClaim(BuildClaimCodes.UnityBuildRunnerResolved, passed, "Build runner resolved.", BuildReportRefs.Build),
             CreateClaim(BuildClaimCodes.UnityBuildCompleted, passed, "BuildPipeline completed.", BuildReportRefs.BuildReport),
             CreateClaim(BuildClaimCodes.UnityBuildSucceeded, succeededStatus, "BuildPipeline succeeded.", BuildReportRefs.BuildReport),
-            CreateClaim(BuildClaimCodes.UnityBuildResultAccounted, passed, "Build result accounted.", BuildReportRefs.Build),
+            CreateClaim(BuildClaimCodes.UnityBuildResultAccounted, passed, "Build result accounted.", BuildReportRefs.Build, reportResult),
             CreateClaim(BuildClaimCodes.UnityBuildReportAccounted, passed, "BuildReport artifact accounted.", BuildReportRefs.BuildReport),
             CreateClaim(BuildClaimCodes.UnityBuildArtifactsAccounted, passed, "Build artifacts accounted.", BuildReportRefs.Build),
             CreateClaim(BuildClaimCodes.UnityBuildOutputDigested, passed, "Build output digested.", BuildReportRefs.BuildOutputManifest),
@@ -157,8 +159,33 @@ internal static class BuildRunTestData
         UcliCode code,
         string status,
         string statement,
-        string? evidenceRef)
+        string? evidenceRef,
+        string? reportResult = null)
     {
+        var subject = BuildClaimCodes.UnityBuildResultAccounted.Equals(code) && reportResult != null
+            ? new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["source"] = ContractLiteralCodec.ToValue(IpcBuildRunnerResultSource.BuildPipelineBuildReport),
+                ["status"] = reportResult,
+            }
+            : new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["kind"] = BuildReportRefs.Build,
+                ["runId"] = RunId,
+            };
+        var evidence = BuildClaimCodes.UnityBuildResultAccounted.Equals(code) && evidenceRef != null && reportResult != null
+            ? new BuildEvidenceOutput(
+                "artifact",
+                evidenceRef,
+                new
+                {
+                    source = ContractLiteralCodec.ToValue(IpcBuildRunnerResultSource.BuildPipelineBuildReport),
+                    status = reportResult,
+                })
+            : evidenceRef == null
+                ? new BuildEvidenceOutput("lifecycleSnapshot", Data: new { state = "ready" })
+                : new BuildEvidenceOutput("artifact", evidenceRef);
+
         return new BuildClaimOutput(
             Id: code.Value,
             Status: status,
@@ -166,17 +193,8 @@ internal static class BuildRunTestData
             Required: true,
             VerifierRef: BuildReportRefs.Build,
             Statement: statement,
-            Subject: new Dictionary<string, object?>(StringComparer.Ordinal)
-            {
-                ["kind"] = BuildReportRefs.Build,
-                ["runId"] = RunId,
-            },
-            Evidence:
-            [
-                evidenceRef == null
-                    ? new BuildEvidenceOutput("lifecycleSnapshot", Data: new { state = "ready" })
-                    : new BuildEvidenceOutput("artifact", evidenceRef),
-            ],
+            Subject: subject,
+            Evidence: [evidence],
             ResidualRisks: []);
     }
 
@@ -184,10 +202,10 @@ internal static class BuildRunTestData
     {
         return new Dictionary<string, BuildReportOutput>(StringComparer.Ordinal)
         {
-            [BuildReportRefs.Build] = new("/workspace/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/build.json", Repeat('c')),
-            [BuildReportRefs.BuildReport] = new("/workspace/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/build-report.json", Repeat('d')),
-            [BuildReportRefs.BuildOutputManifest] = new("/workspace/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/output-manifest.json", Repeat('e')),
-            [BuildReportRefs.BuildLog] = new("/workspace/.ucli/local/fingerprints/project-fingerprint/artifacts/build/build-run-1/build.log", Repeat('f')),
+            [BuildReportRefs.Build] = new("build.json", Repeat('c')),
+            [BuildReportRefs.BuildReport] = new("build-report.json", Repeat('d')),
+            [BuildReportRefs.BuildOutputManifest] = new("output-manifest.json", Repeat('e')),
+            [BuildReportRefs.BuildLog] = new("build.log", Repeat('f')),
         };
     }
 

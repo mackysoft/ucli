@@ -4,9 +4,7 @@ namespace MackySoft.Ucli.Application.Features.Assurance.Build.Payload;
 internal sealed record BuildOutput (
     string RunId,
     BuildProfileOutput Profile,
-    string BuildTarget,
-    BuildScenesOutput Scenes,
-    BuildOptionsOutput Options,
+    BuildInputsOutput Inputs,
     BuildRunnerOutput Runner,
     BuildRunnerResultOutput RunnerResult,
     BuildArtifactOutput Output,
