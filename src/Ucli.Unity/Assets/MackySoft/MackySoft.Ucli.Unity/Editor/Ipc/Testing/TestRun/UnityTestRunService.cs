@@ -78,20 +78,13 @@ namespace MackySoft.Ucli.Unity.Ipc
             cancellationToken.ThrowIfCancellationRequested();
             var endOffset = GetFileLengthOrZero(requestContext.ConsoleLogPath);
 
-            using (RuntimePerformanceTracer.Measure(RuntimePerformanceTracer.SectionNames.ArtifactWrite))
-            {
-                testResultsXmlWriter.Write(testResult, requestContext.ResultsXmlPath);
-            }
-
-            using (RuntimePerformanceTracer.Measure(RuntimePerformanceTracer.SectionNames.LogExport))
-            {
-                await editorLogRangeExporter.ExportRangeAsync(
-                    requestContext.ConsoleLogPath,
-                    requestContext.EditorLogPath,
-                    startOffset,
-                    endOffset,
-                    cancellationToken: cancellationToken);
-            }
+            testResultsXmlWriter.Write(testResult, requestContext.ResultsXmlPath);
+            await editorLogRangeExporter.ExportRangeAsync(
+                requestContext.ConsoleLogPath,
+                requestContext.EditorLogPath,
+                startOffset,
+                endOffset,
+                cancellationToken: cancellationToken);
 
             var exitCode = testResult.FailCount > 0 ? 2 : 0;
             return UnityTestRunServiceResult.Success(new IpcTestRunResponse(exitCode));

@@ -18,7 +18,6 @@ using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Build;
-using MackySoft.Ucli.Unity.Runtime;
 using UnityEngine;
 
 #nullable enable
@@ -339,29 +338,21 @@ namespace MackySoft.Ucli.Unity.Ipc
 
                 if (normalizedReport != null)
                 {
-                    using (RuntimePerformanceTracer.Measure(RuntimePerformanceTracer.SectionNames.ArtifactWrite))
-                    {
-                        await WriteJsonAtomicallyAsync(
-                                buildRunRequest.BuildReportPath,
-                                normalizedReport,
-                                executionCancellationToken)
-                            .ConfigureAwait(false);
-                    }
-                }
-
-                EditorLogRangeExportResult logSummaryCounts;
-                using (RuntimePerformanceTracer.Measure(RuntimePerformanceTracer.SectionNames.LogExport))
-                {
-                    logSummaryCounts = await ExportBuildLogAsync(
-                            logSourcePath,
-                            buildRunRequest.BuildLogPath,
-                            logStartOffset,
-                            logEndOffset,
-                            IsExecuteMethodRunner(buildRunRequest) ? buildRunRequest.RunnerEnvironmentSecretValues : null,
+                    await WriteJsonAtomicallyAsync(
+                            buildRunRequest.BuildReportPath,
+                            normalizedReport,
                             executionCancellationToken)
                         .ConfigureAwait(false);
                 }
 
+                var logSummaryCounts = await ExportBuildLogAsync(
+                        logSourcePath,
+                        buildRunRequest.BuildLogPath,
+                        logStartOffset,
+                        logEndOffset,
+                        IsExecuteMethodRunner(buildRunRequest) ? buildRunRequest.RunnerEnvironmentSecretValues : null,
+                        executionCancellationToken)
+                    .ConfigureAwait(false);
                 var completionReason = UnityBuildReportNormalizer.ToCompletionReason(
                     normalizedReport?.Result ?? runnerResult!.Status);
                 var logs = new IpcBuildLogSummary(

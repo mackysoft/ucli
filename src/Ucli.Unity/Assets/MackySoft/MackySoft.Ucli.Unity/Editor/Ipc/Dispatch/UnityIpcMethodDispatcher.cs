@@ -5,7 +5,6 @@ using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
-using MackySoft.Ucli.Unity.Runtime;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -67,19 +66,13 @@ namespace MackySoft.Ucli.Unity.Ipc
                 if (methodHandler is IRecoverableUnityIpcMethodHandler recoverableMethodHandler
                     && recoverableOperationStore != null)
                 {
-                    using (RuntimePerformanceTracer.Measure(RuntimePerformanceTracer.SectionNames.Dispatch))
-                    {
-                        return await DispatchRecoverableAsync(
-                            recoverableMethodHandler,
-                            request,
-                            cancellationToken);
-                    }
+                    return await DispatchRecoverableAsync(
+                        recoverableMethodHandler,
+                        request,
+                        cancellationToken);
                 }
 
-                using (RuntimePerformanceTracer.Measure(RuntimePerformanceTracer.SectionNames.Dispatch))
-                {
-                    return await methodHandler.HandleAsync(request, cancellationToken);
-                }
+                return await methodHandler.HandleAsync(request, cancellationToken);
             }
             catch (OperationCanceledException)
             {
@@ -133,10 +126,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                         null);
                 }
 
-                using (RuntimePerformanceTracer.Measure(RuntimePerformanceTracer.SectionNames.Dispatch))
-                {
-                    return await streamingMethodHandler.HandleStreamingAsync(request, streamWriter, cancellationToken);
-                }
+                return await streamingMethodHandler.HandleStreamingAsync(request, streamWriter, cancellationToken);
             }
             catch (OperationCanceledException)
             {

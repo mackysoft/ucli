@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Unity.Runtime;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -32,7 +33,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         {
             cancellationToken.ThrowIfCancellationRequested();
             var accepted = string.Equals(expectedSessionToken, sessionToken, StringComparison.Ordinal);
-            return Task.FromResult(accepted);
+            return CachedTask.FromResult(accepted);
         }
     }
 }
