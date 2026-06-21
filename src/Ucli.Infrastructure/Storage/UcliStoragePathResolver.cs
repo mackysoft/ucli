@@ -81,6 +81,19 @@ public static class UcliStoragePathResolver
         return fullStartPath;
     }
 
+    /// <summary> Normalizes one storage-root path argument to an absolute path. </summary>
+    /// <param name="storageRoot"> The storage-root path. </param>
+    /// <returns> The normalized absolute storage-root path. </returns>
+    internal static string NormalizeStorageRootPath (string storageRoot)
+    {
+        if (string.IsNullOrWhiteSpace(storageRoot))
+        {
+            throw new ArgumentException("Storage root must not be empty.", nameof(storageRoot));
+        }
+
+        return NormalizePathArgument(storageRoot, nameof(storageRoot));
+    }
+
     /// <summary> Resolves the absolute path to the <c>.ucli</c> directory. </summary>
     /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
     /// <returns> The absolute <c>.ucli</c> directory path. </returns>
@@ -123,17 +136,13 @@ public static class UcliStoragePathResolver
             throw new ArgumentException("directoryPath must not be empty.", nameof(directoryPath));
         }
 
-        var comparison = Path.DirectorySeparatorChar == '\\'
-            ? StringComparison.OrdinalIgnoreCase
-            : StringComparison.Ordinal;
-
         var currentDirectory = new DirectoryInfo(NormalizePathArgument(directoryPath, nameof(directoryPath)));
         while (currentDirectory != null)
         {
             var parentDirectory = currentDirectory.Parent;
-            if (string.Equals(currentDirectory.Name, UcliStoragePathNames.LocalDirectoryName, comparison)
+            if (string.Equals(currentDirectory.Name, UcliStoragePathNames.LocalDirectoryName, PathStringNormalizer.CurrentPlatformPathComparison)
                 && parentDirectory != null
-                && string.Equals(parentDirectory.Name, UcliStoragePathNames.UcliDirectoryName, comparison))
+                && string.Equals(parentDirectory.Name, UcliStoragePathNames.UcliDirectoryName, PathStringNormalizer.CurrentPlatformPathComparison))
             {
                 ucliDirectoryPath = parentDirectory.FullName;
                 localDirectoryPath = currentDirectory.FullName;
@@ -717,21 +726,11 @@ public static class UcliStoragePathResolver
             UcliStoragePathNames.PlanTokenKeyFileName);
     }
 
-    private static string NormalizeStorageRoot (string storageRoot)
-    {
-        if (string.IsNullOrWhiteSpace(storageRoot))
-        {
-            throw new ArgumentException("Storage root must not be empty.", nameof(storageRoot));
-        }
-
-        return NormalizePathArgument(storageRoot, nameof(storageRoot));
-    }
-
     private static string ResolveUnderStorageRoot (
         string storageRoot,
         params string[] relativeSegments)
     {
-        var normalizedStorageRoot = NormalizeStorageRoot(storageRoot);
+        var normalizedStorageRoot = NormalizeStorageRootPath(storageRoot);
         var pathSegments = new string[relativeSegments.Length + 1];
         pathSegments[0] = normalizedStorageRoot;
         Array.Copy(relativeSegments, 0, pathSegments, 1, relativeSegments.Length);

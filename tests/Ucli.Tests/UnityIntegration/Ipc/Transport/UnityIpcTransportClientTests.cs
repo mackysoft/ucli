@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.Tests.Ipc;
@@ -11,10 +12,8 @@ public sealed class UnityIpcTransportClientTests
     [Trait("Size", "Small")]
     public async Task SendAsync_ResolvesEndpointAndForwardsRequest ()
     {
-        var endpoint = CreateEndpoint();
-        var endpointResolver = new RecordingEndpointResolver(endpoint);
         var transportClient = new RecordingIpcTransportClient();
-        var client = new UnityIpcTransportClient(endpointResolver, transportClient);
+        var client = new UnityIpcTransportClient(transportClient);
         var request = IpcTransportTestHarness.CreateSingleRequest();
         using var cancellationTokenSource = new CancellationTokenSource();
 
@@ -26,10 +25,9 @@ public sealed class UnityIpcTransportClientTests
             cancellationTokenSource.Token);
 
         Assert.Same(transportClient.SendResponse, response);
-        Assert.Equal(1, endpointResolver.CallCount);
-        Assert.Equal("storage-root", endpointResolver.StorageRoot);
-        Assert.Equal("project-fingerprint", endpointResolver.ProjectFingerprint);
-        Assert.Equal(endpoint, transportClient.SendEndpoint);
+        Assert.Equal(
+            UcliIpcEndpointResolver.ResolveDaemonEndpoint("storage-root", "project-fingerprint"),
+            transportClient.SendEndpoint);
         Assert.Same(request, transportClient.SendRequest);
         Assert.Equal(DefaultTimeout, transportClient.SendTimeout);
         Assert.Equal(cancellationTokenSource.Token, transportClient.SendCancellationToken);
@@ -39,14 +37,12 @@ public sealed class UnityIpcTransportClientTests
     [Trait("Size", "Small")]
     public async Task SendStreamingAsync_ResolvesEndpointAndForwardsProgressCallback ()
     {
-        var endpoint = CreateEndpoint();
-        var endpointResolver = new RecordingEndpointResolver(endpoint);
         var progressFrame = CreateProgressFrame();
         var transportClient = new RecordingIpcTransportClient
         {
             ProgressFrame = progressFrame,
         };
-        var client = new UnityIpcTransportClient(endpointResolver, transportClient);
+        var client = new UnityIpcTransportClient(transportClient);
         var request = IpcTransportTestHarness.CreateStreamingRequest();
         var progressFrames = new List<IpcStreamFrame>();
         using var cancellationTokenSource = new CancellationTokenSource();
@@ -64,10 +60,9 @@ public sealed class UnityIpcTransportClientTests
             cancellationTokenSource.Token);
 
         Assert.Same(transportClient.StreamingResponse, response);
-        Assert.Equal(1, endpointResolver.CallCount);
-        Assert.Equal("storage-root", endpointResolver.StorageRoot);
-        Assert.Equal("project-fingerprint", endpointResolver.ProjectFingerprint);
-        Assert.Equal(endpoint, transportClient.StreamingEndpoint);
+        Assert.Equal(
+            UcliIpcEndpointResolver.ResolveDaemonEndpoint("storage-root", "project-fingerprint"),
+            transportClient.StreamingEndpoint);
         Assert.Same(request, transportClient.StreamingRequest);
         Assert.Equal(DefaultTimeout, transportClient.StreamingTimeout);
         Assert.Equal(cancellationTokenSource.Token, transportClient.StreamingCancellationToken);
@@ -78,10 +73,10 @@ public sealed class UnityIpcTransportClientTests
     [Trait("Size", "Small")]
     [InlineData(0)]
     [InlineData(-1)]
-    public async Task SendAsync_WithNonPositiveTimeout_ThrowsArgumentOutOfRangeExceptionWithoutResolvingEndpoint (int timeoutMilliseconds)
+    public async Task SendAsync_WithNonPositiveTimeout_ThrowsArgumentOutOfRangeExceptionWithoutSendingRequest (int timeoutMilliseconds)
     {
-        var endpointResolver = new RecordingEndpointResolver(CreateEndpoint());
-        var client = new UnityIpcTransportClient(endpointResolver, new RecordingIpcTransportClient());
+        var transportClient = new RecordingIpcTransportClient();
+        var client = new UnityIpcTransportClient(transportClient);
 
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () =>
         {
@@ -92,17 +87,17 @@ public sealed class UnityIpcTransportClientTests
                     TimeSpan.FromMilliseconds(timeoutMilliseconds))
                 .AsTask();
         });
-        Assert.Equal(0, endpointResolver.CallCount);
+        Assert.Null(transportClient.SendEndpoint);
     }
 
     [Theory]
     [Trait("Size", "Small")]
     [InlineData(0)]
     [InlineData(-1)]
-    public async Task SendStreamingAsync_WithNonPositiveTimeout_ThrowsArgumentOutOfRangeExceptionWithoutResolvingEndpoint (int timeoutMilliseconds)
+    public async Task SendStreamingAsync_WithNonPositiveTimeout_ThrowsArgumentOutOfRangeExceptionWithoutSendingRequest (int timeoutMilliseconds)
     {
-        var endpointResolver = new RecordingEndpointResolver(CreateEndpoint());
-        var client = new UnityIpcTransportClient(endpointResolver, new RecordingIpcTransportClient());
+        var transportClient = new RecordingIpcTransportClient();
+        var client = new UnityIpcTransportClient(transportClient);
 
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () =>
         {
@@ -114,15 +109,15 @@ public sealed class UnityIpcTransportClientTests
                     (_, _) => ValueTask.CompletedTask)
                 .AsTask();
         });
-        Assert.Equal(0, endpointResolver.CallCount);
+        Assert.Null(transportClient.StreamingEndpoint);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task SendAsync_WhenCancellationIsRequested_ThrowsOperationCanceledExceptionWithoutResolvingEndpoint ()
+    public async Task SendAsync_WhenCancellationIsRequested_ThrowsOperationCanceledExceptionWithoutSendingRequest ()
     {
-        var endpointResolver = new RecordingEndpointResolver(CreateEndpoint());
-        var client = new UnityIpcTransportClient(endpointResolver, new RecordingIpcTransportClient());
+        var transportClient = new RecordingIpcTransportClient();
+        var client = new UnityIpcTransportClient(transportClient);
         using var cancellationTokenSource = new CancellationTokenSource();
         cancellationTokenSource.Cancel();
 
@@ -136,15 +131,15 @@ public sealed class UnityIpcTransportClientTests
                     cancellationTokenSource.Token)
                 .AsTask();
         });
-        Assert.Equal(0, endpointResolver.CallCount);
+        Assert.Null(transportClient.SendEndpoint);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task SendStreamingAsync_WhenCancellationIsRequested_ThrowsOperationCanceledExceptionWithoutResolvingEndpoint ()
+    public async Task SendStreamingAsync_WhenCancellationIsRequested_ThrowsOperationCanceledExceptionWithoutSendingRequest ()
     {
-        var endpointResolver = new RecordingEndpointResolver(CreateEndpoint());
-        var client = new UnityIpcTransportClient(endpointResolver, new RecordingIpcTransportClient());
+        var transportClient = new RecordingIpcTransportClient();
+        var client = new UnityIpcTransportClient(transportClient);
         using var cancellationTokenSource = new CancellationTokenSource();
         cancellationTokenSource.Cancel();
 
@@ -159,12 +154,7 @@ public sealed class UnityIpcTransportClientTests
                     cancellationTokenSource.Token)
                 .AsTask();
         });
-        Assert.Equal(0, endpointResolver.CallCount);
-    }
-
-    private static IpcEndpoint CreateEndpoint ()
-    {
-        return new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-test.sock");
+        Assert.Null(transportClient.StreamingEndpoint);
     }
 
     private static IpcStreamFrame CreateProgressFrame ()
@@ -176,32 +166,6 @@ public sealed class UnityIpcTransportClientTests
             "test.progress",
             IpcTransportTestHarness.Json("{}"),
             Response: null);
-    }
-
-    private sealed class RecordingEndpointResolver : IIpcEndpointResolver
-    {
-        private readonly IpcEndpoint endpoint;
-
-        public RecordingEndpointResolver (IpcEndpoint endpoint)
-        {
-            this.endpoint = endpoint;
-        }
-
-        public int CallCount { get; private set; }
-
-        public string? StorageRoot { get; private set; }
-
-        public string? ProjectFingerprint { get; private set; }
-
-        public IpcEndpoint Resolve (
-            string storageRoot,
-            string projectFingerprint)
-        {
-            CallCount++;
-            StorageRoot = storageRoot;
-            ProjectFingerprint = projectFingerprint;
-            return endpoint;
-        }
     }
 
     private sealed class RecordingIpcTransportClient : IIpcTransportClient

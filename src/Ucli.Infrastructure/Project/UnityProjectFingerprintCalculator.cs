@@ -1,4 +1,3 @@
-using System.Runtime.InteropServices;
 using System.Text;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Infrastructure.Paths;
@@ -46,15 +45,14 @@ public static class UnityProjectFingerprintCalculator
         string normalizedStorageRoot,
         string normalizedUnityProjectRoot)
     {
-        if (string.Equals(normalizedStorageRoot, normalizedUnityProjectRoot, PathComparison))
+        if (PathIdentity.IsSamePath(normalizedStorageRoot, normalizedUnityProjectRoot))
         {
             return ".";
         }
 
-        if (RepositoryPathNormalizer.TryNormalize(normalizedStorageRoot, normalizedUnityProjectRoot).IsSuccess)
+        if (PathIdentity.IsChildPath(normalizedStorageRoot, normalizedUnityProjectRoot))
         {
-            var relativePath = Path.GetRelativePath(normalizedStorageRoot, normalizedUnityProjectRoot);
-            return NormalizeRelativePath(relativePath);
+            return NormalizeRelativePath(Path.GetRelativePath(normalizedStorageRoot, normalizedUnityProjectRoot));
         }
 
         // NOTE:
@@ -84,9 +82,4 @@ public static class UnityProjectFingerprintCalculator
 
         return PathStringNormalizer.TrimTrailingDirectorySeparators(normalizedPath);
     }
-
-    /// <summary> Gets the path comparison mode for the current operating system. </summary>
-    private static StringComparison PathComparison =>
-        RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
-
 }

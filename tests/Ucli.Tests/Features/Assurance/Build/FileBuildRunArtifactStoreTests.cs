@@ -192,7 +192,6 @@ public sealed class FileBuildRunArtifactStoreTests
         var zConfigBytes = WriteUtf8(zConfigSourcePath, "{\"quality\":\"high\"}\n");
         var aConfigBytes = WriteUtf8(aConfigSourcePath, "{\"quality\":\"low\"}\n");
         var playerBytes = WriteUtf8(fileSourcePath, "player binary\n");
-        var buildReportBytes = WriteUtf8(paths.BuildReportJsonPath, "{\"result\":\"succeeded\"}\n");
         var buildLogBytes = WriteUtf8(paths.BuildLogPath, "build log\n");
 
         var accountingOperation = await store.AccountArtifactsAsync(
@@ -201,11 +200,13 @@ public sealed class FileBuildRunArtifactStoreTests
 
         Assert.True(accountingOperation.IsSuccess);
         var result = Assert.IsType<BuildRunArtifactAccountingResult>(accountingOperation.Result);
-        Assert.Equal(BuildArtifactKind.BuildReport, result.BuildReport.Kind);
+        Assert.NotNull(result.BuildReport);
+        Assert.Equal(BuildArtifactKind.BuildReport, result.BuildReport!.Kind);
         Assert.Equal(BuildArtifactKind.BuildOutputManifest, result.BuildOutputManifest.Kind);
         Assert.Equal(BuildArtifactKind.BuildLog, result.BuildLog.Kind);
-        Assert.Equal(Sha256LowerHex.Compute(buildReportBytes), result.BuildReport.Digest);
         Assert.Equal(Sha256LowerHex.Compute(buildLogBytes), result.BuildLog.Digest);
+        var buildReportBytes = await File.ReadAllBytesAsync(paths.BuildReportJsonPath, CancellationToken.None);
+        Assert.Equal(Sha256LowerHex.Compute(buildReportBytes), result.BuildReport.Digest);
 
         var metadataWriteResult = await store.WriteMetadataAsync(
             new BuildRunMetadataWriteRequest(
@@ -546,7 +547,7 @@ public sealed class FileBuildRunArtifactStoreTests
         WriteUnityGeneratedArtifacts(paths);
         var request = CreateAccountingRequest(paths) with
         {
-            OutputSources = [new BuildOutputSourceEntry(Path.Combine(paths.ArtifactsDirectory, "source"))],
+            OutputSources = [BuildOutputSourceEntry.FromAbsolutePath(Path.Combine(paths.ArtifactsDirectory, "source"))],
         };
 
         var writeResult = await store.AccountArtifactsAsync(request, CancellationToken.None);
@@ -571,7 +572,7 @@ public sealed class FileBuildRunArtifactStoreTests
         var outsideSourcePath = scope.WriteFile("external-output.bin", "external");
         var request = CreateAccountingRequest(paths) with
         {
-            OutputSources = [new BuildOutputSourceEntry(outsideSourcePath)],
+            OutputSources = [BuildOutputSourceEntry.FromAbsolutePath(outsideSourcePath)],
         };
 
         var writeResult = await store.AccountArtifactsAsync(request, CancellationToken.None);
@@ -729,8 +730,36 @@ public sealed class FileBuildRunArtifactStoreTests
             paths,
             "standaloneLinux64",
             "StandaloneLinux64",
-            sourcePaths.Select(static path => new BuildOutputSourceEntry(path)).ToArray(),
+            BuildReportSourceEntry.FromArtifact(CreateBuildReportArtifact(paths)),
+            sourcePaths.Select(static path => BuildOutputSourceEntry.FromAbsolutePath(path)).ToArray(),
             AllowEmptyOutputManifest: false);
+    }
+
+    private static IpcBuildReportArtifact CreateBuildReportArtifact (BuildRunArtifactPaths paths)
+    {
+        return new IpcBuildReportArtifact(
+            SchemaVersion: 1,
+            Result: ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+            UnityBuildTarget: "StandaloneLinux64",
+            OutputPath: Path.Combine(paths.RunnerOutputDirectory, "build"),
+            DurationMilliseconds: 2500,
+            TotalSizeBytes: 4096,
+            ErrorCount: 0,
+            WarningCount: 1,
+            Steps:
+            [
+                new IpcBuildReportStep(
+                    Name: "Build player",
+                    DurationMilliseconds: 2500,
+                    Depth: 0,
+                    MessageCount: 1),
+            ],
+            Messages:
+            [
+                new IpcBuildReportMessage(
+                    Type: "warning",
+                    Content: "Sample warning"),
+            ]);
     }
 
     private static BuildRunArtifactPaths EscapeArtifactPath (

@@ -5,7 +5,7 @@ using MackySoft.Ucli.Infrastructure.Paths;
 namespace MackySoft.Ucli.UnityIntegration.Resolution;
 
 /// <summary> Locates Unity editor executable paths from preferred values or default installation roots. </summary>
-internal sealed class UnityEditorExecutablePathLocator
+internal static class UnityEditorExecutablePathLocator
 {
     private static readonly string[] ExecutableRelativePaths =
     {
@@ -30,7 +30,7 @@ internal sealed class UnityEditorExecutablePathLocator
     /// <returns> The executable-path resolution result. </returns>
     /// <exception cref="ArgumentException"> Thrown when <paramref name="unityVersion" /> is <see langword="null" />, empty, or whitespace. </exception>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="searchRoots" /> is <see langword="null" />. </exception>
-    public UnityEditorPathResolutionResult Resolve (
+    public static UnityEditorPathResolutionResult Resolve (
         string unityVersion,
         string? preferredUnityEditorPath,
         IReadOnlyList<string> searchRoots)
@@ -183,14 +183,13 @@ internal sealed class UnityEditorExecutablePathLocator
         out string normalizedPath)
     {
         normalizedPath = string.Empty;
-        try
-        {
-            normalizedPath = Path.GetFullPath(pathValue);
-            return true;
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
+        var pathResult = PathNormalizer.TryNormalizeFullPath(pathValue);
+        if (!pathResult.IsSuccess)
         {
             return false;
         }
+
+        normalizedPath = pathResult.FullPath!;
+        return true;
     }
 }

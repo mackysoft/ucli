@@ -7,6 +7,7 @@ using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Unity.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
 using UnityEditor;
@@ -284,27 +285,27 @@ namespace MackySoft.Ucli.Unity.Build
 
         private static bool HasProjectLocalPackagePath (string path)
         {
-            var projectRootPath = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
-            var packageRootPath = Path.GetFullPath(Path.Combine(projectRootPath, "Packages"));
-            var absolutePath = Path.GetFullPath(Path.Combine(projectRootPath, path.Replace('/', Path.DirectorySeparatorChar)));
-            if (!IsEqualOrChildPath(packageRootPath, absolutePath))
+            var projectRootPathResult = PathNormalizer.TryNormalizeFullPath(Path.Combine(Application.dataPath, ".."));
+            if (!projectRootPathResult.IsSuccess)
             {
                 return false;
             }
 
-            return File.Exists(absolutePath) || Directory.Exists(absolutePath);
-        }
-
-        private static bool IsEqualOrChildPath (
-            string parentPath,
-            string candidatePath)
-        {
-            if (string.Equals(parentPath, candidatePath, StringComparison.Ordinal))
+            var projectRootPath = projectRootPathResult.FullPath!;
+            var packageRootPath = Path.Combine(projectRootPath, "Packages");
+            var packagePathResult = RepositoryPathNormalizer.TryNormalize(projectRootPath, path);
+            if (!packagePathResult.IsSuccess)
             {
-                return true;
+                return false;
             }
 
-            return candidatePath.StartsWith(parentPath + Path.DirectorySeparatorChar, StringComparison.Ordinal);
+            var packagePath = packagePathResult.FullPath!;
+            if (!RepositoryPathNormalizer.TryNormalize(packageRootPath, packagePath).IsSuccess)
+            {
+                return false;
+            }
+
+            return File.Exists(packagePath) || Directory.Exists(packagePath);
         }
 
         private static IpcBuildDirtyStateItemKind ClassifyDirtyItem (string path)

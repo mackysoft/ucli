@@ -5,6 +5,7 @@ using System.Security.Cryptography;
 using System.Text;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Infrastructure.Paths;
 
 #nullable enable
 
@@ -57,7 +58,13 @@ namespace MackySoft.Ucli.Unity.Build
                 throw new ArgumentException("Project path must not be empty.", nameof(projectPath));
             }
 
-            var projectRoot = Path.GetFullPath(projectPath);
+            var projectPathResult = PathNormalizer.TryNormalizeFullPath(projectPath);
+            if (!projectPathResult.IsSuccess)
+            {
+                throw new ArgumentException(projectPathResult.DiagnosticMessage, nameof(projectPath));
+            }
+
+            var projectRoot = projectPathResult.FullPath!;
             var files = new List<ProjectMutationFileEntry>();
             var coverage = IpcBuildProjectMutationAuditCoverage.Full;
             var scannedRootCount = 0;
@@ -227,8 +234,13 @@ namespace MackySoft.Ucli.Unity.Build
             string projectRoot,
             string fullPath)
         {
-            return Path.GetRelativePath(projectRoot, fullPath)
-                .Replace('\\', '/');
+            var result = RepositoryPathNormalizer.TryNormalize(projectRoot, fullPath);
+            if (!result.IsSuccess)
+            {
+                throw new InvalidOperationException(result.DiagnosticMessage);
+            }
+
+            return result.RepositoryRelativeSlashPath!;
         }
 
         private static string CalculateAggregateDigest (IReadOnlyList<ProjectMutationFileEntry> files)

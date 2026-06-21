@@ -7,7 +7,6 @@ using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Infrastructure.Storage;
-using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Cleanup;
 
@@ -20,22 +19,17 @@ internal sealed class DaemonArtifactCleaner : IDaemonArtifactCleaner
 
     private readonly IDaemonLaunchAttemptStore launchAttemptStore;
 
-    private readonly IIpcEndpointResolver endpointResolver;
-
     /// <summary> Initializes a new instance of the <see cref="DaemonArtifactCleaner" /> class. </summary>
     /// <param name="daemonSessionStore"> The daemon session store dependency. </param>
-    /// <param name="endpointResolver"> The endpoint resolver dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public DaemonArtifactCleaner (
         IDaemonSessionStore daemonSessionStore,
         IDaemonLifecycleStore daemonLifecycleStore,
-        IDaemonLaunchAttemptStore launchAttemptStore,
-        IIpcEndpointResolver endpointResolver)
+        IDaemonLaunchAttemptStore launchAttemptStore)
     {
         this.daemonSessionStore = daemonSessionStore ?? throw new ArgumentNullException(nameof(daemonSessionStore));
         this.daemonLifecycleStore = daemonLifecycleStore ?? throw new ArgumentNullException(nameof(daemonLifecycleStore));
         this.launchAttemptStore = launchAttemptStore ?? throw new ArgumentNullException(nameof(launchAttemptStore));
-        this.endpointResolver = endpointResolver ?? throw new ArgumentNullException(nameof(endpointResolver));
     }
 
     /// <summary> Cleans stale daemon artifacts for the specified Unity project context. </summary>
@@ -83,7 +77,7 @@ internal sealed class DaemonArtifactCleaner : IDaemonArtifactCleaner
 
         try
         {
-            var endpoint = endpointResolver.Resolve(
+            var endpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(
                 unityProject.RepositoryRoot,
                 unityProject.ProjectFingerprint);
             if (endpoint.TransportKind == IpcTransportKind.UnixDomainSocket)

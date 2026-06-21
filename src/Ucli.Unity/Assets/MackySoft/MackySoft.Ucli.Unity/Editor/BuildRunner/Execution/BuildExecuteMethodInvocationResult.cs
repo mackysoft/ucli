@@ -7,21 +7,18 @@ namespace MackySoft.Ucli.Unity.Build
     /// <summary> Represents the result of invoking an executeMethod build runner. </summary>
     internal sealed record BuildExecuteMethodInvocationResult (
         IpcBuildRunnerResultArtifact? RunnerResult,
-        IpcBuildReportArtifact? SyntheticReport,
         IpcError? Error)
     {
-        public bool IsSuccess => RunnerResult != null && SyntheticReport != null && Error == null;
+        public bool IsSuccess => RunnerResult != null && Error == null;
 
-        public static BuildExecuteMethodInvocationResult Success (
-            IpcBuildRunnerResultArtifact runnerResult,
-            IpcBuildReportArtifact syntheticReport)
+        public static BuildExecuteMethodInvocationResult Success (IpcBuildRunnerResultArtifact runnerResult)
         {
-            return new BuildExecuteMethodInvocationResult(runnerResult, syntheticReport, null);
+            return new BuildExecuteMethodInvocationResult(runnerResult, null);
         }
 
         public static BuildExecuteMethodInvocationResult Failure (IpcError error)
         {
-            return new BuildExecuteMethodInvocationResult(null, null, error);
+            return new BuildExecuteMethodInvocationResult(null, error);
         }
     }
 }

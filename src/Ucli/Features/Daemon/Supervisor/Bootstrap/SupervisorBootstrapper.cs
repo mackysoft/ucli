@@ -69,7 +69,17 @@ internal sealed class SupervisorBootstrapper
         }
 
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
-        var normalizedStorageRoot = Path.GetFullPath(storageRoot);
+        string normalizedStorageRoot;
+        try
+        {
+            normalizedStorageRoot = UcliStoragePathResolver.NormalizeStorageRootPath(storageRoot);
+        }
+        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception) || exception is ArgumentException)
+        {
+            return SupervisorBootstrapResult.Failure(ExecutionError.InvalidArgument(
+                $"Supervisor bootstrap path is invalid. {exception.Message}"));
+        }
+
         var deadline = ExecutionDeadline.Start(timeout, timeProvider);
 
         if (!deadline.TryGetRemainingTimeout(out var lockAcquireTimeout))

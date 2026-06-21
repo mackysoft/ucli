@@ -1,7 +1,7 @@
-using System.Runtime.InteropServices;
 using System.Text;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Infrastructure.Paths;
 
 namespace MackySoft.Ucli.Infrastructure.Ipc;
 
@@ -132,10 +132,7 @@ public static class UnixSocketPathUtilities
             return false;
         }
 
-        if (!string.Equals(
-                NormalizeDirectoryPath(parentOfDirectoryPath),
-                normalizedTempRoot,
-                GetPathComparison()))
+        if (!PathIdentity.IsSamePath(NormalizeDirectoryPath(parentOfDirectoryPath), normalizedTempRoot))
         {
             return false;
         }
@@ -154,12 +151,5 @@ public static class UnixSocketPathUtilities
     {
         var normalizedDirectoryPath = Path.GetFullPath(directoryPath);
         return normalizedDirectoryPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-    }
-
-    private static StringComparison GetPathComparison ()
-    {
-        return RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-            ? StringComparison.OrdinalIgnoreCase
-            : StringComparison.Ordinal;
     }
 }

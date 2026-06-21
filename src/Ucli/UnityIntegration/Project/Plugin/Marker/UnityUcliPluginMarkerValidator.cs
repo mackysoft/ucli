@@ -83,19 +83,14 @@ internal sealed class UnityUcliPluginMarkerValidator
 
         try
         {
-            var normalizedUnityProjectRoot = Path.GetFullPath(unityProjectRoot);
-            var normalizedMarkerPath = Path.GetFullPath(markerPath);
-            if (!IsUnderProjectRoot(normalizedUnityProjectRoot, normalizedMarkerPath))
+            var markerPathResult = RepositoryPathNormalizer.TryNormalize(unityProjectRoot, markerPath);
+            if (!markerPathResult.IsSuccess)
             {
                 projectRelativeMarkerPath = null;
                 return false;
             }
 
-            projectRelativeMarkerPath = Path.GetRelativePath(
-                normalizedUnityProjectRoot,
-                normalizedMarkerPath);
-            projectRelativeMarkerPath = PathStringNormalizer.TrimTrailingDirectorySeparators(projectRelativeMarkerPath);
-            projectRelativeMarkerPath = PathStringNormalizer.ToSlashSeparated(projectRelativeMarkerPath);
+            projectRelativeMarkerPath = markerPathResult.RepositoryRelativeSlashPath;
             return true;
         }
         catch (Exception exception) when (exception is ArgumentException
@@ -121,17 +116,20 @@ internal sealed class UnityUcliPluginMarkerValidator
 
         try
         {
-            var normalizedUnityProjectRoot = Path.GetFullPath(unityProjectRoot);
-            var platformRelativeMarkerPath = PathStringNormalizer.ToPlatformSeparated(projectRelativeMarkerPath);
-            resolvedMarkerPath = Path.GetFullPath(Path.Combine(
-                normalizedUnityProjectRoot,
-                platformRelativeMarkerPath));
-            if (!IsUnderProjectRoot(normalizedUnityProjectRoot, resolvedMarkerPath))
+            if (!RelativePathContract.TryNormalize(projectRelativeMarkerPath, out var normalizedRelativeMarkerPath))
             {
                 resolvedMarkerPath = null;
                 return false;
             }
 
+            var markerPathResult = RepositoryPathNormalizer.TryNormalize(unityProjectRoot, normalizedRelativeMarkerPath);
+            if (!markerPathResult.IsSuccess)
+            {
+                resolvedMarkerPath = null;
+                return false;
+            }
+
+            resolvedMarkerPath = markerPathResult.FullPath;
             return true;
         }
         catch (Exception exception) when (exception is ArgumentException
@@ -140,32 +138,6 @@ internal sealed class UnityUcliPluginMarkerValidator
             resolvedMarkerPath = null;
             return false;
         }
-    }
-
-    private static bool IsUnderProjectRoot (
-        string unityProjectRoot,
-        string markerPath)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(unityProjectRoot);
-        ArgumentException.ThrowIfNullOrWhiteSpace(markerPath);
-
-        var normalizedProjectRoot = PathStringNormalizer.NormalizeCaseForCurrentPlatform(
-            PathStringNormalizer.TrimTrailingDirectorySeparators(Path.GetFullPath(unityProjectRoot)));
-        var normalizedMarkerPath = PathStringNormalizer.NormalizeCaseForCurrentPlatform(Path.GetFullPath(markerPath));
-
-        if (!normalizedMarkerPath.StartsWith(normalizedProjectRoot, StringComparison.Ordinal))
-        {
-            return false;
-        }
-
-        if (normalizedMarkerPath.Length == normalizedProjectRoot.Length)
-        {
-            return true;
-        }
-
-        var nextCharacter = normalizedMarkerPath[normalizedProjectRoot.Length];
-        return nextCharacter == Path.DirectorySeparatorChar
-            || nextCharacter == Path.AltDirectorySeparatorChar;
     }
 
     /// <summary> Maps the marker JSON contract. </summary>

@@ -32,7 +32,7 @@ internal sealed class LaunchdSupervisorProcessLauncher
 
         try
         {
-            var normalizedStorageRoot = Path.GetFullPath(storageRoot);
+            var normalizedStorageRoot = UcliStoragePathResolver.NormalizeStorageRootPath(storageRoot);
             var plistPath = UcliStoragePathResolver.ResolveSupervisorLaunchAgentPlistPath(normalizedStorageRoot);
             var logPath = UcliStoragePathResolver.ResolveSupervisorLogPath(normalizedStorageRoot);
             var label = BuildLaunchdLabel(normalizedStorageRoot);

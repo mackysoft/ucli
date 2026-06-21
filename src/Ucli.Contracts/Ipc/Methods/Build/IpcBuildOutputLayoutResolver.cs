@@ -42,23 +42,7 @@ internal static class IpcBuildOutputLayoutResolver
 
     private static string CombineProtocolPath (string root, string firstSegment, string secondSegment)
     {
-        return string.Concat(TrimTrailingDirectorySeparators(root), "/", firstSegment, "/", secondSegment);
-    }
-
-    private static string TrimTrailingDirectorySeparators (string value)
-    {
-        var length = value.Length;
-        while (length > 0 && IsDirectorySeparator(value[length - 1]))
-        {
-            length--;
-        }
-
-        return length == value.Length ? value : value[..length];
-    }
-
-    private static bool IsDirectorySeparator (char value)
-    {
-        return value == '/' || value == '\\';
+        return string.Concat(PortablePathText.TrimTrailingDirectorySeparators(root), "/", firstSegment, "/", secondSegment);
     }
 
     private static bool TryResolveShapeAndFileName (

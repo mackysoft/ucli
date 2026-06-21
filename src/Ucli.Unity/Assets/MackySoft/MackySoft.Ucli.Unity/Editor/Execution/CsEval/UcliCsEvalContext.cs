@@ -142,7 +142,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 throw new ArgumentException("Touched resource path must not be empty.", nameof(path));
             }
 
-            if (!UnityAssetPathContract.TryNormalizeProjectRelativePath(path, out var normalizedPath))
+            if (!RelativePathContract.TryNormalize(path, out var normalizedPath))
             {
                 throw new ArgumentException("Touched resource path must be project-relative and must not contain leading or trailing whitespace, empty segments, current segments, or parent segments.", nameof(path));
             }

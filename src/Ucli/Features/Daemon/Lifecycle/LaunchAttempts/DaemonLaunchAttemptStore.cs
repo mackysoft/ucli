@@ -755,7 +755,7 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
         string attemptsDirectory,
         string attemptDirectory)
     {
-        if (!IsPathUnderDirectory(attemptDirectory, attemptsDirectory))
+        if (!PathIdentity.IsChildPath(attemptsDirectory, attemptDirectory))
         {
             throw new IOException($"Launch-attempt deletion target must remain under launch-attempts directory: {attemptDirectory}");
         }
@@ -770,7 +770,7 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
         string attemptDirectory,
         string diagnosisPath)
     {
-        if (!IsPathUnderDirectory(diagnosisPath, attemptDirectory))
+        if (!PathIdentity.IsChildPath(attemptDirectory, diagnosisPath))
         {
             throw new IOException($"Launch-attempt diagnosis file must remain under attempt directory: {diagnosisPath}");
         }
@@ -789,21 +789,6 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
     private static DateTimeOffset GetLastWriteTimeUtc (string path)
     {
         return new DateTimeOffset(Directory.GetLastWriteTimeUtc(path), TimeSpan.Zero);
-    }
-
-    private static bool IsPathUnderDirectory (
-        string childPath,
-        string parentDirectoryPath)
-    {
-        var childFullPath = Path.GetFullPath(childPath);
-        var parentFullPath = Path.GetFullPath(parentDirectoryPath);
-        var relativePath = Path.GetRelativePath(parentFullPath, childFullPath);
-        return !string.IsNullOrWhiteSpace(relativePath)
-            && !string.Equals(relativePath, ".", StringComparison.Ordinal)
-            && !Path.IsPathRooted(relativePath)
-            && !relativePath.Equals("..", StringComparison.Ordinal)
-            && !relativePath.StartsWith($"..{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
-            && !relativePath.StartsWith($"..{Path.AltDirectorySeparatorChar}", StringComparison.Ordinal);
     }
 
     private static bool IsIoFailure (Exception exception)

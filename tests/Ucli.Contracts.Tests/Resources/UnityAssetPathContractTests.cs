@@ -36,34 +36,6 @@ public sealed class UnityAssetPathContractTests
         Assert.False(result);
     }
 
-    [Fact]
-    [Trait("Size", "Small")]
-    public void TryNormalizeProjectRelativePath_WhenPathUsesBackslashes_ReturnsSlashSeparatedPath ()
-    {
-        var result = UnityAssetPathContract.TryNormalizeProjectRelativePath(
-            @"Assets\Scenes\Main.unity",
-            out var normalizedPath);
-
-        Assert.True(result);
-        Assert.Equal("Assets/Scenes/Main.unity", normalizedPath);
-    }
-
-    [Theory]
-    [Trait("Size", "Small")]
-    [InlineData(" Assets/Scenes/Main.unity")]
-    [InlineData("Assets//Scenes/Main.unity")]
-    [InlineData("Assets/../Scenes/Main.unity")]
-    [InlineData("/Assets/Scenes/Main.unity")]
-    [InlineData("C:/Project/Assets/Scenes/Main.unity")]
-    [InlineData("Assets/Scenes/Main:Dev.unity")]
-    public void TryNormalizeProjectRelativePath_WhenPathIsInvalid_ReturnsFalse (string path)
-    {
-        var result = UnityAssetPathContract.TryNormalizeProjectRelativePath(path, out var normalizedPath);
-
-        Assert.False(result);
-        Assert.Equal(string.Empty, normalizedPath);
-    }
-
     [Theory]
     [Trait("Size", "Small")]
     [InlineData("Assets", "Assets")]

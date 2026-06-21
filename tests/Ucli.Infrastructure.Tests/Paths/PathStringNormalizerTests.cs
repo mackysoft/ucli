@@ -48,6 +48,28 @@ public sealed class PathStringNormalizerTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void IsPathRoot_WithCurrentRoot_ReturnsTrue ()
+    {
+        var rootPath = Path.GetPathRoot(Path.GetFullPath("."))!;
+
+        var result = PathStringNormalizer.IsPathRoot(rootPath);
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IsPathRoot_WithChildPath_ReturnsFalse ()
+    {
+        var childPath = Path.GetFullPath(Path.Combine("root-check", "child"));
+
+        var result = PathStringNormalizer.IsPathRoot(childPath);
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void NormalizeAbsolutePathForStableIdentity_TrimsTrailingSeparatorsWithoutTrimmingRoot ()
     {
         var fullPath = Path.GetFullPath(Path.Combine("stable-identity-root", "child"));
@@ -106,6 +128,16 @@ public sealed class PathStringNormalizerTests
         Assert.Throws<ArgumentNullException>(() =>
         {
             _ = PathStringNormalizer.TrimTrailingDirectorySeparators(null!);
+        });
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IsPathRoot_Throws_WhenValueIsNull ()
+    {
+        Assert.Throws<ArgumentNullException>(() =>
+        {
+            _ = PathStringNormalizer.IsPathRoot(null!);
         });
     }
 
