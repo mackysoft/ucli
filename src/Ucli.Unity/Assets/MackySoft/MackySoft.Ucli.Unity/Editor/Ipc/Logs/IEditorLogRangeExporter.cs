@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -11,6 +12,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="destinationPath"> The destination artifact file path. </param>
         /// <param name="startOffset"> The inclusive start byte offset. </param>
         /// <param name="endOffset"> The exclusive end byte offset. </param>
+        /// <param name="redactionValues"> The sensitive values to redact while writing the artifact. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by caller. </param>
         /// <returns> The counters collected from the exported log range. </returns>
         Task<EditorLogRangeExportResult> ExportRangeAsync (
@@ -18,6 +20,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             string destinationPath,
             long startOffset,
             long endOffset,
+            IEnumerable<string>? redactionValues = null,
             CancellationToken cancellationToken = default);
     }
 }

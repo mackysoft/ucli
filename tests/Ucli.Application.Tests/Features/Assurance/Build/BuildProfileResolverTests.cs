@@ -171,6 +171,54 @@ public sealed class BuildProfileResolverTests
         Assert.Equal([DaemonEditorMode.Gui], profile.Policy.Runtime.AllowedEditorModes);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ResolveJson_WithExecuteMethodRunner_ReturnsInvocationModel ()
+    {
+        var result = BuildProfileResolver.ResolveJson(CreateProfileJson(
+            """
+            {
+              "kind": "executeMethod",
+              "method": "Build.Entry.Run",
+              "invocation": {
+                "arguments": {
+                  "output": "${ucli.build.outputDir}",
+                  "target": "${build.target}"
+                },
+                "environment": {
+                  "variables": [
+                    "BUILD_MODE"
+                  ],
+                  "secrets": [
+                    "UNITY_LICENSE"
+                  ]
+                }
+              }
+            }
+            """));
+
+        Assert.True(result.IsSuccess);
+        var runner = result.Profile!.Runner;
+        Assert.Equal(BuildProfileRunnerKind.ExecuteMethod, runner.Kind);
+        Assert.Equal("Build.Entry.Run", runner.Method);
+        Assert.Equal("${ucli.build.outputDir}", runner.Invocation.Arguments["output"]);
+        Assert.Equal("${build.target}", runner.Invocation.Arguments["target"]);
+        Assert.Equal(["BUILD_MODE"], runner.Invocation.Environment.Variables);
+        Assert.Equal(["UNITY_LICENSE"], runner.Invocation.Environment.Secrets);
+    }
+
+    [Theory]
+    [MemberData(nameof(InvalidExecuteMethodRunnerJsonCases))]
+    [Trait("Size", "Small")]
+    public void ResolveJson_WithInvalidExecuteMethodRunner_ReturnsBuildProfileInvalid (string runnerJson)
+    {
+        var result = BuildProfileResolver.ResolveJson(CreateProfileJson(runnerJson));
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, result.Error!.Kind);
+        Assert.Equal(BuildErrorCodes.BuildProfileInvalid, result.Error.Code);
+    }
+
     [Theory]
     [MemberData(nameof(InvalidProfileJsonCases))]
     [Trait("Size", "Small")]
@@ -273,6 +321,78 @@ public sealed class BuildProfileResolverTests
         Assert.False(first.Digest.StartsWith("sha256:", StringComparison.Ordinal));
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ResolveJson_ComputesExecuteMethodDigestWithCanonicalInvocationArgumentOrder ()
+    {
+        var first = BuildProfileResolver.ResolveJson(CreateProfileJson(
+            """
+            {
+              "kind": "executeMethod",
+              "method": "Build.Entry.Run",
+              "invocation": {
+                "arguments": {
+                  "b": "2",
+                  "a": "1"
+                },
+                "environment": {
+                  "variables": [
+                    "BUILD_MODE"
+                  ],
+                  "secrets": [
+                    "UNITY_LICENSE",
+                    "UNITY_EMAIL"
+                  ]
+                }
+              }
+            }
+            """)).Profile!;
+        var second = BuildProfileResolver.ResolveJson(CreateProfileJson(
+            """
+            {
+              "kind": "executeMethod",
+              "method": "Build.Entry.Run",
+              "invocation": {
+                "environment": {
+                  "variables": [
+                    "BUILD_MODE"
+                  ],
+                  "secrets": [
+                    "UNITY_LICENSE",
+                    "UNITY_EMAIL"
+                  ]
+                },
+                "arguments": {
+                  "a": "1",
+                  "b": "2"
+                }
+              }
+            }
+            """)).Profile!;
+
+        Assert.Equal(first.Digest, second.Digest);
+        Assert.NotEqual(BuildProfileResolver.ResolveJson(ValidExplicitProfileJson).Profile!.Digest, first.Digest);
+    }
+
+    public static TheoryData<string> InvalidExecuteMethodRunnerJsonCases ()
+    {
+        return
+        [
+            """{"kind":"executeMethod","method":"Run"}""",
+            """{"kind":"executeMethod","method":"Build.Entry.Run, Assembly"}""",
+            """{"kind":"executeMethod","method":"Build.Entry.Run","legacy":true}""",
+            """{"kind":"executeMethod","method":"Build.Entry.Run","invocation":[]}""",
+            """{"kind":"executeMethod","method":"Build.Entry.Run","invocation":{"arguments":[]}}""",
+            """{"kind":"executeMethod","method":"Build.Entry.Run","invocation":{"arguments":{"output":1}}}""",
+            """{"kind":"executeMethod","method":"Build.Entry.Run","invocation":{"environment":[]}}""",
+            """{"kind":"executeMethod","method":"Build.Entry.Run","invocation":{"environment":{"variables":[1]}}}""",
+            """{"kind":"executeMethod","method":"Build.Entry.Run","invocation":{"environment":{"variables":["BUILD_MODE","BUILD_MODE"]}}}""",
+            """{"kind":"executeMethod","method":"Build.Entry.Run","invocation":{"environment":{"variables":["BUILD_MODE"],"secrets":["BUILD_MODE"]}}}""",
+            """{"kind":"executeMethod","method":"Build.Entry.Run","invocation":{"environment":{"legacy":[]}}}""",
+            """{"kind":"executeMethod","method":"Build.Entry.Run","invocation":{"arguments":{},"environment":{},"legacy":true}}""",
+        ];
+    }
+
     public static TheoryData<string> InvalidProfileJsonCases ()
     {
         return
@@ -340,5 +460,41 @@ public sealed class BuildProfileResolverTests
             """{"schemaVersion":1,"inputs":{"kind":"explicit","buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"options":{"development":false}},"runner":{"kind":"buildPipeline"},"policy":{"runtime":{"allowedExecutionModes":["daemon"],"allowedEditorModes":["batchmode"]},"projectMutationMode":"legacy"}}""",
             """{"schemaVersion":1,"inputs":{"kind":"explicit","buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"options":{"development":false}},"runner":{"kind":"buildPipeline"},"policy":{"runtime":{"allowedExecutionModes":["daemon"],"allowedEditorModes":["batchmode"]},"projectMutationMode":" forbid"}}""",
         ];
+    }
+
+    private static string CreateProfileJson (string runnerJson)
+    {
+        return $$"""
+            {
+              "schemaVersion": 1,
+              "inputs": {
+                "kind": "explicit",
+                "buildTarget": "standaloneLinux64",
+                "scenes": {
+                  "source": "explicit",
+                  "paths": [
+                    "Assets/Scenes/Main.unity"
+                  ]
+                },
+                "options": {
+                  "development": false
+                }
+              },
+              "runner": {{runnerJson}},
+              "policy": {
+                "runtime": {
+                  "allowedExecutionModes": [
+                    "daemon",
+                    "oneshot"
+                  ],
+                  "allowedEditorModes": [
+                    "batchmode",
+                    "gui"
+                  ]
+                },
+                "projectMutationMode": "forbid"
+              }
+            }
+            """;
     }
 }

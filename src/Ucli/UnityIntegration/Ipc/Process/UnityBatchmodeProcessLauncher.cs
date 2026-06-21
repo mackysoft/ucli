@@ -272,6 +272,12 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
             unityLogPath,
         };
         IpcBatchmodeBootstrapArgumentsCodec.AppendTokens(tokens, bootstrapArguments);
+        if (bootstrapArguments is IpcOneshotBootstrapArguments)
+        {
+            tokens.Add("-executeMethod");
+            tokens.Add("MackySoft.Ucli.Unity.Editor.BuildExecuteMethodBridge.Run");
+        }
+
         return tokens;
     }
 }

@@ -281,6 +281,8 @@ public sealed class IpcContractSerializationTests
         Assert.Equal("added", ContractLiteralCodec.ToValue(IpcBuildProjectMutationChangeKind.Added));
         Assert.Equal("modified", ContractLiteralCodec.ToValue(IpcBuildProjectMutationChangeKind.Modified));
         Assert.Equal("deleted", ContractLiteralCodec.ToValue(IpcBuildProjectMutationChangeKind.Deleted));
+        Assert.Equal("buildPipelineBuildReport", ContractLiteralCodec.ToValue(IpcBuildRunnerResultSource.BuildPipelineBuildReport));
+        Assert.Equal("ucliBuildRunnerResult", ContractLiteralCodec.ToValue(IpcBuildRunnerResultSource.UcliBuildRunnerResult));
 
         using var request = JsonDocument.Parse(JsonSerializer.Serialize(
             new IpcBuildRunRequest(
@@ -297,9 +299,27 @@ public sealed class IpcContractSerializationTests
                 BuildReportPath: "/tmp/ucli/build-report.json",
                 BuildLogPath: "/tmp/ucli/build.log",
                 AllowedEditorModes: ["batchmode"],
-                ProjectMutationMode: "forbid")
+                ProjectMutationMode: "forbid",
+                RunnerKind: ContractLiteralCodec.ToValue(IpcBuildRunnerKind.ExecuteMethod))
             {
                 TimeoutMilliseconds = 1234,
+                ProfilePath = "/workspace/UnityProject/.ucli/build/player.json",
+                ProfileDigest = new string('c', 64),
+                RunnerMethod = "Build.Entry.Run",
+                RunnerArguments = new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    ["output"] = "/tmp/ucli/output",
+                },
+                RunnerEnvironmentVariables = ["BUILD_MODE"],
+                RunnerEnvironmentSecrets = ["UNITY_LICENSE"],
+                RunnerEnvironmentVariableValues = new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    ["BUILD_MODE"] = "release",
+                },
+                RunnerEnvironmentSecretValues = new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    ["UNITY_LICENSE"] = "license-value",
+                },
             },
             SerializerOptions));
         using var response = JsonDocument.Parse(JsonSerializer.Serialize(
@@ -351,7 +371,22 @@ public sealed class IpcContractSerializationTests
                     Window: new IpcBuildLogWindow(
                         StartedAtUtc: DateTimeOffset.Parse("2026-06-12T00:00:00+00:00"),
                         CompletedAtUtc: DateTimeOffset.Parse("2026-06-12T00:00:03+00:00"))),
-                ProjectMutation: CreateProjectMutationAudit()),
+                ProjectMutation: CreateProjectMutationAudit())
+            {
+                RunnerResult = new IpcBuildRunnerResultArtifact(
+                    Source: ContractLiteralCodec.ToValue(IpcBuildRunnerResultSource.UcliBuildRunnerResult),
+                    Status: ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+                    DurationMilliseconds: 2500,
+                    ErrorCount: 0,
+                    WarningCount: 1,
+                    Diagnostics:
+                    [
+                        new IpcBuildRunnerDiagnostic(
+                            Severity: "warning",
+                            Code: "sample-warning",
+                            Message: "Sample warning"),
+                    ]),
+            },
             SerializerOptions));
 
         JsonAssert.For(request.RootElement)
@@ -373,7 +408,23 @@ public sealed class IpcContractSerializationTests
             .HasProperty("allowedEditorModes", 0, mode => mode
                 .HasString("batchmode"))
             .HasString("projectMutationMode", "forbid")
-            .HasInt32("timeoutMilliseconds", 1234);
+            .HasInt32("timeoutMilliseconds", 1234)
+            .HasString("runnerKind", "executeMethod")
+            .HasString("profilePath", "/workspace/UnityProject/.ucli/build/player.json")
+            .HasString("profileDigest", new string('c', 64))
+            .HasString("runnerMethod", "Build.Entry.Run")
+            .HasProperty("runnerArguments", arguments => arguments
+                .HasString("output", "/tmp/ucli/output"))
+            .HasArrayLength("runnerEnvironmentVariables", 1)
+            .HasProperty("runnerEnvironmentVariables", 0, environment => environment
+                .HasString("BUILD_MODE"))
+            .HasArrayLength("runnerEnvironmentSecrets", 1)
+            .HasProperty("runnerEnvironmentSecrets", 0, environment => environment
+                .HasString("UNITY_LICENSE"))
+            .HasProperty("runnerEnvironmentVariableValues", environment => environment
+                .HasString("BUILD_MODE", "release"))
+            .HasProperty("runnerEnvironmentSecretValues", environment => environment
+                .HasString("UNITY_LICENSE", "license-value"));
         JsonAssert.For(response.RootElement)
             .HasString("runId", "build-run-1")
             .HasString("projectFingerprint", "project-fingerprint")
@@ -421,6 +472,17 @@ public sealed class IpcContractSerializationTests
                 .HasProperty("window", window => window
                     .HasString("startedAtUtc", "2026-06-12T00:00:00+00:00")
                     .HasString("completedAtUtc", "2026-06-12T00:00:03+00:00")))
+            .HasProperty("runnerResult", runnerResult => runnerResult
+                .HasString("source", ContractLiteralCodec.ToValue(IpcBuildRunnerResultSource.UcliBuildRunnerResult))
+                .HasString("status", ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded))
+                .HasInt32("durationMilliseconds", 2500)
+                .HasInt32("errorCount", 0)
+                .HasInt32("warningCount", 1)
+                .HasArrayLength("diagnostics", 1)
+                .HasProperty("diagnostics", 0, diagnostic => diagnostic
+                    .HasString("severity", "warning")
+                    .HasString("code", "sample-warning")
+                    .HasString("message", "Sample warning")))
             .HasProperty("projectMutation", mutation => mutation
                 .HasString("mode", "forbid")
                 .HasString("coverage", ContractLiteralCodec.ToValue(IpcBuildProjectMutationAuditCoverage.Full))

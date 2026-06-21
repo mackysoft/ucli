@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 using System.Threading;
@@ -28,6 +29,9 @@ namespace MackySoft.Ucli.Unity.Tests
     {
         private const string ProjectFingerprint = "project-fingerprint";
         private const string RunId = "build-run-1";
+        private const string ExecuteMethodTypeName = "MackySoft.Ucli.Unity.Tests.BuildRunUnityIpcMethodHandlerTests";
+
+        private static UcliBuildRunnerContext? executeMethodContext;
 
         [Test]
         [Category("Size.Small")]
@@ -246,9 +250,11 @@ namespace MackySoft.Ucli.Unity.Tests
                         new CountingBuildTargetSupportProbe()),
                     new UnityProjectMutationAuditProbe(),
                     buildPipelineRunner,
+                    CreateExecuteMethodRunner(),
                     logRangeExporter,
                     identity,
-                    timeoutScopeFactory);
+                    timeoutScopeFactory,
+                    new UnityLogRedactionScopeProvider());
                 var payload = WithArtifactPath(
                     CreateRequest(scope.ProjectPath, identity),
                     artifact,
@@ -287,9 +293,11 @@ namespace MackySoft.Ucli.Unity.Tests
                         new CountingBuildTargetSupportProbe()),
                     new UnityProjectMutationAuditProbe(),
                     buildPipelineRunner,
+                    CreateExecuteMethodRunner(),
                     logRangeExporter,
                     identity,
-                    timeoutScopeFactory);
+                    timeoutScopeFactory,
+                    new UnityLogRedactionScopeProvider());
                 var payload = CreateRequest(scope.ProjectPath, identity) with
                 {
                     UnityBuildTarget = "StandaloneWindows64",
@@ -327,9 +335,11 @@ namespace MackySoft.Ucli.Unity.Tests
                         new CountingBuildTargetSupportProbe()),
                     new UnityProjectMutationAuditProbe(),
                     buildPipelineRunner,
+                    CreateExecuteMethodRunner(),
                     logRangeExporter,
                     identity,
-                    timeoutScopeFactory);
+                    timeoutScopeFactory,
+                    new UnityLogRedactionScopeProvider());
                 var payload = CreateRequest(scope.ProjectPath, identity) with
                 {
                     BuildTarget = "unknownTarget",
@@ -368,9 +378,11 @@ namespace MackySoft.Ucli.Unity.Tests
                         new CountingBuildTargetSupportProbe()),
                     new UnityProjectMutationAuditProbe(),
                     buildPipelineRunner,
+                    CreateExecuteMethodRunner(),
                     logRangeExporter,
                     identity,
-                    new CountingTimeoutScopeFactory());
+                    new CountingTimeoutScopeFactory(),
+                    new UnityLogRedactionScopeProvider());
                 var payload = CreateRequest(scope.ProjectPath, identity);
                 Directory.CreateDirectory(Path.GetDirectoryName(payload.OutputLayout.LocationPathName)!);
                 File.WriteAllText(payload.OutputLayout.LocationPathName, "existing player");
@@ -426,9 +438,11 @@ namespace MackySoft.Ucli.Unity.Tests
                         new CountingBuildTargetSupportProbe()),
                     new UnityProjectMutationAuditProbe(),
                     buildPipelineRunner,
+                    CreateExecuteMethodRunner(),
                     logRangeExporter,
                     identity,
-                    new CountingTimeoutScopeFactory());
+                    new CountingTimeoutScopeFactory(),
+                    new UnityLogRedactionScopeProvider());
 
                 var response = await handler.HandleAsync(CreateIpcRequest(requestPayload), CancellationToken.None);
 
@@ -456,6 +470,143 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(persistedReport.ErrorCount, Is.EqualTo(reportErrorCount));
                 Assert.That(persistedReport.WarningCount, Is.EqualTo(reportWarningCount));
                 Assert.That(File.ReadAllText(requestPayload.BuildLogPath), Does.Contain("warning CS0168"));
+            }
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task HandleAsync_WithExecuteMethodRunner_RunsBridgeAndRedactsSecretEnvironmentValuesFromLog ()
+        {
+            Assume.That(
+                !string.IsNullOrWhiteSpace(Application.consoleLogPath) && File.Exists(Application.consoleLogPath),
+                "Unity console log path is not available in this test environment.");
+
+            using (var scope = TemporaryDirectoryScope.Create())
+            using (var editorScope = new EditorTestScope().SuppressExistingPersistentDirtyObjects())
+            {
+                executeMethodContext = null;
+                UcliBuildRunnerContext.Current = null;
+                var identity = CreateProjectIdentity(scope.ProjectPath);
+                var requestPayload = CreateExecuteMethodRequest(
+                    scope.ProjectPath,
+                    identity,
+                    ExecuteMethodTypeName + ".HandlerExecuteMethodSuccess");
+                var buildPipelineRunner = new CountingBuildPipelineRunner();
+                var logRangeExporter = new CountingEditorLogRangeExporter(
+                    "runner log contains release and secret-value-tail and secret-value",
+                    entryCount: 1,
+                    errorCount: 0,
+                    warningCount: 0);
+                var handler = new BuildRunUnityIpcMethodHandler(
+                    new UnityBuildPreconditionProbe(
+                        new CountingReadinessGate(),
+                        identity,
+                        new StubServerVersionProvider("1.2.3"),
+                        new CountingBuildTargetSupportProbe()),
+                    new UnityProjectMutationAuditProbe(),
+                    buildPipelineRunner,
+                    CreateExecuteMethodRunner(),
+                    logRangeExporter,
+                    identity,
+                    new CountingTimeoutScopeFactory(),
+                    new UnityLogRedactionScopeProvider());
+
+                var response = await handler.HandleAsync(CreateIpcRequest(requestPayload), CancellationToken.None);
+
+                Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+                Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcBuildRunResponse payload, out _), Is.True);
+                Assert.That(buildPipelineRunner.CallCount, Is.EqualTo(0));
+                Assert.That(logRangeExporter.CallCount, Is.EqualTo(1));
+                Assert.That(executeMethodContext, Is.Not.Null);
+                Assert.That(executeMethodContext!.Environment.Variables["UCLI_MODE"], Is.EqualTo("release"));
+                Assert.That(executeMethodContext.Environment.Secrets["UCLI_SECRET"], Is.EqualTo("secret-value"));
+                Assert.That(executeMethodContext.Environment.Secrets["UCLI_SECRET_LONG"], Is.EqualTo("secret-value-tail"));
+                Assert.That(UcliBuildRunnerContext.Current, Is.Null);
+                Assert.That(payload.RunnerResult, Is.Not.Null);
+                Assert.That(payload.RunnerResult!.Source, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildRunnerResultSource.UcliBuildRunnerResult)));
+                Assert.That(payload.RunnerResult.Status, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded)));
+                Assert.That(payload.Report.Result, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded)));
+                Assert.That(File.Exists(requestPayload.BuildReportPath), Is.True);
+                Assert.That(File.Exists(requestPayload.BuildLogPath), Is.True);
+                var persistedLog = File.ReadAllText(requestPayload.BuildLogPath);
+                Assert.That(persistedLog, Does.Contain("release"));
+                Assert.That(persistedLog, Does.Not.Contain("secret-value"));
+                Assert.That(persistedLog, Does.Not.Contain("tail"));
+                Assert.That(persistedLog, Does.Contain("[ucli redacted environment value]"));
+            }
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task HandleAsync_WithExecuteMethodRunner_RedactsSecretEnvironmentValuesFromUnityLogStream ()
+        {
+            Assume.That(
+                !string.IsNullOrWhiteSpace(Application.consoleLogPath) && File.Exists(Application.consoleLogPath),
+                "Unity console log path is not available in this test environment.");
+
+            using (var scope = TemporaryDirectoryScope.Create())
+            using (var editorScope = new EditorTestScope().SuppressExistingPersistentDirtyObjects())
+            {
+                executeMethodContext = null;
+                UcliBuildRunnerContext.Current = null;
+                var redactionScopeProvider = new UnityLogRedactionScopeProvider();
+                var unityLogStream = new UnityLogRingBuffer();
+                using (var unityLogCaptureService = new UnityLogCaptureService(new UnityLogCollector(
+                           unityLogStream,
+                           new UnityCompileMessageDedupeCache(),
+                           redactionScopeProvider)))
+                {
+                    unityLogCaptureService.Start();
+                    var identity = CreateProjectIdentity(scope.ProjectPath);
+                    var requestPayload = CreateExecuteMethodRequest(
+                        scope.ProjectPath,
+                        identity,
+                        ExecuteMethodTypeName + ".HandlerExecuteMethodLogsEnvironmentValues");
+                    var handler = new BuildRunUnityIpcMethodHandler(
+                        new UnityBuildPreconditionProbe(
+                            new CountingReadinessGate(),
+                            identity,
+                            new StubServerVersionProvider("1.2.3"),
+                            new CountingBuildTargetSupportProbe()),
+                        new UnityProjectMutationAuditProbe(),
+                        new CountingBuildPipelineRunner(),
+                        CreateExecuteMethodRunner(),
+                        new CountingEditorLogRangeExporter(
+                            string.Empty,
+                            entryCount: 0,
+                            errorCount: 0,
+                            warningCount: 0),
+                        identity,
+                        new CountingTimeoutScopeFactory(),
+                        redactionScopeProvider);
+
+                    var response = await handler.HandleAsync(CreateIpcRequest(requestPayload), CancellationToken.None);
+
+                    Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+                    Assert.That(executeMethodContext, Is.Not.Null);
+                    var snapshot = unityLogStream.Snapshot();
+                    Assert.That(snapshot.Events.Count, Is.GreaterThanOrEqualTo(1));
+                    var foundRedactedRunnerLog = false;
+                    var foundVariableValue = false;
+                    for (var i = 0; i < snapshot.Events.Count; i++)
+                    {
+                        var unityLogEvent = snapshot.Events[i];
+                        Assert.That(unityLogEvent.Message, Does.Not.Contain("secret-value"));
+                        Assert.That(unityLogEvent.Message, Does.Not.Contain("tail"));
+                        if (unityLogEvent.Message.Contains("release"))
+                        {
+                            foundVariableValue = true;
+                        }
+
+                        if (unityLogEvent.Message.Contains(SensitiveValueRedactor.Replacement))
+                        {
+                            foundRedactedRunnerLog = true;
+                        }
+                    }
+
+                    Assert.That(foundRedactedRunnerLog, Is.True);
+                    Assert.That(foundVariableValue, Is.True);
+                }
             }
         }
 
@@ -490,13 +641,15 @@ namespace MackySoft.Ucli.Unity.Tests
                         new CountingBuildTargetSupportProbe()),
                     new UnityProjectMutationAuditProbe(),
                     buildPipelineRunner,
+                    CreateExecuteMethodRunner(),
                     new CountingEditorLogRangeExporter(
                         string.Empty,
                         entryCount: 0,
                         errorCount: 0,
                         warningCount: 0),
                     identity,
-                    new CountingTimeoutScopeFactory());
+                    new CountingTimeoutScopeFactory(),
+                    new UnityLogRedactionScopeProvider());
 
                 var response = await handler.HandleAsync(CreateIpcRequest(requestPayload), CancellationToken.None);
 
@@ -540,9 +693,11 @@ namespace MackySoft.Ucli.Unity.Tests
                         new CountingBuildTargetSupportProbe()),
                     new UnityProjectMutationAuditProbe(),
                     buildPipelineRunner,
+                    CreateExecuteMethodRunner(),
                     logRangeExporter,
                     identity,
-                    new CountingTimeoutScopeFactory());
+                    new CountingTimeoutScopeFactory(),
+                    new UnityLogRedactionScopeProvider());
 
                 var response = await handler.HandleAsync(CreateIpcRequest(requestPayload), CancellationToken.None);
 
@@ -599,7 +754,56 @@ namespace MackySoft.Ucli.Unity.Tests
                 BuildReportPath: Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildReportFileName),
                 BuildLogPath: Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildLogFileName),
                 AllowedEditorModes: new[] { ContractLiteralCodec.ToValue(DaemonEditorMode.Batchmode) },
-                ProjectMutationMode: ContractLiteralCodec.ToValue(BuildProfileProjectMutationMode.Forbid));
+                ProjectMutationMode: ContractLiteralCodec.ToValue(BuildProfileProjectMutationMode.Forbid),
+                RunnerKind: ContractLiteralCodec.ToValue(IpcBuildRunnerKind.BuildPipeline));
+        }
+
+        private static IpcBuildRunRequest CreateExecuteMethodRequest (
+            string projectPath,
+            IpcProjectIdentity identity,
+            string method)
+        {
+            return CreateRequest(projectPath, identity) with
+            {
+                OutputLayout = null,
+                RunnerKind = ContractLiteralCodec.ToValue(IpcBuildRunnerKind.ExecuteMethod),
+                ProfilePath = Path.Combine(projectPath, "build.ucli.json"),
+                ProfileDigest = new string('a', 64),
+                RunnerMethod = method,
+                RunnerArguments = new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    ["argument"] = "value",
+                },
+                RunnerEnvironmentVariables = new[] { "UCLI_MODE" },
+                RunnerEnvironmentSecrets = new[] { "UCLI_SECRET", "UCLI_SECRET_LONG" },
+                RunnerEnvironmentVariableValues = new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    ["UCLI_MODE"] = "release",
+                },
+                RunnerEnvironmentSecretValues = new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    ["UCLI_SECRET"] = "secret-value",
+                    ["UCLI_SECRET_LONG"] = "secret-value-tail",
+                },
+            };
+        }
+
+        private static BuildExecuteMethodRunner CreateExecuteMethodRunner ()
+        {
+            return new BuildExecuteMethodRunner(new BuildExecuteMethodResolver());
+        }
+
+        public static UcliBuildRunnerResult HandlerExecuteMethodSuccess (UcliBuildRunnerContext context)
+        {
+            executeMethodContext = context;
+            return UcliBuildRunnerResult.Succeeded(2500, warningCount: 1);
+        }
+
+        public static UcliBuildRunnerResult HandlerExecuteMethodLogsEnvironmentValues (UcliBuildRunnerContext context)
+        {
+            executeMethodContext = context;
+            Debug.Log("runner log contains " + context.Environment.Variables["UCLI_MODE"] + " and " + context.Environment.Secrets["UCLI_SECRET_LONG"]);
+            return UcliBuildRunnerResult.Succeeded(2500, warningCount: 1);
         }
 
         private static IpcRequest CreateIpcRequest (IpcBuildRunRequest payload)
@@ -814,6 +1018,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 string destinationPath,
                 long startOffset,
                 long endOffset,
+                IEnumerable<string>? redactionValues = null,
                 CancellationToken cancellationToken = default)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -829,8 +1034,36 @@ namespace MackySoft.Ucli.Unity.Tests
                     Directory.CreateDirectory(directoryPath);
                 }
 
-                File.WriteAllText(destinationPath, contents);
+                File.WriteAllText(destinationPath, Redact(contents, redactionValues));
                 return Task.FromResult(summary);
+            }
+
+            private static string Redact (
+                string value,
+                IEnumerable<string>? redactionValues)
+            {
+                if (redactionValues == null)
+                {
+                    return value;
+                }
+
+                var values = new List<string>();
+                foreach (var redactionValue in redactionValues)
+                {
+                    if (!string.IsNullOrEmpty(redactionValue) && !values.Contains(redactionValue))
+                    {
+                        values.Add(redactionValue);
+                    }
+                }
+
+                values.Sort(static (left, right) => right.Length.CompareTo(left.Length));
+                var redacted = value;
+                for (var i = 0; i < values.Count; i++)
+                {
+                    redacted = redacted.Replace(values[i], "[ucli redacted environment value]");
+                }
+
+                return redacted;
             }
         }
 

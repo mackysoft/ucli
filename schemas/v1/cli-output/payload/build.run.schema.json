@@ -79,6 +79,93 @@
                 "development"
               ]
             },
+            "runner": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "buildPipeline",
+                    "executeMethod"
+                  ]
+                },
+                "method": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "invocation": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "arguments": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
+                      }
+                    },
+                    "environment": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "variables": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "secrets": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": [
+                        "variables",
+                        "secrets"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "arguments",
+                    "environment"
+                  ]
+                }
+              },
+              "required": [
+                "kind",
+                "method",
+                "invocation"
+              ]
+            },
+            "runnerResult": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "source": {
+                  "type": "string",
+                  "enum": [
+                    "buildPipelineBuildReport",
+                    "ucliBuildRunnerResult"
+                  ]
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "succeeded",
+                    "failed",
+                    "canceled"
+                  ]
+                }
+              },
+              "required": [
+                "source",
+                "status"
+              ]
+            },
             "output": {
               "type": "object",
               "additionalProperties": false,
@@ -222,6 +309,8 @@
             "buildTarget",
             "scenes",
             "options",
+            "runner",
+            "runnerResult",
             "output",
             "generations",
             "summary",

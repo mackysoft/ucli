@@ -1,6 +1,8 @@
 using System;
 using System.Buffers;
+using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Infrastructure.Storage;
@@ -11,12 +13,14 @@ namespace MackySoft.Ucli.Unity.Ipc
     internal sealed class EditorLogRangeExporter : IEditorLogRangeExporter
     {
         private const int BufferSize = 81920;
+        private static readonly UTF8Encoding Utf8NoBomEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
 
         /// <summary> Exports one half-open byte range from source log file into destination file. </summary>
         /// <param name="sourcePath"> The source log file path. </param>
         /// <param name="destinationPath"> The destination artifact file path. </param>
         /// <param name="startOffset"> The inclusive start byte offset. </param>
         /// <param name="endOffset"> The exclusive end byte offset. </param>
+        /// <param name="redactionValues"> The sensitive values to redact while writing the artifact. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by caller. </param>
         /// <returns> The counters collected from the exported log range. </returns>
         public async Task<EditorLogRangeExportResult> ExportRangeAsync (
@@ -24,6 +28,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             string destinationPath,
             long startOffset,
             long endOffset,
+            IEnumerable<string>? redactionValues = null,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -66,6 +71,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             try
             {
                 var counter = new BuildLogLineCounter();
+                var redactionPatterns = CreateRedactionPatterns(redactionValues);
+                var redactionPending = redactionPatterns.Count == 0 ? null : new List<byte>();
                 using (var destinationStream = new FileStream(temporaryPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, BufferSize, true))
                 {
                     sourceStream.Seek(startOffset, SeekOrigin.Begin);
@@ -86,9 +93,38 @@ namespace MackySoft.Ucli.Unity.Ipc
                                 throw new EndOfStreamException("Unexpected end of editor log while exporting selected byte range.");
                             }
 
-                            await destinationStream.WriteAsync(buffer, 0, bytesRead, cancellationToken);
                             counter.Append(buffer.AsSpan(0, bytesRead));
+                            if (redactionPatterns.Count == 0)
+                            {
+                                await destinationStream.WriteAsync(buffer, 0, bytesRead, cancellationToken);
+                            }
+                            else
+                            {
+                                var redacted = RedactChunk(
+                                    buffer.AsSpan(0, bytesRead),
+                                    redactionPending!,
+                                    redactionPatterns,
+                                    endOfInput: false);
+                                if (redacted.Length > 0)
+                                {
+                                    await destinationStream.WriteAsync(redacted, 0, redacted.Length, cancellationToken);
+                                }
+                            }
+
                             remaining -= bytesRead;
+                        }
+
+                        if (redactionPatterns.Count != 0)
+                        {
+                            var redacted = RedactChunk(
+                                ReadOnlySpan<byte>.Empty,
+                                redactionPending!,
+                                redactionPatterns,
+                                endOfInput: true);
+                            if (redacted.Length > 0)
+                            {
+                                await destinationStream.WriteAsync(redacted, 0, redacted.Length, cancellationToken);
+                            }
                         }
                     }
                     finally
@@ -108,6 +144,158 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 DeleteTemporaryFileIfExists(temporaryPath);
             }
+        }
+
+        private static IReadOnlyList<byte[]> CreateRedactionPatterns (IEnumerable<string>? redactionValues)
+        {
+            if (redactionValues == null)
+            {
+                return Array.Empty<byte[]>();
+            }
+
+            var orderedValues = SensitiveValueRedactor.CreateOrderedValues(redactionValues);
+            if (orderedValues.Length == 0)
+            {
+                return Array.Empty<byte[]>();
+            }
+
+            var patterns = new List<byte[]>(orderedValues.Length);
+            for (var i = 0; i < orderedValues.Length; i++)
+            {
+                patterns.Add(Utf8NoBomEncoding.GetBytes(orderedValues[i]));
+            }
+
+            return patterns;
+        }
+
+        private static byte[] RedactChunk (
+            ReadOnlySpan<byte> bytes,
+            List<byte> pending,
+            IReadOnlyList<byte[]> redactionPatterns,
+            bool endOfInput)
+        {
+            var output = new ArrayBufferWriter<byte>(bytes.Length + SensitiveValueRedactor.Replacement.Length);
+            for (var i = 0; i < bytes.Length; i++)
+            {
+                pending.Add(bytes[i]);
+                FlushDecidedPending(pending, redactionPatterns, output, endOfInput: false);
+            }
+
+            if (endOfInput)
+            {
+                FlushDecidedPending(pending, redactionPatterns, output, endOfInput: true);
+            }
+
+            return output.WrittenMemory.ToArray();
+        }
+
+        private static void FlushDecidedPending (
+            List<byte> pending,
+            IReadOnlyList<byte[]> redactionPatterns,
+            ArrayBufferWriter<byte> output,
+            bool endOfInput)
+        {
+            while (pending.Count > 0)
+            {
+                var matchedLength = FindFullMatchLength(pending, redactionPatterns);
+                if (matchedLength > 0)
+                {
+                    if (!endOfInput && HasLongerPendingPrefixMatch(pending, redactionPatterns, matchedLength))
+                    {
+                        return;
+                    }
+
+                    WriteUtf8(output, SensitiveValueRedactor.Replacement);
+                    pending.RemoveRange(0, matchedLength);
+                    continue;
+                }
+
+                if (!endOfInput && HasPendingPrefixMatch(pending, redactionPatterns))
+                {
+                    return;
+                }
+
+                output.GetSpan(1)[0] = pending[0];
+                output.Advance(1);
+                pending.RemoveAt(0);
+            }
+        }
+
+        private static int FindFullMatchLength (
+            List<byte> pending,
+            IReadOnlyList<byte[]> redactionPatterns)
+        {
+            for (var i = 0; i < redactionPatterns.Count; i++)
+            {
+                var pattern = redactionPatterns[i];
+                if (pending.Count >= pattern.Length && MatchesPrefix(pending, pattern, pattern.Length))
+                {
+                    return pattern.Length;
+                }
+            }
+
+            return 0;
+        }
+
+        private static bool HasPendingPrefixMatch (
+            List<byte> pending,
+            IReadOnlyList<byte[]> redactionPatterns)
+        {
+            for (var i = 0; i < redactionPatterns.Count; i++)
+            {
+                var pattern = redactionPatterns[i];
+                if (pending.Count < pattern.Length && MatchesPrefix(pending, pattern, pending.Count))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool HasLongerPendingPrefixMatch (
+            List<byte> pending,
+            IReadOnlyList<byte[]> redactionPatterns,
+            int matchedLength)
+        {
+            for (var i = 0; i < redactionPatterns.Count; i++)
+            {
+                var pattern = redactionPatterns[i];
+                if (pattern.Length > matchedLength
+                    && pending.Count < pattern.Length
+                    && MatchesPrefix(pending, pattern, pending.Count))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool MatchesPrefix (
+            List<byte> pending,
+            byte[] pattern,
+            int length)
+        {
+            for (var i = 0; i < length; i++)
+            {
+                if (pending[i] != pattern[i])
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static void WriteUtf8 (
+            ArrayBufferWriter<byte> output,
+            string value)
+        {
+            var byteCount = Utf8NoBomEncoding.GetByteCount(value);
+            var span = output.GetSpan(byteCount);
+            var written = Utf8NoBomEncoding.GetBytes(value.AsSpan(), span);
+            output.Advance(written);
         }
 
         private static void EnsureWritableArtifactPath (string path)

@@ -27,6 +27,21 @@
       "options": {
         "development": true
       },
+      "runner": {
+        "kind": "buildPipeline",
+        "method": null,
+        "invocation": {
+          "arguments": {},
+          "environment": {
+            "variables": [],
+            "secrets": []
+          }
+        }
+      },
+      "runnerResult": {
+        "source": "buildPipelineBuildReport",
+        "status": "succeeded"
+      },
       "output": {
         "manifestRef": "buildOutputManifest",
         "manifestDigest": "59a71d71a244ad7a978be0bbfe8f87328c036091bb4b5aefef9e89b855d82b9b",

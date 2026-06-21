@@ -214,6 +214,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 string destinationPath,
                 long startOffset,
                 long endOffset,
+                IEnumerable<string>? redactionValues = null,
                 CancellationToken cancellationToken = default)
             {
                 cancellationToken.ThrowIfCancellationRequested();

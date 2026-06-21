@@ -11,6 +11,12 @@ internal static class BuildClaimCodes
 
     public static readonly UcliCode UnityBuildRunnerResolved = new("UNITY_BUILD_RUNNER_RESOLVED");
 
+    public static readonly UcliCode UnityBuildExecuteMethodResolved = new("UNITY_BUILD_EXECUTE_METHOD_RESOLVED");
+
+    public static readonly UcliCode UnityBuildExecuteMethodInvoked = new("UNITY_BUILD_EXECUTE_METHOD_INVOKED");
+
+    public static readonly UcliCode UnityBuildExecuteMethodCompleted = new("UNITY_BUILD_EXECUTE_METHOD_COMPLETED");
+
     public static readonly UcliCode UnityBuildCompleted = new("UNITY_BUILD_COMPLETED");
 
     public static readonly UcliCode UnityBuildSucceeded = new("UNITY_BUILD_SUCCEEDED");

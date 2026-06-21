@@ -351,6 +351,23 @@ internal sealed class JsonSchemaArtifactSet : IDisposable
                 }
             }
         }
+        else if (additionalPropertiesElement.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var property in element.EnumerateObject())
+            {
+                if (hasPropertySchemas && propertySchemas.TryGetProperty(property.Name, out _))
+                {
+                    continue;
+                }
+
+                ValidateAgainstSchema(
+                    property.Value,
+                    additionalPropertiesElement,
+                    schemaPath,
+                    BuildPropertyPath(path, property.Name),
+                    errors);
+            }
+        }
     }
 
     private void ValidateArray (
@@ -536,9 +553,21 @@ internal sealed class JsonSchemaArtifactSet : IDisposable
         }
 
         if (schema.TryGetProperty("additionalProperties", out var additionalPropertiesElement)
-            && additionalPropertiesElement.ValueKind != JsonValueKind.False)
+            && additionalPropertiesElement.ValueKind != JsonValueKind.False
+            && additionalPropertiesElement.ValueKind != JsonValueKind.True)
         {
-            errors.Add($"schema '{schemaPath}' for path '{path}' has unsupported additionalProperties value.");
+            if (additionalPropertiesElement.ValueKind == JsonValueKind.Object)
+            {
+                ValidateSchemaDefinition(
+                    additionalPropertiesElement,
+                    schemaPath,
+                    BuildPropertyPath(path, "additionalProperties"),
+                    errors);
+            }
+            else
+            {
+                errors.Add($"schema '{schemaPath}' for path '{path}' has unsupported additionalProperties value.");
+            }
         }
 
         if (schema.TryGetProperty("items", out var itemsElement))

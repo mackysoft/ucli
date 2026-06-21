@@ -25,6 +25,8 @@ namespace MackySoft.Ucli.Unity.Ipc
     internal sealed class BuildRunUnityIpcMethodHandler : IUnityIpcMethodHandler
     {
         private static readonly UTF8Encoding Utf8NoBomEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+        private static readonly string RunnerKindBuildPipeline = ContractLiteralCodec.ToValue(IpcBuildRunnerKind.BuildPipeline);
+        private static readonly string RunnerKindExecuteMethod = ContractLiteralCodec.ToValue(IpcBuildRunnerKind.ExecuteMethod);
 
         private readonly UnityBuildPreconditionProbe preconditionProbe;
 
@@ -32,27 +34,35 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private readonly IUnityBuildPipelineRunner buildPipelineRunner;
 
+        private readonly BuildExecuteMethodRunner executeMethodRunner;
+
         private readonly IEditorLogRangeExporter editorLogRangeExporter;
 
         private readonly IpcProjectIdentity projectIdentity;
 
         private readonly IIpcRequestTimeoutScopeFactory timeoutScopeFactory;
 
+        private readonly UnityLogRedactionScopeProvider unityLogRedactionScopeProvider;
+
         /// <summary> Initializes a new instance of the <see cref="BuildRunUnityIpcMethodHandler" /> class. </summary>
         public BuildRunUnityIpcMethodHandler (
             UnityBuildPreconditionProbe preconditionProbe,
             UnityProjectMutationAuditProbe projectMutationAuditProbe,
             IUnityBuildPipelineRunner buildPipelineRunner,
+            BuildExecuteMethodRunner executeMethodRunner,
             IEditorLogRangeExporter editorLogRangeExporter,
             IpcProjectIdentity projectIdentity,
-            IIpcRequestTimeoutScopeFactory timeoutScopeFactory)
+            IIpcRequestTimeoutScopeFactory timeoutScopeFactory,
+            UnityLogRedactionScopeProvider unityLogRedactionScopeProvider)
         {
             this.preconditionProbe = preconditionProbe ?? throw new ArgumentNullException(nameof(preconditionProbe));
             this.projectMutationAuditProbe = projectMutationAuditProbe ?? throw new ArgumentNullException(nameof(projectMutationAuditProbe));
             this.buildPipelineRunner = buildPipelineRunner ?? throw new ArgumentNullException(nameof(buildPipelineRunner));
+            this.executeMethodRunner = executeMethodRunner ?? throw new ArgumentNullException(nameof(executeMethodRunner));
             this.editorLogRangeExporter = editorLogRangeExporter ?? throw new ArgumentNullException(nameof(editorLogRangeExporter));
             this.projectIdentity = projectIdentity ?? throw new ArgumentNullException(nameof(projectIdentity));
             this.timeoutScopeFactory = timeoutScopeFactory ?? throw new ArgumentNullException(nameof(timeoutScopeFactory));
+            this.unityLogRedactionScopeProvider = unityLogRedactionScopeProvider ?? throw new ArgumentNullException(nameof(unityLogRedactionScopeProvider));
         }
 
         /// <inheritdoc />
@@ -109,14 +119,56 @@ namespace MackySoft.Ucli.Unity.Ipc
                 }
 
                 FileSystemAccessBoundary.EnsureSecureDirectory(buildRunRequest.OutputPath);
-                EnsureBuildPipelineOutputLayoutReady(buildRunRequest.OutputLayout);
+                if (IsBuildPipelineRunner(buildRunRequest))
+                {
+                    EnsureBuildPipelineOutputLayoutReady(buildRunRequest.OutputLayout!);
+                }
+
                 var logSourcePath = Application.consoleLogPath;
                 var logStartOffset = GetLogLength(logSourcePath);
+                using var unityLogRedactionScope = IsExecuteMethodRunner(buildRunRequest)
+                    ? unityLogRedactionScopeProvider.BeginScope(buildRunRequest.RunnerEnvironmentSecretValues.Values)
+                    : null;
                 var startedAtUtc = DateTimeOffset.UtcNow;
                 var mutationBaseline = projectMutationAuditProbe.CaptureBaseline(projectIdentity.ProjectPath);
-                var buildOptions = UnityBuildPlayerOptionsFactory.Create(buildRunRequest, precondition.ResolvedInput!);
                 executionCancellationToken.ThrowIfCancellationRequested();
-                var normalizedReport = buildPipelineRunner.Run(buildOptions);
+                IpcBuildRunnerResultArtifact? runnerResult = null;
+                IpcBuildReportArtifact? normalizedReport;
+                if (IsExecuteMethodRunner(buildRunRequest))
+                {
+                    var invocationResult = executeMethodRunner.Run(
+                        buildRunRequest,
+                        projectIdentity,
+                        precondition.ResolvedInput!);
+                    if (!invocationResult.IsSuccess)
+                    {
+                        var error = invocationResult.Error!;
+                        return CreateErrorResponse(
+                            request,
+                            error.Code,
+                            error.Message,
+                            precondition);
+                    }
+
+                    runnerResult = invocationResult.RunnerResult!;
+                    normalizedReport = invocationResult.SyntheticReport;
+                }
+                else
+                {
+                    var buildOptions = UnityBuildPlayerOptionsFactory.Create(buildRunRequest, precondition.ResolvedInput!);
+                    normalizedReport = buildPipelineRunner.Run(buildOptions);
+                    if (normalizedReport != null)
+                    {
+                        runnerResult = new IpcBuildRunnerResultArtifact(
+                            Source: ContractLiteralCodec.ToValue(IpcBuildRunnerResultSource.BuildPipelineBuildReport),
+                            Status: normalizedReport.Result,
+                            DurationMilliseconds: normalizedReport.DurationMilliseconds,
+                            ErrorCount: normalizedReport.ErrorCount,
+                            WarningCount: normalizedReport.WarningCount,
+                            Diagnostics: Array.Empty<IpcBuildRunnerDiagnostic>());
+                    }
+                }
+
                 executionCancellationToken.ThrowIfCancellationRequested();
                 FileSystemAccessBoundary.EnsureSecureDirectory(buildRunRequest.OutputPath);
                 var completedAtUtc = DateTimeOffset.UtcNow;
@@ -150,6 +202,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                         buildRunRequest.BuildLogPath,
                         logStartOffset,
                         logEndOffset,
+                        IsExecuteMethodRunner(buildRunRequest) ? buildRunRequest.RunnerEnvironmentSecretValues : null,
                         executionCancellationToken)
                     .ConfigureAwait(false);
                 var completionReason = UnityBuildReportNormalizer.ToCompletionReason(normalizedReport.Result);
@@ -169,7 +222,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                     Report: normalizedReport,
                     Logs: logs,
                     ProjectMutation: projectMutation);
-                return UnityIpcResponseFactory.CreateSuccessResponse(request, response);
+                return UnityIpcResponseFactory.CreateSuccessResponse(request, response with
+                {
+                    RunnerResult = runnerResult,
+                });
             }
             catch (OperationCanceledException) when (IsRequestTimeout(requestTimeoutScope, cancellationToken))
             {
@@ -259,6 +315,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             string destinationPath,
             long startOffset,
             long endOffset,
+            IReadOnlyDictionary<string, string>? sensitiveValues,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -268,13 +325,43 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return new EditorLogRangeExportResult(0, 0, 0);
             }
 
+            if (!HasRedactableSensitiveValues(sensitiveValues))
+            {
+                return await editorLogRangeExporter.ExportRangeAsync(
+                        sourcePath,
+                        destinationPath,
+                        startOffset,
+                        endOffset,
+                        cancellationToken: cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
             return await editorLogRangeExporter.ExportRangeAsync(
                     sourcePath,
                     destinationPath,
                     startOffset,
                     endOffset,
+                    sensitiveValues!.Values,
                     cancellationToken)
                 .ConfigureAwait(false);
+        }
+
+        private static bool HasRedactableSensitiveValues (IReadOnlyDictionary<string, string>? sensitiveValues)
+        {
+            if (sensitiveValues == null || sensitiveValues.Count == 0)
+            {
+                return false;
+            }
+
+            foreach (var sensitiveValue in sensitiveValues.Values)
+            {
+                if (!string.IsNullOrEmpty(sensitiveValue))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         internal static bool TryValidateRequest (
@@ -348,21 +435,26 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return false;
             }
 
-            if (request.OutputLayout == null)
+            if (!HasValidRunnerContract(request, out errorMessage))
+            {
+                return false;
+            }
+
+            if (IsBuildPipelineRunner(request) && request.OutputLayout == null)
             {
                 errorMessage = "Build outputLayout must match the expected uCLI build artifact layout.";
                 return false;
             }
 
-            if (!IpcBuildOutputLayoutResolver.TryResolve(expectedOutputPath!, request.BuildTarget, out var expectedOutputLayout))
+            IpcBuildOutputLayout? expectedOutputLayout = null;
+            if (IsBuildPipelineRunner(request)
+                && !IpcBuildOutputLayoutResolver.TryResolve(expectedOutputPath!, request.BuildTarget, out expectedOutputLayout))
             {
                 errorMessage = $"Build outputLayout could not be resolved for build target: {request.BuildTarget}.";
                 return false;
             }
 
             if (!PathEquals(request.OutputPath, expectedOutputPath!)
-                || !string.Equals(request.OutputLayout.Shape, expectedOutputLayout!.Shape, StringComparison.Ordinal)
-                || !PathEquals(request.OutputLayout.LocationPathName, expectedOutputLayout.LocationPathName)
                 || !PathEquals(request.BuildReportPath, expectedBuildReportPath!)
                 || !PathEquals(request.BuildLogPath, expectedBuildLogPath!))
             {
@@ -370,8 +462,102 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return false;
             }
 
+            if (IsBuildPipelineRunner(request)
+                && (!string.Equals(request.OutputLayout!.Shape, expectedOutputLayout!.Shape, StringComparison.Ordinal)
+                    || !PathEquals(request.OutputLayout.LocationPathName, expectedOutputLayout.LocationPathName)))
+            {
+                errorMessage = "Build output, outputLayout, and artifact paths must match the expected uCLI build artifact layout.";
+                return false;
+            }
+
             errorMessage = null;
             return true;
+        }
+
+        private static bool HasValidRunnerContract (
+            IpcBuildRunRequest request,
+            out string? errorMessage)
+        {
+            if (!IsBuildPipelineRunner(request) && !IsExecuteMethodRunner(request))
+            {
+                errorMessage = $"Build runnerKind is invalid: {request.RunnerKind}.";
+                return false;
+            }
+
+            if (IsBuildPipelineRunner(request))
+            {
+                if (!string.IsNullOrWhiteSpace(request.RunnerMethod)
+                    || request.RunnerArguments.Count != 0
+                    || request.RunnerEnvironmentVariables.Count != 0
+                    || request.RunnerEnvironmentSecrets.Count != 0
+                    || request.RunnerEnvironmentVariableValues.Count != 0
+                    || request.RunnerEnvironmentSecretValues.Count != 0)
+                {
+                    errorMessage = "BuildPipeline runner must not include executeMethod invocation values.";
+                    return false;
+                }
+
+                errorMessage = null;
+                return true;
+            }
+
+            if (string.IsNullOrWhiteSpace(request.ProfilePath)
+                || string.IsNullOrWhiteSpace(request.ProfileDigest)
+                || string.IsNullOrWhiteSpace(request.RunnerMethod))
+            {
+                errorMessage = "executeMethod runner requires profilePath, profileDigest, and runnerMethod.";
+                return false;
+            }
+
+            if (request.OutputLayout != null)
+            {
+                errorMessage = "executeMethod runner outputLayout must be null.";
+                return false;
+            }
+
+            if (!HasMatchingEnvironmentValues(
+                    request.RunnerEnvironmentVariables,
+                    request.RunnerEnvironmentVariableValues)
+                || !HasMatchingEnvironmentValues(
+                    request.RunnerEnvironmentSecrets,
+                    request.RunnerEnvironmentSecretValues))
+            {
+                errorMessage = "executeMethod runner environment names and values must match.";
+                return false;
+            }
+
+            errorMessage = null;
+            return true;
+        }
+
+        private static bool HasMatchingEnvironmentValues (
+            IReadOnlyList<string> environmentNames,
+            IReadOnlyDictionary<string, string> environmentValues)
+        {
+            if (environmentNames.Count != environmentValues.Count)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < environmentNames.Count; i++)
+            {
+                if (!environmentValues.ContainsKey(environmentNames[i]))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static bool IsBuildPipelineRunner (IpcBuildRunRequest request)
+        {
+            return string.Equals(request.RunnerKind, RunnerKindBuildPipeline, StringComparison.Ordinal);
+        }
+
+        private static bool IsExecuteMethodRunner (IpcBuildRunRequest request)
+        {
+            return string.Equals(request.RunnerKind, RunnerKindExecuteMethod, StringComparison.Ordinal);
         }
 
         private static bool HasValidAllowedEditorModes (IReadOnlyList<string> allowedEditorModes)

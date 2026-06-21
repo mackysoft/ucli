@@ -61,7 +61,7 @@ public sealed class JsonSchemaArtifactSetTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Load_WithSchemaValuedAdditionalProperties_Throws ()
+    public void Validate_WithSchemaValuedAdditionalProperties_ValidatesAdditionalValues ()
     {
         using var scope = TestDirectories.CreateTempScope("json-schema-artifact-set", "additional-properties-schema");
         WriteManifest(scope, "root.schema.json");
@@ -77,10 +77,13 @@ public sealed class JsonSchemaArtifactSetTests
               }
             }
             """);
+        using var validDocument = JsonDocument.Parse("""{"name":"value"}""");
+        using var invalidDocument = JsonDocument.Parse("""{"name":1}""");
 
-        var exception = Assert.Throws<InvalidOperationException>(() => JsonSchemaArtifactSet.Load(scope.FullPath));
+        using var schemaSet = JsonSchemaArtifactSet.Load(scope.FullPath);
 
-        Assert.Contains("unsupported additionalProperties value", exception.Message, StringComparison.Ordinal);
+        Assert.Empty(schemaSet.Validate("root.schema.json", validDocument.RootElement));
+        Assert.NotEmpty(schemaSet.Validate("root.schema.json", invalidDocument.RootElement));
     }
 
     private static void WriteManifest (

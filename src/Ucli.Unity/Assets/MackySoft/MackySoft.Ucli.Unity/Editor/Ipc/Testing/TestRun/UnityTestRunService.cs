@@ -84,7 +84,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 requestContext.EditorLogPath,
                 startOffset,
                 endOffset,
-                cancellationToken);
+                cancellationToken: cancellationToken);
 
             var exitCode = testResult.FailCount > 0 ? 2 : 0;
             return UnityTestRunServiceResult.Success(new IpcTestRunResponse(exitCode));
