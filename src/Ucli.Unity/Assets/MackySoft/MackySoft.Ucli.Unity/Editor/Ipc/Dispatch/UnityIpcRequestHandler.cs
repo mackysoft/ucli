@@ -5,6 +5,7 @@ using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Unity.Runtime;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -38,7 +39,12 @@ namespace MackySoft.Ucli.Unity.Ipc
             IpcRequest request,
             CancellationToken cancellationToken = default)
         {
-            var validationErrorResponse = await ValidateCommonAsync(request, cancellationToken);
+            IpcResponse validationErrorResponse;
+            using (RuntimePerformanceTracer.Measure(RuntimePerformanceTracer.SectionNames.Validate))
+            {
+                validationErrorResponse = await ValidateCommonAsync(request, cancellationToken);
+            }
+
             if (validationErrorResponse != null)
             {
                 return validationErrorResponse;
@@ -64,7 +70,12 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentNullException(nameof(streamWriter));
             }
 
-            var validationErrorResponse = await ValidateCommonAsync(request, cancellationToken);
+            IpcResponse validationErrorResponse;
+            using (RuntimePerformanceTracer.Measure(RuntimePerformanceTracer.SectionNames.Validate))
+            {
+                validationErrorResponse = await ValidateCommonAsync(request, cancellationToken);
+            }
+
             if (validationErrorResponse != null)
             {
                 return validationErrorResponse;
