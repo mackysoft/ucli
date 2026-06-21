@@ -28,6 +28,25 @@ internal static class BuildErrorCodeDescriptors
             relatedCodes: [UcliCoreErrorCodes.InvalidArgument]),
 
         UcliErrorDescriptorFactory.Create(
+            code: BuildErrorCodes.BuildUnityBuildProfileInvalid,
+            category: "build",
+            summary: "The Unity Build Profile asset is invalid.",
+            meaning: "The build profile requested a Unity Build Profile input, but the specified asset path was missing, unsupported by this Unity version, unresolved, or could not be applied.",
+            appliesTo: AppliesToBuildRun,
+            possiblePhases: ["profileResolution", "buildInputResolution", "preconditionProbe"],
+            impliesNotApplied: true,
+            mayBeIndeterminate: false,
+            safeToRetry: UcliErrorRetryClassValues.No,
+            inspect: ["errors[].code", "errors[].message", "payload.build.inputs.unityBuildProfile.path"],
+            nextActions:
+            [
+                new UcliErrorNextActionDescriptor(
+                    When: null,
+                    Action: "Use a valid Unity Build Profile asset path under Assets and run with a Unity version that supports Build Profiles."),
+            ],
+            relatedCodes: [BuildErrorCodes.BuildProfileInvalid, BuildErrorCodes.BuildInputsInvalid]),
+
+        UcliErrorDescriptorFactory.Create(
             code: BuildErrorCodes.BuildTargetUnsupported,
             category: "build",
             summary: "The build target is unsupported.",
@@ -64,6 +83,25 @@ internal static class BuildErrorCodeDescriptors
                     Action: "Fix the resolved build target or scene input so Unity can construct BuildPipeline options."),
             ],
             relatedCodes: [BuildErrorCodes.BuildProfileInvalid, BuildErrorCodes.BuildTargetUnsupported]),
+
+        UcliErrorDescriptorFactory.Create(
+            code: BuildErrorCodes.BuildSceneDisabled,
+            category: "build",
+            summary: "A selected build scene is disabled.",
+            meaning: "The resolved Unity Build Profile scene input contains a selected scene that is disabled and cannot be used for this build.",
+            appliesTo: AppliesToBuildRun,
+            possiblePhases: ["buildInputResolution", "preconditionProbe"],
+            impliesNotApplied: true,
+            mayBeIndeterminate: false,
+            safeToRetry: UcliErrorRetryClassValues.No,
+            inspect: ["errors[].code", "errors[].message", "payload.build.inputs.scenes"],
+            nextActions:
+            [
+                new UcliErrorNextActionDescriptor(
+                    When: null,
+                    Action: "Enable or remove the disabled scene from the Unity Build Profile asset."),
+            ],
+            relatedCodes: [BuildErrorCodes.BuildInputsInvalid, BuildErrorCodes.BuildUnityBuildProfileInvalid]),
 
         UcliErrorDescriptorFactory.Create(
             code: BuildErrorCodes.BuildTargetModuleMissing,

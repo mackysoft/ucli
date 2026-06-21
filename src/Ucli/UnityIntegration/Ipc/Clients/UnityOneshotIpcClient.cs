@@ -260,6 +260,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                             requestTimeout,
                             cancellationToken)
                         .ConfigureAwait(false);
+                    var responseResult = UnityRequestExecutionResult.Success(UnityRequestResponseFactory.Create(response));
                     var terminalPingShutdownError = await RequestTerminalPingShutdownAsync(
                             unityProject,
                             sessionToken,
@@ -273,13 +274,20 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                     }
                     else if (await WaitForExitAsync(processHandle, cleanupTimeout, cancellationToken).ConfigureAwait(false) is { } exitWaitError)
                     {
-                        result = UnityRequestExecutionResult.Failure(
-                            UnityIpcFailureClassifier.FromExecutionError(exitWaitError));
+                        if (ShouldPreserveResponseAfterPostResponseExitWaitFailure(dispatchRequest, exitWaitError))
+                        {
+                            result = responseResult;
+                        }
+                        else
+                        {
+                            result = UnityRequestExecutionResult.Failure(
+                                UnityIpcFailureClassifier.FromExecutionError(exitWaitError));
+                        }
                     }
                     else
                     {
                         shouldTerminateProcess = false;
-                        result = UnityRequestExecutionResult.Success(UnityRequestResponseFactory.Create(response));
+                        result = responseResult;
                     }
                 }
             }
@@ -354,6 +362,15 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
             timeout,
             onProgressFrame,
             cancellationToken);
+    }
+
+    private static bool ShouldPreserveResponseAfterPostResponseExitWaitFailure (
+        UnityIpcDispatchRequest dispatchRequest,
+        ExecutionError exitWaitError)
+    {
+        // NOTE: A non-ping response is the command contract boundary; delayed Unity process exit is cleanup work.
+        return !string.Equals(dispatchRequest.Method, IpcMethodNames.Ping, StringComparison.Ordinal)
+            && exitWaitError.Kind == ExecutionErrorKind.Timeout;
     }
 
     private async ValueTask<ExecutionError?> RequestTerminalPingShutdownAsync (

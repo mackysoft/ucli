@@ -27,9 +27,10 @@ internal abstract record UnityRequestPayload
     /// <summary> Represents a build assurance request prepared by application orchestration. </summary>
     internal sealed record BuildRun (
         string RunId,
-        string BuildTarget,
-        string UnityBuildTarget,
-        string SceneSource,
+        string InputKind,
+        string? BuildTarget,
+        string? UnityBuildTarget,
+        string? SceneSource,
         IReadOnlyList<string> ScenePaths,
         bool Development,
         string OutputPath,
@@ -40,6 +41,9 @@ internal abstract record UnityRequestPayload
         string ProjectMutationMode,
         string RunnerKind) : UnityRequestPayload
     {
+        /// <summary> Gets the Unity Build Profile asset input when Unity resolves build inputs. </summary>
+        public IpcUnityBuildProfileInput? UnityBuildProfile { get; init; }
+
         /// <summary> Gets the resolved build profile path used for runner context construction. </summary>
         public string? ProfilePath { get; init; }
 

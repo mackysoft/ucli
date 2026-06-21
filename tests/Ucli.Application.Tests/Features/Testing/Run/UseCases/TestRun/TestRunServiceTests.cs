@@ -713,6 +713,47 @@ public sealed class TestRunServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Execute_WhenOneshotIpcStreamEndsAfterResultsWereWritten_RecoversFromGeneratedArtifacts ()
+    {
+        var configuration = CreateResolvedConfiguration();
+        var session = CreateArtifactsSession(configuration);
+        var convertCount = 0;
+
+        var service = CreateService(
+            configurationResolver: new StubConfigurationResolver(TestRunConfigurationResolutionResult.Success(configuration)),
+            modeDecisionService: new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
+                new UnityExecutionModeDecision(UnityExecutionMode.Auto, false, UnityExecutionTarget.Oneshot, TimeSpan.FromSeconds(30)))),
+            artifactsService: new StubArtifactsService(
+                prepare: _ => ArtifactsPreparationResult.Success(session),
+                complete: (_, _) => ArtifactsCompletionResult.Success()),
+            unityTestExecutor: new StubUnityTestExecutor((_, artifactPaths, _, _) =>
+            {
+                WriteGeneratedTestArtifacts(artifactPaths);
+                return ValueTask.FromResult(UnityTestExecutionResult.Failure(
+                    UnityTestExecutionFailureKind.AbnormalExit,
+                    "Failed to execute Unity oneshot IPC request. IPC stream ended before a complete frame was read.",
+                    UcliCoreErrorCodes.InternalError));
+            }),
+            resultsConverter: new StubResultsConverter(convertSession =>
+            {
+                convertCount++;
+                Assert.Same(session, convertSession);
+                return ValueTask.FromResult(UnityResultsConversionResult.Success(hasFailedTests: false, reportedTestCaseCount: 799));
+            }));
+
+        var result = await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None);
+
+        Assert.Equal(TestRunResultKind.Pass, result.Result);
+        Assert.Null(result.ErrorKind);
+        Assert.Equal(ApplicationOutcome.Success, result.Outcome);
+        Assert.Equal(1, convertCount);
+        Assert.Equal(session.RunId, result.RunId);
+        Assert.Equal(session.Paths.ArtifactsDir, result.ArtifactsDir);
+        Assert.Equal(session.Paths.SummaryJsonPath, result.SummaryJsonPath);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Execute_WhenArtifactsCompletionFailsAfterDaemonTimeout_PreservesPrimaryTimeoutError ()
     {
         var configuration = CreateResolvedConfiguration();
@@ -1069,6 +1110,19 @@ public sealed class TestRunServiceTests
             RunId: "run-id",
             Paths: TestArtifactPaths.Create(artifactsDir),
             StartedAtUtc: DateTimeOffset.UtcNow);
+    }
+
+    private static void WriteGeneratedTestArtifacts (ArtifactPaths artifactPaths)
+    {
+        Directory.CreateDirectory(artifactPaths.ArtifactsDir);
+        File.WriteAllText(
+            artifactPaths.ResultsXmlPath,
+            """
+            <test-run>
+              <test-case fullname="MackySoft.Ucli.Unity.Tests.Sample.Pass" result="Passed" duration="0.001" />
+            </test-run>
+            """);
+        File.WriteAllText(artifactPaths.EditorLogPath, string.Empty);
     }
 
     private static UnityRequestResponse CreateFailureUnityRequestResponse (

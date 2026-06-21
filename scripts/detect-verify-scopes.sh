@@ -3,8 +3,8 @@ set -euo pipefail
 
 dotnet_matrix_pr='{"include":[{"runs_on":"ubuntu-latest","os_name":"linux"},{"runs_on":"windows-latest","os_name":"windows"},{"runs_on":"macos-latest","os_name":"macos"}]}'
 dotnet_matrix_push='{"include":[{"runs_on":"ubuntu-latest","os_name":"linux"}]}'
-unity_matrix_pr='{"include":[{"runs_on":"ubuntu-22.04","os_name":"linux","cache_installation":true},{"runs_on":"windows-latest","os_name":"windows","cache_installation":false},{"runs_on":"macos-latest","os_name":"macos","cache_installation":true}]}'
-unity_matrix_push='{"include":[{"runs_on":"ubuntu-22.04","os_name":"linux","cache_installation":true}]}'
+unity_matrix_pr='{"include":[{"runs_on":"ubuntu-22.04","os_name":"linux","unity_version":"2023.2.22f1","unity_version_with_revision":"2023.2.22f1 (6b19bf4f8115)","cache_installation":true},{"runs_on":"windows-latest","os_name":"windows","unity_version":"2023.2.22f1","unity_version_with_revision":"2023.2.22f1 (6b19bf4f8115)","cache_installation":false},{"runs_on":"macos-latest","os_name":"macos","unity_version":"2023.2.22f1","unity_version_with_revision":"2023.2.22f1 (6b19bf4f8115)","cache_installation":true},{"runs_on":"ubuntu-22.04","os_name":"linux-6000","unity_version":"6000.0.77f1","unity_version_with_revision":"6000.0.77f1 (88f89d0d8b31)","cache_installation":true}]}'
+unity_matrix_push='{"include":[{"runs_on":"ubuntu-22.04","os_name":"linux","unity_version":"2023.2.22f1","unity_version_with_revision":"2023.2.22f1 (6b19bf4f8115)","cache_installation":true},{"runs_on":"ubuntu-22.04","os_name":"linux-6000","unity_version":"6000.0.77f1","unity_version_with_revision":"6000.0.77f1 (88f89d0d8b31)","cache_installation":true}]}'
 
 dotnet_matrix_json="${dotnet_matrix_pr}"
 unity_matrix_json="${unity_matrix_pr}"

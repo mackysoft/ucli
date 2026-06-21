@@ -14,6 +14,7 @@ using NUnit.Framework.Interfaces;
 using UnityEditor.TestTools.TestRunner.Api;
 using UnityEngine.TestTools;
 
+using UnityTestMode = UnityEditor.TestTools.TestRunner.Api.TestMode;
 using UnityTestStatus = UnityEditor.TestTools.TestRunner.Api.TestStatus;
 
 namespace MackySoft.Ucli.Unity.Tests
@@ -146,7 +147,7 @@ namespace MackySoft.Ucli.Unity.Tests
             return new UnityTestRunRequestContext(
                 RunId: "run-id",
                 TestPlatform: "editmode",
-                TestMode: TestMode.EditMode,
+                TestMode: UnityTestMode.EditMode,
                 TargetPlatform: null,
                 TestFilter: null,
                 TestCategories: Array.Empty<string>(),

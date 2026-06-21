@@ -1,4 +1,7 @@
 using System;
+#if UNITY_6000_0_OR_NEWER
+using System.Reflection;
+#endif
 using UnityEditor;
 using UnityEngine;
 
@@ -168,9 +171,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             // NOTE:
             // Objects inside prefab stages or request-local planning sandboxes can be live and editable
-            // without exposing a stable GlobalObjectId. Within one request, instance IDs are sufficient
-            // to correlate operation-local state such as ensured components and component shadows.
+            // without exposing a stable GlobalObjectId. Within one request, editor-local object IDs are
+            // sufficient to correlate operation-local state such as ensured components and component shadows.
+#if UNITY_6000_0_OR_NEWER
+            return $"instance:{UnityObjectEditorLocalIdAccessor.GetId(unityObject)}";
+#else
             return $"instance:{unityObject.GetInstanceID()}";
+#endif
         }
 
         /// <summary> Tries to resolve one alias to a live Unity object. </summary>
@@ -222,5 +229,40 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             errorMessage = string.Empty;
             return true;
         }
+
+#if UNITY_6000_0_OR_NEWER
+
+        private static class UnityObjectEditorLocalIdAccessor
+        {
+            private static readonly MethodInfo? GetEntityIdMethod =
+                typeof(UnityEngine.Object).GetMethod(
+                    "GetEntityId",
+                    BindingFlags.Instance | BindingFlags.Public,
+                    binder: null,
+                    Type.EmptyTypes,
+                    modifiers: null);
+
+            private static readonly MethodInfo? GetInstanceIdMethod =
+                typeof(UnityEngine.Object).GetMethod(
+                    "GetInstanceID",
+                    BindingFlags.Instance | BindingFlags.Public,
+                    binder: null,
+                    Type.EmptyTypes,
+                    modifiers: null);
+
+            public static string GetId (UnityEngine.Object unityObject)
+            {
+                var method = GetEntityIdMethod ?? GetInstanceIdMethod;
+                if (method == null)
+                {
+                    throw new MissingMethodException(
+                        typeof(UnityEngine.Object).FullName,
+                        "GetEntityId or GetInstanceID");
+                }
+
+                return method.Invoke(unityObject, Array.Empty<object>())?.ToString() ?? string.Empty;
+            }
+        }
+#endif
     }
 }

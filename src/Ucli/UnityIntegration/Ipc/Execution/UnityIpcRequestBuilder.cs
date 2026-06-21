@@ -40,6 +40,7 @@ internal sealed class UnityIpcRequestBuilder
                 IpcMethodNames.BuildRun,
                 IpcPayloadCodec.SerializeToElement(new IpcBuildRunRequest(
                     RunId: buildRun.RunId,
+                    InputKind: buildRun.InputKind,
                     BuildTarget: buildRun.BuildTarget,
                     UnityBuildTarget: buildRun.UnityBuildTarget,
                     SceneSource: buildRun.SceneSource,
@@ -51,7 +52,8 @@ internal sealed class UnityIpcRequestBuilder
                     BuildLogPath: buildRun.BuildLogPath,
                     AllowedEditorModes: buildRun.AllowedEditorModes,
                     ProjectMutationMode: buildRun.ProjectMutationMode,
-                    RunnerKind: buildRun.RunnerKind)
+                    RunnerKind: buildRun.RunnerKind,
+                    UnityBuildProfile: buildRun.UnityBuildProfile)
                 {
                     ProfilePath = buildRun.ProfilePath,
                     ProfileDigest = buildRun.ProfileDigest,

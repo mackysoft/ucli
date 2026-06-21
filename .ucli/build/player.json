@@ -24,6 +24,6 @@
         "gui"
       ]
     },
-    "projectMutationMode": "forbid"
+    "projectMutationMode": "audit"
   }
 }

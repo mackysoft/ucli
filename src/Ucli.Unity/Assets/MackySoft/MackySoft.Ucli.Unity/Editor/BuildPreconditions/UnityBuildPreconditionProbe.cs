@@ -180,7 +180,8 @@ namespace MackySoft.Ucli.Unity.Build
                 : BuildOptions.None;
         }
 
-        private static IpcBuildDirtyState CaptureDirtyState (
+        /// <summary> Captures the dirty-state snapshot for audited project items. </summary>
+        public static IpcBuildDirtyState CaptureDirtyState (
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -379,7 +380,8 @@ namespace MackySoft.Ucli.Unity.Build
                 return false;
             }
 
-            if (sceneSource == BuildProfileSceneSource.Explicit)
+            if (sceneSource == BuildProfileSceneSource.Explicit
+                || sceneSource == BuildProfileSceneSource.UnityBuildProfile)
             {
                 return TryResolveExplicitScenePaths(input.ScenePaths, cancellationToken, out scenePaths, out error);
             }
@@ -518,6 +520,7 @@ namespace MackySoft.Ucli.Unity.Build
                 BuildTarget: input.BuildTarget,
                 UnityBuildTarget: targetSupport.UnityBuildTarget.ToString(),
                 UnityBuildTargetGroup: targetSupport.UnityBuildTargetGroup.ToString(),
+                InputKind: input.InputKind,
                 SceneSource: input.SceneSource,
                 Scenes: scenePaths,
                 BuildOptions: buildOptions.ToString());

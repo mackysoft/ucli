@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "inputs": {
+    "kind": "unityBuildProfile",
+    "path": "Assets/BuildProfiles/LinuxPlayer.asset"
+  },
+  "runner": {
+    "kind": "buildPipeline"
+  },
+  "policy": {
+    "runtime": {
+      "allowedExecutionModes": [
+        "daemon",
+        "oneshot"
+      ],
+      "allowedEditorModes": [
+        "batchmode",
+        "gui"
+      ]
+    },
+    "projectMutationMode": "audit"
+  }
+}

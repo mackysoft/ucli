@@ -5,8 +5,10 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 /// <param name="LifecycleBefore"> The lifecycle snapshot captured before BuildPipeline execution. </param>
 /// <param name="DirtyState"> The dirty-state precondition probe result when available. </param>
 /// <param name="Input"> The resolved input probe when available. </param>
+/// <param name="UnityBuildProfile"> The Unity Build Profile input evidence when available. </param>
 public sealed record IpcBuildRunErrorPayload (
     IpcProjectIdentity? Project,
     IpcBuildLifecycleSnapshot? LifecycleBefore,
     IpcBuildDirtyState? DirtyState,
-    IpcBuildInputProbe? Input);
+    IpcBuildInputProbe? Input,
+    IpcUnityBuildProfileInput? UnityBuildProfile = null);

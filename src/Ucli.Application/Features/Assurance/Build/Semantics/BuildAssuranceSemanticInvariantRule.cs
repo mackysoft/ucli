@@ -2,6 +2,7 @@ using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
 using MackySoft.Ucli.Application.Features.Assurance.Semantics;
+using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 
@@ -176,9 +177,16 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
             return;
         }
 
-        if (!TryReadString(inputsElement, "inputKind", out _))
+        if (!TryReadString(inputsElement, "inputKind", out var inputKindLiteral))
         {
             AddViolation(violations, "$.build.inputs.inputKind", "Build inputs must declare inputKind.");
+            return;
+        }
+
+        if (!ContractLiteralCodec.TryParse<BuildProfileInputsKind>(inputKindLiteral, out var inputKind))
+        {
+            AddViolation(violations, "$.build.inputs.inputKind", "Build inputs inputKind must be a supported build input literal.");
+            return;
         }
 
         if (!inputsElement.TryGetProperty("target", out var targetElement) || targetElement.ValueKind != JsonValueKind.Object)
@@ -204,9 +212,13 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
         }
         else
         {
-            if (!TryReadString(scenesElement, "source", out _))
+            if (!TryReadString(scenesElement, "source", out var sceneSourceLiteral))
             {
                 AddViolation(violations, "$.build.inputs.scenes.source", "Build inputs scenes must declare source.");
+            }
+            else if (!ContractLiteralCodec.TryParse<BuildProfileSceneSource>(sceneSourceLiteral, out _))
+            {
+                AddViolation(violations, "$.build.inputs.scenes.source", "Build inputs scenes.source must be a supported scene-source literal.");
             }
 
             if (!scenesElement.TryGetProperty("paths", out var pathsElement) || pathsElement.ValueKind != JsonValueKind.Array)
@@ -224,6 +236,8 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
         {
             AddViolation(violations, "$.build.inputs.options.development", "Build inputs options must declare development.");
         }
+
+        ValidateUnityBuildProfileInput(inputsElement, inputKind, violations);
     }
 
     private static void ValidateBuildRunner (
@@ -300,6 +314,53 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
             && !string.Equals(status, result, StringComparison.Ordinal))
         {
             AddViolation(violations, "$.build.summary.result", "Build summary result must match runnerResult status.");
+        }
+    }
+
+    private static void ValidateUnityBuildProfileInput (
+        JsonElement inputsElement,
+        BuildProfileInputsKind inputKind,
+        List<AssuranceSemanticInvariantViolation> violations)
+    {
+        var hasUnityBuildProfile = inputsElement.TryGetProperty("unityBuildProfile", out var unityBuildProfileElement)
+            && unityBuildProfileElement.ValueKind == JsonValueKind.Object;
+        if (inputKind == BuildProfileInputsKind.Explicit)
+        {
+            if (hasUnityBuildProfile)
+            {
+                AddViolation(violations, "$.build.inputs.unityBuildProfile", "Explicit build inputs must not declare unityBuildProfile.");
+            }
+
+            return;
+        }
+
+        if (inputKind != BuildProfileInputsKind.UnityBuildProfile)
+        {
+            return;
+        }
+
+        if (!hasUnityBuildProfile)
+        {
+            AddViolation(violations, "$.build.inputs.unityBuildProfile", "Unity Build Profile inputs must declare unityBuildProfile.");
+            return;
+        }
+
+        if (!TryReadString(unityBuildProfileElement, "path", out var path))
+        {
+            AddViolation(violations, "$.build.inputs.unityBuildProfile.path", "Unity Build Profile input must declare path.");
+        }
+        else if (!UnityAssetPathContract.IsNormalizedBuildProfileAssetPath(path))
+        {
+            AddViolation(violations, "$.build.inputs.unityBuildProfile.path", "Unity Build Profile path must be a normalized project-relative asset path under Assets and must not reference a .meta file.");
+        }
+
+        if (!TryReadString(unityBuildProfileElement, "digest", out var digest))
+        {
+            AddViolation(violations, "$.build.inputs.unityBuildProfile.digest", "Unity Build Profile input must declare digest.");
+        }
+        else if (!IsSha256LowerHex(digest))
+        {
+            AddViolation(violations, "$.build.inputs.unityBuildProfile.digest", "Unity Build Profile digest must be lowercase SHA-256 hex.");
         }
     }
 
@@ -1016,6 +1077,54 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
 
         value = element.GetString() ?? string.Empty;
         return !string.IsNullOrWhiteSpace(value);
+    }
+
+    private static bool TryReadStringArray (
+        JsonElement owner,
+        string propertyName,
+        out string[] values)
+    {
+        values = [];
+        if (!owner.TryGetProperty(propertyName, out var element) || element.ValueKind != JsonValueKind.Array)
+        {
+            return false;
+        }
+
+        var items = new List<string>();
+        foreach (var item in element.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.String)
+            {
+                return false;
+            }
+
+            var value = item.GetString();
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return false;
+            }
+
+            items.Add(value);
+        }
+
+        values = items.ToArray();
+        return true;
+    }
+
+    private static bool TryReadBoolean (
+        JsonElement owner,
+        string propertyName,
+        out bool value)
+    {
+        value = false;
+        if (!owner.TryGetProperty(propertyName, out var element)
+            || element.ValueKind is not JsonValueKind.True and not JsonValueKind.False)
+        {
+            return false;
+        }
+
+        value = element.GetBoolean();
+        return true;
     }
 
     private static bool IsSha256LowerHex (string value)

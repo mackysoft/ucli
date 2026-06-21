@@ -708,24 +708,65 @@ internal static class Program
 
     private static Dictionary<string, object?> CreateBuildRunInputsSchema ()
     {
-        return ObjectSchema(
-            additionalProperties: false,
-            Required("inputKind", ConstString("explicit")),
+        return OneOfSchema(
+            CreateBuildRunExplicitInputsSchema(),
+            CreateBuildRunUnityBuildProfileInputsSchema());
+    }
+
+    private static Dictionary<string, object?> CreateBuildRunExplicitInputsSchema ()
+    {
+        return CreateBuildRunResolvedInputsSchema(
+            inputKind: Literal(BuildProfileInputsKind.Explicit),
+            sceneSources:
+            [
+                Literal(BuildProfileSceneSource.EditorBuildSettings),
+                Literal(BuildProfileSceneSource.Explicit),
+            ],
+            extraProperties: []);
+    }
+
+    private static Dictionary<string, object?> CreateBuildRunUnityBuildProfileInputsSchema ()
+    {
+        return CreateBuildRunResolvedInputsSchema(
+            inputKind: Literal(BuildProfileInputsKind.UnityBuildProfile),
+            sceneSources:
+            [
+                Literal(BuildProfileSceneSource.UnityBuildProfile),
+            ],
+            extraProperties:
+            [
+                Required("unityBuildProfile", ObjectSchema(
+                    additionalProperties: false,
+                    Required("path", CreateBuildRunUnityBuildProfilePathSchema()),
+                    Required("digest", Sha256LowerHexSchema()))),
+            ]);
+    }
+
+    private static Dictionary<string, object?> CreateBuildRunResolvedInputsSchema (
+        string inputKind,
+        string[] sceneSources,
+        SchemaProperty[] extraProperties)
+    {
+        var properties = new List<SchemaProperty>
+        {
+            Required("inputKind", ConstString(inputKind)),
             Required("target", ObjectSchema(
                 additionalProperties: false,
                 Required("stableName", StringSchema()),
                 Required("unityBuildTarget", StringSchema()))),
             Required("scenes", ObjectSchema(
                 additionalProperties: false,
-                Required(
-                    "source",
-                    EnumSchema(
-                        Literal(BuildProfileSceneSource.EditorBuildSettings),
-                        Literal(BuildProfileSceneSource.Explicit))),
+                Required("source", EnumSchema(sceneSources)),
                 Required("paths", ArraySchema(StringSchema())))),
             Required("options", ObjectSchema(
                 additionalProperties: false,
-                Required("development", BooleanSchema()))));
+                Required("development", BooleanSchema()))),
+        };
+        properties.AddRange(extraProperties);
+
+        return ObjectSchema(
+            additionalProperties: false,
+            properties.ToArray());
     }
 
     private static Dictionary<string, object?> CreateBuildRunRunnerSchema ()
@@ -767,6 +808,19 @@ internal static class Program
             Literal(IpcBuildReportResult.Succeeded),
             Literal(IpcBuildReportResult.Failed),
             Literal(IpcBuildReportResult.Canceled));
+    }
+
+    private static Dictionary<string, object?> CreateBuildRunUnityBuildProfilePathSchema ()
+    {
+        // NOTE: Keep this pattern aligned with UnityAssetPathContract.IsNormalizedBuildProfileAssetPath.
+        return PatternStringSchema(@"^(?!.*[\u0000-\u001F])(?!.*(?:^|/)\.{1,2}(?:/|$))(?!.*//)Assets/(?!.*\\)(?!.*:)(?!.*\.[Mm][Ee][Tt][Aa]$)(?!.*\s$).+$");
+    }
+
+    private static Dictionary<string, object?> CreateBuildRunOptionsSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("development", BooleanSchema()));
     }
 
     private static Dictionary<string, object?> CreateBuildRunClaimSchema ()

@@ -6,11 +6,17 @@ public static class BuildErrorCodes
     /// <summary> Gets the error code emitted when a build profile cannot be parsed or validated. </summary>
     public static readonly UcliCode BuildProfileInvalid = new("BUILD_PROFILE_INVALID");
 
+    /// <summary> Gets the error code emitted when a Unity Build Profile asset cannot be resolved or applied. </summary>
+    public static readonly UcliCode BuildUnityBuildProfileInvalid = new("BUILD_UNITY_BUILD_PROFILE_INVALID");
+
     /// <summary> Gets the error code emitted when a build target stable name cannot be resolved. </summary>
     public static readonly UcliCode BuildTargetUnsupported = new("BUILD_TARGET_UNSUPPORTED");
 
     /// <summary> Gets the error code emitted when resolved build inputs cannot be converted to Unity BuildPipeline inputs. </summary>
     public static readonly UcliCode BuildInputsInvalid = new("BUILD_INPUTS_INVALID");
+
+    /// <summary> Gets the error code emitted when a selected build scene is disabled. </summary>
+    public static readonly UcliCode BuildSceneDisabled = new("BUILD_SCENE_DISABLED");
 
     /// <summary> Gets the error code emitted when the Unity installation does not support the requested build target. </summary>
     public static readonly UcliCode BuildTargetModuleMissing = new("BUILD_TARGET_MODULE_MISSING");
@@ -76,8 +82,10 @@ public static class BuildErrorCodes
     public static IReadOnlyList<UcliCode> All { get; } =
     [
         BuildProfileInvalid,
+        BuildUnityBuildProfileInvalid,
         BuildTargetUnsupported,
         BuildInputsInvalid,
+        BuildSceneDisabled,
         BuildTargetModuleMissing,
         BuildRuntimePolicyViolation,
         BuildDirtyStatePresent,

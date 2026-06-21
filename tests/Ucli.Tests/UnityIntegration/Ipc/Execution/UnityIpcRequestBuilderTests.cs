@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Testing;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
@@ -66,6 +67,7 @@ public sealed class UnityIpcRequestBuilderTests
 
         var request = builder.Build(new UnityRequestPayload.BuildRun(
             RunId: "build-run-1",
+            InputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit),
             BuildTarget: "standaloneLinux64",
             UnityBuildTarget: "StandaloneLinux64",
             SceneSource: "explicit",
@@ -85,6 +87,7 @@ public sealed class UnityIpcRequestBuilderTests
         Assert.False(request.IsRecoverable);
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcBuildRunRequest payload, out _));
         Assert.Equal("build-run-1", payload.RunId);
+        Assert.Equal(ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit), payload.InputKind);
         Assert.Equal("standaloneLinux64", payload.BuildTarget);
         Assert.Equal("StandaloneLinux64", payload.UnityBuildTarget);
         Assert.Equal("explicit", payload.SceneSource);
@@ -107,6 +110,7 @@ public sealed class UnityIpcRequestBuilderTests
         Assert.Empty(payload.RunnerEnvironmentSecrets);
         Assert.Empty(payload.RunnerEnvironmentVariableValues);
         Assert.Empty(payload.RunnerEnvironmentSecretValues);
+        Assert.Null(payload.UnityBuildProfile);
     }
 
     [Fact]
@@ -117,6 +121,7 @@ public sealed class UnityIpcRequestBuilderTests
 
         var request = builder.Build(new UnityRequestPayload.BuildRun(
             RunId: "build-run-1",
+            InputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit),
             BuildTarget: "standaloneLinux64",
             UnityBuildTarget: "StandaloneLinux64",
             SceneSource: "explicit",
@@ -255,6 +260,7 @@ public sealed class UnityIpcRequestBuilderTests
     {
         var dispatchRequest = new UnityIpcRequestBuilder().Build(new UnityRequestPayload.BuildRun(
             RunId: "build-run-1",
+            InputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit),
             BuildTarget: "standaloneLinux64",
             UnityBuildTarget: "StandaloneLinux64",
             SceneSource: "explicit",

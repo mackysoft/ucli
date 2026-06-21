@@ -155,7 +155,10 @@ public sealed class IpcContractSerializationTests
     public void IpcBuildPreconditionContracts_SerializeWithCamelCaseFields ()
     {
         Assert.Equal("explicit", ContractLiteralCodec.ToValue(BuildProfileSceneSource.Explicit));
+        Assert.Equal("explicit", ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit));
+        Assert.Equal("unityBuildProfile", ContractLiteralCodec.ToValue(BuildProfileInputsKind.UnityBuildProfile));
         Assert.Equal("editorBuildSettings", ContractLiteralCodec.ToValue(BuildProfileSceneSource.EditorBuildSettings));
+        Assert.Equal("unityBuildProfile", ContractLiteralCodec.ToValue(BuildProfileSceneSource.UnityBuildProfile));
         Assert.Equal("scene", ContractLiteralCodec.ToValue(IpcBuildDirtyStateItemKind.Scene));
         Assert.Equal("prefab", ContractLiteralCodec.ToValue(IpcBuildDirtyStateItemKind.Prefab));
         Assert.Equal("asset", ContractLiteralCodec.ToValue(IpcBuildDirtyStateItemKind.Asset));
@@ -178,6 +181,7 @@ public sealed class IpcContractSerializationTests
             SerializerOptions));
         using var inputProbe = JsonDocument.Parse(JsonSerializer.Serialize(
             new IpcBuildInputProbe(
+                InputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit),
                 BuildTarget: "standaloneLinux64",
                 UnityBuildTarget: "StandaloneLinux64",
                 UnityBuildTargetGroup: "Standalone",
@@ -224,6 +228,7 @@ public sealed class IpcContractSerializationTests
                 .HasString("kind", ContractLiteralCodec.ToValue(IpcBuildDirtyStateItemKind.Scene))
                 .HasString("path", "Assets/Scenes/Main.unity"));
         JsonAssert.For(inputProbe.RootElement)
+            .HasString("inputKind", ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit))
             .HasString("buildTarget", "standaloneLinux64")
             .HasString("unityBuildTarget", "StandaloneLinux64")
             .HasString("unityBuildTargetGroup", "Standalone")
@@ -287,6 +292,7 @@ public sealed class IpcContractSerializationTests
         using var request = JsonDocument.Parse(JsonSerializer.Serialize(
             new IpcBuildRunRequest(
                 RunId: "build-run-1",
+                InputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit),
                 BuildTarget: "standaloneLinux64",
                 UnityBuildTarget: "StandaloneLinux64",
                 SceneSource: ContractLiteralCodec.ToValue(BuildProfileSceneSource.Explicit),
@@ -334,12 +340,17 @@ public sealed class IpcContractSerializationTests
                     Coverage: ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Full),
                     Items: []),
                 Input: new IpcBuildInputProbe(
+                    InputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit),
                     BuildTarget: "standaloneLinux64",
                     UnityBuildTarget: "StandaloneLinux64",
                     UnityBuildTargetGroup: "Standalone",
                     SceneSource: ContractLiteralCodec.ToValue(BuildProfileSceneSource.Explicit),
                     Scenes: ["Assets/Scenes/Main.unity"],
                     BuildOptions: "Development"),
+                OutputLayout: new IpcBuildOutputLayout(
+                    Shape: ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.File),
+                    LocationPathName: "/tmp/ucli/output/player/Player"),
+                UnityBuildProfile: null,
                 Report: new IpcBuildReportArtifact(
                     SchemaVersion: 1,
                     Result: ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
@@ -395,6 +406,7 @@ public sealed class IpcContractSerializationTests
 
         JsonAssert.For(request.RootElement)
             .HasString("runId", "build-run-1")
+            .HasString("inputKind", ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit))
             .HasString("buildTarget", "standaloneLinux64")
             .HasString("unityBuildTarget", "StandaloneLinux64")
             .HasString("sceneSource", ContractLiteralCodec.ToValue(BuildProfileSceneSource.Explicit))
@@ -447,8 +459,12 @@ public sealed class IpcContractSerializationTests
                 .HasString("coverage", ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Full))
                 .HasArrayLength("items", 0))
             .HasProperty("input", input => input
+                .HasString("inputKind", ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit))
                 .HasString("buildTarget", "standaloneLinux64")
                 .HasString("sceneSource", ContractLiteralCodec.ToValue(BuildProfileSceneSource.Explicit)))
+            .HasProperty("outputLayout", outputLayout => outputLayout
+                .HasString("shape", ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.File))
+                .HasString("locationPathName", "/tmp/ucli/output/player/Player"))
             .HasProperty("report", report => report
                 .HasInt32("schemaVersion", 1)
                 .HasString("result", ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded))
@@ -504,6 +520,122 @@ public sealed class IpcContractSerializationTests
                     .HasString("changeKind", ContractLiteralCodec.ToValue(IpcBuildProjectMutationChangeKind.Added))
                     .HasValueKind("beforeSha256", JsonValueKind.Null)
                     .HasString("afterSha256", new string('b', 64))));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcBuildRunUnityBuildProfileContracts_SerializeWithCamelCaseFields ()
+    {
+        var profileInput = new IpcUnityBuildProfileInput(
+            Path: "Assets/BuildProfiles/Linux.asset",
+            Digest: new string('f', 64),
+            ApplyAudit: new IpcUnityBuildProfileApplyAudit(
+                Applied: true,
+                LifecycleBefore: CreateBuildLifecycleSnapshot("profile-before", canAcceptExecutionRequests: true),
+                LifecycleAfter: CreateBuildLifecycleSnapshot("profile-after", canAcceptExecutionRequests: true),
+                GenerationsBefore: new IpcBuildGenerationSnapshot(
+                    "compile-profile-before",
+                    "domain-profile-before",
+                    "asset-profile-before"),
+                GenerationsAfter: new IpcBuildGenerationSnapshot(
+                    "compile-profile-after",
+                    "domain-profile-after",
+                    "asset-profile-after"),
+                DirtyStateAfter: new IpcBuildDirtyState(
+                    Checked: true,
+                    Dirty: false,
+                    Coverage: ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Full),
+                    Items: [])));
+        using var request = JsonDocument.Parse(JsonSerializer.Serialize(
+            new IpcBuildRunRequest(
+                RunId: "build-run-1",
+                InputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.UnityBuildProfile),
+                BuildTarget: null,
+                UnityBuildTarget: null,
+                SceneSource: null,
+                ScenePaths: [],
+                Development: false,
+                OutputPath: "/tmp/ucli/output",
+                OutputLayout: null,
+                BuildReportPath: "/tmp/ucli/build-report.json",
+                BuildLogPath: "/tmp/ucli/build.log",
+                AllowedEditorModes: ["batchmode"],
+                ProjectMutationMode: "forbid",
+                RunnerKind: ContractLiteralCodec.ToValue(IpcBuildRunnerKind.BuildPipeline),
+                UnityBuildProfile: new IpcUnityBuildProfileInput("Assets/BuildProfiles/Linux.asset")),
+            SerializerOptions));
+        using var response = JsonDocument.Parse(JsonSerializer.Serialize(
+            new IpcBuildRunResponse(
+                RunId: "build-run-1",
+                ProjectFingerprint: "project-fingerprint",
+                LifecycleBefore: CreateBuildLifecycleSnapshot("before", canAcceptExecutionRequests: true),
+                LifecycleAfter: CreateBuildLifecycleSnapshot("after", canAcceptExecutionRequests: true),
+                DirtyState: new IpcBuildDirtyState(
+                    Checked: true,
+                    Dirty: false,
+                    Coverage: ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Full),
+                    Items: []),
+                Input: new IpcBuildInputProbe(
+                    InputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.UnityBuildProfile),
+                    BuildTarget: "standaloneLinux64",
+                    UnityBuildTarget: "StandaloneLinux64",
+                    UnityBuildTargetGroup: "Standalone",
+                    SceneSource: ContractLiteralCodec.ToValue(BuildProfileSceneSource.UnityBuildProfile),
+                    Scenes: ["Assets/Scenes/Main.unity"],
+                    BuildOptions: "Development"),
+                OutputLayout: new IpcBuildOutputLayout(
+                    Shape: ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.File),
+                    LocationPathName: "/tmp/ucli/output/player/Player"),
+                UnityBuildProfile: profileInput,
+                Report: new IpcBuildReportArtifact(
+                    SchemaVersion: 1,
+                    Result: ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+                    UnityBuildTarget: "StandaloneLinux64",
+                    OutputPath: "/tmp/ucli/output/build",
+                    DurationMilliseconds: 2500,
+                    TotalSizeBytes: 4096,
+                    ErrorCount: 0,
+                    WarningCount: 1,
+                    Steps: [],
+                    Messages: []),
+                Logs: new IpcBuildLogSummary(
+                    EntryCount: 0,
+                    ErrorCount: 0,
+                    WarningCount: 0,
+                    CompletionReason: ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+                    Window: new IpcBuildLogWindow(
+                        StartedAtUtc: DateTimeOffset.Parse("2026-06-12T00:00:00+00:00"),
+                        CompletedAtUtc: DateTimeOffset.Parse("2026-06-12T00:00:03+00:00"))),
+                ProjectMutation: CreateProjectMutationAudit()),
+            SerializerOptions));
+
+        JsonAssert.For(request.RootElement)
+            .HasString("inputKind", ContractLiteralCodec.ToValue(BuildProfileInputsKind.UnityBuildProfile))
+            .HasString("outputPath", "/tmp/ucli/output")
+            .HasArrayLength("scenePaths", 0)
+            .HasProperty("unityBuildProfile", profile => profile
+                .HasString("path", "Assets/BuildProfiles/Linux.asset"));
+        Assert.False(request.RootElement.TryGetProperty("buildTarget", out _));
+        Assert.False(request.RootElement.TryGetProperty("unityBuildTarget", out _));
+        Assert.False(request.RootElement.TryGetProperty("sceneSource", out _));
+        Assert.False(request.RootElement.TryGetProperty("outputLayout", out _));
+        JsonAssert.For(response.RootElement)
+            .HasProperty("input", input => input
+                .HasString("inputKind", ContractLiteralCodec.ToValue(BuildProfileInputsKind.UnityBuildProfile))
+                .HasString("sceneSource", ContractLiteralCodec.ToValue(BuildProfileSceneSource.UnityBuildProfile))
+                .HasString("buildOptions", "Development"))
+            .HasProperty("unityBuildProfile", profile => profile
+                .HasString("path", "Assets/BuildProfiles/Linux.asset")
+                .HasString("digest", new string('f', 64))
+                .HasProperty("applyAudit", applyAudit => applyAudit
+                    .HasBoolean("applied", true)
+                    .HasProperty("lifecycleBefore", lifecycle => lifecycle
+                        .HasString("compileGeneration", "compile-profile-before"))
+                    .HasProperty("generationsAfter", generations => generations
+                        .HasString("assetRefreshGeneration", "asset-profile-after"))
+                    .HasProperty("dirtyStateAfter", dirty => dirty
+                        .HasBoolean("checked", true)
+                        .HasBoolean("dirty", false))));
     }
 
     [Fact]

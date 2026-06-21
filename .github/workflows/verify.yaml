@@ -137,7 +137,7 @@ jobs:
           if-no-files-found: warn
 
   unity:
-    name: unity (${{ matrix.os_name }})
+    name: unity (${{ matrix.os_name }} / ${{ matrix.unity_version }})
     needs:
       - changes
       - access_guard
@@ -185,6 +185,16 @@ jobs:
           Add-Content -Path $env:GITHUB_PATH -Value $nugetDir
         shell: pwsh
 
+      - name: Select Unity project version
+        run: |
+          set -euo pipefail
+
+          printf 'm_EditorVersion: %s\nm_EditorVersionWithRevision: %s\n' \
+            '${{ matrix.unity_version }}' \
+            '${{ matrix.unity_version_with_revision }}' \
+            > src/Ucli.Unity/ProjectSettings/ProjectVersion.txt
+        shell: bash
+
       - name: Setup Unity Editor
         id: unity_setup
         uses: buildalon/unity-setup@v2
@@ -203,9 +213,9 @@ jobs:
         uses: actions/cache@v5
         with:
           path: src/Ucli.Unity/Library
-          key: ${{ runner.os }}-unity-library-${{ hashFiles('src/Ucli.Unity/ProjectSettings/ProjectVersion.txt', 'src/Ucli.Unity/Packages/manifest.json', 'src/Ucli.Unity/Packages/packages-lock.json', 'src/Ucli.Unity/Assets/packages.config') }}
+          key: ${{ runner.os }}-unity-library-${{ matrix.os_name }}-${{ matrix.unity_version }}-${{ hashFiles('src/Ucli.Unity/ProjectSettings/ProjectVersion.txt', 'src/Ucli.Unity/Packages/manifest.json', 'src/Ucli.Unity/Packages/packages-lock.json', 'src/Ucli.Unity/Assets/packages.config') }}
           restore-keys: |
-            ${{ runner.os }}-unity-library-
+            ${{ runner.os }}-unity-library-${{ matrix.os_name }}-${{ matrix.unity_version }}-
 
       - name: Run Unity EditMode tests
         id: unity_test
@@ -228,6 +238,21 @@ jobs:
             --profile-path ".ucli/build/player.json" \
             --unity-editor-path "${{ steps.unity_setup.outputs.unity-editor-path }}" \
             --result-dir "artifacts/unity/${{ matrix.os_name }}/build-run" \
+            --no-restore \
+            --no-build \
+            --no-package-restore
+        shell: bash
+
+      - name: Run uCLI Unity Build Profile player build
+        if: ${{ matrix.os_name == 'linux-6000' && steps.unity_test.outputs.exit_code == '0' }}
+        run: |
+          set -euo pipefail
+
+          bash scripts/run-ucli-unity-build.sh \
+            --project-path "src/Ucli.Unity" \
+            --profile-path ".ucli/build/player-unity-build-profile.json" \
+            --unity-editor-path "${{ steps.unity_setup.outputs.unity-editor-path }}" \
+            --result-dir "artifacts/unity/${{ matrix.os_name }}/build-profile-run" \
             --no-restore \
             --no-build \
             --no-package-restore

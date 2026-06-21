@@ -173,6 +173,43 @@ public sealed class BuildProfileResolverTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void ResolveJson_WithUnityBuildProfileInput_ReturnsPathOnlyResolvedInput ()
+    {
+        var result = BuildProfileResolver.ResolveJson(
+            """
+            {
+              "schemaVersion": 1,
+              "inputs": {
+                "kind": "unityBuildProfile",
+                "path": "Assets/BuildProfiles/Linux.asset"
+              },
+              "runner": {
+                "kind": "buildPipeline"
+              },
+              "policy": {
+                "runtime": {
+                  "allowedExecutionModes": [
+                    "daemon"
+                  ],
+                  "allowedEditorModes": [
+                    "batchmode"
+                  ]
+                },
+                "projectMutationMode": "forbid"
+              }
+            }
+            """);
+
+        Assert.True(result.IsSuccess);
+        var profile = result.Profile!;
+        Assert.Equal(BuildProfileInputsKind.UnityBuildProfile, profile.Inputs.Kind);
+        Assert.Equal("Assets/BuildProfiles/Linux.asset", profile.Inputs.RequireUnityBuildProfilePath());
+        Assert.Throws<InvalidOperationException>(() => profile.Inputs.RequireBuildTarget());
+        Assert.Matches("^[0-9a-f]{64}$", profile.Digest);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void ResolveJson_WithExecuteMethodRunner_ReturnsInvocationModel ()
     {
         var result = BuildProfileResolver.ResolveJson(CreateProfileJson(
@@ -416,6 +453,12 @@ public sealed class BuildProfileResolverTests
             """{"schemaVersion":1,"inputs":{"kind":"explicit","buildTarget":"standaloneLinux64","buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"options":{"development":false}},"runner":{"kind":"buildPipeline"},"policy":{"runtime":{"allowedExecutionModes":["daemon"],"allowedEditorModes":["batchmode"]},"projectMutationMode":"forbid"}}""",
             """{"schemaVersion":1,"inputs":{"kind":"explicit","buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"options":{"development":false},"legacy":true},"runner":{"kind":"buildPipeline"},"policy":{"runtime":{"allowedExecutionModes":["daemon"],"allowedEditorModes":["batchmode"]},"projectMutationMode":"forbid"}}""",
             """{"schemaVersion":1,"inputs":{"kind":"unityBuildProfile","buildTarget":"standaloneLinux64","scenes":{"source":"editorBuildSettings"},"options":{"development":false}},"runner":{"kind":"buildPipeline"},"policy":{"runtime":{"allowedExecutionModes":["daemon"],"allowedEditorModes":["batchmode"]},"projectMutationMode":"forbid"}}""",
+            """{"schemaVersion":1,"inputs":{"kind":"unityBuildProfile"},"runner":{"kind":"buildPipeline"},"policy":{"runtime":{"allowedExecutionModes":["daemon"],"allowedEditorModes":["batchmode"]},"projectMutationMode":"forbid"}}""",
+            """{"schemaVersion":1,"inputs":{"kind":"unityBuildProfile","path":"/Assets/BuildProfiles/Linux.asset"},"runner":{"kind":"buildPipeline"},"policy":{"runtime":{"allowedExecutionModes":["daemon"],"allowedEditorModes":["batchmode"]},"projectMutationMode":"forbid"}}""",
+            """{"schemaVersion":1,"inputs":{"kind":"unityBuildProfile","path":"Assets/../BuildProfiles/Linux.asset"},"runner":{"kind":"buildPipeline"},"policy":{"runtime":{"allowedExecutionModes":["daemon"],"allowedEditorModes":["batchmode"]},"projectMutationMode":"forbid"}}""",
+            """{"schemaVersion":1,"inputs":{"kind":"unityBuildProfile","path":"Packages/BuildProfiles/Linux.asset"},"runner":{"kind":"buildPipeline"},"policy":{"runtime":{"allowedExecutionModes":["daemon"],"allowedEditorModes":["batchmode"]},"projectMutationMode":"forbid"}}""",
+            """{"schemaVersion":1,"inputs":{"kind":"unityBuildProfile","path":"Assets/BuildProfiles/Linux.asset.meta"},"runner":{"kind":"buildPipeline"},"policy":{"runtime":{"allowedExecutionModes":["daemon"],"allowedEditorModes":["batchmode"]},"projectMutationMode":"forbid"}}""",
+            """{"schemaVersion":1,"inputs":{"kind":"unityBuildProfile","path":"Assets/BuildProfiles/Linux.asset"},"runner":{"kind":"executeMethod","method":"Build.Entry.Run"},"policy":{"runtime":{"allowedExecutionModes":["daemon"],"allowedEditorModes":["batchmode"]},"projectMutationMode":"forbid"}}""",
             """{"schemaVersion":1,"inputs":{"kind":"explicit","buildTarget":"","scenes":{"source":"editorBuildSettings"},"options":{"development":false}},"runner":{"kind":"buildPipeline"},"policy":{"runtime":{"allowedExecutionModes":["daemon"],"allowedEditorModes":["batchmode"]},"projectMutationMode":"forbid"}}""",
             """{"schemaVersion":1,"inputs":{"kind":"explicit","buildTarget":" standaloneLinux64","scenes":{"source":"editorBuildSettings"},"options":{"development":false}},"runner":{"kind":"buildPipeline"},"policy":{"runtime":{"allowedExecutionModes":["daemon"],"allowedEditorModes":["batchmode"]},"projectMutationMode":"forbid"}}""",
             "{\"schemaVersion\":1,\"inputs\":{\"kind\":\"explicit\",\"buildTarget\":\"standaloneLinux64\\n\",\"scenes\":{\"source\":\"editorBuildSettings\"},\"options\":{\"development\":false}},\"runner\":{\"kind\":\"buildPipeline\"},\"policy\":{\"runtime\":{\"allowedExecutionModes\":[\"daemon\"],\"allowedEditorModes\":[\"batchmode\"]},\"projectMutationMode\":\"forbid\"}}",

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
@@ -288,6 +289,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             return new IpcBuildRunRequest(
                 RunId: RunId,
+                InputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit),
                 BuildTarget: "standaloneLinux64",
                 UnityBuildTarget: "StandaloneLinux64",
                 SceneSource: "explicit",

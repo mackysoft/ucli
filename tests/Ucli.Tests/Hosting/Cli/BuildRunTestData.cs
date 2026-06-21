@@ -88,10 +88,11 @@ internal static class BuildRunTestData
             RunId: RunId,
             Profile: new BuildProfileOutput("/workspace/.ucli/build/player.json", Repeat('a')),
             Inputs: new BuildInputsOutput(
-                InputKind: "explicit",
+                InputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit),
                 Target: new BuildTargetOutput("standaloneLinux64", "StandaloneLinux64"),
                 Scenes: new BuildScenesOutput("explicit", ["Assets/Scenes/Main.unity"]),
-                Options: new BuildOptionsOutput(Development: true)),
+                Options: new BuildOptionsOutput(Development: true),
+                UnityBuildProfile: null),
             Runner: new BuildRunnerOutput(
                 Kind: "buildPipeline",
                 Method: null,

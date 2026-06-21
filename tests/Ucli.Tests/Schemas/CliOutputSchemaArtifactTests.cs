@@ -168,6 +168,40 @@ public sealed class CliOutputSchemaArtifactTests
         Assert.NotEmpty(errors);
     }
 
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("Assets/BuildProfiles/Linux.asset", true)]
+    [InlineData("Assets/BuildProfiles/Linux.asset.meta", false)]
+    [InlineData("Assets/BuildProfiles/Linux.asset.META", false)]
+    [InlineData("Assets\\BuildProfiles\\Linux.asset", false)]
+    [InlineData("Assets//BuildProfiles/Linux.asset", false)]
+    [InlineData("Assets/../BuildProfiles/Linux.asset", false)]
+    [InlineData("Assets/BuildProfiles/Linux:Dev.asset", false)]
+    [InlineData("Assets/BuildProfiles/Linux\t.asset", false)]
+    [InlineData("Assets/BuildProfiles/Linux.asset ", false)]
+    [InlineData("Packages/BuildProfiles/Linux.asset", false)]
+    public void BuildRunPayloadSchema_UnityBuildProfilePathMatchesContract (
+        string path,
+        bool expectedValid)
+    {
+        using var schemaSet = JsonSchemaArtifactSet.Load(Path.Combine(RepositoryRoot, "schemas", "v1"));
+        using var document = JsonDocument.Parse(CreateUnityBuildProfileBuildRunPayloadJson(path));
+
+        var errors = schemaSet.Validate(
+            "cli-output/payload/build.run.schema.json",
+            document.RootElement);
+
+        Assert.Equal(expectedValid, UnityAssetPathContract.IsNormalizedBuildProfileAssetPath(path));
+        if (expectedValid)
+        {
+            Assert.Empty(errors);
+        }
+        else
+        {
+            Assert.NotEmpty(errors);
+        }
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public void ReadyPayloadSchema_RequiresClaimValidity ()
@@ -1414,6 +1448,30 @@ public sealed class CliOutputSchemaArtifactTests
               "timeoutMilliseconds": 1000
             }
             """;
+    }
+
+    private static string CreateUnityBuildProfileBuildRunPayloadJson (string path)
+    {
+        var goldenPath = Path.Combine(
+            RepositoryRoot,
+            "tests",
+            "Ucli.Tests",
+            "GoldenFiles",
+            "Json",
+            "CliOutput",
+            "build-run",
+            "success.json");
+        var root = JsonNode.Parse(File.ReadAllText(goldenPath))!.AsObject();
+        var payload = root["payload"]!.AsObject();
+        var inputs = payload["build"]!["inputs"]!.AsObject();
+        inputs["inputKind"] = "unityBuildProfile";
+        inputs["scenes"]!["source"] = "unityBuildProfile";
+        inputs["unityBuildProfile"] = new JsonObject
+        {
+            ["path"] = path,
+            ["digest"] = new string('f', 64),
+        };
+        return payload.ToJsonString();
     }
 
     private static string CreatePlayStatusPayloadJson (
