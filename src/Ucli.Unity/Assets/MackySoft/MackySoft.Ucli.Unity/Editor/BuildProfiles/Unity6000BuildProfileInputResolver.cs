@@ -163,20 +163,14 @@ namespace MackySoft.Ucli.Unity.Build
             out string unityBuildTargetLiteral)
         {
             unityBuildTargetLiteral = target.ToString();
-            foreach (BuildTargetStableName stableName in Enum.GetValues(typeof(BuildTargetStableName)))
+            if (!BuildTargetStableNameUnityBuildTargetResolver.TryResolveStableName(unityBuildTargetLiteral, out var stableName))
             {
-                if (!BuildTargetStableNameUnityBuildTargetResolver.TryResolve(stableName, out var candidateUnityBuildTargetLiteral)
-                    || !string.Equals(candidateUnityBuildTargetLiteral, unityBuildTargetLiteral, StringComparison.Ordinal))
-                {
-                    continue;
-                }
-
-                stableBuildTarget = ContractLiteralCodec.ToValue(stableName);
-                return true;
+                stableBuildTarget = string.Empty;
+                return false;
             }
 
-            stableBuildTarget = string.Empty;
-            return false;
+            stableBuildTarget = ContractLiteralCodec.ToValue(stableName);
+            return true;
         }
 
         private static bool TryResolveScenePaths (
@@ -246,7 +240,7 @@ namespace MackySoft.Ucli.Unity.Build
             string stableBuildTarget,
             out IpcBuildOutputLayout? outputLayout)
         {
-            var androidAppBundle = string.Equals(stableBuildTarget, ContractLiteralCodec.ToValue(BuildTargetStableName.Android), StringComparison.Ordinal)
+            var androidAppBundle = ContractLiteralCodec.Matches(stableBuildTarget, BuildTargetStableName.Android)
                 && EditorUserBuildSettings.buildAppBundle;
             return IpcBuildOutputLayoutResolver.TryResolve(
                 outputPath,

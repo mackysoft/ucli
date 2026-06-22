@@ -119,7 +119,7 @@ internal sealed class DaemonGuiSessionRegistrationAwaiter : IDaemonGuiSessionReg
             }
 
             return string.Equals(pingResponse.ProjectFingerprint, unityProject.ProjectFingerprint, StringComparison.Ordinal)
-                   && string.Equals(pingResponse.EditorMode, ContractLiteralCodec.ToValue(DaemonEditorMode.Gui), StringComparison.Ordinal)
+                   && ContractLiteralCodec.Matches(pingResponse.EditorMode, DaemonEditorMode.Gui)
                 ? DaemonGuiSessionRegistrationWaitResult.Success(session, lifecycleSnapshot)
                 : null;
         }
@@ -179,7 +179,7 @@ internal sealed class DaemonGuiSessionRegistrationAwaiter : IDaemonGuiSessionReg
             return false;
         }
 
-        if (!string.Equals(candidate.EditorMode, ContractLiteralCodec.ToValue(DaemonEditorMode.Gui), StringComparison.Ordinal))
+        if (!ContractLiteralCodec.Matches(candidate.EditorMode, DaemonEditorMode.Gui))
         {
             return false;
         }

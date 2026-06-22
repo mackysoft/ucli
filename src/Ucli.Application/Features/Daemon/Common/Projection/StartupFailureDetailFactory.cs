@@ -53,7 +53,7 @@ internal static class StartupFailureDetailFactory
             startup,
             diagnosis,
             classification.RetryDisposition,
-            string.Equals(classification.RetryDisposition, ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryImmediately), StringComparison.Ordinal));
+            ContractLiteralCodec.Matches(classification.RetryDisposition, DaemonStartupRetryDisposition.RetryImmediately));
     }
 
     /// <summary> Creates a detail for an endpoint that never became reachable before the command timeout. </summary>

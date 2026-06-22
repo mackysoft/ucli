@@ -57,7 +57,7 @@ internal static class BuildRunCommandResultFactory
             ProtocolVersion: IpcProtocol.CurrentVersion,
             Command: UcliCommandNames.BuildRun,
             Status: IpcProtocol.StatusOk,
-            ExitCode: string.Equals(output.Verdict, ContractLiteralCodec.ToValue(BuildVerdict.Pass), StringComparison.Ordinal)
+            ExitCode: ContractLiteralCodec.Matches(output.Verdict, BuildVerdict.Pass)
                 ? (int)CliExitCode.Success
                 : 1,
             Message: executionResult.Message,

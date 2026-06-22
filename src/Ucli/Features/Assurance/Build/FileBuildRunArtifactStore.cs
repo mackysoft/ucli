@@ -1006,7 +1006,7 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         var entryOutputDirectory = Path.Combine(paths.ArtifactOutputDirectory, entryId);
         FileSystemAccessBoundary.EnsureSecureDirectory(entryOutputDirectory);
 
-        if (string.Equals(sourceEntry.Kind, OutputEntryKindFile, StringComparison.Ordinal))
+        if (ContractLiteralCodec.Matches(sourceEntry.Kind, BuildOutputManifestEntryKind.File))
         {
             var fileName = Path.GetFileName(sourceEntry.SourcePath);
             EnsureSafeOutputRelativePath(fileName, sourceEntry.SourcePath);

@@ -271,7 +271,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private PlayEnterTransitionExecutionResult ValidatePreconditions (IpcPlayLifecycleSnapshot before)
         {
-            if (!string.Equals(before.EditorMode, ContractLiteralCodec.ToValue(DaemonEditorMode.Gui), StringComparison.Ordinal))
+            if (!ContractLiteralCodec.Matches(before.EditorMode, DaemonEditorMode.Gui))
             {
                 return CreateFailure(
                     PlayModeErrorCodes.PlayModeRequiresGuiEditor,

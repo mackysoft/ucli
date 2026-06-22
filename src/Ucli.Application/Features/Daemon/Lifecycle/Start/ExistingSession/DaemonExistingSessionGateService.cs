@@ -101,7 +101,7 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
             if (editorMode.HasValue)
             {
                 var requestedEditorMode = ContractLiteralCodec.ToValue(editorMode.Value);
-                if (!string.Equals(session.EditorMode, requestedEditorMode, StringComparison.Ordinal))
+                if (!ContractLiteralCodec.Matches(session.EditorMode, editorMode.Value))
                 {
                     return DaemonStartResult.Failure(ExecutionError.InvalidArgument(
                         $"Requested daemon editorMode '{requestedEditorMode}' does not match running daemon editorMode '{session.EditorMode}'.",
@@ -231,7 +231,7 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
                 if (editorMode.HasValue)
                 {
                     var requestedEditorMode = ContractLiteralCodec.ToValue(editorMode.Value);
-                    if (!string.Equals(session.EditorMode, requestedEditorMode, StringComparison.Ordinal))
+                    if (!ContractLiteralCodec.Matches(session.EditorMode, editorMode.Value))
                     {
                         return DaemonStartResult.Failure(ExecutionError.InvalidArgument(
                             $"Requested daemon editorMode '{requestedEditorMode}' does not match running daemon editorMode '{session.EditorMode}'.",

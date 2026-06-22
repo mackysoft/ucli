@@ -160,8 +160,8 @@ namespace MackySoft.Ucli.Unity.Build
             out UcliCode? errorCode,
             out string? errorMessage)
         {
-            if (!ContractLiteralCodec.IsDefined<IpcBuildReportResult>(result.Status)
-                || string.Equals(result.Status, ContractLiteralCodec.ToValue(IpcBuildReportResult.Unknown), StringComparison.Ordinal))
+            if (!ContractLiteralCodec.TryParse<IpcBuildReportResult>(result.Status, out var status)
+                || status == IpcBuildReportResult.Unknown)
             {
                 errorCode = BuildErrorCodes.BuildRunnerResultInvalid;
                 errorMessage = "Build executeMethod runner result status is invalid.";
@@ -184,8 +184,7 @@ namespace MackySoft.Ucli.Unity.Build
                 return false;
             }
 
-            if (string.Equals(result.Status, ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded), StringComparison.Ordinal)
-                && result.Outputs.Count == 0)
+            if (status == IpcBuildReportResult.Succeeded && result.Outputs.Count == 0)
             {
                 errorCode = BuildErrorCodes.BuildRunnerResultInvalid;
                 errorMessage = "Build executeMethod runner result requires at least one output when status is succeeded.";

@@ -78,7 +78,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(IpcBuildOutputLayoutResolver.TryResolve(
                     outputScope.OutputPath,
                     stableBuildTarget,
-                    string.Equals(stableBuildTarget, ContractLiteralCodec.ToValue(BuildTargetStableName.Android), StringComparison.Ordinal)
+                    ContractLiteralCodec.Matches(stableBuildTarget, BuildTargetStableName.Android)
                         && EditorUserBuildSettings.buildAppBundle,
                     out var expectedOutputLayout), Is.True);
                 Assert.That(result.OutputLayout!.Shape, Is.EqualTo(expectedOutputLayout!.Shape));
@@ -334,20 +334,14 @@ namespace MackySoft.Ucli.Unity.Tests
             out string unityBuildTargetLiteral)
         {
             unityBuildTargetLiteral = target.ToString();
-            foreach (BuildTargetStableName stableName in Enum.GetValues(typeof(BuildTargetStableName)))
+            if (!BuildTargetStableNameUnityBuildTargetResolver.TryResolveStableName(unityBuildTargetLiteral, out var stableName))
             {
-                if (!BuildTargetStableNameUnityBuildTargetResolver.TryResolve(stableName, out var candidateUnityBuildTargetLiteral)
-                    || !string.Equals(candidateUnityBuildTargetLiteral, unityBuildTargetLiteral, StringComparison.Ordinal))
-                {
-                    continue;
-                }
-
-                stableBuildTarget = ContractLiteralCodec.ToValue(stableName);
-                return true;
+                stableBuildTarget = string.Empty;
+                return false;
             }
 
-            stableBuildTarget = string.Empty;
-            return false;
+            stableBuildTarget = ContractLiteralCodec.ToValue(stableName);
+            return true;
         }
 
         private static string CreateSavedScene (

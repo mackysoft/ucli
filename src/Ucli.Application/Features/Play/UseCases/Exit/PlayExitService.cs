@@ -173,7 +173,7 @@ internal sealed class PlayExitService : IPlayExitService
         }
 
         var lifecycle = LifecycleProjectionFactory.Create(currentSnapshot);
-        if (!string.Equals(lifecycle.EditorMode, ContractLiteralCodec.ToValue(DaemonEditorMode.Gui), StringComparison.Ordinal))
+        if (!ContractLiteralCodec.Matches(lifecycle.EditorMode, DaemonEditorMode.Gui))
         {
             return PlayExitOutputCreationResult.Failure(ApplicationFailure.InternalError(
                 RequiresGuiEditorMessage,

@@ -153,7 +153,7 @@ internal static class UcliOperationInputConstraintValidator
         UcliOperationInputConstraintContract constraint,
         out string errorMessage)
     {
-        if (!string.Equals(constraint.TypeKind, ContractLiteralCodec.ToValue(UcliOperationTypeKind.Component), StringComparison.Ordinal)
+        if (!ContractLiteralCodec.Matches(constraint.TypeKind, UcliOperationTypeKind.Component)
             || constraint.AssetKind != null
             || constraint.TargetKind != null
             || constraint.Access != null
@@ -172,7 +172,7 @@ internal static class UcliOperationInputConstraintValidator
         UcliOperationInputConstraintContract constraint,
         out string errorMessage)
     {
-        if (!string.Equals(constraint.Access, ContractLiteralCodec.ToValue(UcliOperationSerializedPropertyAccess.Write), StringComparison.Ordinal)
+        if (!ContractLiteralCodec.Matches(constraint.Access, UcliOperationSerializedPropertyAccess.Write)
             || constraint.AssetKind != null
             || constraint.TargetKind != null
             || constraint.TypeKind != null

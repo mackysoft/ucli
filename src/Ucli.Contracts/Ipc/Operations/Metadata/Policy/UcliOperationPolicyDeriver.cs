@@ -79,7 +79,7 @@ internal static class UcliOperationPolicyDeriver
             policy = Max(policy, OperationPolicy.Advanced);
         }
 
-        if (string.Equals(assurance.PlanMode, ContractLiteralCodec.ToValue(UcliOperationPlanMode.MayCreatePreviewState), StringComparison.Ordinal))
+        if (ContractLiteralCodec.Matches(assurance.PlanMode, UcliOperationPlanMode.MayCreatePreviewState))
         {
             policy = Max(policy, OperationPolicy.Advanced);
         }

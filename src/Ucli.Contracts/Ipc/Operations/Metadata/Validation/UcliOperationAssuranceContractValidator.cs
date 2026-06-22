@@ -77,7 +77,7 @@ internal static class UcliOperationAssuranceContractValidator
         out string errorMessage)
     {
         if (!allowMayCreatePreviewState
-            && string.Equals(assurance.PlanMode, ContractLiteralCodec.ToValue(UcliOperationPlanMode.MayCreatePreviewState), StringComparison.Ordinal))
+            && ContractLiteralCodec.Matches(assurance.PlanMode, UcliOperationPlanMode.MayCreatePreviewState))
         {
             errorMessage = $"{ownerName} public raw assurance metadata must not use planMode '{ContractLiteralCodec.ToValue(UcliOperationPlanMode.MayCreatePreviewState)}'.";
             return false;

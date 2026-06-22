@@ -1249,7 +1249,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (IsProcessExitBlocker(blocker))
+        if (ContractLiteralCodec.Matches(blocker.StartupBlockingReason, DaemonStartupBlockingReason.ProcessExit))
         {
             var cleanupResult = await daemonLaunchCompensationService.CleanupFailedLaunchAsync(
                     unityProject,
@@ -1290,19 +1290,10 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                 : ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Unknown));
     }
 
-    private static bool IsProcessExitBlocker (DaemonGuiStartupBlocker blocker)
-    {
-        ArgumentNullException.ThrowIfNull(blocker);
-        return string.Equals(
-            blocker.StartupBlockingReason,
-            ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.ProcessExit),
-            StringComparison.Ordinal);
-    }
-
     private static UcliCode ResolveGuiStartupBlockedErrorCode (DaemonGuiStartupBlocker blocker)
     {
         ArgumentNullException.ThrowIfNull(blocker);
-        return IsProcessExitBlocker(blocker)
+        return ContractLiteralCodec.Matches(blocker.StartupBlockingReason, DaemonStartupBlockingReason.ProcessExit)
             ? DaemonErrorCodes.DaemonStartProcessExited
             : DaemonErrorCodes.DaemonStartupBlocked;
     }

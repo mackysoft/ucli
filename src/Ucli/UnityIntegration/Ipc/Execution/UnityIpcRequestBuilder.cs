@@ -173,10 +173,7 @@ internal sealed class UnityIpcRequestBuilder
 
     private static string? ResolveOneshotActiveBuildProfilePath (UnityRequestPayload.BuildRun buildRun)
     {
-        if (!string.Equals(
-                buildRun.InputKind,
-                ContractLiteralCodec.ToValue(BuildProfileInputsKind.UnityBuildProfile),
-                StringComparison.Ordinal)
+        if (!ContractLiteralCodec.Matches(buildRun.InputKind, BuildProfileInputsKind.UnityBuildProfile)
             || buildRun.UnityBuildProfile?.Path == null
             || !UnityAssetPathContract.IsNormalizedBuildProfileAssetPath(buildRun.UnityBuildProfile.Path))
         {

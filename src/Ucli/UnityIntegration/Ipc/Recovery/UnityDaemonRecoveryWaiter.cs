@@ -79,7 +79,7 @@ internal sealed class UnityDaemonRecoveryWaiter
         }
 
         var session = sessionReadResult.Session!;
-        if (!string.Equals(session.EditorMode, ContractLiteralCodec.ToValue(DaemonEditorMode.Gui), StringComparison.Ordinal))
+        if (!ContractLiteralCodec.Matches(session.EditorMode, DaemonEditorMode.Gui))
         {
             return false;
         }
