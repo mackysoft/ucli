@@ -42,6 +42,7 @@ internal sealed class SkillsUpdateCommand
     /// <param name="dryRun"> --dryRun, Whether to return the update plan without writing. </param>
     /// <param name="force"> Whether managed local modifications can be overwritten. </param>
     /// <param name="printDiff"> --printDiff, Whether structured file diffs should be included. </param>
+    /// <param name="tier"> Required SKILL tier literals. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.UpdateSubcommand)]
@@ -53,6 +54,7 @@ internal sealed class SkillsUpdateCommand
         bool dryRun = false,
         bool force = false,
         bool printDiff = false,
+        string[]? tier = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -90,7 +92,17 @@ internal sealed class SkillsUpdateCommand
             return errorResult.ExitCode;
         }
 
-        var packagesResult = await packageProvider.GetPackagesAsync(cancellationToken).ConfigureAwait(false);
+        var normalizedTiers = SkillsCommandOptionNormalizer.NormalizeTiers(
+            UcliCommandNames.SkillsUpdate,
+            tier,
+            out errorResult);
+        if (errorResult is not null)
+        {
+            commandResultWriter.WriteToStandardOutput(errorResult);
+            return errorResult.ExitCode;
+        }
+
+        var packagesResult = await packageProvider.GetPackagesAsync(UcliSkillTiers.All, normalizedTiers!, cancellationToken).ConfigureAwait(false);
         if (!packagesResult.IsSuccess)
         {
             var packageErrorResult = SkillsCommandResultFactory.CreateSkillFailure(UcliCommandNames.SkillsUpdate, packagesResult.Failure!);
@@ -108,7 +120,7 @@ internal sealed class SkillsUpdateCommand
                 cancellationToken)
             .ConfigureAwait(false);
         var reloadGuidance = hostAdapters.GetAdapter(normalizedHost!).Value!.Descriptor.ReloadGuidance;
-        var commandResult = SkillsCommandResultFactory.CreateUpdate(updateResult, normalizedHost!, normalizedScope.Value, repositoryRoot, reloadGuidance);
+        var commandResult = SkillsCommandResultFactory.CreateUpdate(updateResult, normalizedHost!, normalizedScope.Value, repositoryRoot, reloadGuidance, normalizedTiers!.Select(static tier => tier.Value).ToArray());
         commandResultWriter.WriteToStandardOutput(commandResult);
         return commandResult.ExitCode;
     }

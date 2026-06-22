@@ -35,6 +35,7 @@ internal sealed class SkillsExportCommand
     /// <param name="host"> Required target host (claude|copilot|openai). </param>
     /// <param name="output"> Required output directory. </param>
     /// <param name="format"> Optional output format (directory|zip). </param>
+    /// <param name="tier"> Required SKILL tier literals. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.ExportSubcommand)]
@@ -42,6 +43,7 @@ internal sealed class SkillsExportCommand
         string? host = null,
         string? output = null,
         string? format = null,
+        string[]? tier = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -79,7 +81,17 @@ internal sealed class SkillsExportCommand
             return errorResult.ExitCode;
         }
 
-        var packagesResult = await packageProvider.GetPackagesAsync(cancellationToken).ConfigureAwait(false);
+        var normalizedTiers = SkillsCommandOptionNormalizer.NormalizeTiers(
+            UcliCommandNames.SkillsExport,
+            tier,
+            out errorResult);
+        if (errorResult is not null)
+        {
+            commandResultWriter.WriteToStandardOutput(errorResult);
+            return errorResult.ExitCode;
+        }
+
+        var packagesResult = await packageProvider.GetPackagesAsync(UcliSkillTiers.All, normalizedTiers!, cancellationToken).ConfigureAwait(false);
         if (!packagesResult.IsSuccess)
         {
             var packageErrorResult = SkillsCommandResultFactory.CreateSkillFailure(UcliCommandNames.SkillsExport, packagesResult.Failure!);
@@ -95,7 +107,7 @@ internal sealed class SkillsExportCommand
                 cancellationToken)
             .ConfigureAwait(false);
         var reloadGuidance = hostAdapters.GetAdapter(normalizedHost!).Value!.Descriptor.ReloadGuidance;
-        var commandResult = SkillsCommandResultFactory.CreateExport(exportResult, packagesResult.Value!, normalizedHost!, normalizedFormat.Value, reloadGuidance);
+        var commandResult = SkillsCommandResultFactory.CreateExport(exportResult, packagesResult.Value!, normalizedHost!, normalizedFormat.Value, reloadGuidance, normalizedTiers!.Select(static tier => tier.Value).ToArray());
         commandResultWriter.WriteToStandardOutput(commandResult);
         return commandResult.ExitCode;
     }

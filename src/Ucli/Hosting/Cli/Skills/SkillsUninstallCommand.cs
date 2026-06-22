@@ -41,6 +41,7 @@ internal sealed class SkillsUninstallCommand
     /// <param name="targetDir"> --targetDir, Optional target root path under the repository root. </param>
     /// <param name="dryRun"> --dryRun, Whether to return the uninstall plan without writing. </param>
     /// <param name="force"> Whether managed local modifications can be deleted. </param>
+    /// <param name="tier"> Required SKILL tier literals. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.UninstallSubcommand)]
@@ -51,6 +52,7 @@ internal sealed class SkillsUninstallCommand
         string? targetDir = null,
         bool dryRun = false,
         bool force = false,
+        string[]? tier = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -88,7 +90,17 @@ internal sealed class SkillsUninstallCommand
             return errorResult.ExitCode;
         }
 
-        var packagesResult = await packageProvider.GetPackagesAsync(cancellationToken).ConfigureAwait(false);
+        var normalizedTiers = SkillsCommandOptionNormalizer.NormalizeTiers(
+            UcliCommandNames.SkillsUninstall,
+            tier,
+            out errorResult);
+        if (errorResult is not null)
+        {
+            commandResultWriter.WriteToStandardOutput(errorResult);
+            return errorResult.ExitCode;
+        }
+
+        var packagesResult = await packageProvider.GetPackagesAsync(UcliSkillTiers.All, normalizedTiers!, cancellationToken).ConfigureAwait(false);
         if (!packagesResult.IsSuccess)
         {
             var packageErrorResult = SkillsCommandResultFactory.CreateSkillFailure(UcliCommandNames.SkillsUninstall, packagesResult.Failure!);
@@ -105,7 +117,7 @@ internal sealed class SkillsUninstallCommand
                 cancellationToken)
             .ConfigureAwait(false);
         var reloadGuidance = hostAdapters.GetAdapter(normalizedHost!).Value!.Descriptor.ReloadGuidance;
-        var commandResult = SkillsCommandResultFactory.CreateUninstall(uninstallResult, normalizedHost!, normalizedScope.Value, repositoryRoot, reloadGuidance);
+        var commandResult = SkillsCommandResultFactory.CreateUninstall(uninstallResult, normalizedHost!, normalizedScope.Value, repositoryRoot, reloadGuidance, normalizedTiers!.Select(static tier => tier.Value).ToArray());
         commandResultWriter.WriteToStandardOutput(commandResult);
         return commandResult.ExitCode;
     }

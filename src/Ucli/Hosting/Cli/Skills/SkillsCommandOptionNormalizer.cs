@@ -15,6 +15,37 @@ internal static class SkillsCommandOptionNormalizer
     private const string DirectoryExportFormatLiteral = "directory";
     private const string ZipExportFormatLiteral = "zip";
 
+    /// <summary> Normalizes the required tier option. </summary>
+    /// <param name="command"> The command name used for error results. </param>
+    /// <param name="tiers"> The raw tier options. </param>
+    /// <param name="errorResult"> The emitted error result when normalization fails. </param>
+    /// <returns> The normalized tier selection, or <see langword="null" /> when normalization fails. </returns>
+    public static IReadOnlyList<MackySoft.AgentSkills.Tiers.SkillTier>? NormalizeTiers (
+        string command,
+        string[]? tiers,
+        out CommandResult? errorResult)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(command);
+
+        errorResult = null;
+        if (tiers == null || tiers.Length == 0)
+        {
+            errorResult = CommandResult.InvalidArgument(command, "Option '--tier' is required.");
+            return null;
+        }
+
+        var result = MackySoft.AgentSkills.Tiers.SkillTierSelection.Parse(UcliSkillTiers.All, tiers);
+        if (!result.IsSuccess)
+        {
+            errorResult = CommandResult.InvalidArgument(
+                command,
+                result.Failure!.Message);
+            return null;
+        }
+
+        return result.Value!;
+    }
+
     /// <summary> Normalizes a required host option to its canonical host key. </summary>
     /// <param name="command"> The command name used for error results. </param>
     /// <param name="host"> The raw host option. </param>

@@ -3,8 +3,9 @@
   "skillName": "ucli-troubleshoot",
   "displayName": "uCLI Troubleshoot",
   "description": "Use when diagnosing uCLI daemon, lifecycle, readIndex freshness, timeout, compile or domain reload, logs, IPC, and Unity execution failures.",
+  "tier": "basic",
   "contentDigest": "59f0d5c66874c986a0f70e8cf01a802ec5eae35e7eb65bad218954b6d9be81b6",
-  "manifestDigest": "40aff6408d0fbcf7e97c7c199afac90afd0ea159c8c8a30f409a2c355a8e59fe",
+  "manifestDigest": "c1d44f9c541e5b8d2be103ea94584a9477c7de5845b90df648b3280ac8f74da8",
   "hostArtifacts": [
     {
       "host": "claude",

@@ -87,7 +87,7 @@ public sealed class SkillsCliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task SkillsList_ReturnsOfficialSkillsAndSupportedHosts ()
     {
-        var result = await CliProcessRunner.RunCommandAsync(UcliCommandNames.Skills, UcliCommandNames.ListSubcommand);
+        var result = await CliProcessRunner.RunCommandAsync(UcliCommandNames.Skills, UcliCommandNames.ListSubcommand, "--tier", "basic");
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
@@ -100,12 +100,14 @@ public sealed class SkillsCliOutputContractTests
 
         var payload = outputJson.RootElement.GetProperty("payload");
         JsonAssert.For(payload)
+            .HasArrayLength("tiers", 1)
             .HasArrayLength("skills", ExpectedSkillNames.Length)
             .HasArrayLength("supportedHosts", 3)
             .HasProperty("skills", 0, static skill => skill
                 .HasString("skillName", ExpectedSkillNames[0])
                 .HasValueKind("displayName", JsonValueKind.String)
                 .HasValueKind("description", JsonValueKind.String)
+                .HasString("tier", "basic")
                 .HasValueKind("contentDigest", JsonValueKind.String)
                 .HasArrayLength("hostArtifacts", 3))
             .HasProperty("supportedHosts", 0, static host => host
@@ -124,11 +126,111 @@ public sealed class SkillsCliOutputContractTests
                 .HasString("userTargetDirectory", "${CODEX_HOME}/skills or ~/.codex/skills")
                 .HasValueKind("reloadGuidance", JsonValueKind.String));
 
+        Assert.Equal(["basic"], payload
+            .GetProperty("tiers")
+            .EnumerateArray()
+            .Select(static tier => tier.GetString() ?? string.Empty)
+            .ToArray());
         Assert.Equal(ExpectedSkillNames, payload
             .GetProperty("skills")
             .EnumerateArray()
             .Select(static skill => skill.GetProperty("skillName").GetString())
             .ToArray());
+    }
+
+    [Theory]
+    [Trait("Size", "Medium")]
+    [InlineData("advanced")]
+    [InlineData("developer")]
+    public async Task SkillsList_WithEmptyTier_ReturnsEmptySkillList (string tier)
+    {
+        var result = await CliProcessRunner.RunCommandAsync(UcliCommandNames.Skills, UcliCommandNames.ListSubcommand, "--tier", tier);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: UcliCommandNames.SkillsList,
+            status: "ok",
+            exitCode: (int)CliExitCode.Success);
+        JsonAssert.For(outputJson.RootElement)
+            .HasProperty("payload", payload => payload
+                .HasArrayLength("tiers", 1)
+                .HasArrayLength("skills", 0));
+        Assert.Equal(tier, outputJson.RootElement.GetProperty("payload").GetProperty("tiers")[0].GetString());
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task SkillsList_WithMultipleTiers_ReturnsMatchingSkills ()
+    {
+        var result = await CliProcessRunner.RunCommandAsync(UcliCommandNames.Skills, UcliCommandNames.ListSubcommand, "--tier", "basic,advanced");
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: UcliCommandNames.SkillsList,
+            status: "ok",
+            exitCode: (int)CliExitCode.Success);
+
+        var payload = outputJson.RootElement.GetProperty("payload");
+        Assert.Equal(["basic", "advanced"], payload
+            .GetProperty("tiers")
+            .EnumerateArray()
+            .Select(static tier => tier.GetString() ?? string.Empty)
+            .ToArray());
+        Assert.Equal(ExpectedSkillNames, payload
+            .GetProperty("skills")
+            .EnumerateArray()
+            .Select(static skill => skill.GetProperty("skillName").GetString())
+            .ToArray());
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task SkillsList_WithoutTier_ReturnsInvalidArgument ()
+    {
+        var result = await CliProcessRunner.RunCommandAsync(UcliCommandNames.Skills, UcliCommandNames.ListSubcommand);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: UcliCommandNames.SkillsList,
+            status: "error",
+            exitCode: (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, InvalidArgumentCode);
+    }
+
+    [Theory]
+    [Trait("Size", "Medium")]
+    [InlineData(UcliCommandNames.ExportSubcommand, UcliCommandNames.SkillsExport)]
+    [InlineData(UcliCommandNames.InstallSubcommand, UcliCommandNames.SkillsInstall)]
+    [InlineData(UcliCommandNames.UpdateSubcommand, UcliCommandNames.SkillsUpdate)]
+    [InlineData(UcliCommandNames.UninstallSubcommand, UcliCommandNames.SkillsUninstall)]
+    [InlineData(UcliCommandNames.DoctorSubcommand, UcliCommandNames.SkillsDoctor)]
+    public async Task SkillsSubcommand_WithEmptyTier_ReturnsSuccessfulEmptyResult (
+        string subcommand,
+        string expectedCommand)
+    {
+        using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", $"empty-tier-{subcommand}");
+        var repoRoot = scope.CreateDirectory("repo");
+        var args = CreateEmptyTierScenarioArgs(subcommand, repoRoot, scope.GetPath("exported"));
+
+        var result = await CliProcessRunner.RunCommandAsync(args);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: expectedCommand,
+            status: "ok",
+            exitCode: (int)CliExitCode.Success);
+        JsonAssert.For(outputJson.RootElement)
+            .HasProperty("payload", payload => payload
+                .HasArrayLength("tiers", 1));
+        Assert.Equal("advanced", outputJson.RootElement.GetProperty("payload").GetProperty("tiers")[0].GetString());
     }
 
     [Fact]
@@ -143,6 +245,8 @@ public sealed class SkillsCliOutputContractTests
             UcliCommandNames.ExportSubcommand,
             "--host",
             "openai",
+            "--tier",
+            "basic",
             "--output",
             outputRoot);
 
@@ -157,6 +261,7 @@ public sealed class SkillsCliOutputContractTests
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("payload", payload => payload
                 .HasString("host", "openai")
+                .HasArrayLength("tiers", 1)
                 .HasString("format", "directory")
                 .HasString("outputRoot", outputRoot)
                 .HasArrayLength("skills", ExpectedSkillNames.Length)
@@ -185,6 +290,8 @@ public sealed class SkillsCliOutputContractTests
             UcliCommandNames.ExportSubcommand,
             "--host",
             "openai",
+            "--tier",
+            "basic",
             "--format",
             "zip",
             "--output",
@@ -195,6 +302,8 @@ public sealed class SkillsCliOutputContractTests
             UcliCommandNames.ExportSubcommand,
             "--host",
             "openai",
+            "--tier",
+            "basic",
             "--format",
             "zip",
             "--output",
@@ -252,7 +361,9 @@ public sealed class SkillsCliOutputContractTests
             UcliCommandNames.Skills,
             UcliCommandNames.ExportSubcommand,
             "--host",
-            "openai");
+            "openai",
+            "--tier",
+            "basic");
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
@@ -484,6 +595,8 @@ public sealed class SkillsCliOutputContractTests
             UcliCommandNames.InstallSubcommand,
             "--host",
             "openai",
+            "--tier",
+            "basic",
             "--scope",
             "user");
 
@@ -512,6 +625,8 @@ public sealed class SkillsCliOutputContractTests
             UcliCommandNames.InstallSubcommand,
             "--host",
             "openai",
+            "--tier",
+            "basic",
             "--scope",
             "user",
             "--targetDir",
@@ -521,6 +636,8 @@ public sealed class SkillsCliOutputContractTests
             UcliCommandNames.UpdateSubcommand,
             "--host",
             "openai",
+            "--tier",
+            "basic",
             "--scope",
             "user",
             "--targetDir",
@@ -530,6 +647,8 @@ public sealed class SkillsCliOutputContractTests
             UcliCommandNames.DoctorSubcommand,
             "--host",
             "openai",
+            "--tier",
+            "basic",
             "--scope",
             "user",
             "--targetDir",
@@ -539,6 +658,8 @@ public sealed class SkillsCliOutputContractTests
             UcliCommandNames.UninstallSubcommand,
             "--host",
             "openai",
+            "--tier",
+            "basic",
             "--scope",
             "user",
             "--targetDir",
@@ -1250,6 +1371,8 @@ public sealed class SkillsCliOutputContractTests
             subcommand,
             "--host",
             "openai",
+            "--tier",
+            "basic",
             "--scope",
             "project",
         };
@@ -1287,6 +1410,9 @@ public sealed class SkillsCliOutputContractTests
             args.Add("--scope");
             args.Add(scope);
         }
+
+        args.Add("--tier");
+        args.Add("basic");
 
         args.AddRange([
             "--repoRoot",
@@ -1334,11 +1460,27 @@ public sealed class SkillsCliOutputContractTests
     {
         return subcommand switch
         {
-            UcliCommandNames.ExportSubcommand => [UcliCommandNames.Skills, subcommand, "--output", outputRoot],
-            UcliCommandNames.InstallSubcommand => [UcliCommandNames.Skills, subcommand, "--scope", "project", "--repoRoot", repoRoot],
-            UcliCommandNames.UpdateSubcommand => [UcliCommandNames.Skills, subcommand, "--scope", "project", "--repoRoot", repoRoot],
-            UcliCommandNames.UninstallSubcommand => [UcliCommandNames.Skills, subcommand, "--scope", "project", "--repoRoot", repoRoot],
-            UcliCommandNames.DoctorSubcommand => [UcliCommandNames.Skills, subcommand, "--scope", "project", "--repoRoot", repoRoot],
+            UcliCommandNames.ExportSubcommand => [UcliCommandNames.Skills, subcommand, "--tier", "basic", "--output", outputRoot],
+            UcliCommandNames.InstallSubcommand => [UcliCommandNames.Skills, subcommand, "--tier", "basic", "--scope", "project", "--repoRoot", repoRoot],
+            UcliCommandNames.UpdateSubcommand => [UcliCommandNames.Skills, subcommand, "--tier", "basic", "--scope", "project", "--repoRoot", repoRoot],
+            UcliCommandNames.UninstallSubcommand => [UcliCommandNames.Skills, subcommand, "--tier", "basic", "--scope", "project", "--repoRoot", repoRoot],
+            UcliCommandNames.DoctorSubcommand => [UcliCommandNames.Skills, subcommand, "--tier", "basic", "--scope", "project", "--repoRoot", repoRoot],
+            _ => throw new ArgumentOutOfRangeException(nameof(subcommand), subcommand, "Unsupported skills subcommand."),
+        };
+    }
+
+    private static string[] CreateEmptyTierScenarioArgs (
+        string subcommand,
+        string repoRoot,
+        string outputRoot)
+    {
+        return subcommand switch
+        {
+            UcliCommandNames.ExportSubcommand => [UcliCommandNames.Skills, subcommand, "--host", "openai", "--tier", "advanced", "--output", outputRoot],
+            UcliCommandNames.InstallSubcommand => [UcliCommandNames.Skills, subcommand, "--host", "openai", "--tier", "advanced", "--scope", "project", "--repoRoot", repoRoot, "--dryRun"],
+            UcliCommandNames.UpdateSubcommand => [UcliCommandNames.Skills, subcommand, "--host", "openai", "--tier", "advanced", "--scope", "project", "--repoRoot", repoRoot, "--dryRun"],
+            UcliCommandNames.UninstallSubcommand => [UcliCommandNames.Skills, subcommand, "--host", "openai", "--tier", "advanced", "--scope", "project", "--repoRoot", repoRoot, "--dryRun"],
+            UcliCommandNames.DoctorSubcommand => [UcliCommandNames.Skills, subcommand, "--host", "openai", "--tier", "advanced", "--scope", "project", "--repoRoot", repoRoot],
             _ => throw new ArgumentOutOfRangeException(nameof(subcommand), subcommand, "Unsupported skills subcommand."),
         };
     }
@@ -1351,11 +1493,11 @@ public sealed class SkillsCliOutputContractTests
     {
         return subcommand switch
         {
-            UcliCommandNames.ExportSubcommand => [UcliCommandNames.Skills, subcommand, "--host", "generic", "--output", outputRoot],
-            UcliCommandNames.InstallSubcommand => [UcliCommandNames.Skills, subcommand, "--host", "generic", "--scope", "project", "--repoRoot", repoRoot, "--targetDir", targetDir],
-            UcliCommandNames.UpdateSubcommand => [UcliCommandNames.Skills, subcommand, "--host", "generic", "--scope", "project", "--repoRoot", repoRoot, "--targetDir", targetDir],
-            UcliCommandNames.UninstallSubcommand => [UcliCommandNames.Skills, subcommand, "--host", "generic", "--scope", "project", "--repoRoot", repoRoot, "--targetDir", targetDir],
-            UcliCommandNames.DoctorSubcommand => [UcliCommandNames.Skills, subcommand, "--host", "generic", "--scope", "project", "--repoRoot", repoRoot, "--targetDir", targetDir],
+            UcliCommandNames.ExportSubcommand => [UcliCommandNames.Skills, subcommand, "--host", "generic", "--tier", "basic", "--output", outputRoot],
+            UcliCommandNames.InstallSubcommand => [UcliCommandNames.Skills, subcommand, "--host", "generic", "--tier", "basic", "--scope", "project", "--repoRoot", repoRoot, "--targetDir", targetDir],
+            UcliCommandNames.UpdateSubcommand => [UcliCommandNames.Skills, subcommand, "--host", "generic", "--tier", "basic", "--scope", "project", "--repoRoot", repoRoot, "--targetDir", targetDir],
+            UcliCommandNames.UninstallSubcommand => [UcliCommandNames.Skills, subcommand, "--host", "generic", "--tier", "basic", "--scope", "project", "--repoRoot", repoRoot, "--targetDir", targetDir],
+            UcliCommandNames.DoctorSubcommand => [UcliCommandNames.Skills, subcommand, "--host", "generic", "--tier", "basic", "--scope", "project", "--repoRoot", repoRoot, "--targetDir", targetDir],
             _ => throw new ArgumentOutOfRangeException(nameof(subcommand), subcommand, "Unsupported skills subcommand."),
         };
     }
