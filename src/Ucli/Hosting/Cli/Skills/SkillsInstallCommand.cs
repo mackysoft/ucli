@@ -102,7 +102,7 @@ internal sealed class SkillsInstallCommand
             return errorResult.ExitCode;
         }
 
-        var packagesResult = await packageProvider.GetPackagesAsync(UcliSkillTiers.All, normalizedTiers!, cancellationToken).ConfigureAwait(false);
+        var packagesResult = await packageProvider.GetPackagesAsync(UcliSkillTierLiterals.Defined, normalizedTiers!, cancellationToken).ConfigureAwait(false);
         if (!packagesResult.IsSuccess)
         {
             var packageErrorResult = SkillsCommandResultFactory.CreateSkillFailure(UcliCommandNames.SkillsInstall, packagesResult.Failure!);

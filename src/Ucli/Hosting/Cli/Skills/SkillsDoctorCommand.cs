@@ -107,7 +107,7 @@ internal sealed class SkillsDoctorCommand
             return targetErrorResult.ExitCode;
         }
 
-        var packagesResult = await packageProvider.GetPackagesAsync(UcliSkillTiers.All, normalizedTiers!, cancellationToken).ConfigureAwait(false);
+        var packagesResult = await packageProvider.GetPackagesAsync(UcliSkillTierLiterals.Defined, normalizedTiers!, cancellationToken).ConfigureAwait(false);
         if (!packagesResult.IsSuccess)
         {
             var packageErrorResult = SkillsCommandResultFactory.CreateSkillFailure(UcliCommandNames.SkillsDoctor, packagesResult.Failure!);

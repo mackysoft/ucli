@@ -49,7 +49,7 @@ internal sealed class SkillsListCommand
             return errorResult.ExitCode;
         }
 
-        var packagesResult = await packageProvider.GetPackagesAsync(UcliSkillTiers.All, normalizedTiers!, cancellationToken).ConfigureAwait(false);
+        var packagesResult = await packageProvider.GetPackagesAsync(UcliSkillTierLiterals.Defined, normalizedTiers!, cancellationToken).ConfigureAwait(false);
         var commandResult = packagesResult.IsSuccess
             ? SkillsCommandResultFactory.CreateList(packagesResult.Value!, hostAdapters, normalizedTiers!.Select(static tier => tier.Value).ToArray())
             : SkillsCommandResultFactory.CreateSkillFailure(UcliCommandNames.SkillsList, packagesResult.Failure!);

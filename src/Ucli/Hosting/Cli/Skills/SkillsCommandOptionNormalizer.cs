@@ -34,7 +34,7 @@ internal static class SkillsCommandOptionNormalizer
             return null;
         }
 
-        var result = MackySoft.AgentSkills.Tiers.SkillTierSelection.Parse(UcliSkillTiers.All, tiers);
+        var result = MackySoft.AgentSkills.Tiers.SkillTierLiteralParser.ParseSelectedTiers(UcliSkillTierLiterals.Defined, tiers);
         if (!result.IsSuccess)
         {
             errorResult = CommandResult.InvalidArgument(
