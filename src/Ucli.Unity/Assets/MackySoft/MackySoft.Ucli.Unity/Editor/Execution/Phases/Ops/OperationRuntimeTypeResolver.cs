@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using MackySoft.Ucli.Contracts.Text;
 
 #nullable enable
@@ -15,7 +16,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> <see langword="true" /> when a runtime type is resolved; otherwise <see langword="false" />. </returns>
         public static bool TryResolveRuntimeType (
             string typeId,
-            out Type? runtimeType,
+            [NotNullWhen(true)] out Type? runtimeType,
             out string errorMessage)
         {
             runtimeType = null;

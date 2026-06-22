@@ -49,10 +49,12 @@ namespace MackySoft.Ucli.Unity.Ipc
             bool searchSecondaryText)
         {
             var primaryHit = searchPrimaryText
-                && !string.IsNullOrEmpty(primaryText)
+                && primaryText != null
+                && primaryText.Length > 0
                 && primaryText.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0;
             var secondaryHit = searchSecondaryText
-                && !string.IsNullOrEmpty(secondaryText)
+                && secondaryText != null
+                && secondaryText.Length > 0
                 && secondaryText.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0;
             return primaryHit || secondaryHit;
         }

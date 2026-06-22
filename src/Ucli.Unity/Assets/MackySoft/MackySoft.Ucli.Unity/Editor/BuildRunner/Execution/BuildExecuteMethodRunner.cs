@@ -59,7 +59,7 @@ namespace MackySoft.Ucli.Unity.Build
                     "Build executeMethod runner context requires profile path and profile digest.");
             }
 
-            var resolution = resolver.Resolve(request.RunnerMethod);
+            var resolution = resolver.Resolve(request.RunnerMethod!);
             if (!resolution.IsSuccess)
             {
                 return Failure(resolution.ErrorCode!.Value, resolution.ErrorMessage!);
@@ -135,7 +135,7 @@ namespace MackySoft.Ucli.Unity.Build
                 request.OutputPath,
                 request.ProfilePath!,
                 request.ProfileDigest!,
-                new UcliResolvedBuildTarget(request.BuildTarget, resolvedInput.UnityBuildTarget),
+                new UcliResolvedBuildTarget(request.BuildTarget!, resolvedInput.UnityBuildTarget),
                 resolvedInput.ScenePaths,
                 new UcliBuildOptions((resolvedInput.Options & BuildOptions.Development) == BuildOptions.Development),
                 request.RunnerArguments,

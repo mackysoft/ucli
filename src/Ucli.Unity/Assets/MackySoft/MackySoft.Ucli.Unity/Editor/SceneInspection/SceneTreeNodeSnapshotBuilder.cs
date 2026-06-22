@@ -82,7 +82,7 @@ namespace MackySoft.Ucli.Unity.SceneInspection
                 var resolvedGlobalObjectId = globalObjectIdResolver(gameObject);
                 if (!string.IsNullOrWhiteSpace(resolvedGlobalObjectId))
                 {
-                    return resolvedGlobalObjectId;
+                    return resolvedGlobalObjectId!;
                 }
             }
 

@@ -125,14 +125,18 @@ namespace MackySoft.Ucli.Unity.Index
             Type assetType,
             HashSet<string> editorAssemblyNames)
         {
-            var assemblyName = assetType?.Assembly.GetName().Name;
-            return assetType != null
-                && typeof(ScriptableObject).IsAssignableFrom(assetType)
+            if (assetType == null)
+            {
+                return false;
+            }
+
+            var assemblyName = assetType.Assembly.GetName().Name;
+            return typeof(ScriptableObject).IsAssignableFrom(assetType)
                 && !assetType.IsAbstract
                 && !assetType.IsGenericTypeDefinition
                 && !assetType.ContainsGenericParameters
                 && !string.IsNullOrWhiteSpace(assemblyName)
-                && !editorAssemblyNames.Contains(assemblyName);
+                && !editorAssemblyNames.Contains(assemblyName!);
         }
     }
 }

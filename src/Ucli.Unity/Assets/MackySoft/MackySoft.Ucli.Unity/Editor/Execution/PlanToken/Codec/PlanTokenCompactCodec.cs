@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Security.Cryptography;
@@ -45,9 +46,9 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
         /// <returns> <see langword="true" /> when decode succeeds; otherwise <see langword="false" />. </returns>
         public static bool TryDecodeToken (
             string token,
-            out PlanTokenDecodedToken decodedToken)
+            [NotNullWhen(true)] out PlanTokenDecodedToken? decodedToken)
         {
-            decodedToken = default;
+            decodedToken = null;
             if (string.IsNullOrWhiteSpace(token))
             {
                 return false;
@@ -233,9 +234,9 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
         /// <returns> <see langword="true" /> when parse succeeds; otherwise <see langword="false" />. </returns>
         private static bool TryReadHeader (
             ReadOnlyMemory<byte> headerBytes,
-            out PlanTokenHeader header)
+            [NotNullWhen(true)] out PlanTokenHeader? header)
         {
-            header = default;
+            header = null;
             try
             {
                 using var document = JsonDocument.Parse(headerBytes);
@@ -255,7 +256,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
                     return false;
                 }
 
-                header = new PlanTokenHeader(alg, kid, typ);
+                header = new PlanTokenHeader(alg!, kid!, typ!);
                 return true;
             }
             catch
@@ -270,9 +271,9 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
         /// <returns> <see langword="true" /> when parse succeeds; otherwise <see langword="false" />. </returns>
         private static bool TryReadPayload (
             ReadOnlyMemory<byte> payloadBytes,
-            out PlanTokenPayload payload)
+            [NotNullWhen(true)] out PlanTokenPayload? payload)
         {
-            payload = default;
+            payload = null;
             try
             {
                 using var document = JsonDocument.Parse(payloadBytes);
@@ -330,14 +331,14 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
 
                 payload = new PlanTokenPayload(
                     Version: version,
-                    KeyId: kid,
-                    ProjectFingerprint: projectFingerprint,
-                    RequestDigest: requestDigest,
+                    KeyId: kid!,
+                    ProjectFingerprint: projectFingerprint!,
+                    RequestDigest: requestDigest!,
                     CompiledExecutionDigest: string.IsNullOrWhiteSpace(compiledExecutionDigest) ? null : compiledExecutionDigest,
-                    StateFingerprint: stateFingerprint,
+                    StateFingerprint: stateFingerprint!,
                     IssuedAtUtc: issuedAtUtc,
                     ExpiresAtUtc: expiresAtUtc,
-                    Nonce: nonce);
+                    Nonce: nonce!);
                 return true;
             }
             catch
