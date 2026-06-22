@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using UnityEngine;
 
 #nullable enable
@@ -15,7 +16,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> <see langword="true" /> when a concrete scriptable-object type is resolved; otherwise <see langword="false" />. </returns>
         public static bool TryResolveCreateAssetType (
             string typeId,
-            out Type? assetType,
+            [NotNullWhen(true)] out Type? assetType,
             out string errorMessage)
         {
             assetType = null;

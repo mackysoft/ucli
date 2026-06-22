@@ -35,7 +35,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             IpcRequest request,
             UcliCode code,
             string message,
-            string opId)
+            string? opId)
         {
             return new IpcResponse(
                 ProtocolVersion: request.ProtocolVersion,
@@ -60,7 +60,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             IpcRequest request,
             UcliCode code,
             string message,
-            string opId,
+            string? opId,
             TPayload payload)
         {
             return new IpcResponse(

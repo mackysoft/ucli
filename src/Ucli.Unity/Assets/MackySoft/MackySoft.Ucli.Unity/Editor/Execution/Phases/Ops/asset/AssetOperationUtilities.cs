@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Text;
@@ -89,8 +90,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             UnityObjectReference reference,
             OperationExecutionContext executionContext,
             bool allowTemporaryState,
-            out UnityEngine.Object? unityObject,
-            out string assetPath,
+            [NotNullWhen(true)] out UnityEngine.Object? unityObject,
+            [NotNullWhen(true)] out string? assetPath,
             out string? sourceGlobalObjectId,
             out string errorMessage)
         {

@@ -337,10 +337,15 @@ namespace MackySoft.Ucli.Unity.Build
         }
 
         private static bool IsEditorModeAllowed (
-            string editorMode,
+            string? editorMode,
             IReadOnlyList<string> allowedEditorModes)
         {
             if (allowedEditorModes == null || allowedEditorModes.Count == 0)
+            {
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(editorMode))
             {
                 return false;
             }

@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using MackySoft.Ucli.Contracts;
 using UnityEditor;
@@ -82,7 +83,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> <see langword="true" /> when the target prefab stage is opened; otherwise <see langword="false" />. </returns>
         public static bool TryGetOpenedPrefabStage (
             string prefabPath,
-            out PrefabStage? prefabStage,
+            [NotNullWhen(true)] out PrefabStage? prefabStage,
             out string errorMessage)
         {
             prefabStage = PrefabStageUtility.GetCurrentPrefabStage();
@@ -110,7 +111,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> <see langword="true" /> when the prefab stage was opened successfully; otherwise <see langword="false" />. </returns>
         public static bool TryOpenPrefabStage (
             string prefabPath,
-            out PrefabStage? prefabStage,
+            [NotNullWhen(true)] out PrefabStage? prefabStage,
             out string errorMessage)
         {
             if (TryGetOpenedPrefabStage(prefabPath, out prefabStage, out errorMessage))
@@ -191,7 +192,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public static bool TryGetOrLoadTemporaryPrefabContentsRoot (
             string prefabPath,
             OperationExecutionContext executionContext,
-            out GameObject? prefabContentsRoot,
+            [NotNullWhen(true)] out GameObject? prefabContentsRoot,
             out string errorMessage)
         {
             if (executionContext == null)

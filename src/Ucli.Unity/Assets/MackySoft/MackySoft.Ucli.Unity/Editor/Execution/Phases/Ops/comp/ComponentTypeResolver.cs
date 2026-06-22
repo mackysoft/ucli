@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using UnityEngine;
 
 #nullable enable
@@ -15,7 +16,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> <see langword="true" /> when a concrete <see cref="Component" /> type is resolved; otherwise <see langword="false" />. </returns>
         public static bool TryResolveComponentType (
             string typeId,
-            out Type? componentType,
+            [NotNullWhen(true)] out Type? componentType,
             out string errorMessage)
         {
             componentType = null;

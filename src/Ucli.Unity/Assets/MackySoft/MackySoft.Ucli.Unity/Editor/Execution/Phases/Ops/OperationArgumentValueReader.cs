@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Text;
 
@@ -15,7 +16,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> <see langword="true" /> when the property is valid; otherwise <see langword="false" />. </returns>
         public static bool TryReadRequiredString (
             JsonProperty property,
-            out string? value,
+            [NotNullWhen(true)] out string? value,
             out string errorMessage)
         {
             return TryReadRequiredString(
@@ -37,7 +38,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             JsonElement valueElement,
             string propertyPath,
             string expectedTypeDescription,
-            out string? value,
+            [NotNullWhen(true)] out string? value,
             out string errorMessage)
         {
             value = null;

@@ -44,6 +44,8 @@ required_entries=(
   "${nuspec_entry}"
   "ucli-plugin.json"
   "Editor/MackySoft.Ucli.Unity.Editor.asmdef"
+  "Editor/csc.rsp"
+  "Editor/csc.rsp.meta"
   "Editor/AssemblyInfo.cs"
   "Editor/Ipc/Bootstrap/UnityDaemonBootstrap.cs"
   "Editor/Execution/UnityExecutionServiceCollectionExtensions.cs"
