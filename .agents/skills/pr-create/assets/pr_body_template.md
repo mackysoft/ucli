@@ -5,10 +5,7 @@
 - <変更範囲>
 
 ## Verification
-- Gate level: <Smoke|Standard|Full>
-- Format: <PASS/FAIL>
-- Tests: <PASS/FAIL>
-- Coverage: <N/A|value>
+- `<test command>`: <PASS/FAIL>
 
 ## Risks / Rollback
 - <リスク>

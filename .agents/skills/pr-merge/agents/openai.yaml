@@ -1,6 +1,6 @@
 interface:
   display_name: "PR Merge"
-  short_description: "現在ブランチのPRをマージし、worktree対応で後始末する"
-  default_prompt: "Use $pr-merge to merge the current branch pull request with state-based routing, then clean up remote and local branches using worktree-safe rules."
+  short_description: "CI状態を確認して現在ブランチのPRを安全にマージする"
+  default_prompt: "Use $pr-merge to inspect PR CI/workflow state, merge the current pull request safely, and clean up branches."
 policy:
   allow_implicit_invocation: true
