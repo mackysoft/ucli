@@ -1,0 +1,6 @@
+interface:
+  display_name: "Changelog"
+  short_description: "読者向けの変更履歴、リリースノート、PR差分を書く"
+  default_prompt: "Use $changelog to turn commits, issues, PRs, or diffs into reader-facing changelog entries."
+policy:
+  allow_implicit_invocation: true
