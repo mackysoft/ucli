@@ -1,13 +1,5 @@
 # Failure triage（失敗分類）
 
-## dotnet format 失敗
-- 原因:
-  - .editorconfig違反
-  - analyzer警告（設定次第）
-- 対処:
-  - apply → verify の順で再実行
-  - 変更が出たらコミットしてから再ゲート
-
 ## テスト失敗
 - 分類:
   - ロジック不整合（期待値/仕様）

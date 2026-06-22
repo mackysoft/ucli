@@ -1,6 +1,6 @@
 interface:
   display_name: "Verification Gate"
-  short_description: "挙動確認/PR前の検証ゲートを実行し、PASS/FAILを判定する"
-  default_prompt: "Use $verification-gate to run verification checks and return a PASS/FAIL decision."
+  short_description: "挙動確認/PR前のテストゲートを実行する"
+  default_prompt: "Use $verification-gate to run the required tests and return a PASS/FAIL decision."
 policy:
   allow_implicit_invocation: true
