@@ -1168,7 +1168,7 @@ internal sealed class BuildService : IBuildService
         }
 
         if (inputKind == BuildProfileInputsKind.UnityBuildProfile
-            && string.Equals(buildTarget, ContractLiteralCodec.ToValue(BuildTargetStableName.Android), StringComparison.Ordinal)
+            && ContractLiteralCodec.Matches(buildTarget, BuildTargetStableName.Android)
             && IpcBuildOutputLayoutResolver.TryResolve(
                 expectedOutputDirectory,
                 buildTarget,
@@ -1186,18 +1186,22 @@ internal sealed class BuildService : IBuildService
         IpcBuildOutputLayout actual,
         IpcBuildOutputLayout expected)
     {
-        return string.Equals(actual.Shape, expected.Shape, StringComparison.Ordinal)
+        return ContractLiteralCodec.TryParse<IpcBuildOutputLayoutShape>(actual.Shape, out var actualShape)
+            && ContractLiteralCodec.TryParse<IpcBuildOutputLayoutShape>(expected.Shape, out var expectedShape)
+            && actualShape == expectedShape
             && string.Equals(actual.LocationPathName, expected.LocationPathName, StringComparison.Ordinal);
     }
 
     private static ApplicationFailure? ValidateResponseInputBuildTarget (IpcBuildInputProbe input)
     {
-        if (!BuildTargetStableNameUnityBuildTargetResolver.TryResolve(input.BuildTarget, out var expectedUnityBuildTarget))
+        if (!ContractLiteralCodec.TryParse<BuildTargetStableName>(input.BuildTarget, out var expectedBuildTarget)
+            || !BuildTargetStableNameUnityBuildTargetResolver.TryResolve(expectedBuildTarget, out var expectedUnityBuildTarget))
         {
             return ApplicationFailure.InternalError($"Unity build response contains unsupported buildTarget: {input.BuildTarget}.");
         }
 
-        if (!string.Equals(input.UnityBuildTarget, expectedUnityBuildTarget, StringComparison.Ordinal))
+        if (!BuildTargetStableNameUnityBuildTargetResolver.TryResolveStableName(input.UnityBuildTarget, out var actualBuildTarget)
+            || actualBuildTarget != expectedBuildTarget)
         {
             return ApplicationFailure.InternalError(
                 $"Unity build response buildTarget and Unity BuildTarget mismatch. BuildTarget={input.BuildTarget}, ExpectedUnityBuildTarget={expectedUnityBuildTarget}, ActualUnityBuildTarget={input.UnityBuildTarget}.");
@@ -1215,13 +1219,14 @@ internal sealed class BuildService : IBuildService
             return ApplicationFailure.InternalError("Unity build response unityBuildProfile input must be omitted for explicit build inputs.");
         }
 
-        if (!string.Equals(response.Input.BuildTarget, expectedProfile.BuildTarget.StableName, StringComparison.Ordinal))
+        if (!ContractLiteralCodec.Matches(response.Input.BuildTarget, expectedProfile.BuildTarget.StableNameValue))
         {
             return ApplicationFailure.InternalError(
                 $"Unity build response buildTarget mismatch. Requested={expectedProfile.BuildTarget.StableName}, Actual={response.Input.BuildTarget}.");
         }
 
-        if (!string.Equals(response.Input.UnityBuildTarget, expectedProfile.BuildTarget.UnityBuildTargetLiteral, StringComparison.Ordinal))
+        if (!BuildTargetStableNameUnityBuildTargetResolver.TryResolveStableName(response.Input.UnityBuildTarget, out var actualBuildTarget)
+            || actualBuildTarget != expectedProfile.BuildTarget.StableNameValue)
         {
             return ApplicationFailure.InternalError(
                 $"Unity build response Unity BuildTarget mismatch. Requested={expectedProfile.BuildTarget.UnityBuildTargetLiteral}, Actual={response.Input.UnityBuildTarget}.");
@@ -2055,7 +2060,7 @@ internal sealed class BuildService : IBuildService
             effects.Insert(1, ContractLiteralCodec.ToValue(BuildEffect.UnityBuildReportRead));
         }
 
-        if (string.Equals(runnerKind, ContractLiteralCodec.ToValue(BuildProfileRunnerKind.ExecuteMethod), StringComparison.Ordinal))
+        if (ContractLiteralCodec.Matches(runnerKind, BuildProfileRunnerKind.ExecuteMethod))
         {
             effects.Insert(1, ContractLiteralCodec.ToValue(BuildEffect.UnityExecuteMethod));
         }
@@ -2252,10 +2257,7 @@ internal sealed class BuildService : IBuildService
             : IpcBuildReportResult.Unknown;
         var succeeded = reportResult == IpcBuildReportResult.Succeeded;
         var knownTerminalResult = reportResult is IpcBuildReportResult.Succeeded or IpcBuildReportResult.Failed or IpcBuildReportResult.Canceled;
-        var isExecuteMethod = string.Equals(
-            build.Runner.Kind,
-            ContractLiteralCodec.ToValue(BuildProfileRunnerKind.ExecuteMethod),
-            StringComparison.Ordinal);
+        var isExecuteMethod = ContractLiteralCodec.Matches(build.Runner.Kind, BuildProfileRunnerKind.ExecuteMethod);
         var hasBuildReport = build.Summary.ReportRef != null;
         var terminalEvidenceKind = ContractLiteralCodec.ToValue(
             isExecuteMethod ? BuildEffect.UnityExecuteMethod : BuildEffect.UnityBuildPipeline);
@@ -2441,7 +2443,7 @@ internal sealed class BuildService : IBuildService
 
     private static BuildClaimStatus ResolveProjectMutationClaimStatus (IpcBuildProjectMutationAudit projectMutation)
     {
-        return IsFullProjectMutationCoverage(projectMutation)
+        return ContractLiteralCodec.Matches(projectMutation.Coverage, IpcBuildProjectMutationAuditCoverage.Full)
             ? BuildClaimStatus.Passed
             : BuildClaimStatus.Indeterminate;
     }
@@ -2452,7 +2454,7 @@ internal sealed class BuildService : IBuildService
     {
         var hasMutationRisk = mode == BuildProfileProjectMutationMode.Audit && projectMutation.Mutated;
         var hasCoverageRisk = (mode == BuildProfileProjectMutationMode.Audit || mode == BuildProfileProjectMutationMode.AllowWithAudit)
-            && !IsFullProjectMutationCoverage(projectMutation);
+            && !ContractLiteralCodec.Matches(projectMutation.Coverage, IpcBuildProjectMutationAuditCoverage.Full);
         if (hasMutationRisk || hasCoverageRisk)
         {
             return
@@ -2484,25 +2486,12 @@ internal sealed class BuildService : IBuildService
         IpcBuildProjectMutationAudit projectMutation)
     {
         return mode == BuildProfileProjectMutationMode.Forbid
-            && (projectMutation.Mutated || !IsFullProjectMutationCoverage(projectMutation));
-    }
-
-    private static bool IsFullProjectMutationCoverage (IpcBuildProjectMutationAudit projectMutation)
-    {
-        if (projectMutation == null)
-        {
-            return false;
-        }
-
-        return string.Equals(
-            projectMutation.Coverage,
-            ContractLiteralCodec.ToValue(IpcBuildProjectMutationAuditCoverage.Full),
-            StringComparison.Ordinal);
+            && (projectMutation.Mutated || !ContractLiteralCodec.Matches(projectMutation.Coverage, IpcBuildProjectMutationAuditCoverage.Full));
     }
 
     private static string ResolveRunnerEffect (string runnerKind)
     {
-        return string.Equals(runnerKind, ContractLiteralCodec.ToValue(BuildProfileRunnerKind.ExecuteMethod), StringComparison.Ordinal)
+        return ContractLiteralCodec.Matches(runnerKind, BuildProfileRunnerKind.ExecuteMethod)
             ? ContractLiteralCodec.ToValue(BuildEffect.UnityExecuteMethod)
             : ContractLiteralCodec.ToValue(BuildEffect.UnityBuildPipeline);
     }

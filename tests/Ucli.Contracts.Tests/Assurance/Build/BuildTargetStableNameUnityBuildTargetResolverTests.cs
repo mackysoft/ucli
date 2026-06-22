@@ -15,11 +15,14 @@ public sealed class BuildTargetStableNameUnityBuildTargetResolverTests
     {
         var stringResolved = BuildTargetStableNameUnityBuildTargetResolver.TryResolve(stableName, out var stringLiteral);
         var enumResolved = BuildTargetStableNameUnityBuildTargetResolver.TryResolve(stableNameValue, out var enumLiteral);
+        var stableNameResolved = BuildTargetStableNameUnityBuildTargetResolver.TryResolveStableName(expectedUnityBuildTargetLiteral, out var resolvedStableName);
 
         Assert.True(stringResolved);
         Assert.Equal(expectedUnityBuildTargetLiteral, stringLiteral);
         Assert.True(enumResolved);
         Assert.Equal(expectedUnityBuildTargetLiteral, enumLiteral);
+        Assert.True(stableNameResolved);
+        Assert.Equal(stableNameValue, resolvedStableName);
     }
 
     [Fact]
@@ -47,6 +50,18 @@ public sealed class BuildTargetStableNameUnityBuildTargetResolverTests
 
         Assert.False(resolved);
         Assert.Null(unityBuildTargetLiteral);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("UnknownTarget")]
+    [Trait("Size", "Small")]
+    public void TryResolveStableName_WithUnsupportedUnityBuildTargetLiteral_ReturnsFalse (string unityBuildTargetLiteral)
+    {
+        var resolved = BuildTargetStableNameUnityBuildTargetResolver.TryResolveStableName(unityBuildTargetLiteral, out var stableName);
+
+        Assert.False(resolved);
+        Assert.Equal(default, stableName);
     }
 
     public static TheoryData<string, BuildTargetStableName, string> SupportedTargetCases ()

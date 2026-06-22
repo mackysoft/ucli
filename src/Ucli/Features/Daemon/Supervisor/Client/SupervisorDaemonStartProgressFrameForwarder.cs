@@ -12,21 +12,20 @@ internal sealed class SupervisorDaemonStartProgressFrameForwarder
     private readonly ICommandProgressSink progressSink;
     private readonly string projectFingerprint;
     private readonly int timeoutMilliseconds;
-    private readonly string? editorMode;
-    private readonly string onStartupBlocked;
+    private readonly DaemonEditorMode? editorMode;
+    private readonly DaemonStartupBlockedProcessPolicy onStartupBlocked;
 
     /// <summary> Initializes a new instance of the <see cref="SupervisorDaemonStartProgressFrameForwarder" /> class. </summary>
     public SupervisorDaemonStartProgressFrameForwarder (
         ICommandProgressSink progressSink,
         string projectFingerprint,
         int timeoutMilliseconds,
-        string? editorMode,
-        string onStartupBlocked)
+        DaemonEditorMode? editorMode,
+        DaemonStartupBlockedProcessPolicy onStartupBlocked)
     {
         this.progressSink = progressSink ?? throw new ArgumentNullException(nameof(progressSink));
         ArgumentException.ThrowIfNullOrWhiteSpace(projectFingerprint);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(timeoutMilliseconds);
-        ArgumentException.ThrowIfNullOrWhiteSpace(onStartupBlocked);
 
         this.projectFingerprint = projectFingerprint;
         this.timeoutMilliseconds = timeoutMilliseconds;
@@ -137,12 +136,12 @@ internal sealed class SupervisorDaemonStartProgressFrameForwarder
         string? entryEditorMode,
         string entryOnStartupBlocked)
     {
-        return string.Equals(payloadKind, ContractLiteralCodec.ToValue(expectedPayloadKind), StringComparison.Ordinal)
+        return ContractLiteralCodec.Matches(payloadKind, expectedPayloadKind)
             && string.Equals(entryProjectFingerprint, projectFingerprint, StringComparison.Ordinal)
             && entryTimeoutMilliseconds == timeoutMilliseconds
-            && string.Equals(entryOnStartupBlocked, onStartupBlocked, StringComparison.Ordinal)
+            && ContractLiteralCodec.Matches(entryOnStartupBlocked, onStartupBlocked)
             && IsOptionalContractLiteral<DaemonEditorMode>(entryEditorMode)
-            && (editorMode is null || string.Equals(entryEditorMode, editorMode, StringComparison.Ordinal));
+            && (!editorMode.HasValue || ContractLiteralCodec.Matches(entryEditorMode, editorMode.Value));
     }
 
     private static bool IsOptionalContractLiteral<TEnum> (string? value)

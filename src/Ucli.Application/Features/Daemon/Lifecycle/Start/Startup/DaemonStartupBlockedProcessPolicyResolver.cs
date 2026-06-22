@@ -29,22 +29,22 @@ internal static class DaemonStartupBlockedProcessPolicyResolver
                 ProcessActionWhenNotTerminated: ContractLiteralCodec.ToValue(DaemonStartupProcessAction.None));
         }
 
-        if (!canShutdownProcess || string.Equals(ownerKind, ContractLiteralCodec.ToValue(DaemonSessionOwnerKind.User), StringComparison.Ordinal))
+        if (!canShutdownProcess || ContractLiteralCodec.Matches(ownerKind, DaemonSessionOwnerKind.User))
         {
             return Keep();
         }
 
-        if (!string.Equals(ownerKind, ContractLiteralCodec.ToValue(DaemonSessionOwnerKind.Cli), StringComparison.Ordinal))
+        if (!ContractLiteralCodec.Matches(ownerKind, DaemonSessionOwnerKind.Cli))
         {
             return Keep();
         }
 
-        if (string.Equals(editorMode, ContractLiteralCodec.ToValue(DaemonEditorMode.Batchmode), StringComparison.Ordinal))
+        if (ContractLiteralCodec.Matches(editorMode, DaemonEditorMode.Batchmode))
         {
             return ResolveCliOwnedBatchmode(policy);
         }
 
-        if (string.Equals(editorMode, ContractLiteralCodec.ToValue(DaemonEditorMode.Gui), StringComparison.Ordinal))
+        if (ContractLiteralCodec.Matches(editorMode, DaemonEditorMode.Gui))
         {
             return ResolveCliOwnedGui(policy);
         }

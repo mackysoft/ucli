@@ -55,6 +55,20 @@ public sealed class ContractLiteralCodecTests
 
     [Theory]
     [Trait("Size", "Small")]
+    [InlineData("dangerous", OperationPolicy.Dangerous, true)]
+    [InlineData("dangerous", OperationPolicy.Safe, false)]
+    [InlineData("DANGEROUS", OperationPolicy.Dangerous, false)]
+    [InlineData(null, OperationPolicy.Dangerous, false)]
+    public void Matches_ReturnsWhetherLiteralMapsToExpectedValue (
+        string? literal,
+        OperationPolicy expectedValue,
+        bool expectedResult)
+    {
+        Assert.Equal(expectedResult, ContractLiteralCodec.Matches(literal, expectedValue));
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
     [InlineData(null)]
     [InlineData("")]
     [InlineData("safe ")]

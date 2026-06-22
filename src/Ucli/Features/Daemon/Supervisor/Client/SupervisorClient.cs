@@ -131,8 +131,8 @@ internal sealed class SupervisorClient
                     progressSink,
                     ensureRunningPayload.ProjectFingerprint,
                     ensureRunningPayload.TimeoutMilliseconds,
-                    ensureRunningPayload.EditorMode,
-                    ensureRunningPayload.OnStartupBlocked);
+                    editorMode,
+                    onStartupBlocked);
             var response = progressFrameForwarder is null
                 ? await SendWithUnboundedResponseWaitAsync(manifest, request, timeout, cancellationToken).ConfigureAwait(false)
                 : await SendStreamingWithUnboundedResponseWaitAsync(
@@ -161,17 +161,17 @@ internal sealed class SupervisorClient
                     $"Supervisor ensureRunning response payload is invalid. {payloadError.Message}"));
             }
 
-            if (string.Equals(payload.StartStatus, ContractLiteralCodec.ToValue(DaemonStartStatus.Started), StringComparison.Ordinal))
+            if (ContractLiteralCodec.Matches(payload.StartStatus, DaemonStartStatus.Started))
             {
                 return DaemonStartResult.Started(payload.Session, payload.LifecycleSnapshot);
             }
 
-            if (string.Equals(payload.StartStatus, ContractLiteralCodec.ToValue(DaemonStartStatus.AlreadyRunning), StringComparison.Ordinal))
+            if (ContractLiteralCodec.Matches(payload.StartStatus, DaemonStartStatus.AlreadyRunning))
             {
                 return DaemonStartResult.AlreadyRunning(payload.Session, payload.LifecycleSnapshot);
             }
 
-            if (string.Equals(payload.StartStatus, ContractLiteralCodec.ToValue(DaemonStartStatus.Attached), StringComparison.Ordinal))
+            if (ContractLiteralCodec.Matches(payload.StartStatus, DaemonStartStatus.Attached))
             {
                 return DaemonStartResult.Attached(payload.Session, payload.LifecycleSnapshot);
             }
@@ -236,12 +236,12 @@ internal sealed class SupervisorClient
                     $"Supervisor stopProject response payload is invalid. {payloadError.Message}"));
             }
 
-            if (string.Equals(payload.StopStatus, ContractLiteralCodec.ToValue(DaemonStopStatus.Stopped), StringComparison.Ordinal))
+            if (ContractLiteralCodec.Matches(payload.StopStatus, DaemonStopStatus.Stopped))
             {
                 return DaemonStopResult.Stopped();
             }
 
-            if (string.Equals(payload.StopStatus, ContractLiteralCodec.ToValue(DaemonStopStatus.NotRunning), StringComparison.Ordinal))
+            if (ContractLiteralCodec.Matches(payload.StopStatus, DaemonStopStatus.NotRunning))
             {
                 return DaemonStopResult.NotRunning();
             }
@@ -368,7 +368,7 @@ internal sealed class SupervisorClient
 
     private static DaemonStatusKind ResolveDaemonStatus (string? daemonStatus)
     {
-        return string.Equals(daemonStatus, ContractLiteralCodec.ToValue(DaemonStatusKind.Stale), StringComparison.Ordinal)
+        return ContractLiteralCodec.Matches(daemonStatus, DaemonStatusKind.Stale)
             ? DaemonStatusKind.Stale
             : DaemonStatusKind.NotRunning;
     }

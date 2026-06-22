@@ -357,7 +357,8 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
         }
 
         if (TryReadBuildResult(buildElement, out var result)
-            && !string.Equals(status, result, StringComparison.Ordinal))
+            && ContractLiteralCodec.TryParse<IpcBuildReportResult>(result, out var parsedResult)
+            && parsedStatus != parsedResult)
         {
             AddViolation(violations, "$.build.summary.result", "Build summary result must match runnerResult status.");
         }
@@ -594,8 +595,7 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
 
         if (HasCompleteGenerationSnapshots(buildElement))
         {
-            var passedLiteral = ContractLiteralCodec.ToValue(BuildClaimStatus.Passed);
-            if (!string.Equals(status, passedLiteral, StringComparison.Ordinal))
+            if (!ContractLiteralCodec.Matches(status, BuildClaimStatus.Passed))
             {
                 AddViolation(
                     violations,
@@ -606,8 +606,7 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
             return;
         }
 
-        var indeterminateLiteral = ContractLiteralCodec.ToValue(BuildClaimStatus.Indeterminate);
-        if (!string.Equals(status, indeterminateLiteral, StringComparison.Ordinal)
+        if (!ContractLiteralCodec.Matches(status, BuildClaimStatus.Indeterminate)
             && !string.Equals(status, UnverifiedClaimStatus, StringComparison.Ordinal))
         {
             AddViolation(
@@ -843,12 +842,9 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
             return;
         }
 
-        var succeededLiteral = ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded);
-        var passedLiteral = ContractLiteralCodec.ToValue(BuildClaimStatus.Passed);
-        var failedLiteral = ContractLiteralCodec.ToValue(BuildClaimStatus.Failed);
-        if (string.Equals(result, succeededLiteral, StringComparison.Ordinal))
+        if (ContractLiteralCodec.Matches(result, IpcBuildReportResult.Succeeded))
         {
-            if (!string.Equals(status, passedLiteral, StringComparison.Ordinal))
+            if (!ContractLiteralCodec.Matches(status, BuildClaimStatus.Passed))
             {
                 AddViolation(violations, BuildPropertyPath(claimPath, "status"), "UNITY_BUILD_SUCCEEDED must pass when BuildReport result is succeeded.");
             }
@@ -856,7 +852,7 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
             return;
         }
 
-        if (!string.Equals(status, failedLiteral, StringComparison.Ordinal))
+        if (!ContractLiteralCodec.Matches(status, BuildClaimStatus.Failed))
         {
             AddViolation(violations, BuildPropertyPath(claimPath, "status"), "UNITY_BUILD_SUCCEEDED must fail when BuildReport result is not succeeded.");
         }
@@ -875,12 +871,10 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
             return;
         }
 
-        var passedLiteral = ContractLiteralCodec.ToValue(BuildClaimStatus.Passed);
-        var indeterminateLiteral = ContractLiteralCodec.ToValue(BuildClaimStatus.Indeterminate);
         var expectedStatus = parsedResult is IpcBuildReportResult.Succeeded or IpcBuildReportResult.Failed or IpcBuildReportResult.Canceled
-            ? passedLiteral
-            : indeterminateLiteral;
-        if (!string.Equals(status, expectedStatus, StringComparison.Ordinal))
+            ? BuildClaimStatus.Passed
+            : BuildClaimStatus.Indeterminate;
+        if (!ContractLiteralCodec.Matches(status, expectedStatus))
         {
             AddViolation(
                 violations,
@@ -1047,7 +1041,13 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
         if (BuildClaimCodes.UnityBuildCompleted.EqualsValue(claimId)
             || BuildClaimCodes.UnityBuildSucceeded.EqualsValue(claimId))
         {
-            return IsExecuteMethodRunner(buildElement) ? BuildReportRefs.Build : BuildReportRefs.BuildReport;
+            if (TryReadRunnerKind(buildElement, out var runnerKind)
+                && runnerKind == BuildProfileRunnerKind.ExecuteMethod)
+            {
+                return BuildReportRefs.Build;
+            }
+
+            return BuildReportRefs.BuildReport;
         }
 
         if (BuildClaimCodes.UnityBuildReportAccounted.EqualsValue(claimId))
@@ -1072,7 +1072,8 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
     {
         var hasBuildReport = HasBuildReport(payload);
         var isExecuteMethod = payload.TryGetProperty("build", out var buildElement)
-            && IsExecuteMethodRunner(buildElement);
+            && TryReadRunnerKind(buildElement, out var runnerKind)
+            && runnerKind == BuildProfileRunnerKind.ExecuteMethod;
         var claims = new List<string>
         {
             BuildClaimCodes.UnityBuildProfileResolved.Value,
@@ -1119,12 +1120,6 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
             && summaryElement.ValueKind == JsonValueKind.Object
             && TryReadString(summaryElement, "reportRef", out var reportRef)
             && string.Equals(reportRef, BuildReportRefs.BuildReport, StringComparison.Ordinal);
-    }
-
-    private static bool IsExecuteMethodRunner (JsonElement buildElement)
-    {
-        return TryReadRunnerKind(buildElement, out var runnerKind)
-            && runnerKind == BuildProfileRunnerKind.ExecuteMethod;
     }
 
     private static bool TryReadRunnerKind (

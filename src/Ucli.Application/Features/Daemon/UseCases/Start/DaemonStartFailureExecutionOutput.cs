@@ -33,7 +33,7 @@ internal sealed record DaemonStartFailureExecutionOutput (
             ToOutput(startup, retryDisposition),
             diagnosis,
             retryDisposition,
-            string.Equals(retryDisposition, ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryImmediately), StringComparison.Ordinal));
+            ContractLiteralCodec.Matches(retryDisposition, DaemonStartupRetryDisposition.RetryImmediately));
     }
 
     private static string ResolveFinalRetryDisposition (DaemonStartupObservation? startup)
@@ -43,7 +43,7 @@ internal sealed record DaemonStartFailureExecutionOutput (
             return ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.Unknown);
         }
 
-        return string.Equals(startup.RetryDisposition, ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.WaitThenRetry), StringComparison.Ordinal)
+        return ContractLiteralCodec.Matches(startup.RetryDisposition, DaemonStartupRetryDisposition.WaitThenRetry)
             ? ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.Unknown)
             : startup.RetryDisposition;
     }

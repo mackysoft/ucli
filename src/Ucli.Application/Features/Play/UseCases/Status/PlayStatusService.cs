@@ -125,8 +125,7 @@ internal sealed class PlayStatusService : IPlayStatusService
         }
 
         var lifecycle = LifecycleProjectionFactory.Create(snapshot);
-        var guiEditorMode = ContractLiteralCodec.ToValue(DaemonEditorMode.Gui);
-        if (!string.Equals(lifecycle.EditorMode, guiEditorMode, StringComparison.Ordinal))
+        if (!ContractLiteralCodec.Matches(lifecycle.EditorMode, DaemonEditorMode.Gui))
         {
             return PlayStatusExecutionResult.Failure(CreateRequiresGuiEditorError());
         }
@@ -140,7 +139,7 @@ internal sealed class PlayStatusService : IPlayStatusService
             Project: playContext.Project,
             DaemonStatus: DaemonStatusKind.Running,
             ServerVersion: lifecycle.ServerVersion,
-            EditorMode: guiEditorMode,
+            EditorMode: ContractLiteralCodec.ToValue(DaemonEditorMode.Gui),
             LifecycleState: lifecycle.LifecycleState,
             BlockingReason: lifecycle.BlockingReason,
             CompileState: lifecycle.CompileState,
@@ -177,8 +176,7 @@ internal sealed class PlayStatusService : IPlayStatusService
             return null;
         }
 
-        var guiEditorMode = ContractLiteralCodec.ToValue(DaemonEditorMode.Gui);
-        if (!string.Equals(observation.EditorMode, guiEditorMode, StringComparison.Ordinal))
+        if (!ContractLiteralCodec.Matches(observation.EditorMode, DaemonEditorMode.Gui))
         {
             return null;
         }
@@ -193,7 +191,7 @@ internal sealed class PlayStatusService : IPlayStatusService
             Project: playContext.Project,
             DaemonStatus: DaemonStatusKind.Running,
             ServerVersion: observation.ServerVersion,
-            EditorMode: guiEditorMode,
+            EditorMode: ContractLiteralCodec.ToValue(DaemonEditorMode.Gui),
             LifecycleState: observation.LifecycleState,
             BlockingReason: observation.BlockingReason,
             CompileState: observation.CompileState,

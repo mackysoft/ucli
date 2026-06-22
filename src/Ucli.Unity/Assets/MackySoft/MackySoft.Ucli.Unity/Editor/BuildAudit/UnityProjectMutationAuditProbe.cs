@@ -44,7 +44,7 @@ namespace MackySoft.Ucli.Unity.Build
             var coverage = ResolveCoverage(baseline.Coverage, after.Coverage);
             return new IpcBuildProjectMutationAudit(
                 Mode: mode,
-                Coverage: coverage,
+                Coverage: ContractLiteralCodec.ToValue(coverage),
                 Mutated: items.Count != 0,
                 BeforeDigest: baseline.Digest,
                 AfterDigest: after.Digest,
@@ -107,7 +107,7 @@ namespace MackySoft.Ucli.Unity.Build
             }
 
             return new ProjectMutationSnapshot(
-                ContractLiteralCodec.ToValue(coverage),
+                coverage,
                 CalculateAggregateDigest(files),
                 filesByPath);
         }
@@ -209,25 +209,23 @@ namespace MackySoft.Ucli.Unity.Build
             return items;
         }
 
-        private static string ResolveCoverage (
-            string baselineCoverage,
-            string afterCoverage)
+        private static IpcBuildProjectMutationAuditCoverage ResolveCoverage (
+            IpcBuildProjectMutationAuditCoverage baselineCoverage,
+            IpcBuildProjectMutationAuditCoverage afterCoverage)
         {
-            var indeterminate = ContractLiteralCodec.ToValue(IpcBuildProjectMutationAuditCoverage.Indeterminate);
-            if (string.Equals(baselineCoverage, indeterminate, StringComparison.Ordinal)
-                || string.Equals(afterCoverage, indeterminate, StringComparison.Ordinal))
+            if (baselineCoverage == IpcBuildProjectMutationAuditCoverage.Indeterminate
+                || afterCoverage == IpcBuildProjectMutationAuditCoverage.Indeterminate)
             {
-                return indeterminate;
+                return IpcBuildProjectMutationAuditCoverage.Indeterminate;
             }
 
-            var partial = ContractLiteralCodec.ToValue(IpcBuildProjectMutationAuditCoverage.Partial);
-            if (string.Equals(baselineCoverage, partial, StringComparison.Ordinal)
-                || string.Equals(afterCoverage, partial, StringComparison.Ordinal))
+            if (baselineCoverage == IpcBuildProjectMutationAuditCoverage.Partial
+                || afterCoverage == IpcBuildProjectMutationAuditCoverage.Partial)
             {
-                return partial;
+                return IpcBuildProjectMutationAuditCoverage.Partial;
             }
 
-            return ContractLiteralCodec.ToValue(IpcBuildProjectMutationAuditCoverage.Full);
+            return IpcBuildProjectMutationAuditCoverage.Full;
         }
 
         private static string NormalizeProjectRelativePath (
@@ -287,7 +285,7 @@ namespace MackySoft.Ucli.Unity.Build
         }
 
         internal sealed record ProjectMutationSnapshot (
-            string Coverage,
+            IpcBuildProjectMutationAuditCoverage Coverage,
             string Digest,
             IReadOnlyDictionary<string, ProjectMutationFileEntry> FilesByPath);
 

@@ -88,4 +88,23 @@ internal static class BuildTargetStableNameUnityBuildTargetResolver
                 return false;
         }
     }
+
+    /// <summary> Tries to resolve one Unity BuildTarget literal to its stable buildTarget name. </summary>
+    public static bool TryResolveStableName (
+        string unityBuildTargetLiteral,
+        out BuildTargetStableName stableName)
+    {
+        foreach (BuildTargetStableName candidate in Enum.GetValues(typeof(BuildTargetStableName)))
+        {
+            if (TryResolve(candidate, out var candidateUnityBuildTargetLiteral)
+                && string.Equals(candidateUnityBuildTargetLiteral, unityBuildTargetLiteral, StringComparison.Ordinal))
+            {
+                stableName = candidate;
+                return true;
+            }
+        }
+
+        stableName = default;
+        return false;
+    }
 }

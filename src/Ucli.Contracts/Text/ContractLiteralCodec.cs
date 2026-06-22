@@ -69,6 +69,20 @@ public static class ContractLiteralCodec
         return Cache<TEnum>.Table.IsDefined(value);
     }
 
+    /// <summary> Determines whether one canonical contract literal maps to the specified enum value. </summary>
+    /// <typeparam name="TEnum"> The enum type. </typeparam>
+    /// <param name="literal"> The canonical contract literal. </param>
+    /// <param name="value"> The expected enum value. </param>
+    /// <returns> <see langword="true" /> when <paramref name="literal" /> maps to <paramref name="value" />; otherwise <see langword="false" />. </returns>
+    public static bool Matches<TEnum> (
+        string? literal,
+        TEnum value)
+        where TEnum : struct, Enum
+    {
+        return Cache<TEnum>.Table.TryParse(literal, out var parsedValue)
+            && EqualityComparer<TEnum>.Default.Equals(parsedValue, value);
+    }
+
     /// <summary> Gets the canonical contract literals for one enum type in declaration order. </summary>
     /// <typeparam name="TEnum"> The enum type. </typeparam>
     /// <returns> The canonical contract literal list. </returns>

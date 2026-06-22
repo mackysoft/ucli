@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Assurance;
+using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Paths;
@@ -140,7 +141,7 @@ namespace MackySoft.Ucli.Unity.Build
                         null));
             }
 
-            if (IsPartialCoverage(dirtyState))
+            if (ContractLiteralCodec.Matches(dirtyState.Coverage, IpcBuildDirtyStateCoverage.Partial))
             {
                 return UnityBuildPreconditionProbeResult.Failure(
                     projectIdentity,
@@ -344,23 +345,20 @@ namespace MackySoft.Ucli.Unity.Build
                 return false;
             }
 
+            if (!ContractLiteralCodec.TryParse<DaemonEditorMode>(editorMode, out var resolvedEditorMode))
+            {
+                return false;
+            }
+
             for (var i = 0; i < allowedEditorModes.Count; i++)
             {
-                if (string.Equals(editorMode, allowedEditorModes[i], StringComparison.Ordinal))
+                if (ContractLiteralCodec.Matches(allowedEditorModes[i], resolvedEditorMode))
                 {
                     return true;
                 }
             }
 
             return false;
-        }
-
-        private static bool IsPartialCoverage (IpcBuildDirtyState dirtyState)
-        {
-            return string.Equals(
-                dirtyState.Coverage,
-                ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Partial),
-                StringComparison.Ordinal);
         }
 
         private static bool TryResolveScenePaths (
