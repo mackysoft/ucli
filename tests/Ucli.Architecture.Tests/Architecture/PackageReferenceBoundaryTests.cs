@@ -35,6 +35,14 @@ public sealed class PackageReferenceBoundaryTests
     [Trait("Size", "Small")]
     public void TestProjects_use_only_allowed_packages ()
     {
+        string[] expectedArchitectureTestPackages =
+        [
+            "coverlet.collector",
+            "MackySoft.AgentSkills",
+            "Microsoft.NET.Test.Sdk",
+            "xunit",
+            "xunit.runner.visualstudio",
+        ];
         string[] expectedTestPackages =
         [
             "coverlet.collector",
@@ -44,7 +52,7 @@ public sealed class PackageReferenceBoundaryTests
         ];
         var expectedPackagesByProject = new Dictionary<string, string[]>(StringComparer.Ordinal)
         {
-            ["tests/Ucli.Architecture.Tests/Ucli.Architecture.Tests.csproj"] = expectedTestPackages,
+            ["tests/Ucli.Architecture.Tests/Ucli.Architecture.Tests.csproj"] = expectedArchitectureTestPackages,
             ["tests/Tests.Helper/Tests.Helper.csproj"] = expectedTestPackages,
             ["tests/Ucli.Application.Tests/Ucli.Application.Tests.csproj"] = expectedTestPackages,
             ["tests/Ucli.Contracts.Tests/Ucli.Contracts.Tests.csproj"] = expectedTestPackages,

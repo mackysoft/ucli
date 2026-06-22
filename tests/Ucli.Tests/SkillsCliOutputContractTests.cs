@@ -205,6 +205,26 @@ public sealed class SkillsCliOutputContractTests
 
     [Theory]
     [Trait("Size", "Medium")]
+    [InlineData("unknown")]
+    [InlineData("Basic")]
+    [InlineData("advanced ")]
+    public async Task SkillsList_WithInvalidTier_ReturnsInvalidArgument (string tier)
+    {
+        var result = await CliProcessRunner.RunCommandAsync(UcliCommandNames.Skills, UcliCommandNames.ListSubcommand, "--tier", tier);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: UcliCommandNames.SkillsList,
+            status: "error",
+            exitCode: (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, InvalidArgumentCode);
+        Assert.Contains("Unsupported SKILL tier:", outputJson.RootElement.GetProperty("message").GetString(), StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [Trait("Size", "Medium")]
     [InlineData(UcliCommandNames.ExportSubcommand, UcliCommandNames.SkillsExport)]
     [InlineData(UcliCommandNames.InstallSubcommand, UcliCommandNames.SkillsInstall)]
     [InlineData(UcliCommandNames.UpdateSubcommand, UcliCommandNames.SkillsUpdate)]
