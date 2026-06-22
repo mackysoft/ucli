@@ -1,0 +1,16 @@
+{
+  "contractVersion": "dotmet.targetSet@1",
+  "id": "ucli",
+  "targets": [
+    {
+      "id": "dotnet",
+      "adapter": "dotnet",
+      "solutionPath": "Ucli.slnx"
+    },
+    {
+      "id": "unity",
+      "adapter": "unity",
+      "projectPath": "src/Ucli.Unity"
+    }
+  ]
+}
