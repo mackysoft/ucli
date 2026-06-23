@@ -20,6 +20,15 @@ internal static class CommandTokenClassifier
             || token.StartsWith("-", StringComparison.Ordinal);
     }
 
+    /// <summary> Determines whether a token is an option token. </summary>
+    /// <param name="token"> The command-line token. </param>
+    /// <returns> <see langword="true" /> when token starts with <c>-</c>; otherwise <see langword="false" />. </returns>
+    public static bool IsOptionToken (string? token)
+    {
+        return !string.IsNullOrWhiteSpace(token)
+            && token.StartsWith("-", StringComparison.Ordinal);
+    }
+
     /// <summary> Determines whether a token is a help option token. </summary>
     /// <param name="token"> The command-line token. </param>
     /// <returns> <see langword="true" /> when token is <c>-h</c> or <c>--help</c>; otherwise <see langword="false" />. </returns>

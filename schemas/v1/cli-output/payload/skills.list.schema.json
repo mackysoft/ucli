@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/skills.list.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "tiers": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "basic",
+          "advanced",
+          "developer"
+        ]
+      }
+    },
+    "availableTiers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "tier": {
+            "type": "string",
+            "enum": [
+              "basic",
+              "advanced",
+              "developer"
+            ]
+          },
+          "skillCount": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "tier",
+          "skillCount"
+        ]
+      }
+    },
+    "skills": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "skillName": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "tier": {
+            "type": "string",
+            "enum": [
+              "basic",
+              "advanced",
+              "developer"
+            ]
+          },
+          "contentDigest": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "hostArtifacts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "host": {
+                  "type": "string"
+                },
+                "path": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "digest": {
+                  "oneOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "materializedFrontmatterDigest": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              },
+              "required": [
+                "host",
+                "path",
+                "digest",
+                "materializedFrontmatterDigest"
+              ]
+            }
+          }
+        },
+        "required": [
+          "skillName",
+          "displayName",
+          "description",
+          "tier",
+          "contentDigest",
+          "hostArtifacts"
+        ]
+      }
+    },
+    "supportedHosts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "host": {
+            "type": "string"
+          },
+          "projectTargetDirectory": {
+            "type": "string"
+          },
+          "userTargetDirectory": {
+            "type": "string"
+          },
+          "reloadGuidance": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "host",
+          "projectTargetDirectory",
+          "userTargetDirectory",
+          "reloadGuidance"
+        ]
+      }
+    }
+  },
+  "required": [
+    "tiers",
+    "availableTiers",
+    "skills",
+    "supportedHosts"
+  ]
+}

@@ -1,4 +1,13 @@
 using System.Text.RegularExpressions;
+using MackySoft.AgentSkills.Digests;
+using MackySoft.AgentSkills.Generation;
+using MackySoft.AgentSkills.Hosts.Claude;
+using MackySoft.AgentSkills.Hosts.Copilot;
+using MackySoft.AgentSkills.Hosts.OpenAi;
+using MackySoft.AgentSkills.Hosts.Registration;
+using MackySoft.AgentSkills.Manifests;
+using MackySoft.AgentSkills.Packaging.Canonical;
+using MackySoft.AgentSkills.Sources;
 
 namespace MackySoft.Ucli.Architecture.Tests.Architecture;
 
@@ -138,6 +147,36 @@ public sealed class OfficialSkillDistributionPolicyTests
     }
 
     [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Generated_official_skills_are_in_sync_with_source_definitions ()
+    {
+        var temporaryRoot = Path.Combine(Path.GetTempPath(), $"ucli-skills-generated-drift-{Guid.NewGuid():N}");
+        try
+        {
+            var generatedRoot = Path.Combine(temporaryRoot, "generated");
+            var generationService = CreateGenerationService();
+            var writer = new CanonicalSkillPackageWriter();
+
+            var packagesResult = await generationService.GenerateAllAsync(
+                ArchitectureTestRepository.ToRegularDirectoryFullPath("skills/definitions"),
+                CancellationToken.None);
+            Assert.True(packagesResult.IsSuccess, packagesResult.Failure?.Message);
+
+            var writeResult = await writer.WriteAllAsync(packagesResult.Value!, generatedRoot, cleanOutputRoot: true, CancellationToken.None);
+            Assert.True(writeResult.IsSuccess, writeResult.Failure?.Message);
+
+            AssertGeneratedTreesEqual(ArchitectureTestRepository.ToRegularDirectoryFullPath("skills/generated"), generatedRoot);
+        }
+        finally
+        {
+            if (Directory.Exists(temporaryRoot))
+            {
+                Directory.Delete(temporaryRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     [Trait("Size", "Small")]
     public void Verify_skill_documents_profile_side_effects_and_probe_only_limit ()
     {
@@ -223,6 +262,47 @@ public sealed class OfficialSkillDistributionPolicyTests
                     || fileName.Equals("SKILL.md.template", StringComparison.Ordinal);
             })
             .Select(ArchitectureTestRepository.NormalizeRepositoryRelativePath);
+    }
+
+    private static SkillPackageGenerationService CreateGenerationService ()
+    {
+        var manifestSerializer = new SkillManifestJsonSerializer();
+        return new SkillPackageGenerationService(
+            new SkillSourceDefinitionReader(),
+            new SkillHostAdapterSet(
+            [
+                new ClaudeSkillHostAdapter(),
+                new CopilotSkillHostAdapter(),
+                new OpenAiSkillHostAdapter(),
+            ]),
+            new SkillDigestCalculator(),
+            manifestSerializer,
+            new SkillManifestDigestCalculator(manifestSerializer));
+    }
+
+    private static void AssertGeneratedTreesEqual (
+        string expectedRoot,
+        string actualRoot)
+    {
+        var expectedFiles = EnumerateRelativeFiles(expectedRoot);
+        var actualFiles = EnumerateRelativeFiles(actualRoot);
+        Assert.Equal(expectedFiles, actualFiles);
+
+        foreach (var relativePath in expectedFiles)
+        {
+            var expected = File.ReadAllText(Path.Combine(expectedRoot, relativePath));
+            var actual = File.ReadAllText(Path.Combine(actualRoot, relativePath));
+            Assert.Equal(expected, actual);
+        }
+    }
+
+    private static string[] EnumerateRelativeFiles (string root)
+    {
+        return Directory
+            .EnumerateFiles(root, "*", SearchOption.AllDirectories)
+            .Select(path => Path.GetRelativePath(root, path).Replace(Path.DirectorySeparatorChar, '/'))
+            .Order(StringComparer.Ordinal)
+            .ToArray();
     }
 
     private static IEnumerable<string> FindRegexMatches (string file, Regex pattern)

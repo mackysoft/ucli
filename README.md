@@ -79,7 +79,7 @@ uCLI ships official agent skills with the CLI package. Install them when an agen
 Install the skills into a repository for the agent host you use:
 
 ```bash
-ucli skills install --host openai --scope project
+ucli skills install --host openai --tier basic --scope project
 ```
 
 Supported host keys are `openai`, `claude`, and `copilot`. Project scope installs host-native skill files under the repository root:
@@ -92,7 +92,9 @@ Supported host keys are `openai`, `claude`, and `copilot`. Project scope install
 
 Run the command from the target repository. Use `--repoRoot <path>` only when the current working directory is outside the repository or when automation needs to select a repository explicitly.
 
-Use `skills list` when you want to inspect the bundled skills, supported hosts, target directories, and reload guidance:
+uCLI defines `basic`, `advanced`, and `developer`; the bundled official skills currently belong to `basic`. `skills export`, `install`, `update`, `uninstall`, and `doctor` require `--tier`. `skills list` may omit `--tier` to show all defined tiers and their bundled skill counts. Selecting `advanced` or `developer` is valid and succeeds with an empty skill set until uCLI ships skills in those tiers. To select multiple tiers in one command, pass a comma-separated value such as `--tier basic,advanced`.
+
+Use `skills list` when you want to inspect the bundled skills, selected tiers, available tiers, supported hosts, target directories, and reload guidance:
 
 ```bash
 ucli skills list
@@ -101,20 +103,20 @@ ucli skills list
 Use user scope only for local, non-repository defaults:
 
 ```bash
-ucli skills install --host openai --scope user
+ucli skills install --host openai --tier basic --scope user
 ```
 
 Preview file changes before writing:
 
 ```bash
-ucli skills install --host openai --scope project --dryRun --printDiff
+ucli skills install --host openai --tier basic --scope project --dryRun --printDiff
 ```
 
 Keep installed skills aligned with the current CLI version and diagnose drift:
 
 ```bash
-ucli skills update --host openai --scope project
-ucli skills doctor --host openai --scope project
+ucli skills update --host openai --tier basic --scope project
+ucli skills doctor --host openai --tier basic --scope project
 ```
 
 After installing or updating, reload the agent host. The command result includes `payload.reloadGuidance`; for Codex, start a new session or restart the app so newly installed skills are loaded.

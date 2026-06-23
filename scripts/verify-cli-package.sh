@@ -114,8 +114,33 @@ if ! grep -F '"skillName": "ucli-plan-apply"' <<< "${skills_list}" >/dev/null; t
   exit 1
 fi
 
+require_python3
+SKILLS_LIST_JSON="${skills_list}" python3 - <<'PY'
+import json
+import os
+import sys
+
+root = json.loads(os.environ["SKILLS_LIST_JSON"])
+payload = root.get("payload") or {}
+actual = [
+    (tier.get("tier"), tier.get("skillCount"))
+    for tier in payload.get("availableTiers", [])
+]
+expected = [
+    ("basic", 4),
+    ("advanced", 0),
+    ("developer", 0),
+]
+if actual != expected:
+    print(
+        f"ucli skills list did not report expected availableTiers. Expected: {expected}. Actual: {actual}",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+PY
+
 export_path="${tool_path}/exported-skills"
-"${tool_path}/ucli" skills export --host openai --output "${export_path}" >/dev/null
+"${tool_path}/ucli" skills export --host openai --tier basic --output "${export_path}" >/dev/null
 while IFS= read -r relative_path; do
   exported_file="${export_path}/${relative_path}"
   if [[ ! -f "${exported_file}" ]]; then
@@ -125,9 +150,9 @@ while IFS= read -r relative_path; do
 done < <(list_host_independent_skill_files)
 
 install_repo="$(mktemp -d "${temp_root%/}/ucli-skills-install.XXXXXX")"
-"${tool_path}/ucli" skills install --host openai --scope project --repoRoot "${install_repo}" >/dev/null
-"${tool_path}/ucli" skills install --host openai --scope project --repoRoot "${install_repo}" >/dev/null
-"${tool_path}/ucli" skills doctor --host openai --scope project --repoRoot "${install_repo}" >/dev/null
+"${tool_path}/ucli" skills install --host openai --tier basic --scope project --repoRoot "${install_repo}" >/dev/null
+"${tool_path}/ucli" skills install --host openai --tier basic --scope project --repoRoot "${install_repo}" >/dev/null
+"${tool_path}/ucli" skills doctor --host openai --tier basic --scope project --repoRoot "${install_repo}" >/dev/null
 installed_path="${install_repo}/.agents/skills"
 if [[ ! -d "${installed_path}" ]]; then
   echo "ucli skills install did not create the project skills directory: ${installed_path}" >&2

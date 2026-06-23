@@ -101,8 +101,9 @@ internal static class SubcommandValidationHelper
             return null;
         }
 
-        var unexpectedArgument = args[expectedArgumentCount];
-        if (CommandTokenClassifier.IsHelpOptionToken(unexpectedArgument)
+        var unexpectedArgument = FindUnexpectedPositionalArgument(args, expectedArgumentCount);
+        if (unexpectedArgument == null
+            || CommandTokenClassifier.IsHelpOptionToken(unexpectedArgument)
             || CommandTokenClassifier.IsVersionOptionToken(unexpectedArgument))
         {
             return null;
@@ -111,5 +112,31 @@ internal static class SubcommandValidationHelper
         return CommandResult.InvalidArgument(
             command: resultCommandName,
             message: $"Argument '{unexpectedArgument}' is not recognized.");
+    }
+
+    private static string? FindUnexpectedPositionalArgument (
+        string[] args,
+        int startIndex)
+    {
+        var mayBeOptionValue = false;
+        for (var i = startIndex; i < args.Length; i++)
+        {
+            var argument = args[i];
+            if (CommandTokenClassifier.IsOptionToken(argument))
+            {
+                mayBeOptionValue = true;
+                continue;
+            }
+
+            if (mayBeOptionValue)
+            {
+                mayBeOptionValue = false;
+                continue;
+            }
+
+            return argument;
+        }
+
+        return null;
     }
 }

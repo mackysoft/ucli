@@ -18,14 +18,14 @@ internal static class SkillsCommandResultFactory
     private const string UserScopeLiteral = "user";
 
     /// <summary> Creates a successful command result for <c>skills list</c>. </summary>
-    /// <param name="packages"> The official SKILL packages. </param>
+    /// <param name="catalog"> The official SKILL package catalog. </param>
     /// <param name="hostAdapters"> The supported host adapter set. </param>
     /// <returns> The command result serialized to stdout. </returns>
     public static CommandResult CreateList (
-        IReadOnlyList<CanonicalSkillPackage> packages,
+        SkillPackageCatalog catalog,
         SkillHostAdapterSet hostAdapters)
     {
-        ArgumentNullException.ThrowIfNull(packages);
+        ArgumentNullException.ThrowIfNull(catalog);
         ArgumentNullException.ThrowIfNull(hostAdapters);
 
         return CommandResult.Success(
@@ -33,13 +33,22 @@ internal static class SkillsCommandResultFactory
             message: "uCLI official SKILL package list retrieval completed.",
             payload: new
             {
-                skills = packages
+                tiers = catalog.SelectedTiers.Select(static tier => tier.Value).ToArray(),
+                availableTiers = catalog.AvailableTiers
+                    .Select(static tier => new
+                    {
+                        tier = tier.Tier.Value,
+                        skillCount = tier.PackageCount,
+                    })
+                    .ToArray(),
+                skills = catalog.Packages
                     .OrderBy(static package => package.Manifest.SkillName, StringComparer.Ordinal)
                     .Select(static package => new
                     {
                         package.Manifest.SkillName,
                         package.Manifest.DisplayName,
                         package.Manifest.Description,
+                        tier = package.Manifest.Tier.Value,
                         package.Manifest.ContentDigest,
                         package.Manifest.HostArtifacts,
                     })
@@ -66,10 +75,12 @@ internal static class SkillsCommandResultFactory
         IReadOnlyList<CanonicalSkillPackage> packages,
         string host,
         SkillExportFormat format,
-        string reloadGuidance)
+        string reloadGuidance,
+        IReadOnlyList<string> tiers)
     {
         ArgumentNullException.ThrowIfNull(result);
         ArgumentNullException.ThrowIfNull(packages);
+        ArgumentNullException.ThrowIfNull(tiers);
         ArgumentException.ThrowIfNullOrWhiteSpace(host);
         ArgumentException.ThrowIfNullOrWhiteSpace(reloadGuidance);
 
@@ -84,6 +95,7 @@ internal static class SkillsCommandResultFactory
             payload: new
             {
                 host,
+                tiers,
                 format = ToExportFormatLiteral(format),
                 outputRoot = result.Value!,
                 skills = CreateSkillNameList(packages),
@@ -102,9 +114,11 @@ internal static class SkillsCommandResultFactory
         string host,
         SkillScopeKind scope,
         string? repositoryRoot,
-        string reloadGuidance)
+        string reloadGuidance,
+        IReadOnlyList<string> tiers)
     {
         ArgumentNullException.ThrowIfNull(result);
+        ArgumentNullException.ThrowIfNull(tiers);
         ArgumentException.ThrowIfNullOrWhiteSpace(host);
         ArgumentException.ThrowIfNullOrWhiteSpace(reloadGuidance);
 
@@ -127,6 +141,7 @@ internal static class SkillsCommandResultFactory
             payload: new
             {
                 host,
+                tiers,
                 scope = ToScopeLiteral(scope),
                 repositoryRoot,
                 installResult.TargetRoot,
@@ -152,9 +167,11 @@ internal static class SkillsCommandResultFactory
         string host,
         SkillScopeKind scope,
         string? repositoryRoot,
-        string reloadGuidance)
+        string reloadGuidance,
+        IReadOnlyList<string> tiers)
     {
         ArgumentNullException.ThrowIfNull(result);
+        ArgumentNullException.ThrowIfNull(tiers);
         ArgumentException.ThrowIfNullOrWhiteSpace(host);
         ArgumentException.ThrowIfNullOrWhiteSpace(reloadGuidance);
 
@@ -177,6 +194,7 @@ internal static class SkillsCommandResultFactory
             payload: new
             {
                 host,
+                tiers,
                 scope = ToScopeLiteral(scope),
                 repositoryRoot,
                 updateResult.TargetRoot,
@@ -202,9 +220,11 @@ internal static class SkillsCommandResultFactory
         string host,
         SkillScopeKind scope,
         string? repositoryRoot,
-        string reloadGuidance)
+        string reloadGuidance,
+        IReadOnlyList<string> tiers)
     {
         ArgumentNullException.ThrowIfNull(result);
+        ArgumentNullException.ThrowIfNull(tiers);
         ArgumentException.ThrowIfNullOrWhiteSpace(host);
         ArgumentException.ThrowIfNullOrWhiteSpace(reloadGuidance);
 
@@ -227,6 +247,7 @@ internal static class SkillsCommandResultFactory
             payload: new
             {
                 host,
+                tiers,
                 scope = ToScopeLiteral(scope),
                 repositoryRoot,
                 uninstallResult.TargetRoot,
@@ -249,14 +270,17 @@ internal static class SkillsCommandResultFactory
         SkillDoctorResult result,
         SkillScopeKind scope,
         string? repositoryRoot,
-        string reloadGuidance)
+        string reloadGuidance,
+        IReadOnlyList<string> tiers)
     {
         ArgumentNullException.ThrowIfNull(result);
+        ArgumentNullException.ThrowIfNull(tiers);
         ArgumentException.ThrowIfNullOrWhiteSpace(reloadGuidance);
 
         var payload = new
         {
             host = result.Host,
+            tiers,
             scope = ToScopeLiteral(scope),
             repositoryRoot,
             result.TargetRoot,

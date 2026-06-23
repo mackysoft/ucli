@@ -3,8 +3,9 @@
   "skillName": "ucli-plan-apply",
   "displayName": "uCLI Plan Apply",
   "description": "Use when building, validating, planning, and applying a uCLI JSON request for Unity changes. Enforces read -> ready -> describe -> build request -> validate -> plan -> call --withPlan -> verify.",
+  "tier": "basic",
   "contentDigest": "d3d9db28b8eee92bf52611edf83d4c8804b8af9d7a23a224f12ccf1435cf6551",
-  "manifestDigest": "ddf6f9b953bcc0a7f86de75db3ec5b0c750e6bcf57f89991ae1b398de0732709",
+  "manifestDigest": "d1e4fe621d3e1a5c970859cc82eb28159e478abd5397a3cc88499de92f278ea3",
   "hostArtifacts": [
     {
       "host": "claude",

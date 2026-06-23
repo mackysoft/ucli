@@ -202,6 +202,12 @@
       "command": "codes.describe"
     },
     {
+      "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/skills.list.schema.json",
+      "path": "cli-output/payload/skills.list.schema.json",
+      "kind": "cli-output-payload",
+      "command": "skills.list"
+    },
+    {
       "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/play.status.schema.json",
       "path": "cli-output/payload/play.status.schema.json",
       "kind": "cli-output-payload",

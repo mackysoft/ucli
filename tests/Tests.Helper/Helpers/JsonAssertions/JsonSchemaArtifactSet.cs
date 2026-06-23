@@ -21,6 +21,7 @@ internal sealed class JsonSchemaArtifactSet : IDisposable
         "enum",
         "const",
         "pattern",
+        "minimum",
         "oneOf",
     };
 
@@ -206,6 +207,13 @@ internal sealed class JsonSchemaArtifactSet : IDisposable
             && !MatchesPattern(element, patternElement))
         {
             errors.Add($"path '{path}' did not match schema pattern.");
+            return;
+        }
+
+        if (schema.TryGetProperty("minimum", out var minimumElement)
+            && !MatchesMinimum(element, minimumElement))
+        {
+            errors.Add($"path '{path}' was less than schema minimum.");
             return;
         }
 
@@ -580,6 +588,12 @@ internal sealed class JsonSchemaArtifactSet : IDisposable
             ValidatePatternDefinition(patternElement, schemaPath, path, errors);
         }
 
+        if (schema.TryGetProperty("minimum", out var minimumElement)
+            && (minimumElement.ValueKind != JsonValueKind.Number || !minimumElement.TryGetDecimal(out _)))
+        {
+            errors.Add($"schema '{schemaPath}' for path '{path}' has a non-number minimum.");
+        }
+
         if (schema.TryGetProperty("oneOf", out var oneOfElement))
         {
             if (oneOfElement.ValueKind != JsonValueKind.Array)
@@ -699,6 +713,23 @@ internal sealed class JsonSchemaArtifactSet : IDisposable
         {
             return false;
         }
+    }
+
+    private static bool MatchesMinimum (
+        JsonElement element,
+        JsonElement minimumElement)
+    {
+        if (element.ValueKind != JsonValueKind.Number)
+        {
+            return true;
+        }
+
+        if (!element.TryGetDecimal(out var value) || !minimumElement.TryGetDecimal(out var minimum))
+        {
+            return false;
+        }
+
+        return value >= minimum;
     }
 
     private static void ValidatePatternDefinition (

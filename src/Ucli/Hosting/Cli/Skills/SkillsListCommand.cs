@@ -28,18 +28,33 @@ internal sealed class SkillsListCommand
     }
 
     /// <summary> Executes the skills list command and emits the JSON result contract. </summary>
+    /// <param name="tier"> Optional SKILL tier literals. Omit to list all defined tiers. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.ListSubcommand)]
-    public async Task<int> ListAsync (CancellationToken cancellationToken = default)
+    public async Task<int> ListAsync (
+        string[]? tier = null,
+        CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         CommandExecutionState.MarkStarted();
 
-        var packagesResult = await packageProvider.GetPackagesAsync(cancellationToken).ConfigureAwait(false);
-        var commandResult = packagesResult.IsSuccess
-            ? SkillsCommandResultFactory.CreateList(packagesResult.Value!, hostAdapters)
-            : SkillsCommandResultFactory.CreateSkillFailure(UcliCommandNames.SkillsList, packagesResult.Failure!);
+        var normalizedTiers = SkillsCommandOptionNormalizer.NormalizeOptionalTiers(
+            UcliCommandNames.SkillsList,
+            tier,
+            out var errorResult);
+        if (errorResult is not null)
+        {
+            commandResultWriter.WriteToStandardOutput(errorResult);
+            return errorResult.ExitCode;
+        }
+
+        var catalogResult = await packageProvider.GetPackageCatalogAsync(UcliSkillTierLiterals.Defined, normalizedTiers!, cancellationToken).ConfigureAwait(false);
+        var commandResult = catalogResult.IsSuccess
+            ? SkillsCommandResultFactory.CreateList(
+                catalogResult.Value!,
+                hostAdapters)
+            : SkillsCommandResultFactory.CreateSkillFailure(UcliCommandNames.SkillsList, catalogResult.Failure!);
         commandResultWriter.WriteToStandardOutput(commandResult);
         return commandResult.ExitCode;
     }
