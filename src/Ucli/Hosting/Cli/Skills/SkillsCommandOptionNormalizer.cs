@@ -1,6 +1,8 @@
 using MackySoft.AgentSkills.Distribution;
 using MackySoft.AgentSkills.Hosts.Registration;
 using MackySoft.AgentSkills.Installation.Targeting;
+using MackySoft.AgentSkills.Selection;
+using MackySoft.AgentSkills.Tiers;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
@@ -15,62 +17,62 @@ internal static class SkillsCommandOptionNormalizer
     private const string DirectoryExportFormatLiteral = "directory";
     private const string ZipExportFormatLiteral = "zip";
 
-    /// <summary> Normalizes the required tier option. </summary>
-    /// <param name="command"> The command name used for error results. </param>
-    /// <param name="tiers"> The raw tier options. </param>
-    /// <param name="errorResult"> The emitted error result when normalization fails. </param>
-    /// <returns> The normalized tier selection, or <see langword="null" /> when normalization fails. </returns>
-    public static IReadOnlyList<MackySoft.AgentSkills.Tiers.SkillTier>? NormalizeTiers (
-        string command,
-        string[]? tiers,
-        out CommandResult? errorResult)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(command);
-
-        errorResult = null;
-        if (tiers == null || tiers.Length == 0)
-        {
-            errorResult = CommandResult.InvalidArgument(command, "Option '--tier' is required.");
-            return null;
-        }
-
-        var result = MackySoft.AgentSkills.Tiers.SkillTierLiteralParser.ParseSelectedTiers(UcliSkillTierLiterals.Defined, tiers);
-        if (!result.IsSuccess)
-        {
-            errorResult = CommandResult.InvalidArgument(
-                command,
-                result.Failure!.Message);
-            return null;
-        }
-
-        return result.Value!;
-    }
-
-    /// <summary> Normalizes the optional tier option used by list discovery. </summary>
+    /// <summary> Normalizes an optional package selection used by list discovery. </summary>
     /// <param name="command"> The command name used for error results. </param>
     /// <param name="tiers"> The raw tier options. When omitted, all defined product-owned tiers are selected. </param>
+    /// <param name="skillNames"> The raw exact SKILL name options. When omitted, no name filter is applied. </param>
     /// <param name="errorResult"> The emitted error result when normalization fails. </param>
-    /// <returns> The normalized tier selection, or <see langword="null" /> when normalization fails. </returns>
-    public static IReadOnlyList<MackySoft.AgentSkills.Tiers.SkillTier>? NormalizeOptionalTiers (
+    /// <returns> The normalized package selection, or <see langword="null" /> when normalization fails. </returns>
+    public static SkillPackageSelection? NormalizeOptionalPackageSelection (
         string command,
         string[]? tiers,
+        string[]? skillNames,
         out CommandResult? errorResult)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(command);
 
-        errorResult = null;
-        var result = tiers == null || tiers.Length == 0
-            ? MackySoft.AgentSkills.Tiers.SkillTierLiteralParser.ParseDefinedTiers(UcliSkillTierLiterals.Defined)
-            : MackySoft.AgentSkills.Tiers.SkillTierLiteralParser.ParseSelectedTiers(UcliSkillTierLiterals.Defined, tiers);
-        if (!result.IsSuccess)
+        var normalizedTiers = NormalizeTierSelection(command, tiers, out errorResult);
+        if (errorResult is not null)
         {
-            errorResult = CommandResult.InvalidArgument(
-                command,
-                result.Failure!.Message);
             return null;
         }
 
-        return result.Value!;
+        var normalizedSkillNames = NormalizeSkillNameSelection(command, skillNames, out errorResult);
+        return errorResult is null
+            ? new SkillPackageSelection(normalizedTiers!, normalizedSkillNames!)
+            : null;
+    }
+
+    /// <summary> Normalizes a required package selection used by commands that act on packages. </summary>
+    /// <param name="command"> The command name used for error results. </param>
+    /// <param name="tiers"> The raw tier options. When omitted with SKILL names, all defined product-owned tiers are selected. </param>
+    /// <param name="skillNames"> The raw exact SKILL name options. </param>
+    /// <param name="errorResult"> The emitted error result when normalization fails. </param>
+    /// <returns> The normalized package selection, or <see langword="null" /> when normalization fails. </returns>
+    public static SkillPackageSelection? NormalizeRequiredPackageSelection (
+        string command,
+        string[]? tiers,
+        string[]? skillNames,
+        out CommandResult? errorResult)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(command);
+
+        if (!HasOptionValues(tiers) && !HasOptionValues(skillNames))
+        {
+            errorResult = CommandResult.InvalidArgument(command, "Option '--tier' or '--skill' is required.");
+            return null;
+        }
+
+        var normalizedTiers = NormalizeTierSelection(command, tiers, out errorResult);
+        if (errorResult is not null)
+        {
+            return null;
+        }
+
+        var normalizedSkillNames = NormalizeSkillNameSelection(command, skillNames, out errorResult);
+        return errorResult is null
+            ? new SkillPackageSelection(normalizedTiers!, normalizedSkillNames!)
+            : null;
     }
 
     /// <summary> Normalizes a required host option to its canonical host key. </summary>
@@ -248,5 +250,49 @@ internal static class SkillsCommandOptionNormalizer
                 $"Current working directory path is invalid: {Environment.CurrentDirectory}. {ex.Message}");
             return null;
         }
+    }
+
+    private static IReadOnlyList<SkillTier>? NormalizeTierSelection (
+        string command,
+        string[]? tiers,
+        out CommandResult? errorResult)
+    {
+        errorResult = null;
+        var result = HasOptionValues(tiers)
+            ? SkillTierLiteralParser.ParseSelectedTiers(UcliSkillTierLiterals.Defined, tiers!)
+            : SkillTierLiteralParser.ParseDefinedTiers(UcliSkillTierLiterals.Defined);
+        if (!result.IsSuccess)
+        {
+            errorResult = CommandResult.InvalidArgument(command, result.Failure!.Message);
+            return null;
+        }
+
+        return result.Value!;
+    }
+
+    private static IReadOnlyList<string>? NormalizeSkillNameSelection (
+        string command,
+        string[]? skillNames,
+        out CommandResult? errorResult)
+    {
+        errorResult = null;
+        if (!HasOptionValues(skillNames))
+        {
+            return Array.Empty<string>();
+        }
+
+        var result = SkillNameLiteralParser.ParseSelectedSkillNames(skillNames!);
+        if (!result.IsSuccess)
+        {
+            errorResult = CommandResult.InvalidArgument(command, result.Failure!.Message);
+            return null;
+        }
+
+        return result.Value!;
+    }
+
+    private static bool HasOptionValues (string[]? values)
+    {
+        return values is { Length: > 0 };
     }
 }

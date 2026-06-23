@@ -154,7 +154,7 @@ public sealed class PackageMetadataTests
             .GetProperty("tools")
             .GetProperty("mackysoft.agentskills.cli");
 
-        Assert.Equal("0.5.0", tool.GetProperty("version").GetString());
+        Assert.Equal("0.6.0", tool.GetProperty("version").GetString());
         Assert.Contains(
             "agent-skills",
             tool.GetProperty("commands").EnumerateArray().Select(static command => command.GetString()));

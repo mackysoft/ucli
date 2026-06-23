@@ -29,19 +29,22 @@ internal sealed class SkillsListCommand
 
     /// <summary> Executes the skills list command and emits the JSON result contract. </summary>
     /// <param name="tier"> Optional SKILL tier literals. Omit to list all defined tiers. </param>
+    /// <param name="skill"> Optional exact SKILL name literals. Omit to list all selected tiers. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.ListSubcommand)]
     public async Task<int> ListAsync (
         string[]? tier = null,
+        string[]? skill = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         CommandExecutionState.MarkStarted();
 
-        var normalizedTiers = SkillsCommandOptionNormalizer.NormalizeOptionalTiers(
+        var selection = SkillsCommandOptionNormalizer.NormalizeOptionalPackageSelection(
             UcliCommandNames.SkillsList,
             tier,
+            skill,
             out var errorResult);
         if (errorResult is not null)
         {
@@ -49,7 +52,7 @@ internal sealed class SkillsListCommand
             return errorResult.ExitCode;
         }
 
-        var catalogResult = await packageProvider.GetPackageCatalogAsync(UcliSkillTierLiterals.Defined, normalizedTiers!, cancellationToken).ConfigureAwait(false);
+        var catalogResult = await packageProvider.GetPackageCatalogAsync(UcliSkillTierLiterals.Defined, selection!.Tiers, selection.SkillNames, cancellationToken).ConfigureAwait(false);
         var commandResult = catalogResult.IsSuccess
             ? SkillsCommandResultFactory.CreateList(
                 catalogResult.Value!,

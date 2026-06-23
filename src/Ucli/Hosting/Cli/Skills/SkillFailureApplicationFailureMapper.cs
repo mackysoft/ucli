@@ -19,6 +19,8 @@ internal static class SkillFailureApplicationFailureMapper
 
     private static bool IsInvalidArgumentFailureCode (SkillFailureCode code)
     {
-        return code == SkillFailureCodes.HostUnsupported || code == SkillFailureCodes.PathUnsafe;
+        return code == SkillFailureCodes.HostUnsupported
+            || code == SkillFailureCodes.InputInvalid
+            || code == SkillFailureCodes.PathUnsafe;
     }
 }

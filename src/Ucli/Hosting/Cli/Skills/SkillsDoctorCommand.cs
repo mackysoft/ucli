@@ -42,7 +42,8 @@ internal sealed class SkillsDoctorCommand
     /// <param name="scope"> Required install scope (project|user). </param>
     /// <param name="repoRoot"> --repoRoot, Optional repository root override for project scope. </param>
     /// <param name="targetDir"> --targetDir, Optional target root path under the repository root. </param>
-    /// <param name="tier"> Required SKILL tier literals. </param>
+    /// <param name="tier"> Optional SKILL tier literals. Required when <paramref name="skill" /> is omitted. </param>
+    /// <param name="skill"> Optional exact SKILL name literals. Required when <paramref name="tier" /> is omitted. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.DoctorSubcommand)]
@@ -52,6 +53,7 @@ internal sealed class SkillsDoctorCommand
         string? repoRoot = null,
         string? targetDir = null,
         string[]? tier = null,
+        string[]? skill = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -89,9 +91,10 @@ internal sealed class SkillsDoctorCommand
             return errorResult.ExitCode;
         }
 
-        var normalizedTiers = SkillsCommandOptionNormalizer.NormalizeTiers(
+        var selection = SkillsCommandOptionNormalizer.NormalizeRequiredPackageSelection(
             UcliCommandNames.SkillsDoctor,
             tier,
+            skill,
             out errorResult);
         if (errorResult is not null)
         {
@@ -107,7 +110,7 @@ internal sealed class SkillsDoctorCommand
             return targetErrorResult.ExitCode;
         }
 
-        var packagesResult = await packageProvider.GetPackagesAsync(UcliSkillTierLiterals.Defined, normalizedTiers!, cancellationToken).ConfigureAwait(false);
+        var packagesResult = await packageProvider.GetPackagesAsync(UcliSkillTierLiterals.Defined, selection!.Tiers, selection.SkillNames, cancellationToken).ConfigureAwait(false);
         if (!packagesResult.IsSuccess)
         {
             var packageErrorResult = SkillsCommandResultFactory.CreateSkillFailure(UcliCommandNames.SkillsDoctor, packagesResult.Failure!);
@@ -119,7 +122,13 @@ internal sealed class SkillsDoctorCommand
         if (packagesResult.Value!.Count == 0)
         {
             var emptyDoctorResult = new SkillDoctorResult(normalizedHost!, targetResult.Value!.TargetRoot, Array.Empty<SkillDoctorDiagnostic>());
-            var emptyCommandResult = SkillsCommandResultFactory.CreateDoctor(emptyDoctorResult, normalizedScope.Value, repositoryRoot, reloadGuidance, normalizedTiers!.Select(static tier => tier.Value).ToArray());
+            var emptyCommandResult = SkillsCommandResultFactory.CreateDoctor(
+                emptyDoctorResult,
+                normalizedScope.Value,
+                repositoryRoot,
+                reloadGuidance,
+                selection.Tiers.Select(static tier => tier.Value).ToArray(),
+                selection.SkillNames);
             commandResultWriter.WriteToStandardOutput(emptyCommandResult);
             return emptyCommandResult.ExitCode;
         }
@@ -130,7 +139,13 @@ internal sealed class SkillsDoctorCommand
                 targetResult.Value!.TargetRoot,
                 cancellationToken)
             .ConfigureAwait(false);
-        var commandResult = SkillsCommandResultFactory.CreateDoctor(doctorResult, normalizedScope.Value, repositoryRoot, reloadGuidance, normalizedTiers!.Select(static tier => tier.Value).ToArray());
+        var commandResult = SkillsCommandResultFactory.CreateDoctor(
+            doctorResult,
+            normalizedScope.Value,
+            repositoryRoot,
+            reloadGuidance,
+            selection.Tiers.Select(static tier => tier.Value).ToArray(),
+            selection.SkillNames);
         commandResultWriter.WriteToStandardOutput(commandResult);
         return commandResult.ExitCode;
     }

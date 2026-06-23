@@ -1285,6 +1285,7 @@ internal static class Program
         return ObjectSchema(
             additionalProperties: false,
             Required("tiers", ArraySchema(SkillTierLiteralSchema())),
+            Required("skillNames", ArraySchema(StringSchema())),
             Required("availableTiers", ArraySchema(CreateSkillsListTierSchema())),
             Required("skills", ArraySchema(CreateSkillsListSkillSchema())),
             Required("supportedHosts", ArraySchema(CreateSkillsListSupportedHostSchema())));
