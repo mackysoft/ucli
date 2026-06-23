@@ -26,6 +26,8 @@ public sealed class SkillsCliOutputContractTests
         "ucli-verify-changes",
     ];
 
+    private static readonly string RepositoryRoot = FindRepositoryRoot();
+
     [Fact]
     [Trait("Size", "Medium")]
     public async Task Skills_WithoutSubcommand_ReturnsJsonEnvelopeError ()
@@ -101,8 +103,18 @@ public sealed class SkillsCliOutputContractTests
         var payload = outputJson.RootElement.GetProperty("payload");
         JsonAssert.For(payload)
             .HasArrayLength("tiers", 1)
+            .HasArrayLength("availableTiers", 3)
             .HasArrayLength("skills", ExpectedSkillNames.Length)
             .HasArrayLength("supportedHosts", 3)
+            .HasProperty("availableTiers", 0, static tier => tier
+                .HasString("tier", "basic")
+                .HasInt32("skillCount", ExpectedSkillNames.Length))
+            .HasProperty("availableTiers", 1, static tier => tier
+                .HasString("tier", "advanced")
+                .HasInt32("skillCount", 0))
+            .HasProperty("availableTiers", 2, static tier => tier
+                .HasString("tier", "developer")
+                .HasInt32("skillCount", 0))
             .HasProperty("skills", 0, static skill => skill
                 .HasString("skillName", ExpectedSkillNames[0])
                 .HasValueKind("displayName", JsonValueKind.String)
@@ -136,6 +148,7 @@ public sealed class SkillsCliOutputContractTests
             .EnumerateArray()
             .Select(static skill => skill.GetProperty("skillName").GetString())
             .ToArray());
+        AssertPayloadMatchesSchema(outputJson.RootElement);
     }
 
     [Theory]
@@ -156,8 +169,24 @@ public sealed class SkillsCliOutputContractTests
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("payload", payload => payload
                 .HasArrayLength("tiers", 1)
+                .HasArrayLength("availableTiers", 3)
                 .HasArrayLength("skills", 0));
         Assert.Equal(tier, outputJson.RootElement.GetProperty("payload").GetProperty("tiers")[0].GetString());
+        Assert.Equal(["basic", "advanced", "developer"], ReadPayloadStringArray(outputJson.RootElement, "availableTiers", "tier"));
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("""{"tiers":["internal"],"availableTiers":[{"tier":"basic","skillCount":0}],"skills":[],"supportedHosts":[]}""")]
+    [InlineData("""{"tiers":["basic"],"availableTiers":[{"tier":"internal","skillCount":0}],"skills":[],"supportedHosts":[]}""")]
+    [InlineData("""{"tiers":["basic"],"availableTiers":[{"tier":"basic","skillCount":-1}],"skills":[],"supportedHosts":[]}""")]
+    public void SkillsListPayloadSchema_RejectsInvalidTierInventory (string payloadJson)
+    {
+        using var payload = JsonDocument.Parse(payloadJson);
+
+        var errors = ValidateSkillsListPayload(payload.RootElement);
+
+        Assert.NotEmpty(errors);
     }
 
     [Fact]
@@ -180,6 +209,7 @@ public sealed class SkillsCliOutputContractTests
             .EnumerateArray()
             .Select(static tier => tier.GetString() ?? string.Empty)
             .ToArray());
+        Assert.Equal(["basic", "advanced", "developer"], ReadPayloadStringArray(outputJson.RootElement, "availableTiers", "tier"));
         Assert.Equal(ExpectedSkillNames, payload
             .GetProperty("skills")
             .EnumerateArray()
@@ -189,18 +219,30 @@ public sealed class SkillsCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task SkillsList_WithoutTier_ReturnsInvalidArgument ()
+    public async Task SkillsList_WithoutTier_ReturnsAllDefinedTiersAndMatchingSkills ()
     {
         var result = await CliProcessRunner.RunCommandAsync(UcliCommandNames.Skills, UcliCommandNames.ListSubcommand);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
-        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             command: UcliCommandNames.SkillsList,
-            status: "error",
-            exitCode: (int)CliExitCode.InvalidArgument);
-        CommandResultAssert.HasSingleError(outputJson.RootElement, InvalidArgumentCode);
+            status: "ok",
+            exitCode: (int)CliExitCode.Success);
+
+        var payload = outputJson.RootElement.GetProperty("payload");
+        Assert.Equal(["basic", "advanced", "developer"], payload
+            .GetProperty("tiers")
+            .EnumerateArray()
+            .Select(static tier => tier.GetString() ?? string.Empty)
+            .ToArray());
+        Assert.Equal(["basic", "advanced", "developer"], ReadPayloadStringArray(outputJson.RootElement, "availableTiers", "tier"));
+        Assert.Equal(ExpectedSkillNames, payload
+            .GetProperty("skills")
+            .EnumerateArray()
+            .Select(static skill => skill.GetProperty("skillName").GetString())
+            .ToArray());
     }
 
     [Theory]
@@ -221,6 +263,31 @@ public sealed class SkillsCliOutputContractTests
             exitCode: (int)CliExitCode.InvalidArgument);
         CommandResultAssert.HasSingleError(outputJson.RootElement, InvalidArgumentCode);
         Assert.Contains("Unsupported SKILL tier:", outputJson.RootElement.GetProperty("message").GetString(), StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [Trait("Size", "Medium")]
+    [InlineData(UcliCommandNames.ExportSubcommand, UcliCommandNames.SkillsExport)]
+    [InlineData(UcliCommandNames.InstallSubcommand, UcliCommandNames.SkillsInstall)]
+    [InlineData(UcliCommandNames.UpdateSubcommand, UcliCommandNames.SkillsUpdate)]
+    [InlineData(UcliCommandNames.UninstallSubcommand, UcliCommandNames.SkillsUninstall)]
+    [InlineData(UcliCommandNames.DoctorSubcommand, UcliCommandNames.SkillsDoctor)]
+    public async Task SkillsOperationSubcommand_WithoutTier_ReturnsInvalidArgument (
+        string subcommand,
+        string expectedCommand)
+    {
+        using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", $"missing-tier-{subcommand}");
+        var result = await CliProcessRunner.RunCommandAsync(CreateMissingTierScenarioArgs(subcommand, scope.CreateDirectory("repo"), scope.GetPath("exported")));
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: expectedCommand,
+            status: "error",
+            exitCode: (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, InvalidArgumentCode);
+        Assert.Contains("Option '--tier' is required.", outputJson.RootElement.GetProperty("message").GetString(), StringComparison.Ordinal);
     }
 
     [Theory]
@@ -1473,6 +1540,42 @@ public sealed class SkillsCliOutputContractTests
         return text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
     }
 
+    private static void AssertPayloadMatchesSchema (JsonElement root)
+    {
+        var errors = ValidateSkillsListPayload(root.GetProperty("payload"), out var payloadSchemaPath);
+        Assert.True(errors.Count == 0, JsonSchemaValidationMessageBuilder.Build(errors, payloadSchemaPath));
+    }
+
+    private static IReadOnlyList<string> ValidateSkillsListPayload (JsonElement payload)
+    {
+        return ValidateSkillsListPayload(payload, out _);
+    }
+
+    private static IReadOnlyList<string> ValidateSkillsListPayload (
+        JsonElement payload,
+        out string payloadSchemaPath)
+    {
+        using var schemaSet = JsonSchemaArtifactSet.Load(Path.Combine(RepositoryRoot, "schemas", "v1"));
+        payloadSchemaPath = schemaSet.FindPayloadSchemaPath(UcliCommandNames.SkillsList)
+            ?? throw new InvalidOperationException("skills.list payload schema was not found.");
+        Assert.Equal("cli-output/payload/skills.list.schema.json", payloadSchemaPath);
+
+        return schemaSet.Validate(payloadSchemaPath, payload, "$.payload");
+    }
+
+    private static string[] ReadPayloadStringArray (
+        JsonElement root,
+        string arrayName,
+        string propertyName)
+    {
+        return root
+            .GetProperty("payload")
+            .GetProperty(arrayName)
+            .EnumerateArray()
+            .Select(value => value.GetProperty(propertyName).GetString() ?? string.Empty)
+            .ToArray();
+    }
+
     private static string[] CreateRequiredHostScenarioArgs (
         string subcommand,
         string repoRoot,
@@ -1505,6 +1608,22 @@ public sealed class SkillsCliOutputContractTests
         };
     }
 
+    private static string[] CreateMissingTierScenarioArgs (
+        string subcommand,
+        string repoRoot,
+        string outputRoot)
+    {
+        return subcommand switch
+        {
+            UcliCommandNames.ExportSubcommand => [UcliCommandNames.Skills, subcommand, "--host", "openai", "--output", outputRoot],
+            UcliCommandNames.InstallSubcommand => [UcliCommandNames.Skills, subcommand, "--host", "openai", "--scope", "project", "--repoRoot", repoRoot],
+            UcliCommandNames.UpdateSubcommand => [UcliCommandNames.Skills, subcommand, "--host", "openai", "--scope", "project", "--repoRoot", repoRoot],
+            UcliCommandNames.UninstallSubcommand => [UcliCommandNames.Skills, subcommand, "--host", "openai", "--scope", "project", "--repoRoot", repoRoot],
+            UcliCommandNames.DoctorSubcommand => [UcliCommandNames.Skills, subcommand, "--host", "openai", "--scope", "project", "--repoRoot", repoRoot],
+            _ => throw new ArgumentOutOfRangeException(nameof(subcommand), subcommand, "Unsupported skills subcommand."),
+        };
+    }
+
     private static string[] CreateUnsupportedHostScenarioArgs (
         string subcommand,
         string repoRoot,
@@ -1520,5 +1639,21 @@ public sealed class SkillsCliOutputContractTests
             UcliCommandNames.DoctorSubcommand => [UcliCommandNames.Skills, subcommand, "--host", "generic", "--tier", "basic", "--scope", "project", "--repoRoot", repoRoot, "--targetDir", targetDir],
             _ => throw new ArgumentOutOfRangeException(nameof(subcommand), subcommand, "Unsupported skills subcommand."),
         };
+    }
+
+    private static string FindRepositoryRoot ()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory != null)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "Ucli.slnx")))
+            {
+                return directory.FullName;
+            }
+
+            directory = directory.Parent;
+        }
+
+        throw new InvalidOperationException("Repository root could not be resolved from test base directory.");
     }
 }

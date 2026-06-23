@@ -18,25 +18,30 @@ internal static class SkillsCommandResultFactory
     private const string UserScopeLiteral = "user";
 
     /// <summary> Creates a successful command result for <c>skills list</c>. </summary>
-    /// <param name="packages"> The official SKILL packages. </param>
+    /// <param name="catalog"> The official SKILL package catalog. </param>
     /// <param name="hostAdapters"> The supported host adapter set. </param>
     /// <returns> The command result serialized to stdout. </returns>
     public static CommandResult CreateList (
-        IReadOnlyList<CanonicalSkillPackage> packages,
-        SkillHostAdapterSet hostAdapters,
-        IReadOnlyList<string> tiers)
+        SkillPackageCatalog catalog,
+        SkillHostAdapterSet hostAdapters)
     {
-        ArgumentNullException.ThrowIfNull(packages);
+        ArgumentNullException.ThrowIfNull(catalog);
         ArgumentNullException.ThrowIfNull(hostAdapters);
-        ArgumentNullException.ThrowIfNull(tiers);
 
         return CommandResult.Success(
             command: UcliCommandNames.SkillsList,
             message: "uCLI official SKILL package list retrieval completed.",
             payload: new
             {
-                tiers,
-                skills = packages
+                tiers = catalog.SelectedTiers.Select(static tier => tier.Value).ToArray(),
+                availableTiers = catalog.AvailableTiers
+                    .Select(static tier => new
+                    {
+                        tier = tier.Tier.Value,
+                        skillCount = tier.PackageCount,
+                    })
+                    .ToArray(),
+                skills = catalog.Packages
                     .OrderBy(static package => package.Manifest.SkillName, StringComparer.Ordinal)
                     .Select(static package => new
                     {

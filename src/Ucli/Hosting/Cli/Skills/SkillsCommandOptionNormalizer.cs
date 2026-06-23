@@ -46,6 +46,33 @@ internal static class SkillsCommandOptionNormalizer
         return result.Value!;
     }
 
+    /// <summary> Normalizes the optional tier option used by list discovery. </summary>
+    /// <param name="command"> The command name used for error results. </param>
+    /// <param name="tiers"> The raw tier options. When omitted, all defined product-owned tiers are selected. </param>
+    /// <param name="errorResult"> The emitted error result when normalization fails. </param>
+    /// <returns> The normalized tier selection, or <see langword="null" /> when normalization fails. </returns>
+    public static IReadOnlyList<MackySoft.AgentSkills.Tiers.SkillTier>? NormalizeOptionalTiers (
+        string command,
+        string[]? tiers,
+        out CommandResult? errorResult)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(command);
+
+        errorResult = null;
+        var result = tiers == null || tiers.Length == 0
+            ? MackySoft.AgentSkills.Tiers.SkillTierLiteralParser.ParseDefinedTiers(UcliSkillTierLiterals.Defined)
+            : MackySoft.AgentSkills.Tiers.SkillTierLiteralParser.ParseSelectedTiers(UcliSkillTierLiterals.Defined, tiers);
+        if (!result.IsSuccess)
+        {
+            errorResult = CommandResult.InvalidArgument(
+                command,
+                result.Failure!.Message);
+            return null;
+        }
+
+        return result.Value!;
+    }
+
     /// <summary> Normalizes a required host option to its canonical host key. </summary>
     /// <param name="command"> The command name used for error results. </param>
     /// <param name="host"> The raw host option. </param>

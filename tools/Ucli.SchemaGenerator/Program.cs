@@ -114,6 +114,7 @@ internal static class Program
             CreatePayloadSchema(UcliCommandIds.OpsDescribe.Name, CreateOpsDescribePayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.CodesList.Name, CreateCodesListPayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.CodesDescribe.Name, CreateCodesDescribePayloadSchema()),
+            CreatePayloadSchema(UcliCommandIds.SkillsList.Name, CreateSkillsListPayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.PlayStatus.Name, CreatePlayStatusPayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.PlayEnter.Name, CreatePlayEnterPayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.PlayExit.Name, CreatePlayExitPayloadSchema()),
@@ -1279,6 +1280,61 @@ internal static class Program
             Required("description", StringSchema()));
     }
 
+    private static Dictionary<string, object?> CreateSkillsListPayloadSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("tiers", ArraySchema(SkillTierLiteralSchema())),
+            Required("availableTiers", ArraySchema(CreateSkillsListTierSchema())),
+            Required("skills", ArraySchema(CreateSkillsListSkillSchema())),
+            Required("supportedHosts", ArraySchema(CreateSkillsListSupportedHostSchema())));
+    }
+
+    private static Dictionary<string, object?> CreateSkillsListTierSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("tier", SkillTierLiteralSchema()),
+            Required("skillCount", NonNegativeIntegerSchema()));
+    }
+
+    private static Dictionary<string, object?> CreateSkillsListSkillSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("skillName", StringSchema()),
+            Required("displayName", StringSchema()),
+            Required("description", StringSchema()),
+            Required("tier", SkillTierLiteralSchema()),
+            Required("contentDigest", Sha256LowerHexSchema()),
+            Required("hostArtifacts", ArraySchema(CreateSkillsListHostArtifactSchema())));
+    }
+
+    private static Dictionary<string, object?> CreateSkillsListHostArtifactSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("host", StringSchema()),
+            Required("path", NullableStringSchema()),
+            Required("digest", NullableSha256LowerHexSchema()),
+            Required("materializedFrontmatterDigest", Sha256LowerHexSchema()));
+    }
+
+    private static Dictionary<string, object?> CreateSkillsListSupportedHostSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("host", StringSchema()),
+            Required("projectTargetDirectory", StringSchema()),
+            Required("userTargetDirectory", StringSchema()),
+            Required("reloadGuidance", StringSchema()));
+    }
+
+    private static Dictionary<string, object?> SkillTierLiteralSchema ()
+    {
+        return EnumSchema("basic", "advanced", "developer");
+    }
+
     private static Dictionary<string, object?> CreateCodesListPayloadSchema ()
     {
         return ObjectSchema(
@@ -1843,6 +1899,11 @@ internal static class Program
         return PatternStringSchema("^[0-9a-f]{64}$");
     }
 
+    private static Dictionary<string, object?> NullableSha256LowerHexSchema ()
+    {
+        return OneOfSchema(Sha256LowerHexSchema(), NullSchema());
+    }
+
     private static Dictionary<string, object?> InputArgsPathSchema ()
     {
         var aliasPropertyName = Regex.Escape(UcliOperationContractPropertyNames.Alias);
@@ -1877,6 +1938,15 @@ internal static class Program
         return new Dictionary<string, object?>(StringComparer.Ordinal)
         {
             ["type"] = "integer",
+        };
+    }
+
+    private static Dictionary<string, object?> NonNegativeIntegerSchema ()
+    {
+        return new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["type"] = "integer",
+            ["minimum"] = 0,
         };
     }
 
