@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "skillName": "test-writer",
+  "displayName": "Test Writer",
+  "description": "契約と不変条件を根拠に、新規または更新の自動テストを1件ずつ設計・作成する。TDDで進め、同型テストを統合し、全テストへサイズ属性を必須付与する。実行・フォーマット・検証ゲートの実施が主目的のときは使わない。",
+  "tier": "development",
+  "catalogId": "com.mackysoft.skills-pack",
+  "contentDigest": "5694acb592ba54d4ff5df882da2addbb92c6e02c6e517acd4f855944e0a5b590",
+  "manifestDigest": "44d1b3a8cc08e402c276a64475af937d61598b6c268e8f0e3b497874f018e659",
+  "hostArtifacts": [
+    {
+      "host": "claude",
+      "materializedFrontmatterDigest": "52db527adb1b76c701afe79815af5c26d81dc91f4555e68d032c171aebe1f8fc"
+    },
+    {
+      "host": "copilot",
+      "materializedFrontmatterDigest": "9519fa790f1945668897815d86224f9aae26e26ba2669e88a51a80031b3da512"
+    },
+    {
+      "host": "openai",
+      "path": "agents/openai.yaml",
+      "digest": "dd5da5d4e3e671243fba80b13c06728d5b32afd474cb21151f6f3ac11ba7a6d2",
+      "materializedFrontmatterDigest": "b3942572404a77dcccd908754ac36de268b1d11ac2607479e53edd860b5ce997"
+    }
+  ]
+}

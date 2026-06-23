@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "skillName": "push",
+  "displayName": "Push",
+  "description": "push 指示を受けたときに、未コミット差分があれば `$commit` で責務単位コミットを作成し、現在ブランチを upstream 優先で安全に push する。upstream が無い場合は `origin/<current_branch>` を `-u` で設定して push する。",
+  "tier": "development",
+  "catalogId": "com.mackysoft.skills-pack",
+  "contentDigest": "18a66a02e0bb218fa73ff85c68dc5540d32b77a99868d378bfbdf1920c98f014",
+  "manifestDigest": "f86ee7f93b43ff261a31b17835a45252908c20f4f9052924b99257e7de8d28c3",
+  "hostArtifacts": [
+    {
+      "host": "claude",
+      "materializedFrontmatterDigest": "c0df1cc825fd761bcdeea0fa6ca31feb909c28a199b2229987c5c0671dd70895"
+    },
+    {
+      "host": "copilot",
+      "materializedFrontmatterDigest": "4df081733b10da64e5d44ff2554539fb6f8d13cc004fce9ae460fce0aa144451"
+    },
+    {
+      "host": "openai",
+      "path": "agents/openai.yaml",
+      "digest": "15006d0b58894817c1821b3dcf3b0ab9275f19123624536d13fd37266b06ed1d",
+      "materializedFrontmatterDigest": "8b5eefd73f523334469b9f80ebdde40a92c295ef93bb84c604b7cdd729a97302"
+    }
+  ]
+}

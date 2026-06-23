@@ -1,6 +1,7 @@
 interface:
   display_name: "Commit"
-  short_description: "責務単位で分割し、意図を追跡できるコミットを作成する"
-  default_prompt: "Use $commit to split changes by responsibility and create conventional commits with traceable bodies."
+  short_description: "変更を責務単位で分割し、Conventional Commits形式の包括的なメッセージでコミットを作成する。"
+  default_prompt: "Use $commit to follow the Commit workflow."
+
 policy:
   allow_implicit_invocation: true

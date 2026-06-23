@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "skillName": "verification-gate",
+  "displayName": "Verification Gate",
+  "description": "コード変更が一通り終わった挙動確認時、またはPR作成前に、受け入れ判定に必要な検証のみを実行する。実装や設計検討が目的のときは使わない。",
+  "tier": "development",
+  "catalogId": "com.mackysoft.skills-pack",
+  "contentDigest": "298f02a5aa740f4632fee98cbff46308096a8d002315e4b542563834fc87a939",
+  "manifestDigest": "00a366d0d1b4b45b57d2707a9727f41fbde5848c44dfc0f43afdded6b36a4c19",
+  "hostArtifacts": [
+    {
+      "host": "claude",
+      "materializedFrontmatterDigest": "a03caedce8f5961703b4b42b0d696ca4d00de4fec25c84efb8351607eb80de6e"
+    },
+    {
+      "host": "copilot",
+      "materializedFrontmatterDigest": "6b5756294e2ddd00c84efa5cb6587c9801cbb02e6b0580fa57ad743d2d6cbb9e"
+    },
+    {
+      "host": "openai",
+      "path": "agents/openai.yaml",
+      "digest": "47249731bfc767956f8cc6da2af8734a8a39a8d887af2fcb8ba3c2eca8077e0c",
+      "materializedFrontmatterDigest": "d8e890a803f040b4cad45125e049f80a148e77a63de373fc97c5034d7509ab59"
+    }
+  ]
+}

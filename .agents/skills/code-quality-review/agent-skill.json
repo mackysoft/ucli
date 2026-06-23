@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "skillName": "code-quality-review",
+  "displayName": "Code Quality Review",
+  "description": "コードベース全体または変更差分に対して、既存ユーティリティの再実装、本質的な重複、低凝集、冗長な状態管理、不要抽象化を findings-first でレビューする。品質上の懸念を整理し、改善方向まで含めた指摘を返したいときに使う。",
+  "tier": "development",
+  "catalogId": "com.mackysoft.skills-pack",
+  "contentDigest": "1e689dd1e69a2bed4c4483df2ad2627ac75b5878828f6c87b11a1576cf625653",
+  "manifestDigest": "b77cf47956f085a44e3068b3ab6990d919a0df2cea7867d68b2e7fe085be78f8",
+  "hostArtifacts": [
+    {
+      "host": "claude",
+      "materializedFrontmatterDigest": "ac0c456703361622c386df6788a2bb66909a9bfab95717a7cbae9ab73c9c09a7"
+    },
+    {
+      "host": "copilot",
+      "materializedFrontmatterDigest": "1641c5732ff4c0a7e8941d9d9a2c91dc9efc9fbdde63404008dd5e36f2aa69ea"
+    },
+    {
+      "host": "openai",
+      "path": "agents/openai.yaml",
+      "digest": "f3df3f59ced49420f3217497c5244ced8124f75da2340a270f1ee0457cc0d3bd",
+      "materializedFrontmatterDigest": "c5cbc10816012ede90bbae38b0bcea6d44cf153fe1ab483ad60f92664627794a"
+    }
+  ]
+}

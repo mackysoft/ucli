@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "skillName": "branch-create",
+  "displayName": "Branch Create",
+  "description": "作業ブランチを規約準拠名で作成または再利用する。Issue Number or URL がある場合は `<type>/issue-<N>-<branch_name>`、Issue が無い場合は `<type>/<branch_name>` 形式で、現在作業を載せるブランチを確定する。",
+  "tier": "development",
+  "catalogId": "com.mackysoft.skills-pack",
+  "contentDigest": "1325373563cec8c23bb161f26f8c561fd16bf31aded26f293a6807097241753d",
+  "manifestDigest": "fea3676ac40aa610ab458b4ede20a8fb3f3e20a4b8abca22e564f1e1244fea1e",
+  "hostArtifacts": [
+    {
+      "host": "claude",
+      "materializedFrontmatterDigest": "dd02fd9f7ec8d2e0482aa846dd41733c977257f4921967181117c7156742759e"
+    },
+    {
+      "host": "copilot",
+      "materializedFrontmatterDigest": "85bb9c96ad3b3f78741a2a6d048aa8543b91643713d337e57fe4e12414ce55bd"
+    },
+    {
+      "host": "openai",
+      "path": "agents/openai.yaml",
+      "digest": "9fed307d0481bf3d99b23afe5931d521398c35c8dd8871f97753bcceb2b025f8",
+      "materializedFrontmatterDigest": "0c005dcc7d2a3f866bb6d6e243cfe78e809f654af7eef3269e0d163cdffcc316"
+    }
+  ]
+}
