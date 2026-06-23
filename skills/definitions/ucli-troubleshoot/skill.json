@@ -4,6 +4,7 @@
   "displayName": "uCLI Troubleshoot",
   "description": "Use when diagnosing uCLI daemon, lifecycle, readIndex freshness, timeout, compile or domain reload, logs, IPC, and Unity execution failures.",
   "tier": "basic",
+  "catalogId": "com.mackysoft.ucli",
   "references": [
     "troubleshooting-workflow.md"
   ]

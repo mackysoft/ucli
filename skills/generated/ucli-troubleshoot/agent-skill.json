@@ -4,8 +4,9 @@
   "displayName": "uCLI Troubleshoot",
   "description": "Use when diagnosing uCLI daemon, lifecycle, readIndex freshness, timeout, compile or domain reload, logs, IPC, and Unity execution failures.",
   "tier": "basic",
+  "catalogId": "com.mackysoft.ucli",
   "contentDigest": "59f0d5c66874c986a0f70e8cf01a802ec5eae35e7eb65bad218954b6d9be81b6",
-  "manifestDigest": "c1d44f9c541e5b8d2be103ea94584a9477c7de5845b90df648b3280ac8f74da8",
+  "manifestDigest": "7e5963a543c8e93ba23771ac6aa23c49cde1c4317811044ec3ff1beb093a0a0f",
   "hostArtifacts": [
     {
       "host": "claude",

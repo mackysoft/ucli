@@ -4,6 +4,7 @@
   "displayName": "uCLI Read Project",
   "description": "Use when inspecting a Unity project with uCLI before choosing selectors, operation metadata, schemas, or readIndex freshness. Guides read-first discovery without hard-coding operation contracts.",
   "tier": "basic",
+  "catalogId": "com.mackysoft.ucli",
   "references": [
     "project-reading-workflow.md"
   ]

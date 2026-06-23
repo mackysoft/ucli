@@ -4,8 +4,9 @@
   "displayName": "uCLI Verify Changes",
   "description": "Use when verifying uCLI-driven Unity changes with ucli verify profiles, claim packets, follow-up reads, ucli test, logs, artifacts, and opResults evidence after validation, plan, or call execution.",
   "tier": "basic",
+  "catalogId": "com.mackysoft.ucli",
   "contentDigest": "207c2c6d9ae29d3c66ddc1aa7f3ef73850adb6fbba4339304055ad040d2cff70",
-  "manifestDigest": "fbb64766cf1486740d7f0c6a01f639c59d57156cf0ba3e0c35a917e224ffb783",
+  "manifestDigest": "dc3d1fc9953da1aeb16c7287bd16d7548b629c4ead52d1051651d0769aea30d1",
   "hostArtifacts": [
     {
       "host": "claude",

@@ -63,6 +63,9 @@
               "developer"
             ]
           },
+          "catalogId": {
+            "type": "string"
+          },
           "contentDigest": {
             "type": "string",
             "pattern": "^[0-9a-f]{64}$"
@@ -112,6 +115,7 @@
           "displayName",
           "description",
           "tier",
+          "catalogId",
           "contentDigest",
           "hostArtifacts"
         ]

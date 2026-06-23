@@ -49,6 +49,7 @@ internal static class SkillsCommandResultFactory
                         package.Manifest.DisplayName,
                         package.Manifest.Description,
                         tier = package.Manifest.Tier.Value,
+                        catalogId = package.Manifest.CatalogId.Value,
                         package.Manifest.ContentDigest,
                         package.Manifest.HostArtifacts,
                     })
