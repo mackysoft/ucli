@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "operationPolicy": "safe",
+  "operationPolicy": "dangerous",
   "planTokenMode": "optional",
   "readIndexDefaultMode": "requireFresh",
   "operationAllowlist": [
