@@ -1,6 +1,7 @@
 interface:
   display_name: "Test Writer"
-  short_description: "契約起点で1件ずつテストを設計し、サイズ属性を必須付与する"
-  default_prompt: "Use $test-writer to write tests one by one with mandatory size metadata and without executing tests."
+  short_description: "契約と不変条件を根拠に、新規または更新の自動テストを1件ずつ設計・作成する。TDDで進め、同型テストを統合し、全テストへサイズ属性を必須付与する。実行・フォーマット・検証ゲートの実施が主目的のときは使わない。"
+  default_prompt: "Use $test-writer to follow the Test Writer workflow."
+
 policy:
   allow_implicit_invocation: true

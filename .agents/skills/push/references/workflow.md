@@ -1,8 +1,3 @@
----
-name: "push"
-description: "push 指示を受けたときに、未コミット差分があれば `$commit` で責務単位コミットを作成し、現在ブランチを upstream 優先で安全に push する。upstream が無い場合は `origin/<current_branch>` を `-u` で設定して push する。"
----
-
 # 目的
 - push 手順を固定し、コミット漏れ・push 先誤り・危険な push の再発を防ぐ。
 - プッシュ依頼に対して、同じ安全基準で実行できる状態を作る。

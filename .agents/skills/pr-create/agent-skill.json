@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "skillName": "pr-create",
+  "displayName": "PR Create",
+  "description": "PR作成依頼を受けたときに、検証・`$push`・PR作成までを一気通貫で実行する。Issueがある場合はIssueを優先して本文とbaseを決定し、Issueが特定できない場合は確認なしでIssueなし運用として継続する。既存Open PRがある場合は更新か新規作成を確認する。",
+  "tier": "development",
+  "catalogId": "com.mackysoft.skills-pack",
+  "contentDigest": "e8db5957ba60a268a3647d58cbf93716839810594b69ec04a79ba7235d550745",
+  "manifestDigest": "d50b86ae66863cbf7a2c4ba0d7f70b5422427545d34c0a8a9bbd615839e99450",
+  "hostArtifacts": [
+    {
+      "host": "claude",
+      "materializedFrontmatterDigest": "d15a931da6b24826a390f5219cde018909c386e1b956fdb1c23314d7a67c0e82"
+    },
+    {
+      "host": "copilot",
+      "materializedFrontmatterDigest": "c345980f6c03f80152bd1c8046c50aed4817a1f60a527d243812768670516757"
+    },
+    {
+      "host": "openai",
+      "path": "agents/openai.yaml",
+      "digest": "9d789152104fb8ab492dace6a4cd295dc5676ea90c75da06ee8e94a0f58bef47",
+      "materializedFrontmatterDigest": "e631fcdbf55fa7112d419264f98e76a72ce916bfc56d483904d54505f44b92dc"
+    }
+  ]
+}

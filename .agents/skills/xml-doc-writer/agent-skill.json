@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "skillName": "xml-doc-writer",
+  "displayName": "XML Doc Writer",
+  "description": "XMLドキュメントコメントを契約ベースで執筆・更新する。公開APIまたは重要な非公開APIの入力制約、戻り値保証、例外条件、非同期完了条件を明文化したいときに使う。曖昧語や命名の言い換えを避け、実装と整合する記述を作成する。",
+  "tier": "development",
+  "catalogId": "com.mackysoft.skills-pack",
+  "contentDigest": "1429579f5bb8853b39ba6dc258fcd76d952127ce7683425cec7c0f540602fb0a",
+  "manifestDigest": "42feaf083e6a5e176d3c9c42f6645a6d8f8dc640258f80cb9dbc0089429f8829",
+  "hostArtifacts": [
+    {
+      "host": "claude",
+      "materializedFrontmatterDigest": "62b56c67d5e3aefc430eda3c12f529114c33198e969396b8751f2bb763eb1213"
+    },
+    {
+      "host": "copilot",
+      "materializedFrontmatterDigest": "30143e1eec7a3f85e7da104690a8142900b8242e1a4be6f25bdae6b313b0eab9"
+    },
+    {
+      "host": "openai",
+      "path": "agents/openai.yaml",
+      "digest": "1d8a5ee0eb60e14e10dd3105c487a3c61d685403cbe1eabcea89da611c31bb2d",
+      "materializedFrontmatterDigest": "4b3dd0dbd838409a461922a24d52d96c20128a92a4c89ffd7921884414c4449d"
+    }
+  ]
+}

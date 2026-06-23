@@ -15,7 +15,7 @@
 
 ## Flaky 対策
 - flaky 疑いを検出したら、通常系に混在させない。
-- `assets/flaky-quarantine-note.md` を使って隔離方針を記録する。
+- `references/flaky-quarantine-note.md` を使って隔離方針を記録する。
 - 原因が除去できるまで、保証根拠として扱わない。
 
 ## スナップショット/ゴールデン

@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "skillName": "changelog",
+  "displayName": "Changelog",
+  "description": "CHANGELOG.md、リリースノート、PR Changelog、コメント用差分ログ、changeset風の人間向け変更要約を、commits、Issues、PRs、diff、既存履歴から作成、編集するときに使う。Keep a Changelogを基準に、既存形式と対象読者に合わせ、開発ログではなく読者が利用、移行、運用判断に使える変更説明へ再構成する。",
+  "tier": "development",
+  "catalogId": "com.mackysoft.skills-pack",
+  "contentDigest": "59528e19b1300fa3216589e7e3c1c503cf24cb7606bf6bb149ab13c582c23a76",
+  "manifestDigest": "a8f5048609f192c940c8c4d5da2ba0e403087a7f69cd0d83699acae83fd57f0c",
+  "hostArtifacts": [
+    {
+      "host": "claude",
+      "materializedFrontmatterDigest": "68084dbfafb4f6678f108e7c07f53b4cafa7960bf2df890bd19cfe8ef60704c1"
+    },
+    {
+      "host": "copilot",
+      "materializedFrontmatterDigest": "9caa055c18a9847e643e491c4a643c5e810cf77ebc6e5011c35c8c69ad96d912"
+    },
+    {
+      "host": "openai",
+      "path": "agents/openai.yaml",
+      "digest": "8a331c9729770ec8623c6ed0c57325c1c768a16e5de53eec92da2a8eb596acbe",
+      "materializedFrontmatterDigest": "5cc81940338d64839b85d820633c43d7729ecfc251ab39b2be0387a7f066ff67"
+    }
+  ]
+}

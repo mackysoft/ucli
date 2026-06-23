@@ -1,6 +1,7 @@
 interface:
   display_name: "Changelog"
-  short_description: "読者向けの変更履歴、リリースノート、PR差分を書く"
-  default_prompt: "Use $changelog to turn commits, issues, PRs, or diffs into reader-facing changelog entries."
+  short_description: "CHANGELOG.md、リリースノート、PR Changelog、コメント用差分ログ、changeset風の人間向け変更要約を、commits、Issues、PRs、diff、既存履歴から作成、編集するときに使う。Keep a Changelogを基準に、既存形式と対象読者に合わせ、開発ログではなく読者が利用、移行、運用判断に使える変更説明へ再構成する。"
+  default_prompt: "Use $changelog to follow the Changelog workflow."
+
 policy:
   allow_implicit_invocation: true

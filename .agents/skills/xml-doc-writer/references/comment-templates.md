@@ -2,7 +2,7 @@
 
 ## 同期メソッド
 ```csharp
-/// <summary> 
+/// <summary>
 /// Performs the operation and updates the target state.
 /// </summary>
 /// <param name="input"> Non-empty input value used by the operation. </param>

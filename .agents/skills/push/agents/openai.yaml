@@ -1,6 +1,7 @@
 interface:
   display_name: "Push"
-  short_description: "必要ならコミットして現在ブランチを安全にpushする"
-  default_prompt: "Use $push to create commits when needed and push the current branch safely with upstream-first behavior."
+  short_description: "push 指示を受けたときに、未コミット差分があれば `$commit` で責務単位コミットを作成し、現在ブランチを upstream 優先で安全に push する。upstream が無い場合は `origin/<current_branch>` を `-u` で設定して push する。"
+  default_prompt: "Use $push to follow the Push workflow."
+
 policy:
   allow_implicit_invocation: true

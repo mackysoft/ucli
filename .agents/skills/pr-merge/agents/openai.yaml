@@ -1,6 +1,7 @@
 interface:
   display_name: "PR Merge"
-  short_description: "CI状態を確認して現在ブランチのPRを安全にマージする"
-  default_prompt: "Use $pr-merge to inspect PR CI/workflow state, merge the current pull request safely, and clean up branches."
+  short_description: "現在作業または指定PRを安全にマージする。現在作業をブランチへ載せ、PRを取得または作成し、push、Draft解除、CI待機、必須チェック確認、マージ、リモートブランチクリーンアップまで進める。"
+  default_prompt: "Use $pr-merge to follow the PR Merge workflow."
+
 policy:
   allow_implicit_invocation: true

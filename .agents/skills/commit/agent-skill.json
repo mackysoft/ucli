@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "skillName": "commit",
+  "displayName": "Commit",
+  "description": "変更を責務単位で分割し、Conventional Commits形式の包括的なメッセージでコミットを作成する。",
+  "tier": "development",
+  "catalogId": "com.mackysoft.skills-pack",
+  "contentDigest": "f4e4d2e34494b183da026bc29a73039e51942e2a974157522be907cf55d27e19",
+  "manifestDigest": "b45750c0763a342c2b0f4a789cb6ae9ad8478d3e8263f61e5775dbea42767a72",
+  "hostArtifacts": [
+    {
+      "host": "claude",
+      "materializedFrontmatterDigest": "2c7b6bc89108c9f066390dbbf8cd515f299e6e95265a4feae3419242916bdfd5"
+    },
+    {
+      "host": "copilot",
+      "materializedFrontmatterDigest": "0bdc9ddd768cbdbc3447636e37d5081d5bbe6a934618b803cc1fd857e985db0e"
+    },
+    {
+      "host": "openai",
+      "path": "agents/openai.yaml",
+      "digest": "534967c1d96109123c2518cef6157303aa33d905e19fefa86fb6666dbdb8098f",
+      "materializedFrontmatterDigest": "71a53cb8c709565e920fa3a48e0eb38ffa19d4f133ef5ff4cca485144e13b05e"
+    }
+  ]
+}
