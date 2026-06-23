@@ -12,4 +12,4 @@
 - Required platform/filter:
 
 ## Notes
-- 実行、format、ゲート判定は `verification-gate` へ委譲する。
+- テスト実行とゲート判定は `verification-gate` へ委譲する。
