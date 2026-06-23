@@ -15,6 +15,12 @@
         ]
       }
     },
+    "skillNames": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
     "availableTiers": {
       "type": "array",
       "items": {
@@ -151,6 +157,7 @@
   },
   "required": [
     "tiers",
+    "skillNames",
     "availableTiers",
     "skills",
     "supportedHosts"

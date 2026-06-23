@@ -92,12 +92,18 @@ Supported host keys are `openai`, `claude`, and `copilot`. Project scope install
 
 Run the command from the target repository. Use `--repoRoot <path>` only when the current working directory is outside the repository or when automation needs to select a repository explicitly.
 
-uCLI defines `basic`, `advanced`, and `developer`; the bundled official skills currently belong to `basic`. `skills export`, `install`, `update`, `uninstall`, and `doctor` require `--tier`. `skills list` may omit `--tier` to show all defined tiers and their bundled skill counts. Selecting `advanced` or `developer` is valid and succeeds with an empty skill set until uCLI ships skills in those tiers. To select multiple tiers in one command, pass a comma-separated value such as `--tier basic,advanced`.
+uCLI defines `basic`, `advanced`, and `developer`; the bundled official skills currently belong to `basic`. `skills export`, `install`, `update`, `uninstall`, and `doctor` require at least one package selector: `--tier` or `--skill`. `--skill` selects exact `skillName` values, and combining it with `--tier` requires the named skills to belong to the selected tiers. `skills list` may omit both selectors to show all defined tiers and their bundled skill counts. Selecting `advanced` or `developer` is valid and succeeds with an empty skill set until uCLI ships skills in those tiers. To select multiple tiers or skills in one command, pass comma-separated values such as `--tier basic,advanced` or `--skill ucli-read-project,ucli-verify-changes`.
 
 Use `skills list` when you want to inspect the bundled skills, selected tiers, available tiers, supported hosts, target directories, and reload guidance:
 
 ```bash
 ucli skills list
+```
+
+Export a single named skill when you do not want the whole tier:
+
+```bash
+ucli skills export --host openai --skill ucli-read-project --output ./exported-skills
 ```
 
 Use user scope only for local, non-repository defaults:

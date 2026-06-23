@@ -10,6 +10,7 @@ namespace MackySoft.Ucli.Tests;
 public sealed class SkillsCliOutputContractTests
 {
     private const string HostUnsupportedCode = "SKILL_HOST_UNSUPPORTED";
+    private const string SkillInputInvalidCode = "SKILL_INPUT_INVALID";
     private const string InstallTargetContentDigestMismatchCode = "SKILL_INSTALL_TARGET_CONTENT_DIGEST_MISMATCH";
     private const string InstallTargetHostArtifactDigestMismatchCode = "SKILL_INSTALL_TARGET_HOST_ARTIFACT_DIGEST_MISMATCH";
     private const string InstallTargetHostConflictCode = "SKILL_INSTALL_TARGET_HOST_CONFLICT";
@@ -17,6 +18,7 @@ public sealed class SkillsCliOutputContractTests
     private const string InvalidArgumentCode = "INVALID_ARGUMENT";
     private const string PathUnsafeCode = "SKILL_PATH_UNSAFE";
     private const string UnknownOptionMessage = "Argument '--unknown' is not recognized.";
+    private const string SelectedSingleSkillName = "ucli-read-project";
 
     private static readonly string[] ExpectedSkillNames =
     [
@@ -103,6 +105,7 @@ public sealed class SkillsCliOutputContractTests
         var payload = outputJson.RootElement.GetProperty("payload");
         JsonAssert.For(payload)
             .HasArrayLength("tiers", 1)
+            .HasArrayLength("skillNames", 0)
             .HasArrayLength("availableTiers", 3)
             .HasArrayLength("skills", ExpectedSkillNames.Length)
             .HasArrayLength("supportedHosts", 3)
@@ -170,6 +173,7 @@ public sealed class SkillsCliOutputContractTests
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("payload", payload => payload
                 .HasArrayLength("tiers", 1)
+                .HasArrayLength("skillNames", 0)
                 .HasArrayLength("availableTiers", 3)
                 .HasArrayLength("skills", 0));
         Assert.Equal(tier, outputJson.RootElement.GetProperty("payload").GetProperty("tiers")[0].GetString());
@@ -178,9 +182,9 @@ public sealed class SkillsCliOutputContractTests
 
     [Theory]
     [Trait("Size", "Small")]
-    [InlineData("""{"tiers":["internal"],"availableTiers":[{"tier":"basic","skillCount":0}],"skills":[],"supportedHosts":[]}""")]
-    [InlineData("""{"tiers":["basic"],"availableTiers":[{"tier":"internal","skillCount":0}],"skills":[],"supportedHosts":[]}""")]
-    [InlineData("""{"tiers":["basic"],"availableTiers":[{"tier":"basic","skillCount":-1}],"skills":[],"supportedHosts":[]}""")]
+    [InlineData("""{"tiers":["internal"],"skillNames":[],"availableTiers":[{"tier":"basic","skillCount":0}],"skills":[],"supportedHosts":[]}""")]
+    [InlineData("""{"tiers":["basic"],"skillNames":[],"availableTiers":[{"tier":"internal","skillCount":0}],"skills":[],"supportedHosts":[]}""")]
+    [InlineData("""{"tiers":["basic"],"skillNames":[],"availableTiers":[{"tier":"basic","skillCount":-1}],"skills":[],"supportedHosts":[]}""")]
     public void SkillsListPayloadSchema_RejectsInvalidTierInventory (string payloadJson)
     {
         using var payload = JsonDocument.Parse(payloadJson);
@@ -210,6 +214,7 @@ public sealed class SkillsCliOutputContractTests
             .EnumerateArray()
             .Select(static tier => tier.GetString() ?? string.Empty)
             .ToArray());
+        Assert.Empty(payload.GetProperty("skillNames").EnumerateArray());
         Assert.Equal(["basic", "advanced", "developer"], ReadPayloadStringArray(outputJson.RootElement, "availableTiers", "tier"));
         Assert.Equal(ExpectedSkillNames, payload
             .GetProperty("skills")
@@ -238,12 +243,69 @@ public sealed class SkillsCliOutputContractTests
             .EnumerateArray()
             .Select(static tier => tier.GetString() ?? string.Empty)
             .ToArray());
+        Assert.Empty(payload.GetProperty("skillNames").EnumerateArray());
         Assert.Equal(["basic", "advanced", "developer"], ReadPayloadStringArray(outputJson.RootElement, "availableTiers", "tier"));
         Assert.Equal(ExpectedSkillNames, payload
             .GetProperty("skills")
             .EnumerateArray()
             .Select(static skill => skill.GetProperty("skillName").GetString())
             .ToArray());
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task SkillsList_WithSkillName_ReturnsExactSkill ()
+    {
+        var result = await CliProcessRunner.RunCommandAsync(UcliCommandNames.Skills, UcliCommandNames.ListSubcommand, "--skill", SelectedSingleSkillName);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: UcliCommandNames.SkillsList,
+            status: "ok",
+            exitCode: (int)CliExitCode.Success);
+
+        var payload = outputJson.RootElement.GetProperty("payload");
+        Assert.Equal(["basic", "advanced", "developer"], payload
+            .GetProperty("tiers")
+            .EnumerateArray()
+            .Select(static tier => tier.GetString() ?? string.Empty)
+            .ToArray());
+        Assert.Equal([SelectedSingleSkillName], payload
+            .GetProperty("skillNames")
+            .EnumerateArray()
+            .Select(static skillName => skillName.GetString() ?? string.Empty)
+            .ToArray());
+        Assert.Equal([SelectedSingleSkillName], payload
+            .GetProperty("skills")
+            .EnumerateArray()
+            .Select(static skill => skill.GetProperty("skillName").GetString() ?? string.Empty)
+            .ToArray());
+        AssertPayloadMatchesSchema(outputJson.RootElement);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task SkillsList_WithTierAndMismatchedSkillName_ReturnsInvalidArgument ()
+    {
+        var result = await CliProcessRunner.RunCommandAsync(
+            UcliCommandNames.Skills,
+            UcliCommandNames.ListSubcommand,
+            "--tier",
+            "advanced",
+            "--skill",
+            SelectedSingleSkillName);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: UcliCommandNames.SkillsList,
+            status: "error",
+            exitCode: (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, SkillInputInvalidCode);
+        Assert.Contains("does not match selected tiers", outputJson.RootElement.GetProperty("message").GetString(), StringComparison.Ordinal);
     }
 
     [Theory]
@@ -273,11 +335,11 @@ public sealed class SkillsCliOutputContractTests
     [InlineData(UcliCommandNames.UpdateSubcommand, UcliCommandNames.SkillsUpdate)]
     [InlineData(UcliCommandNames.UninstallSubcommand, UcliCommandNames.SkillsUninstall)]
     [InlineData(UcliCommandNames.DoctorSubcommand, UcliCommandNames.SkillsDoctor)]
-    public async Task SkillsOperationSubcommand_WithoutTier_ReturnsInvalidArgument (
+    public async Task SkillsOperationSubcommand_WithoutPackageSelection_ReturnsInvalidArgument (
         string subcommand,
         string expectedCommand)
     {
-        using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", $"missing-tier-{subcommand}");
+        using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", $"missing-selection-{subcommand}");
         var result = await CliProcessRunner.RunCommandAsync(CreateMissingTierScenarioArgs(subcommand, scope.CreateDirectory("repo"), scope.GetPath("exported")));
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
@@ -288,7 +350,7 @@ public sealed class SkillsCliOutputContractTests
             status: "error",
             exitCode: (int)CliExitCode.InvalidArgument);
         CommandResultAssert.HasSingleError(outputJson.RootElement, InvalidArgumentCode);
-        Assert.Contains("Option '--tier' is required.", outputJson.RootElement.GetProperty("message").GetString(), StringComparison.Ordinal);
+        Assert.Contains("Option '--tier' or '--skill' is required.", outputJson.RootElement.GetProperty("message").GetString(), StringComparison.Ordinal);
     }
 
     [Theory]
@@ -317,7 +379,8 @@ public sealed class SkillsCliOutputContractTests
             exitCode: (int)CliExitCode.Success);
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("payload", payload => payload
-                .HasArrayLength("tiers", 1));
+                .HasArrayLength("tiers", 1)
+                .HasArrayLength("skillNames", 0));
         Assert.Equal("advanced", outputJson.RootElement.GetProperty("payload").GetProperty("tiers")[0].GetString());
     }
 
@@ -350,6 +413,7 @@ public sealed class SkillsCliOutputContractTests
             .HasProperty("payload", payload => payload
                 .HasString("host", "openai")
                 .HasArrayLength("tiers", 1)
+                .HasArrayLength("skillNames", 0)
                 .HasString("format", "directory")
                 .HasString("outputRoot", outputRoot)
                 .HasArrayLength("skills", ExpectedSkillNames.Length)
@@ -362,6 +426,80 @@ public sealed class SkillsCliOutputContractTests
             Assert.True(File.Exists(Path.Combine(outputRoot, skillName, "agent-skill.json")), skillName);
             Assert.True(File.Exists(Path.Combine(outputRoot, skillName, "agents", "openai.yaml")), skillName);
         }
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task SkillsExport_WithSkillNameOnly_WritesMatchingPackage ()
+    {
+        using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "export-openai-skill");
+        var outputRoot = scope.GetPath("exported");
+
+        var result = await CliProcessRunner.RunCommandAsync(
+            UcliCommandNames.Skills,
+            UcliCommandNames.ExportSubcommand,
+            "--host",
+            "openai",
+            "--skill",
+            SelectedSingleSkillName,
+            "--output",
+            outputRoot);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: UcliCommandNames.SkillsExport,
+            status: "ok",
+            exitCode: (int)CliExitCode.Success);
+        JsonAssert.For(outputJson.RootElement)
+            .HasProperty("payload", payload => payload
+                .HasArrayLength("tiers", 3)
+                .HasArrayLength("skillNames", 1)
+                .HasArrayLength("skills", 1)
+                .HasInt32("skillCount", 1));
+        var payload = outputJson.RootElement.GetProperty("payload");
+        Assert.Equal([SelectedSingleSkillName], payload
+            .GetProperty("skillNames")
+            .EnumerateArray()
+            .Select(static skillName => skillName.GetString() ?? string.Empty)
+            .ToArray());
+        Assert.Equal([SelectedSingleSkillName], payload
+            .GetProperty("skills")
+            .EnumerateArray()
+            .Select(static skillName => skillName.GetString() ?? string.Empty)
+            .ToArray());
+        Assert.True(File.Exists(Path.Combine(outputRoot, SelectedSingleSkillName, "SKILL.md")));
+        Assert.False(Directory.Exists(Path.Combine(outputRoot, ExpectedSkillNames[0])));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task SkillsExport_WithTierAndMismatchedSkillName_ReturnsInvalidArgument ()
+    {
+        using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "export-skill-tier-mismatch");
+
+        var result = await CliProcessRunner.RunCommandAsync(
+            UcliCommandNames.Skills,
+            UcliCommandNames.ExportSubcommand,
+            "--host",
+            "openai",
+            "--tier",
+            "advanced",
+            "--skill",
+            SelectedSingleSkillName,
+            "--output",
+            scope.GetPath("exported"));
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: UcliCommandNames.SkillsExport,
+            status: "error",
+            exitCode: (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, SkillInputInvalidCode);
+        Assert.Contains("does not match selected tiers", outputJson.RootElement.GetProperty("message").GetString(), StringComparison.Ordinal);
     }
 
     [Fact]

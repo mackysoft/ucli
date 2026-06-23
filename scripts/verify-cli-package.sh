@@ -122,6 +122,13 @@ import sys
 
 root = json.loads(os.environ["SKILLS_LIST_JSON"])
 payload = root.get("payload") or {}
+skill_names = payload.get("skillNames")
+if skill_names != []:
+    print(
+        f"ucli skills list did not report an empty skillNames selection. Actual: {skill_names}",
+        file=sys.stderr,
+    )
+    sys.exit(1)
 actual = [
     (tier.get("tier"), tier.get("skillCount"))
     for tier in payload.get("availableTiers", [])
@@ -139,6 +146,27 @@ if actual != expected:
     sys.exit(1)
 PY
 
+single_skill_list="$("${tool_path}/ucli" skills list --skill ucli-read-project)"
+SINGLE_SKILL_LIST_JSON="${single_skill_list}" python3 - <<'PY'
+import json
+import os
+import sys
+
+root = json.loads(os.environ["SINGLE_SKILL_LIST_JSON"])
+payload = root.get("payload") or {}
+skill_names = payload.get("skillNames")
+skills = [
+    skill.get("skillName")
+    for skill in payload.get("skills", [])
+]
+if skill_names != ["ucli-read-project"] or skills != ["ucli-read-project"]:
+    print(
+        f"ucli skills list --skill did not select only ucli-read-project. skillNames={skill_names}; skills={skills}",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+PY
+
 export_path="${tool_path}/exported-skills"
 "${tool_path}/ucli" skills export --host openai --tier basic --output "${export_path}" >/dev/null
 while IFS= read -r relative_path; do
@@ -148,6 +176,17 @@ while IFS= read -r relative_path; do
     exit 1
   fi
 done < <(list_host_independent_skill_files)
+
+single_export_path="${tool_path}/exported-single-skill"
+"${tool_path}/ucli" skills export --host openai --skill ucli-read-project --output "${single_export_path}" >/dev/null
+if [[ ! -f "${single_export_path}/ucli-read-project/SKILL.md" ]]; then
+  echo "ucli skills export --skill did not materialize the selected SKILL." >&2
+  exit 1
+fi
+if [[ -e "${single_export_path}/ucli-plan-apply" ]]; then
+  echo "ucli skills export --skill materialized an unselected SKILL." >&2
+  exit 1
+fi
 
 install_repo="$(mktemp -d "${temp_root%/}/ucli-skills-install.XXXXXX")"
 "${tool_path}/ucli" skills install --host openai --tier basic --scope project --repoRoot "${install_repo}" >/dev/null
