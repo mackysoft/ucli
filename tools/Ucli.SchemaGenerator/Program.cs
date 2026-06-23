@@ -1306,6 +1306,7 @@ internal static class Program
             Required("displayName", StringSchema()),
             Required("description", StringSchema()),
             Required("tier", SkillTierLiteralSchema()),
+            Required("catalogId", StringSchema()),
             Required("contentDigest", Sha256LowerHexSchema()),
             Required("hostArtifacts", ArraySchema(CreateSkillsListHostArtifactSchema())));
     }

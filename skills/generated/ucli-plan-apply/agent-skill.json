@@ -4,8 +4,9 @@
   "displayName": "uCLI Plan Apply",
   "description": "Use when building, validating, planning, and applying a uCLI JSON request for Unity changes. Enforces read -> ready -> describe -> build request -> validate -> plan -> call --withPlan -> verify.",
   "tier": "basic",
+  "catalogId": "com.mackysoft.ucli",
   "contentDigest": "d3d9db28b8eee92bf52611edf83d4c8804b8af9d7a23a224f12ccf1435cf6551",
-  "manifestDigest": "d1e4fe621d3e1a5c970859cc82eb28159e478abd5397a3cc88499de92f278ea3",
+  "manifestDigest": "af9eae7d9cafdba1581b63da6cfe9497898f48d51223247d9ed1533fdcd08bae",
   "hostArtifacts": [
     {
       "host": "claude",

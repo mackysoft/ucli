@@ -4,8 +4,9 @@
   "displayName": "uCLI Read Project",
   "description": "Use when inspecting a Unity project with uCLI before choosing selectors, operation metadata, schemas, or readIndex freshness. Guides read-first discovery without hard-coding operation contracts.",
   "tier": "basic",
+  "catalogId": "com.mackysoft.ucli",
   "contentDigest": "83b22557264afc9cab9190764c503159731609fe662fed35000ea9dff5228474",
-  "manifestDigest": "2efdaa008a620ed0f8202a44450faccfb6516f9aced8dd258310f24ee6c2eca0",
+  "manifestDigest": "25441d09cce01afbfced187134cca48e03e88e5f6061c4bb14101ff8883fba53",
   "hostArtifacts": [
     {
       "host": "claude",

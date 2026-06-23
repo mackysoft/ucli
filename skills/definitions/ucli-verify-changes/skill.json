@@ -4,6 +4,7 @@
   "displayName": "uCLI Verify Changes",
   "description": "Use when verifying uCLI-driven Unity changes with ucli verify profiles, claim packets, follow-up reads, ucli test, logs, artifacts, and opResults evidence after validation, plan, or call execution.",
   "tier": "basic",
+  "catalogId": "com.mackysoft.ucli",
   "references": [
     "verification-workflow.md"
   ]
