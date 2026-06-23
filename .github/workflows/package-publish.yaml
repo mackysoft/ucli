@@ -222,7 +222,7 @@ jobs:
             MackySoft.Ucli.Contracts
             MackySoft.Ucli.Infrastructure
             MackySoft.Ucli.Unity
-          max-attempts: 30
+          max-attempts: 90
           interval-seconds: 10
 
       - name: Mirror packages to GitHub Release
