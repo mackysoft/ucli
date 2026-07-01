@@ -1,10 +1,12 @@
 {
   "schemaVersion": 1,
+  "skillBundleVersion": 1,
   "catalogId": "com.mackysoft.ucli",
   "tier": "basic",
   "skillName": "ucli-verify-changes",
   "displayName": "uCLI Verify Changes",
   "description": "Use when verifying uCLI-driven Unity changes with ucli verify profiles, claim packets, follow-up reads, ucli test, logs, artifacts, and opResults evidence after validation, plan, or call execution.",
+  "dependencies": [],
   "references": [
     "verification-workflow.md"
   ]

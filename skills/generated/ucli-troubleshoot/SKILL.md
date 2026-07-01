@@ -1,4 +1,4 @@
-# uCLI Troubleshoot
+# ucli-troubleshoot
 
 Use this skill to diagnose uCLI execution, daemon, lifecycle, readIndex, timeout, and log problems.
 

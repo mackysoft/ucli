@@ -122,8 +122,10 @@ public sealed class SkillsCliOutputContractTests
                 .HasString("skillName", ExpectedSkillNames[0])
                 .HasValueKind("displayName", JsonValueKind.String)
                 .HasValueKind("description", JsonValueKind.String)
+                .HasArrayLength("dependencies", 0)
                 .HasString("tier", "basic")
                 .HasString("catalogId", "com.mackysoft.ucli")
+                .HasInt32("skillBundleVersion", 1)
                 .HasValueKind("contentDigest", JsonValueKind.String)
                 .HasArrayLength("hostArtifacts", 3))
             .HasProperty("supportedHosts", 0, static host => host

@@ -1,10 +1,12 @@
 {
   "schemaVersion": 1,
+  "skillBundleVersion": 1,
   "catalogId": "com.mackysoft.ucli",
   "tier": "basic",
   "skillName": "ucli-plan-apply",
   "displayName": "uCLI Plan Apply",
   "description": "Use when building, validating, planning, and applying a uCLI JSON request for Unity changes. Enforces read -> ready -> describe -> build request -> validate -> plan -> call --withPlan -> verify.",
+  "dependencies": [],
   "references": [
     "request-workflow.md"
   ]

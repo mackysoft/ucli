@@ -61,6 +61,12 @@
           "description": {
             "type": "string"
           },
+          "dependencies": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "tier": {
             "type": "string",
             "enum": [
@@ -71,6 +77,10 @@
           },
           "catalogId": {
             "type": "string"
+          },
+          "skillBundleVersion": {
+            "type": "integer",
+            "minimum": 1
           },
           "contentDigest": {
             "type": "string",
@@ -120,8 +130,10 @@
           "skillName",
           "displayName",
           "description",
+          "dependencies",
           "tier",
           "catalogId",
+          "skillBundleVersion",
           "contentDigest",
           "hostArtifacts"
         ]

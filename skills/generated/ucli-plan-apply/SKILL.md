@@ -1,4 +1,4 @@
-# uCLI Plan Apply
+# ucli-plan-apply
 
 Use this skill to turn an intended Unity change into a validated and reviewable uCLI request.
 
