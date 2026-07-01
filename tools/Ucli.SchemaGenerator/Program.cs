@@ -1306,8 +1306,10 @@ internal static class Program
             Required("skillName", StringSchema()),
             Required("displayName", StringSchema()),
             Required("description", StringSchema()),
+            Required("dependencies", ArraySchema(StringSchema())),
             Required("tier", SkillTierLiteralSchema()),
             Required("catalogId", StringSchema()),
+            Required("skillBundleVersion", PositiveIntegerSchema()),
             Required("contentDigest", Sha256LowerHexSchema()),
             Required("hostArtifacts", ArraySchema(CreateSkillsListHostArtifactSchema())));
     }
@@ -1949,6 +1951,15 @@ internal static class Program
         {
             ["type"] = "integer",
             ["minimum"] = 0,
+        };
+    }
+
+    private static Dictionary<string, object?> PositiveIntegerSchema ()
+    {
+        return new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["type"] = "integer",
+            ["minimum"] = 1,
         };
     }
 

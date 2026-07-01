@@ -1,4 +1,4 @@
-# uCLI Verify Changes
+# ucli-verify-changes
 
 Use this skill to verify whether a uCLI-backed Unity change actually reached the intended state.
 

@@ -1,4 +1,4 @@
-# uCLI Read Project
+# ucli-read-project
 
 Use this skill to inspect a Unity project with uCLI before deciding what to edit or verify.
 

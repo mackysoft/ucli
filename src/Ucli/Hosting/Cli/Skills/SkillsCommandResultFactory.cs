@@ -34,7 +34,7 @@ internal static class SkillsCommandResultFactory
             payload: new
             {
                 tiers = catalog.SelectedTiers.Select(static tier => tier.Value).ToArray(),
-                skillNames = catalog.SelectedSkillNames.ToArray(),
+                skillNames = catalog.SelectedSkillNames.Select(static skillName => skillName.Value).ToArray(),
                 availableTiers = catalog.AvailableTiers
                     .Select(static tier => new
                     {
@@ -43,14 +43,16 @@ internal static class SkillsCommandResultFactory
                     })
                     .ToArray(),
                 skills = catalog.Packages
-                    .OrderBy(static package => package.Manifest.SkillName, StringComparer.Ordinal)
+                    .OrderBy(static package => package.Manifest.SkillName.Value, StringComparer.Ordinal)
                     .Select(static package => new
                     {
-                        package.Manifest.SkillName,
+                        skillName = package.Manifest.SkillName.Value,
                         package.Manifest.DisplayName,
                         package.Manifest.Description,
+                        dependencies = package.Manifest.Dependencies.Select(static dependency => dependency.Value).ToArray(),
                         tier = package.Manifest.Tier.Value,
                         catalogId = package.Manifest.CatalogId.Value,
+                        package.Manifest.SkillBundleVersion,
                         package.Manifest.ContentDigest,
                         package.Manifest.HostArtifacts,
                     })
@@ -358,7 +360,7 @@ internal static class SkillsCommandResultFactory
     private static string[] CreateSkillNameList (IReadOnlyList<CanonicalSkillPackage> packages)
     {
         return packages
-            .Select(static package => package.Manifest.SkillName)
+            .Select(static package => package.Manifest.SkillName.Value)
             .Order(StringComparer.Ordinal)
             .ToArray();
     }
@@ -406,6 +408,7 @@ internal static class SkillsCommandResultFactory
             SkillUpdateActionKind.NoOp => "noOp",
             SkillUpdateActionKind.BlockedLocalModification => "blockedLocalModification",
             SkillUpdateActionKind.BlockedUnmanaged => "blockedUnmanaged",
+            SkillUpdateActionKind.BlockedVersionAhead => "blockedVersionAhead",
             _ => actionKind.ToString(),
         };
     }
@@ -432,7 +435,8 @@ internal static class SkillsCommandResultFactory
     private static bool IsBlocked (SkillUpdateActionKind actionKind)
     {
         return actionKind is SkillUpdateActionKind.BlockedLocalModification
-            or SkillUpdateActionKind.BlockedUnmanaged;
+            or SkillUpdateActionKind.BlockedUnmanaged
+            or SkillUpdateActionKind.BlockedVersionAhead;
     }
 
     private static bool IsBlocked (SkillUninstallActionKind actionKind)
@@ -448,13 +452,13 @@ internal static class SkillsCommandResultFactory
         Func<TAction, IReadOnlyList<SkillActionDiff>?> getDiffs)
     {
         return actions
-            .OrderBy(action => getIdentity(action).SkillName, StringComparer.Ordinal)
+            .OrderBy(action => getIdentity(action).SkillName.Value, StringComparer.Ordinal)
             .Select(action =>
             {
                 var identity = getIdentity(action);
                 return new
                 {
-                    identity.SkillName,
+                    skillName = identity.SkillName.Value,
                     action = getActionLiteral(action),
                     identity.TargetRoot,
                     blockedReason = ToBlockedReasonLiteral(getBlockedReason(action)),
@@ -472,6 +476,7 @@ internal static class SkillsCommandResultFactory
             SkillBlockedReason.ManagedOverwriteRequiresForce => "managedOverwriteRequiresForce",
             SkillBlockedReason.LocalModificationRequiresForce => "localModificationRequiresForce",
             SkillBlockedReason.UnmanagedTarget => "unmanagedTarget",
+            SkillBlockedReason.InstalledVersionAhead => "installedVersionAhead",
             _ => reason.Value.ToString(),
         };
     }
