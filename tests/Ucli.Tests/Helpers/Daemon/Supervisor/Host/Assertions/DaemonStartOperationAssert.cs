@@ -1,3 +1,4 @@
+using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Tests.Helpers.Daemon;
@@ -31,8 +32,10 @@ internal static class DaemonStartOperationAssert
         DaemonStartupBlockedProcessPolicy expectedStartupBlockedPolicy)
     {
         var invocation = Assert.Single(startOperation.Invocations);
-        Assert.Equal(expectedRepositoryRoot, invocation.UnityProject.RepositoryRoot);
-        Assert.Equal(expectedUnityProjectRoot, invocation.UnityProject.UnityProjectRoot);
+        FileSystemAssert.ForPath(invocation.UnityProject.RepositoryRoot)
+            .EqualsNormalized(expectedRepositoryRoot);
+        FileSystemAssert.ForPath(invocation.UnityProject.UnityProjectRoot)
+            .EqualsNormalized(expectedUnityProjectRoot);
         Assert.Equal(expectedProjectFingerprint, invocation.UnityProject.ProjectFingerprint);
         Assert.True(invocation.Timeout > TimeSpan.Zero);
         Assert.True(invocation.Timeout <= maximumTimeout);
