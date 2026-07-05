@@ -4,86 +4,105 @@ namespace MackySoft.Ucli.Contracts.Tests.Ipc.Methods.Execute;
 
 public sealed class IpcExecutePostReadSourceRulesTests
 {
-    [Theory]
-    [Trait("Size", "Small")]
-    [InlineData("edit", "edit", false, "none", false, "deterministic")]
-    [InlineData("edit", "edit", false, "context", true, "deterministic")]
-    [InlineData("edit", "edit", false, "project", true, "deterministic")]
-    [InlineData("edit", "edit", true, "none", false, "unavailable")]
-    [InlineData("edit", "edit", true, "none", true, "unavailable")]
-    [InlineData("ucli.scene.open", "operation", false, null, false, "unavailable")]
-    [InlineData("ucli.scene.open", "operation", false, null, true, "unavailable")]
-    [InlineData("ucli.project.refresh", "refresh", false, null, true, "unavailable")]
-    public void IsCompatibleWithOperation_WithValidSourceFacts_ReturnsTrue (
-        string operationName,
-        string sourceKind,
-        bool playModeMutation,
-        string? commit,
-        bool persistenceExpected,
-        string expectedPostState)
-    {
-        var result = IpcExecutePostReadSourceRules.IsCompatibleWithOperation(
-            operationName,
-            sourceKind,
-            playModeMutation,
-            commit,
-            persistenceExpected,
-            expectedPostState);
+    private static readonly PostReadSourceCompatibilityCase[] CompatibleSourceCases =
+    [
+        new("edit", "edit", PlayModeMutation: false, Commit: "none", PersistenceExpected: false, ExpectedPostState: "deterministic"),
+        new("edit", "edit", PlayModeMutation: false, Commit: "context", PersistenceExpected: true, ExpectedPostState: "deterministic"),
+        new("edit", "edit", PlayModeMutation: false, Commit: "project", PersistenceExpected: true, ExpectedPostState: "deterministic"),
+        new("edit", "edit", PlayModeMutation: true, Commit: "none", PersistenceExpected: false, ExpectedPostState: "unavailable"),
+        new("edit", "edit", PlayModeMutation: true, Commit: "none", PersistenceExpected: true, ExpectedPostState: "unavailable"),
+        new("ucli.scene.open", "operation", PlayModeMutation: false, Commit: null, PersistenceExpected: false, ExpectedPostState: "unavailable"),
+        new("ucli.scene.open", "operation", PlayModeMutation: false, Commit: null, PersistenceExpected: true, ExpectedPostState: "unavailable"),
+        new("ucli.project.refresh", "refresh", PlayModeMutation: false, Commit: null, PersistenceExpected: true, ExpectedPostState: "unavailable"),
+    ];
 
-        Assert.True(result);
+    private static readonly PostReadSourceCompatibilityCase[] IncompatibleSourceCases =
+    [
+        new("edit", "edit", PlayModeMutation: true, Commit: "none", PersistenceExpected: false, ExpectedPostState: "deterministic"),
+        new("edit", "edit", PlayModeMutation: false, Commit: "context", PersistenceExpected: false, ExpectedPostState: "deterministic"),
+        new("edit", "edit", PlayModeMutation: false, Commit: null, PersistenceExpected: true, ExpectedPostState: "deterministic"),
+        new("edit", "edit", PlayModeMutation: false, Commit: "invalid", PersistenceExpected: true, ExpectedPostState: "deterministic"),
+        new("edit", "edit", PlayModeMutation: false, Commit: "none", PersistenceExpected: false, ExpectedPostState: "unavailable"),
+        new("edit", "edit", PlayModeMutation: true, Commit: "context", PersistenceExpected: true, ExpectedPostState: "unavailable"),
+        new("ucli.scene.open", "operation", PlayModeMutation: true, Commit: null, PersistenceExpected: false, ExpectedPostState: "unavailable"),
+        new("ucli.scene.open", "operation", PlayModeMutation: false, Commit: "none", PersistenceExpected: false, ExpectedPostState: "unavailable"),
+        new("ucli.scene.open", "operation", PlayModeMutation: false, Commit: null, PersistenceExpected: false, ExpectedPostState: "deterministic"),
+        new("ucli.project.refresh", "operation", PlayModeMutation: false, Commit: null, PersistenceExpected: false, ExpectedPostState: "unavailable"),
+        new("ucli.scene.open", "refresh", PlayModeMutation: false, Commit: null, PersistenceExpected: true, ExpectedPostState: "unavailable"),
+        new("ucli.project.refresh", "refresh", PlayModeMutation: true, Commit: null, PersistenceExpected: true, ExpectedPostState: "unavailable"),
+        new("ucli.project.refresh", "refresh", PlayModeMutation: false, Commit: null, PersistenceExpected: false, ExpectedPostState: "unavailable"),
+        new("ucli.project.refresh", "refresh", PlayModeMutation: false, Commit: "none", PersistenceExpected: true, ExpectedPostState: "unavailable"),
+        new("ucli.project.refresh", "refresh", PlayModeMutation: false, Commit: null, PersistenceExpected: true, ExpectedPostState: "deterministic"),
+    ];
+
+    private static readonly DeterministicMutationSourceCase[] DeterministicMutationSourceCases =
+    [
+        new("edit", "deterministic", ExpectedResult: true),
+        new("edit", "unavailable", ExpectedResult: false),
+        new("operation", "unavailable", ExpectedResult: false),
+        new("refresh", "unavailable", ExpectedResult: false),
+    ];
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IsCompatibleWithOperation_WithValidSourceFacts_ReturnsTrue ()
+    {
+        foreach (var testCase in CompatibleSourceCases)
+        {
+            var result = IpcExecutePostReadSourceRules.IsCompatibleWithOperation(
+                testCase.OperationName,
+                testCase.SourceKind,
+                testCase.PlayModeMutation,
+                testCase.Commit,
+                testCase.PersistenceExpected,
+                testCase.ExpectedPostState);
+
+            Assert.True(result);
+        }
     }
 
-    [Theory]
+    [Fact]
     [Trait("Size", "Small")]
-    [InlineData("edit", "edit", true, "none", false, "deterministic")]
-    [InlineData("edit", "edit", false, "context", false, "deterministic")]
-    [InlineData("edit", "edit", false, null, true, "deterministic")]
-    [InlineData("edit", "edit", false, "invalid", true, "deterministic")]
-    [InlineData("edit", "edit", false, "none", false, "unavailable")]
-    [InlineData("edit", "edit", true, "context", true, "unavailable")]
-    [InlineData("ucli.scene.open", "operation", true, null, false, "unavailable")]
-    [InlineData("ucli.scene.open", "operation", false, "none", false, "unavailable")]
-    [InlineData("ucli.scene.open", "operation", false, null, false, "deterministic")]
-    [InlineData("ucli.project.refresh", "operation", false, null, false, "unavailable")]
-    [InlineData("ucli.scene.open", "refresh", false, null, true, "unavailable")]
-    [InlineData("ucli.project.refresh", "refresh", true, null, true, "unavailable")]
-    [InlineData("ucli.project.refresh", "refresh", false, null, false, "unavailable")]
-    [InlineData("ucli.project.refresh", "refresh", false, "none", true, "unavailable")]
-    [InlineData("ucli.project.refresh", "refresh", false, null, true, "deterministic")]
-    public void IsCompatibleWithOperation_WithInvalidSourceFacts_ReturnsFalse (
-        string operationName,
-        string sourceKind,
-        bool playModeMutation,
-        string? commit,
-        bool persistenceExpected,
-        string expectedPostState)
+    public void IsCompatibleWithOperation_WithInvalidSourceFacts_ReturnsFalse ()
     {
-        var result = IpcExecutePostReadSourceRules.IsCompatibleWithOperation(
-            operationName,
-            sourceKind,
-            playModeMutation,
-            commit,
-            persistenceExpected,
-            expectedPostState);
+        foreach (var testCase in IncompatibleSourceCases)
+        {
+            var result = IpcExecutePostReadSourceRules.IsCompatibleWithOperation(
+                testCase.OperationName,
+                testCase.SourceKind,
+                testCase.PlayModeMutation,
+                testCase.Commit,
+                testCase.PersistenceExpected,
+                testCase.ExpectedPostState);
 
-        Assert.False(result);
+            Assert.False(result);
+        }
     }
 
-    [Theory]
+    [Fact]
     [Trait("Size", "Small")]
-    [InlineData("edit", "deterministic", true)]
-    [InlineData("edit", "unavailable", false)]
-    [InlineData("operation", "unavailable", false)]
-    [InlineData("refresh", "unavailable", false)]
-    public void IsDeterministicMutationSource_ReturnsExpectedResult (
-        string sourceKind,
-        string expectedPostState,
-        bool expectedResult)
+    public void IsDeterministicMutationSource_ReturnsExpectedResult ()
     {
-        var result = IpcExecutePostReadSourceRules.IsDeterministicMutationSource(
-            sourceKind,
-            expectedPostState);
+        foreach (var testCase in DeterministicMutationSourceCases)
+        {
+            var result = IpcExecutePostReadSourceRules.IsDeterministicMutationSource(
+                testCase.SourceKind,
+                testCase.ExpectedPostState);
 
-        Assert.Equal(expectedResult, result);
+            Assert.Equal(testCase.ExpectedResult, result);
+        }
     }
+
+    private sealed record PostReadSourceCompatibilityCase (
+        string OperationName,
+        string SourceKind,
+        bool PlayModeMutation,
+        string? Commit,
+        bool PersistenceExpected,
+        string ExpectedPostState);
+
+    private sealed record DeterministicMutationSourceCase (
+        string SourceKind,
+        string ExpectedPostState,
+        bool ExpectedResult);
 }

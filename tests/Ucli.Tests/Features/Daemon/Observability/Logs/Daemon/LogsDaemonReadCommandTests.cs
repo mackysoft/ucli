@@ -1,10 +1,10 @@
 using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Common;
-using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Daemon;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Daemon.Logs;
+using MackySoft.Ucli.Tests.Helpers.Daemon;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 
 namespace MackySoft.Ucli.Tests.Logs;
@@ -17,7 +17,7 @@ public sealed class LogsDaemonReadCommandTests
     [Trait("Size", "Small")]
     public async Task Read_WhenFormatIsJson_WritesNdjsonEvents ()
     {
-        var command = new LogsDaemonReadCommand(new StubLogsDaemonService(async (_, onEvent, cancellationToken) =>
+        var command = new LogsDaemonReadCommand(new RecordingLogsDaemonService(async (_, onEvent, cancellationToken) =>
         {
             await onEvent(
                 CreateEvent(
@@ -62,7 +62,7 @@ public sealed class LogsDaemonReadCommandTests
     [Trait("Size", "Small")]
     public async Task Read_WhenFormatIsText_WritesSingleLineEvents ()
     {
-        var command = new LogsDaemonReadCommand(new StubLogsDaemonService(async (_, onEvent, cancellationToken) =>
+        var command = new LogsDaemonReadCommand(new RecordingLogsDaemonService(async (_, onEvent, cancellationToken) =>
         {
             await onEvent(
                 CreateEvent(
@@ -88,7 +88,7 @@ public sealed class LogsDaemonReadCommandTests
     [Trait("Size", "Small")]
     public async Task Read_WithTimeoutOption_PassesTimeoutToServiceRequest ()
     {
-        var service = new StubLogsDaemonService(static (_, _, _) =>
+        var service = new RecordingLogsDaemonService(static (_, _, _) =>
         {
             return ValueTask.FromResult(LogsReadServiceResult.Success(count: 0, nextCursor: "stream-1:1"));
         });
@@ -98,60 +98,46 @@ public sealed class LogsDaemonReadCommandTests
 
         Assert.Equal((int)CliExitCode.Success, exitCode);
         Assert.Equal(string.Empty, standardError);
-        Assert.Equal(1234, service.CapturedRequest!.TimeoutMilliseconds);
+        LogsReadServiceAssert.ReadRequestedWithTimeout(service, 1234);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task Read_WhenTimeoutIsInvalid_WritesInvalidArgumentResultWithoutCallingService ()
     {
-        var service = new StubLogsDaemonService((_, _, _) => throw new InvalidOperationException("service must not be called"));
+        var service = new RecordingLogsDaemonService((_, _, _) => throw new InvalidOperationException("service must not be called"));
         var command = new LogsDaemonReadCommand(service, CommandResultTestWriter.Create());
 
         var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.ReadAsync(timeout: "0"));
 
-        Assert.Equal(3, exitCode);
-        Assert.Equal(string.Empty, standardError);
-        Assert.Equal(0, service.CallCount);
-        using var commandResult = JsonDocument.Parse(standardOutput);
-        CommandResultAssert.HasStandardEnvelope(
-            commandResult.RootElement,
-            UcliCommandNames.LogsDaemonRead,
-            "error",
-            3);
-        CommandResultAssert.HasSingleError(commandResult.RootElement, UcliCoreErrorCodes.InvalidArgument);
+        LogsCommandAssert.DaemonReadInvalidArgumentReturnedWithoutExecution(
+            exitCode,
+            standardOutput,
+            standardError,
+            service);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task Read_WhenFormatIsInvalid_WritesInvalidArgumentResultWithoutCallingService ()
     {
-        var service = new StubLogsDaemonService((_, _, _) => throw new InvalidOperationException("service must not be called"));
+        var service = new RecordingLogsDaemonService((_, _, _) => throw new InvalidOperationException("service must not be called"));
         var command = new LogsDaemonReadCommand(service, CommandResultTestWriter.Create());
 
         var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.ReadAsync(format: "yaml"));
 
-        Assert.Equal(3, exitCode);
-        Assert.Equal(string.Empty, standardError);
-        Assert.Equal(0, service.CallCount);
-        using var commandResult = JsonDocument.Parse(standardOutput);
-        CommandResultAssert.HasStandardEnvelope(
-            commandResult.RootElement,
-            UcliCommandNames.LogsDaemonRead,
-            "error",
-            3);
-        CommandResultAssert.HasSingleError(commandResult.RootElement, UcliCoreErrorCodes.InvalidArgument);
-        var payload = commandResult.RootElement.GetProperty("payload");
-        Assert.Equal(0, payload.GetProperty("count").GetInt32());
-        Assert.Equal(JsonValueKind.Null, payload.GetProperty("nextCursor").ValueKind);
-        Assert.Equal("error", payload.GetProperty("completionReason").GetString());
+        LogsCommandAssert.DaemonReadInvalidArgumentReturnedWithoutExecution(
+            exitCode,
+            standardOutput,
+            standardError,
+            service);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task Read_WhenDaemonSessionIsNotAvailable_WritesActionRequiredResult ()
     {
-        var command = new LogsDaemonReadCommand(new StubLogsDaemonService(static (_, _, _) =>
+        var command = new LogsDaemonReadCommand(new RecordingLogsDaemonService(static (_, _, _) =>
         {
             return ValueTask.FromResult(LogsReadServiceResult.Failure(ExecutionError.InternalError(
                 DaemonSessionNotAvailableMessage,
@@ -181,7 +167,7 @@ public sealed class LogsDaemonReadCommandTests
     [Trait("Size", "Small")]
     public async Task Read_WhenServiceThrowsAfterEntry_WritesFinalErrorResultWithPartialMetadata ()
     {
-        var command = new LogsDaemonReadCommand(new StubLogsDaemonService(async (_, onEvent, cancellationToken) =>
+        var command = new LogsDaemonReadCommand(new RecordingLogsDaemonService(async (_, onEvent, cancellationToken) =>
         {
             await onEvent(
                 CreateEvent(
@@ -216,7 +202,7 @@ public sealed class LogsDaemonReadCommandTests
     public async Task Read_WhenCancellationRequestedAfterEntry_WritesFinalCanceledResultWithPartialMetadata ()
     {
         using var cancellationTokenSource = new CancellationTokenSource();
-        var command = new LogsDaemonReadCommand(new StubLogsDaemonService(async (_, onEvent, cancellationToken) =>
+        var command = new LogsDaemonReadCommand(new RecordingLogsDaemonService(async (_, onEvent, cancellationToken) =>
         {
             await onEvent(
                 CreateEvent(
@@ -255,7 +241,9 @@ public sealed class LogsDaemonReadCommandTests
     [Trait("Size", "Small")]
     public async Task Read_WhenCancellationRequested_ReturnsSuccessExitCode ()
     {
-        var command = new LogsDaemonReadCommand(new ThrowingLogsDaemonService(), CommandResultTestWriter.Create());
+        var command = new LogsDaemonReadCommand(
+            new RecordingLogsDaemonService(static (_, _, cancellationToken) => throw new OperationCanceledException(cancellationToken)),
+            CommandResultTestWriter.Create());
         using var cancellationTokenSource = new CancellationTokenSource();
         cancellationTokenSource.Cancel();
 
@@ -323,38 +311,4 @@ public sealed class LogsDaemonReadCommandTests
             Cursor: cursor);
     }
 
-    private sealed class StubLogsDaemonService : ILogsDaemonService
-    {
-        private readonly Func<LogsDaemonServiceRequest, Func<IpcDaemonLogEvent, string, CancellationToken, ValueTask>, CancellationToken, ValueTask<LogsReadServiceResult>> handler;
-
-        public StubLogsDaemonService (Func<LogsDaemonServiceRequest, Func<IpcDaemonLogEvent, string, CancellationToken, ValueTask>, CancellationToken, ValueTask<LogsReadServiceResult>> handler)
-        {
-            this.handler = handler;
-        }
-
-        public int CallCount { get; private set; }
-
-        public LogsDaemonServiceRequest? CapturedRequest { get; private set; }
-
-        public ValueTask<LogsReadServiceResult> ExecuteAsync (
-            LogsDaemonServiceRequest request,
-            Func<IpcDaemonLogEvent, string, CancellationToken, ValueTask> onEvent,
-            CancellationToken cancellationToken = default)
-        {
-            CallCount++;
-            CapturedRequest = request;
-            return handler(request, onEvent, cancellationToken);
-        }
-    }
-
-    private sealed class ThrowingLogsDaemonService : ILogsDaemonService
-    {
-        public ValueTask<LogsReadServiceResult> ExecuteAsync (
-            LogsDaemonServiceRequest request,
-            Func<IpcDaemonLogEvent, string, CancellationToken, ValueTask> onEvent,
-            CancellationToken cancellationToken = default)
-        {
-            throw new OperationCanceledException(cancellationToken);
-        }
-    }
 }

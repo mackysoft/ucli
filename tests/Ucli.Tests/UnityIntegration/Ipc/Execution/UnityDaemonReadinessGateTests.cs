@@ -2,10 +2,8 @@ using System.Net.Sockets;
 using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
-using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 using MackySoft.Ucli.UnityIntegration.Ipc.Execution;
 
@@ -13,233 +11,225 @@ namespace MackySoft.Ucli.Tests.Ipc;
 
 public sealed class UnityDaemonReadinessGateTests
 {
+    private static readonly TimeSpan AsyncWaitTimeout = TimeSpan.FromSeconds(5);
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task Execute_WhenWaitableStateBecomesReady_DispatchesFailFastRequest ()
     {
-        using var scope = TestDirectories.CreateTempScope("unity-daemon-readiness-gate", "wait-ready");
         var timeProvider = new ManualTimeProvider();
-        var pingClient = new StubDaemonPingInfoClient(
+        var pingClient = new RecordingDaemonPingInfoClient(
             CreatePingPayload(IpcEditorLifecycleStateCodec.Busy, false),
             CreatePingPayload(IpcEditorLifecycleStateCodec.Ready, true));
-        var daemonClient = new StubUnityIpcClient(CreateSuccessResult());
+        var daemonClient = new RecordingUnityIpcClient(CreateSuccessResult());
         var gate = new UnityDaemonReadinessGate(pingClient, timeProvider);
+        var unityProject = CreateContext("wait-ready");
         var executionTask = gate.ExecuteAsync(
-            CreateContext(scope),
+            unityProject,
             CreateOpsReadDispatchRequest(failFast: false),
             new IpcOpsReadRequest(FailFast: false, RequireReadinessGate: true),
             UnityIpcExecutionBudget.Start(TimeSpan.FromSeconds(30), timeProvider),
             daemonClient,
             CancellationToken.None).AsTask();
 
-        while (pingClient.CallCount < 1)
-        {
-            await Task.Yield();
-        }
-
+        await pingClient.WaitForFirstInvocationAsync("Daemon readiness initial probe", AsyncWaitTimeout);
         timeProvider.Advance(TimeSpan.FromMilliseconds(100));
         var result = await executionTask;
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(2, pingClient.CallCount);
-        Assert.Single(daemonClient.Requests);
-        Assert.True(IpcPayloadCodec.TryDeserialize(
-            daemonClient.Requests[0].Payload,
-            out IpcOpsReadRequest dispatchedPayload,
-            out _));
-        Assert.True(dispatchedPayload.FailFast);
-        Assert.True(dispatchedPayload.RequireReadinessGate);
+        DaemonPingInfoClientAssert.ReadinessProbeRetriedFor(pingClient, unityProject, CancellationToken.None);
+        UnityIpcClientAssert.FailFastOpsReadDispatchedOnce(daemonClient, unityProject);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task Execute_WhenFailFastBusyState_ReturnsEditorBusyWithoutDispatch ()
     {
-        using var scope = TestDirectories.CreateTempScope("unity-daemon-readiness-gate", "fail-fast-busy");
-        var pingClient = new StubDaemonPingInfoClient(CreatePingPayload(IpcEditorLifecycleStateCodec.Busy, false));
-        var daemonClient = new StubUnityIpcClient(CreateSuccessResult());
+        var pingClient = new RecordingDaemonPingInfoClient(CreatePingPayload(IpcEditorLifecycleStateCodec.Busy, false));
+        var daemonClient = new RecordingUnityIpcClient(CreateSuccessResult());
         var gate = new UnityDaemonReadinessGate(pingClient);
 
         var result = await gate.ExecuteAsync(
-            CreateContext(scope),
+            CreateContext("fail-fast-busy"),
             CreateOpsReadDispatchRequest(failFast: true),
             new IpcOpsReadRequest(FailFast: true, RequireReadinessGate: true),
             UnityIpcExecutionBudget.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
             daemonClient,
             CancellationToken.None);
 
-        Assert.False(result.IsSuccess);
-        Assert.Equal(EditorLifecycleErrorCodes.EditorBusy, result.ErrorCode);
-        Assert.Empty(daemonClient.Requests);
+        UnityDaemonReadinessGateAssert.RejectedWithoutDispatch(
+            result,
+            daemonClient,
+            EditorLifecycleErrorCodes.EditorBusy);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task Execute_WhenDomainReloadingState_ReturnsEditorDomainReloadingWithoutDispatch ()
     {
-        using var scope = TestDirectories.CreateTempScope("unity-daemon-readiness-gate", "domain-reloading");
-        var pingClient = new StubDaemonPingInfoClient(CreatePingPayload(IpcEditorLifecycleStateCodec.DomainReloading, false));
-        var daemonClient = new StubUnityIpcClient(CreateSuccessResult());
+        var pingClient = new RecordingDaemonPingInfoClient(CreatePingPayload(IpcEditorLifecycleStateCodec.DomainReloading, false));
+        var daemonClient = new RecordingUnityIpcClient(CreateSuccessResult());
         var gate = new UnityDaemonReadinessGate(pingClient);
+        var unityProject = CreateContext("domain-reloading");
 
         var result = await gate.ExecuteAsync(
-            CreateContext(scope),
+            unityProject,
             CreateOpsReadDispatchRequest(failFast: false),
             new IpcOpsReadRequest(FailFast: false, RequireReadinessGate: true),
             UnityIpcExecutionBudget.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
             daemonClient,
             CancellationToken.None);
 
-        Assert.False(result.IsSuccess);
-        Assert.Equal(EditorLifecycleErrorCodes.EditorDomainReloading, result.ErrorCode);
-        Assert.Equal(1, pingClient.CallCount);
-        Assert.Empty(daemonClient.Requests);
+        DaemonPingInfoClientAssert.ReadinessProbeAttemptedOnceFor(pingClient, unityProject, CancellationToken.None);
+        UnityDaemonReadinessGateAssert.RejectedWithoutDispatch(
+            result,
+            daemonClient,
+            EditorLifecycleErrorCodes.EditorDomainReloading);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task Execute_WhenGuiSessionIsInPlaymode_ReturnsEditorPlaymodeWithoutDispatch ()
     {
-        using var scope = TestDirectories.CreateTempScope("unity-daemon-readiness-gate", "gui-playmode");
-        var pingClient = new StubDaemonPingInfoClient(IpcPingResponseTestFactory.Create(
+        var pingClient = new RecordingDaemonPingInfoClient(IpcPingResponseTestFactory.Create(
             editorMode: "gui",
             lifecycleState: IpcEditorLifecycleStateCodec.Playmode,
             canAcceptExecutionRequests: false));
-        var daemonClient = new StubUnityIpcClient(CreateSuccessResult());
+        var daemonClient = new RecordingUnityIpcClient(CreateSuccessResult());
         var gate = new UnityDaemonReadinessGate(pingClient);
+        var unityProject = CreateContext("gui-playmode");
 
         var result = await gate.ExecuteAsync(
-            CreateContext(scope),
+            unityProject,
             CreateOpsReadDispatchRequest(failFast: false),
             new IpcOpsReadRequest(FailFast: false, RequireReadinessGate: true),
             UnityIpcExecutionBudget.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
             daemonClient,
             CancellationToken.None);
 
-        Assert.False(result.IsSuccess);
-        Assert.Equal(EditorLifecycleErrorCodes.EditorPlaymode, result.ErrorCode);
-        Assert.Equal(1, pingClient.CallCount);
-        Assert.Empty(daemonClient.Requests);
+        DaemonPingInfoClientAssert.ReadinessProbeAttemptedOnceFor(pingClient, unityProject, CancellationToken.None);
+        UnityDaemonReadinessGateAssert.RejectedWithoutDispatch(
+            result,
+            daemonClient,
+            EditorLifecycleErrorCodes.EditorPlaymode);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task Execute_WhenReadinessProbeTimesOutThenReady_RetriesAndDispatches ()
     {
-        using var scope = TestDirectories.CreateTempScope("unity-daemon-readiness-gate", "probe-timeout-ready");
         var timeProvider = new ManualTimeProvider();
-        var pingClient = new StubDaemonPingInfoClient(
+        var pingClient = new RecordingDaemonPingInfoClient(
             new TimeoutException("probe timed out"),
             CreatePingPayload(IpcEditorLifecycleStateCodec.Ready, true));
-        var daemonClient = new StubUnityIpcClient(CreateSuccessResult());
+        var daemonClient = new RecordingUnityIpcClient(CreateSuccessResult());
         var gate = new UnityDaemonReadinessGate(pingClient, timeProvider);
+        var unityProject = CreateContext("probe-timeout-ready");
         var executionTask = gate.ExecuteAsync(
-            CreateContext(scope),
+            unityProject,
             CreateOpsReadDispatchRequest(failFast: false),
             new IpcOpsReadRequest(FailFast: false, RequireReadinessGate: true),
             UnityIpcExecutionBudget.Start(TimeSpan.FromSeconds(30), timeProvider),
             daemonClient,
             CancellationToken.None).AsTask();
 
-        while (pingClient.CallCount < 1)
-        {
-            await Task.Yield();
-        }
-
+        await pingClient.WaitForFirstInvocationAsync("Daemon readiness timeout probe", AsyncWaitTimeout);
         timeProvider.Advance(TimeSpan.FromMilliseconds(100));
         var result = await executionTask;
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(2, pingClient.CallCount);
-        Assert.Single(daemonClient.Requests);
+        DaemonPingInfoClientAssert.ReadinessProbeRetriedFor(pingClient, unityProject, CancellationToken.None);
+        UnityIpcClientAssert.FailFastOpsReadDispatchedOnce(daemonClient, unityProject);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task Execute_WhenReadinessProbeReportsDaemonNotRunning_ReturnsFailureWithoutDispatch ()
     {
-        using var scope = TestDirectories.CreateTempScope("unity-daemon-readiness-gate", "probe-daemon-not-running");
-        var pingClient = new StubDaemonPingInfoClient(new SocketException((int)SocketError.ConnectionRefused));
-        var daemonClient = new StubUnityIpcClient(CreateSuccessResult());
+        var pingClient = new RecordingDaemonPingInfoClient(new SocketException((int)SocketError.ConnectionRefused));
+        var daemonClient = new RecordingUnityIpcClient(CreateSuccessResult());
         var gate = new UnityDaemonReadinessGate(pingClient);
+        var unityProject = CreateContext("probe-daemon-not-running");
 
         var result = await gate.ExecuteAsync(
-            CreateContext(scope),
+            unityProject,
             CreateOpsReadDispatchRequest(failFast: false),
             new IpcOpsReadRequest(FailFast: false, RequireReadinessGate: true),
             UnityIpcExecutionBudget.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
             daemonClient,
             CancellationToken.None);
 
-        Assert.False(result.IsSuccess);
-        Assert.Equal(UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, result.ErrorCode);
-        Assert.Equal(1, pingClient.CallCount);
-        Assert.Empty(daemonClient.Requests);
+        DaemonPingInfoClientAssert.ReadinessProbeAttemptedOnceFor(pingClient, unityProject, CancellationToken.None);
+        UnityDaemonReadinessGateAssert.RejectedWithoutDispatch(
+            result,
+            daemonClient,
+            UnityExecutionModeDecisionErrorCodes.DaemonNotRunning);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task Execute_WhenReadinessProbeThrowsUnexpectedException_ReturnsInternalErrorWithoutDispatch ()
     {
-        using var scope = TestDirectories.CreateTempScope("unity-daemon-readiness-gate", "probe-unexpected");
-        var pingClient = new StubDaemonPingInfoClient(new InvalidOperationException("probe failed"));
-        var daemonClient = new StubUnityIpcClient(CreateSuccessResult());
+        var pingClient = new RecordingDaemonPingInfoClient(new InvalidOperationException("probe failed"));
+        var daemonClient = new RecordingUnityIpcClient(CreateSuccessResult());
         var gate = new UnityDaemonReadinessGate(pingClient);
+        var unityProject = CreateContext("probe-unexpected");
 
         var result = await gate.ExecuteAsync(
-            CreateContext(scope),
+            unityProject,
             CreateOpsReadDispatchRequest(failFast: false),
             new IpcOpsReadRequest(FailFast: false, RequireReadinessGate: true),
             UnityIpcExecutionBudget.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
             daemonClient,
             CancellationToken.None);
 
-        Assert.False(result.IsSuccess);
-        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
-        Assert.Contains("probe failed", result.Message, StringComparison.Ordinal);
-        Assert.Equal(1, pingClient.CallCount);
-        Assert.Empty(daemonClient.Requests);
+        DaemonPingInfoClientAssert.ReadinessProbeAttemptedOnceFor(pingClient, unityProject, CancellationToken.None);
+        UnityDaemonReadinessGateAssert.RejectedWithoutDispatch(
+            result,
+            daemonClient,
+            UcliCoreErrorCodes.InternalError,
+            "probe failed");
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task Execute_WhenUnsupportedLifecycleState_ReturnsInternalErrorWithoutDispatch ()
     {
-        using var scope = TestDirectories.CreateTempScope("unity-daemon-readiness-gate", "unsupported");
-        var pingClient = new StubDaemonPingInfoClient(CreatePingPayload("unsupported", false));
-        var daemonClient = new StubUnityIpcClient(CreateSuccessResult());
+        var pingClient = new RecordingDaemonPingInfoClient(CreatePingPayload("unsupported", false));
+        var daemonClient = new RecordingUnityIpcClient(CreateSuccessResult());
         var gate = new UnityDaemonReadinessGate(pingClient);
 
         var result = await gate.ExecuteAsync(
-            CreateContext(scope),
+            CreateContext("unsupported"),
             CreateOpsReadDispatchRequest(failFast: false),
             new IpcOpsReadRequest(FailFast: false, RequireReadinessGate: true),
             UnityIpcExecutionBudget.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
             daemonClient,
             CancellationToken.None);
 
-        Assert.False(result.IsSuccess);
-        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
-        Assert.Empty(daemonClient.Requests);
+        UnityDaemonReadinessGateAssert.RejectedWithoutDispatch(
+            result,
+            daemonClient,
+            UcliCoreErrorCodes.InternalError);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task Execute_WhenLateWaitableRegressionOccurs_RewaitsAndRedispatches ()
     {
-        using var scope = TestDirectories.CreateTempScope("unity-daemon-readiness-gate", "late-regression");
-        var pingClient = new StubDaemonPingInfoClient(
+        var pingClient = new RecordingDaemonPingInfoClient(
             CreatePingPayload(IpcEditorLifecycleStateCodec.Ready, true),
             CreatePingPayload(IpcEditorLifecycleStateCodec.Ready, true));
-        var daemonClient = new StubUnityIpcClient(
+        var daemonClient = new RecordingUnityIpcClient(
             UnityRequestExecutionResult.Success(UnityRequestResponseTestFactory.Create(CreateErrorResponse(
                 EditorLifecycleErrorCodes.EditorBusy,
                 "Unity editor is busy with internal work."))),
             CreateSuccessResult());
         var gate = new UnityDaemonReadinessGate(pingClient);
+        var unityProject = CreateContext("late-regression");
 
         var result = await gate.ExecuteAsync(
-            CreateContext(scope),
+            unityProject,
             CreateOpsReadDispatchRequest(failFast: false),
             new IpcOpsReadRequest(FailFast: false, RequireReadinessGate: true),
             UnityIpcExecutionBudget.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
@@ -247,61 +237,56 @@ public sealed class UnityDaemonReadinessGateTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(2, pingClient.CallCount);
-        Assert.Equal(2, daemonClient.Requests.Count);
+        DaemonPingInfoClientAssert.ReadinessProbeRetriedFor(pingClient, unityProject, CancellationToken.None);
+        UnityIpcClientAssert.FailFastOpsReadRedispatched(daemonClient, unityProject);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task Execute_WhenBudgetIsExhausted_ReturnsTimeoutWithoutDispatch ()
     {
-        using var scope = TestDirectories.CreateTempScope("unity-daemon-readiness-gate", "timeout");
         var timeProvider = new ManualTimeProvider();
         var budget = UnityIpcExecutionBudget.Start(TimeSpan.FromMilliseconds(100), timeProvider);
         timeProvider.Advance(TimeSpan.FromMilliseconds(120));
-        var pingClient = new StubDaemonPingInfoClient(CreatePingPayload(IpcEditorLifecycleStateCodec.Ready, true));
-        var daemonClient = new StubUnityIpcClient(CreateSuccessResult());
+        var pingClient = new RecordingDaemonPingInfoClient(CreatePingPayload(IpcEditorLifecycleStateCodec.Ready, true));
+        var daemonClient = new RecordingUnityIpcClient(CreateSuccessResult());
         var gate = new UnityDaemonReadinessGate(pingClient, timeProvider);
 
         var result = await gate.ExecuteAsync(
-            CreateContext(scope),
+            CreateContext("timeout"),
             CreateOpsReadDispatchRequest(failFast: false),
             new IpcOpsReadRequest(FailFast: false, RequireReadinessGate: true),
             budget,
             daemonClient,
             CancellationToken.None);
 
-        Assert.False(result.IsSuccess);
-        Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
-        Assert.Equal(0, pingClient.CallCount);
-        Assert.Empty(daemonClient.Requests);
+        UnityDaemonReadinessGateAssert.TimedOutBeforeProbeAndDispatch(
+            result,
+            pingClient,
+            daemonClient);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task Execute_WhenCancellationIsRequested_ThrowsOperationCanceledException ()
     {
-        using var scope = TestDirectories.CreateTempScope("unity-daemon-readiness-gate", "canceled");
         using var cancellationTokenSource = new CancellationTokenSource();
         await cancellationTokenSource.CancelAsync();
-        var gate = new UnityDaemonReadinessGate(new StubDaemonPingInfoClient());
+        var gate = new UnityDaemonReadinessGate(new RecordingDaemonPingInfoClient());
 
         await Assert.ThrowsAsync<OperationCanceledException>(async () => await gate.ExecuteAsync(
-            CreateContext(scope),
+            CreateContext("canceled"),
             CreateOpsReadDispatchRequest(failFast: false),
             new IpcOpsReadRequest(FailFast: false, RequireReadinessGate: true),
             UnityIpcExecutionBudget.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
-            new StubUnityIpcClient(CreateSuccessResult()),
+            new RecordingUnityIpcClient(CreateSuccessResult()),
             cancellationTokenSource.Token).AsTask());
     }
 
-    private static ResolvedUnityProjectContext CreateContext (TestDirectoryScope scope)
+    private static ResolvedUnityProjectContext CreateContext (string testCaseName)
     {
-        return new ResolvedUnityProjectContext(
-            UnityProjectRoot: scope.GetPath("UnityProject"),
-            RepositoryRoot: scope.FullPath,
-            ProjectFingerprint: "project-fingerprint",
-            PathSource: UnityProjectPathSource.CommandOption);
+        var repositoryRoot = Path.GetFullPath(Path.Combine("unity-daemon-readiness-gate", testCaseName));
+        return ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(repositoryRoot);
     }
 
     private static UnityIpcDispatchRequest CreateOpsReadDispatchRequest (bool failFast)
@@ -352,84 +337,4 @@ public sealed class UnityDaemonReadinessGateTests
             canAcceptExecutionRequests: canAcceptExecutionRequests);
     }
 
-    private sealed class StubDaemonPingInfoClient : IDaemonPingInfoClient
-    {
-        private readonly Queue<object> responses = new Queue<object>();
-
-        public StubDaemonPingInfoClient (params object[] responses)
-        {
-            foreach (var response in responses)
-            {
-                this.responses.Enqueue(response);
-            }
-        }
-
-        public int CallCount { get; private set; }
-
-        public ValueTask<IpcPingResponse> PingAndReadAsync (
-            ResolvedUnityProjectContext unityProject,
-            TimeSpan timeout,
-            string? sessionToken = null,
-            bool validateProjectFingerprint = true,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            CallCount++;
-            if (responses.Count == 0)
-            {
-                throw new Xunit.Sdk.XunitException("No daemon ping response was configured.");
-            }
-
-            var next = responses.Dequeue();
-            if (next is Exception exception)
-            {
-                throw exception;
-            }
-
-            return ValueTask.FromResult((IpcPingResponse)next);
-        }
-    }
-
-    private sealed class StubUnityIpcClient : IUnityIpcClient
-    {
-        private readonly Queue<UnityRequestExecutionResult> results = new Queue<UnityRequestExecutionResult>();
-
-        public StubUnityIpcClient (params UnityRequestExecutionResult[] results)
-        {
-            foreach (var result in results)
-            {
-                this.results.Enqueue(result);
-            }
-        }
-
-        public UnityExecutionTarget Target => UnityExecutionTarget.Daemon;
-
-        public List<UnityIpcDispatchRequest> Requests { get; } = [];
-
-        public ValueTask<UnityRequestExecutionResult> SendAsync (
-            ResolvedUnityProjectContext unityProject,
-            UnityIpcDispatchRequest dispatchRequest,
-            TimeSpan timeout,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            Requests.Add(dispatchRequest);
-            if (results.Count == 0)
-            {
-                throw new Xunit.Sdk.XunitException("No daemon dispatch result was configured.");
-            }
-
-            return ValueTask.FromResult(results.Dequeue());
-        }
-
-        public async ValueTask<UnityRequestExecutionResult> SendStreamingAsync (
-            ResolvedUnityProjectContext unityProject,
-            UnityIpcDispatchRequest dispatchRequest,
-            TimeSpan timeout,
-            Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
-            CancellationToken cancellationToken = default)
-        {
-            return await SendAsync(unityProject, dispatchRequest, timeout, cancellationToken);
-        }
-    }
 }

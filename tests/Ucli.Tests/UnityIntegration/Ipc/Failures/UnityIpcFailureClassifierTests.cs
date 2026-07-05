@@ -7,6 +7,15 @@ namespace MackySoft.Ucli.Tests.Ipc;
 
 public sealed class UnityIpcFailureClassifierTests
 {
+    private static readonly UcliCode[] PlanTokenValidationCodes =
+    [
+        PlanTokenErrorCodes.PlanTokenRequired,
+        PlanTokenErrorCodes.PlanTokenInvalid,
+        PlanTokenErrorCodes.PlanTokenExpired,
+        PlanTokenErrorCodes.PlanTokenRequestMismatch,
+        PlanTokenErrorCodes.StateChangedSincePlan,
+    ];
+
     [Fact]
     [Trait("Size", "Small")]
     public void FromDaemonDispatchException_WithTimeout_ReturnsIpcTimeout ()
@@ -45,26 +54,19 @@ public sealed class UnityIpcFailureClassifierTests
         Assert.Equal("Plugin marker is missing.", failure.Message);
     }
 
-    public static TheoryData<UcliCode> PlanTokenValidationCodeValues => new()
-    {
-        PlanTokenErrorCodes.PlanTokenRequired,
-        PlanTokenErrorCodes.PlanTokenInvalid,
-        PlanTokenErrorCodes.PlanTokenExpired,
-        PlanTokenErrorCodes.PlanTokenRequestMismatch,
-        PlanTokenErrorCodes.StateChangedSincePlan,
-    };
-
-    [Theory]
-    [MemberData(nameof(PlanTokenValidationCodeValues))]
+    [Fact]
     [Trait("Size", "Small")]
-    public void FromCodeAndMessage_WithPlanTokenValidationCode_ReturnsCode (UcliCode code)
+    public void FromCodeAndMessage_WithPlanTokenValidationCode_ReturnsCode ()
     {
-        var failure = UnityIpcFailureClassifier.FromCodeAndMessage(
-            code,
-            "Plan token validation failed.");
+        foreach (UcliCode code in PlanTokenValidationCodes)
+        {
+            var failure = UnityIpcFailureClassifier.FromCodeAndMessage(
+                code,
+                "Plan token validation failed.");
 
-        Assert.Equal(code, failure.Code);
-        Assert.Equal(ApplicationOutcome.InvalidArgument, ApplicationFailure.FromCode(failure.Code, failure.Message).Outcome);
+            Assert.Equal(code, failure.Code);
+            Assert.Equal(ApplicationOutcome.InvalidArgument, ApplicationFailure.FromCode(failure.Code, failure.Message).Outcome);
+        }
     }
 
     [Fact]

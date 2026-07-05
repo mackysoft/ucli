@@ -23,15 +23,17 @@ internal static class TestProcessAwaiter
         var completedTask = await Task.WhenAny(exitTask, Task.Delay(timeout)).ConfigureAwait(false);
         if (!ReferenceEquals(completedTask, exitTask))
         {
-            TryTerminate(process);
+            TerminateBestEffort(process);
             throw new XunitException($"{description} did not exit within {timeout}.");
         }
 
         await exitTask.ConfigureAwait(false);
     }
 
-    private static void TryTerminate (Process process)
+    internal static void TerminateBestEffort (Process process)
     {
+        ArgumentNullException.ThrowIfNull(process);
+
         try
         {
             if (!process.HasExited)

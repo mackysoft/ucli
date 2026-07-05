@@ -5,6 +5,16 @@ namespace MackySoft.Ucli.Infrastructure.Tests.Project;
 
 public sealed class UnityProjectFingerprintCalculatorContractTests
 {
+    private static readonly FingerprintInputCase[] NullOrWhitespaceInputCases =
+    [
+        new(null, "/tmp/unity"),
+        new(string.Empty, "/tmp/unity"),
+        new(" ", "/tmp/unity"),
+        new("/tmp/repo", null),
+        new("/tmp/repo", string.Empty),
+        new("/tmp/repo", " "),
+    ];
+
     [Fact]
     [Trait("Size", "Small")]
     public void Create_WithEquivalentPathRepresentations_ReturnsSameFingerprint ()
@@ -52,21 +62,20 @@ public sealed class UnityProjectFingerprintCalculatorContractTests
         Assert.NotEqual(backslashFingerprint, separatorFingerprint);
     }
 
-    [Theory]
+    [Fact]
     [Trait("Size", "Small")]
-    [InlineData(null, "/tmp/unity")]
-    [InlineData("", "/tmp/unity")]
-    [InlineData(" ", "/tmp/unity")]
-    [InlineData("/tmp/repo", null)]
-    [InlineData("/tmp/repo", "")]
-    [InlineData("/tmp/repo", " ")]
-    public void Create_WhenInputIsNullOrWhitespace_ThrowsArgumentException (
-        string? storageRoot,
-        string? unityProjectRoot)
+    public void Create_WhenInputIsNullOrWhitespace_ThrowsArgumentException ()
     {
-        Assert.ThrowsAny<ArgumentException>(() =>
+        foreach (var testCase in NullOrWhitespaceInputCases)
         {
-            UnityProjectFingerprintCalculator.Create(storageRoot!, unityProjectRoot!);
-        });
+            Assert.ThrowsAny<ArgumentException>(() =>
+            {
+                UnityProjectFingerprintCalculator.Create(testCase.StorageRoot!, testCase.UnityProjectRoot!);
+            });
+        }
     }
+
+    private sealed record FingerprintInputCase (
+        string? StorageRoot,
+        string? UnityProjectRoot);
 }

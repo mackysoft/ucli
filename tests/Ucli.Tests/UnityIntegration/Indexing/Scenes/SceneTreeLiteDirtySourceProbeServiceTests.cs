@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Tests.Helpers.Indexing.Scenes;
 using MackySoft.Ucli.UnityIntegration.Indexing.Scenes;
 
 namespace MackySoft.Ucli.Tests.Scenes;
@@ -11,11 +12,11 @@ public sealed class SceneTreeLiteDirtySourceProbeServiceTests
     [Trait("Size", "Small")]
     public async Task Probe_WhenModeIsOneshot_DoesNotReadSnapshot ()
     {
-        var reader = new StubSceneTreeLiteSnapshotReader();
-        var service = new SceneTreeLiteDirtySourceProbeService(reader);
+        var service = new SceneTreeLiteDirtySourceProbeService(new UnexpectedSceneTreeLiteSnapshotReader(
+            "Oneshot dirty source probe must stop before daemon snapshot read."));
 
         var result = await service.ProbeAsync(
-            CreateProject(),
+            ResolvedUnityProjectContextTestFactory.Create(),
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
             UnityExecutionMode.Oneshot,
@@ -24,20 +25,20 @@ public sealed class SceneTreeLiteDirtySourceProbeServiceTests
             CancellationToken.None);
 
         Assert.False(result.HasDirtySource);
-        Assert.Equal(0, reader.CallCount);
+        Assert.Equal("oneshot execution cannot observe an existing Unity daemon scene.", result.FallbackReason);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task Probe_WhenDaemonReturnsDirtyLoadedScene_ReturnsDirtySource ()
     {
-        var reader = new StubSceneTreeLiteSnapshotReader();
+        var reader = new RecordingSceneTreeLiteSnapshotReader();
         var response = CreateResponse(new SceneTreeSourceState(SceneTreeSourceStateKind.LoadedScene, isDirty: true));
         reader.Enqueue(SceneTreeLiteSnapshotFetchResult.Success(response));
         var service = new SceneTreeLiteDirtySourceProbeService(reader);
 
         var result = await service.ProbeAsync(
-            CreateProject(),
+            ResolvedUnityProjectContextTestFactory.Create(),
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
             UnityExecutionMode.Auto,
@@ -47,22 +48,23 @@ public sealed class SceneTreeLiteDirtySourceProbeServiceTests
 
         Assert.True(result.HasDirtySource);
         Assert.Same(response, result.Response);
-        Assert.Equal(UnityExecutionMode.Daemon, reader.LastMode);
-        Assert.True(reader.LastFailFast);
-        Assert.True(reader.LastLoadedSceneOnly);
+        Assert.Equal("Dirty loaded scene is open in Unity daemon.", result.FallbackReason);
+        SceneTreeLiteSnapshotReaderAssert.LoadedSceneProbeRequested(
+            reader,
+            "Assets/Scenes/Main.unity");
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task Probe_WhenDaemonReturnsCleanLoadedScene_ReturnsNotAvailable ()
     {
-        var reader = new StubSceneTreeLiteSnapshotReader();
+        var reader = new RecordingSceneTreeLiteSnapshotReader();
         reader.Enqueue(SceneTreeLiteSnapshotFetchResult.Success(CreateResponse(
             new SceneTreeSourceState(SceneTreeSourceStateKind.LoadedScene, isDirty: false))));
         var service = new SceneTreeLiteDirtySourceProbeService(reader);
 
         var result = await service.ProbeAsync(
-            CreateProject(),
+            ResolvedUnityProjectContextTestFactory.Create(),
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
             UnityExecutionMode.Daemon,
@@ -71,19 +73,19 @@ public sealed class SceneTreeLiteDirtySourceProbeServiceTests
             CancellationToken.None);
 
         Assert.False(result.HasDirtySource);
-        Assert.Equal(1, reader.CallCount);
+        Assert.Equal("Unity daemon scene is not dirty loaded source.", result.FallbackReason);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task Probe_WhenDaemonReadFails_ReturnsNotAvailable ()
     {
-        var reader = new StubSceneTreeLiteSnapshotReader();
+        var reader = new RecordingSceneTreeLiteSnapshotReader();
         reader.Enqueue(SceneTreeLiteSnapshotFetchResult.Failure("daemon is not running", UcliCoreErrorCodes.InternalError));
         var service = new SceneTreeLiteDirtySourceProbeService(reader);
 
         var result = await service.ProbeAsync(
-            CreateProject(),
+            ResolvedUnityProjectContextTestFactory.Create(),
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
             UnityExecutionMode.Auto,
@@ -92,16 +94,7 @@ public sealed class SceneTreeLiteDirtySourceProbeServiceTests
             CancellationToken.None);
 
         Assert.False(result.HasDirtySource);
-        Assert.Equal(1, reader.CallCount);
-    }
-
-    private static ResolvedUnityProjectContext CreateProject ()
-    {
-        return new ResolvedUnityProjectContext(
-            UnityProjectRoot: "/repo/UnityProject",
-            RepositoryRoot: "/repo",
-            ProjectFingerprint: "project-fingerprint",
-            PathSource: UnityProjectPathSource.CommandOption);
+        Assert.Equal("daemon is not running", result.FallbackReason);
     }
 
     private static IpcIndexSceneTreeLiteReadResponse CreateResponse (SceneTreeSourceState sourceState)
@@ -116,45 +109,4 @@ public sealed class SceneTreeLiteDirtySourceProbeServiceTests
             SourceState: sourceState);
     }
 
-    private sealed class StubSceneTreeLiteSnapshotReader : ISceneTreeLiteSnapshotReader
-    {
-        private readonly Queue<SceneTreeLiteSnapshotFetchResult> results = new();
-
-        public int CallCount { get; private set; }
-
-        public UnityExecutionMode LastMode { get; private set; }
-
-        public bool LastFailFast { get; private set; }
-
-        public bool LastLoadedSceneOnly { get; private set; }
-
-        public void Enqueue (SceneTreeLiteSnapshotFetchResult result)
-        {
-            results.Enqueue(result);
-        }
-
-        public ValueTask<SceneTreeLiteSnapshotFetchResult> ReadAsync (
-            ResolvedUnityProjectContext project,
-            UcliConfig config,
-            UcliCommand command,
-            UnityExecutionMode mode,
-            TimeSpan timeout,
-            string scenePath,
-            bool failFast = false,
-            bool loadedSceneOnly = false,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            CallCount++;
-            LastMode = mode;
-            LastFailFast = failFast;
-            LastLoadedSceneOnly = loadedSceneOnly;
-            if (!results.TryDequeue(out var result))
-            {
-                throw new InvalidOperationException("Scene snapshot result is not configured.");
-            }
-
-            return ValueTask.FromResult(result);
-        }
-    }
 }

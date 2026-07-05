@@ -1,7 +1,6 @@
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Tests.Helpers.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
-using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 
 namespace MackySoft.Ucli.Tests.Ipc;
 
@@ -11,8 +10,8 @@ public sealed class UnityIpcClientSelectorTests
     [Trait("Size", "Small")]
     public void Select_WithRegisteredTarget_ReturnsMatchingClient ()
     {
-        var daemonClient = new StubUnityIpcClient(UnityExecutionTarget.Daemon);
-        var oneshotClient = new StubUnityIpcClient(UnityExecutionTarget.Oneshot);
+        var daemonClient = new RecordingUnityIpcClient(UnityExecutionTarget.Daemon);
+        var oneshotClient = new RecordingUnityIpcClient(UnityExecutionTarget.Oneshot);
         var selector = new UnityIpcClientSelector([daemonClient, oneshotClient]);
 
         var selected = selector.Select(UnityExecutionTarget.Oneshot);
@@ -24,7 +23,7 @@ public sealed class UnityIpcClientSelectorTests
     [Trait("Size", "Small")]
     public void Select_WithMissingTarget_ThrowsInvalidOperationException ()
     {
-        var selector = new UnityIpcClientSelector([new StubUnityIpcClient(UnityExecutionTarget.Daemon)]);
+        var selector = new UnityIpcClientSelector([new RecordingUnityIpcClient(UnityExecutionTarget.Daemon)]);
 
         var exception = Assert.Throws<InvalidOperationException>(() => selector.Select(UnityExecutionTarget.Oneshot));
 
@@ -37,39 +36,10 @@ public sealed class UnityIpcClientSelectorTests
     {
         var exception = Assert.Throws<InvalidOperationException>(() => new UnityIpcClientSelector(
         [
-            new StubUnityIpcClient(UnityExecutionTarget.Daemon),
-            new StubUnityIpcClient(UnityExecutionTarget.Daemon),
+            new RecordingUnityIpcClient(UnityExecutionTarget.Daemon),
+            new RecordingUnityIpcClient(UnityExecutionTarget.Daemon),
         ]));
 
         Assert.Contains("Daemon", exception.Message, StringComparison.Ordinal);
-    }
-
-    private sealed class StubUnityIpcClient : IUnityIpcClient
-    {
-        public StubUnityIpcClient (UnityExecutionTarget target)
-        {
-            Target = target;
-        }
-
-        public UnityExecutionTarget Target { get; }
-
-        public ValueTask<UnityRequestExecutionResult> SendAsync (
-            ResolvedUnityProjectContext unityProject,
-            UnityIpcDispatchRequest dispatchRequest,
-            TimeSpan timeout,
-            CancellationToken cancellationToken = default)
-        {
-            throw new NotSupportedException();
-        }
-
-        public ValueTask<UnityRequestExecutionResult> SendStreamingAsync (
-            ResolvedUnityProjectContext unityProject,
-            UnityIpcDispatchRequest dispatchRequest,
-            TimeSpan timeout,
-            Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
-            CancellationToken cancellationToken = default)
-        {
-            throw new NotSupportedException();
-        }
     }
 }

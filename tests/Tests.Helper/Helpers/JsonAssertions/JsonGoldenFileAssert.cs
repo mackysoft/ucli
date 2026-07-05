@@ -6,8 +6,6 @@ using Xunit.Sdk;
 
 internal static class JsonGoldenFileAssert
 {
-    private static readonly Lazy<string> RepositoryRoot = new(FindRepositoryRoot);
-
     public static void Matches (
         string repositoryRelativeGoldenPath,
         string actualJson,
@@ -15,7 +13,7 @@ internal static class JsonGoldenFileAssert
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(repositoryRelativeGoldenPath);
 
-        var goldenPath = Path.GetFullPath(Path.Combine(RepositoryRoot.Value, repositoryRelativeGoldenPath));
+        var goldenPath = TestRepositoryPaths.GetFullPath(repositoryRelativeGoldenPath);
         MatchesFile(goldenPath, actualJson, normalization);
     }
 
@@ -135,19 +133,4 @@ internal static class JsonGoldenFileAssert
         return builder.ToString();
     }
 
-    private static string FindRepositoryRoot ()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory != null)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "Ucli.slnx")))
-            {
-                return directory.FullName;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new InvalidOperationException("Repository root could not be resolved from test base directory.");
-    }
 }

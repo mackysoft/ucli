@@ -4,8 +4,15 @@ using MackySoft.Tests;
 
 public sealed class TestDirectoryScopeTests
 {
+    private static readonly string[] InvalidRelativePaths =
+    [
+        "../outside.txt",
+        "nested//file.txt",
+        "nested/ /file.txt",
+    ];
+
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void GetDirectory_DoesNotCreateDirectory_WhenOnlyResolved ()
     {
         using var scope = TestDirectories.CreateTempScope("test-directory-scope", "at-resolve-only");
@@ -16,7 +23,7 @@ public sealed class TestDirectoryScopeTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void GetDirectory_WriteFile_WritesUnderChildScopeRoot ()
     {
         using var scope = TestDirectories.CreateTempScope("test-directory-scope", "at-write-file");
@@ -30,7 +37,7 @@ public sealed class TestDirectoryScopeTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void GetDirectory_AcceptsNestedRelativePath ()
     {
         using var scope = TestDirectories.CreateTempScope("test-directory-scope", "at-nested-path");
@@ -42,7 +49,7 @@ public sealed class TestDirectoryScopeTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void GetDirectory_Throws_WhenPathIsRooted ()
     {
         using var scope = TestDirectories.CreateTempScope("test-directory-scope", "at-rooted-path");
@@ -51,20 +58,20 @@ public sealed class TestDirectoryScopeTests
         Assert.Throws<ArgumentException>(() => scope.GetDirectory(rootedPath));
     }
 
-    [Theory]
-    [Trait("Size", "Small")]
-    [InlineData("../outside.txt")]
-    [InlineData("nested//file.txt")]
-    [InlineData("nested/ /file.txt")]
-    public void GetDirectory_Throws_WhenPathIsInvalid (string relativePath)
+    [Fact]
+    [Trait("Size", "Medium")]
+    public void GetDirectory_Throws_WhenPathIsInvalid ()
     {
         using var scope = TestDirectories.CreateTempScope("test-directory-scope", "at-invalid-segment");
 
-        Assert.Throws<ArgumentException>(() => scope.GetDirectory(relativePath));
+        foreach (var relativePath in InvalidRelativePaths)
+        {
+            Assert.Throws<ArgumentException>(() => scope.GetDirectory(relativePath));
+        }
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void Dispose_ChildScope_DoesNotDeleteRoot ()
     {
         using var scope = TestDirectories.CreateTempScope("test-directory-scope", "dispose-child");
@@ -78,7 +85,7 @@ public sealed class TestDirectoryScopeTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void Preserve_FromChildScope_PreservesRootDeletion ()
     {
         var scope = TestDirectories.CreateTempScope("test-directory-scope", "preserve-child");
@@ -102,7 +109,7 @@ public sealed class TestDirectoryScopeTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void Dispose_DeletesScopeRootDirectory ()
     {
         string rootDirectoryPath;

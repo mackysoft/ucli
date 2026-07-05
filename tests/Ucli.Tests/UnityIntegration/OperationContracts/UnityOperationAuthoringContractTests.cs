@@ -1,14 +1,14 @@
 namespace MackySoft.Ucli.Tests;
 
+using MackySoft.Tests;
+
 public sealed class UnityOperationAuthoringContractTests
 {
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void OperationImplementations_DoNotReadRawJsonArgs ()
     {
-        var repositoryRoot = ResolveRepositoryRoot();
-        var operationsRoot = Path.Combine(
-            repositoryRoot,
+        var operationsRoot = TestRepositoryPaths.GetFullPath(
             "src",
             "Ucli.Unity",
             "Assets",
@@ -25,7 +25,7 @@ public sealed class UnityOperationAuthoringContractTests
         var offenders = operationFiles
             .Select(path => new
             {
-                Path = Path.GetRelativePath(repositoryRoot, path),
+                Path = TestRepositoryPaths.NormalizeRepositoryRelativePath(path),
                 Text = File.ReadAllText(path),
             })
             .Where(file =>
@@ -39,19 +39,4 @@ public sealed class UnityOperationAuthoringContractTests
         Assert.Empty(offenders);
     }
 
-    private static string ResolveRepositoryRoot ()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory != null)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "Ucli.slnx")))
-            {
-                return directory.FullName;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new InvalidOperationException("Repository root could not be resolved from the test output directory.");
-    }
 }

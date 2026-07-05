@@ -4,18 +4,23 @@ namespace MackySoft.Ucli.Infrastructure.Tests.Paths;
 
 public sealed class PathFormatExceptionClassifierTests
 {
-    [Theory]
+    private static readonly Func<Exception>[] PathFormatExceptionFactories =
+    [
+        static () => new ArgumentException("message"),
+        static () => new NotSupportedException("message"),
+        static () => new PathTooLongException("message"),
+    ];
+
+    [Fact]
     [Trait("Size", "Small")]
-    [InlineData(typeof(ArgumentException))]
-    [InlineData(typeof(NotSupportedException))]
-    [InlineData(typeof(PathTooLongException))]
-    public void IsPathFormatException_ReturnsTrue_ForPathFormatExceptions (Type exceptionType)
+    public void IsPathFormatException_ReturnsTrue_ForPathFormatExceptions ()
     {
-        var exception = (Exception)Activator.CreateInstance(exceptionType, "message")!;
+        foreach (var createException in PathFormatExceptionFactories)
+        {
+            var result = PathFormatExceptionClassifier.IsPathFormatException(createException());
 
-        var result = PathFormatExceptionClassifier.IsPathFormatException(exception);
-
-        Assert.True(result);
+            Assert.True(result);
+        }
     }
 
     [Fact]

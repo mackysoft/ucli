@@ -1,7 +1,7 @@
 using System.Text.Json;
-using MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Requests;
+using MackySoft.Ucli.Tests.Helpers.Cli;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -122,21 +122,6 @@ public sealed class UserRequestJsonNormalizerTests
 
     private static UserRequestJsonNormalizer CreateNormalizer ()
     {
-        return new UserRequestJsonNormalizer(new FixedRequestIdFactory(RequestId));
-    }
-
-    private sealed class FixedRequestIdFactory : IRequestIdFactory
-    {
-        private readonly string requestId;
-
-        public FixedRequestIdFactory (string requestId)
-        {
-            this.requestId = requestId;
-        }
-
-        public string Create ()
-        {
-            return requestId;
-        }
+        return new UserRequestJsonNormalizer(new StubRequestIdFactory(RequestId));
     }
 }

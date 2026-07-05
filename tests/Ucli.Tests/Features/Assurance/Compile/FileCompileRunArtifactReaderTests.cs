@@ -9,12 +9,12 @@ namespace MackySoft.Ucli.Tests.Features.Assurance.Compile;
 public sealed class FileCompileRunArtifactReaderTests
 {
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task ReadSummaryAsync_WhenSummaryIsSymbolicLink_ReturnsFailure ()
     {
         using var scope = TestDirectories.CreateTempScope("compile-artifact-reader", "summary-symlink");
         var store = new FileCompileRunArtifactReader();
-        var project = CreateProject(scope);
+        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, "fingerprint");
         var summaryPath = store.ResolveSummaryPath(project, "run-1");
         var directoryPath = Path.GetDirectoryName(summaryPath)
             ?? throw new InvalidOperationException($"Directory path could not be resolved: {summaryPath}");
@@ -36,12 +36,12 @@ public sealed class FileCompileRunArtifactReaderTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task ReadSummaryAsync_WhenSummaryExceedsLimit_ReturnsFailure ()
     {
         using var scope = TestDirectories.CreateTempScope("compile-artifact-reader", "summary-too-large");
         var store = new FileCompileRunArtifactReader();
-        var project = CreateProject(scope);
+        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, "fingerprint");
         var summaryPath = store.ResolveSummaryPath(project, "run-1");
         var directoryPath = Path.GetDirectoryName(summaryPath)
             ?? throw new InvalidOperationException($"Directory path could not be resolved: {summaryPath}");
@@ -58,12 +58,12 @@ public sealed class FileCompileRunArtifactReaderTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task WriteArtifactsAsync_WhenArtifactsAlreadyExist_ReplacesArtifactsWithoutTempFiles ()
     {
         using var scope = TestDirectories.CreateTempScope("compile-artifact-reader", "write-replace");
         var store = new FileCompileRunArtifactReader();
-        var project = CreateProject(scope);
+        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, "fingerprint");
         var first = CreateSummary(errorCount: 1);
         var second = CreateSummary(errorCount: 0);
 
@@ -80,15 +80,6 @@ public sealed class FileCompileRunArtifactReaderTests
         Assert.DoesNotContain(
             Directory.EnumerateFiles(runDirectoryPath),
             path => Path.GetFileName(path).Contains(".tmp.", StringComparison.Ordinal));
-    }
-
-    private static ResolvedUnityProjectContext CreateProject (TestDirectoryScope scope)
-    {
-        return new ResolvedUnityProjectContext(
-            UnityProjectRoot: scope.CreateDirectory("UnityProject"),
-            RepositoryRoot: scope.FullPath,
-            ProjectFingerprint: "fingerprint",
-            PathSource: UnityProjectPathSource.CommandOption);
     }
 
     private static IpcCompileSummary CreateSummary (int errorCount = 0)

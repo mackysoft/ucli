@@ -2,6 +2,7 @@ using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
+using MackySoft.Ucli.Tests.Helpers.Unity;
 using MackySoft.Ucli.UnityIntegration.Ipc.Process;
 
 namespace MackySoft.Ucli.Tests.Ipc;
@@ -16,7 +17,7 @@ public sealed class UnityBatchmodeProcessLauncherTests
         var unityLogPath = @"C:\Users\Foo Bar\Project\.ucli\unity.log";
         var bootstrapArguments = new IpcOneshotBootstrapArguments(
             ParentProcessId: 1234,
-                ProjectFingerprint: "project-fingerprint",
+            ProjectFingerprint: "project-fingerprint",
             SessionToken: "session-token",
             ExitDeadlineUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 0, TimeSpan.Zero),
             EndpointTransportKind: "unixDomainSocket",
@@ -63,23 +64,20 @@ public sealed class UnityBatchmodeProcessLauncherTests
     [Trait("Size", "Small")]
     public async Task Launch_WhenUnityPluginMarkerIsMissing_ReturnsInvalidArgumentWithoutResolvingUnityVersion ()
     {
-        var versionResolver = new StubUnityVersionResolver();
         var launcher = new UnityBatchmodeProcessLauncher(
-            versionResolver,
+            new UnexpectedUnityVersionResolver("Plugin validation failure must stop before Unity version resolution."),
             new StubUnityEditorPathResolver(),
-            new StubUnityUcliPluginLocator
+            new RecordingUnityUcliPluginLocator
             {
                 Result = UnityUcliPluginLocateResult.NotFound(ExecutionError.InvalidArgument(
                     "Unity project does not contain the uCLI Unity plugin.")),
             },
-            new StubUnityProjectLockFileProbe());
+            new RecordingUnityProjectLockPreflightService());
 
         var result = await launcher.LaunchAsync(
-            new ResolvedUnityProjectContext(
-                UnityProjectRoot: "/tmp/unity-project",
-                RepositoryRoot: "/tmp/repository-root",
-                ProjectFingerprint: "project-fingerprint",
-                PathSource: UnityProjectPathSource.CommandOption),
+            ResolvedUnityProjectContextTestFactory.Create(
+                unityProjectRoot: "/tmp/unity-project",
+                repositoryRoot: "/tmp/repository-root"),
             new IpcOneshotBootstrapArguments(
                 ParentProcessId: 1234,
                 ProjectFingerprint: "project-fingerprint",
@@ -94,26 +92,25 @@ public sealed class UnityBatchmodeProcessLauncherTests
         Assert.False(result.IsSuccess);
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Equal(0, versionResolver.CallCount);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task Launch_WhenUnityLockFileExists_ReturnsAlreadyOpenWithoutResolvingUnityVersion ()
     {
-        var versionResolver = new StubUnityVersionResolver();
+        var lockFilePath = "/tmp/unity-project/Temp/UnityLockfile";
         var launcher = new UnityBatchmodeProcessLauncher(
-            versionResolver,
+            new UnexpectedUnityVersionResolver("Active Unity project lock must stop before Unity version resolution."),
             new StubUnityEditorPathResolver(),
-            new StubUnityUcliPluginLocator(),
-            new StubUnityProjectLockFileProbe(UnityProjectLockFileProbeResult.Locked("/tmp/unity-project/Temp/UnityLockfile")));
+            new RecordingUnityUcliPluginLocator(),
+            new RecordingUnityProjectLockPreflightService(UnityProjectLockPreflightResult.ActiveLock(
+                lockFilePath,
+                UnityProjectLockFailureMessage.CreateAlreadyOpen("/tmp/unity-project", lockFilePath))));
 
         var result = await launcher.LaunchAsync(
-            new ResolvedUnityProjectContext(
-                UnityProjectRoot: "/tmp/unity-project",
-                RepositoryRoot: "/tmp/repository-root",
-                ProjectFingerprint: "project-fingerprint",
-                PathSource: UnityProjectPathSource.CommandOption),
+            ResolvedUnityProjectContextTestFactory.Create(
+                unityProjectRoot: "/tmp/unity-project",
+                repositoryRoot: "/tmp/repository-root"),
             new IpcOneshotBootstrapArguments(
                 ParentProcessId: 1234,
                 ProjectFingerprint: "project-fingerprint",
@@ -130,28 +127,24 @@ public sealed class UnityBatchmodeProcessLauncherTests
         Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
         Assert.Equal(UnityProcessErrorCodes.UnityProjectAlreadyOpen, error.Code);
         Assert.Contains("UnityLockfile", error.Message, StringComparison.Ordinal);
-        Assert.Equal(0, versionResolver.CallCount);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task Launch_WhenProjectLockOwnershipIsAmbiguous_ReturnsLockAmbiguousWithoutResolvingUnityVersion ()
     {
-        var versionResolver = new StubUnityVersionResolver();
         var launcher = new UnityBatchmodeProcessLauncher(
-            versionResolver,
+            new UnexpectedUnityVersionResolver("Ambiguous Unity project lock must stop before Unity version resolution."),
             new StubUnityEditorPathResolver(),
-            new StubUnityUcliPluginLocator(),
-            new StubUnityProjectLockPreflightService(UnityProjectLockPreflightResult.Ambiguous(
+            new RecordingUnityUcliPluginLocator(),
+            new RecordingUnityProjectLockPreflightService(UnityProjectLockPreflightResult.Ambiguous(
                 "/tmp/unity-project/Temp/UnityLockfile",
                 "lock owner could not be inspected")));
 
         var result = await launcher.LaunchAsync(
-            new ResolvedUnityProjectContext(
-                UnityProjectRoot: "/tmp/unity-project",
-                RepositoryRoot: "/tmp/repository-root",
-                ProjectFingerprint: "project-fingerprint",
-                PathSource: UnityProjectPathSource.CommandOption),
+            ResolvedUnityProjectContextTestFactory.Create(
+                unityProjectRoot: "/tmp/unity-project",
+                repositoryRoot: "/tmp/repository-root"),
             new IpcOneshotBootstrapArguments(
                 ParentProcessId: 1234,
                 ProjectFingerprint: "project-fingerprint",
@@ -166,31 +159,31 @@ public sealed class UnityBatchmodeProcessLauncherTests
         Assert.False(result.IsSuccess);
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(UnityProcessErrorCodes.UnityProjectLockAmbiguous, error.Code);
-        Assert.Equal(0, versionResolver.CallCount);
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task Launch_WhenUnityLockFileAppearsBeforeProcessStart_ReturnsAlreadyOpen ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-batchmode-process-launcher", "lock-file-race");
-        var versionResolver = new StubUnityVersionResolver();
+        var versionResolver = new RecordingUnityVersionResolver();
         var lockFilePath = "/tmp/unity-project/Temp/UnityLockfile";
-        var lockFileProbe = new StubUnityProjectLockFileProbe(
-            UnityProjectLockFileProbeResult.Unlocked(lockFilePath),
-            UnityProjectLockFileProbeResult.Locked(lockFilePath));
+        var unityProject = ResolvedUnityProjectContextTestFactory.Create(
+            unityProjectRoot: "/tmp/unity-project",
+            repositoryRoot: "/tmp/repository-root");
+        var lockPreflightService = new RecordingUnityProjectLockPreflightService(
+            UnityProjectLockPreflightResult.Unlocked(lockFilePath),
+            UnityProjectLockPreflightResult.ActiveLock(
+                lockFilePath,
+                UnityProjectLockFailureMessage.CreateAlreadyOpen("/tmp/unity-project", lockFilePath)));
         var launcher = new UnityBatchmodeProcessLauncher(
             versionResolver,
             new StubUnityEditorPathResolver("/path/that/must/not/exist/ucli-unity"),
-            new StubUnityUcliPluginLocator(),
-            lockFileProbe);
+            new RecordingUnityUcliPluginLocator(),
+            lockPreflightService);
 
         var result = await launcher.LaunchAsync(
-            new ResolvedUnityProjectContext(
-                UnityProjectRoot: "/tmp/unity-project",
-                RepositoryRoot: "/tmp/repository-root",
-                ProjectFingerprint: "project-fingerprint",
-                PathSource: UnityProjectPathSource.CommandOption),
+            unityProject,
             new IpcOneshotBootstrapArguments(
                 ParentProcessId: 1234,
                 ProjectFingerprint: "project-fingerprint",
@@ -204,40 +197,47 @@ public sealed class UnityBatchmodeProcessLauncherTests
 
         Assert.False(result.IsSuccess);
         var error = Assert.IsType<ExecutionError>(result.Error);
-        Assert.Equal(2, lockFileProbe.CallCount);
+        lockPreflightService.AssertStartPreflightRetriedFor(unityProject, CancellationToken.None);
         Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
         Assert.Equal(UnityProcessErrorCodes.UnityProjectAlreadyOpen, error.Code);
         Assert.Contains("UnityLockfile", error.Message, StringComparison.Ordinal);
-        Assert.Equal(1, versionResolver.CallCount);
+        UnityVersionResolverAssert.ResolvedOnceFor(
+            versionResolver,
+            unityProject.UnityProjectRoot);
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task Launch_WhenCanceledBeforeProcessStart_ThrowsWithoutSecondLockProbe ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-batchmode-process-launcher", "canceled-before-start");
         using var cancellationTokenSource = new CancellationTokenSource();
-        var lockFileProbe = new StubUnityProjectLockFileProbe();
+        var unityProject = ResolvedUnityProjectContextTestFactory.Create(
+            unityProjectRoot: "/tmp/unity-project",
+            repositoryRoot: "/tmp/repository-root");
+        var lockPreflightService = new RecordingUnityProjectLockPreflightService();
         var launcher = new UnityBatchmodeProcessLauncher(
-            new StubUnityVersionResolver(),
+            new RecordingUnityVersionResolver(),
             new StubUnityEditorPathResolver("/path/that/must/not/exist/ucli-unity"),
-            new StubUnityUcliPluginLocator
+            new RecordingUnityUcliPluginLocator
             {
-                OnLocate = cancellationTokenSource.Cancel,
+                Handler = _ =>
+                {
+                    cancellationTokenSource.Cancel();
+                    return ValueTask.FromResult(UnityUcliPluginLocateResult.Found(
+                        "/tmp/ucli-plugin.json",
+                        UnityUcliPluginMarkerContract.ExpectedProtocolVersion));
+                },
             },
-            lockFileProbe);
+            lockPreflightService);
 
         await Assert.ThrowsAsync<OperationCanceledException>(async () =>
         {
             _ = await launcher.LaunchAsync(
-                new ResolvedUnityProjectContext(
-                    UnityProjectRoot: "/tmp/unity-project",
-                    RepositoryRoot: "/tmp/repository-root",
-                    ProjectFingerprint: "project-fingerprint",
-                    PathSource: UnityProjectPathSource.CommandOption),
+                unityProject,
                 new IpcOneshotBootstrapArguments(
                     ParentProcessId: 1234,
-                ProjectFingerprint: "project-fingerprint",
+                    ProjectFingerprint: "project-fingerprint",
                     SessionToken: "session-token",
                     ExitDeadlineUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 0, TimeSpan.Zero),
                     EndpointTransportKind: "unixDomainSocket",
@@ -247,147 +247,7 @@ public sealed class UnityBatchmodeProcessLauncherTests
                 cancellationTokenSource.Token);
         });
 
-        Assert.Equal(1, lockFileProbe.CallCount);
+        lockPreflightService.AssertOnlyInitialStartPreflightFor(unityProject, cancellationTokenSource.Token);
     }
 
-    private sealed class StubUnityVersionResolver : IUnityVersionResolver
-    {
-        public int CallCount { get; private set; }
-
-        public UnityVersionResolutionResult Resolve (
-            string unityProjectRoot,
-            string? preferredUnityVersion)
-        {
-            CallCount++;
-            return UnityVersionResolutionResult.Success("2023.2.22f1");
-        }
-    }
-
-    private sealed class StubUnityEditorPathResolver : IUnityEditorPathResolver
-    {
-        private readonly string unityEditorPath;
-
-        public StubUnityEditorPathResolver (string unityEditorPath = "/Applications/Unity.app/Contents/MacOS/Unity")
-        {
-            this.unityEditorPath = unityEditorPath;
-        }
-
-        public UnityEditorPathResolutionResult Resolve (
-            string unityVersion,
-            string? preferredUnityEditorPath)
-        {
-            return UnityEditorPathResolutionResult.Success(unityEditorPath);
-        }
-    }
-
-    private sealed class StubUnityUcliPluginLocator : IUnityUcliPluginLocator
-    {
-        public UnityUcliPluginLocateResult Result { get; set; }
-            = UnityUcliPluginLocateResult.Found(
-                "/tmp/ucli-plugin.json",
-                UnityUcliPluginMarkerContract.ExpectedProtocolVersion);
-
-        public Action? OnLocate { get; set; }
-
-        public ValueTask<UnityUcliPluginLocateResult> LocateAsync (
-            string unityProjectRoot,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            OnLocate?.Invoke();
-            return ValueTask.FromResult(Result);
-        }
-    }
-
-    private sealed class StubUnityProjectLockFileProbe : IUnityProjectLockFileProbe, IUnityProjectLockPreflightService
-    {
-        private readonly IReadOnlyList<UnityProjectLockFileProbeResult> results;
-
-        private int nextResultIndex;
-
-        public StubUnityProjectLockFileProbe ()
-            : this(UnityProjectLockFileProbeResult.Unlocked("/tmp/unity-project/Temp/UnityLockfile"))
-        {
-        }
-
-        public StubUnityProjectLockFileProbe (params UnityProjectLockFileProbeResult[] results)
-        {
-            this.results = results is { Length: > 0 }
-                ? results
-                : [UnityProjectLockFileProbeResult.Unlocked("/tmp/unity-project/Temp/UnityLockfile")];
-        }
-
-        public int CallCount { get; private set; }
-
-        public UnityProjectLockFileProbeResult Probe (string unityProjectRoot)
-        {
-            ArgumentException.ThrowIfNullOrWhiteSpace(unityProjectRoot);
-
-            var resultIndex = Math.Min(nextResultIndex, results.Count - 1);
-            nextResultIndex++;
-            CallCount++;
-            return results[resultIndex];
-        }
-
-        public ValueTask<UnityProjectLockPreflightResult> PrepareForUnityProcessStartAsync (
-            ResolvedUnityProjectContext unityProject,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromResult(ConvertProbeResult(Probe(unityProject.UnityProjectRoot), unityProject));
-        }
-
-        public ValueTask<UnityProjectLockPreflightResult> CleanupStaleLockAfterUnityProcessExitAsync (
-            ResolvedUnityProjectContext unityProject,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromResult(ConvertProbeResult(Probe(unityProject.UnityProjectRoot), unityProject));
-        }
-
-        private static UnityProjectLockPreflightResult ConvertProbeResult (
-            UnityProjectLockFileProbeResult result,
-            ResolvedUnityProjectContext unityProject)
-        {
-            if (!result.IsSuccess)
-            {
-                return UnityProjectLockPreflightResult.InspectionFailed(result.ErrorMessage!);
-            }
-
-            if (!result.IsLocked)
-            {
-                return UnityProjectLockPreflightResult.Unlocked(result.LockFilePath!);
-            }
-
-            return UnityProjectLockPreflightResult.ActiveLock(
-                result.LockFilePath!,
-                UnityProjectLockFailureMessage.CreateAlreadyOpen(unityProject.UnityProjectRoot, result.LockFilePath));
-        }
-    }
-
-    private sealed class StubUnityProjectLockPreflightService : IUnityProjectLockPreflightService
-    {
-        private readonly UnityProjectLockPreflightResult result;
-
-        public StubUnityProjectLockPreflightService (UnityProjectLockPreflightResult result)
-        {
-            this.result = result;
-        }
-
-        public ValueTask<UnityProjectLockPreflightResult> PrepareForUnityProcessStartAsync (
-            ResolvedUnityProjectContext unityProject,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromResult(result);
-        }
-
-        public ValueTask<UnityProjectLockPreflightResult> CleanupStaleLockAfterUnityProcessExitAsync (
-            ResolvedUnityProjectContext unityProject,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromResult(result);
-        }
-    }
 }

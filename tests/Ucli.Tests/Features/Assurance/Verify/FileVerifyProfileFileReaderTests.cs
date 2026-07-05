@@ -8,7 +8,7 @@ namespace MackySoft.Ucli.Tests.Features.Assurance.Verify;
 public sealed class FileVerifyProfileFileReaderTests
 {
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task ReadAsync_WithRepositoryRelativeProfilePath_ReturnsJsonAndRelativePath ()
     {
         using var repository = TestDirectories.CreateTempScope("ucli-verify", nameof(ReadAsync_WithRepositoryRelativeProfilePath_ReturnsJsonAndRelativePath));
@@ -23,7 +23,7 @@ public sealed class FileVerifyProfileFileReaderTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task ReadAsync_WithProfilePathOutsideRepository_ReturnsInvalidArgument ()
     {
         using var repository = TestDirectories.CreateTempScope("ucli-verify", nameof(ReadAsync_WithProfilePathOutsideRepository_ReturnsInvalidArgument));
@@ -38,7 +38,7 @@ public sealed class FileVerifyProfileFileReaderTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task ReadAsync_WithProfileFileSymbolicLink_ReturnsInvalidArgument ()
     {
         using var repository = TestDirectories.CreateTempScope("ucli-verify", nameof(ReadAsync_WithProfileFileSymbolicLink_ReturnsInvalidArgument));
@@ -59,7 +59,7 @@ public sealed class FileVerifyProfileFileReaderTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task ReadAsync_WithProfileDirectorySymbolicLink_ReturnsInvalidArgument ()
     {
         using var repository = TestDirectories.CreateTempScope("ucli-verify", nameof(ReadAsync_WithProfileDirectorySymbolicLink_ReturnsInvalidArgument));

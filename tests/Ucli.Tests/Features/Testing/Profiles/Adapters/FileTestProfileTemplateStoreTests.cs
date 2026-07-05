@@ -10,7 +10,7 @@ namespace MackySoft.Ucli.Tests;
 public sealed class FileTestProfileTemplateStoreTests
 {
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task Write_WithOutputPathWithoutJson_AppendsJsonExtensionAndWritesTemplate ()
     {
         using var scope = TestDirectories.CreateTempScope("test-profile-init-service", "append-json-extension");
@@ -31,7 +31,7 @@ public sealed class FileTestProfileTemplateStoreTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task Write_WithOutputPathAlreadyJson_WritesTemplateWithoutAddingExtension ()
     {
         using var scope = TestDirectories.CreateTempScope("test-profile-init-service", "preserve-json-extension");
@@ -49,7 +49,7 @@ public sealed class FileTestProfileTemplateStoreTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task Write_WithCustomExtension_AppendsJsonExtension ()
     {
         using var scope = TestDirectories.CreateTempScope("test-profile-init-service", "append-json-to-custom-extension");
@@ -68,7 +68,7 @@ public sealed class FileTestProfileTemplateStoreTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task Write_WithoutForce_WhenTargetFileExists_ReturnsInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("test-profile-init-service", "existing-file-without-force");
@@ -81,7 +81,7 @@ public sealed class FileTestProfileTemplateStoreTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task Write_WithForce_WhenTargetFileExists_OverwritesTemplate ()
     {
         using var scope = TestDirectories.CreateTempScope("test-profile-init-service", "existing-file-with-force");
@@ -97,7 +97,7 @@ public sealed class FileTestProfileTemplateStoreTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task Write_WhenOutputPathIsDirectory_ReturnsInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("test-profile-init-service", "directory-path");
@@ -110,7 +110,7 @@ public sealed class FileTestProfileTemplateStoreTests
     }
 
     [Theory]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     [InlineData("/")]
     [InlineData("\\")]
     public async Task Write_WhenOutputPathUsesDirectoryStyleSuffix_ReturnsInvalidArgument (string suffix)
@@ -126,7 +126,7 @@ public sealed class FileTestProfileTemplateStoreTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task Write_WhenParentDirectoryDoesNotExist_CreatesDirectoryAndWritesTemplate ()
     {
         using var scope = TestDirectories.CreateTempScope("test-profile-init-service", "parent-directory-not-found");

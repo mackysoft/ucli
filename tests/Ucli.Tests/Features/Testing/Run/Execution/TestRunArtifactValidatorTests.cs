@@ -4,12 +4,17 @@ namespace MackySoft.Ucli.Tests;
 
 public sealed class TestRunArtifactValidatorTests
 {
+    private static readonly MissingGeneratedFileCase[] MissingGeneratedFileCases =
+    [
+        new("missing-results", "run/editor.log", "results.xml"),
+        new("missing-editor-log", "run/results.xml", "editor.log"),
+    ];
+
     [Fact]
     [Trait("Size", "Small")]
     public void TryValidateOutputPaths_WhenPathsAreAbsolute_ReturnsTrue ()
     {
-        using var scope = TestDirectories.CreateTempScope("artifacts-validator", "paths-absolute");
-        var artifactPaths = TestArtifactPaths.Create(scope.GetPath("run"));
+        var artifactPaths = TestArtifactPaths.Create(Path.GetFullPath(Path.Combine("artifacts-validator", "run")));
 
         var success = TestRunArtifactValidator.TryValidateOutputPaths(artifactPaths, out var errorMessage);
 
@@ -30,7 +35,7 @@ public sealed class TestRunArtifactValidatorTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void TryValidateGeneratedFiles_WhenResultsAndEditorLogExist_ReturnsTrue ()
     {
         using var scope = TestDirectories.CreateTempScope("test-run-artifact-validator", "success");
@@ -45,30 +50,24 @@ public sealed class TestRunArtifactValidatorTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
-    public void TryValidateGeneratedFiles_WhenResultsXmlDoesNotExist_ReturnsFalse ()
+    [Trait("Size", "Medium")]
+    public void TryValidateGeneratedFiles_WhenRequiredGeneratedFileDoesNotExist_ReturnsFalse ()
     {
-        using var scope = TestDirectories.CreateTempScope("test-run-artifact-validator", "missing-results");
-        scope.WriteFile("run/editor.log", "log");
-        var artifactPaths = TestArtifactPaths.Create(scope.GetPath("run"));
+        foreach (var testCase in MissingGeneratedFileCases)
+        {
+            using var scope = TestDirectories.CreateTempScope("test-run-artifact-validator", testCase.ScopeName);
+            scope.WriteFile(testCase.ExistingRelativePath, "content");
+            var artifactPaths = TestArtifactPaths.Create(scope.GetPath("run"));
 
-        var success = TestRunArtifactValidator.TryValidateGeneratedFiles(artifactPaths, out var errorMessage);
+            var success = TestRunArtifactValidator.TryValidateGeneratedFiles(artifactPaths, out var errorMessage);
 
-        Assert.False(success);
-        Assert.Contains("results.xml", errorMessage, StringComparison.Ordinal);
+            Assert.False(success);
+            Assert.Contains(testCase.MissingFileName, errorMessage, StringComparison.Ordinal);
+        }
     }
 
-    [Fact]
-    [Trait("Size", "Small")]
-    public void TryValidateGeneratedFiles_WhenEditorLogDoesNotExist_ReturnsFalse ()
-    {
-        using var scope = TestDirectories.CreateTempScope("test-run-artifact-validator", "missing-editor-log");
-        scope.WriteFile("run/results.xml", "<test-run />");
-        var artifactPaths = TestArtifactPaths.Create(scope.GetPath("run"));
-
-        var success = TestRunArtifactValidator.TryValidateGeneratedFiles(artifactPaths, out var errorMessage);
-
-        Assert.False(success);
-        Assert.Contains("editor.log", errorMessage, StringComparison.Ordinal);
-    }
+    private sealed record MissingGeneratedFileCase (
+        string ScopeName,
+        string ExistingRelativePath,
+        string MissingFileName);
 }

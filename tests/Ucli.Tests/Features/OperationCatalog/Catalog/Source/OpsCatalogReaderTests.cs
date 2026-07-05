@@ -1,6 +1,8 @@
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Tests.Helpers.Ipc;
+using static MackySoft.Ucli.TestSupport.OperationCatalogTestFixtures;
 
 namespace MackySoft.Ucli.Tests.Ops.Source;
 
@@ -10,41 +12,19 @@ public sealed class OpsCatalogReaderTests
     [Trait("Size", "Small")]
     public async Task Read_WhenResponseIsSuccessful_ReturnsCatalogPayload ()
     {
-        var executor = new StubUnityRequestExecutor
-        {
-            Result = UnityRequestExecutionResult.Success(CreateResponse(
+        var executor = new RecordingUnityRequestExecutor(
+            UnityRequestExecutionResult.Success(CreateResponse(
                 IpcProtocol.StatusOk,
                 Array.Empty<IpcError>(),
                 new IpcOpsReadResponse(
                     DateTimeOffset.Parse("2026-03-07T00:00:00+00:00"),
                     [
-                        new IndexOpEntryJsonContract(
-                            Name: UcliPrimitiveOperationNames.GoDescribe,
-                            Kind: "query",
-                            Policy: "safe",
-                            ArgsSchemaJson: """{"type":"object"}""",
-                            ResultSchemaJson: """{"type":"object"}""")
-                        {
-                            Description = "Returns a GameObject description including components and child hierarchy.",
-                            Inputs = Array.Empty<UcliOperationInputContract>(),
-                            ResultContract = UcliOperationResultContract.One<GameObjectDescriptionResult>("GameObject description result."),
-                            Assurance = new UcliOperationAssuranceContract(
-                                sideEffects: Array.Empty<string>(),
-                                touchedKinds: Array.Empty<string>(),
-                                planMode: "observesLiveUnity",
-                                planSemantics: "Validate arguments and observe Unity state without applying mutation.",
-                                callSemantics: "Read Unity state without applying mutation.",
-                                touchedContract: "Returns no touched resources.",
-                                readPostconditionContract: "Does not stale read surfaces by itself.",
-                                failureSemantics: "Failure means the observation was not fully produced.",
-                                dangerousNotes: Array.Empty<string>()),
-                        },
-                    ]))),
-        };
+                        CreateGoDescribeEntry(),
+                    ]))));
         var reader = new OpsCatalogReader(executor);
 
         var result = await reader.ReadAsync(
-            CreateProjectContext(),
+            ResolvedUnityProjectContextTestFactory.Create(),
             UcliConfig.CreateDefault(),
             UnityExecutionMode.Daemon,
             TimeSpan.FromMilliseconds(1200),
@@ -57,22 +37,22 @@ public sealed class OpsCatalogReaderTests
         Assert.NotNull(result.Snapshot);
         Assert.Single(result.Snapshot.Operations);
         Assert.Equal(UcliPrimitiveOperationNames.GoDescribe, result.Snapshot.Operations[0].Name);
-        Assert.Equal(UcliCommandIds.Ops, executor.Command.Name);
-        var request = Assert.IsType<UnityRequestPayload.Raw>(executor.Payload);
-        Assert.Equal(IpcMethodNames.OpsRead, request.Method);
-        Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcOpsReadRequest payload, out _));
-        Assert.True(payload.FailFast);
-        Assert.False(payload.RequireReadinessGate);
-        Assert.True(payload.IncludeEditLoweringOnly);
+        var execution = UnityRequestExecutorAssert.RawPayloadExecutedOnce<IpcOpsReadRequest>(
+            executor,
+            UcliCommandIds.Ops,
+            UnityExecutionMode.Daemon,
+            IpcMethodNames.OpsRead);
+        Assert.True(execution.Payload.FailFast);
+        Assert.False(execution.Payload.RequireReadinessGate);
+        Assert.True(execution.Payload.IncludeEditLoweringOnly);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task Read_WhenResponseContainsIpcFailure_ReturnsFailure ()
     {
-        var executor = new StubUnityRequestExecutor
-        {
-            Result = UnityRequestExecutionResult.Success(CreateResponse(
+        var executor = new RecordingUnityRequestExecutor(
+            UnityRequestExecutionResult.Success(CreateResponse(
                 IpcProtocol.StatusError,
                 [
                     new IpcError(
@@ -80,12 +60,11 @@ public sealed class OpsCatalogReaderTests
                         "invalid request",
                         null),
                 ],
-                new { })),
-        };
+                new { })));
         var reader = new OpsCatalogReader(executor);
 
         var result = await reader.ReadAsync(
-            CreateProjectContext(),
+            ResolvedUnityProjectContextTestFactory.Create(),
             UcliConfig.CreateDefault(),
             UnityExecutionMode.Auto,
             TimeSpan.FromMilliseconds(1200),
@@ -102,17 +81,15 @@ public sealed class OpsCatalogReaderTests
     [Trait("Size", "Small")]
     public async Task Read_WhenFailureStatusHasNoErrors_ReturnsStatusMessage ()
     {
-        var executor = new StubUnityRequestExecutor
-        {
-            Result = UnityRequestExecutionResult.Success(CreateResponse(
+        var executor = new RecordingUnityRequestExecutor(
+            UnityRequestExecutionResult.Success(CreateResponse(
                 "busy",
                 Array.Empty<IpcError>(),
-                new { })),
-        };
+                new { })));
         var reader = new OpsCatalogReader(executor);
 
         var result = await reader.ReadAsync(
-            CreateProjectContext(),
+            ResolvedUnityProjectContextTestFactory.Create(),
             UcliConfig.CreateDefault(),
             UnityExecutionMode.Auto,
             TimeSpan.FromMilliseconds(1200),
@@ -129,20 +106,18 @@ public sealed class OpsCatalogReaderTests
     [Trait("Size", "Small")]
     public async Task Read_WhenPayloadIsMalformed_ReturnsFailure ()
     {
-        var executor = new StubUnityRequestExecutor
-        {
-            Result = UnityRequestExecutionResult.Success(CreateResponse(
+        var executor = new RecordingUnityRequestExecutor(
+            UnityRequestExecutionResult.Success(CreateResponse(
                 IpcProtocol.StatusOk,
                 Array.Empty<IpcError>(),
                 new
                 {
                     generatedAtUtc = "2026-03-07T00:00:00+00:00",
-                })),
-        };
+                })));
         var reader = new OpsCatalogReader(executor);
 
         var result = await reader.ReadAsync(
-            CreateProjectContext(),
+            ResolvedUnityProjectContextTestFactory.Create(),
             UcliConfig.CreateDefault(),
             UnityExecutionMode.Auto,
             TimeSpan.FromMilliseconds(1200),
@@ -153,15 +128,6 @@ public sealed class OpsCatalogReaderTests
         Assert.False(result.IsSuccess);
         Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
         Assert.Contains("payload is invalid", result.Message, StringComparison.Ordinal);
-    }
-
-    private static ResolvedUnityProjectContext CreateProjectContext ()
-    {
-        return new ResolvedUnityProjectContext(
-            UnityProjectRoot: "/repo/UnityProject",
-            RepositoryRoot: "/repo",
-            ProjectFingerprint: "project-fingerprint",
-            PathSource: UnityProjectPathSource.CommandOption);
     }
 
     private static UnityRequestResponse CreateResponse (
@@ -177,27 +143,4 @@ public sealed class OpsCatalogReaderTests
             errors));
     }
 
-    private sealed class StubUnityRequestExecutor : IUnityRequestExecutor
-    {
-        public UnityRequestExecutionResult Result { get; set; } = null!;
-
-        public UcliCommand Command { get; private set; } = new("pending");
-
-        public UnityRequestPayload? Payload { get; private set; }
-
-        public ValueTask<UnityRequestExecutionResult> ExecuteAsync (
-            UcliCommand command,
-            UnityExecutionMode mode,
-            TimeSpan timeout,
-            UcliConfig config,
-            ResolvedUnityProjectContext unityProject,
-            UnityRequestPayload payload,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            Command = command;
-            Payload = payload;
-            return ValueTask.FromResult(Result);
-        }
-    }
 }

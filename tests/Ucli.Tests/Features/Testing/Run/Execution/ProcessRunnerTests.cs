@@ -4,10 +4,22 @@ namespace MackySoft.Ucli.Tests;
 
 public sealed class ProcessRunnerTests
 {
+    private const int LongOutputLength = 5000;
+
+    private const char LongOutputCharacter = '0';
+
+    private static readonly TimeSpan InheritedOutputHandleLifetime = TimeSpan.FromSeconds(1);
+
+    private static readonly TimeSpan NonResponsiveProcessStartupTimeout = TimeSpan.FromMilliseconds(200);
+
+    private static readonly TimeSpan NonResponsiveProcessGraceTimeout = TimeSpan.FromMilliseconds(50);
+
+    private static readonly TimeSpan NonResponsiveProcessForceKillWaitTimeout = TimeSpan.FromMilliseconds(200);
+
     private static readonly TimeSpan SignalWaitTimeout = TimeSpan.FromSeconds(5);
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task RunAsync_WithInvalidExecutable_ReturnsStartFailed ()
     {
         var runner = new ProcessRunner();
@@ -25,7 +37,7 @@ public sealed class ProcessRunnerTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task RunAsync_WhenCaptureStandardOutputIsEnabled_PreservesFullOutput ()
     {
         var runner = new ProcessRunner();
@@ -37,18 +49,18 @@ public sealed class ProcessRunnerTests
         Assert.Equal(ProcessRunStatus.Exited, result.Status);
         Assert.Equal(0, result.ExitCode);
         Assert.NotNull(result.StandardOutput);
-        Assert.Equal(5000, result.StandardOutput!.TrimEnd('\r', '\n').Length);
-        Assert.Equal(new string('x', 5000), result.StandardOutput.TrimEnd('\r', '\n'));
+        Assert.Equal(LongOutputLength, result.StandardOutput!.TrimEnd('\r', '\n').Length);
+        Assert.Equal(new string(LongOutputCharacter, LongOutputLength), result.StandardOutput.TrimEnd('\r', '\n'));
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task RunAsync_WhenCaptureStandardOutputIsDisabled_DoesNotPreserveOutput ()
     {
         var runner = new ProcessRunner();
 
         var result = await runner.RunAsync(
-            CreateLongOutputRequest(captureStandardOutput: false),
+            CreateOutputRequest("ignored", captureStandardOutput: false),
             CancellationToken.None);
 
         Assert.Equal(ProcessRunStatus.Exited, result.Status);
@@ -57,7 +69,7 @@ public sealed class ProcessRunnerTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task RunAsync_WhenCallerCancellationRacesTimeout_PrefersCanceledResult ()
     {
         var runner = new ProcessRunner();
@@ -77,14 +89,14 @@ public sealed class ProcessRunnerTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task RunAsync_WhenProcessExceedsTimeout_ReturnsTimedOut ()
     {
         var runner = new ProcessRunner();
 
         var result = await TestAwaiter.WaitAsync(
             runner.RunAsync(
-                CreateLongRunningRequest(TimeSpan.FromMilliseconds(200)),
+                CreateLongRunningRequest(TimeSpan.FromMilliseconds(20)),
                 CancellationToken.None),
             "Process runner timeout result",
             SignalWaitTimeout);
@@ -96,7 +108,7 @@ public sealed class ProcessRunnerTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task RunAsync_WithGracefulThenKill_WhenProcessHandlesGracefulExit_ReturnsGracefulExited ()
     {
         if (OperatingSystem.IsWindows())
@@ -106,23 +118,20 @@ public sealed class ProcessRunnerTests
 
         using var scope = TestDirectories.CreateTempScope("process-runner", "graceful-termination");
         var markerPath = scope.GetPath("term-marker");
+        var invocation = TestProcessInvocations.CreateUnixTermSignalMarkerLoop(markerPath);
         var runner = new ProcessRunner();
 
         var result = await TestAwaiter.WaitAsync(
             runner.RunAsync(
                 new ProcessRunRequest(
-                    FileName: "/bin/sh",
-                    Arguments:
-                    [
-                        "-c",
-                        $"trap 'printf term > {ShellSingleQuote(markerPath)}; exit 0' TERM; while :; do sleep 1; done",
-                    ],
-                    Timeout: TimeSpan.FromMilliseconds(200),
+                    FileName: invocation.FileName,
+                    Arguments: invocation.Arguments,
+                    Timeout: TimeSpan.FromMilliseconds(50),
                     OutputDrainMode: ProcessOutputDrainMode.BestEffort,
                     TerminationPolicy: new ProcessTerminationPolicy(
                         ProcessTerminationMode.GracefulThenKill,
-                        TimeSpan.FromSeconds(2),
-                        TimeSpan.FromSeconds(2))),
+                        TimeSpan.FromMilliseconds(250),
+                        TimeSpan.FromMilliseconds(250))),
                 CancellationToken.None),
             "Process runner graceful termination result",
             SignalWaitTimeout);
@@ -133,7 +142,7 @@ public sealed class ProcessRunnerTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task RunAsync_WithGracefulThenKill_WhenProcessDoesNotExitGracefully_ReturnsForceKilled ()
     {
         var runner = new ProcessRunner();
@@ -150,7 +159,7 @@ public sealed class ProcessRunnerTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task RunAsync_WhenOutputDrainModeIsBestEffortAndDescendantKeepsOutputOpen_ReturnsAfterParentExit ()
     {
         if (OperatingSystem.IsWindows())
@@ -163,8 +172,9 @@ public sealed class ProcessRunnerTests
         var result = await TestAwaiter.WaitAsync(
             runner.RunAsync(
                 CreateExitedProcessWithInheritedOutputHandleRequest(
-                    TimeSpan.FromSeconds(10),
-                    ProcessOutputDrainMode.BestEffort),
+                    timeout: TimeSpan.FromMilliseconds(250),
+                    outputDrainMode: ProcessOutputDrainMode.BestEffort,
+                    childLifetime: InheritedOutputHandleLifetime),
                 CancellationToken.None),
             "Process runner inherited output handle result",
             TimeSpan.FromSeconds(8));
@@ -174,7 +184,7 @@ public sealed class ProcessRunnerTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task RunAsync_WhenOutputCompletionIsRequiredAndDescendantKeepsOutputOpen_ReturnsTimedOut ()
     {
         if (OperatingSystem.IsWindows())
@@ -187,8 +197,9 @@ public sealed class ProcessRunnerTests
         var result = await TestAwaiter.WaitAsync(
             runner.RunAsync(
                 CreateExitedProcessWithInheritedOutputHandleRequest(
-                    TimeSpan.FromMilliseconds(200),
-                    ProcessOutputDrainMode.WaitForCompletion),
+                    timeout: TimeSpan.FromMilliseconds(20),
+                    outputDrainMode: ProcessOutputDrainMode.WaitForCompletion,
+                    childLifetime: TimeSpan.FromMilliseconds(100)),
                 CancellationToken.None),
             "Process runner required output completion timeout result",
             SignalWaitTimeout);
@@ -200,56 +211,18 @@ public sealed class ProcessRunnerTests
 
     private static ProcessRunRequest CreateLongOutputRequest (bool captureStandardOutput)
     {
-        if (OperatingSystem.IsWindows())
-        {
-            return new ProcessRunRequest(
-                FileName: "powershell",
-                Arguments:
-                [
-                    "-NoProfile",
-                    "-Command",
-                    "Write-Output ('x' * 5000)",
-                ],
-                Timeout: TimeSpan.FromSeconds(5),
-                CaptureStandardOutput: captureStandardOutput);
-        }
-
-        return new ProcessRunRequest(
-            FileName: "/bin/sh",
-            Arguments:
-            [
-                "-c",
-                "i=0; while [ \"$i\" -lt 5000 ]; do printf x; i=$((i+1)); done; printf '\\n'",
-            ],
-            Timeout: TimeSpan.FromSeconds(5),
-            CaptureStandardOutput: captureStandardOutput);
+        return CreateOutputRequest(new string(LongOutputCharacter, LongOutputLength), captureStandardOutput);
     }
 
     private static ProcessRunRequest CreateLongRunningRequest (
         TimeSpan timeout,
         ProcessOutputDrainMode outputDrainMode = ProcessOutputDrainMode.WaitForCompletion)
     {
-        if (OperatingSystem.IsWindows())
-        {
-            return new ProcessRunRequest(
-                FileName: "powershell",
-                Arguments:
-                [
-                    "-NoProfile",
-                    "-Command",
-                    "Start-Sleep -Seconds 30",
-                ],
-                Timeout: timeout,
-                OutputDrainMode: outputDrainMode);
-        }
+        var invocation = TestProcessInvocations.CreateLongRunning();
 
         return new ProcessRunRequest(
-            FileName: "/bin/sh",
-            Arguments:
-            [
-                "-c",
-                "sleep 30",
-            ],
+            FileName: invocation.FileName,
+            Arguments: invocation.Arguments,
             Timeout: timeout,
             OutputDrainMode: outputDrainMode);
     }
@@ -258,52 +231,43 @@ public sealed class ProcessRunnerTests
     {
         var terminationPolicy = new ProcessTerminationPolicy(
             ProcessTerminationMode.GracefulThenKill,
-            TimeSpan.FromMilliseconds(100),
-            TimeSpan.FromSeconds(2));
-        if (OperatingSystem.IsWindows())
-        {
-            return new ProcessRunRequest(
-                FileName: "powershell",
-                Arguments:
-                [
-                    "-NoProfile",
-                    "-Command",
-                    "Start-Sleep -Seconds 30",
-                ],
-                Timeout: TimeSpan.FromMilliseconds(200),
-                OutputDrainMode: ProcessOutputDrainMode.BestEffort,
-                TerminationPolicy: terminationPolicy);
-        }
-
+            NonResponsiveProcessGraceTimeout,
+            NonResponsiveProcessForceKillWaitTimeout);
+        var invocation = OperatingSystem.IsWindows()
+            ? TestProcessInvocations.CreateLongRunning()
+            : TestProcessInvocations.CreateUnixTermSignalIgnoredLoop();
         return new ProcessRunRequest(
-            FileName: "/bin/sh",
-            Arguments:
-            [
-                "-c",
-                "trap '' TERM; while :; do sleep 1; done",
-            ],
-            Timeout: TimeSpan.FromMilliseconds(200),
+            FileName: invocation.FileName,
+            Arguments: invocation.Arguments,
+            Timeout: NonResponsiveProcessStartupTimeout,
             OutputDrainMode: ProcessOutputDrainMode.BestEffort,
             TerminationPolicy: terminationPolicy);
     }
 
     private static ProcessRunRequest CreateExitedProcessWithInheritedOutputHandleRequest (
         TimeSpan timeout,
-        ProcessOutputDrainMode outputDrainMode)
+        ProcessOutputDrainMode outputDrainMode,
+        TimeSpan childLifetime)
     {
+        var invocation = TestProcessInvocations.CreateUnixExitedParentWithInheritedOutputHandle(childLifetime);
+
         return new ProcessRunRequest(
-            FileName: "/bin/sh",
-            Arguments:
-            [
-                "-c",
-                "sleep 15 & exit 0",
-            ],
+            FileName: invocation.FileName,
+            Arguments: invocation.Arguments,
             Timeout: timeout,
             OutputDrainMode: outputDrainMode);
     }
 
-    private static string ShellSingleQuote (string value)
+    private static ProcessRunRequest CreateOutputRequest (
+        string output,
+        bool captureStandardOutput)
     {
-        return "'" + value.Replace("'", "'\"'\"'", StringComparison.Ordinal) + "'";
+        var invocation = TestProcessInvocations.CreateStandardOutput(output);
+
+        return new ProcessRunRequest(
+            FileName: invocation.FileName,
+            Arguments: invocation.Arguments,
+            Timeout: TimeSpan.FromSeconds(5),
+            CaptureStandardOutput: captureStandardOutput);
     }
 }

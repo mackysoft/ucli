@@ -7,12 +7,12 @@ using MackySoft.Ucli.UnityIntegration.Resolution;
 public sealed class UnityEditorExecutablePathLocatorTests
 {
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void Resolve_WithoutPreferredPath_UsesSearchRoots ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-editor-executable-path-locator", "search-root-success");
         var searchRootPath = scope.CreateDirectory("SearchRoot");
-        var executablePath = EnsureEditorInstallation(scope, "SearchRoot", "6000.1.4f1");
+        var executablePath = UnityEditorInstallationTestFactory.WriteEditorExecutable(scope, "SearchRoot", "6000.1.4f1");
 
         var result = UnityEditorExecutablePathLocator.Resolve("6000.1.4f1", null, new[] { searchRootPath });
 
@@ -22,7 +22,7 @@ public sealed class UnityEditorExecutablePathLocatorTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void Resolve_WithoutPreferredPath_WhenInstallationMissing_ReturnsInvalidArgumentError ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-editor-executable-path-locator", "search-root-missing");
@@ -37,12 +37,4 @@ public sealed class UnityEditorExecutablePathLocatorTests
         Assert.Contains("not installed", error.Message, StringComparison.Ordinal);
     }
 
-    private static string EnsureEditorInstallation (
-        TestDirectoryScope scope,
-        string rootRelativePath,
-        string unityVersion)
-    {
-        var versionRelativePath = Path.Combine(rootRelativePath, unityVersion);
-        return scope.WriteFile(Path.Combine(versionRelativePath, "Editor", "Unity.exe"), string.Empty);
-    }
 }

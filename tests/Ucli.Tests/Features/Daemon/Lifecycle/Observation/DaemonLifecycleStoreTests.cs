@@ -10,7 +10,7 @@ namespace MackySoft.Ucli.Tests.Daemon;
 public sealed class DaemonLifecycleStoreTests
 {
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task Read_WhenLifecycleJsonContainsInvalidActionRequired_ReturnsInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-lifecycle-store", "invalid-action-required");
@@ -32,7 +32,7 @@ public sealed class DaemonLifecycleStoreTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task Read_WhenLifecycleJsonContainsInvalidPrimaryDiagnosticKind_ReturnsInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-lifecycle-store", "invalid-primary-diagnostic-kind");
@@ -60,7 +60,7 @@ public sealed class DaemonLifecycleStoreTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task Read_WhenLifecycleJsonContainsPrimaryDiagnostic_NormalizesFields ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-lifecycle-store", "primary-diagnostic");
@@ -92,7 +92,7 @@ public sealed class DaemonLifecycleStoreTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task Read_WhenLifecycleJsonContainsEditorInstanceId_NormalizesField ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-lifecycle-store", "editor-instance-id");
@@ -112,7 +112,7 @@ public sealed class DaemonLifecycleStoreTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task Read_WhenLifecycleJsonContainsPlayMode_NormalizesSnapshot ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-lifecycle-store", "play-mode");

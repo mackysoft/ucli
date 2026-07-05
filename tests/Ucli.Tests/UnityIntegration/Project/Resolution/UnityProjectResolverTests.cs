@@ -8,7 +8,7 @@ using MackySoft.Ucli.UnityIntegration.Project.Resolution;
 public sealed class UnityProjectResolverTests
 {
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void Resolve_WithValidUnityProjectPath_ReturnsResolvedContext ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-project-resolver", "valid-path");
@@ -30,7 +30,7 @@ public sealed class UnityProjectResolverTests
     [Theory]
     [InlineData("serializedVersion: 1")]
     [InlineData("m_EditorVersion:")]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void Resolve_WhenUnityVersionCannotBeRead_ReturnsContextWithUnknownUnityVersion (string projectVersionContent)
     {
         using var scope = TestDirectories.CreateTempScope("unity-project-resolver", "unknown-unity-version");
@@ -49,7 +49,7 @@ public sealed class UnityProjectResolverTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void Resolve_WithRelativePath_NormalizesToAbsolutePath ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-project-resolver", "relative-path");
@@ -70,7 +70,7 @@ public sealed class UnityProjectResolverTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void Resolve_WithEnvironmentVariableCandidate_RetainsPathSource ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-project-resolver", "environment-variable-source");
@@ -90,7 +90,7 @@ public sealed class UnityProjectResolverTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void Resolve_ReturnsInvalidArgument_WhenProjectDirectoryDoesNotExist ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-project-resolver", "missing-directory");
@@ -125,7 +125,7 @@ public sealed class UnityProjectResolverTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void Resolve_ReturnsInvalidArgument_WhenProjectVersionFileIsMissing ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-project-resolver", "missing-project-version");
@@ -144,7 +144,7 @@ public sealed class UnityProjectResolverTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void Resolve_ReturnsStableFingerprint_ForEquivalentPathRepresentations ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-project-resolver", "fingerprint-stability");
@@ -161,7 +161,7 @@ public sealed class UnityProjectResolverTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void Resolve_WithGitRootOnParentDirectory_UsesRepositoryRootForFingerprint ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-project-resolver", "repository-root-parent");
@@ -180,7 +180,7 @@ public sealed class UnityProjectResolverTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void Resolve_WithMultipleUnityProjectsUnderSameRepositoryRoot_ReturnsDifferentFingerprints ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-project-resolver", "multiple-projects");

@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Tests.Helpers.Daemon;
+
 namespace MackySoft.Ucli.Tests.Daemon;
 
 public sealed class UnityGuiEditorProcessProbeTests
@@ -170,13 +172,8 @@ public sealed class UnityGuiEditorProcessProbeTests
         UnityGuiEditorProcessInspection inspection,
         UnityEditorInstanceMarker? marker = null)
     {
-        var probe = new UnityGuiEditorProcessProbe(new StubUnityGuiEditorProcessInspector(inspection));
-        return probe.ProbeAsync(marker ?? CreateMarker(), CancellationToken.None);
-    }
-
-    private static UnityEditorInstanceMarker CreateMarker ()
-    {
-        return CreateMarker(UnityApplicationPath, UnityApplicationContentsPath);
+        var probe = new UnityGuiEditorProcessProbe(new RecordingUnityGuiEditorProcessInspector(inspection));
+        return probe.ProbeAsync(marker ?? CreateMarker(UnityApplicationPath, UnityApplicationContentsPath), CancellationToken.None);
     }
 
     private static UnityEditorInstanceMarker CreateMarker (
@@ -215,18 +212,4 @@ public sealed class UnityGuiEditorProcessProbeTests
             IsOwnedByCurrentUser: isOwnedByCurrentUser);
     }
 
-    private sealed class StubUnityGuiEditorProcessInspector : IUnityGuiEditorProcessInspector
-    {
-        private readonly UnityGuiEditorProcessInspection inspection;
-
-        public StubUnityGuiEditorProcessInspector (UnityGuiEditorProcessInspection inspection)
-        {
-            this.inspection = inspection;
-        }
-
-        public UnityGuiEditorProcessInspection Inspect (int processId)
-        {
-            return inspection;
-        }
-    }
 }

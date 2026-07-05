@@ -7,7 +7,7 @@ namespace MackySoft.Ucli.Infrastructure.Tests.Storage;
 public sealed class UcliLocalStorageBootstrapperTests
 {
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void EnsureInitialized_WhenTargetIsUnderUcliLocal_BootstrapsSharedStorage ()
     {
         using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "bootstrap-local-storage");
@@ -30,7 +30,7 @@ public sealed class UcliLocalStorageBootstrapperTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void EnsureInitialized_WhenGitIgnoreAlreadyExists_DoesNotOverwriteExistingContents ()
     {
         using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "bootstrap-existing-gitignore");

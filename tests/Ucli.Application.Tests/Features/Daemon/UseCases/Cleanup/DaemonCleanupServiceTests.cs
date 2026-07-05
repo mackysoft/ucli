@@ -11,13 +11,10 @@ public sealed class DaemonCleanupServiceTests
     [Trait("Size", "Small")]
     public async Task Cleanup_WhenOperationReturnsCompleted_ReturnsCompletedOutput ()
     {
-        var context = DaemonServiceTestContext.CreateExecutionContext(timeoutMilliseconds: 3400);
-        var resolver = new DaemonServiceTestContext.StubDaemonCommandExecutionContextResolver(
+        var context = DaemonCommandExecutionContextTestFactory.Create(timeoutMilliseconds: 3400);
+        var resolver = new RecordingDaemonCommandExecutionContextResolver(
             DaemonCommandExecutionContextResolutionResult.Success(context));
-        var operation = new DaemonServiceTestContext.StubDaemonCleanupOperation
-        {
-            CleanupResult = DaemonCleanupResult.Completed(),
-        };
+        var operation = new RecordingDaemonCleanupOperation(DaemonCleanupResult.Completed());
         var service = new DaemonCleanupService(resolver, operation);
 
         var result = await service.CleanupAsync(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
@@ -28,50 +25,62 @@ public sealed class DaemonCleanupServiceTests
         Assert.Equal(DaemonCleanupSkipReason.None, output.SkipReason);
         Assert.Equal(0, output.DeletedLaunchAttemptCount);
         Assert.Equal(3400, output.TimeoutMilliseconds);
-        Assert.Equal(1, operation.CleanupCallCount);
+        DaemonCleanupOperationAssert.CleanupRequestedOnce(
+            operation,
+            context,
+            CancellationToken.None);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Cleanup_WhenOperationReturnsSkipped_MapsSkipReason ()
+    public async Task Cleanup_WhenArgumentsAreSpecified_PropagatesContextAndMapsSkipReason ()
     {
-        var context = DaemonServiceTestContext.CreateExecutionContext(timeoutMilliseconds: 3100);
-        var resolver = new DaemonServiceTestContext.StubDaemonCommandExecutionContextResolver(
+        var context = DaemonCommandExecutionContextTestFactory.Create(timeoutMilliseconds: 3100);
+        var resolver = new RecordingDaemonCommandExecutionContextResolver(
             DaemonCommandExecutionContextResolutionResult.Success(context));
-        var operation = new DaemonServiceTestContext.StubDaemonCleanupOperation
-        {
-            CleanupResult = DaemonCleanupResult.Skipped(DaemonCleanupSkipReason.UnsafeInvalidSession),
-        };
+        var operation = new RecordingDaemonCleanupOperation(
+            DaemonCleanupResult.Skipped(DaemonCleanupSkipReason.UnsafeInvalidSession));
         var service = new DaemonCleanupService(resolver, operation);
+        using var cancellationSource = new CancellationTokenSource();
+        var cancellationToken = cancellationSource.Token;
 
-        var result = await service.CleanupAsync(projectPath: "/tmp/unity-project", timeoutMilliseconds: 3100, cancellationToken: CancellationToken.None);
+        var result = await service.CleanupAsync(
+            projectPath: "/tmp/unity-project",
+            timeoutMilliseconds: 3100,
+            cancellationToken: cancellationToken);
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<DaemonCleanupExecutionOutput>(result.Output);
         Assert.Equal(DaemonCleanupStatus.Skipped, output.CleanupStatus);
         Assert.Equal(DaemonCleanupSkipReason.UnsafeInvalidSession, output.SkipReason);
         Assert.Equal(0, output.DeletedLaunchAttemptCount);
-        Assert.Equal(UcliCommandIds.DaemonCleanup, resolver.LastTimeoutCommand);
-        Assert.Equal("/tmp/unity-project", resolver.LastProjectPath);
-        Assert.Equal(3100, resolver.LastTimeoutMilliseconds);
+        DaemonCommandExecutionContextResolverAssert.ResolvedFor(
+            resolver,
+            UcliCommandIds.DaemonCleanup,
+            expectedProjectPath: "/tmp/unity-project",
+            expectedTimeoutMilliseconds: 3100,
+            expectedCancellationToken: cancellationToken);
+        DaemonCleanupOperationAssert.CleanupRequestedOnce(
+            operation,
+            context,
+            cancellationToken);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task Cleanup_WhenExecutionContextResolutionFails_ReturnsFailureWithoutOperationCall ()
     {
-        var resolver = new DaemonServiceTestContext.StubDaemonCommandExecutionContextResolver(
+        var resolver = new RecordingDaemonCommandExecutionContextResolver(
             DaemonCommandExecutionContextResolutionResult.Failure(
                 ExecutionError.InvalidArgument("invalid project path")));
-        var operation = new DaemonServiceTestContext.StubDaemonCleanupOperation();
+        var operation = new RecordingDaemonCleanupOperation(DaemonCleanupResult.Completed());
         var service = new DaemonCleanupService(resolver, operation);
 
         var result = await service.CleanupAsync(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
 
-        Assert.False(result.IsSuccess);
-        Assert.Null(result.Output);
-        var error = Assert.IsType<ExecutionError>(result.Error);
-        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Equal(0, operation.CleanupCallCount);
+        DaemonCleanupOperationAssert.ContextResolutionFailureStoppedBeforeCleanup(
+            result,
+            operation,
+            ExecutionErrorKind.InvalidArgument);
     }
 }

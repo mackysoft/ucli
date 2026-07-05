@@ -12,44 +12,46 @@ public sealed class CommandResultTests
 
     private const string TimeoutMessage = "IPC request timed out.";
 
-    public static TheoryData<object, string, int, string, string> ErrorCaseData => new()
-        {
-            {
-                CommandResult.NotImplemented(UcliCommandNames.Status),
-                UcliCommandNames.Status,
-                (int)CliExitCode.ToolError,
-                "COMMAND_NOT_IMPLEMENTED",
-                $"Command '{UcliCommandNames.Status}' is not implemented yet."
-            },
-            {
-                CommandResult.InvalidArgument(UcliCommandNames.Status, UnknownOptionMessage),
-                UcliCommandNames.Status,
-                (int)CliExitCode.InvalidArgument,
-                "INVALID_ARGUMENT",
-                UnknownOptionMessage
-            },
-            {
-                CommandResult.Canceled(UcliCommandNames.Status, CanceledMessage),
-                UcliCommandNames.Status,
-                (int)CliExitCode.ToolError,
-                "CANCELED",
-                CanceledMessage
-            },
-            {
-                CommandResult.Timeout(UcliCommandNames.Status, TimeoutMessage),
-                UcliCommandNames.Status,
-                (int)CliExitCode.ToolError,
-                "IPC_TIMEOUT",
-                TimeoutMessage
-            },
-            {
-                CommandResult.InternalError(UcliCommandNames.Status, UnhandledExceptionMessage),
-                UcliCommandNames.Status,
-                (int)CliExitCode.ToolError,
-                "INTERNAL_ERROR",
-                UnhandledExceptionMessage
-            },
-        };
+    private static readonly ErrorCase[] ErrorCases =
+    [
+        new(
+            static () => CommandResult.NotImplemented(UcliCommandNames.Status),
+            UcliCommandNames.Status,
+            (int)CliExitCode.ToolError,
+            "COMMAND_NOT_IMPLEMENTED",
+            $"Command '{UcliCommandNames.Status}' is not implemented yet."),
+        new(
+            static () => CommandResult.InvalidArgument(UcliCommandNames.Status, UnknownOptionMessage),
+            UcliCommandNames.Status,
+            (int)CliExitCode.InvalidArgument,
+            "INVALID_ARGUMENT",
+            UnknownOptionMessage),
+        new(
+            static () => CommandResult.Canceled(UcliCommandNames.Status, CanceledMessage),
+            UcliCommandNames.Status,
+            (int)CliExitCode.ToolError,
+            "CANCELED",
+            CanceledMessage),
+        new(
+            static () => CommandResult.Timeout(UcliCommandNames.Status, TimeoutMessage),
+            UcliCommandNames.Status,
+            (int)CliExitCode.ToolError,
+            "IPC_TIMEOUT",
+            TimeoutMessage),
+        new(
+            static () => CommandResult.InternalError(UcliCommandNames.Status, UnhandledExceptionMessage),
+            UcliCommandNames.Status,
+            (int)CliExitCode.ToolError,
+            "INTERNAL_ERROR",
+            UnhandledExceptionMessage),
+    ];
+
+    private static readonly string[] WhitespaceValues =
+    [
+        string.Empty,
+        " ",
+        "   ",
+    ];
 
     [Fact]
     [Trait("Size", "Small")]
@@ -69,67 +71,66 @@ public sealed class CommandResultTests
         Assert.Empty(result.Errors);
     }
 
-    [Theory]
+    [Fact]
     [Trait("Size", "Small")]
-    [InlineData("")]
-    [InlineData("   ")]
-    public void Success_NormalizesWhitespaceCommandAndMessage (string whitespaceValue)
+    public void Success_NormalizesWhitespaceCommandAndMessage ()
     {
-        var result = CommandResult.Success(whitespaceValue, whitespaceValue);
+        foreach (var whitespaceValue in WhitespaceValues)
+        {
+            var result = CommandResult.Success(whitespaceValue, whitespaceValue);
 
-        AssertCommonContract(
-            result,
-            expectedCommand: UcliCommandNames.Root,
-            expectedStatus: "ok",
-            expectedExitCode: (int)CliExitCode.Success,
-            expectedMessage: "An unknown error occurred.");
-        Assert.Equal(JsonValueKind.Object, JsonSerializer.SerializeToElement(result.Payload).ValueKind);
-        Assert.Empty(result.Errors);
+            AssertCommonContract(
+                result,
+                expectedCommand: UcliCommandNames.Root,
+                expectedStatus: "ok",
+                expectedExitCode: (int)CliExitCode.Success,
+                expectedMessage: "An unknown error occurred.");
+            Assert.Equal(JsonValueKind.Object, JsonSerializer.SerializeToElement(result.Payload).ValueKind);
+            Assert.Empty(result.Errors);
+        }
     }
 
-    [Theory]
+    [Fact]
     [Trait("Size", "Small")]
-    [MemberData(nameof(ErrorCaseData))]
-    public void ErrorFactory_CreatesContractCompliantResult (
-        object actualResult,
-        string expectedCommand,
-        int expectedExitCode,
-        string expectedErrorCode,
-        string expectedMessage)
+    public void ErrorFactory_CreatesContractCompliantResult ()
     {
-        var result = Assert.IsType<CommandResult>(actualResult);
+        foreach (var testCase in ErrorCases)
+        {
+            var result = testCase.CreateResult();
 
-        AssertCommonContract(
-            result,
-            expectedCommand: expectedCommand,
-            expectedStatus: "error",
-            expectedExitCode: expectedExitCode,
-            expectedMessage: expectedMessage);
-        AssertSingleError(
-            result,
-            expectedCode: expectedErrorCode,
-            expectedMessage: expectedMessage);
+            AssertCommonContract(
+                result,
+                expectedCommand: testCase.ExpectedCommand,
+                expectedStatus: "error",
+                expectedExitCode: testCase.ExpectedExitCode,
+                expectedMessage: testCase.ExpectedMessage);
+            AssertSingleError(
+                result,
+                expectedCode: testCase.ExpectedErrorCode,
+                expectedMessage: testCase.ExpectedMessage);
+        }
     }
 
-    [Theory]
+    [Fact]
     [Trait("Size", "Small")]
-    [InlineData("")]
-    [InlineData(" ")]
-    public void InternalError_NormalizesWhitespaceCommandAndMessage (string whitespaceValue)
+    public void InternalError_NormalizesWhitespaceCommandAndMessage ()
     {
         const string expectedMessage = "An unknown error occurred.";
-        var result = CommandResult.InternalError(whitespaceValue, whitespaceValue);
+        foreach (var whitespaceValue in WhitespaceValues)
+        {
+            var result = CommandResult.InternalError(whitespaceValue, whitespaceValue);
 
-        AssertCommonContract(
-            result,
-            expectedCommand: UcliCommandNames.Root,
-            expectedStatus: "error",
-            expectedExitCode: (int)CliExitCode.ToolError,
-            expectedMessage: expectedMessage);
-        AssertSingleError(
-            result,
-            expectedCode: "INTERNAL_ERROR",
-            expectedMessage: expectedMessage);
+            AssertCommonContract(
+                result,
+                expectedCommand: UcliCommandNames.Root,
+                expectedStatus: "error",
+                expectedExitCode: (int)CliExitCode.ToolError,
+                expectedMessage: expectedMessage);
+            AssertSingleError(
+                result,
+                expectedCode: "INTERNAL_ERROR",
+                expectedMessage: expectedMessage);
+        }
     }
 
     private static void AssertCommonContract (
@@ -158,4 +159,10 @@ public sealed class CommandResultTests
         Assert.Null(result.Errors[0].OpId);
     }
 
+    private sealed record ErrorCase (
+        Func<CommandResult> CreateResult,
+        string ExpectedCommand,
+        int ExpectedExitCode,
+        string ExpectedErrorCode,
+        string ExpectedMessage);
 }

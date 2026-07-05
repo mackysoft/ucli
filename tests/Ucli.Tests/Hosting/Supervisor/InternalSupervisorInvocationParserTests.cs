@@ -4,6 +4,15 @@ namespace MackySoft.Ucli.Tests.Supervisor;
 
 public sealed class InternalSupervisorInvocationParserTests
 {
+    private static readonly string[][] InvalidInternalInvocationCases =
+    [
+        [SupervisorConstants.InternalServeFlag],
+        [SupervisorConstants.InternalServeFlag, "--unknown", "/repo"],
+        [SupervisorConstants.InternalServeFlag, SupervisorConstants.RepositoryRootOption],
+        [SupervisorConstants.InternalServeFlag, SupervisorConstants.RepositoryRootOption, " "],
+        [SupervisorConstants.InternalServeFlag, SupervisorConstants.RepositoryRootOption, "/repo", "extra"],
+    ];
+
     [Fact]
     [Trait("Size", "Small")]
     public void Parse_WhenInternalFlagIsMissing_ReturnsNotMatched ()
@@ -29,24 +38,17 @@ public sealed class InternalSupervisorInvocationParserTests
         Assert.Equal(repositoryRoot, invocation.RepositoryRoot);
     }
 
-    [Theory]
+    [Fact]
     [Trait("Size", "Small")]
-    [MemberData(nameof(InvalidInternalInvocationCases))]
-    public void Parse_WhenInternalInvocationIsInvalid_ReturnsMatchedWithEmptyRepositoryRoot (string[] args)
+    public void Parse_WhenInternalInvocationIsInvalid_ReturnsMatchedWithEmptyRepositoryRoot ()
     {
-        var invocation = InternalSupervisorInvocationParser.Parse(args);
-
-        Assert.True(invocation.IsMatched);
-        Assert.False(invocation.IsValid);
-        Assert.Equal(string.Empty, invocation.RepositoryRoot);
-    }
-
-    public static TheoryData<string[]> InvalidInternalInvocationCases => new()
+        foreach (var args in InvalidInternalInvocationCases)
         {
-            { [SupervisorConstants.InternalServeFlag] },
-            { [SupervisorConstants.InternalServeFlag, "--unknown", "/repo"] },
-            { [SupervisorConstants.InternalServeFlag, SupervisorConstants.RepositoryRootOption] },
-            { [SupervisorConstants.InternalServeFlag, SupervisorConstants.RepositoryRootOption, " "] },
-            { [SupervisorConstants.InternalServeFlag, SupervisorConstants.RepositoryRootOption, "/repo", "extra"] },
-        };
+            var invocation = InternalSupervisorInvocationParser.Parse(args);
+
+            Assert.True(invocation.IsMatched);
+            Assert.False(invocation.IsValid);
+            Assert.Equal(string.Empty, invocation.RepositoryRoot);
+        }
+    }
 }

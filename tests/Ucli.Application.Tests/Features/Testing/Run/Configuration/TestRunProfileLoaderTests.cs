@@ -183,24 +183,6 @@ public sealed class TestRunProfileLoaderTests
 
     private static TestRunProfileLoader CreateLoader (string json)
     {
-        return new TestRunProfileLoader(new StubProfileJsonReader(json));
-    }
-
-    private sealed class StubProfileJsonReader : ITestRunProfileJsonReader
-    {
-        private readonly string json;
-
-        public StubProfileJsonReader (string json)
-        {
-            this.json = json;
-        }
-
-        public ValueTask<TestRunProfileJsonReadResult> ReadTextAsync (
-            string profilePath,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromResult(TestRunProfileJsonReadResult.Success(json));
-        }
+        return new TestRunProfileLoader(new StubTestRunProfileJsonReader(json));
     }
 }

@@ -1,8 +1,8 @@
 using System.Text.Json;
 using MackySoft.Ucli.Application.Shared.Configuration;
-using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Tests.Helpers.Ipc;
 using MackySoft.Ucli.UnityIntegration.Indexing.Assets;
 
 namespace MackySoft.Ucli.Tests.Assets;
@@ -13,9 +13,8 @@ public sealed class AssetLookupSnapshotReaderTests
     [Trait("Size", "Small")]
     public async Task Read_ReturnsSnapshot_WhenResponsePayloadIsValid ()
     {
-        var executor = new StubUnityIpcRequestExecutor
-        {
-            Result = UnityRequestExecutionResult.Success(CreateSuccessResponse(new IpcIndexAssetsReadResponse(
+        var executor = new RecordingUnityRequestExecutor(
+            UnityRequestExecutionResult.Success(CreateSuccessResponse(new IpcIndexAssetsReadResponse(
                 GeneratedAtUtc: DateTimeOffset.Parse("2026-03-08T00:00:00+00:00"),
                 AssetSearchEntries:
                 [
@@ -36,12 +35,11 @@ public sealed class AssetLookupSnapshotReaderTests
                     new IndexGuidPathEntryJsonContract(
                         AssetGuid: "11111111111111111111111111111111",
                         AssetPath: "Assets/Data/Spawner.asset"),
-                ]))),
-        };
+                ]))));
         var reader = new AssetLookupSnapshotReader(executor);
 
         var result = await reader.ReadAsync(
-            CreateProjectContext().UnityProject,
+            ResolvedUnityProjectContextTestFactory.Create(),
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
             UnityExecutionMode.Auto,
@@ -50,11 +48,12 @@ public sealed class AssetLookupSnapshotReaderTests
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Response);
-        var request = Assert.IsType<UnityRequestPayload.Raw>(executor.LastPayload);
-        Assert.Equal(IpcMethodNames.IndexAssetsRead, request.Method);
-        Assert.Equal(UcliCommandIds.Query, executor.LastCommand);
-        Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcIndexAssetsReadRequest payload, out _));
-        Assert.True(payload.FailFast);
+        var execution = UnityRequestExecutorAssert.RawPayloadExecutedOnce<IpcIndexAssetsReadRequest>(
+            executor,
+            UcliCommandIds.Query,
+            UnityExecutionMode.Auto,
+            IpcMethodNames.IndexAssetsRead);
+        Assert.True(execution.Payload.FailFast);
         Assert.Single(result.Response!.AssetSearchEntries!);
         Assert.Single(result.Response.GuidPathEntries!);
     }
@@ -63,17 +62,15 @@ public sealed class AssetLookupSnapshotReaderTests
     [Trait("Size", "Small")]
     public async Task Read_ReturnsFailureStatusMessage_WhenFailureStatusHasNoErrors ()
     {
-        var executor = new StubUnityIpcRequestExecutor
-        {
-            Result = UnityRequestExecutionResult.Success(CreateResponse(
+        var executor = new RecordingUnityRequestExecutor(
+            UnityRequestExecutionResult.Success(CreateResponse(
                 "busy",
                 new { },
-                Array.Empty<IpcError>())),
-        };
+                Array.Empty<IpcError>())));
         var reader = new AssetLookupSnapshotReader(executor);
 
         var result = await reader.ReadAsync(
-            CreateProjectContext().UnityProject,
+            ResolvedUnityProjectContextTestFactory.Create(),
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
             UnityExecutionMode.Auto,
@@ -88,9 +85,8 @@ public sealed class AssetLookupSnapshotReaderTests
     [Trait("Size", "Small")]
     public async Task Read_ReturnsFailure_WhenResponsePayloadHasMismatchedLookupSets ()
     {
-        var executor = new StubUnityIpcRequestExecutor
-        {
-            Result = UnityRequestExecutionResult.Success(CreateSuccessResponse(new IpcIndexAssetsReadResponse(
+        var executor = new RecordingUnityRequestExecutor(
+            UnityRequestExecutionResult.Success(CreateSuccessResponse(new IpcIndexAssetsReadResponse(
                 GeneratedAtUtc: DateTimeOffset.Parse("2026-03-08T00:00:00+00:00"),
                 AssetSearchEntries:
                 [
@@ -110,11 +106,15 @@ public sealed class AssetLookupSnapshotReaderTests
                     new IndexGuidPathEntryJsonContract(
                         AssetGuid: "22222222222222222222222222222222",
                         AssetPath: "Assets/Data/Spawner.asset"),
-                ]))),
-        };
+                ]))));
         var reader = new AssetLookupSnapshotReader(executor);
 
-        var result = await reader.ReadAsync(CreateProjectContext().UnityProject, UcliConfig.CreateDefault(), UcliCommandIds.Query, UnityExecutionMode.Auto, TimeSpan.FromMilliseconds(1000));
+        var result = await reader.ReadAsync(
+            ResolvedUnityProjectContextTestFactory.Create(),
+            UcliConfig.CreateDefault(),
+            UcliCommandIds.Query,
+            UnityExecutionMode.Auto,
+            TimeSpan.FromMilliseconds(1000));
 
         Assert.False(result.IsSuccess);
         Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
@@ -125,9 +125,8 @@ public sealed class AssetLookupSnapshotReaderTests
     [Trait("Size", "Small")]
     public async Task Read_ReturnsSnapshot_WhenAssetSearchContainsEmptyGuidEntries ()
     {
-        var executor = new StubUnityIpcRequestExecutor
-        {
-            Result = UnityRequestExecutionResult.Success(CreateSuccessResponse(new IpcIndexAssetsReadResponse(
+        var executor = new RecordingUnityRequestExecutor(
+            UnityRequestExecutionResult.Success(CreateSuccessResponse(new IpcIndexAssetsReadResponse(
                 GeneratedAtUtc: DateTimeOffset.Parse("2026-03-08T00:00:00+00:00"),
                 AssetSearchEntries:
                 [
@@ -157,28 +156,20 @@ public sealed class AssetLookupSnapshotReaderTests
                     new IndexGuidPathEntryJsonContract(
                         AssetGuid: "11111111111111111111111111111111",
                         AssetPath: "Assets/Data/Spawner.asset"),
-                ]))),
-        };
+                ]))));
         var reader = new AssetLookupSnapshotReader(executor);
 
-        var result = await reader.ReadAsync(CreateProjectContext().UnityProject, UcliConfig.CreateDefault(), UcliCommandIds.Query, UnityExecutionMode.Auto, TimeSpan.FromMilliseconds(1000));
+        var result = await reader.ReadAsync(
+            ResolvedUnityProjectContextTestFactory.Create(),
+            UcliConfig.CreateDefault(),
+            UcliCommandIds.Query,
+            UnityExecutionMode.Auto,
+            TimeSpan.FromMilliseconds(1000));
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Response);
         Assert.Equal(2, result.Response!.AssetSearchEntries!.Count);
         Assert.Single(result.Response.GuidPathEntries!);
-    }
-
-    private static ProjectContext CreateProjectContext ()
-    {
-        return new ProjectContext(
-            new ResolvedUnityProjectContext(
-                UnityProjectRoot: "/repo/UnityProject",
-                RepositoryRoot: "/repo",
-                ProjectFingerprint: "project-fingerprint",
-                PathSource: UnityProjectPathSource.CommandOption),
-            UcliConfig.CreateDefault(),
-            ConfigSource.Default);
     }
 
     private static UnityRequestResponse CreateSuccessResponse<TPayload> (TPayload payload)
@@ -199,28 +190,4 @@ public sealed class AssetLookupSnapshotReaderTests
             Errors: errors));
     }
 
-    private sealed class StubUnityIpcRequestExecutor : IUnityRequestExecutor
-    {
-        public UcliCommand LastCommand { get; private set; }
-
-        public UnityRequestPayload? LastPayload { get; private set; }
-
-        public UnityRequestExecutionResult Result { get; set; }
-            = UnityRequestExecutionResultTestFactory.Failure("not configured", UcliCoreErrorCodes.InternalError);
-
-        public ValueTask<UnityRequestExecutionResult> ExecuteAsync (
-            UcliCommand command,
-            UnityExecutionMode mode,
-            TimeSpan timeout,
-            UcliConfig config,
-            ResolvedUnityProjectContext unityProject,
-            UnityRequestPayload payload,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            LastCommand = command;
-            LastPayload = payload;
-            return ValueTask.FromResult(Result);
-        }
-    }
 }

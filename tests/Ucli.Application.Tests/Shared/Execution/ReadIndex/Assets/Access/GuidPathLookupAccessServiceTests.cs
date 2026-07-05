@@ -13,7 +13,7 @@ public sealed class GuidPathLookupAccessServiceTests
     [Trait("Size", "Small")]
     public async Task TryResolveAssetGuid_WhenAllowStaleIndexExists_ReturnsIndexEntry ()
     {
-        var indexReader = new StubReadIndexArtifactReader
+        var indexReader = new RecordingReadIndexArtifactReader
         {
             GuidPathLookupResult = ReadIndexArtifactReadResult<IndexGuidPathLookupJsonContract>.Success(
                 new IndexGuidPathLookupJsonContract(
@@ -25,13 +25,13 @@ public sealed class GuidPathLookupAccessServiceTests
                         new IndexGuidPathEntryJsonContract("11111111111111111111111111111111", "Assets/Data/Spawner.asset"),
                     ])),
         };
-        var freshnessEvaluator = new StubIndexFreshnessEvaluator
+        var freshnessEvaluator = new RecordingReadIndexFreshnessEvaluator
         {
             Result = IndexFreshnessEvaluationResult.Success(IndexFreshness.Probable),
         };
-        var refreshService = new StubAssetLookupSourceRefreshService();
+        var refreshService = new UnexpectedAssetLookupSourceRefreshService();
         var service = new GuidPathLookupAccessService(indexReader, freshnessEvaluator, new TestMutationReadPostconditionStore(), refreshService);
-        var project = CreateProject();
+        var project = ProjectContextTestFactory.CreateUnknownVersionUnityProject();
 
         var result = await service.TryResolveAssetGuidAsync(
             project,
@@ -45,18 +45,18 @@ public sealed class GuidPathLookupAccessServiceTests
         Assert.NotNull(result.Output);
         Assert.Equal("Assets/Data/Spawner.asset", result.Output!.Entry!.AssetPath);
         Assert.Equal(AssetLookupSource.Index, result.Output.AccessInfo.Source);
-        Assert.Equal(0, refreshService.CallCount);
-        Assert.Equal(1, freshnessEvaluator.ObserveCallCount);
-        Assert.Same(project, freshnessEvaluator.LastUnityProject);
-        Assert.Equal(IndexFreshnessTarget.GuidPathLookup, freshnessEvaluator.LastTarget);
-        Assert.Equal("guid-path-hash", freshnessEvaluator.LastPersistedSourceInputsHash);
+        ReadIndexFreshnessInvocationAssert.LookupFreshnessObservedOnce(
+            freshnessEvaluator,
+            project,
+            IndexFreshnessTarget.GuidPathLookup,
+            "guid-path-hash");
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task TryResolveAssetPath_WhenRequireFreshIndexIsStale_FallsBackToSource ()
     {
-        var indexReader = new StubReadIndexArtifactReader
+        var indexReader = new RecordingReadIndexArtifactReader
         {
             GuidPathLookupResult = ReadIndexArtifactReadResult<IndexGuidPathLookupJsonContract>.Success(
                 new IndexGuidPathLookupJsonContract(
@@ -68,11 +68,11 @@ public sealed class GuidPathLookupAccessServiceTests
                         new IndexGuidPathEntryJsonContract("11111111111111111111111111111111", "Assets/Data/Stale.asset"),
                     ])),
         };
-        var freshnessEvaluator = new StubIndexFreshnessEvaluator
+        var freshnessEvaluator = new RecordingReadIndexFreshnessEvaluator
         {
             Result = IndexFreshnessEvaluationResult.Success(IndexFreshness.Stale),
         };
-        var refreshService = new StubAssetLookupSourceRefreshService
+        var refreshService = new RecordingAssetLookupSourceRefreshService
         {
             Result = AssetLookupRefreshResult.Success(
                 new IpcIndexAssetsReadResponse(
@@ -99,7 +99,7 @@ public sealed class GuidPathLookupAccessServiceTests
         var service = new GuidPathLookupAccessService(indexReader, freshnessEvaluator, new TestMutationReadPostconditionStore(), refreshService);
 
         var result = await service.TryResolveAssetPathAsync(
-            CreateProject(),
+            ProjectContextTestFactory.CreateUnknownVersionUnityProject(),
             UcliConfig.CreateDefault(),
             mode: UnityExecutionMode.Auto,
             timeout: TimeSpan.FromMilliseconds(1200),
@@ -110,7 +110,10 @@ public sealed class GuidPathLookupAccessServiceTests
         Assert.NotNull(result.Output);
         Assert.Equal("22222222222222222222222222222222", result.Output!.Entry!.AssetGuid);
         Assert.Equal(AssetLookupSource.Source, result.Output.AccessInfo.Source);
-        Assert.Equal(UcliCommandIds.Resolve, refreshService.LastCommand);
+        RequestReadIndexAccessInvocationAssert.AssetLookupRefreshRequestedOnce(
+            refreshService,
+            UcliCommandIds.Resolve,
+            expectedFailFast: false);
         Assert.Contains("stale", result.Output.AccessInfo.FallbackReason, StringComparison.Ordinal);
     }
 
@@ -118,7 +121,7 @@ public sealed class GuidPathLookupAccessServiceTests
     [Trait("Size", "Small")]
     public async Task TryResolveAssetGuid_WhenReadPostconditionStoreFails_FallsBackToSource ()
     {
-        var indexReader = new StubReadIndexArtifactReader
+        var indexReader = new RecordingReadIndexArtifactReader
         {
             GuidPathLookupResult = ReadIndexArtifactReadResult<IndexGuidPathLookupJsonContract>.Success(
                 new IndexGuidPathLookupJsonContract(
@@ -130,7 +133,7 @@ public sealed class GuidPathLookupAccessServiceTests
                         new IndexGuidPathEntryJsonContract("11111111111111111111111111111111", "Assets/Data/Spawner.asset"),
                     ])),
         };
-        var freshnessEvaluator = new StubIndexFreshnessEvaluator
+        var freshnessEvaluator = new RecordingReadIndexFreshnessEvaluator
         {
             Result = IndexFreshnessEvaluationResult.Success(IndexFreshness.Fresh),
         };
@@ -139,7 +142,7 @@ public sealed class GuidPathLookupAccessServiceTests
             ReadResult = MutationReadPostconditionReadResult.Failure(
                 ExecutionError.InvalidArgument("Mutation read postcondition is invalid: /repo/.ucli/local/fingerprints/project-fingerprint/mutation-read-postcondition.json.")),
         };
-        var refreshService = new StubAssetLookupSourceRefreshService
+        var refreshService = new RecordingAssetLookupSourceRefreshService
         {
             Result = AssetLookupRefreshResult.Success(
                 new IpcIndexAssetsReadResponse(
@@ -154,7 +157,7 @@ public sealed class GuidPathLookupAccessServiceTests
         var service = new GuidPathLookupAccessService(indexReader, freshnessEvaluator, readPostconditionStore, refreshService);
 
         var result = await service.TryResolveAssetGuidAsync(
-            CreateProject(),
+            ProjectContextTestFactory.CreateUnknownVersionUnityProject(),
             UcliConfig.CreateDefault(),
             mode: UnityExecutionMode.Auto,
             timeout: TimeSpan.FromMilliseconds(1200),
@@ -163,8 +166,8 @@ public sealed class GuidPathLookupAccessServiceTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal(AssetLookupSource.Source, result.Output!.AccessInfo.Source);
+        Assert.Equal("Assets/Data/Spawner.asset", result.Output.Entry!.AssetPath);
         Assert.Contains("Mutation read postcondition", result.Output.AccessInfo.FallbackReason, StringComparison.Ordinal);
-        Assert.Equal(1, readPostconditionStore.ReadCallCount);
     }
 
     [Fact]
@@ -172,13 +175,13 @@ public sealed class GuidPathLookupAccessServiceTests
     public async Task TryResolveAssetPath_WhenPathIsOutsideAssets_ReturnsInvalidArgument ()
     {
         var service = new GuidPathLookupAccessService(
-            new StubReadIndexArtifactReader(),
-            new StubIndexFreshnessEvaluator(),
+            new RecordingReadIndexArtifactReader(),
+            new RecordingReadIndexFreshnessEvaluator(),
             new TestMutationReadPostconditionStore(),
-            new StubAssetLookupSourceRefreshService());
+            new UnexpectedAssetLookupSourceRefreshService());
 
         var result = await service.TryResolveAssetPathAsync(
-            CreateProject(),
+            ProjectContextTestFactory.CreateUnknownVersionUnityProject(),
             UcliConfig.CreateDefault(),
             mode: UnityExecutionMode.Auto,
             timeout: TimeSpan.FromMilliseconds(1200),
@@ -189,97 +192,4 @@ public sealed class GuidPathLookupAccessServiceTests
         Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.ErrorCode);
     }
 
-    private static ResolvedUnityProjectContext CreateProject ()
-    {
-        return new ResolvedUnityProjectContext(
-            UnityProjectRoot: "/repo/UnityProject",
-            RepositoryRoot: "/repo",
-            ProjectFingerprint: "project-fingerprint",
-            PathSource: UnityProjectPathSource.CommandOption);
-    }
-
-    private sealed class StubReadIndexArtifactReader : IReadIndexArtifactReader
-    {
-        public ReadIndexArtifactReadResult<IndexGuidPathLookupJsonContract> GuidPathLookupResult { get; set; }
-            = ReadIndexArtifactReadResult<IndexGuidPathLookupJsonContract>.Failure(ReadIndexErrorCodes.ReadIndexBootstrapFailed, "missing");
-
-        public ValueTask<ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract>> ReadOpsCatalogAsync (ResolvedUnityProjectContext unityProject, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public ValueTask<ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract>> ReadOpsDescribeAsync (ResolvedUnityProjectContext unityProject, IndexOpsCatalogEntryJsonContract catalogEntry, string sourceInputsHash, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public ValueTask<ReadIndexArtifactReadResult<IndexTypesCatalogJsonContract>> ReadTypesCatalogAsync (ResolvedUnityProjectContext unityProject, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public ValueTask<ReadIndexArtifactReadResult<IndexSchemasCatalogJsonContract>> ReadSchemasCatalogAsync (ResolvedUnityProjectContext unityProject, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public ValueTask<ReadIndexArtifactReadResult<IndexAssetSearchLookupJsonContract>> ReadAssetSearchLookupAsync (ResolvedUnityProjectContext unityProject, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public ValueTask<ReadIndexArtifactReadResult<IndexSceneTreeLiteLookupJsonContract>> ReadSceneTreeLiteLookupAsync (ResolvedUnityProjectContext unityProject, string scenePath, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public ValueTask<ReadIndexArtifactReadResult<IndexInputsManifestJsonContract>> ReadInputsManifestAsync (ResolvedUnityProjectContext unityProject, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-
-        public ValueTask<ReadIndexArtifactReadResult<IndexGuidPathLookupJsonContract>> ReadGuidPathLookupAsync (
-            ResolvedUnityProjectContext unityProject,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromResult(GuidPathLookupResult);
-        }
-    }
-
-    private sealed class StubIndexFreshnessEvaluator : IReadIndexFreshnessEvaluator
-    {
-        public IndexFreshnessEvaluationResult Result { get; set; }
-            = IndexFreshnessEvaluationResult.Success(IndexFreshness.Fresh);
-
-        public int ObserveCallCount { get; private set; }
-
-        public ResolvedUnityProjectContext? LastUnityProject { get; private set; }
-
-        public IndexFreshnessTarget LastTarget { get; private set; }
-
-        public string? LastPersistedSourceInputsHash { get; private set; }
-
-        public ValueTask<IndexFreshnessEvaluationResult> ObserveAsync (
-            ResolvedUnityProjectContext unityProject,
-            IndexFreshnessTarget target,
-            string? persistedSourceInputsHash,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            ObserveCallCount++;
-            LastUnityProject = unityProject;
-            LastTarget = target;
-            LastPersistedSourceInputsHash = persistedSourceInputsHash;
-            return ValueTask.FromResult(Result);
-        }
-
-        public ValueTask<IndexFreshnessEvaluationResult> ObserveSceneTreeLiteAsync (
-            ResolvedUnityProjectContext unityProject,
-            string scenePath,
-            string? persistedSourceInputsHash,
-            CancellationToken cancellationToken = default)
-        {
-            throw new NotSupportedException();
-        }
-    }
-
-    private sealed class StubAssetLookupSourceRefreshService : IAssetLookupSourceRefreshService
-    {
-        public int CallCount { get; private set; }
-
-        public UcliCommand LastCommand { get; private set; }
-
-        public AssetLookupRefreshResult Result { get; set; }
-            = AssetLookupRefreshResult.Failure("not configured", UcliCoreErrorCodes.InternalError);
-
-        public ValueTask<AssetLookupRefreshResult> RefreshAsync (
-            ResolvedUnityProjectContext project,
-            UcliConfig config,
-            UcliCommand command,
-            UnityExecutionMode mode,
-            TimeSpan timeout,
-            string fallbackReason,
-            bool failFast = false,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            CallCount++;
-            LastCommand = command;
-            return ValueTask.FromResult(Result);
-        }
-    }
 }

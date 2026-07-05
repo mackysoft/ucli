@@ -6,7 +6,7 @@ namespace MackySoft.Ucli.Tests;
 public sealed class FileTestRunProfileJsonReaderTests
 {
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task ReadTextAsync_WithMissingProfilePath_ReturnsInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("test-run-profile-json-reader", "missing-profile");

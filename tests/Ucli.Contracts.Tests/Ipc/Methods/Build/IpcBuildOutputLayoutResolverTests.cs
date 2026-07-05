@@ -4,31 +4,41 @@ namespace MackySoft.Ucli.Contracts.Tests.Ipc;
 
 public sealed class IpcBuildOutputLayoutResolverTests
 {
-    [Theory]
+    private static readonly SupportedBuildOutputLayoutCase[] SupportedBuildOutputLayoutCases =
+    [
+        new("standaloneOSX", ExpectedShape: "appBundle", ExpectedFileName: "Player.app"),
+        new("standaloneWindows", ExpectedShape: "file", ExpectedFileName: "Player.exe"),
+        new("standaloneWindows64", ExpectedShape: "file", ExpectedFileName: "Player.exe"),
+        new("standaloneLinux64", ExpectedShape: "file", ExpectedFileName: "Player"),
+        new("android", ExpectedShape: "file", ExpectedFileName: "Player.apk"),
+        new("ios", ExpectedShape: "directory", ExpectedFileName: "Player"),
+        new("tvos", ExpectedShape: "directory", ExpectedFileName: "Player"),
+        new("webgl", ExpectedShape: "directory", ExpectedFileName: "Player"),
+    ];
+
+    private static readonly string[] UnsupportedBuildTargets =
+    [
+        "switch",
+        "unknownTarget",
+    ];
+
+    [Fact]
     [Trait("Size", "Small")]
-    [InlineData("standaloneOSX", "appBundle", "Player.app")]
-    [InlineData("standaloneWindows", "file", "Player.exe")]
-    [InlineData("standaloneWindows64", "file", "Player.exe")]
-    [InlineData("standaloneLinux64", "file", "Player")]
-    [InlineData("android", "file", "Player.apk")]
-    [InlineData("ios", "directory", "Player")]
-    [InlineData("tvos", "directory", "Player")]
-    [InlineData("webgl", "directory", "Player")]
-    public void TryResolve_WithSupportedTarget_ReturnsCommandDerivedPlayerLayout (
-        string buildTarget,
-        string expectedShape,
-        string expectedFileName)
+    public void TryResolve_WithSupportedTarget_ReturnsCommandDerivedPlayerLayout ()
     {
         var outputDirectory = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "ucli", "output"));
 
-        var resolved = IpcBuildOutputLayoutResolver.TryResolve(outputDirectory, buildTarget, out var layout);
+        foreach (var testCase in SupportedBuildOutputLayoutCases)
+        {
+            var resolved = IpcBuildOutputLayoutResolver.TryResolve(outputDirectory, testCase.BuildTarget, out var layout);
 
-        Assert.True(resolved);
-        Assert.NotNull(layout);
-        Assert.Equal(expectedShape, layout!.Shape);
-        Assert.Equal(
-            Path.GetFullPath(Path.Combine(outputDirectory, "player", expectedFileName)),
-            Path.GetFullPath(layout.LocationPathName));
+            Assert.True(resolved);
+            Assert.NotNull(layout);
+            Assert.Equal(testCase.ExpectedShape, layout!.Shape);
+            Assert.Equal(
+                Path.GetFullPath(Path.Combine(outputDirectory, "player", testCase.ExpectedFileName)),
+                Path.GetFullPath(layout.LocationPathName));
+        }
     }
 
     [Fact]
@@ -51,17 +61,23 @@ public sealed class IpcBuildOutputLayoutResolverTests
             Path.GetFullPath(layout.LocationPathName));
     }
 
-    [Theory]
-    [InlineData("switch")]
-    [InlineData("unknownTarget")]
+    [Fact]
     [Trait("Size", "Small")]
-    public void TryResolve_WithUnsupportedTarget_ReturnsFalse (string buildTarget)
+    public void TryResolve_WithUnsupportedTarget_ReturnsFalse ()
     {
         var outputDirectory = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "ucli", "output"));
 
-        var resolved = IpcBuildOutputLayoutResolver.TryResolve(outputDirectory, buildTarget, out var layout);
+        foreach (var buildTarget in UnsupportedBuildTargets)
+        {
+            var resolved = IpcBuildOutputLayoutResolver.TryResolve(outputDirectory, buildTarget, out var layout);
 
-        Assert.False(resolved);
-        Assert.Null(layout);
+            Assert.False(resolved);
+            Assert.Null(layout);
+        }
     }
+
+    private sealed record SupportedBuildOutputLayoutCase (
+        string BuildTarget,
+        string ExpectedShape,
+        string ExpectedFileName);
 }

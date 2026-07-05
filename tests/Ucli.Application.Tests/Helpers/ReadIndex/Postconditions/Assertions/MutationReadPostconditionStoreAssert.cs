@@ -1,0 +1,43 @@
+using MackySoft.Ucli.Contracts.Ipc;
+
+namespace MackySoft.Ucli.Application.Tests;
+
+internal static class MutationReadPostconditionStoreAssert
+{
+    public static TestMutationReadPostconditionStore.WriteInvocation WrittenOnceForProject (
+        TestMutationReadPostconditionStore store,
+        string expectedStorageRoot,
+        string expectedProjectFingerprint)
+    {
+        var invocation = Assert.Single(store.WriteInvocations);
+        Assert.Equal(expectedStorageRoot, invocation.StorageRoot);
+        Assert.Equal(expectedProjectFingerprint, invocation.ProjectFingerprint);
+        return invocation;
+    }
+
+    public static OperationExecutionReadPostconditionRequirement WrittenSceneTreeLiteRequirement (
+        TestMutationReadPostconditionStore store,
+        string expectedStorageRoot,
+        string expectedProjectFingerprint,
+        string expectedScenePath)
+    {
+        var invocation = WrittenOnceForProject(store, expectedStorageRoot, expectedProjectFingerprint);
+        var requirement = Assert.Single(invocation.ReadPostcondition.Requirements);
+        Assert.Equal(IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite, requirement.Surface);
+        Assert.Equal(expectedScenePath, requirement.ScenePath);
+        return requirement;
+    }
+
+    public static OperationExecutionReadPostconditionRequirement WrittenAssetSearchRequirement (
+        TestMutationReadPostconditionStore store,
+        string expectedStorageRoot,
+        string expectedProjectFingerprint,
+        DateTimeOffset expectedMinSafeGeneratedAtUtc)
+    {
+        var invocation = WrittenOnceForProject(store, expectedStorageRoot, expectedProjectFingerprint);
+        var requirement = Assert.Single(invocation.ReadPostcondition.Requirements);
+        Assert.Equal(IpcExecuteReadPostconditionSurfaceNames.AssetSearch, requirement.Surface);
+        Assert.Equal(expectedMinSafeGeneratedAtUtc, requirement.MinSafeGeneratedAtUtc);
+        return requirement;
+    }
+}

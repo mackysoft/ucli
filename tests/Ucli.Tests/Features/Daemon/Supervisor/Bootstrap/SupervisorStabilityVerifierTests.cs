@@ -1,9 +1,8 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
-using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Tests.Helpers.Ipc;
 
 namespace MackySoft.Ucli.Tests.Supervisor;
 
@@ -16,22 +15,22 @@ public sealed class SupervisorStabilityVerifierTests
     public async Task EnsureStable_WhenRemainingTimeoutIsExhausted_ReturnsTimeout ()
     {
         var timeProvider = new ManualTimeProvider();
-        var pingClient = new StubDaemonPingClient
+        var pingClient = new RecordingDaemonPingClient((_, _, _, cancellationToken) =>
         {
-            PingHandler = (_, _, cancellationToken) =>
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                timeProvider.Advance(TimeSpan.FromMilliseconds(200));
-                return ValueTask.CompletedTask;
-            },
-        };
-        var diagnosisStore = new StubDaemonDiagnosisStore();
+            cancellationToken.ThrowIfCancellationRequested();
+            timeProvider.Advance(TimeSpan.FromMilliseconds(200));
+            return ValueTask.CompletedTask;
+        });
+        var diagnosisStore = new RecordingDaemonDiagnosisStore();
         var verifier = new SupervisorStabilityVerifier(
             pingClient,
             new SupervisorDiagnosisWriter(diagnosisStore),
             timeProvider);
-        var unityProject = CreateUnityProject();
-        var session = CreateSession();
+        var unityProject = ResolvedUnityProjectContextTestFactory.Create(
+            unityProjectRoot: "/tmp/unity-project",
+            repositoryRoot: "/tmp/repo-root",
+            projectFingerprint: "fingerprint");
+        var session = DaemonSessionTestFactory.Create(sessionToken: "session-token");
 
         var result = await verifier.EnsureStableAsync(
             unityProject,
@@ -42,14 +41,10 @@ public sealed class SupervisorStabilityVerifierTests
         Assert.False(result.IsSuccess);
         Assert.NotNull(result.Error);
         Assert.Equal(ExecutionErrorKind.Timeout, result.Error.Kind);
-        Assert.NotNull(diagnosisStore.LastDiagnosis);
-        Assert.Equal(DaemonDiagnosisReasonValues.StartupUnstable, diagnosisStore.LastDiagnosis.Reason);
-        Assert.Equal("Unity daemon stability verification exceeded the remaining timeout.", diagnosisStore.LastDiagnosis.Message);
-        Assert.NotEmpty(pingClient.Timeouts);
-        if (pingClient.Timeouts.Count >= 2)
-        {
-            Assert.True(pingClient.Timeouts[^1] < pingClient.Timeouts[0]);
-        }
+        var diagnosis = DaemonDiagnosisStoreAssert.DiagnosisWrittenFor(diagnosisStore, unityProject);
+        Assert.Equal(DaemonDiagnosisReasonValues.StartupUnstable, diagnosis.Reason);
+        Assert.Equal("Unity daemon stability verification exceeded the remaining timeout.", diagnosis.Message);
+        DaemonPingClientAssert.StabilityVerificationAttemptedBeforeRemainingTimeoutExhausted(pingClient);
     }
 
     [Fact]
@@ -57,23 +52,23 @@ public sealed class SupervisorStabilityVerifierTests
     public async Task EnsureStable_WhenSuccessfulPingsCompleteWithinBudget_UsesCommandTimeoutBudget ()
     {
         var timeProvider = new ManualTimeProvider();
-        var pingClient = new StubDaemonPingClient
+        var pingClient = new RecordingDaemonPingClient((_, timeout, _, cancellationToken) =>
         {
-            PingHandler = (_, timeout, cancellationToken) =>
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                Assert.Equal(TimeSpan.FromSeconds(1), timeout);
-                return ValueTask.CompletedTask;
-            },
-        };
+            cancellationToken.ThrowIfCancellationRequested();
+            Assert.Equal(TimeSpan.FromSeconds(1), timeout);
+            return ValueTask.CompletedTask;
+        });
         var verifier = new SupervisorStabilityVerifier(
             pingClient,
-            new SupervisorDiagnosisWriter(new StubDaemonDiagnosisStore()),
+            new SupervisorDiagnosisWriter(new RecordingDaemonDiagnosisStore()),
             timeProvider);
 
         var verificationTask = verifier.EnsureStableAsync(
-                CreateUnityProject(),
-                CreateSession(),
+                ResolvedUnityProjectContextTestFactory.Create(
+                    unityProjectRoot: "/tmp/unity-project",
+                    repositoryRoot: "/tmp/repo-root",
+                    projectFingerprint: "fingerprint"),
+                DaemonSessionTestFactory.Create(sessionToken: "session-token"),
                 TimeSpan.FromSeconds(5),
                 CancellationToken.None)
             .AsTask();
@@ -92,25 +87,30 @@ public sealed class SupervisorStabilityVerifierTests
             TimeSpan.FromSeconds(5));
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(3, pingClient.Timeouts.Count);
+        DaemonPingClientAssert.StabilityVerificationPingsUsedCommandTimeoutBudget(
+            pingClient,
+            TimeSpan.FromSeconds(1),
+            expectedPingCount: 3);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task EnsureStable_WhenPingFails_ReturnsFailureWithoutCompensationStop ()
     {
-        var pingClient = new StubDaemonPingClient
-        {
-            PingHandler = static (_, _, _) => ValueTask.FromException(new InvalidOperationException("ping failed")),
-        };
-        var diagnosisStore = new StubDaemonDiagnosisStore();
+        var pingClient = new RecordingDaemonPingClient(static (_, _, _, _) =>
+            ValueTask.FromException(new InvalidOperationException("ping failed")));
+        var diagnosisStore = new RecordingDaemonDiagnosisStore();
+        var unityProject = ResolvedUnityProjectContextTestFactory.Create(
+            unityProjectRoot: "/tmp/unity-project",
+            repositoryRoot: "/tmp/repo-root",
+            projectFingerprint: "fingerprint");
         var verifier = new SupervisorStabilityVerifier(
             pingClient,
             new SupervisorDiagnosisWriter(diagnosisStore));
 
         var result = await verifier.EnsureStableAsync(
-            CreateUnityProject(),
-            CreateSession(),
+            unityProject,
+            DaemonSessionTestFactory.Create(sessionToken: "session-token"),
             TimeSpan.FromMilliseconds(400),
             CancellationToken.None);
 
@@ -118,18 +118,16 @@ public sealed class SupervisorStabilityVerifierTests
         Assert.NotNull(result.Error);
         Assert.Equal(ExecutionErrorKind.InternalError, result.Error.Kind);
         Assert.Contains("Unity daemon failed the supervisor stability window. ping failed", result.Error.Message, StringComparison.Ordinal);
-        Assert.NotNull(diagnosisStore.LastDiagnosis);
+        DaemonDiagnosisStoreAssert.DiagnosisWrittenFor(diagnosisStore, unityProject);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task EnsureStable_WhenDiagnosisWriteFails_ReturnsAugmentedFailure ()
     {
-        var pingClient = new StubDaemonPingClient
-        {
-            PingHandler = static (_, _, _) => ValueTask.FromException(new InvalidOperationException("ping failed")),
-        };
-        var diagnosisStore = new StubDaemonDiagnosisStore
+        var pingClient = new RecordingDaemonPingClient(static (_, _, _, _) =>
+            ValueTask.FromException(new InvalidOperationException("ping failed")));
+        var diagnosisStore = new RecordingDaemonDiagnosisStore
         {
             WriteResult = DaemonDiagnosisStoreOperationResult.Failure(
                 ExecutionError.InternalError("diagnosis failed")),
@@ -139,8 +137,11 @@ public sealed class SupervisorStabilityVerifierTests
             new SupervisorDiagnosisWriter(diagnosisStore));
 
         var result = await verifier.EnsureStableAsync(
-            CreateUnityProject(),
-            CreateSession(),
+            ResolvedUnityProjectContextTestFactory.Create(
+                unityProjectRoot: "/tmp/unity-project",
+                repositoryRoot: "/tmp/repo-root",
+                projectFingerprint: "fingerprint"),
+            DaemonSessionTestFactory.Create(sessionToken: "session-token"),
             TimeSpan.FromMilliseconds(400),
             CancellationToken.None);
 
@@ -149,85 +150,4 @@ public sealed class SupervisorStabilityVerifierTests
         Assert.Contains("DiagnosisError=diagnosis failed", result.Error.Message, StringComparison.Ordinal);
     }
 
-    private static ResolvedUnityProjectContext CreateUnityProject ()
-    {
-        return new ResolvedUnityProjectContext(
-            UnityProjectRoot: "/tmp/unity-project",
-            RepositoryRoot: "/tmp/repo-root",
-            ProjectFingerprint: "fingerprint",
-            PathSource: UnityProjectPathSource.CommandOption);
-    }
-
-    private static DaemonSession CreateSession ()
-    {
-        return new DaemonSession(
-            SchemaVersion: DaemonSession.CurrentSchemaVersion,
-            SessionToken: "session-token",
-            ProjectFingerprint: "fingerprint",
-            IssuedAtUtc: new DateTimeOffset(2026, 03, 05, 0, 0, 0, TimeSpan.Zero),
-            EditorMode: "batchmode",
-            OwnerKind: "cli",
-            CanShutdownProcess: true,
-            EndpointTransportKind: "namedPipe",
-            EndpointAddress: "ucli-daemon-endpoint",
-            ProcessId: 1234,
-            ProcessStartedAtUtc: DateTimeOffset.UtcNow,
-            OwnerProcessId: 9876);
-    }
-
-    private sealed class StubDaemonPingClient : IDaemonPingClient
-    {
-        public Func<ResolvedUnityProjectContext, TimeSpan, CancellationToken, ValueTask>? PingHandler { get; set; }
-
-        public List<TimeSpan> Timeouts { get; } = [];
-
-        public async ValueTask PingAsync (
-            ResolvedUnityProjectContext unityProject,
-            TimeSpan timeout,
-            string? sessionToken = null,
-            CancellationToken cancellationToken = default)
-        {
-            Timeouts.Add(timeout);
-            if (PingHandler == null)
-            {
-                throw new InvalidOperationException("Ping handler is not configured.");
-            }
-
-            await PingHandler(unityProject, timeout, cancellationToken).ConfigureAwait(false);
-        }
-    }
-
-    private sealed class StubDaemonDiagnosisStore : IDaemonDiagnosisStore
-    {
-        public DaemonDiagnosis? LastDiagnosis { get; private set; }
-
-        public DaemonDiagnosisStoreOperationResult WriteResult { get; set; } =
-            DaemonDiagnosisStoreOperationResult.Success();
-
-        public ValueTask<DaemonDiagnosisReadResult> ReadAsync (
-            string storageRoot,
-            string projectFingerprint,
-            CancellationToken cancellationToken = default)
-        {
-            return ValueTask.FromResult(DaemonDiagnosisReadResult.Success(null));
-        }
-
-        public ValueTask<DaemonDiagnosisStoreOperationResult> WriteAsync (
-            string storageRoot,
-            string projectFingerprint,
-            DaemonDiagnosis diagnosis,
-            CancellationToken cancellationToken = default)
-        {
-            LastDiagnosis = diagnosis;
-            return ValueTask.FromResult(WriteResult);
-        }
-
-        public ValueTask<DaemonDiagnosisStoreOperationResult> DeleteAsync (
-            string storageRoot,
-            string projectFingerprint,
-            CancellationToken cancellationToken = default)
-        {
-            return ValueTask.FromResult(DaemonDiagnosisStoreOperationResult.Success());
-        }
-    }
 }

@@ -1,22 +1,21 @@
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
-using MackySoft.Ucli.Infrastructure.Storage;
-namespace MackySoft.Ucli.Tests.Daemon;
-
 using MackySoft.Tests;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Tests.Helpers.Daemon;
+
+namespace MackySoft.Ucli.Tests.Daemon;
 
 public sealed class DaemonSessionIssuedAtValidationTests
 {
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task Read_WhenIssuedAtUtcIsMissing_ReturnsInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "missing-issued-at");
-        var store = new DaemonSessionStore(new DaemonSessionJsonSerializer(), new DaemonSessionValidator());
-        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, "fingerprint-missing-issued-at");
-        Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
-        await File.WriteAllTextAsync(
-            sessionPath,
+        var store = DaemonSessionStorageTestSupport.CreateStore();
+        await DaemonSessionStorageTestSupport.WriteJsonAsync(
+            scope.FullPath,
+            "fingerprint-missing-issued-at",
             $$"""
             {
               "schemaVersion": {{DaemonSession.CurrentSchemaVersion}},
@@ -42,24 +41,16 @@ public sealed class DaemonSessionIssuedAtValidationTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task Write_WhenIssuedAtUtcIsDefault_ReturnsInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "default-issued-at");
-        var store = new DaemonSessionStore(new DaemonSessionJsonSerializer(), new DaemonSessionValidator());
-        var session = new DaemonSession(
-            SchemaVersion: DaemonSession.CurrentSchemaVersion,
-            SessionToken: "token-1",
-            ProjectFingerprint: "fingerprint-default-issued-at",
-            IssuedAtUtc: default,
-            EditorMode: "batchmode",
-            OwnerKind: "cli",
-            CanShutdownProcess: true,
-            EndpointTransportKind: "namedPipe",
-            EndpointAddress: "ucli-daemon-test",
-            ProcessId: 1234,
-            ProcessStartedAtUtc: DateTimeOffset.UtcNow,
-            OwnerProcessId: 9876);
+        var store = DaemonSessionStorageTestSupport.CreateStore();
+        var session = DaemonSessionTestFactory.Create() with
+        {
+            ProjectFingerprint = "fingerprint-default-issued-at",
+            IssuedAtUtc = default,
+        };
 
         var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);
 

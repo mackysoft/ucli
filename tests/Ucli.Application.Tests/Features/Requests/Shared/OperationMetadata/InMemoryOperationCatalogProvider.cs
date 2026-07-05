@@ -57,10 +57,22 @@ internal sealed class InMemoryOperationCatalogProvider : IOperationCatalogProvid
         new UcliOperationDescriptor(UcliPrimitiveOperationNames.ProjectSave, UcliOperationKind.Mutation, OperationPolicy.Advanced, StrictEmptyObjectArgsSchemaJson),
     ];
 
+    private readonly IReadOnlyList<UcliOperationDescriptor> operations;
+
+    public InMemoryOperationCatalogProvider ()
+        : this(Operations)
+    {
+    }
+
+    public InMemoryOperationCatalogProvider (IReadOnlyList<UcliOperationDescriptor> operations)
+    {
+        this.operations = operations ?? throw new ArgumentNullException(nameof(operations));
+    }
+
     public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetOperationsAsync (CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return ValueTask.FromResult(Operations);
+        return ValueTask.FromResult(operations);
     }
 
     public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetOperationsAsync (
@@ -74,7 +86,7 @@ internal sealed class InMemoryOperationCatalogProvider : IOperationCatalogProvid
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentNullException.ThrowIfNull(config);
         cancellationToken.ThrowIfCancellationRequested();
-        return ValueTask.FromResult(Operations);
+        return ValueTask.FromResult(operations);
     }
 
     private static string CreatePublicArgsSchemaJson (Type type)

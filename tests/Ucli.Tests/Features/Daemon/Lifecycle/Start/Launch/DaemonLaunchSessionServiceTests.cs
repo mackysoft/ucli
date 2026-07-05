@@ -1,8 +1,8 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 namespace MackySoft.Ucli.Tests.Daemon;
 
-using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Tests.Helpers.Daemon;
 
 public sealed class DaemonLaunchSessionServiceTests
 {
@@ -10,19 +10,18 @@ public sealed class DaemonLaunchSessionServiceTests
     [Trait("Size", "Small")]
     public async Task Initialize_WhenSessionWriteSucceeds_ReturnsPersistedSession ()
     {
-        var sessionStore = new StubDaemonSessionStore();
-        sessionStore.WriteResults.Enqueue(DaemonSessionStoreOperationResult.Success());
+        var sessionStore = new RecordingDaemonSessionStore();
         var service = new DaemonLaunchSessionService(
             daemonSessionStore: sessionStore,
-            sessionTokenGenerator: new StubDaemonSessionTokenGenerator());
-        var context = CreateContext("fingerprint-session-init");
+            sessionTokenGenerator: new StaticDaemonSessionTokenGenerator());
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-session-init");
 
         var result = await service.InitializeAsync(context, DaemonEditorMode.Batchmode, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var session = Assert.IsType<DaemonSession>(result.Session);
-        Assert.Equal(context.ProjectFingerprint, session.ProjectFingerprint);
-        Assert.Equal(1, sessionStore.WriteCallCount);
+        var writtenSession = DaemonSessionStoreAssert.InitialSessionWrittenFor(sessionStore, context, DaemonEditorMode.Batchmode);
+        Assert.Equal(session, writtenSession);
     }
 
     [Fact]
@@ -30,49 +29,54 @@ public sealed class DaemonLaunchSessionServiceTests
     public async Task Initialize_WhenSessionWriteFails_ReturnsFailure ()
     {
         var expectedError = ExecutionError.InternalError("initial write failed");
-        var sessionStore = new StubDaemonSessionStore();
-        sessionStore.WriteResults.Enqueue(DaemonSessionStoreOperationResult.Failure(expectedError));
+        var sessionStore = new RecordingDaemonSessionStore
+        {
+            WriteResult = DaemonSessionStoreOperationResult.Failure(expectedError),
+        };
         var service = new DaemonLaunchSessionService(
             daemonSessionStore: sessionStore,
-            sessionTokenGenerator: new StubDaemonSessionTokenGenerator());
+            sessionTokenGenerator: new StaticDaemonSessionTokenGenerator());
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-session-init-fail");
 
-        var result = await service.InitializeAsync(CreateContext("fingerprint-session-init-fail"), DaemonEditorMode.Batchmode, CancellationToken.None);
+        var result = await service.InitializeAsync(context, DaemonEditorMode.Batchmode, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(expectedError, result.Error);
-        Assert.Equal(1, sessionStore.WriteCallCount);
+        DaemonSessionStoreAssert.InitialSessionWrittenFor(sessionStore, context, DaemonEditorMode.Batchmode);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task Initialize_WhenEditorModeIsGui_WritesGuiSession ()
     {
-        var sessionStore = new StubDaemonSessionStore();
-        sessionStore.WriteResults.Enqueue(DaemonSessionStoreOperationResult.Success());
+        var sessionStore = new RecordingDaemonSessionStore();
         var service = new DaemonLaunchSessionService(
             daemonSessionStore: sessionStore,
-            sessionTokenGenerator: new StubDaemonSessionTokenGenerator());
+            sessionTokenGenerator: new StaticDaemonSessionTokenGenerator());
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-session-gui");
 
-        var result = await service.InitializeAsync(CreateContext("fingerprint-session-gui"), DaemonEditorMode.Gui, CancellationToken.None);
+        var result = await service.InitializeAsync(context, DaemonEditorMode.Gui, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.NotNull(result.Session);
-        Assert.Equal("gui", result.Session!.EditorMode);
-        Assert.Equal(1, sessionStore.WriteCallCount);
+        var writtenSession = DaemonSessionStoreAssert.InitialSessionWrittenFor(sessionStore, context, DaemonEditorMode.Gui);
+        Assert.Equal(result.Session, writtenSession);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task UpdateProcessId_WhenProcessIdIsNull_ReturnsOriginalSessionWithoutWrite ()
     {
-        var sessionStore = new StubDaemonSessionStore();
+        var sessionStore = new UnexpectedDaemonSessionStore("Missing launched process id should return the original session without writing.");
         var service = new DaemonLaunchSessionService(
             daemonSessionStore: sessionStore,
-            sessionTokenGenerator: new StubDaemonSessionTokenGenerator());
-        var session = CreateSession(processId: null);
+            sessionTokenGenerator: new StaticDaemonSessionTokenGenerator());
+        var session = DaemonSessionTestFactory.Create(
+            processId: null,
+            sessionToken: "session-token",
+            endpointAddress: "ucli-daemon-test-endpoint");
 
         var result = await service.UpdateProcessIdAsync(
-            CreateContext("fingerprint-session-no-update"),
+            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-session-no-update"),
             session,
             processId: null,
             processStartedAtUtc: null,
@@ -80,7 +84,6 @@ public sealed class DaemonLaunchSessionServiceTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal(session, result.Session);
-        Assert.Equal(0, sessionStore.WriteCallCount);
     }
 
     [Fact]
@@ -88,38 +91,47 @@ public sealed class DaemonLaunchSessionServiceTests
     public async Task UpdateProcessId_WhenProcessIdWriteFails_ReturnsFailure ()
     {
         var expectedError = ExecutionError.InternalError("update write failed");
-        var sessionStore = new StubDaemonSessionStore();
-        sessionStore.WriteResults.Enqueue(DaemonSessionStoreOperationResult.Failure(expectedError));
+        var sessionStore = new RecordingDaemonSessionStore
+        {
+            WriteResult = DaemonSessionStoreOperationResult.Failure(expectedError),
+        };
         var service = new DaemonLaunchSessionService(
             daemonSessionStore: sessionStore,
-            sessionTokenGenerator: new StubDaemonSessionTokenGenerator());
-        var session = CreateSession(processId: null);
+            sessionTokenGenerator: new StaticDaemonSessionTokenGenerator());
+        var session = DaemonSessionTestFactory.Create(
+            processId: null,
+            sessionToken: "session-token",
+            endpointAddress: "ucli-daemon-test-endpoint");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-session-update-fail");
+        var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 0, TimeSpan.Zero);
 
         var result = await service.UpdateProcessIdAsync(
-            CreateContext("fingerprint-session-update-fail"),
+            context,
             session,
             processId: 4321,
-            processStartedAtUtc: DateTimeOffset.UtcNow,
+            processStartedAtUtc: processStartedAtUtc,
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(expectedError, result.Error);
-        Assert.Equal(1, sessionStore.WriteCallCount);
-        Assert.Equal(4321, sessionStore.LastWrittenSession?.ProcessId);
+        DaemonSessionStoreAssert.ProcessIdentityWrittenFor(sessionStore, context, session, 4321, processStartedAtUtc);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task UpdateProcessId_WhenProcessStartedAtUtcIsMissing_ReturnsFailureWithoutWrite ()
     {
-        var sessionStore = new StubDaemonSessionStore();
+        var sessionStore = new UnexpectedDaemonSessionStore("Missing process start time should fail before writing the session.");
         var service = new DaemonLaunchSessionService(
             daemonSessionStore: sessionStore,
-            sessionTokenGenerator: new StubDaemonSessionTokenGenerator());
-        var session = CreateSession(processId: null);
+            sessionTokenGenerator: new StaticDaemonSessionTokenGenerator());
+        var session = DaemonSessionTestFactory.Create(
+            processId: null,
+            sessionToken: "session-token",
+            endpointAddress: "ucli-daemon-test-endpoint");
 
         var result = await service.UpdateProcessIdAsync(
-            CreateContext("fingerprint-session-update-missing-start"),
+            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-session-update-missing-start"),
             session,
             processId: 4321,
             processStartedAtUtc: null,
@@ -129,105 +141,33 @@ public sealed class DaemonLaunchSessionServiceTests
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
         Assert.Contains("processStartedAtUtc", error.Message, StringComparison.Ordinal);
-        Assert.Equal(0, sessionStore.WriteCallCount);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task UpdateProcessId_WhenProcessIdWriteSucceeds_ReturnsUpdatedSession ()
     {
-        var sessionStore = new StubDaemonSessionStore();
-        sessionStore.WriteResults.Enqueue(DaemonSessionStoreOperationResult.Success());
+        var sessionStore = new RecordingDaemonSessionStore();
         var service = new DaemonLaunchSessionService(
             daemonSessionStore: sessionStore,
-            sessionTokenGenerator: new StubDaemonSessionTokenGenerator());
-        var session = CreateSession(processId: null);
+            sessionTokenGenerator: new StaticDaemonSessionTokenGenerator());
+        var session = DaemonSessionTestFactory.Create(
+            processId: null,
+            sessionToken: "session-token",
+            endpointAddress: "ucli-daemon-test-endpoint");
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 0, TimeSpan.Zero);
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-session-update-success");
 
         var result = await service.UpdateProcessIdAsync(
-            CreateContext("fingerprint-session-update-success"),
+            context,
             session,
             processId: 8765,
             processStartedAtUtc: processStartedAtUtc,
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(8765, result.Session?.ProcessId);
-        Assert.Equal(processStartedAtUtc, result.Session?.ProcessStartedAtUtc);
-        Assert.Equal(1, sessionStore.WriteCallCount);
+        var writtenSession = DaemonSessionStoreAssert.ProcessIdentityWrittenFor(sessionStore, context, session, 8765, processStartedAtUtc);
+        Assert.Equal(result.Session, writtenSession);
     }
 
-    private static ResolvedUnityProjectContext CreateContext (string fingerprint)
-    {
-        return new ResolvedUnityProjectContext(
-            UnityProjectRoot: "/tmp/unity-project",
-            RepositoryRoot: "/tmp/repo-root",
-            ProjectFingerprint: fingerprint,
-            PathSource: UnityProjectPathSource.CommandOption);
-    }
-
-    private static DaemonSession CreateSession (int? processId)
-    {
-        return new DaemonSession(
-            SchemaVersion: DaemonSession.CurrentSchemaVersion,
-            SessionToken: "session-token",
-            ProjectFingerprint: "fingerprint",
-            IssuedAtUtc: DateTimeOffset.UtcNow,
-            EditorMode: "batchmode",
-            OwnerKind: "cli",
-            CanShutdownProcess: true,
-            EndpointTransportKind: "namedPipe",
-            EndpointAddress: "ucli-daemon-test-endpoint",
-            ProcessId: processId,
-            ProcessStartedAtUtc: processId is null ? null : DateTimeOffset.UtcNow,
-            OwnerProcessId: 9876);
-    }
-
-    private sealed class StubDaemonSessionStore : IDaemonSessionStore
-    {
-        public Queue<DaemonSessionStoreOperationResult> WriteResults { get; } = new();
-
-        public int WriteCallCount { get; private set; }
-
-        public DaemonSession? LastWrittenSession { get; private set; }
-
-        public ValueTask<DaemonSessionReadResult> ReadAsync (
-            string storageRoot,
-            string projectFingerprint,
-            CancellationToken cancellationToken = default)
-        {
-            return ValueTask.FromResult(DaemonSessionReadResult.Success(null));
-        }
-
-        public ValueTask<DaemonSessionStoreOperationResult> WriteAsync (
-            string storageRoot,
-            DaemonSession session,
-            CancellationToken cancellationToken = default)
-        {
-            WriteCallCount++;
-            LastWrittenSession = session;
-            if (WriteResults.Count == 0)
-            {
-                return ValueTask.FromResult(DaemonSessionStoreOperationResult.Success());
-            }
-
-            return ValueTask.FromResult(WriteResults.Dequeue());
-        }
-
-        public ValueTask<DaemonSessionStoreOperationResult> DeleteAsync (
-            string storageRoot,
-            string projectFingerprint,
-            CancellationToken cancellationToken = default)
-        {
-            return ValueTask.FromResult(DaemonSessionStoreOperationResult.Success());
-        }
-    }
-
-    private sealed class StubDaemonSessionTokenGenerator : IDaemonSessionTokenGenerator
-    {
-        public string Create ()
-        {
-            return "new-session-token";
-        }
-    }
 }

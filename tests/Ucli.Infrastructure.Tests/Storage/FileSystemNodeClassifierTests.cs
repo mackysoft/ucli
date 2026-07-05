@@ -7,7 +7,7 @@ namespace MackySoft.Ucli.Infrastructure.Tests.Storage;
 public sealed class FileSystemNodeClassifierTests
 {
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void IsRegularFile_WhenPathIsRegularFile_ReturnsTrue ()
     {
         using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "node-regular-file");
@@ -19,7 +19,7 @@ public sealed class FileSystemNodeClassifierTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void IsRegularFile_WhenPathIsDirectory_ReturnsFalse ()
     {
         using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "node-directory");
@@ -31,7 +31,7 @@ public sealed class FileSystemNodeClassifierTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void IsRegularFile_WhenPathIsSymbolicLink_ReturnsFalse ()
     {
         using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "node-symlink");
@@ -48,7 +48,7 @@ public sealed class FileSystemNodeClassifierTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void IsRegularFile_WhenPathIsFifo_ReturnsFalse ()
     {
         if (OperatingSystem.IsWindows())

@@ -1,32 +1,50 @@
+using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Infrastructure.Storage;
+using MackySoft.Ucli.Tests.Helpers.Daemon;
 
 namespace MackySoft.Ucli.Tests.Supervisor;
 
 public sealed class SupervisorExitHandlerTests
 {
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task HandleExit_WhenDiagnosisWriteAndCleanupFail_LogsBothFailures ()
     {
-        var repositoryRoot = Path.Combine(Path.GetTempPath(), "ucli-exit-handler-tests", Guid.NewGuid().ToString("N"));
-        var unityProject = CreateUnityProject(repositoryRoot);
-        var session = CreateSession();
-        var diagnosisStore = new StubDaemonDiagnosisStore
+        using var scope = TestDirectories.CreateTempScope(
+            "supervisor-exit-handler",
+            "diagnosis-cleanup-failures",
+            DirectoryCleanupMode.BestEffort);
+        var unityProject = ResolvedUnityProjectContextTestFactory.Create(
+            unityProjectRoot: "/tmp/unity-project",
+            repositoryRoot: scope.FullPath,
+            projectFingerprint: "fingerprint");
+        var session = DaemonSessionTestFactory.Create(
+            sessionToken: "session-token",
+            issuedAtUtc: new DateTimeOffset(2026, 03, 11, 0, 0, 0, TimeSpan.Zero),
+            endpointTransportKind: "unixDomainSocket",
+            endpointAddress: "/tmp/ucli.sock",
+            processId: 1234,
+            ownerProcessId: 24);
+        var diagnosisStore = new RecordingDaemonDiagnosisStore
         {
             WriteResult = DaemonDiagnosisStoreOperationResult.Failure(
                 ExecutionError.InternalError("diagnosis failed")),
         };
-        var artifactCleaner = new StubDaemonArtifactCleaner
+        var artifactCleaner = new RecordingDaemonArtifactCleaner
         {
-            CleanupResult = DaemonArtifactCleanupResult.Failure(
+            NextResult = DaemonArtifactCleanupResult.Failure(
                 ExecutionError.InternalError("cleanup failed")),
         };
+        var sessionStore = new RecordingDaemonSessionStore
+        {
+            ReadResult = DaemonSessionReadResult.Success(session),
+        };
         var exitHandler = new SupervisorExitHandler(
-            new StubDaemonSessionStore(session),
+            sessionStore,
             artifactCleaner,
             new SupervisorDiagnosisWriter(diagnosisStore),
             new SupervisorRuntimeLogger());
@@ -38,7 +56,7 @@ public sealed class SupervisorExitHandlerTests
 
         await exitHandler.HandleExitAsync(managedProcess, CancellationToken.None);
 
-        var logPath = UcliStoragePathResolver.ResolveSupervisorLogPath(repositoryRoot);
+        var logPath = UcliStoragePathResolver.ResolveSupervisorLogPath(scope.FullPath);
         var logText = await File.ReadAllTextAsync(logPath);
         Assert.Contains("Supervisor diagnosis write failed after daemon exit.", logText, StringComparison.Ordinal);
         Assert.Contains("diagnosis failed", logText, StringComparison.Ordinal);
@@ -47,23 +65,35 @@ public sealed class SupervisorExitHandlerTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task HandleExit_WhenSessionReadFails_StillRunsCleanupAndLogsReadFailure ()
     {
-        var repositoryRoot = Path.Combine(Path.GetTempPath(), "ucli-exit-handler-tests", Guid.NewGuid().ToString("N"));
-        var unityProject = CreateUnityProject(repositoryRoot);
-        var session = CreateSession();
-        var sessionStore = new StubDaemonSessionStore(session)
+        using var scope = TestDirectories.CreateTempScope(
+            "supervisor-exit-handler",
+            "session-read-failure",
+            DirectoryCleanupMode.BestEffort);
+        var unityProject = ResolvedUnityProjectContextTestFactory.Create(
+            unityProjectRoot: "/tmp/unity-project",
+            repositoryRoot: scope.FullPath,
+            projectFingerprint: "fingerprint");
+        var session = DaemonSessionTestFactory.Create(
+            sessionToken: "session-token",
+            issuedAtUtc: new DateTimeOffset(2026, 03, 11, 0, 0, 0, TimeSpan.Zero),
+            endpointTransportKind: "unixDomainSocket",
+            endpointAddress: "/tmp/ucli.sock",
+            processId: 1234,
+            ownerProcessId: 24);
+        var sessionStore = new RecordingDaemonSessionStore
         {
             ReadResult = DaemonSessionReadResult.Failure(
                 ExecutionError.InternalError("session read failed"),
                 DaemonSessionReadFailureKind.IoFailure),
         };
-        var artifactCleaner = new StubDaemonArtifactCleaner();
+        var artifactCleaner = new RecordingDaemonArtifactCleaner();
         var exitHandler = new SupervisorExitHandler(
             sessionStore,
             artifactCleaner,
-            new SupervisorDiagnosisWriter(new StubDaemonDiagnosisStore()),
+            new SupervisorDiagnosisWriter(new RecordingDaemonDiagnosisStore()),
             new SupervisorRuntimeLogger());
         var managedProcess = new SupervisorManagedDaemonProcess(
             unityProject,
@@ -73,30 +103,42 @@ public sealed class SupervisorExitHandlerTests
 
         await exitHandler.HandleExitAsync(managedProcess, CancellationToken.None);
 
-        Assert.Equal(1, artifactCleaner.CleanupCallCount);
-
-        var logPath = UcliStoragePathResolver.ResolveSupervisorLogPath(repositoryRoot);
+        var logPath = UcliStoragePathResolver.ResolveSupervisorLogPath(scope.FullPath);
         var logText = await File.ReadAllTextAsync(logPath);
-        Assert.Contains("Supervisor session read failed during exit cleanup.", logText, StringComparison.Ordinal);
-        Assert.Contains("session read failed", logText, StringComparison.Ordinal);
+        SupervisorExitHandlerAssert.SessionReadFailureLoggedAfterCleanup(
+            artifactCleaner,
+            unityProject,
+            logText,
+            expectedReadFailureMessage: "session read failed");
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task HandleExit_WhenSessionCannotShutdownProcess_SkipsDiagnosisAndCleanup ()
     {
-        var repositoryRoot = Path.Combine(Path.GetTempPath(), "ucli-exit-handler-tests", Guid.NewGuid().ToString("N"));
-        var unityProject = CreateUnityProject(repositoryRoot);
-        var session = CreateSession(
+        var unityProject = ResolvedUnityProjectContextTestFactory.Create(
+            unityProjectRoot: "/tmp/unity-project",
+            repositoryRoot: ResolvedUnityProjectContextTestFactory.RepositoryRoot,
+            projectFingerprint: "fingerprint");
+        var session = DaemonSessionTestFactory.Create(
+            sessionToken: "session-token",
+            issuedAtUtc: new DateTimeOffset(2026, 03, 11, 0, 0, 0, TimeSpan.Zero),
             editorMode: "gui",
             ownerKind: "user",
-            canShutdownProcess: false);
-        var diagnosisStore = new StubDaemonDiagnosisStore();
-        var artifactCleaner = new StubDaemonArtifactCleaner();
+            canShutdownProcess: false,
+            endpointTransportKind: "unixDomainSocket",
+            endpointAddress: "/tmp/ucli.sock",
+            processId: 1234,
+            ownerProcessId: 24);
+        var sessionStore = new RecordingDaemonSessionStore
+        {
+            ReadResult = DaemonSessionReadResult.Success(session),
+        };
         var exitHandler = new SupervisorExitHandler(
-            new StubDaemonSessionStore(session),
-            artifactCleaner,
-            new SupervisorDiagnosisWriter(diagnosisStore),
+            sessionStore,
+            new UnexpectedDaemonArtifactCleaner("User-owned GUI session must not be cleaned up by the supervisor exit handler."),
+            new SupervisorDiagnosisWriter(new UnexpectedDaemonDiagnosisStore(
+                "User-owned GUI session must not write unexpected-exit diagnosis.")),
             new SupervisorRuntimeLogger());
         var managedProcess = new SupervisorManagedDaemonProcess(
             unityProject,
@@ -105,124 +147,5 @@ public sealed class SupervisorExitHandlerTests
             static _ => Task.CompletedTask);
 
         await exitHandler.HandleExitAsync(managedProcess, CancellationToken.None);
-
-        Assert.Equal(0, diagnosisStore.WriteCallCount);
-        Assert.Equal(0, artifactCleaner.CleanupCallCount);
-    }
-
-    private static ResolvedUnityProjectContext CreateUnityProject (string repositoryRoot)
-    {
-        return new ResolvedUnityProjectContext(
-            UnityProjectRoot: "/tmp/unity-project",
-            RepositoryRoot: repositoryRoot,
-            ProjectFingerprint: "fingerprint",
-            PathSource: UnityProjectPathSource.CommandOption);
-    }
-
-    private static DaemonSession CreateSession (
-        string editorMode = "batchmode",
-        string ownerKind = "cli",
-        bool canShutdownProcess = true)
-    {
-        return new DaemonSession(
-            SchemaVersion: DaemonSession.CurrentSchemaVersion,
-            SessionToken: "session-token",
-            ProjectFingerprint: "fingerprint",
-            IssuedAtUtc: new DateTimeOffset(2026, 03, 11, 0, 0, 0, TimeSpan.Zero),
-            EditorMode: editorMode,
-            OwnerKind: ownerKind,
-            CanShutdownProcess: canShutdownProcess,
-            EndpointTransportKind: "unixDomainSocket",
-            EndpointAddress: "/tmp/ucli.sock",
-            ProcessId: 1234,
-            ProcessStartedAtUtc: DateTimeOffset.UtcNow,
-            OwnerProcessId: 24);
-    }
-
-    private sealed class StubDaemonSessionStore : IDaemonSessionStore
-    {
-        private DaemonSession session;
-
-        public DaemonSessionReadResult? ReadResult { get; set; }
-
-        public StubDaemonSessionStore (DaemonSession session)
-        {
-            this.session = session;
-        }
-
-        public ValueTask<DaemonSessionReadResult> ReadAsync (
-            string storageRoot,
-            string projectFingerprint,
-            CancellationToken cancellationToken = default)
-        {
-            return ValueTask.FromResult(ReadResult ?? DaemonSessionReadResult.Success(session));
-        }
-
-        public ValueTask<DaemonSessionStoreOperationResult> WriteAsync (
-            string storageRoot,
-            DaemonSession session,
-            CancellationToken cancellationToken = default)
-        {
-            this.session = session;
-            return ValueTask.FromResult(DaemonSessionStoreOperationResult.Success());
-        }
-
-        public ValueTask<DaemonSessionStoreOperationResult> DeleteAsync (
-            string storageRoot,
-            string projectFingerprint,
-            CancellationToken cancellationToken = default)
-        {
-            return ValueTask.FromResult(DaemonSessionStoreOperationResult.Success());
-        }
-    }
-
-    private sealed class StubDaemonDiagnosisStore : IDaemonDiagnosisStore
-    {
-        public DaemonDiagnosisStoreOperationResult WriteResult { get; set; } =
-            DaemonDiagnosisStoreOperationResult.Success();
-
-        public int WriteCallCount { get; private set; }
-
-        public ValueTask<DaemonDiagnosisReadResult> ReadAsync (
-            string storageRoot,
-            string projectFingerprint,
-            CancellationToken cancellationToken = default)
-        {
-            return ValueTask.FromResult(DaemonDiagnosisReadResult.Success(null));
-        }
-
-        public ValueTask<DaemonDiagnosisStoreOperationResult> WriteAsync (
-            string storageRoot,
-            string projectFingerprint,
-            DaemonDiagnosis diagnosis,
-            CancellationToken cancellationToken = default)
-        {
-            WriteCallCount++;
-            return ValueTask.FromResult(WriteResult);
-        }
-
-        public ValueTask<DaemonDiagnosisStoreOperationResult> DeleteAsync (
-            string storageRoot,
-            string projectFingerprint,
-            CancellationToken cancellationToken = default)
-        {
-            return ValueTask.FromResult(DaemonDiagnosisStoreOperationResult.Success());
-        }
-    }
-
-    private sealed class StubDaemonArtifactCleaner : IDaemonArtifactCleaner
-    {
-        public DaemonArtifactCleanupResult CleanupResult { get; set; } =
-            DaemonArtifactCleanupResult.Success();
-
-        public int CleanupCallCount { get; private set; }
-
-        public ValueTask<DaemonArtifactCleanupResult> CleanupAsync (
-            ResolvedUnityProjectContext unityProject,
-            CancellationToken cancellationToken = default)
-        {
-            CleanupCallCount++;
-            return ValueTask.FromResult(CleanupResult);
-        }
     }
 }

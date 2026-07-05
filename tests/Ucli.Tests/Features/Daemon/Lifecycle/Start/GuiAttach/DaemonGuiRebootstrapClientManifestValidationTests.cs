@@ -1,0 +1,185 @@
+namespace MackySoft.Ucli.Tests.Daemon;
+
+using MackySoft.Tests;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiAttach;
+using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Tests.Helpers.Daemon;
+using MackySoft.Ucli.Tests.Helpers.Ipc;
+using static MackySoft.Ucli.Tests.Daemon.DaemonGuiRebootstrapClientTestSupport;
+
+public sealed class DaemonGuiRebootstrapClientManifestValidationTests
+{
+    public static TheoryData<InvalidManifestCase> InvalidManifestCases =>
+    [
+        new(
+            "schema-version",
+            0,
+            "fingerprint",
+            "supervisor-token",
+            ContractLiteralCodec.ToValue(IpcTransportKind.UnixDomainSocket),
+            "/tmp/ucli-gui-supervisor.sock",
+            ProcessStartedAtUtc),
+        new(
+            "project-fingerprint",
+            GuiSupervisorManifestJsonContract.CurrentSchemaVersion,
+            "other-fingerprint",
+            "supervisor-token",
+            ContractLiteralCodec.ToValue(IpcTransportKind.UnixDomainSocket),
+            "/tmp/ucli-gui-supervisor.sock",
+            ProcessStartedAtUtc),
+        new(
+            "started-at",
+            GuiSupervisorManifestJsonContract.CurrentSchemaVersion,
+            "fingerprint",
+            "supervisor-token",
+            ContractLiteralCodec.ToValue(IpcTransportKind.UnixDomainSocket),
+            "/tmp/ucli-gui-supervisor.sock",
+            ProcessStartedAtUtc.Add(DaemonProcessStartTimeMatcher.Tolerance).AddMilliseconds(1)),
+        new(
+            "session-token",
+            GuiSupervisorManifestJsonContract.CurrentSchemaVersion,
+            "fingerprint",
+            "",
+            ContractLiteralCodec.ToValue(IpcTransportKind.UnixDomainSocket),
+            "/tmp/ucli-gui-supervisor.sock",
+            ProcessStartedAtUtc),
+        new(
+            "transport-kind",
+            GuiSupervisorManifestJsonContract.CurrentSchemaVersion,
+            "fingerprint",
+            "supervisor-token",
+            "",
+            "/tmp/ucli-gui-supervisor.sock",
+            ProcessStartedAtUtc),
+        new(
+            "endpoint-address",
+            GuiSupervisorManifestJsonContract.CurrentSchemaVersion,
+            "fingerprint",
+            "supervisor-token",
+            ContractLiteralCodec.ToValue(IpcTransportKind.UnixDomainSocket),
+            "",
+            ProcessStartedAtUtc),
+    ];
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task RequestRebootstrapAsync_WhenManifestMissing_ReturnsUnavailableWithoutIpc ()
+    {
+        using var scope = TestDirectories.CreateTempScope(
+            "daemon-command-service",
+            nameof(RequestRebootstrapAsync_WhenManifestMissing_ReturnsUnavailableWithoutIpc));
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath, "fingerprint");
+        var transportClient = new StubIpcTransportClient();
+        var client = CreateClient(transportClient);
+
+        var result = await client.RequestRebootstrapAsync(
+            unityProject,
+            expectedProcessId: 1234,
+            ProcessStartedAtUtc,
+            TimeSpan.FromMilliseconds(500),
+            CancellationToken.None);
+
+        AssertUnavailableWithoutIpc(result, transportClient);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task RequestRebootstrapAsync_WhenManifestProcessDoesNotMatch_ReturnsUnavailableWithoutIpc ()
+    {
+        using var scope = TestDirectories.CreateTempScope(
+            "daemon-command-service",
+            nameof(RequestRebootstrapAsync_WhenManifestProcessDoesNotMatch_ReturnsUnavailableWithoutIpc));
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath, "fingerprint");
+        await WriteManifestAsync(scope.FullPath, unityProject.ProjectFingerprint, CreateManifest());
+        var transportClient = new StubIpcTransportClient();
+        var client = CreateClient(transportClient);
+
+        var result = await client.RequestRebootstrapAsync(
+            unityProject,
+            expectedProcessId: 5678,
+            ProcessStartedAtUtc,
+            TimeSpan.FromMilliseconds(500),
+            CancellationToken.None);
+
+        AssertUnavailableWithoutIpc(result, transportClient);
+    }
+
+    [Theory]
+    [MemberData(nameof(InvalidManifestCases))]
+    [Trait("Size", "Medium")]
+    public async Task RequestRebootstrapAsync_WhenManifestValidationFails_ReturnsUnavailableWithoutIpc (
+        InvalidManifestCase testCase)
+    {
+        using var scope = TestDirectories.CreateTempScope(
+            "daemon-command-service",
+            $"{nameof(RequestRebootstrapAsync_WhenManifestValidationFails_ReturnsUnavailableWithoutIpc)}-{testCase.Name}");
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath, "fingerprint");
+        var manifest = CreateManifest() with
+        {
+            SchemaVersion = testCase.SchemaVersion,
+            ProjectFingerprint = testCase.ProjectFingerprint,
+            SessionToken = testCase.SessionToken,
+            EndpointTransportKind = testCase.EndpointTransportKind,
+            EndpointAddress = testCase.EndpointAddress,
+        };
+        await WriteManifestAsync(scope.FullPath, unityProject.ProjectFingerprint, manifest);
+        var transportClient = new StubIpcTransportClient();
+        var client = CreateClient(transportClient);
+
+        var result = await client.RequestRebootstrapAsync(
+            unityProject,
+            manifest.ProcessId,
+            testCase.ExpectedProcessStartedAtUtc,
+            TimeSpan.FromMilliseconds(500),
+            CancellationToken.None);
+
+        AssertUnavailableWithoutIpc(result, transportClient);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task RequestRebootstrapAsync_WhenManifestTransportKindIsInvalid_ReturnsUnavailableWithoutIpc ()
+    {
+        using var scope = TestDirectories.CreateTempScope(
+            "daemon-command-service",
+            nameof(RequestRebootstrapAsync_WhenManifestTransportKindIsInvalid_ReturnsUnavailableWithoutIpc));
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath, "fingerprint");
+        await WriteManifestAsync(
+            scope.FullPath,
+            unityProject.ProjectFingerprint,
+            CreateManifest() with
+            {
+                EndpointTransportKind = "invalid-transport",
+            });
+        var transportClient = new StubIpcTransportClient();
+        var client = CreateClient(transportClient);
+
+        var result = await client.RequestRebootstrapAsync(
+            unityProject,
+            expectedProcessId: 1234,
+            ProcessStartedAtUtc,
+            TimeSpan.FromMilliseconds(500),
+            CancellationToken.None);
+
+        AssertUnavailableWithoutIpc(result, transportClient);
+    }
+
+    private static void AssertUnavailableWithoutIpc (
+        DaemonGuiRebootstrapRequestResult result,
+        StubIpcTransportClient transportClient)
+    {
+        Assert.False(result.IsAccepted);
+        Assert.Equal(DaemonErrorCodes.DaemonEndpointNotRegistered, result.Error!.Code);
+        DaemonGuiRebootstrapTransportAssert.NoIpcRequestWasSent(transportClient);
+    }
+
+    public readonly record struct InvalidManifestCase (
+        string Name,
+        int SchemaVersion,
+        string ProjectFingerprint,
+        string SessionToken,
+        string EndpointTransportKind,
+        string EndpointAddress,
+        DateTimeOffset? ExpectedProcessStartedAtUtc);
+}

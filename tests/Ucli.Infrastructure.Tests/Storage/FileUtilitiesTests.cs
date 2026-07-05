@@ -6,7 +6,7 @@ namespace MackySoft.Ucli.Infrastructure.Tests.Storage;
 public sealed class FileUtilitiesTests
 {
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task WriteAllTextAtomically_WhenTargetExists_ReplacesExistingContents ()
     {
         using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "atomic-write-overwrite");

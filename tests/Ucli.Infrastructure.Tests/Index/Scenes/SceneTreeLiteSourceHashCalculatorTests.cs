@@ -6,7 +6,7 @@ namespace MackySoft.Ucli.Infrastructure.Tests.Index.Scenes;
 public sealed class SceneTreeLiteSourceHashCalculatorTests
 {
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task TryCompute_ReturnsStableHash_WhenSceneAndMetaAreUnchanged ()
     {
         using var scope = TestDirectories.CreateTempScope("infrastructure-scene-tree-lite-hash", "stable");
@@ -21,7 +21,7 @@ public sealed class SceneTreeLiteSourceHashCalculatorTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task TryCompute_ReturnsDifferentHash_WhenSceneContentsChange ()
     {
         using var scope = TestDirectories.CreateTempScope("infrastructure-scene-tree-lite-hash", "scene-change");
@@ -38,7 +38,7 @@ public sealed class SceneTreeLiteSourceHashCalculatorTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task TryCompute_ReturnsDifferentHash_WhenMetaContentsChange ()
     {
         using var scope = TestDirectories.CreateTempScope("infrastructure-scene-tree-lite-hash", "meta-change");
@@ -55,7 +55,7 @@ public sealed class SceneTreeLiteSourceHashCalculatorTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task TryCompute_ReturnsNull_WhenMetaFileIsMissing ()
     {
         using var scope = TestDirectories.CreateTempScope("infrastructure-scene-tree-lite-hash", "missing-meta");

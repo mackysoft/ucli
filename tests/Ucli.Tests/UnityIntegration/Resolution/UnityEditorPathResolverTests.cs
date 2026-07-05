@@ -7,11 +7,11 @@ using MackySoft.Ucli.UnityIntegration.Resolution;
 public sealed class UnityEditorPathResolverTests
 {
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void Resolve_WithPreferredExecutablePath_ReturnsNormalizedPath ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-editor-path-resolver", "preferred-file");
-        var executablePath = EnsureEditorInstallation(scope, "Editors", "6000.1.4f1");
+        var executablePath = UnityEditorInstallationTestFactory.WriteEditorExecutable(scope, "Editors", "6000.1.4f1");
         var resolver = CreateResolver();
 
         var result = resolver.Resolve("6000.1.4f1", executablePath);
@@ -22,11 +22,11 @@ public sealed class UnityEditorPathResolverTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void Resolve_WithPreferredDirectoryPath_ReturnsExecutablePath ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-editor-path-resolver", "preferred-directory");
-        var executablePath = EnsureEditorInstallation(scope, "Editors", "6000.1.4f1");
+        var executablePath = UnityEditorInstallationTestFactory.WriteEditorExecutable(scope, "Editors", "6000.1.4f1");
         var versionDirectoryPath = Path.GetDirectoryName(Path.GetDirectoryName(executablePath)!)!;
         var resolver = CreateResolver();
 
@@ -38,7 +38,7 @@ public sealed class UnityEditorPathResolverTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void Resolve_WhenPreferredPathDoesNotExist_ReturnsInvalidArgumentError ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-editor-path-resolver", "missing-preferred-path");
@@ -55,7 +55,7 @@ public sealed class UnityEditorPathResolverTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void Resolve_WhenPreferredPathHasUnsupportedExecutableName_ReturnsInvalidArgumentError ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-editor-path-resolver", "unsupported-executable");
@@ -72,11 +72,11 @@ public sealed class UnityEditorPathResolverTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void Resolve_WhenPreferredPathVersionMismatches_ReturnsInvalidArgumentError ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-editor-path-resolver", "version-mismatch");
-        var executablePath = EnsureEditorInstallation(scope, "Editors", "6000.1.3f1");
+        var executablePath = UnityEditorInstallationTestFactory.WriteEditorExecutable(scope, "Editors", "6000.1.3f1");
         var resolver = CreateResolver();
 
         var result = resolver.Resolve("6000.1.4f1", executablePath);
@@ -89,12 +89,12 @@ public sealed class UnityEditorPathResolverTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void Resolve_WhenUnityVersionHasCSuffix_AllowsPreferredPath ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-editor-path-resolver", "c-suffix");
         const string unityVersion = "2022.3.5f1c1";
-        var executablePath = EnsureEditorInstallation(scope, "Editors", unityVersion);
+        var executablePath = UnityEditorInstallationTestFactory.WriteEditorExecutable(scope, "Editors", unityVersion);
         var resolver = CreateResolver();
 
         var result = resolver.Resolve(unityVersion, executablePath);
@@ -117,15 +117,6 @@ public sealed class UnityEditorPathResolverTests
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
         Assert.Contains("Unity version must not be", error.Message, StringComparison.Ordinal);
-    }
-
-    private static string EnsureEditorInstallation (
-        TestDirectoryScope scope,
-        string rootRelativePath,
-        string unityVersion)
-    {
-        var versionRelativePath = Path.Combine(rootRelativePath, unityVersion);
-        return scope.WriteFile(Path.Combine(versionRelativePath, "Editor", "Unity.exe"), string.Empty);
     }
 
     private static UnityEditorPathResolver CreateResolver ()

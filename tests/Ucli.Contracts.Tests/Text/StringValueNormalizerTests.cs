@@ -4,17 +4,24 @@ namespace MackySoft.Ucli.Contracts.Tests.Text;
 
 public sealed class StringValueNormalizerTests
 {
-    [Theory]
-    [Trait("Size", "Small")]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData(" ")]
-    [InlineData("\t")]
-    public void TrimToNull_ReturnsNull_WhenValueIsNullOrWhitespace (string? value)
-    {
-        var result = StringValueNormalizer.TrimToNull(value);
+    private static readonly string?[] NullOrWhitespaceValues =
+    [
+        null,
+        "",
+        " ",
+        "\t",
+    ];
 
-        Assert.Null(result);
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TrimToNull_ReturnsNull_WhenValueIsNullOrWhitespace ()
+    {
+        foreach (string? value in NullOrWhitespaceValues)
+        {
+            var result = StringValueNormalizer.TrimToNull(value);
+
+            Assert.Null(result);
+        }
     }
 
     [Fact]
@@ -26,18 +33,17 @@ public sealed class StringValueNormalizerTests
         Assert.Equal("value", result);
     }
 
-    [Theory]
+    [Fact]
     [Trait("Size", "Small")]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData(" ")]
-    [InlineData("\t")]
-    public void TryTrimToNonEmpty_ReturnsFalse_WhenValueIsNullOrWhitespace (string? value)
+    public void TryTrimToNonEmpty_ReturnsFalse_WhenValueIsNullOrWhitespace ()
     {
-        var result = StringValueNormalizer.TryTrimToNonEmpty(value, out var normalizedValue);
+        foreach (string? value in NullOrWhitespaceValues)
+        {
+            var result = StringValueNormalizer.TryTrimToNonEmpty(value, out var normalizedValue);
 
-        Assert.False(result);
-        Assert.Null(normalizedValue);
+            Assert.False(result);
+            Assert.Null(normalizedValue);
+        }
     }
 
     [Fact]

@@ -2,13 +2,14 @@ using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Testing.Run.Artifacts;
 using MackySoft.Ucli.Application.Features.Testing.Run.Results;
+using MackySoft.Ucli.Tests.Helpers.Testing;
 
 namespace MackySoft.Ucli.Tests;
 
 public sealed class UnityResultsConverterTests
 {
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task Convert_WithValidXml_WritesResultsAndSummary ()
     {
         using var scope = CreateSessionScope("valid", out var session);
@@ -46,7 +47,7 @@ public sealed class UnityResultsConverterTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task Convert_WithEmptyTestRun_ReportsZeroTestCases ()
     {
         using var scope = CreateSessionScope("empty-test-run", out var session);
@@ -68,7 +69,7 @@ public sealed class UnityResultsConverterTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task Convert_WithInvalidXml_ReturnsInvalidResultsXmlFailure ()
     {
         using var scope = CreateSessionScope("invalid-xml", out var session);
@@ -84,7 +85,7 @@ public sealed class UnityResultsConverterTests
     }
 
     [Theory]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     [InlineData("NaN")]
     [InlineData("Infinity")]
     [InlineData("-Infinity")]
@@ -109,7 +110,7 @@ public sealed class UnityResultsConverterTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task Convert_WithFailedSuiteAndNoTestCase_ReturnsFailedSummary ()
     {
         using var scope = CreateSessionScope("failed-suite-no-case", out var session);
@@ -134,7 +135,7 @@ public sealed class UnityResultsConverterTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task Convert_WithResultsXmlReadFailure_ReturnsResultsXmlReadFailed ()
     {
         using var scope = CreateSessionScope("read-failure", out var session);
@@ -149,13 +150,13 @@ public sealed class UnityResultsConverterTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task Convert_WithOutputWriteFailure_ReturnsOutputWriteFailed ()
     {
         using var scope = CreateSessionScope("write-failure", out var session);
         var converter = new UnityResultsConverter(
-            new StubResultsXmlParser(CreateParseResult()),
-            new ThrowingResultsArtifactWriter(new IOException("disk full")));
+            new StubUnityResultsXmlParser(CreateParseResult()),
+            new ThrowingUnityResultsArtifactWriter(new IOException("disk full")));
 
         var result = await converter.ConvertAsync(session, CancellationToken.None);
 
@@ -203,38 +204,4 @@ public sealed class UnityResultsConverterTests
             new UnityResultsArtifactWriter());
     }
 
-    private sealed class StubResultsXmlParser : IUnityResultsXmlParser
-    {
-        private readonly UnityResultsXmlParseResult parseResult;
-
-        public StubResultsXmlParser (UnityResultsXmlParseResult parseResult)
-        {
-            this.parseResult = parseResult;
-        }
-
-        public ValueTask<UnityResultsXmlParseResult> ParseAsync (
-            string resultsXmlPath,
-            CancellationToken cancellationToken = default)
-        {
-            return ValueTask.FromResult(parseResult);
-        }
-    }
-
-    private sealed class ThrowingResultsArtifactWriter : IUnityResultsArtifactWriter
-    {
-        private readonly Exception exception;
-
-        public ThrowingResultsArtifactWriter (Exception exception)
-        {
-            this.exception = exception;
-        }
-
-        public ValueTask WriteAsync (
-            ArtifactsSession session,
-            UnityResultsXmlParseResult parseResult,
-            CancellationToken cancellationToken = default)
-        {
-            throw exception;
-        }
-    }
 }

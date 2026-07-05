@@ -6,17 +6,17 @@ namespace MackySoft.Ucli.Infrastructure.Tests.Index.Inputs;
 public sealed class FileSystemIndexInputFingerprintCalculatorTests
 {
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task TryComputeCore_ReturnsSameCombinedHash_WhenOnlyAssetContentChanges ()
     {
         using var scope = TestDirectories.CreateTempScope("infrastructure-index-fingerprint", "core-asset-content");
-        PrepareRequiredInputs(scope);
+        UnityIndexInputTestFactory.WriteRequiredInputsWithSampleAsset(scope);
         var calculator = new FileSystemIndexInputFingerprintCalculator();
 
         var before = await calculator.TryComputeCoreAsync(scope.FullPath, CancellationToken.None);
         Assert.NotNull(before);
 
-        scope.WriteFile(Path.Combine("Assets", "Data", "Spawner.asset"), "changed");
+        UnityIndexInputTestFactory.WriteSampleAsset(scope, "changed");
 
         var after = await calculator.TryComputeCoreAsync(scope.FullPath, CancellationToken.None);
         Assert.NotNull(after);
@@ -29,17 +29,17 @@ public sealed class FileSystemIndexInputFingerprintCalculatorTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task TryCompute_ReturnsDifferentAssetHashes_WhenAssetContentChanges ()
     {
         using var scope = TestDirectories.CreateTempScope("infrastructure-index-fingerprint", "asset-content");
-        PrepareRequiredInputs(scope);
+        UnityIndexInputTestFactory.WriteRequiredInputsWithSampleAsset(scope);
         var calculator = new FileSystemIndexInputFingerprintCalculator();
 
         var before = await calculator.TryComputeAsync(scope.FullPath, CancellationToken.None);
         Assert.NotNull(before);
 
-        scope.WriteFile(Path.Combine("Assets", "Data", "Spawner.asset"), "changed");
+        UnityIndexInputTestFactory.WriteSampleAsset(scope, "changed");
 
         var after = await calculator.TryComputeAsync(scope.FullPath, CancellationToken.None);
         Assert.NotNull(after);
@@ -50,7 +50,7 @@ public sealed class FileSystemIndexInputFingerprintCalculatorTests
     }
 
     [Theory]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     [InlineData("add")]
     [InlineData("delete")]
     [InlineData("rename")]
@@ -58,7 +58,7 @@ public sealed class FileSystemIndexInputFingerprintCalculatorTests
     public async Task TryCompute_ReturnsDifferentAssetHashes_WhenAssetTopologyChanges (string changeKind)
     {
         using var scope = TestDirectories.CreateTempScope("infrastructure-index-fingerprint", changeKind);
-        PrepareRequiredInputs(scope);
+        UnityIndexInputTestFactory.WriteRequiredInputsWithSampleAsset(scope);
         var calculator = new FileSystemIndexInputFingerprintCalculator();
 
         var before = await calculator.TryComputeAsync(scope.FullPath, CancellationToken.None);
@@ -67,31 +67,34 @@ public sealed class FileSystemIndexInputFingerprintCalculatorTests
         switch (changeKind)
         {
             case "add":
-                scope.WriteFile(Path.Combine("Assets", "Data", "Added.asset"), "new");
-                scope.WriteFile(Path.Combine("Assets", "Data", "Added.asset.meta"), "guid: added");
+                UnityIndexInputTestFactory.WriteAssetWithMeta(
+                    scope,
+                    Path.Combine("Assets", "Data", "Added.asset"),
+                    "new",
+                    "guid: added");
                 break;
 
             case "delete":
-                File.Delete(Path.Combine(scope.FullPath, "Assets", "Data", "Spawner.asset"));
-                File.Delete(Path.Combine(scope.FullPath, "Assets", "Data", "Spawner.asset.meta"));
+                File.Delete(scope.GetPath(UnityIndexInputTestFactory.SampleAssetPath));
+                File.Delete(scope.GetPath(UnityIndexInputTestFactory.SampleAssetMetaPath));
                 break;
 
             case "rename":
                 File.Move(
-                    Path.Combine(scope.FullPath, "Assets", "Data", "Spawner.asset"),
+                    scope.GetPath(UnityIndexInputTestFactory.SampleAssetPath),
                     Path.Combine(scope.FullPath, "Assets", "Data", "SpawnerRenamed.asset"));
                 File.Move(
-                    Path.Combine(scope.FullPath, "Assets", "Data", "Spawner.asset.meta"),
+                    scope.GetPath(UnityIndexInputTestFactory.SampleAssetMetaPath),
                     Path.Combine(scope.FullPath, "Assets", "Data", "SpawnerRenamed.asset.meta"));
                 break;
 
             case "move":
                 Directory.CreateDirectory(Path.Combine(scope.FullPath, "Assets", "Moved"));
                 File.Move(
-                    Path.Combine(scope.FullPath, "Assets", "Data", "Spawner.asset"),
+                    scope.GetPath(UnityIndexInputTestFactory.SampleAssetPath),
                     Path.Combine(scope.FullPath, "Assets", "Moved", "Spawner.asset"));
                 File.Move(
-                    Path.Combine(scope.FullPath, "Assets", "Data", "Spawner.asset.meta"),
+                    scope.GetPath(UnityIndexInputTestFactory.SampleAssetMetaPath),
                     Path.Combine(scope.FullPath, "Assets", "Moved", "Spawner.asset.meta"));
                 break;
 
@@ -107,15 +110,4 @@ public sealed class FileSystemIndexInputFingerprintCalculatorTests
         Assert.NotEqual(before.GuidPathHash, after.GuidPathHash);
     }
 
-    private static void PrepareRequiredInputs (TestDirectoryScope scope)
-    {
-        scope.CreateDirectory(Path.Combine("Library", "ScriptAssemblies"));
-        scope.CreateDirectory(Path.Combine("Assets", "Data"));
-        scope.CreateDirectory("Packages");
-        scope.WriteFile(Path.Combine("Library", "ScriptAssemblies", "Assembly-CSharp.dll"), "initial");
-        scope.WriteFile(Path.Combine("Packages", "manifest.json"), "{ \"dependencies\": {} }");
-        scope.WriteFile(Path.Combine("Packages", "packages-lock.json"), "{ \"dependencies\": {} }");
-        scope.WriteFile(Path.Combine("Assets", "Data", "Spawner.asset"), "initial");
-        scope.WriteFile(Path.Combine("Assets", "Data", "Spawner.asset.meta"), "guid: initial");
-    }
 }

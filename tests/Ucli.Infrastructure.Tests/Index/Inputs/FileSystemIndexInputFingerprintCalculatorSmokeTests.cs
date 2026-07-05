@@ -6,7 +6,7 @@ namespace MackySoft.Ucli.Infrastructure.Tests.Index.Inputs;
 public sealed class FileSystemIndexInputFingerprintCalculatorSmokeTests
 {
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task TryCompute_ReturnsNull_WhenRequiredInputsAreMissing ()
     {
         using var scope = TestDirectories.CreateTempScope("infrastructure-index-fingerprint", "missing-inputs");
@@ -20,11 +20,11 @@ public sealed class FileSystemIndexInputFingerprintCalculatorSmokeTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task TryCompute_ReturnsSnapshot_WhenRequiredInputsExist ()
     {
         using var scope = TestDirectories.CreateTempScope("infrastructure-index-fingerprint", "success");
-        PrepareRequiredInputs(scope);
+        UnityIndexInputTestFactory.WriteRequiredCoreInputs(scope);
         var calculator = new FileSystemIndexInputFingerprintCalculator();
 
         var snapshot = await calculator.TryComputeAsync(scope.FullPath, CancellationToken.None);
@@ -38,15 +38,15 @@ public sealed class FileSystemIndexInputFingerprintCalculatorSmokeTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task TryCompute_ReturnsDifferentCombinedHash_WhenInputChanges ()
     {
         using var scope = TestDirectories.CreateTempScope("infrastructure-index-fingerprint", "change-detection");
-        PrepareRequiredInputs(scope);
+        UnityIndexInputTestFactory.WriteRequiredCoreInputs(scope);
         var calculator = new FileSystemIndexInputFingerprintCalculator();
 
         var before = await calculator.TryComputeAsync(scope.FullPath, CancellationToken.None);
-        scope.WriteFile(Path.Combine("Library", "ScriptAssemblies", "Assembly-CSharp.dll"), "updated");
+        UnityIndexInputTestFactory.WriteScriptAssembly(scope, "updated");
         var after = await calculator.TryComputeAsync(scope.FullPath, CancellationToken.None);
 
         Assert.NotNull(before);
@@ -54,13 +54,4 @@ public sealed class FileSystemIndexInputFingerprintCalculatorSmokeTests
         Assert.NotEqual(before!.CombinedHash, after!.CombinedHash);
     }
 
-    private static void PrepareRequiredInputs (TestDirectoryScope scope)
-    {
-        scope.CreateDirectory(Path.Combine("Library", "ScriptAssemblies"));
-        scope.CreateDirectory("Assets");
-        scope.CreateDirectory("Packages");
-        scope.WriteFile(Path.Combine("Library", "ScriptAssemblies", "Assembly-CSharp.dll"), "initial");
-        scope.WriteFile(Path.Combine("Packages", "manifest.json"), "{ \"dependencies\": {} }");
-        scope.WriteFile(Path.Combine("Packages", "packages-lock.json"), "{ \"dependencies\": {} }");
-    }
 }

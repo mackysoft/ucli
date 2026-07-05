@@ -2,7 +2,7 @@ using System.Text.RegularExpressions;
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
 using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Filtering;
 using MackySoft.Ucli.Contracts.Configuration;
-using static MackySoft.Ucli.Application.Tests.Helpers.OperationCatalog.OperationCatalogTestFixtures;
+using static MackySoft.Ucli.TestSupport.OperationCatalogTestFixtures;
 
 namespace MackySoft.Ucli.Application.Tests.Ops.Filtering;
 
@@ -34,6 +34,30 @@ public sealed class OpsListFilterTests
         Assert.True(result.IsSuccess);
         var operation = Assert.Single(result.Operations!);
         Assert.Equal(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneSave, operation.Name);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Apply_WhenNameRegexDoesNotMatch_ReturnsEmptyOperations ()
+    {
+        Assert.True(OpsListFilter.TryCreate(
+            new OpsCommandInput(
+                ProjectPath: null,
+                Mode: null,
+                TimeoutMilliseconds: null,
+                ReadIndexMode: null,
+                NameRegex: "^no\\.such\\.operation$",
+                Kind: null,
+                MaxPolicy: null),
+            out var filter,
+            out _));
+        var snapshot = CreateListSnapshot(
+            CreateGoDescribeEntry());
+
+        var result = filter!.Apply(snapshot.Operations);
+
+        Assert.True(result.IsSuccess);
+        Assert.Empty(result.Operations!);
     }
 
     [Theory]
@@ -81,9 +105,9 @@ public sealed class OpsListFilterTests
     private static UcliOperationAssuranceContract CreateDangerousMutationAssurance ()
     {
         return new UcliOperationAssuranceContract(
-            sideEffects: ["externalProcess"],
+            sideEffects: [UcliOperationSideEffect.ExternalProcess],
             touchedKinds: Array.Empty<string>(),
-            planMode: "observesLiveUnity",
+            planMode: UcliOperationPlanMode.ObservesLiveUnity,
             planSemantics: "Observe mutation inputs without applying them.",
             callSemantics: "Execute an unbounded mutation fixture.",
             touchedContract: "Reports resources known to be touched.",

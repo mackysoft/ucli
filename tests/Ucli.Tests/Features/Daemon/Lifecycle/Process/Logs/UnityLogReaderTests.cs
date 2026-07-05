@@ -8,7 +8,7 @@ using MackySoft.Ucli.Application.Shared.Foundation;
 public sealed class UnityLogReaderTests
 {
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task ReadTail_WhenLogFileDoesNotExist_ReturnsEmptyText ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-log-reader", "missing-log");
@@ -23,7 +23,7 @@ public sealed class UnityLogReaderTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task ReadTail_ReturnsTailBytesAndTruncatedFlag ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-log-reader", "tail-bytes");
@@ -45,7 +45,7 @@ public sealed class UnityLogReaderTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task ReadTail_WhenMaxBytesIsNotPositive_ReturnsInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-log-reader", "invalid-max-bytes");

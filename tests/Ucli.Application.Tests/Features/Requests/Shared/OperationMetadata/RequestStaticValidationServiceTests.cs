@@ -1,7 +1,4 @@
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
-using MackySoft.Ucli.Application.Shared.Configuration;
-using MackySoft.Ucli.Application.Shared.Context;
-using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Configuration;
 
@@ -21,22 +18,29 @@ public sealed class RequestStaticValidationServiceTests
                 Policy: OperationPolicy.Safe,
                 ArgsSchemaJson: """{"type":"object"}"""),
         ];
-        var pureValidator = new SpyRequestStaticValidator(ValidationResult.Success());
+        var pureValidator = new RecordingRequestStaticValidator
+        {
+            Result = ValidationResult.Success(),
+        };
         var service = new RequestStaticValidationService(
-            new StubOperationCatalog(operations),
+            new RecordingOperationCatalog
+            {
+                Operations = operations,
+            },
             pureValidator);
-        var projectContext = CreateProjectContext();
+        var projectContext = ProjectContextTestFactory.CreateTemporaryFixtureProject();
         var request = CreateRequest();
         var token = new CancellationTokenSource().Token;
 
         var result = await service.ValidateAsync(request, projectContext, token);
 
         Assert.True(result.IsValid);
-        Assert.Equal(token, pureValidator.ReceivedToken);
-        Assert.Same(request, pureValidator.ReceivedRequest);
-        Assert.Same(projectContext.Config, pureValidator.ReceivedConfig);
-        Assert.True(pureValidator.ReceivedCatalog!.IsAvailable);
-        Assert.Contains(pureValidator.ReceivedCatalog.Operations, operation => operation.Name == "ucli.scene.open");
+        RequestStaticValidationInvocationAssert.PureStaticValidationReceivedAvailableOperationCatalog(
+            pureValidator,
+            request,
+            projectContext.Config,
+            token,
+            "ucli.scene.open");
     }
 
     [Fact]
@@ -44,12 +48,18 @@ public sealed class RequestStaticValidationServiceTests
     public async Task Validate_WhenCatalogLoadThrows_ReturnsFailureResult ()
     {
         var service = new RequestStaticValidationService(
-            new ThrowingOperationCatalog(),
-            new SpyRequestStaticValidator(ValidationResult.Success()));
+            new RecordingOperationCatalog
+            {
+                ProjectGetAllException = new InvalidOperationException("catalog discovery failed"),
+            },
+            new RecordingRequestStaticValidator
+            {
+                Result = ValidationResult.Success(),
+            });
 
         var result = await service.ValidateAsync(
             CreateRequest(),
-            CreateProjectContext(),
+            ProjectContextTestFactory.CreateTemporaryFixtureProject(),
             CancellationToken.None);
 
         Assert.False(result.IsValid);
@@ -64,13 +74,19 @@ public sealed class RequestStaticValidationServiceTests
     public async Task Validate_WhenCatalogLoadThrowsTypedFailure_PreservesErrorKind ()
     {
         var service = new RequestStaticValidationService(
-            new TypedFailingOperationCatalog(new OperationCatalogLoadException(
-                ExecutionError.Timeout("Timed out before operation metadata discovery could begin."))),
-            new SpyRequestStaticValidator(ValidationResult.Success()));
+            new RecordingOperationCatalog
+            {
+                ProjectGetAllException = new OperationCatalogLoadException(
+                    ExecutionError.Timeout("Timed out before operation metadata discovery could begin.")),
+            },
+            new RecordingRequestStaticValidator
+            {
+                Result = ValidationResult.Success(),
+            });
 
         var result = await service.ValidateAsync(
             CreateRequest(),
-            CreateProjectContext(),
+            ProjectContextTestFactory.CreateTemporaryFixtureProject(),
             CancellationToken.None);
 
         Assert.False(result.IsValid);
@@ -87,19 +103,25 @@ public sealed class RequestStaticValidationServiceTests
     {
         var error = ExecutionError.InternalError("could not validate args.");
         var service = new RequestStaticValidationService(
-            new StubOperationCatalog(
-            [
-                new UcliOperationDescriptor(
-                    Name: "ucli.scene.open",
-                    Kind: UcliOperationKind.Query,
-                    Policy: OperationPolicy.Safe,
-                    ArgsSchemaJson: "{ invalid-schema"),
-            ]),
-            new SpyRequestStaticValidator(ValidationResult.Failure(error)));
+            new RecordingOperationCatalog
+            {
+                Operations =
+                [
+                    new UcliOperationDescriptor(
+                        Name: "ucli.scene.open",
+                        Kind: UcliOperationKind.Query,
+                        Policy: OperationPolicy.Safe,
+                        ArgsSchemaJson: "{ invalid-schema"),
+                ],
+            },
+            new RecordingRequestStaticValidator
+            {
+                Result = ValidationResult.Failure(error),
+            });
 
         var result = await service.ValidateAsync(
             CreateRequest(),
-            CreateProjectContext(),
+            ProjectContextTestFactory.CreateTemporaryFixtureProject(),
             CancellationToken.None);
 
         Assert.False(result.IsValid);
@@ -114,139 +136,4 @@ public sealed class RequestStaticValidationServiceTests
             Steps: Array.Empty<ValidateRequestStep?>());
     }
 
-    private static ProjectContext CreateProjectContext ()
-    {
-        return new ProjectContext(
-            new ResolvedUnityProjectContext(
-                UnityProjectRoot: "/tmp/project",
-                RepositoryRoot: "/tmp/repository",
-                ProjectFingerprint: "project-fingerprint",
-                PathSource: UnityProjectPathSource.CommandOption),
-            UcliConfig.CreateDefault(),
-            ConfigSource.Default);
-    }
-
-    private sealed class StubOperationCatalog : IOperationCatalog
-    {
-        private readonly IReadOnlyList<UcliOperationDescriptor> operations;
-
-        public StubOperationCatalog (IReadOnlyList<UcliOperationDescriptor> operations)
-        {
-            this.operations = operations ?? throw new ArgumentNullException(nameof(operations));
-        }
-
-        public ValueTask<UcliOperationDescriptor?> GetAsync (string name, CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromResult<UcliOperationDescriptor?>(null);
-        }
-
-        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAllAsync (CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromResult(operations);
-        }
-
-        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAllAsync (
-            ResolvedUnityProjectContext unityProject,
-            UcliConfig config,
-            UnityExecutionMode mode = UnityExecutionMode.Auto,
-            TimeSpan? timeout = null,
-            bool failFast = false,
-            CancellationToken cancellationToken = default)
-        {
-            ArgumentNullException.ThrowIfNull(unityProject);
-            ArgumentNullException.ThrowIfNull(config);
-            cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromResult(operations);
-        }
-    }
-
-    private sealed class ThrowingOperationCatalog : IOperationCatalog
-    {
-        public ValueTask<UcliOperationDescriptor?> GetAsync (string name, CancellationToken cancellationToken = default)
-        {
-            throw new NotSupportedException();
-        }
-
-        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAllAsync (CancellationToken cancellationToken = default)
-        {
-            throw new NotSupportedException();
-        }
-
-        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAllAsync (
-            ResolvedUnityProjectContext unityProject,
-            UcliConfig config,
-            UnityExecutionMode mode = UnityExecutionMode.Auto,
-            TimeSpan? timeout = null,
-            bool failFast = false,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            throw new InvalidOperationException("catalog discovery failed");
-        }
-    }
-
-    private sealed class TypedFailingOperationCatalog : IOperationCatalog
-    {
-        private readonly Exception exception;
-
-        public TypedFailingOperationCatalog (Exception exception)
-        {
-            this.exception = exception ?? throw new ArgumentNullException(nameof(exception));
-        }
-
-        public ValueTask<UcliOperationDescriptor?> GetAsync (string name, CancellationToken cancellationToken = default)
-        {
-            throw new NotSupportedException();
-        }
-
-        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAllAsync (CancellationToken cancellationToken = default)
-        {
-            throw new NotSupportedException();
-        }
-
-        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAllAsync (
-            ResolvedUnityProjectContext unityProject,
-            UcliConfig config,
-            UnityExecutionMode mode = UnityExecutionMode.Auto,
-            TimeSpan? timeout = null,
-            bool failFast = false,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            throw exception;
-        }
-    }
-
-    private sealed class SpyRequestStaticValidator : IRequestStaticValidator
-    {
-        private readonly ValidationResult result;
-
-        public SpyRequestStaticValidator (ValidationResult result)
-        {
-            this.result = result ?? throw new ArgumentNullException(nameof(result));
-        }
-
-        public CancellationToken ReceivedToken { get; private set; }
-
-        public ValidateRequest? ReceivedRequest { get; private set; }
-
-        public RequestStaticValidationCatalog? ReceivedCatalog { get; private set; }
-
-        public UcliConfig? ReceivedConfig { get; private set; }
-
-        public ValueTask<ValidationResult> ValidateAsync (
-            ValidateRequest request,
-            RequestStaticValidationCatalog catalog,
-            UcliConfig config,
-            CancellationToken cancellationToken = default)
-        {
-            ReceivedToken = cancellationToken;
-            ReceivedRequest = request;
-            ReceivedCatalog = catalog;
-            ReceivedConfig = config;
-            return ValueTask.FromResult(result);
-        }
-    }
 }

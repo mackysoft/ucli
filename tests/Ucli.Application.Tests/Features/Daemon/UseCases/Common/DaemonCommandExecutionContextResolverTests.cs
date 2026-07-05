@@ -22,8 +22,10 @@ public sealed class DaemonCommandExecutionContextResolverTests
                 [UcliCommandIds.DaemonStart.Name] = 2222,
             },
         };
-        var initStatusContext = CreateContext(config);
-        var initStatusContextResolver = new StubProjectContextResolver(
+        var initStatusContext = ProjectContextTestFactory.CreateDaemonLifecycleProject(
+            config,
+            projectFingerprint: "fingerprint");
+        var initStatusContextResolver = new StaticProjectContextResolver(
             ProjectContextResolutionResult.Success(initStatusContext));
         var resolver = new DaemonCommandExecutionContextResolver(initStatusContextResolver);
 
@@ -36,7 +38,10 @@ public sealed class DaemonCommandExecutionContextResolverTests
         Assert.True(result.IsSuccess);
         var context = Assert.IsType<DaemonCommandExecutionContext>(result.Context);
         Assert.Equal(2222, context.Timeout.TotalMilliseconds);
-        Assert.Equal(1, initStatusContextResolver.CallCount);
+        ProjectContextResolverAssert.ProjectContextResolvedOnce(
+            initStatusContextResolver,
+            expectedProjectPath: null,
+            CancellationToken.None);
     }
 
     [Fact]
@@ -51,8 +56,10 @@ public sealed class DaemonCommandExecutionContextResolverTests
                 [UcliCommandIds.DaemonStop.Name] = 2222,
             },
         };
-        var initStatusContext = CreateContext(config);
-        var initStatusContextResolver = new StubProjectContextResolver(
+        var initStatusContext = ProjectContextTestFactory.CreateDaemonLifecycleProject(
+            config,
+            projectFingerprint: "fingerprint");
+        var initStatusContextResolver = new StaticProjectContextResolver(
             ProjectContextResolutionResult.Success(initStatusContext));
         var resolver = new DaemonCommandExecutionContextResolver(initStatusContextResolver);
 
@@ -71,8 +78,9 @@ public sealed class DaemonCommandExecutionContextResolverTests
     [Trait("Size", "Small")]
     public async Task Resolve_WhenTimeoutValueIsInvalid_ReturnsInvalidArgument ()
     {
-        var initStatusContextResolver = new StubProjectContextResolver(
-            ProjectContextResolutionResult.Success(CreateContext(UcliConfig.CreateDefault())));
+        var initStatusContextResolver = new StaticProjectContextResolver(
+            ProjectContextResolutionResult.Success(ProjectContextTestFactory.CreateDaemonLifecycleProject(
+                projectFingerprint: "fingerprint")));
         var resolver = new DaemonCommandExecutionContextResolver(initStatusContextResolver);
 
         var result = await resolver.ResolveAsync(
@@ -92,8 +100,9 @@ public sealed class DaemonCommandExecutionContextResolverTests
     [Trait("Size", "Small")]
     public async Task Resolve_WhenTimeoutCommandNameIsInvalid_ThrowsArgumentException ()
     {
-        var initStatusContextResolver = new StubProjectContextResolver(
-            ProjectContextResolutionResult.Success(CreateContext(UcliConfig.CreateDefault())));
+        var initStatusContextResolver = new StaticProjectContextResolver(
+            ProjectContextResolutionResult.Success(ProjectContextTestFactory.CreateDaemonLifecycleProject(
+                projectFingerprint: "fingerprint")));
         var resolver = new DaemonCommandExecutionContextResolver(initStatusContextResolver);
 
         await Assert.ThrowsAsync<ArgumentException>(async () =>
@@ -107,37 +116,5 @@ public sealed class DaemonCommandExecutionContextResolverTests
                 "Invalid daemon timeout command resolution",
                 AsyncWaitTimeout);
         });
-    }
-
-    private static ProjectContext CreateContext (UcliConfig config)
-    {
-        return new ProjectContext(
-            UnityProject: new ResolvedUnityProjectContext(
-                UnityProjectRoot: "/tmp/unity-project",
-                RepositoryRoot: "/tmp/repo-root",
-                ProjectFingerprint: "fingerprint",
-                PathSource: UnityProjectPathSource.CommandOption),
-            Config: config,
-            ConfigSource: ConfigSource.Default);
-    }
-
-    private sealed class StubProjectContextResolver : IProjectContextResolver
-    {
-        private readonly ProjectContextResolutionResult result;
-
-        public StubProjectContextResolver (ProjectContextResolutionResult result)
-        {
-            this.result = result;
-        }
-
-        public int CallCount { get; private set; }
-
-        public ValueTask<ProjectContextResolutionResult> ResolveAsync (
-            string? projectPath,
-            CancellationToken cancellationToken = default)
-        {
-            CallCount++;
-            return ValueTask.FromResult(result);
-        }
     }
 }

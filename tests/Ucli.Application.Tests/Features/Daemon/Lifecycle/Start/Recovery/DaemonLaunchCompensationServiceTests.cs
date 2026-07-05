@@ -2,8 +2,8 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 namespace MackySoft.Ucli.Application.Tests.Daemon;
 
-using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using static MackySoft.Ucli.Application.Tests.DaemonCleanupInvocationAssert;
 
 public sealed class DaemonLaunchCompensationServiceTests
 {
@@ -11,27 +11,32 @@ public sealed class DaemonLaunchCompensationServiceTests
     [Trait("Size", "Small")]
     public async Task CleanupFailedLaunch_WhenStopAndCleanupSucceed_ReturnsSuccess ()
     {
-        var processTerminationService = new StubDaemonProcessTerminationService
+        var processTerminationService = new RecordingDaemonProcessTerminationService
         {
             NextResult = DaemonSessionStoreOperationResult.Success(),
         };
-        var artifactCleaner = new StubDaemonArtifactCleaner
+        var artifactCleaner = new RecordingDaemonArtifactCleaner
         {
-            NextResult = DaemonSessionStoreOperationResult.Success(),
+            NextResult = DaemonArtifactCleanupResult.Success(),
         };
         var service = new DaemonLaunchCompensationService(processTerminationService, artifactCleaner);
-        var context = CreateContext("fingerprint-compensation-success");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-compensation-success");
+        var target = CreateTarget(2468);
 
         var result = await service.CleanupFailedLaunchAsync(
             context,
-            target: CreateTarget(2468),
+            target: target,
             timeout: TimeSpan.FromMilliseconds(250),
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(1, processTerminationService.CallCount);
-        Assert.Equal(1, artifactCleaner.CallCount);
-        Assert.Equal(TimeSpan.FromMilliseconds(250), processTerminationService.LastTimeout);
+        AssertProcessTerminationAttemptedThenArtifactsInvalidated(
+            processTerminationService,
+            artifactCleaner,
+            context,
+            processId: 2468,
+            processStartedAtUtc: target.ProcessStartedAtUtc,
+            timeout: TimeSpan.FromMilliseconds(250));
     }
 
     [Fact]
@@ -39,26 +44,30 @@ public sealed class DaemonLaunchCompensationServiceTests
     public async Task CleanupFailedLaunch_WhenStopFails_ReturnsFailureWithoutCleanup ()
     {
         var expectedError = ExecutionError.InternalError("stop failed");
-        var processTerminationService = new StubDaemonProcessTerminationService
+        var processTerminationService = new RecordingDaemonProcessTerminationService
         {
             NextResult = DaemonSessionStoreOperationResult.Failure(expectedError),
         };
-        var artifactCleaner = new StubDaemonArtifactCleaner
+        var artifactCleaner = new RecordingDaemonArtifactCleaner
         {
-            NextResult = DaemonSessionStoreOperationResult.Success(),
+            NextResult = DaemonArtifactCleanupResult.Success(),
         };
         var service = new DaemonLaunchCompensationService(processTerminationService, artifactCleaner);
+        var target = CreateTarget(8642);
 
         var result = await service.CleanupFailedLaunchAsync(
-            CreateContext("fingerprint-compensation-stop-fail"),
-            target: CreateTarget(8642),
+            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-compensation-stop-fail"),
+            target: target,
             timeout: TimeSpan.FromMilliseconds(500),
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(expectedError, result.Error);
-        Assert.Equal(1, processTerminationService.CallCount);
-        Assert.Equal(0, artifactCleaner.CallCount);
+        AssertProcessTerminationAttemptedWithoutArtifactCleanup(
+            processTerminationService,
+            artifactCleaner,
+            processId: 8642,
+            processStartedAtUtc: target.ProcessStartedAtUtc);
     }
 
     [Fact]
@@ -66,59 +75,64 @@ public sealed class DaemonLaunchCompensationServiceTests
     public async Task CleanupFailedLaunch_WhenArtifactCleanupFails_ReturnsFailure ()
     {
         var expectedError = ExecutionError.InternalError("cleanup failed");
-        var processTerminationService = new StubDaemonProcessTerminationService
+        var processTerminationService = new RecordingDaemonProcessTerminationService
         {
             NextResult = DaemonSessionStoreOperationResult.Success(),
         };
-        var artifactCleaner = new StubDaemonArtifactCleaner
+        var artifactCleaner = new RecordingDaemonArtifactCleaner
         {
-            NextResult = DaemonSessionStoreOperationResult.Failure(expectedError),
+            NextResult = DaemonArtifactCleanupResult.Failure(expectedError),
         };
         var service = new DaemonLaunchCompensationService(processTerminationService, artifactCleaner);
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-compensation-cleanup-fail");
+        var target = CreateTarget(1010);
 
         var result = await service.CleanupFailedLaunchAsync(
-            CreateContext("fingerprint-compensation-cleanup-fail"),
-            target: CreateTarget(1010),
+            context,
+            target: target,
             timeout: TimeSpan.FromMilliseconds(400),
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(expectedError, result.Error);
-        Assert.Equal(1, processTerminationService.CallCount);
-        Assert.Equal(1, artifactCleaner.CallCount);
+        AssertProcessTerminationAttemptedThenArtifactsInvalidated(
+            processTerminationService,
+            artifactCleaner,
+            context,
+            processId: 1010,
+            processStartedAtUtc: target.ProcessStartedAtUtc);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task CleanupFailedLaunch_WhenTimeoutExceedsCompensationCap_UsesTenSecondBudget ()
     {
-        var processTerminationService = new StubDaemonProcessTerminationService
+        var processTerminationService = new RecordingDaemonProcessTerminationService
         {
             NextResult = DaemonSessionStoreOperationResult.Success(),
         };
-        var artifactCleaner = new StubDaemonArtifactCleaner
+        var artifactCleaner = new RecordingDaemonArtifactCleaner
         {
-            NextResult = DaemonSessionStoreOperationResult.Success(),
+            NextResult = DaemonArtifactCleanupResult.Success(),
         };
         var service = new DaemonLaunchCompensationService(processTerminationService, artifactCleaner);
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-compensation-timeout-cap");
+        var target = CreateTarget(4040);
 
         var result = await service.CleanupFailedLaunchAsync(
-            CreateContext("fingerprint-compensation-timeout-cap"),
-            target: CreateTarget(4040),
+            context,
+            target: target,
             timeout: TimeSpan.FromSeconds(15),
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(TimeSpan.FromSeconds(10), processTerminationService.LastTimeout);
-    }
-
-    private static ResolvedUnityProjectContext CreateContext (string fingerprint)
-    {
-        return new ResolvedUnityProjectContext(
-            UnityProjectRoot: "/tmp/unity-project",
-            RepositoryRoot: "/tmp/repo-root",
-            ProjectFingerprint: fingerprint,
-            PathSource: UnityProjectPathSource.CommandOption);
+        AssertProcessTerminationAttemptedThenArtifactsInvalidated(
+            processTerminationService,
+            artifactCleaner,
+            context,
+            processId: 4040,
+            processStartedAtUtc: target.ProcessStartedAtUtc,
+            timeout: TimeSpan.FromSeconds(10));
     }
 
     private static DaemonProcessTerminationTarget CreateTarget (int processId)
@@ -128,49 +142,4 @@ public sealed class DaemonLaunchCompensationServiceTests
             ProcessStartedAtUtc: DateTimeOffset.UtcNow);
     }
 
-    private sealed class StubDaemonProcessTerminationService : IDaemonProcessTerminationService
-    {
-        public DaemonSessionStoreOperationResult NextResult { get; set; } = DaemonSessionStoreOperationResult.Success();
-
-        public int CallCount { get; private set; }
-
-        public TimeSpan LastTimeout { get; private set; }
-
-        public ValueTask<DaemonSessionStoreOperationResult> EnsureStoppedAsync (
-            DaemonProcessTerminationTarget? target,
-            TimeSpan timeout,
-            CancellationToken cancellationToken = default)
-        {
-            CallCount++;
-            LastTimeout = timeout;
-            return ValueTask.FromResult(NextResult);
-        }
-    }
-
-    private sealed class StubDaemonArtifactCleaner : IDaemonArtifactCleaner
-    {
-        public object NextResult { get; set; } = DaemonArtifactCleanupResult.Success();
-
-        public int CallCount { get; private set; }
-
-        public ValueTask<DaemonArtifactCleanupResult> CleanupAsync (
-            ResolvedUnityProjectContext unityProject,
-            CancellationToken cancellationToken = default)
-        {
-            CallCount++;
-            return ValueTask.FromResult(ToArtifactCleanupResult(NextResult));
-        }
-
-        private static DaemonArtifactCleanupResult ToArtifactCleanupResult (object result)
-        {
-            return result switch
-            {
-                DaemonArtifactCleanupResult artifactResult => artifactResult,
-                DaemonSessionStoreOperationResult sessionResult => sessionResult.IsSuccess
-                    ? DaemonArtifactCleanupResult.Success()
-                    : DaemonArtifactCleanupResult.Failure(sessionResult.Error!),
-                _ => throw new ArgumentOutOfRangeException(nameof(result), result, "Unsupported artifact cleanup result."),
-            };
-        }
-    }
 }

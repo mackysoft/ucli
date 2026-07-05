@@ -1,6 +1,6 @@
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 using MackySoft.Ucli.Contracts.Ipc;
-using static MackySoft.Ucli.Application.Tests.Helpers.OperationCatalog.OperationCatalogTestFixtures;
+using static MackySoft.Ucli.TestSupport.OperationCatalogTestFixtures;
 
 namespace MackySoft.Ucli.Application.Tests.Ops.Source;
 
@@ -14,10 +14,10 @@ public sealed class PersistedOpsCatalogReaderTests
             ReadIndexErrorCodes.ReadIndexBootstrapFailed,
             "Index contract file was not found: ops.catalog.json.");
         var reader = new PersistedOpsCatalogReader(
-            new StubReadIndexArtifactReader(ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract>.Failure(error)),
-            new StubIndexFreshnessEvaluator(IndexFreshnessEvaluationResult.Success(IndexFreshness.Fresh)));
+            CreateArtifactReader(ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract>.Failure(error)),
+            new RecordingReadIndexFreshnessEvaluator());
 
-        var result = await reader.ReadAsync(CreateUnityProject(), CancellationToken.None);
+        var result = await reader.ReadAsync(ProjectContextTestFactory.CreateRepositoryFixtureUnityProject(), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(PersistedOpsCatalogReadFailureKind.Unavailable, result.ReadFailure!.Kind);
@@ -33,10 +33,10 @@ public sealed class PersistedOpsCatalogReaderTests
             UcliCoreErrorCodes.InvalidArgument,
             "Project fingerprint must not be empty.");
         var reader = new PersistedOpsCatalogReader(
-            new StubReadIndexArtifactReader(ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract>.Failure(error)),
-            new StubIndexFreshnessEvaluator(IndexFreshnessEvaluationResult.Success(IndexFreshness.Fresh)));
+            CreateArtifactReader(ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract>.Failure(error)),
+            new RecordingReadIndexFreshnessEvaluator());
 
-        var result = await reader.ReadAsync(CreateUnityProject(), CancellationToken.None);
+        var result = await reader.ReadAsync(ProjectContextTestFactory.CreateRepositoryFixtureUnityProject(), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(PersistedOpsCatalogReadFailureKind.InvalidArgument, result.ReadFailure!.Kind);
@@ -51,10 +51,10 @@ public sealed class PersistedOpsCatalogReaderTests
             ReadIndexErrorCodes.ReadIndexFormatInvalid,
             "Index contract file 'ops.catalog.json' is malformed.");
         var reader = new PersistedOpsCatalogReader(
-            new StubReadIndexArtifactReader(ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract>.Failure(error)),
-            new StubIndexFreshnessEvaluator(IndexFreshnessEvaluationResult.Success(IndexFreshness.Fresh)));
+            CreateArtifactReader(ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract>.Failure(error)),
+            new RecordingReadIndexFreshnessEvaluator());
 
-        var result = await reader.ReadAsync(CreateUnityProject(), CancellationToken.None);
+        var result = await reader.ReadAsync(ProjectContextTestFactory.CreateRepositoryFixtureUnityProject(), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(PersistedOpsCatalogReadFailureKind.Malformed, result.ReadFailure!.Kind);
@@ -65,10 +65,9 @@ public sealed class PersistedOpsCatalogReaderTests
     [Trait("Size", "Small")]
     public async Task Read_WhenLoadedOpsCatalogEntriesAreInvalid_ReturnsMalformedFailureWithoutObservingFreshness ()
     {
-        var freshnessEvaluator = new StubIndexFreshnessEvaluator(
-            IndexFreshnessEvaluationResult.Success(IndexFreshness.Fresh));
+        var freshnessEvaluator = new RecordingReadIndexFreshnessEvaluator();
         var reader = new PersistedOpsCatalogReader(
-            new StubReadIndexArtifactReader(ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract>.Success(
+            CreateArtifactReader(ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract>.Success(
                 CreateCatalog(new IndexOpsCatalogEntryJsonContract(
                     Name: UcliPrimitiveOperationNames.GoDescribe,
                     Kind: "query",
@@ -78,13 +77,12 @@ public sealed class PersistedOpsCatalogReaderTests
                     DescribeHash: string.Empty)))),
             freshnessEvaluator);
 
-        var result = await reader.ReadAsync(CreateUnityProject(), CancellationToken.None);
+        var result = await reader.ReadAsync(ProjectContextTestFactory.CreateRepositoryFixtureUnityProject(), CancellationToken.None);
 
-        Assert.False(result.IsSuccess);
-        Assert.Equal(PersistedOpsCatalogReadFailureKind.Malformed, result.ReadFailure!.Kind);
-        Assert.Equal(ReadIndexErrorCodes.ReadIndexFormatInvalid, result.ReadFailure.ErrorCode);
-        Assert.Contains("ops.catalog.json", result.ReadFailure.Message, StringComparison.Ordinal);
-        Assert.Equal(0, freshnessEvaluator.ObserveCallCount);
+        PersistedOpsCatalogReaderAssert.MalformedCatalogReturnedBeforeFreshnessObservation(
+            result,
+            freshnessEvaluator,
+            "ops.catalog.json");
     }
 
     [Fact]
@@ -94,13 +92,15 @@ public sealed class PersistedOpsCatalogReaderTests
         var error = new IndexServiceError(
             ReadIndexErrorCodes.ReadIndexFreshRequired,
             "readIndexMode=requireFresh requires index freshness 'fresh'.");
-        var freshnessEvaluator = new StubIndexFreshnessEvaluator(
-            IndexFreshnessEvaluationResult.Failure(IndexFreshness.Stale, error));
+        var freshnessEvaluator = new RecordingReadIndexFreshnessEvaluator
+        {
+            Result = IndexFreshnessEvaluationResult.Failure(IndexFreshness.Stale, error),
+        };
         var reader = new PersistedOpsCatalogReader(
-            new StubReadIndexArtifactReader(ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract>.Success(CreateCatalog())),
+            CreateArtifactReader(ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract>.Success(CreateCatalog())),
             freshnessEvaluator);
 
-        var result = await reader.ReadAsync(CreateUnityProject(), CancellationToken.None);
+        var result = await reader.ReadAsync(ProjectContextTestFactory.CreateRepositoryFixtureUnityProject(), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(PersistedOpsCatalogReadFailureKind.FreshnessUnavailable, result.ReadFailure!.Kind);
@@ -112,12 +112,16 @@ public sealed class PersistedOpsCatalogReaderTests
     [Trait("Size", "Small")]
     public async Task Read_WhenDependenciesSucceed_ReturnsCatalogAndObservesFreshness ()
     {
-        var freshnessEvaluator = new StubIndexFreshnessEvaluator(
-            IndexFreshnessEvaluationResult.Success(IndexFreshness.Probable));
+        var freshnessEvaluator = new RecordingReadIndexFreshnessEvaluator
+        {
+            Result = IndexFreshnessEvaluationResult.Success(IndexFreshness.Probable),
+        };
         var reader = new PersistedOpsCatalogReader(
-            new StubReadIndexArtifactReader(ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract>.Success(CreateCatalog())),
+            CreateArtifactReader(
+                ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract>.Success(CreateCatalog()),
+                ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract>.Success(CreateDescribe())),
             freshnessEvaluator);
-        var unityProject = CreateUnityProject();
+        var unityProject = ProjectContextTestFactory.CreateRepositoryFixtureUnityProject();
 
         var result = await reader.ReadAsync(unityProject, CancellationToken.None);
 
@@ -125,19 +129,23 @@ public sealed class PersistedOpsCatalogReaderTests
         Assert.Equal(IndexFreshness.Probable, result.Freshness);
         Assert.Equal(DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"), result.Snapshot!.GeneratedAtUtc);
         Assert.Single(result.Snapshot.Operations);
-        Assert.Same(unityProject, freshnessEvaluator.LastUnityProject);
-        Assert.Equal(IndexFreshnessTarget.OpsCatalog, freshnessEvaluator.LastTarget);
-        Assert.Equal("source-hash", freshnessEvaluator.LastPersistedSourceInputsHash);
-        Assert.Equal(1, freshnessEvaluator.ObserveCallCount);
+        ReadIndexFreshnessInvocationAssert.FreshnessObservedOnce(
+            freshnessEvaluator,
+            unityProject,
+            IndexFreshnessTarget.OpsCatalog,
+            "source-hash");
     }
 
-    private static ResolvedUnityProjectContext CreateUnityProject ()
+    private static RecordingReadIndexArtifactReader CreateArtifactReader (
+        ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract> opsCatalogResult,
+        ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract>? opsDescribeResult = null)
     {
-        return new ResolvedUnityProjectContext(
-            UnityProjectRoot: "/repo/UnityProject",
-            RepositoryRoot: "/repo",
-            ProjectFingerprint: "project-fingerprint",
-            PathSource: UnityProjectPathSource.CommandOption);
+        return new RecordingReadIndexArtifactReader
+        {
+            OpsCatalogResult = opsCatalogResult,
+            OpsDescribeResult = opsDescribeResult
+                ?? ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract>.Success(CreateDescribe()),
+        };
     }
 
     private static IndexOpsCatalogJsonContract CreateCatalog ()
@@ -172,121 +180,4 @@ public sealed class PersistedOpsCatalogReaderTests
             Operation: CreateGoDescribeEntry());
     }
 
-    private sealed class StubReadIndexArtifactReader : IReadIndexArtifactReader
-    {
-        private readonly ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract> opsCatalogResult;
-
-        private readonly ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract> opsDescribeResult;
-
-        public StubReadIndexArtifactReader (
-            ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract> opsCatalogResult,
-            ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract>? opsDescribeResult = null)
-        {
-            this.opsCatalogResult = opsCatalogResult ?? throw new ArgumentNullException(nameof(opsCatalogResult));
-            this.opsDescribeResult = opsDescribeResult
-                ?? ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract>.Success(CreateDescribe());
-        }
-
-        public ValueTask<ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract>> ReadOpsCatalogAsync (
-            ResolvedUnityProjectContext unityProject,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromResult(opsCatalogResult);
-        }
-
-        public ValueTask<ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract>> ReadOpsDescribeAsync (
-            ResolvedUnityProjectContext unityProject,
-            IndexOpsCatalogEntryJsonContract catalogEntry,
-            string sourceInputsHash,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromResult(opsDescribeResult);
-        }
-
-        public ValueTask<ReadIndexArtifactReadResult<IndexTypesCatalogJsonContract>> ReadTypesCatalogAsync (
-            ResolvedUnityProjectContext unityProject,
-            CancellationToken cancellationToken = default)
-        {
-            throw new NotSupportedException();
-        }
-
-        public ValueTask<ReadIndexArtifactReadResult<IndexSchemasCatalogJsonContract>> ReadSchemasCatalogAsync (
-            ResolvedUnityProjectContext unityProject,
-            CancellationToken cancellationToken = default)
-        {
-            throw new NotSupportedException();
-        }
-
-        public ValueTask<ReadIndexArtifactReadResult<IndexAssetSearchLookupJsonContract>> ReadAssetSearchLookupAsync (
-            ResolvedUnityProjectContext unityProject,
-            CancellationToken cancellationToken = default)
-        {
-            throw new NotSupportedException();
-        }
-
-        public ValueTask<ReadIndexArtifactReadResult<IndexGuidPathLookupJsonContract>> ReadGuidPathLookupAsync (
-            ResolvedUnityProjectContext unityProject,
-            CancellationToken cancellationToken = default)
-        {
-            throw new NotSupportedException();
-        }
-
-        public ValueTask<ReadIndexArtifactReadResult<IndexSceneTreeLiteLookupJsonContract>> ReadSceneTreeLiteLookupAsync (
-            ResolvedUnityProjectContext unityProject,
-            string scenePath,
-            CancellationToken cancellationToken = default)
-        {
-            throw new NotSupportedException();
-        }
-
-        public ValueTask<ReadIndexArtifactReadResult<IndexInputsManifestJsonContract>> ReadInputsManifestAsync (
-            ResolvedUnityProjectContext unityProject,
-            CancellationToken cancellationToken = default)
-        {
-            throw new NotSupportedException();
-        }
-    }
-
-    private sealed class StubIndexFreshnessEvaluator : IReadIndexFreshnessEvaluator
-    {
-        private readonly IndexFreshnessEvaluationResult result;
-
-        public StubIndexFreshnessEvaluator (IndexFreshnessEvaluationResult result)
-        {
-            this.result = result ?? throw new ArgumentNullException(nameof(result));
-        }
-
-        public ResolvedUnityProjectContext? LastUnityProject { get; private set; }
-
-        public IndexFreshnessTarget LastTarget { get; private set; }
-
-        public string? LastPersistedSourceInputsHash { get; private set; }
-
-        public int ObserveCallCount { get; private set; }
-
-        public ValueTask<IndexFreshnessEvaluationResult> ObserveAsync (
-            ResolvedUnityProjectContext unityProject,
-            IndexFreshnessTarget target,
-            string? persistedSourceInputsHash,
-            CancellationToken cancellationToken = default)
-        {
-            LastUnityProject = unityProject;
-            LastTarget = target;
-            LastPersistedSourceInputsHash = persistedSourceInputsHash;
-            ObserveCallCount++;
-            cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromResult(result);
-        }
-
-        public ValueTask<IndexFreshnessEvaluationResult> ObserveSceneTreeLiteAsync (
-            ResolvedUnityProjectContext unityProject,
-            string scenePath,
-            string? persistedSourceInputsHash,
-            CancellationToken cancellationToken = default)
-        {
-            throw new NotSupportedException();
-        }
-    }
 }
