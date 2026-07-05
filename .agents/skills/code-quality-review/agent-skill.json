@@ -1,12 +1,14 @@
 {
   "schemaVersion": 1,
+  "skillBundleVersion": 1,
+  "catalogId": "com.mackysoft.skills-pack",
+  "tier": "development",
   "skillName": "code-quality-review",
   "displayName": "Code Quality Review",
   "description": "コードベース全体または変更差分に対して、既存ユーティリティの再実装、本質的な重複、低凝集、冗長な状態管理、不要抽象化を findings-first でレビューする。品質上の懸念を整理し、改善方向まで含めた指摘を返したいときに使う。",
-  "tier": "development",
-  "catalogId": "com.mackysoft.skills-pack",
-  "contentDigest": "1e689dd1e69a2bed4c4483df2ad2627ac75b5878828f6c87b11a1576cf625653",
-  "manifestDigest": "b77cf47956f085a44e3068b3ab6990d919a0df2cea7867d68b2e7fe085be78f8",
+  "dependencies": [],
+  "contentDigest": "4d573ce52d38d708a690bba80a4514cb256507388719b8e79486b2df41b08183",
+  "manifestDigest": "5539a592e30a578c7c358686c799331ebc945cdf7c987c47bfa4e513aaa5e665",
   "hostArtifacts": [
     {
       "host": "claude",

@@ -1,12 +1,16 @@
 {
   "schemaVersion": 1,
+  "skillBundleVersion": 1,
+  "catalogId": "com.mackysoft.skills-pack",
+  "tier": "development",
   "skillName": "push",
   "displayName": "Push",
   "description": "push 指示を受けたときに、未コミット差分があれば `$commit` で責務単位コミットを作成し、現在ブランチを upstream 優先で安全に push する。upstream が無い場合は `origin/<current_branch>` を `-u` で設定して push する。",
-  "tier": "development",
-  "catalogId": "com.mackysoft.skills-pack",
-  "contentDigest": "18a66a02e0bb218fa73ff85c68dc5540d32b77a99868d378bfbdf1920c98f014",
-  "manifestDigest": "f86ee7f93b43ff261a31b17835a45252908c20f4f9052924b99257e7de8d28c3",
+  "dependencies": [
+    "commit"
+  ],
+  "contentDigest": "025076d222cc631c30852570718473833c4723a5d2202d359585ffede95b329c",
+  "manifestDigest": "4798eb77acf0c17f161534d4a0308005213ea3a58811bddd1a630f730ccf62ae",
   "hostArtifacts": [
     {
       "host": "claude",

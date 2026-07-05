@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "skillBundleVersion": 1,
+  "catalogId": "com.mackysoft.skills-pack",
+  "tier": "development",
+  "skillName": "csharp-authoring-rules",
+  "displayName": "C# Authoring Rules",
+  "description": "C# のコードを実装、修正、レビューするときに、設計と実装の判断規則を適用する。責務境界、公開契約、依存性注入、非同期 API、CancellationToken、例外、リソースとイベントの寿命、現在の C# の書き方、テスト容易性、割り当ての判断で使う。",
+  "dependencies": [],
+  "contentDigest": "8cc1ba1e7994c9401f2f9a6d75742d26eac49064f4d9fa042426165752b9d9e6",
+  "manifestDigest": "382b62d32ef9f9246dc0d83e3f531158aa8a835c3d214394d280b007b6d7360a",
+  "hostArtifacts": [
+    {
+      "host": "claude",
+      "materializedFrontmatterDigest": "0f5e71e6de5518e976e533450b4f8ba01c5e906aebe77dd275d9999660c26c80"
+    },
+    {
+      "host": "copilot",
+      "materializedFrontmatterDigest": "27f527f3db2c1f7cf6337395d1be0f26e3c6c3eb127ec8ab25ce6a128d92b7ed"
+    },
+    {
+      "host": "openai",
+      "path": "agents/openai.yaml",
+      "digest": "874195f4d0fce66dd99dbdc3bade701150d5a9cffb9bc610af7c36f4b5e89034",
+      "materializedFrontmatterDigest": "f50a18dfd2700d538ae79fb66d5d3448ab114002fa4154220086d4cb74342b96"
+    }
+  ]
+}
