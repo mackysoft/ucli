@@ -20,19 +20,24 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
 
     private readonly IUnityProjectLockPreflightService unityProjectLockPreflightService;
 
+    private readonly TimeProvider timeProvider;
+
     /// <summary> Initializes a new instance of the <see cref="DaemonStartupReadinessProbe" /> class. </summary>
     /// <param name="daemonPingInfoClient"> The daemon ping-info client dependency. </param>
     /// <param name="unityLogReader"> The Unity log-reader dependency. </param>
     /// <param name="unityProjectLockPreflightService"> The Unity project lock preflight service dependency. </param>
+    /// <param name="timeProvider"> The time provider used for timeout-budget accounting and retry delays. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public DaemonStartupReadinessProbe (
         IDaemonPingInfoClient daemonPingInfoClient,
         IUnityLogReader unityLogReader,
-        IUnityProjectLockPreflightService unityProjectLockPreflightService)
+        IUnityProjectLockPreflightService unityProjectLockPreflightService,
+        TimeProvider? timeProvider = null)
     {
         this.daemonPingInfoClient = daemonPingInfoClient ?? throw new ArgumentNullException(nameof(daemonPingInfoClient));
         this.unityLogReader = unityLogReader ?? throw new ArgumentNullException(nameof(unityLogReader));
         this.unityProjectLockPreflightService = unityProjectLockPreflightService ?? throw new ArgumentNullException(nameof(unityProjectLockPreflightService));
+        this.timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     /// <summary> Waits until daemon startup accepts execution requests, or fails when timeout expires or startup reaches one non-waitable lifecycle state. </summary>
@@ -56,7 +61,7 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
             throw new ArgumentOutOfRangeException(nameof(daemonProcessId), daemonProcessId, "Daemon process id must be greater than zero.");
         }
 
-        var deadline = ExecutionDeadline.Start(timeout);
+        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -119,7 +124,8 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
                         $"Timed out while waiting for daemon startup. Timeout={timeout.TotalMilliseconds:0}ms."));
                 }
 
-                await Task.Delay(GetRetryDelay(remainingTimeout), cancellationToken).ConfigureAwait(false);
+                await TimeProviderDelay.DelayAsync(GetRetryDelay(remainingTimeout), timeProvider, cancellationToken)
+                    .ConfigureAwait(false);
             }
             catch (Exception exception) when (DaemonProbeExceptionClassifier.IsNotRunning(exception))
             {
@@ -144,7 +150,8 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
                         $"Timed out while waiting for daemon startup. Timeout={timeout.TotalMilliseconds:0}ms."));
                 }
 
-                await Task.Delay(GetRetryDelay(remainingTimeout), cancellationToken).ConfigureAwait(false);
+                await TimeProviderDelay.DelayAsync(GetRetryDelay(remainingTimeout), timeProvider, cancellationToken)
+                    .ConfigureAwait(false);
             }
             catch (Exception exception)
             {

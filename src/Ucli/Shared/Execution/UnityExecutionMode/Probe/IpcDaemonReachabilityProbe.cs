@@ -16,16 +16,21 @@ internal sealed class IpcDaemonReachabilityProbe : IDaemonReachabilityProbe
 
     private readonly UnityDaemonRecoveryWaiter? recoveryWaiter;
 
+    private readonly TimeProvider timeProvider;
+
     /// <summary> Initializes a new instance of the <see cref="IpcDaemonReachabilityProbe" /> class. </summary>
     /// <param name="daemonPingClient"> The daemon ping client dependency. </param>
     /// <param name="recoveryWaiter"> The daemon lifecycle recovery waiter dependency. </param>
+    /// <param name="timeProvider"> The time provider used for timeout-budget accounting. </param>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="daemonPingClient" /> is <see langword="null" />. </exception>
     public IpcDaemonReachabilityProbe (
         IDaemonPingClient daemonPingClient,
-        UnityDaemonRecoveryWaiter? recoveryWaiter = null)
+        UnityDaemonRecoveryWaiter? recoveryWaiter = null,
+        TimeProvider? timeProvider = null)
     {
         this.daemonPingClient = daemonPingClient ?? throw new ArgumentNullException(nameof(daemonPingClient));
         this.recoveryWaiter = recoveryWaiter;
+        this.timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     /// <summary> Probes whether daemon for the specified project is reachable. </summary>
@@ -43,7 +48,7 @@ internal sealed class IpcDaemonReachabilityProbe : IDaemonReachabilityProbe
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         cancellationToken.ThrowIfCancellationRequested();
-        var deadline = ExecutionDeadline.Start(timeout);
+        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
 
         var endpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(
             unityProject.RepositoryRoot,
@@ -111,7 +116,8 @@ internal sealed class IpcDaemonReachabilityProbe : IDaemonReachabilityProbe
                         $"Timed out while probing daemon reachability. Timeout={timeout.TotalMilliseconds:0}ms."));
                 }
 
-                await Task.Delay(GetRetryDelay(remainingTimeout), cancellationToken).ConfigureAwait(false);
+                await TimeProviderDelay.DelayAsync(GetRetryDelay(remainingTimeout), timeProvider, cancellationToken)
+                    .ConfigureAwait(false);
             }
             catch (Exception exception)
             {
