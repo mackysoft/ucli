@@ -1,12 +1,14 @@
 {
   "schemaVersion": 1,
+  "skillBundleVersion": 1,
+  "catalogId": "com.mackysoft.skills-pack",
+  "tier": "development",
   "skillName": "review-triage",
   "displayName": "Review Triage",
   "description": "貼り付けられた、サブエージェントから返された、または自動レビューで生成されたコードレビュー・設計レビュー指摘を対象コード・仕様・関連資料と照合し、差分がある場合はその文脈も含めて各指摘の正当性を判定して `採用 / 却下 / 保留 / 要確認` にトリアージし、採用項目を束ねた改善設計と次工程を整理する。レビュー返信作成や実装変更そのものが主目的のときは使わない。",
-  "tier": "development",
-  "catalogId": "com.mackysoft.skills-pack",
-  "contentDigest": "e0ae7a336c901961a822a5f47bbffdcccbc83191b227f0bd44252c07d9269e7b",
-  "manifestDigest": "b3eedaa56f04fdb1392af3e254b8a26fdf0357901d87a6b66c481ce7aa1b7d09",
+  "dependencies": [],
+  "contentDigest": "bfe391aec166abb5e5492b0785dee3c59d60460d7f09ca0d2d020c1c613cdfe8",
+  "manifestDigest": "53b4ab8b34ed948bba7627b9eb721d7f82ec145202d513de2e64e9145e5c1bca",
   "hostArtifacts": [
     {
       "host": "claude",

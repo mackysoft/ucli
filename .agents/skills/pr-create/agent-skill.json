@@ -1,12 +1,17 @@
 {
   "schemaVersion": 1,
+  "skillBundleVersion": 1,
+  "catalogId": "com.mackysoft.skills-pack",
+  "tier": "development",
   "skillName": "pr-create",
   "displayName": "PR Create",
   "description": "PR作成依頼を受けたときに、検証・`$push`・PR作成までを一気通貫で実行する。Issueがある場合はIssueを優先して本文とbaseを決定し、Issueが特定できない場合は確認なしでIssueなし運用として継続する。既存Open PRがある場合は更新か新規作成を確認する。",
-  "tier": "development",
-  "catalogId": "com.mackysoft.skills-pack",
-  "contentDigest": "e8db5957ba60a268a3647d58cbf93716839810594b69ec04a79ba7235d550745",
-  "manifestDigest": "d50b86ae66863cbf7a2c4ba0d7f70b5422427545d34c0a8a9bbd615839e99450",
+  "dependencies": [
+    "push",
+    "verification-gate"
+  ],
+  "contentDigest": "5a602b1f380f57aa77063e8764e36a0f57393c6b32df462d07d8d675240a2794",
+  "manifestDigest": "cbbc5b9cb64dc982b6c096e89fb5720ab6789e7093f5a3e014458a10f2ffb8d2",
   "hostArtifacts": [
     {
       "host": "claude",

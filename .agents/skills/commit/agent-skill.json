@@ -1,12 +1,14 @@
 {
   "schemaVersion": 1,
+  "skillBundleVersion": 1,
+  "catalogId": "com.mackysoft.skills-pack",
+  "tier": "development",
   "skillName": "commit",
   "displayName": "Commit",
   "description": "変更を責務単位で分割し、Conventional Commits形式の包括的なメッセージでコミットを作成する。",
-  "tier": "development",
-  "catalogId": "com.mackysoft.skills-pack",
-  "contentDigest": "f4e4d2e34494b183da026bc29a73039e51942e2a974157522be907cf55d27e19",
-  "manifestDigest": "b45750c0763a342c2b0f4a789cb6ae9ad8478d3e8263f61e5775dbea42767a72",
+  "dependencies": [],
+  "contentDigest": "70c198faf080427d82f1bac5b296bcfe8426e6b044401f7b02c41d5cb3bcbe20",
+  "manifestDigest": "d329f8e38e6c3b5c3b47fb334af063f068d906e7849c12d9d85395c5371e62ac",
   "hostArtifacts": [
     {
       "host": "claude",

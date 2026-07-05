@@ -1,12 +1,14 @@
 {
   "schemaVersion": 1,
+  "skillBundleVersion": 1,
+  "catalogId": "com.mackysoft.skills-pack",
+  "tier": "development",
   "skillName": "verification-gate",
   "displayName": "Verification Gate",
   "description": "コード変更が一通り終わった挙動確認時、またはPR作成前に、受け入れ判定に必要な検証のみを実行する。実装や設計検討が目的のときは使わない。",
-  "tier": "development",
-  "catalogId": "com.mackysoft.skills-pack",
-  "contentDigest": "298f02a5aa740f4632fee98cbff46308096a8d002315e4b542563834fc87a939",
-  "manifestDigest": "00a366d0d1b4b45b57d2707a9727f41fbde5848c44dfc0f43afdded6b36a4c19",
+  "dependencies": [],
+  "contentDigest": "6621e231a810a23f6f7ab51aa4b40859d1139b354d3204b3f9cead5047935765",
+  "manifestDigest": "1f48dbd150e25396b6e0905a659cc973b4a78e5a75a484cb1a6781437b2ad095",
   "hostArtifacts": [
     {
       "host": "claude",

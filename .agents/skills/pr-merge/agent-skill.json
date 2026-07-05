@@ -1,12 +1,18 @@
 {
   "schemaVersion": 1,
+  "skillBundleVersion": 1,
+  "catalogId": "com.mackysoft.skills-pack",
+  "tier": "development",
   "skillName": "pr-merge",
   "displayName": "PR Merge",
   "description": "現在作業または指定PRを安全にマージする。現在作業をブランチへ載せ、PRを取得または作成し、push、Draft解除、CI待機、必須チェック確認、マージ、リモートブランチクリーンアップまで進める。",
-  "tier": "development",
-  "catalogId": "com.mackysoft.skills-pack",
-  "contentDigest": "abf520feea539e63adecc590b39e73c77233264787aeced2940f2049355b2ec7",
-  "manifestDigest": "913737c61e7ebd57f2524a0f4d1868979b7c3df60e2dea7e9334af0aa2cc74f0",
+  "dependencies": [
+    "branch-create",
+    "pr-create",
+    "push"
+  ],
+  "contentDigest": "433aefd9ae5e682de57d44dff155e5c3feea81cb466d955dbdf5c889f185c69d",
+  "manifestDigest": "aeedaab4149de392522198db8793b929da12a47e96e80adad0a2e990e97741ac",
   "hostArtifacts": [
     {
       "host": "claude",
