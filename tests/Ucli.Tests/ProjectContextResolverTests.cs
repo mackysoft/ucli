@@ -11,7 +11,7 @@ using MackySoft.Ucli.UnityIntegration.Project.Resolution;
 public sealed class ProjectContextResolverTests
 {
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task Resolve_ReturnsContextWithDefaultConfig_WhenConfigFileDoesNotExist ()
     {
         using var scope = TestDirectories.CreateTempScope("init-status-context-resolver", "default-config");
@@ -32,7 +32,7 @@ public sealed class ProjectContextResolverTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task Resolve_ReturnsContextWithFileConfig_WhenConfigFileExists ()
     {
         using var scope = TestDirectories.CreateTempScope("init-status-context-resolver", "file-config");
@@ -67,7 +67,7 @@ public sealed class ProjectContextResolverTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task Resolve_ReturnsInvalidArgument_WhenUnityProjectIsInvalid ()
     {
         using var scope = TestDirectories.CreateTempScope("init-status-context-resolver", "invalid-unity-project");
@@ -84,7 +84,7 @@ public sealed class ProjectContextResolverTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task Resolve_ReturnsInvalidArgument_WhenConfigFileIsInvalid ()
     {
         using var scope = TestDirectories.CreateTempScope("init-status-context-resolver", "invalid-config");
@@ -104,7 +104,7 @@ public sealed class ProjectContextResolverTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task Resolve_WithNullProjectPath_UsesEnvironmentVariableProjectPath ()
     {
         using var scope = TestDirectories.CreateTempScope("init-status-context-resolver", "environment-variable-project-path");

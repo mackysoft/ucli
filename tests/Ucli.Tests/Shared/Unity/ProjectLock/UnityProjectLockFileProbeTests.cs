@@ -6,7 +6,7 @@ namespace MackySoft.Ucli.Tests;
 public sealed class UnityProjectLockFileProbeTests
 {
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void Probe_WhenUnityLockFileDoesNotExist_ReturnsUnlocked ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-project-lock-file-probe", "unlocked");
@@ -21,7 +21,7 @@ public sealed class UnityProjectLockFileProbeTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void Probe_WhenUnityLockFileExists_ReturnsLocked ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-project-lock-file-probe", "locked");
@@ -37,7 +37,7 @@ public sealed class UnityProjectLockFileProbeTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void Probe_WhenUnityLockPathIsDirectory_ReturnsLocked ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-project-lock-file-probe", "locked-directory");
@@ -53,7 +53,7 @@ public sealed class UnityProjectLockFileProbeTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void Probe_WhenUnityProjectRootPathIsInvalid_ReturnsFailure ()
     {
         var probe = new UnityProjectLockFileProbe();

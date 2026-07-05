@@ -6,7 +6,7 @@ namespace MackySoft.Ucli.Infrastructure.Tests.Storage;
 public sealed class FileSystemAccessBoundaryTests
 {
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void EnsureSecureDirectoryChain_WhenBoundaryRootIsSymbolicLink_ThrowsIOException ()
     {
         if (OperatingSystem.IsWindows())
@@ -33,7 +33,7 @@ public sealed class FileSystemAccessBoundaryTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void EnsureSecureDirectoryChain_WhenIntermediateDirectoryIsSymbolicLink_ThrowsIOException ()
     {
         using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "secure-chain-symlink-segment");
@@ -57,7 +57,7 @@ public sealed class FileSystemAccessBoundaryTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void EnsureSecureDirectory_WhenDirectoryIsSymbolicLink_ThrowsIOException ()
     {
         using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "secure-directory-symlink");
@@ -77,7 +77,7 @@ public sealed class FileSystemAccessBoundaryTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void EnsureSecureDirectory_WhenUcliDirectoryIsSymbolicLink_ThrowsBeforeBootstrapWrite ()
     {
         using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "secure-ucli-symlink");

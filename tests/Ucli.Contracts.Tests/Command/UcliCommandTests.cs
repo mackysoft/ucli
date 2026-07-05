@@ -1,55 +1,110 @@
+using MackySoft.Ucli.Contracts.Ipc;
+
 namespace MackySoft.Ucli.Contracts.Tests.Command;
 
 public sealed class UcliCommandTests
 {
-    [Theory]
-    [Trait("Size", "Small")]
-    [InlineData("status")]
-    [InlineData("daemon.cleanup")]
-    [InlineData("daemon.status")]
-    [InlineData("daemon.list")]
-    [InlineData("build.run")]
-    [InlineData("test.run")]
-    [InlineData("logs.daemon.read")]
-    [InlineData("logs.unity.read")]
-    [InlineData("logs.unity.clear")]
-    public void Constructor_WithValidName_CreatesCommand (string name)
-    {
-        var command = new UcliCommand(name);
+    private static readonly string[] ValidCommandNames =
+    [
+        "status",
+        "daemon.cleanup",
+        "daemon.status",
+        "daemon.list",
+        "build.run",
+        "test.run",
+        "logs.daemon.read",
+        "logs.unity.read",
+        "logs.unity.clear",
+    ];
 
-        Assert.Equal(name, command.Name);
+    private static readonly string?[] InvalidCommandNames =
+    [
+        null,
+        "",
+        " ",
+        "daemon status",
+        "daemon\tstatus",
+        ".daemon",
+        "daemon.",
+        "daemon..status",
+    ];
+
+    private static readonly string[] InvalidConstructorCommandNames =
+    [
+        "",
+        " ",
+        "daemon status",
+        "daemon\tstatus",
+        ".daemon",
+        "daemon.",
+        "daemon..status",
+    ];
+
+    private static readonly CommandLiteralCase[] CommandLiteralCases =
+    [
+        new(UcliCommandIds.Play, "play"),
+        new(UcliCommandIds.PlayStatus, "play.status"),
+        new(UcliCommandIds.PlayEnter, "play.enter"),
+        new(UcliCommandIds.PlayExit, "play.exit"),
+        new(UcliCommandIds.Build, "build"),
+        new(UcliCommandIds.BuildRun, "build.run"),
+        new(UcliCommandIds.Validate, "validate"),
+        new(UcliCommandIds.Plan, "plan"),
+        new(UcliCommandIds.Call, "call"),
+        new(UcliCommandIds.Resolve, "resolve"),
+        new(UcliCommandIds.Query, "query"),
+        new(UcliCommandIds.Refresh, "refresh"),
+        new(UcliCommandIds.Ready, "ready"),
+        new(UcliCommandIds.Logs, "logs"),
+        new(UcliCommandIds.LogsDaemonRead, "logs.daemon.read"),
+        new(UcliCommandIds.LogsUnityRead, "logs.unity.read"),
+        new(UcliCommandIds.LogsUnityClear, "logs.unity.clear"),
+        new(UcliCommandIds.Codes, "codes"),
+        new(UcliCommandIds.CodesList, "codes.list"),
+        new(UcliCommandIds.CodesDescribe, "codes.describe"),
+        new(UcliCommandIds.Daemon, "daemon"),
+        new(UcliCommandIds.DaemonStart, "daemon.start"),
+        new(UcliCommandIds.DaemonStop, "daemon.stop"),
+        new(UcliCommandIds.DaemonCleanup, "daemon.cleanup"),
+        new(UcliCommandIds.DaemonStatus, "daemon.status"),
+        new(UcliCommandIds.DaemonList, "daemon.list"),
+    ];
+
+    private static readonly ExecuteCommandClassificationCase[] ExecuteCommandClassificationCases =
+    [
+        new(UcliCommandIds.Validate.Name, IsKnown: true, IsOperationPipelineCommand: false),
+        new(UcliCommandIds.Plan.Name, IsKnown: true, IsOperationPipelineCommand: true),
+        new(UcliCommandIds.Call.Name, IsKnown: true, IsOperationPipelineCommand: true),
+        new(UcliCommandIds.Resolve.Name, IsKnown: true, IsOperationPipelineCommand: true),
+        new(UcliCommandIds.Query.Name, IsKnown: true, IsOperationPipelineCommand: true),
+        new(UcliCommandIds.Refresh.Name, IsKnown: false, IsOperationPipelineCommand: false),
+        new(UcliCommandIds.Ready.Name, IsKnown: false, IsOperationPipelineCommand: false),
+        new("unknown", IsKnown: false, IsOperationPipelineCommand: false),
+    ];
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ValidCommandNames_CanCreateCommandIdentifier ()
+    {
+        foreach (string name in ValidCommandNames)
+        {
+            Assert.True(UcliCommand.IsValidName(name), $"{name} must be accepted as a command name.");
+            var command = new UcliCommand(name);
+            Assert.True(command.IsValid, $"{name} must create a valid command identifier.");
+            Assert.Equal(name, command.Name);
+            string rawName = command;
+            Assert.Equal(name, rawName);
+        }
     }
 
-    [Theory]
+    [Fact]
     [Trait("Size", "Small")]
-    [InlineData("status")]
-    [InlineData("daemon.cleanup")]
-    [InlineData("daemon.status")]
-    [InlineData("daemon.list")]
-    [InlineData("build.run")]
-    [InlineData("test.run")]
-    [InlineData("logs.daemon.read")]
-    [InlineData("logs.unity.read")]
-    [InlineData("logs.unity.clear")]
-    public void IsValidName_WithValidName_ReturnsTrue (string name)
+    public void IsValidName_WithInvalidName_ReturnsFalse ()
     {
-        Assert.True(UcliCommand.IsValidName(name));
-        Assert.True(new UcliCommand(name).IsValid);
-    }
-
-    [Theory]
-    [Trait("Size", "Small")]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData(" ")]
-    [InlineData("daemon status")]
-    [InlineData("daemon\tstatus")]
-    [InlineData(".daemon")]
-    [InlineData("daemon.")]
-    [InlineData("daemon..status")]
-    public void IsValidName_WithInvalidName_ReturnsFalse (string? name)
-    {
-        Assert.False(UcliCommand.IsValidName(name));
+        foreach (string? name in InvalidCommandNames)
+        {
+            Assert.False(UcliCommand.IsValidName(name));
+        }
     }
 
     [Fact]
@@ -61,20 +116,25 @@ public sealed class UcliCommandTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void UcliCommandIds_ExposePlayModeCommandLiterals ()
+    public void UcliCommandIds_ExposeExpectedLiterals ()
     {
-        Assert.Equal("play", UcliCommandIds.Play.Name);
-        Assert.Equal("play.status", UcliCommandIds.PlayStatus.Name);
-        Assert.Equal("play.enter", UcliCommandIds.PlayEnter.Name);
-        Assert.Equal("play.exit", UcliCommandIds.PlayExit.Name);
+        foreach (var testCase in CommandLiteralCases)
+        {
+            Assert.Equal(testCase.ExpectedLiteral, testCase.Command.Name);
+        }
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void UcliCommandIds_ExposeBuildCommandLiterals ()
+    public void IpcExecuteCommandNames_ClassifiesKnownAndOperationPipelineCommands ()
     {
-        Assert.Equal("build", UcliCommandIds.Build.Name);
-        Assert.Equal("build.run", UcliCommandIds.BuildRun.Name);
+        foreach (var testCase in ExecuteCommandClassificationCases)
+        {
+            Assert.Equal(testCase.IsKnown, IpcExecuteCommandNames.IsKnown(testCase.CommandName));
+            Assert.Equal(
+                testCase.IsOperationPipelineCommand,
+                IpcExecuteCommandNames.IsOperationPipelineCommand(testCase.CommandName));
+        }
     }
 
     [Fact]
@@ -95,21 +155,25 @@ public sealed class UcliCommandTests
         Assert.Contains(UcliCommandIds.BuildRun, UcliPublicCommandCatalog.KnownCommands);
     }
 
-    [Theory]
+    [Fact]
     [Trait("Size", "Small")]
-    [InlineData("")]
-    [InlineData(" ")]
-    [InlineData("daemon status")]
-    [InlineData("daemon\tstatus")]
-    [InlineData(".daemon")]
-    [InlineData("daemon.")]
-    [InlineData("daemon..status")]
-    public void Constructor_WithInvalidName_ThrowsArgumentException (string name)
+    public void Constructor_WithInvalidName_ThrowsArgumentException ()
     {
-        Assert.Throws<ArgumentException>(() =>
+        foreach (string name in InvalidConstructorCommandNames)
         {
-            _ = new UcliCommand(name);
-        });
+            Assert.Throws<ArgumentException>(() =>
+            {
+                _ = new UcliCommand(name);
+            });
+        }
     }
 
+    private sealed record CommandLiteralCase (
+        UcliCommand Command,
+        string ExpectedLiteral);
+
+    private sealed record ExecuteCommandClassificationCase (
+        string CommandName,
+        bool IsKnown,
+        bool IsOperationPipelineCommand);
 }

@@ -5,6 +5,14 @@ namespace MackySoft.Ucli.Contracts.Tests.Ipc;
 
 public sealed class UcliOperationPolicyDeriverTests
 {
+    private static readonly string[] DangerousSideEffects =
+    [
+        "externalProcess",
+        "filesystemWrite",
+        "arbitrarySourceExecution",
+        "destructiveScope",
+    ];
+
     [Fact]
     [Trait("Size", "Small")]
     public void TryDerive_WhenNoRiskFacts_ReturnsSafe ()
@@ -60,21 +68,20 @@ public sealed class UcliOperationPolicyDeriverTests
         Assert.Equal(OperationPolicy.Dangerous, policy);
     }
 
-    [Theory]
+    [Fact]
     [Trait("Size", "Small")]
-    [InlineData("externalProcess")]
-    [InlineData("filesystemWrite")]
-    [InlineData("arbitrarySourceExecution")]
-    [InlineData("destructiveScope")]
-    public void TryDerive_WhenDangerousSideEffectIsDeclared_ReturnsDangerous (string sideEffect)
+    public void TryDerive_WhenDangerousSideEffectIsDeclared_ReturnsDangerous ()
     {
-        var assurance = CreateAssurance([sideEffect]);
+        foreach (var sideEffect in DangerousSideEffects)
+        {
+            var assurance = CreateAssurance([sideEffect]);
 
-        var result = UcliOperationPolicyDeriver.TryDerive(assurance, out var policy);
+            var result = UcliOperationPolicyDeriver.TryDerive(assurance, out var policy);
 
-        Assert.True(result);
-        Assert.Equal(OperationPolicy.Dangerous, policy);
-        Assert.True(UcliOperationSideEffectDescriptors.IsDangerousDerivationSource(sideEffect));
+            Assert.True(result);
+            Assert.Equal(OperationPolicy.Dangerous, policy);
+            Assert.True(UcliOperationSideEffectDescriptors.IsDangerousDerivationSource(sideEffect));
+        }
     }
 
     [Fact]
@@ -86,18 +93,6 @@ public sealed class UcliOperationPolicyDeriverTests
         var result = UcliOperationPolicyDeriver.TryDerive(assurance, out _);
 
         Assert.False(result);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void TryDerive_WhenArbitrarySourceExecutionIsDeclared_ReturnsDangerous ()
-    {
-        var assurance = CreateAssurance(["arbitrarySourceExecution"]);
-
-        var result = UcliOperationPolicyDeriver.TryDerive(assurance, out var policy);
-
-        Assert.True(result);
-        Assert.Equal(OperationPolicy.Dangerous, policy);
     }
 
     [Fact]

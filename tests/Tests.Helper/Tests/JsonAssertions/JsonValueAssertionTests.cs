@@ -6,6 +6,35 @@ using Xunit.Sdk;
 
 public sealed class JsonValueAssertionTests
 {
+    private static readonly ValueAssertionTypeMismatchCase[] TypeMismatchCases =
+    [
+        new(
+            PropertyName: "counts",
+            Path: "$.counts",
+            ExpectedMessage: "expected string but was 'Object'",
+            Assertion: context => JsonValueAssertion.AssertString(context, "x")),
+        new(
+            PropertyName: "status",
+            Path: "$.status",
+            ExpectedMessage: "expected boolean but was 'String'",
+            Assertion: context => JsonValueAssertion.AssertBoolean(context, true)),
+        new(
+            PropertyName: "status",
+            Path: "$.status",
+            ExpectedMessage: "expected null but was 'String'",
+            Assertion: JsonValueAssertion.AssertNull),
+        new(
+            PropertyName: "status",
+            Path: "$.status",
+            ExpectedMessage: "expected array but was 'String'",
+            Assertion: context => JsonValueAssertion.AssertArrayLength(context, 1)),
+        new(
+            PropertyName: "tests",
+            Path: "$.tests",
+            ExpectedMessage: "expected kind 'Object' but was 'Array'",
+            Assertion: context => JsonValueAssertion.AssertValueKind(context, JsonValueKind.Object)),
+    ];
+
     [Fact]
     [Trait("Size", "Small")]
     public void AssertString_Succeeds_WhenActualMatchesExpected ()
@@ -16,45 +45,20 @@ public sealed class JsonValueAssertionTests
         JsonValueAssertion.AssertString(context, "pass");
     }
 
-    [Theory]
+    [Fact]
     [Trait("Size", "Small")]
-    [InlineData("String", "counts", "$.counts", "expected string but was 'Object'")]
-    [InlineData("Boolean", "status", "$.status", "expected boolean but was 'String'")]
-    [InlineData("Null", "status", "$.status", "expected null but was 'String'")]
-    [InlineData("ArrayLength", "status", "$.status", "expected array but was 'String'")]
-    [InlineData("ValueKind", "tests", "$.tests", "expected kind 'Object' but was 'Array'")]
-    public void Assertion_Throws_WhenActualTypeDoesNotMatch (
-        string assertionType,
-        string propertyName,
-        string path,
-        string expectedMessage)
+    public void Assertion_Throws_WhenActualTypeDoesNotMatch ()
     {
         using var document = JsonAssertionTestData.CreateSampleDocument();
-        var context = new JsonAssertionContext(document.RootElement.GetProperty(propertyName), path);
-        XunitException exception;
 
-        switch (assertionType)
+        foreach (var testCase in TypeMismatchCases)
         {
-            case "String":
-                exception = Assert.Throws<XunitException>(() => JsonValueAssertion.AssertString(context, "x"));
-                break;
-            case "Boolean":
-                exception = Assert.Throws<XunitException>(() => JsonValueAssertion.AssertBoolean(context, true));
-                break;
-            case "Null":
-                exception = Assert.Throws<XunitException>(() => JsonValueAssertion.AssertNull(context));
-                break;
-            case "ArrayLength":
-                exception = Assert.Throws<XunitException>(() => JsonValueAssertion.AssertArrayLength(context, 1));
-                break;
-            case "ValueKind":
-                exception = Assert.Throws<XunitException>(() => JsonValueAssertion.AssertValueKind(context, JsonValueKind.Object));
-                break;
-            default:
-                throw new InvalidOperationException($"Unsupported assertion type '{assertionType}'.");
-        }
+            var context = new JsonAssertionContext(document.RootElement.GetProperty(testCase.PropertyName), testCase.Path);
 
-        Assert.Contains(expectedMessage, exception.Message, StringComparison.Ordinal);
+            var exception = Assert.Throws<XunitException>(() => testCase.Assertion(context));
+
+            Assert.Contains(testCase.ExpectedMessage, exception.Message, StringComparison.Ordinal);
+        }
     }
 
     [Fact]
@@ -69,4 +73,9 @@ public sealed class JsonValueAssertionTests
         Assert.Contains("Int32-compatible number", exception.Message, StringComparison.Ordinal);
     }
 
+    private sealed record ValueAssertionTypeMismatchCase (
+        string PropertyName,
+        string Path,
+        string ExpectedMessage,
+        Action<JsonAssertionContext> Assertion);
 }

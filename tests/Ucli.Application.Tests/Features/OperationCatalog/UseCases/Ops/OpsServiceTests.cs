@@ -2,10 +2,9 @@ using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
 using MackySoft.Ucli.Application.Features.OperationCatalog.Common.Contracts;
 using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops;
 using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Preflight;
-using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Projection;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using static MackySoft.Ucli.Application.Tests.Helpers.ApplicationCommandInputTestHelper;
-using static MackySoft.Ucli.Application.Tests.Helpers.OperationCatalog.OperationCatalogTestFixtures;
+using static MackySoft.Ucli.TestSupport.OperationCatalogTestFixtures;
 
 namespace MackySoft.Ucli.Application.Tests.Ops;
 
@@ -15,49 +14,51 @@ public sealed class OpsServiceTests
     [Trait("Size", "Small")]
     public async Task GetAll_WhenPreflightFails_ReturnsFailureWithoutReadingCatalog ()
     {
-        var preflightService = new StubOpsPreflightService
+        var preflightService = new RecordingOpsPreflightService
         {
             Result = OpsPreflightResult.Failure("invalid readIndexMode", UcliCoreErrorCodes.InvalidArgument),
         };
-        var catalogAccessService = new StubOpsCatalogAccessService();
-        var listResultMapper = new StubOpsListResultMapper();
-        var describeResultMapper = new StubOpsDescribeResultMapper();
+        var catalogAccessService = new RecordingOpsCatalogAccessService();
+        var listResultMapper = new RecordingOpsListResultMapper();
+        var describeResultMapper = new RecordingOpsDescribeResultMapper();
         var service = new OpsService(preflightService, catalogAccessService, listResultMapper, describeResultMapper);
 
         var result = await service.GetAllAsync(new OpsCommandInput(null, NormalizeMode(null), NormalizeTimeout(null), null, null, null, null));
 
-        Assert.False(result.IsSuccess);
-        Assert.Equal("invalid readIndexMode", result.Message);
-        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.ErrorCode);
-        Assert.Equal(0, catalogAccessService.CallCount);
-        Assert.Equal(0, listResultMapper.CallCount);
+        OpsServiceInvocationAssert.ListPreflightFailureReturnedBeforeCatalogRead(
+            result,
+            catalogAccessService,
+            listResultMapper,
+            "invalid readIndexMode",
+            UcliCoreErrorCodes.InvalidArgument);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task GetAll_WhenNameRegexIsInvalid_ReturnsFailureWithoutReadingCatalog ()
     {
-        var preflightService = new StubOpsPreflightService();
-        var catalogAccessService = new StubOpsCatalogAccessService();
-        var listResultMapper = new StubOpsListResultMapper();
-        var describeResultMapper = new StubOpsDescribeResultMapper();
+        var preflightService = new RecordingOpsPreflightService();
+        var catalogAccessService = new RecordingOpsCatalogAccessService();
+        var listResultMapper = new RecordingOpsListResultMapper();
+        var describeResultMapper = new RecordingOpsDescribeResultMapper();
         var service = new OpsService(preflightService, catalogAccessService, listResultMapper, describeResultMapper);
 
         var result = await service.GetAllAsync(new OpsCommandInput(null, null, null, null, "[", null, null));
 
-        Assert.False(result.IsSuccess);
-        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.ErrorCode);
-        Assert.Equal(0, catalogAccessService.CallCount);
-        Assert.Equal(0, listResultMapper.CallCount);
-        Assert.Null(preflightService.LastInput);
+        OpsServiceInvocationAssert.InvalidListFilterRejectedBeforePreflight(
+            result,
+            preflightService,
+            catalogAccessService,
+            listResultMapper,
+            UcliCoreErrorCodes.InvalidArgument);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task GetAll_WhenCatalogReadSucceeds_UsesListResultMapper ()
+    public async Task GetAll_WhenCatalogReadSucceeds_ReturnsMappedFilteredOperations ()
     {
         var preflightContext = new OpsPreflightContext(default!, default, UnityExecutionMode.Auto, TimeSpan.FromMilliseconds(1000), false);
-        var preflightService = new StubOpsPreflightService
+        var preflightService = new RecordingOpsPreflightService
         {
             Result = OpsPreflightResult.Success(preflightContext),
         };
@@ -74,7 +75,7 @@ public sealed class OpsServiceTests
                 MackySoft.Ucli.Contracts.Index.IndexFreshness.Fresh,
                 DateTimeOffset.UtcNow,
                 null));
-        var catalogAccessService = new StubOpsCatalogAccessService
+        var catalogAccessService = new RecordingOpsCatalogAccessService
         {
             ListResult = OpsListReadResult.Success(catalogOutput, "read ok"),
         };
@@ -96,31 +97,30 @@ public sealed class OpsServiceTests
                     DateTimeOffset.UtcNow,
                     null)),
             "mapped");
-        var listResultMapper = new StubOpsListResultMapper
+        var listResultMapper = new RecordingOpsListResultMapper
         {
             Result = expectedResult,
         };
-        var describeResultMapper = new StubOpsDescribeResultMapper();
+        var describeResultMapper = new RecordingOpsDescribeResultMapper();
         var service = new OpsService(preflightService, catalogAccessService, listResultMapper, describeResultMapper);
 
         var result = await service.GetAllAsync(new OpsCommandInput("/repo", NormalizeMode("auto"), NormalizeTimeout("1000"), NormalizeReadIndexMode("allowStale"), null, null, null, true));
 
         Assert.Same(expectedResult, result);
-        Assert.NotNull(preflightService.LastInput);
-        Assert.True(preflightService.LastInput!.FailFast);
-        Assert.Equal(1, catalogAccessService.CallCount);
-        Assert.Equal(1, listResultMapper.CallCount);
-        Assert.Same(catalogOutput, listResultMapper.LastOutput);
-        var operation = Assert.Single(listResultMapper.LastOperations!);
-        Assert.Equal(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneSave, operation.Name);
+        OpsServiceInvocationAssert.PreflightRequestedFailFast(preflightService);
+        OpsServiceInvocationAssert.CatalogListReadFromPreflight(catalogAccessService, preflightContext);
+        OpsServiceInvocationAssert.ListMappedFrom(
+            listResultMapper,
+            catalogOutput,
+            MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneSave);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Describe_WhenCatalogReadSucceeds_UsesDescribeResultMapper ()
+    public async Task Describe_WhenCatalogReadSucceeds_ReturnsMappedOperationDetail ()
     {
         var preflightContext = new OpsPreflightContext(default!, default, UnityExecutionMode.Auto, TimeSpan.FromMilliseconds(1000), false);
-        var preflightService = new StubOpsPreflightService
+        var preflightService = new RecordingOpsPreflightService
         {
             Result = OpsPreflightResult.Success(preflightContext),
         };
@@ -133,13 +133,13 @@ public sealed class OpsServiceTests
                 MackySoft.Ucli.Contracts.Index.IndexFreshness.Fresh,
                 DateTimeOffset.UtcNow,
                 null));
-        var catalogAccessService = new StubOpsCatalogAccessService
+        var catalogAccessService = new RecordingOpsCatalogAccessService
         {
             DescribeResult = OpsDescribeReadResult.Success(catalogOutput, "read ok"),
         };
         var expectedResult = OpsDescribeServiceResult.Failure("missing", UcliCoreErrorCodes.InvalidArgument);
-        var listResultMapper = new StubOpsListResultMapper();
-        var describeResultMapper = new StubOpsDescribeResultMapper
+        var listResultMapper = new RecordingOpsListResultMapper();
+        var describeResultMapper = new RecordingOpsDescribeResultMapper
         {
             Result = expectedResult,
         };
@@ -155,91 +155,11 @@ public sealed class OpsServiceTests
                 FailFast: true));
 
         Assert.Same(expectedResult, result);
-        Assert.NotNull(preflightService.LastInput);
-        Assert.True(preflightService.LastInput!.FailFast);
-        Assert.Equal(1, describeResultMapper.CallCount);
-        Assert.Same(catalogOutput, describeResultMapper.LastOutput);
+        OpsServiceInvocationAssert.PreflightRequestedFailFast(preflightService);
+        OpsServiceInvocationAssert.CatalogDescribeReadFromPreflight(
+            catalogAccessService,
+            preflightContext,
+            "ucli.unknown");
+        OpsServiceInvocationAssert.DescribeMappedFrom(describeResultMapper, catalogOutput);
     }
-
-    private sealed class StubOpsPreflightService : IOpsPreflightService
-    {
-        public OpsPreflightResult Result { get; set; } = OpsPreflightResult.Failure("not configured", UcliCoreErrorCodes.InternalError);
-
-        public OpsPreflightInput? LastInput { get; private set; }
-
-        public ValueTask<OpsPreflightResult> ExecuteAsync (
-            OpsPreflightInput input,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            LastInput = input;
-            return ValueTask.FromResult(Result);
-        }
-    }
-
-    private sealed class StubOpsCatalogAccessService : IOpsCatalogAccessService
-    {
-        public int CallCount { get; private set; }
-
-        public OpsListReadResult ListResult { get; set; } = OpsListReadResult.Failure("not configured", UcliCoreErrorCodes.InternalError);
-
-        public OpsDescribeReadResult DescribeResult { get; set; } = OpsDescribeReadResult.Failure("not configured", UcliCoreErrorCodes.InternalError);
-
-        public ValueTask<OpsListReadResult> ReadListAsync (
-            OpsPreflightContext context,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            CallCount++;
-            return ValueTask.FromResult(ListResult);
-        }
-
-        public ValueTask<OpsDescribeReadResult> ReadDescribeAsync (
-            OpsPreflightContext context,
-            string? operationName,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            CallCount++;
-            return ValueTask.FromResult(DescribeResult);
-        }
-    }
-
-    private sealed class StubOpsListResultMapper : IOpsListResultMapper
-    {
-        public int CallCount { get; private set; }
-
-        public OpsListReadOutput? LastOutput { get; private set; }
-
-        public IReadOnlyList<OpsCatalogListEntry>? LastOperations { get; private set; }
-
-        public OpsListServiceResult Result { get; set; } = OpsListServiceResult.Failure("not configured", UcliCoreErrorCodes.InternalError);
-
-        public OpsListServiceResult Map (
-            OpsListReadOutput output,
-            IReadOnlyList<OpsCatalogListEntry> operations)
-        {
-            CallCount++;
-            LastOutput = output;
-            LastOperations = operations;
-            return Result;
-        }
-    }
-
-    private sealed class StubOpsDescribeResultMapper : IOpsDescribeResultMapper
-    {
-        public int CallCount { get; private set; }
-
-        public OpsDescribeReadOutput? LastOutput { get; private set; }
-
-        public OpsDescribeServiceResult Result { get; set; } = OpsDescribeServiceResult.Failure("not configured", UcliCoreErrorCodes.InternalError);
-
-        public OpsDescribeServiceResult Map (OpsDescribeReadOutput output)
-        {
-            CallCount++;
-            LastOutput = output;
-            return Result;
-        }
-    }
-
 }

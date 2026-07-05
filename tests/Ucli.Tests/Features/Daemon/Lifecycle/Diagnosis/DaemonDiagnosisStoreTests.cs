@@ -9,7 +9,7 @@ using MackySoft.Ucli.Contracts.Storage;
 public sealed class DaemonDiagnosisStoreTests
 {
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task WriteReadDelete_RoundTripsDiagnosisJson ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-diagnosis-store", "roundtrip");
@@ -36,7 +36,7 @@ public sealed class DaemonDiagnosisStoreTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task Read_WhenDiagnosisJsonIsMalformed_ReturnsInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-diagnosis-store", "malformed-json");
@@ -55,7 +55,7 @@ public sealed class DaemonDiagnosisStoreTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task Write_WhenSessionIssuedAtUtcIsDefault_ReturnsInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-diagnosis-store", "invalid-session-issued-at");
@@ -74,7 +74,7 @@ public sealed class DaemonDiagnosisStoreTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task Write_WhenStartupPhaseIsUnknown_ReturnsInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-diagnosis-store", "invalid-startup-phase");
@@ -93,7 +93,7 @@ public sealed class DaemonDiagnosisStoreTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task Read_WhenPrimaryDiagnosticKindIsUnknown_ReturnsInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-diagnosis-store", "invalid-primary-diagnostic-kind");

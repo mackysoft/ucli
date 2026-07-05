@@ -4,95 +4,93 @@ public sealed class ReadIndexFreshnessEvaluatorTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Observe_ReturnsProbable_WhenPersistedHashIsMissing ()
+    public async Task Observe_WhenPersistedHashIsMissing_ReturnsProbableWithoutComputingInputFingerprint ()
     {
-        var inputProvider = new StubReadIndexInputFingerprintProvider();
-        var evaluator = new ReadIndexFreshnessEvaluator(inputProvider, new StubReadIndexSceneSourceHashProvider());
+        var inputProvider = new RecordingReadIndexInputFingerprintProvider();
+        var evaluator = new ReadIndexFreshnessEvaluator(inputProvider, new RecordingReadIndexSceneSourceHashProvider());
 
         var result = await evaluator.ObserveAsync(
-            CreateProject(),
+            ProjectContextTestFactory.CreateUnknownVersionUnityProject(),
             IndexFreshnessTarget.OpsCatalog,
             persistedSourceInputsHash: null,
             CancellationToken.None);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(IndexFreshness.Probable, result.Freshness);
-        Assert.Equal(0, inputProvider.CoreCallCount);
-        Assert.Equal(0, inputProvider.FullCallCount);
+        ReadIndexFreshnessInvocationAssert.PersistedHashMissingReturnedProbableWithoutInputFingerprint(
+            result,
+            inputProvider);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task Observe_ReturnsFresh_WhenCoreHashMatchesOpsCatalogHash ()
     {
-        var inputProvider = new StubReadIndexInputFingerprintProvider
+        var inputProvider = new RecordingReadIndexInputFingerprintProvider
         {
             CoreSnapshot = CreateCoreSnapshot("combined-hash"),
         };
-        var evaluator = new ReadIndexFreshnessEvaluator(inputProvider, new StubReadIndexSceneSourceHashProvider());
+        var evaluator = new ReadIndexFreshnessEvaluator(inputProvider, new RecordingReadIndexSceneSourceHashProvider());
+        var unityProject = ProjectContextTestFactory.CreateUnknownVersionUnityProject();
 
         var result = await evaluator.ObserveAsync(
-            CreateProject(),
+            unityProject,
             IndexFreshnessTarget.OpsCatalog,
             "combined-hash",
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(IndexFreshness.Fresh, result.Freshness);
-        Assert.Equal(1, inputProvider.CoreCallCount);
-        Assert.Equal(0, inputProvider.FullCallCount);
+        ReadIndexFreshnessInvocationAssert.CoreInputFingerprintComputedOnce(
+            inputProvider,
+            unityProject);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task Observe_ReturnsStale_WhenAssetLookupHashDiffers ()
     {
-        var inputProvider = new StubReadIndexInputFingerprintProvider
+        var inputProvider = new RecordingReadIndexInputFingerprintProvider
         {
             Snapshot = CreateSnapshot(assetSearchHash: "asset-search-hash", guidPathHash: "guid-path-hash"),
         };
-        var evaluator = new ReadIndexFreshnessEvaluator(inputProvider, new StubReadIndexSceneSourceHashProvider());
+        var evaluator = new ReadIndexFreshnessEvaluator(inputProvider, new RecordingReadIndexSceneSourceHashProvider());
+        var unityProject = ProjectContextTestFactory.CreateUnknownVersionUnityProject();
 
         var result = await evaluator.ObserveAsync(
-            CreateProject(),
+            unityProject,
             IndexFreshnessTarget.AssetSearchLookup,
             "old-asset-search-hash",
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(IndexFreshness.Stale, result.Freshness);
-        Assert.Equal(0, inputProvider.CoreCallCount);
-        Assert.Equal(1, inputProvider.FullCallCount);
+        ReadIndexFreshnessInvocationAssert.FullInputFingerprintComputedOnce(
+            inputProvider,
+            unityProject);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task ObserveSceneTreeLite_ReturnsFresh_WhenSceneSourceHashMatches ()
     {
-        var sceneHashProvider = new StubReadIndexSceneSourceHashProvider
+        var sceneHashProvider = new RecordingReadIndexSceneSourceHashProvider
         {
             SourceHash = "scene-hash",
         };
-        var evaluator = new ReadIndexFreshnessEvaluator(new StubReadIndexInputFingerprintProvider(), sceneHashProvider);
+        var evaluator = new ReadIndexFreshnessEvaluator(new RecordingReadIndexInputFingerprintProvider(), sceneHashProvider);
+        var unityProject = ProjectContextTestFactory.CreateUnknownVersionUnityProject();
 
         var result = await evaluator.ObserveSceneTreeLiteAsync(
-            CreateProject(),
+            unityProject,
             "Assets/Scenes/Main.unity",
             "scene-hash",
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(IndexFreshness.Fresh, result.Freshness);
-        Assert.Equal(1, sceneHashProvider.CallCount);
-    }
-
-    private static ResolvedUnityProjectContext CreateProject ()
-    {
-        return new ResolvedUnityProjectContext(
-            UnityProjectRoot: "/repo/UnityProject",
-            RepositoryRoot: "/repo",
-            ProjectFingerprint: "project-fingerprint",
-            PathSource: UnityProjectPathSource.CommandOption);
+        ReadIndexFreshnessInvocationAssert.SceneSourceHashComputedOnce(
+            sceneHashProvider,
+            unityProject,
+            "Assets/Scenes/Main.unity");
     }
 
     private static ReadIndexCoreInputHashSnapshot CreateCoreSnapshot (string combinedHash)
@@ -120,49 +118,4 @@ public sealed class ReadIndexFreshnessEvaluatorTests
             CombinedHash: "combined-hash");
     }
 
-    private sealed class StubReadIndexInputFingerprintProvider : IReadIndexInputFingerprintProvider
-    {
-        public int CoreCallCount { get; private set; }
-
-        public int FullCallCount { get; private set; }
-
-        public ReadIndexCoreInputHashSnapshot? CoreSnapshot { get; set; }
-
-        public ReadIndexInputHashSnapshot? Snapshot { get; set; }
-
-        public ValueTask<ReadIndexCoreInputHashSnapshot?> TryComputeCoreAsync (
-            ResolvedUnityProjectContext unityProject,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            CoreCallCount++;
-            return ValueTask.FromResult(CoreSnapshot);
-        }
-
-        public ValueTask<ReadIndexInputHashSnapshot?> TryComputeAsync (
-            ResolvedUnityProjectContext unityProject,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            FullCallCount++;
-            return ValueTask.FromResult(Snapshot);
-        }
-    }
-
-    private sealed class StubReadIndexSceneSourceHashProvider : IReadIndexSceneSourceHashProvider
-    {
-        public int CallCount { get; private set; }
-
-        public string? SourceHash { get; set; }
-
-        public ValueTask<string?> TryComputeAsync (
-            ResolvedUnityProjectContext unityProject,
-            string scenePath,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            CallCount++;
-            return ValueTask.FromResult(SourceHash);
-        }
-    }
 }

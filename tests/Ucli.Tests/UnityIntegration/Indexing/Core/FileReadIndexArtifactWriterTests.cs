@@ -2,6 +2,7 @@ using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Json;
 using MackySoft.Ucli.Infrastructure.Storage;
+using MackySoft.Ucli.Tests.Helpers.Indexing;
 using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 
 namespace MackySoft.Ucli.Tests.Index;
@@ -9,7 +10,7 @@ namespace MackySoft.Ucli.Tests.Index;
 public sealed class FileReadIndexArtifactWriterTests
 {
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task WriteOpsCatalog_WithManifest_WritesCatalogAndManifest ()
     {
         using var scope = TestDirectories.CreateTempScope("read-index-writer", "ops");
@@ -17,7 +18,7 @@ public sealed class FileReadIndexArtifactWriterTests
         var generatedAtUtc = DateTimeOffset.Parse("2026-03-08T00:00:00+00:00");
         IReadOnlyList<IndexOpEntryJsonContract> operations =
         [
-            CreateGoDescribeEntry(),
+            ReadIndexOperationTestFactory.CreateGoDescribeEntry(),
         ];
         var snapshot = CreateSnapshot();
 
@@ -31,7 +32,7 @@ public sealed class FileReadIndexArtifactWriterTests
             CancellationToken.None);
 
         var reader = new FileReadIndexArtifactReader();
-        var project = CreateProject(scope, "fingerprint");
+        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, "fingerprint");
         var catalogResult = await reader.ReadOpsCatalogAsync(project, CancellationToken.None);
         var manifestResult = await reader.ReadInputsManifestAsync(project, CancellationToken.None);
 
@@ -45,7 +46,7 @@ public sealed class FileReadIndexArtifactWriterTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task WriteOpsCatalog_WithoutManifest_WritesCatalogOnly ()
     {
         using var scope = TestDirectories.CreateTempScope("read-index-writer", "ops-no-manifest");
@@ -53,7 +54,7 @@ public sealed class FileReadIndexArtifactWriterTests
         var generatedAtUtc = DateTimeOffset.Parse("2026-03-08T00:00:00+00:00");
         IReadOnlyList<IndexOpEntryJsonContract> operations =
         [
-            CreateGoDescribeEntry(),
+            ReadIndexOperationTestFactory.CreateGoDescribeEntry(),
         ];
 
         await writer.WriteOpsCatalogAsync(
@@ -66,7 +67,7 @@ public sealed class FileReadIndexArtifactWriterTests
             CancellationToken.None);
 
         var reader = new FileReadIndexArtifactReader();
-        var project = CreateProject(scope, "fingerprint");
+        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, "fingerprint");
         var catalogResult = await reader.ReadOpsCatalogAsync(project, CancellationToken.None);
         var manifestResult = await reader.ReadInputsManifestAsync(project, CancellationToken.None);
 
@@ -78,14 +79,14 @@ public sealed class FileReadIndexArtifactWriterTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task WriteOpsCatalog_WhenCatalogWriteFails_RestoresExistingDescribeArtifact ()
     {
         using var scope = TestDirectories.CreateTempScope("read-index-writer", "ops-catalog-write-fails");
         var writer = CreateWriter();
         var reader = new FileReadIndexArtifactReader();
-        var project = CreateProject(scope, "fingerprint");
-        var oldOperation = CreateGoDescribeEntry();
+        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, "fingerprint");
+        var oldOperation = ReadIndexOperationTestFactory.CreateGoDescribeEntry();
         var newOperation = oldOperation with { Description = "Updated operation description." };
 
         await writer.WriteOpsCatalogAsync(
@@ -97,7 +98,8 @@ public sealed class FileReadIndexArtifactWriterTests
             manifestInputSnapshot: null,
             CancellationToken.None);
 
-        var failingWriter = CreateWriter(new ThrowingOpsCatalogJsonContractWriter());
+        var failingWriter = CreateWriter(new ThrowingJsonContractWriter<IndexOpsCatalogJsonContract>(
+            new InvalidOperationException("catalog write failed.")));
 
         await Assert.ThrowsAsync<InvalidOperationException>(async () => await failingWriter.WriteOpsCatalogAsync(
             scope.FullPath,
@@ -123,7 +125,7 @@ public sealed class FileReadIndexArtifactWriterTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task WriteAssetLookups_WritesLookupFilesAndManifest ()
     {
         using var scope = TestDirectories.CreateTempScope("read-index-writer", "assets");
@@ -158,7 +160,7 @@ public sealed class FileReadIndexArtifactWriterTests
             CancellationToken.None);
 
         var reader = new FileReadIndexArtifactReader();
-        var project = CreateProject(scope, "fingerprint");
+        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, "fingerprint");
         var assetSearchResult = await reader.ReadAssetSearchLookupAsync(project, CancellationToken.None);
         var guidPathResult = await reader.ReadGuidPathLookupAsync(project, CancellationToken.None);
         var manifestResult = await reader.ReadInputsManifestAsync(project, CancellationToken.None);
@@ -173,7 +175,7 @@ public sealed class FileReadIndexArtifactWriterTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task WriteSceneTreeLite_WritesLookupAtNormalizedScenePath ()
     {
         using var scope = TestDirectories.CreateTempScope("read-index-writer", "scene");
@@ -198,7 +200,7 @@ public sealed class FileReadIndexArtifactWriterTests
             CancellationToken.None);
 
         var reader = new FileReadIndexArtifactReader();
-        var project = CreateProject(scope, "fingerprint");
+        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, "fingerprint");
         var result = await reader.ReadSceneTreeLiteLookupAsync(
             project,
             "Assets/Scenes/Main.unity",
@@ -216,7 +218,7 @@ public sealed class FileReadIndexArtifactWriterTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task WriteSceneTreeLite_WhenTargetSceneIsUpdated_PreservesOtherSceneLookup ()
     {
         using var scope = TestDirectories.CreateTempScope("read-index-writer", "scene-target");
@@ -251,7 +253,7 @@ public sealed class FileReadIndexArtifactWriterTests
             CancellationToken.None);
 
         var reader = new FileReadIndexArtifactReader();
-        var project = CreateProject(scope, "fingerprint");
+        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, "fingerprint");
         var firstResult = await reader.ReadSceneTreeLiteLookupAsync(
             project,
             "Assets/Scenes/First.unity",
@@ -283,42 +285,6 @@ public sealed class FileReadIndexArtifactWriterTests
             new IndexInputsManifestJsonContractWriter());
     }
 
-    private static ResolvedUnityProjectContext CreateProject (
-        TestDirectoryScope scope,
-        string fingerprint)
-    {
-        return new ResolvedUnityProjectContext(
-            UnityProjectRoot: scope.CreateDirectory("UnityProject"),
-            RepositoryRoot: scope.FullPath,
-            ProjectFingerprint: fingerprint,
-            PathSource: UnityProjectPathSource.CommandOption);
-    }
-
-    private static IndexOpEntryJsonContract CreateGoDescribeEntry ()
-    {
-        return new IndexOpEntryJsonContract(
-            Name: UcliPrimitiveOperationNames.GoDescribe,
-            Kind: "query",
-            Policy: "safe",
-            ArgsSchemaJson: """{"type":"object"}""",
-            ResultSchemaJson: """{"type":"object"}""")
-        {
-            Description = "Returns a GameObject description including components and child hierarchy.",
-            Inputs = Array.Empty<UcliOperationInputContract>(),
-            ResultContract = UcliOperationResultContract.One<GameObjectDescriptionResult>("GameObject description result."),
-            Assurance = new UcliOperationAssuranceContract(
-                sideEffects: Array.Empty<string>(),
-                touchedKinds: Array.Empty<string>(),
-                planMode: "observesLiveUnity",
-                planSemantics: "Validate arguments and observe Unity state without applying mutation.",
-                callSemantics: "Read Unity state without applying mutation.",
-                touchedContract: "Returns no touched resources.",
-                readPostconditionContract: "Does not stale read surfaces by itself.",
-                failureSemantics: "Failure means the observation was not fully produced.",
-                dangerousNotes: Array.Empty<string>()),
-        };
-    }
-
     private static IndexSceneTreeLiteNodeJsonContract CreateSceneRoot (string name)
     {
         return new IndexSceneTreeLiteNodeJsonContract(
@@ -341,12 +307,4 @@ public sealed class FileReadIndexArtifactWriterTests
             CombinedHash: "combined");
     }
 
-    private sealed class ThrowingOpsCatalogJsonContractWriter : IJsonContractWriter<IndexOpsCatalogJsonContract>
-    {
-        public string Write (IndexOpsCatalogJsonContract contract)
-        {
-            ArgumentNullException.ThrowIfNull(contract);
-            throw new InvalidOperationException("catalog write failed.");
-        }
-    }
 }

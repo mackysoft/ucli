@@ -13,7 +13,7 @@ namespace MackySoft.Ucli.Tests;
 public sealed class TestRunArtifactsServiceTests
 {
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task Prepare_CreatesRunScopedArtifactsDirectoryUnderFingerprintPath ()
     {
         using var scope = TestDirectories.CreateTempScope("test-run-artifacts", "prepare-run-dir");
@@ -51,7 +51,7 @@ public sealed class TestRunArtifactsServiceTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task Complete_UpdatesFinishedAtInMetaJson ()
     {
         using var scope = TestDirectories.CreateTempScope("test-run-artifacts", "complete-meta");
@@ -80,11 +80,10 @@ public sealed class TestRunArtifactsServiceTests
         var testSettingsPath = scope.WriteFile("UnityProject/ProjectSettings/TestSettings.json", "{}");
 
         return new ResolvedTestRunConfiguration(
-            UnityProject: new ResolvedUnityProjectContext(
-                UnityProjectRoot: projectPath,
-                RepositoryRoot: scope.FullPath,
-                ProjectFingerprint: "abc123",
-                PathSource: UnityProjectPathSource.CommandOption),
+            UnityProject: ResolvedUnityProjectContextTestFactory.Create(
+                unityProjectRoot: projectPath,
+                repositoryRoot: scope.FullPath,
+                projectFingerprint: "abc123"),
             Mode: UnityExecutionMode.Oneshot,
             UnityVersion: "6000.1.4f1",
             UnityEditorPath: scope.GetPath("Editors/6000.1.4f1/Editor/Unity"),

@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Application.Shared.Git;
 
 namespace MackySoft.Ucli.Tests.Git;
 
@@ -9,8 +10,17 @@ public sealed class GitWorktreeListPorcelainParserTests
     public void Parse_WithAttachedAndDetachedWorktrees_ReturnsParsedEntries ()
     {
         var parser = new GitWorktreeListPorcelainParser();
-        var expectedFirstWorktreePath = Path.GetFullPath("/repo/wt-b");
-        var expectedSecondWorktreePath = Path.GetFullPath("/repo/wt-a");
+        var expectedWorktrees = new[]
+        {
+            new GitWorktreeInfo(
+                Path.GetFullPath("/repo/wt-b"),
+                "bbbbbbbb",
+                "refs/heads/feature/worktree-b"),
+            new GitWorktreeInfo(
+                Path.GetFullPath("/repo/wt-a"),
+                "aaaaaaaa",
+                BranchRef: null),
+        };
 
         var result = parser.Parse(
             """
@@ -24,20 +34,7 @@ public sealed class GitWorktreeListPorcelainParserTests
             """);
 
         Assert.True(result.IsSuccess);
-        Assert.Collection(
-            result.Worktrees!,
-            item =>
-            {
-                Assert.Equal(expectedFirstWorktreePath, item.WorktreePath);
-                Assert.Equal("bbbbbbbb", item.Head);
-                Assert.Equal("refs/heads/feature/worktree-b", item.BranchRef);
-            },
-            item =>
-            {
-                Assert.Equal(expectedSecondWorktreePath, item.WorktreePath);
-                Assert.Equal("aaaaaaaa", item.Head);
-                Assert.Null(item.BranchRef);
-            });
+        Assert.Equal<GitWorktreeInfo>(expectedWorktrees, result.Worktrees!);
     }
 
     [Fact]

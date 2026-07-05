@@ -16,6 +16,7 @@ global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Prefligh
 global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Recovery;
 global using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Contracts;
 global using MackySoft.Ucli.Application.Features.Requests.Resolve.UseCases.Resolve.Contracts;
+global using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Conversion;
 global using MackySoft.Ucli.Application.Features.Status.Common.Contracts;
 global using MackySoft.Ucli.Application.Features.Testing.Run.Common.Contracts;
 global using MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun.Contracts;
@@ -33,3 +34,4 @@ global using MackySoft.Ucli.Contracts.Daemon;
 global using MackySoft.Ucli.Contracts.Index;
 global using MackySoft.Ucli.Contracts.Operations;
 global using MackySoft.Ucli.Contracts.Text;
+global using MackySoft.Ucli.TestSupport;

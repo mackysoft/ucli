@@ -1,0 +1,73 @@
+using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
+using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Streaming;
+using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Unity;
+using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Validation;
+using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Tests.Helpers.Daemon;
+
+namespace MackySoft.Ucli.Tests.Logs;
+
+internal static class LogsUnityServiceTestSupport
+{
+    public static RecordingDaemonCommandExecutionContextResolver CreateResolver (int timeoutMilliseconds = 3000)
+    {
+        return new RecordingDaemonCommandExecutionContextResolver(
+            DaemonCommandExecutionContextResolutionResult.Success(
+                DaemonCommandExecutionContextTestFactory.Create(
+                    timeoutMilliseconds: timeoutMilliseconds,
+                    unityVersion: ProjectIdentityDefaults.UnknownUnityVersion)));
+    }
+
+    public static IpcUnityLogEvent CreateEvent (
+        string cursor,
+        string message,
+        string timestamp = "2026-03-05T10:30:00+09:00")
+    {
+        return new IpcUnityLogEvent(
+            Timestamp: timestamp,
+            Level: "info",
+            Source: "runtime",
+            Message: message,
+            StackTrace: null,
+            Cursor: cursor);
+    }
+
+    public static IpcUnityLogsReadResponse CreatePayload (
+        IpcUnityLogEvent[] events,
+        string nextCursor)
+    {
+        return new IpcUnityLogsReadResponse(events, nextCursor);
+    }
+
+    public static LogsUnityService CreateService (
+        IDaemonCommandExecutionContextResolver resolver,
+        IUnityLogsClient unityLogsClient,
+        ILogsUnityRequestValidator? requestValidator = null)
+    {
+        return new LogsUnityService(
+            resolver,
+            unityLogsClient,
+            requestValidator ?? new LogsUnityRequestValidator(),
+            new DaemonLogsStreamTerminationPolicy());
+    }
+
+    public static LogsUnityService CreateZeroPollIntervalService (
+        IDaemonCommandExecutionContextResolver resolver,
+        IUnityLogsClient unityLogsClient)
+    {
+        return CreateService(
+            resolver,
+            unityLogsClient,
+            LogsStreamRequestValidatorTestAdapters.CreateUnityZeroPollInterval());
+    }
+
+    public static LogsUnityService CreateImmediateIdleStreamService (
+        IDaemonCommandExecutionContextResolver resolver,
+        IUnityLogsClient unityLogsClient)
+    {
+        return CreateService(
+            resolver,
+            unityLogsClient,
+            LogsStreamRequestValidatorTestAdapters.CreateUnityZeroPollInterval(TimeSpan.Zero));
+    }
+}

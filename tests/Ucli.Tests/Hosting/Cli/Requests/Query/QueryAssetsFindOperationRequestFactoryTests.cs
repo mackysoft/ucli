@@ -7,20 +7,20 @@ namespace MackySoft.Ucli.Tests.Hosting.Cli.Requests.Query;
 
 public sealed class QueryAssetsFindOperationRequestFactoryTests
 {
+    private const string CommandName = "query assets find";
+
+    private const string OperationId = "query.assets.find";
+
+    private const string OperationName = "ucli.assets.find";
+
     [Fact]
     [Trait("Size", "Small")]
     public void Create_WhenNoFilterIsProvided_ReturnsInvalidArgument ()
     {
-        var result = QueryAssetsFindOperationRequestFactory.Create(
-            commandName: "query assets find",
-            operationId: "query.assets.find",
-            operationName: "ucli.assets.find",
+        var result = Create(
             type: null,
             pathPrefix: null,
-            nameContains: null,
-            all: false,
-            limit: null,
-            after: null);
+            nameContains: null);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Operation);
@@ -38,16 +38,10 @@ public sealed class QueryAssetsFindOperationRequestFactoryTests
         string value,
         string expectedOptionName)
     {
-        var result = QueryAssetsFindOperationRequestFactory.Create(
-            commandName: "query assets find",
-            operationId: "query.assets.find",
-            operationName: "ucli.assets.find",
+        var result = Create(
             type: expectedOptionName == "type" ? value : "Texture2D",
             pathPrefix: expectedOptionName == "pathPrefix" ? value : null,
-            nameContains: expectedOptionName == "nameContains" ? value : null,
-            all: false,
-            limit: null,
-            after: null);
+            nameContains: expectedOptionName == "nameContains" ? value : null);
 
         Assert.False(result.IsSuccess);
         Assert.NotNull(result.Error);
@@ -60,23 +54,17 @@ public sealed class QueryAssetsFindOperationRequestFactoryTests
     [Trait("Size", "Small")]
     public void Create_WhenFiltersAreValid_ReturnsNormalizedOperationWithDefaultWindow ()
     {
-        var result = QueryAssetsFindOperationRequestFactory.Create(
-            commandName: "query assets find",
-            operationId: "query.assets.find",
-            operationName: "ucli.assets.find",
+        var result = Create(
             type: "Texture2D",
             pathPrefix: "Assets/UI",
-            nameContains: "Button",
-            all: false,
-            limit: null,
-            after: null);
+            nameContains: "Button");
 
         Assert.True(result.IsSuccess);
         Assert.Null(result.Error);
         var operation = Assert.IsType<QueryAssetsFindOperationRequest>(result.Operation);
-        Assert.Equal("query assets find", operation.CommandName);
-        Assert.Equal("query.assets.find", operation.OperationId);
-        Assert.Equal("ucli.assets.find", operation.OperationName);
+        Assert.Equal(CommandName, operation.CommandName);
+        Assert.Equal(OperationId, operation.OperationId);
+        Assert.Equal(OperationName, operation.OperationName);
         Assert.Equal("Texture2D", operation.Filter.TypeId);
         Assert.Equal("Assets/UI", operation.Filter.PathPrefix);
         Assert.Equal("Button", operation.Filter.NameContains);
@@ -88,39 +76,11 @@ public sealed class QueryAssetsFindOperationRequestFactoryTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Create_WhenAllIsCombinedWithLimit_ReturnsWindowingError ()
-    {
-        var result = QueryAssetsFindOperationRequestFactory.Create(
-            commandName: "query assets find",
-            operationId: "query.assets.find",
-            operationName: "ucli.assets.find",
-            type: "Texture2D",
-            pathPrefix: null,
-            nameContains: null,
-            all: true,
-            limit: 10,
-            after: null);
-
-        Assert.False(result.IsSuccess);
-        Assert.NotNull(result.Error);
-        Assert.Equal(ExecutionErrorKind.InvalidArgument, result.Error!.Kind);
-        Assert.Contains("'--all' cannot be combined", result.Error.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
     public void Create_WhenAllIsTrue_ReturnsUnboundedWindow ()
     {
-        var result = QueryAssetsFindOperationRequestFactory.Create(
-            commandName: "query assets find",
-            operationId: "query.assets.find",
-            operationName: "ucli.assets.find",
-            type: "Texture2D",
-            pathPrefix: null,
-            nameContains: null,
+        var result = Create(
             all: true,
-            limit: null,
-            after: null);
+            limit: null);
 
         Assert.True(result.IsSuccess);
         var operation = Assert.IsType<QueryAssetsFindOperationRequest>(result.Operation);
@@ -134,16 +94,7 @@ public sealed class QueryAssetsFindOperationRequestFactoryTests
     [Trait("Size", "Small")]
     public void Create_WhenLimitIsProvided_ReturnsBoundedWindow ()
     {
-        var result = QueryAssetsFindOperationRequestFactory.Create(
-            commandName: "query assets find",
-            operationId: "query.assets.find",
-            operationName: "ucli.assets.find",
-            type: "Texture2D",
-            pathPrefix: null,
-            nameContains: null,
-            all: false,
-            limit: 42,
-            after: null);
+        var result = Create(limit: 42);
 
         Assert.True(result.IsSuccess);
         var operation = Assert.IsType<QueryAssetsFindOperationRequest>(result.Operation);
@@ -157,14 +108,7 @@ public sealed class QueryAssetsFindOperationRequestFactoryTests
     {
         var cursor = BoundedWindowCursorCodec.Encode(123);
 
-        var result = QueryAssetsFindOperationRequestFactory.Create(
-            commandName: "query assets find",
-            operationId: "query.assets.find",
-            operationName: "ucli.assets.find",
-            type: "Texture2D",
-            pathPrefix: null,
-            nameContains: null,
-            all: false,
+        var result = Create(
             limit: 50,
             after: cursor);
 
@@ -176,72 +120,57 @@ public sealed class QueryAssetsFindOperationRequestFactoryTests
 
     [Theory]
     [Trait("Size", "Small")]
-    [InlineData(0)]
-    [InlineData(BoundedWindowConstants.MaxLimit + 1)]
-    public void Create_WhenLimitIsOutOfRange_ReturnsWindowingError (int limit)
+    [InlineData(true, 10, null, "'--all' cannot be combined")]
+    [InlineData(false, 0, null, "limit must be between")]
+    [InlineData(false, BoundedWindowConstants.MaxLimit + 1, null, "limit must be between")]
+    [InlineData(false, null, "not-a-cursor", "after cursor is invalid")]
+    [InlineData(false, null, "outer-whitespace", "after cursor is invalid")]
+    [InlineData(true, null, "valid-cursor", "'--all' cannot be combined")]
+    public void Create_WhenWindowOptionsAreInvalid_ReturnsWindowingError (
+        bool all,
+        int? limit,
+        string? afterCase,
+        string expectedMessage)
     {
-        var result = QueryAssetsFindOperationRequestFactory.Create(
-            commandName: "query assets find",
-            operationId: "query.assets.find",
-            operationName: "ucli.assets.find",
-            type: "Texture2D",
-            pathPrefix: null,
-            nameContains: null,
-            all: false,
+        var result = Create(
+            all: all,
             limit: limit,
-            after: null);
+            after: CreateAfterCursor(afterCase));
 
         Assert.False(result.IsSuccess);
         Assert.NotNull(result.Error);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, result.Error!.Kind);
-        Assert.Contains("limit must be between", result.Error.Message, StringComparison.Ordinal);
+        Assert.Contains(expectedMessage, result.Error.Message, StringComparison.Ordinal);
     }
 
-    [Theory]
-    [Trait("Size", "Small")]
-    [InlineData("not-a-cursor")]
-    [InlineData("outer-whitespace")]
-    public void Create_WhenAfterCursorIsInvalid_ReturnsWindowingError (string cursorCase)
+    private static QueryAssetsFindOperationRequestCreationResult Create (
+        string? type = "Texture2D",
+        string? pathPrefix = null,
+        string? nameContains = null,
+        bool all = false,
+        int? limit = null,
+        string? after = null)
     {
-        var after = cursorCase == "outer-whitespace"
-            ? " " + BoundedWindowCursorCodec.Encode(1)
-            : cursorCase;
-
-        var result = QueryAssetsFindOperationRequestFactory.Create(
-            commandName: "query assets find",
-            operationId: "query.assets.find",
-            operationName: "ucli.assets.find",
-            type: "Texture2D",
-            pathPrefix: null,
-            nameContains: null,
-            all: false,
-            limit: null,
-            after: after);
-
-        Assert.False(result.IsSuccess);
-        Assert.NotNull(result.Error);
-        Assert.Equal(ExecutionErrorKind.InvalidArgument, result.Error!.Kind);
-        Assert.Contains("after cursor is invalid", result.Error.Message, StringComparison.Ordinal);
+        return QueryAssetsFindOperationRequestFactory.Create(
+            CommandName,
+            OperationId,
+            OperationName,
+            type,
+            pathPrefix,
+            nameContains,
+            all,
+            limit,
+            after);
     }
 
-    [Fact]
-    [Trait("Size", "Small")]
-    public void Create_WhenAllIsCombinedWithAfter_ReturnsWindowingError ()
+    private static string? CreateAfterCursor (string? afterCase)
     {
-        var result = QueryAssetsFindOperationRequestFactory.Create(
-            commandName: "query assets find",
-            operationId: "query.assets.find",
-            operationName: "ucli.assets.find",
-            type: "Texture2D",
-            pathPrefix: null,
-            nameContains: null,
-            all: true,
-            limit: null,
-            after: BoundedWindowCursorCodec.Encode(1));
-
-        Assert.False(result.IsSuccess);
-        Assert.NotNull(result.Error);
-        Assert.Equal(ExecutionErrorKind.InvalidArgument, result.Error!.Kind);
-        Assert.Contains("'--all' cannot be combined", result.Error.Message, StringComparison.Ordinal);
+        return afterCase switch
+        {
+            null => null,
+            "valid-cursor" => BoundedWindowCursorCodec.Encode(1),
+            "outer-whitespace" => " " + BoundedWindowCursorCodec.Encode(1),
+            _ => afterCase,
+        };
     }
 }

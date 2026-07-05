@@ -4,6 +4,21 @@ namespace MackySoft.Ucli.Infrastructure.Tests.Paths;
 
 public sealed class PathNormalizerTests
 {
+    private static readonly string?[] RelativeOrEmptyPathValues =
+    [
+        null,
+        string.Empty,
+        "   ",
+        "relative/path",
+    ];
+
+    private static readonly string?[] EmptyPathValues =
+    [
+        null,
+        string.Empty,
+        " ",
+    ];
+
     [Fact]
     [Trait("Size", "Small")]
     public void IsFullyQualifiedPath_WithFullPath_ReturnsTrue ()
@@ -15,17 +30,16 @@ public sealed class PathNormalizerTests
         Assert.True(result);
     }
 
-    [Theory]
+    [Fact]
     [Trait("Size", "Small")]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData("   ")]
-    [InlineData("relative/path")]
-    public void IsFullyQualifiedPath_WithRelativeOrEmptyPath_ReturnsFalse (string? path)
+    public void IsFullyQualifiedPath_WithRelativeOrEmptyPath_ReturnsFalse ()
     {
-        var result = PathNormalizer.IsFullyQualifiedPath(path);
+        foreach (var path in RelativeOrEmptyPathValues)
+        {
+            var result = PathNormalizer.IsFullyQualifiedPath(path);
 
-        Assert.False(result);
+            Assert.False(result);
+        }
     }
 
     [Fact]
@@ -51,18 +65,18 @@ public sealed class PathNormalizerTests
         Assert.Equal(Path.GetFullPath(Path.Combine(basePath, "ProjectSettings", "TestSettings.json")), result.FullPath);
     }
 
-    [Theory]
+    [Fact]
     [Trait("Size", "Small")]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData(" ")]
-    public void TryNormalizeFullPath_WithEmptyPath_ReturnsEmptyPathFailure (string? pathValue)
+    public void TryNormalizeFullPath_WithEmptyPath_ReturnsEmptyPathFailure ()
     {
-        var result = PathNormalizer.TryNormalizeFullPath(pathValue);
+        foreach (var pathValue in EmptyPathValues)
+        {
+            var result = PathNormalizer.TryNormalizeFullPath(pathValue);
 
-        Assert.False(result.IsSuccess);
-        Assert.Equal(PathNormalizationFailureKind.EmptyPath, result.FailureKind);
-        Assert.Null(result.FullPath);
+            Assert.False(result.IsSuccess);
+            Assert.Equal(PathNormalizationFailureKind.EmptyPath, result.FailureKind);
+            Assert.Null(result.FullPath);
+        }
     }
 
     [Fact]

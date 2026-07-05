@@ -2,8 +2,6 @@ using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Phase;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
-using MackySoft.Ucli.Application.Shared.Configuration;
-using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -23,8 +21,14 @@ public sealed class PhaseExecutionPreflightServiceTests
             CreateOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe, OperationPolicy.Safe),
         ];
         var service = new PhaseExecutionPreflightService(
-            new StubOperationCatalog(operations),
-            new StubRequestStaticValidator(ValidationResult.Success()));
+            new RecordingOperationCatalog
+            {
+                Operations = operations,
+            },
+            new RecordingRequestStaticValidator
+            {
+                Result = ValidationResult.Success(),
+            });
 
         var result = await service.PrepareAsync(
             preparedRequest,
@@ -59,8 +63,14 @@ public sealed class PhaseExecutionPreflightServiceTests
                 "step-1"),
         ];
         var service = new PhaseExecutionPreflightService(
-            new StubOperationCatalog([operation]),
-            new StubRequestStaticValidator(new ValidationResult(validationErrors)));
+            new RecordingOperationCatalog
+            {
+                Operations = [operation],
+            },
+            new RecordingRequestStaticValidator
+            {
+                Result = new ValidationResult(validationErrors),
+            });
 
         var result = await service.PrepareAsync(
             preparedRequest,
@@ -84,8 +94,17 @@ public sealed class PhaseExecutionPreflightServiceTests
         var preparedRequest = CreatePreparedRequestContext();
         var error = ExecutionError.InternalError("operation metadata could not be loaded.");
         var service = new PhaseExecutionPreflightService(
-            new StubOperationCatalog([CreateOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe, OperationPolicy.Safe)]),
-            new StubRequestStaticValidator(ValidationResult.Failure(error)));
+            new RecordingOperationCatalog
+            {
+                Operations =
+                [
+                    CreateOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe, OperationPolicy.Safe),
+                ],
+            },
+            new RecordingRequestStaticValidator
+            {
+                Result = ValidationResult.Failure(error),
+            });
 
         var result = await service.PrepareAsync(
             preparedRequest,
@@ -107,8 +126,14 @@ public sealed class PhaseExecutionPreflightServiceTests
     {
         var preparedRequest = CreatePreparedRequestContext();
         var service = new PhaseExecutionPreflightService(
-            new ThrowingOperationCatalog(),
-            new SpyRequestStaticValidator());
+            new RecordingOperationCatalog
+            {
+                ProjectGetAllException = new InvalidOperationException("catalog load failed."),
+            },
+            new RecordingRequestStaticValidator
+            {
+                Result = ValidationResult.Success(),
+            });
 
         var result = await service.PrepareAsync(
             preparedRequest,
@@ -130,9 +155,15 @@ public sealed class PhaseExecutionPreflightServiceTests
     {
         var preparedRequest = CreatePreparedRequestContext();
         var service = new PhaseExecutionPreflightService(
-            new TypedFailingOperationCatalog(new OperationCatalogLoadException(
-                ExecutionError.InvalidArgument("Mode must be auto, daemon, or oneshot."))),
-            new SpyRequestStaticValidator());
+            new RecordingOperationCatalog
+            {
+                ProjectGetAllException = new OperationCatalogLoadException(
+                    ExecutionError.InvalidArgument("Mode must be auto, daemon, or oneshot.")),
+            },
+            new RecordingRequestStaticValidator
+            {
+                Result = ValidationResult.Success(),
+            });
 
         var result = await service.PrepareAsync(
             preparedRequest,
@@ -154,10 +185,16 @@ public sealed class PhaseExecutionPreflightServiceTests
     {
         var preparedRequest = CreatePreparedRequestContext();
         var service = new PhaseExecutionPreflightService(
-            new TypedFailingOperationCatalog(new OperationCatalogLoadException(
-                ExecutionError.InternalError("Daemon is not running for mode=daemon."),
-                UnityExecutionModeDecisionErrorCodes.DaemonNotRunning)),
-            new SpyRequestStaticValidator());
+            new RecordingOperationCatalog
+            {
+                ProjectGetAllException = new OperationCatalogLoadException(
+                    ExecutionError.InternalError("Daemon is not running for mode=daemon."),
+                    UnityExecutionModeDecisionErrorCodes.DaemonNotRunning),
+            },
+            new RecordingRequestStaticValidator
+            {
+                Result = ValidationResult.Success(),
+            });
 
         var result = await service.PrepareAsync(
             preparedRequest,
@@ -184,8 +221,14 @@ public sealed class PhaseExecutionPreflightServiceTests
         timeProvider.Advance(TimeSpan.FromMilliseconds(1));
 
         var preparedRequest = CreatePreparedRequestContext();
-        var operationCatalog = new SpyOperationCatalog();
-        var validationService = new SpyRequestStaticValidator();
+        var operationCatalog = new RecordingOperationCatalog
+        {
+            Operations = [],
+        };
+        var validationService = new RecordingRequestStaticValidator
+        {
+            Result = ValidationResult.Success(),
+        };
         var service = new PhaseExecutionPreflightService(operationCatalog, validationService);
 
         var result = await service.PrepareAsync(
@@ -194,13 +237,11 @@ public sealed class PhaseExecutionPreflightServiceTests
             deadline: deadline,
             cancellationToken: CancellationToken.None);
 
-        Assert.False(result.IsSuccess);
-        Assert.NotNull(result.Error);
-        Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
-        Assert.NotNull(result.PreparedRequest);
-        Assert.Empty(result.PreparedRequest!.OperationsByName);
-        Assert.Equal(0, operationCatalog.CallCount);
-        Assert.Equal(0, validationService.CallCount);
+        PhaseExecutionPreflightInvocationAssert.DeadlineExpiredBeforeCatalogLoad(
+            result,
+            preparedRequest,
+            operationCatalog,
+            validationService);
     }
 
     [Fact]
@@ -211,9 +252,17 @@ public sealed class PhaseExecutionPreflightServiceTests
         var timeProvider = new ManualTimeProvider();
         var deadline = ExecutionDeadline.Start(TimeSpan.FromMilliseconds(30000), timeProvider);
         var preparedRequest = CreatePreparedRequestContext();
-        var operationCatalog = new SpyOperationCatalog(
-            [CreateOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe, OperationPolicy.Safe)]);
-        var validationService = new SpyRequestStaticValidator(ValidationResult.Success());
+        var operationCatalog = new RecordingOperationCatalog
+        {
+            Operations =
+            [
+                CreateOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe, OperationPolicy.Safe),
+            ],
+        };
+        var validationService = new RecordingRequestStaticValidator
+        {
+            Result = ValidationResult.Success(),
+        };
         var service = new PhaseExecutionPreflightService(operationCatalog, validationService);
 
         var result = await service.PrepareAsync(
@@ -224,14 +273,22 @@ public sealed class PhaseExecutionPreflightServiceTests
             cancellationToken: token);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(token, operationCatalog.ReceivedToken);
-        Assert.Equal(UnityExecutionMode.Daemon, operationCatalog.ReceivedMode);
-        Assert.Equal(TimeSpan.FromMilliseconds(30000), operationCatalog.ReceivedTimeout);
-        Assert.True(operationCatalog.ReceivedFailFast);
-        Assert.Equal(token, validationService.ReceivedToken);
-        Assert.Same(preparedRequest.Request, validationService.ReceivedRequest);
-        Assert.True(validationService.ReceivedCatalog!.IsAvailable);
-        Assert.Contains(validationService.ReceivedCatalog.Operations, operation => operation.Name == MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe);
+        OperationCatalogInvocationAssert.ProjectCatalogLoadedOnce(
+            operationCatalog,
+            preparedRequest.ProjectContext.UnityProject,
+            preparedRequest.ProjectContext.Config,
+            UnityExecutionMode.Daemon,
+            TimeSpan.FromMilliseconds(30000),
+            expectedFailFast: true,
+            expectedCancellationToken: token);
+
+        var validationInvocation = RequestStaticValidationInvocationAssert.PureStaticValidationRequestedOnce(
+            validationService,
+            expectedCatalogAvailable: true);
+        Assert.Equal(token, validationInvocation.CancellationToken);
+        Assert.Same(preparedRequest.Request, validationInvocation.Request);
+        Assert.Same(preparedRequest.ProjectContext.Config, validationInvocation.Config);
+        Assert.Contains(validationInvocation.Catalog.Operations, operation => operation.Name == MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe);
     }
 
     private static PreparedRequestContext CreatePreparedRequestContext ()
@@ -258,14 +315,7 @@ public sealed class PhaseExecutionPreflightServiceTests
                             },
                         })),
                 ]),
-            ProjectContext: new ProjectContext(
-                new ResolvedUnityProjectContext(
-                    UnityProjectRoot: "/tmp/project",
-                    RepositoryRoot: "/tmp/repository",
-                    ProjectFingerprint: "project-fingerprint",
-                    PathSource: UnityProjectPathSource.CommandOption),
-                UcliConfig.CreateDefault(),
-                ConfigSource.Default));
+            ProjectContext: ProjectContextTestFactory.CreateTemporaryFixtureProject());
     }
 
     private static UcliOperationDescriptor CreateOperationDescriptor (
@@ -279,207 +329,4 @@ public sealed class PhaseExecutionPreflightServiceTests
             """{"type":"object","additionalProperties":false}""");
     }
 
-    private sealed class StubOperationCatalog : IOperationCatalog
-    {
-        private readonly IReadOnlyList<UcliOperationDescriptor> operations;
-
-        public StubOperationCatalog (IReadOnlyList<UcliOperationDescriptor> operations)
-        {
-            this.operations = operations ?? throw new ArgumentNullException(nameof(operations));
-        }
-
-        public ValueTask<UcliOperationDescriptor?> GetAsync (string name, CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromResult(operations.FirstOrDefault(operation => string.Equals(operation.Name, name, StringComparison.Ordinal)));
-        }
-
-        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAllAsync (CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromResult(operations);
-        }
-
-        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAllAsync (
-            ResolvedUnityProjectContext unityProject,
-            UcliConfig config,
-            UnityExecutionMode mode = UnityExecutionMode.Auto,
-            TimeSpan? timeout = null,
-            bool failFast = false,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromResult(operations);
-        }
-    }
-
-    private sealed class SpyOperationCatalog : IOperationCatalog
-    {
-        private readonly IReadOnlyList<UcliOperationDescriptor> operations;
-
-        public SpyOperationCatalog ()
-            : this([])
-        {
-        }
-
-        public SpyOperationCatalog (IReadOnlyList<UcliOperationDescriptor> operations)
-        {
-            this.operations = operations ?? throw new ArgumentNullException(nameof(operations));
-        }
-
-        public int CallCount { get; private set; }
-
-        public CancellationToken ReceivedToken { get; private set; }
-
-        public UnityExecutionMode ReceivedMode { get; private set; }
-
-        public TimeSpan? ReceivedTimeout { get; private set; }
-
-        public bool ReceivedFailFast { get; private set; }
-
-        public ValueTask<UcliOperationDescriptor?> GetAsync (string name, CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromResult(operations.FirstOrDefault(operation => string.Equals(operation.Name, name, StringComparison.Ordinal)));
-        }
-
-        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAllAsync (CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromResult(operations);
-        }
-
-        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAllAsync (
-            ResolvedUnityProjectContext unityProject,
-            UcliConfig config,
-            UnityExecutionMode mode = UnityExecutionMode.Auto,
-            TimeSpan? timeout = null,
-            bool failFast = false,
-            CancellationToken cancellationToken = default)
-        {
-            CallCount++;
-            ReceivedMode = mode;
-            ReceivedTimeout = timeout;
-            ReceivedFailFast = failFast;
-            ReceivedToken = cancellationToken;
-            return ValueTask.FromResult(operations);
-        }
-    }
-
-    private sealed class ThrowingOperationCatalog : IOperationCatalog
-    {
-        public ValueTask<UcliOperationDescriptor?> GetAsync (string name, CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            throw new InvalidOperationException("catalog load failed.");
-        }
-
-        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAllAsync (CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            throw new InvalidOperationException("catalog load failed.");
-        }
-
-        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAllAsync (
-            ResolvedUnityProjectContext unityProject,
-            UcliConfig config,
-            UnityExecutionMode mode = UnityExecutionMode.Auto,
-            TimeSpan? timeout = null,
-            bool failFast = false,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            throw new InvalidOperationException("catalog load failed.");
-        }
-    }
-
-    private sealed class TypedFailingOperationCatalog : IOperationCatalog
-    {
-        private readonly Exception exception;
-
-        public TypedFailingOperationCatalog (Exception exception)
-        {
-            this.exception = exception ?? throw new ArgumentNullException(nameof(exception));
-        }
-
-        public ValueTask<UcliOperationDescriptor?> GetAsync (string name, CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            throw exception;
-        }
-
-        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAllAsync (CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            throw exception;
-        }
-
-        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAllAsync (
-            ResolvedUnityProjectContext unityProject,
-            UcliConfig config,
-            UnityExecutionMode mode = UnityExecutionMode.Auto,
-            TimeSpan? timeout = null,
-            bool failFast = false,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            throw exception;
-        }
-    }
-
-    private sealed class StubRequestStaticValidator : IRequestStaticValidator
-    {
-        private readonly ValidationResult result;
-
-        public StubRequestStaticValidator (ValidationResult result)
-        {
-            this.result = result ?? throw new ArgumentNullException(nameof(result));
-        }
-
-        public ValueTask<ValidationResult> ValidateAsync (
-            ValidateRequest request,
-            RequestStaticValidationCatalog catalog,
-            UcliConfig config,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromResult(result);
-        }
-    }
-
-    private sealed class SpyRequestStaticValidator : IRequestStaticValidator
-    {
-        private readonly ValidationResult result;
-
-        public SpyRequestStaticValidator ()
-            : this(ValidationResult.Success())
-        {
-        }
-
-        public SpyRequestStaticValidator (ValidationResult result)
-        {
-            this.result = result ?? throw new ArgumentNullException(nameof(result));
-        }
-
-        public int CallCount { get; private set; }
-
-        public CancellationToken ReceivedToken { get; private set; }
-
-        public ValidateRequest? ReceivedRequest { get; private set; }
-
-        public RequestStaticValidationCatalog? ReceivedCatalog { get; private set; }
-
-        public ValueTask<ValidationResult> ValidateAsync (
-            ValidateRequest request,
-            RequestStaticValidationCatalog catalog,
-            UcliConfig config,
-            CancellationToken cancellationToken = default)
-        {
-            CallCount++;
-            ReceivedToken = cancellationToken;
-            ReceivedRequest = request;
-            ReceivedCatalog = catalog;
-            return ValueTask.FromResult(result);
-        }
-    }
 }

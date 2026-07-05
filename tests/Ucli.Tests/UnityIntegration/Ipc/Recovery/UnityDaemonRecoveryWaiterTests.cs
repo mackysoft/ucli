@@ -14,7 +14,7 @@ public sealed class UnityDaemonRecoveryWaiterTests
     public async Task DelayIfRecoveringAsync_WhenMatchingGuiSessionIsRecovering_DelaysAndReturnsTrue ()
     {
         var timeProvider = new ManualTimeProvider();
-        var session = CreateSession();
+        var session = DaemonSessionTestFactory.CreateEditorInstance();
         var waiter = CreateWaiter(
             session,
             CreateObservation(session, IpcEditorLifecycleStateCodec.DomainReloading),
@@ -22,7 +22,7 @@ public sealed class UnityDaemonRecoveryWaiterTests
             timeProvider);
         var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider);
 
-        var delayTask = waiter.DelayIfRecoveringAsync(CreateContext(), deadline, CancellationToken.None).AsTask();
+        var delayTask = waiter.DelayIfRecoveringAsync(ResolvedUnityProjectContextTestFactory.Create(), deadline, CancellationToken.None).AsTask();
         Assert.False(delayTask.IsCompleted);
 
         timeProvider.Advance(TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
@@ -36,13 +36,13 @@ public sealed class UnityDaemonRecoveryWaiterTests
     {
         var timeProvider = new ManualTimeProvider();
         var waiter = CreateWaiter(
-            CreateSession(),
+            DaemonSessionTestFactory.CreateEditorInstance(),
             observation: null,
             DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess,
             timeProvider);
         var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider);
 
-        var result = await waiter.DelayIfRecoveringAsync(CreateContext(), deadline, CancellationToken.None);
+        var result = await waiter.DelayIfRecoveringAsync(ResolvedUnityProjectContextTestFactory.Create(), deadline, CancellationToken.None);
 
         Assert.False(result);
     }
@@ -52,7 +52,7 @@ public sealed class UnityDaemonRecoveryWaiterTests
     public async Task DelayIfRecoveringAsync_WhenEditorInstanceMatchesAndStartTimeDiffers_DelaysAndReturnsTrue ()
     {
         var timeProvider = new ManualTimeProvider();
-        var session = CreateSession();
+        var session = DaemonSessionTestFactory.CreateEditorInstance();
         var observation = CreateObservation(session, IpcEditorLifecycleStateCodec.DomainReloading) with
         {
             ProcessStartedAtUtc = session.ProcessStartedAtUtc!.Value.AddMilliseconds(1),
@@ -64,7 +64,7 @@ public sealed class UnityDaemonRecoveryWaiterTests
             timeProvider);
         var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider);
 
-        var delayTask = waiter.DelayIfRecoveringAsync(CreateContext(), deadline, CancellationToken.None).AsTask();
+        var delayTask = waiter.DelayIfRecoveringAsync(ResolvedUnityProjectContextTestFactory.Create(), deadline, CancellationToken.None).AsTask();
         Assert.False(delayTask.IsCompleted);
 
         timeProvider.Advance(TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
@@ -77,7 +77,7 @@ public sealed class UnityDaemonRecoveryWaiterTests
     public async Task DelayIfRecoveringAsync_WhenEditorInstanceDiffers_ReturnsFalseWithoutDelay ()
     {
         var timeProvider = new ManualTimeProvider();
-        var session = CreateSession();
+        var session = DaemonSessionTestFactory.CreateEditorInstance();
         var observation = CreateObservation(session, IpcEditorLifecycleStateCodec.DomainReloading) with
         {
             EditorInstanceId = "other-editor-instance",
@@ -89,7 +89,7 @@ public sealed class UnityDaemonRecoveryWaiterTests
             timeProvider);
         var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider);
 
-        var result = await waiter.DelayIfRecoveringAsync(CreateContext(), deadline, CancellationToken.None);
+        var result = await waiter.DelayIfRecoveringAsync(ResolvedUnityProjectContextTestFactory.Create(), deadline, CancellationToken.None);
 
         Assert.False(result);
     }
@@ -99,7 +99,7 @@ public sealed class UnityDaemonRecoveryWaiterTests
     public async Task DelayIfRecoveringAsync_WhenEditorInstanceIdsAreMissing_ReturnsFalseWithoutDelay ()
     {
         var timeProvider = new ManualTimeProvider();
-        var session = CreateSession() with
+        var session = DaemonSessionTestFactory.CreateEditorInstance() with
         {
             EditorInstanceId = null,
         };
@@ -111,7 +111,7 @@ public sealed class UnityDaemonRecoveryWaiterTests
             timeProvider);
         var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider);
 
-        var result = await waiter.DelayIfRecoveringAsync(CreateContext(), deadline, CancellationToken.None);
+        var result = await waiter.DelayIfRecoveringAsync(ResolvedUnityProjectContextTestFactory.Create(), deadline, CancellationToken.None);
 
         Assert.False(result);
     }
@@ -121,7 +121,7 @@ public sealed class UnityDaemonRecoveryWaiterTests
     public async Task DelayIfRecoveringAsync_WhenProcessIdentityDiffers_ReturnsFalseWithoutDelay ()
     {
         var timeProvider = new ManualTimeProvider();
-        var session = CreateSession();
+        var session = DaemonSessionTestFactory.CreateEditorInstance();
         var waiter = CreateWaiter(
             session,
             CreateObservation(session, IpcEditorLifecycleStateCodec.Recovering),
@@ -129,7 +129,7 @@ public sealed class UnityDaemonRecoveryWaiterTests
             timeProvider);
         var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider);
 
-        var result = await waiter.DelayIfRecoveringAsync(CreateContext(), deadline, CancellationToken.None);
+        var result = await waiter.DelayIfRecoveringAsync(ResolvedUnityProjectContextTestFactory.Create(), deadline, CancellationToken.None);
 
         Assert.False(result);
     }
@@ -139,7 +139,7 @@ public sealed class UnityDaemonRecoveryWaiterTests
     public async Task DelayIfRecoveringAsync_WhenSessionIsBatchmode_ReturnsFalseWithoutDelay ()
     {
         var timeProvider = new ManualTimeProvider();
-        var session = CreateSession("batchmode");
+        var session = DaemonSessionTestFactory.CreateEditorInstance(editorMode: "batchmode");
         var waiter = CreateWaiter(
             session,
             CreateObservation(session, IpcEditorLifecycleStateCodec.DomainReloading),
@@ -147,7 +147,7 @@ public sealed class UnityDaemonRecoveryWaiterTests
             timeProvider);
         var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider);
 
-        var result = await waiter.DelayIfRecoveringAsync(CreateContext(), deadline, CancellationToken.None);
+        var result = await waiter.DelayIfRecoveringAsync(ResolvedUnityProjectContextTestFactory.Create(), deadline, CancellationToken.None);
 
         Assert.False(result);
     }
@@ -159,39 +159,16 @@ public sealed class UnityDaemonRecoveryWaiterTests
         TimeProvider timeProvider)
     {
         return new UnityDaemonRecoveryWaiter(
-            new StubDaemonSessionStore(DaemonSessionReadResult.Success(session)),
-            new StubDaemonLifecycleStore(DaemonLifecycleObservationReadResult.Success(observation)),
-            new StubDaemonProcessIdentityAssessor(processStatus),
+            new RecordingDaemonSessionStore
+            {
+                ReadResult = DaemonSessionReadResult.Success(session),
+            },
+            new RecordingDaemonLifecycleStore
+            {
+                ReadResult = DaemonLifecycleObservationReadResult.Success(observation),
+            },
+            new RecordingDaemonProcessIdentityAssessor(processStatus),
             timeProvider);
-    }
-
-    private static ResolvedUnityProjectContext CreateContext ()
-    {
-        return new ResolvedUnityProjectContext(
-            UnityProjectRoot: "/repo/UnityProject",
-            RepositoryRoot: "/repo",
-            ProjectFingerprint: "project-fingerprint",
-            PathSource: UnityProjectPathSource.CommandOption);
-    }
-
-    private static DaemonSession CreateSession (string editorMode = "gui")
-    {
-        return new DaemonSession(
-            SchemaVersion: DaemonSession.CurrentSchemaVersion,
-            SessionToken: "session-token",
-            ProjectFingerprint: "project-fingerprint",
-            IssuedAtUtc: DateTimeOffset.UtcNow,
-            EditorMode: editorMode,
-            OwnerKind: "user",
-            CanShutdownProcess: false,
-            EndpointTransportKind: "unixDomainSocket",
-            EndpointAddress: "/tmp/ucli.sock",
-            ProcessId: 1234,
-            ProcessStartedAtUtc: DateTimeOffset.UnixEpoch.AddSeconds(10),
-            OwnerProcessId: null)
-        {
-            EditorInstanceId = "editor-instance-1",
-        };
     }
 
     private static DaemonLifecycleObservation CreateObservation (
@@ -215,85 +192,4 @@ public sealed class UnityDaemonRecoveryWaiterTests
         };
     }
 
-    private sealed class StubDaemonSessionStore : IDaemonSessionStore
-    {
-        private readonly DaemonSessionReadResult readResult;
-
-        public StubDaemonSessionStore (DaemonSessionReadResult readResult)
-        {
-            this.readResult = readResult;
-        }
-
-        public ValueTask<DaemonSessionReadResult> ReadAsync (
-            string storageRoot,
-            string projectFingerprint,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromResult(readResult);
-        }
-
-        public ValueTask<DaemonSessionStoreOperationResult> WriteAsync (
-            string storageRoot,
-            DaemonSession session,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromResult(DaemonSessionStoreOperationResult.Success());
-        }
-
-        public ValueTask<DaemonSessionStoreOperationResult> DeleteAsync (
-            string storageRoot,
-            string projectFingerprint,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromResult(DaemonSessionStoreOperationResult.Success());
-        }
-    }
-
-    private sealed class StubDaemonLifecycleStore : IDaemonLifecycleStore
-    {
-        private readonly DaemonLifecycleObservationReadResult readResult;
-
-        public StubDaemonLifecycleStore (DaemonLifecycleObservationReadResult readResult)
-        {
-            this.readResult = readResult;
-        }
-
-        public ValueTask<DaemonLifecycleObservationReadResult> ReadAsync (
-            string storageRoot,
-            string projectFingerprint,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromResult(readResult);
-        }
-
-        public ValueTask<DaemonLifecycleStoreOperationResult> DeleteAsync (
-            string storageRoot,
-            string projectFingerprint,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromResult(DaemonLifecycleStoreOperationResult.Success());
-        }
-    }
-
-    private sealed class StubDaemonProcessIdentityAssessor : IDaemonProcessIdentityAssessor
-    {
-        private readonly DaemonProcessIdentityAssessmentStatus status;
-
-        public StubDaemonProcessIdentityAssessor (DaemonProcessIdentityAssessmentStatus status)
-        {
-            this.status = status;
-        }
-
-        public DaemonProcessIdentityAssessment AssessByProcessId (
-            int processId,
-            DateTimeOffset? expectedProcessStartedAtUtc)
-        {
-            return new DaemonProcessIdentityAssessment(status, expectedProcessStartedAtUtc, null);
-        }
-    }
 }

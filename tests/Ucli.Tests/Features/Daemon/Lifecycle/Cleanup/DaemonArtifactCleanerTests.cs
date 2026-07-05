@@ -1,17 +1,16 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.LaunchAttempts;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
+using MackySoft.Ucli.Tests.Helpers.Daemon;
 
 namespace MackySoft.Ucli.Tests.Daemon;
 
 public sealed class DaemonArtifactCleanerTests
 {
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task Cleanup_WhenUnixFallbackSocketDirectoryBecomesEmpty_DeletesFallbackDirectory ()
     {
         if (OperatingSystem.IsWindows())
@@ -31,16 +30,15 @@ public sealed class DaemonArtifactCleanerTests
         await File.WriteAllTextAsync(socketPath, string.Empty, CancellationToken.None);
 
         var cleaner = new DaemonArtifactCleaner(
-            new StubDaemonSessionStore(),
-            new StubDaemonLifecycleStore(),
-            new StubDaemonLaunchAttemptStore());
+            new RecordingDaemonSessionStore(),
+            new RecordingDaemonLifecycleStore(),
+            new RecordingDaemonLaunchAttemptStore());
 
         var result = await cleaner.CleanupAsync(
-            new ResolvedUnityProjectContext(
-                UnityProjectRoot: "/tmp/unity-project",
-                RepositoryRoot: storageRoot,
-                ProjectFingerprint: projectFingerprint,
-                PathSource: UnityProjectPathSource.CommandOption),
+            ResolvedUnityProjectContextTestFactory.Create(
+                unityProjectRoot: "/tmp/unity-project",
+                repositoryRoot: storageRoot,
+                projectFingerprint: projectFingerprint),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -52,21 +50,17 @@ public sealed class DaemonArtifactCleanerTests
     [Trait("Size", "Small")]
     public async Task Cleanup_WhenLaunchAttemptStoreDeletesOldAttempts_ReturnsDeletedLaunchAttemptCount ()
     {
-        var launchAttemptStore = new StubDaemonLaunchAttemptStore
+        var launchAttemptStore = new RecordingDaemonLaunchAttemptStore
         {
             PruneResult = DaemonLaunchAttemptStoreOperationResult.Success(deletedCount: 3),
         };
         var cleaner = new DaemonArtifactCleaner(
-            new StubDaemonSessionStore(),
-            new StubDaemonLifecycleStore(),
+            new RecordingDaemonSessionStore(),
+            new RecordingDaemonLifecycleStore(),
             launchAttemptStore);
 
         var result = await cleaner.CleanupAsync(
-            new ResolvedUnityProjectContext(
-                UnityProjectRoot: "/tmp/unity-project",
-                RepositoryRoot: "/tmp/repo-root",
-                ProjectFingerprint: "fingerprint-cleanup",
-                PathSource: UnityProjectPathSource.CommandOption),
+            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-cleanup"),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -79,100 +73,19 @@ public sealed class DaemonArtifactCleanerTests
     {
         var pruneError = ExecutionError.InternalError("prune failed");
         var cleaner = new DaemonArtifactCleaner(
-            new StubDaemonSessionStore(),
-            new StubDaemonLifecycleStore(),
-            new StubDaemonLaunchAttemptStore
+            new RecordingDaemonSessionStore(),
+            new RecordingDaemonLifecycleStore(),
+            new RecordingDaemonLaunchAttemptStore
             {
                 PruneResult = DaemonLaunchAttemptStoreOperationResult.Failure(pruneError),
             });
 
         var result = await cleaner.CleanupAsync(
-            new ResolvedUnityProjectContext(
-                UnityProjectRoot: "/tmp/unity-project",
-                RepositoryRoot: "/tmp/repo-root",
-                ProjectFingerprint: "fingerprint-cleanup",
-                PathSource: UnityProjectPathSource.CommandOption),
+            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-cleanup"),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(pruneError, result.Error);
-    }
-
-    private sealed class StubDaemonSessionStore : IDaemonSessionStore
-    {
-        public ValueTask<DaemonSessionReadResult> ReadAsync (
-            string storageRoot,
-            string projectFingerprint,
-            CancellationToken cancellationToken = default)
-        {
-            throw new NotSupportedException();
-        }
-
-        public ValueTask<DaemonSessionStoreOperationResult> WriteAsync (
-            string storageRoot,
-            DaemonSession session,
-            CancellationToken cancellationToken = default)
-        {
-            throw new NotSupportedException();
-        }
-
-        public ValueTask<DaemonSessionStoreOperationResult> DeleteAsync (
-            string storageRoot,
-            string projectFingerprint,
-            CancellationToken cancellationToken = default)
-        {
-            return ValueTask.FromResult(DaemonSessionStoreOperationResult.Success());
-        }
-    }
-
-    private sealed class StubDaemonLifecycleStore : IDaemonLifecycleStore
-    {
-        public ValueTask<DaemonLifecycleObservationReadResult> ReadAsync (
-            string storageRoot,
-            string projectFingerprint,
-            CancellationToken cancellationToken = default)
-        {
-            throw new NotSupportedException();
-        }
-
-        public ValueTask<DaemonLifecycleStoreOperationResult> DeleteAsync (
-            string storageRoot,
-            string projectFingerprint,
-            CancellationToken cancellationToken = default)
-        {
-            return ValueTask.FromResult(DaemonLifecycleStoreOperationResult.Success());
-        }
-    }
-
-    private sealed class StubDaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
-    {
-        public DaemonLaunchAttemptStoreOperationResult PruneResult { get; init; } = DaemonLaunchAttemptStoreOperationResult.Success();
-
-        public ValueTask<DaemonLaunchAttemptStoreOperationResult> WriteFailureAsync (
-            string storageRoot,
-            string projectFingerprint,
-            DaemonLaunchAttempt launchAttempt,
-            CancellationToken cancellationToken = default)
-        {
-            throw new NotSupportedException();
-        }
-
-        public ValueTask<DaemonLaunchAttemptReadResult> ReadLastFailureAsync (
-            string storageRoot,
-            string projectFingerprint,
-            CancellationToken cancellationToken = default)
-        {
-            throw new NotSupportedException();
-        }
-
-        public ValueTask<DaemonLaunchAttemptStoreOperationResult> PruneAsync (
-            string storageRoot,
-            string projectFingerprint,
-            int keepCount,
-            CancellationToken cancellationToken = default)
-        {
-            return ValueTask.FromResult(PruneResult);
-        }
     }
 
 }

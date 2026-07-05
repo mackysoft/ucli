@@ -1,10 +1,10 @@
 using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Common;
-using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Unity;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Daemon.Logs;
+using MackySoft.Ucli.Tests.Helpers.Daemon;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 
 namespace MackySoft.Ucli.Tests.Logs;
@@ -17,7 +17,7 @@ public sealed class LogsUnityReadCommandTests
     [Trait("Size", "Small")]
     public async Task Read_WhenFormatIsJson_WritesNdjsonEvents ()
     {
-        var command = new LogsUnityReadCommand(new StubLogsUnityService(async (_, onEvent, cancellationToken) =>
+        var command = new LogsUnityReadCommand(new RecordingLogsUnityService(async (_, onEvent, cancellationToken) =>
         {
             await onEvent(
                 CreateEvent(
@@ -62,7 +62,7 @@ public sealed class LogsUnityReadCommandTests
     [Trait("Size", "Small")]
     public async Task Read_WhenFormatIsText_WritesSingleLineEventsWithStackTraceSuffix ()
     {
-        var command = new LogsUnityReadCommand(new StubLogsUnityService(async (_, onEvent, cancellationToken) =>
+        var command = new LogsUnityReadCommand(new RecordingLogsUnityService(async (_, onEvent, cancellationToken) =>
         {
             await onEvent(
                 CreateEvent(
@@ -88,7 +88,7 @@ public sealed class LogsUnityReadCommandTests
     [Trait("Size", "Small")]
     public async Task Read_WhenTextServiceThrowsAfterEntryWithoutStackTrace_WritesFinalErrorResultWithNextCursor ()
     {
-        var command = new LogsUnityReadCommand(new StubLogsUnityService(async (_, onEvent, cancellationToken) =>
+        var command = new LogsUnityReadCommand(new RecordingLogsUnityService(async (_, onEvent, cancellationToken) =>
         {
             await onEvent(
                 CreateEvent(
@@ -122,7 +122,7 @@ public sealed class LogsUnityReadCommandTests
     [Trait("Size", "Small")]
     public async Task Read_WithTimeoutOption_PassesTimeoutToServiceRequest ()
     {
-        var service = new StubLogsUnityService(static (_, _, _) =>
+        var service = new RecordingLogsUnityService(static (_, _, _) =>
         {
             return ValueTask.FromResult(LogsReadServiceResult.Success(count: 0, nextCursor: "stream-1:1"));
         });
@@ -132,39 +132,30 @@ public sealed class LogsUnityReadCommandTests
 
         Assert.Equal((int)CliExitCode.Success, exitCode);
         Assert.Equal(string.Empty, standardError);
-        Assert.Equal(1234, service.CapturedRequest!.TimeoutMilliseconds);
+        LogsReadServiceAssert.ReadRequestedWithTimeout(service, 1234);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task Read_WhenFormatIsInvalid_WritesInvalidArgumentResultWithoutCallingService ()
     {
-        var service = new StubLogsUnityService((_, _, _) => throw new InvalidOperationException("service must not be called"));
+        var service = new RecordingLogsUnityService((_, _, _) => throw new InvalidOperationException("service must not be called"));
         var command = new LogsUnityReadCommand(service, CommandResultTestWriter.Create());
 
         var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.ReadAsync(format: "yaml"));
 
-        Assert.Equal(3, exitCode);
-        Assert.Equal(string.Empty, standardError);
-        Assert.Equal(0, service.CallCount);
-        using var commandResult = JsonDocument.Parse(standardOutput);
-        CommandResultAssert.HasStandardEnvelope(
-            commandResult.RootElement,
-            UcliCommandNames.LogsUnityRead,
-            "error",
-            3);
-        CommandResultAssert.HasSingleError(commandResult.RootElement, UcliCoreErrorCodes.InvalidArgument);
-        var payload = commandResult.RootElement.GetProperty("payload");
-        Assert.Equal(0, payload.GetProperty("count").GetInt32());
-        Assert.Equal(JsonValueKind.Null, payload.GetProperty("nextCursor").ValueKind);
-        Assert.Equal("error", payload.GetProperty("completionReason").GetString());
+        LogsCommandAssert.UnityReadInvalidArgumentReturnedWithoutExecution(
+            exitCode,
+            standardOutput,
+            standardError,
+            service);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task Read_WhenDaemonSessionIsNotAvailable_WritesActionRequiredResult ()
     {
-        var command = new LogsUnityReadCommand(new StubLogsUnityService(static (_, _, _) =>
+        var command = new LogsUnityReadCommand(new RecordingLogsUnityService(static (_, _, _) =>
         {
             return ValueTask.FromResult(LogsReadServiceResult.Failure(ExecutionError.InternalError(
                 DaemonSessionNotAvailableMessage,
@@ -194,7 +185,9 @@ public sealed class LogsUnityReadCommandTests
     [Trait("Size", "Small")]
     public async Task Read_WhenCancellationRequested_ReturnsSuccessExitCode ()
     {
-        var command = new LogsUnityReadCommand(new ThrowingLogsUnityService(), CommandResultTestWriter.Create());
+        var command = new LogsUnityReadCommand(
+            new RecordingLogsUnityService(static (_, _, cancellationToken) => throw new OperationCanceledException(cancellationToken)),
+            CommandResultTestWriter.Create());
         using var cancellationTokenSource = new CancellationTokenSource();
         cancellationTokenSource.Cancel();
 
@@ -262,38 +255,4 @@ public sealed class LogsUnityReadCommandTests
             Cursor: cursor);
     }
 
-    private sealed class StubLogsUnityService : ILogsUnityService
-    {
-        private readonly Func<LogsUnityServiceRequest, Func<IpcUnityLogEvent, string, CancellationToken, ValueTask>, CancellationToken, ValueTask<LogsReadServiceResult>> handler;
-
-        public StubLogsUnityService (Func<LogsUnityServiceRequest, Func<IpcUnityLogEvent, string, CancellationToken, ValueTask>, CancellationToken, ValueTask<LogsReadServiceResult>> handler)
-        {
-            this.handler = handler;
-        }
-
-        public int CallCount { get; private set; }
-
-        public LogsUnityServiceRequest? CapturedRequest { get; private set; }
-
-        public ValueTask<LogsReadServiceResult> ExecuteAsync (
-            LogsUnityServiceRequest request,
-            Func<IpcUnityLogEvent, string, CancellationToken, ValueTask> onEvent,
-            CancellationToken cancellationToken = default)
-        {
-            CallCount++;
-            CapturedRequest = request;
-            return handler(request, onEvent, cancellationToken);
-        }
-    }
-
-    private sealed class ThrowingLogsUnityService : ILogsUnityService
-    {
-        public ValueTask<LogsReadServiceResult> ExecuteAsync (
-            LogsUnityServiceRequest request,
-            Func<IpcUnityLogEvent, string, CancellationToken, ValueTask> onEvent,
-            CancellationToken cancellationToken = default)
-        {
-            throw new OperationCanceledException(cancellationToken);
-        }
-    }
 }

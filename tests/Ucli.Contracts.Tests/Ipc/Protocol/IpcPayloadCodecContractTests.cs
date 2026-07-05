@@ -21,6 +21,48 @@ public sealed class IpcPayloadCodecContractTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void SemanticStringValue_RoundTripsAsJsonString ()
+    {
+        using var document = JsonDocument.Parse("{\"path\":\"Assets/Scenes/Main.unity\"}");
+
+        var result = IpcPayloadCodec.TryDeserialize<ScenePathArgs>(
+            document.RootElement,
+            out var args,
+            out var error);
+
+        Assert.True(result, error.Message);
+        Assert.Equal("Assets/Scenes/Main.unity", args.Path.Value);
+
+        var payload = IpcPayloadCodec.SerializeToElement(args);
+
+        JsonAssert.For(payload)
+            .HasString("path", "Assets/Scenes/Main.unity");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ReferenceSemanticStringValues_RoundTripAsJsonStrings ()
+    {
+        using var document = JsonDocument.Parse("{\"var\":\"created\",\"assetGuid\":\"11111111111111111111111111111111\"}");
+
+        var result = IpcPayloadCodec.TryDeserialize<AssetReferenceArgs>(
+            document.RootElement,
+            out var args,
+            out var error);
+
+        Assert.True(result, error.Message);
+        Assert.Equal("created", args.Alias!.Value);
+        Assert.Equal("11111111111111111111111111111111", args.AssetGuid!.Value);
+
+        var payload = IpcPayloadCodec.SerializeToElement(args);
+
+        JsonAssert.For(payload)
+            .HasString("var", "created")
+            .HasString("assetGuid", "11111111111111111111111111111111");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void TryDeserialize_WithValidPayload_ReturnsModel ()
     {
         using var document = JsonDocument.Parse("""{"serverVersion":"v1"}""");

@@ -12,7 +12,7 @@ public sealed class SupervisorTransportServerTests
     private static readonly TimeSpan SignalWaitTimeout = TimeSpan.FromSeconds(5);
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task Run_WhenOneConnectionBlocks_StillAcceptsAnotherConnection ()
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-transport-server", "parallel-accept");
@@ -110,7 +110,7 @@ public sealed class SupervisorTransportServerTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     [SupportedOSPlatform("macos")]
     [SupportedOSPlatform("linux")]
     public async Task Run_OnUnix_WhenSocketDirectoryCannotBeSecured_ThrowsIOException ()
@@ -143,7 +143,7 @@ public sealed class SupervisorTransportServerTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     [SupportedOSPlatform("macos")]
     [SupportedOSPlatform("linux")]
     public async Task Run_OnUnix_AppliesOwnerOnlyPermissionsToSocketAndParentDirectory ()
@@ -192,7 +192,7 @@ public sealed class SupervisorTransportServerTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     [SupportedOSPlatform("macos")]
     [SupportedOSPlatform("linux")]
     public async Task Run_OnUnix_WhenUsingFallbackEndpoint_DeletesEmptyFallbackDirectoryOnShutdown ()

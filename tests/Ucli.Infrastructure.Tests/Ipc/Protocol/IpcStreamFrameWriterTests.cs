@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
 
@@ -103,16 +104,11 @@ public sealed class IpcStreamFrameWriterTests
         var request = CreateRequest("request-write-failure");
         var expectedException = new IOException("write failed");
         await using var stream = new ThrowingWriteStream(expectedException);
-        var handlerCallCount = 0;
         Exception? observedException = null;
         var writer = new IpcStreamFrameWriter(
             stream,
             request,
-            exception =>
-            {
-                handlerCallCount++;
-                observedException = exception;
-            });
+            exception => observedException = exception);
 
         var actualException = await Assert.ThrowsAsync<IOException>(async () =>
         {
@@ -123,7 +119,6 @@ public sealed class IpcStreamFrameWriterTests
 
         Assert.Same(expectedException, actualException);
         Assert.Same(expectedException, observedException);
-        Assert.Equal(1, handlerCallCount);
     }
 
     [Fact]
@@ -132,11 +127,10 @@ public sealed class IpcStreamFrameWriterTests
     {
         var request = CreateRequest("request-canceled");
         await using var stream = new MemoryStream();
-        var handlerCallCount = 0;
         var writer = new IpcStreamFrameWriter(
             stream,
             request,
-            _ => handlerCallCount++);
+            static _ => throw new InvalidOperationException("Cancellation must not be reported as a write failure."));
         using var cancellationTokenSource = new CancellationTokenSource();
         cancellationTokenSource.Cancel();
 
@@ -148,7 +142,6 @@ public sealed class IpcStreamFrameWriterTests
                 cancellationTokenSource.Token);
         });
 
-        Assert.Equal(0, handlerCallCount);
         Assert.Equal(0, stream.Length);
     }
 
@@ -179,160 +172,4 @@ public sealed class IpcStreamFrameWriterTests
 
     private sealed record TestResponsePayload (bool Ok);
 
-    private sealed class ConcurrentWriteDetectingStream : Stream
-    {
-        private readonly MemoryStream output = new();
-
-        private int activeWriteCount;
-
-        private int hasOverlappingWrite;
-
-        public bool HasOverlappingWrite => Volatile.Read(ref hasOverlappingWrite) != 0;
-
-        public override bool CanRead => false;
-
-        public override bool CanSeek => false;
-
-        public override bool CanWrite => true;
-
-        public override long Length => throw new NotSupportedException();
-
-        public override long Position
-        {
-            get => throw new NotSupportedException();
-            set => throw new NotSupportedException();
-        }
-
-        public byte[] ToArray ()
-        {
-            lock (output)
-            {
-                return output.ToArray();
-            }
-        }
-
-        public override void Flush ()
-        {
-        }
-
-        public override Task FlushAsync (CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return Task.CompletedTask;
-        }
-
-        public override int Read (
-            byte[] buffer,
-            int offset,
-            int count)
-        {
-            throw new NotSupportedException();
-        }
-
-        public override long Seek (
-            long offset,
-            SeekOrigin origin)
-        {
-            throw new NotSupportedException();
-        }
-
-        public override void SetLength (long value)
-        {
-            throw new NotSupportedException();
-        }
-
-        public override void Write (
-            byte[] buffer,
-            int offset,
-            int count)
-        {
-            WriteAsync(buffer.AsMemory(offset, count), CancellationToken.None).AsTask().GetAwaiter().GetResult();
-        }
-
-        public override async ValueTask WriteAsync (
-            ReadOnlyMemory<byte> buffer,
-            CancellationToken cancellationToken = default)
-        {
-            if (Interlocked.Increment(ref activeWriteCount) > 1)
-            {
-                Volatile.Write(ref hasOverlappingWrite, 1);
-            }
-
-            try
-            {
-                await Task.Delay(TimeSpan.FromMilliseconds(5), cancellationToken).ConfigureAwait(false);
-                lock (output)
-                {
-                    output.Write(buffer.Span);
-                }
-            }
-            finally
-            {
-                Interlocked.Decrement(ref activeWriteCount);
-            }
-        }
-    }
-
-    private sealed class ThrowingWriteStream : Stream
-    {
-        private readonly Exception exception;
-
-        public ThrowingWriteStream (Exception exception)
-        {
-            this.exception = exception ?? throw new ArgumentNullException(nameof(exception));
-        }
-
-        public override bool CanRead => false;
-
-        public override bool CanSeek => false;
-
-        public override bool CanWrite => true;
-
-        public override long Length => throw new NotSupportedException();
-
-        public override long Position
-        {
-            get => throw new NotSupportedException();
-            set => throw new NotSupportedException();
-        }
-
-        public override void Flush ()
-        {
-        }
-
-        public override int Read (
-            byte[] buffer,
-            int offset,
-            int count)
-        {
-            throw new NotSupportedException();
-        }
-
-        public override long Seek (
-            long offset,
-            SeekOrigin origin)
-        {
-            throw new NotSupportedException();
-        }
-
-        public override void SetLength (long value)
-        {
-            throw new NotSupportedException();
-        }
-
-        public override void Write (
-            byte[] buffer,
-            int offset,
-            int count)
-        {
-            throw exception;
-        }
-
-        public override ValueTask WriteAsync (
-            ReadOnlyMemory<byte> buffer,
-            CancellationToken cancellationToken = default)
-        {
-            return ValueTask.FromException(exception);
-        }
-    }
 }

@@ -8,7 +8,7 @@ namespace MackySoft.Ucli.Tests.Features.Assurance.Verify;
 public sealed class FileVerifyFromInputFileReaderTests
 {
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task ReadAsync_WithRepositoryRelativeFromPath_ReturnsJson ()
     {
         using var repository = TestDirectories.CreateTempScope("ucli-verify", nameof(ReadAsync_WithRepositoryRelativeFromPath_ReturnsJson));
@@ -22,7 +22,7 @@ public sealed class FileVerifyFromInputFileReaderTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task ReadAsync_WithFromPathOutsideRepository_ReturnsInvalidInput ()
     {
         using var repository = TestDirectories.CreateTempScope("ucli-verify", nameof(ReadAsync_WithFromPathOutsideRepository_ReturnsInvalidInput));
@@ -38,7 +38,7 @@ public sealed class FileVerifyFromInputFileReaderTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task ReadAsync_WithFromFileSymbolicLink_ReturnsInvalidInput ()
     {
         using var repository = TestDirectories.CreateTempScope("ucli-verify", nameof(ReadAsync_WithFromFileSymbolicLink_ReturnsInvalidInput));
@@ -60,7 +60,7 @@ public sealed class FileVerifyFromInputFileReaderTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task ReadAsync_WithFromDirectorySymbolicLink_ReturnsInvalidInput ()
     {
         using var repository = TestDirectories.CreateTempScope("ucli-verify", nameof(ReadAsync_WithFromDirectorySymbolicLink_ReturnsInvalidInput));

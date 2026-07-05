@@ -5,7 +5,7 @@ using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
-using static MackySoft.Ucli.Application.Tests.Helpers.OperationCatalog.OperationCatalogTestFixtures;
+using static MackySoft.Ucli.TestSupport.OperationCatalogTestFixtures;
 
 namespace MackySoft.Ucli.Application.Tests;
 
@@ -16,20 +16,23 @@ public sealed class OperationCatalogDiscoveryServiceTests
     public async Task Discover_WhenTimeoutIsOmitted_UsesDefaultOpsTimeout ()
     {
         var config = UcliConfig.CreateDefault();
-        var reader = new SpyOpsCatalogReader();
+        var reader = new RecordingOpsCatalogReader
+        {
+            Result = CreateSceneOpenFetchResult(),
+        };
         var service = new OperationCatalogDiscoveryService(reader);
 
         var operations = await service.DiscoverAsync(
-            CreateUnityProject(),
+            ProjectContextTestFactory.CreateTemporaryFixtureUnityProject(),
             config,
             cancellationToken: CancellationToken.None);
 
-        Assert.Equal(
+        OperationCatalogInvocationAssert.OpsCatalogReadRequestedWithTimeout(
+            reader,
             TimeSpan.FromMilliseconds(config.IpcTimeoutMillisecondsByCommand[UcliCommandIds.Ops.Name]!.Value),
-            reader.ReceivedTimeout);
-        Assert.False(reader.ReceivedFailFast);
-        Assert.False(reader.ReceivedRequireReadinessGate);
-        Assert.True(reader.ReceivedIncludeEditLoweringOnly);
+            expectedFailFast: false,
+            expectedRequireReadinessGate: false,
+            expectedIncludeEditLoweringOnly: true);
         Assert.Single(operations);
     }
 
@@ -37,17 +40,23 @@ public sealed class OperationCatalogDiscoveryServiceTests
     [Trait("Size", "Small")]
     public async Task Discover_WhenFailFastIsSpecified_PropagatesToReader ()
     {
-        var reader = new SpyOpsCatalogReader();
+        var reader = new RecordingOpsCatalogReader
+        {
+            Result = CreateSceneOpenFetchResult(),
+        };
         var service = new OperationCatalogDiscoveryService(reader);
 
         _ = await service.DiscoverAsync(
-            CreateUnityProject(),
+            ProjectContextTestFactory.CreateTemporaryFixtureUnityProject(),
             UcliConfig.CreateDefault(),
             failFast: true,
             cancellationToken: CancellationToken.None);
 
-        Assert.True(reader.ReceivedFailFast);
-        Assert.False(reader.ReceivedRequireReadinessGate);
+        OperationCatalogInvocationAssert.OpsCatalogReadRequestedOnce(
+            reader,
+            expectedFailFast: true,
+            expectedRequireReadinessGate: false,
+            expectedIncludeEditLoweringOnly: true);
     }
 
     [Fact]
@@ -55,13 +64,16 @@ public sealed class OperationCatalogDiscoveryServiceTests
     public async Task Discover_WhenCatalogReaderReturnsInvalidArgument_ThrowsTypedLoadException ()
     {
         var service = new OperationCatalogDiscoveryService(
-            new StubOpsCatalogReader(OpsCatalogFetchResult.Failure(
-                "Mode must be auto, daemon, or oneshot.",
-                UcliCoreErrorCodes.InvalidArgument)));
+            new RecordingOpsCatalogReader
+            {
+                Result = OpsCatalogFetchResult.Failure(
+                    "Mode must be auto, daemon, or oneshot.",
+                    UcliCoreErrorCodes.InvalidArgument),
+            });
 
         var exception = await Assert.ThrowsAsync<OperationCatalogLoadException>(async () =>
             await service.DiscoverAsync(
-                CreateUnityProject(),
+                ProjectContextTestFactory.CreateTemporaryFixtureUnityProject(),
                 UcliConfig.CreateDefault(),
                 mode: (UnityExecutionMode)999,
                 timeout: TimeSpan.FromMilliseconds(1200),
@@ -77,13 +89,16 @@ public sealed class OperationCatalogDiscoveryServiceTests
     public async Task Discover_WhenCatalogReaderReturnsTimeout_ThrowsTypedLoadException ()
     {
         var service = new OperationCatalogDiscoveryService(
-            new StubOpsCatalogReader(OpsCatalogFetchResult.Failure(
-                "Timed out before Unity IPC request dispatch could begin.",
-                ExecutionErrorCodes.IpcTimeout)));
+            new RecordingOpsCatalogReader
+            {
+                Result = OpsCatalogFetchResult.Failure(
+                    "Timed out before Unity IPC request dispatch could begin.",
+                    ExecutionErrorCodes.IpcTimeout),
+            });
 
         var exception = await Assert.ThrowsAsync<OperationCatalogLoadException>(async () =>
             await service.DiscoverAsync(
-                CreateUnityProject(),
+                ProjectContextTestFactory.CreateTemporaryFixtureUnityProject(),
                 UcliConfig.CreateDefault(),
                 timeout: TimeSpan.FromMilliseconds(1200),
                 cancellationToken: CancellationToken.None));
@@ -98,13 +113,16 @@ public sealed class OperationCatalogDiscoveryServiceTests
     public async Task Discover_WhenCatalogReaderReturnsModeContractError_PreservesOriginalErrorCode ()
     {
         var service = new OperationCatalogDiscoveryService(
-            new StubOpsCatalogReader(OpsCatalogFetchResult.Failure(
-                "Daemon is not running for mode=daemon.",
-                UnityExecutionModeDecisionErrorCodes.DaemonNotRunning)));
+            new RecordingOpsCatalogReader
+            {
+                Result = OpsCatalogFetchResult.Failure(
+                    "Daemon is not running for mode=daemon.",
+                    UnityExecutionModeDecisionErrorCodes.DaemonNotRunning),
+            });
 
         var exception = await Assert.ThrowsAsync<OperationCatalogLoadException>(async () =>
             await service.DiscoverAsync(
-                CreateUnityProject(),
+                ProjectContextTestFactory.CreateTemporaryFixtureUnityProject(),
                 UcliConfig.CreateDefault(),
                 mode: UnityExecutionMode.Daemon,
                 timeout: TimeSpan.FromMilliseconds(1200),
@@ -115,98 +133,40 @@ public sealed class OperationCatalogDiscoveryServiceTests
         Assert.Contains("Operation catalog discovery failed.", exception.Error.Message, StringComparison.Ordinal);
     }
 
-    private static ResolvedUnityProjectContext CreateUnityProject ()
+    private static OpsCatalogFetchResult CreateSceneOpenFetchResult ()
     {
-        return new ResolvedUnityProjectContext(
-            UnityProjectRoot: "/tmp/project",
-            RepositoryRoot: "/tmp/repository",
-            ProjectFingerprint: "project-fingerprint",
-            PathSource: UnityProjectPathSource.CommandOption);
-    }
+        var describe = UcliOperationDescribeContractBuilder.Create<ScenePathArgs, UcliNoResult>(
+            "Opens a Unity scene asset in the editor.",
+            new UcliOperationAssuranceContract(
+                sideEffects: Array.Empty<UcliOperationSideEffect>(),
+                touchedKinds: Array.Empty<string>(),
+                planMode: UcliOperationPlanMode.ObservesLiveUnity,
+                planSemantics: "Validate arguments and observe Unity state without applying mutation.",
+                callSemantics: "Read Unity state without applying mutation.",
+                touchedContract: "Returns no touched resources.",
+                readPostconditionContract: "Does not stale read surfaces by itself.",
+                failureSemantics: "Failure means the observation was not fully produced.",
+                dangerousNotes: Array.Empty<string>()));
 
-    private sealed class SpyOpsCatalogReader : IOpsCatalogReader
-    {
-        public TimeSpan ReceivedTimeout { get; private set; }
-
-        public bool ReceivedFailFast { get; private set; }
-
-        public bool ReceivedRequireReadinessGate { get; private set; }
-
-        public bool ReceivedIncludeEditLoweringOnly { get; private set; }
-
-        public ValueTask<OpsCatalogFetchResult> ReadAsync (
-            ResolvedUnityProjectContext project,
-            UcliConfig config,
-            UnityExecutionMode mode,
-            TimeSpan timeout,
-            bool failFast,
-            bool requireReadinessGate,
-            bool includeEditLoweringOnly = false,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            ReceivedTimeout = timeout;
-            ReceivedFailFast = failFast;
-            ReceivedRequireReadinessGate = requireReadinessGate;
-            ReceivedIncludeEditLoweringOnly = includeEditLoweringOnly;
-
-            var describe = UcliOperationDescribeContractBuilder.Create<ScenePathArgs, UcliNoResult>(
-                "Opens a Unity scene asset in the editor.",
-                new UcliOperationAssuranceContract(
-                    sideEffects: Array.Empty<UcliOperationSideEffect>(),
-                    touchedKinds: Array.Empty<string>(),
-                    planMode: UcliOperationPlanMode.ObservesLiveUnity,
-                    planSemantics: "Validate arguments and observe Unity state without applying mutation.",
-                    callSemantics: "Read Unity state without applying mutation.",
-                    touchedContract: "Returns no touched resources.",
-                    readPostconditionContract: "Does not stale read surfaces by itself.",
-                    failureSemantics: "Failure means the observation was not fully produced.",
-                    dangerousNotes: Array.Empty<string>()));
-
-            return ValueTask.FromResult(OpsCatalogFetchResult.Success(
-                CreateSnapshot(
-                    DateTimeOffset.UtcNow,
-                    [
-                        new IndexOpEntryJsonContract(
-                            Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen,
-                            Kind: "command",
-                            Policy: "safe",
-                            ArgsSchemaJson: JsonSerializer.Serialize(new
-                            {
-                                type = "object",
-                                additionalProperties = false,
-                            }))
+        return OpsCatalogFetchResult.Success(
+            CreateSnapshot(
+                DateTimeOffset.UtcNow,
+                [
+                    new IndexOpEntryJsonContract(
+                        Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen,
+                        Kind: "command",
+                        Policy: "safe",
+                        ArgsSchemaJson: JsonSerializer.Serialize(new
                         {
-                            Description = describe.Description,
-                            Inputs = describe.Inputs,
-                            ResultContract = describe.ResultContract,
-                            Assurance = describe.Assurance,
-                        },
-                    ])));
-        }
-    }
-
-    private sealed class StubOpsCatalogReader : IOpsCatalogReader
-    {
-        private readonly OpsCatalogFetchResult result;
-
-        public StubOpsCatalogReader (OpsCatalogFetchResult result)
-        {
-            this.result = result ?? throw new ArgumentNullException(nameof(result));
-        }
-
-        public ValueTask<OpsCatalogFetchResult> ReadAsync (
-            ResolvedUnityProjectContext project,
-            UcliConfig config,
-            UnityExecutionMode mode,
-            TimeSpan timeout,
-            bool failFast,
-            bool requireReadinessGate,
-            bool includeEditLoweringOnly = false,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromResult(result);
-        }
+                            type = "object",
+                            additionalProperties = false,
+                        }))
+                    {
+                        Description = describe.Description,
+                        Inputs = describe.Inputs,
+                        ResultContract = describe.ResultContract,
+                        Assurance = describe.Assurance,
+                    },
+                ]));
     }
 }

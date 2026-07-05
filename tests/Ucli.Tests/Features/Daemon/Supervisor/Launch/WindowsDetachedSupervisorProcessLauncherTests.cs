@@ -9,11 +9,11 @@ public sealed class WindowsDetachedSupervisorProcessLauncherTests
     [Trait("Size", "Small")]
     public void BuildStartInfo_AppendsInternalSupervisorInvocationArguments ()
     {
-        using var scope = TestDirectories.CreateTempScope("windows-detached-supervisor-launcher", "start-info");
-        var normalizedStorageRoot = Path.GetFullPath(scope.FullPath);
+        var storageRoot = Path.Combine(Path.GetTempPath(), "windows-detached-supervisor-launcher", "start-info");
+        var normalizedStorageRoot = Path.GetFullPath(storageRoot);
         var launchCommand = new SupervisorLaunchCommand("ucli", ["--base"]);
 
-        var startInfo = WindowsDetachedSupervisorProcessLauncher.BuildStartInfo(scope.FullPath, launchCommand);
+        var startInfo = WindowsDetachedSupervisorProcessLauncher.BuildStartInfo(storageRoot, launchCommand);
 
         Assert.Equal("ucli", startInfo.FileName);
         Assert.Equal(normalizedStorageRoot, startInfo.WorkingDirectory);
@@ -28,7 +28,7 @@ public sealed class WindowsDetachedSupervisorProcessLauncherTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void Launch_WhenProcessStartFails_ReturnsStructuredError ()
     {
         if (!OperatingSystem.IsWindows())

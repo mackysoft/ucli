@@ -2,6 +2,35 @@ namespace MackySoft.Ucli.Contracts.Tests.Resources;
 
 public sealed class RelativePathContractTests
 {
+    private static readonly string[] InvalidRelativePaths =
+    [
+        " Assets/Scenes/Main.unity",
+        "Assets/Scenes/Main.unity ",
+        "Assets//Scenes/Main.unity",
+        "Assets/./Scenes/Main.unity",
+        "Assets/../Scenes/Main.unity",
+        "/Assets/Scenes/Main.unity",
+        "C:/Project/Assets/Scenes/Main.unity",
+        "Assets/Scenes/Main:Dev.unity",
+    ];
+
+    private static readonly string[] NormalizedRelativePaths =
+    [
+        "Assets/Scenes/Main.unity",
+        "Packages/com.example/package.json",
+        "ProjectSettings/ProjectSettings.asset",
+    ];
+
+    private static readonly string?[] NotNormalizedRelativePaths =
+    [
+        null,
+        "",
+        " ",
+        @"Assets\Scenes\Main.unity",
+        "Assets//Scenes/Main.unity",
+        "Assets/../Scenes/Main.unity",
+    ];
+
     [Fact]
     [Trait("Size", "Small")]
     public void TryNormalize_WhenPathUsesBackslashes_ReturnsSlashSeparatedPath ()
@@ -14,48 +43,40 @@ public sealed class RelativePathContractTests
         Assert.Equal("Assets/Scenes/Main.unity", normalizedPath);
     }
 
-    [Theory]
+    [Fact]
     [Trait("Size", "Small")]
-    [InlineData(" Assets/Scenes/Main.unity")]
-    [InlineData("Assets/Scenes/Main.unity ")]
-    [InlineData("Assets//Scenes/Main.unity")]
-    [InlineData("Assets/./Scenes/Main.unity")]
-    [InlineData("Assets/../Scenes/Main.unity")]
-    [InlineData("/Assets/Scenes/Main.unity")]
-    [InlineData("C:/Project/Assets/Scenes/Main.unity")]
-    [InlineData("Assets/Scenes/Main:Dev.unity")]
-    public void TryNormalize_WhenPathIsInvalid_ReturnsFalse (string path)
+    public void TryNormalize_WhenPathIsInvalid_ReturnsFalse ()
     {
-        var result = RelativePathContract.TryNormalize(path, out var normalizedPath);
+        foreach (string path in InvalidRelativePaths)
+        {
+            var result = RelativePathContract.TryNormalize(path, out var normalizedPath);
 
-        Assert.False(result);
-        Assert.Equal(string.Empty, normalizedPath);
+            Assert.False(result);
+            Assert.Equal(string.Empty, normalizedPath);
+        }
     }
 
-    [Theory]
+    [Fact]
     [Trait("Size", "Small")]
-    [InlineData("Assets/Scenes/Main.unity")]
-    [InlineData("Packages/com.example/package.json")]
-    [InlineData("ProjectSettings/ProjectSettings.asset")]
-    public void IsNormalized_WhenPathIsNormalizedRelativePath_ReturnsTrue (string path)
+    public void IsNormalized_WhenPathIsNormalizedRelativePath_ReturnsTrue ()
     {
-        var result = RelativePathContract.IsNormalized(path);
+        foreach (string path in NormalizedRelativePaths)
+        {
+            var result = RelativePathContract.IsNormalized(path);
 
-        Assert.True(result);
+            Assert.True(result);
+        }
     }
 
-    [Theory]
+    [Fact]
     [Trait("Size", "Small")]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData(" ")]
-    [InlineData(@"Assets\Scenes\Main.unity")]
-    [InlineData("Assets//Scenes/Main.unity")]
-    [InlineData("Assets/../Scenes/Main.unity")]
-    public void IsNormalized_WhenPathIsNotNormalizedRelativePath_ReturnsFalse (string? path)
+    public void IsNormalized_WhenPathIsNotNormalizedRelativePath_ReturnsFalse ()
     {
-        var result = RelativePathContract.IsNormalized(path);
+        foreach (string? path in NotNormalizedRelativePaths)
+        {
+            var result = RelativePathContract.IsNormalized(path);
 
-        Assert.False(result);
+            Assert.False(result);
+        }
     }
 }

@@ -5,6 +5,13 @@ namespace MackySoft.Ucli.Contracts.Tests.Text;
 
 public sealed class ContractLiteralInputParserTests
 {
+    private static readonly string?[] MissingLiterals =
+    [
+        null,
+        "",
+        " ",
+    ];
+
     [Fact]
     [Trait("Size", "Small")]
     public void IsDefinedIgnoreCase_WithCaseVariant_ReturnsTrue ()
@@ -83,13 +90,13 @@ public sealed class ContractLiteralInputParserTests
         Assert.Equal(OperationPolicy.Safe, policy);
     }
 
-    [Theory]
+    [Fact]
     [Trait("Size", "Small")]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData(" ")]
-    public void IsDefinedTrimmedIgnoreCase_WithMissingLiteral_ReturnsFalse (string? literal)
+    public void IsDefinedTrimmedIgnoreCase_WithMissingLiteral_ReturnsFalse ()
     {
-        Assert.False(ContractLiteralInputParser.IsDefinedTrimmedIgnoreCase<OperationPolicy>(literal));
+        foreach (string? literal in MissingLiterals)
+        {
+            Assert.False(ContractLiteralInputParser.IsDefinedTrimmedIgnoreCase<OperationPolicy>(literal));
+        }
     }
 }

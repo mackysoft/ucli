@@ -1,6 +1,6 @@
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
 using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Projection;
-using static MackySoft.Ucli.Application.Tests.Helpers.OperationCatalog.OperationCatalogTestFixtures;
+using static MackySoft.Ucli.TestSupport.OperationCatalogTestFixtures;
 
 namespace MackySoft.Ucli.Application.Tests.Ops.Mapping;
 

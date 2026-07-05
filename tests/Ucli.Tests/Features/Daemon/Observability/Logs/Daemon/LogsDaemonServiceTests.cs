@@ -4,7 +4,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Daemon;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Streaming;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Validation;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Tests.Daemon;
+using MackySoft.Ucli.Tests.Helpers.Daemon;
 
 namespace MackySoft.Ucli.Tests.Logs;
 
@@ -14,10 +14,10 @@ public sealed class LogsDaemonServiceTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenStreamEnabled_UsesNextCursorForIncrementalReads ()
     {
-        var context = DaemonServiceTestContext.CreateExecutionContext(timeoutMilliseconds: 3000);
-        var resolver = new DaemonServiceTestContext.StubDaemonCommandExecutionContextResolver(
+        var context = DaemonCommandExecutionContextTestFactory.Create(timeoutMilliseconds: 3000, unityVersion: ProjectIdentityDefaults.UnknownUnityVersion);
+        var resolver = new RecordingDaemonCommandExecutionContextResolver(
             DaemonCommandExecutionContextResolutionResult.Success(context));
-        var daemonLogsClient = new StubDaemonLogsClient(
+        var daemonLogsClient = new RecordingDaemonLogsClient(
             [
                 DaemonLogsClientReadResult.Success(CreatePayload(
                     events:
@@ -35,7 +35,7 @@ public sealed class LogsDaemonServiceTests
                     events: Array.Empty<IpcDaemonLogEvent>(),
                     nextCursor: "stream-1:3")),
             ]);
-        var service = CreateService(resolver, daemonLogsClient);
+        var service = CreateImmediateIdleStreamService(resolver, daemonLogsClient);
         var emittedMessages = new List<string>();
 
         var result = await service.ExecuteAsync(
@@ -63,20 +63,27 @@ public sealed class LogsDaemonServiceTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess, result.Error?.Message);
-        Assert.Equal(UcliCommandIds.LogsDaemonRead, resolver.LastTimeoutCommand);
-        Assert.Equal(4321, resolver.LastTimeoutMilliseconds);
+        DaemonCommandExecutionContextResolverAssert.ResolvedFor(
+            resolver,
+            UcliCommandIds.LogsDaemonRead,
+            "/tmp/unity-project",
+            4321);
         Assert.Equal(["alpha", "bravo"], emittedMessages);
-        Assert.Equal(["stream-1:1", "stream-1:2", "stream-1:3"], daemonLogsClient.CapturedAfterValues);
+        DaemonLogsClientAssert.ReadAfterCursors(
+            daemonLogsClient,
+            "stream-1:1",
+            "stream-1:2",
+            "stream-1:3");
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task Execute_WhenCanceledDuringBatch_ReturnsLastEmittedEventCursor ()
     {
-        var context = DaemonServiceTestContext.CreateExecutionContext(timeoutMilliseconds: 3000);
-        var resolver = new DaemonServiceTestContext.StubDaemonCommandExecutionContextResolver(
+        var context = DaemonCommandExecutionContextTestFactory.Create(timeoutMilliseconds: 3000, unityVersion: ProjectIdentityDefaults.UnknownUnityVersion);
+        var resolver = new RecordingDaemonCommandExecutionContextResolver(
             DaemonCommandExecutionContextResolutionResult.Success(context));
-        var daemonLogsClient = new StubDaemonLogsClient(
+        var daemonLogsClient = new RecordingDaemonLogsClient(
             [
                 DaemonLogsClientReadResult.Success(CreatePayload(
                     events:
@@ -86,7 +93,7 @@ public sealed class LogsDaemonServiceTests
                     ],
                     nextCursor: "stream-1:3")),
             ]);
-        var service = CreateService(resolver, daemonLogsClient);
+        var service = CreateImmediateIdleStreamService(resolver, daemonLogsClient);
         var emittedMessages = new List<string>();
         using var cancellationTokenSource = new CancellationTokenSource();
 
@@ -129,10 +136,10 @@ public sealed class LogsDaemonServiceTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenTailIsProvidedForStream_ClearsTailAfterInitialRead ()
     {
-        var context = DaemonServiceTestContext.CreateExecutionContext(timeoutMilliseconds: 3000);
-        var resolver = new DaemonServiceTestContext.StubDaemonCommandExecutionContextResolver(
+        var context = DaemonCommandExecutionContextTestFactory.Create(timeoutMilliseconds: 3000, unityVersion: ProjectIdentityDefaults.UnknownUnityVersion);
+        var resolver = new RecordingDaemonCommandExecutionContextResolver(
             DaemonCommandExecutionContextResolutionResult.Success(context));
-        var daemonLogsClient = new StubDaemonLogsClient(
+        var daemonLogsClient = new RecordingDaemonLogsClient(
             [
                 DaemonLogsClientReadResult.Success(CreatePayload(
                     events:
@@ -144,7 +151,7 @@ public sealed class LogsDaemonServiceTests
                     events: Array.Empty<IpcDaemonLogEvent>(),
                     nextCursor: "stream-1:101")),
             ]);
-        var service = CreateService(resolver, daemonLogsClient);
+        var service = CreateImmediateIdleStreamService(resolver, daemonLogsClient);
 
         var result = await service.ExecuteAsync(
             new LogsDaemonServiceRequest(
@@ -164,18 +171,17 @@ public sealed class LogsDaemonServiceTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess, result.Error?.Message);
-        Assert.Equal(100, daemonLogsClient.CapturedQueries[0].Tail);
-        Assert.Null(daemonLogsClient.CapturedQueries[1].Tail);
+        DaemonLogsClientAssert.ReadTailValues(daemonLogsClient, 100, null);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task Execute_WhenIdleTimeoutIsReached_StopsStreamLoop ()
     {
-        var context = DaemonServiceTestContext.CreateExecutionContext(timeoutMilliseconds: 3000);
-        var resolver = new DaemonServiceTestContext.StubDaemonCommandExecutionContextResolver(
+        var context = DaemonCommandExecutionContextTestFactory.Create(timeoutMilliseconds: 3000, unityVersion: ProjectIdentityDefaults.UnknownUnityVersion);
+        var resolver = new RecordingDaemonCommandExecutionContextResolver(
             DaemonCommandExecutionContextResolutionResult.Success(context));
-        var daemonLogsClient = new StubDaemonLogsClient(
+        var daemonLogsClient = new RecordingDaemonLogsClient(
             [
                 DaemonLogsClientReadResult.Success(CreatePayload(
                     events:
@@ -207,7 +213,7 @@ public sealed class LogsDaemonServiceTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess, result.Error?.Message);
-        Assert.Equal(2, daemonLogsClient.CallCount);
+        DaemonLogsClientAssert.ReadAfterCursors(daemonLogsClient, null, "stream-1:11");
         Assert.Equal(LogsReadCompletionReasons.IdleTimeout, result.CompletionReason);
     }
 
@@ -215,10 +221,10 @@ public sealed class LogsDaemonServiceTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenUntilTimestampIsReached_ReturnsUntilReachedCompletionReason ()
     {
-        var context = DaemonServiceTestContext.CreateExecutionContext(timeoutMilliseconds: 3000);
-        var resolver = new DaemonServiceTestContext.StubDaemonCommandExecutionContextResolver(
+        var context = DaemonCommandExecutionContextTestFactory.Create(timeoutMilliseconds: 3000, unityVersion: ProjectIdentityDefaults.UnknownUnityVersion);
+        var resolver = new RecordingDaemonCommandExecutionContextResolver(
             DaemonCommandExecutionContextResolutionResult.Success(context));
-        var daemonLogsClient = new StubDaemonLogsClient(
+        var daemonLogsClient = new RecordingDaemonLogsClient(
         [
             DaemonLogsClientReadResult.Success(CreatePayload(
                 events:
@@ -247,7 +253,7 @@ public sealed class LogsDaemonServiceTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess, result.Error?.Message);
-        Assert.Equal(1, daemonLogsClient.CallCount);
+        DaemonLogsClientAssert.SingleReadWithoutAfterCursor(daemonLogsClient);
         Assert.Equal(LogsReadCompletionReasons.UntilReached, result.CompletionReason);
     }
 
@@ -273,49 +279,24 @@ public sealed class LogsDaemonServiceTests
 
     private static LogsDaemonService CreateService (
         IDaemonCommandExecutionContextResolver resolver,
-        IDaemonLogsClient daemonLogsClient)
+        IDaemonLogsClient daemonLogsClient,
+        ILogsDaemonRequestValidator? requestValidator = null)
     {
         return new LogsDaemonService(
             resolver,
             daemonLogsClient,
-            new LogsDaemonRequestValidator(),
+            requestValidator ?? new LogsDaemonRequestValidator(),
             new DaemonLogsStreamTerminationPolicy());
     }
 
-    private sealed class StubDaemonLogsClient : IDaemonLogsClient
+    private static LogsDaemonService CreateImmediateIdleStreamService (
+        IDaemonCommandExecutionContextResolver resolver,
+        IDaemonLogsClient daemonLogsClient)
     {
-        private readonly Queue<DaemonLogsClientReadResult> responses;
-
-        public StubDaemonLogsClient (IEnumerable<DaemonLogsClientReadResult> responses)
-        {
-            this.responses = new Queue<DaemonLogsClientReadResult>(responses);
-        }
-
-        public int CallCount { get; private set; }
-
-        public List<string?> CapturedAfterValues { get; } = new();
-
-        public List<IpcDaemonLogsReadRequest> CapturedQueries { get; } = new();
-
-        public ValueTask<DaemonLogsClientReadResult> ReadAsync (
-            ResolvedUnityProjectContext unityProject,
-            IpcDaemonLogsReadRequest query,
-            TimeSpan timeout,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            CallCount++;
-            CapturedAfterValues.Add(query.After);
-            CapturedQueries.Add(query);
-
-            if (responses.Count == 0)
-            {
-                return ValueTask.FromResult(DaemonLogsClientReadResult.Success(
-                    new IpcDaemonLogsReadResponse(Array.Empty<IpcDaemonLogEvent>(), query.After ?? "stream-1:1")));
-            }
-
-            return ValueTask.FromResult(responses.Dequeue());
-        }
+        return CreateService(
+            resolver,
+            daemonLogsClient,
+            LogsStreamRequestValidatorTestAdapters.CreateDaemonZeroPollInterval(TimeSpan.Zero));
     }
 
 }

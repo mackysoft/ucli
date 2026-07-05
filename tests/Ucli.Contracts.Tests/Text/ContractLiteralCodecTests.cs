@@ -11,6 +11,64 @@ namespace MackySoft.Ucli.Contracts.Tests.Text;
 
 public sealed class ContractLiteralCodecTests
 {
+    private static readonly string?[] NonExactOperationPolicyLiterals =
+    [
+        null,
+        "",
+        "safe ",
+        "SAFE",
+        "unsupported",
+    ];
+
+    private static readonly LiteralMatchCase[] LiteralMatchCases =
+    [
+        new("dangerous", OperationPolicy.Dangerous, ExpectedResult: true),
+        new("dangerous", OperationPolicy.Safe, ExpectedResult: false),
+        new("DANGEROUS", OperationPolicy.Dangerous, ExpectedResult: false),
+        new(null, OperationPolicy.Dangerous, ExpectedResult: false),
+    ];
+
+    private static readonly InvalidEnumCase[] InvalidEnumCases =
+    [
+        new("missing literal", static () => ContractLiteralCodec.GetLiterals<MissingLiteralEnum>()),
+        new("empty literal", static () => ContractLiteralCodec.GetLiterals<EmptyLiteralEnum>()),
+        new("outer whitespace literal", static () => ContractLiteralCodec.GetLiterals<WhitespaceLiteralEnum>()),
+        new("duplicate literal", static () => ContractLiteralCodec.GetLiterals<DuplicateLiteralEnum>()),
+        new("duplicate enum value", static () => ContractLiteralCodec.GetLiterals<DuplicateEnumValueEnum>()),
+        new("literal and ignore attributes", static () => ContractLiteralCodec.GetLiterals<LiteralAndIgnoreEnum>()),
+    ];
+
+    private static readonly Type[] ContractVocabularyEnumTypes =
+    [
+        typeof(UcliOperationExposure),
+        typeof(UcliOperationKind),
+        typeof(OperationPolicy),
+        typeof(PlanTokenMode),
+        typeof(ReadIndexMode),
+        typeof(BuildProfileProjectMutationMode),
+        typeof(BuildProfileSceneSource),
+        typeof(DaemonEditorMode),
+        typeof(DaemonSessionOwnerKind),
+        typeof(DaemonStartupBlockedProcessPolicy),
+        typeof(DaemonStartProgressEvent),
+        typeof(DaemonStartProgressPayloadKind),
+        typeof(IndexSchemaKind),
+        typeof(IndexPropertyType),
+        typeof(IpcResponseMode),
+        typeof(IpcTransportKind),
+        typeof(IpcPlayModeState),
+        typeof(IpcPlayModeTransition),
+        typeof(IpcEditStepContract.ActionKind),
+        typeof(SceneTreeSourceStateKind),
+        typeof(UcliOperationInputConstraintKind),
+        typeof(UcliOperationAssetKind),
+        typeof(UcliOperationReferenceTargetKind),
+        typeof(UcliOperationSerializedPropertyAccess),
+        typeof(UcliOperationTypeKind),
+        typeof(UcliOperationPlanMode),
+        typeof(UcliOperationSideEffect),
+    ];
+
     [Fact]
     [Trait("Size", "Small")]
     public void ToValue_WhenValueIsMapped_ReturnsCanonicalLiteral ()
@@ -38,45 +96,39 @@ public sealed class ContractLiteralCodecTests
         Assert.Equal(OperationPolicy.Dangerous, policy);
     }
 
-    [Theory]
+    [Fact]
     [Trait("Size", "Small")]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData("safe ")]
-    [InlineData("SAFE")]
-    [InlineData("unsupported")]
-    public void TryParse_WhenLiteralDoesNotExactlyMatch_ReturnsFalse (string? literal)
+    public void TryParse_WhenLiteralDoesNotExactlyMatch_ReturnsFalse ()
     {
-        var result = ContractLiteralCodec.TryParse<OperationPolicy>(literal, out var policy);
+        foreach (string? literal in NonExactOperationPolicyLiterals)
+        {
+            var result = ContractLiteralCodec.TryParse<OperationPolicy>(literal, out var policy);
 
-        Assert.False(result);
-        Assert.Equal(default, policy);
+            Assert.False(result);
+            Assert.Equal(default, policy);
+        }
     }
 
-    [Theory]
+    [Fact]
     [Trait("Size", "Small")]
-    [InlineData("dangerous", OperationPolicy.Dangerous, true)]
-    [InlineData("dangerous", OperationPolicy.Safe, false)]
-    [InlineData("DANGEROUS", OperationPolicy.Dangerous, false)]
-    [InlineData(null, OperationPolicy.Dangerous, false)]
-    public void Matches_ReturnsWhetherLiteralMapsToExpectedValue (
-        string? literal,
-        OperationPolicy expectedValue,
-        bool expectedResult)
+    public void Matches_ReturnsWhetherLiteralMapsToExpectedValue ()
     {
-        Assert.Equal(expectedResult, ContractLiteralCodec.Matches(literal, expectedValue));
+        foreach (var testCase in LiteralMatchCases)
+        {
+            Assert.Equal(
+                testCase.ExpectedResult,
+                ContractLiteralCodec.Matches(testCase.Literal, testCase.ExpectedValue));
+        }
     }
 
-    [Theory]
+    [Fact]
     [Trait("Size", "Small")]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData("safe ")]
-    [InlineData("SAFE")]
-    [InlineData("unsupported")]
-    public void IsDefined_WhenLiteralDoesNotExactlyMatch_ReturnsFalse (string? literal)
+    public void IsDefined_WhenLiteralDoesNotExactlyMatch_ReturnsFalse ()
     {
-        Assert.False(ContractLiteralCodec.IsDefined<OperationPolicy>(literal));
+        foreach (string? literal in NonExactOperationPolicyLiterals)
+        {
+            Assert.False(ContractLiteralCodec.IsDefined<OperationPolicy>(literal));
+        }
     }
 
     [Fact]
@@ -126,66 +178,28 @@ public sealed class ContractLiteralCodecTests
         Assert.False(ContractLiteralCodec.IsDefined(UcliOperationAssetKind.Unspecified));
     }
 
-    [Theory]
+    [Fact]
     [Trait("Size", "Small")]
-    [MemberData(nameof(InvalidEnumCases))]
-    public void GetLiterals_WhenEnumLiteralDefinitionIsInvalid_ThrowsInvalidOperationException (Action getLiterals)
+    public void GetLiterals_WhenEnumLiteralDefinitionIsInvalid_ThrowsInvalidOperationException ()
     {
-        Assert.Throws<InvalidOperationException>(getLiterals);
-    }
-
-    [Theory]
-    [Trait("Size", "Small")]
-    [MemberData(nameof(ContractVocabularyEnumTypes))]
-    public void GetLiterals_WhenContractVocabularyEnumIsRegistered_BuildsTable (Type enumType)
-    {
-        Assert.NotEmpty(InvokeGetLiterals(enumType));
-    }
-
-    public static IEnumerable<object[]> InvalidEnumCases
-    {
-        get
+        foreach (var testCase in InvalidEnumCases)
         {
-            yield return new object[] { (Action)(static () => ContractLiteralCodec.GetLiterals<MissingLiteralEnum>()) };
-            yield return new object[] { (Action)(static () => ContractLiteralCodec.GetLiterals<EmptyLiteralEnum>()) };
-            yield return new object[] { (Action)(static () => ContractLiteralCodec.GetLiterals<WhitespaceLiteralEnum>()) };
-            yield return new object[] { (Action)(static () => ContractLiteralCodec.GetLiterals<DuplicateLiteralEnum>()) };
-            yield return new object[] { (Action)(static () => ContractLiteralCodec.GetLiterals<DuplicateEnumValueEnum>()) };
-            yield return new object[] { (Action)(static () => ContractLiteralCodec.GetLiterals<LiteralAndIgnoreEnum>()) };
+            var exception = Record.Exception(testCase.GetLiterals);
+            Assert.True(
+                exception?.GetType() == typeof(InvalidOperationException),
+                $"{testCase.Name} must throw {nameof(InvalidOperationException)}.");
         }
     }
 
-    public static IEnumerable<object[]> ContractVocabularyEnumTypes
+    [Fact]
+    [Trait("Size", "Small")]
+    public void GetLiterals_WhenContractVocabularyEnumIsRegistered_BuildsTable ()
     {
-        get
+        foreach (Type enumType in ContractVocabularyEnumTypes)
         {
-            yield return new object[] { typeof(UcliOperationExposure) };
-            yield return new object[] { typeof(UcliOperationKind) };
-            yield return new object[] { typeof(OperationPolicy) };
-            yield return new object[] { typeof(PlanTokenMode) };
-            yield return new object[] { typeof(ReadIndexMode) };
-            yield return new object[] { typeof(BuildProfileProjectMutationMode) };
-            yield return new object[] { typeof(BuildProfileSceneSource) };
-            yield return new object[] { typeof(DaemonEditorMode) };
-            yield return new object[] { typeof(DaemonSessionOwnerKind) };
-            yield return new object[] { typeof(DaemonStartupBlockedProcessPolicy) };
-            yield return new object[] { typeof(DaemonStartProgressEvent) };
-            yield return new object[] { typeof(DaemonStartProgressPayloadKind) };
-            yield return new object[] { typeof(IndexSchemaKind) };
-            yield return new object[] { typeof(IndexPropertyType) };
-            yield return new object[] { typeof(IpcResponseMode) };
-            yield return new object[] { typeof(IpcTransportKind) };
-            yield return new object[] { typeof(IpcPlayModeState) };
-            yield return new object[] { typeof(IpcPlayModeTransition) };
-            yield return new object[] { typeof(IpcEditStepContract.ActionKind) };
-            yield return new object[] { typeof(SceneTreeSourceStateKind) };
-            yield return new object[] { typeof(UcliOperationInputConstraintKind) };
-            yield return new object[] { typeof(UcliOperationAssetKind) };
-            yield return new object[] { typeof(UcliOperationReferenceTargetKind) };
-            yield return new object[] { typeof(UcliOperationSerializedPropertyAccess) };
-            yield return new object[] { typeof(UcliOperationTypeKind) };
-            yield return new object[] { typeof(UcliOperationPlanMode) };
-            yield return new object[] { typeof(UcliOperationSideEffect) };
+            var literals = InvokeGetLiterals(enumType);
+
+            Assert.True(literals.Count > 0, $"{enumType.FullName} must expose at least one contract literal.");
         }
     }
 
@@ -197,6 +211,15 @@ public sealed class ContractLiteralCodecTests
 
         return (IReadOnlyList<string>)method.Invoke(null, null)!;
     }
+
+    private sealed record LiteralMatchCase (
+        string? Literal,
+        OperationPolicy ExpectedValue,
+        bool ExpectedResult);
+
+    private sealed record InvalidEnumCase (
+        string Name,
+        Action GetLiterals);
 
     private enum MissingLiteralEnum
     {

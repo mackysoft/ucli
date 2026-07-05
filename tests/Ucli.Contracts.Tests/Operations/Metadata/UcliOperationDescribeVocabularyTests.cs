@@ -1,12 +1,92 @@
 using System.Reflection;
 using MackySoft.Ucli.Contracts.Configuration;
-
 using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Tests.Operations;
 
 public sealed class UcliOperationDescribeVocabularyTests
 {
+    private static readonly SideEffectMinimumPolicyCase[] SideEffectMinimumPolicyCases =
+    [
+        new("observesUnityState", OperationPolicy.Safe),
+        new("editorStateChange", OperationPolicy.Advanced),
+        new("opensSceneInEditor", OperationPolicy.Advanced),
+        new("opensPrefabStage", OperationPolicy.Advanced),
+        new("assetDatabaseRefresh", OperationPolicy.Advanced),
+        new("assetImport", OperationPolicy.Advanced),
+        new("scriptCompilation", OperationPolicy.Advanced),
+        new("domainReload", OperationPolicy.Advanced),
+        new("sceneContentMutation", OperationPolicy.Advanced),
+        new("prefabContentMutation", OperationPolicy.Advanced),
+        new("assetContentMutation", OperationPolicy.Advanced),
+        new("projectSettingsMutation", OperationPolicy.Advanced),
+        new("sceneSave", OperationPolicy.Advanced),
+        new("prefabSave", OperationPolicy.Advanced),
+        new("assetSave", OperationPolicy.Advanced),
+        new("projectSave", OperationPolicy.Advanced),
+        new("externalProcess", OperationPolicy.Dangerous),
+        new("filesystemWrite", OperationPolicy.Dangerous),
+        new("arbitrarySourceExecution", OperationPolicy.Dangerous),
+        new("destructiveScope", OperationPolicy.Dangerous),
+    ];
+
+    private static readonly SideEffectQueryAllowanceCase[] SideEffectQueryAllowanceCases =
+    [
+        new("observesUnityState", ExpectedAllowed: true),
+        new("editorStateChange", ExpectedAllowed: false),
+        new("opensSceneInEditor", ExpectedAllowed: false),
+        new("opensPrefabStage", ExpectedAllowed: false),
+        new("assetDatabaseRefresh", ExpectedAllowed: false),
+        new("assetImport", ExpectedAllowed: false),
+        new("scriptCompilation", ExpectedAllowed: false),
+        new("domainReload", ExpectedAllowed: false),
+        new("sceneContentMutation", ExpectedAllowed: false),
+        new("prefabContentMutation", ExpectedAllowed: false),
+        new("assetContentMutation", ExpectedAllowed: false),
+        new("projectSettingsMutation", ExpectedAllowed: false),
+        new("sceneSave", ExpectedAllowed: false),
+        new("prefabSave", ExpectedAllowed: false),
+        new("assetSave", ExpectedAllowed: false),
+        new("projectSave", ExpectedAllowed: false),
+        new("externalProcess", ExpectedAllowed: false),
+        new("filesystemWrite", ExpectedAllowed: false),
+        new("arbitrarySourceExecution", ExpectedAllowed: false),
+        new("destructiveScope", ExpectedAllowed: false),
+    ];
+
+    private static readonly SideEffectAssuranceProjectionCase[] SideEffectAssuranceProjectionCases =
+    [
+        new("observesUnityState", ExpectedMayDirty: false, ExpectedMayPersist: false, []),
+        new("editorStateChange", ExpectedMayDirty: false, ExpectedMayPersist: false, []),
+        new("opensSceneInEditor", ExpectedMayDirty: false, ExpectedMayPersist: false, [UcliTouchedResourceKindNames.Scene]),
+        new("opensPrefabStage", ExpectedMayDirty: false, ExpectedMayPersist: false, [UcliTouchedResourceKindNames.Prefab]),
+        new("assetDatabaseRefresh", ExpectedMayDirty: false, ExpectedMayPersist: false, [UcliTouchedResourceKindNames.Asset]),
+        new("assetImport", ExpectedMayDirty: false, ExpectedMayPersist: false, [UcliTouchedResourceKindNames.Asset]),
+        new("scriptCompilation", ExpectedMayDirty: false, ExpectedMayPersist: false, []),
+        new("domainReload", ExpectedMayDirty: false, ExpectedMayPersist: false, []),
+        new("sceneContentMutation", ExpectedMayDirty: true, ExpectedMayPersist: false, [UcliTouchedResourceKindNames.Scene]),
+        new("prefabContentMutation", ExpectedMayDirty: true, ExpectedMayPersist: false, [UcliTouchedResourceKindNames.Prefab]),
+        new("assetContentMutation", ExpectedMayDirty: true, ExpectedMayPersist: false, [UcliTouchedResourceKindNames.Asset]),
+        new("projectSettingsMutation", ExpectedMayDirty: true, ExpectedMayPersist: false, [UcliTouchedResourceKindNames.ProjectSettings]),
+        new("sceneSave", ExpectedMayDirty: false, ExpectedMayPersist: true, [UcliTouchedResourceKindNames.Scene]),
+        new("prefabSave", ExpectedMayDirty: false, ExpectedMayPersist: true, [UcliTouchedResourceKindNames.Prefab]),
+        new("assetSave", ExpectedMayDirty: false, ExpectedMayPersist: true, [UcliTouchedResourceKindNames.Asset]),
+        new(
+            "projectSave",
+            ExpectedMayDirty: false,
+            ExpectedMayPersist: true,
+            [
+                UcliTouchedResourceKindNames.Scene,
+                UcliTouchedResourceKindNames.Prefab,
+                UcliTouchedResourceKindNames.Asset,
+                UcliTouchedResourceKindNames.ProjectSettings,
+            ]),
+        new("externalProcess", ExpectedMayDirty: false, ExpectedMayPersist: false, []),
+        new("filesystemWrite", ExpectedMayDirty: false, ExpectedMayPersist: true, []),
+        new("arbitrarySourceExecution", ExpectedMayDirty: false, ExpectedMayPersist: false, []),
+        new("destructiveScope", ExpectedMayDirty: false, ExpectedMayPersist: false, []),
+    ];
+
     [Fact]
     [Trait("Size", "Small")]
     public void ConstraintKindEnum_HasStableValues ()
@@ -135,35 +215,35 @@ public sealed class UcliOperationDescribeVocabularyTests
     public void SideEffectDescriptors_MinimumPolicyFixturesCoverSupportedValues ()
     {
         var fixtureLiterals = SideEffectMinimumPolicyCases
-            .Select(values => Assert.IsType<string>(values[0]))
+            .Select(testCase => testCase.SideEffect)
             .ToArray();
 
         Assert.Equal(UcliOperationSideEffectDescriptors.SupportedValues, fixtureLiterals);
     }
 
-    [Theory]
+    [Fact]
     [Trait("Size", "Small")]
-    [MemberData(nameof(SideEffectMinimumPolicyCases))]
-    public void SideEffectDescriptors_DeclareMinimumPolicy (
-        string sideEffect,
-        OperationPolicy expectedPolicy)
+    public void SideEffectDescriptors_DeclareMinimumPolicy ()
     {
-        var isSupported = UcliOperationSideEffectDescriptors.TryGetMinimumPolicy(sideEffect, out var policy);
+        foreach (var testCase in SideEffectMinimumPolicyCases)
+        {
+            var isSupported = UcliOperationSideEffectDescriptors.TryGetMinimumPolicy(testCase.SideEffect, out var policy);
 
-        Assert.True(isSupported);
-        Assert.Equal(expectedPolicy, policy);
+            Assert.True(isSupported);
+            Assert.Equal(testCase.ExpectedPolicy, policy);
+        }
     }
 
-    [Theory]
+    [Fact]
     [Trait("Size", "Small")]
-    [MemberData(nameof(SideEffectMinimumPolicyCases))]
-    public void SideEffectDescriptors_DangerousDerivationMatchesMinimumPolicy (
-        string sideEffect,
-        OperationPolicy expectedPolicy)
+    public void SideEffectDescriptors_DangerousDerivationMatchesMinimumPolicy ()
     {
-        var isDangerousSource = UcliOperationSideEffectDescriptors.IsDangerousDerivationSource(sideEffect);
+        foreach (var testCase in SideEffectMinimumPolicyCases)
+        {
+            var isDangerousSource = UcliOperationSideEffectDescriptors.IsDangerousDerivationSource(testCase.SideEffect);
 
-        Assert.Equal(expectedPolicy == OperationPolicy.Dangerous, isDangerousSource);
+            Assert.Equal(testCase.ExpectedPolicy == OperationPolicy.Dangerous, isDangerousSource);
+        }
     }
 
     [Fact]
@@ -171,30 +251,30 @@ public sealed class UcliOperationDescribeVocabularyTests
     public void SideEffectDescriptors_QueryOperationAllowanceFixturesCoverSupportedValues ()
     {
         var fixtureLiterals = SideEffectQueryAllowanceCases
-            .Select(values => Assert.IsType<string>(values[0]))
+            .Select(testCase => testCase.SideEffect)
             .ToArray();
 
         Assert.Equal(UcliOperationSideEffectDescriptors.SupportedValues, fixtureLiterals);
     }
 
-    [Theory]
+    [Fact]
     [Trait("Size", "Small")]
-    [MemberData(nameof(SideEffectQueryAllowanceCases))]
-    public void SideEffectDescriptors_DeclareQueryOperationAllowance (
-        string sideEffect,
-        bool expectedAllowed)
+    public void SideEffectDescriptors_DeclareQueryOperationAllowance ()
     {
-        var isAllowed = UcliOperationSideEffectDescriptors.IsAllowedForQueryOperation(sideEffect);
-
-        Assert.Equal(expectedAllowed, isAllowed);
-
-        if (expectedAllowed)
+        foreach (var testCase in SideEffectQueryAllowanceCases)
         {
-            Assert.True(UcliOperationSideEffectDescriptors.TryGetDescriptor(sideEffect, out var descriptor));
-            Assert.Equal(OperationPolicy.Safe, descriptor!.MinimumPolicy);
-            Assert.False(descriptor.DerivesMayDirty);
-            Assert.False(descriptor.DerivesMayPersist);
-            Assert.Empty(descriptor.RequiredTouchedKinds);
+            var isAllowed = UcliOperationSideEffectDescriptors.IsAllowedForQueryOperation(testCase.SideEffect);
+
+            Assert.Equal(testCase.ExpectedAllowed, isAllowed);
+
+            if (testCase.ExpectedAllowed)
+            {
+                Assert.True(UcliOperationSideEffectDescriptors.TryGetDescriptor(testCase.SideEffect, out var descriptor));
+                Assert.Equal(OperationPolicy.Safe, descriptor!.MinimumPolicy);
+                Assert.False(descriptor.DerivesMayDirty);
+                Assert.False(descriptor.DerivesMayPersist);
+                Assert.Empty(descriptor.RequiredTouchedKinds);
+            }
         }
     }
 
@@ -203,43 +283,42 @@ public sealed class UcliOperationDescribeVocabularyTests
     public void SideEffectDescriptors_AssuranceProjectionFixturesCoverSupportedValues ()
     {
         var fixtureLiterals = SideEffectAssuranceProjectionCases
-            .Select(values => Assert.IsType<string>(values[0]))
+            .Select(testCase => testCase.SideEffect)
             .ToArray();
 
         Assert.Equal(UcliOperationSideEffectDescriptors.SupportedValues, fixtureLiterals);
     }
 
-    [Theory]
+    [Fact]
     [Trait("Size", "Small")]
-    [MemberData(nameof(SideEffectAssuranceProjectionCases))]
-    public void SideEffectDescriptors_DeclareAssuranceProjectionAndTouchedKindConstraints (
-        string sideEffect,
-        bool expectedMayDirty,
-        bool expectedMayPersist,
-        string[] expectedRequiredTouchedKinds)
+    public void SideEffectDescriptors_DeclareAssuranceProjectionAndTouchedKindConstraints ()
     {
-        var isSupported = UcliOperationSideEffectDescriptors.TryGetDescriptor(sideEffect, out var descriptor);
+        foreach (var testCase in SideEffectAssuranceProjectionCases)
+        {
+            var isSupported = UcliOperationSideEffectDescriptors.TryGetDescriptor(testCase.SideEffect, out var descriptor);
 
-        Assert.True(isSupported);
-        Assert.Equal(expectedMayDirty, descriptor!.DerivesMayDirty);
-        Assert.Equal(expectedMayPersist, descriptor.DerivesMayPersist);
-        Assert.Equal(expectedRequiredTouchedKinds, descriptor.RequiredTouchedKinds);
+            Assert.True(isSupported);
+            Assert.Equal(testCase.ExpectedMayDirty, descriptor!.DerivesMayDirty);
+            Assert.Equal(testCase.ExpectedMayPersist, descriptor.DerivesMayPersist);
+            Assert.Equal(testCase.ExpectedRequiredTouchedKinds, descriptor.RequiredTouchedKinds);
+        }
     }
 
-    [Theory]
+    [Fact]
     [Trait("Size", "Small")]
-    [MemberData(nameof(SideEffectAssuranceProjectionCases))]
-    public void SideEffectDescriptors_DeriveAssuranceProjection (
-        string sideEffect,
-        bool expectedMayDirty,
-        bool expectedMayPersist,
-        string[] _)
+    public void SideEffectDescriptors_DeriveAssuranceProjection ()
     {
-        var isSupported = UcliOperationSideEffectDescriptors.TryDeriveAssuranceProjection([sideEffect], out var mayDirty, out var mayPersist);
+        foreach (var testCase in SideEffectAssuranceProjectionCases)
+        {
+            var isSupported = UcliOperationSideEffectDescriptors.TryDeriveAssuranceProjection(
+                [testCase.SideEffect],
+                out var mayDirty,
+                out var mayPersist);
 
-        Assert.True(isSupported);
-        Assert.Equal(expectedMayDirty, mayDirty);
-        Assert.Equal(expectedMayPersist, mayPersist);
+            Assert.True(isSupported);
+            Assert.Equal(testCase.ExpectedMayDirty, mayDirty);
+            Assert.Equal(testCase.ExpectedMayPersist, mayPersist);
+        }
     }
 
     [Fact]
@@ -253,96 +332,17 @@ public sealed class UcliOperationDescribeVocabularyTests
         Assert.False(mayPersist);
     }
 
-    public static IEnumerable<object[]> SideEffectMinimumPolicyCases
-    {
-        get
-        {
-            yield return new object[] { "observesUnityState", OperationPolicy.Safe };
-            yield return new object[] { "editorStateChange", OperationPolicy.Advanced };
-            yield return new object[] { "opensSceneInEditor", OperationPolicy.Advanced };
-            yield return new object[] { "opensPrefabStage", OperationPolicy.Advanced };
-            yield return new object[] { "assetDatabaseRefresh", OperationPolicy.Advanced };
-            yield return new object[] { "assetImport", OperationPolicy.Advanced };
-            yield return new object[] { "scriptCompilation", OperationPolicy.Advanced };
-            yield return new object[] { "domainReload", OperationPolicy.Advanced };
-            yield return new object[] { "sceneContentMutation", OperationPolicy.Advanced };
-            yield return new object[] { "prefabContentMutation", OperationPolicy.Advanced };
-            yield return new object[] { "assetContentMutation", OperationPolicy.Advanced };
-            yield return new object[] { "projectSettingsMutation", OperationPolicy.Advanced };
-            yield return new object[] { "sceneSave", OperationPolicy.Advanced };
-            yield return new object[] { "prefabSave", OperationPolicy.Advanced };
-            yield return new object[] { "assetSave", OperationPolicy.Advanced };
-            yield return new object[] { "projectSave", OperationPolicy.Advanced };
-            yield return new object[] { "externalProcess", OperationPolicy.Dangerous };
-            yield return new object[] { "filesystemWrite", OperationPolicy.Dangerous };
-            yield return new object[] { "arbitrarySourceExecution", OperationPolicy.Dangerous };
-            yield return new object[] { "destructiveScope", OperationPolicy.Dangerous };
-        }
-    }
+    private sealed record SideEffectMinimumPolicyCase (
+        string SideEffect,
+        OperationPolicy ExpectedPolicy);
 
-    public static IEnumerable<object[]> SideEffectQueryAllowanceCases
-    {
-        get
-        {
-            yield return new object[] { "observesUnityState", true };
-            yield return new object[] { "editorStateChange", false };
-            yield return new object[] { "opensSceneInEditor", false };
-            yield return new object[] { "opensPrefabStage", false };
-            yield return new object[] { "assetDatabaseRefresh", false };
-            yield return new object[] { "assetImport", false };
-            yield return new object[] { "scriptCompilation", false };
-            yield return new object[] { "domainReload", false };
-            yield return new object[] { "sceneContentMutation", false };
-            yield return new object[] { "prefabContentMutation", false };
-            yield return new object[] { "assetContentMutation", false };
-            yield return new object[] { "projectSettingsMutation", false };
-            yield return new object[] { "sceneSave", false };
-            yield return new object[] { "prefabSave", false };
-            yield return new object[] { "assetSave", false };
-            yield return new object[] { "projectSave", false };
-            yield return new object[] { "externalProcess", false };
-            yield return new object[] { "filesystemWrite", false };
-            yield return new object[] { "arbitrarySourceExecution", false };
-            yield return new object[] { "destructiveScope", false };
-        }
-    }
+    private sealed record SideEffectQueryAllowanceCase (
+        string SideEffect,
+        bool ExpectedAllowed);
 
-    public static IEnumerable<object[]> SideEffectAssuranceProjectionCases
-    {
-        get
-        {
-            yield return new object[] { "observesUnityState", false, false, Array.Empty<string>() };
-            yield return new object[] { "editorStateChange", false, false, Array.Empty<string>() };
-            yield return new object[] { "opensSceneInEditor", false, false, new[] { UcliTouchedResourceKindNames.Scene } };
-            yield return new object[] { "opensPrefabStage", false, false, new[] { UcliTouchedResourceKindNames.Prefab } };
-            yield return new object[] { "assetDatabaseRefresh", false, false, new[] { UcliTouchedResourceKindNames.Asset } };
-            yield return new object[] { "assetImport", false, false, new[] { UcliTouchedResourceKindNames.Asset } };
-            yield return new object[] { "scriptCompilation", false, false, Array.Empty<string>() };
-            yield return new object[] { "domainReload", false, false, Array.Empty<string>() };
-            yield return new object[] { "sceneContentMutation", true, false, new[] { UcliTouchedResourceKindNames.Scene } };
-            yield return new object[] { "prefabContentMutation", true, false, new[] { UcliTouchedResourceKindNames.Prefab } };
-            yield return new object[] { "assetContentMutation", true, false, new[] { UcliTouchedResourceKindNames.Asset } };
-            yield return new object[] { "projectSettingsMutation", true, false, new[] { UcliTouchedResourceKindNames.ProjectSettings } };
-            yield return new object[] { "sceneSave", false, true, new[] { UcliTouchedResourceKindNames.Scene } };
-            yield return new object[] { "prefabSave", false, true, new[] { UcliTouchedResourceKindNames.Prefab } };
-            yield return new object[] { "assetSave", false, true, new[] { UcliTouchedResourceKindNames.Asset } };
-            yield return new object[]
-            {
-                "projectSave",
-                false,
-                true,
-                new[]
-                {
-                    UcliTouchedResourceKindNames.Scene,
-                    UcliTouchedResourceKindNames.Prefab,
-                    UcliTouchedResourceKindNames.Asset,
-                    UcliTouchedResourceKindNames.ProjectSettings,
-                },
-            };
-            yield return new object[] { "externalProcess", false, false, Array.Empty<string>() };
-            yield return new object[] { "filesystemWrite", false, true, Array.Empty<string>() };
-            yield return new object[] { "arbitrarySourceExecution", false, false, Array.Empty<string>() };
-            yield return new object[] { "destructiveScope", false, false, Array.Empty<string>() };
-        }
-    }
+    private sealed record SideEffectAssuranceProjectionCase (
+        string SideEffect,
+        bool ExpectedMayDirty,
+        bool ExpectedMayPersist,
+        string[] ExpectedRequiredTouchedKinds);
 }

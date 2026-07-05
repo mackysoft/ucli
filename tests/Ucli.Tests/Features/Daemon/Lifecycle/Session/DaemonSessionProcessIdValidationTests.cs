@@ -1,23 +1,22 @@
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
-using MackySoft.Ucli.Infrastructure.Storage;
-namespace MackySoft.Ucli.Tests.Daemon;
-
 using MackySoft.Tests;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Tests.Helpers.Daemon;
+
+namespace MackySoft.Ucli.Tests.Daemon;
 
 public sealed class DaemonSessionProcessIdValidationTests
 {
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task Read_WhenProcessIdIsNotPositive_ReturnsInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "invalid-process-id-read");
-        var store = new DaemonSessionStore(new DaemonSessionJsonSerializer(), new DaemonSessionValidator());
+        var store = DaemonSessionStorageTestSupport.CreateStore();
         var projectFingerprint = "fingerprint-invalid-process-id-read";
-        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, projectFingerprint);
-        Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
-        await File.WriteAllTextAsync(
-            sessionPath,
+        await DaemonSessionStorageTestSupport.WriteJsonAsync(
+            scope.FullPath,
+            projectFingerprint,
             $$"""
             {
               "schemaVersion": {{DaemonSession.CurrentSchemaVersion}},
@@ -45,16 +44,15 @@ public sealed class DaemonSessionProcessIdValidationTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task Read_WhenProcessStartedAtUtcIsMissingWithProcessId_ReturnsInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "missing-process-started-at-read");
-        var store = new DaemonSessionStore(new DaemonSessionJsonSerializer(), new DaemonSessionValidator());
+        var store = DaemonSessionStorageTestSupport.CreateStore();
         var projectFingerprint = "fingerprint-missing-process-started-at-read";
-        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, projectFingerprint);
-        Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
-        await File.WriteAllTextAsync(
-            sessionPath,
+        await DaemonSessionStorageTestSupport.WriteJsonAsync(
+            scope.FullPath,
+            projectFingerprint,
             $$"""
             {
               "schemaVersion": {{DaemonSession.CurrentSchemaVersion}},
@@ -85,24 +83,16 @@ public sealed class DaemonSessionProcessIdValidationTests
     [Theory]
     [InlineData(0)]
     [InlineData(-1)]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task Write_WhenProcessIdIsNotPositive_ReturnsInvalidArgument (int processId)
     {
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "invalid-process-id-write");
-        var store = new DaemonSessionStore(new DaemonSessionJsonSerializer(), new DaemonSessionValidator());
-        var session = new DaemonSession(
-            SchemaVersion: DaemonSession.CurrentSchemaVersion,
-            SessionToken: "token-1",
-            ProjectFingerprint: "fingerprint-invalid-process-id-write",
-            IssuedAtUtc: DateTimeOffset.UtcNow,
-            EditorMode: "batchmode",
-            OwnerKind: "cli",
-            CanShutdownProcess: true,
-            EndpointTransportKind: "namedPipe",
-            EndpointAddress: "ucli-daemon-test",
-            ProcessId: processId,
-            ProcessStartedAtUtc: DateTimeOffset.UtcNow,
-            OwnerProcessId: 9876);
+        var store = DaemonSessionStorageTestSupport.CreateStore();
+        var session = DaemonSessionTestFactory.Create() with
+        {
+            ProjectFingerprint = "fingerprint-invalid-process-id-write",
+            ProcessId = processId,
+        };
 
         var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);
 
@@ -113,24 +103,16 @@ public sealed class DaemonSessionProcessIdValidationTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task Write_WhenProcessStartedAtUtcIsMissingWithProcessId_ReturnsInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "missing-process-started-at-write");
-        var store = new DaemonSessionStore(new DaemonSessionJsonSerializer(), new DaemonSessionValidator());
-        var session = new DaemonSession(
-            SchemaVersion: DaemonSession.CurrentSchemaVersion,
-            SessionToken: "token-1",
-            ProjectFingerprint: "fingerprint-missing-process-started-at-write",
-            IssuedAtUtc: DateTimeOffset.UtcNow,
-            EditorMode: "batchmode",
-            OwnerKind: "cli",
-            CanShutdownProcess: true,
-            EndpointTransportKind: "namedPipe",
-            EndpointAddress: "ucli-daemon-test",
-            ProcessId: 1234,
-            ProcessStartedAtUtc: null,
-            OwnerProcessId: 9876);
+        var store = DaemonSessionStorageTestSupport.CreateStore();
+        var session = DaemonSessionTestFactory.Create() with
+        {
+            ProjectFingerprint = "fingerprint-missing-process-started-at-write",
+            ProcessStartedAtUtc = null,
+        };
 
         var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);
 

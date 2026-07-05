@@ -6,7 +6,7 @@ namespace MackySoft.Ucli.Tests.Daemon;
 public sealed class UnityEditorInstanceMarkerReaderTests
 {
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task Read_WhenMarkerContainsOnlyProcessId_ReturnsMarker ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-editor-instance-marker-reader", "process-id-only");
@@ -22,7 +22,10 @@ public sealed class UnityEditorInstanceMarkerReaderTests
 
         var reader = new UnityEditorInstanceMarkerReader();
 
-        var result = await reader.ReadAsync(CreateContext(unityProjectRoot), CancellationToken.None);
+        var result = await reader.ReadAsync(ResolvedUnityProjectContextTestFactory.Create(
+            unityProjectRoot: unityProjectRoot,
+            repositoryRoot: unityProjectRoot,
+            projectFingerprint: "fingerprint"), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.True(result.Exists);
@@ -34,7 +37,7 @@ public sealed class UnityEditorInstanceMarkerReaderTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task Read_WhenMarkerDoesNotExist_ReturnsNoMarker ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-editor-instance-marker-reader", "missing");
@@ -42,7 +45,10 @@ public sealed class UnityEditorInstanceMarkerReaderTests
         Directory.CreateDirectory(unityProjectRoot);
         var reader = new UnityEditorInstanceMarkerReader();
 
-        var result = await reader.ReadAsync(CreateContext(unityProjectRoot), CancellationToken.None);
+        var result = await reader.ReadAsync(ResolvedUnityProjectContextTestFactory.Create(
+            unityProjectRoot: unityProjectRoot,
+            repositoryRoot: unityProjectRoot,
+            projectFingerprint: "fingerprint"), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.False(result.Exists);
@@ -50,7 +56,7 @@ public sealed class UnityEditorInstanceMarkerReaderTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task Read_WhenMarkerIsTooLarge_ReturnsInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-editor-instance-marker-reader", "too-large");
@@ -61,19 +67,14 @@ public sealed class UnityEditorInstanceMarkerReaderTests
         await File.WriteAllTextAsync(markerPath, new string(' ', 17 * 1024));
         var reader = new UnityEditorInstanceMarkerReader();
 
-        var result = await reader.ReadAsync(CreateContext(unityProjectRoot), CancellationToken.None);
+        var result = await reader.ReadAsync(ResolvedUnityProjectContextTestFactory.Create(
+            unityProjectRoot: unityProjectRoot,
+            repositoryRoot: unityProjectRoot,
+            projectFingerprint: "fingerprint"), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, result.Error!.Kind);
         Assert.Contains("too large", result.Error.Message, StringComparison.Ordinal);
     }
 
-    private static ResolvedUnityProjectContext CreateContext (string unityProjectRoot)
-    {
-        return new ResolvedUnityProjectContext(
-            UnityProjectRoot: unityProjectRoot,
-            RepositoryRoot: unityProjectRoot,
-            ProjectFingerprint: "fingerprint",
-            PathSource: UnityProjectPathSource.CommandOption);
-    }
 }

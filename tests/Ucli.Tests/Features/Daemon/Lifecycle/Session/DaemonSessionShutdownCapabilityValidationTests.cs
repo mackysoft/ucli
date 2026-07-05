@@ -1,23 +1,22 @@
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
-using MackySoft.Ucli.Infrastructure.Storage;
-namespace MackySoft.Ucli.Tests.Daemon;
-
 using MackySoft.Tests;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Tests.Helpers.Daemon;
+
+namespace MackySoft.Ucli.Tests.Daemon;
 
 public sealed class DaemonSessionShutdownCapabilityValidationTests
 {
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task Read_WhenCanShutdownProcessIsMissing_ReturnsInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "missing-can-shutdown-process");
-        var store = new DaemonSessionStore(new DaemonSessionJsonSerializer(), new DaemonSessionValidator());
+        var store = DaemonSessionStorageTestSupport.CreateStore();
         var projectFingerprint = "fingerprint-missing-can-shutdown-process";
-        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, projectFingerprint);
-        Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
-        await File.WriteAllTextAsync(
-            sessionPath,
+        await DaemonSessionStorageTestSupport.WriteJsonAsync(
+            scope.FullPath,
+            projectFingerprint,
             $$"""
             {
               "schemaVersion": {{DaemonSession.CurrentSchemaVersion}},
@@ -46,24 +45,16 @@ public sealed class DaemonSessionShutdownCapabilityValidationTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task Write_WhenCanShutdownProcessIsFalse_ReturnsInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "can-shutdown-process-false");
-        var store = new DaemonSessionStore(new DaemonSessionJsonSerializer(), new DaemonSessionValidator());
-        var session = new DaemonSession(
-            SchemaVersion: DaemonSession.CurrentSchemaVersion,
-            SessionToken: "token-1",
-            ProjectFingerprint: "fingerprint-can-shutdown-process-false",
-            IssuedAtUtc: DateTimeOffset.UtcNow,
-            EditorMode: "batchmode",
-            OwnerKind: "cli",
-            CanShutdownProcess: false,
-            EndpointTransportKind: "namedPipe",
-            EndpointAddress: "ucli-daemon-test",
-            ProcessId: 1234,
-            ProcessStartedAtUtc: DateTimeOffset.UtcNow,
-            OwnerProcessId: 9876);
+        var store = DaemonSessionStorageTestSupport.CreateStore();
+        var session = DaemonSessionTestFactory.Create() with
+        {
+            ProjectFingerprint = "fingerprint-can-shutdown-process-false",
+            CanShutdownProcess = false,
+        };
 
         var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);
 

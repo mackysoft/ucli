@@ -2,21 +2,32 @@ namespace MackySoft.Ucli.Application.Tests.Execution;
 
 public sealed class ApplicationFailureTests
 {
-    [Theory]
-    [Trait("Size", "Small")]
-    [MemberData(nameof(DefaultApplicationFailureValues))]
-    public void Create_UsesDefaultCodeAndOutcome (
-        int failureKind,
-        string expectedCode,
-        int expectedOutcome)
-    {
-        var kind = (ApplicationFailureKind)failureKind;
-        var failure = ApplicationFailure.Create(kind, "Failure message.");
+    private static readonly DefaultApplicationFailureCase[] DefaultApplicationFailureCases =
+    [
+        new(ApplicationFailureKind.InvalidInput, UcliCoreErrorCodes.InvalidArgument, ApplicationOutcome.InvalidArgument),
+        new(ApplicationFailureKind.ConfigurationError, UcliCoreErrorCodes.InvalidArgument, ApplicationOutcome.InvalidArgument),
+        new(ApplicationFailureKind.EnvironmentError, UcliCoreErrorCodes.InternalError, ApplicationOutcome.ToolError),
+        new(ApplicationFailureKind.UnityIpcFailure, UcliCoreErrorCodes.InternalError, ApplicationOutcome.ToolError),
+        new(ApplicationFailureKind.ExternalProcessFailure, UcliCoreErrorCodes.InternalError, ApplicationOutcome.ToolError),
+        new(ApplicationFailureKind.ContractViolation, UcliCoreErrorCodes.InternalError, ApplicationOutcome.ToolError),
+        new(ApplicationFailureKind.Timeout, ExecutionErrorCodes.IpcTimeout, ApplicationOutcome.ToolError),
+        new(ApplicationFailureKind.Canceled, ExecutionErrorCodes.Canceled, ApplicationOutcome.ToolError),
+        new(ApplicationFailureKind.InternalError, UcliCoreErrorCodes.InternalError, ApplicationOutcome.ToolError),
+    ];
 
-        Assert.Equal(kind, failure.Kind);
-        Assert.Equal(expectedCode, failure.Code.Value);
-        Assert.Equal((ApplicationOutcome)expectedOutcome, failure.Outcome);
-        Assert.Equal("Failure message.", failure.Message);
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Create_UsesDefaultCodeAndOutcome ()
+    {
+        foreach (var testCase in DefaultApplicationFailureCases)
+        {
+            var failure = ApplicationFailure.Create(testCase.Kind, "Failure message.");
+
+            Assert.Equal(testCase.Kind, failure.Kind);
+            Assert.Equal(testCase.ExpectedCode, failure.Code);
+            Assert.Equal(testCase.ExpectedOutcome, failure.Outcome);
+            Assert.Equal("Failure message.", failure.Message);
+        }
     }
 
     [Fact]
@@ -100,19 +111,8 @@ public sealed class ApplicationFailureTests
             outcome: ApplicationOutcome.TestFailure));
     }
 
-    public static TheoryData<int, string, int> DefaultApplicationFailureValues ()
-    {
-        return new TheoryData<int, string, int>
-        {
-            { (int)ApplicationFailureKind.InvalidInput, UcliCoreErrorCodes.InvalidArgument.Value, (int)ApplicationOutcome.InvalidArgument },
-            { (int)ApplicationFailureKind.ConfigurationError, UcliCoreErrorCodes.InvalidArgument.Value, (int)ApplicationOutcome.InvalidArgument },
-            { (int)ApplicationFailureKind.EnvironmentError, UcliCoreErrorCodes.InternalError.Value, (int)ApplicationOutcome.ToolError },
-            { (int)ApplicationFailureKind.UnityIpcFailure, UcliCoreErrorCodes.InternalError.Value, (int)ApplicationOutcome.ToolError },
-            { (int)ApplicationFailureKind.ExternalProcessFailure, UcliCoreErrorCodes.InternalError.Value, (int)ApplicationOutcome.ToolError },
-            { (int)ApplicationFailureKind.ContractViolation, UcliCoreErrorCodes.InternalError.Value, (int)ApplicationOutcome.ToolError },
-            { (int)ApplicationFailureKind.Timeout, ExecutionErrorCodes.IpcTimeout.Value, (int)ApplicationOutcome.ToolError },
-            { (int)ApplicationFailureKind.Canceled, ExecutionErrorCodes.Canceled.Value, (int)ApplicationOutcome.ToolError },
-            { (int)ApplicationFailureKind.InternalError, UcliCoreErrorCodes.InternalError.Value, (int)ApplicationOutcome.ToolError },
-        };
-    }
+    private sealed record DefaultApplicationFailureCase (
+        ApplicationFailureKind Kind,
+        UcliCode ExpectedCode,
+        ApplicationOutcome ExpectedOutcome);
 }

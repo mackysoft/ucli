@@ -1,13 +1,10 @@
-using System.Globalization;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
-using MackySoft.Ucli.Application.Features.Play.Common;
 using MackySoft.Ucli.Application.Features.Play.UseCases.Enter;
-using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
-using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using static MackySoft.Ucli.Application.Tests.Play.PlayEnterServiceTestSupport;
 
 namespace MackySoft.Ucli.Application.Tests.Play;
 
@@ -18,8 +15,8 @@ public sealed class PlayEnterServiceTests
     public async Task Execute_WhenProjectResolutionFails_ReturnsFailureWithoutSessionOrIpcCall ()
     {
         var expectedError = ExecutionError.InvalidArgument("Project resolution failed.");
-        var sessionStore = new StubDaemonSessionStore(DaemonSessionReadResult.Success(CreateSession("gui")));
-        var requestExecutor = new StubUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(CreateEnteredResponse())));
+        var sessionStore = new UnexpectedDaemonSessionStore();
+        var requestExecutor = new UnexpectedUnityRequestExecutor();
         var service = CreateService(ProjectContextResolutionResult.Failure(expectedError), sessionStore, requestExecutor);
 
         var result = await service.ExecuteAsync(new PlayEnterCommandInput("/missing/project", null), CancellationToken.None);
@@ -27,17 +24,15 @@ public sealed class PlayEnterServiceTests
         Assert.False(result.IsSuccess);
         Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.Error!.Code);
         Assert.Equal(expectedError.Message, result.Error.Message);
-        Assert.Equal(0, sessionStore.ReadCallCount);
-        Assert.Equal(0, requestExecutor.CallCount);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task Execute_WhenSessionIsMissing_ReturnsSessionNotAvailableWithoutIpcCall ()
     {
-        var context = CreateContext();
-        var sessionStore = new StubDaemonSessionStore(DaemonSessionReadResult.Success(null));
-        var requestExecutor = new StubUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(CreateEnteredResponse())));
+        var context = PlayProjectContext;
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(null));
+        var requestExecutor = new UnexpectedUnityRequestExecutor();
         var service = CreateService(context, sessionStore, requestExecutor);
 
         var result = await service.ExecuteAsync(new PlayEnterCommandInput(null, null), CancellationToken.None);
@@ -45,34 +40,31 @@ public sealed class PlayEnterServiceTests
         Assert.False(result.IsSuccess);
         Assert.Null(result.Output);
         Assert.Equal(PlayModeErrorCodes.PlayModeSessionNotAvailable, result.Error!.Code);
-        Assert.Equal(0, requestExecutor.CallCount);
-        Assert.Equal(context.UnityProject.RepositoryRoot, sessionStore.CapturedStorageRoot);
-        Assert.Equal(context.UnityProject.ProjectFingerprint, sessionStore.CapturedProjectFingerprint);
+        DaemonSessionStoreAssert.SessionReadRequestedFor(sessionStore, context);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task Execute_WhenRegisteredSessionIsBatchmode_ReturnsRequiresGuiEditorWithoutIpcCall ()
     {
-        var sessionStore = new StubDaemonSessionStore(DaemonSessionReadResult.Success(CreateSession("batchmode")));
-        var requestExecutor = new StubUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(CreateEnteredResponse())));
-        var service = CreateService(CreateContext(), sessionStore, requestExecutor);
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(DaemonSessionTestFactory.CreateUserOwned("batchmode", PlaySessionEndpointAddress)));
+        var requestExecutor = new UnexpectedUnityRequestExecutor();
+        var service = CreateService(PlayProjectContext, sessionStore, requestExecutor);
 
         var result = await service.ExecuteAsync(new PlayEnterCommandInput(null, null), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Output);
         Assert.Equal(PlayModeErrorCodes.PlayModeRequiresGuiEditor, result.Error!.Code);
-        Assert.Equal(0, requestExecutor.CallCount);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task Execute_WhenEnterSucceeds_ReturnsFlatPayloadAndTransition ()
     {
-        var context = CreateContext();
-        var sessionStore = new StubDaemonSessionStore(DaemonSessionReadResult.Success(CreateSession("gui")));
-        var requestExecutor = new StubUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(CreateEnteredResponse())));
+        var context = PlayProjectContext;
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(DaemonSessionTestFactory.CreateUserOwned("gui", PlaySessionEndpointAddress)));
+        var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(CreateEnteredResponse())));
         var service = CreateService(context, sessionStore, requestExecutor);
 
         var result = await service.ExecuteAsync(new PlayEnterCommandInput("/repo/UnityProject", 1500), CancellationToken.None);
@@ -96,30 +88,28 @@ public sealed class PlayEnterServiceTests
         Assert.Null(output.Transition.Observed);
         Assert.Null(output.Transition.ApplicationState);
 
-        Assert.Equal(1, requestExecutor.CallCount);
-        Assert.Equal(UcliCommandIds.PlayEnter, requestExecutor.CapturedCommand);
-        Assert.Equal(UnityExecutionMode.Daemon, requestExecutor.CapturedMode);
-        Assert.Equal(TimeSpan.FromMilliseconds(2500), requestExecutor.CapturedTimeout);
-        var payload = Assert.IsType<UnityRequestPayload.PlayEnter>(requestExecutor.CapturedPayload);
-        Assert.Equal(1500, payload.TimeoutMilliseconds);
+        UnityRequestExecutorInvocationAssert.PlayEnterOnce(
+            requestExecutor,
+            TimeSpan.FromMilliseconds(2500),
+            expectedPayloadTimeoutMilliseconds: 1500);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task Execute_WhenEnterResponseIsLostDuringDomainReload_ReturnsFailureWithoutServiceRetry ()
     {
-        var requestExecutor = new StubUnityRequestExecutor(
+        var requestExecutor = new RecordingUnityRequestExecutor(
             UnityRequestExecutionResult.Failure(new UnityRequestFailure(
                 UcliCoreErrorCodes.InternalError,
                 "Failed to execute Unity daemon IPC request. IPC stream ended before a complete frame was read.")));
-        var service = CreateService(CreateContext(), CreateGuiSessionStore(), requestExecutor);
+        var service = CreateService(PlayProjectContext, CreateGuiSessionStore(), requestExecutor);
 
         var result = await service.ExecuteAsync(new PlayEnterCommandInput(null, 1500), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Output);
         Assert.Equal(UcliCoreErrorCodes.InternalError, result.Error!.Code);
-        Assert.Equal(1, requestExecutor.CallCount);
+        UnityRequestExecutorInvocationAssert.ExecutedOnce(requestExecutor, UcliCommandIds.PlayEnter);
     }
 
     [Fact]
@@ -139,9 +129,9 @@ public sealed class PlayEnterServiceTests
         {
             After = before,
         });
-        var sessionStore = new StubDaemonSessionStore(DaemonSessionReadResult.Success(CreateSession("gui")));
-        var requestExecutor = new StubUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(response)));
-        var service = CreateService(CreateContext(), sessionStore, requestExecutor);
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(DaemonSessionTestFactory.CreateUserOwned("gui", PlaySessionEndpointAddress)));
+        var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(response)));
+        var service = CreateService(PlayProjectContext, sessionStore, requestExecutor);
 
         var result = await service.ExecuteAsync(new PlayEnterCommandInput(null, null), CancellationToken.None);
 
@@ -171,11 +161,11 @@ public sealed class PlayEnterServiceTests
             Observed = observed,
             ApplicationState = IpcPlayApplicationStateNames.Indeterminate,
         });
-        var requestExecutor = new StubUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateErrorResponse(
+        var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateErrorResponse(
             response,
             PlayModeErrorCodes.PlayModeTransitionTimeout,
             "Unity Play Mode enter timed out after 1500 milliseconds.")));
-        var service = CreateService(CreateContext(), CreateGuiSessionStore(), requestExecutor);
+        var service = CreateService(PlayProjectContext, CreateGuiSessionStore(), requestExecutor);
 
         var result = await service.ExecuteAsync(new PlayEnterCommandInput(null, 1500), CancellationToken.None);
 
@@ -203,11 +193,11 @@ public sealed class PlayEnterServiceTests
             Observed = before,
             ApplicationState = IpcPlayApplicationStateNames.NotApplied,
         });
-        var requestExecutor = new StubUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateErrorResponse(
+        var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateErrorResponse(
             response,
             PlayModeErrorCodes.PlayModeTransitionBlocked,
             "Unity Play Mode enter is blocked.")));
-        var service = CreateService(CreateContext(), CreateGuiSessionStore(), requestExecutor);
+        var service = CreateService(PlayProjectContext, CreateGuiSessionStore(), requestExecutor);
 
         var result = await service.ExecuteAsync(new PlayEnterCommandInput(null, null), CancellationToken.None);
 
@@ -221,343 +211,12 @@ public sealed class PlayEnterServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenResponseProjectFingerprintDiffers_ReturnsMismatchFailure ()
-    {
-        var before = CreateSnapshot(
-            IpcEditorLifecycleStateCodec.Ready,
-            null,
-            true,
-            CreateStoppedPlayMode("2"),
-            projectFingerprint: "other-project-fingerprint");
-        var after = CreateSnapshot(
-            IpcEditorLifecycleStateCodec.Playmode,
-            IpcEditorBlockingReasonCodec.PlayMode,
-            false,
-            CreatePlayMode("playing", "none", true, true, "3"),
-            projectFingerprint: "other-project-fingerprint");
-        var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
-            IpcPlayTransitionCommandNames.Enter,
-            IpcPlayTransitionResultNames.Entered,
-            before)
-        {
-            After = after,
-        });
-        var requestExecutor = new StubUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(response)));
-        var service = CreateService(CreateContext(), CreateGuiSessionStore(), requestExecutor);
-
-        var result = await service.ExecuteAsync(new PlayEnterCommandInput(null, null), CancellationToken.None);
-
-        Assert.False(result.IsSuccess);
-        Assert.Contains("projectFingerprint mismatch", result.Error!.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task Execute_WhenPlayModeSnapshotIsInvalid_ReturnsStateUnknown ()
-    {
-        var before = CreateSnapshot(IpcEditorLifecycleStateCodec.Ready, null, true, CreateStoppedPlayMode("2"));
-        var after = CreateSnapshot(IpcEditorLifecycleStateCodec.Playmode, IpcEditorBlockingReasonCodec.PlayMode, false, new IpcPlayModeSnapshot(
-            State: "invalid",
-            Transition: "none",
-            IsPlaying: true,
-            IsPlayingOrWillChangePlaymode: true,
-            Generation: "3"));
-        var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
-            IpcPlayTransitionCommandNames.Enter,
-            IpcPlayTransitionResultNames.Entered,
-            before)
-        {
-            After = after,
-        });
-        var requestExecutor = new StubUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(response)));
-        var service = CreateService(CreateContext(), CreateGuiSessionStore(), requestExecutor);
-
-        var result = await service.ExecuteAsync(new PlayEnterCommandInput(null, null), CancellationToken.None);
-
-        Assert.False(result.IsSuccess);
-        Assert.Equal(PlayModeErrorCodes.PlayModeStateUnknown, result.Error!.Code);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task Execute_WhenEnteredDoesNotChangeGeneration_ReturnsStateUnknown ()
-    {
-        var before = CreateSnapshot(IpcEditorLifecycleStateCodec.Ready, null, true, CreateStoppedPlayMode("2"));
-        var after = CreateSnapshot(
-            IpcEditorLifecycleStateCodec.Playmode,
-            IpcEditorBlockingReasonCodec.PlayMode,
-            false,
-            CreatePlayMode("playing", "none", true, true, "2"));
-        var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
-            IpcPlayTransitionCommandNames.Enter,
-            IpcPlayTransitionResultNames.Entered,
-            before)
-        {
-            After = after,
-        });
-        var requestExecutor = new StubUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(response)));
-        var service = CreateService(CreateContext(), CreateGuiSessionStore(), requestExecutor);
-
-        var result = await service.ExecuteAsync(new PlayEnterCommandInput(null, null), CancellationToken.None);
-
-        Assert.False(result.IsSuccess);
-        Assert.Equal(PlayModeErrorCodes.PlayModeStateUnknown, result.Error!.Code);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task Execute_WhenAlreadyEnteredChangesGeneration_ReturnsStateUnknown ()
-    {
-        var before = CreateSnapshot(
-            IpcEditorLifecycleStateCodec.Playmode,
-            IpcEditorBlockingReasonCodec.PlayMode,
-            false,
-            CreatePlayMode("playing", "none", true, true, "9"));
-        var after = CreateSnapshot(
-            IpcEditorLifecycleStateCodec.Playmode,
-            IpcEditorBlockingReasonCodec.PlayMode,
-            false,
-            CreatePlayMode("playing", "none", true, true, "10"));
-        var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
-            IpcPlayTransitionCommandNames.Enter,
-            IpcPlayTransitionResultNames.AlreadyEntered,
-            before)
-        {
-            After = after,
-        });
-        var requestExecutor = new StubUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(response)));
-        var service = CreateService(CreateContext(), CreateGuiSessionStore(), requestExecutor);
-
-        var result = await service.ExecuteAsync(new PlayEnterCommandInput(null, null), CancellationToken.None);
-
-        Assert.False(result.IsSuccess);
-        Assert.Equal(PlayModeErrorCodes.PlayModeStateUnknown, result.Error!.Code);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task Execute_WhenSuccessTransitionContainsErrorFields_ReturnsStateUnknown ()
-    {
-        var before = CreateSnapshot(IpcEditorLifecycleStateCodec.Ready, null, true, CreateStoppedPlayMode("2"));
-        var after = CreateSnapshot(
-            IpcEditorLifecycleStateCodec.Playmode,
-            IpcEditorBlockingReasonCodec.PlayMode,
-            false,
-            CreatePlayMode("playing", "none", true, true, "3"));
-        var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
-            IpcPlayTransitionCommandNames.Enter,
-            IpcPlayTransitionResultNames.Entered,
-            before)
-        {
-            After = after,
-            Observed = before,
-            ApplicationState = IpcPlayApplicationStateNames.NotApplied,
-        });
-        var requestExecutor = new StubUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(response)));
-        var service = CreateService(CreateContext(), CreateGuiSessionStore(), requestExecutor);
-
-        var result = await service.ExecuteAsync(new PlayEnterCommandInput(null, null), CancellationToken.None);
-
-        Assert.False(result.IsSuccess);
-        Assert.Equal(PlayModeErrorCodes.PlayModeStateUnknown, result.Error!.Code);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task Execute_WhenEnteredAfterSnapshotIsStopped_ReturnsStateUnknown ()
-    {
-        var before = CreateSnapshot(IpcEditorLifecycleStateCodec.Ready, null, true, CreateStoppedPlayMode("2"));
-        var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
-            IpcPlayTransitionCommandNames.Enter,
-            IpcPlayTransitionResultNames.Entered,
-            before)
-        {
-            After = CreateSnapshot(IpcEditorLifecycleStateCodec.Ready, null, true, CreateStoppedPlayMode("3")),
-        });
-        var requestExecutor = new StubUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(response)));
-        var service = CreateService(CreateContext(), CreateGuiSessionStore(), requestExecutor);
-
-        var result = await service.ExecuteAsync(new PlayEnterCommandInput(null, null), CancellationToken.None);
-
-        Assert.False(result.IsSuccess);
-        Assert.Equal(PlayModeErrorCodes.PlayModeStateUnknown, result.Error!.Code);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task Execute_WhenAlreadyEnteredBeforeSnapshotIsStopped_ReturnsStateUnknown ()
-    {
-        var before = CreateSnapshot(IpcEditorLifecycleStateCodec.Ready, null, true, CreateStoppedPlayMode("9"));
-        var after = CreateSnapshot(
-            IpcEditorLifecycleStateCodec.Playmode,
-            IpcEditorBlockingReasonCodec.PlayMode,
-            false,
-            CreatePlayMode("playing", "none", true, true, "9"));
-        var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
-            IpcPlayTransitionCommandNames.Enter,
-            IpcPlayTransitionResultNames.AlreadyEntered,
-            before)
-        {
-            After = after,
-        });
-        var requestExecutor = new StubUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(response)));
-        var service = CreateService(CreateContext(), CreateGuiSessionStore(), requestExecutor);
-
-        var result = await service.ExecuteAsync(new PlayEnterCommandInput(null, null), CancellationToken.None);
-
-        Assert.False(result.IsSuccess);
-        Assert.Equal(PlayModeErrorCodes.PlayModeStateUnknown, result.Error!.Code);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task Execute_WhenBlockedApplicationStateIsInvalid_ReturnsStateUnknown ()
-    {
-        var before = CreateSnapshot(IpcEditorLifecycleStateCodec.Compiling, IpcEditorBlockingReasonCodec.Compile, false, CreateStoppedPlayMode("2"));
-        var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
-            IpcPlayTransitionCommandNames.Enter,
-            IpcPlayTransitionResultNames.Blocked,
-            before)
-        {
-            Observed = before,
-            ApplicationState = "maybeApplied",
-        });
-        var requestExecutor = new StubUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateErrorResponse(
-            response,
-            PlayModeErrorCodes.PlayModeTransitionBlocked,
-            "Unity Play Mode enter is blocked.")));
-        var service = CreateService(CreateContext(), CreateGuiSessionStore(), requestExecutor);
-
-        var result = await service.ExecuteAsync(new PlayEnterCommandInput(null, null), CancellationToken.None);
-
-        Assert.False(result.IsSuccess);
-        Assert.Equal(PlayModeErrorCodes.PlayModeStateUnknown, result.Error!.Code);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task Execute_WhenTimeoutApplicationStateIsNotIndeterminate_ReturnsStateUnknown ()
-    {
-        var before = CreateSnapshot(IpcEditorLifecycleStateCodec.Ready, null, true, CreateStoppedPlayMode("2"));
-        var observed = CreateSnapshot(
-            IpcEditorLifecycleStateCodec.Playmode,
-            IpcEditorBlockingReasonCodec.PlayMode,
-            false,
-            CreatePlayMode("entering", "entering", false, true, "2"));
-        var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
-            IpcPlayTransitionCommandNames.Enter,
-            IpcPlayTransitionResultNames.Timeout,
-            before)
-        {
-            Observed = observed,
-            ApplicationState = IpcPlayApplicationStateNames.NotApplied,
-        });
-        var requestExecutor = new StubUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateErrorResponse(
-            response,
-            PlayModeErrorCodes.PlayModeTransitionTimeout,
-            "Unity Play Mode enter timed out.")));
-        var service = CreateService(CreateContext(), CreateGuiSessionStore(), requestExecutor);
-
-        var result = await service.ExecuteAsync(new PlayEnterCommandInput(null, null), CancellationToken.None);
-
-        Assert.False(result.IsSuccess);
-        Assert.Equal(PlayModeErrorCodes.PlayModeStateUnknown, result.Error!.Code);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task Execute_WhenSuccessSnapshotBlockingReasonIsInvalid_ReturnsStateUnknown ()
-    {
-        var before = CreateSnapshot(IpcEditorLifecycleStateCodec.Ready, null, true, CreateStoppedPlayMode("2"));
-        var after = CreateSnapshot(
-            IpcEditorLifecycleStateCodec.Playmode,
-            blockingReason: null,
-            canAcceptExecutionRequests: false,
-            playMode: CreatePlayMode("playing", "none", true, true, "3"));
-        var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
-            IpcPlayTransitionCommandNames.Enter,
-            IpcPlayTransitionResultNames.Entered,
-            before)
-        {
-            After = after,
-        });
-        var requestExecutor = new StubUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(response)));
-        var service = CreateService(CreateContext(), CreateGuiSessionStore(), requestExecutor);
-
-        var result = await service.ExecuteAsync(new PlayEnterCommandInput(null, null), CancellationToken.None);
-
-        Assert.False(result.IsSuccess);
-        Assert.Equal(PlayModeErrorCodes.PlayModeStateUnknown, result.Error!.Code);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task Execute_WhenEnteredBeforeSnapshotIsAlreadyPlaying_ReturnsStateUnknown ()
-    {
-        var before = CreateSnapshot(
-            IpcEditorLifecycleStateCodec.Playmode,
-            IpcEditorBlockingReasonCodec.PlayMode,
-            false,
-            CreatePlayMode("playing", "none", true, true, "2"));
-        var after = CreateSnapshot(
-            IpcEditorLifecycleStateCodec.Playmode,
-            IpcEditorBlockingReasonCodec.PlayMode,
-            false,
-            CreatePlayMode("playing", "none", true, true, "3"));
-        var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
-            IpcPlayTransitionCommandNames.Enter,
-            IpcPlayTransitionResultNames.Entered,
-            before)
-        {
-            After = after,
-        });
-        var requestExecutor = new StubUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(response)));
-        var service = CreateService(CreateContext(), CreateGuiSessionStore(), requestExecutor);
-
-        var result = await service.ExecuteAsync(new PlayEnterCommandInput(null, null), CancellationToken.None);
-
-        Assert.False(result.IsSuccess);
-        Assert.Equal(PlayModeErrorCodes.PlayModeStateUnknown, result.Error!.Code);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task Execute_WhenEnteredBeforeSnapshotIsNotReadyStopped_ReturnsStateUnknown ()
-    {
-        var before = CreateSnapshot(
-            IpcEditorLifecycleStateCodec.Compiling,
-            IpcEditorBlockingReasonCodec.Compile,
-            false,
-            CreateStoppedPlayMode("2"));
-        var after = CreateSnapshot(
-            IpcEditorLifecycleStateCodec.Playmode,
-            IpcEditorBlockingReasonCodec.PlayMode,
-            false,
-            CreatePlayMode("playing", "none", true, true, "3"));
-        var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
-            IpcPlayTransitionCommandNames.Enter,
-            IpcPlayTransitionResultNames.Entered,
-            before)
-        {
-            After = after,
-        });
-        var requestExecutor = new StubUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(response)));
-        var service = CreateService(CreateContext(), CreateGuiSessionStore(), requestExecutor);
-
-        var result = await service.ExecuteAsync(new PlayEnterCommandInput(null, null), CancellationToken.None);
-
-        Assert.False(result.IsSuccess);
-        Assert.Equal(PlayModeErrorCodes.PlayModeStateUnknown, result.Error!.Code);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
     public async Task Execute_WhenUnityErrorOmitsTransitionPayload_ReturnsOriginalError ()
     {
-        var requestExecutor = new StubUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateErrorResponseWithoutTransitionPayload(
+        var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateErrorResponseWithoutTransitionPayload(
             UcliCoreErrorCodes.InvalidArgument,
             "Unity play enter payload is invalid.")));
-        var service = CreateService(CreateContext(), CreateGuiSessionStore(), requestExecutor);
+        var service = CreateService(PlayProjectContext, CreateGuiSessionStore(), requestExecutor);
 
         var result = await service.ExecuteAsync(new PlayEnterCommandInput(null, null), CancellationToken.None);
 
@@ -567,272 +226,4 @@ public sealed class PlayEnterServiceTests
         Assert.Equal("Unity play enter payload is invalid.", result.Error.Message);
     }
 
-    private static PlayEnterService CreateService (
-        ProjectContext context,
-        IDaemonSessionStore sessionStore,
-        IUnityRequestExecutor requestExecutor)
-    {
-        return CreateService(ProjectContextResolutionResult.Success(context), sessionStore, requestExecutor);
-    }
-
-    private static PlayEnterService CreateService (
-        ProjectContextResolutionResult contextResult,
-        IDaemonSessionStore sessionStore,
-        IUnityRequestExecutor requestExecutor)
-    {
-        var contextResolver = new PlayCommandExecutionContextResolver(
-            new StubProjectContextResolver(contextResult),
-            sessionStore);
-        return new PlayEnterService(contextResolver, requestExecutor);
-    }
-
-    private static ProjectContext CreateContext ()
-    {
-        var unityProjectRoot = Path.GetFullPath(Path.Combine(".", "sandbox", "Unity"));
-        return new ProjectContext(
-            UnityProject: new ResolvedUnityProjectContext(
-                UnityProjectRoot: unityProjectRoot,
-                RepositoryRoot: unityProjectRoot,
-                ProjectFingerprint: "project-fingerprint",
-                PathSource: UnityProjectPathSource.CommandOption,
-                UnityVersion: "6000.1.4f1"),
-            Config: UcliConfig.CreateDefault(),
-            ConfigSource: ConfigSource.Default);
-    }
-
-    private static StubDaemonSessionStore CreateGuiSessionStore ()
-    {
-        return new StubDaemonSessionStore(DaemonSessionReadResult.Success(CreateSession("gui")));
-    }
-
-    private static DaemonSession CreateSession (string editorMode)
-    {
-        return new DaemonSession(
-            SchemaVersion: DaemonSession.CurrentSchemaVersion,
-            SessionToken: "session-token",
-            ProjectFingerprint: "project-fingerprint",
-            IssuedAtUtc: DateTimeOffset.UtcNow,
-            EditorMode: editorMode,
-            OwnerKind: "user",
-            CanShutdownProcess: false,
-            EndpointTransportKind: "namedPipe",
-            EndpointAddress: "ucli-play-enter",
-            ProcessId: 1234,
-            ProcessStartedAtUtc: DateTimeOffset.UtcNow,
-            OwnerProcessId: 9876);
-    }
-
-    private static IpcPlayTransitionResponse CreateEnteredResponse ()
-    {
-        var before = CreateSnapshot(IpcEditorLifecycleStateCodec.Ready, null, true, CreateStoppedPlayMode("2"));
-        var after = CreateSnapshot(IpcEditorLifecycleStateCodec.Playmode, IpcEditorBlockingReasonCodec.PlayMode, false, CreatePlayMode(
-            "playing",
-            "none",
-            isPlaying: true,
-            isPlayingOrWillChangePlaymode: true,
-            generation: "3"));
-        return new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
-            IpcPlayTransitionCommandNames.Enter,
-            IpcPlayTransitionResultNames.Entered,
-            before)
-        {
-            After = after,
-        });
-    }
-
-    private static IpcPlayLifecycleSnapshot CreateSnapshot (
-        string lifecycleState,
-        string? blockingReason,
-        bool canAcceptExecutionRequests,
-        IpcPlayModeSnapshot playMode,
-        string projectFingerprint = "project-fingerprint")
-    {
-        return new IpcPlayLifecycleSnapshot(
-            ServerVersion: "0.5.0",
-            EditorMode: "gui",
-            UnityVersion: "6000.1.4f1",
-            ProjectFingerprint: projectFingerprint,
-            LifecycleState: lifecycleState,
-            BlockingReason: blockingReason,
-            CompileState: IpcCompileStateCodec.Ready,
-            CompileGeneration: "12",
-            DomainReloadGeneration: "7",
-            CanAcceptExecutionRequests: canAcceptExecutionRequests,
-            ObservedAtUtc: DateTimeOffset.Parse("2026-05-21T00:00:00+00:00", CultureInfo.InvariantCulture),
-            ActionRequired: null,
-            PrimaryDiagnostic: null,
-            PlayMode: playMode);
-    }
-
-    private static IpcPlayModeSnapshot CreateStoppedPlayMode (string generation)
-    {
-        return CreatePlayMode(
-            "stopped",
-            "none",
-            isPlaying: false,
-            isPlayingOrWillChangePlaymode: false,
-            generation: generation);
-    }
-
-    private static IpcPlayModeSnapshot CreatePlayMode (
-        string state,
-        string transition,
-        bool isPlaying,
-        bool isPlayingOrWillChangePlaymode,
-        string generation)
-    {
-        return new IpcPlayModeSnapshot(
-            State: state,
-            Transition: transition,
-            IsPlaying: isPlaying,
-            IsPlayingOrWillChangePlaymode: isPlayingOrWillChangePlaymode,
-            Generation: generation);
-    }
-
-    private static UnityRequestResponse CreateResponse (IpcPlayTransitionResponse payload)
-    {
-        return UnityRequestResponseTestFactory.Create(new IpcResponse(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: "request-1",
-            Status: IpcProtocol.StatusOk,
-            Payload: IpcPayloadCodec.SerializeToElement(payload),
-            Errors: []));
-    }
-
-    private static UnityRequestResponse CreateErrorResponse (
-        IpcPlayTransitionResponse payload,
-        UcliCode code,
-        string message)
-    {
-        return UnityRequestResponseTestFactory.Create(new IpcResponse(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: "request-1",
-            Status: IpcProtocol.StatusError,
-            Payload: IpcPayloadCodec.SerializeToElement(payload),
-            Errors:
-            [
-                new IpcError(code, message, null),
-            ]));
-    }
-
-    private static UnityRequestResponse CreateErrorResponseWithoutTransitionPayload (
-        UcliCode code,
-        string message)
-    {
-        return UnityRequestResponseTestFactory.Create(new IpcResponse(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: "request-1",
-            Status: IpcProtocol.StatusError,
-            Payload: IpcPayloadCodec.SerializeToElement(new
-            {
-                ignored = true,
-            }),
-            Errors:
-            [
-                new IpcError(code, message, null),
-            ]));
-    }
-
-    private sealed class StubProjectContextResolver : IProjectContextResolver
-    {
-        private readonly ProjectContextResolutionResult result;
-
-        public StubProjectContextResolver (ProjectContextResolutionResult result)
-        {
-            this.result = result;
-        }
-
-        public ValueTask<ProjectContextResolutionResult> ResolveAsync (
-            string? projectPath,
-            CancellationToken cancellationToken = default)
-        {
-            return ValueTask.FromResult(result);
-        }
-    }
-
-    private sealed class StubDaemonSessionStore : IDaemonSessionStore
-    {
-        private readonly DaemonSessionReadResult readResult;
-
-        public StubDaemonSessionStore (DaemonSessionReadResult readResult)
-        {
-            this.readResult = readResult;
-        }
-
-        public string? CapturedStorageRoot { get; private set; }
-
-        public string? CapturedProjectFingerprint { get; private set; }
-
-        public int ReadCallCount { get; private set; }
-
-        public ValueTask<DaemonSessionReadResult> ReadAsync (
-            string storageRoot,
-            string projectFingerprint,
-            CancellationToken cancellationToken = default)
-        {
-            ReadCallCount++;
-            CapturedStorageRoot = storageRoot;
-            CapturedProjectFingerprint = projectFingerprint;
-            return ValueTask.FromResult(readResult);
-        }
-
-        public ValueTask<DaemonSessionStoreOperationResult> WriteAsync (
-            string storageRoot,
-            DaemonSession session,
-            CancellationToken cancellationToken = default)
-        {
-            throw new NotSupportedException();
-        }
-
-        public ValueTask<DaemonSessionStoreOperationResult> DeleteAsync (
-            string storageRoot,
-            string projectFingerprint,
-            CancellationToken cancellationToken = default)
-        {
-            throw new NotSupportedException();
-        }
-    }
-
-    private sealed class StubUnityRequestExecutor : IUnityRequestExecutor
-    {
-        private readonly Queue<UnityRequestExecutionResult> results;
-
-        public StubUnityRequestExecutor (params UnityRequestExecutionResult[] results)
-        {
-            if (results.Length == 0)
-            {
-                throw new ArgumentException("At least one result is required.", nameof(results));
-            }
-
-            this.results = new Queue<UnityRequestExecutionResult>(results);
-        }
-
-        public int CallCount { get; private set; }
-
-        public UcliCommand CapturedCommand { get; private set; }
-
-        public UnityExecutionMode CapturedMode { get; private set; }
-
-        public TimeSpan CapturedTimeout { get; private set; }
-
-        public UnityRequestPayload? CapturedPayload { get; private set; }
-
-        public ValueTask<UnityRequestExecutionResult> ExecuteAsync (
-            UcliCommand command,
-            UnityExecutionMode mode,
-            TimeSpan timeout,
-            UcliConfig config,
-            ResolvedUnityProjectContext unityProject,
-            UnityRequestPayload payload,
-            CancellationToken cancellationToken = default)
-        {
-            CallCount++;
-            CapturedCommand = command;
-            CapturedMode = mode;
-            CapturedTimeout = timeout;
-            CapturedPayload = payload;
-            var result = results.Count == 1 ? results.Peek() : results.Dequeue();
-            return ValueTask.FromResult(result);
-        }
-    }
 }

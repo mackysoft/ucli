@@ -7,7 +7,7 @@ using MackySoft.Ucli.UnityIntegration.Resolution;
 public sealed class UnityVersionResolverTests
 {
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void Resolve_WithPreferredUnityVersion_ReturnsPreferredValue ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-version-resolver", "preferred-version");
@@ -25,7 +25,7 @@ public sealed class UnityVersionResolverTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void Resolve_WithoutPreferredUnityVersion_ReadsProjectVersionFile ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-version-resolver", "project-version-fallback");
@@ -43,7 +43,7 @@ public sealed class UnityVersionResolverTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void Resolve_WhenProjectVersionFileMissing_ReturnsInvalidArgumentError ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-version-resolver", "missing-project-version");
@@ -60,7 +60,7 @@ public sealed class UnityVersionResolverTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void Resolve_WhenProjectVersionContentIsMalformed_ReturnsInvalidArgumentError ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-version-resolver", "malformed-project-version");

@@ -1,16 +1,15 @@
-using MackySoft.Ucli.Infrastructure.Storage;
-namespace MackySoft.Ucli.Tests;
-
 using System.Text.Json;
 using MackySoft.Tests;
-using MackySoft.Ucli.Application.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Infrastructure.Storage;
+
+namespace MackySoft.Ucli.Tests;
 
 public sealed class MutationReadPostconditionStoreTests
 {
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task ReadOrNull_ReturnsNull_WhenFileDoesNotExist ()
     {
         using var scope = TestDirectories.CreateTempScope("mutation-read-postcondition-store", "missing");
@@ -24,7 +23,7 @@ public sealed class MutationReadPostconditionStoreTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task WriteMerged_ThenRead_MergesLatestRequirementPerKey ()
     {
         using var scope = TestDirectories.CreateTempScope("mutation-read-postcondition-store", "merge-roundtrip");
@@ -34,7 +33,7 @@ public sealed class MutationReadPostconditionStoreTests
         var firstWrite = await store.WriteMergedAsync(
             scope.FullPath,
             "fingerprint-1",
-            ReadPostconditionTestFactory.Create(
+            OperationExecutionModelMapper.MapReadPostcondition(new IpcExecuteReadPostcondition(
             [
                 new IpcExecuteReadPostconditionRequirement(
                     Surface: IpcExecuteReadPostconditionSurfaceNames.AssetSearch,
@@ -45,12 +44,12 @@ public sealed class MutationReadPostconditionStoreTests
                 {
                     ScenePath = @"Assets\Scenes\Main.unity",
                 },
-            ]),
+            ]))!,
             CancellationToken.None);
         var secondWrite = await store.WriteMergedAsync(
             scope.FullPath,
             "fingerprint-1",
-            ReadPostconditionTestFactory.Create(
+            OperationExecutionModelMapper.MapReadPostcondition(new IpcExecuteReadPostcondition(
             [
                 new IpcExecuteReadPostconditionRequirement(
                     Surface: IpcExecuteReadPostconditionSurfaceNames.AssetSearch,
@@ -58,7 +57,7 @@ public sealed class MutationReadPostconditionStoreTests
                 new IpcExecuteReadPostconditionRequirement(
                     Surface: IpcExecuteReadPostconditionSurfaceNames.GuidPath,
                     MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-24T00:00:00+00:00")),
-            ]),
+            ]))!,
             CancellationToken.None);
 
         Assert.True(firstWrite.IsSuccess);
@@ -89,7 +88,7 @@ public sealed class MutationReadPostconditionStoreTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task WriteMerged_WhenSceneTreeLiteHasNoScenePath_PersistsWildcardRequirement ()
     {
         using var scope = TestDirectories.CreateTempScope("mutation-read-postcondition-store", "scene-tree-lite-wildcard");
@@ -99,12 +98,12 @@ public sealed class MutationReadPostconditionStoreTests
         var writeResult = await store.WriteMergedAsync(
             scope.FullPath,
             "fingerprint-1",
-            ReadPostconditionTestFactory.Create(
+            OperationExecutionModelMapper.MapReadPostcondition(new IpcExecuteReadPostcondition(
             [
                 new IpcExecuteReadPostconditionRequirement(
                     Surface: IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite,
                     MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-23T00:00:00+00:00")),
-            ]),
+            ]))!,
             CancellationToken.None);
 
         Assert.True(writeResult.IsSuccess);
@@ -122,7 +121,7 @@ public sealed class MutationReadPostconditionStoreTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task ReadOrNull_ReturnsInvalidArgument_WhenJsonIsMalformed ()
     {
         using var scope = TestDirectories.CreateTempScope("mutation-read-postcondition-store", "malformed-json");

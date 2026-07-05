@@ -9,67 +9,60 @@ public sealed class OperationAuthorizationServiceTests
 {
     private const string ArgsSchemaJson = """{"type":"object"}""";
 
-    public static TheoryData<string, string, string, string, string> AllowedAuthorizationCases => new()
-    {
-        { UcliPrimitiveOperationNames.SceneOpen, "command", "safe", "safe", "^ucli\\." },
-        { UcliPrimitiveOperationNames.CsEval, "mutation", "dangerous", "dangerous", "^ucli\\." },
-    };
+    private static readonly AuthorizationCase[] AllowedAuthorizationCases =
+    [
+        new(UcliPrimitiveOperationNames.SceneOpen, UcliOperationKind.Command, OperationPolicy.Safe, OperationPolicy.Safe, "^ucli\\."),
+        new(UcliPrimitiveOperationNames.CsEval, UcliOperationKind.Mutation, OperationPolicy.Dangerous, OperationPolicy.Dangerous, "^ucli\\."),
+    ];
 
-    public static TheoryData<string, string, string, string, string, string?> DeniedAuthorizationCases => new()
-    {
-        { UcliPrimitiveOperationNames.SceneSave, "mutation", "advanced", "safe", "^ucli\\.", null },
-        { UcliPrimitiveOperationNames.SceneOpen, "command", "safe", "safe", "^myorg\\.", null },
-        { UcliPrimitiveOperationNames.SceneOpen, "command", "safe", "safe", "[", "invalid regex" },
-    };
+    private static readonly DeniedAuthorizationCase[] DeniedAuthorizationCases =
+    [
+        new(UcliPrimitiveOperationNames.SceneSave, UcliOperationKind.Mutation, OperationPolicy.Advanced, OperationPolicy.Safe, "^ucli\\.", ExpectedMessageContains: null),
+        new(UcliPrimitiveOperationNames.SceneOpen, UcliOperationKind.Command, OperationPolicy.Safe, OperationPolicy.Safe, "^myorg\\.", ExpectedMessageContains: null),
+        new(UcliPrimitiveOperationNames.SceneOpen, UcliOperationKind.Command, OperationPolicy.Safe, OperationPolicy.Safe, "[", ExpectedMessageContains: "invalid regex"),
+    ];
 
-    [Theory]
+    [Fact]
     [Trait("Size", "Small")]
-    [MemberData(nameof(AllowedAuthorizationCases))]
-    public async Task Authorize_ReturnsAllowed_WhenPolicyAndAllowlistPermitOperation (
-        string operationName,
-        string operationKind,
-        string requiredPolicy,
-        string configuredPolicy,
-        string allowlistPattern)
+    public async Task Authorize_ReturnsAllowed_WhenPolicyAndAllowlistPermitOperation ()
     {
-        var service = new OperationAuthorizationService();
-        var operation = CreateOperation(
-            operationName,
-            ParseOperationKind(operationKind),
-            ParseOperationPolicy(requiredPolicy));
-        var config = CreateConfig(ParseOperationPolicy(configuredPolicy), allowlistPattern);
+        foreach (AuthorizationCase testCase in AllowedAuthorizationCases)
+        {
+            var service = new OperationAuthorizationService();
+            var operation = CreateOperation(
+                testCase.OperationName,
+                testCase.OperationKind,
+                testCase.RequiredPolicy);
+            var config = CreateConfig(testCase.ConfiguredPolicy, testCase.AllowlistPattern);
 
-        var result = await service.AuthorizeAsync(operation, config, CancellationToken.None);
+            var result = await service.AuthorizeAsync(operation, config, CancellationToken.None);
 
-        Assert.True(result.IsAllowed);
-        Assert.Null(result.ErrorCode);
+            Assert.True(result.IsAllowed);
+            Assert.Null(result.ErrorCode);
+        }
     }
 
-    [Theory]
+    [Fact]
     [Trait("Size", "Small")]
-    [MemberData(nameof(DeniedAuthorizationCases))]
-    public async Task Authorize_ReturnsDenied_WhenOperationIsDisallowed (
-        string operationName,
-        string operationKind,
-        string requiredPolicy,
-        string configuredPolicy,
-        string allowlistPattern,
-        string? expectedMessageContains)
+    public async Task Authorize_ReturnsDenied_WhenOperationIsDisallowed ()
     {
-        var service = new OperationAuthorizationService();
-        var operation = CreateOperation(
-            operationName,
-            ParseOperationKind(operationKind),
-            ParseOperationPolicy(requiredPolicy));
-        var config = CreateConfig(ParseOperationPolicy(configuredPolicy), allowlistPattern);
-
-        var result = await service.AuthorizeAsync(operation, config, CancellationToken.None);
-
-        Assert.False(result.IsAllowed);
-        Assert.Equal(OperationAuthorizationErrorCodes.OperationNotAllowed, result.ErrorCode);
-        if (!string.IsNullOrWhiteSpace(expectedMessageContains))
+        foreach (DeniedAuthorizationCase testCase in DeniedAuthorizationCases)
         {
-            Assert.Contains(expectedMessageContains, result.Message, StringComparison.OrdinalIgnoreCase);
+            var service = new OperationAuthorizationService();
+            var operation = CreateOperation(
+                testCase.OperationName,
+                testCase.OperationKind,
+                testCase.RequiredPolicy);
+            var config = CreateConfig(testCase.ConfiguredPolicy, testCase.AllowlistPattern);
+
+            var result = await service.AuthorizeAsync(operation, config, CancellationToken.None);
+
+            Assert.False(result.IsAllowed);
+            Assert.Equal(OperationAuthorizationErrorCodes.OperationNotAllowed, result.ErrorCode);
+            if (!string.IsNullOrWhiteSpace(testCase.ExpectedMessageContains))
+            {
+                Assert.Contains(testCase.ExpectedMessageContains, result.Message, StringComparison.OrdinalIgnoreCase);
+            }
         }
     }
 
@@ -118,25 +111,18 @@ public sealed class OperationAuthorizationServiceTests
             OperationAllowlist: allowlistPatterns);
     }
 
-    private static UcliOperationKind ParseOperationKind (string operationKind)
-    {
-        return operationKind switch
-        {
-            "query" => UcliOperationKind.Query,
-            "command" => UcliOperationKind.Command,
-            "mutation" => UcliOperationKind.Mutation,
-            _ => throw new ArgumentOutOfRangeException(nameof(operationKind), operationKind, "Unsupported operation kind case."),
-        };
-    }
+    private sealed record AuthorizationCase (
+        string OperationName,
+        UcliOperationKind OperationKind,
+        OperationPolicy RequiredPolicy,
+        OperationPolicy ConfiguredPolicy,
+        string AllowlistPattern);
 
-    private static OperationPolicy ParseOperationPolicy (string operationPolicy)
-    {
-        return operationPolicy switch
-        {
-            "safe" => OperationPolicy.Safe,
-            "advanced" => OperationPolicy.Advanced,
-            "dangerous" => OperationPolicy.Dangerous,
-            _ => throw new ArgumentOutOfRangeException(nameof(operationPolicy), operationPolicy, "Unsupported operation policy case."),
-        };
-    }
+    private sealed record DeniedAuthorizationCase (
+        string OperationName,
+        UcliOperationKind OperationKind,
+        OperationPolicy RequiredPolicy,
+        OperationPolicy ConfiguredPolicy,
+        string AllowlistPattern,
+        string? ExpectedMessageContains);
 }

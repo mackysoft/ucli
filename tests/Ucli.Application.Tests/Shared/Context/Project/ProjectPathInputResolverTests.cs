@@ -93,23 +93,4 @@ public sealed class ProjectPathInputResolverTests
         Assert.Equal(UnityProjectPathSource.CurrentDirectory, result.Source);
     }
 
-    private sealed class StubEnvironmentVariableReader : IEnvironmentVariableReader
-    {
-        private readonly IReadOnlyDictionary<string, string?> values;
-
-        public StubEnvironmentVariableReader ()
-            : this(new Dictionary<string, string?>(StringComparer.Ordinal))
-        {
-        }
-
-        public StubEnvironmentVariableReader (IReadOnlyDictionary<string, string?> values)
-        {
-            this.values = values;
-        }
-
-        public string? Get (string variableName)
-        {
-            return values.TryGetValue(variableName, out var value) ? value : null;
-        }
-    }
 }

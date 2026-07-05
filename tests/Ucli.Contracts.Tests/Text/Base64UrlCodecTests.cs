@@ -5,6 +5,13 @@ namespace MackySoft.Ucli.Contracts.Tests.Text;
 
 public sealed class Base64UrlCodecTests
 {
+    private static readonly string?[] NullOrWhitespaceTexts =
+    [
+        null,
+        "",
+        " ",
+    ];
+
     [Fact]
     [Trait("Size", "Small")]
     public void Encode_ProducesUnpaddedBase64UrlText ()
@@ -60,17 +67,17 @@ public sealed class Base64UrlCodecTests
         Assert.DoesNotContain('=', encoded);
     }
 
-    [Theory]
+    [Fact]
     [Trait("Size", "Small")]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData(" ")]
-    public void TryDecode_ReturnsFalse_WhenInputIsNullOrWhitespace (string? text)
+    public void TryDecode_ReturnsFalse_WhenInputIsNullOrWhitespace ()
     {
-        var result = Base64UrlCodec.TryDecode(text, out var bytes);
+        foreach (string? text in NullOrWhitespaceTexts)
+        {
+            var result = Base64UrlCodec.TryDecode(text, out var bytes);
 
-        Assert.False(result);
-        Assert.Empty(bytes);
+            Assert.False(result);
+            Assert.Empty(bytes);
+        }
     }
 
     [Fact]

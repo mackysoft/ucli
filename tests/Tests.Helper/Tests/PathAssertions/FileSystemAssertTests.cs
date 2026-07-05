@@ -6,7 +6,7 @@ using Xunit.Sdk;
 public sealed class FileSystemAssertTests
 {
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void ForDirectory_CanAssertRecursiveStructure ()
     {
         // Arrange
@@ -31,7 +31,7 @@ public sealed class FileSystemAssertTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void MatchesExactly_Throws_WhenUnexpectedEntryExists ()
     {
         // Arrange
@@ -51,7 +51,7 @@ public sealed class FileSystemAssertTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void HasFile_Throws_WhenRequiredFileIsMissing ()
     {
         // Arrange
@@ -66,7 +66,7 @@ public sealed class FileSystemAssertTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void IsUnderDirectory_Throws_WhenPathIsOutsideParent ()
     {
         // Arrange
@@ -83,7 +83,7 @@ public sealed class FileSystemAssertTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void HasExtension_ValidatesFileExtension ()
     {
         // Arrange
@@ -98,7 +98,7 @@ public sealed class FileSystemAssertTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void EqualsNormalized_TreatsSymlinkAndTargetAsEquivalent ()
     {
         // Arrange
@@ -119,7 +119,7 @@ public sealed class FileSystemAssertTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void HasDirectory_Throws_WhenChildNameContainsDirectorySeparator ()
     {
         // Arrange
@@ -134,7 +134,7 @@ public sealed class FileSystemAssertTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void DoesNotExist_Throws_WhenPathAlreadyExists ()
     {
         // Arrange

@@ -8,7 +8,7 @@ namespace MackySoft.Ucli.Tests.Supervisor;
 public sealed class SupervisorManifestStoreTests
 {
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task WriteReadDelete_RoundTripsManifestJson ()
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-manifest-store", "roundtrip");
@@ -33,7 +33,7 @@ public sealed class SupervisorManifestStoreTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     [SupportedOSPlatform("macos")]
     [SupportedOSPlatform("linux")]
     public async Task Write_OnUnix_SavesManifestJsonUnderOwnerOnlyBoundary ()
@@ -59,7 +59,7 @@ public sealed class SupervisorManifestStoreTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     [SupportedOSPlatform("windows")]
     public async Task Write_OnWindows_SavesManifestJsonUnderCurrentUserOnlyBoundary ()
     {

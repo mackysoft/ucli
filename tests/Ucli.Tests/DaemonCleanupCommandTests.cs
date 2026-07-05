@@ -1,3 +1,4 @@
+using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Cleanup;
@@ -8,83 +9,70 @@ namespace MackySoft.Ucli.Tests;
 
 public sealed class DaemonCleanupCommandTests
 {
-    [Fact]
+    [Theory]
+    [InlineData("skipped", 0, "unsafeInvalidSession")]
+    [InlineData("skipped", 0, "uncertainReachability")]
+    [InlineData("completed", 3, null)]
     [Trait("Size", "Small")]
-    public async Task Cleanup_WritesSkipReasonPayload ()
+    public async Task Cleanup_WithSuccessfulServiceResult_WritesCleanupPayload (
+        string expectedCleanupStatus,
+        int deletedLaunchAttemptCount,
+        string? expectedSkipReason)
     {
-        var service = new StubDaemonCleanupService(
-            DaemonCleanupExecutionResult.Success(new DaemonCleanupExecutionOutput(
+        var output = expectedCleanupStatus switch
+        {
+            "skipped" => new DaemonCleanupExecutionOutput(
                 CleanupStatus: DaemonCleanupStatus.Skipped,
-                SkipReason: DaemonCleanupSkipReason.UnsafeInvalidSession,
-                DeletedLaunchAttemptCount: 0,
-                TimeoutMilliseconds: 3000)));
+                SkipReason: ParseCleanupSkipReason(expectedSkipReason),
+                DeletedLaunchAttemptCount: deletedLaunchAttemptCount,
+                TimeoutMilliseconds: 3000),
+            "completed" => new DaemonCleanupExecutionOutput(
+                CleanupStatus: DaemonCleanupStatus.Completed,
+                SkipReason: DaemonCleanupSkipReason.None,
+                DeletedLaunchAttemptCount: deletedLaunchAttemptCount,
+                TimeoutMilliseconds: 3000),
+            _ => throw new ArgumentOutOfRangeException(nameof(expectedCleanupStatus), expectedCleanupStatus, "Unsupported cleanup status."),
+        };
+        var service = new StubDaemonCleanupService(
+            DaemonCleanupExecutionResult.Success(output));
         var command = new DaemonCleanupCommand(service, CommandResultTestWriter.Create());
 
         CommandExecutionState.Reset();
-        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.CleanupAsync(
+        var result = await CommandResultCapture.ExecuteAsync(() => command.CleanupAsync(
             projectPath: "/repo/UnityProject",
             timeout: "3000",
             cancellationToken: CancellationToken.None));
 
-        Assert.Equal((int)CliExitCode.Success, exitCode);
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
-        CommandResultAssert.HasStandardEnvelope(
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        CommandResultAssert.HasSuccessEnvelope(
             outputJson.RootElement,
-            UcliCommandNames.DaemonCleanup,
-            "ok",
-            (int)CliExitCode.Success);
+            UcliCommandNames.DaemonCleanup);
         CommandResultAssert.HasNoErrors(outputJson.RootElement);
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("payload", payload => payload
-                .HasString("cleanupStatus", "skipped")
-                .HasString("skipReason", "unsafeInvalidSession")
-                .HasInt32("deletedLaunchAttemptCount", 0)
+                .HasString("cleanupStatus", expectedCleanupStatus)
+                .HasInt32("deletedLaunchAttemptCount", deletedLaunchAttemptCount)
                 .HasInt32("timeoutMilliseconds", 3000));
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task Cleanup_WhenCompleted_WritesDeletedLaunchAttemptCountPayload ()
-    {
-        var service = new StubDaemonCleanupService(
-            DaemonCleanupExecutionResult.Success(new DaemonCleanupExecutionOutput(
-                CleanupStatus: DaemonCleanupStatus.Completed,
-                SkipReason: DaemonCleanupSkipReason.None,
-                DeletedLaunchAttemptCount: 3,
-                TimeoutMilliseconds: 3000)));
-        var command = new DaemonCleanupCommand(service, CommandResultTestWriter.Create());
-
-        CommandExecutionState.Reset();
-        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.CleanupAsync(
-            projectPath: "/repo/UnityProject",
-            timeout: "3000",
-            cancellationToken: CancellationToken.None));
-
-        Assert.Equal((int)CliExitCode.Success, exitCode);
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
-        JsonAssert.For(outputJson.RootElement)
-            .HasProperty("payload", payload => payload
-                .HasString("cleanupStatus", "completed")
-                .IsNull("skipReason")
-                .HasInt32("deletedLaunchAttemptCount", 3)
-                .HasInt32("timeoutMilliseconds", 3000));
-    }
-
-    private sealed class StubDaemonCleanupService : IDaemonCleanupService
-    {
-        private readonly DaemonCleanupExecutionResult result;
-
-        public StubDaemonCleanupService (DaemonCleanupExecutionResult result)
+        var skipReasonElement = outputJson.RootElement.GetProperty("payload").GetProperty("skipReason");
+        if (expectedSkipReason is null)
         {
-            this.result = result;
+            Assert.Equal(JsonValueKind.Null, skipReasonElement.ValueKind);
         }
-
-        public ValueTask<DaemonCleanupExecutionResult> CleanupAsync (
-            string? projectPath,
-            int? timeoutMilliseconds,
-            CancellationToken cancellationToken = default)
+        else
         {
-            return ValueTask.FromResult(result);
+            Assert.Equal(expectedSkipReason, skipReasonElement.GetString());
         }
     }
+
+    private static DaemonCleanupSkipReason ParseCleanupSkipReason (string? expectedSkipReason)
+    {
+        return expectedSkipReason switch
+        {
+            "unsafeInvalidSession" => DaemonCleanupSkipReason.UnsafeInvalidSession,
+            "uncertainReachability" => DaemonCleanupSkipReason.UncertainReachability,
+            _ => throw new ArgumentOutOfRangeException(nameof(expectedSkipReason), expectedSkipReason, "Unsupported daemon cleanup skip reason."),
+        };
+    }
+
 }

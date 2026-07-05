@@ -1,14 +1,14 @@
 namespace MackySoft.Ucli.Tests;
 
-using System.Diagnostics;
+using MackySoft.Tests;
 
 public sealed class ProcessTerminatorTests
 {
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task TerminateAsync_WithForceKill_WaitsUntilProcessExits ()
     {
-        using var process = StartLongRunningProcess();
+        using var process = TestProcessInvocations.StartLongRunningProcess();
 
         try
         {
@@ -25,35 +25,7 @@ public sealed class ProcessTerminatorTests
         }
         finally
         {
-            if (!process.HasExited)
-            {
-                process.Kill(entireProcessTree: true);
-            }
+            TestProcessAwaiter.TerminateBestEffort(process);
         }
-    }
-
-    private static Process StartLongRunningProcess ()
-    {
-        var startInfo = new ProcessStartInfo
-        {
-            UseShellExecute = false,
-            CreateNoWindow = true,
-        };
-
-        if (OperatingSystem.IsWindows())
-        {
-            startInfo.FileName = "powershell";
-            startInfo.ArgumentList.Add("-NoProfile");
-            startInfo.ArgumentList.Add("-Command");
-            startInfo.ArgumentList.Add("Start-Sleep -Seconds 30");
-        }
-        else
-        {
-            startInfo.FileName = "/bin/sh";
-            startInfo.ArgumentList.Add("-c");
-            startInfo.ArgumentList.Add("while :; do sleep 1; done");
-        }
-
-        return Process.Start(startInfo) ?? throw new InvalidOperationException("Test process could not be started.");
     }
 }

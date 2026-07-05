@@ -1,5 +1,4 @@
 using System.Net.Sockets;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Status.UseCases.Status;
 using MackySoft.Ucli.Application.Features.Status.UseCases.Status.Observation;
@@ -8,22 +7,26 @@ using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Application.Tests.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Application.Tests.Status;
 
 public sealed class StatusServiceTests
 {
+    private static readonly ProjectContext StatusProjectContext = ProjectContextTestFactory.CreateSingleRootProject(
+        unityVersion: ProjectIdentityDefaults.UnknownUnityVersion);
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task Execute_WhenDaemonIsRunning_ReturnsPingInfoAndResolvedUnityVersion ()
     {
-        var contextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext()));
-        var unityVersionResolver = new StubUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
-        var daemonStatusOperation = new StubDaemonStatusOperation(DaemonStatusResult.Running(CreateSession("session-token")));
-        var daemonPingInfoClient = new StubDaemonPingInfoClient(new IpcPingResponse(
+        var contextResolver = new StaticProjectContextResolver(ProjectContextResolutionResult.Success(StatusProjectContext));
+        var unityVersionResolver = new RecordingUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
+        var daemonStatusOperation = new RecordingDaemonStatusOperation(DaemonStatusResult.Running(DaemonSessionTestFactory.Create(
+            sessionToken: "session-token",
+            projectFingerprint: "project-fingerprint",
+            endpointAddress: "ucli-daemon-status")));
+        var daemonPingInfoClient = new RecordingDaemonPingInfoClient(new IpcPingResponse(
             ServerVersion: "0.5.0",
             EditorMode: "batchmode",
             UnityVersion: "2022.3.5f1",
@@ -66,22 +69,31 @@ public sealed class StatusServiceTests
         Assert.False(output.PlayMode.IsPlaying);
         Assert.False(output.PlayMode.IsPlayingOrWillChangePlaymode);
         Assert.Equal("2", output.PlayMode.Generation);
-        Assert.Equal(
-            UcliConfig.CreateDefault().IpcTimeoutMillisecondsByCommand[UcliCommandIds.Status.Name],
-            output.TimeoutMilliseconds);
-        Assert.Equal("session-token", daemonPingInfoClient.LastSessionToken);
-        Assert.Equal(1, daemonPingInfoClient.CallCount);
-        Assert.Equal(1, daemonStatusOperation.GetStatusCallCount);
+        var expectedTimeoutMilliseconds = UcliConfig.CreateDefault().IpcTimeoutMillisecondsByCommand[UcliCommandIds.Status.Name];
+        Assert.NotNull(expectedTimeoutMilliseconds);
+        Assert.Equal(expectedTimeoutMilliseconds, output.TimeoutMilliseconds);
+        var expectedTimeout = TimeSpan.FromMilliseconds(expectedTimeoutMilliseconds.Value);
+        DaemonStatusOperationAssert.StatusRequested(
+            daemonStatusOperation,
+            StatusProjectContext,
+            expectedTimeout,
+            CancellationToken.None);
+        DaemonPingInfoClientAssert.PingReadForSession(
+            daemonPingInfoClient,
+            StatusProjectContext,
+            expectedTimeout,
+            "session-token",
+            CancellationToken.None);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task Execute_WhenDaemonIsNotRunning_ReturnsStatusWithNullPingFields ()
     {
-        var contextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext()));
-        var unityVersionResolver = new StubUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
-        var daemonStatusOperation = new StubDaemonStatusOperation(DaemonStatusResult.NotRunning());
-        var daemonPingInfoClient = new StubDaemonPingInfoClient(new IpcPingResponse(
+        var contextResolver = new StaticProjectContextResolver(ProjectContextResolutionResult.Success(StatusProjectContext));
+        var unityVersionResolver = new RecordingUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
+        var daemonStatusOperation = new RecordingDaemonStatusOperation(DaemonStatusResult.NotRunning());
+        var daemonPingInfoClient = new RecordingDaemonPingInfoClient(new IpcPingResponse(
             ServerVersion: "0.5.0",
             EditorMode: "batchmode",
             UnityVersion: "2022.3.5f1",
@@ -95,30 +107,23 @@ public sealed class StatusServiceTests
 
         var result = await service.ExecuteAsync(new StatusCommandInput(null, null), CancellationToken.None);
 
-        Assert.True(result.IsSuccess);
-        var output = Assert.IsType<StatusExecutionOutput>(result.Output);
-        Assert.Equal(DaemonStatusKind.NotRunning, output.DaemonStatus);
-        Assert.Equal("6000.1.4f1", output.UnityVersion);
-        Assert.Null(output.ServerVersion);
-        Assert.Null(output.LifecycleState);
-        Assert.Null(output.BlockingReason);
-        Assert.Null(output.CompileState);
-        Assert.Null(output.CompileGeneration);
-        Assert.Null(output.DomainReloadGeneration);
-        Assert.False(output.CanAcceptExecutionRequests);
-        Assert.Null(output.EditorMode);
-        Assert.Null(output.PlayMode);
-        Assert.Equal(0, daemonPingInfoClient.CallCount);
+        StatusServiceAssert.NotRunningOutputReturnedWithoutPingTelemetry(
+            result,
+            expectedUnityVersion: "6000.1.4f1",
+            daemonPingInfoClient);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task Execute_WhenDaemonIsStale_ReturnsStatusWithNullPingFields ()
     {
-        var contextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext()));
-        var unityVersionResolver = new StubUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
-        var daemonStatusOperation = new StubDaemonStatusOperation(DaemonStatusResult.Stale(CreateSession("stale-session-token")));
-        var daemonPingInfoClient = new StubDaemonPingInfoClient(new IpcPingResponse(
+        var contextResolver = new StaticProjectContextResolver(ProjectContextResolutionResult.Success(StatusProjectContext));
+        var unityVersionResolver = new RecordingUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
+        var daemonStatusOperation = new RecordingDaemonStatusOperation(DaemonStatusResult.Stale(DaemonSessionTestFactory.Create(
+            sessionToken: "stale-session-token",
+            projectFingerprint: "project-fingerprint",
+            endpointAddress: "ucli-daemon-status")));
+        var daemonPingInfoClient = new RecordingDaemonPingInfoClient(new IpcPingResponse(
             ServerVersion: "0.5.0",
             EditorMode: "batchmode",
             UnityVersion: "2022.3.5f1",
@@ -132,33 +137,20 @@ public sealed class StatusServiceTests
 
         var result = await service.ExecuteAsync(new StatusCommandInput(null, null), CancellationToken.None);
 
-        Assert.True(result.IsSuccess);
-        var output = Assert.IsType<StatusExecutionOutput>(result.Output);
-        Assert.Equal(DaemonStatusKind.Stale, output.DaemonStatus);
-        Assert.Equal("6000.1.4f1", output.UnityVersion);
-        Assert.Null(output.ServerVersion);
-        Assert.Equal(IpcEditorLifecycleStateCodec.Unavailable, output.LifecycleState);
-        Assert.Equal(IpcEditorBlockingReasonCodec.Unavailable, output.BlockingReason);
-        Assert.Null(output.CompileState);
-        Assert.Null(output.CompileGeneration);
-        Assert.Null(output.DomainReloadGeneration);
-        Assert.False(output.CanAcceptExecutionRequests);
-        Assert.Null(output.EditorMode);
-        Assert.Null(output.PlayMode);
-        Assert.NotNull(output.ObservedAtUtc);
-        Assert.Equal(DaemonDiagnosisActionRequiredValues.InspectUnityLog, output.ActionRequired);
-        Assert.Null(output.PrimaryDiagnostic);
-        Assert.Equal(0, daemonPingInfoClient.CallCount);
+        StatusServiceAssert.StaleOutputReturnedWithoutPingTelemetry(
+            result,
+            expectedUnityVersion: "6000.1.4f1",
+            daemonPingInfoClient);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task Execute_WhenTimeoutMillisecondsIsInvalid_ReturnsInvalidArgumentWithoutDaemonCall ()
     {
-        var contextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext()));
-        var unityVersionResolver = new StubUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
-        var daemonStatusOperation = new StubDaemonStatusOperation(DaemonStatusResult.NotRunning());
-        var daemonPingInfoClient = new StubDaemonPingInfoClient(new IpcPingResponse(
+        var contextResolver = new StaticProjectContextResolver(ProjectContextResolutionResult.Success(StatusProjectContext));
+        var unityVersionResolver = new RecordingUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
+        var daemonStatusOperation = new RecordingDaemonStatusOperation(DaemonStatusResult.NotRunning());
+        var daemonPingInfoClient = new RecordingDaemonPingInfoClient(new IpcPingResponse(
             ServerVersion: "0.5.0",
             EditorMode: "batchmode",
             UnityVersion: "2022.3.5f1",
@@ -172,23 +164,18 @@ public sealed class StatusServiceTests
 
         var result = await service.ExecuteAsync(new StatusCommandInput(null, 0), CancellationToken.None);
 
-        Assert.False(result.IsSuccess);
-        Assert.Null(result.Output);
-        var error = Assert.IsType<ExecutionError>(result.Error);
-        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Contains("timeout", error.Message, StringComparison.Ordinal);
-        Assert.Equal(0, daemonStatusOperation.GetStatusCallCount);
+        StatusServiceAssert.InvalidTimeoutStoppedBeforeDaemonStatus(result, daemonStatusOperation);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task Execute_WhenContextResolutionFails_ReturnsResolutionError ()
     {
-        var contextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Failure(
+        var contextResolver = new StaticProjectContextResolver(ProjectContextResolutionResult.Failure(
             ExecutionError.InvalidArgument("Unity project path is invalid.")));
-        var unityVersionResolver = new StubUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
-        var daemonStatusOperation = new StubDaemonStatusOperation(DaemonStatusResult.NotRunning());
-        var daemonPingInfoClient = new StubDaemonPingInfoClient(new IpcPingResponse(
+        var unityVersionResolver = new RecordingUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
+        var daemonStatusOperation = new RecordingDaemonStatusOperation(DaemonStatusResult.NotRunning());
+        var daemonPingInfoClient = new RecordingDaemonPingInfoClient(new IpcPingResponse(
             ServerVersion: "0.5.0",
             EditorMode: "batchmode",
             UnityVersion: "2022.3.5f1",
@@ -202,24 +189,22 @@ public sealed class StatusServiceTests
 
         var result = await service.ExecuteAsync(new StatusCommandInput(null, null), CancellationToken.None);
 
-        Assert.False(result.IsSuccess);
-        Assert.Null(result.Output);
-        var error = Assert.IsType<ExecutionError>(result.Error);
-        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Equal("Unity project path is invalid.", error.Message);
-        Assert.Equal(0, daemonStatusOperation.GetStatusCallCount);
-        Assert.Equal(0, unityVersionResolver.ResolveCallCount);
+        StatusServiceAssert.ContextResolutionFailureStoppedBeforeStatusResolution(
+            result,
+            expectedMessage: "Unity project path is invalid.",
+            daemonStatusOperation,
+            unityVersionResolver);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task Execute_WhenDaemonStatusFails_ReturnsDaemonStatusError ()
     {
-        var contextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext()));
-        var unityVersionResolver = new StubUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
-        var daemonStatusOperation = new StubDaemonStatusOperation(DaemonStatusResult.Failure(
+        var contextResolver = new StaticProjectContextResolver(ProjectContextResolutionResult.Success(StatusProjectContext));
+        var unityVersionResolver = new RecordingUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
+        var daemonStatusOperation = new RecordingDaemonStatusOperation(DaemonStatusResult.Failure(
             ExecutionError.InternalError("Failed to read daemon session.")));
-        var daemonPingInfoClient = new StubDaemonPingInfoClient(new IpcPingResponse(
+        var daemonPingInfoClient = new RecordingDaemonPingInfoClient(new IpcPingResponse(
             ServerVersion: "0.5.0",
             EditorMode: "batchmode",
             UnityVersion: "2022.3.5f1",
@@ -233,23 +218,23 @@ public sealed class StatusServiceTests
 
         var result = await service.ExecuteAsync(new StatusCommandInput(null, null), CancellationToken.None);
 
-        Assert.False(result.IsSuccess);
-        Assert.Null(result.Output);
-        var error = Assert.IsType<ExecutionError>(result.Error);
-        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
-        Assert.Equal("Failed to read daemon session.", error.Message);
-        Assert.Equal(0, daemonPingInfoClient.CallCount);
+        StatusServiceAssert.DaemonStatusFailureStoppedBeforePingTelemetry(
+            result,
+            expectedMessage: "Failed to read daemon session.",
+            daemonPingInfoClient);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task Execute_WhenPingInfoTimesOut_ReturnsUnavailableStaleStatus ()
     {
-        var contextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext()));
-        var unityVersionResolver = new StubUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
-        var daemonStatusOperation = new StubDaemonStatusOperation(DaemonStatusResult.Running(CreateSession("session-token")));
-        var daemonPingInfoClient = new StubDaemonPingInfoClient(
-            nextException: new TimeoutException("ping timeout"));
+        var contextResolver = new StaticProjectContextResolver(ProjectContextResolutionResult.Success(StatusProjectContext));
+        var unityVersionResolver = new RecordingUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
+        var daemonStatusOperation = new RecordingDaemonStatusOperation(DaemonStatusResult.Running(DaemonSessionTestFactory.Create(
+            sessionToken: "session-token",
+            projectFingerprint: "project-fingerprint",
+            endpointAddress: "ucli-daemon-status")));
+        var daemonPingInfoClient = new RecordingDaemonPingInfoClient(new TimeoutException("ping timeout"));
         var service = CreateService(
             contextResolver,
             unityVersionResolver,
@@ -270,11 +255,13 @@ public sealed class StatusServiceTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenPingInfoBecomesUnreachable_ReturnsStaleStatus ()
     {
-        var contextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext()));
-        var unityVersionResolver = new StubUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
-        var daemonStatusOperation = new StubDaemonStatusOperation(DaemonStatusResult.Running(CreateSession("session-token")));
-        var daemonPingInfoClient = new StubDaemonPingInfoClient(
-            nextException: new SocketException((int)SocketError.ConnectionRefused));
+        var contextResolver = new StaticProjectContextResolver(ProjectContextResolutionResult.Success(StatusProjectContext));
+        var unityVersionResolver = new RecordingUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
+        var daemonStatusOperation = new RecordingDaemonStatusOperation(DaemonStatusResult.Running(DaemonSessionTestFactory.Create(
+            sessionToken: "session-token",
+            projectFingerprint: "project-fingerprint",
+            endpointAddress: "ucli-daemon-status")));
+        var daemonPingInfoClient = new RecordingDaemonPingInfoClient(new SocketException((int)SocketError.ConnectionRefused));
         var service = CreateService(
             contextResolver,
             unityVersionResolver,
@@ -295,11 +282,13 @@ public sealed class StatusServiceTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenPingInfoFails_ReturnsInternalError ()
     {
-        var contextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext()));
-        var unityVersionResolver = new StubUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
-        var daemonStatusOperation = new StubDaemonStatusOperation(DaemonStatusResult.Running(CreateSession("session-token")));
-        var daemonPingInfoClient = new StubDaemonPingInfoClient(
-            nextException: new InvalidOperationException("failed"));
+        var contextResolver = new StaticProjectContextResolver(ProjectContextResolutionResult.Success(StatusProjectContext));
+        var unityVersionResolver = new RecordingUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
+        var daemonStatusOperation = new RecordingDaemonStatusOperation(DaemonStatusResult.Running(DaemonSessionTestFactory.Create(
+            sessionToken: "session-token",
+            projectFingerprint: "project-fingerprint",
+            endpointAddress: "ucli-daemon-status")));
+        var daemonPingInfoClient = new RecordingDaemonPingInfoClient(new InvalidOperationException("failed"));
         var service = CreateService(
             contextResolver,
             unityVersionResolver,
@@ -326,141 +315,8 @@ public sealed class StatusServiceTests
             new StatusDaemonObservationService(
                 daemonStatusOperation,
                 daemonPingInfoClient,
-                new StubDaemonReachabilityClassifier(),
-                new DaemonServiceTestContext.StubDaemonLifecycleStore(),
-                new DaemonServiceTestContext.StubDaemonProcessIdentityAssessor()));
-    }
-
-    private static ProjectContext CreateContext ()
-    {
-        var unityProjectRoot = Path.GetFullPath(Path.Combine(".", "sandbox", "Unity"));
-        return new ProjectContext(
-            UnityProject: new ResolvedUnityProjectContext(
-                UnityProjectRoot: unityProjectRoot,
-                RepositoryRoot: unityProjectRoot,
-                ProjectFingerprint: "project-fingerprint",
-                PathSource: UnityProjectPathSource.CommandOption),
-            Config: UcliConfig.CreateDefault(),
-            ConfigSource: ConfigSource.Default);
-    }
-
-    private static DaemonSession CreateSession (string sessionToken)
-    {
-        return new DaemonSession(
-            SchemaVersion: DaemonSession.CurrentSchemaVersion,
-            SessionToken: sessionToken,
-            ProjectFingerprint: "project-fingerprint",
-            IssuedAtUtc: DateTimeOffset.UtcNow,
-            EditorMode: "batchmode",
-            OwnerKind: "cli",
-            CanShutdownProcess: true,
-            EndpointTransportKind: "namedPipe",
-            EndpointAddress: "ucli-daemon-status",
-            ProcessId: 1234,
-            ProcessStartedAtUtc: DateTimeOffset.UtcNow,
-            OwnerProcessId: 9876);
-    }
-
-    private sealed class StubProjectContextResolver : IProjectContextResolver
-    {
-        private readonly ProjectContextResolutionResult resolutionResult;
-
-        public StubProjectContextResolver (ProjectContextResolutionResult resolutionResult)
-        {
-            this.resolutionResult = resolutionResult;
-        }
-
-        public ValueTask<ProjectContextResolutionResult> ResolveAsync (
-            string? projectPath,
-            CancellationToken cancellationToken = default)
-        {
-            return ValueTask.FromResult(resolutionResult);
-        }
-    }
-
-    private sealed class StubUnityVersionResolver : IUnityVersionResolver
-    {
-        private readonly UnityVersionResolutionResult resolutionResult;
-
-        public StubUnityVersionResolver (UnityVersionResolutionResult resolutionResult)
-        {
-            this.resolutionResult = resolutionResult;
-        }
-
-        public int ResolveCallCount { get; private set; }
-
-        public UnityVersionResolutionResult Resolve (
-            string projectPath,
-            string? preferredUnityVersion)
-        {
-            ResolveCallCount++;
-            return resolutionResult;
-        }
-    }
-
-    private sealed class StubDaemonStatusOperation : IDaemonStatusOperation
-    {
-        private readonly DaemonStatusResult daemonStatusResult;
-
-        public StubDaemonStatusOperation (DaemonStatusResult daemonStatusResult)
-        {
-            this.daemonStatusResult = daemonStatusResult;
-        }
-
-        public int GetStatusCallCount { get; private set; }
-
-        public ValueTask<DaemonStatusResult> GetStatusAsync (
-            ResolvedUnityProjectContext unityProject,
-            TimeSpan timeout,
-            CancellationToken cancellationToken = default)
-        {
-            GetStatusCallCount++;
-            return ValueTask.FromResult(daemonStatusResult);
-        }
-    }
-
-    private sealed class StubDaemonPingInfoClient : IDaemonPingInfoClient
-    {
-        private readonly IpcPingResponse? nextResult;
-
-        private readonly Exception? nextException;
-
-        public StubDaemonPingInfoClient (
-            IpcPingResponse? nextResult = null,
-            Exception? nextException = null)
-        {
-            this.nextResult = nextResult;
-            this.nextException = nextException;
-        }
-
-        public int CallCount { get; private set; }
-
-        public string? LastSessionToken { get; private set; }
-
-        public ValueTask<IpcPingResponse> PingAndReadAsync (
-            ResolvedUnityProjectContext unityProject,
-            TimeSpan timeout,
-            string? sessionToken = null,
-            bool validateProjectFingerprint = true,
-            CancellationToken cancellationToken = default)
-        {
-            CallCount++;
-            LastSessionToken = sessionToken;
-
-            if (nextException is not null)
-            {
-                return ValueTask.FromException<IpcPingResponse>(nextException);
-            }
-
-            return ValueTask.FromResult(nextResult!);
-        }
-    }
-
-    private sealed class StubDaemonReachabilityClassifier : IDaemonReachabilityClassifier
-    {
-        public bool IsNotRunning (Exception exception)
-        {
-            return exception is SocketException;
-        }
+                new StubDaemonReachabilityClassifier(static exception => exception is SocketException),
+                new RecordingDaemonLifecycleStore(),
+                new RecordingDaemonProcessIdentityAssessor()));
     }
 }

@@ -7,19 +7,20 @@ public sealed class SupervisorExternalProcessRunnerTests
     private static readonly TimeSpan AsyncWaitTimeout = TimeSpan.FromSeconds(5);
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task RunIgnoringExitCode_WhenProcessExitsNonZero_DoesNotThrow ()
     {
         var runner = new SupervisorExternalProcessRunner();
+        var invocation = TestProcessInvocations.CreateNonZeroExit();
 
         await runner.RunIgnoringExitCodeAsync(
-            "dotnet",
-            ["--definitely-invalid-supervisor-switch"],
+            invocation.FileName,
+            invocation.Arguments,
             CancellationToken.None);
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task RunIgnoringExitCode_WhenProcessCannotStart_DoesNotThrow ()
     {
         var runner = new SupervisorExternalProcessRunner();
@@ -31,7 +32,7 @@ public sealed class SupervisorExternalProcessRunnerTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public async Task RunIgnoringExitCode_WhenCancellationIsRequested_ThrowsOperationCanceledException ()
     {
         var runner = new SupervisorExternalProcessRunner();

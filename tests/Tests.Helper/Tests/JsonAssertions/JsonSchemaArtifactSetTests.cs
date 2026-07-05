@@ -6,7 +6,7 @@ using MackySoft.Tests;
 public sealed class JsonSchemaArtifactSetTests
 {
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void Validate_WithReferenceEscapingSchemaRoot_ReturnsReferenceError ()
     {
         using var scope = TestDirectories.CreateTempScope("json-schema-artifact-set", "escaping-reference");
@@ -33,7 +33,7 @@ public sealed class JsonSchemaArtifactSetTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void Load_WithUnsupportedKeywordInUnusedDefinition_Throws ()
     {
         using var scope = TestDirectories.CreateTempScope("json-schema-artifact-set", "unused-definition-keyword");
@@ -60,7 +60,7 @@ public sealed class JsonSchemaArtifactSetTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void Validate_WithSchemaValuedAdditionalProperties_ValidatesAdditionalValues ()
     {
         using var scope = TestDirectories.CreateTempScope("json-schema-artifact-set", "additional-properties-schema");

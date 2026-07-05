@@ -5,6 +5,15 @@ using Xunit.Sdk;
 
 public sealed class JsonPathResolverTests
 {
+    private static readonly InvalidJsonPathCase[] InvalidJsonPaths =
+    [
+        new(".status", "Unexpected '.' at index 0."),
+        new("counts.", "Path must not end with '.'."),
+        new("tests[0.fullName", "Expected ']'"),
+        new("tests[2].fullName", "Array index 2 is out of range"),
+        new("counts.missing", "Property 'missing' was not found."),
+    ];
+
     [Fact]
     [Trait("Size", "Small")]
     public void ResolvePropertyOrThrow_ReturnsResolvedContext_ForNestedPath ()
@@ -31,24 +40,20 @@ public sealed class JsonPathResolverTests
         Assert.Equal("Cafe.Tests.Fail", resolved.Value.GetString());
     }
 
-    [Theory]
+    [Fact]
     [Trait("Size", "Small")]
-    [InlineData(".status", "Unexpected '.' at index 0.")]
-    [InlineData("counts.", "Path must not end with '.'.")]
-    [InlineData("tests[0.fullName", "Expected ']'")]
-    [InlineData("tests[2].fullName", "Array index 2 is out of range")]
-    [InlineData("counts.missing", "Property 'missing' was not found.")]
-    public void ResolvePropertyOrThrow_Throws_WhenPathIsInvalid (
-        string path,
-        string expectedMessage)
+    public void ResolvePropertyOrThrow_Throws_WhenPathIsInvalid ()
     {
         using var document = JsonAssertionTestData.CreateSampleDocument();
         var rootContext = new JsonAssertionContext(document.RootElement, "$");
 
-        var exception = Assert.Throws<XunitException>(
-            () => JsonPathResolver.ResolvePropertyOrThrow(rootContext, path));
+        foreach (var testCase in InvalidJsonPaths)
+        {
+            var exception = Assert.Throws<XunitException>(
+                () => JsonPathResolver.ResolvePropertyOrThrow(rootContext, testCase.Path));
 
-        Assert.Contains(expectedMessage, exception.Message, StringComparison.Ordinal);
+            Assert.Contains(testCase.ExpectedMessage, exception.Message, StringComparison.Ordinal);
+        }
     }
 
     [Fact]
@@ -92,4 +97,8 @@ public sealed class JsonPathResolverTests
 
         Assert.Contains("Array index must be non-negative", exception.Message, StringComparison.Ordinal);
     }
+
+    private sealed record InvalidJsonPathCase (
+        string Path,
+        string ExpectedMessage);
 }

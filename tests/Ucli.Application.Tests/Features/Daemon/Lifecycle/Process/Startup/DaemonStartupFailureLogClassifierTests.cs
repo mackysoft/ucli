@@ -90,6 +90,35 @@ public sealed class DaemonStartupFailureLogClassifierTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void TryClassifyFailure_WhenOnlyPreviousStartupHasPackageResolutionFailure_ReturnsFalse ()
+    {
+        var latestStartupLogText = DaemonStartupFailureLogClassifier.GetLatestStartupLogText(
+            """
+            COMMAND LINE ARGUMENTS:
+            -projectPath
+            /tmp/old
+            An error occurred while resolving packages:
+              Project has invalid dependencies:
+                com.unity.modules.adaptiveperformance: Package [com.unity.modules.adaptiveperformance@1.0.0] cannot be found
+            COMMAND LINE ARGUMENTS:
+            -projectPath
+            /tmp/new
+            [Package Manager] Done resolving packages in 1.00 seconds
+            """);
+
+        var result = DaemonStartupFailureLogClassifier.TryClassifyFailure(
+            latestStartupLogText,
+            DaemonStartupFailureClassificationContext.Batchmode,
+            out var classification);
+
+        Assert.False(result);
+        Assert.Null(classification);
+        Assert.Contains("/tmp/new", latestStartupLogText, StringComparison.Ordinal);
+        Assert.DoesNotContain("/tmp/old", latestStartupLogText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void TryClassifyFailure_WhenNuGetForUnityRestoreFails_ReturnsNuGetDiagnosticCode ()
     {
         var result = DaemonStartupFailureLogClassifier.TryClassifyFailure(

@@ -6,7 +6,7 @@ using MackySoft.Ucli.Application.Shared.Foundation;
 public sealed class DaemonProcessIdentityAssessorTests
 {
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void AssessByProcessId_WhenProcessDoesNotExist_ReturnsNotRunning ()
     {
         var assessor = new DaemonProcessIdentityAssessor();
@@ -19,7 +19,7 @@ public sealed class DaemonProcessIdentityAssessorTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void AssessByProcessId_WhenProcessMatches_ReturnsMatchingLiveProcess ()
     {
         using var currentProcess = Process.GetCurrentProcess();
@@ -35,7 +35,7 @@ public sealed class DaemonProcessIdentityAssessorTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void AssessProcess_WhenProcessStartTimeDoesNotMatch_ReturnsDifferentProcessWithError ()
     {
         using var currentProcess = Process.GetCurrentProcess();
@@ -54,7 +54,7 @@ public sealed class DaemonProcessIdentityAssessorTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
+    [Trait("Size", "Medium")]
     public void AssessProcess_WhenExpectedProcessStartTimeIsMissing_ReturnsUncertain ()
     {
         using var currentProcess = Process.GetCurrentProcess();
