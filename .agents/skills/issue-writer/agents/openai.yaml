@@ -1,0 +1,7 @@
+interface:
+  display_name: "Issue Writer"
+  short_description: "与えられたIssue構造、本文入力、文書前提に従ってGitHub Issue本文を作成、更新、点検する。Issue本文の項目、完了条件、依存関係、必要な検証、参照を整理し、必要なら `gh` で起票または本文更新まで進める作業で使う。"
+  default_prompt: "Use $issue-writer to follow the Issue Writer workflow."
+
+policy:
+  allow_implicit_invocation: true

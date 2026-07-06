@@ -1,0 +1,7 @@
+interface:
+  display_name: "Issue Planner"
+  short_description: "タスクや仕様からGitHub Issue構造を決める。Issue分割、親子Issue、Pull Request単位の粒度、依存関係を整理し、単一Issue、または親Issueと子Issueの1階層にまとめ、文書前提を含むIssue本文作成に必要な入力を作る作業で使う。"
+  default_prompt: "Use $issue-planner to follow the Issue Planner workflow."
+
+policy:
+  allow_implicit_invocation: true

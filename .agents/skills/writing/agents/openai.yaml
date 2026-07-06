@@ -1,0 +1,7 @@
+interface:
+  display_name: "Writing"
+  short_description: "自然言語の文章を作成、変更、レビュー、要約、翻訳、ローカライズ、返信するときに、対象、読者、媒体、言語、出力形式を文章前提として固定し、意味保持、事実性、論理構造、文章構造、文体、表記を整える。会話、スレッド、コメント、メール、案内、告知、提案、報告、説明文、記事、原稿、専門文書などの文章成果物や、やりとりの読みやすさを改善したいときに使う。"
+  default_prompt: "Use $writing to follow the Writing workflow."
+
+policy:
+  allow_implicit_invocation: true

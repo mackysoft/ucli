@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "skillBundleVersion": 1,
+  "catalogId": "com.mackysoft.skills-pack",
+  "tier": "development",
+  "skillName": "issue-planner",
+  "displayName": "Issue Planner",
+  "description": "タスクや仕様からGitHub Issue構造を決める。Issue分割、親子Issue、Pull Request単位の粒度、依存関係を整理し、単一Issue、または親Issueと子Issueの1階層にまとめ、文書前提を含むIssue本文作成に必要な入力を作る作業で使う。",
+  "dependencies": [
+    "writing"
+  ],
+  "contentDigest": "74350a21692c48004aba9ac2afada9879170e69cf46b9dfbe4a7c0cf74bdf5cb",
+  "manifestDigest": "013270a167890135cffd3910f014a867fbfb579615623106c1d27e51ffe4fcd9",
+  "hostArtifacts": [
+    {
+      "host": "claude",
+      "materializedFrontmatterDigest": "722152100705fbd5f8c8a0ac9d2f729142c759c736817ecc9cc9207923e6be1d"
+    },
+    {
+      "host": "copilot",
+      "materializedFrontmatterDigest": "b374c1fc8b124a477cf4cc42ac86670294b10d88b2257fe3e657d87a434d97c4"
+    },
+    {
+      "host": "openai",
+      "path": "agents/openai.yaml",
+      "digest": "f58305c1a738b8666a4ee369824dac22645296297782d025dae424d1e264469b",
+      "materializedFrontmatterDigest": "5e992b7557e972c71f3ec9a3f8e34eb5f639d2fe299dd40b2dabec03380191d3"
+    }
+  ]
+}
