@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "skillBundleVersion": 1,
+  "catalogId": "com.mackysoft.skills-pack",
+  "tier": "general",
+  "skillName": "writing",
+  "displayName": "Writing",
+  "description": "自然言語の文章を作成、変更、レビュー、要約、翻訳、ローカライズ、返信するときに、対象、読者、媒体、言語、出力形式を文章前提として固定し、意味保持、事実性、論理構造、文章構造、文体、表記を整える。会話、スレッド、コメント、メール、案内、告知、提案、報告、説明文、記事、原稿、専門文書などの文章成果物や、やりとりの読みやすさを改善したいときに使う。",
+  "dependencies": [],
+  "contentDigest": "451d143d0c57b94a9da8a119c2b1fa7536b6a5910ce1a31762b73aa4e0a0e06f",
+  "manifestDigest": "6031407abe80cd4e04be31e91d13195eb3142bdae41c2db7a76b4f04c8d03736",
+  "hostArtifacts": [
+    {
+      "host": "claude",
+      "materializedFrontmatterDigest": "8cd173163a812819cf380b97333ef3f92f4f273c839e101176fb86c985ca5af2"
+    },
+    {
+      "host": "copilot",
+      "materializedFrontmatterDigest": "30184022b07919ec97e05f067c26d4e829269b9c4d5cb775c4a03225f109ab8a"
+    },
+    {
+      "host": "openai",
+      "path": "agents/openai.yaml",
+      "digest": "c14e2d25fa8c494849c9b31b3775edea053bd08bc9e1ac2fcf9c04b875516844",
+      "materializedFrontmatterDigest": "1bf73421582d891a453b5471138a4d0808d8cf93342004c9b99e720c75b4f113"
+    }
+  ]
+}

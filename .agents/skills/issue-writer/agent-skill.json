@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "skillBundleVersion": 1,
+  "catalogId": "com.mackysoft.skills-pack",
+  "tier": "development",
+  "skillName": "issue-writer",
+  "displayName": "Issue Writer",
+  "description": "与えられたIssue構造、本文入力、文書前提に従ってGitHub Issue本文を作成、更新、点検する。Issue本文の項目、完了条件、依存関係、必要な検証、参照を整理し、必要なら `gh` で起票または本文更新まで進める作業で使う。",
+  "dependencies": [
+    "writing"
+  ],
+  "contentDigest": "ac211da9ce6649cfeb1e8ec610715624e1703b9f88194af2677d5747e2a60c83",
+  "manifestDigest": "00c13a5584eba1884edee7e0c1741ec59ca3b1cf82b58c991f711ae461e5c554",
+  "hostArtifacts": [
+    {
+      "host": "claude",
+      "materializedFrontmatterDigest": "4ba25f19bffc141e8b5c9af385d86afb32f1eeb4886e262c403bee66819fdc46"
+    },
+    {
+      "host": "copilot",
+      "materializedFrontmatterDigest": "08fd3445edbb8fbfc205acb0145b178486e783c0630cb6dac2b312c0a93fd35e"
+    },
+    {
+      "host": "openai",
+      "path": "agents/openai.yaml",
+      "digest": "4054f4c47a63ecaf109657fa1334edc8f6233ae01e34e47afece7236c3bbb7e2",
+      "materializedFrontmatterDigest": "2cd1b5d3d257751f6affb9cb54271a8f6ef4040f326418e6f9c8c30a13a985e2"
+    }
+  ]
+}
