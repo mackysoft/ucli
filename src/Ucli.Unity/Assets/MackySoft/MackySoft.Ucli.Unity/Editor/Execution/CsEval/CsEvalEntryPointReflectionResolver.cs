@@ -1,7 +1,6 @@
 using System;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 
 #nullable enable
@@ -50,11 +49,14 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
         {
             var parameters = method.GetParameters();
             return !method.IsGenericMethod
-                && method.GetCustomAttribute<AsyncStateMachineAttribute>() == null
-                && !IsTaskLike(method.ReturnType)
-                && method.ReturnType == typeof(object)
+                && IsSupportedReturnType(method.ReturnType)
                 && parameters.Length == 1
                 && parameters[0].ParameterType == typeof(UcliCsEvalContext);
+        }
+
+        private static bool IsSupportedReturnType (Type returnType)
+        {
+            return returnType == typeof(object) || IsTaskLike(returnType);
         }
 
         private static bool IsTaskLike (Type returnType)

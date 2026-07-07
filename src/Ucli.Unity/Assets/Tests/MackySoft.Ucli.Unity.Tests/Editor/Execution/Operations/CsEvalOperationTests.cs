@@ -29,8 +29,8 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(operation.Metadata.Policy, Is.EqualTo(OperationPolicy.Dangerous));
             Assert.That(operation.Metadata.RequiresPreCallPlanReplay, Is.True);
             Assert.That(operation.Metadata.DescribeContract.CodeContract, Is.Not.Null);
-            Assert.That(operation.Metadata.DescribeContract.CodeContract!.EntryPoint!.Signature, Is.EqualTo("public static object? Run(UcliCsEvalContext context)"));
-            Assert.That(operation.Metadata.DescribeContract.CodeContract.EntryPoint.MatchRule, Is.EqualTo("Compiled source must contain exactly one public static object? Run(UcliCsEvalContext context) method."));
+            Assert.That(operation.Metadata.DescribeContract.CodeContract!.EntryPoint!.Signature, Is.EqualTo("public static object? | Task | Task<T> | ValueTask | ValueTask<T> Run(UcliCsEvalContext context)"));
+            Assert.That(operation.Metadata.DescribeContract.CodeContract.EntryPoint.MatchRule, Is.EqualTo("Compiled source must contain exactly one public static Run(UcliCsEvalContext context) method returning object?, Task, Task<T>, ValueTask, or ValueTask<T>."));
             Assert.That(operation.Metadata.DescribeContract.CodeContract.SourceForms![0].Kind, Is.EqualTo(CsEvalSourceKindValues.CompilationUnit));
             Assert.That(operation.Metadata.DescribeContract.CodeContract.SourceForms[0].Description, Does.Contain("compilation unit"));
             Assert.That(operation.Metadata.DescribeContract.CodeContract.SourceForms[1].Kind, Is.EqualTo(CsEvalSourceKindValues.Snippet));
@@ -254,6 +254,33 @@ return new { value = new StringBuilder().Append(""ok"").ToString() };
             Assert.That(result.IsSuccess, Is.True);
             var value = result.Result!.Value.GetProperty("returnValue").GetProperty("value");
             Assert.That(value.GetProperty("value").GetString(), Is.EqualTo("ok"));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Call_WhenSnippetUsesAwait_AwaitsAndSerializesResult () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = CreateCsEvalOperation();
+            using var context = new OperationExecutionContext();
+            var request = CreateOperation(
+                source: @"
+using System.Threading.Tasks;
+
+context.Log(""before await"");
+await Task.Yield();
+context.DeclareNoTouchedResources();
+return new { value = await Task.FromResult(5) };
+");
+
+            var result = await operation.CallAsync(request, context, CancellationToken.None);
+
+            Assert.That(result.IsSuccess, Is.True);
+            var payload = result.Result!.Value;
+            Assert.That(payload.GetProperty("sourceKind").GetString(), Is.EqualTo(CsEvalSourceKindValues.Snippet));
+            Assert.That(payload.GetProperty("logs")[0].GetProperty("message").GetString(), Is.EqualTo("before await"));
+            Assert.That(payload.GetProperty("returnValue").GetProperty("kind").GetString(), Is.EqualTo(CsEvalReturnValueKindValues.Json));
+            Assert.That(payload.GetProperty("returnValue").GetProperty("value").GetProperty("value").GetInt32(), Is.EqualTo(5));
+            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(CsEvalTouchedResourceStateValues.None));
         });
 
         [UnityTest]
@@ -602,6 +629,126 @@ namespace EvalScripts
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Call_WhenEntryPointReturnsGenericTaskLikeValue_AwaitsAndSerializesResult () => UniTask.ToCoroutine(async () =>
+        {
+            var cases = new[]
+            {
+                new AsyncReturnCase(
+                    "task-int",
+                    "public static async System.Threading.Tasks.Task<int> Run(UcliCsEvalContext context)",
+                    "await System.Threading.Tasks.Task.Yield(); return 7;",
+                    JsonValueKind.Number,
+                    7,
+                    null),
+                new AsyncReturnCase(
+                    "value-task-string",
+                    "public static async System.Threading.Tasks.ValueTask<string> Run(UcliCsEvalContext context)",
+                    "await System.Threading.Tasks.Task.Yield(); return \"ok\";",
+                    JsonValueKind.String,
+                    null,
+                    "ok"),
+            };
+            var operation = CreateCsEvalOperation();
+            for (var i = 0; i < cases.Length; i++)
+            {
+                var testCase = cases[i];
+                using var context = new OperationExecutionContext();
+                var request = CreateOperation(CreateAsyncEntryPointSource(testCase.Signature, testCase.Body));
+
+                var result = await operation.CallAsync(request, context, CancellationToken.None);
+
+                Assert.That(result.IsSuccess, Is.True, testCase.Name);
+                Assert.That(result.Applied, Is.True, testCase.Name);
+                Assert.That(result.Changed, Is.False, testCase.Name);
+                var value = result.Result!.Value.GetProperty("returnValue").GetProperty("value");
+                Assert.That(value.ValueKind, Is.EqualTo(testCase.ExpectedValueKind), testCase.Name);
+                if (testCase.ExpectedNumberValue.HasValue)
+                {
+                    Assert.That(value.GetInt32(), Is.EqualTo(testCase.ExpectedNumberValue.Value), testCase.Name);
+                }
+
+                if (testCase.ExpectedStringValue != null)
+                {
+                    Assert.That(value.GetString(), Is.EqualTo(testCase.ExpectedStringValue), testCase.Name);
+                }
+
+                Assert.That(result.Result!.Value.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(CsEvalTouchedResourceStateValues.None), testCase.Name);
+            }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Call_WhenEntryPointReturnsNonGenericTaskLike_CompletesWithNullReturnValue () => UniTask.ToCoroutine(async () =>
+        {
+            var cases = new[]
+            {
+                new AsyncVoidReturnCase(
+                    "task",
+                    "public static async System.Threading.Tasks.Task Run(UcliCsEvalContext context)",
+                    "await System.Threading.Tasks.Task.Yield();"),
+                new AsyncVoidReturnCase(
+                    "value-task",
+                    "public static async System.Threading.Tasks.ValueTask Run(UcliCsEvalContext context)",
+                    "await System.Threading.Tasks.Task.Yield();"),
+            };
+            var operation = CreateCsEvalOperation();
+            for (var i = 0; i < cases.Length; i++)
+            {
+                var testCase = cases[i];
+                using var context = new OperationExecutionContext();
+                var request = CreateOperation(CreateAsyncEntryPointSource(testCase.Signature, testCase.Body));
+
+                var result = await operation.CallAsync(request, context, CancellationToken.None);
+
+                Assert.That(result.IsSuccess, Is.True, testCase.Name);
+                Assert.That(result.Applied, Is.True, testCase.Name);
+                Assert.That(result.Changed, Is.False, testCase.Name);
+                var payload = result.Result!.Value;
+                Assert.That(payload.GetProperty("returnValue").GetProperty("kind").GetString(), Is.EqualTo(CsEvalReturnValueKindValues.Null), testCase.Name);
+                Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(CsEvalTouchedResourceStateValues.None), testCase.Name);
+            }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Call_WhenEntryPointReturnedTaskFaults_FailsAfterInvocationWithTouchedResources () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = CreateCsEvalOperation();
+            using var context = new OperationExecutionContext();
+            var request = CreateOperation(
+                source: @"
+using MackySoft.Ucli.Unity.Execution.CsEval;
+
+namespace EvalScripts
+{
+    public static class Entry
+    {
+        public static async System.Threading.Tasks.Task<object> Run(UcliCsEvalContext context)
+        {
+            context.LogWarning(""before fault"");
+            context.DeclareTouchedAsset(""Assets/Eval.asset"");
+            await System.Threading.Tasks.Task.Yield();
+            throw new System.InvalidOperationException(""async boom"");
+        }
+    }
+}
+");
+
+            var result = await operation.CallAsync(request, context, CancellationToken.None);
+
+            AssertInvalidArgument(result);
+            Assert.That(result.Applied, Is.True);
+            Assert.That(result.Changed, Is.True);
+            Assert.That(result.Touched.Count, Is.EqualTo(1));
+            Assert.That(result.Touched[0].Kind, Is.EqualTo(OperationTouchKind.Asset));
+            var payload = result.Result!.Value;
+            Assert.That(payload.GetProperty("logs")[0].GetProperty("message").GetString(), Is.EqualTo("before fault"));
+            Assert.That(payload.TryGetProperty("returnValue", out _), Is.False);
+            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(CsEvalTouchedResourceStateValues.Declared));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Call_WhenReturnValueGetterThrows_FailsAfterInvocationWithTouchedResources () => UniTask.ToCoroutine(async () =>
         {
             var operation = CreateCsEvalOperation();
@@ -858,24 +1005,6 @@ namespace EvalScripts
 }
 "),
                 new InvalidEntryPointCase(
-                    "value task",
-                    @"
-using System.Threading.Tasks;
-using MackySoft.Ucli.Unity.Execution.CsEval;
-
-namespace EvalScripts
-{
-    public static class Entry
-    {
-        public static ValueTask<object> Run(UcliCsEvalContext context)
-        {
-            context.Log(""invoked"");
-            return new ValueTask<object>((object)null);
-        }
-    }
-}
-"),
-                new InvalidEntryPointCase(
                     "void",
                     @"
 using MackySoft.Ucli.Unity.Execution.CsEval;
@@ -1056,7 +1185,7 @@ namespace EvalScripts
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator Call_WhenEntryPointReturnsTask_FailsBeforeInvocation () => UniTask.ToCoroutine(async () =>
+        public IEnumerator Call_WhenEntryPointReturnsTaskObjectResult_FailsAfterInvocation () => UniTask.ToCoroutine(async () =>
         {
             var operation = CreateCsEvalOperation();
             using var context = new OperationExecutionContext();
@@ -1071,7 +1200,8 @@ namespace EvalScripts
     {
         public static Task<object> Run(UcliCsEvalContext context)
         {
-            return Task.FromResult<object>(new { value = 1 });
+            context.DeclareTouchedAsset(""Assets/Eval.asset"");
+            return Task.FromResult<object>(Task.CompletedTask);
         }
     }
 }
@@ -1080,8 +1210,12 @@ namespace EvalScripts
             var result = await operation.CallAsync(request, context, CancellationToken.None);
 
             AssertInvalidArgument(result);
+            Assert.That(result.Applied, Is.True);
+            Assert.That(result.Changed, Is.True);
             var payload = result.Result!.Value;
-            Assert.That(payload.GetProperty("compile").GetProperty("status").GetString(), Is.EqualTo(CsEvalCompileStatusValues.Failed));
+            Assert.That(payload.GetProperty("compile").GetProperty("status").GetString(), Is.EqualTo(CsEvalCompileStatusValues.Succeeded));
+            Assert.That(payload.TryGetProperty("returnValue", out _), Is.False);
+            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(CsEvalTouchedResourceStateValues.Declared));
         });
 
         [UnityTest]
@@ -1144,6 +1278,27 @@ namespace EvalScripts
                 Expect: null);
         }
 
+        private static string CreateAsyncEntryPointSource (
+            string signature,
+            string body)
+        {
+            return @"
+using MackySoft.Ucli.Unity.Execution.CsEval;
+
+namespace EvalScripts
+{
+    public static class Entry
+    {
+        " + signature + @"
+        {
+            context.DeclareNoTouchedResources();
+            " + body + @"
+        }
+    }
+}
+";
+        }
+
         private static void AssertInvalidArgument (
             OperationPhaseStepResult result,
             string? message = null)
@@ -1178,6 +1333,56 @@ namespace EvalScripts
             public string Name { get; }
 
             public string Source { get; }
+        }
+
+        private sealed class AsyncReturnCase
+        {
+            public AsyncReturnCase (
+                string name,
+                string signature,
+                string body,
+                JsonValueKind expectedValueKind,
+                int? expectedNumberValue,
+                string? expectedStringValue)
+            {
+                Name = name;
+                Signature = signature;
+                Body = body;
+                ExpectedValueKind = expectedValueKind;
+                ExpectedNumberValue = expectedNumberValue;
+                ExpectedStringValue = expectedStringValue;
+            }
+
+            public string Name { get; }
+
+            public string Signature { get; }
+
+            public string Body { get; }
+
+            public JsonValueKind ExpectedValueKind { get; }
+
+            public int? ExpectedNumberValue { get; }
+
+            public string? ExpectedStringValue { get; }
+        }
+
+        private sealed class AsyncVoidReturnCase
+        {
+            public AsyncVoidReturnCase (
+                string name,
+                string signature,
+                string body)
+            {
+                Name = name;
+                Signature = signature;
+                Body = body;
+            }
+
+            public string Name { get; }
+
+            public string Signature { get; }
+
+            public string Body { get; }
         }
     }
 }

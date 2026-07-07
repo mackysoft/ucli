@@ -25,7 +25,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
             if (IsTaskLike(value.GetType()))
             {
                 returnValue = null!;
-                errorMessage = "Entry point returned a Task or ValueTask value. Return a synchronous JSON-serializable value instead.";
+                errorMessage = "Entry point returned an unawaited Task or ValueTask value. Declare the Run return type as Task, Task<T>, ValueTask, or ValueTask<T> to have eval await it.";
                 return false;
             }
 

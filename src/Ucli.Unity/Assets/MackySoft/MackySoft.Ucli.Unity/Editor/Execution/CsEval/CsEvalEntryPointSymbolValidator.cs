@@ -114,9 +114,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 && method.IsStatic
                 && !method.IsGenericMethod
                 && !method.ContainingType.IsGenericType
-                && !method.IsAsync
-                && !IsTaskLike(method.ReturnType)
-                && method.ReturnType.SpecialType == SpecialType.System_Object
+                && IsSupportedReturnType(method.ReturnType)
                 && method.Parameters.Length == 1
                 && SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type, contextSymbol);
         }
@@ -146,18 +144,9 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 reasons.Add("containing type is generic");
             }
 
-            if (method.IsAsync)
+            if (!IsSupportedReturnType(method.ReturnType))
             {
-                reasons.Add("method is async");
-            }
-
-            if (IsTaskLike(method.ReturnType))
-            {
-                reasons.Add("return type is Task or ValueTask");
-            }
-            else if (method.ReturnType.SpecialType != SpecialType.System_Object)
-            {
-                reasons.Add($"return type is '{method.ReturnType.ToDisplayString(SymbolDisplayFormat.CSharpErrorMessageFormat)}', expected object");
+                reasons.Add($"return type is '{method.ReturnType.ToDisplayString(SymbolDisplayFormat.CSharpErrorMessageFormat)}', expected object, Task, Task<T>, ValueTask, or ValueTask<T>");
             }
 
             if (method.Parameters.Length != 1)
@@ -170,6 +159,11 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
             }
 
             return string.Join("; ", reasons);
+        }
+
+        private static bool IsSupportedReturnType (ITypeSymbol returnType)
+        {
+            return returnType.SpecialType == SpecialType.System_Object || IsTaskLike(returnType);
         }
 
         private static bool IsTaskLike (ITypeSymbol returnType)
