@@ -1,6 +1,5 @@
 using System;
 using System.Text.Json;
-using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
 
 #nullable enable
@@ -22,7 +21,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 return true;
             }
 
-            if (IsTaskLike(value.GetType()))
+            if (CsEvalEntryPointReturnTypePolicy.IsRuntimeTaskLikeValue(value.GetType()))
             {
                 returnValue = null!;
                 errorMessage = "Entry point returned an unawaited Task or ValueTask value. Declare the Run return type as Task, Task<T>, ValueTask, or ValueTask<T> to have eval await it.";
@@ -59,14 +58,6 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 errorMessage = $"Entry point return value is not JSON-serializable. {exception.GetType().FullName}: {exception.Message}";
                 return false;
             }
-        }
-
-        private static bool IsTaskLike (Type valueType)
-        {
-            return typeof(Task).IsAssignableFrom(valueType)
-                || valueType == typeof(ValueTask)
-                || (valueType.IsGenericType
-                    && valueType.GetGenericTypeDefinition() == typeof(ValueTask<>));
         }
     }
 }

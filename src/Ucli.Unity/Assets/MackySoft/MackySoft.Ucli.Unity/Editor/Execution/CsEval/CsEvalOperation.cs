@@ -139,9 +139,9 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
 
             try
             {
-                returnObject = await ResolveEntryPointReturnValueAsync(method.ReturnType, returnObject).ConfigureAwait(false);
+                returnObject = await CsEvalEntryPointReturnValueResolver.ResolveAsync(method.ReturnType, returnObject);
             }
-            catch (CsEvalEntryPointInvocationException exception)
+            catch (CsEvalEntryPointReturnValueResolutionException exception)
             {
                 stopwatch.Stop();
                 return CreatePostInvocationInvalidArgumentFailure(
@@ -315,111 +315,9 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
             return !string.Equals(touchedResources.State, CsEvalTouchedResourceStateValues.None, StringComparison.Ordinal);
         }
 
-        private static async Task<object?> ResolveEntryPointReturnValueAsync (
-            Type declaredReturnType,
-            object? invocationReturnValue)
-        {
-            if (declaredReturnType == typeof(Task))
-            {
-                await GetRequiredTask(invocationReturnValue, declaredReturnType).ConfigureAwait(false);
-                return null;
-            }
-
-            if (IsGenericTask(declaredReturnType))
-            {
-                var task = GetRequiredTask(invocationReturnValue, declaredReturnType);
-                await task.ConfigureAwait(false);
-                return GetTaskResult(task);
-            }
-
-            if (declaredReturnType == typeof(ValueTask))
-            {
-                if (invocationReturnValue == null)
-                {
-                    throw new CsEvalEntryPointInvocationException("Entry point returned null for ValueTask.");
-                }
-
-                await ((ValueTask)invocationReturnValue).ConfigureAwait(false);
-                return null;
-            }
-
-            if (IsGenericValueTask(declaredReturnType))
-            {
-                var task = ConvertValueTaskToTask(declaredReturnType, invocationReturnValue);
-                await task.ConfigureAwait(false);
-                return GetTaskResult(task);
-            }
-
-            return invocationReturnValue;
-        }
-
-        private static bool IsGenericTask (Type type)
-        {
-            return type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Task<>);
-        }
-
-        private static bool IsGenericValueTask (Type type)
-        {
-            return type.IsGenericType && type.GetGenericTypeDefinition() == typeof(ValueTask<>);
-        }
-
-        private static Task GetRequiredTask (
-            object? value,
-            Type declaredReturnType)
-        {
-            if (value is Task task)
-            {
-                return task;
-            }
-
-            throw new CsEvalEntryPointInvocationException($"Entry point returned null for {declaredReturnType.Name}.");
-        }
-
-        private static Task ConvertValueTaskToTask (
-            Type declaredReturnType,
-            object? value)
-        {
-            if (value == null)
-            {
-                throw new CsEvalEntryPointInvocationException($"Entry point returned null for {declaredReturnType.Name}.");
-            }
-
-            var asTaskMethod = declaredReturnType.GetMethod(nameof(ValueTask<int>.AsTask), Type.EmptyTypes);
-            if (asTaskMethod == null)
-            {
-                throw new CsEvalEntryPointInvocationException($"Entry point return type '{declaredReturnType.FullName}' does not expose AsTask().");
-            }
-
-            if (asTaskMethod.Invoke(value, Array.Empty<object>()) is Task task)
-            {
-                return task;
-            }
-
-            throw new CsEvalEntryPointInvocationException($"Entry point return type '{declaredReturnType.FullName}' did not produce a Task.");
-        }
-
-        private static object? GetTaskResult (Task task)
-        {
-            var resultProperty = task.GetType().GetProperty("Result", BindingFlags.Public | BindingFlags.Instance);
-            if (resultProperty == null)
-            {
-                throw new CsEvalEntryPointInvocationException($"Entry point return task type '{task.GetType().FullName}' does not expose Result.");
-            }
-
-            return resultProperty.GetValue(task);
-        }
-
         private static IReadOnlyList<OperationReadInvalidation> CreateReadInvalidations ()
         {
             return OperationReadInvalidationUtilities.CreateUnknownMutation();
-        }
-
-        private sealed class CsEvalEntryPointInvocationException : Exception
-        {
-            public CsEvalEntryPointInvocationException (string message)
-                : base(message)
-            {
-            }
         }
     }
 }

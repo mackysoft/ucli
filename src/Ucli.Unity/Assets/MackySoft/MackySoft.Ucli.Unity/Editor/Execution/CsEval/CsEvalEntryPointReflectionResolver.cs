@@ -1,7 +1,6 @@
 using System;
 using System.Linq;
 using System.Reflection;
-using System.Threading.Tasks;
 
 #nullable enable
 
@@ -49,23 +48,9 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
         {
             var parameters = method.GetParameters();
             return !method.IsGenericMethod
-                && IsSupportedReturnType(method.ReturnType)
+                && CsEvalEntryPointReturnTypePolicy.IsSupportedReflectionReturnType(method.ReturnType)
                 && parameters.Length == 1
                 && parameters[0].ParameterType == typeof(UcliCsEvalContext);
-        }
-
-        private static bool IsSupportedReturnType (Type returnType)
-        {
-            return returnType == typeof(object) || IsTaskLike(returnType);
-        }
-
-        private static bool IsTaskLike (Type returnType)
-        {
-            return returnType == typeof(Task)
-                || returnType == typeof(ValueTask)
-                || (returnType.IsGenericType
-                    && (returnType.GetGenericTypeDefinition() == typeof(Task<>)
-                        || returnType.GetGenericTypeDefinition() == typeof(ValueTask<>)));
         }
     }
 }
