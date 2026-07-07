@@ -5,24 +5,24 @@
   "tier": "development",
   "skillName": "verification-gate",
   "displayName": "Verification Gate",
-  "description": "コード変更が一通り終わった挙動確認時、またはPR作成前に、受け入れ判定に必要な検証のみを実行する。実装や設計検討が目的のときは使わない。",
+  "description": "変更が受け入れ可能かを判断するために、作業種別から必要な検証面を選び、リポジトリの専用 script や CI と同じコマンドを優先して実行し、成功、失敗、未検証範囲、次に必要な作業を残す。",
   "dependencies": [],
-  "contentDigest": "6621e231a810a23f6f7ab51aa4b40859d1139b354d3204b3f9cead5047935765",
-  "manifestDigest": "1f48dbd150e25396b6e0905a659cc973b4a78e5a75a484cb1a6781437b2ad095",
+  "contentDigest": "abd49ed70a32534a43eeb72b7790033564630f46122ee3b1081705b4d43c70c8",
+  "manifestDigest": "cf009907af66690b26f923d70fb93ab8f404c0ac7df937fd41faa3d37e0d125e",
   "hostArtifacts": [
     {
       "host": "claude",
-      "materializedFrontmatterDigest": "a03caedce8f5961703b4b42b0d696ca4d00de4fec25c84efb8351607eb80de6e"
+      "materializedFrontmatterDigest": "9513f1db80f949a0085074cab8585132fb34c524df1040f3c052f049309ca780"
     },
     {
       "host": "copilot",
-      "materializedFrontmatterDigest": "6b5756294e2ddd00c84efa5cb6587c9801cbb02e6b0580fa57ad743d2d6cbb9e"
+      "materializedFrontmatterDigest": "c77ae37f72ba55325a4073420fce0cf6b626f4cefe5f902812da421c6e7fb139"
     },
     {
       "host": "openai",
       "path": "agents/openai.yaml",
-      "digest": "47249731bfc767956f8cc6da2af8734a8a39a8d887af2fcb8ba3c2eca8077e0c",
-      "materializedFrontmatterDigest": "d8e890a803f040b4cad45125e049f80a148e77a63de373fc97c5034d7509ab59"
+      "digest": "9f91c0cb21eea48f9d8e7230313f78428267cb2520f32f56530796c4fe08c864",
+      "materializedFrontmatterDigest": "f1da57b114d3813cebe45daa3b2d04328273522c03e3d0561dcbf8cbf166e317"
     }
   ]
 }

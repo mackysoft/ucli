@@ -6,9 +6,11 @@
   "skillName": "changelog",
   "displayName": "Changelog",
   "description": "CHANGELOG.md、リリースノート、PR Changelog、コメント用差分ログ、changeset風の人間向け変更要約を、commits、Issues、PRs、diff、既存履歴から作成、編集するときに使う。Keep a Changelogを基準に、既存形式と対象読者に合わせ、開発ログではなく読者が利用、移行、運用判断に使える変更説明へ再構成する。",
-  "dependencies": [],
-  "contentDigest": "1776799aadb11404ec0ebf789e9aa47c9794862f2ef98c4f077dd571d4a2bfcb",
-  "manifestDigest": "b9d76ff4fed59e029307f0bbdc67edb6e56dd586405e90045a3519e188ac5b41",
+  "dependencies": [
+    "writing"
+  ],
+  "contentDigest": "6911f206c5a7042d4348eb816dfa36852355465f763faf0cb9854393c6be3030",
+  "manifestDigest": "b0c9f9b649d26d98d1c5b09e081c81b3e34d13b222db60ced2503934187f0256",
   "hostArtifacts": [
     {
       "host": "claude",

@@ -1,6 +1,6 @@
 interface:
   display_name: "PR Merge"
-  short_description: "現在作業または指定PRを安全にマージする。現在作業をブランチへ載せ、PRを取得または作成し、push、Draft解除、CI待機、必須チェック確認、マージ、リモートブランチクリーンアップまで進める。"
+  short_description: "現在作業または指定PRを安全にマージする。現在作業をブランチへ載せ、PRを取得または作成し、push、Draft解除、auto-merge設定、CI監視、マージ、リモートブランチクリーンアップまで進める。admin merge や bypass が明示された場合は `privileged-merge` として確認なしで使う。"
   default_prompt: "Use $pr-merge to follow the PR Merge workflow."
 
 policy:
