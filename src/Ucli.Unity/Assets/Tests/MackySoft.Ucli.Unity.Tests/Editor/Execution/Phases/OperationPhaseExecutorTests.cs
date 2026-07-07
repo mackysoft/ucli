@@ -1372,7 +1372,7 @@ namespace MackySoft.Ucli.Unity.Tests
             return new OperationPhaseExecutor(
                 new OperationPlanPassExecutor(
                     new OperationPlanStepRunner(operationRegistry),
-                    new ExecuteRequestCompiler()),
+                    new ExecuteRequestCompiler(operationRegistry)),
                 new OperationCallPassExecutor(),
                 planTokenCoordinator,
                 dangerousOperationCallAuthorizer);
@@ -1410,7 +1410,8 @@ namespace MackySoft.Ucli.Unity.Tests
                         argsType: operations[i].Operation.Metadata.ArgsType,
                         resultType: operations[i].Operation.Metadata.ResultType,
                         requiresPreCallPlanReplay: operations[i].Operation.Metadata.RequiresPreCallPlanReplay,
-                        exposure: operations[i].Operation.Metadata.Exposure),
+                        exposure: operations[i].Operation.Metadata.Exposure,
+                        playModeSupport: operations[i].Operation.Metadata.PlayModeSupport),
                     operations[i].Operation);
             }
 

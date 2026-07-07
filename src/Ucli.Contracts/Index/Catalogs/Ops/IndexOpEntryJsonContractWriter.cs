@@ -14,6 +14,7 @@ internal static class IndexOpEntryJsonContractWriter
         WriteNullableString(writer, "name", entry.Name);
         WriteNullableString(writer, "kind", entry.Kind);
         WriteNullableString(writer, "policy", entry.Policy);
+        WriteNullableString(writer, "playModeSupport", entry.PlayModeSupport);
         WriteNullableString(writer, "description", entry.Description);
         WriteArray(writer, "inputs", entry.Inputs, WriteOperationInput);
         WriteOperationResultContract(writer, entry.ResultContract);

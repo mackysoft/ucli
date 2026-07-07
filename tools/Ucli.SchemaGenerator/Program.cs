@@ -1058,6 +1058,12 @@ internal static class Program
                     Literal(OperationPolicy.Safe),
                     Literal(OperationPolicy.Advanced),
                     Literal(OperationPolicy.Dangerous))),
+            Required(
+                "playModeSupport",
+                EnumSchema(
+                    Literal(UcliOperationPlayModeSupport.Disallowed),
+                    Literal(UcliOperationPlayModeSupport.Allowed),
+                    Literal(UcliOperationPlayModeSupport.Required))),
             Required("description", StringSchema()),
             Required("inputs", ArraySchema(CreateOpsDescribeInputSchema())),
             Required("resultContract", ObjectSchema(

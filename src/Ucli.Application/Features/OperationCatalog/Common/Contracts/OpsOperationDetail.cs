@@ -11,6 +11,7 @@ internal sealed class OpsOperationDetail
         string name,
         string kind,
         string policy,
+        string playModeSupport,
         string description,
         IReadOnlyList<UcliOperationInputContract> inputs,
         UcliOperationResultContract resultContract,
@@ -22,6 +23,7 @@ internal sealed class OpsOperationDetail
         Name = name;
         Kind = kind;
         Policy = policy;
+        PlayModeSupport = playModeSupport;
         Description = description;
         Inputs = inputs;
         ResultContract = resultContract;
@@ -39,6 +41,9 @@ internal sealed class OpsOperationDetail
 
     /// <summary> Gets the operation policy literal. </summary>
     public string Policy { get; }
+
+    /// <summary> Gets the Play Mode support literal for public raw operation execution. </summary>
+    public string PlayModeSupport { get; }
 
     /// <summary> Gets the operation purpose description. </summary>
     public string Description { get; }

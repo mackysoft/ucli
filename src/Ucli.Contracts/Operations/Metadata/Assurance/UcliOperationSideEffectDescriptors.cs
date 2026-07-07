@@ -83,6 +83,10 @@ public static class UcliOperationSideEffectDescriptors
             derivesMayPersist: true),
         Define(UcliOperationSideEffect.ArbitrarySourceExecution, OperationPolicy.Dangerous),
         Define(UcliOperationSideEffect.DestructiveScope, OperationPolicy.Dangerous),
+        Define(
+            UcliOperationSideEffect.RuntimeStateMutation,
+            OperationPolicy.Advanced,
+            derivesMayDirty: true),
     };
 
     private static readonly IReadOnlyList<UcliOperationSideEffectDescriptor> AllCore = Array.AsReadOnly(DescriptorsCore);

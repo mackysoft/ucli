@@ -150,6 +150,7 @@ internal static class IndexCatalogContractValidator
             || string.IsNullOrWhiteSpace(entry.Name)
             || !ContractLiteralInputParser.IsDefinedIgnoreCase<UcliOperationKind>(entry.Kind)
             || !ContractLiteralInputParser.IsDefinedIgnoreCase<OperationPolicy>(entry.Policy)
+            || !ContractLiteralInputParser.IsDefinedIgnoreCase<UcliOperationPlayModeSupport>(entry.PlayModeSupport)
             || !TryResolveCatalogExposure(entry.Exposure, allowEditLoweringOnlyEntries, out var exposure, out error)
             || !IsValidArgsSchema(entry.ArgsSchemaJson, exposure)
             || !IsValidOptionalSchemaObject(entry.ResultSchemaJson)

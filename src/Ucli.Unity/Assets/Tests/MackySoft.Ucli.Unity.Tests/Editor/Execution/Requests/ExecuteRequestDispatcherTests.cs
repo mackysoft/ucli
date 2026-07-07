@@ -550,6 +550,45 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Dispatch_WhenRuntimeStateMutationReportsChangedWithoutTouchedResources_DoesNotReportContractViolation () => UniTask.ToCoroutine(async () =>
+        {
+            var normalizedRequest = CreateNormalizedRequest(
+                ("step-1", "game.cheat.runtime-state"));
+            var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
+            var phaseExecutor = new SpyOperationPhaseExecutor(PhaseExecutionTrace.Success(
+                protocolVersion: normalizedRequest.ProtocolVersion,
+                requestId: normalizedRequest.RequestId,
+                steps: CreateTraceSteps(normalizedRequest),
+                operationTraces: new[]
+                {
+                    new OperationPhaseTrace(
+                        "step-1",
+                        "game.cheat.runtime-state",
+                        OperationPhase.Call,
+                        true,
+                        true,
+                        System.Array.Empty<OperationTouch>(),
+                        null)
+                    {
+                        Contracts = CreateContractFacts(UcliOperationKind.Mutation, mayDirty: true),
+                    },
+                }));
+            var dispatcher = CreateDispatcher(normalizer, phaseExecutor);
+            var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Call,
+                operationId: "step-1",
+                operationName: "game.cheat.runtime-state");
+
+            var response = await DispatchAsync(dispatcher, request, context, "runtime-state mutation response");
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+            Assert.That(response.Payload.TryGetProperty("contractViolations", out _), Is.False);
+            Assert.That(response.Errors.Count, Is.EqualTo(0));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Dispatch_WhenChangedTrueAndMayPersistTrueWithMayDirtyFalse_DoesNotReportContractViolation () => UniTask.ToCoroutine(async () =>
         {
             var normalizedRequest = CreateNormalizedRequest(
@@ -694,7 +733,9 @@ namespace MackySoft.Ucli.Unity.Tests
             _ = new GameObject("GoodRoot");
             _ = new GameObject("Bad/Root");
             EditorSceneManager.SaveScene(scene, scenePath);
-            var dispatcher = CreateDispatcher(new ExecuteRequestNormalizer(), CreateCatalogPhaseExecutor());
+            var dispatcher = CreateDispatcher(
+                CreateCatalogNormalizer(),
+                CreateCatalogPhaseExecutor());
             var context = new ExecuteDispatchContext("req-291-diagnostics", IpcProtocol.CurrentVersion);
             var request = CreateExecuteRequest(
                 UcliCommandIds.Plan,
@@ -1551,13 +1592,19 @@ namespace MackySoft.Ucli.Unity.Tests
             return CreatePhaseExecutor(new InMemoryPhaseOperationRegistry(snapshot.Registrations));
         }
 
+        private static ExecuteRequestNormalizer CreateCatalogNormalizer ()
+        {
+            var snapshot = UcliOperationCatalogSnapshotBuilder.Build();
+            return new ExecuteRequestNormalizer(new InMemoryPhaseOperationRegistry(snapshot.Registrations));
+        }
+
         private static OperationPhaseExecutor CreatePhaseExecutor (IPhaseOperationRegistry operationRegistry)
         {
             var environment = new DefaultPlanTokenEnvironment();
             return new OperationPhaseExecutor(
                 new OperationPlanPassExecutor(
                     new OperationPlanStepRunner(operationRegistry),
-                    new ExecuteRequestCompiler()),
+                    new ExecuteRequestCompiler(operationRegistry)),
                 new OperationCallPassExecutor(),
                 new PlanTokenCoordinator(environment),
                 new DangerousOperationCallAuthorizer(environment));

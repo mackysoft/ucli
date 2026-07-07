@@ -39,6 +39,7 @@ public sealed class OpsCliOutputDescribeContractTests
                     .HasString("name", UcliPrimitiveOperationNames.GoDescribe)
                     .HasString("kind", "query")
                     .HasString("policy", "safe")
+                    .HasString("playModeSupport", "disallowed")
                     .HasString("description", "Returns a GameObject description including components and child hierarchy.")
                     .HasProperty("inputs")
                     .HasProperty("resultContract", resultContract => resultContract

@@ -63,6 +63,7 @@ public sealed class IpcOpsReadContractSerializationTests
                 .HasString("name", UcliPrimitiveOperationNames.GoDescribe)
                 .HasString("kind", "query")
                 .HasString("policy", "safe")
+                .HasString("playModeSupport", "disallowed")
                 .HasString("description", describe.Description!)
                 .HasProperty("resultContract", resultContract => resultContract
                     .HasBoolean("emitted", true)

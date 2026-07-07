@@ -9,6 +9,7 @@ namespace MackySoft.Ucli.Contracts.Index;
 /// <param name="Policy"> The operation-policy literal. </param>
 /// <param name="ArgsSchemaJson"> The JSON object text that describes operation args. </param>
 /// <param name="ResultSchemaJson"> The JSON object text that describes operation result, or <see langword="null" /> when no result is emitted. </param>
+/// <param name="PlayModeSupport"> The Play Mode support literal for public raw operation execution. </param>
 public sealed record IndexOpEntryJsonContract (
     string? Name,
     string? Kind,
@@ -17,7 +18,8 @@ public sealed record IndexOpEntryJsonContract (
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     string? ResultSchemaJson = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    string? Exposure = null)
+    string? Exposure = null,
+    string? PlayModeSupport = "disallowed")
 {
     /// <summary> Gets or initializes the operation purpose description. </summary>
     public string? Description { get; init; }

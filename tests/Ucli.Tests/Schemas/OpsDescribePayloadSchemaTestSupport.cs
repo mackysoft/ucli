@@ -70,6 +70,7 @@ internal static class OpsDescribePayloadSchemaTestSupport
                 "name": "ucli.go.describe",
                 "kind": "query",
                 "policy": "safe",
+                "playModeSupport": "disallowed",
                 "description": "Returns a GameObject description including components and child hierarchy.",
                 "inputs": [
                   {

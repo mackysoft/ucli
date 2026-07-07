@@ -6,6 +6,7 @@ using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Unity.Execution.Phases;
 
 #nullable enable
 
@@ -14,6 +15,15 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
     /// <summary> Validates and normalizes execute request payloads into strict contract models. </summary>
     internal sealed class ExecuteRequestNormalizer : IExecuteRequestNormalizer
     {
+        private readonly IPhaseOperationRegistry operationRegistry;
+
+        /// <summary> Initializes a new instance of the <see cref="ExecuteRequestNormalizer" /> class. </summary>
+        /// <param name="operationRegistry"> The operation registry used to validate Play Mode raw operation support. </param>
+        public ExecuteRequestNormalizer (IPhaseOperationRegistry operationRegistry)
+        {
+            this.operationRegistry = operationRegistry ?? throw new ArgumentNullException(nameof(operationRegistry));
+        }
+
         /// <summary> Validates and normalizes one execute request payload. </summary>
         /// <param name="request"> The execute request payload. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by operation pipelines. </param>
@@ -109,6 +119,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             if (!TryPrepareSourceSteps(
                 parsedContract,
                 request.AllowPlayMode,
+                operationRegistry,
                 out var sourceSteps,
                 out var compileError))
             {
@@ -129,9 +140,15 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
         internal static bool TryPrepareSourceSteps (
             IpcRequestContract requestContract,
             bool allowPlayMode,
+            IPhaseOperationRegistry operationRegistry,
             out IReadOnlyList<IpcRequestContractStep> sourceSteps,
             out ExecuteRequestNormalizationError error)
         {
+            if (operationRegistry == null)
+            {
+                throw new ArgumentNullException(nameof(operationRegistry));
+            }
+
             sourceSteps = Array.Empty<IpcRequestContractStep>();
             error = default!;
 
@@ -157,11 +174,8 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 switch (step.Kind)
                 {
                     case IpcRequestStepKind.Op:
-                        if (allowPlayMode && !IsPlayModeRawOperationAllowed(step))
+                        if (!RawOperationPlayModeSupportValidator.TryValidate(operationRegistry, step, allowPlayMode, out error))
                         {
-                            error = ExecuteRequestNormalizationError.InvalidArgument(
-                                "Play Mode mutation requests support only public edit steps.",
-                                step.Id);
                             return false;
                         }
 
@@ -223,11 +237,6 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
 
             error = default!;
             return true;
-        }
-
-        private static bool IsPlayModeRawOperationAllowed (IpcRequestContractStep step)
-        {
-            return string.Equals(step.OperationName, UcliPrimitiveOperationNames.CsEval, StringComparison.Ordinal);
         }
 
         private static bool TryValidateEditStep (

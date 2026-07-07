@@ -203,6 +203,33 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
+        public void UcliOperationMetadata_WhenPlayModeSupportIsOmitted_DefaultsToDisallowed ()
+        {
+            var metadata = UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
+                operationName: "ucli.tests.playmode-default",
+                kind: UcliOperationKind.Command,
+                description: "Default Play Mode support operation.",
+                assurance: CreateValidationOnlyAssurance());
+
+            Assert.That(metadata.PlayModeSupport, Is.EqualTo(UcliOperationPlayModeSupport.Disallowed));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void UcliOperationMetadata_WhenPlayModeSupportIsSpecified_StoresValue ()
+        {
+            var metadata = UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
+                operationName: "ucli.tests.playmode-required",
+                kind: UcliOperationKind.Mutation,
+                description: "Play Mode required operation.",
+                assurance: CreateRuntimeStateMutationAssurance(),
+                playModeSupport: UcliOperationPlayModeSupport.Required);
+
+            Assert.That(metadata.PlayModeSupport, Is.EqualTo(UcliOperationPlayModeSupport.Required));
+        }
+
+        [Test]
+        [Category("Size.Small")]
         public void UcliOperationMetadata_WhenFactoryAndConstructorsAreInspected_DoNotExposePolicyParameter ()
         {
             var factoryHasPolicyParameter = typeof(UcliOperationMetadata)
@@ -524,11 +551,14 @@ namespace MackySoft.Ucli.Unity.Tests
                 snapshot.Catalog.Operations!.Any(operation => operation.Name == UcliPrimitiveOperationNames.CsEval),
                 Is.True);
             Assert.That(metadata.Exposure, Is.EqualTo(UcliOperationExposure.Public));
+            Assert.That(metadata.PlayModeSupport, Is.EqualTo(UcliOperationPlayModeSupport.Allowed));
             Assert.That(metadata.Kind, Is.EqualTo(UcliOperationKind.Mutation));
             Assert.That(metadata.Policy, Is.EqualTo(OperationPolicy.Dangerous));
             Assert.That(metadata.ArgsSchemaJson, Does.Contain("\"source\""));
             Assert.That(metadata.ResultSchemaJson, Does.Contain("\"sourceKind\""));
             var describeContract = metadata.DescribeContract;
+            var catalogEntry = FindCatalogEntry(snapshot.Catalog.Operations!, UcliPrimitiveOperationNames.CsEval);
+            Assert.That(catalogEntry.PlayModeSupport, Is.EqualTo("allowed"));
             Assert.That(describeContract.CodeContract, Is.Not.Null);
             Assert.That(describeContract.CodeContract!.Language, Is.EqualTo("csharp"));
             Assert.That(describeContract.CodeContract.EntryPoint!.MatchRule, Does.Contain("exactly one"));
@@ -1215,6 +1245,20 @@ namespace MackySoft.Ucli.Unity.Tests
                 readPostconditionContract: "Does not stale read surfaces by itself.",
                 failureSemantics: "Failure means the operation did not complete.",
                 dangerousNotes: new[] { "Preview-state planning is not public raw safe." });
+        }
+
+        private static UcliOperationAssuranceContract CreateRuntimeStateMutationAssurance ()
+        {
+            return new UcliOperationAssuranceContract(
+                sideEffects: new[] { UcliOperationSideEffect.RuntimeStateMutation },
+                touchedKinds: Array.Empty<string>(),
+                planMode: UcliOperationPlanMode.ObservesLiveUnity,
+                planSemantics: "Validate Play Mode runtime state before mutation.",
+                callSemantics: "Apply a Play Mode runtime-state mutation.",
+                touchedContract: "Does not report persistent Unity resources.",
+                readPostconditionContract: "Persistent read surfaces are unchanged; runtime state may differ.",
+                failureSemantics: "Failure before invocation leaves runtime state unchanged.",
+                dangerousNotes: new[] { "Changes Play Mode runtime state and is not persisted." });
         }
 
         private static UcliOperationDescribeContract CreateDescribeContract (string operationName)

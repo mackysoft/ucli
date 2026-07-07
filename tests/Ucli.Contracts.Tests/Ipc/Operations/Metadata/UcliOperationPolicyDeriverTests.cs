@@ -44,6 +44,21 @@ public sealed class UcliOperationPolicyDeriverTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void TryDerive_WhenRuntimeStateMutationIsDeclared_ReturnsAdvanced ()
+    {
+        var assurance = CreateAssurance(["runtimeStateMutation"]);
+
+        var result = UcliOperationPolicyDeriver.TryDerive(assurance, out var policy);
+
+        Assert.True(result);
+        Assert.Equal(OperationPolicy.Advanced, policy);
+        Assert.True(assurance.MayDirty);
+        Assert.False(assurance.MayPersist);
+        Assert.Empty(assurance.TouchedKinds);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void TryDerive_WhenPlanMayCreatePreviewState_ReturnsAdvanced ()
     {
         var assurance = CreateAssurance(

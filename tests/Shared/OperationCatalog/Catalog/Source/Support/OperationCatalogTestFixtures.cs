@@ -93,7 +93,8 @@ internal static class OperationCatalogTestFixtures
             Kind: "mutation",
             Policy: "dangerous",
             ArgsSchemaJson: """{"type":"object"}""",
-            ResultSchemaJson: """{"type":"object"}""")
+            ResultSchemaJson: """{"type":"object"}""",
+            PlayModeSupport: "allowed")
         {
             Description = "Executes arbitrary C# source inside the Unity Editor process.",
             Inputs = Array.Empty<UcliOperationInputContract>(),

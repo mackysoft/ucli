@@ -24,6 +24,7 @@ public sealed class IndexOpsDescribeJsonFullMetadataTests
                     "name": "write.asset",
                     "kind": "mutation",
                     "policy": "safe",
+                    "playModeSupport": "disallowed",
                     "description": "Writes one asset.",
                     "inputs": [
                       {

@@ -28,6 +28,7 @@ public sealed class UcliOperationDescribeVocabularyTests
         new("filesystemWrite", OperationPolicy.Dangerous),
         new("arbitrarySourceExecution", OperationPolicy.Dangerous),
         new("destructiveScope", OperationPolicy.Dangerous),
+        new("runtimeStateMutation", OperationPolicy.Advanced),
     ];
 
     private static readonly SideEffectQueryAllowanceCase[] SideEffectQueryAllowanceCases =
@@ -52,6 +53,7 @@ public sealed class UcliOperationDescribeVocabularyTests
         new("filesystemWrite", ExpectedAllowed: false),
         new("arbitrarySourceExecution", ExpectedAllowed: false),
         new("destructiveScope", ExpectedAllowed: false),
+        new("runtimeStateMutation", ExpectedAllowed: false),
     ];
 
     private static readonly SideEffectAssuranceProjectionCase[] SideEffectAssuranceProjectionCases =
@@ -85,6 +87,7 @@ public sealed class UcliOperationDescribeVocabularyTests
         new("filesystemWrite", ExpectedMayDirty: false, ExpectedMayPersist: true, []),
         new("arbitrarySourceExecution", ExpectedMayDirty: false, ExpectedMayPersist: false, []),
         new("destructiveScope", ExpectedMayDirty: false, ExpectedMayPersist: false, []),
+        new("runtimeStateMutation", ExpectedMayDirty: true, ExpectedMayPersist: false, []),
     ];
 
     [Fact]
@@ -149,6 +152,7 @@ public sealed class UcliOperationDescribeVocabularyTests
         Assert.Equal(17, (int)UcliOperationSideEffect.FilesystemWrite);
         Assert.Equal(18, (int)UcliOperationSideEffect.ArbitrarySourceExecution);
         Assert.Equal(19, (int)UcliOperationSideEffect.DestructiveScope);
+        Assert.Equal(20, (int)UcliOperationSideEffect.RuntimeStateMutation);
         Assert.Equal(0, (int)UcliOperationPlanMode.ValidationOnly);
         Assert.Equal(1, (int)UcliOperationPlanMode.ObservesLiveUnity);
         Assert.Equal(2, (int)UcliOperationPlanMode.MayCreatePreviewState);

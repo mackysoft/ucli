@@ -143,6 +143,23 @@ public sealed class UcliOperationAssuranceContractValidatorTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void TryValidatePublicRawOpDescribeContract_WhenRuntimeStateMutationHasNoTouchedKinds_ReturnsTrue ()
+    {
+        var describe = UcliOperationDescribeContractValidatorTestData.CreateValidDescribeContract();
+        describe.Assurance!.SideEffects = ["runtimeStateMutation"];
+        describe.Assurance.MayDirty = true;
+        describe.Assurance.MayPersist = false;
+        describe.Assurance.TouchedKinds = [];
+        describe.Assurance.DangerousNotes = ["Runtime state mutation changes Play Mode state without persisting project resources."];
+
+        var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(describe, "Test contract", out var errorMessage);
+
+        Assert.True(isValid);
+        Assert.Empty(errorMessage);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void TryValidatePublicRawOpDescribeContract_WhenAssurancePlanModeIsUnsupported_ReturnsFalse ()
     {
         var describe = UcliOperationDescribeContractValidatorTestData.CreateValidDescribeContract();

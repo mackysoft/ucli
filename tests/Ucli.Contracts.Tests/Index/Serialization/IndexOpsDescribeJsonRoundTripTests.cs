@@ -19,6 +19,7 @@ public sealed class IndexOpsDescribeJsonRoundTripTests
         Assert.Equal(contract.SourceInputsHash, deserialized.SourceInputsHash);
         Assert.NotNull(deserialized.Operation);
         Assert.Equal(UcliPrimitiveOperationNames.GoDescribe, deserialized.Operation.Name);
+        Assert.Equal("disallowed", deserialized.Operation.PlayModeSupport);
         Assert.Equal("""{"type":"object"}""", deserialized.Operation.ArgsSchemaJson);
         Assert.Equal("""{"type":"object"}""", deserialized.Operation.ResultSchemaJson);
         Assert.Equal(expectedOperation.Description, deserialized.Operation.Description);
