@@ -37,35 +37,35 @@ description: "契約と不変条件を根拠に、新規または更新の自動
 - 実行引き継ぎ: [references/execution-handoff.md](references/execution-handoff.md)
 - flaky隔離メモ: [references/flaky-quarantine-note.md](references/flaky-quarantine-note.md)
 
-## 手順
-### 1. Contract Inventory を作成する
+## フロー
+### Phase 1: Contract Inventory を作成する
 - `references/contract-inventory.md` の形式で、今回守る契約を列挙する。
 
-### 2. テストリストを作成する
+### Phase 2: テストリストを作成する
 - `references/test-list-template.md` を使い、候補ケースを列挙する。
 
-### 3. 1ケースだけ選ぶ
+### Phase 3: 1ケースだけ選ぶ
 - TDDとして、1ループで扱うケースを1つに限定する。
 - 選んだケースに、契約IDと失敗分類を紐づける。
 
-### 4. サイズ属性を先に決める
+### Phase 4: サイズ属性を先に決める
 - サイズ分類、記法、許容値、運用上の制約は `references/test-size-policy.md` の定義に従う。
 
-### 5. Red -> Green -> Refactor で作成する
+### Phase 5: Red -> Green -> Refactor で作成する
 - 先に失敗条件（Red）を定義し、最小差分で通す（Green）。
 - 契約を壊さない範囲で、テストと実装の重複を整理する（Refactor）。
 
-### 6. DRY統合判定を行う
+### Phase 6: DRY統合判定を行う
 - 同型判定、統合条件、分離条件、優先順位は `references/equivalence-rules.md` の定義に従う。
 
-### 7. 信頼性チェックを行う
+### Phase 7: 信頼性チェックを行う
 - 偽陽性/偽陰性の対策と flaky の扱いは `references/reliability-policy.md` に従う。
 - 隔離が必要な場合は `references/flaky-quarantine-note.md` を使用する。
 
-### 8. 5点レポートを作成する
+### Phase 8: 5点レポートを作成する
 - `references/report-template.md` の全項目を埋める。
 
-### 9. 実行は別工程へ引き継ぐ
+### Phase 9: 実行は別工程へ引き継ぐ
 - 本スキルではテスト実行を行わない。
 - 実行が必要な場合は `references/execution-handoff.md` を作成し、`verification-gate` へ委譲する。
 

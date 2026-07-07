@@ -5,24 +5,24 @@
   "tier": "development",
   "skillName": "review-triage",
   "displayName": "Review Triage",
-  "description": "貼り付けられた、サブエージェントから返された、または自動レビューで生成されたコードレビュー・設計レビュー指摘を対象コード・仕様・関連資料と照合し、差分がある場合はその文脈も含めて各指摘の正当性を判定して `採用 / 却下 / 保留 / 要確認` にトリアージし、採用項目を束ねた改善設計と次工程を整理する。レビュー返信作成や実装変更そのものが主目的のときは使わない。",
+  "description": "貼り付けられた、サブエージェントから返された、または自動レビューで生成されたコードレビュー・設計レビュー所見を対象コード・仕様・関連資料と照合し、各所見の正当性を `採用 / 却下 / 保留 / 要確認` にトリアージし、採用所見を対応方針へ束ねる。レビュー返信作成や実装変更そのものが主目的のときは使わない。",
   "dependencies": [],
-  "contentDigest": "bfe391aec166abb5e5492b0785dee3c59d60460d7f09ca0d2d020c1c613cdfe8",
-  "manifestDigest": "53b4ab8b34ed948bba7627b9eb721d7f82ec145202d513de2e64e9145e5c1bca",
+  "contentDigest": "948db6e38bee033e42d979b53228ce45b5032e5f663d3fd2cf1ccc44ae45340b",
+  "manifestDigest": "965e9e67a4c7757186f3b094d8bd6d3aa18e407c6ecb44cf1d5e6208a0995c04",
   "hostArtifacts": [
     {
       "host": "claude",
-      "materializedFrontmatterDigest": "d0d8ca3382a1095e049dac61132693b9bde46096be03c2e44eef46246f9fac39"
+      "materializedFrontmatterDigest": "475ed372601e2b939c02511cbb86ecf6dbdd7ba3ee3d04db56e74d6b06a307c2"
     },
     {
       "host": "copilot",
-      "materializedFrontmatterDigest": "b10c5fa08e677c63cb97b5e2ad043774f7aaf1e990b6ac9fdcb8c99a37e80452"
+      "materializedFrontmatterDigest": "7fd74874caf0f3abbbeca2f8d3d6428bca627e1d51d4ca29ddfa59ea21ba082e"
     },
     {
       "host": "openai",
       "path": "agents/openai.yaml",
-      "digest": "531d1d36ec586448fbd6bda8d7f445989b35020380dd1cc1d439cd54d5fcb3e4",
-      "materializedFrontmatterDigest": "9341a5168ca088237a50303c04b0340a37b9788b74e1d150bf4d9f9c6223f3d4"
+      "digest": "fa66790b5c1f0ccc0b0b5115fd96bff8ac0923fa14a3834b32193ab28568b805",
+      "materializedFrontmatterDigest": "bacfa21c2925b4a17135e42aa93c89e9377a33f7e0fc20877abc8059ae15af04"
     }
   ]
 }

@@ -5,28 +5,28 @@
   "tier": "development",
   "skillName": "pr-merge",
   "displayName": "PR Merge",
-  "description": "現在作業または指定PRを安全にマージする。現在作業をブランチへ載せ、PRを取得または作成し、push、Draft解除、CI待機、必須チェック確認、マージ、リモートブランチクリーンアップまで進める。",
+  "description": "現在作業または指定PRを安全にマージする。現在作業をブランチへ載せ、PRを取得または作成し、push、Draft解除、auto-merge設定、CI監視、マージ、リモートブランチクリーンアップまで進める。admin merge や bypass が明示された場合は `privileged-merge` として確認なしで使う。",
   "dependencies": [
-    "branch-create",
-    "pr-create",
-    "push"
+    "pr-submit",
+    "push",
+    "sync-latest"
   ],
-  "contentDigest": "433aefd9ae5e682de57d44dff155e5c3feea81cb466d955dbdf5c889f185c69d",
-  "manifestDigest": "aeedaab4149de392522198db8793b929da12a47e96e80adad0a2e990e97741ac",
+  "contentDigest": "43c162e143bbe2dd941d7ce2715462dca73ce2a08373d2b6e0b0158909f0216d",
+  "manifestDigest": "a1b539a719e5a2797de0460fb93c8f475d07bcb8bb9b430251d808b080b98b0c",
   "hostArtifacts": [
     {
       "host": "claude",
-      "materializedFrontmatterDigest": "8fbdcfb26a5b2464d0d915134e6fcb6fdbdf9a883cf394958cf50852cb5e88e2"
+      "materializedFrontmatterDigest": "8f2848501d0368ac09e442b5d14ed916ab45419286c3c6e08013f05982d19e7c"
     },
     {
       "host": "copilot",
-      "materializedFrontmatterDigest": "e9dac321647aff992a3fbbe426126d871b45985bfad20bbbf61ccbdd7865a9e7"
+      "materializedFrontmatterDigest": "fa98d0e66edd17c46d692110de44800c171ccab6d24cfe3343310bed0e0d3c03"
     },
     {
       "host": "openai",
       "path": "agents/openai.yaml",
-      "digest": "7bca9f12e1389900b91f7c69c9ae67dfaccb68bbdfd6299c31e5379bdfa5d2c6",
-      "materializedFrontmatterDigest": "7c33387b95ee033e6d40a730f4b768dfb267b0ff73107fc7aef05aeab5261749"
+      "digest": "be8200c7830b20a55413921156b6edd113a5480bd97375d9ecfddcde81220219",
+      "materializedFrontmatterDigest": "fcd287a06f2e0e5fbb2ae0c747ec292d86bc0d5bc7d9c5dc1a94294a3d04cc36"
     }
   ]
 }

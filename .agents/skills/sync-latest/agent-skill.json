@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "skillBundleVersion": 1,
+  "catalogId": "com.mackysoft.skills-pack",
+  "tier": "development",
+  "skillName": "sync-latest",
+  "displayName": "Sync Latest",
+  "description": "作業開始前、push 前、PR 作成前、PR 更新前、PR マージ前、non-fast-forward 解消など、現在ブランチの最新性が作業の前提になる場面で、origin から最新状態を取得し、現在ブランチ、upstream、open PR、既定ブランチ、指定ブランチを確認して、必要な場合だけ安全に同期する。",
+  "dependencies": [
+    "commit"
+  ],
+  "contentDigest": "70fa3be76482ed9f98d49f46cd88733faa2eaf8cf3998637df928a312007ea96",
+  "manifestDigest": "a967bbb1cc2d8b68f3a3949c8ce959de7fa53c25db540d056d5cd484908146e6",
+  "hostArtifacts": [
+    {
+      "host": "claude",
+      "materializedFrontmatterDigest": "bbdeda12d3644cac05a5bb04dfcfdf254873a78e8c94fc8124aeadea6f53335f"
+    },
+    {
+      "host": "copilot",
+      "materializedFrontmatterDigest": "f08e0f742059ae322374e524b2902081b6b9ba2711e580df662d0239918a0b52"
+    },
+    {
+      "host": "openai",
+      "path": "agents/openai.yaml",
+      "digest": "ca5521dfe27673c05c202ec2d28b88d8447aa8c2445ffd7a0e063aabecd3607e",
+      "materializedFrontmatterDigest": "41da572d516fe5556567e8453724334cd4c2a676befa1379a64e4a0a397dc576"
+    }
+  ]
+}

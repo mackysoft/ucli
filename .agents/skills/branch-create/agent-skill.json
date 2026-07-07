@@ -7,12 +7,10 @@
   "displayName": "Branch Create",
   "description": "作業ブランチを規約準拠名で作成または再利用する。Issue Number or URL がある場合は `<type>/issue-<N>-<branch_name>`、Issue が無い場合は `<type>/<branch_name>` 形式で、現在作業を載せるブランチを確定する。",
   "dependencies": [
-    "commit",
-    "pr-create",
-    "push"
+    "sync-latest"
   ],
-  "contentDigest": "f34abc85f30fe33c87e105e8fea4c6504f049b698134d21772726cbe2ec7b4c6",
-  "manifestDigest": "23d0e80863fa75077f9f76d870e8caf38357d03499aa7b9bb05c49238260b20c",
+  "contentDigest": "0ddccc3760b9b6a2624df404a1f9aec673d15f926d9ce032c435d3c037d6e72e",
+  "manifestDigest": "a0e3e602913fb1ed48de2ea5f1072f03053f5aca2d71929a721fb9c66a6f758a",
   "hostArtifacts": [
     {
       "host": "claude",

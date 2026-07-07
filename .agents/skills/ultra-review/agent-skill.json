@@ -5,26 +5,26 @@
   "tier": "development",
   "skillName": "ultra-review",
   "displayName": "Ultra Review",
-  "description": "サブエージェントを複数起動して、変更差分または指定範囲を複数観点で反復レビューし、所見の妥当性評価、有効な所見の修正、再レビュー、検証まで行う。深いコードレビュー、修正込みレビュー、脆弱性レビュー、凝集性レビュー、責務境界レビュー、ディレクトリ責務境界レビュー、修正可能な採用所見がなくなるまでの改善、または ultra-review が求められたときに使う。明示的なレビュー専用または編集禁止の指定がない通常のレビュー依頼では、安全に修正できる採用所見を修正する。",
+  "description": "サブエージェントを複数起動して、変更差分または指定範囲を複数観点でレビューし、所見の妥当性評価、有効な所見の修正、検証、再レビューまで行う。深いコードレビュー、修正込みレビュー、脆弱性レビュー、凝集性レビュー、責務境界レビュー、ディレクトリ責務境界レビュー、修正可能な採用所見がなくなるまでの改善、または ultra-review が求められたときに使う。明示的なレビューのみまたは編集禁止の指定がない通常のレビュー依頼では、安全に修正できる採用所見を修正する。",
   "dependencies": [
     "review-triage"
   ],
-  "contentDigest": "fc2d6a6fbbaf6aed582c3d92b6fce72506487066f72ffc0098ef8d1e2ad27482",
-  "manifestDigest": "27aa35763f642d3266246397b402bf3a7af8e93c79956591e274c0699a4336d7",
+  "contentDigest": "c517ead07b77314c705f050ce0bf8d63b4b0e1b76428794cdbdaddeb2e36f601",
+  "manifestDigest": "f343a2d20f9288fd18b2699a045fc24947005669a87abf4ce856cd5502bde722",
   "hostArtifacts": [
     {
       "host": "claude",
-      "materializedFrontmatterDigest": "475afb47d64f3878bbfc6d199b4abd5ebb44ff11093996f71b6c56e72e135e6b"
+      "materializedFrontmatterDigest": "8a4fe9bd66a082bc5bd5876598ebd4a12c9ee22811de44baf953b5560cfd21d4"
     },
     {
       "host": "copilot",
-      "materializedFrontmatterDigest": "38911cc1d3a33c5898db705d5145b96c62eb888698aa1de81698ba73b3c62705"
+      "materializedFrontmatterDigest": "5f367c9a548ad6c32d1cf3b233bc07b9e490e7a85031bec9ea6319b2cf481c86"
     },
     {
       "host": "openai",
       "path": "agents/openai.yaml",
-      "digest": "1ac2da4daec9aed03c2d8584241ce960e5e85fdfb98af27d9cb16b6765680dce",
-      "materializedFrontmatterDigest": "f42baabd697ba9b78265ab4bde6d70e7cdfd434b068fcc8dd8ce2d09de828152"
+      "digest": "4488935d87e6c2e057af3294170c314355a3dcb27a93e2354a364ab4c0ad5773",
+      "materializedFrontmatterDigest": "4d4b63df993a84d5694d46bbdd68fa18d4654cdb3903d3875517c93a70a287ea"
     }
   ]
 }
