@@ -7,9 +7,9 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
     {
         public const string RequiredMethodName = "Run";
 
-        public const string RequiredSignature = "public static object? Run(UcliCsEvalContext context)";
+        public const string RequiredSignature = "public static object? | Task | Task<T> | ValueTask | ValueTask<T> Run(UcliCsEvalContext context)";
 
-        public const string MatchRule = "Compiled source must contain exactly one public static object? Run(UcliCsEvalContext context) method.";
+        public const string MatchRule = "Compiled source must contain exactly one public static Run(UcliCsEvalContext context) method returning object?, Task, Task<T>, ValueTask, or ValueTask<T>.";
 
         public CsEvalEntryPointName (
             string displayName,
