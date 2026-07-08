@@ -14,17 +14,25 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private readonly IDaemonLogger daemonLogger;
 
+        private readonly IUnityGuiBootstrapStarter bootstrapStarter;
+
+        /// <summary> Initializes a new instance of the <see cref="GuiRebootstrapUnityIpcMethodHandler" /> class. </summary>
+        /// <param name="bootstrapStarter"> The GUI bootstrap starter dependency. </param>
+        /// <param name="projectFingerprint"> The project fingerprint served by this IPC host. </param>
+        /// <param name="daemonLogger"> The daemon logger dependency. </param>
         public GuiRebootstrapUnityIpcMethodHandler (
+            IUnityGuiBootstrapStarter bootstrapStarter,
             string projectFingerprint,
-            IDaemonLogger daemonLogger = null)
+            IDaemonLogger daemonLogger)
         {
+            this.bootstrapStarter = bootstrapStarter ?? throw new ArgumentNullException(nameof(bootstrapStarter));
             if (string.IsNullOrWhiteSpace(projectFingerprint))
             {
                 throw new ArgumentException("Project fingerprint must not be empty.", nameof(projectFingerprint));
             }
 
             this.projectFingerprint = projectFingerprint;
-            this.daemonLogger = daemonLogger ?? NoOpDaemonLogger.Instance;
+            this.daemonLogger = daemonLogger ?? throw new ArgumentNullException(nameof(daemonLogger));
         }
 
         /// <inheritdoc />
@@ -64,7 +72,12 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             try
             {
-                var startResult = await UnityGuiBootstrap.StartAsync(null);
+                var sessionReplacementScope = payload.ReplaceExistingSession
+                    ? UnityGuiSessionReplacementScope.AnyCurrentProcessSession
+                    : UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession;
+                var startResult = await bootstrapStarter.StartAsync(
+                    bootstrapArguments: null,
+                    sessionReplacementScope: sessionReplacementScope);
                 if (!startResult.IsSuccess)
                 {
                     daemonLogger.Warning(
@@ -100,6 +113,25 @@ namespace MackySoft.Ucli.Unity.Ipc
                     $"GUI rebootstrap failed. {exception.Message}",
                     null);
             }
+        }
+    }
+
+    internal interface IUnityGuiBootstrapStarter
+    {
+        Task<UnityGuiBootstrapStartResult> StartAsync (
+            IpcGuiBootstrapArguments bootstrapArguments,
+            UnityGuiSessionReplacementScope sessionReplacementScope);
+    }
+
+    internal sealed class UnityGuiBootstrapStarter : IUnityGuiBootstrapStarter
+    {
+        public Task<UnityGuiBootstrapStartResult> StartAsync (
+            IpcGuiBootstrapArguments bootstrapArguments,
+            UnityGuiSessionReplacementScope sessionReplacementScope)
+        {
+            return UnityGuiBootstrap.StartAsync(
+                bootstrapArguments: bootstrapArguments,
+                sessionReplacementScope: sessionReplacementScope);
         }
     }
 }

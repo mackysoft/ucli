@@ -30,6 +30,7 @@ internal static class DaemonGuiRebootstrapTransportAssert
             IpcPayloadCodec.TryDeserialize(invocation.Request.Payload, out IpcGuiRebootstrapRequest payload, out var payloadError),
             payloadError.Message);
         Assert.Equal(expectedProjectFingerprint, payload.ProjectFingerprint);
+        Assert.True(payload.ReplaceExistingSession);
         return invocation;
     }
 

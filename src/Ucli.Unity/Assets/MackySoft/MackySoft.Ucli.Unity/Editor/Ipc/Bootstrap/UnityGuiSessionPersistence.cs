@@ -16,6 +16,12 @@ using MackySoft.Ucli.Unity.Runtime;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
+    internal enum UnityGuiSessionReplacementScope
+    {
+        EquivalentCurrentProcessSession,
+        AnyCurrentProcessSession,
+    }
+
     /// <summary> Persists Unity GUI daemon session registrations. </summary>
     internal static class UnityGuiSessionPersistence
     {
@@ -24,6 +30,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="projectFingerprint"> The project fingerprint served by this GUI Editor. </param>
         /// <param name="endpoint"> The resolved daemon IPC endpoint. </param>
         /// <param name="sessionOptions"> The normalized session ownership options. </param>
+        /// <param name="sessionReplacementScope"> The scope of existing current-process GUI sessions that may be replaced. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by bootstrap lifecycle. </param>
         /// <returns> The persisted session registration. </returns>
         public static async Task<UnityGuiSessionRegistration> WriteAsync (
@@ -31,9 +38,11 @@ namespace MackySoft.Ucli.Unity.Ipc
             string projectFingerprint,
             IpcEndpoint endpoint,
             UnityGuiBootstrapSessionOptions sessionOptions,
+            UnityGuiSessionReplacementScope sessionReplacementScope,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            ValidateSessionReplacementScope(sessionReplacementScope);
             if (string.IsNullOrWhiteSpace(storageRoot))
             {
                 throw new ArgumentException("storageRoot must not be empty.", nameof(storageRoot));
@@ -70,7 +79,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                 sessionOptions,
                 currentProcessId,
                 currentProcessStartedAtUtc,
-                currentEditorInstanceId);
+                currentEditorInstanceId,
+                sessionReplacementScope);
 
             var issuedAtUtc = DateTimeOffset.UtcNow;
             var sessionToken = CreateSessionToken();
@@ -133,6 +143,19 @@ namespace MackySoft.Ucli.Unity.Ipc
                 UcliIpcEndpointNames.DaemonAddressPrefix);
         }
 
+        private static void ValidateSessionReplacementScope (UnityGuiSessionReplacementScope sessionReplacementScope)
+        {
+            switch (sessionReplacementScope)
+            {
+                case UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession:
+                case UnityGuiSessionReplacementScope.AnyCurrentProcessSession:
+                    return;
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(sessionReplacementScope), sessionReplacementScope, null);
+            }
+        }
+
         private static async Task WriteSessionJsonCreateNewAsync (
             string sessionPath,
             string json,
@@ -155,7 +178,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             UnityGuiBootstrapSessionOptions sessionOptions,
             int currentProcessId,
             DateTimeOffset currentProcessStartedAtUtc,
-            string currentEditorInstanceId)
+            string currentEditorInstanceId,
+            UnityGuiSessionReplacementScope sessionReplacementScope)
         {
             if (!File.Exists(sessionPath))
             {
@@ -180,7 +204,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                     sessionOptions,
                     currentProcessId,
                     currentProcessStartedAtUtc,
-                    currentEditorInstanceId))
+                    currentEditorInstanceId,
+                    sessionReplacementScope))
             {
                 return;
             }
@@ -226,17 +251,32 @@ namespace MackySoft.Ucli.Unity.Ipc
             UnityGuiBootstrapSessionOptions sessionOptions,
             int currentProcessId,
             DateTimeOffset currentProcessStartedAtUtc,
-            string currentEditorInstanceId)
+            string currentEditorInstanceId,
+            UnityGuiSessionReplacementScope sessionReplacementScope)
         {
-            return sessionContract.SchemaVersion == DaemonSessionStorageContract.CurrentSchemaVersion
-                && string.Equals(sessionContract.ProjectFingerprint, projectFingerprint, StringComparison.Ordinal)
-                && ContractLiteralCodec.Matches(sessionContract.EditorMode, DaemonEditorMode.Gui)
-                && string.Equals(sessionContract.OwnerKind, sessionOptions.OwnerKind, StringComparison.Ordinal)
+            if (sessionContract.SchemaVersion != DaemonSessionStorageContract.CurrentSchemaVersion
+                || !string.Equals(sessionContract.ProjectFingerprint, projectFingerprint, StringComparison.Ordinal)
+                || !ContractLiteralCodec.Matches(sessionContract.EditorMode, DaemonEditorMode.Gui)
+                || sessionContract.ProcessId != currentProcessId
+                || !MatchesCurrentProcessIdentity(sessionContract, currentProcessStartedAtUtc, currentEditorInstanceId))
+            {
+                return false;
+            }
+
+            if (sessionReplacementScope == UnityGuiSessionReplacementScope.AnyCurrentProcessSession)
+            {
+                return true;
+            }
+
+            if (sessionReplacementScope != UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession)
+            {
+                throw new ArgumentOutOfRangeException(nameof(sessionReplacementScope), sessionReplacementScope, null);
+            }
+
+            return string.Equals(sessionContract.OwnerKind, sessionOptions.OwnerKind, StringComparison.Ordinal)
                 && sessionContract.CanShutdownProcess == sessionOptions.CanShutdownProcess
                 && ContractLiteralCodec.Matches(sessionContract.EndpointTransportKind, expectedEndpoint.TransportKind)
                 && string.Equals(sessionContract.EndpointAddress, expectedEndpoint.Address, StringComparison.Ordinal)
-                && sessionContract.ProcessId == currentProcessId
-                && MatchesCurrentProcessIdentity(sessionContract, currentProcessStartedAtUtc, currentEditorInstanceId)
                 && sessionContract.OwnerProcessId == sessionOptions.OwnerProcessId;
         }
 

@@ -29,9 +29,13 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         /// <summary> Starts or replaces the active GUI daemon session registration. </summary>
         /// <param name="bootstrapArguments"> Optional CLI GUI bootstrap arguments. </param>
+        /// <param name="sessionReplacementScope"> The scope of existing current-process GUI sessions that may be replaced. </param>
         /// <returns> A task that produces the GUI endpoint registration result. </returns>
-        public static async Task<UnityGuiBootstrapStartResult> StartAsync (IpcGuiBootstrapArguments bootstrapArguments)
+        public static async Task<UnityGuiBootstrapStartResult> StartAsync (
+            IpcGuiBootstrapArguments bootstrapArguments,
+            UnityGuiSessionReplacementScope sessionReplacementScope)
         {
+            ValidateSessionReplacementScope(sessionReplacementScope);
             await LifecycleGate.WaitAsync(CancellationToken.None);
             try
             {
@@ -56,7 +60,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                     await StopStateAsync(capturedState, requestProcessExit: false);
                 }
 
-                return await StartUnlockedAsync(bootstrapArguments);
+                return await StartUnlockedAsync(
+                    bootstrapArguments: bootstrapArguments,
+                    sessionReplacementScope: sessionReplacementScope);
             }
             finally
             {
@@ -64,7 +70,9 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
         }
 
-        private static async Task<UnityGuiBootstrapStartResult> StartUnlockedAsync (IpcGuiBootstrapArguments bootstrapArguments)
+        private static async Task<UnityGuiBootstrapStartResult> StartUnlockedAsync (
+            IpcGuiBootstrapArguments bootstrapArguments,
+            UnityGuiSessionReplacementScope sessionReplacementScope)
         {
             var daemonLogStream = new DaemonLogRingBuffer();
             var daemonLogger = new DaemonLogger(daemonLogStream);
@@ -85,7 +93,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                     projectFingerprint,
                     endpoint,
                     sessionOptions,
-                    CancellationToken.None);
+                    sessionReplacementScope: sessionReplacementScope,
+                    cancellationToken: CancellationToken.None);
 
                 var daemonBootstrapArguments = new IpcDaemonBootstrapArguments(
                     RepositoryRoot: storageRoot,
@@ -165,6 +174,19 @@ namespace MackySoft.Ucli.Unity.Ipc
                     serviceProvider,
                     daemonLogger);
                 return UnityGuiBootstrapStartResult.Failure(exception.Message);
+            }
+        }
+
+        private static void ValidateSessionReplacementScope (UnityGuiSessionReplacementScope sessionReplacementScope)
+        {
+            switch (sessionReplacementScope)
+            {
+                case UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession:
+                case UnityGuiSessionReplacementScope.AnyCurrentProcessSession:
+                    return;
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(sessionReplacementScope), sessionReplacementScope, null);
             }
         }
 

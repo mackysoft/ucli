@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
@@ -13,6 +14,7 @@ public sealed class IpcJsonSerializerOptionsTests
 
         Assert.Same(JsonNamingPolicy.CamelCase, options.PropertyNamingPolicy);
         Assert.True(options.PropertyNameCaseInsensitive);
+        Assert.Equal(JsonUnmappedMemberHandling.Disallow, options.UnmappedMemberHandling);
         Assert.False(options.WriteIndented);
     }
 }
