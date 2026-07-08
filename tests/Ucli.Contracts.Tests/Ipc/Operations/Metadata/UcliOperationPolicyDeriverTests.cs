@@ -54,6 +54,7 @@ public sealed class UcliOperationPolicyDeriverTests
         Assert.Equal(OperationPolicy.Advanced, policy);
         Assert.True(assurance.MayDirty);
         Assert.False(assurance.MayPersist);
+        Assert.NotNull(assurance.TouchedKinds);
         Assert.Empty(assurance.TouchedKinds);
     }
 
