@@ -19,27 +19,43 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentOutOfRangeException(nameof(timeoutMilliseconds), "timeoutMilliseconds must be greater than zero when specified.");
             }
 
-            var cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            cancellationTokenSource.CancelAfter(timeoutMilliseconds.Value);
-            return new LinkedTimeoutScope(cancellationTokenSource);
+            var timeoutCancellationTokenSource = new CancellationTokenSource();
+            timeoutCancellationTokenSource.CancelAfter(timeoutMilliseconds.Value);
+            try
+            {
+                var linkedCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(
+                    cancellationToken,
+                    timeoutCancellationTokenSource.Token);
+                return new LinkedTimeoutScope(linkedCancellationTokenSource, timeoutCancellationTokenSource);
+            }
+            catch
+            {
+                timeoutCancellationTokenSource.Dispose();
+                throw;
+            }
         }
 
         private sealed class LinkedTimeoutScope : IIpcRequestTimeoutScope
         {
-            private readonly CancellationTokenSource cancellationTokenSource;
+            private readonly CancellationTokenSource linkedCancellationTokenSource;
+            private readonly CancellationTokenSource timeoutCancellationTokenSource;
 
-            public LinkedTimeoutScope (CancellationTokenSource cancellationTokenSource)
+            public LinkedTimeoutScope (
+                CancellationTokenSource linkedCancellationTokenSource,
+                CancellationTokenSource timeoutCancellationTokenSource)
             {
-                this.cancellationTokenSource = cancellationTokenSource ?? throw new ArgumentNullException(nameof(cancellationTokenSource));
+                this.linkedCancellationTokenSource = linkedCancellationTokenSource ?? throw new ArgumentNullException(nameof(linkedCancellationTokenSource));
+                this.timeoutCancellationTokenSource = timeoutCancellationTokenSource ?? throw new ArgumentNullException(nameof(timeoutCancellationTokenSource));
             }
 
-            public CancellationToken Token => cancellationTokenSource.Token;
+            public CancellationToken Token => linkedCancellationTokenSource.Token;
 
-            public bool IsTimeoutCancellationRequested => cancellationTokenSource.IsCancellationRequested;
+            public bool IsTimeoutCancellationRequested => timeoutCancellationTokenSource.IsCancellationRequested;
 
             public void Dispose ()
             {
-                cancellationTokenSource.Dispose();
+                linkedCancellationTokenSource.Dispose();
+                timeoutCancellationTokenSource.Dispose();
             }
         }
 

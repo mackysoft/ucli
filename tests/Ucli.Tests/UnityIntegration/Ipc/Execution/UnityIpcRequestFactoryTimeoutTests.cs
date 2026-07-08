@@ -95,4 +95,32 @@ public sealed class UnityIpcRequestFactoryTimeoutTests
         Assert.True(executeRequest.AllowDangerous);
         Assert.Equal(1234, executeRequest.TimeoutMilliseconds);
     }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void UnityIpcRequestFactory_WithExecuteOperationDispatchTimeout_InjectsTimeoutPayload ()
+    {
+        var args = IpcPayloadCodec.SerializeToElement(new
+        {
+            path = "Assets/Test.prefab",
+        });
+        var dispatchRequest = new UnityIpcRequestBuilder().Build(new UnityRequestPayload.ExecuteOperation(
+            UcliCommandIds.Call,
+            "req-1",
+            "op-1",
+            UcliPrimitiveOperationNames.Resolve,
+            args,
+            FailFast: false,
+            AllowDangerous: true));
+
+        var request = UnityIpcRequestFactory.Create(
+            "session-token",
+            dispatchRequest,
+            TimeSpan.FromMilliseconds(1234));
+
+        Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcExecuteRequest executeRequest, out _));
+        Assert.Equal(UcliCommandIds.Call.Name, executeRequest.Command);
+        Assert.True(executeRequest.AllowDangerous);
+        Assert.Equal(1234, executeRequest.TimeoutMilliseconds);
+    }
 }

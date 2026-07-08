@@ -375,6 +375,69 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator ExecuteHandler_WhenCallerCancellationIsRequested_ThrowsWithoutReturningIpcTimeout () => UniTask.ToCoroutine(async () =>
+        {
+            var dispatcherAwaitReadySource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var dispatcherCancellationObservedSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var dispatcher = new StubExecuteRequestDispatcher(async (_, _, cancellationToken) =>
+            {
+                try
+                {
+                    dispatcherAwaitReadySource.TrySetResult(true);
+                    await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    dispatcherCancellationObservedSource.TrySetResult(true);
+                    throw;
+                }
+
+                return new IpcResponse(
+                    ProtocolVersion: IpcProtocol.CurrentVersion,
+                    RequestId: "req-execute-caller-cancel",
+                    Status: IpcProtocol.StatusOk,
+                    Payload: IpcPayloadCodec.SerializeToElement(new IpcExecuteResponse(Array.Empty<IpcExecuteOperationResult>())),
+                    Errors: Array.Empty<IpcError>());
+            });
+            var handler = CreateExecuteHandler(dispatcher, new IpcRequestTimeoutScopeFactory());
+            var request = CreateExecuteRequest(
+                "req-execute-caller-cancel",
+                new IpcExecuteRequest(
+                    UcliCommandIds.Call,
+                    IpcPayloadCodec.SerializeToElement(new
+                    {
+                        protocolVersion = IpcProtocol.CurrentVersion,
+                        requestId = "req-execute-caller-cancel",
+                        steps = Array.Empty<object>(),
+                    }))
+                {
+                    TimeoutMilliseconds = 60000,
+                });
+            using var cancellationTokenSource = new CancellationTokenSource();
+
+            var responseTask = handler.HandleAsync(request, cancellationTokenSource.Token).AsTask();
+            await TestAwaiter.WaitAsync(
+                dispatcherAwaitReadySource.Task,
+                "execute dispatcher await point before caller cancellation",
+                SignalWaitTimeout);
+
+            cancellationTokenSource.Cancel();
+            await TestAwaiter.WaitAsync(
+                dispatcherCancellationObservedSource.Task,
+                "execute caller cancellation observation",
+                SignalWaitTimeout);
+
+            await AsyncExceptionCapture.CaptureAsync<OperationCanceledException>(async () =>
+            {
+                await TestAwaiter.WaitAsync(
+                    responseTask,
+                    "execute caller cancellation response",
+                    SignalWaitTimeout);
+            }, "execute caller cancellation propagation", SignalWaitTimeout);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator OpsReadHandler_WhenReady_ReturnsCatalogResponse () => UniTask.ToCoroutine(async () =>
         {
             var readinessGate = new StubUnityEditorReadinessGate();
