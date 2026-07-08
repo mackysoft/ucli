@@ -1,7 +1,9 @@
 using System.Text.Json;
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
 using MackySoft.Ucli.Application.Features.OperationCatalog.Common.Contracts;
+using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Projection;
 
@@ -52,6 +54,7 @@ internal sealed class OpsDescribeResultMapper : IOpsDescribeResultMapper
                     name: operation.Name!,
                     kind: operation.Kind!,
                     policy: operation.Policy!,
+                    playModeSupport: operation.PlayModeSupport!,
                     description: operation.Description!,
                     inputs: operation.Inputs!,
                     resultContract: operation.ResultContract!,
@@ -116,6 +119,13 @@ internal sealed class OpsDescribeResultMapper : IOpsDescribeResultMapper
         IndexOpEntryJsonContract operation,
         out string? error)
     {
+        if (string.IsNullOrWhiteSpace(operation.PlayModeSupport)
+            || !ContractLiteralInputParser.IsDefinedIgnoreCase<UcliOperationPlayModeSupport>(operation.PlayModeSupport))
+        {
+            error = "playModeSupport is missing or unsupported.";
+            return false;
+        }
+
         if (string.IsNullOrWhiteSpace(operation.Description))
         {
             error = "description is missing.";

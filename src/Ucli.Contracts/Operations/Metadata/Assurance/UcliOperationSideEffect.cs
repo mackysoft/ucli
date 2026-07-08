@@ -84,4 +84,8 @@ public enum UcliOperationSideEffect
     /// <summary> Performs destructive operations whose target boundary is not sufficiently bounded. </summary>
     [UcliContractLiteral("destructiveScope")]
     DestructiveScope = 19,
+
+    /// <summary> Mutates Play Mode runtime state without persisting Unity project resources. </summary>
+    [UcliContractLiteral("runtimeStateMutation")]
+    RuntimeStateMutation = 20,
 }

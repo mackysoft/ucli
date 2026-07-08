@@ -22,6 +22,15 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     {
         private const string EditOperationName = "edit";
 
+        private readonly IPhaseOperationRegistry operationRegistry;
+
+        /// <summary> Initializes a new instance of the <see cref="ExecuteRequestCompiler" /> class. </summary>
+        /// <param name="operationRegistry"> The operation registry used to validate Play Mode raw operation support. </param>
+        public ExecuteRequestCompiler (IPhaseOperationRegistry operationRegistry)
+        {
+            this.operationRegistry = operationRegistry ?? throw new ArgumentNullException(nameof(operationRegistry));
+        }
+
         /// <summary>
         /// Compiles one validated source step against the current request-local execution state.
         /// </summary>
@@ -47,11 +56,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             if (step.Kind == IpcRequestStepKind.Op)
             {
-                if (allowPlayMode && !IsPlayModeRawOperationAllowed(step))
+                if (!RawOperationPlayModeSupportValidator.TryValidate(operationRegistry, step, allowPlayMode, out error))
                 {
-                    error = ExecuteRequestNormalizationError.InvalidArgument(
-                        "Play Mode mutation requests support only public edit steps.",
-                        step.Id);
                     return false;
                 }
 
@@ -92,13 +98,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             error = default!;
             return true;
-        }
-
-        private static bool IsPlayModeRawOperationAllowed (IpcRequestContractStep step)
-        {
-            // NOTE: ucli.cs.eval is already protected by dangerous policy and --allowDangerous.
-            // Keep other raw operations out of Play Mode mutation requests.
-            return string.Equals(step.OperationName, UcliPrimitiveOperationNames.CsEval, StringComparison.Ordinal);
         }
 
         private static bool TryCompileOpStep (

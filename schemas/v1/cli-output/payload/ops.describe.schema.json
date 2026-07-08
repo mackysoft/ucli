@@ -27,6 +27,14 @@
             "dangerous"
           ]
         },
+        "playModeSupport": {
+          "type": "string",
+          "enum": [
+            "disallowed",
+            "allowed",
+            "required"
+          ]
+        },
         "description": {
           "type": "string"
         },
@@ -681,7 +689,8 @@
                   "externalProcess",
                   "filesystemWrite",
                   "arbitrarySourceExecution",
-                  "destructiveScope"
+                  "destructiveScope",
+                  "runtimeStateMutation"
                 ]
               }
             },
@@ -918,6 +927,7 @@
         "name",
         "kind",
         "policy",
+        "playModeSupport",
         "description",
         "inputs",
         "resultContract",

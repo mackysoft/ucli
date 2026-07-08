@@ -54,6 +54,7 @@ internal static class OpsCommandTestSupport
                     name: operationName,
                     kind: kind,
                     policy: policy,
+                    playModeSupport: "disallowed",
                     description: description,
                     inputs: inputs,
                     resultContract: resultContract,

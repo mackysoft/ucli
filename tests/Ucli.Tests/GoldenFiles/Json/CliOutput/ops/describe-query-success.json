@@ -9,6 +9,7 @@
       "name": "ucli.resolve",
       "kind": "query",
       "policy": "safe",
+      "playModeSupport": "disallowed",
       "description": "Resolves a Unity object reference.",
       "inputs": [],
       "resultContract": {

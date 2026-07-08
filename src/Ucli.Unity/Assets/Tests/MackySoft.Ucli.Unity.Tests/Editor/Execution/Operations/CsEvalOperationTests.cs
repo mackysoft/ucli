@@ -28,6 +28,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(operation.Metadata.Kind, Is.EqualTo(UcliOperationKind.Mutation));
             Assert.That(operation.Metadata.Policy, Is.EqualTo(OperationPolicy.Dangerous));
             Assert.That(operation.Metadata.RequiresPreCallPlanReplay, Is.True);
+            Assert.That(operation.Metadata.PlayModeSupport, Is.EqualTo(UcliOperationPlayModeSupport.Allowed));
             Assert.That(operation.Metadata.DescribeContract.CodeContract, Is.Not.Null);
             Assert.That(operation.Metadata.DescribeContract.CodeContract!.EntryPoint!.Signature, Is.EqualTo("public static object? | Task | Task<T> | ValueTask | ValueTask<T> Run(UcliCsEvalContext context)"));
             Assert.That(operation.Metadata.DescribeContract.CodeContract.EntryPoint.MatchRule, Is.EqualTo("Compiled source must contain exactly one public static Run(UcliCsEvalContext context) method returning object?, Task, Task<T>, ValueTask, or ValueTask<T>."));

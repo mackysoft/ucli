@@ -72,7 +72,8 @@ namespace MackySoft.Ucli.Unity.Execution
                         ResultSchemaJson: registration.Metadata.ResultSchemaJson,
                         Exposure: registration.Metadata.Exposure == UcliOperationExposure.Public
                             ? null
-                            : ContractLiteralCodec.ToValue(registration.Metadata.Exposure))
+                            : ContractLiteralCodec.ToValue(registration.Metadata.Exposure),
+                        PlayModeSupport: ContractLiteralCodec.ToValue(registration.Metadata.PlayModeSupport))
                     {
                         Description = describeContract.Description,
                         Inputs = describeContract.Inputs,

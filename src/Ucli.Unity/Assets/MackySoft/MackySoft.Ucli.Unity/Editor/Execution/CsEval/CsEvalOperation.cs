@@ -236,7 +236,8 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 operationName: UcliPrimitiveOperationNames.CsEval,
                 kind: UcliOperationKind.Mutation,
                 describeContract: describe,
-                requiresPreCallPlanReplay: true);
+                requiresPreCallPlanReplay: true,
+                playModeSupport: UcliOperationPlayModeSupport.Allowed);
         }
 
         private static CsEvalResult CreateCallResult (

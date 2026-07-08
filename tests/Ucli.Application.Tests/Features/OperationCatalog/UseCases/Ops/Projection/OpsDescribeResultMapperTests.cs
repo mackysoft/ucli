@@ -21,6 +21,7 @@ public sealed class OpsDescribeResultMapperTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal("object", result.Output!.Operation.ArgsSchema.GetProperty("type").GetString());
+        Assert.Equal("disallowed", result.Output.Operation.PlayModeSupport);
         Assert.Equal("Resolves an asset, scene object, prefab object, or component reference to a Unity GlobalObjectId.", result.Output.Operation.Description);
         Assert.Equal("IpcResolveOperationResult", result.Output.Operation.ResultContract.ResultType);
         Assert.True(result.Output.Operation.ResultContract.Emitted);

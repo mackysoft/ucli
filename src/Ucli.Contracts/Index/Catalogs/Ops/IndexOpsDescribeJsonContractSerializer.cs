@@ -74,7 +74,9 @@ internal static class IndexOpsDescribeJsonContractSerializer
             Kind: operation.Kind,
             Policy: operation.Policy,
             ArgsSchemaJson: ReadSchemaJsonOrNull(operationElement, "argsSchema"),
-            ResultSchemaJson: ReadSchemaJsonOrNull(operationElement, "resultSchema"))
+            ResultSchemaJson: ReadSchemaJsonOrNull(operationElement, "resultSchema"),
+            Exposure: operation.Exposure,
+            PlayModeSupport: operation.PlayModeSupport)
         {
             Description = operation.Description,
             Inputs = operation.Inputs,

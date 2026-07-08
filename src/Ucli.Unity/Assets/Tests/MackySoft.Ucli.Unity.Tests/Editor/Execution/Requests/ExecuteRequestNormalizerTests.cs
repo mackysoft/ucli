@@ -5,11 +5,14 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
+using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
+using MackySoft.Ucli.Contracts.Operations;
 using MackySoft.Ucli.Unity.Index;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.Requests;
@@ -51,7 +54,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Error, Is.Null);
@@ -101,7 +104,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Error, Is.Null);
@@ -175,7 +178,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Error, Is.Null);
@@ -246,7 +249,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Error, Is.Null);
@@ -323,7 +326,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             Assert.That(result.IsSuccess, Is.True);
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, scope.CreateExecutionContext());
@@ -384,7 +387,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Error, Is.Null);
@@ -442,7 +445,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Error, Is.Null);
@@ -515,7 +518,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-                var result = new ExecuteRequestNormalizer().Normalize(request);
+                var result = CreateNormalizer().Normalize(request);
 
                 Assert.That(result.IsSuccess, Is.True);
                 var error = CompileSingleStepFailure(result.Request!, 0, scope.CreateExecutionContext());
@@ -585,7 +588,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-                var result = new ExecuteRequestNormalizer().Normalize(request);
+                var result = CreateNormalizer().Normalize(request);
 
             Assert.That(result.IsSuccess, Is.True);
             var error = CompileSingleStepFailure(result.Request!, 0, scope.CreateExecutionContext());
@@ -638,7 +641,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             Assert.That(result.IsSuccess, Is.True);
             var error = CompileSingleStepFailure(result.Request!, 0, scope.CreateExecutionContext());
@@ -698,7 +701,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Error, Is.Null);
@@ -761,7 +764,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             Assert.That(result.IsSuccess, Is.True);
             var executionContext = scope.CreateExecutionContext();
@@ -830,7 +833,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             Assert.That(result.IsSuccess, Is.True);
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, scope.CreateExecutionContext());
@@ -888,7 +891,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             Assert.That(result.IsSuccess, Is.True);
             var error = CompileSingleStepFailure(result.Request!, 0, scope.CreateExecutionContext());
@@ -940,7 +943,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             Assert.That(result.IsSuccess, Is.True);
             var error = CompileSingleStepFailure(result.Request!, 0, scope.CreateExecutionContext());
@@ -1002,10 +1005,10 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             Assert.That(result.IsSuccess, Is.True);
-            var compiler = new ExecuteRequestCompiler();
+            var compiler = CreateCompiler();
             var executionContext = scope.CreateExecutionContext();
             Assert.That(
                 compiler.TryCompileExecutionStep(result.Request!.SourceSteps[0], executionContext, allowPlayMode: false, out _, out var openOperations, out _, out var openError),
@@ -1066,7 +1069,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             Assert.That(result.IsSuccess, Is.True);
             var executionContext = scope.CreateExecutionContext();
@@ -1126,7 +1129,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             Assert.That(result.IsSuccess, Is.True);
             var error = CompileSingleStepFailure(result.Request!, 0, scope.CreateExecutionContext());
@@ -1178,7 +1181,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             Assert.That(result.IsSuccess, Is.True);
             var error = CompileSingleStepFailure(result.Request!, 0, scope.CreateExecutionContext());
@@ -1229,7 +1232,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             Assert.That(result.IsSuccess, Is.True);
             var error = CompileSingleStepFailure(result.Request!, 0, scope.CreateExecutionContext());
@@ -1283,7 +1286,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             Assert.That(result.IsSuccess, Is.True);
             var executionContext = scope.CreateExecutionContext();
@@ -1355,10 +1358,10 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             Assert.That(result.IsSuccess, Is.True);
-            var compiler = new ExecuteRequestCompiler();
+            var compiler = CreateCompiler();
             var executionContext = scope.CreateExecutionContext();
             Assert.That(
                 compiler.TryCompileExecutionStep(result.Request!.SourceSteps[0], executionContext, allowPlayMode: false, out _, out var openOperations, out _, out var openError),
@@ -1429,10 +1432,10 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             Assert.That(result.IsSuccess, Is.True);
-            var compiler = new ExecuteRequestCompiler();
+            var compiler = CreateCompiler();
             var executionContext = scope.CreateExecutionContext();
             Assert.That(
                 compiler.TryCompileExecutionStep(result.Request!.SourceSteps[0], executionContext, allowPlayMode: false, out _, out var openOperations, out _, out var openError),
@@ -1500,10 +1503,10 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             Assert.That(result.IsSuccess, Is.True);
-            var compiler = new ExecuteRequestCompiler();
+            var compiler = CreateCompiler();
             var executionContext = scope.CreateExecutionContext();
             Assert.That(
                 compiler.TryCompileExecutionStep(result.Request!.SourceSteps[0], executionContext, allowPlayMode: false, out _, out var openOperations, out _, out var openError),
@@ -1563,7 +1566,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             Assert.That(result.IsSuccess, Is.True);
             var error = CompileSingleStepFailure(result.Request!, 0, scope.CreateExecutionContext());
@@ -1617,7 +1620,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             Assert.That(result.IsSuccess, Is.True);
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, scope.CreateExecutionContext());
@@ -1671,7 +1674,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             Assert.That(result.IsSuccess, Is.True);
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, scope.CreateExecutionContext());
@@ -1727,7 +1730,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             Assert.That(result.IsSuccess, Is.True);
             var error = CompileSingleStepFailure(result.Request!, 0, scope.CreateExecutionContext());
@@ -1781,7 +1784,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             Assert.That(result.IsSuccess, Is.True);
             var executionContext = scope.CreateExecutionContext();
@@ -1834,7 +1837,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             Assert.That(result.IsSuccess, Is.True);
             var executionContext = scope.CreateExecutionContext();
@@ -1890,7 +1893,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             Assert.That(result.IsSuccess, Is.True);
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, scope.CreateExecutionContext());
@@ -1942,7 +1945,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             Assert.That(result.IsSuccess, Is.True);
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, scope.CreateExecutionContext());
@@ -1968,7 +1971,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 PlanToken = "  issued-token  ",
             };
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Request!.PlanToken, Is.EqualTo("issued-token"));
@@ -1991,7 +1994,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 AllowDangerous = true,
             };
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Request!.AllowDangerous, Is.True);
@@ -1999,7 +2002,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Normalize_WhenAllowPlayModeIsSpecified_RejectsNonEvalRawOperationStep ()
+        public void Normalize_WhenAllowPlayModeIsSpecified_RejectsDisallowedRawOperationStep ()
         {
             var request = CreateExecuteRequest(
                 UcliCommandIds.Plan,
@@ -2022,10 +2025,10 @@ namespace MackySoft.Ucli.Unity.Tests
                     AllowPlayMode = true,
                 };
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             AssertInvalidArgument(result, "rawSet");
-            Assert.That(result.Error!.Message, Is.EqualTo("Play Mode mutation requests support only public edit steps."));
+            Assert.That(result.Error!.Message, Is.EqualTo($"Operation '{UcliPrimitiveOperationNames.CompSet}' does not support Play Mode execution."));
         }
 
         [Test]
@@ -2056,7 +2059,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     AllowPlayMode = true,
                 };
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             Assert.That(result.IsSuccess, Is.True);
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, new OperationExecutionContext(), allowPlayMode: true);
@@ -2066,7 +2069,147 @@ namespace MackySoft.Ucli.Unity.Tests
                     IpcExecutePostReadSourceKindNames.Operation,
                     null,
                     false,
-                    IpcExecuteExpectedPostStateNames.Unavailable);
+                IpcExecuteExpectedPostStateNames.Unavailable);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Normalize_WhenOperationRequiresPlayModeWithoutAllowPlayMode_ReturnsInvalidArgument ()
+        {
+            const string operationName = "game.cheat.required";
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = new[]
+                    {
+                        new
+                        {
+                            kind = "op",
+                            id = "cheat",
+                            op = operationName,
+                            args = new { },
+                        },
+                    },
+                });
+
+            var result = CreateNormalizer(CreatePlayModeOperation(operationName, UcliOperationPlayModeSupport.Required)).Normalize(request);
+
+            AssertInvalidArgument(result, "cheat");
+            Assert.That(result.Error!.Message, Is.EqualTo($"Operation '{operationName}' requires --allowPlayMode."));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Normalize_WhenOperationRequiresPlayModeWithAllowPlayMode_ReturnsSuccess ()
+        {
+            const string operationName = "game.cheat.required";
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = new[]
+                    {
+                        new
+                        {
+                            kind = "op",
+                            id = "cheat",
+                            op = operationName,
+                            args = new { },
+                        },
+                    },
+                }) with
+                {
+                    AllowPlayMode = true,
+                };
+
+            var result = CreateNormalizer(CreatePlayModeOperation(operationName, UcliOperationPlayModeSupport.Required)).Normalize(request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            var (compiledStep, compiledOperations) = CompileSingleStep(
+                result.Request!,
+                0,
+                new OperationExecutionContext(),
+                allowPlayMode: true,
+                CreateRegistry(CreatePlayModeOperation(operationName, UcliOperationPlayModeSupport.Required)));
+            _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
+                .HasLoweredOperations(IpcRequestStepKind.Op, operationName, operationName);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Normalize_WhenAllowPlayModeIsSpecified_RejectsUnknownRawOperationStep ()
+        {
+            const string operationName = "game.cheat.unknown";
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = new[]
+                    {
+                        new
+                        {
+                            kind = "op",
+                            id = "unknown",
+                            op = operationName,
+                            args = new { },
+                        },
+                    },
+                }) with
+                {
+                    AllowPlayMode = true,
+                };
+
+            var result = CreateNormalizer(Array.Empty<IUcliOperation>()).Normalize(request);
+
+            AssertInvalidArgument(result, "unknown");
+            Assert.That(result.Error!.Message, Is.EqualTo($"Operation '{operationName}' is not registered and cannot be used in Play Mode execution."));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Compile_WhenOperationRequiresPlayModeWithoutAllowPlayMode_ReturnsInvalidArgument ()
+        {
+            const string operationName = "game.cheat.required";
+            var sourceStep = ReadSingleSourceStep(
+                CreateExecuteRequest(
+                    UcliCommandIds.Plan,
+                    new
+                    {
+                        protocolVersion = IpcProtocol.CurrentVersion,
+                        requestId = RequestId,
+                        steps = new[]
+                        {
+                            new
+                            {
+                                kind = "op",
+                                id = "cheat",
+                                op = operationName,
+                                args = new { },
+                            },
+                        },
+                    }));
+            var compiler = CreateCompiler(CreateRegistry(CreatePlayModeOperation(operationName, UcliOperationPlayModeSupport.Required)));
+
+            var compiled = compiler.TryCompileExecutionStep(
+                sourceStep,
+                new OperationExecutionContext(),
+                allowPlayMode: false,
+                out _,
+                out _,
+                out _,
+                out var error);
+
+            Assert.That(compiled, Is.False);
+            Assert.That(error.Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
+            Assert.That(error.OpId, Is.EqualTo("cheat"));
+            Assert.That(error.Message, Is.EqualTo($"Operation '{operationName}' requires --allowPlayMode."));
         }
 
         [Test]
@@ -2086,8 +2229,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 AllowPlayMode = true,
             };
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
-            var playModeResult = new ExecuteRequestNormalizer().Normalize(playModeRequest);
+            var result = CreateNormalizer().Normalize(request);
+            var playModeResult = CreateNormalizer().Normalize(playModeRequest);
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(playModeResult.IsSuccess, Is.True);
@@ -2138,7 +2281,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     AllowPlayMode = true,
                 };
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Error, Is.Not.Null);
@@ -2191,7 +2334,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     AllowPlayMode = true,
                 };
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             Assert.That(result.IsSuccess, Is.True);
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, scope.CreateExecutionContext(), allowPlayMode: true);
@@ -2274,7 +2417,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     AllowPlayMode = true,
                 };
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             Assert.That(result.IsSuccess, Is.True);
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, scope.CreateExecutionContext(), allowPlayMode: true);
@@ -2341,7 +2484,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     AllowPlayMode = true,
                 };
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             Assert.That(result.IsSuccess, Is.True);
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, scope.CreateExecutionContext(), allowPlayMode: true);
@@ -2404,7 +2547,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     AllowPlayMode = true,
                 };
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             Assert.That(result.IsSuccess, Is.True);
             var (_, compiledOperations) = CompileSingleStep(result.Request!, 0, scope.CreateExecutionContext(), allowPlayMode: true);
@@ -2428,7 +2571,7 @@ namespace MackySoft.Ucli.Unity.Tests
             EditorSceneManager.SaveScene(scene, scenePath);
             var request = CreatePrefabOverrideRevertRequest(scenePath, allowPlayMode: false);
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             Assert.That(result.IsSuccess, Is.True);
             var (_, compiledOperations) = CompileSingleStep(result.Request!, 0, scope.CreateExecutionContext(), allowPlayMode: false);
@@ -2449,7 +2592,7 @@ namespace MackySoft.Ucli.Unity.Tests
             EditorSceneManager.SaveScene(scene, scenePath);
             var request = CreatePrefabOverrideRevertRequest(scenePath, allowPlayMode: true);
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             Assert.That(result.IsSuccess, Is.True);
             var (_, compiledOperations) = CompileSingleStep(result.Request!, 0, scope.CreateExecutionContext(), allowPlayMode: true);
@@ -2471,7 +2614,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     steps = Array.Empty<object>(),
                 });
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             AssertInvalidArgument(result);
         }
@@ -2489,7 +2632,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 "{\"requestId\":\"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62\",\"steps\":[{\"args\":{\"sets\":[{\"value\":true,\"path\":\"isTrigger\"}],\"target\":{\"componentType\":\"UnityEngine.BoxCollider, UnityEngine.PhysicsModule\",\"hierarchyPath\":\"Root/Spawner\",\"scene\":\"Assets/Scenes/Main.unity\"}},\"op\":\"__COMP_SET_OP__\",\"id\":\"setSpawner\",\"kind\":\"op\"}],\"protocolVersion\":1}"
                     .Replace("__COMP_SET_OP__", UcliPrimitiveOperationNames.CompSet, StringComparison.Ordinal));
 
-            var normalizer = new ExecuteRequestNormalizer();
+            var normalizer = CreateNormalizer();
             var resultA = normalizer.Normalize(requestA);
             var resultB = normalizer.Normalize(requestB);
 
@@ -2511,7 +2654,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     steps = Array.Empty<object>(),
                 });
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Error, Is.Not.Null);
@@ -2532,7 +2675,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     steps = Array.Empty<object>(),
                 });
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             AssertInvalidArgument(result);
         }
@@ -2551,7 +2694,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     unknown = true,
                 });
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             AssertInvalidArgument(result);
         }
@@ -2585,7 +2728,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             AssertInvalidArgument(result, "same");
         }
@@ -2611,7 +2754,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             AssertInvalidArgument(result, "missingArgs");
         }
@@ -2638,7 +2781,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             AssertInvalidArgument(result, "argsType");
         }
@@ -2673,7 +2816,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             AssertInvalidArgument(result, "missingCommit");
         }
@@ -2722,7 +2865,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             AssertInvalidArgument(result, "prefabFrom");
         }
@@ -2764,7 +2907,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var result = CreateNormalizer().Normalize(request);
 
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Error, Is.Not.Null);
@@ -2839,7 +2982,17 @@ namespace MackySoft.Ucli.Unity.Tests
             OperationExecutionContext executionContext,
             bool allowPlayMode)
         {
-            var compiler = new ExecuteRequestCompiler();
+            return CompileSingleStep(request, stepIndex, executionContext, allowPlayMode, CreateDefaultRegistry());
+        }
+
+        private static (NormalizedRequestStep Step, IReadOnlyList<NormalizedOperation> Operations) CompileSingleStep (
+            NormalizedExecuteRequest request,
+            int stepIndex,
+            OperationExecutionContext executionContext,
+            bool allowPlayMode,
+            IPhaseOperationRegistry operationRegistry)
+        {
+            var compiler = CreateCompiler(operationRegistry);
             var sourceStep = request.SourceSteps[stepIndex];
             Assert.That(
                 compiler.TryCompileExecutionStep(sourceStep, executionContext, allowPlayMode, out var compiledStep, out var compiledOperations, out _, out var error),
@@ -2854,13 +3007,83 @@ namespace MackySoft.Ucli.Unity.Tests
             int stepIndex,
             OperationExecutionContext executionContext)
         {
-            var compiler = new ExecuteRequestCompiler();
+            var compiler = CreateCompiler();
             var sourceStep = request.SourceSteps[stepIndex];
             Assert.That(
                 compiler.TryCompileExecutionStep(sourceStep, executionContext, allowPlayMode: false, out _, out _, out _, out var error),
                 Is.False);
             Assert.That(error, Is.Not.Null);
             return error;
+        }
+
+        private static ExecuteRequestNormalizer CreateNormalizer (params IUcliOperation[] operations)
+        {
+            return new ExecuteRequestNormalizer(
+                operations.Length == 0
+                    ? CreateDefaultRegistry()
+                    : CreateRegistry(operations));
+        }
+
+        private static ExecuteRequestCompiler CreateCompiler ()
+        {
+            return CreateCompiler(CreateDefaultRegistry());
+        }
+
+        private static ExecuteRequestCompiler CreateCompiler (IPhaseOperationRegistry operationRegistry)
+        {
+            return new ExecuteRequestCompiler(operationRegistry);
+        }
+
+        private static IPhaseOperationRegistry CreateDefaultRegistry ()
+        {
+            return CreateRegistry(
+                CreatePlayModeOperation(UcliPrimitiveOperationNames.CsEval, UcliOperationPlayModeSupport.Allowed),
+                CreatePlayModeOperation(UcliPrimitiveOperationNames.CompSet, UcliOperationPlayModeSupport.Disallowed));
+        }
+
+        private static IPhaseOperationRegistry CreateRegistry (params IUcliOperation[] operations)
+        {
+            var registrations = new UcliOperationRegistration[operations.Length];
+            for (var i = 0; i < operations.Length; i++)
+            {
+                registrations[i] = new UcliOperationRegistration(operations[i].Metadata, operations[i]);
+            }
+
+            return new InMemoryPhaseOperationRegistry(registrations);
+        }
+
+        private static IUcliOperation CreatePlayModeOperation (
+            string operationName,
+            UcliOperationPlayModeSupport playModeSupport)
+        {
+            return new TestRawOperation(UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
+                operationName: operationName,
+                kind: UcliOperationKind.Mutation,
+                description: $"{operationName} test operation.",
+                assurance: new UcliOperationAssuranceContract(
+                    sideEffects: new[] { UcliOperationSideEffect.RuntimeStateMutation },
+                    touchedKinds: Array.Empty<string>(),
+                    planMode: UcliOperationPlanMode.ObservesLiveUnity,
+                    planSemantics: "Validate Play Mode operation arguments without applying changes.",
+                    callSemantics: "Apply a Play Mode runtime-state mutation.",
+                    touchedContract: "Does not report persistent Unity resources.",
+                    readPostconditionContract: "Persistent read surfaces are unchanged; runtime state may differ.",
+                    failureSemantics: "Failure before invocation leaves runtime state unchanged.",
+                    dangerousNotes: new[] { "Changes Play Mode runtime state and is not persisted." }),
+                playModeSupport: playModeSupport));
+        }
+
+        private static IpcRequestContractStep ReadSingleSourceStep (IpcExecuteRequest request)
+        {
+            Assert.That(
+                IpcRequestContractReader.TryRead(
+                    request.Arguments,
+                    IpcRequestContractReadProfile.StrictExecute,
+                    out var contract,
+                    out var error),
+                Is.True,
+                error.ToString());
+            return contract.Steps![0];
         }
 
         private static void AssertInvalidArgument (
@@ -2886,6 +3109,40 @@ namespace MackySoft.Ucli.Unity.Tests
             return new IpcExecuteRequest(
                 Command: command,
                 Arguments: document.RootElement.Clone());
+        }
+
+        private sealed class TestRawOperation : IUcliOperation
+        {
+            public TestRawOperation (UcliOperationMetadata metadata)
+            {
+                Metadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
+            }
+
+            public UcliOperationMetadata Metadata { get; }
+
+            public Task<OperationPhaseStepResult> ValidateAsync (
+                NormalizedOperation operation,
+                OperationExecutionContext executionContext,
+                CancellationToken cancellationToken = default)
+            {
+                return Task.FromResult(OperationPhaseStepResult.Success());
+            }
+
+            public Task<OperationPhaseStepResult> PlanAsync (
+                NormalizedOperation operation,
+                OperationExecutionContext executionContext,
+                CancellationToken cancellationToken = default)
+            {
+                return Task.FromResult(OperationPhaseStepResult.Success());
+            }
+
+            public Task<OperationPhaseStepResult> CallAsync (
+                NormalizedOperation operation,
+                OperationExecutionContext executionContext,
+                CancellationToken cancellationToken = default)
+            {
+                return Task.FromResult(OperationPhaseStepResult.Success());
+            }
         }
 
     }

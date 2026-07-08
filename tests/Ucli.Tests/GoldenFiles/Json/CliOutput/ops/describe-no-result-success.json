@@ -9,6 +9,7 @@
       "name": "ucli.scene.open",
       "kind": "command",
       "policy": "safe",
+      "playModeSupport": "disallowed",
       "description": "Opens a Unity scene asset in the editor.",
       "inputs": [],
       "resultContract": {
