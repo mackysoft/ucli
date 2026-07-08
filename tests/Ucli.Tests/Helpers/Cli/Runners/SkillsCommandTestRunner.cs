@@ -33,6 +33,7 @@ internal sealed class SkillsCommandTestRunner
             UcliCommandNames.InstallSubcommand => InstallAsync(options),
             UcliCommandNames.UpdateSubcommand => UpdateAsync(options),
             UcliCommandNames.UninstallSubcommand => UninstallAsync(options),
+            UcliCommandNames.PruneSubcommand => PruneAsync(options),
             UcliCommandNames.DoctorSubcommand => DoctorAsync(options),
             _ => throw new ArgumentOutOfRangeException(nameof(subcommand), subcommand, "Unsupported skills subcommand."),
         };
@@ -91,6 +92,22 @@ internal sealed class SkillsCommandTestRunner
 
         return CommandResultCapture.ExecuteAsync(() =>
             CreateCommand<SkillsUninstallCommand>().UninstallAsync(
+                host: options.Host,
+                scope: options.Scope,
+                repoRoot: options.RepoRoot,
+                targetDir: options.TargetDir,
+                dryRun: options.DryRun,
+                force: options.Force,
+                tier: options.Tier,
+                skill: options.Skill));
+    }
+
+    public Task<CommandExecutionResult> PruneAsync (Options options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+
+        return CommandResultCapture.ExecuteAsync(() =>
+            CreateCommand<SkillsPruneCommand>().PruneAsync(
                 host: options.Host,
                 scope: options.Scope,
                 repoRoot: options.RepoRoot,

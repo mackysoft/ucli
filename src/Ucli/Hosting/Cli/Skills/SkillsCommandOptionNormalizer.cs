@@ -75,6 +75,46 @@ internal static class SkillsCommandOptionNormalizer
             : null;
     }
 
+    /// <summary> Normalizes a required prune selection used by commands that act on installed targets. </summary>
+    /// <param name="command"> The command name used for error results. </param>
+    /// <param name="tiers"> The raw tier options. When omitted, no tier filter is applied. </param>
+    /// <param name="skillNames"> The raw exact SKILL name options. </param>
+    /// <param name="errorResult"> The emitted error result when normalization fails. </param>
+    /// <returns> The normalized prune selection, or <see langword="null" /> when normalization fails. </returns>
+    public static SkillPruneSelection? NormalizeRequiredPruneSelection (
+        string command,
+        string[]? tiers,
+        string[]? skillNames,
+        out CommandResult? errorResult)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(command);
+
+        if (!HasOptionValues(tiers) && !HasOptionValues(skillNames))
+        {
+            errorResult = CommandResult.InvalidArgument(command, "Option '--tier' or '--skill' is required.");
+            return null;
+        }
+
+        var tierFilter = NormalizeTierFilter(command, tiers, out errorResult);
+        if (errorResult is not null)
+        {
+            return null;
+        }
+
+        var reportTiers = HasOptionValues(tiers)
+            ? tierFilter
+            : NormalizeTierSelection(command, tiers, out errorResult);
+        if (errorResult is not null)
+        {
+            return null;
+        }
+
+        var normalizedSkillNames = NormalizeSkillNameSelection(command, skillNames, out errorResult);
+        return errorResult is null
+            ? new SkillPruneSelection(reportTiers!, tierFilter!, normalizedSkillNames!)
+            : null;
+    }
+
     /// <summary> Normalizes a required host option to its canonical host key. </summary>
     /// <param name="command"> The command name used for error results. </param>
     /// <param name="host"> The raw host option. </param>
@@ -261,6 +301,27 @@ internal static class SkillsCommandOptionNormalizer
         var result = HasOptionValues(tiers)
             ? SkillTierLiteralParser.ParseSelectedTiers(UcliSkillTierLiterals.Defined, tiers!)
             : SkillTierLiteralParser.ParseDefinedTiers(UcliSkillTierLiterals.Defined);
+        if (!result.IsSuccess)
+        {
+            errorResult = CommandResult.InvalidArgument(command, result.Failure!.Message);
+            return null;
+        }
+
+        return result.Value!;
+    }
+
+    private static IReadOnlyList<SkillTier>? NormalizeTierFilter (
+        string command,
+        string[]? tiers,
+        out CommandResult? errorResult)
+    {
+        errorResult = null;
+        if (!HasOptionValues(tiers))
+        {
+            return Array.Empty<SkillTier>();
+        }
+
+        var result = SkillTierLiteralParser.ParseSelectedTiers(UcliSkillTierLiterals.Defined, tiers!);
         if (!result.IsSuccess)
         {
             errorResult = CommandResult.InvalidArgument(command, result.Failure!.Message);

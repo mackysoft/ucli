@@ -278,6 +278,62 @@ internal static class SkillsCommandResultFactory
             });
     }
 
+    /// <summary> Creates a command result for <c>skills prune</c>. </summary>
+    /// <param name="result"> The prune result. </param>
+    /// <param name="host"> The normalized host key. </param>
+    /// <param name="repositoryRoot"> The canonical repository root. </param>
+    /// <returns> The command result serialized to stdout. </returns>
+    public static CommandResult CreatePrune (
+        SkillOperationResult<SkillPruneResult> result,
+        string host,
+        SkillScopeKind scope,
+        string? repositoryRoot,
+        string reloadGuidance,
+        IReadOnlyList<string> tiers,
+        IReadOnlyList<string> skillNames)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+        ArgumentNullException.ThrowIfNull(tiers);
+        ArgumentNullException.ThrowIfNull(skillNames);
+        ArgumentException.ThrowIfNullOrWhiteSpace(host);
+        ArgumentException.ThrowIfNullOrWhiteSpace(reloadGuidance);
+
+        if (!result.IsSuccess)
+        {
+            return CreateSkillFailure(UcliCommandNames.SkillsPrune, result.Failure!);
+        }
+
+        var pruneResult = result.Value!;
+        var actions = CreateActionPayloads(
+            pruneResult.Actions,
+            static action => action.Identity,
+            static action => ToActionLiteral(action.ActionKind),
+            static action => action.BlockedReason,
+            static _ => null);
+
+        return CommandResult.Success(
+            command: UcliCommandNames.SkillsPrune,
+            message: pruneResult.DryRun ? "uCLI official SKILL prune plan generated." : "uCLI official SKILL packages pruned.",
+            payload: new
+            {
+                host,
+                tiers,
+                skillNames,
+                scope = ToScopeLiteral(scope),
+                repositoryRoot,
+                pruneResult.TargetRoot,
+                pruneResult.DryRun,
+                pruneResult.Force,
+                reloadGuidance,
+                actions,
+                deletedCount = pruneResult.Actions.Count(static action => action.ActionKind == SkillPruneActionKind.Deleted),
+                skippedCurrentCount = pruneResult.Actions.Count(static action => action.ActionKind == SkillPruneActionKind.SkippedCurrent),
+                skippedForeignCatalogCount = pruneResult.Actions.Count(static action => action.ActionKind == SkillPruneActionKind.SkippedForeignCatalog),
+                skippedUnmanagedCount = pruneResult.Actions.Count(static action => action.ActionKind == SkillPruneActionKind.SkippedUnmanaged),
+                blockedCount = pruneResult.Actions.Count(static action => IsBlocked(action.ActionKind)),
+            });
+    }
+
     /// <summary> Creates a command result for <c>skills doctor</c>. </summary>
     /// <param name="result"> The doctor result. </param>
     /// <param name="repositoryRoot"> The canonical repository root. </param>
@@ -425,6 +481,22 @@ internal static class SkillsCommandResultFactory
         };
     }
 
+    private static string ToActionLiteral (SkillPruneActionKind actionKind)
+    {
+        return actionKind switch
+        {
+            SkillPruneActionKind.Deleted => "deleted",
+            SkillPruneActionKind.SkippedCurrent => "skippedCurrent",
+            SkillPruneActionKind.SkippedForeignCatalog => "skippedForeignCatalog",
+            SkillPruneActionKind.SkippedUnmanaged => "skippedUnmanaged",
+            SkillPruneActionKind.BlockedLocalModification => "blockedLocalModification",
+            SkillPruneActionKind.BlockedManifestInvalid => "blockedManifestInvalid",
+            SkillPruneActionKind.BlockedNameCollision => "blockedNameCollision",
+            SkillPruneActionKind.BlockedHostConflict => "blockedHostConflict",
+            _ => actionKind.ToString(),
+        };
+    }
+
     private static bool IsBlocked (SkillInstallActionKind actionKind)
     {
         return actionKind is SkillInstallActionKind.BlockedManagedOverwrite
@@ -442,6 +514,14 @@ internal static class SkillsCommandResultFactory
     private static bool IsBlocked (SkillUninstallActionKind actionKind)
     {
         return actionKind is SkillUninstallActionKind.BlockedLocalModification;
+    }
+
+    private static bool IsBlocked (SkillPruneActionKind actionKind)
+    {
+        return actionKind is SkillPruneActionKind.BlockedLocalModification
+            or SkillPruneActionKind.BlockedManifestInvalid
+            or SkillPruneActionKind.BlockedNameCollision
+            or SkillPruneActionKind.BlockedHostConflict;
     }
 
     private static object[] CreateActionPayloads<TAction> (

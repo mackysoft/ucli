@@ -112,6 +112,25 @@ internal static class SkillsCliOutputContractTestSupport
         });
     }
 
+    public static Task<CommandExecutionResult> RunOpenAiPruneAsync (
+        string repoRoot,
+        bool dryRun = false,
+        bool force = false,
+        IServiceProvider? serviceProvider = null,
+        string[]? skill = null)
+    {
+        return GetRunner(serviceProvider).PruneAsync(new SkillsCommandTestRunner.Options
+        {
+            Host = "openai",
+            Scope = "project",
+            RepoRoot = repoRoot,
+            DryRun = dryRun,
+            Force = force,
+            Tier = skill is null ? ["basic"] : null,
+            Skill = skill,
+        });
+    }
+
     public static Task<CommandExecutionResult> RunProjectInstallAsync (
         string repoRoot,
         string host = "openai",

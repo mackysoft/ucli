@@ -12,6 +12,7 @@ public sealed class SkillsCommandValidationTests
     [InlineData(UcliCommandNames.InstallSubcommand, UcliCommandNames.SkillsInstall)]
     [InlineData(UcliCommandNames.UpdateSubcommand, UcliCommandNames.SkillsUpdate)]
     [InlineData(UcliCommandNames.UninstallSubcommand, UcliCommandNames.SkillsUninstall)]
+    [InlineData(UcliCommandNames.PruneSubcommand, UcliCommandNames.SkillsPrune)]
     [InlineData(UcliCommandNames.DoctorSubcommand, UcliCommandNames.SkillsDoctor)]
     public async Task Execute_WhenHostIsMissing_ReturnsInvalidArgumentBeforePackageResolution (
         string subcommand,
@@ -32,6 +33,7 @@ public sealed class SkillsCommandValidationTests
     [InlineData(UcliCommandNames.InstallSubcommand, UcliCommandNames.SkillsInstall)]
     [InlineData(UcliCommandNames.UpdateSubcommand, UcliCommandNames.SkillsUpdate)]
     [InlineData(UcliCommandNames.UninstallSubcommand, UcliCommandNames.SkillsUninstall)]
+    [InlineData(UcliCommandNames.PruneSubcommand, UcliCommandNames.SkillsPrune)]
     [InlineData(UcliCommandNames.DoctorSubcommand, UcliCommandNames.SkillsDoctor)]
     public async Task Execute_WhenScopeIsMissing_ReturnsInvalidArgumentBeforePackageResolution (
         string subcommand,
@@ -51,6 +53,7 @@ public sealed class SkillsCommandValidationTests
     [InlineData(UcliCommandNames.InstallSubcommand, UcliCommandNames.SkillsInstall)]
     [InlineData(UcliCommandNames.UpdateSubcommand, UcliCommandNames.SkillsUpdate)]
     [InlineData(UcliCommandNames.UninstallSubcommand, UcliCommandNames.SkillsUninstall)]
+    [InlineData(UcliCommandNames.PruneSubcommand, UcliCommandNames.SkillsPrune)]
     [InlineData(UcliCommandNames.DoctorSubcommand, UcliCommandNames.SkillsDoctor)]
     public async Task Execute_WhenScopeIsUnsupported_ReturnsInvalidArgumentBeforePackageResolution (
         string subcommand,
@@ -70,6 +73,7 @@ public sealed class SkillsCommandValidationTests
     [InlineData(UcliCommandNames.InstallSubcommand, UcliCommandNames.SkillsInstall)]
     [InlineData(UcliCommandNames.UpdateSubcommand, UcliCommandNames.SkillsUpdate)]
     [InlineData(UcliCommandNames.UninstallSubcommand, UcliCommandNames.SkillsUninstall)]
+    [InlineData(UcliCommandNames.PruneSubcommand, UcliCommandNames.SkillsPrune)]
     [InlineData(UcliCommandNames.DoctorSubcommand, UcliCommandNames.SkillsDoctor)]
     public async Task Execute_WhenUserScopeSpecifiesRepoRoot_ReturnsInvalidArgumentBeforePackageResolution (
         string subcommand,
@@ -90,6 +94,7 @@ public sealed class SkillsCommandValidationTests
     [InlineData(UcliCommandNames.InstallSubcommand, UcliCommandNames.SkillsInstall)]
     [InlineData(UcliCommandNames.UpdateSubcommand, UcliCommandNames.SkillsUpdate)]
     [InlineData(UcliCommandNames.UninstallSubcommand, UcliCommandNames.SkillsUninstall)]
+    [InlineData(UcliCommandNames.PruneSubcommand, UcliCommandNames.SkillsPrune)]
     [InlineData(UcliCommandNames.DoctorSubcommand, UcliCommandNames.SkillsDoctor)]
     public async Task Execute_WhenPackageSelectionIsMissing_ReturnsInvalidArgumentBeforePackageResolution (
         string subcommand,
@@ -111,6 +116,7 @@ public sealed class SkillsCommandValidationTests
     [InlineData(UcliCommandNames.InstallSubcommand, UcliCommandNames.SkillsInstall)]
     [InlineData(UcliCommandNames.UpdateSubcommand, UcliCommandNames.SkillsUpdate)]
     [InlineData(UcliCommandNames.UninstallSubcommand, UcliCommandNames.SkillsUninstall)]
+    [InlineData(UcliCommandNames.PruneSubcommand, UcliCommandNames.SkillsPrune)]
     [InlineData(UcliCommandNames.DoctorSubcommand, UcliCommandNames.SkillsDoctor)]
     public async Task Execute_WhenSelectedTierContainsNoPackages_ReturnsSuccessfulEmptyResult (
         string subcommand,
@@ -141,6 +147,7 @@ public sealed class SkillsCommandValidationTests
     [InlineData(UcliCommandNames.InstallSubcommand, UcliCommandNames.SkillsInstall)]
     [InlineData(UcliCommandNames.UpdateSubcommand, UcliCommandNames.SkillsUpdate)]
     [InlineData(UcliCommandNames.UninstallSubcommand, UcliCommandNames.SkillsUninstall)]
+    [InlineData(UcliCommandNames.PruneSubcommand, UcliCommandNames.SkillsPrune)]
     [InlineData(UcliCommandNames.DoctorSubcommand, UcliCommandNames.SkillsDoctor)]
     public async Task Execute_WhenHostIsUnsupported_ReturnsHostUnsupportedBeforeTargetResolution (
         string subcommand,
