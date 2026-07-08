@@ -101,13 +101,13 @@ public sealed class IndexOpsDescribeJsonFullMetadataTests
                     "codeContract": {
                       "language": "csharp",
                       "entryPoint": {
-                        "signature": "public static object? Run(UcliCsEvalContext context)",
-                        "matchRule": "Compiled source must contain exactly one matching Run method.",
+                        "signature": "public static object? | Task | Task\u003CT\u003E | ValueTask | ValueTask\u003CT\u003E Run(UcliCsEvalContext context)",
+                        "matchRule": "Compiled source must contain exactly one public static Run(UcliCsEvalContext context) method returning object?, Task, Task\u003CT\u003E, ValueTask, or ValueTask\u003CT\u003E.",
                         "requiredStatic": true,
                         "parameterTypes": [
                           "MackySoft.Ucli.Unity.Execution.CsEval.UcliCsEvalContext"
                         ],
-                        "returnValue": "JSON-serializable value."
+                        "returnValue": "JSON-serializable value or awaited task-like result."
                       },
                       "sourceForms": [
                         {

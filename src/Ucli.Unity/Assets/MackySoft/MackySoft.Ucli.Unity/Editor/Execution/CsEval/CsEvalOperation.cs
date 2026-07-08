@@ -66,7 +66,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 result: IpcPayloadCodec.SerializeToElement(compilation.CreatePlanResult())));
         }
 
-        protected override Task<OperationPhaseStepResult> CallAsync (
+        protected override async Task<OperationPhaseStepResult> CallAsync (
             NormalizedOperation operation,
             CsEvalArgs args,
             OperationExecutionContext executionContext,
@@ -77,7 +77,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
             cancellationToken.ThrowIfCancellationRequested();
             if (!compilation.IsSuccess)
             {
-                return Task.FromResult(CreateInvalidArgumentFailure(operation, compilation.FailureMessage!, compilation.CreatePlanResult()));
+                return CreateInvalidArgumentFailure(operation, compilation.FailureMessage!, compilation.CreatePlanResult());
             }
 
             if (!compilationService.TryEmitAssembly(compilation.Compilation, cancellationToken, out var assemblyBytes, out var emitDiagnostics, out var emitError))
@@ -92,12 +92,12 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                     logs: null,
                     returnValue: null,
                     touchedResources: null);
-                return Task.FromResult(CreateInvalidArgumentFailure(operation, emitError, emitResult));
+                return CreateInvalidArgumentFailure(operation, emitError, emitResult);
             }
 
             if (compilation.EntryPointName == null)
             {
-                return Task.FromResult(CreateInvalidArgumentFailure(operation, "C# eval source did not resolve an entry point.", compilation.CreatePlanResult()));
+                return CreateInvalidArgumentFailure(operation, "C# eval source did not resolve an entry point.", compilation.CreatePlanResult());
             }
 
             cancellationToken.ThrowIfCancellationRequested();
@@ -105,7 +105,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
             cancellationToken.ThrowIfCancellationRequested();
             if (!entryPointResolver.TryResolve(assembly, compilation.EntryPointName.Value, out var method, out var entryPointError))
             {
-                return Task.FromResult(CreateInvalidArgumentFailure(operation, entryPointError, compilation.CreatePlanResult()));
+                return CreateInvalidArgumentFailure(operation, entryPointError, compilation.CreatePlanResult());
             }
 
             cancellationToken.ThrowIfCancellationRequested();
@@ -119,36 +119,61 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
             catch (TargetInvocationException exception) when (exception.InnerException != null)
             {
                 stopwatch.Stop();
-                return Task.FromResult(CreatePostInvocationInvalidArgumentFailure(
+                return CreatePostInvocationInvalidArgumentFailure(
                     operation,
                     $"C# eval entry point threw {exception.InnerException.GetType().FullName}: {exception.InnerException.Message}",
                     compilation,
                     stopwatch.ElapsedMilliseconds,
-                    context));
+                    context);
             }
             catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or NotSupportedException)
             {
                 stopwatch.Stop();
-                return Task.FromResult(CreatePostInvocationInvalidArgumentFailure(
+                return CreatePostInvocationInvalidArgumentFailure(
                     operation,
                     $"C# eval entry point invocation failed. {exception.Message}",
                     compilation,
                     stopwatch.ElapsedMilliseconds,
-                    context));
+                    context);
+            }
+
+            try
+            {
+                returnObject = await CsEvalEntryPointReturnValueResolver.ResolveAsync(method.ReturnType, returnObject);
+            }
+            catch (CsEvalEntryPointReturnValueResolutionException exception)
+            {
+                stopwatch.Stop();
+                return CreatePostInvocationInvalidArgumentFailure(
+                    operation,
+                    $"C# eval entry point invocation failed. {exception.Message}",
+                    compilation,
+                    stopwatch.ElapsedMilliseconds,
+                    context);
+            }
+            catch (Exception exception)
+            {
+                stopwatch.Stop();
+                return CreatePostInvocationInvalidArgumentFailure(
+                    operation,
+                    $"C# eval entry point threw {exception.GetType().FullName}: {exception.Message}",
+                    compilation,
+                    stopwatch.ElapsedMilliseconds,
+                    context);
             }
 
             stopwatch.Stop();
             if (!returnValueSerializer.TrySerialize(returnObject, out var returnValue, out var returnValueError))
             {
-                return Task.FromResult(CreatePostInvocationInvalidArgumentFailure(
+                return CreatePostInvocationInvalidArgumentFailure(
                     operation,
                     returnValueError,
                     compilation,
                     stopwatch.ElapsedMilliseconds,
-                    context));
+                    context);
             }
 
-            return Task.FromResult(CreateCallSuccess(compilation, stopwatch.ElapsedMilliseconds, context, returnValue));
+            return CreateCallSuccess(compilation, stopwatch.ElapsedMilliseconds, context, returnValue);
         }
 
         private static UcliOperationMetadata CreateMetadata ()
@@ -178,14 +203,14 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 },
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Compile the supplied C# source and validate the required entry point without invoking user code.",
-                callSemantics: "Compile, emit, load, and execute the user C# entry point inside the Unity Editor process.",
+                callSemantics: "Compile, emit, load, execute, and await the user C# entry point inside the Unity Editor process.",
                 touchedContract: "Reports touched resources declared by user code through the eval context; declarations are caller-controlled and are not a complete guarantee of all Unity state changes.",
                 readPostconditionContract: "Scene, prefab, asset, ProjectSettings, and readIndex surfaces may be stale after eval execution regardless of declared touched resources.",
-                failureSemantics: "Compilation and entry-point failures occur before user code runs; once synchronous user code is invoked it cannot be forcibly stopped until it returns or throws.",
+                failureSemantics: "Compilation and entry-point resolution failures occur before user code runs; once user code is invoked, the synchronous body or returned task cannot be forcibly stopped until it returns, completes, or throws.",
                 dangerousNotes: new[]
                 {
                     "Executes user C# inside the Unity Editor process and can mutate project state outside declared touched resources.",
-                    "Synchronous user code cannot be forcibly stopped while it is executing.",
+                    "Invoked user code and returned tasks cannot be forcibly stopped while they are executing.",
                 });
             var describe = UcliOperationDescribeContractBuilder.Create<CsEvalArgs, CsEvalResult>(
                 "Compiles and executes a C# source unit in the Unity editor process as a dangerous eval operation.",
@@ -195,15 +220,15 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 CsEvalEntryPointName.MatchRule,
                 requiredStatic: true,
                 new[] { typeof(UcliCsEvalContext) },
-                "Return null or a JSON-serializable object value; a snippet without return yields null. DTO and anonymous object serialization may execute public getters. Task, Task<T>, ValueTask, and ValueTask<T> are rejected.",
+                "Return null, a JSON-serializable object value, Task, Task<T>, ValueTask, or ValueTask<T>; task-like entry point results are awaited before serialization, and a snippet without return yields null. DTO and anonymous object serialization may execute public getters.",
                 new[]
                 {
                     new UcliCodeSourceFormContract(
                         CsEvalSourceKindValues.CompilationUnit,
-                        "Complete C# compilation unit containing using directives, namespace or type declarations, and exactly one public static object? Run(UcliCsEvalContext context) method."),
+                        "Complete C# compilation unit containing using directives, namespace or type declarations, and exactly one public static Run(UcliCsEvalContext context) method with a supported synchronous or task-like return type."),
                     new UcliCodeSourceFormContract(
                         CsEvalSourceKindValues.Snippet,
-                        "Run method body snippet. Leading using directives, statements, explicit return, no return, and one expression are accepted; snippets without return produce null."),
+                        "Run method body snippet. Leading using directives, statements, await expressions, explicit return, no return, and one expression are accepted; snippets without return produce null."),
                 },
                 new[] { typeof(UcliCsEvalContext) });
 

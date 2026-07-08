@@ -114,11 +114,11 @@ internal static class IndexOpsDescribeJsonContractTestSupport
                 CodeContract = new UcliOperationCodeContract(
                     "csharp",
                     new UcliCodeEntryPointContract(
-                        "public static object? Run(UcliCsEvalContext context)",
-                        "Compiled source must contain exactly one matching Run method.",
+                        "public static object? | Task | Task<T> | ValueTask | ValueTask<T> Run(UcliCsEvalContext context)",
+                        "Compiled source must contain exactly one public static Run(UcliCsEvalContext context) method returning object?, Task, Task<T>, ValueTask, or ValueTask<T>.",
                         requiredStatic: true,
                         new[] { "MackySoft.Ucli.Unity.Execution.CsEval.UcliCsEvalContext" },
-                        "JSON-serializable value."),
+                        "JSON-serializable value or awaited task-like result."),
                     new[]
                     {
                         new UcliCodeSourceFormContract(CsEvalSourceKindValues.CompilationUnit, "Complete C# compilation unit."),
