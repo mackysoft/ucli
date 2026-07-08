@@ -50,8 +50,8 @@ public sealed class OpsDescribeResultMapperTests
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Output!.Operation.CodeContract);
         Assert.Equal("csharp", result.Output.Operation.CodeContract!.Language);
-        Assert.Equal("public static object? Run(UcliCsEvalContext context)", result.Output.Operation.CodeContract.EntryPoint!.Signature);
-        Assert.Equal("Compiled source must contain exactly one matching Run method.", result.Output.Operation.CodeContract.EntryPoint.MatchRule);
+        Assert.Equal("public static object? | Task | Task<T> | ValueTask | ValueTask<T> Run(UcliCsEvalContext context)", result.Output.Operation.CodeContract.EntryPoint!.Signature);
+        Assert.Equal("Compiled source must contain exactly one public static Run(UcliCsEvalContext context) method returning object?, Task, Task<T>, ValueTask, or ValueTask<T>.", result.Output.Operation.CodeContract.EntryPoint.MatchRule);
         Assert.Equal(new[] { CsEvalSourceKindValues.CompilationUnit, CsEvalSourceKindValues.Snippet }, result.Output.Operation.CodeContract.SourceForms!.Select(static form => form.Kind));
         Assert.Equal("MackySoft.Ucli.Unity.Execution.CsEval.UcliCsEvalContext", Assert.Single(result.Output.Operation.CodeContract.ApiTypes!).FullName);
     }
@@ -269,11 +269,11 @@ public sealed class OpsDescribeResultMapperTests
         return new UcliOperationCodeContract(
             "csharp",
             new UcliCodeEntryPointContract(
-                "public static object? Run(UcliCsEvalContext context)",
-                "Compiled source must contain exactly one matching Run method.",
+                "public static object? | Task | Task<T> | ValueTask | ValueTask<T> Run(UcliCsEvalContext context)",
+                "Compiled source must contain exactly one public static Run(UcliCsEvalContext context) method returning object?, Task, Task<T>, ValueTask, or ValueTask<T>.",
                 requiredStatic: true,
                 new[] { "MackySoft.Ucli.Unity.Execution.CsEval.UcliCsEvalContext" },
-                "JSON-serializable value."),
+                "JSON-serializable value or awaited task-like result."),
             new[]
             {
                 new UcliCodeSourceFormContract(CsEvalSourceKindValues.CompilationUnit, "Complete C# compilation unit."),

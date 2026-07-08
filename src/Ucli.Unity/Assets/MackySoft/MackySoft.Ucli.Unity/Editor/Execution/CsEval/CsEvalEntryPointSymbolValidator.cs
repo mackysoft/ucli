@@ -34,7 +34,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 .SelectMany(static type => type.GetMembers(CsEvalEntryPointName.RequiredMethodName).OfType<IMethodSymbol>())
                 .ToArray();
             var matches = candidates
-                .Where(method => IsCandidate(method, contextSymbol))
+                .Where(method => IsCandidate(method, contextSymbol, compilation))
                 .ToArray();
             if (matches.Length == 0)
             {
@@ -48,7 +48,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                     : candidates
                         .Select(method => CsEvalDiagnosticMapper.Create(
                             CsEvalDiagnosticIds.EntryPointRejected,
-                            $"C# eval Run candidate '{CreateDisplayName(method)}' was rejected: {CreateRejectionReason(method, contextSymbol)}."))
+                            $"C# eval Run candidate '{CreateDisplayName(method)}' was rejected: {CreateRejectionReason(method, contextSymbol, compilation)}."))
                         .ToArray();
                 return false;
             }
@@ -108,22 +108,22 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
 
         private static bool IsCandidate (
             IMethodSymbol method,
-            ITypeSymbol contextSymbol)
+            ITypeSymbol contextSymbol,
+            Compilation compilation)
         {
             return method.DeclaredAccessibility == Accessibility.Public
                 && method.IsStatic
                 && !method.IsGenericMethod
                 && !method.ContainingType.IsGenericType
-                && !method.IsAsync
-                && !IsTaskLike(method.ReturnType)
-                && method.ReturnType.SpecialType == SpecialType.System_Object
+                && CsEvalEntryPointReturnTypePolicy.IsSupportedSymbolReturnType(method.ReturnType, compilation)
                 && method.Parameters.Length == 1
                 && SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type, contextSymbol);
         }
 
         private static string CreateRejectionReason (
             IMethodSymbol method,
-            ITypeSymbol contextSymbol)
+            ITypeSymbol contextSymbol,
+            Compilation compilation)
         {
             var reasons = new List<string>();
             if (method.DeclaredAccessibility != Accessibility.Public)
@@ -146,18 +146,9 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 reasons.Add("containing type is generic");
             }
 
-            if (method.IsAsync)
+            if (!CsEvalEntryPointReturnTypePolicy.IsSupportedSymbolReturnType(method.ReturnType, compilation))
             {
-                reasons.Add("method is async");
-            }
-
-            if (IsTaskLike(method.ReturnType))
-            {
-                reasons.Add("return type is Task or ValueTask");
-            }
-            else if (method.ReturnType.SpecialType != SpecialType.System_Object)
-            {
-                reasons.Add($"return type is '{method.ReturnType.ToDisplayString(SymbolDisplayFormat.CSharpErrorMessageFormat)}', expected object");
+                reasons.Add($"return type is '{method.ReturnType.ToDisplayString(SymbolDisplayFormat.CSharpErrorMessageFormat)}', expected {CsEvalEntryPointReturnTypePolicy.SupportedReturnTypesDisplay}");
             }
 
             if (method.Parameters.Length != 1)
@@ -170,20 +161,6 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
             }
 
             return string.Join("; ", reasons);
-        }
-
-        private static bool IsTaskLike (ITypeSymbol returnType)
-        {
-            if (returnType is not INamedTypeSymbol namedType)
-            {
-                return false;
-            }
-
-            var fullName = namedType.OriginalDefinition.ToDisplayString();
-            return fullName == "System.Threading.Tasks.Task"
-                || fullName == "System.Threading.Tasks.Task<TResult>"
-                || fullName == "System.Threading.Tasks.ValueTask"
-                || fullName == "System.Threading.Tasks.ValueTask<TResult>";
         }
 
         private static string CreateDisplayName (IMethodSymbol method)

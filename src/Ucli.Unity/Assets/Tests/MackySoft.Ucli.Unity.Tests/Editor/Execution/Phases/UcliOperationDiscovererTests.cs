@@ -568,7 +568,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(describeContract.CodeContract.ApiTypes!.Count, Is.EqualTo(1));
             Assert.That(describeContract.Assurance, Is.Not.Null);
             Assert.That(describeContract.Assurance!.PlanSemantics, Does.Contain("without invoking user code"));
-            Assert.That(describeContract.Assurance.CallSemantics, Does.Contain("execute the user C# entry point"));
+            Assert.That(describeContract.Assurance.CallSemantics, Does.Contain("execute, and await the user C# entry point"));
             Assert.That(describeContract.Assurance.TouchedContract, Does.Contain("caller-controlled"));
             Assert.That(describeContract.Assurance.FailureSemantics, Does.Contain("cannot be forcibly stopped"));
             Assert.That(describeContract.Assurance.DangerousNotes!.Count, Is.EqualTo(2));

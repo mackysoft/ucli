@@ -14,6 +14,8 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
     {
         public const string SnippetWrapperVersion = "snippet-wrapper-v1";
 
+        public const string AsyncSnippetWrapperVersion = "async-snippet-wrapper-v1";
+
         public const string NoWrapperVersion = "none";
 
         private const string SourcePath = "ucli.cs.eval.cs";
@@ -70,11 +72,12 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
             var bodyText = bodyStart >= source.Length ? string.Empty : source.Substring(bodyStart);
             var isExpression = IsSingleExpression(bodyText);
             var shouldAppendNullReturn = !isExpression && !LastGlobalStatementIsReturn(root);
-            var wrappedSource = CreateWrappedSource(userUsings, bodyText, bodyLine, isExpression, shouldAppendNullReturn);
+            var containsAwait = ContainsAwaitExpression(root);
+            var wrappedSource = CreateWrappedSource(userUsings, bodyText, bodyLine, isExpression, shouldAppendNullReturn, containsAwait);
             preparedSource = new CsEvalPreparedSource(
                 CsEvalSourceKindValues.Snippet,
                 wrappedSource,
-                SnippetWrapperVersion);
+                containsAwait ? AsyncSnippetWrapperVersion : SnippetWrapperVersion);
             return true;
         }
 
@@ -102,12 +105,20 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
             return lastGlobalStatement?.Statement is ReturnStatementSyntax;
         }
 
+        private static bool ContainsAwaitExpression (CompilationUnitSyntax root)
+        {
+            return root.Members
+                .OfType<GlobalStatementSyntax>()
+                .Any(static statement => statement.Statement.DescendantNodesAndSelf().OfType<AwaitExpressionSyntax>().Any());
+        }
+
         private static string CreateWrappedSource (
             string userUsings,
             string bodyText,
             int bodyLine,
             bool isExpression,
-            bool shouldAppendNullReturn)
+            bool shouldAppendNullReturn,
+            bool isAsync)
         {
             var builder = new StringBuilder();
             builder.AppendLine("using System;");
@@ -132,7 +143,9 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
             builder.AppendLine("{");
             builder.AppendLine("    public static class UcliCsEvalSnippetEntry");
             builder.AppendLine("    {");
-            builder.AppendLine("        public static object? Run(UcliCsEvalContext context)");
+            builder.AppendLine(isAsync
+                ? "        public static async System.Threading.Tasks.Task<object?> Run(UcliCsEvalContext context)"
+                : "        public static object? Run(UcliCsEvalContext context)");
             builder.AppendLine("        {");
             builder.AppendLine($"#line {bodyLine} \"{SourcePath}\"");
             if (isExpression)
