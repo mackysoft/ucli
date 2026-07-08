@@ -139,7 +139,12 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
 
             try
             {
-                returnObject = await CsEvalEntryPointReturnValueResolver.ResolveAsync(method.ReturnType, returnObject);
+                returnObject = await CsEvalEntryPointReturnValueResolver.ResolveAsync(method.ReturnType, returnObject, cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                stopwatch.Stop();
+                throw;
             }
             catch (CsEvalEntryPointReturnValueResolutionException exception)
             {

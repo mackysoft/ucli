@@ -248,8 +248,8 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator ExecuteHandler_WhenPayloadIsValid_CallsDispatcher () => UniTask.ToCoroutine(async () =>
         {
-            var dispatcher = new StubExecuteRequestDispatcher();
-            var handler = new ExecuteUnityIpcMethodHandler(dispatcher);
+            var dispatcher = StubExecuteRequestDispatcher.CreateSuccessful();
+            var handler = CreateExecuteHandler(dispatcher, new IpcRequestTimeoutScopeFactory());
             var request = CreateExecuteRequest(
                 "req-execute-valid",
                 new IpcExecuteRequest(
@@ -275,7 +275,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator ExecuteHandler_WhenPayloadIsInvalid_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
-            var handler = new ExecuteUnityIpcMethodHandler(new StubExecuteRequestDispatcher());
+            var handler = CreateExecuteHandler(StubExecuteRequestDispatcher.CreateSuccessful(), new IpcRequestTimeoutScopeFactory());
             var request = CreateExecuteRequest("req-execute-invalid", 123);
 
             var response = await handler.HandleAsync(request, CancellationToken.None);
@@ -283,6 +283,94 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
             Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator ExecuteHandler_WhenTimeoutMillisecondsIsInvalid_ReturnsInvalidArgumentWithoutCallingDispatcher () => UniTask.ToCoroutine(async () =>
+        {
+            var dispatcher = StubExecuteRequestDispatcher.CreateSuccessful();
+            var handler = CreateExecuteHandler(dispatcher, new IpcRequestTimeoutScopeFactory());
+            var request = CreateExecuteRequest(
+                "req-execute-invalid-timeout",
+                new IpcExecuteRequest(
+                    UcliCommandIds.Call,
+                    IpcPayloadCodec.SerializeToElement(new
+                    {
+                        protocolVersion = IpcProtocol.CurrentVersion,
+                        requestId = "req-execute-invalid-timeout",
+                        steps = Array.Empty<object>(),
+                    }))
+                {
+                    TimeoutMilliseconds = 0,
+                });
+
+            var response = await handler.HandleAsync(request, CancellationToken.None);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(response.Errors.Count, Is.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
+            Assert.That(dispatcher.CallCount, Is.EqualTo(0));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator ExecuteHandler_WhenRequestTimeoutElapses_ReturnsIpcTimeoutAndCancelsDispatcher () => UniTask.ToCoroutine(async () =>
+        {
+            var timeoutScopeFactory = new ManualIpcRequestTimeoutScopeFactory();
+            var dispatcherAwaitReadySource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var dispatcherCancellationObservedSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var dispatcher = new StubExecuteRequestDispatcher(async (_, context, cancellationToken) =>
+            {
+                try
+                {
+                    dispatcherAwaitReadySource.TrySetResult(true);
+                    await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    dispatcherCancellationObservedSource.TrySetResult(true);
+                    throw;
+                }
+
+                return new IpcResponse(
+                    ProtocolVersion: context.ProtocolVersion,
+                    RequestId: context.RequestId,
+                    Status: IpcProtocol.StatusOk,
+                    Payload: IpcPayloadCodec.SerializeToElement(new IpcExecuteResponse(Array.Empty<IpcExecuteOperationResult>())),
+                    Errors: Array.Empty<IpcError>());
+            });
+            var handler = CreateExecuteHandler(dispatcher, timeoutScopeFactory);
+            var request = CreateExecuteRequest(
+                "req-execute-timeout",
+                new IpcExecuteRequest(
+                    UcliCommandIds.Call,
+                    IpcPayloadCodec.SerializeToElement(new
+                    {
+                        protocolVersion = IpcProtocol.CurrentVersion,
+                        requestId = "req-execute-timeout",
+                        steps = Array.Empty<object>(),
+                    }))
+                {
+                    TimeoutMilliseconds = 1000,
+                });
+
+            var responseTask = handler.HandleAsync(request, CancellationToken.None).AsTask();
+            await TestAwaiter.WaitAsync(
+                dispatcherAwaitReadySource.Task,
+                "execute dispatcher await point",
+                SignalWaitTimeout);
+
+            Assert.That(responseTask.IsCompleted, Is.False);
+
+            timeoutScopeFactory.LastScope.CancelForTimeout();
+            await TestAwaiter.WaitAsync(dispatcherCancellationObservedSource.Task, "execute request timeout cancellation", SignalWaitTimeout);
+
+            var response = await TestAwaiter.WaitAsync(responseTask, "execute timeout response", SignalWaitTimeout);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(response.Errors.Count, Is.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcTransportErrorCodes.IpcTimeout));
         });
 
         [UnityTest]
@@ -363,7 +451,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator TestRunHandler_WhenServiceSucceeds_ReturnsOkResponse () => UniTask.ToCoroutine(async () =>
         {
             var service = new StubUnityTestRunService(request => Task.FromResult(UnityTestRunServiceResult.Success(new IpcTestRunResponse(2))));
-            var handler = CreateTestRunHandler(service);
+            var handler = CreateTestRunHandler(service, new IpcRequestTimeoutScopeFactory());
             var request = CreateTestRunRequest(
                 "req-test-run-success",
                 CreateValidTestRunPayload(failFast: true));
@@ -408,7 +496,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         null));
                 return Task.FromResult(UnityTestRunServiceResult.Success(new IpcTestRunResponse(0)));
             });
-            var handler = CreateTestRunHandler(service);
+            var handler = CreateTestRunHandler(service, new IpcRequestTimeoutScopeFactory());
             var streamWriter = new CollectingIpcStreamFrameWriter("req-test-run-stream");
             var request = CreateTestRunRequest(
                 "req-test-run-stream",
@@ -447,7 +535,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         Array.Empty<string>()));
                 return Task.FromResult(UnityTestRunServiceResult.Success(new IpcTestRunResponse(0)));
             });
-            var handler = CreateTestRunHandler(service);
+            var handler = CreateTestRunHandler(service, new IpcRequestTimeoutScopeFactory());
             var streamWriter = new CollectingIpcStreamFrameWriter(
                 "req-test-run-stream-flush-error",
                 new IOException("progress write failed"));
@@ -615,7 +703,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var service = new StubUnityTestRunService(_ => Task.FromResult(UnityTestRunServiceResult.Failure(
                 new IpcError(EditorLifecycleErrorCodes.EditorBusy, "Unity editor is busy with internal work.", null))));
-            var handler = CreateTestRunHandler(service);
+            var handler = CreateTestRunHandler(service, new IpcRequestTimeoutScopeFactory());
             var request = CreateTestRunRequest(
                 "req-test-run-lifecycle-error",
                 CreateValidTestRunPayload());
@@ -633,7 +721,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator TestRunHandler_WhenServiceThrowsArgumentException_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
             var service = new StubUnityTestRunService(_ => throw new ArgumentException("invalid"));
-            var handler = CreateTestRunHandler(service);
+            var handler = CreateTestRunHandler(service, new IpcRequestTimeoutScopeFactory());
             var request = CreateTestRunRequest(
                 "req-test-run-invalid-argument",
                 CreateValidTestRunPayload());
@@ -650,7 +738,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator TestRunHandler_WhenServiceThrowsUnexpectedException_ReturnsInternalError () => UniTask.ToCoroutine(async () =>
         {
             var service = new StubUnityTestRunService(_ => throw new InvalidOperationException("test-run-failed"));
-            var handler = CreateTestRunHandler(service);
+            var handler = CreateTestRunHandler(service, new IpcRequestTimeoutScopeFactory());
             var request = CreateTestRunRequest(
                 "req-test-run-internal-error",
                 CreateValidTestRunPayload());
@@ -668,7 +756,8 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator TestRunHandler_WhenPayloadIsInvalid_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
             var handler = CreateTestRunHandler(
-                new StubUnityTestRunService(request => Task.FromResult(UnityTestRunServiceResult.Success(new IpcTestRunResponse(0)))));
+                new StubUnityTestRunService(request => Task.FromResult(UnityTestRunServiceResult.Success(new IpcTestRunResponse(0)))),
+                new IpcRequestTimeoutScopeFactory());
             var request = CreateTestRunRequest("req-test-run-invalid-payload", 123);
 
             var response = await handler.HandleAsync(request, CancellationToken.None);
@@ -1527,11 +1616,21 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static TestRunUnityIpcMethodHandler CreateTestRunHandler (
             IUnityTestRunService testRunService,
-            IIpcRequestTimeoutScopeFactory timeoutScopeFactory = null)
+            IIpcRequestTimeoutScopeFactory timeoutScopeFactory)
         {
             return new TestRunUnityIpcMethodHandler(
                 testRunService,
-                timeoutScopeFactory ?? new IpcRequestTimeoutScopeFactory());
+                timeoutScopeFactory);
+        }
+
+        private static ExecuteUnityIpcMethodHandler CreateExecuteHandler (
+            IExecuteRequestDispatcher executeRequestDispatcher,
+            IIpcRequestTimeoutScopeFactory timeoutScopeFactory)
+        {
+            return new ExecuteUnityIpcMethodHandler(
+                executeRequestDispatcher,
+                timeoutScopeFactory,
+                IpcProjectIdentity.Unknown);
         }
 
         private static UnityLogsReadUnityIpcMethodHandler CreateUnityLogsReadHandler (IUnityLogStream stream)
@@ -1627,6 +1726,19 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private sealed class StubExecuteRequestDispatcher : IExecuteRequestDispatcher
         {
+            private readonly Func<IpcExecuteRequest, ExecuteDispatchContext, CancellationToken, Task<IpcResponse>> execute;
+
+            public StubExecuteRequestDispatcher (
+                Func<IpcExecuteRequest, ExecuteDispatchContext, CancellationToken, Task<IpcResponse>> execute)
+            {
+                this.execute = execute ?? throw new ArgumentNullException(nameof(execute));
+            }
+
+            public static StubExecuteRequestDispatcher CreateSuccessful ()
+            {
+                return new StubExecuteRequestDispatcher(DefaultExecuteAsync);
+            }
+
             public int CallCount { get; private set; }
 
             public IpcExecuteRequest LastRequest { get; private set; }
@@ -1642,6 +1754,15 @@ namespace MackySoft.Ucli.Unity.Tests
                 CallCount++;
                 LastRequest = request;
                 LastContext = context;
+                return execute(request, context, cancellationToken);
+            }
+
+            private static Task<IpcResponse> DefaultExecuteAsync (
+                IpcExecuteRequest request,
+                ExecuteDispatchContext context,
+                CancellationToken cancellationToken)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
                 return Task.FromResult(new IpcResponse(
                     ProtocolVersion: context.ProtocolVersion,
                     RequestId: context.RequestId,

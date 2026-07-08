@@ -68,4 +68,31 @@ public sealed class UnityIpcRequestFactoryTimeoutTests
         Assert.Equal("build-run-1", buildRunRequest.RunId);
         Assert.Equal(1234, buildRunRequest.TimeoutMilliseconds);
     }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void UnityIpcRequestFactory_WithExecuteDispatchTimeout_InjectsTimeoutPayload ()
+    {
+        var executeArguments = IpcPayloadCodec.SerializeToElement(new
+        {
+            protocolVersion = IpcProtocol.CurrentVersion,
+            requestId = "req-1",
+            steps = Array.Empty<object>(),
+        });
+        var dispatchRequest = new UnityIpcRequestBuilder().Build(new UnityRequestPayload.ExecuteJson(
+            UcliCommandIds.Call,
+            executeArguments,
+            FailFast: false,
+            AllowDangerous: true));
+
+        var request = UnityIpcRequestFactory.Create(
+            "session-token",
+            dispatchRequest,
+            TimeSpan.FromMilliseconds(1234));
+
+        Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcExecuteRequest executeRequest, out _));
+        Assert.Equal(UcliCommandIds.Call.Name, executeRequest.Command);
+        Assert.True(executeRequest.AllowDangerous);
+        Assert.Equal(1234, executeRequest.TimeoutMilliseconds);
+    }
 }
