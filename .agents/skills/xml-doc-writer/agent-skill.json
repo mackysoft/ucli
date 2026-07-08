@@ -5,24 +5,26 @@
   "tier": "development",
   "skillName": "xml-doc-writer",
   "displayName": "XML Doc Writer",
-  "description": "XMLドキュメントコメントを契約ベースで執筆・更新する。公開APIまたは重要な非公開APIの入力制約、戻り値保証、例外条件、非同期完了条件を明文化したいときに使う。曖昧語や命名の言い換えを避け、実装と整合する記述を作成する。",
-  "dependencies": [],
-  "contentDigest": "73fada8f758ff1a93390dfc5ed6dfae1f1dd49516ea529f0abedded2027fd0f8",
-  "manifestDigest": "d5f5b65c3d1b404182e5127d759c2f407c525886df82c9ed6866425a8452d633",
+  "description": "XMLドキュメントコメントを契約ベースで執筆・更新する。公開API、internal API、または重要な非公開APIの入力制約、戻り値保証、例外条件、非同期完了条件を明文化したいときに使う。曖昧語や命名の言い換えを避け、実装と整合する記述を作成する。",
+  "dependencies": [
+    "writing"
+  ],
+  "contentDigest": "930cae74f5c291f58124e876656f7125de4224e690d4a88613305e53695e710b",
+  "manifestDigest": "11e857205443240558cea9e1f1a815283bcd0fccd68b6dd68a4a6ea8a904b96b",
   "hostArtifacts": [
     {
       "host": "claude",
-      "materializedFrontmatterDigest": "62b56c67d5e3aefc430eda3c12f529114c33198e969396b8751f2bb763eb1213"
+      "materializedFrontmatterDigest": "6953016fe7db3008a2069881749777fdb1ed8aebfceaf1c9d9497707922d1003"
     },
     {
       "host": "copilot",
-      "materializedFrontmatterDigest": "30143e1eec7a3f85e7da104690a8142900b8242e1a4be6f25bdae6b313b0eab9"
+      "materializedFrontmatterDigest": "15bb6e87bef5d4e21753be01f3f3601b2838f6b14880543ead262a5a237f902a"
     },
     {
       "host": "openai",
       "path": "agents/openai.yaml",
-      "digest": "1d8a5ee0eb60e14e10dd3105c487a3c61d685403cbe1eabcea89da611c31bb2d",
-      "materializedFrontmatterDigest": "4b3dd0dbd838409a461922a24d52d96c20128a92a4c89ffd7921884414c4449d"
+      "digest": "434c31b68cf741d5ff53e7d76887d7052e7532117054495bf628a10cc83ac245",
+      "materializedFrontmatterDigest": "2afed606fd64a62f2dfc3c800bc6a852adb775c2c8926faacc367701cc125d0c"
     }
   ]
 }

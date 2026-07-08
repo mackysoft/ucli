@@ -1,127 +1,88 @@
 ---
 name: "pr-merge"
-description: "現在作業または指定PRを安全にマージする。現在作業をブランチへ載せ、PRを取得または作成し、push、Draft解除、CI待機、必須チェック確認、マージ、リモートブランチクリーンアップまで進める。"
+description: "現在作業または指定PRを安全にマージする。現在作業をブランチへ載せ、PRを取得または作成し、push、Draft解除、auto-merge設定、CI監視、マージ、リモートブランチクリーンアップまで進める。admin merge や bypass が明示された場合は `privileged-merge` として確認なしで使う。"
 ---
 
 # pr-merge
 
 ## 目的
-- ブランチ、PR、push、CI、マージ状態を順に整える。
-- 「マージ」指示だけで、現在作業からマージ完了まで必要な手順を実行する。
-- 対象ブランチのPRがある場合は、そのPRを使ってマージへ進める。
+現在作業または指定 PR を、安全にマージする。
 
-## 使うタイミング
-- 現在作業をPRとしてマージしたいとき
-- 指定PRをチェック通過後にマージしたいとき
+対象 PR を確定し、必要な更新、push、Ready 化、auto-merge 設定、CI 監視、マージ、リモートブランチ後始末まで進める。
 
-## 入力（任意。無くても推定して進める）
-- 対象PR（番号/URL/ブランチ。省略時は現在作業）
-- 作業ブランチ名（省略時は差分内容から生成）
-- 保護ルール起因失敗時の `--admin` 再試行可否
+## 用語
+`privileged-merge` は、ユーザーが admin merge または bypass を明示した状態を指す。
+これは強い権限指定であり、明示された場合だけ使う。
+`gh pr merge` では `--admin` に対応する。
 
-## 出力
-- 作業ブランチ作成有無
-- 対象PR URL
-- `$pr-create` 実行有無
-- `$push` 実行有無
-- CI待機結果
-- 即時マージ結果
-- リモートブランチ削除結果
-- 停止した場合の理由
+## フロー
 
-## 手順
+### Phase 1: 対象 PR を確定する
+- `gh auth status` を確認する。
+- PR 番号、URL、ブランチが指定されている場合は、その PR を使う。
+- 指定がない場合は、現在ブランチの open PR を探す。
+- 現在ブランチに PR がなく、現在作業から PR を作れる場合は `$pr-submit` を使う。
+- 複数候補がある場合は停止し、対象を確認する。
+- 対象 PR を確定したら `gh pr view` で状態を確認し、open でなければ停止する。
+- `privileged-merge` が明示されている場合は状態に残す。
 
-### 1. 前提を確認する
-1. `gh auth status` を確認し、失敗したら停止する。
-2. `git symbolic-ref --quiet HEAD` を実行し、現在ブランチの有無を確認する。
-3. 現在ブランチが無い場合は、Step 2 で作業ブランチを作成する。
+### Phase 2: PR を更新可能な状態にする
+- 未コミット差分または未 push コミットがある場合は `$push` を使う。
+- PR が behind、または最新化が必要な場合は `$sync-latest` を使い、必要なら `$push` で反映する。
+- 同期で衝突した場合はマージへ進まない。
+- 既存 PR の本文は、マージのためだけには更新しない。
 
-### 2. 対象作業をブランチへ載せる
-1. 対象PRが番号/URLで明示されている場合は、ブランチ作成を行わず `gh pr view <target>` で対象PRを確定して Step 6 へ進む。
-2. 現在ブランチがある場合は、そのブランチを対象作業ブランチにする。
-3. 現在ブランチが無い場合は、マージ対象の有無を確認する。
-   - `git status --porcelain` で未コミット差分を確認する。
-   - リポジトリ既定ブランチを `gh repo view --json defaultBranchRef` で確認する。
-   - `git rev-list --count <default_branch>..HEAD` で HEAD 上の未取り込みコミット数を確認する。
-   - 未コミット差分が無く、未取り込みコミット数も `0` なら、マージ対象が無いので停止する。
-4. マージ対象がある場合は `$branch-create` を呼び、現在作業を載せるブランチを作成または再利用する。
-5. `$branch-create` の完了後に現在ブランチ名を再取得し、以降はそのブランチを対象作業ブランチにする。
+### Phase 3: Ready にする
+Draft PR の場合は Ready にする。
+Ready 化できない理由がある場合は停止する。
 
-### 3. 対象PRを確認する
-1. 現在ブランチ名を取得する。
-2. `gh pr list --state open --head <current_branch>` を実行して対象ブランチのPRを確認する。
-3. 複数のPRが返った場合は対象PRをユーザー確認して1件に確定する。
+### Phase 4: マージ経路を決める
+最新の head SHA を取得する。
+チェック結果と保護ルールの状態を確認し、次に進む先を決める。
+チェック結果は必須チェックだけでなく、PR に表示されているチェックも見る。
+PR 更新または Ready 化の直後でチェックがまだ表示されていない場合は、短く検出待ちしてから判定する。
 
-### 4. 差分状態を確認する
-1. `git status --porcelain` で未コミット差分有無を確認する。
-2. upstream がある場合は `git rev-list --count @{upstream}..HEAD` で未push件数を確認する。
-3. upstream が無い場合は、未push差分ありとして扱う。
+| 状態 | 次に進む先 |
+| --- | --- |
+| `privileged-merge` が明示されている | Phase 7 で `--admin` 付きのマージを実行する。 |
+| マージ条件を満たしている | Phase 7 で通常のマージを実行する。 |
+| 必須チェック、表示済みチェック、merge queue、保護ルールの完了待ち | Phase 5 で auto-merge を設定する。 |
+| チェックが未表示で検出待ちが必要 | Phase 6 で監視する。 |
+| 失敗、キャンセル、タイムアウトしたチェックがある | 停止する。 |
 
-### 5. 分岐して必要なスキルを実行する
-1. 対象PRを取得できない場合のみ `$pr-create` を実行する。
-2. 対象PRがあり、未コミット差分または未push差分があれば `$push` を実行する。
-3. 対象PRがあり、差分が無ければ追加スキルを呼ばずに続行する。
-4. `$pr-create` または `$push` 実行後は `gh pr list --state open --head <current_branch>` で対象PRを再取得する。
-5. 対象PRを再取得できない場合は停止する。
+### Phase 5: auto-merge を設定する
+auto-merge はまず `gh pr merge <number> --auto --merge --delete-branch --match-head-commit <headRefOid>` で設定する。
 
-### 6. PR状態を確認する
-1. `gh pr view --json state,isDraft,headRefOid,headRefName,url,number` を実行する。
-2. `state != OPEN` の場合は停止する。
-3. 既存PR分岐では PR本文を更新しない。
+| 結果 | 次に進む先 |
+| --- | --- |
+| auto-merge を設定できた | 後でマージされる状態として Phase 9 へ進む。 |
+| merge queue がマージ方式の指定を受け付けない | `--merge` を外して再実行し、結果をこの表で判定する。 |
+| auto-merge を設定できないが、チェック監視で続行できる | Phase 6 へ進む。 |
+| head SHA 不一致、認証不足、権限不足、PR 状態の不整合で失敗した | 停止する。 |
 
-### 7. Draft を解除する
-1. `isDraft=true` の場合は `gh pr ready` を実行して Ready にする。
+### Phase 6: CI を監視する
+Phase 6 は、チェックの検出待ちまたは監視が必要な場合に実行する。
 
-### 8. CI と必須チェックを待機する
-1. `gh pr checks <number> --required` を実行し、必須チェックの有無と状態を確認する。
-2. 必須チェックが存在する場合は、次のコマンドで完了まで待機する。
-   `gh pr checks <number> --required --watch --fail-fast --interval 10`
-3. 必須チェックが未設定または未検出の場合は、短い検出待機を行う。
-   - 最大60秒、10秒間隔で `gh pr checks <number>` を再実行し、CIチェックが表示されるか確認する。
-   - CIチェックが表示された場合は、次のコマンドで全チェックの完了まで待機する。
-     `gh pr checks <number> --watch --fail-fast --interval 10`
-   - 検出待機後もチェックが無い場合のみ「CIチェックなし」として続行する。
-4. 失敗、キャンセル、タイムアウトしたチェックがある場合は停止する。
-5. チェック待機後に `gh pr view --json headRefOid` を再実行し、`headRefOid` を最新化する。
+チェックが未表示の場合は短く検出待ちする。
+必須チェックが検出できる場合は `gh pr checks <number> --required --watch` で監視する。
+必須チェックが検出できない場合は、表示されたチェックを監視する。
+チェックが通ったら最新の head SHA を取り直し、Phase 7 へ進む。
+失敗、キャンセル、タイムアウトが残る場合は停止する。
 
-### 9. マージを実行する
-1. 次のコマンドでマージを実行する。
-   `gh pr merge <number> --merge --match-head-commit <headRefOid>`
-2. `already merged` が返る場合は、マージ済みとして後続のクリーンアップへ進む。
+### Phase 7: マージする
+マージコマンドは次で選ぶ。
 
-### 10. 失敗時の管理者再試行
-1. ブランチ保護ルール起因で失敗した場合のみ、ユーザーへ `--admin` 再試行可否を確認する。
-2. 承認された場合に限り `--admin` を付けて1回だけ再試行する。
-3. 未承認または再試行失敗時は停止する。
+| 状態 | コマンド |
+| --- | --- |
+| `privileged-merge` が明示されている | `gh pr merge <number> --merge --admin --delete-branch --match-head-commit <headRefOid>` |
+| `privileged-merge` が明示されていない | `gh pr merge <number> --merge --delete-branch --match-head-commit <headRefOid>` |
 
-### 11. リモートブランチをクリーンアップする
-1. リポジトリの自動ブランチ削除設定を確認する。
-   - `name_with_owner=$(gh repo view --json nameWithOwner --jq '.nameWithOwner')`
-   - `auto_delete=$(gh api "repos/${name_with_owner}" --jq '.delete_branch_on_merge')`
-2. `git ls-remote --exit-code --heads origin <headRefName>` でリモートブランチの存在を確認する。
-3. 自動ブランチ削除が有効な場合は、最大60秒、5秒間隔でリモートブランチが消えるか確認する。
-4. リモートブランチが存在しない場合は「自動削除済み」または「既に削除済み」として扱う。
-5. 待機後もリモートブランチが存在する場合のみ、`git push origin --delete <headRefName>` を実行する。
-6. 手動削除時にリモート側へ対象ブランチが存在しないエラーになった場合は「既に削除済み」として扱う。
+保護ルール起因で失敗した場合も、`privileged-merge` の明示がなければ停止する。
 
-## 安全規約
-1. マージ方式は常に `--merge` を使用する。
-2. ブランチ作成が必要な場合は `$branch-create` を実行する。
-3. 既存PRがある場合に `$pr-create` を呼ばない。
-4. 既存PRで差分反映が必要な場合は `$push` のみを使う。
-5. 既存PR分岐で `gh pr edit` を使った本文更新は行わない。
-6. 現在ブランチが無い場合は、差分や未取り込みコミットがある限り `$branch-create` で現在ブランチを用意してから `$pr-create` へ進む。
-7. CIチェックが存在する場合は、完了を待たずに `gh pr merge` へ進まない。
-8. `--auto` は CI待機の代替として使わない。チェック未完了、失敗、タイムアウト時は停止する。
-9. マージ本体では `--delete-branch` を使わない。
-10. リモートブランチ削除前に、リポジトリの自動ブランチ削除設定と現在のリモートブランチ存在有無を確認する。
-11. 自動ブランチ削除が有効な場合は、反映待ち後も残っているときだけ `git push origin --delete` を実行する。
+### Phase 8: ブランチ削除を確認する
+実マージが完了している場合だけ、リモートブランチとローカルブランチの残存を確認する。
+リモートブランチが残っている場合だけ `git push origin --delete <headRefName>` を実行する。
+ローカルブランチが残っており、現在ブランチでない場合だけ `git branch -d <headRefName>` を実行する。
 
-## Definition of Done
-- 現在作業が対象ブランチに載り、必要なPR作成へ進めている
-- 対象PRを取得できない場合のみ `$pr-create` が実行されている
-- 既存PRで差分あり時のみ `$push` が実行されている
-- CIチェックがある場合は完了まで待機し、失敗時に停止できる
-- 手順で定義したマージコマンドで実行される
-- 保護ルール起因失敗時のみ `--admin` を都度確認し、承認時に1回だけ再試行する
-- リモートブランチが削除されている（自動削除済み、手動削除済み、または既に削除済み）
+### Phase 9: 状態を残す
+PR URL、更新に使ったスキル、チェック結果、マージ経路、`privileged-merge` 指定の有無、auto-merge 設定結果、マージ結果、ブランチ削除結果、停止理由を残す。

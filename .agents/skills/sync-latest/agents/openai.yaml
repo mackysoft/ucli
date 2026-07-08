@@ -1,0 +1,7 @@
+interface:
+  display_name: "Sync Latest"
+  short_description: "作業開始前、push 前、PR 作成前、PR 更新前、PR マージ前、non-fast-forward 解消など、現在ブランチの最新性が作業の前提になる場面で、origin から最新状態を取得し、現在ブランチ、upstream、open PR、既定ブランチ、指定ブランチを確認して、必要な場合だけ安全に同期する。"
+  default_prompt: "Use $sync-latest to follow the Sync Latest workflow."
+
+policy:
+  allow_implicit_invocation: true

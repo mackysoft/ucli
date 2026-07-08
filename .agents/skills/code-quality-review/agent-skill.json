@@ -7,8 +7,8 @@
   "displayName": "Code Quality Review",
   "description": "コードベース全体または変更差分に対して、既存ユーティリティの再実装、本質的な重複、低凝集、冗長な状態管理、不要抽象化を findings-first でレビューする。品質上の懸念を整理し、改善方向まで含めた指摘を返したいときに使う。",
   "dependencies": [],
-  "contentDigest": "4d573ce52d38d708a690bba80a4514cb256507388719b8e79486b2df41b08183",
-  "manifestDigest": "5539a592e30a578c7c358686c799331ebc945cdf7c987c47bfa4e513aaa5e665",
+  "contentDigest": "ef0e5065f0f555a89b652f983b366e824cb585febde6be7c687f5635957932e1",
+  "manifestDigest": "aa65f1c9f18efafe2876df980706adf77ee593fbb5e331481d22d2be2dafa44b",
   "hostArtifacts": [
     {
       "host": "claude",

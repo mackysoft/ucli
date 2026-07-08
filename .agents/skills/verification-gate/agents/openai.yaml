@@ -1,6 +1,6 @@
 interface:
   display_name: "Verification Gate"
-  short_description: "コード変更が一通り終わった挙動確認時、またはPR作成前に、受け入れ判定に必要な検証のみを実行する。実装や設計検討が目的のときは使わない。"
+  short_description: "変更が受け入れ可能かを判断するために、作業種別から必要な検証面を選び、リポジトリの専用 script や CI と同じコマンドを優先して実行し、成功、失敗、未検証範囲、次に必要な作業を残す。"
   default_prompt: "Use $verification-gate to follow the Verification Gate workflow."
 
 policy:

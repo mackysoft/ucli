@@ -6,80 +6,59 @@ description: "作業ブランチを規約準拠名で作成または再利用す
 # branch-create
 
 ## 目的
-- 入力パラメータ、Issue、現在作業のいずれかから、規約準拠ブランチ名を一意に確定する。
-- 既存ブランチを優先再利用する。
-- 現在ブランチが無い作業や未コミット差分を、以降の `$commit` / `$push` / `$pr-create` が扱える現在ブランチへ載せる。
+作業内容、Issue、指定値から規約準拠の作業ブランチを確定し、作業を載せる。
 
-## 使う/使わない
-### 使う
-- 対象Issueが確定しており、規約準拠ブランチを作成または再利用したい。
-- Issueなしの現在作業に対して、規約準拠ブランチを作成したい。
-- 現在ブランチが無い作業を、作業ブランチへ載せたい。
-- `Branch Type` / `Base Branch` / `Branch Name` を含む入力から、最終ブランチ名を一意に確定したい。
-### 使わない
-- Issueの特定・作成が主目的。
+既存ブランチがある場合は再利用する。
+新しい作業を既定ブランチから始める場合は、作成前に `$sync-latest` で起点を最新化する。
 
-## 入力
-### 任意
-- `Issue Number or URL`
-- `Branch Type`
-- `Base Branch`
-- `Branch Name`
-- `Source Ref`（未指定時は現在作業を保持できる起点を選ぶ）
+## フロー
 
-## 出力
-- `Branch Name`
-- `Base Branch`
-- `Created New Branch`（`Yes/No`）
+### Phase 1: 作業状態を確認する
+- `gh auth status` を確認する。
+- 現在ブランチ、未コミット差分、worktree 使用状況を確認する。
+- Issue が指定されている場合は `gh issue view` で存在と状態を確認し、open でなければ停止する。
 
-## 参照
-- 推論規約: [references/branch_policy.md](references/branch_policy.md)
+### Phase 2: 起点を決める
+base branch が指定されていれば採用する。
+未指定ならリポジトリの既定ブランチを採用する。
+採用した base branch が解決できなければ停止する。
 
-## 手順
-### 0. 前提チェック（必須）
-1. `gh auth status` が成功すること（失敗したら中断）。
-2. `Issue Number or URL` が入力されている場合のみ、`gh issue view` を実行し、対象Issueが open であることを確認する。
-3. 現在の `git status --porcelain` と `git symbolic-ref --quiet HEAD` を確認する。
+現在の未コミット差分や detached HEAD の作業を保持する必要がある場合は、現在の `HEAD` を起点にする。
+既定ブランチから新規作成する場合は、先に `$sync-latest` で起点を最新化する。
 
-### 1. Base Branch を確定する
-1. `Base Branch` が入力されていれば採用する。
-2. 未指定なら `gh repo view --json defaultBranchRef --jq '.defaultBranchRef.name'` の結果を採用する。
-3. 確定した `Base Branch` が解決できない場合は中断する。
+### Phase 3: ブランチ名を決める
+ブランチ種別が指定されていれば採用する。
+指定がなければ Issue、ユーザー指示、差分の目的から一般的な開発語彙に沿って選ぶ。
 
-### 2. type を確定する
-1. `Branch Type` が許可値 `feature|fix|refactor|docs|chore|ci` のいずれかなら採用する。
-2. Issue がある場合は、`references/branch_policy.md` の規約で Issue ラベル優先・本文キーワード次点で推論する。
-3. Issue が無い場合は、ユーザー指示、未コミット差分、変更ファイルから推論する。
-4. 推論不能なら `chore` を採用する。
+| 変更の性質 | branch type | 対応する Conventional Commit type |
+| --- | --- | --- |
+| 利用者に見える機能追加 | `feature` | `feat` |
+| バグ修正 | `fix` | `fix` |
+| 振る舞いを変えない構造整理 | `refactor` | `refactor` |
+| 性能改善 | `perf` | `perf` |
+| テスト | `test` | `test` |
+| ドキュメント | `docs` | `docs` |
+| CI 設定 | `ci` | `ci` |
+| build、依存、リリース設定 | `build` | `build` |
+| その他の保守作業 | `chore` | `chore` |
 
-### 3. branch_name を確定する
-1. `Branch Name` が入力されていれば、`references/branch_policy.md` の slug ルールで正規化して採用する。
-2. Issue がある場合は、Issue本文の `変更内容（What）` と `受け入れ条件（Acceptance Criteria）` を優先し、候補が不足する場合はタイトルから slug を生成する。
-3. Issue が無い場合は、ユーザー指示、変更ファイル、差分の目的から slug を生成する。
-4. 正規化後に空文字なら `goal` を採用する。
+判断できない場合は `chore` を使う。
 
-### 4. ブランチ名を組み立てる
-1. Issue がある場合は `<type>/issue-<N>-<branch_name>` とする。
-2. Issue が無い場合は `<type>/<branch_name>` とする。
+ブランチ名が指定されていれば slug 化して使う。
+未指定なら Issue、ユーザー指示、差分の目的から slug を作る。
 
-### 5. ブランチを作成または再利用する
-1. 現在ブランチが確定ブランチ名と一致する場合は、そのまま再利用する（`Created New Branch = No`）。
-2. 同名ローカルブランチが存在する場合は、別 worktree で使用中でないことを `git worktree list --porcelain` で確認してから checkout して再利用する（`Created New Branch = No`）。
-3. ローカルに無く同名リモートブランチが存在する場合は tracking で checkout して再利用する（`Created New Branch = No`）。
-4. どちらにも無い場合は新規作成して checkout する（`Created New Branch = Yes`）。
-   - `Source Ref` が入力されている場合は、その ref から作成する。
-   - 現在ブランチが無い作業または未コミット差分がある現在作業を保持する場合は、現在の `HEAD` から作成する。
-   - それ以外は `Base Branch` から作成する。
-5. 既存ブランチが別 worktree で使用中の場合は、その worktree パスを示して停止する。確認なしに別名ブランチを作成しない。
+Issue がある場合は `<type>/issue-<N>-<branch_name>` にする。
+Issue がない場合は `<type>/<branch_name>` にする。
 
-### 6. 出力を固定する
-1. `Branch Name` に確定名を設定する。
-2. `Base Branch` に確定値を設定する。
-3. `Created New Branch` は `Yes` または `No` で返す。
+slug は ASCII 小文字、数字、ハイフンで構成する。
+空になった場合は `goal` を使う。
 
-## Definition of Done
-- Issueありなら `<type>/issue-<N>-<branch_name>`、Issueなしなら `<type>/<branch_name>` 形式で確定している。
-- `type` が許可値・推論順・フォールバック規約に従って決定されている。
-- 既存ブランチがある場合は再利用され、別名ブランチが作成されていない。
-- 現在ブランチが無い作業または未コミット差分がある現在作業では、現在の `HEAD` からブランチが作成されている。
-- 出力3項目がすべて返却されている。
+### Phase 4: ブランチを作成または再利用する
+- 現在ブランチが確定名と一致する場合は再利用する。
+- 同名ローカルブランチがある場合は、別 worktree で使用中でないことを確認して再利用する。
+- 同名リモートブランチがある場合は tracking branch として再利用する。
+- 既存ブランチが別 worktree で使用中なら停止する。
+- 既存ブランチがなければ、Phase 2 の起点から作成する。
+
+### Phase 5: 状態を残す
+確定したブランチ名、起点、作成または再利用の結果、停止理由を残す。
