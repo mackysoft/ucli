@@ -72,7 +72,9 @@ internal sealed class DaemonGuiRebootstrapClient : IDaemonGuiRebootstrapClient
                 RequestId: $"gui-rebootstrap-{Guid.NewGuid():N}",
                 SessionToken: manifest!.SessionToken,
                 Method: IpcMethodNames.GuiRebootstrap,
-                Payload: IpcPayloadCodec.SerializeToElement(new IpcGuiRebootstrapRequest(unityProject.ProjectFingerprint)),
+                Payload: IpcPayloadCodec.SerializeToElement(new IpcGuiRebootstrapRequest(
+                    ProjectFingerprint: unityProject.ProjectFingerprint,
+                    ReplaceExistingSession: true)),
                 responseMode: IpcResponseMode.Single);
             var response = await transportClient.SendAsync(
                     ResolveEndpoint(manifest),

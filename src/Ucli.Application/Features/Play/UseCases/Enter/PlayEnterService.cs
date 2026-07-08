@@ -129,6 +129,13 @@ internal sealed class PlayEnterService : IPlayEnterService
     {
         if (IpcPayloadCodec.TryDeserialize(response.Payload, out IpcPlayTransitionResponse payload, out var payloadError))
         {
+            if (payload.Transition is null)
+            {
+                transitionResponse = null;
+                failure = CreateStateUnknownFailure("Unity play enter transition payload is missing.");
+                return false;
+            }
+
             transitionResponse = payload;
             failure = null;
             return true;

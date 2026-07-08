@@ -211,6 +211,21 @@ public sealed class PlayEnterServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Execute_WhenUnitySuccessPayloadIsInvalid_ReturnsInternalError ()
+    {
+        var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateInvalidPayloadResponse()));
+        var service = CreateService(PlayProjectContext, CreateGuiSessionStore(), requestExecutor);
+
+        var result = await service.ExecuteAsync(new PlayEnterCommandInput(null, null), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Null(result.Output);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, result.Error!.Code);
+        Assert.Contains("Unity play enter payload is invalid.", result.Error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Execute_WhenUnityErrorOmitsTransitionPayload_ReturnsOriginalError ()
     {
         var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateErrorResponseWithoutTransitionPayload(

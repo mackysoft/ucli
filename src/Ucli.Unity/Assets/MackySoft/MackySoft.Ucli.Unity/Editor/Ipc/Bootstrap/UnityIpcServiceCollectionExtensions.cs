@@ -262,7 +262,11 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddUnityRuntimeServices(DaemonEditorMode.Gui);
             services.AddSingleton<ISessionTokenValidator>(sessionTokenValidator);
             services.AddSingleton<IDaemonLogger>(daemonLogger);
-            services.AddSingleton<IUnityIpcMethodHandler>(_ => new GuiRebootstrapUnityIpcMethodHandler(projectFingerprint, daemonLogger));
+            services.AddSingleton<IUnityGuiBootstrapStarter, UnityGuiBootstrapStarter>();
+            services.AddSingleton<IUnityIpcMethodHandler>(serviceProvider => new GuiRebootstrapUnityIpcMethodHandler(
+                bootstrapStarter: serviceProvider.GetRequiredService<IUnityGuiBootstrapStarter>(),
+                projectFingerprint: projectFingerprint,
+                daemonLogger: daemonLogger));
             services.AddSingleton<IUnityIpcMethodDispatcher, UnityIpcMethodDispatcher>();
             services.AddSingleton<IUnityIpcRequestHandler, UnityIpcRequestHandler>();
             services.AddSingleton<IUnityIpcRequestProcessor, UnityIpcRequestProcessor>();
