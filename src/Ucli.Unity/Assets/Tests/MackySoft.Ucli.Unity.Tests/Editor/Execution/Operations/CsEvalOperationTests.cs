@@ -1,6 +1,8 @@
+using System;
 using System.Collections;
 using System.Text.Json;
 using System.Threading;
+using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
@@ -18,6 +20,8 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class CsEvalOperationTests
     {
+        private static readonly TimeSpan SignalWaitTimeout = TimeSpan.FromSeconds(5);
+
         [Test]
         [Category("Size.Small")]
         public void Metadata_ExposesDangerousMutationAndCodeContract ()
@@ -892,6 +896,65 @@ namespace EvalScripts
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Call_WhenTaskLikeReturnCancellationIsRequested_ThrowsOperationCanceledException () => UniTask.ToCoroutine(async () =>
+        {
+            var cases = new[]
+            {
+                new AsyncVoidReturnCase(
+                    "task",
+                    "public static System.Threading.Tasks.Task Run(UcliCsEvalContext context)",
+                    "return MackySoft.Ucli.Unity.Tests.CsEvalOperationTests.AsyncEvalCancellationProbe.CreatePendingTask();"),
+                new AsyncVoidReturnCase(
+                    "task-int",
+                    "public static System.Threading.Tasks.Task<int> Run(UcliCsEvalContext context)",
+                    "return MackySoft.Ucli.Unity.Tests.CsEvalOperationTests.AsyncEvalCancellationProbe.CreatePendingGenericTask();"),
+                new AsyncVoidReturnCase(
+                    "value-task",
+                    "public static System.Threading.Tasks.ValueTask Run(UcliCsEvalContext context)",
+                    "return new System.Threading.Tasks.ValueTask(MackySoft.Ucli.Unity.Tests.CsEvalOperationTests.AsyncEvalCancellationProbe.CreatePendingTask());"),
+                new AsyncVoidReturnCase(
+                    "value-task-int",
+                    "public static System.Threading.Tasks.ValueTask<int> Run(UcliCsEvalContext context)",
+                    "return new System.Threading.Tasks.ValueTask<int>(MackySoft.Ucli.Unity.Tests.CsEvalOperationTests.AsyncEvalCancellationProbe.CreatePendingGenericTask());"),
+            };
+            var operation = CreateCsEvalOperation();
+            for (var i = 0; i < cases.Length; i++)
+            {
+                var testCase = cases[i];
+                AsyncEvalCancellationProbe.Reset();
+                using var cancellationTokenSource = new CancellationTokenSource();
+                using var context = new OperationExecutionContext();
+                var request = CreateOperation(CreateAsyncEntryPointSource(testCase.Signature, testCase.Body));
+                try
+                {
+                    var callTask = operation.CallAsync(request, context, cancellationTokenSource.Token);
+                    await TestAwaiter.WaitAsync(
+                        AsyncEvalCancellationProbe.AwaitStarted,
+                        $"eval returned task await point ({testCase.Name})",
+                        SignalWaitTimeout);
+
+                    Assert.That(callTask.IsCompleted, Is.False, testCase.Name);
+
+                    cancellationTokenSource.Cancel();
+
+                    try
+                    {
+                        await TestAwaiter.WaitAsync(callTask, $"eval cancellation ({testCase.Name})", SignalWaitTimeout);
+                        Assert.Fail(testCase.Name);
+                    }
+                    catch (OperationCanceledException) when (cancellationTokenSource.IsCancellationRequested)
+                    {
+                    }
+                }
+                finally
+                {
+                    AsyncEvalCancellationProbe.Complete();
+                }
+            }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Call_WhenEntryPointReturnedTaskFaults_FailsAfterInvocationWithTouchedResources () => UniTask.ToCoroutine(async () =>
         {
             var cases = new[]
@@ -1453,6 +1516,57 @@ namespace EvalScripts
                     new CsEvalSourcePreparer()),
                 new CsEvalEntryPointReflectionResolver(),
                 new CsEvalReturnValueSerializer());
+        }
+
+        public static class AsyncEvalCancellationProbe
+        {
+            private static TaskCompletionSource<bool> awaitStartedSource = CreateBooleanSource();
+
+            private static TaskCompletionSource<object?> pendingTaskSource = CreateObjectSource();
+
+            private static TaskCompletionSource<int> pendingGenericTaskSource = CreateInt32Source();
+
+            public static Task AwaitStarted => awaitStartedSource.Task;
+
+            public static Task CreatePendingTask ()
+            {
+                awaitStartedSource.TrySetResult(true);
+                return pendingTaskSource.Task;
+            }
+
+            public static Task<int> CreatePendingGenericTask ()
+            {
+                awaitStartedSource.TrySetResult(true);
+                return pendingGenericTaskSource.Task;
+            }
+
+            public static void Reset ()
+            {
+                awaitStartedSource = CreateBooleanSource();
+                pendingTaskSource = CreateObjectSource();
+                pendingGenericTaskSource = CreateInt32Source();
+            }
+
+            public static void Complete ()
+            {
+                pendingTaskSource.TrySetResult(null);
+                pendingGenericTaskSource.TrySetResult(0);
+            }
+
+            private static TaskCompletionSource<bool> CreateBooleanSource ()
+            {
+                return new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            }
+
+            private static TaskCompletionSource<object?> CreateObjectSource ()
+            {
+                return new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
+            }
+
+            private static TaskCompletionSource<int> CreateInt32Source ()
+            {
+                return new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+            }
         }
 
         private static NormalizedOperation CreateOperation (

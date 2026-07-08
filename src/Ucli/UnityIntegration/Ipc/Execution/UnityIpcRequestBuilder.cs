@@ -108,7 +108,8 @@ internal sealed class UnityIpcRequestBuilder
                     executeJson.FailFast,
                     executeJson.AllowDangerous,
                     executeJson.PlanToken,
-                    executeJson.AllowPlayMode)),
+                    executeJson.AllowPlayMode),
+                dispatchTimeoutPayloadTransformer: ApplyExecuteDispatchTimeout),
             UnityRequestPayload.ExecuteOperation executeOperation => new UnityIpcDispatchRequest(
                 IpcMethodNames.Execute,
                 CreateExecutePayload(
@@ -121,7 +122,8 @@ internal sealed class UnityIpcRequestBuilder
                     executeOperation.FailFast,
                     executeOperation.AllowDangerous,
                     executeOperation.PlanToken,
-                    allowPlayMode: false)),
+                    allowPlayMode: false),
+                dispatchTimeoutPayloadTransformer: ApplyExecuteDispatchTimeout),
             _ => throw new ArgumentOutOfRangeException(nameof(request), request, "Unsupported Unity request payload."),
         };
     }
@@ -166,6 +168,21 @@ internal sealed class UnityIpcRequestBuilder
         }
 
         return IpcPayloadCodec.SerializeToElement(buildRunRequest with
+        {
+            TimeoutMilliseconds = ToTimeoutMilliseconds(dispatchTimeout),
+        });
+    }
+
+    private static JsonElement ApplyExecuteDispatchTimeout (
+        JsonElement payload,
+        TimeSpan dispatchTimeout)
+    {
+        if (!IpcPayloadCodec.TryDeserialize(payload, out IpcExecuteRequest executeRequest, out _))
+        {
+            return payload;
+        }
+
+        return IpcPayloadCodec.SerializeToElement(executeRequest with
         {
             TimeoutMilliseconds = ToTimeoutMilliseconds(dispatchTimeout),
         });

@@ -29,4 +29,9 @@ public sealed record IpcExecuteRequest (
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? PlanToken { get; init; }
+
+    /// <summary> Gets the optional request execution timeout in milliseconds. </summary>
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? TimeoutMilliseconds { get; init; }
 }

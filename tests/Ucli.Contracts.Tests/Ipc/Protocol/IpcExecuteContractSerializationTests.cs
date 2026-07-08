@@ -22,6 +22,7 @@ public sealed class IpcExecuteContractSerializationTests
             PlanToken = "token-value",
             AllowDangerous = true,
             AllowPlayMode = true,
+            TimeoutMilliseconds = 1234,
         };
 
         var withTokenJson = IpcPayloadCodec.SerializeToElement(requestWithToken);
@@ -31,6 +32,8 @@ public sealed class IpcExecuteContractSerializationTests
         Assert.True(allowDangerousElement.GetBoolean());
         Assert.True(withTokenJson.TryGetProperty("allowPlayMode", out var allowPlayModeElement));
         Assert.True(allowPlayModeElement.GetBoolean());
+        Assert.True(withTokenJson.TryGetProperty("timeoutMilliseconds", out var timeoutMillisecondsElement));
+        Assert.Equal(1234, timeoutMillisecondsElement.GetInt32());
         Assert.False(withTokenJson.TryGetProperty("failFast", out _));
 
         var requestWithoutToken = new IpcExecuteRequest(
@@ -48,6 +51,7 @@ public sealed class IpcExecuteContractSerializationTests
         Assert.False(withoutTokenJson.TryGetProperty("planToken", out _));
         Assert.False(withoutTokenJson.TryGetProperty("allowDangerous", out _));
         Assert.False(withoutTokenJson.TryGetProperty("allowPlayMode", out _));
+        Assert.False(withoutTokenJson.TryGetProperty("timeoutMilliseconds", out _));
         Assert.True(withoutTokenJson.TryGetProperty("failFast", out var failFastElement));
         Assert.True(failFastElement.GetBoolean());
     }

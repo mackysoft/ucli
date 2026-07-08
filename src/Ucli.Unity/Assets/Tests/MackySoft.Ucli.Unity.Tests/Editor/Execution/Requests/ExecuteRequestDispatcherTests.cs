@@ -1405,6 +1405,47 @@ namespace MackySoft.Ucli.Unity.Tests
             }, "Canceled execute request dispatch", AsyncWaitTimeout);
         });
 
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Dispatch_WhenOwnerExecutionIsCanceled_AllowsSameRequestToExecuteAgain () => UniTask.ToCoroutine(async () =>
+        {
+            var normalizedRequest = CreateNormalizedRequest();
+            var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
+            var phaseExecutor = new CancellableThenSuccessfulOperationPhaseExecutor(CreateSuccessTrace(normalizedRequest));
+            var dispatcher = CreateDispatcher(normalizer, phaseExecutor);
+            var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
+            var request = CreateExecuteRequest(UcliCommandIds.Plan);
+            using var cancellationTokenSource = new CancellationTokenSource();
+
+            var firstDispatchTask = dispatcher.DispatchAsync(request, context, cancellationTokenSource.Token);
+            await TestAwaiter.WaitAsync(
+                phaseExecutor.FirstExecutionStarted,
+                "first execute dispatch phase execution start",
+                AsyncWaitTimeout);
+
+            var waiterDispatchTask = dispatcher.DispatchAsync(request, context, CancellationToken.None);
+            Assert.That(waiterDispatchTask.IsCompleted, Is.False);
+
+            cancellationTokenSource.Cancel();
+            await AsyncExceptionCapture.CaptureAsync<OperationCanceledException>(async () =>
+            {
+                await TestAwaiter.WaitAsync(firstDispatchTask, "first execute dispatch cancellation", AsyncWaitTimeout);
+            }, "canceled owner execute dispatch", AsyncWaitTimeout);
+            await AsyncExceptionCapture.CaptureAsync<OperationCanceledException>(async () =>
+            {
+                await TestAwaiter.WaitAsync(waiterDispatchTask, "waiter execute dispatch cancellation", AsyncWaitTimeout);
+            }, "canceled waiter execute dispatch", AsyncWaitTimeout);
+
+            var secondResponse = await DispatchAsync(
+                dispatcher,
+                request,
+                context,
+                "same execute request after owner cancellation");
+
+            Assert.That(secondResponse.Status, Is.EqualTo(IpcProtocol.StatusOk));
+            Assert.That(phaseExecutor.CallCount, Is.EqualTo(2));
+        });
+
         private static async UniTask AssertDelegatesToPhaseExecutorAsync (
             string commandName,
             PhaseExecutionCommand expectedCommand,
@@ -1894,6 +1935,38 @@ namespace MackySoft.Ucli.Unity.Tests
                 CallCount++;
                 ReceivedCommand = command;
                 return Task.FromResult(executionTrace);
+            }
+        }
+
+        private sealed class CancellableThenSuccessfulOperationPhaseExecutor : IOperationPhaseExecutor
+        {
+            private readonly PhaseExecutionTrace executionTrace;
+            private readonly TaskCompletionSource<bool> firstExecutionStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            public CancellableThenSuccessfulOperationPhaseExecutor (PhaseExecutionTrace executionTrace)
+            {
+                this.executionTrace = executionTrace;
+            }
+
+            public Task FirstExecutionStarted => firstExecutionStarted.Task;
+
+            public int CallCount { get; private set; }
+
+            public async Task<PhaseExecutionTrace> ExecuteAsync (
+                PhaseExecutionCommand command,
+                NormalizedExecuteRequest request,
+                CancellationToken cancellationToken = default)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                CallCount++;
+                if (CallCount == 1)
+                {
+                    firstExecutionStarted.TrySetResult(true);
+                    await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
+                }
+
+                cancellationToken.ThrowIfCancellationRequested();
+                return executionTrace;
             }
         }
 

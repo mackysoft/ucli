@@ -239,8 +239,7 @@ jobs:
             --unity-editor-path "${{ steps.unity_setup.outputs.unity-editor-path }}" \
             --result-dir "artifacts/unity/${{ matrix.os_name }}/build-run" \
             --no-restore \
-            --no-build \
-            --no-package-restore
+            --no-build
         shell: bash
 
       - name: Run uCLI Unity Build Profile player build
@@ -254,8 +253,7 @@ jobs:
             --unity-editor-path "${{ steps.unity_setup.outputs.unity-editor-path }}" \
             --result-dir "artifacts/unity/${{ matrix.os_name }}/build-profile-run" \
             --no-restore \
-            --no-build \
-            --no-package-restore
+            --no-build
         shell: bash
 
       - name: Upload Unity artifacts

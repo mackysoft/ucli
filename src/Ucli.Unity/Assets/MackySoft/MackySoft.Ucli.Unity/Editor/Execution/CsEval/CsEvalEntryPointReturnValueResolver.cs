@@ -1,5 +1,6 @@
 using System;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 
 #nullable enable
@@ -11,20 +12,22 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
     {
         public static async Task<object?> ResolveAsync (
             Type declaredReturnType,
-            object? invocationReturnValue)
+            object? invocationReturnValue,
+            CancellationToken cancellationToken)
         {
             // Preserve the Unity synchronization context for subsequent result serialization,
             // because JSON serialization may execute user-defined public getters.
+            cancellationToken.ThrowIfCancellationRequested();
             if (declaredReturnType == typeof(Task))
             {
-                await GetRequiredTask(invocationReturnValue, declaredReturnType);
+                await AwaitTaskAsync(GetRequiredTask(invocationReturnValue, declaredReturnType), cancellationToken);
                 return null;
             }
 
             if (IsGenericTask(declaredReturnType))
             {
                 var task = GetRequiredTask(invocationReturnValue, declaredReturnType);
-                await task;
+                await AwaitTaskAsync(task, cancellationToken);
                 return GetTaskResult(task);
             }
 
@@ -35,18 +38,46 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                     throw new CsEvalEntryPointReturnValueResolutionException("Entry point returned null for ValueTask.");
                 }
 
-                await ((ValueTask)invocationReturnValue);
+                await AwaitTaskAsync(((ValueTask)invocationReturnValue).AsTask(), cancellationToken);
                 return null;
             }
 
             if (IsGenericValueTask(declaredReturnType))
             {
                 var task = ConvertValueTaskToTask(declaredReturnType, invocationReturnValue);
-                await task;
+                await AwaitTaskAsync(task, cancellationToken);
                 return GetTaskResult(task);
             }
 
             return invocationReturnValue;
+        }
+
+        private static async Task AwaitTaskAsync (
+            Task task,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!cancellationToken.CanBeCanceled)
+            {
+                await task;
+                return;
+            }
+
+            var cancellationSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            using (cancellationToken.Register(static state =>
+            {
+                var source = (TaskCompletionSource<bool>)state!;
+                source.TrySetResult(true);
+            }, cancellationSource))
+            {
+                var completedTask = await Task.WhenAny(task, cancellationSource.Task);
+                if (!ReferenceEquals(completedTask, task))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                }
+            }
+
+            await task;
         }
 
         private static bool IsGenericTask (Type type)
