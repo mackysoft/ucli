@@ -144,6 +144,9 @@ internal static class UcliCommandNames
     /// <summary> Gets the command name for <c>skills uninstall</c> result payloads. </summary>
     public const string SkillsUninstall = "skills.uninstall";
 
+    /// <summary> Gets the command name for <c>skills prune</c> result payloads. </summary>
+    public const string SkillsPrune = "skills.prune";
+
     /// <summary> Gets the command name for <c>skills doctor</c> result payloads. </summary>
     public const string SkillsDoctor = "skills.doctor";
 
@@ -182,6 +185,9 @@ internal static class UcliCommandNames
 
     /// <summary> Gets the nested command name for <c>skills uninstall</c>. </summary>
     public const string UninstallSubcommand = "uninstall";
+
+    /// <summary> Gets the nested command name for <c>skills prune</c>. </summary>
+    public const string PruneSubcommand = "prune";
 
     /// <summary> Gets the nested command name for <c>skills doctor</c>. </summary>
     public const string DoctorSubcommand = "doctor";

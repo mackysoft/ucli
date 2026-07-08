@@ -92,6 +92,7 @@ internal static class UcliCommandCatalog
             new CommandLeafEntry(UcliCommandNames.InstallSubcommand, UcliCommandNames.SkillsInstall),
             new CommandLeafEntry(UcliCommandNames.UpdateSubcommand, UcliCommandNames.SkillsUpdate),
             new CommandLeafEntry(UcliCommandNames.UninstallSubcommand, UcliCommandNames.SkillsUninstall),
+            new CommandLeafEntry(UcliCommandNames.PruneSubcommand, UcliCommandNames.SkillsPrune),
             new CommandLeafEntry(UcliCommandNames.DoctorSubcommand, UcliCommandNames.SkillsDoctor),
         ],
         []);
@@ -207,6 +208,7 @@ internal static class UcliCommandCatalog
         app.Add<SkillsInstallCommand>("skills");
         app.Add<SkillsUpdateCommand>("skills");
         app.Add<SkillsUninstallCommand>("skills");
+        app.Add<SkillsPruneCommand>("skills");
         app.Add<SkillsDoctorCommand>("skills");
         app.Add<TestRunCommand>("test");
         app.Add<TestProfileInitCommand>("test profile");

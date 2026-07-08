@@ -58,6 +58,7 @@ public static class UcliPublicCommandCatalog
         UcliCommandIds.SkillsInstall,
         UcliCommandIds.SkillsUpdate,
         UcliCommandIds.SkillsUninstall,
+        UcliCommandIds.SkillsPrune,
         UcliCommandIds.SkillsDoctor,
         UcliCommandIds.Test,
         UcliCommandIds.TestRun,

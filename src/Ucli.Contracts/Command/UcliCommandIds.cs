@@ -171,6 +171,9 @@ public static class UcliCommandIds
     /// <summary> Gets command identifier for <c>skills.uninstall</c>. </summary>
     public static UcliCommand SkillsUninstall { get; } = new("skills.uninstall");
 
+    /// <summary> Gets command identifier for <c>skills.prune</c>. </summary>
+    public static UcliCommand SkillsPrune { get; } = new("skills.prune");
+
     /// <summary> Gets command identifier for <c>skills.doctor</c>. </summary>
     public static UcliCommand SkillsDoctor { get; } = new("skills.doctor");
 }
