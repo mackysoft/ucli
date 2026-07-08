@@ -56,6 +56,39 @@ esac
 
 mono --version | head -n 1
 
+# NOTE: The NuGet CLI runs through Mono on Linux and macOS. Keep Mono's
+# certificate store in sync with the runner CA bundle so nuget.org TLS
+# validation does not depend on the runner image's preloaded Mono state.
+if command -v cert-sync >/dev/null 2>&1; then
+  certificate_bundle=""
+  case "${runner_os}" in
+    Linux)
+      certificate_bundle="/etc/ssl/certs/ca-certificates.crt"
+      ;;
+    macOS|Darwin)
+      for candidate in \
+        "/etc/ssl/cert.pem" \
+        "/usr/local/etc/openssl@3/cert.pem" \
+        "/opt/homebrew/etc/openssl@3/cert.pem"; do
+        if [[ -f "${candidate}" ]]; then
+          certificate_bundle="${candidate}"
+          break
+        fi
+      done
+      ;;
+  esac
+
+  if [[ -n "${certificate_bundle}" ]]; then
+    cert-sync "${certificate_bundle}" >/dev/null
+  elif [[ "${runner_os}" == "Linux" ]]; then
+    echo "Unable to find the Linux CA certificate bundle for Mono cert-sync." >&2
+    exit 1
+  fi
+elif [[ "${runner_os}" == "Linux" ]]; then
+  echo "cert-sync is required to prepare Mono for NuGet TLS validation on Linux." >&2
+  exit 1
+fi
+
 runner_temp="${RUNNER_TEMP:-${TMPDIR:-/tmp}}"
 nuget_dir="${runner_temp}/nuget"
 mkdir -p "${nuget_dir}"
