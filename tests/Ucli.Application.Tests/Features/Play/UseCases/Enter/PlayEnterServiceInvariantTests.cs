@@ -12,6 +12,10 @@ public sealed class PlayEnterServiceInvariantTests
 
         var readyBefore = CreateSnapshot(IpcEditorLifecycleStateCodec.Ready, null, true, CreateStoppedPlayMode("2"));
         data.Add(
+            "missing transition payload",
+            CreateResponseWithoutTransitionPayload());
+
+        data.Add(
             "invalid play mode state",
             CreateResponse(new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
                 IpcPlayTransitionCommandNames.Enter,

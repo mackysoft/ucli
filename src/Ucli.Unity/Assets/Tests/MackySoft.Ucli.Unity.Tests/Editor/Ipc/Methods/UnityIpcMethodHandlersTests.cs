@@ -159,6 +159,45 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator GuiRebootstrapHandler_WhenReplaceExistingSessionChanges_PassesReplacementScopeToBootstrap () => UniTask.ToCoroutine(async () =>
+        {
+            var bootstrapStarter = new RecordingUnityGuiBootstrapStarter();
+            var handler = new GuiRebootstrapUnityIpcMethodHandler(
+                bootstrapStarter: bootstrapStarter,
+                projectFingerprint: "project-fingerprint",
+                daemonLogger: NoOpDaemonLogger.Instance);
+
+            var falseResponse = await handler.HandleAsync(
+                CreateRequest(
+                    "req-gui-rebootstrap-false",
+                    IpcMethodNames.GuiRebootstrap,
+                    new IpcGuiRebootstrapRequest(
+                        ProjectFingerprint: "project-fingerprint",
+                        ReplaceExistingSession: false)),
+                CancellationToken.None);
+            var trueResponse = await handler.HandleAsync(
+                CreateRequest(
+                    "req-gui-rebootstrap-true",
+                    IpcMethodNames.GuiRebootstrap,
+                    new IpcGuiRebootstrapRequest(
+                        ProjectFingerprint: "project-fingerprint",
+                        ReplaceExistingSession: true)),
+                CancellationToken.None);
+
+            Assert.That(falseResponse.Status, Is.EqualTo(IpcProtocol.StatusOk));
+            Assert.That(trueResponse.Status, Is.EqualTo(IpcProtocol.StatusOk));
+            Assert.That(bootstrapStarter.BootstrapArguments, Is.EqualTo(new IpcGuiBootstrapArguments[] { null, null }));
+            Assert.That(
+                bootstrapStarter.SessionReplacementScopes,
+                Is.EqualTo(new[]
+                {
+                    UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession,
+                    UnityGuiSessionReplacementScope.AnyCurrentProcessSession,
+                }));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator PlayStatusHandler_WhenPayloadIsValid_ReturnsLifecycleSnapshotWithoutReadinessWait () => UniTask.ToCoroutine(async () =>
         {
             var readinessGate = new StubUnityEditorReadinessGate(DaemonEditorMode.Gui);
@@ -1609,6 +1648,22 @@ namespace MackySoft.Ucli.Unity.Tests
                     Status: IpcProtocol.StatusOk,
                     Payload: IpcPayloadCodec.SerializeToElement(new IpcExecuteResponse(Array.Empty<IpcExecuteOperationResult>())),
                     Errors: Array.Empty<IpcError>()));
+            }
+        }
+
+        private sealed class RecordingUnityGuiBootstrapStarter : IUnityGuiBootstrapStarter
+        {
+            public List<IpcGuiBootstrapArguments> BootstrapArguments { get; } = new List<IpcGuiBootstrapArguments>();
+
+            public List<UnityGuiSessionReplacementScope> SessionReplacementScopes { get; } = new List<UnityGuiSessionReplacementScope>();
+
+            public Task<UnityGuiBootstrapStartResult> StartAsync (
+                IpcGuiBootstrapArguments bootstrapArguments,
+                UnityGuiSessionReplacementScope sessionReplacementScope)
+            {
+                BootstrapArguments.Add(bootstrapArguments);
+                SessionReplacementScopes.Add(sessionReplacementScope);
+                return Task.FromResult(UnityGuiBootstrapStartResult.Started());
             }
         }
 

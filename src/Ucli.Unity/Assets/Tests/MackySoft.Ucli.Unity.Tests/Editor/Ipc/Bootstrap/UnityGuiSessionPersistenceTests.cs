@@ -33,7 +33,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-user-owned");
                 await WriteSessionAsync(
                     storageRoot,
-                    UnityGuiBootstrapSessionOptions.Create(null));
+                    UnityGuiBootstrapSessionOptions.Create(null),
+                    CreateDefaultEndpoint(),
+                    UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession);
 
                 var contract = ReadSessionContract(storageRoot);
                 Assert.That(contract.SchemaVersion, Is.EqualTo(DaemonSessionStorageContract.CurrentSchemaVersion));
@@ -70,13 +72,183 @@ namespace MackySoft.Ucli.Unity.Tests
                     storageRoot,
                     UnityGuiBootstrapSessionOptions.Create(new IpcGuiBootstrapArguments(
                         OwnerProcessId: 123,
-                        CanShutdownProcess: true)));
+                        CanShutdownProcess: true)),
+                    CreateDefaultEndpoint(),
+                    UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession);
 
                 var contract = ReadSessionContract(storageRoot);
                 Assert.That(contract.EditorMode, Is.EqualTo("gui"));
                 Assert.That(contract.OwnerKind, Is.EqualTo("cli"));
                 Assert.That(contract.CanShutdownProcess, Is.True);
                 Assert.That(contract.OwnerProcessId, Is.EqualTo(123));
+            }
+            finally
+            {
+                DeleteDirectory(storageRoot);
+            }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Write_WhenReplacingCurrentProcessGuiSessionWithDifferentOwnership_ReplacesSessionJson () => UniTask.ToCoroutine(async () =>
+        {
+            var storageRoot = CreateStorageRoot();
+            try
+            {
+                UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-replace-stale");
+                var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, "fingerprint");
+                var sessionDirectoryPath = Path.GetDirectoryName(sessionPath);
+                Assert.That(sessionDirectoryPath, Is.Not.Null);
+                Directory.CreateDirectory(sessionDirectoryPath!);
+                using var currentProcess = Process.GetCurrentProcess();
+                WriteSessionContract(
+                    sessionPath,
+                    new DaemonSessionJsonContract(
+                        SchemaVersion: DaemonSessionStorageContract.CurrentSchemaVersion,
+                        SessionToken: "existing-cli-owned-token",
+                        ProjectFingerprint: "fingerprint",
+                        IssuedAtUtc: DateTimeOffset.UtcNow.AddSeconds(-1),
+                        EditorMode: "gui",
+                        OwnerKind: "cli",
+                        CanShutdownProcess: true,
+                        EndpointTransportKind: "namedPipe",
+                        EndpointAddress: "ucli-gui-session-tests",
+                        ProcessId: currentProcess.Id,
+                        ProcessStartedAtUtc: currentProcess.StartTime.ToUniversalTime(),
+                        OwnerProcessId: 123)
+                    {
+                        EditorInstanceId = "editor-instance-replace-stale",
+                    });
+
+                await WriteSessionAsync(
+                    storageRoot,
+                    UnityGuiBootstrapSessionOptions.Create(null),
+                    CreateDefaultEndpoint(),
+                    UnityGuiSessionReplacementScope.AnyCurrentProcessSession);
+
+                var contract = ReadSessionContract(storageRoot);
+                Assert.That(contract.SessionToken, Is.Not.EqualTo("existing-cli-owned-token"));
+                Assert.That(contract.OwnerKind, Is.EqualTo("user"));
+                Assert.That(contract.CanShutdownProcess, Is.False);
+                Assert.That(contract.OwnerProcessId, Is.EqualTo(currentProcess.Id));
+                Assert.That(contract.ProcessId, Is.EqualTo(currentProcess.Id));
+                Assert.That(contract.EditorInstanceId, Is.EqualTo("editor-instance-replace-stale"));
+            }
+            finally
+            {
+                DeleteDirectory(storageRoot);
+            }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Write_WhenCurrentProcessGuiSessionHasDifferentOwnershipWithoutReplace_DoesNotReplaceSessionJson () => UniTask.ToCoroutine(async () =>
+        {
+            var storageRoot = CreateStorageRoot();
+            try
+            {
+                UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-ownership-mismatch");
+                var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, "fingerprint");
+                var sessionDirectoryPath = Path.GetDirectoryName(sessionPath);
+                Assert.That(sessionDirectoryPath, Is.Not.Null);
+                Directory.CreateDirectory(sessionDirectoryPath!);
+                using var currentProcess = Process.GetCurrentProcess();
+                WriteSessionContract(
+                    sessionPath,
+                    new DaemonSessionJsonContract(
+                        SchemaVersion: DaemonSessionStorageContract.CurrentSchemaVersion,
+                        SessionToken: "existing-cli-owned-token",
+                        ProjectFingerprint: "fingerprint",
+                        IssuedAtUtc: DateTimeOffset.UtcNow.AddSeconds(-1),
+                        EditorMode: "gui",
+                        OwnerKind: "cli",
+                        CanShutdownProcess: true,
+                        EndpointTransportKind: "namedPipe",
+                        EndpointAddress: "ucli-gui-session-tests",
+                        ProcessId: currentProcess.Id,
+                        ProcessStartedAtUtc: currentProcess.StartTime.ToUniversalTime(),
+                        OwnerProcessId: 123)
+                    {
+                        EditorInstanceId = "editor-instance-ownership-mismatch",
+                    });
+
+                InvalidOperationException exception = null;
+                try
+                {
+                    await WriteSessionAsync(
+                        storageRoot,
+                        UnityGuiBootstrapSessionOptions.Create(null),
+                        CreateDefaultEndpoint(),
+                        UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession);
+                }
+                catch (InvalidOperationException caughtException)
+                {
+                    exception = caughtException;
+                }
+
+                Assert.That(exception, Is.Not.Null);
+                Assert.That(exception.Message, Does.Contain("GUI session already exists"));
+                var contract = ReadSessionContract(storageRoot);
+                Assert.That(contract.SessionToken, Is.EqualTo("existing-cli-owned-token"));
+                Assert.That(contract.OwnerKind, Is.EqualTo("cli"));
+            }
+            finally
+            {
+                DeleteDirectory(storageRoot);
+            }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Write_WhenReplacingCurrentProcessGuiSessionHasDifferentEditorInstanceId_DoesNotReplaceSessionJson () => UniTask.ToCoroutine(async () =>
+        {
+            var storageRoot = CreateStorageRoot();
+            try
+            {
+                UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-current");
+                var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, "fingerprint");
+                var sessionDirectoryPath = Path.GetDirectoryName(sessionPath);
+                Assert.That(sessionDirectoryPath, Is.Not.Null);
+                Directory.CreateDirectory(sessionDirectoryPath!);
+                using var currentProcess = Process.GetCurrentProcess();
+                WriteSessionContract(
+                    sessionPath,
+                    new DaemonSessionJsonContract(
+                        SchemaVersion: DaemonSessionStorageContract.CurrentSchemaVersion,
+                        SessionToken: "existing-other-editor-token",
+                        ProjectFingerprint: "fingerprint",
+                        IssuedAtUtc: DateTimeOffset.UtcNow.AddSeconds(-1),
+                        EditorMode: "gui",
+                        OwnerKind: "cli",
+                        CanShutdownProcess: true,
+                        EndpointTransportKind: "namedPipe",
+                        EndpointAddress: "ucli-gui-session-tests",
+                        ProcessId: currentProcess.Id,
+                        ProcessStartedAtUtc: currentProcess.StartTime.ToUniversalTime(),
+                        OwnerProcessId: 123)
+                    {
+                        EditorInstanceId = "editor-instance-other",
+                    });
+
+                InvalidOperationException exception = null;
+                try
+                {
+                    await WriteSessionAsync(
+                        storageRoot,
+                        UnityGuiBootstrapSessionOptions.Create(null),
+                        CreateDefaultEndpoint(),
+                        UnityGuiSessionReplacementScope.AnyCurrentProcessSession);
+                }
+                catch (InvalidOperationException caughtException)
+                {
+                    exception = caughtException;
+                }
+
+                Assert.That(exception, Is.Not.Null);
+                Assert.That(exception.Message, Does.Contain("GUI session already exists"));
+                var contract = ReadSessionContract(storageRoot);
+                Assert.That(contract.SessionToken, Is.EqualTo("existing-other-editor-token"));
+                Assert.That(contract.EditorInstanceId, Is.EqualTo("editor-instance-other"));
             }
             finally
             {
@@ -94,7 +266,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-token-validation");
                 var registration = await WriteSessionAsync(
                     storageRoot,
-                    UnityGuiBootstrapSessionOptions.Create(null));
+                    UnityGuiBootstrapSessionOptions.Create(null),
+                    CreateDefaultEndpoint(),
+                    UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession);
                 var sessionToken = ReadSessionContract(storageRoot).SessionToken;
                 var validator = new FileBackedSessionTokenValidator(registration.SessionPath);
 
@@ -152,7 +326,9 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 await WriteSessionAsync(
                     storageRoot,
-                    UnityGuiBootstrapSessionOptions.Create(null));
+                    UnityGuiBootstrapSessionOptions.Create(null),
+                    CreateDefaultEndpoint(),
+                    UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession);
 
                 var contract = ReadSessionContract(storageRoot);
                 Assert.That(contract.SessionToken, Is.Not.EqualTo("existing-current-process-token"));
@@ -199,12 +375,69 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 await WriteSessionAsync(
                     storageRoot,
-                    UnityGuiBootstrapSessionOptions.Create(null));
+                    UnityGuiBootstrapSessionOptions.Create(null),
+                    CreateDefaultEndpoint(),
+                    UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession);
 
                 var contract = ReadSessionContract(storageRoot);
                 Assert.That(contract.SessionToken, Is.Not.EqualTo("existing-current-process-token"));
                 Assert.That(contract.EditorInstanceId, Is.EqualTo("editor-instance-replace-current-missing-id"));
                 Assert.That(contract.ProcessId, Is.EqualTo(currentProcess.Id));
+            }
+            finally
+            {
+                DeleteDirectory(storageRoot);
+            }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Write_WhenCurrentProcessGuiSessionWithoutEditorInstanceIdHasDifferentStartTime_DoesNotReplaceSessionJson () => UniTask.ToCoroutine(async () =>
+        {
+            var storageRoot = CreateStorageRoot();
+            try
+            {
+                UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-legacy-start-time-mismatch");
+                var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, "fingerprint");
+                var sessionDirectoryPath = Path.GetDirectoryName(sessionPath);
+                Assert.That(sessionDirectoryPath, Is.Not.Null);
+                Directory.CreateDirectory(sessionDirectoryPath!);
+                using var currentProcess = Process.GetCurrentProcess();
+                WriteSessionContract(
+                    sessionPath,
+                    new DaemonSessionJsonContract(
+                        SchemaVersion: DaemonSessionStorageContract.CurrentSchemaVersion,
+                        SessionToken: "existing-legacy-token",
+                        ProjectFingerprint: "fingerprint",
+                        IssuedAtUtc: DateTimeOffset.UtcNow.AddSeconds(-1),
+                        EditorMode: "gui",
+                        OwnerKind: "user",
+                        CanShutdownProcess: false,
+                        EndpointTransportKind: "namedPipe",
+                        EndpointAddress: "ucli-gui-session-tests",
+                        ProcessId: currentProcess.Id,
+                        ProcessStartedAtUtc: currentProcess.StartTime.ToUniversalTime().AddSeconds(30),
+                        OwnerProcessId: currentProcess.Id));
+
+                InvalidOperationException exception = null;
+                try
+                {
+                    await WriteSessionAsync(
+                        storageRoot,
+                        UnityGuiBootstrapSessionOptions.Create(null),
+                        CreateDefaultEndpoint(),
+                        UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession);
+                }
+                catch (InvalidOperationException caughtException)
+                {
+                    exception = caughtException;
+                }
+
+                Assert.That(exception, Is.Not.Null);
+                Assert.That(exception.Message, Does.Contain("GUI session already exists"));
+                var contract = ReadSessionContract(storageRoot);
+                Assert.That(contract.SessionToken, Is.EqualTo("existing-legacy-token"));
+                Assert.That(contract.EditorInstanceId, Is.Null);
             }
             finally
             {
@@ -249,7 +482,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                     await WriteSessionAsync(
                         storageRoot,
-                        UnityGuiBootstrapSessionOptions.Create(null));
+                        UnityGuiBootstrapSessionOptions.Create(null),
+                        CreateDefaultEndpoint(),
+                        UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession);
                 }
                 catch (InvalidOperationException caughtException)
                 {
@@ -309,7 +544,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     await WriteSessionAsync(
                         storageRoot,
                         UnityGuiBootstrapSessionOptions.Create(null),
-                        new IpcEndpoint(IpcTransportKind.UnixDomainSocket, expectedEndpointPath));
+                        new IpcEndpoint(IpcTransportKind.UnixDomainSocket, expectedEndpointPath),
+                        UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession);
                 }
                 catch (InvalidOperationException caughtException)
                 {
@@ -361,7 +597,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                     await WriteSessionAsync(
                         storageRoot,
-                        UnityGuiBootstrapSessionOptions.Create(null));
+                        UnityGuiBootstrapSessionOptions.Create(null),
+                        CreateDefaultEndpoint(),
+                        UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession);
                 }
                 catch (InvalidOperationException caughtException)
                 {
@@ -393,7 +631,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 var registration = await WriteSessionAsync(
                     storageRoot,
                     UnityGuiBootstrapSessionOptions.Create(null),
-                    new IpcEndpoint(IpcTransportKind.UnixDomainSocket, endpointResiduePath));
+                    new IpcEndpoint(IpcTransportKind.UnixDomainSocket, endpointResiduePath),
+                    UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession);
                 File.WriteAllText(endpointResiduePath, "socket residue placeholder");
                 var originalContract = ReadSessionContract(storageRoot);
                 var replacementContract = originalContract with
@@ -433,13 +672,17 @@ namespace MackySoft.Ucli.Unity.Tests
                 UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-reregister");
                 var firstRegistration = await WriteSessionAsync(
                     storageRoot,
-                    UnityGuiBootstrapSessionOptions.Create(null));
+                    UnityGuiBootstrapSessionOptions.Create(null),
+                    CreateDefaultEndpoint(),
+                    UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession);
                 var firstSessionToken = ReadSessionContract(storageRoot).SessionToken;
                 UnityGuiSessionPersistence.Delete(firstRegistration);
 
                 var secondRegistration = await WriteSessionAsync(
                     storageRoot,
-                    UnityGuiBootstrapSessionOptions.Create(null));
+                    UnityGuiBootstrapSessionOptions.Create(null),
+                    CreateDefaultEndpoint(),
+                    UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession);
                 var secondSessionToken = ReadSessionContract(storageRoot).SessionToken;
 
                 Assert.That(secondSessionToken, Is.Not.EqualTo(firstSessionToken));
@@ -454,15 +697,22 @@ namespace MackySoft.Ucli.Unity.Tests
         private static UniTask<UnityGuiSessionRegistration> WriteSessionAsync (
             string storageRoot,
             UnityGuiBootstrapSessionOptions sessionOptions,
-            IpcEndpoint endpoint = null)
+            IpcEndpoint endpoint,
+            UnityGuiSessionReplacementScope sessionReplacementScope)
         {
             return UnityGuiSessionPersistence.WriteAsync(
                     storageRoot,
                     "fingerprint",
-                    endpoint ?? new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-gui-session-tests"),
+                    endpoint,
                     sessionOptions,
-                    CancellationToken.None)
+                    sessionReplacementScope: sessionReplacementScope,
+                    cancellationToken: CancellationToken.None)
                 .AsUniTask();
+        }
+
+        private static IpcEndpoint CreateDefaultEndpoint ()
+        {
+            return new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-gui-session-tests");
         }
 
         private static DaemonSessionJsonContract ReadSessionContract (string storageRoot)

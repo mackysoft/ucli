@@ -114,6 +114,29 @@ internal static class PlayEnterServiceTestSupport
             Errors: []));
     }
 
+    public static UnityRequestResponse CreateResponseWithoutTransitionPayload ()
+    {
+        return UnityRequestResponseTestFactory.Create(new IpcResponse(
+            ProtocolVersion: IpcProtocol.CurrentVersion,
+            RequestId: "request-1",
+            Status: IpcProtocol.StatusOk,
+            Payload: IpcPayloadCodec.SerializeToElement(new
+            {
+                transition = (object?)null,
+            }),
+            Errors: []));
+    }
+
+    public static UnityRequestResponse CreateInvalidPayloadResponse ()
+    {
+        return UnityRequestResponseTestFactory.Create(new IpcResponse(
+            ProtocolVersion: IpcProtocol.CurrentVersion,
+            RequestId: "request-1",
+            Status: IpcProtocol.StatusOk,
+            Payload: IpcPayloadCodec.SerializeToElement("invalid"),
+            Errors: []));
+    }
+
     public static UnityRequestResponse CreateErrorResponse (
         IpcPlayTransitionResponse payload,
         UcliCode code,

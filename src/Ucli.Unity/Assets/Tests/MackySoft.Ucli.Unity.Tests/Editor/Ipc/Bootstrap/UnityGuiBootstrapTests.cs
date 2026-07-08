@@ -25,7 +25,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     "fingerprint",
                     new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-gui-bootstrap-tests"),
                     UnityGuiBootstrapSessionOptions.Create(null),
-                    CancellationToken.None);
+                    sessionReplacementScope: UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession,
+                    cancellationToken: CancellationToken.None);
                 var server = new SpyUnityIpcServer();
                 var logCapture = new SpyDisposable();
                 var serviceProvider = new SpyServiceProvider();
@@ -60,7 +61,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     "fingerprint",
                     new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-gui-bootstrap-tests"),
                     UnityGuiBootstrapSessionOptions.Create(null),
-                    CancellationToken.None);
+                    sessionReplacementScope: UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession,
+                    cancellationToken: CancellationToken.None);
 
                 await UnityGuiBootstrap.CleanupFailedStartAsync(
                     registration,
@@ -89,7 +91,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     "fingerprint",
                     new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-gui-bootstrap-tests"),
                     UnityGuiBootstrapSessionOptions.Create(null),
-                    CancellationToken.None);
+                    sessionReplacementScope: UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession,
+                    cancellationToken: CancellationToken.None);
                 var server = new SpyUnityIpcServer(throwOnStop: true);
                 var logCapture = new SpyDisposable();
                 var serviceProvider = new SpyServiceProvider();
@@ -124,7 +127,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     "fingerprint",
                     new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-gui-bootstrap-tests"),
                     UnityGuiBootstrapSessionOptions.Create(null),
-                    CancellationToken.None);
+                    sessionReplacementScope: UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession,
+                    cancellationToken: CancellationToken.None);
                 var incompleteStopSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
                 var server = new SpyUnityIpcServer(stopTask: incompleteStopSource.Task);
                 var logCapture = new SpyDisposable();
@@ -165,7 +169,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     "fingerprint",
                     new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-gui-bootstrap-tests"),
                     UnityGuiBootstrapSessionOptions.Create(null),
-                    CancellationToken.None);
+                    sessionReplacementScope: UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession,
+                    cancellationToken: CancellationToken.None);
                 var serviceProvider = new SpyServiceProvider();
                 var callingThreadId = Thread.CurrentThread.ManagedThreadId;
 
