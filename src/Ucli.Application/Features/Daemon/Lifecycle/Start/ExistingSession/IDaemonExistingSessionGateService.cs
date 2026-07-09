@@ -8,7 +8,7 @@ internal interface IDaemonExistingSessionGateService
 {
     /// <summary>
     /// Tries to complete daemon start from an existing session.
-    /// Returns <see langword="null" /> when caller should continue with fresh launch flow.
+    /// Returns <see langword="null" /> when caller should continue with the remaining start flow.
     /// </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="session"> The existing daemon session snapshot. </param>
@@ -18,7 +18,7 @@ internal interface IDaemonExistingSessionGateService
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns>
     /// The resolved daemon start result when workflow should complete;
-    /// otherwise <see langword="null" /> when fresh launch should continue.
+    /// otherwise <see langword="null" /> when the remaining start flow should continue.
     /// </returns>
     ValueTask<DaemonStartResult?> TryHandleExistingSessionAsync (
         ResolvedUnityProjectContext unityProject,

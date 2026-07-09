@@ -50,7 +50,7 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
 
     /// <summary>
     /// Tries to complete daemon start from an existing session.
-    /// Returns <see langword="null" /> when caller should continue with fresh launch flow.
+    /// Returns <see langword="null" /> when caller should continue with the remaining start flow.
     /// </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="session"> The existing daemon session snapshot. </param>
@@ -60,7 +60,7 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns>
     /// The resolved daemon start result when workflow should complete;
-    /// otherwise <see langword="null" /> when fresh launch should continue.
+    /// otherwise <see langword="null" /> when the remaining start flow should continue.
     /// </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> or <paramref name="session" /> is <see langword="null" />. </exception>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
@@ -86,10 +86,25 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
 
         try
         {
+            var isRecoveringGuiSession = await IsRecoveringGuiSessionAsync(
+                    unityProject,
+                    session,
+                    cancellationToken)
+                .ConfigureAwait(false);
+
             await EmitWaitingForEndpointAsync(progressObserver, session, cancellationToken).ConfigureAwait(false);
+            if (!deadline.TryGetRemainingTimeout(out pingTimeout))
+            {
+                return DaemonStartResult.Failure(ExecutionError.Timeout(
+                    "Timed out before probing existing daemon session could begin."));
+            }
+
+            var initialPingTimeout = isRecoveringGuiSession
+                ? GetShortestTimeout(pingTimeout, DaemonTimeouts.ProbeAttemptTimeoutCap)
+                : pingTimeout;
             var pingResponse = await daemonPingInfoClient.PingAndReadAsync(
                     unityProject,
-                    pingTimeout,
+                    initialPingTimeout,
                     session.SessionToken,
                     cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
@@ -98,15 +113,10 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
                 return DaemonStartResult.Failure(lifecycleError!);
             }
 
-            if (editorMode.HasValue)
+            var editorModeMismatchResult = CreateEditorModeMismatchResult(session, editorMode);
+            if (editorModeMismatchResult is not null)
             {
-                var requestedEditorMode = ContractLiteralCodec.ToValue(editorMode.Value);
-                if (!ContractLiteralCodec.Matches(session.EditorMode, editorMode.Value))
-                {
-                    return DaemonStartResult.Failure(ExecutionError.InvalidArgument(
-                        $"Requested daemon editorMode '{requestedEditorMode}' does not match running daemon editorMode '{session.EditorMode}'.",
-                        DaemonErrorCodes.DaemonEditorModeMismatch));
-                }
+                return editorModeMismatchResult;
             }
 
             await EmitEndpointReadyAsync(progressObserver, session, lifecycleSnapshot!, cancellationToken).ConfigureAwait(false);
@@ -126,9 +136,14 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
                     progressObserver,
                     cancellationToken)
                 .ConfigureAwait(false);
-            if (recoveringResult is not null)
+            if (recoveringResult.Disposition == RecoveringSessionGateDisposition.Complete)
             {
-                return recoveringResult;
+                return recoveringResult.Result!;
+            }
+
+            if (recoveringResult.Disposition == RecoveringSessionGateDisposition.ContinueStartFlow)
+            {
+                return null;
             }
 
             return DaemonStartResult.Failure(ExecutionError.Timeout(
@@ -145,9 +160,14 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
                     progressObserver,
                     cancellationToken)
                 .ConfigureAwait(false);
-            if (recoveringResult is not null)
+            if (recoveringResult.Disposition == RecoveringSessionGateDisposition.Complete)
             {
-                return recoveringResult;
+                return recoveringResult.Result!;
+            }
+
+            if (recoveringResult.Disposition == RecoveringSessionGateDisposition.ContinueStartFlow)
+            {
+                return null;
             }
 
             if (!deadline.TryGetRemainingTimeout(out var cleanupTimeout))
@@ -179,7 +199,7 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
         }
     }
 
-    private async ValueTask<DaemonStartResult?> TryWaitRecoveringSessionAsync (
+    private async ValueTask<RecoveringSessionGateResult> TryWaitRecoveringSessionAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
         ExecutionDeadline deadline,
@@ -187,34 +207,52 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
         IDaemonStartProgressObserver? progressObserver,
         CancellationToken cancellationToken)
     {
-        var lifecycleReadResult = await daemonLifecycleStore.ReadAsync(
-                unityProject.RepositoryRoot,
-                unityProject.ProjectFingerprint,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (!lifecycleReadResult.IsSuccess
-            || !lifecycleReadResult.Exists
-            || !lifecycleReadResult.Observation!.IsRecovering
-            || !DaemonLifecycleObservationMatcher.MatchesSessionByEditorInstance(lifecycleReadResult.Observation, session)
-            || !IsMatchingLiveProcess(session))
+        if (!await IsRecoveringGuiSessionAsync(unityProject, session, cancellationToken).ConfigureAwait(false))
         {
-            return null;
+            return RecoveringSessionGateResult.NotRecovering();
         }
 
+        var editorModeMismatchResult = CreateEditorModeMismatchResult(session, editorMode);
+        if (editorModeMismatchResult is not null)
+        {
+            return RecoveringSessionGateResult.Complete(editorModeMismatchResult);
+        }
+
+        if (!deadline.TryGetRemainingTimeout(out var remainingWorkflowTimeout))
+        {
+            return RecoveringSessionGateResult.Complete(DaemonStartResult.Failure(ExecutionError.Timeout(
+                $"Timed out while waiting for recovering daemon session. ProcessId={session.ProcessId}.",
+                ExecutionErrorCodes.IpcTimeout),
+                daemonStatus: DaemonStatusKind.Stale));
+        }
+
+        // NOTE:
+        // A recovering sidecar proves that the endpoint may return, but it must not consume
+        // the whole start timeout. After one probe window, the outer start workflow can use
+        // GUI attach/rebootstrap to replace the stale registration when the process is alive.
+        var recoveryDeadline = ExecutionDeadline.Start(
+            GetRecoveringSessionProbeTimeout(remainingWorkflowTimeout),
+            timeProvider);
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (!deadline.TryGetRemainingTimeout(out var remainingTimeout))
             {
-                return DaemonStartResult.Failure(ExecutionError.Timeout(
+                return RecoveringSessionGateResult.Complete(DaemonStartResult.Failure(ExecutionError.Timeout(
                     $"Timed out while waiting for recovering daemon session. ProcessId={session.ProcessId}.",
                     ExecutionErrorCodes.IpcTimeout),
-                    daemonStatus: DaemonStatusKind.Stale);
+                    daemonStatus: DaemonStatusKind.Stale));
             }
 
-            var attemptTimeout = remainingTimeout < DaemonTimeouts.ProbeAttemptTimeoutCap
-                ? remainingTimeout
-                : DaemonTimeouts.ProbeAttemptTimeoutCap;
+            if (!recoveryDeadline.TryGetRemainingTimeout(out var remainingRecoveryTimeout))
+            {
+                return RecoveringSessionGateResult.ContinueStartFlow();
+            }
+
+            var attemptTimeout = GetShortestTimeout(
+                remainingTimeout,
+                remainingRecoveryTimeout,
+                DaemonTimeouts.ProbeAttemptTimeoutCap);
             try
             {
                 var pingResponse = await daemonPingInfoClient.PingAndReadAsync(
@@ -225,22 +263,17 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
                     .ConfigureAwait(false);
                 if (!DaemonStartLifecycleSnapshot.TryCreate(pingResponse, out var lifecycleSnapshot, out var lifecycleError))
                 {
-                    return DaemonStartResult.Failure(lifecycleError!);
+                    return RecoveringSessionGateResult.Complete(DaemonStartResult.Failure(lifecycleError!));
                 }
 
-                if (editorMode.HasValue)
+                editorModeMismatchResult = CreateEditorModeMismatchResult(session, editorMode);
+                if (editorModeMismatchResult is not null)
                 {
-                    var requestedEditorMode = ContractLiteralCodec.ToValue(editorMode.Value);
-                    if (!ContractLiteralCodec.Matches(session.EditorMode, editorMode.Value))
-                    {
-                        return DaemonStartResult.Failure(ExecutionError.InvalidArgument(
-                            $"Requested daemon editorMode '{requestedEditorMode}' does not match running daemon editorMode '{session.EditorMode}'.",
-                            DaemonErrorCodes.DaemonEditorModeMismatch));
-                    }
+                    return RecoveringSessionGateResult.Complete(editorModeMismatchResult);
                 }
 
                 await EmitEndpointReadyAsync(progressObserver, session, lifecycleSnapshot!, cancellationToken).ConfigureAwait(false);
-                return DaemonStartResult.AlreadyRunning(session, lifecycleSnapshot);
+                return RecoveringSessionGateResult.Complete(DaemonStartResult.AlreadyRunning(session, lifecycleSnapshot));
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -254,20 +287,28 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
             }
             catch (Exception exception)
             {
-                return DaemonStartResult.Failure(ExecutionError.InternalError(
+                return RecoveringSessionGateResult.Complete(DaemonStartResult.Failure(ExecutionError.InternalError(
                     $"Failed to probe recovering daemon session. {exception.Message}"),
-                    daemonStatus: DaemonStatusKind.Stale);
+                    daemonStatus: DaemonStatusKind.Stale));
             }
 
             if (!deadline.TryGetRemainingTimeout(out remainingTimeout))
             {
-                return DaemonStartResult.Failure(ExecutionError.Timeout(
+                return RecoveringSessionGateResult.Complete(DaemonStartResult.Failure(ExecutionError.Timeout(
                     $"Timed out while waiting for recovering daemon session. ProcessId={session.ProcessId}.",
                     ExecutionErrorCodes.IpcTimeout),
-                    daemonStatus: DaemonStatusKind.Stale);
+                    daemonStatus: DaemonStatusKind.Stale));
             }
 
-            await TimeProviderDelay.DelayAsync(GetRetryDelay(remainingTimeout), timeProvider, cancellationToken)
+            if (!recoveryDeadline.TryGetRemainingTimeout(out remainingRecoveryTimeout))
+            {
+                return RecoveringSessionGateResult.ContinueStartFlow();
+            }
+
+            await TimeProviderDelay.DelayAsync(
+                    GetRetryDelay(GetShortestTimeout(remainingTimeout, remainingRecoveryTimeout)),
+                    timeProvider,
+                    cancellationToken)
                 .ConfigureAwait(false);
         }
     }
@@ -283,12 +324,80 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
             == DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess;
     }
 
+    private async ValueTask<bool> IsRecoveringGuiSessionAsync (
+        ResolvedUnityProjectContext unityProject,
+        DaemonSession session,
+        CancellationToken cancellationToken)
+    {
+        if (!ContractLiteralCodec.Matches(session.EditorMode, DaemonEditorMode.Gui))
+        {
+            return false;
+        }
+
+        var lifecycleReadResult = await daemonLifecycleStore.ReadAsync(
+                unityProject.RepositoryRoot,
+                unityProject.ProjectFingerprint,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!lifecycleReadResult.IsSuccess
+            || !lifecycleReadResult.Exists
+            || !lifecycleReadResult.Observation!.IsRecovering
+            || !DaemonLifecycleObservationMatcher.MatchesSessionByEditorInstance(lifecycleReadResult.Observation, session))
+        {
+            return false;
+        }
+
+        return IsMatchingLiveProcess(session);
+    }
+
+    private static DaemonStartResult? CreateEditorModeMismatchResult (
+        DaemonSession session,
+        DaemonEditorMode? editorMode)
+    {
+        if (!editorMode.HasValue)
+        {
+            return null;
+        }
+
+        if (ContractLiteralCodec.Matches(session.EditorMode, editorMode.Value))
+        {
+            return null;
+        }
+
+        var requestedEditorMode = ContractLiteralCodec.ToValue(editorMode.Value);
+        return DaemonStartResult.Failure(ExecutionError.InvalidArgument(
+            $"Requested daemon editorMode '{requestedEditorMode}' does not match running daemon editorMode '{session.EditorMode}'.",
+            DaemonErrorCodes.DaemonEditorModeMismatch));
+    }
+
     private static TimeSpan GetRetryDelay (TimeSpan remainingTimeout)
     {
         var retryDelayMilliseconds = Math.Min(
             DaemonTimeouts.StartupProbeRetryDelayMilliseconds,
             Math.Max(1, (int)Math.Ceiling(remainingTimeout.TotalMilliseconds)));
         return TimeSpan.FromMilliseconds(retryDelayMilliseconds);
+    }
+
+    private static TimeSpan GetRecoveringSessionProbeTimeout (TimeSpan remainingTimeout)
+    {
+        return remainingTimeout < DaemonTimeouts.ProbeAttemptTimeoutCap
+            ? remainingTimeout
+            : DaemonTimeouts.ProbeAttemptTimeoutCap;
+    }
+
+    private static TimeSpan GetShortestTimeout (
+        TimeSpan first,
+        TimeSpan second)
+    {
+        return first < second ? first : second;
+    }
+
+    private static TimeSpan GetShortestTimeout (
+        TimeSpan first,
+        TimeSpan second,
+        TimeSpan third)
+    {
+        return GetShortestTimeout(GetShortestTimeout(first, second), third);
     }
 
     private static async ValueTask EmitWaitingForEndpointAsync (
@@ -332,5 +441,34 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
 
         await progressObserver.EmitEndpointRegisteredAsync(session, launchAttemptId: null, cancellationToken).ConfigureAwait(false);
         await progressObserver.EmitLifecycleObservedAsync(lifecycleSnapshot, cancellationToken).ConfigureAwait(false);
+    }
+
+    private enum RecoveringSessionGateDisposition
+    {
+        NotRecovering,
+        Complete,
+        ContinueStartFlow,
+    }
+
+    private readonly record struct RecoveringSessionGateResult (
+        RecoveringSessionGateDisposition Disposition,
+        DaemonStartResult? Result)
+    {
+        public static RecoveringSessionGateResult NotRecovering ()
+        {
+            return new RecoveringSessionGateResult(RecoveringSessionGateDisposition.NotRecovering, null);
+        }
+
+        public static RecoveringSessionGateResult Complete (DaemonStartResult result)
+        {
+            ArgumentNullException.ThrowIfNull(result);
+
+            return new RecoveringSessionGateResult(RecoveringSessionGateDisposition.Complete, result);
+        }
+
+        public static RecoveringSessionGateResult ContinueStartFlow ()
+        {
+            return new RecoveringSessionGateResult(RecoveringSessionGateDisposition.ContinueStartFlow, null);
+        }
     }
 }
