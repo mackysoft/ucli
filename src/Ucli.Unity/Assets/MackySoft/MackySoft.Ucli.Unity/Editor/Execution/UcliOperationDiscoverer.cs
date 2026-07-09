@@ -1,10 +1,9 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Reflection;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using Microsoft.Extensions.DependencyInjection;
-using UnityEditor.Compilation;
+using UnityEditor;
 
 using RuntimeAssembly = System.Reflection.Assembly;
 
@@ -32,11 +31,17 @@ namespace MackySoft.Ucli.Unity.Execution
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="serviceProvider" /> is <see langword="null" />. </exception>
         internal static IReadOnlyList<UcliOperationRegistration> Discover (IServiceProvider serviceProvider)
         {
-            return Discover(
-                AppDomain.CurrentDomain.GetAssemblies(),
+            if (serviceProvider == null)
+            {
+                throw new ArgumentNullException(nameof(serviceProvider));
+            }
+
+            var types = ResolveDiscoveryTypes(
                 includeUcliDefinedAssemblies: true,
                 includeUserDefinedAssemblies: true,
-                serviceProvider);
+                allowedAssemblyNames: null);
+
+            return DiscoverFromTypes(types, serviceProvider);
         }
 
         /// <summary> Discovers operation instances from currently loaded assemblies with source-kind filtering. </summary>
@@ -47,11 +52,12 @@ namespace MackySoft.Ucli.Unity.Execution
             bool includeUcliDefinedAssemblies,
             bool includeUserDefinedAssemblies)
         {
-            return Discover(
-                AppDomain.CurrentDomain.GetAssemblies(),
+            var types = ResolveDiscoveryTypes(
                 includeUcliDefinedAssemblies,
                 includeUserDefinedAssemblies,
-                DefaultOperationServiceProvider.Value);
+                allowedAssemblyNames: null);
+
+            return DiscoverFromTypes(types, DefaultOperationServiceProvider.Value);
         }
 
         /// <summary> Discovers operation instances from a specified assembly set. </summary>
@@ -96,44 +102,13 @@ namespace MackySoft.Ucli.Unity.Execution
                 throw new ArgumentNullException(nameof(serviceProvider));
             }
 
-            var ucliAssemblyName = typeof(UcliOperationDiscoverer).Assembly.GetName().Name;
-            if (string.IsNullOrWhiteSpace(ucliAssemblyName))
-            {
-                throw new InvalidOperationException("The current uCLI operation assembly name is not available.");
-            }
-
-            var discoveryAssemblyNames = ResolveDiscoveryAssemblyNames(
-                CompilationPipeline.GetAssemblies(AssembliesType.Editor),
-                assemblies,
-                ucliAssemblyName,
+            var allowedAssemblyNames = CreateAssemblyNameSet(assemblies);
+            var types = ResolveDiscoveryTypes(
                 includeUcliDefinedAssemblies,
-                includeUserDefinedAssemblies);
+                includeUserDefinedAssemblies,
+                allowedAssemblyNames);
 
-            var registrations = new List<UcliOperationRegistration>();
-            for (var assemblyIndex = 0; assemblyIndex < assemblies.Count; assemblyIndex++)
-            {
-                var assembly = assemblies[assemblyIndex];
-                if (assembly == null)
-                {
-                    continue;
-                }
-
-                var assemblyName = assembly.GetName().Name;
-                if (string.IsNullOrWhiteSpace(assemblyName)
-                    || !discoveryAssemblyNames.Contains(assemblyName))
-                {
-                    continue;
-                }
-
-                var types = GetLoadableTypes(assembly);
-                var discoveredFromAssembly = DiscoverFromTypes(types, serviceProvider);
-                for (var operationIndex = 0; operationIndex < discoveredFromAssembly.Count; operationIndex++)
-                {
-                    registrations.Add(discoveredFromAssembly[operationIndex]);
-                }
-            }
-
-            return registrations;
+            return DiscoverFromTypes(types, serviceProvider);
         }
 
         /// <summary> Discovers operation instances from a specified type set. </summary>
@@ -208,103 +183,87 @@ namespace MackySoft.Ucli.Unity.Execution
             return registrations;
         }
 
-        /// <summary> Gets all loadable types from one assembly, tolerating partial load failures. </summary>
-        /// <param name="assembly"> The source assembly. </param>
-        /// <returns> Loadable type list. </returns>
-        private static IReadOnlyList<Type?> GetLoadableTypes (RuntimeAssembly assembly)
-        {
-            try
-            {
-                return assembly.GetTypes();
-            }
-            catch (ReflectionTypeLoadException exception)
-            {
-                return exception.Types;
-            }
-        }
-
-        /// <summary> Resolves loaded assembly names that can define uCLI operations. </summary>
-        /// <param name="compilationAssemblies"> The Unity editor compilation assemblies. </param>
-        /// <param name="loadedAssemblies"> The currently loaded runtime assemblies. </param>
-        /// <param name="ucliAssemblyName"> The built-in uCLI editor assembly name. </param>
+        /// <summary> Resolves operation candidate types from Unity's editor type cache. </summary>
         /// <param name="includeUcliDefinedAssemblies"> Whether built-in uCLI assemblies should be inspected. </param>
         /// <param name="includeUserDefinedAssemblies"> Whether user-defined assemblies should be inspected. </param>
-        /// <returns> The discoverable loaded assembly names. </returns>
-        private static HashSet<string> ResolveDiscoveryAssemblyNames (
-            IReadOnlyList<UnityEditor.Compilation.Assembly> compilationAssemblies,
-            IReadOnlyList<RuntimeAssembly> loadedAssemblies,
-            string ucliAssemblyName,
+        /// <param name="allowedAssemblyNames"> The optional allowed assembly-name set. </param>
+        /// <returns> The discoverable operation type candidates. </returns>
+        private static IReadOnlyList<Type?> ResolveDiscoveryTypes (
             bool includeUcliDefinedAssemblies,
-            bool includeUserDefinedAssemblies)
+            bool includeUserDefinedAssemblies,
+            HashSet<string>? allowedAssemblyNames)
         {
-            var loadedAssembliesByName = new Dictionary<string, RuntimeAssembly>(StringComparer.Ordinal);
-            for (var loadedAssemblyIndex = 0; loadedAssemblyIndex < loadedAssemblies.Count; loadedAssemblyIndex++)
+            var ucliAssemblyName = typeof(UcliOperationDiscoverer).Assembly.GetName().Name;
+            if (string.IsNullOrWhiteSpace(ucliAssemblyName))
             {
-                var loadedAssembly = loadedAssemblies[loadedAssemblyIndex];
-                if (loadedAssembly == null)
-                {
-                    continue;
-                }
-
-                var loadedAssemblyName = loadedAssembly.GetName().Name;
-                if (string.IsNullOrWhiteSpace(loadedAssemblyName)
-                    || loadedAssembliesByName.ContainsKey(loadedAssemblyName))
-                {
-                    continue;
-                }
-
-                loadedAssembliesByName.Add(loadedAssemblyName, loadedAssembly);
+                throw new InvalidOperationException("The current uCLI operation assembly name is not available.");
             }
 
-            var names = new HashSet<string>(StringComparer.Ordinal);
-            for (var compilationAssemblyIndex = 0; compilationAssemblyIndex < compilationAssemblies.Count; compilationAssemblyIndex++)
+            var types = new List<Type?>();
+            foreach (var type in TypeCache.GetTypesWithAttribute<UcliOperationAttribute>())
             {
-                var compilationAssembly = compilationAssemblies[compilationAssemblyIndex];
-                if (compilationAssembly == null
-                    || string.IsNullOrWhiteSpace(compilationAssembly.name)
-                    || !loadedAssembliesByName.ContainsKey(compilationAssembly.name))
+                if (type == null)
                 {
                     continue;
                 }
 
-                if (StringComparer.Ordinal.Equals(compilationAssembly.name, ucliAssemblyName))
-                {
-                    if (includeUcliDefinedAssemblies)
-                    {
-                        names.Add(compilationAssembly.name);
-                    }
-
-                    continue;
-                }
-
-                if (!includeUserDefinedAssemblies
-                    || !ReferencesAssembly(compilationAssembly.assemblyReferences, ucliAssemblyName)
-                    || ReferencesCompiledAssembly(
-                        compilationAssembly.compiledAssemblyReferences,
-                        NUnitFrameworkAssemblyName))
+                var assembly = type.Assembly;
+                var assemblyName = assembly.GetName().Name;
+                if (string.IsNullOrWhiteSpace(assemblyName)
+                    || IsTestAssembly(assembly)
+                    || (allowedAssemblyNames != null && !allowedAssemblyNames.Contains(assemblyName)))
                 {
                     continue;
                 }
 
-                names.Add(compilationAssembly.name);
+                var isUcliDefinedAssembly = StringComparer.Ordinal.Equals(assemblyName, ucliAssemblyName);
+                if ((isUcliDefinedAssembly && !includeUcliDefinedAssemblies)
+                    || (!isUcliDefinedAssembly && !includeUserDefinedAssemblies))
+                {
+                    continue;
+                }
+
+                types.Add(type);
+            }
+
+            types.Sort(CompareTypesByAssemblyAndFullName);
+            return types;
+        }
+
+        private static HashSet<string> CreateAssemblyNameSet (IReadOnlyList<RuntimeAssembly> assemblies)
+        {
+            var names = new HashSet<string>(StringComparer.Ordinal);
+            for (var assemblyIndex = 0; assemblyIndex < assemblies.Count; assemblyIndex++)
+            {
+                var assembly = assemblies[assemblyIndex];
+                if (assembly == null)
+                {
+                    continue;
+                }
+
+                var assemblyName = assembly.GetName().Name;
+                if (!string.IsNullOrWhiteSpace(assemblyName))
+                {
+                    names.Add(assemblyName);
+                }
             }
 
             return names;
         }
 
-        /// <summary> Determines whether the compilation assembly references one target assembly by identity. </summary>
-        /// <param name="references"> The referenced compilation assembly list. </param>
-        /// <param name="targetAssemblyName"> The target assembly simple name. </param>
-        /// <returns> <see langword="true" /> when one reference matches the target assembly; otherwise <see langword="false" />. </returns>
+        private static bool IsTestAssembly (RuntimeAssembly assembly)
+        {
+            return ReferencesAssembly(assembly.GetReferencedAssemblies(), NUnitFrameworkAssemblyName);
+        }
+
         private static bool ReferencesAssembly (
-            IReadOnlyList<UnityEditor.Compilation.Assembly> references,
+            IReadOnlyList<AssemblyName> references,
             string targetAssemblyName)
         {
             for (var referenceIndex = 0; referenceIndex < references.Count; referenceIndex++)
             {
                 var reference = references[referenceIndex];
-                if (reference != null
-                    && StringComparer.Ordinal.Equals(reference.name, targetAssemblyName))
+                if (StringComparer.Ordinal.Equals(reference.Name, targetAssemblyName))
                 {
                     return true;
                 }
@@ -313,34 +272,34 @@ namespace MackySoft.Ucli.Unity.Execution
             return false;
         }
 
-        /// <summary> Determines whether the compilation assembly references one compiled assembly by identity. </summary>
-        /// <param name="references"> The compiled reference path list. </param>
-        /// <param name="targetAssemblyName"> The target assembly simple name. </param>
-        /// <returns> <see langword="true" /> when one compiled reference matches the target assembly; otherwise <see langword="false" />. </returns>
-        private static bool ReferencesCompiledAssembly (
-            IReadOnlyList<string> references,
-            string targetAssemblyName)
+        private static int CompareTypesByAssemblyAndFullName (
+            Type? x,
+            Type? y)
         {
-            // NOTE: UnityEditor.Compilation in Unity 2023.2 does not expose a public
-            // Editor-test flag. For user-defined uCLI candidate assemblies only, the
-            // compiled reference list is the smallest public signal that distinguishes
-            // test assemblies from real operation assemblies.
-            for (var referenceIndex = 0; referenceIndex < references.Count; referenceIndex++)
+            if (ReferenceEquals(x, y))
             {
-                var referencePath = references[referenceIndex];
-                if (string.IsNullOrWhiteSpace(referencePath))
-                {
-                    continue;
-                }
-
-                var referenceAssemblyName = Path.GetFileNameWithoutExtension(referencePath);
-                if (StringComparer.Ordinal.Equals(referenceAssemblyName, targetAssemblyName))
-                {
-                    return true;
-                }
+                return 0;
             }
 
-            return false;
+            if (x == null)
+            {
+                return -1;
+            }
+
+            if (y == null)
+            {
+                return 1;
+            }
+
+            var assemblyComparison = StringComparer.Ordinal.Compare(
+                x.Assembly.GetName().Name ?? string.Empty,
+                y.Assembly.GetName().Name ?? string.Empty);
+            if (assemblyComparison != 0)
+            {
+                return assemblyComparison;
+            }
+
+            return StringComparer.Ordinal.Compare(x.FullName ?? x.Name, y.FullName ?? y.Name);
         }
 
         /// <summary> Determines whether one operation type is creatable through reflection. </summary>
