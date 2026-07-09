@@ -1,3 +1,4 @@
+using MackySoft.AgentSkills.Hosting.Commands;
 using MackySoft.Ucli.Hosting.Cli.Skills;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 using Microsoft.Extensions.DependencyInjection;
@@ -17,8 +18,7 @@ internal sealed class SkillsCommandTestRunner
         string[]? tier = null,
         string[]? skill = null)
     {
-        return CommandResultCapture.ExecuteAsync(() =>
-            CreateCommand<SkillsListCommand>().ListAsync(tier, skill));
+        return ExecuteRunnerAsync(runner => runner.ListAsync(new AgentSkillsListCommandRequest(tier, skill)));
     }
 
     public Task<CommandExecutionResult> ExecuteAsync (
@@ -43,101 +43,103 @@ internal sealed class SkillsCommandTestRunner
     {
         ArgumentNullException.ThrowIfNull(options);
 
-        return CommandResultCapture.ExecuteAsync(() =>
-            CreateCommand<SkillsExportCommand>().ExportAsync(
-                host: options.Host,
-                output: options.Output,
-                format: options.Format,
-                tier: options.Tier,
-                skill: options.Skill));
+        return ExecuteRunnerAsync(runner => runner.ExportAsync(new AgentSkillsExportCommandRequest(
+            options.Host,
+            options.Tier,
+            options.Skill,
+            options.Output,
+            options.Format)));
     }
 
     public Task<CommandExecutionResult> InstallAsync (Options options)
     {
         ArgumentNullException.ThrowIfNull(options);
 
-        return CommandResultCapture.ExecuteAsync(() =>
-            CreateCommand<SkillsInstallCommand>().InstallAsync(
-                host: options.Host,
-                scope: options.Scope,
-                repoRoot: options.RepoRoot,
-                targetDir: options.TargetDir,
-                dryRun: options.DryRun,
-                force: options.Force,
-                printDiff: options.PrintDiff,
-                tier: options.Tier,
-                skill: options.Skill));
+        return ExecuteRunnerAsync(runner => runner.InstallAsync(new AgentSkillsInstallCommandRequest(
+            options.Host,
+            options.Tier,
+            options.Skill,
+            options.Scope,
+            options.RepoRoot,
+            options.TargetDir,
+            options.DryRun,
+            options.Force,
+            options.PrintDiff)));
     }
 
     public Task<CommandExecutionResult> UpdateAsync (Options options)
     {
         ArgumentNullException.ThrowIfNull(options);
 
-        return CommandResultCapture.ExecuteAsync(() =>
-            CreateCommand<SkillsUpdateCommand>().UpdateAsync(
-                host: options.Host,
-                scope: options.Scope,
-                repoRoot: options.RepoRoot,
-                targetDir: options.TargetDir,
-                dryRun: options.DryRun,
-                force: options.Force,
-                printDiff: options.PrintDiff,
-                tier: options.Tier,
-                skill: options.Skill));
+        return ExecuteRunnerAsync(runner => runner.UpdateAsync(new AgentSkillsUpdateCommandRequest(
+            options.Host,
+            options.Tier,
+            options.Skill,
+            options.Scope,
+            options.RepoRoot,
+            options.TargetDir,
+            options.DryRun,
+            options.Force,
+            options.PrintDiff)));
     }
 
     public Task<CommandExecutionResult> UninstallAsync (Options options)
     {
         ArgumentNullException.ThrowIfNull(options);
 
-        return CommandResultCapture.ExecuteAsync(() =>
-            CreateCommand<SkillsUninstallCommand>().UninstallAsync(
-                host: options.Host,
-                scope: options.Scope,
-                repoRoot: options.RepoRoot,
-                targetDir: options.TargetDir,
-                dryRun: options.DryRun,
-                force: options.Force,
-                tier: options.Tier,
-                skill: options.Skill));
+        return ExecuteRunnerAsync(runner => runner.UninstallAsync(new AgentSkillsUninstallCommandRequest(
+            options.Host,
+            options.Tier,
+            options.Skill,
+            options.Scope,
+            options.RepoRoot,
+            options.TargetDir,
+            options.DryRun,
+            options.Force)));
     }
 
     public Task<CommandExecutionResult> PruneAsync (Options options)
     {
         ArgumentNullException.ThrowIfNull(options);
 
-        return CommandResultCapture.ExecuteAsync(() =>
-            CreateCommand<SkillsPruneCommand>().PruneAsync(
-                host: options.Host,
-                scope: options.Scope,
-                repoRoot: options.RepoRoot,
-                targetDir: options.TargetDir,
-                dryRun: options.DryRun,
-                force: options.Force,
-                tier: options.Tier,
-                skill: options.Skill));
+        return ExecuteRunnerAsync(runner => runner.PruneAsync(new AgentSkillsPruneCommandRequest(
+            options.Host,
+            options.Tier,
+            options.Skill,
+            options.Scope,
+            options.RepoRoot,
+            options.TargetDir,
+            options.DryRun,
+            options.Force)));
     }
 
     public Task<CommandExecutionResult> DoctorAsync (Options options)
     {
         ArgumentNullException.ThrowIfNull(options);
 
-        return CommandResultCapture.ExecuteAsync(() =>
-            CreateCommand<SkillsDoctorCommand>().DoctorAsync(
-                host: options.Host,
-                scope: options.Scope,
-                repoRoot: options.RepoRoot,
-                targetDir: options.TargetDir,
-                tier: options.Tier,
-                skill: options.Skill));
+        return ExecuteRunnerAsync(runner => runner.DoctorAsync(new AgentSkillsDoctorCommandRequest(
+            options.Host,
+            options.Tier,
+            options.Skill,
+            options.Scope,
+            options.RepoRoot,
+            options.TargetDir)));
     }
 
-    private TCommand CreateCommand<TCommand> ()
-        where TCommand : notnull
+    private Task<CommandExecutionResult> ExecuteRunnerAsync (
+        Func<AgentSkillsCommandRunner, ValueTask<AgentSkillsCommandResult>> executeAsync)
     {
-        return ActivatorUtilities.CreateInstance<TCommand>(
-            serviceProvider,
-            CommandResultTestWriter.Create());
+        ArgumentNullException.ThrowIfNull(executeAsync);
+
+        return CommandResultCapture.ExecuteAsync(async () =>
+        {
+            var runner = serviceProvider.GetRequiredService<AgentSkillsCommandRunner>();
+            var emitter = ActivatorUtilities.CreateInstance<UcliAgentSkillsCommandResultEmitter>(
+                serviceProvider,
+                CommandResultTestWriter.Create());
+            var result = await executeAsync(runner).ConfigureAwait(false);
+            return await emitter.EmitAsync(result, new AgentSkillsCommandOutputOptions(), CancellationToken.None).ConfigureAwait(false);
+        });
     }
 
     internal sealed record Options

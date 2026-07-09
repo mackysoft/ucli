@@ -149,7 +149,17 @@ public sealed class CliCommandRegistrationContractTests
             && optionHelpLine.Contains("--kind", StringComparison.Ordinal))
             || (string.Equals(commandPath, $"{UcliCommandNames.Test} {UcliCommandNames.RunSubcommand}", StringComparison.Ordinal)
             && string.Equals(kebabCaseOption, "--execution-mode", StringComparison.Ordinal)
-                && optionHelpLine.Contains("--mode", StringComparison.Ordinal));
+                && optionHelpLine.Contains("--mode", StringComparison.Ordinal))
+            || (commandPath.StartsWith($"{UcliCommandNames.Skills} ", StringComparison.Ordinal)
+                && IsAgentSkillsGeneratedOption(kebabCaseOption));
+    }
+
+    private static bool IsAgentSkillsGeneratedOption (string kebabCaseOption)
+    {
+        return kebabCaseOption is "--repository-root"
+            or "--target-dir"
+            or "--dry-run"
+            or "--print-diff";
     }
 
     private static string ToCamelCaseLongOption (string kebabCaseOption)

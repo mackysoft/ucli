@@ -1,4 +1,5 @@
 using ConsoleAppFramework;
+using MackySoft.AgentSkills.ConsoleAppFramework;
 using MackySoft.Ucli.Hosting.Cli.Assurance;
 using MackySoft.Ucli.Hosting.Cli.Codes;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
@@ -9,7 +10,6 @@ using MackySoft.Ucli.Hosting.Cli.Init;
 using MackySoft.Ucli.Hosting.Cli.Ops;
 using MackySoft.Ucli.Hosting.Cli.Play;
 using MackySoft.Ucli.Hosting.Cli.Requests;
-using MackySoft.Ucli.Hosting.Cli.Skills;
 using MackySoft.Ucli.Hosting.Cli.Status;
 using MackySoft.Ucli.Hosting.Cli.Testing;
 
@@ -203,13 +203,7 @@ internal static class UcliCommandCatalog
         app.Add<PlayStatusCommand>("play");
         app.Add<PlayEnterCommand>("play");
         app.Add<PlayExitCommand>("play");
-        app.Add<SkillsListCommand>("skills");
-        app.Add<SkillsExportCommand>("skills");
-        app.Add<SkillsInstallCommand>("skills");
-        app.Add<SkillsUpdateCommand>("skills");
-        app.Add<SkillsUninstallCommand>("skills");
-        app.Add<SkillsPruneCommand>("skills");
-        app.Add<SkillsDoctorCommand>("skills");
+        app.RegisterAgentSkillsCommands();
         app.Add<TestRunCommand>("test");
         app.Add<TestProfileInitCommand>("test profile");
         return app;

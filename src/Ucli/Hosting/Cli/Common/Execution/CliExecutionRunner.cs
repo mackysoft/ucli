@@ -2,6 +2,7 @@ using ConsoleAppFramework;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Parsing;
 using MackySoft.Ucli.Hosting.Cli.Common.Startup;
+using MackySoft.Ucli.Hosting.Cli.Skills;
 using MackySoft.Ucli.Hosting.Composition.Common;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -40,11 +41,12 @@ internal sealed class CliExecutionRunner
         var app = UcliCommandCatalog.RegisterCommands(ConsoleApp.Create());
         var previousServiceProvider = ConsoleApp.ServiceProvider;
         ConsoleApp.ServiceProvider = serviceProvider;
+        var normalizedArgs = SkillsCommandArgumentNormalizer.Normalize(args);
 
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await app.RunAsync(args, disposeServiceProvider: false).ConfigureAwait(false);
+            await app.RunAsync(normalizedArgs, disposeServiceProvider: false).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -68,7 +70,7 @@ internal sealed class CliExecutionRunner
         // NOTE:
         // ConsoleAppFramework can fail before command handlers start when parsing options.
         // Emit JSON contract output in that path to keep stdout machine-readable.
-        var parseErrorResult = CliParseErrorJsonPolicy.TryCreateParseErrorResult(args);
+        var parseErrorResult = CliParseErrorJsonPolicy.TryCreateParseErrorResult(normalizedArgs);
         if (parseErrorResult != null)
         {
             commandResultWriter.WriteToStandardOutput(parseErrorResult);
