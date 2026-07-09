@@ -1,5 +1,6 @@
 namespace MackySoft.Ucli.Application.Tests.Daemon;
 
+using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Identity;
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -48,6 +49,59 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
             result,
             session,
             cleanupService);
+        DaemonPingInfoClientAssert.ExistingSessionPingAttempted(
+            pingClient,
+            context,
+            session,
+            expectedCount: 2,
+            CancellationToken.None);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task TryHandleExistingSession_WhenRecoveringProbeBudgetExpires_ReturnsNullForStartFlow ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-existing-recovery-handoff");
+        var session = DaemonSessionTestFactory.Create(processId: 4010, projectFingerprint: context.ProjectFingerprint) with
+        {
+            EditorInstanceId = "editor-instance-recovery-handoff",
+        };
+        var pingClient = new RecordingDaemonPingInfoClient(
+            new TimeoutException("initial endpoint timeout"),
+            new TimeoutException("recovering endpoint timeout"))
+        {
+            OnPingAndRead = () => timeProvider.Advance(DaemonTimeouts.ProbeAttemptTimeoutCap + TimeSpan.FromMilliseconds(1)),
+        };
+        var cleanupService = new RecordingDaemonSessionCleanupService();
+        var lifecycleStore = new RecordingDaemonLifecycleStore
+        {
+            ReadResult = DaemonLifecycleObservationReadResult.Success(
+                DaemonExistingSessionGateServiceTestSupport.CreateRecoveringObservation(session)),
+        };
+        var processIdentityAssessor = new RecordingDaemonProcessIdentityAssessor
+        {
+            Assessment = new DaemonProcessIdentityAssessment(
+                DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess,
+                session.ProcessStartedAtUtc,
+                Error: null),
+        };
+        var service = DaemonExistingSessionGateServiceTestSupport.CreateService(
+            daemonPingInfoClient: pingClient,
+            cleanupService: cleanupService,
+            lifecycleStore: lifecycleStore,
+            processIdentityAssessor: processIdentityAssessor,
+            timeProvider: timeProvider);
+
+        var result = await service.TryHandleExistingSessionAsync(
+            context,
+            session,
+            TimeSpan.FromSeconds(5),
+            editorMode: null,
+            cancellationToken: CancellationToken.None);
+
+        Assert.Null(result);
+        Assert.Empty(cleanupService.StaleSessionInvocations);
         DaemonPingInfoClientAssert.ExistingSessionPingAttempted(
             pingClient,
             context,
