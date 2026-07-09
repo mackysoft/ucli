@@ -9,6 +9,7 @@ internal static class SkillsCommandArgumentNormalizer
     {
         ["--repositoryRoot"] = "--repository-root",
         ["--repoRoot"] = "--repository-root",
+        ["--repo-root"] = "--repository-root",
         ["--targetDir"] = "--target-dir",
         ["--dryRun"] = "--dry-run",
         ["--printDiff"] = "--print-diff",
