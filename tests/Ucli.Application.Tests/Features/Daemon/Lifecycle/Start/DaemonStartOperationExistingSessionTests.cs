@@ -147,6 +147,60 @@ public sealed class DaemonStartOperationExistingSessionTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Start_WhenExistingSessionGateServiceReturnsNullAndGuiAttachSucceeds_ReturnsAttachedWithoutFreshLaunch ()
+    {
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-start-existing-gui-handoff");
+        var existingSession = DaemonSessionTestFactory.Create(
+            processId: 4243,
+            projectFingerprint: context.ProjectFingerprint,
+            editorMode: "gui",
+            ownerKind: "user",
+            canShutdownProcess: false);
+        var attachedSession = DaemonSessionTestFactory.Create(
+            processId: 4243,
+            projectFingerprint: context.ProjectFingerprint,
+            editorMode: "gui",
+            ownerKind: "user",
+            canShutdownProcess: false);
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(existingSession));
+        var existingSessionGateService = new RecordingDaemonExistingSessionGateService
+        {
+            NextResult = null,
+        };
+        var guiAttachService = new RecordingDaemonGuiEditorAttachService
+        {
+            NextResult = DaemonStartResult.Attached(attachedSession),
+        };
+        var launchService = new RecordingDaemonLaunchService
+        {
+            NextResult = DaemonStartResult.Started(DaemonSessionTestFactory.Create(processId: 8889, projectFingerprint: context.ProjectFingerprint)),
+        };
+        var operation = CreateOperation(
+            daemonSessionStore: sessionStore,
+            daemonSessionCleanupService: new RecordingDaemonSessionCleanupService(),
+            daemonExistingSessionGateService: existingSessionGateService,
+            daemonGuiEditorAttachService: guiAttachService,
+            daemonLaunchService: launchService);
+
+        var result = await operation.StartAsync(
+            context,
+            TimeSpan.FromMilliseconds(500),
+            editorMode: DaemonEditorMode.Gui,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+            cancellationToken: CancellationToken.None);
+
+        Assert.Equal(DaemonStartStatus.Attached, result.Status);
+        Assert.Equal(attachedSession, result.Session);
+        DaemonStartOperationInvocationAssert.ExistingSessionGateAttempted(existingSessionGateService, context, existingSession);
+        var attachInvocation = DaemonStartOperationInvocationAssert.GuiAttachReturnedWithoutFreshLaunch(
+            guiAttachService,
+            launchService,
+            context);
+        Assert.Equal(DaemonEditorMode.Gui, attachInvocation.EditorMode);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Start_WhenExistingSessionGateServiceReturnsFailure_ReturnsFailureWithoutLaunch ()
     {
         var existingSession = DaemonSessionTestFactory.Create(processId: 8080);

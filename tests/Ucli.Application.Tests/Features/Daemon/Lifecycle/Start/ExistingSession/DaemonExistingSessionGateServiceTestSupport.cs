@@ -45,6 +45,41 @@ internal static class DaemonExistingSessionGateServiceTestSupport
         };
     }
 
+    public static DaemonSession CreateRecoveringGuiSession (
+        int processId,
+        string projectFingerprint,
+        string editorInstanceId)
+    {
+        return DaemonSessionTestFactory.Create(
+            processId: processId,
+            projectFingerprint: projectFingerprint,
+            editorMode: "gui",
+            ownerKind: "user",
+            canShutdownProcess: false) with
+        {
+            EditorInstanceId = editorInstanceId,
+        };
+    }
+
+    public static RecordingDaemonLifecycleStore CreateRecoveringLifecycleStore (DaemonSession session)
+    {
+        return new RecordingDaemonLifecycleStore
+        {
+            ReadResult = DaemonLifecycleObservationReadResult.Success(CreateRecoveringObservation(session)),
+        };
+    }
+
+    public static RecordingDaemonProcessIdentityAssessor CreateMatchingProcessIdentityAssessor (DaemonSession session)
+    {
+        return new RecordingDaemonProcessIdentityAssessor
+        {
+            Assessment = new DaemonProcessIdentityAssessment(
+                DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess,
+                session.ProcessStartedAtUtc,
+                Error: null),
+        };
+    }
+
     public static IpcPingResponse CreatePingResponse (
         string lifecycleState,
         string? blockingReason,

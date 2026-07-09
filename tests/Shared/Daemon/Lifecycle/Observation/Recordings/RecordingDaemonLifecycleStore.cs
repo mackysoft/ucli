@@ -17,6 +17,8 @@ internal sealed class RecordingDaemonLifecycleStore : IDaemonLifecycleStore
 
     public IReadOnlyList<DeleteInvocation> DeleteInvocations => deleteInvocations;
 
+    public Action? OnRead { get; set; }
+
     public ValueTask<DaemonLifecycleObservationReadResult> ReadAsync (
         string storageRoot,
         string projectFingerprint,
@@ -25,6 +27,7 @@ internal sealed class RecordingDaemonLifecycleStore : IDaemonLifecycleStore
         cancellationToken.ThrowIfCancellationRequested();
 
         readInvocations.Add(new ReadInvocation(storageRoot, projectFingerprint, cancellationToken));
+        OnRead?.Invoke();
 
         return ValueTask.FromResult(ReadResult);
     }
