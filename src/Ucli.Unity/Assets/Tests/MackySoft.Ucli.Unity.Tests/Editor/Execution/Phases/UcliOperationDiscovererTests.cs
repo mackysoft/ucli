@@ -20,6 +20,9 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class UcliOperationDiscovererTests
     {
+        private const string AssemblyCSharpEditorFixtureOperationName = "ucli.tests.assembly-csharp-editor.discover";
+        private const string AssemblyCSharpEditorAssemblyName = "Assembly-CSharp-Editor";
+
         [Test]
         [Category("Size.Small")]
         public void DiscoverFromTypes_WhenTypeIsValidOperation_ReturnsOperationInstance ()
@@ -365,6 +368,18 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
+        public void Discover_WhenAssemblyCSharpEditorOperationExists_ReturnsUserDefinedOperation ()
+        {
+            var operations = UcliOperationDiscoverer.Discover();
+
+            var registration = FindRegistration(operations, AssemblyCSharpEditorFixtureOperationName);
+
+            Assert.That(registration.Operation.GetType().Assembly.GetName().Name, Is.EqualTo(AssemblyCSharpEditorAssemblyName));
+            Assert.That(registration.Metadata.Kind, Is.EqualTo(UcliOperationKind.Query));
+        }
+
+        [Test]
+        [Category("Size.Small")]
         public void Discover_WhenBuiltInOperationsAreRead_ReturnsConcreteArgsSchemas ()
         {
             var operations = UcliOperationDiscoverer.Discover();
@@ -698,14 +713,23 @@ namespace MackySoft.Ucli.Unity.Tests
         public void Discover_WhenUcliDefinedAssembliesAreExcluded_ReturnsNoBuiltInOperations ()
         {
             var operations = UcliOperationDiscoverer.Discover(
-                new Assembly[]
-                {
-                    typeof(ResolveOperation).Assembly,
-                },
                 includeUcliDefinedAssemblies: false,
                 includeUserDefinedAssemblies: true);
 
-            Assert.That(operations, Is.Empty);
+            Assert.That(ContainsOperation(operations, UcliPrimitiveOperationNames.Resolve), Is.False);
+            Assert.That(ContainsOperation(operations, AssemblyCSharpEditorFixtureOperationName), Is.True);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Discover_WhenUserDefinedAssembliesAreExcluded_ReturnsNoUserDefinedOperations ()
+        {
+            var operations = UcliOperationDiscoverer.Discover(
+                includeUcliDefinedAssemblies: true,
+                includeUserDefinedAssemblies: false);
+
+            Assert.That(ContainsOperation(operations, UcliPrimitiveOperationNames.Resolve), Is.True);
+            Assert.That(ContainsOperation(operations, AssemblyCSharpEditorFixtureOperationName), Is.False);
         }
 
         [Test]
@@ -1053,16 +1077,38 @@ namespace MackySoft.Ucli.Unity.Tests
             IReadOnlyList<UcliOperationRegistration> operations,
             string operationName)
         {
+            return FindRegistration(operations, operationName).Metadata;
+        }
+
+        private static UcliOperationRegistration FindRegistration (
+            IReadOnlyList<UcliOperationRegistration> operations,
+            string operationName)
+        {
             for (var i = 0; i < operations.Count; i++)
             {
                 if (operations[i].Metadata.OperationName == operationName)
                 {
-                    return operations[i].Metadata;
+                    return operations[i];
                 }
             }
 
             Assert.Fail($"Operation metadata was not discovered: {operationName}");
-            return null!;
+            return default;
+        }
+
+        private static bool ContainsOperation (
+            IReadOnlyList<UcliOperationRegistration> operations,
+            string operationName)
+        {
+            for (var i = 0; i < operations.Count; i++)
+            {
+                if (operations[i].Metadata.OperationName == operationName)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static UcliOperationRegistration CreateRegistration (
