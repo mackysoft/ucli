@@ -24,7 +24,15 @@ internal sealed class WindowsDetachedSupervisorProcessLauncher
                 return ExecutionError.InternalError("Supervisor detached process could not be started.");
             }
 
-            process.Dispose();
+            try
+            {
+                process.Dispose();
+            }
+            catch (Exception)
+            {
+                // Process creation already transferred lifetime ownership to the detached child.
+            }
+
             return null;
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or Win32Exception)

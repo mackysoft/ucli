@@ -31,8 +31,7 @@ internal static class UnityBatchmodeProcessHandleAssert
         ProcessTerminationMode expectedMode)
     {
         var invocation = Assert.Single(processHandle.TerminateInvocations);
-        Assert.NotNull(invocation.TerminationPolicy);
-        Assert.Equal(expectedMode, invocation.TerminationPolicy!.Mode);
+        Assert.Equal(expectedMode, invocation.TerminationPolicy.Mode);
         return invocation;
     }
 

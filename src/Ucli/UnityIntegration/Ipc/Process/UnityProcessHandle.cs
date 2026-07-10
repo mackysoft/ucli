@@ -1,15 +1,15 @@
 namespace MackySoft.Ucli.UnityIntegration.Ipc.Process;
 
-/// <summary> Wraps one started Unity batchmode process handle. </summary>
-internal sealed class UnityBatchmodeProcessHandle : IUnityBatchmodeProcessHandle
+/// <summary> Wraps one started Unity process handle. </summary>
+internal sealed class UnityProcessHandle : IUnityBatchmodeProcessHandle
 {
     private readonly System.Diagnostics.Process process;
 
     private bool disposed;
 
-    /// <summary> Initializes a new instance of the <see cref="UnityBatchmodeProcessHandle" /> class. </summary>
+    /// <summary> Initializes a new instance of the <see cref="UnityProcessHandle" /> class. </summary>
     /// <param name="process"> The started process instance. </param>
-    public UnityBatchmodeProcessHandle (System.Diagnostics.Process process)
+    public UnityProcessHandle (System.Diagnostics.Process process)
     {
         this.process = process ?? throw new ArgumentNullException(nameof(process));
     }
@@ -48,9 +48,10 @@ internal sealed class UnityBatchmodeProcessHandle : IUnityBatchmodeProcessHandle
 
     /// <inheritdoc />
     public Task<ProcessTerminationResult> TerminateAsync (
-        ProcessTerminationPolicy? terminationPolicy = null,
-        CancellationToken cancellationToken = default)
+        ProcessTerminationPolicy terminationPolicy,
+        CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(terminationPolicy);
         cancellationToken.ThrowIfCancellationRequested();
         return ProcessTerminator.TerminateAsync(process, terminationPolicy, cancellationToken);
     }

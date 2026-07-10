@@ -25,6 +25,8 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
 
     private readonly IUnityProjectLockPreflightService unityProjectLockPreflightService;
 
+    private readonly UnityBatchmodeProcessLifetimeOwner processLifetimeOwner = new();
+
     /// <summary> Initializes a new instance of the <see cref="UnityBatchmodeProcessLauncher" /> class. </summary>
     /// <param name="unityVersionResolver"> The Unity version resolver dependency. </param>
     /// <param name="unityEditorPathResolver"> The Unity editor path resolver dependency. </param>
@@ -82,14 +84,33 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
             return UnityDaemonLaunchResult.Failure(batchmodeLaunchResult.Error!);
         }
 
-        await using var processHandle = batchmodeLaunchResult.ProcessHandle!;
-        if (processHandle.StartTimeUtc is not DateTimeOffset processStartedAtUtc)
+        var processHandle = batchmodeLaunchResult.ProcessHandle!;
+        var launchResult = await UnityProcessOwnership.ResolveDaemonLaunchAsync(
+                processHandle,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!launchResult.IsSuccess)
         {
-            return UnityDaemonLaunchResult.Failure(ExecutionError.InternalError(
-                $"Unity batchmode process start time could not be read. processId={processHandle.ProcessId}."));
+            return launchResult;
         }
 
-        return UnityDaemonLaunchResult.Success(processHandle.ProcessId, processStartedAtUtc);
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            processLifetimeOwner.Transfer(processHandle);
+            return launchResult;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            await UnityProcessOwnership.TerminateAndDisposeBestEffortAsync(processHandle).ConfigureAwait(false);
+            throw;
+        }
+        catch (Exception exception)
+        {
+            await UnityProcessOwnership.TerminateAndDisposeBestEffortAsync(processHandle).ConfigureAwait(false);
+            return UnityDaemonLaunchResult.Failure(ExecutionError.InternalError(
+                $"Failed to transfer Unity batchmode process lifetime ownership. {exception.Message}"));
+        }
     }
 
     /// <inheritdoc />
@@ -197,8 +218,18 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
                     "Unity batchmode process could not be started."));
             }
 
-            StartRedirectedOutputDrain(process);
-            return UnityBatchmodeProcessLaunchResult.Success(new UnityBatchmodeProcessHandle(process));
+            var processHandle = new UnityProcessHandle(process);
+            try
+            {
+                StartRedirectedOutputDrain(process);
+                cancellationToken.ThrowIfCancellationRequested();
+                return UnityBatchmodeProcessLaunchResult.Success(processHandle);
+            }
+            catch (Exception)
+            {
+                await UnityProcessOwnership.TerminateAndDisposeBestEffortAsync(processHandle).ConfigureAwait(false);
+                throw;
+            }
         }
         catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {

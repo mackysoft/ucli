@@ -21,9 +21,19 @@ internal sealed class StubUnityBatchmodeProcessHandle : IUnityBatchmodeProcessHa
         this.waitForExitBehavior = waitForExitBehavior;
     }
 
-    public int ProcessId => 1234;
+    public Func<int>? ProcessIdProvider { get; set; }
 
-    public DateTimeOffset? StartTimeUtc => DateTimeOffset.UtcNow;
+    public Func<DateTimeOffset?>? StartTimeUtcProvider { get; set; }
+
+    public Func<ProcessTerminationPolicy, CancellationToken, Task<ProcessTerminationResult>>? TerminateHandler { get; set; }
+
+    public Action? OnDispose { get; set; }
+
+    public int ProcessId => ProcessIdProvider?.Invoke() ?? 1234;
+
+    public DateTimeOffset? StartTimeUtc => StartTimeUtcProvider is null
+        ? DateTimeOffset.UtcNow
+        : StartTimeUtcProvider();
 
     public bool HasExited { get; private set; }
 
@@ -32,6 +42,8 @@ internal sealed class StubUnityBatchmodeProcessHandle : IUnityBatchmodeProcessHa
     public IReadOnlyList<WaitForExitInvocation> WaitForExitInvocations => waitForExitInvocations;
 
     public IReadOnlyList<TerminateInvocation> TerminateInvocations => terminateInvocations;
+
+    public int DisposeCount { get; private set; }
 
     public static StubUnityBatchmodeProcessHandle CreateNonExiting ()
     {
@@ -55,23 +67,31 @@ internal sealed class StubUnityBatchmodeProcessHandle : IUnityBatchmodeProcessHa
     }
 
     public Task<ProcessTerminationResult> TerminateAsync (
-        ProcessTerminationPolicy? terminationPolicy = null,
-        CancellationToken cancellationToken = default)
+        ProcessTerminationPolicy terminationPolicy,
+        CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(terminationPolicy);
         cancellationToken.ThrowIfCancellationRequested();
         terminateInvocations.Add(new TerminateInvocation(terminationPolicy, cancellationToken));
+        if (TerminateHandler is not null)
+        {
+            return TerminateHandler(terminationPolicy, cancellationToken);
+        }
+
         HasExited = true;
         return Task.FromResult(ProcessTerminationResult.GracefulExited);
     }
 
     public ValueTask DisposeAsync ()
     {
+        DisposeCount++;
+        OnDispose?.Invoke();
         return ValueTask.CompletedTask;
     }
 
     internal readonly record struct WaitForExitInvocation (CancellationToken CancellationToken);
 
     internal readonly record struct TerminateInvocation (
-        ProcessTerminationPolicy? TerminationPolicy,
+        ProcessTerminationPolicy TerminationPolicy,
         CancellationToken CancellationToken);
 }
