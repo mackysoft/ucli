@@ -57,7 +57,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return await ExecuteAsync(operation, args, cancellationToken).ConfigureAwait(false);
+            return await ExecuteAsync(operation, args, cancellationToken);
         }
 
         protected override async Task<OperationPhaseStepResult> CallAsync (
@@ -67,7 +67,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return await ExecuteAsync(operation, args, cancellationToken).ConfigureAwait(false);
+            return await ExecuteAsync(operation, args, cancellationToken);
         }
 
         private async Task<OperationPhaseStepResult> ExecuteAsync (
@@ -82,7 +82,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             var extractionResult = await schemaExtractor.ExtractAsync(
                 new[] { validationState.ComponentType! },
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken);
             if (extractionResult.Entries.Count == 0)
             {
                 return OperationPhaseStepResult.Failed(new OperationFailure(

@@ -1,11 +1,14 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Runtime;
 
@@ -16,17 +19,27 @@ namespace MackySoft.Ucli.Unity.Ipc
     {
         private const int SchemaVersion = 1;
         private const long MaxRecordFileBytes = 1024 * 1024;
-        private const int TemporaryRecordTokenLength = 12;
+        private const int MaxMaintenanceRecordsPerRun = 128;
         private const string RecordFileName = "operation.json";
 
         private static readonly TimeSpan CompletedRecordTtl = TimeSpan.FromMinutes(10);
         private static readonly TimeSpan PendingRecordTtl = TimeSpan.FromHours(24);
         private static readonly TimeSpan InvalidRecordTtl = TimeSpan.FromHours(24);
+        private static readonly TimeSpan MaintenanceInterval = TimeSpan.FromMinutes(1);
+        private static readonly long MaintenanceIntervalTimestampTicks =
+            checked((long)(MaintenanceInterval.TotalSeconds * Stopwatch.Frequency));
 
         private readonly string operationsDirectoryPath;
         private readonly string projectFingerprint;
         private readonly int hostProcessId;
         private readonly string hostEditorInstanceId;
+        private readonly SemaphoreSlim ioGate = new SemaphoreSlim(1, 1);
+        private readonly SemaphoreSlim maintenanceGate = new SemaphoreSlim(1, 1);
+
+        private long nextMaintenanceTimestamp;
+        private int maintenanceScheduled;
+        private string maintenanceFailureMessage;
+        private string maintenanceCursorDirectoryName;
 
         private FileRecoverableIpcOperationStore (
             string operationsDirectoryPath,
@@ -48,6 +61,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             this.projectFingerprint = projectFingerprint;
             this.hostProcessId = hostProcessId;
             this.hostEditorInstanceId = hostEditorInstanceId;
+            nextMaintenanceTimestamp = Stopwatch.GetTimestamp() + MaintenanceIntervalTimestampTicks;
         }
 
         /// <summary> Creates a file-backed store for the Unity project served by the IPC host. </summary>
@@ -71,64 +85,44 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         /// <inheritdoc />
-        public bool TryRead (
+        public ValueTask<RecoverableIpcOperationReadResult> ReadAsync (
             string method,
             string requestId,
             string requestPayloadHash,
-            out RecoverableIpcOperationRecord record,
-            out string errorMessage)
+            CancellationToken cancellationToken)
         {
-            record = null;
             if (string.IsNullOrWhiteSpace(requestPayloadHash))
             {
-                errorMessage = "Request payload hash must not be empty.";
-                return false;
+                return new ValueTask<RecoverableIpcOperationReadResult>(
+                    RecoverableIpcOperationReadResult.Failure("Request payload hash must not be empty."));
             }
 
-            try
-            {
-                var path = ResolveRecordPath(method, requestId);
-                if (!File.Exists(path))
-                {
-                    errorMessage = null;
-                    return false;
-                }
-
-                EnsureReadableRecordPath(path);
-                record = JsonSerializer.Deserialize<RecoverableIpcOperationRecord>(
-                    ReadRecordText(path),
-                    IpcJsonSerializerOptions.Default);
-                if (!IsValidRecord(record, method, requestId, requestPayloadHash, out errorMessage))
-                {
-                    record = null;
-                    return false;
-                }
-
-                errorMessage = null;
-                return true;
-            }
-            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException or ArgumentException)
-            {
-                errorMessage = exception.Message;
-                return false;
-            }
+            cancellationToken.ThrowIfCancellationRequested();
+            return new ValueTask<RecoverableIpcOperationReadResult>(Task.Run(
+                () => ReadSerializedAsync(
+                    method,
+                    requestId,
+                    requestPayloadHash,
+                    cancellationToken),
+                cancellationToken));
         }
 
         /// <inheritdoc />
-        public bool TryWritePending (
+        public ValueTask<RecoverableIpcOperationStoreResult> WritePendingAsync (
             string method,
             string requestId,
             string requestPayloadHash,
             DateTimeOffset startedAtUtc,
             JsonElement recoveryPayload,
-            out string errorMessage)
+            CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(requestPayloadHash))
             {
-                errorMessage = "Request payload hash must not be empty.";
-                return false;
+                return new ValueTask<RecoverableIpcOperationStoreResult>(
+                    RecoverableIpcOperationStoreResult.Failure("Request payload hash must not be empty."));
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
             var record = new RecoverableIpcOperationRecord
             {
                 SchemaVersion = SchemaVersion,
@@ -142,11 +136,11 @@ namespace MackySoft.Ucli.Unity.Ipc
                 StartedAtUtc = startedAtUtc,
                 RecoveryPayload = recoveryPayload.Clone(),
             };
-            return TryWriteRecord(record, out errorMessage);
+            return WriteRecordOffMainThreadAsync(record, cancellationToken);
         }
 
         /// <inheritdoc />
-        public bool TryWriteCompleted (
+        public ValueTask<RecoverableIpcOperationStoreResult> WriteCompletedAsync (
             string method,
             string requestId,
             string requestPayloadHash,
@@ -154,7 +148,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             DateTimeOffset completedAtUtc,
             JsonElement recoveryPayload,
             IpcResponse response,
-            out string errorMessage)
+            CancellationToken cancellationToken)
         {
             if (response == null)
             {
@@ -163,10 +157,11 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             if (string.IsNullOrWhiteSpace(requestPayloadHash))
             {
-                errorMessage = "Request payload hash must not be empty.";
-                return false;
+                return new ValueTask<RecoverableIpcOperationStoreResult>(
+                    RecoverableIpcOperationStoreResult.Failure("Request payload hash must not be empty."));
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
             var record = new RecoverableIpcOperationRecord
             {
                 SchemaVersion = SchemaVersion,
@@ -182,85 +177,280 @@ namespace MackySoft.Ucli.Unity.Ipc
                 RecoveryPayload = recoveryPayload.Clone(),
                 Response = response,
             };
-            return TryWriteRecord(record, out errorMessage);
+            return WriteRecordOffMainThreadAsync(record, cancellationToken);
+        }
+
+        /// <summary> Runs one bounded maintenance pass. Production callers schedule this outside request execution. </summary>
+        internal ValueTask<RecoverableIpcOperationStoreResult> PurgeExpiredRecordsAsync (
+            DateTimeOffset nowUtc,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return new ValueTask<RecoverableIpcOperationStoreResult>(Task.Run(
+                () => PurgeExpiredRecordsSerializedAsync(nowUtc, cancellationToken),
+                cancellationToken));
         }
 
         /// <inheritdoc />
-        public bool TryPurgeExpiredRecords (
+        public string ConsumeMaintenanceFailure ()
+        {
+            return Interlocked.Exchange(ref maintenanceFailureMessage, null);
+        }
+
+        private async Task<RecoverableIpcOperationReadResult> ReadSerializedAsync (
+            string method,
+            string requestId,
+            string requestPayloadHash,
+            CancellationToken cancellationToken)
+        {
+            await ioGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                try
+                {
+                    var path = ResolveRecordPath(method, requestId);
+                    if (!File.Exists(path))
+                    {
+                        return RecoverableIpcOperationReadResult.Missing();
+                    }
+
+                    EnsureReadableRecordPath(path);
+                    var record = JsonSerializer.Deserialize<RecoverableIpcOperationRecord>(
+                        await ReadRecordTextAsync(path, cancellationToken).ConfigureAwait(false),
+                        IpcJsonSerializerOptions.Default);
+                    if (!IsValidRecord(record, method, requestId, requestPayloadHash, out var errorMessage))
+                    {
+                        return RecoverableIpcOperationReadResult.Failure(errorMessage);
+                    }
+
+                    return RecoverableIpcOperationReadResult.Success(record);
+                }
+                catch (Exception exception) when (
+                    exception is IOException
+                    or UnauthorizedAccessException
+                    or JsonException
+                    or ArgumentException)
+                {
+                    return RecoverableIpcOperationReadResult.Failure(exception.Message);
+                }
+            }
+            finally
+            {
+                ioGate.Release();
+                RequestMaintenance();
+            }
+        }
+
+        private ValueTask<RecoverableIpcOperationStoreResult> WriteRecordOffMainThreadAsync (
+            RecoverableIpcOperationRecord record,
+            CancellationToken cancellationToken)
+        {
+            return new ValueTask<RecoverableIpcOperationStoreResult>(Task.Run(
+                () => WriteRecordSerializedAsync(record, cancellationToken),
+                cancellationToken));
+        }
+
+        private async Task<RecoverableIpcOperationStoreResult> WriteRecordSerializedAsync (
+            RecoverableIpcOperationRecord record,
+            CancellationToken cancellationToken)
+        {
+            await ioGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                try
+                {
+                    var path = ResolveRecordPath(record.Method, record.RequestId);
+                    var directoryPath = Path.GetDirectoryName(path);
+                    if (string.IsNullOrWhiteSpace(directoryPath))
+                    {
+                        throw new InvalidOperationException($"Recoverable IPC operation directory path could not be resolved: {path}");
+                    }
+
+                    FileSystemAccessBoundary.EnsureSecureDirectory(directoryPath);
+                    var json = JsonSerializer.Serialize(record, IpcJsonSerializerOptions.Default) + Environment.NewLine;
+                    if (Encoding.UTF8.GetByteCount(json) > MaxRecordFileBytes)
+                    {
+                        throw new IOException($"Recoverable IPC operation record exceeds the maximum size: {path}");
+                    }
+
+                    EnsureWritableRecordFile(path);
+                    await FileUtilities.WriteAllTextAtomicallyAsync(path, json, cancellationToken).ConfigureAwait(false);
+                    FileSystemAccessBoundary.EnsureSecureFile(path);
+                    return RecoverableIpcOperationStoreResult.Success();
+                }
+                catch (Exception exception) when (
+                    exception is IOException
+                    or UnauthorizedAccessException
+                    or JsonException
+                    or InvalidOperationException
+                    or ArgumentException)
+                {
+                    return RecoverableIpcOperationStoreResult.Failure(exception.Message);
+                }
+            }
+            finally
+            {
+                ioGate.Release();
+                RequestMaintenance();
+            }
+        }
+
+        private async Task<RecoverableIpcOperationStoreResult> PurgeExpiredRecordsSerializedAsync (
             DateTimeOffset nowUtc,
-            out string errorMessage)
+            CancellationToken cancellationToken)
+        {
+            await maintenanceGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                return await PurgeExpiredRecordsCoreAsync(nowUtc, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                maintenanceGate.Release();
+            }
+        }
+
+        private async Task<RecoverableIpcOperationStoreResult> PurgeExpiredRecordsCoreAsync (
+            DateTimeOffset nowUtc,
+            CancellationToken cancellationToken)
         {
             try
             {
                 if (!Directory.Exists(operationsDirectoryPath))
                 {
-                    errorMessage = null;
-                    return true;
+                    return RecoverableIpcOperationStoreResult.Success();
                 }
 
                 if (IsReparsePoint(operationsDirectoryPath))
                 {
-                    errorMessage = $"Recoverable IPC operations directory must not be a reparse point: {operationsDirectoryPath}";
-                    return false;
+                    return RecoverableIpcOperationStoreResult.Failure(
+                        $"Recoverable IPC operations directory must not be a reparse point: {operationsDirectoryPath}");
                 }
 
-                foreach (var operationDirectoryPath in Directory.EnumerateDirectories(operationsDirectoryPath))
+                var operationDirectoryPaths = Directory
+                    .EnumerateDirectories(operationsDirectoryPath)
+                    .OrderBy(path => Path.GetFileName(path), StringComparer.Ordinal)
+                    .ToArray();
+                if (operationDirectoryPaths.Length == 0)
                 {
-                    if (IsReparsePoint(operationDirectoryPath))
-                    {
-                        continue;
-                    }
-
-                    var recordPath = Path.Combine(operationDirectoryPath, RecordFileName);
-                    if (!File.Exists(recordPath))
-                    {
-                        TryDeleteEmptyDirectory(operationDirectoryPath);
-                        continue;
-                    }
-
-                    if (!ShouldPurgeRecordFile(recordPath, nowUtc))
-                    {
-                        continue;
-                    }
-
-                    FileUtilities.DeleteIfExists(recordPath);
-                    TryDeleteEmptyDirectory(operationDirectoryPath);
+                    maintenanceCursorDirectoryName = null;
+                    return RecoverableIpcOperationStoreResult.Success();
                 }
 
-                errorMessage = null;
-                return true;
+                var startIndex = ResolveMaintenanceStartIndex(operationDirectoryPaths);
+                var processedRecordCount = Math.Min(MaxMaintenanceRecordsPerRun, operationDirectoryPaths.Length);
+                for (var offset = 0; offset < processedRecordCount; offset++)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var operationDirectoryPath = operationDirectoryPaths[(startIndex + offset) % operationDirectoryPaths.Length];
+                    maintenanceCursorDirectoryName = Path.GetFileName(operationDirectoryPath);
+                    await PurgeOperationDirectoryAsync(
+                            operationDirectoryPath,
+                            nowUtc,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+
+                    // Do not let best-effort maintenance continuously reacquire the request I/O gate.
+                    await Task.Yield();
+                }
+
+                return RecoverableIpcOperationStoreResult.Success();
             }
-            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException)
+            catch (Exception exception) when (
+                exception is IOException
+                or UnauthorizedAccessException
+                or JsonException)
             {
-                errorMessage = exception.Message;
-                return false;
+                return RecoverableIpcOperationStoreResult.Failure(exception.Message);
             }
         }
 
-        private bool TryWriteRecord (
-            RecoverableIpcOperationRecord record,
-            out string errorMessage)
+        private async Task PurgeOperationDirectoryAsync (
+            string operationDirectoryPath,
+            DateTimeOffset nowUtc,
+            CancellationToken cancellationToken)
+        {
+            await ioGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                if (IsReparsePoint(operationDirectoryPath))
+                {
+                    return;
+                }
+
+                var recordPath = Path.Combine(operationDirectoryPath, RecordFileName);
+                if (!File.Exists(recordPath))
+                {
+                    TryDeleteEmptyDirectory(operationDirectoryPath);
+                    return;
+                }
+
+                if (!ShouldPurgeRecordFile(recordPath, nowUtc))
+                {
+                    return;
+                }
+
+                FileUtilities.DeleteIfExists(recordPath);
+                TryDeleteEmptyDirectory(operationDirectoryPath);
+            }
+            finally
+            {
+                ioGate.Release();
+            }
+        }
+
+        private int ResolveMaintenanceStartIndex (string[] operationDirectoryPaths)
+        {
+            if (string.IsNullOrWhiteSpace(maintenanceCursorDirectoryName))
+            {
+                return 0;
+            }
+
+            var nextIndex = Array.FindIndex(
+                operationDirectoryPaths,
+                path => string.Compare(
+                    Path.GetFileName(path),
+                    maintenanceCursorDirectoryName,
+                    StringComparison.Ordinal) > 0);
+            return nextIndex >= 0 ? nextIndex : 0;
+        }
+
+        private void RequestMaintenance ()
+        {
+            var nowTimestamp = Stopwatch.GetTimestamp();
+            if (nowTimestamp < Volatile.Read(ref nextMaintenanceTimestamp)
+                || Interlocked.CompareExchange(ref maintenanceScheduled, 1, 0) != 0)
+            {
+                return;
+            }
+
+            _ = Task.Run(RunScheduledMaintenanceAsync);
+        }
+
+        private async Task RunScheduledMaintenanceAsync ()
         {
             try
             {
-                TryPurgeExpiredRecords(DateTimeOffset.UtcNow, out _);
-                var path = ResolveRecordPath(record.Method, record.RequestId);
-                var directoryPath = Path.GetDirectoryName(path);
-                if (string.IsNullOrWhiteSpace(directoryPath))
+                var result = await PurgeExpiredRecordsSerializedAsync(
+                        DateTimeOffset.UtcNow,
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
+                if (!result.IsSuccess)
                 {
-                    throw new InvalidOperationException($"Recoverable IPC operation directory path could not be resolved: {path}");
+                    Interlocked.Exchange(ref maintenanceFailureMessage, result.ErrorMessage);
                 }
-
-                FileSystemAccessBoundary.EnsureSecureDirectory(directoryPath);
-                var json = JsonSerializer.Serialize(record, IpcJsonSerializerOptions.Default) + Environment.NewLine;
-                WriteAllTextAtomically(path, json);
-                errorMessage = null;
-                return true;
             }
-            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException or ArgumentException)
+            catch (Exception exception)
             {
-                errorMessage = exception.Message;
-                return false;
+                // Maintenance is best effort. A later main-thread dispatch consumes this message.
+                Interlocked.Exchange(ref maintenanceFailureMessage, exception.Message);
+            }
+            finally
+            {
+                Volatile.Write(
+                    ref nextMaintenanceTimestamp,
+                    Stopwatch.GetTimestamp() + MaintenanceIntervalTimestampTicks);
+                Volatile.Write(ref maintenanceScheduled, 0);
             }
         }
 
@@ -362,7 +552,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         private static string ReadRecordText (string recordPath)
         {
             EnsureReadableRecordFile(recordPath);
-            using (var stream = new FileStream(recordPath, FileMode.Open, FileAccess.Read, FileShare.Read, 8192))
+            using (var stream = FileUtilities.OpenReopenSafeReadStream(recordPath))
             using (var memoryStream = new MemoryStream())
             {
                 // NOTE: Keep the in-loop byte count even after the initial length check.
@@ -395,65 +585,42 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
         }
 
-        private static void WriteAllTextAtomically (
-            string path,
-            string contents)
+        private static async Task<string> ReadRecordTextAsync (
+            string recordPath,
+            CancellationToken cancellationToken)
         {
-            var directoryPath = Path.GetDirectoryName(path);
-            if (string.IsNullOrWhiteSpace(directoryPath))
+            cancellationToken.ThrowIfCancellationRequested();
+            EnsureReadableRecordFile(recordPath);
+            using (var stream = FileUtilities.OpenReopenSafeReadStream(recordPath))
+            using (var memoryStream = new MemoryStream())
             {
-                throw new InvalidOperationException($"Recoverable IPC operation directory path could not be resolved: {path}");
-            }
+                if (stream.Length > MaxRecordFileBytes)
+                {
+                    throw new IOException($"Recoverable IPC operation record exceeds the maximum size: {recordPath}");
+                }
 
-            // NOTE: The temporary file must remain beside the target record so replace is same-volume,
-            // but its name must stay short. Windows CI project paths can sit close to MAX_PATH, and
-            // appending ".tmp.<guid>" to "operation.json" can exceed that budget before persistence.
-            var temporaryName = ".tmp-" + Guid.NewGuid().ToString("N").Substring(0, TemporaryRecordTokenLength);
-            var temporaryPath = Path.Combine(directoryPath, temporaryName);
-            try
-            {
-                EnsureWritableRecordFile(path);
-                File.WriteAllText(temporaryPath, contents);
-                FileSystemAccessBoundary.EnsureSecureFile(temporaryPath);
-                ReplaceFile(temporaryPath, path);
-                FileSystemAccessBoundary.EnsureSecureFile(path);
-            }
-            finally
-            {
-                FileUtilities.DeleteIfExists(temporaryPath);
-            }
-        }
+                var buffer = new byte[8192];
+                long totalBytesRead = 0;
+                while (true)
+                {
+                    var bytesRead = await stream.ReadAsync(
+                        buffer,
+                        0,
+                        buffer.Length,
+                        cancellationToken).ConfigureAwait(false);
+                    if (bytesRead == 0)
+                    {
+                        return Encoding.UTF8.GetString(memoryStream.ToArray());
+                    }
 
-        private static void ReplaceFile (
-            string temporaryPath,
-            string path)
-        {
-            try
-            {
-                File.Replace(temporaryPath, path, destinationBackupFileName: null, ignoreMetadataErrors: true);
-            }
-            catch (FileNotFoundException)
-            {
-                MoveOrReplaceWhenCreatedConcurrently(temporaryPath, path);
-            }
-            catch (IOException) when (!File.Exists(path))
-            {
-                MoveOrReplaceWhenCreatedConcurrently(temporaryPath, path);
-            }
-        }
+                    totalBytesRead += bytesRead;
+                    if (totalBytesRead > MaxRecordFileBytes)
+                    {
+                        throw new IOException($"Recoverable IPC operation record exceeds the maximum size: {recordPath}");
+                    }
 
-        private static void MoveOrReplaceWhenCreatedConcurrently (
-            string temporaryPath,
-            string path)
-        {
-            try
-            {
-                File.Move(temporaryPath, path);
-            }
-            catch (IOException) when (File.Exists(path))
-            {
-                EnsureWritableRecordFile(path);
-                File.Replace(temporaryPath, path, destinationBackupFileName: null, ignoreMetadataErrors: true);
+                    memoryStream.Write(buffer, 0, bytesRead);
+                }
             }
         }
 

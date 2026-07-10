@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Testing;
+using MackySoft.Ucli.Unity.Runtime;
 using UnityEditor.TestTools.TestRunner.Api;
 using UnityEngine;
 
@@ -13,6 +14,20 @@ namespace MackySoft.Ucli.Unity.Ipc
     {
         private const int MaxProgressTextLength = 8192;
         private const int MaxProgressCategoryCount = 64;
+
+        private readonly IUnityMutationLaneControl mutationLaneControl;
+        private readonly IDaemonLogger daemonLogger;
+
+        /// <summary> Initializes a new instance of the <see cref="UnityTestRunner" /> class. </summary>
+        /// <param name="mutationLaneControl"> The mutation safety fence for non-terminal canceled test runs. </param>
+        /// <param name="daemonLogger"> The daemon logger used for cancellation failures. </param>
+        public UnityTestRunner (
+            IUnityMutationLaneControl mutationLaneControl,
+            IDaemonLogger daemonLogger)
+        {
+            this.mutationLaneControl = mutationLaneControl ?? throw new ArgumentNullException(nameof(mutationLaneControl));
+            this.daemonLogger = daemonLogger ?? throw new ArgumentNullException(nameof(daemonLogger));
+        }
 
         /// <summary> Executes one Unity Test Framework run and returns the result adaptor. </summary>
         /// <param name="requestContext"> The normalized test-run request context. </param>
@@ -31,6 +46,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             cancellationToken.ThrowIfCancellationRequested();
+            var mainThreadSynchronizationContext = UnityMainThreadGuard.CaptureSynchronizationContext(
+                "Unity test runs");
 
             var executionSettings = CreateExecutionSettings(requestContext);
             var callbacks = new TestRunCallbacks(requestContext, progressSink);
@@ -40,8 +57,26 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 testRunnerApi.RegisterCallbacks(callbacks);
                 var testRunId = testRunnerApi.Execute(executionSettings);
-                cancellationRegistration = RegisterCancellation(testRunId, cancellationToken);
-                return await callbacks.WaitForCompletionAsync(cancellationToken);
+                cancellationRegistration = RegisterCancellation(
+                    testRunId,
+                    cancellationToken,
+                    mainThreadSynchronizationContext,
+                    daemonLogger,
+                    static runId =>
+                    {
+                        _ = TestRunnerApi.CancelTestRun(runId);
+                    });
+                try
+                {
+                    return await callbacks.WaitForCompletionAsync(cancellationToken);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    await AwaitCancellationQuiescenceAsync(
+                        callbacks,
+                        mutationLaneControl);
+                    throw;
+                }
             }
             finally
             {
@@ -102,11 +137,32 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <summary> Registers Unity Test Framework run-cancel callback for one active run identifier. </summary>
         /// <param name="testRunId"> The active Unity test run identifier returned by <see cref="TestRunnerApi.Execute" />. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by caller. </param>
+        /// <param name="mainThreadSynchronizationContext"> The Unity main-thread context used to dispatch cancellation. </param>
+        /// <param name="daemonLogger"> The daemon logger used for a cancellation failure on the Unity main thread. </param>
+        /// <param name="cancelTestRun"> The main-thread action that cancels the active Unity test run. </param>
         /// <returns> The cancellation registration handle. </returns>
-        private static CancellationTokenRegistration RegisterCancellation (
+        internal static CancellationTokenRegistration RegisterCancellation (
             string testRunId,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            SynchronizationContext mainThreadSynchronizationContext,
+            IDaemonLogger daemonLogger,
+            Action<string> cancelTestRun)
         {
+            if (cancelTestRun == null)
+            {
+                throw new ArgumentNullException(nameof(cancelTestRun));
+            }
+
+            if (mainThreadSynchronizationContext == null)
+            {
+                throw new ArgumentNullException(nameof(mainThreadSynchronizationContext));
+            }
+
+            if (daemonLogger == null)
+            {
+                throw new ArgumentNullException(nameof(daemonLogger));
+            }
+
             if (!cancellationToken.CanBeCanceled || string.IsNullOrWhiteSpace(testRunId))
             {
                 return default;
@@ -114,20 +170,79 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             return cancellationToken.Register(static state =>
             {
-                var runId = (string)state;
+                var cancellationState = (TestRunCancellationState)state;
                 try
                 {
-                    TestRunnerApi.CancelTestRun(runId);
+                    cancellationState.MainThreadSynchronizationContext.Post(static postedState =>
+                    {
+                        var postedCancellationState = (TestRunCancellationState)postedState;
+                        try
+                        {
+                            postedCancellationState.CancelTestRun(postedCancellationState.TestRunId);
+                        }
+                        catch (Exception exception)
+                        {
+                            postedCancellationState.DaemonLogger.Warning(
+                                DaemonLogCategories.Ipc,
+                                $"Unity test run cancel request failed. runId={postedCancellationState.TestRunId}.",
+                                exception.ToString());
+                        }
+                    }, cancellationState);
                 }
-                catch (Exception exception)
+                catch
                 {
-                    // NOTE:
-                    // Cancellation callback cannot propagate exceptions to caller.
-                    // Emit diagnostic information and keep cancellation flow non-fatal.
-                    Debug.LogWarning($"Unity test run cancel request failed. runId={runId}. {exception.Message}");
+                    // Cancellation still detaches the request and poisons the mutation lane if the
+                    // test runner cannot publish RunFinished during Unity synchronization teardown.
                 }
-            }, testRunId);
+            }, new TestRunCancellationState(
+                testRunId,
+                mainThreadSynchronizationContext,
+                daemonLogger,
+                cancelTestRun));
         }
+
+        /// <summary> Waits briefly for a canceled Unity test run to terminate, then poisons mutation admission. </summary>
+        internal static async Task AwaitCancellationQuiescenceAsync (
+            TestRunCallbacks callbacks,
+            IUnityMutationLaneControl mutationLaneControl)
+        {
+            if (callbacks == null)
+            {
+                throw new ArgumentNullException(nameof(callbacks));
+            }
+
+            if (mutationLaneControl == null)
+            {
+                throw new ArgumentNullException(nameof(mutationLaneControl));
+            }
+
+            var completionTask = callbacks.WaitForCompletionAsync(CancellationToken.None);
+            var didQuiesce = await UnityMutationCancellationPolicy.WaitForQuiescenceAsync(completionTask);
+            if (didQuiesce)
+            {
+                await completionTask;
+                return;
+            }
+
+            mutationLaneControl.Poison(
+                "A canceled Unity test run did not publish RunFinished and may still mutate Editor state.");
+            ObserveFault(completionTask);
+        }
+
+        private static void ObserveFault (Task task)
+        {
+            _ = task.ContinueWith(
+                static completedTask => _ = completedTask.Exception,
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously | TaskContinuationOptions.OnlyOnFaulted,
+                TaskScheduler.Default);
+        }
+
+        private sealed record TestRunCancellationState (
+            string TestRunId,
+            SynchronizationContext MainThreadSynchronizationContext,
+            IDaemonLogger DaemonLogger,
+            Action<string> CancelTestRun);
 
         /// <summary> Receives Unity Test Framework callbacks and exposes completion task. </summary>
         internal sealed class TestRunCallbacks : ICallbacks

@@ -78,7 +78,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             using var executionContext = new OperationExecutionContext();
             var operationPreflight = CreateOperationPreflight(command, request.AllowDangerous);
-            var planPassResult = await planPassExecutor.ExecuteAsync(request, executionContext, operationPreflight, cancellationToken).ConfigureAwait(false);
+            var planPassResult = await planPassExecutor.ExecuteAsync(request, executionContext, operationPreflight, cancellationToken);
             if (!planPassResult.IsSuccess)
             {
                 if (command == PhaseExecutionCommand.Call
@@ -171,7 +171,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     });
             }
 
-            var callPassResult = await callPassExecutor.ExecuteAsync(planPassResult.PreparedOperations, executionContext, cancellationToken).ConfigureAwait(false);
+            var callPassResult = await callPassExecutor.ExecuteAsync(planPassResult.PreparedOperations, executionContext, cancellationToken);
             return callPassResult.IsSuccess
                 ? PhaseExecutionTrace.Success(request.ProtocolVersion, request.RequestId, planPassResult.CompiledSteps, callPassResult.OperationTraces)
                 : PhaseExecutionTrace.Failure(request.ProtocolVersion, request.RequestId, planPassResult.CompiledSteps, callPassResult.OperationTraces, callPassResult.Errors);

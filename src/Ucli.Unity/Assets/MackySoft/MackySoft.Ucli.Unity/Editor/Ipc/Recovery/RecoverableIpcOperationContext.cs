@@ -1,5 +1,7 @@
 using System;
 using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Unity.Ipc
@@ -12,9 +14,12 @@ namespace MackySoft.Ucli.Unity.Ipc
         private readonly string requestId;
         private readonly string requestPayloadHash;
 
+        private readonly object completionSyncRoot = new object();
+
         private DateTimeOffset startedAtUtc;
         private JsonElement recoveryPayload;
         private bool hasRecord;
+        private Task<RecoverableIpcOperationStoreResult> completionTask;
 
         /// <summary> Initializes a new instance of the <see cref="RecoverableIpcOperationContext" /> class. </summary>
         public RecoverableIpcOperationContext (
@@ -81,32 +86,38 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         /// <summary> Marks the operation pending before the method performs its state-changing action. </summary>
-        public bool TryMarkPending<TPayload> (
+        public async ValueTask<RecoverableIpcOperationStoreResult> MarkPendingAsync<TPayload> (
             TPayload payload,
-            out string errorMessage)
+            CancellationToken cancellationToken)
         {
-            if (!hasRecord)
-            {
-                startedAtUtc = DateTimeOffset.UtcNow;
-            }
+            cancellationToken.ThrowIfCancellationRequested();
+            var nextStartedAtUtc = hasRecord ? startedAtUtc : DateTimeOffset.UtcNow;
 
             var nextRecoveryPayload = IpcPayloadCodec.SerializeToElement(payload);
             // NOTE: Pending state is written before the handler performs its Unity
             // state-changing action. Domain reload recovery depends on this payload.
-            if (!store.TryWritePending(method, requestId, requestPayloadHash, startedAtUtc, nextRecoveryPayload, out errorMessage))
+            var result = await store.WritePendingAsync(
+                method,
+                requestId,
+                requestPayloadHash,
+                nextStartedAtUtc,
+                nextRecoveryPayload,
+                cancellationToken);
+            if (!result.IsSuccess)
             {
-                return false;
+                return result;
             }
 
             hasRecord = true;
+            startedAtUtc = nextStartedAtUtc;
             recoveryPayload = nextRecoveryPayload.Clone();
-            return true;
+            return result;
         }
 
         /// <summary> Marks the operation completed with the response returned by the method handler. </summary>
-        public bool TryMarkCompleted (
+        public ValueTask<RecoverableIpcOperationStoreResult> MarkCompletedAsync (
             IpcResponse response,
-            out string errorMessage)
+            CancellationToken cancellationToken)
         {
             if (response == null)
             {
@@ -115,11 +126,22 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             if (!hasRecord)
             {
-                errorMessage = null;
-                return true;
+                return new ValueTask<RecoverableIpcOperationStoreResult>(
+                    RecoverableIpcOperationStoreResult.Success());
             }
 
-            return store.TryWriteCompleted(
+            lock (completionSyncRoot)
+            {
+                completionTask ??= MarkCompletedCoreAsync(response, cancellationToken);
+                return new ValueTask<RecoverableIpcOperationStoreResult>(completionTask);
+            }
+        }
+
+        private async Task<RecoverableIpcOperationStoreResult> MarkCompletedCoreAsync (
+            IpcResponse response,
+            CancellationToken cancellationToken)
+        {
+            return await store.WriteCompletedAsync(
                 method,
                 requestId,
                 requestPayloadHash,
@@ -127,7 +149,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 DateTimeOffset.UtcNow,
                 recoveryPayload,
                 response,
-                out errorMessage);
+                cancellationToken);
         }
     }
 }

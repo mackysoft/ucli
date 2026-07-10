@@ -26,7 +26,6 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
         private readonly IOperationPhaseExecutor operationPhaseExecutor;
         private readonly IExecuteRequestIdempotencyCoordinator requestIdempotencyCoordinator;
         private readonly IUnityEditorReadinessGate readinessGate;
-        private readonly IUnityMainThreadRequestExecutor mainThreadRequestExecutor;
 
         /// <summary> Initializes a new instance of the <see cref="ExecuteRequestDispatcher" /> class. </summary>
         /// <param name="requestNormalizer"> The execute-request normalizer dependency. </param>
@@ -37,14 +36,12 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
             IExecuteRequestNormalizer requestNormalizer,
             IOperationPhaseExecutor operationPhaseExecutor,
             IExecuteRequestIdempotencyCoordinator requestIdempotencyCoordinator,
-            IUnityEditorReadinessGate readinessGate,
-            IUnityMainThreadRequestExecutor mainThreadRequestExecutor)
+            IUnityEditorReadinessGate readinessGate)
         {
             this.requestNormalizer = requestNormalizer ?? throw new ArgumentNullException(nameof(requestNormalizer));
             this.operationPhaseExecutor = operationPhaseExecutor ?? throw new ArgumentNullException(nameof(operationPhaseExecutor));
             this.requestIdempotencyCoordinator = requestIdempotencyCoordinator ?? throw new ArgumentNullException(nameof(requestIdempotencyCoordinator));
             this.readinessGate = readinessGate ?? throw new ArgumentNullException(nameof(readinessGate));
-            this.mainThreadRequestExecutor = mainThreadRequestExecutor ?? throw new ArgumentNullException(nameof(mainThreadRequestExecutor));
         }
 
         /// <summary> Dispatches one execute request and returns the response envelope. </summary>
@@ -92,8 +89,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                         "Request id conflict. The same requestId was already used for a different request content.",
                         null,
                         SerializerOptions),
-                    cancellationToken)
-                .ConfigureAwait(false);
+                    cancellationToken);
         }
 
         /// <summary> Executes one dispatch flow without idempotency coordination. </summary>
@@ -140,7 +136,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                     SerializerOptions);
             }
 
-            var readinessResult = await readinessGate.EnsureExecutionReadyAsync(request.FailFast, cancellationToken, request.AllowPlayMode).ConfigureAwait(false);
+            var readinessResult = await readinessGate.EnsureExecutionReadyAsync(request.FailFast, cancellationToken, request.AllowPlayMode);
             if (!readinessResult.IsReady)
             {
                 var lifecycleError = readinessResult.Error!;
@@ -154,11 +150,11 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
 
             try
             {
-                return await mainThreadRequestExecutor.ExecuteAsync(async () =>
-                {
-                    var trace = await operationPhaseExecutor.ExecuteAsync(executionCommand, normalizationResult.Request!, cancellationToken);
-                    return ExecuteResponseBuilder.CreateExecutionResponse(context, trace, SerializerOptions);
-                }, cancellationToken).ConfigureAwait(false);
+                var trace = await operationPhaseExecutor.ExecuteAsync(
+                    executionCommand,
+                    normalizationResult.Request!,
+                    cancellationToken);
+                return ExecuteResponseBuilder.CreateExecutionResponse(context, trace, SerializerOptions);
             }
             catch (OperationCanceledException)
             {

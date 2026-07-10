@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Unity.Runtime;
@@ -24,7 +25,9 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             var daemonLogStream = new DaemonLogRingBuffer();
-            var daemonLogger = new DaemonLogger(daemonLogStream);
+            var daemonLogger = new DaemonLogger(
+                daemonLogStream,
+                UnityMainThreadDaemonConsoleLogSink.CaptureCurrent());
             var daemonStarted = false;
             var diagnosisWritten = false;
 
@@ -50,7 +53,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                     .AddUnityIpcApplicationServices(
                         new FileBackedSessionTokenValidator(bootstrapArguments.SessionPath),
                         bootstrapArguments.ProjectFingerprint,
-                        daemonLogger)
+                        daemonLogger,
+                        DaemonEditorMode.Batchmode)
                     .AddUnityIpcDaemonHostServices(
                         bootstrapArguments,
                         daemonLogStream);
@@ -64,14 +68,24 @@ namespace MackySoft.Ucli.Unity.Ipc
                     unityLogCaptureService.Start();
 
                     var endpoint = new IpcEndpoint(transportKind, bootstrapArguments.EndpointAddress);
-                    await server.StartAsync(endpoint, CancellationToken.None);
-                    daemonStarted = true;
+                    using var publicationFence = await server.StartAsync(endpoint, CancellationToken.None);
+                    Task shutdownWaitTask = null;
+                    Task serverTerminationTask = null;
+                    if (!publicationFence.TryCommitActiveOwnership(() =>
+                        {
+                            daemonStarted = true;
+                            shutdownWaitTask = shutdownSignal.WaitAsync(CancellationToken.None);
+                            serverTerminationTask = server.WaitForTerminationAsync(CancellationToken.None);
+                        }))
+                    {
+                        throw new InvalidOperationException(
+                            "IPC listener terminated before daemon endpoint ownership could become active.");
+                    }
+
                     daemonLogger.Info(
                         DaemonLogCategories.Lifecycle,
                         $"uCLI daemon started. repoRoot={bootstrapArguments.RepositoryRoot}, fingerprint={bootstrapArguments.ProjectFingerprint}, endpoint={bootstrapArguments.EndpointAddress}");
 
-                    var shutdownWaitTask = shutdownSignal.WaitAsync(CancellationToken.None);
-                    var serverTerminationTask = server.WaitForTerminationAsync(CancellationToken.None);
                     var completedTask = await Task.WhenAny(shutdownWaitTask, serverTerminationTask);
                     if (ReferenceEquals(completedTask, serverTerminationTask))
                     {

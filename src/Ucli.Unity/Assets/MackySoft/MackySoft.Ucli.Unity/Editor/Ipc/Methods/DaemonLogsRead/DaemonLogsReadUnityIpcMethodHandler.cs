@@ -7,7 +7,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Handles <c>daemon.logs.read</c> IPC method requests. </summary>
-    internal sealed class DaemonLogsReadUnityIpcMethodHandler : IUnityIpcMethodHandler
+    internal sealed class DaemonLogsReadUnityIpcMethodHandler : IUnityControlPlaneIpcMethodHandler
     {
         private readonly IDaemonLogStream daemonLogStream;
 
@@ -30,13 +30,13 @@ namespace MackySoft.Ucli.Unity.Ipc
             IDaemonLogsReadRequestValidator requestValidator,
             IDaemonLogsReadQueryEngine queryEngine,
             DaemonLogsReadResponseFactory responseFactory,
-            IDaemonLogger daemonLogger = null)
+            IDaemonLogger daemonLogger)
         {
             this.daemonLogStream = daemonLogStream ?? throw new ArgumentNullException(nameof(daemonLogStream));
             this.requestValidator = requestValidator ?? throw new ArgumentNullException(nameof(requestValidator));
             this.queryEngine = queryEngine ?? throw new ArgumentNullException(nameof(queryEngine));
             this.responseFactory = responseFactory ?? throw new ArgumentNullException(nameof(responseFactory));
-            this.daemonLogger = daemonLogger ?? NoOpDaemonLogger.Instance;
+            this.daemonLogger = daemonLogger ?? throw new ArgumentNullException(nameof(daemonLogger));
         }
 
         /// <inheritdoc />

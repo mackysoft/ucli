@@ -19,7 +19,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void TryCreateRecoverableRequestPayloadHash_WhenTimeoutDiffers_ReturnsDifferentHash ()
+        public void TryCreateRecoverableRequestPayloadHash_WhenOnlyTimeoutDiffers_ReturnsSameHash ()
         {
             var readinessGate = new MutableUnityEditorReadinessGate(CreateReadyStoppedSnapshot());
             var handler = CreateHandler(readinessGate);
@@ -44,7 +44,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(firstResult, Is.True, firstError?.Errors[0].Message);
             Assert.That(secondResult, Is.True, secondError?.Errors[0].Message);
             Assert.That(firstHash, Is.Not.Null.And.Not.Empty);
-            Assert.That(secondHash, Is.Not.EqualTo(firstHash));
+            Assert.That(secondHash, Is.EqualTo(firstHash));
         }
 
         [Test]
@@ -109,7 +109,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var runner = CreateRunner(
                 readinessGate,
                 enterPlayModeRequester: () => readinessGate.Snapshot = CreatePlayingSnapshot(generation: "11"));
-            var handler = new PlayEnterUnityIpcMethodHandler(runner);
+            var handler = new PlayEnterUnityIpcMethodHandler(runner, NoOpDaemonLogger.Instance);
             var request = CreatePlayEnterRequest("req-play-enter-success", new IpcPlayEnterRequest
             {
                 TimeoutMilliseconds = 1000,
@@ -365,7 +365,9 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static PlayEnterUnityIpcMethodHandler CreateHandler (MutableUnityEditorReadinessGate readinessGate)
         {
-            return new PlayEnterUnityIpcMethodHandler(CreateRunner(readinessGate));
+            return new PlayEnterUnityIpcMethodHandler(
+                CreateRunner(readinessGate),
+                NoOpDaemonLogger.Instance);
         }
 
         private static PlayEnterTransitionRunner CreateRunner (
@@ -378,7 +380,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 readinessGate,
                 new IpcProjectIdentity("/repo/UnityProject", "project-fingerprint", "6000.1.4f1"),
                 new StubUnityEditorUpdateAwaiter(editorUpdateAwaiter ?? CompleteEditorUpdateAsync),
-                new StubUnityPlayModeController(enterPlayModeRequester ?? RequestNoop));
+                new StubUnityPlayModeController(enterPlayModeRequester ?? RequestNoop),
+                NoOpDaemonLogger.Instance);
         }
 
         private static RecoverableIpcOperationContext CreateRecoverableContext (
@@ -604,34 +607,35 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public PlayEnterRecoveryPayload PendingPayload { get; private set; }
 
-            public bool TryRead (
+            public ValueTask<RecoverableIpcOperationReadResult> ReadAsync (
                 string method,
                 string requestId,
                 string requestPayloadHash,
-                out RecoverableIpcOperationRecord record,
-                out string errorMessage)
+                CancellationToken cancellationToken)
             {
-                record = null;
-                errorMessage = null;
-                return false;
+                cancellationToken.ThrowIfCancellationRequested();
+                return new ValueTask<RecoverableIpcOperationReadResult>(
+                    RecoverableIpcOperationReadResult.Missing());
             }
 
-            public bool TryWritePending (
+            public ValueTask<RecoverableIpcOperationStoreResult> WritePendingAsync (
                 string method,
                 string requestId,
                 string requestPayloadHash,
                 DateTimeOffset startedAtUtc,
                 System.Text.Json.JsonElement recoveryPayload,
-                out string errorMessage)
+                CancellationToken cancellationToken)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 PendingWriteCallCount++;
                 IpcPayloadCodec.TryDeserialize(recoveryPayload, out PlayEnterRecoveryPayload pendingPayload, out _);
                 PendingPayload = pendingPayload;
-                errorMessage = PendingWriteErrorMessage;
-                return PendingWriteResult;
+                return new ValueTask<RecoverableIpcOperationStoreResult>(PendingWriteResult
+                    ? RecoverableIpcOperationStoreResult.Success()
+                    : RecoverableIpcOperationStoreResult.Failure(PendingWriteErrorMessage));
             }
 
-            public bool TryWriteCompleted (
+            public ValueTask<RecoverableIpcOperationStoreResult> WriteCompletedAsync (
                 string method,
                 string requestId,
                 string requestPayloadHash,
@@ -639,18 +643,16 @@ namespace MackySoft.Ucli.Unity.Tests
                 DateTimeOffset completedAtUtc,
                 System.Text.Json.JsonElement recoveryPayload,
                 IpcResponse response,
-                out string errorMessage)
+                CancellationToken cancellationToken)
             {
-                errorMessage = null;
-                return true;
+                cancellationToken.ThrowIfCancellationRequested();
+                return new ValueTask<RecoverableIpcOperationStoreResult>(
+                    RecoverableIpcOperationStoreResult.Success());
             }
 
-            public bool TryPurgeExpiredRecords (
-                DateTimeOffset nowUtc,
-                out string errorMessage)
+            public string ConsumeMaintenanceFailure ()
             {
-                errorMessage = null;
-                return true;
+                return null;
             }
         }
     }

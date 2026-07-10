@@ -2,17 +2,15 @@ using System;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
-    /// <summary> Provides no-op fallback for daemon daemon logger dependencies. </summary>
+    /// <summary> Provides a shared logger test double that discards every event. </summary>
     internal sealed class NoOpDaemonLogger : IDaemonLogger
     {
-        /// <summary> Gets shared no-op logger instance. </summary>
         public static NoOpDaemonLogger Instance { get; } = new NoOpDaemonLogger();
 
         private NoOpDaemonLogger ()
         {
         }
 
-        /// <inheritdoc />
         public void Info (
             string category,
             string message,
@@ -20,7 +18,6 @@ namespace MackySoft.Ucli.Unity.Ipc
         {
         }
 
-        /// <inheritdoc />
         public void Warning (
             string category,
             string message,
@@ -28,7 +25,6 @@ namespace MackySoft.Ucli.Unity.Ipc
         {
         }
 
-        /// <inheritdoc />
         public void Error (
             string category,
             string message,
@@ -36,7 +32,6 @@ namespace MackySoft.Ucli.Unity.Ipc
         {
         }
 
-        /// <inheritdoc />
         public void Exception (
             string category,
             string message,

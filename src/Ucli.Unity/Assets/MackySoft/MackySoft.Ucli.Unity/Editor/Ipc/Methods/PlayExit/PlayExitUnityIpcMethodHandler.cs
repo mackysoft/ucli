@@ -20,10 +20,10 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="daemonLogger"> The daemon logger dependency. </param>
         public PlayExitUnityIpcMethodHandler (
             PlayExitTransitionRunner transitionRunner,
-            IDaemonLogger daemonLogger = null)
+            IDaemonLogger daemonLogger)
         {
             this.transitionRunner = transitionRunner ?? throw new ArgumentNullException(nameof(transitionRunner));
-            this.daemonLogger = daemonLogger ?? NoOpDaemonLogger.Instance;
+            this.daemonLogger = daemonLogger ?? throw new ArgumentNullException(nameof(daemonLogger));
         }
 
         /// <inheritdoc />
@@ -45,7 +45,11 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return false;
             }
 
-            var stablePayload = IpcPayloadCodec.SerializeToElement(exitRequest);
+            // NOTE: timeout is the remaining budget of one replay attempt, not the play-transition identity.
+            var stablePayload = IpcPayloadCodec.SerializeToElement(exitRequest with
+            {
+                TimeoutMilliseconds = null,
+            });
             requestPayloadHash = Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(stablePayload.GetRawText()));
             return true;
         }

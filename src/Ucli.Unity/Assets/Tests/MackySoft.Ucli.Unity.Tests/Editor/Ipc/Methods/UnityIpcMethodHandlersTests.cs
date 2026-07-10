@@ -32,7 +32,11 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator PingHandler_WhenPayloadIsValid_ReturnsOkResponse () => UniTask.ToCoroutine(async () =>
         {
-            var handler = new PingUnityIpcMethodHandler(new StubServerVersionProvider("1.2.3"), new StubUnityEditorReadinessGate(), "project-fingerprint");
+            var handler = new PingUnityIpcMethodHandler(
+                new StubServerVersionProvider("1.2.3"),
+                new StubUnityEditorReadinessGate(),
+                "project-fingerprint",
+                NoOpDaemonLogger.Instance);
             var request = CreatePingRequest("req-ping-valid", new IpcPingRequest("client"));
 
             var response = await handler.HandleAsync(request, CancellationToken.None);
@@ -59,7 +63,11 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator PingHandler_WhenPayloadIsInvalid_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
-            var handler = new PingUnityIpcMethodHandler(new StubServerVersionProvider("1.2.3"), new StubUnityEditorReadinessGate(), "project-fingerprint");
+            var handler = new PingUnityIpcMethodHandler(
+                new StubServerVersionProvider("1.2.3"),
+                new StubUnityEditorReadinessGate(),
+                "project-fingerprint",
+                NoOpDaemonLogger.Instance);
             var request = CreatePingRequest("req-ping-invalid", 123);
 
             var response = await handler.HandleAsync(request, CancellationToken.None);
@@ -76,7 +84,8 @@ namespace MackySoft.Ucli.Unity.Tests
             var handler = new PingUnityIpcMethodHandler(
                 new StubServerVersionProvider("1.2.3"),
                 new StubUnityEditorReadinessGate(DaemonEditorMode.Gui),
-                "project-fingerprint");
+                "project-fingerprint",
+                NoOpDaemonLogger.Instance);
             var request = CreatePingRequest("req-ping-gui", new IpcPingRequest("client"));
 
             var response = await handler.HandleAsync(request, CancellationToken.None);
@@ -104,7 +113,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     static () => false,
                     static () => false,
                     static () => false),
-                "project-fingerprint");
+                "project-fingerprint",
+                NoOpDaemonLogger.Instance);
 
             var firstResponse = await handler.HandleAsync(CreatePingRequest("req-ping-starting-1", new IpcPingRequest("client")), CancellationToken.None);
             var secondResponse = await handler.HandleAsync(CreatePingRequest("req-ping-starting-2", new IpcPingRequest("client")), CancellationToken.None);
@@ -142,7 +152,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     static () => false,
                     static () => false,
                     static () => true),
-                "project-fingerprint");
+                "project-fingerprint",
+                NoOpDaemonLogger.Instance);
 
             var response = await handler.HandleAsync(CreatePingRequest("req-ping-playmode", new IpcPingRequest("client")), CancellationToken.None);
 
@@ -194,6 +205,42 @@ namespace MackySoft.Ucli.Unity.Tests
                     UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession,
                     UnityGuiSessionReplacementScope.AnyCurrentProcessSession,
                 }));
+            Assert.That(
+                bootstrapStarter.CancellationTokens,
+                Is.EqualTo(new[] { CancellationToken.None, CancellationToken.None }));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator GuiRebootstrapHandler_WhenRequestIsCanceled_CancelsBootstrapAndPropagatesCancellation () => UniTask.ToCoroutine(async () =>
+        {
+            var bootstrapStarter = new CancellationObservingUnityGuiBootstrapStarter();
+            var handler = new GuiRebootstrapUnityIpcMethodHandler(
+                bootstrapStarter,
+                "project-fingerprint",
+                NoOpDaemonLogger.Instance);
+            using var cancellationTokenSource = new CancellationTokenSource();
+            var responseTask = handler.HandleAsync(
+                    CreateRequest(
+                        "req-gui-rebootstrap-canceled",
+                        IpcMethodNames.GuiRebootstrap,
+                        new IpcGuiRebootstrapRequest(
+                            ProjectFingerprint: "project-fingerprint",
+                            ReplaceExistingSession: true)),
+                    cancellationTokenSource.Token)
+                .AsTask();
+            await TestAwaiter.WaitAsync(
+                bootstrapStarter.Started,
+                "GUI rebootstrap cancellation test start",
+                SignalWaitTimeout);
+
+            cancellationTokenSource.Cancel();
+
+            await AsyncExceptionCapture.CaptureAsync<OperationCanceledException>(async () =>
+            {
+                await responseTask.AsUniTask();
+            }, "Canceled GUI rebootstrap request", SignalWaitTimeout);
+            Assert.That(bootstrapStarter.CancellationToken, Is.EqualTo(cancellationTokenSource.Token));
         });
 
         [UnityTest]
@@ -204,7 +251,8 @@ namespace MackySoft.Ucli.Unity.Tests
             var handler = new PlayStatusUnityIpcMethodHandler(
                 new StubServerVersionProvider("1.2.3"),
                 readinessGate,
-                new IpcProjectIdentity("/repo/UnityProject", "project-fingerprint", "6000.1.4f1"));
+                new IpcProjectIdentity("/repo/UnityProject", "project-fingerprint", "6000.1.4f1"),
+                NoOpDaemonLogger.Instance);
             var request = CreatePlayStatusRequest("req-play-status-valid", new IpcPlayStatusRequest());
 
             var response = await handler.HandleAsync(request, CancellationToken.None);
@@ -232,7 +280,8 @@ namespace MackySoft.Ucli.Unity.Tests
             var handler = new PlayStatusUnityIpcMethodHandler(
                 new StubServerVersionProvider("1.2.3"),
                 readinessGate,
-                new IpcProjectIdentity("/repo/UnityProject", "project-fingerprint", "6000.1.4f1"));
+                new IpcProjectIdentity("/repo/UnityProject", "project-fingerprint", "6000.1.4f1"),
+                NoOpDaemonLogger.Instance);
             var request = CreatePlayStatusRequest("req-play-status-invalid", 123);
 
             var response = await handler.HandleAsync(request, CancellationToken.None);
@@ -531,7 +580,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator TestRunHandler_WhenStreaming_ForwardsProgressFramesAndReturnsOkResponse () => UniTask.ToCoroutine(async () =>
+        public IEnumerator TestRunHandler_WhenStreaming_ForwardsAcceptedProgressAndIgnoresProgressAfterCompletion () => UniTask.ToCoroutine(async () =>
         {
             var service = new StubUnityTestRunService((request, progressSink) =>
             {
@@ -579,6 +628,19 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(IpcPayloadCodec.TryDeserialize(streamWriter.ProgressFrames[1].Payload, out TestCaseFinishedEntry finished, out _), Is.True);
             Assert.That(finished.RunId, Is.EqualTo("run-id"));
             Assert.That(finished.Result, Is.EqualTo("pass"));
+
+            service.LastProgressSink.Publish(
+                TestRunProgressEventNames.CaseStarted,
+                new TestCaseStartedEntry(
+                    "run-id",
+                    "late-test-id",
+                    "Late test",
+                    "Assembly-CSharp-Editor",
+                    TestRunPlatformCodec.EditMode,
+                    Array.Empty<string>()));
+
+            Assert.That(streamWriter.ProgressFrames.Count, Is.EqualTo(2));
+            Assert.That(streamWriter.ProgressWriteAttemptCount, Is.EqualTo(2));
         });
 
         [UnityTest]
@@ -662,7 +724,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator TestRunHandler_WhenStreamingRequestTimeoutElapsesWithPendingProgress_WaitsForFrameAndReturnsIpcTimeout () => UniTask.ToCoroutine(async () =>
+        public IEnumerator TestRunHandler_WhenStreamingRequestTimeoutElapsesWithPendingProgress_StopsWaitingAndReturnsIpcTimeout () => UniTask.ToCoroutine(async () =>
         {
             var timeoutScopeFactory = new ManualIpcRequestTimeoutScopeFactory();
             var serviceAwaitReadySource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -707,28 +769,82 @@ namespace MackySoft.Ucli.Unity.Tests
             timeoutScopeFactory.LastScope.CancelForTimeout();
             await TestAwaiter.WaitAsync(serviceCancellationObservedSource.Task, "streaming test-run request timeout", SignalWaitTimeout);
 
-            Assert.That(responseTask.IsCompleted, Is.False);
-            Assert.That(streamWriter.LastWriteCancellationToken.IsCancellationRequested, Is.False);
+            try
+            {
+                Assert.That(streamWriter.LastWriteCancellationToken.IsCancellationRequested, Is.True);
+                var response = await TestAwaiter.WaitAsync(responseTask, "streaming test-run timeout response", SignalWaitTimeout);
 
-            streamWriter.ReleaseWrites();
-
-            var response = await TestAwaiter.WaitAsync(responseTask, "streaming test-run timeout response", SignalWaitTimeout);
-
-            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
-            Assert.That(response.Errors.Count, Is.EqualTo(1));
-            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcTransportErrorCodes.IpcTimeout));
-            Assert.That(streamWriter.ProgressFrames.Count, Is.EqualTo(1));
+                Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+                Assert.That(response.Errors.Count, Is.EqualTo(1));
+                Assert.That(response.Errors[0].Code, Is.EqualTo(IpcTransportErrorCodes.IpcTimeout));
+                Assert.That(streamWriter.ProgressFrames.Count, Is.EqualTo(1));
+            }
+            finally
+            {
+                streamWriter.ReleaseWrites();
+            }
         });
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator TestRunProgressSink_WhenPendingFrameLimitIsExceeded_QueuesOneDropDiagnosticAndFlushWaits () => UniTask.ToCoroutine(async () =>
+        public IEnumerator TestRunHandler_WhenTimeoutElapsesDuringProgressCompletion_ReturnsWithoutWaitingForNonCooperativeWrite () => UniTask.ToCoroutine(async () =>
+        {
+            var timeoutScopeFactory = new ManualIpcRequestTimeoutScopeFactory();
+            var service = new StubUnityTestRunService((request, progressSink) =>
+            {
+                progressSink.Publish(
+                    TestRunProgressEventNames.CaseStarted,
+                    new TestCaseStartedEntry(
+                        request.RunId,
+                        "test-id",
+                        "SampleTest",
+                        "Assembly-CSharp-Editor",
+                        TestRunPlatformCodec.EditMode,
+                        Array.Empty<string>()));
+                return Task.FromResult(UnityTestRunServiceResult.Success(new IpcTestRunResponse(0)));
+            });
+            var handler = CreateTestRunHandler(service, timeoutScopeFactory);
+            var streamWriter = new BlockingIpcStreamFrameWriter(
+                "req-test-run-progress-completion-timeout");
+            var request = CreateTestRunRequest(
+                "req-test-run-progress-completion-timeout",
+                CreateValidTestRunPayload(timeoutMilliseconds: 1000));
+
+            var responseTask = handler.HandleStreamingAsync(request, streamWriter, CancellationToken.None).AsTask();
+            await TestAwaiter.WaitAsync(
+                streamWriter.FirstWriteObserved,
+                "non-cooperative test-run progress write",
+                SignalWaitTimeout);
+
+            Assert.That(responseTask.IsCompleted, Is.False);
+
+            timeoutScopeFactory.LastScope.CancelForTimeout();
+            try
+            {
+                var response = await TestAwaiter.WaitAsync(
+                    responseTask,
+                    "test-run progress completion timeout response",
+                    SignalWaitTimeout);
+
+                Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+                Assert.That(response.Errors.Count, Is.EqualTo(1));
+                Assert.That(response.Errors[0].Code, Is.EqualTo(IpcTransportErrorCodes.IpcTimeout));
+                Assert.That(streamWriter.LastWriteCancellationToken.IsCancellationRequested, Is.True);
+            }
+            finally
+            {
+                streamWriter.ReleaseWrites();
+            }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator TestRunProgressSink_WhenPendingFrameLimitIsExceeded_QueuesOneDropDiagnosticAndCompletionWaits () => UniTask.ToCoroutine(async () =>
         {
             var streamWriter = new BlockingIpcStreamFrameWriter("req-test-run-progress-backpressure");
             var progressSink = new UnityIpcTestRunProgressSink(
                 streamWriter,
                 "run-id",
-                CancellationToken.None,
                 CancellationToken.None);
 
             for (var i = 0; i < 1026; i++)
@@ -744,12 +860,12 @@ namespace MackySoft.Ucli.Unity.Tests
                         Array.Empty<string>()));
             }
 
-            var flushTask = progressSink.FlushAsync(CancellationToken.None);
+            var completionTask = progressSink.CompleteAndFlushAsync(CancellationToken.None);
 
-            Assert.That(flushTask.IsCompleted, Is.False);
+            Assert.That(completionTask.IsCompleted, Is.False);
 
             streamWriter.ReleaseWrites();
-            await flushTask;
+            await completionTask;
 
             Assert.That(streamWriter.ProgressFrames.Count, Is.EqualTo(1025));
             Assert.That(streamWriter.ProgressFrames[0].Event, Is.EqualTo(TestRunProgressEventNames.CaseStarted));
@@ -759,6 +875,82 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(diagnostic.Code, Is.EqualTo("TEST_PROGRESS_DROPPED"));
             Assert.That(diagnostic.Severity, Is.EqualTo("warning"));
         });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator TestRunProgressSink_WhenCompletionStarts_FlushesAcceptedFrameAndIgnoresLaterPublish () => UniTask.ToCoroutine(async () =>
+        {
+            var streamWriter = new BlockingIpcStreamFrameWriter("req-test-run-progress-completion");
+            var progressSink = new UnityIpcTestRunProgressSink(
+                streamWriter,
+                "run-id",
+                CancellationToken.None);
+            progressSink.Publish(
+                TestRunProgressEventNames.CaseStarted,
+                new TestCaseStartedEntry(
+                    "run-id",
+                    "accepted-test-id",
+                    "Accepted test",
+                    "Assembly-CSharp-Editor",
+                    TestRunPlatformCodec.EditMode,
+                    Array.Empty<string>()));
+            await TestAwaiter.WaitAsync(
+                streamWriter.FirstWriteObserved,
+                "accepted test-run progress write",
+                SignalWaitTimeout);
+
+            var completionTask = progressSink.CompleteAndFlushAsync(CancellationToken.None);
+            progressSink.Publish(
+                TestRunProgressEventNames.CaseStarted,
+                new TestCaseStartedEntry(
+                    "run-id",
+                    "late-test-id",
+                    "Late test",
+                    "Assembly-CSharp-Editor",
+                    TestRunPlatformCodec.EditMode,
+                    Array.Empty<string>()));
+
+            Assert.That(completionTask.IsCompleted, Is.False);
+
+            streamWriter.ReleaseWrites();
+            await TestAwaiter.WaitAsync(
+                completionTask,
+                "test-run progress completion",
+                SignalWaitTimeout);
+
+            Assert.DoesNotThrow(() => progressSink.Publish(string.Empty, null));
+            Assert.That(streamWriter.ProgressFrames.Count, Is.EqualTo(1));
+            Assert.That(streamWriter.ProgressFrames[0].Event, Is.EqualTo(TestRunProgressEventNames.CaseStarted));
+            Assert.That(
+                streamWriter.ProgressFrames[0].Payload.GetProperty("testId").GetString(),
+                Is.EqualTo("accepted-test-id"));
+        });
+
+        [Test]
+        [Category("Size.Small")]
+        public void TestRunProgressSink_WhenAcceptanceIsCanceled_IgnoresLateUnityCallbacks ()
+        {
+            var streamWriter = new CollectingIpcStreamFrameWriter("req-test-run-late-progress");
+            using var cancellationTokenSource = new CancellationTokenSource();
+            var progressSink = new UnityIpcTestRunProgressSink(
+                streamWriter,
+                "run-id",
+                cancellationTokenSource.Token);
+            cancellationTokenSource.Cancel();
+
+            Assert.DoesNotThrow(() => progressSink.Publish(
+                TestRunProgressEventNames.CaseStarted,
+                new TestCaseStartedEntry(
+                    "run-id",
+                    "test-id",
+                    "Late test",
+                    "Assembly-CSharp-Editor",
+                    TestRunPlatformCodec.EditMode,
+                    Array.Empty<string>())));
+
+            Assert.That(streamWriter.ProgressFrames, Is.Empty);
+            Assert.That(streamWriter.ProgressWriteAttemptCount, Is.Zero);
+        }
 
         [UnityTest]
         [Category("Size.Small")]
@@ -1017,7 +1209,11 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator ShutdownHandler_WhenPayloadIsValid_ReturnsAcceptedResponse () => UniTask.ToCoroutine(async () =>
         {
-            var handler = new ShutdownUnityIpcMethodHandler();
+            using var mutationExecutor = CreateMutationExecutor();
+            using var shutdownAdmission = new UnityShutdownAdmissionCoordinator(mutationExecutor);
+            var handler = new ShutdownUnityIpcMethodHandler(
+                NoOpDaemonLogger.Instance,
+                shutdownAdmission);
             var request = CreateShutdownRequest("req-shutdown-valid", new IpcShutdownRequest("tests"));
 
             var response = await handler.HandleAsync(request, CancellationToken.None);
@@ -1032,7 +1228,11 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator ShutdownHandler_WhenPayloadIsInvalid_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
-            var handler = new ShutdownUnityIpcMethodHandler();
+            using var mutationExecutor = CreateMutationExecutor();
+            using var shutdownAdmission = new UnityShutdownAdmissionCoordinator(mutationExecutor);
+            var handler = new ShutdownUnityIpcMethodHandler(
+                NoOpDaemonLogger.Instance,
+                shutdownAdmission);
             var request = CreateShutdownRequest("req-shutdown-invalid", 123);
 
             var response = await handler.HandleAsync(request, CancellationToken.None);
@@ -1041,6 +1241,69 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(response.Errors.Count, Is.EqualTo(1));
             Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
         });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator ShutdownHandler_WhenMutationIsActive_ReturnsEditorBusyWithoutStoppingAdmission () => UniTask.ToCoroutine(async () =>
+        {
+            using var mutationExecutor = new UnitySynchronizationContextRequestExecutor(
+                SynchronizationContext.Current,
+                Thread.CurrentThread.ManagedThreadId,
+                UnitySynchronizationContextRequestExecutor.DefaultMaxPendingInvocations,
+                poisonOnActiveCancellation: true);
+            var release = new TaskCompletionSource<object>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var activeMutation = mutationExecutor.ExecuteAsync(async () =>
+            {
+                await release.Task;
+                return true;
+            });
+            using var shutdownAdmission = new UnityShutdownAdmissionCoordinator(mutationExecutor);
+            var handler = new ShutdownUnityIpcMethodHandler(
+                NoOpDaemonLogger.Instance,
+                shutdownAdmission);
+            var request = CreateShutdownRequest("req-shutdown-busy", new IpcShutdownRequest("tests"));
+
+            var response = await handler.HandleAsync(request, CancellationToken.None);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(response.Errors.Count, Is.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(EditorLifecycleErrorCodes.EditorBusy));
+            Assert.That(mutationExecutor.IsPoisoned, Is.False);
+
+            release.TrySetResult(null);
+            await TestAwaiter.WaitAsync(activeMutation.AsUniTask(), "Active mutation completion", TimeSpan.FromSeconds(5));
+        });
+
+        [Test]
+        [Category("Size.Small")]
+        public void ShutdownAdmission_WhenAnotherExchangeAborts_PreservesOwningExchangeSeal ()
+        {
+            using var mutationExecutor = new UnitySynchronizationContextRequestExecutor(
+                SynchronizationContext.Current,
+                Thread.CurrentThread.ManagedThreadId,
+                UnitySynchronizationContextRequestExecutor.DefaultMaxPendingInvocations,
+                poisonOnActiveCancellation: true);
+            using var shutdownAdmission = new UnityShutdownAdmissionCoordinator(mutationExecutor);
+            var owningRequest = CreateShutdownRequest("req-shutdown-owner", new IpcShutdownRequest("tests"));
+            var competingRequest = CreateShutdownRequest("req-shutdown-competitor", new IpcShutdownRequest("tests"));
+
+            Assert.That(shutdownAdmission.TryPrepare(owningRequest, out _), Is.True);
+            Assert.That(shutdownAdmission.TryPrepare(competingRequest, out _), Is.False);
+
+            shutdownAdmission.Abort(competingRequest);
+
+            Assert.That(mutationExecutor.IsBusy, Is.True);
+            Assert.That(shutdownAdmission.TryCommit(owningRequest), Is.True);
+        }
+
+        private static UnitySynchronizationContextRequestExecutor CreateMutationExecutor ()
+        {
+            return new UnitySynchronizationContextRequestExecutor(
+                SynchronizationContext.Current,
+                Thread.CurrentThread.ManagedThreadId,
+                UnitySynchronizationContextRequestExecutor.DefaultMaxPendingInvocations,
+                poisonOnActiveCancellation: true);
+        }
 
         [UnityTest]
         [Category("Size.Small")]
@@ -1541,6 +1804,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     isPlaymodeActiveProvider,
                     isPlaymodeActiveProvider),
                 isPlaymodeActiveProvider,
+                new IdleMutationExecutionState(),
                 static _ => { },
                 static _ => { },
                 static _ => { },
@@ -1640,7 +1904,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 stream,
                 new DaemonLogsReadRequestValidator(),
                 new DaemonLogsReadQueryEngine(),
-                new DaemonLogsReadResponseFactory());
+                new DaemonLogsReadResponseFactory(),
+                NoOpDaemonLogger.Instance);
         }
 
         private static OpsReadUnityIpcMethodHandler CreateOpsReadHandler (IUnityEditorReadinessGate readinessGate)
@@ -1702,7 +1967,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 stream,
                 new UnityLogsReadRequestValidator(),
                 new UnityLogsReadQueryEngine(),
-                new UnityLogsReadResponseFactory());
+                new UnityLogsReadResponseFactory(),
+                NoOpDaemonLogger.Instance);
         }
 
         private static UnityConsoleClearUnityIpcMethodHandler CreateUnityConsoleClearHandler (
@@ -1711,7 +1977,8 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             return new UnityConsoleClearUnityIpcMethodHandler(
                 clearer,
-                new StubUnityEditorReadinessGate(editorMode));
+                new StubUnityEditorReadinessGate(editorMode),
+                NoOpDaemonLogger.Instance);
         }
 
         private static IpcRequest CreateRequest (
@@ -1841,13 +2108,38 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public List<UnityGuiSessionReplacementScope> SessionReplacementScopes { get; } = new List<UnityGuiSessionReplacementScope>();
 
+            public List<CancellationToken> CancellationTokens { get; } = new List<CancellationToken>();
+
             public Task<UnityGuiBootstrapStartResult> StartAsync (
                 IpcGuiBootstrapArguments bootstrapArguments,
-                UnityGuiSessionReplacementScope sessionReplacementScope)
+                UnityGuiSessionReplacementScope sessionReplacementScope,
+                CancellationToken cancellationToken)
             {
                 BootstrapArguments.Add(bootstrapArguments);
                 SessionReplacementScopes.Add(sessionReplacementScope);
+                CancellationTokens.Add(cancellationToken);
                 return Task.FromResult(UnityGuiBootstrapStartResult.Started());
+            }
+        }
+
+        private sealed class CancellationObservingUnityGuiBootstrapStarter : IUnityGuiBootstrapStarter
+        {
+            private readonly TaskCompletionSource<object> startedSource =
+                new TaskCompletionSource<object>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            public Task Started => startedSource.Task;
+
+            public CancellationToken CancellationToken { get; private set; }
+
+            public async Task<UnityGuiBootstrapStartResult> StartAsync (
+                IpcGuiBootstrapArguments bootstrapArguments,
+                UnityGuiSessionReplacementScope sessionReplacementScope,
+                CancellationToken cancellationToken)
+            {
+                CancellationToken = cancellationToken;
+                startedSource.TrySetResult(null);
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+                throw new InvalidOperationException("Canceled GUI rebootstrap unexpectedly completed.");
             }
         }
 
@@ -2033,19 +2325,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     IpcPayloadCodec.SerializeToElement(payload),
                     null));
                 firstWriteObservedSource.TrySetResult(true);
-                var cancellationSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-                using var cancellationRegistration = cancellationToken.Register(static state =>
-                {
-                    ((TaskCompletionSource<bool>)state).TrySetResult(true);
-                }, cancellationSource);
-                var completedTask = await Task.WhenAny(writeReleaseSource.Task, cancellationSource.Task);
-                if (!ReferenceEquals(completedTask, writeReleaseSource.Task))
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                }
-
                 await writeReleaseSource.Task;
-                cancellationToken.ThrowIfCancellationRequested();
             }
 
             public ValueTask WriteTerminalAsync (
@@ -2078,6 +2358,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 CallCount++;
                 return result;
             }
+        }
+
+        private sealed class IdleMutationExecutionState : IUnityMutationExecutionState
+        {
+            public bool IsBusy => false;
         }
 
     }

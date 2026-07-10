@@ -140,8 +140,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 executionCancellationToken => new UnityIpcBuildRunProgressSink(
                     streamWriter,
                     buildRunRequest!.RunId,
-                    executionCancellationToken,
-                    cancellationToken),
+                    executionCancellationToken),
                 cancellationToken);
         }
 
@@ -186,9 +185,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                 if (inputKind == BuildProfileInputsKind.UnityBuildProfile)
                 {
                     var profileResolution = await buildProfileInputResolver.ResolveAsync(
-                            buildRunRequest,
-                            executionCancellationToken)
-                        .ConfigureAwait(false);
+                        buildRunRequest,
+                        executionCancellationToken);
                     unityBuildProfile = profileResolution.UnityBuildProfile;
                     if (!profileResolution.IsSuccess)
                     {
@@ -441,12 +439,24 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
             finally
             {
-                if (progressSink != null)
+                try
                 {
-                    await progressSink.FlushAsync(cancellationToken).ConfigureAwait(false);
+                    if (progressSink != null)
+                    {
+                        try
+                        {
+                            await progressSink.CompleteAndFlushAsync(requestTimeoutScope!.Token).ConfigureAwait(false);
+                        }
+                        catch (OperationCanceledException) when (IsRequestTimeout(requestTimeoutScope, cancellationToken))
+                        {
+                            // The timeout response must not wait for progress frames accepted before the deadline.
+                        }
+                    }
                 }
-
-                requestTimeoutScope?.Dispose();
+                finally
+                {
+                    requestTimeoutScope?.Dispose();
+                }
             }
         }
 

@@ -6,6 +6,9 @@ namespace MackySoft.Ucli.Unity.Ipc
     /// <summary> Represents a persisted GUI daemon session registration. </summary>
     internal sealed record UnityGuiSessionRegistration (
         string SessionPath,
+        string SessionLockPath,
+        string SessionToken,
+        string ProjectFingerprint,
         DateTimeOffset IssuedAtUtc,
         IpcEndpoint Endpoint,
         bool CanShutdownProcess);

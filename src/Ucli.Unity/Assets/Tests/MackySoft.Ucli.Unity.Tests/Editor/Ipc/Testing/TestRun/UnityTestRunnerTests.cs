@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Testing;
 using MackySoft.Ucli.Unity.Ipc;
+using MackySoft.Ucli.Unity.Runtime;
 using NUnit.Framework;
 using NUnit.Framework.Interfaces;
 using UnityEditor;
@@ -41,6 +42,140 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(executionSettings.filters[0].groupNames, Is.EqualTo(new[] { requestContext.TestFilter }));
             Assert.That(executionSettings.filters[0].categoryNames, Is.EqualTo(requestContext.TestCategories));
             Assert.That(executionSettings.filters[0].assemblyNames, Is.EqualTo(requestContext.AssemblyNames));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task RegisterCancellation_WhenCanceledFromWorker_DispatchesCancelToMainThreadContext ()
+        {
+            var mainThreadId = Thread.CurrentThread.ManagedThreadId;
+            var synchronizationContext = new QueuedSynchronizationContext();
+            int? cancellationThreadId = null;
+            using var cancellationTokenSource = new CancellationTokenSource();
+            using var registration = UnityTestRunner.RegisterCancellation(
+                "test-run-id",
+                cancellationTokenSource.Token,
+                synchronizationContext,
+                NoOpDaemonLogger.Instance,
+                _ => cancellationThreadId = Thread.CurrentThread.ManagedThreadId);
+
+            await Task.Run(cancellationTokenSource.Cancel);
+
+            Assert.That(cancellationThreadId, Is.Null);
+            synchronizationContext.RunPostedCallbacks();
+            Assert.That(cancellationThreadId, Is.EqualTo(mainThreadId));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void RegisterCancellation_WhenMainThreadContextIsMissing_RejectsRegistration ()
+        {
+            using var cancellationTokenSource = new CancellationTokenSource();
+
+            Assert.Throws<ArgumentNullException>(() => UnityTestRunner.RegisterCancellation(
+                "test-run-id",
+                cancellationTokenSource.Token,
+                mainThreadSynchronizationContext: null,
+                daemonLogger: NoOpDaemonLogger.Instance,
+                cancelTestRun: _ => { }));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task RegisterCancellation_WhenPostedCancelFails_LogsThroughDaemonLoggerOnMainThread ()
+        {
+            var mainThreadId = Thread.CurrentThread.ManagedThreadId;
+            var synchronizationContext = new QueuedSynchronizationContext();
+            var daemonLogger = new RecordingDaemonLogger();
+            using var cancellationTokenSource = new CancellationTokenSource();
+            using var registration = UnityTestRunner.RegisterCancellation(
+                "test-run-id",
+                cancellationTokenSource.Token,
+                synchronizationContext,
+                daemonLogger,
+                _ => throw new InvalidOperationException("cancel failed"));
+
+            await Task.Run(cancellationTokenSource.Cancel);
+            Assert.That(daemonLogger.WarningCallCount, Is.EqualTo(0));
+
+            synchronizationContext.RunPostedCallbacks();
+
+            Assert.That(daemonLogger.WarningCallCount, Is.EqualTo(1));
+            Assert.That(daemonLogger.WarningThreadId, Is.EqualTo(mainThreadId));
+            Assert.That(daemonLogger.WarningCategory, Is.EqualTo(DaemonLogCategories.Ipc));
+            Assert.That(daemonLogger.WarningRaw, Does.Contain("cancel failed"));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Constructor_WhenDaemonLoggerIsMissing_RejectsDependency ()
+        {
+            Assert.Throws<ArgumentNullException>(() => new UnityTestRunner(
+                new RecordingMutationLaneControl(),
+                daemonLogger: null));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task RunAsync_WhenWorkerHasSynchronizationContext_RejectsBeforeUnityApiUse ()
+        {
+            _ = UnityMainThreadGuard.CaptureSynchronizationContext("Unity test runner test setup");
+            var runner = new UnityTestRunner(
+                new RecordingMutationLaneControl(),
+                NoOpDaemonLogger.Instance);
+            var requestContext = CreateRequestContext();
+
+            InvalidOperationException exception = null;
+            try
+            {
+                await Task.Run(async () =>
+                {
+                    SynchronizationContext.SetSynchronizationContext(new SynchronizationContext());
+                    await runner.RunAsync(
+                        requestContext,
+                        progressSink: null,
+                        cancellationToken: CancellationToken.None);
+                });
+            }
+            catch (InvalidOperationException caughtException)
+            {
+                exception = caughtException;
+            }
+
+            Assert.That(exception, Is.Not.Null);
+            Assert.That(exception.Message, Does.Contain("Unity Editor main thread"));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task AwaitCancellationQuiescence_WhenRunFinishedIsMissing_PoisonsMutationLane ()
+        {
+            var callbacks = new UnityTestRunner.TestRunCallbacks(CreateRequestContext(), progressSink: null);
+            var mutationLane = new RecordingMutationLaneControl();
+
+            await UnityTestRunner.AwaitCancellationQuiescenceAsync(
+                callbacks,
+                mutationLane);
+
+            Assert.That(mutationLane.IsPoisoned, Is.True);
+            Assert.That(mutationLane.PoisonReason, Does.Contain("RunFinished"));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task AwaitCancellationQuiescence_WhenRunFinishesWithinGrace_DoesNotPoisonMutationLane ()
+        {
+            var callbacks = new UnityTestRunner.TestRunCallbacks(CreateRequestContext(), progressSink: null);
+            var mutationLane = new RecordingMutationLaneControl();
+            var quiescenceTask = UnityTestRunner.AwaitCancellationQuiescenceAsync(
+                callbacks,
+                mutationLane);
+
+            Assert.That(quiescenceTask.IsCompleted, Is.False);
+            callbacks.RunFinished(result: null);
+            await quiescenceTask;
+
+            Assert.That(mutationLane.IsPoisoned, Is.False);
         }
 
         [Test]
@@ -210,6 +345,70 @@ namespace MackySoft.Ucli.Unity.Tests
                 ConsoleLogPath: "console.log");
         }
 
+        private sealed class RecordingMutationLaneControl : IUnityMutationLaneControl
+        {
+            public bool IsBusy => IsPoisoned;
+
+            public bool IsPoisoned { get; private set; }
+
+            public string PoisonReason { get; private set; }
+
+            public void Poison (string reason)
+            {
+                IsPoisoned = true;
+                PoisonReason = reason;
+            }
+
+            public bool TrySealAdmissionWhenIdle (out IDisposable admissionSeal)
+            {
+                admissionSeal = null;
+                return false;
+            }
+        }
+
+        private sealed class RecordingDaemonLogger : IDaemonLogger
+        {
+            public int WarningCallCount { get; private set; }
+
+            public int? WarningThreadId { get; private set; }
+
+            public string WarningCategory { get; private set; }
+
+            public string WarningRaw { get; private set; }
+
+            public void Info (
+                string category,
+                string message,
+                string raw = null)
+            {
+            }
+
+            public void Warning (
+                string category,
+                string message,
+                string raw = null)
+            {
+                WarningCallCount++;
+                WarningThreadId = Thread.CurrentThread.ManagedThreadId;
+                WarningCategory = category;
+                WarningRaw = raw;
+            }
+
+            public void Error (
+                string category,
+                string message,
+                string raw = null)
+            {
+            }
+
+            public void Exception (
+                string category,
+                string message,
+                Exception exception)
+            {
+            }
+        }
+
         private sealed class CollectingProgressSink : IUnityTestRunProgressSink
         {
             public List<(string EventName, object Payload)> Entries { get; } = new List<(string EventName, object Payload)>();
@@ -221,10 +420,27 @@ namespace MackySoft.Ucli.Unity.Tests
                 Entries.Add((eventName, payload));
             }
 
-            public Task FlushAsync (CancellationToken cancellationToken = default)
+        }
+
+        private sealed class QueuedSynchronizationContext : SynchronizationContext
+        {
+            private readonly Queue<(SendOrPostCallback Callback, object State)> callbacks =
+                new Queue<(SendOrPostCallback Callback, object State)>();
+
+            public override void Post (
+                SendOrPostCallback d,
+                object state)
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                return Task.CompletedTask;
+                callbacks.Enqueue((d, state));
+            }
+
+            public void RunPostedCallbacks ()
+            {
+                while (callbacks.Count > 0)
+                {
+                    var callback = callbacks.Dequeue();
+                    callback.Callback(callback.State);
+                }
             }
         }
 

@@ -11,8 +11,11 @@ using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution;
+using MackySoft.Ucli.Unity.Execution.CsEval;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.Requests;
+using MackySoft.Ucli.Unity.Runtime;
+using Microsoft.Extensions.DependencyInjection;
 using NUnit.Framework;
 using MackySoft.Ucli.Contracts.Operations;
 
@@ -23,6 +26,26 @@ namespace MackySoft.Ucli.Unity.Tests
         private const string AssemblyCSharpEditorFixtureOperationName = "ucli.tests.assembly-csharp-editor.discover";
         private const string AssemblyCSharpEditorAssemblyName = "Assembly-CSharp-Editor";
 
+        private readonly ServiceProvider operationServiceProvider = CreateOperationServiceProvider();
+
+        internal static ServiceProvider CreateOperationServiceProvider ()
+        {
+            return new ServiceCollection()
+                .AddSingleton<IUnityMutationLaneControl>(new UnexpectedMutationLaneControl())
+                .AddUnityOperationServices()
+                .BuildServiceProvider(new ServiceProviderOptions
+                {
+                    ValidateOnBuild = true,
+                    ValidateScopes = true,
+                });
+        }
+
+        [OneTimeTearDown]
+        public void DisposeOperationServiceProvider ()
+        {
+            operationServiceProvider.Dispose();
+        }
+
         [Test]
         [Category("Size.Small")]
         public void DiscoverFromTypes_WhenTypeIsValidOperation_ReturnsOperationInstance ()
@@ -30,7 +53,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var operations = UcliOperationDiscoverer.DiscoverFromTypes(new Type[]
             {
                 typeof(DiscoverableOperation),
-            });
+            }, operationServiceProvider);
 
             Assert.That(operations.Count, Is.EqualTo(1));
             Assert.That(operations[0].Operation, Is.TypeOf<DiscoverableOperation>());
@@ -44,7 +67,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var operations = UcliOperationDiscoverer.DiscoverFromTypes(new Type[]
             {
                 typeof(GenericDiscoverableOperation),
-            });
+            }, operationServiceProvider);
 
             Assert.That(operations.Count, Is.EqualTo(1));
             Assert.That(operations[0].Operation, Is.TypeOf<GenericDiscoverableOperation>());
@@ -111,7 +134,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 _ = UcliOperationDiscoverer.DiscoverFromTypes(new Type[]
                 {
                     typeof(MetadataArgsMismatchOperation),
-                });
+                }, operationServiceProvider);
             });
         }
 
@@ -124,7 +147,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 _ = UcliOperationDiscoverer.DiscoverFromTypes(new Type[]
                 {
                     typeof(MetadataResultMismatchOperation),
-                });
+                }, operationServiceProvider);
             });
         }
 
@@ -341,7 +364,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 _ = UcliOperationDiscoverer.DiscoverFromTypes(new Type[]
                 {
                     typeof(InvalidAttributedType),
-                });
+                }, operationServiceProvider);
             });
         }
 
@@ -349,7 +372,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void Discover_WhenCurrentDomainContainsInvalidAttributedTestType_IgnoresTestAssembly ()
         {
-            var operations = UcliOperationDiscoverer.Discover();
+            var operations = UcliOperationDiscoverer.Discover(operationServiceProvider);
 
             Assert.That(operations.Count, Is.GreaterThan(0));
 
@@ -370,7 +393,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void Discover_WhenAssemblyCSharpEditorOperationExists_ReturnsUserDefinedOperation ()
         {
-            var operations = UcliOperationDiscoverer.Discover();
+            var operations = UcliOperationDiscoverer.Discover(operationServiceProvider);
 
             var registration = FindRegistration(operations, AssemblyCSharpEditorFixtureOperationName);
 
@@ -382,7 +405,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void Discover_WhenBuiltInOperationsAreRead_ReturnsConcreteArgsSchemas ()
         {
-            var operations = UcliOperationDiscoverer.Discover();
+            var operations = UcliOperationDiscoverer.Discover(operationServiceProvider);
 
             var resolveMetadata = FindMetadata(operations, UcliPrimitiveOperationNames.Resolve);
             using var resolveSchemaDocument = JsonDocument.Parse(resolveMetadata.ArgsSchemaJson);
@@ -486,7 +509,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void Discover_WhenAssetsFindOperationIsRead_ReturnsConcreteArgsSchema ()
         {
-            var operations = UcliOperationDiscoverer.Discover();
+            var operations = UcliOperationDiscoverer.Discover(operationServiceProvider);
 
             var metadata = FindMetadata(operations, UcliPrimitiveOperationNames.AssetsFind);
             using var schemaDocument = JsonDocument.Parse(metadata.ArgsSchemaJson);
@@ -510,7 +533,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void Discover_WhenAssetsFindOperationIsRead_ReturnsWindowResultSchema ()
         {
-            var operations = UcliOperationDiscoverer.Discover();
+            var operations = UcliOperationDiscoverer.Discover(operationServiceProvider);
 
             var metadata = FindMetadata(operations, UcliPrimitiveOperationNames.AssetsFind);
             using var schemaDocument = JsonDocument.Parse(metadata.ResultSchemaJson!);
@@ -533,7 +556,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void Discover_WhenSceneTreeOperationIsRead_ReturnsWindowArgsSchema ()
         {
-            var operations = UcliOperationDiscoverer.Discover();
+            var operations = UcliOperationDiscoverer.Discover(operationServiceProvider);
 
             var metadata = FindMetadata(operations, UcliPrimitiveOperationNames.SceneTree);
             using var schemaDocument = JsonDocument.Parse(metadata.ArgsSchemaJson);
@@ -555,7 +578,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void BuildCatalog_WhenCsEvalOperationIsDiscovered_IncludesPublicDangerousOperation ()
         {
-            var operations = UcliOperationDiscoverer.Discover();
+            var operations = UcliOperationDiscoverer.Discover(operationServiceProvider);
             var metadata = FindMetadata(operations, UcliPrimitiveOperationNames.CsEval);
 
             var snapshot = UcliOperationCatalogSnapshotBuilder.Build(operations);
@@ -625,7 +648,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void BuildCatalog_WhenBuiltInOperationsAreExported_RemovesVarSelectorsFromPublicSchemas ()
         {
-            var operations = UcliOperationDiscoverer.Discover();
+            var operations = UcliOperationDiscoverer.Discover(operationServiceProvider);
 
             var snapshot = UcliOperationCatalogSnapshotBuilder.Build(operations);
 
@@ -693,7 +716,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void BuildCatalog_WhenPrefabRevertOverridesIsExported_DescribesSceneTouchAndReadInvalidation ()
         {
-            var operations = UcliOperationDiscoverer.Discover();
+            var operations = UcliOperationDiscoverer.Discover(operationServiceProvider);
 
             var snapshot = UcliOperationCatalogSnapshotBuilder.Build(operations);
 
@@ -714,7 +737,8 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var operations = UcliOperationDiscoverer.Discover(
                 includeUcliDefinedAssemblies: false,
-                includeUserDefinedAssemblies: true);
+                includeUserDefinedAssemblies: true,
+                serviceProvider: operationServiceProvider);
 
             Assert.That(ContainsOperation(operations, UcliPrimitiveOperationNames.Resolve), Is.False);
             Assert.That(ContainsOperation(operations, AssemblyCSharpEditorFixtureOperationName), Is.True);
@@ -726,7 +750,8 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var operations = UcliOperationDiscoverer.Discover(
                 includeUcliDefinedAssemblies: true,
-                includeUserDefinedAssemblies: false);
+                includeUserDefinedAssemblies: false,
+                serviceProvider: operationServiceProvider);
 
             Assert.That(ContainsOperation(operations, UcliPrimitiveOperationNames.Resolve), Is.True);
             Assert.That(ContainsOperation(operations, AssemblyCSharpEditorFixtureOperationName), Is.False);
@@ -742,7 +767,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     typeof(UcliOperationDiscovererTests).Assembly,
                 },
                 includeUcliDefinedAssemblies: true,
-                includeUserDefinedAssemblies: true);
+                includeUserDefinedAssemblies: true,
+                serviceProvider: operationServiceProvider);
 
             Assert.That(operations, Is.Empty);
         }
@@ -938,6 +964,23 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private sealed class UnregisteredOperationDependency
         {
+        }
+
+        private sealed class UnexpectedMutationLaneControl : IUnityMutationLaneControl
+        {
+            public bool IsBusy => throw new InvalidOperationException("Operation discovery must not inspect mutation-lane state.");
+
+            public bool IsPoisoned => throw new InvalidOperationException("Operation discovery must not inspect mutation-lane state.");
+
+            public void Poison (string reason)
+            {
+                throw new InvalidOperationException("Operation discovery must not mutate mutation-lane state.");
+            }
+
+            public bool TrySealAdmissionWhenIdle (out IDisposable admissionSeal)
+            {
+                throw new InvalidOperationException("Operation discovery must not mutate mutation-lane state.");
+            }
         }
 
         private sealed class SingleServiceProvider : IServiceProvider

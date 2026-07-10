@@ -22,11 +22,11 @@ namespace MackySoft.Ucli.Unity.Ipc
         public UnityIpcRequestHandler (
             ISessionTokenValidator sessionTokenValidator,
             IUnityIpcMethodDispatcher methodDispatcher,
-            IDaemonLogger daemonLogger = null)
+            IDaemonLogger daemonLogger)
         {
             this.sessionTokenValidator = sessionTokenValidator ?? throw new ArgumentNullException(nameof(sessionTokenValidator));
             this.methodDispatcher = methodDispatcher ?? throw new ArgumentNullException(nameof(methodDispatcher));
-            this.daemonLogger = daemonLogger ?? NoOpDaemonLogger.Instance;
+            this.daemonLogger = daemonLogger ?? throw new ArgumentNullException(nameof(daemonLogger));
         }
 
         /// <summary> Handles one IPC request with strict session-token authorization and method dispatching. </summary>

@@ -3,6 +3,7 @@ using System.Collections;
 using System.IO;
 using System.Text.Json;
 using System.Threading;
+using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -184,7 +185,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     UnityProjectPathResolver.ResolveProjectRootPath(),
                     ProjectFingerprint,
                     "6000.1.4f1"),
-                new StubServerVersionProvider("1.2.3"));
+                new StubServerVersionProvider("1.2.3"),
+                NoOpDaemonLogger.Instance);
         }
 
         private static IpcCompileSummary CreatePendingSummary (string runId)
@@ -270,31 +272,31 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private sealed class StubRecoverableIpcOperationStore : IRecoverableIpcOperationStore
         {
-            public bool TryRead (
+            public ValueTask<RecoverableIpcOperationReadResult> ReadAsync (
                 string method,
                 string requestId,
                 string requestPayloadHash,
-                out RecoverableIpcOperationRecord record,
-                out string errorMessage)
+                CancellationToken cancellationToken)
             {
-                record = null;
-                errorMessage = null;
-                return false;
+                cancellationToken.ThrowIfCancellationRequested();
+                return new ValueTask<RecoverableIpcOperationReadResult>(
+                    RecoverableIpcOperationReadResult.Missing());
             }
 
-            public bool TryWritePending (
+            public ValueTask<RecoverableIpcOperationStoreResult> WritePendingAsync (
                 string method,
                 string requestId,
                 string requestPayloadHash,
                 DateTimeOffset startedAtUtc,
                 JsonElement recoveryPayload,
-                out string errorMessage)
+                CancellationToken cancellationToken)
             {
-                errorMessage = null;
-                return true;
+                cancellationToken.ThrowIfCancellationRequested();
+                return new ValueTask<RecoverableIpcOperationStoreResult>(
+                    RecoverableIpcOperationStoreResult.Success());
             }
 
-            public bool TryWriteCompleted (
+            public ValueTask<RecoverableIpcOperationStoreResult> WriteCompletedAsync (
                 string method,
                 string requestId,
                 string requestPayloadHash,
@@ -302,18 +304,16 @@ namespace MackySoft.Ucli.Unity.Tests
                 DateTimeOffset completedAtUtc,
                 JsonElement recoveryPayload,
                 IpcResponse response,
-                out string errorMessage)
+                CancellationToken cancellationToken)
             {
-                errorMessage = null;
-                return true;
+                cancellationToken.ThrowIfCancellationRequested();
+                return new ValueTask<RecoverableIpcOperationStoreResult>(
+                    RecoverableIpcOperationStoreResult.Success());
             }
 
-            public bool TryPurgeExpiredRecords (
-                DateTimeOffset nowUtc,
-                out string errorMessage)
+            public string ConsumeMaintenanceFailure ()
             {
-                errorMessage = null;
-                return true;
+                return null;
             }
         }
     }

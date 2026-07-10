@@ -1039,8 +1039,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
             var phaseExecutor = new SpyOperationPhaseExecutor(CreateSuccessTrace(normalizedRequest));
             var readinessGate = StubUnityEditorReadinessGate.CreatePending();
-            var mainThreadRequestExecutor = new SpyUnityMainThreadRequestExecutor();
-            var dispatcher = CreateDispatcher(normalizer, phaseExecutor, readinessGate, mainThreadRequestExecutor);
+            var dispatcher = CreateDispatcher(normalizer, phaseExecutor, readinessGate);
             var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
             var request = CreateExecuteRequest(UcliCommandIds.Plan, failFast: false);
 
@@ -1056,7 +1055,6 @@ namespace MackySoft.Ucli.Unity.Tests
             var response = await TestAwaiter.WaitAsync(responseTask, "Execute dispatcher readiness-delayed response", AsyncWaitTimeout);
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
-            Assert.That(mainThreadRequestExecutor.CallCount, Is.EqualTo(1));
             Assert.That(phaseExecutor.CallCount, Is.EqualTo(1));
         });
 
@@ -1068,8 +1066,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
             var phaseExecutor = new SpyOperationPhaseExecutor(CreateSuccessTrace(normalizedRequest));
             var readinessGate = StubUnityEditorReadinessGate.CreatePending();
-            var mainThreadRequestExecutor = new SpyUnityMainThreadRequestExecutor();
-            var dispatcher = CreateDispatcher(normalizer, phaseExecutor, readinessGate, mainThreadRequestExecutor);
+            var dispatcher = CreateDispatcher(normalizer, phaseExecutor, readinessGate);
             var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
             var request = CreateExecuteRequest(UcliCommandIds.Call, failFast: true);
 
@@ -1081,7 +1078,6 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(readinessGate.CallCount, Is.EqualTo(1));
             Assert.That(readinessGate.LastFailFast, Is.True);
             Assert.That(readinessGate.LastAllowPlayMode, Is.False);
-            Assert.That(mainThreadRequestExecutor.CallCount, Is.EqualTo(0));
             AssertEmptyOpResultsPayload(response.Payload);
             Assert.That(phaseExecutor.CallCount, Is.EqualTo(0));
         });
@@ -1613,8 +1609,7 @@ namespace MackySoft.Ucli.Unity.Tests
         private static ExecuteRequestDispatcher CreateDispatcher (
             IExecuteRequestNormalizer requestNormalizer,
             IOperationPhaseExecutor operationPhaseExecutor,
-            IUnityEditorReadinessGate? readinessGate = null,
-            IUnityMainThreadRequestExecutor? mainThreadRequestExecutor = null)
+            IUnityEditorReadinessGate? readinessGate = null)
         {
             return new ExecuteRequestDispatcher(
                 requestNormalizer,
@@ -1623,20 +1618,25 @@ namespace MackySoft.Ucli.Unity.Tests
                     ExecuteRequestIdempotencyCoordinator.DefaultCacheTtl,
                     ExecuteRequestIdempotencyCoordinator.DefaultMaxEntries,
                     static () => DateTimeOffset.UtcNow)),
-                readinessGate ?? new StubUnityEditorReadinessGate(),
-                mainThreadRequestExecutor ?? new SpyUnityMainThreadRequestExecutor());
+                readinessGate ?? new StubUnityEditorReadinessGate());
         }
 
         private static OperationPhaseExecutor CreateCatalogPhaseExecutor ()
         {
-            var snapshot = UcliOperationCatalogSnapshotBuilder.Build();
+            var snapshot = CreateOperationCatalogSnapshot();
             return CreatePhaseExecutor(new InMemoryPhaseOperationRegistry(snapshot.Registrations));
         }
 
         private static ExecuteRequestNormalizer CreateCatalogNormalizer ()
         {
-            var snapshot = UcliOperationCatalogSnapshotBuilder.Build();
+            var snapshot = CreateOperationCatalogSnapshot();
             return new ExecuteRequestNormalizer(new InMemoryPhaseOperationRegistry(snapshot.Registrations));
+        }
+
+        private static UcliOperationCatalogSnapshot CreateOperationCatalogSnapshot ()
+        {
+            using var serviceProvider = UcliOperationDiscovererTests.CreateOperationServiceProvider();
+            return UcliOperationCatalogSnapshotBuilder.Build(serviceProvider);
         }
 
         private static OperationPhaseExecutor CreatePhaseExecutor (IPhaseOperationRegistry operationRegistry)
@@ -1967,20 +1967,6 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 cancellationToken.ThrowIfCancellationRequested();
                 return executionTrace;
-            }
-        }
-
-        private sealed class SpyUnityMainThreadRequestExecutor : IUnityMainThreadRequestExecutor
-        {
-            public int CallCount { get; private set; }
-
-            public Task<T> ExecuteAsync<T> (
-                Func<Task<T>> workItem,
-                CancellationToken cancellationToken = default)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                CallCount++;
-                return workItem();
             }
         }
 

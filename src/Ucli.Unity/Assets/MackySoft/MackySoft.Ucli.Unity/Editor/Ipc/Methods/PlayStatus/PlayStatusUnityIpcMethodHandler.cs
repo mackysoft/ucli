@@ -7,7 +7,7 @@ using MackySoft.Ucli.Unity.Runtime;
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Handles <c>play.status</c> IPC method requests. </summary>
-    internal sealed class PlayStatusUnityIpcMethodHandler : IUnityIpcMethodHandler
+    internal sealed class PlayStatusUnityIpcMethodHandler : IUnityControlPlaneIpcMethodHandler
     {
         private readonly IServerVersionProvider serverVersionProvider;
         private readonly IUnityEditorReadinessGate readinessGate;
@@ -23,12 +23,12 @@ namespace MackySoft.Ucli.Unity.Ipc
             IServerVersionProvider serverVersionProvider,
             IUnityEditorReadinessGate readinessGate,
             IpcProjectIdentity projectIdentity,
-            IDaemonLogger daemonLogger = null)
+            IDaemonLogger daemonLogger)
         {
             this.serverVersionProvider = serverVersionProvider ?? throw new ArgumentNullException(nameof(serverVersionProvider));
             this.readinessGate = readinessGate ?? throw new ArgumentNullException(nameof(readinessGate));
             this.projectIdentity = projectIdentity ?? throw new ArgumentNullException(nameof(projectIdentity));
-            this.daemonLogger = daemonLogger ?? NoOpDaemonLogger.Instance;
+            this.daemonLogger = daemonLogger ?? throw new ArgumentNullException(nameof(daemonLogger));
         }
 
         /// <inheritdoc />

@@ -67,7 +67,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                             preparedOperation.Operation,
                             OperationPhase.Plan,
                             ct => preparedOperation.PhaseOperation.PlanAsync(preparedOperation.Operation, executionContext, ct),
-                            cancellationToken).ConfigureAwait(false));
+                            cancellationToken));
                     OperationPhaseExecutionUtilities.MergeTouched(touched, replayedPlanStepResult.Touched);
                     OperationPhaseExecutionUtilities.MergeDiagnostics(diagnostics, replayedPlanStepResult.Diagnostics);
                     persisted |= replayedPlanStepResult.Persisted;
@@ -102,7 +102,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         preparedOperation.Operation,
                         OperationPhase.Call,
                         ct => preparedOperation.PhaseOperation.CallAsync(preparedOperation.Operation, executionContext, ct),
-                        cancellationToken).ConfigureAwait(false));
+                        cancellationToken));
 
                 OperationPhaseExecutionUtilities.MergeTouched(touched, callStepResult.Touched);
                 OperationPhaseExecutionUtilities.MergeDiagnostics(diagnostics, callStepResult.Diagnostics);

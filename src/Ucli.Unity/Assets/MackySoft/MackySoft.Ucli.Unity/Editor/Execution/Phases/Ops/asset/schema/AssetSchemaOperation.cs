@@ -61,7 +61,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 args,
                 executionContext,
                 allowTemporaryState: true,
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken);
         }
 
         protected override async Task<OperationPhaseStepResult> CallAsync (
@@ -76,7 +76,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 args,
                 executionContext,
                 allowTemporaryState: false,
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken);
         }
 
         private async Task<OperationPhaseStepResult> ExecuteAsync (
@@ -95,7 +95,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             {
                 var extractionResult = await assetSchemaExtractor.ExtractAsync(
                     new[] { validationState.AssetType },
-                    cancellationToken).ConfigureAwait(false);
+                    cancellationToken);
                 if (extractionResult.Entries.Count == 0)
                 {
                     return OperationPhaseStepResult.Failed(new OperationFailure(

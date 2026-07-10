@@ -15,6 +15,10 @@ namespace MackySoft.Ucli.Unity.Ipc
     /// <summary> Registers shared Unity IPC application services used by daemon and oneshot hosts. </summary>
     internal static class UnityIpcServiceCollectionExtensions
     {
+        private const int MaximumActiveTransportConnections = 32;
+
+        private static readonly TimeSpan ConnectionDrainTimeout = TimeSpan.FromSeconds(1);
+
         /// <summary> Registers shared IPC application services and method handlers. </summary>
         /// <param name="services"> The target service collection. </param>
         /// <param name="sessionTokenValidator"> The session-token validator used by the host. </param>
@@ -27,7 +31,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             ISessionTokenValidator sessionTokenValidator,
             string projectFingerprint,
             IDaemonLogger daemonLogger,
-            DaemonEditorMode editorMode = DaemonEditorMode.Batchmode)
+            DaemonEditorMode editorMode)
         {
             if (services == null)
             {
@@ -115,9 +119,6 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddSingleton<IUnityIpcMethodHandler, OpsReadUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodHandler, IndexAssetsReadUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodHandler, IndexSceneTreeLiteReadUnityIpcMethodHandler>();
-            services.AddSingleton<IUnityIpcMethodDispatcher, UnityIpcMethodDispatcher>();
-            services.AddSingleton<IUnityIpcRequestHandler, UnityIpcRequestHandler>();
-            services.AddSingleton<IUnityIpcRequestProcessor, UnityIpcRequestProcessor>();
             return services;
         }
 
@@ -162,10 +163,15 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddSingleton<IDaemonLogStream>(daemonLogStream);
             services.AddSingleton<IRecoverableIpcOperationStore>(serviceProvider =>
                 FileRecoverableIpcOperationStore.Create(serviceProvider.GetRequiredService<IpcProjectIdentity>()));
+            services.AddSingleton<IUnityIpcMethodDispatcher>(serviceProvider => CreateMethodDispatcher(
+                serviceProvider,
+                serviceProvider.GetRequiredService<IRecoverableIpcOperationStore>()));
+            services.AddSingleton<IUnityIpcRequestHandler, UnityIpcRequestHandler>();
             services.AddSingleton<UnityCompileMessageDedupeCache>();
             services.AddSingleton<UnityLogCollector>();
             services.AddSingleton<UnityLogCaptureService>();
             services.AddSingleton<IDaemonShutdownSignal, DaemonShutdownSignal>();
+            services.AddSingleton<IUnityShutdownAdmissionCoordinator, UnityShutdownAdmissionCoordinator>();
             services.AddSingleton<IDaemonLogsReadRequestValidator, DaemonLogsReadRequestValidator>();
             services.AddSingleton<IDaemonLogsReadQueryEngine, DaemonLogsReadQueryEngine>();
             services.AddSingleton<DaemonLogsReadResponseFactory>();
@@ -177,9 +183,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddSingleton<IUnityIpcMethodHandler, UnityLogsReadUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodHandler, UnityConsoleClearUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodHandler, ShutdownUnityIpcMethodHandler>();
-            services.AddSingleton<IUnityIpcConnectionHandler, UnityIpcConnectionHandler>();
-            services.AddSingleton<NamedPipeUnityIpcTransportListener>();
-            services.AddSingleton<UnixDomainSocketUnityIpcTransportListener>();
+            services.AddSingleton<IUnityIpcConnectionHandler>(CreateConnectionHandler);
+            AddTransportListeners(services);
             services.AddSingleton<IUnityIpcServer>(serviceProvider =>
             {
                 return new UnityIpcServer(
@@ -190,7 +195,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                         serviceProvider.GetRequiredService<UnixDomainSocketUnityIpcTransportListener>(),
                     },
                     serviceProvider.GetRequiredService<IDaemonShutdownSignal>(),
-                    serviceProvider.GetRequiredService<IDaemonLogger>());
+                    serviceProvider.GetRequiredService<IDaemonLogger>(),
+                    UnityIpcServer.DefaultListenerStopTimeout);
             });
             return services;
         }
@@ -206,12 +212,16 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             services.AddSingleton<IDaemonShutdownSignal, DaemonShutdownSignal>();
+            services.AddSingleton<IUnityShutdownAdmissionCoordinator, UnityShutdownAdmissionCoordinator>();
+            services.AddSingleton<IUnityIpcMethodDispatcher>(serviceProvider => CreateMethodDispatcher(
+                serviceProvider,
+                recoverableOperationStore: null));
+            services.AddSingleton<IUnityIpcRequestHandler, UnityIpcRequestHandler>();
             services.AddSingleton<OneshotRequestCompletionSignal>();
             services.AddSingleton<IUnityIpcMethodHandler, ShutdownUnityIpcMethodHandler>();
-            services.AddSingleton<UnityIpcConnectionHandler>();
+            services.AddSingleton(CreateConnectionHandler);
             services.AddSingleton<IUnityIpcConnectionHandler, UnityOneshotConnectionHandler>();
-            services.AddSingleton<NamedPipeUnityIpcTransportListener>();
-            services.AddSingleton<UnixDomainSocketUnityIpcTransportListener>();
+            AddTransportListeners(services);
             services.AddSingleton<IUnityIpcServer>(serviceProvider =>
             {
                 return new UnityIpcServer(
@@ -222,7 +232,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                         serviceProvider.GetRequiredService<UnixDomainSocketUnityIpcTransportListener>(),
                     },
                     serviceProvider.GetRequiredService<IDaemonShutdownSignal>(),
-                    serviceProvider.GetRequiredService<IDaemonLogger>());
+                    serviceProvider.GetRequiredService<IDaemonLogger>(),
+                    UnityIpcServer.DefaultListenerStopTimeout);
             });
             return services;
         }
@@ -267,13 +278,14 @@ namespace MackySoft.Ucli.Unity.Ipc
                 bootstrapStarter: serviceProvider.GetRequiredService<IUnityGuiBootstrapStarter>(),
                 projectFingerprint: projectFingerprint,
                 daemonLogger: daemonLogger));
-            services.AddSingleton<IUnityIpcMethodDispatcher, UnityIpcMethodDispatcher>();
+            services.AddSingleton<IUnityIpcMethodDispatcher>(serviceProvider => CreateMethodDispatcher(
+                serviceProvider,
+                recoverableOperationStore: null));
             services.AddSingleton<IUnityIpcRequestHandler, UnityIpcRequestHandler>();
-            services.AddSingleton<IUnityIpcRequestProcessor, UnityIpcRequestProcessor>();
             services.AddSingleton<IDaemonShutdownSignal, DaemonShutdownSignal>();
-            services.AddSingleton<IUnityIpcConnectionHandler, UnityIpcConnectionHandler>();
-            services.AddSingleton<NamedPipeUnityIpcTransportListener>();
-            services.AddSingleton<UnixDomainSocketUnityIpcTransportListener>();
+            services.AddSingleton<IUnityShutdownAdmissionCoordinator, UnityShutdownAdmissionCoordinator>();
+            services.AddSingleton<IUnityIpcConnectionHandler>(CreateConnectionHandler);
+            AddTransportListeners(services);
             services.AddSingleton<IUnityIpcServer>(serviceProvider =>
             {
                 return new UnityIpcServer(
@@ -284,9 +296,43 @@ namespace MackySoft.Ucli.Unity.Ipc
                         serviceProvider.GetRequiredService<UnixDomainSocketUnityIpcTransportListener>(),
                     },
                     serviceProvider.GetRequiredService<IDaemonShutdownSignal>(),
-                    serviceProvider.GetRequiredService<IDaemonLogger>());
+                    serviceProvider.GetRequiredService<IDaemonLogger>(),
+                    UnityIpcServer.DefaultListenerStopTimeout);
             });
             return services;
+        }
+
+        private static UnityIpcConnectionHandler CreateConnectionHandler (IServiceProvider serviceProvider)
+        {
+            return new UnityIpcConnectionHandler(
+                serviceProvider.GetRequiredService<IUnityIpcRequestHandler>(),
+                serviceProvider.GetRequiredService<IUnityShutdownAdmissionCoordinator>(),
+                UnityIpcConnectionHandler.DefaultInitialFrameReadTimeout,
+                UnityIpcConnectionHandler.DefaultResponseFrameWriteTimeout);
+        }
+
+        private static UnityIpcMethodDispatcher CreateMethodDispatcher (
+            IServiceProvider serviceProvider,
+            IRecoverableIpcOperationStore recoverableOperationStore)
+        {
+            return new UnityIpcMethodDispatcher(
+                serviceProvider.GetServices<IUnityIpcMethodHandler>(),
+                serviceProvider.GetRequiredService<IUnityMainThreadRequestExecutor>(),
+                serviceProvider.GetRequiredService<IUnityControlPlaneRequestExecutor>(),
+                recoverableOperationStore,
+                serviceProvider.GetRequiredService<IDaemonLogger>());
+        }
+
+        private static void AddTransportListeners (IServiceCollection services)
+        {
+            services.AddSingleton(serviceProvider => new NamedPipeUnityIpcTransportListener(
+                serviceProvider.GetRequiredService<IDaemonLogger>(),
+                MaximumActiveTransportConnections,
+                ConnectionDrainTimeout));
+            services.AddSingleton(serviceProvider => new UnixDomainSocketUnityIpcTransportListener(
+                serviceProvider.GetRequiredService<IDaemonLogger>(),
+                MaximumActiveTransportConnections,
+                ConnectionDrainTimeout));
         }
     }
 }

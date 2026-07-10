@@ -27,6 +27,8 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class UnityIpcServerTests
     {
+        private const int MaximumActiveConnections = 32;
+
         private static readonly JsonSerializerOptions SerializerOptions = new JsonSerializerOptions
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -35,6 +37,8 @@ namespace MackySoft.Ucli.Unity.Tests
         };
 
         private static readonly TimeSpan SignalWaitTimeout = TimeSpan.FromSeconds(5);
+
+        private static readonly TimeSpan ConnectionDrainTimeout = TimeSpan.FromSeconds(1);
 
         [UnityTest]
         [Category("Size.Small")]
@@ -137,7 +141,10 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var socketDirectoryPath = Path.Combine(Path.GetTempPath(), UcliIpcEndpointNames.DaemonAddressPrefix + Guid.NewGuid().ToString("N"));
             var address = Path.Combine(socketDirectoryPath, UcliIpcEndpointNames.UnixSocketFileName);
-            var listener = new UnixDomainSocketUnityIpcTransportListener();
+            var listener = new UnixDomainSocketUnityIpcTransportListener(
+                NoOpDaemonLogger.Instance,
+                MaximumActiveConnections,
+                ConnectionDrainTimeout);
             var startedTaskSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             using var cancellationTokenSource = new CancellationTokenSource();
 
@@ -180,7 +187,10 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator NamedPipeListener_Run_WhenConnectionHandled_ReportsCompletionAfterConnectionClosed () => UniTask.ToCoroutine(async () =>
         {
             var address = "ucli-" + Guid.NewGuid().ToString("N").Substring(0, 8);
-            var listener = new NamedPipeUnityIpcTransportListener();
+            var listener = new NamedPipeUnityIpcTransportListener(
+                NoOpDaemonLogger.Instance,
+                MaximumActiveConnections,
+                ConnectionDrainTimeout);
             var connectionHandler = new ShutdownResultConnectionHandler();
             var startedTaskSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             var connectionCompletedTaskSource = new TaskCompletionSource<UnityIpcConnectionHandleResult>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -236,7 +246,10 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator NamedPipeListener_Run_WhenFirstConnectionIsStillHandling_AcceptsSecondConnection () => UniTask.ToCoroutine(async () =>
         {
             var address = "ucli-" + Guid.NewGuid().ToString("N").Substring(0, 8);
-            var listener = new NamedPipeUnityIpcTransportListener();
+            var listener = new NamedPipeUnityIpcTransportListener(
+                NoOpDaemonLogger.Instance,
+                MaximumActiveConnections,
+                ConnectionDrainTimeout);
             var connectionHandler = new BlockingConnectionHandler();
             var startedTaskSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             using var cancellationTokenSource = new CancellationTokenSource();
@@ -280,6 +293,245 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator ConnectionGroup_TryStart_WhenActiveConnectionLimitIsReached_RejectsAndClosesOverflowHandle () => UniTask.ToCoroutine(async () =>
+        {
+            const int connectionLimit = 2;
+            var connectionGroup = new UnityIpcTransportConnectionGroup(
+                NoOpDaemonLogger.Instance,
+                connectionLimit);
+            var handlerCompletion = new TaskCompletionSource<UnityIpcConnectionHandleResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var admittedHandlersEntered = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var admittedHandlerCallCount = 0;
+            var overflowHandlerCallCount = 0;
+            var admittedHandles = new[]
+            {
+                new RecordingTransportHandle(),
+                new RecordingTransportHandle(),
+            };
+            var overflowHandle = new RecordingTransportHandle();
+
+            try
+            {
+                foreach (var admittedHandle in admittedHandles)
+                {
+                    var admitted = connectionGroup.TryStart(
+                        admittedHandle,
+                        async () =>
+                        {
+                            if (Interlocked.Increment(ref admittedHandlerCallCount) == connectionLimit)
+                            {
+                                admittedHandlersEntered.TrySetResult(true);
+                            }
+
+                            return await handlerCompletion.Task;
+                        },
+                        _ => { },
+                        CancellationToken.None);
+                    Assert.That(admitted, Is.True);
+                }
+
+                await TestAwaiter.WaitAsync(
+                    admittedHandlersEntered.Task,
+                    "Admitted connection handlers",
+                    SignalWaitTimeout);
+
+                var overflowAdmitted = connectionGroup.TryStart(
+                    overflowHandle,
+                    () =>
+                    {
+                        Interlocked.Increment(ref overflowHandlerCallCount);
+                        return Task.FromResult(default(UnityIpcConnectionHandleResult));
+                    },
+                    _ => { },
+                    CancellationToken.None);
+
+                Assert.That(overflowAdmitted, Is.False);
+                Assert.That(overflowHandle.DisposeCallCount, Is.EqualTo(1));
+                Assert.That(Volatile.Read(ref overflowHandlerCallCount), Is.EqualTo(0));
+                Assert.That(Volatile.Read(ref admittedHandlerCallCount), Is.EqualTo(connectionLimit));
+            }
+            finally
+            {
+                connectionGroup.Release();
+                handlerCompletion.TrySetResult(default);
+                await TestAwaiter.WaitAsync(
+                    connectionGroup.WaitForCompletionAsync(SignalWaitTimeout),
+                    "Connection-limit test cleanup",
+                    SignalWaitTimeout);
+            }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator ConnectionGroup_Release_WhenTransportHandleDisposeBlocks_ReturnsBeforeCleanupCompletes () => UniTask.ToCoroutine(async () =>
+        {
+            var connectionGroup = new UnityIpcTransportConnectionGroup(
+                NoOpDaemonLogger.Instance,
+                maximumActiveConnections: 1);
+            var transportHandle = new BlockingDisposeTransportHandle();
+            var handlerEntered = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var handlerCompletion = new TaskCompletionSource<UnityIpcConnectionHandleResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+            Task releaseTask = null;
+            var releaseCompletedBeforeDispose = false;
+
+            try
+            {
+                Assert.That(connectionGroup.TryStart(
+                    transportHandle,
+                    async () =>
+                    {
+                        handlerEntered.TrySetResult(true);
+                        return await handlerCompletion.Task;
+                    },
+                    _ => { },
+                    CancellationToken.None), Is.True);
+                await TestAwaiter.WaitAsync(
+                    handlerEntered.Task,
+                    "Blocking-dispose connection handler",
+                    SignalWaitTimeout);
+
+                releaseTask = Task.Run(connectionGroup.Release);
+                await TestAwaiter.WaitAsync(
+                    transportHandle.DisposeStarted,
+                    "Asynchronous transport cleanup start",
+                    SignalWaitTimeout);
+                await TestAwaiter.WaitAsync(
+                    releaseTask,
+                    "Non-blocking connection group release",
+                    SignalWaitTimeout);
+                releaseCompletedBeforeDispose = !transportHandle.DisposeCompleted;
+            }
+            finally
+            {
+                transportHandle.AllowDispose();
+                handlerCompletion.TrySetResult(default);
+                if (releaseTask != null)
+                {
+                    await TestAwaiter.WaitAsync(
+                        releaseTask,
+                        "Connection group release cleanup",
+                        SignalWaitTimeout);
+                }
+
+                await TestAwaiter.WaitAsync(
+                    connectionGroup.WaitForCompletionAsync(SignalWaitTimeout),
+                    "Blocking-dispose connection cleanup",
+                    SignalWaitTimeout);
+            }
+
+            Assert.That(releaseCompletedBeforeDispose, Is.True);
+            Assert.That(transportHandle.DisposeCallCount, Is.EqualTo(1));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator ConnectionGroup_WaitForCompletion_WhenTransportCleanupDoesNotComplete_StopsAtDrainDeadline () => UniTask.ToCoroutine(async () =>
+        {
+            var connectionGroup = new UnityIpcTransportConnectionGroup(
+                NoOpDaemonLogger.Instance,
+                maximumActiveConnections: 1);
+            var transportHandle = new BlockingDisposeTransportHandle();
+            TimeoutException timeoutException = null;
+
+            try
+            {
+                Assert.That(connectionGroup.TryStart(
+                    transportHandle,
+                    () => Task.FromResult(default(UnityIpcConnectionHandleResult)),
+                    _ => { },
+                    CancellationToken.None), Is.True);
+                await TestAwaiter.WaitAsync(
+                    transportHandle.DisposeStarted,
+                    "Blocking transport cleanup start",
+                    SignalWaitTimeout);
+
+                try
+                {
+                    await connectionGroup.WaitForCompletionAsync(TimeSpan.FromMilliseconds(25));
+                }
+                catch (TimeoutException exception)
+                {
+                    timeoutException = exception;
+                }
+            }
+            finally
+            {
+                connectionGroup.Release();
+                transportHandle.AllowDispose();
+                await TestAwaiter.WaitAsync(
+                    connectionGroup.WaitForCompletionAsync(SignalWaitTimeout),
+                    "Blocking transport cleanup release",
+                    SignalWaitTimeout);
+            }
+
+            Assert.That(timeoutException, Is.Not.Null);
+            Assert.That(transportHandle.DisposeCallCount, Is.EqualTo(1));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator ConnectionGroup_WaitForCompletion_WhenConnectionCompletesAfterDeadlineWinner_DoesNotReverseTimeoutToSuccess () => UniTask.ToCoroutine(async () =>
+        {
+            var connectionGroup = new UnityIpcTransportConnectionGroup(
+                NoOpDaemonLogger.Instance,
+                maximumActiveConnections: 1);
+            var transportHandle = new RecordingTransportHandle();
+            var handlerEntered = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var handlerCompletion = new TaskCompletionSource<UnityIpcConnectionHandleResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+            Assert.That(connectionGroup.TryStart(
+                transportHandle,
+                async () =>
+                {
+                    handlerEntered.TrySetResult(true);
+                    return await handlerCompletion.Task;
+                },
+                _ => { },
+                CancellationToken.None), Is.True);
+            await TestAwaiter.WaitAsync(
+                handlerEntered.Task,
+                "Connection handler entry",
+                SignalWaitTimeout);
+
+            var synchronizationContext = new ManuallyPumpedSynchronizationContext();
+            var originalSynchronizationContext = SynchronizationContext.Current;
+            Task drainTask;
+            try
+            {
+                SynchronizationContext.SetSynchronizationContext(synchronizationContext);
+                drainTask = connectionGroup.WaitForCompletionAsync(TimeSpan.FromMilliseconds(25));
+            }
+            finally
+            {
+                SynchronizationContext.SetSynchronizationContext(originalSynchronizationContext);
+            }
+
+            try
+            {
+                Assert.That(
+                    synchronizationContext.WaitForCallback(SignalWaitTimeout),
+                    Is.True,
+                    "Drain deadline continuation was not queued.");
+                handlerCompletion.TrySetResult(default);
+                await TestAwaiter.WaitAsync(
+                    connectionGroup.WaitForCompletionAsync(SignalWaitTimeout),
+                    "Connection completion after the drain deadline won",
+                    SignalWaitTimeout);
+                Assert.That(transportHandle.DisposeCallCount, Is.EqualTo(1));
+
+                synchronizationContext.ExecuteOldestCallback();
+
+                Assert.That(drainTask.IsFaulted, Is.True);
+                Assert.That(drainTask.Exception?.GetBaseException(), Is.TypeOf<TimeoutException>());
+            }
+            finally
+            {
+                connectionGroup.Release();
+                handlerCompletion.TrySetResult(default);
+            }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Start_WhenTransportReportsShutdownCompletion_SignalsShutdown () => UniTask.ToCoroutine(async () =>
         {
             var request = CreateShutdownRequest("valid-token", "req-server-shutdown-complete");
@@ -291,7 +543,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 Errors: Array.Empty<IpcError>());
             var listener = new CompletionReportingTransportListener(
                 IpcTransportKind.NamedPipe,
-                new UnityIpcConnectionHandleResult(request, response));
+                new UnityIpcConnectionHandleResult(
+                    request,
+                    response,
+                    isShutdownAdmissionCommitted: true));
             var shutdownSignal = new StubDaemonShutdownSignal();
             var server = CreateServer(
                 new PermitAllSessionTokenValidator(),
@@ -334,7 +589,10 @@ namespace MackySoft.Ucli.Unity.Tests
             }
 
             var address = CreateSocketPathWithByteLength(IpcTransportConstraints.UnixDomainSocketPathMaxBytes + 1);
-            var listener = new UnixDomainSocketUnityIpcTransportListener();
+            var listener = new UnixDomainSocketUnityIpcTransportListener(
+                NoOpDaemonLogger.Instance,
+                MaximumActiveConnections,
+                ConnectionDrainTimeout);
             var exception = await AsyncExceptionCapture.CaptureAsync<ArgumentException>(async () =>
             {
                 await listener.RunAsync(
@@ -561,13 +819,13 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator ProcessRequest_WhenSessionTokenIsMissing_ReturnsSessionTokenRequiredError () => UniTask.ToCoroutine(async () =>
         {
-            var requestProcessor = CreateRequestProcessorForRequestHandling(
+            var requestHandler = CreateRequestHandler(
                 new StubSessionTokenValidator(accepted: true),
                 new StubExecuteRequestDispatcher(),
                 new StubUnityTestRunService());
             var request = CreatePingRequest(sessionToken: string.Empty);
 
-            var response = await requestProcessor.ProcessAsync(request);
+            var response = await requestHandler.HandleAsync(request);
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
@@ -578,13 +836,13 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator ProcessRequest_WhenSessionTokenIsInvalid_ReturnsSessionTokenInvalidError () => UniTask.ToCoroutine(async () =>
         {
-            var requestProcessor = CreateRequestProcessorForRequestHandling(
+            var requestHandler = CreateRequestHandler(
                 new StubSessionTokenValidator(accepted: false),
                 new StubExecuteRequestDispatcher(),
                 new StubUnityTestRunService());
             var request = CreatePingRequest(sessionToken: "invalid-token");
 
-            var response = await requestProcessor.ProcessAsync(request);
+            var response = await requestHandler.HandleAsync(request);
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
@@ -595,13 +853,13 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator ProcessRequest_WhenSessionTokenValidationThrows_ReturnsInternalError () => UniTask.ToCoroutine(async () =>
         {
-            var requestProcessor = CreateRequestProcessorForRequestHandling(
+            var requestHandler = CreateRequestHandler(
                 new ThrowingSessionTokenValidator(new IOException("session file read failed")),
                 new StubExecuteRequestDispatcher(),
                 new StubUnityTestRunService());
             var request = CreatePingRequest(sessionToken: "valid-token");
 
-            var response = await requestProcessor.ProcessAsync(request);
+            var response = await requestHandler.HandleAsync(request);
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
@@ -612,13 +870,13 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator ProcessRequest_WhenValidTokenAndPing_ReturnsPingResponse () => UniTask.ToCoroutine(async () =>
         {
-            var requestProcessor = CreateRequestProcessorForRequestHandling(
+            var requestHandler = CreateRequestHandler(
                 new StubSessionTokenValidator(accepted: true),
                 new StubExecuteRequestDispatcher(),
                 new StubUnityTestRunService());
             var request = CreatePingRequest(sessionToken: "valid-token");
 
-            var response = await requestProcessor.ProcessAsync(request);
+            var response = await requestHandler.HandleAsync(request);
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
             Assert.That(response.Errors, Is.Empty);
@@ -653,13 +911,13 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator ProcessRequest_WhenValidTokenAndExecute_CallsDispatcher () => UniTask.ToCoroutine(async () =>
         {
             var dispatcher = new StubExecuteRequestDispatcher();
-            var requestProcessor = CreateRequestProcessorForRequestHandling(
+            var requestHandler = CreateRequestHandler(
                 new StubSessionTokenValidator(accepted: true),
                 dispatcher,
                 new StubUnityTestRunService());
             var request = CreateExecuteRequest(sessionToken: "valid-token", requestId: "req-execute");
 
-            var response = await requestProcessor.ProcessAsync(request);
+            var response = await requestHandler.HandleAsync(request);
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
             Assert.That(dispatcher.CallCount, Is.EqualTo(1));
@@ -671,13 +929,13 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator ProcessRequest_WhenShutdownAccepted_ReturnsAcceptedResponse () => UniTask.ToCoroutine(async () =>
         {
-            var requestProcessor = CreateRequestProcessorForRequestHandling(
+            var requestHandler = CreateRequestHandler(
                 new StubSessionTokenValidator(accepted: true),
                 new StubExecuteRequestDispatcher(),
                 new StubUnityTestRunService());
             var request = CreateShutdownRequest(sessionToken: "valid-token", requestId: "req-shutdown");
 
-            var response = await requestProcessor.ProcessAsync(request);
+            var response = await requestHandler.HandleAsync(request);
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
             var payload = response.Payload.Deserialize<IpcShutdownResponse>(SerializerOptions);
@@ -690,13 +948,13 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator ProcessRequest_WhenValidTokenAndTestRun_CallsTestRunService () => UniTask.ToCoroutine(async () =>
         {
             var testRunService = new StubUnityTestRunService(new IpcTestRunResponse(2));
-            var requestProcessor = CreateRequestProcessorForRequestHandling(
+            var requestHandler = CreateRequestHandler(
                 new StubSessionTokenValidator(accepted: true),
                 new StubExecuteRequestDispatcher(),
                 testRunService);
             var request = CreateTestRunRequest(sessionToken: "valid-token", requestId: "req-test-run", failFast: true);
 
-            var response = await requestProcessor.ProcessAsync(request);
+            var response = await requestHandler.HandleAsync(request);
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
             Assert.That(response.Errors, Is.Empty);
@@ -715,13 +973,13 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var testRunService = new StubUnityTestRunService(UnityTestRunServiceResult.Failure(
                 new IpcError(EditorLifecycleErrorCodes.EditorBusy, "Unity editor is busy with internal work.", null)));
-            var requestProcessor = CreateRequestProcessorForRequestHandling(
+            var requestHandler = CreateRequestHandler(
                 new StubSessionTokenValidator(accepted: true),
                 new StubExecuteRequestDispatcher(),
                 testRunService);
             var request = CreateTestRunRequest(sessionToken: "valid-token", requestId: "req-test-run-lifecycle-error");
 
-            var response = await requestProcessor.ProcessAsync(request);
+            var response = await requestHandler.HandleAsync(request);
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
@@ -734,7 +992,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator ProcessRequest_WhenTestRunPayloadIsInvalid_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
-            var requestProcessor = CreateRequestProcessorForRequestHandling(
+            var requestHandler = CreateRequestHandler(
                 new StubSessionTokenValidator(accepted: true),
                 new StubExecuteRequestDispatcher(),
                 new StubUnityTestRunService());
@@ -747,7 +1005,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Payload: invalidPayload,
                 responseMode: IpcResponseMode.Single);
 
-            var response = await requestProcessor.ProcessAsync(request);
+            var response = await requestHandler.HandleAsync(request);
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
@@ -758,13 +1016,13 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator ProcessRequest_WhenValidTokenAndDaemonLogsRead_ReturnsDaemonLogEvents () => UniTask.ToCoroutine(async () =>
         {
-            var requestProcessor = CreateRequestProcessorForRequestHandling(
+            var requestHandler = CreateRequestHandler(
                 new StubSessionTokenValidator(accepted: true),
                 new StubExecuteRequestDispatcher(),
                 new StubUnityTestRunService());
             var request = CreateDaemonLogsReadRequest(sessionToken: "valid-token", requestId: "req-daemon-logs");
 
-            var response = await requestProcessor.ProcessAsync(request);
+            var response = await requestHandler.HandleAsync(request);
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
             Assert.That(response.Errors, Is.Empty);
@@ -778,13 +1036,13 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator ProcessRequest_WhenValidTokenAndUnityLogsRead_ReturnsUnityLogEvents () => UniTask.ToCoroutine(async () =>
         {
-            var requestProcessor = CreateRequestProcessorForRequestHandling(
+            var requestHandler = CreateRequestHandler(
                 new StubSessionTokenValidator(accepted: true),
                 new StubExecuteRequestDispatcher(),
                 new StubUnityTestRunService());
             var request = CreateUnityLogsReadRequest(sessionToken: "valid-token", requestId: "req-unity-logs");
 
-            var response = await requestProcessor.ProcessAsync(request);
+            var response = await requestHandler.HandleAsync(request);
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
             Assert.That(response.Errors, Is.Empty);
@@ -799,13 +1057,13 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator ProcessRequest_WhenValidTokenAndUnityConsoleClear_ReturnsSuccessResponse () => UniTask.ToCoroutine(async () =>
         {
-            var requestProcessor = CreateRequestProcessorForRequestHandling(
+            var requestHandler = CreateRequestHandler(
                 new StubSessionTokenValidator(accepted: true),
                 new StubExecuteRequestDispatcher(),
                 new StubUnityTestRunService());
             var request = CreateUnityConsoleClearRequest(sessionToken: "valid-token", requestId: "req-unity-console-clear");
 
-            var response = await requestProcessor.ProcessAsync(request);
+            var response = await requestHandler.HandleAsync(request);
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
             Assert.That(response.Errors, Is.Empty);
@@ -967,20 +1225,27 @@ namespace MackySoft.Ucli.Unity.Tests
                 shutdownSignal,
                 new IUnityIpcTransportListener[]
                 {
-                    new NamedPipeUnityIpcTransportListener(),
-                    new UnixDomainSocketUnityIpcTransportListener(),
+                    new NamedPipeUnityIpcTransportListener(
+                        NoOpDaemonLogger.Instance,
+                        MaximumActiveConnections,
+                        ConnectionDrainTimeout),
+                    new UnixDomainSocketUnityIpcTransportListener(
+                        NoOpDaemonLogger.Instance,
+                        MaximumActiveConnections,
+                        ConnectionDrainTimeout),
                 });
         }
 
-        private static UnityIpcRequestProcessor CreateRequestProcessorForRequestHandling (
+        private static UnityIpcRequestHandler CreateRequestHandler (
             ISessionTokenValidator sessionTokenValidator,
             IExecuteRequestDispatcher executeRequestDispatcher,
             IUnityTestRunService testRunService)
         {
-            return CreateRequestProcessor(
+            return CreateRequestHandler(
                 sessionTokenValidator,
                 executeRequestDispatcher,
-                testRunService);
+                testRunService,
+                new TestShutdownAdmissionCoordinator());
         }
 
         private static UnityIpcServer CreateServer (
@@ -990,27 +1255,44 @@ namespace MackySoft.Ucli.Unity.Tests
             IDaemonShutdownSignal shutdownSignal,
             IReadOnlyList<IUnityIpcTransportListener> transportListeners)
         {
-            var requestProcessor = CreateRequestProcessor(
+            var shutdownAdmissionCoordinator = new TestShutdownAdmissionCoordinator();
+            var requestHandler = CreateRequestHandler(
                 sessionTokenValidator,
                 executeRequestDispatcher,
-                testRunService);
-            var connectionHandler = new UnityIpcConnectionHandler(requestProcessor);
-            return new UnityIpcServer(connectionHandler, transportListeners, shutdownSignal);
+                testRunService,
+                shutdownAdmissionCoordinator);
+            var connectionHandler = new UnityIpcConnectionHandler(
+                requestHandler,
+                shutdownAdmissionCoordinator,
+                UnityIpcConnectionHandler.DefaultInitialFrameReadTimeout,
+                UnityIpcConnectionHandler.DefaultResponseFrameWriteTimeout);
+            return new UnityIpcServer(
+                connectionHandler,
+                transportListeners,
+                shutdownSignal,
+                NoOpDaemonLogger.Instance,
+                UnityIpcServer.DefaultListenerStopTimeout);
         }
 
-        private static UnityIpcRequestProcessor CreateRequestProcessor (
+        private static UnityIpcRequestHandler CreateRequestHandler (
             ISessionTokenValidator sessionTokenValidator,
             IExecuteRequestDispatcher executeRequestDispatcher,
-            IUnityTestRunService testRunService)
+            IUnityTestRunService testRunService,
+            IUnityShutdownAdmissionCoordinator shutdownAdmissionCoordinator)
         {
             var daemonLogStream = new DaemonLogRingBuffer();
             daemonLogStream.Write("ipc", "info", "server booted");
             var unityLogStream = new UnityLogRingBuffer();
             unityLogStream.Write(IpcUnityLogsSourceCodec.Runtime, IpcDaemonLogsLevelCodec.Info, "runtime booted", "at Bootstrap.Start()");
+            var requestExecutor = new InlineMainThreadRequestExecutor();
             var methodDispatcher = new UnityIpcMethodDispatcher(
                 new IUnityIpcMethodHandler[]
                 {
-                    new PingUnityIpcMethodHandler(new AssemblyServerVersionProvider(), new StubUnityEditorReadinessGate(), "project-fingerprint"),
+                    new PingUnityIpcMethodHandler(
+                        new AssemblyServerVersionProvider(),
+                        new StubUnityEditorReadinessGate(),
+                        "project-fingerprint",
+                        NoOpDaemonLogger.Instance),
                     new ExecuteUnityIpcMethodHandler(
                         executeRequestDispatcher,
                         new IpcRequestTimeoutScopeFactory(),
@@ -1020,21 +1302,98 @@ namespace MackySoft.Ucli.Unity.Tests
                         daemonLogStream,
                         new DaemonLogsReadRequestValidator(),
                         new DaemonLogsReadQueryEngine(),
-                        new DaemonLogsReadResponseFactory()),
+                        new DaemonLogsReadResponseFactory(),
+                        NoOpDaemonLogger.Instance),
                     new UnityLogsReadUnityIpcMethodHandler(
                         unityLogStream,
                         new UnityLogsReadRequestValidator(),
                         new UnityLogsReadQueryEngine(),
-                        new UnityLogsReadResponseFactory()),
+                        new UnityLogsReadResponseFactory(),
+                        NoOpDaemonLogger.Instance),
                     new UnityConsoleClearUnityIpcMethodHandler(
                         new StubUnityConsoleClearer(),
-                        new StubUnityEditorReadinessGate(DaemonEditorMode.Gui)),
-                    new ShutdownUnityIpcMethodHandler(),
-                });
-            var requestHandler = new UnityIpcRequestHandler(sessionTokenValidator, methodDispatcher);
-            return new UnityIpcRequestProcessor(
-                requestHandler,
-                new InlineMainThreadRequestExecutor());
+                        new StubUnityEditorReadinessGate(DaemonEditorMode.Gui),
+                        NoOpDaemonLogger.Instance),
+                    new ShutdownUnityIpcMethodHandler(
+                        NoOpDaemonLogger.Instance,
+                        shutdownAdmissionCoordinator),
+                },
+                requestExecutor,
+                requestExecutor,
+                recoverableOperationStore: null,
+                daemonLogger: NoOpDaemonLogger.Instance);
+            return new UnityIpcRequestHandler(
+                sessionTokenValidator,
+                methodDispatcher,
+                NoOpDaemonLogger.Instance);
+        }
+
+        private sealed class RecordingTransportHandle : IDisposable
+        {
+            private int disposeCallCount;
+
+            public int DisposeCallCount => Volatile.Read(ref disposeCallCount);
+
+            public void Dispose ()
+            {
+                Interlocked.Increment(ref disposeCallCount);
+            }
+        }
+
+        private sealed class BlockingDisposeTransportHandle : IDisposable
+        {
+            private readonly TaskCompletionSource<bool> disposeStarted =
+                new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            private readonly ManualResetEventSlim allowDispose = new ManualResetEventSlim();
+
+            private int disposeCallCount;
+
+            private int disposeCompleted;
+
+            public Task DisposeStarted => disposeStarted.Task;
+
+            public int DisposeCallCount => Volatile.Read(ref disposeCallCount);
+
+            public bool DisposeCompleted => Volatile.Read(ref disposeCompleted) != 0;
+
+            public void AllowDispose ()
+            {
+                allowDispose.Set();
+            }
+
+            public void Dispose ()
+            {
+                Interlocked.Increment(ref disposeCallCount);
+                disposeStarted.TrySetResult(true);
+                allowDispose.Wait();
+                Volatile.Write(ref disposeCompleted, 1);
+            }
+        }
+
+        private sealed class TestShutdownAdmissionCoordinator : IUnityShutdownAdmissionCoordinator
+        {
+            private IpcRequest preparedRequest;
+
+            public bool TryPrepare (IpcRequest request, out string errorMessage)
+            {
+                preparedRequest = request;
+                errorMessage = null;
+                return true;
+            }
+
+            public bool TryCommit (IpcRequest request)
+            {
+                return ReferenceEquals(preparedRequest, request);
+            }
+
+            public void Abort (IpcRequest request)
+            {
+                if (ReferenceEquals(preparedRequest, request))
+                {
+                    preparedRequest = null;
+                }
+            }
         }
 
         private static async Task<string> ReadUnixFileModeAsync (string path)
@@ -1166,7 +1525,10 @@ namespace MackySoft.Ucli.Unity.Tests
                     Status: IpcProtocol.StatusOk,
                     Payload: JsonSerializer.SerializeToElement(new IpcShutdownResponse(true, "ok"), SerializerOptions),
                     Errors: Array.Empty<IpcError>());
-                return Task.FromResult(new UnityIpcConnectionHandleResult(request, response));
+                return Task.FromResult(new UnityIpcConnectionHandleResult(
+                    request,
+                    response,
+                    isShutdownAdmissionCommitted: true));
             }
         }
 
@@ -1252,7 +1614,9 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         }
 
-        private sealed class InlineMainThreadRequestExecutor : IUnityMainThreadRequestExecutor
+        private sealed class InlineMainThreadRequestExecutor :
+            IUnityMainThreadRequestExecutor,
+            IUnityControlPlaneRequestExecutor
         {
             public Task<T> ExecuteAsync<T> (
                 Func<Task<T>> workItem,
@@ -1640,6 +2004,56 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 Interlocked.Increment(ref postCallCount);
                 ThreadPool.QueueUserWorkItem(_ => d(state));
+            }
+        }
+
+        private sealed class ManuallyPumpedSynchronizationContext : SynchronizationContext
+        {
+            private readonly object syncRoot = new object();
+
+            private readonly Queue<(SendOrPostCallback Callback, object State)> callbacks =
+                new Queue<(SendOrPostCallback Callback, object State)>();
+
+            private readonly ManualResetEventSlim callbackAvailable = new ManualResetEventSlim();
+
+            public override void Post (
+                SendOrPostCallback d,
+                object state)
+            {
+                lock (syncRoot)
+                {
+                    callbacks.Enqueue((d, state));
+                    callbackAvailable.Set();
+                }
+            }
+
+            public bool WaitForCallback (TimeSpan timeout)
+            {
+                return callbackAvailable.Wait(timeout);
+            }
+
+            public void ExecuteOldestCallback ()
+            {
+                (SendOrPostCallback Callback, object State) callback;
+                lock (syncRoot)
+                {
+                    callback = callbacks.Dequeue();
+                    if (callbacks.Count == 0)
+                    {
+                        callbackAvailable.Reset();
+                    }
+                }
+
+                var originalSynchronizationContext = Current;
+                try
+                {
+                    SetSynchronizationContext(this);
+                    callback.Callback(callback.State);
+                }
+                finally
+                {
+                    SetSynchronizationContext(originalSynchronizationContext);
+                }
             }
         }
     }

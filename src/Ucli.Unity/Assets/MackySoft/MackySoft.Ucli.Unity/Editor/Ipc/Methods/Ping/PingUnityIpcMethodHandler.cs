@@ -9,7 +9,7 @@ using UnityEngine;
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Handles <c>ping</c> IPC method requests. </summary>
-    internal sealed class PingUnityIpcMethodHandler : IUnityIpcMethodHandler
+    internal sealed class PingUnityIpcMethodHandler : IUnityControlPlaneIpcMethodHandler
     {
         private readonly IServerVersionProvider serverVersionProvider;
         private readonly IUnityEditorReadinessGate readinessGate;
@@ -23,7 +23,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             IServerVersionProvider serverVersionProvider,
             IUnityEditorReadinessGate readinessGate,
             string projectFingerprint,
-            IDaemonLogger daemonLogger = null)
+            IDaemonLogger daemonLogger)
         {
             this.serverVersionProvider = serverVersionProvider ?? throw new ArgumentNullException(nameof(serverVersionProvider));
             this.readinessGate = readinessGate ?? throw new ArgumentNullException(nameof(readinessGate));
@@ -33,7 +33,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             this.projectFingerprint = projectFingerprint;
-            this.daemonLogger = daemonLogger ?? NoOpDaemonLogger.Instance;
+            this.daemonLogger = daemonLogger ?? throw new ArgumentNullException(nameof(daemonLogger));
         }
 
         /// <inheritdoc />

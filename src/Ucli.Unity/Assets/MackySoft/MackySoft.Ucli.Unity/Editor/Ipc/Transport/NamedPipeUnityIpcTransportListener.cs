@@ -6,28 +6,67 @@ using System.IO.Pipes;
 using System.Runtime.InteropServices;
 using System.Security.AccessControl;
 using System.Security.Principal;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Implements named-pipe transport accept loop for Unity IPC server. </summary>
-    internal sealed class NamedPipeUnityIpcTransportListener : IUnityIpcTransportListener
+    internal sealed class NamedPipeUnityIpcTransportListener :
+        IUnityIpcTransportListener,
+        IUnityIpcTransportRunReservation
     {
+        private const string EndpointOwnershipLockDirectoryName = "ipc-listener-locks";
+
+        private static readonly TimeSpan EndpointOwnershipAcquireTimeout = TimeSpan.FromSeconds(1);
+
         private readonly object syncRoot = new object();
+
+        private readonly Dictionary<CancellationToken, RunReservation> runReservations =
+            new Dictionary<CancellationToken, RunReservation>();
 
         private readonly IDaemonLogger daemonLogger;
 
-        private NamedPipeServerStream activeServerStream;
+        private readonly int maximumActiveConnections;
 
-        private UnityIpcTransportConnectionGroup activeConnectionGroup;
+        private readonly TimeSpan connectionDrainTimeout;
+
+        private ListenerGeneration activeListenerGeneration;
 
         /// <summary> Initializes a new instance of the <see cref="NamedPipeUnityIpcTransportListener" /> class. </summary>
-        /// <param name="daemonLogger"> The daemon daemon-logger dependency. </param>
-        public NamedPipeUnityIpcTransportListener (IDaemonLogger daemonLogger = null)
+        /// <param name="daemonLogger"> The daemon logger dependency. </param>
+        /// <param name="maximumActiveConnections"> The maximum number of accepted connections that may be handled concurrently. </param>
+        /// <param name="connectionDrainTimeout"> The maximum time allowed for active connections to finish during listener shutdown. </param>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="daemonLogger" /> is <see langword="null" />. </exception>
+        /// <exception cref="ArgumentOutOfRangeException"> Thrown when a numeric limit is not positive. </exception>
+        public NamedPipeUnityIpcTransportListener (
+            IDaemonLogger daemonLogger,
+            int maximumActiveConnections,
+            TimeSpan connectionDrainTimeout)
         {
-            this.daemonLogger = daemonLogger ?? NoOpDaemonLogger.Instance;
+            this.daemonLogger = daemonLogger ?? throw new ArgumentNullException(nameof(daemonLogger));
+            if (maximumActiveConnections <= 0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(maximumActiveConnections),
+                    maximumActiveConnections,
+                    "Maximum active connections must be greater than zero.");
+            }
+
+            if (connectionDrainTimeout <= TimeSpan.Zero)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(connectionDrainTimeout),
+                    connectionDrainTimeout,
+                    "Connection drain timeout must be greater than zero.");
+            }
+
+            this.maximumActiveConnections = maximumActiveConnections;
+            this.connectionDrainTimeout = connectionDrainTimeout;
         }
 
         /// <summary> Gets transport kind handled by this listener. </summary>
@@ -66,120 +105,535 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentNullException(nameof(onConnectionCompleted));
             }
 
-            var started = false;
-            var connectionGroup = new UnityIpcTransportConnectionGroup(daemonLogger);
-            lock (syncRoot)
+            var runReservation = ClaimRunReservation(cancellationToken);
+            if (runReservation.IsClosed)
             {
-                activeConnectionGroup = connectionGroup;
+                RemoveRunReservation(runReservation);
+                return;
             }
+
+            var started = false;
+            var connectionGroup = new UnityIpcTransportConnectionGroup(
+                daemonLogger,
+                maximumActiveConnections);
 
             try
             {
-                while (!cancellationToken.IsCancellationRequested)
+                ListenerGeneration listenerGeneration = null;
+                CancellationTokenRegistration cancellationRegistration = default;
+                try
                 {
-                    cancellationToken.ThrowIfCancellationRequested();
-
-                    NamedPipeServerStream serverStream = null;
-                    try
+                    var ownershipLease = await AcquireEndpointOwnershipAsync(address, cancellationToken);
+                    listenerGeneration = new ListenerGeneration(
+                        ownershipLease,
+                        connectionGroup);
+                    if (!TryActivateListenerGeneration(listenerGeneration, runReservation))
                     {
-                        serverStream = PipeServerStreamFactory.Create(address, daemonLogger);
-                        lock (syncRoot)
-                        {
-                            activeServerStream = serverStream;
-                        }
+                        return;
+                    }
 
-                        if (!started)
-                        {
-                            onStarted();
-                            started = true;
-                        }
+                    cancellationRegistration = cancellationToken.Register(
+                        () => _ = CloseListenerGeneration(listenerGeneration));
 
-                        await serverStream.WaitForConnectionAsync(cancellationToken);
+                    while (!cancellationToken.IsCancellationRequested)
+                    {
                         cancellationToken.ThrowIfCancellationRequested();
-                        ClearActiveServerStream(serverStream);
 
-                        var connectedStream = serverStream;
-                        serverStream = null;
-                        connectionGroup.Start(
-                            connectedStream,
-                            () => connectionHandler.HandleAsync(connectedStream, cancellationToken),
-                            onConnectionCompleted,
-                            cancellationToken);
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        throw;
-                    }
-                    catch (IOException exception) when (cancellationToken.IsCancellationRequested)
-                    {
-                        daemonLogger.Info(
-                            DaemonLogCategories.Transport,
-                            $"Named pipe listener stopped: {exception.Message}");
-                        return;
-                    }
-                    catch (ObjectDisposedException exception) when (cancellationToken.IsCancellationRequested)
-                    {
-                        daemonLogger.Info(
-                            DaemonLogCategories.Transport,
-                            $"Named pipe listener disposed during shutdown: {exception.Message}");
-                        return;
-                    }
-                    catch (Exception exception) when (!cancellationToken.IsCancellationRequested && (exception is IOException or InvalidDataException))
-                    {
-                        // NOTE: Probe callers may close timed-out streams while Unity is busy on the main thread.
-                        // Emitting these expected connection-local failures to the Unity console can make recovery slower.
-                    }
-                    finally
-                    {
-                        if (serverStream != null)
+                        // Creating the next server instance establishes listener availability. A failure here is
+                        // generation-fatal; retrying in this loop would keep StartAsync pending or leave a published
+                        // generation unreachable while spinning indefinitely.
+                        var serverStream = listenerGeneration.TryCreateServerStream(
+                            () => PipeServerStreamFactory.Create(address, daemonLogger));
+                        if (serverStream == null)
                         {
-                            ClearActiveServerStream(serverStream);
-                            serverStream.Dispose();
+                            return;
                         }
+
+                        var serverStreamDetached = false;
+
+                        try
+                        {
+                            if (!started)
+                            {
+                                if (!listenerGeneration.TryInvokeForActiveServerStream(serverStream, onStarted))
+                                {
+                                    return;
+                                }
+
+                                started = true;
+                            }
+
+                            await serverStream.WaitForConnectionAsync(cancellationToken)
+                                .ConfigureAwait(false);
+                            if (!listenerGeneration.TryDetachConnectedStream(serverStream))
+                            {
+                                return;
+                            }
+
+                            serverStreamDetached = true;
+                            var connectedStream = serverStream;
+                            _ = connectionGroup.TryStart(
+                                connectedStream,
+                                () => connectionHandler.HandleAsync(connectedStream, cancellationToken),
+                                onConnectionCompleted,
+                                cancellationToken);
+                            serverStream = null;
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            throw;
+                        }
+                        catch (IOException exception) when (
+                            cancellationToken.IsCancellationRequested
+                            || listenerGeneration.IsClosed)
+                        {
+                            daemonLogger.Info(
+                                DaemonLogCategories.Transport,
+                                $"Named pipe listener stopped: {exception.Message}");
+                            return;
+                        }
+                        catch (ObjectDisposedException exception) when (
+                            cancellationToken.IsCancellationRequested
+                            || listenerGeneration.IsClosed)
+                        {
+                            daemonLogger.Info(
+                                DaemonLogCategories.Transport,
+                                $"Named pipe listener disposed during shutdown: {exception.Message}");
+                            return;
+                        }
+                        catch (Exception exception) when (
+                            !cancellationToken.IsCancellationRequested
+                            && !listenerGeneration.IsClosed
+                            && (exception is IOException or InvalidDataException))
+                        {
+                            // NOTE: Probe callers may close timed-out streams while Unity is busy on the main thread.
+                            // Emitting these expected connection-local failures to the Unity console can make recovery slower.
+                        }
+                        finally
+                        {
+                            if (serverStream != null)
+                            {
+                                if (serverStreamDetached)
+                                {
+                                    await Task.Run(serverStream.Dispose)
+                                        .ConfigureAwait(false);
+                                }
+                                else
+                                {
+                                    await listenerGeneration.ReleaseServerStreamAsync(serverStream)
+                                        .ConfigureAwait(false);
+                                }
+                            }
+                        }
+                    }
+                }
+                finally
+                {
+                    cancellationRegistration.Dispose();
+                    RemoveRunReservation(runReservation);
+                    if (listenerGeneration != null)
+                    {
+                        await CompleteListenerGenerationAsync(listenerGeneration)
+                            .ConfigureAwait(false);
                     }
                 }
             }
             finally
             {
                 connectionGroup.Release();
-                await connectionGroup.WaitForCompletionAsync();
+                await connectionGroup.WaitForCompletionAsync(connectionDrainTimeout)
+                    .ConfigureAwait(false);
+            }
+        }
 
-                lock (syncRoot)
+        /// <summary> Marks the active listener generation released and initiates non-blocking transport cleanup. </summary>
+        public void Release ()
+        {
+            ListenerGeneration listenerGeneration;
+            lock (syncRoot)
+            {
+                foreach (var runReservation in runReservations.Values)
                 {
-                    if (ReferenceEquals(activeConnectionGroup, connectionGroup))
+                    runReservation.Close();
+                }
+
+                listenerGeneration = activeListenerGeneration;
+                activeListenerGeneration = null;
+            }
+
+            if (listenerGeneration != null)
+            {
+                _ = listenerGeneration.Close();
+            }
+        }
+
+        /// <inheritdoc />
+        public void ReserveRun (CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            lock (syncRoot)
+            {
+                if (runReservations.ContainsKey(cancellationToken))
+                {
+                    throw new InvalidOperationException(
+                        "The named pipe listener already has a reservation for the specified Run cancellation token.");
+                }
+
+                runReservations.Add(
+                    cancellationToken,
+                    new RunReservation(cancellationToken));
+            }
+        }
+
+        private bool TryActivateListenerGeneration (
+            ListenerGeneration listenerGeneration,
+            RunReservation runReservation)
+        {
+            lock (syncRoot)
+            {
+                RemoveRunReservationWithoutLock(runReservation);
+                if (runReservation.IsClosed)
+                {
+                    return false;
+                }
+
+                if (activeListenerGeneration != null)
+                {
+                    throw new InvalidOperationException(
+                        "The named pipe listener already has an active RunAsync generation.");
+                }
+
+                activeListenerGeneration = listenerGeneration;
+                return true;
+            }
+        }
+
+        private RunReservation ClaimRunReservation (CancellationToken cancellationToken)
+        {
+            lock (syncRoot)
+            {
+                if (!runReservations.TryGetValue(cancellationToken, out var runReservation))
+                {
+                    runReservation = new RunReservation(cancellationToken);
+                    runReservations.Add(cancellationToken, runReservation);
+                }
+
+                if (!runReservation.TryClaim())
+                {
+                    throw new InvalidOperationException(
+                        "The named pipe listener Run reservation has already been claimed.");
+                }
+
+                return runReservation;
+            }
+        }
+
+        private void RemoveRunReservation (RunReservation runReservation)
+        {
+            lock (syncRoot)
+            {
+                RemoveRunReservationWithoutLock(runReservation);
+            }
+        }
+
+        private void RemoveRunReservationWithoutLock (RunReservation runReservation)
+        {
+            if (runReservations.TryGetValue(runReservation.CancellationToken, out var activeReservation)
+                && ReferenceEquals(activeReservation, runReservation))
+            {
+                runReservations.Remove(runReservation.CancellationToken);
+            }
+        }
+
+        private Task CloseListenerGeneration (ListenerGeneration listenerGeneration)
+        {
+            lock (syncRoot)
+            {
+                if (ReferenceEquals(activeListenerGeneration, listenerGeneration))
+                {
+                    activeListenerGeneration = null;
+                }
+            }
+
+            return listenerGeneration.Close();
+        }
+
+        private Task CompleteListenerGenerationAsync (ListenerGeneration listenerGeneration)
+        {
+            lock (syncRoot)
+            {
+                if (ReferenceEquals(activeListenerGeneration, listenerGeneration))
+                {
+                    activeListenerGeneration = null;
+                }
+            }
+
+            return listenerGeneration.CompleteRunAsync();
+        }
+
+        private static async ValueTask<FileExclusiveLock> AcquireEndpointOwnershipAsync (
+            string address,
+            CancellationToken cancellationToken)
+        {
+            var lockPath = ResolveEndpointOwnershipLockPath(address);
+            try
+            {
+                return await FileExclusiveLock.AcquireAsync(
+                        lockPath,
+                        EndpointOwnershipAcquireTimeout,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (TimeoutException exception)
+            {
+                throw new TimeoutException(
+                    $"Named pipe endpoint is already owned by another listener generation. Address={address}",
+                    exception);
+            }
+        }
+
+        internal static string ResolveEndpointOwnershipLockPath (string address)
+        {
+            if (string.IsNullOrWhiteSpace(address))
+            {
+                throw new ArgumentException("Pipe address must not be empty or whitespace.", nameof(address));
+            }
+
+            var localApplicationDataPath = Environment.GetFolderPath(
+                Environment.SpecialFolder.LocalApplicationData);
+            if (string.IsNullOrWhiteSpace(localApplicationDataPath))
+            {
+                throw new InvalidOperationException(
+                    "Current-user local application data path could not be resolved for named pipe endpoint ownership.");
+            }
+
+            var normalizedAddress = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+                ? address.ToUpperInvariant()
+                : address;
+            var addressHash = Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(normalizedAddress));
+            return Path.Combine(
+                Path.GetFullPath(localApplicationDataPath),
+                "ucli",
+                EndpointOwnershipLockDirectoryName,
+                addressHash + ".lock");
+        }
+
+        private sealed class ListenerGeneration
+        {
+            private readonly object syncRoot = new object();
+
+            private FileExclusiveLock ownershipLease;
+
+            private readonly UnityIpcTransportConnectionGroup connectionGroup;
+
+            private NamedPipeServerStream activeServerStream;
+
+            private Task serverStreamCleanupTask = Task.CompletedTask;
+
+            private Task closeTask;
+
+            private Task runCompletionTask;
+
+            private bool isClosed;
+
+            public ListenerGeneration (
+                FileExclusiveLock ownershipLease,
+                UnityIpcTransportConnectionGroup connectionGroup)
+            {
+                this.ownershipLease = ownershipLease
+                    ?? throw new ArgumentNullException(nameof(ownershipLease));
+                this.connectionGroup = connectionGroup
+                    ?? throw new ArgumentNullException(nameof(connectionGroup));
+            }
+
+            public bool IsClosed
+            {
+                get
+                {
+                    lock (syncRoot)
                     {
-                        activeConnectionGroup = null;
+                        return isClosed;
                     }
                 }
             }
-        }
 
-        /// <summary> Releases active transport handles to unblock accept loops. </summary>
-        public void Release ()
-        {
-            UnityIpcTransportConnectionGroup connectionGroup;
-            lock (syncRoot)
+            public NamedPipeServerStream TryCreateServerStream (
+                Func<NamedPipeServerStream> createServerStream)
             {
-                if (activeServerStream != null)
+                if (createServerStream == null)
                 {
-                    activeServerStream.Dispose();
-                    activeServerStream = null;
+                    throw new ArgumentNullException(nameof(createServerStream));
                 }
 
-                connectionGroup = activeConnectionGroup;
+                lock (syncRoot)
+                {
+                    if (isClosed)
+                    {
+                        return null;
+                    }
+
+                    if (activeServerStream != null)
+                    {
+                        throw new InvalidOperationException(
+                            "The named pipe listener generation already owns an active server stream.");
+                    }
+
+                    activeServerStream = createServerStream();
+                    return activeServerStream;
+                }
             }
 
-            connectionGroup?.Release();
+            public bool TryInvokeForActiveServerStream (
+                NamedPipeServerStream serverStream,
+                Action action)
+            {
+                if (serverStream == null)
+                {
+                    throw new ArgumentNullException(nameof(serverStream));
+                }
+
+                if (action == null)
+                {
+                    throw new ArgumentNullException(nameof(action));
+                }
+
+                lock (syncRoot)
+                {
+                    if (isClosed || !ReferenceEquals(activeServerStream, serverStream))
+                    {
+                        return false;
+                    }
+
+                    action();
+                    return !isClosed && ReferenceEquals(activeServerStream, serverStream);
+                }
+            }
+
+            public bool TryDetachConnectedStream (NamedPipeServerStream serverStream)
+            {
+                if (serverStream == null)
+                {
+                    throw new ArgumentNullException(nameof(serverStream));
+                }
+
+                lock (syncRoot)
+                {
+                    if (isClosed || !ReferenceEquals(activeServerStream, serverStream))
+                    {
+                        return false;
+                    }
+
+                    activeServerStream = null;
+                    return true;
+                }
+            }
+
+            public Task ReleaseServerStreamAsync (NamedPipeServerStream serverStream)
+            {
+                if (serverStream == null)
+                {
+                    throw new ArgumentNullException(nameof(serverStream));
+                }
+
+                lock (syncRoot)
+                {
+                    if (ReferenceEquals(activeServerStream, serverStream))
+                    {
+                        activeServerStream = null;
+                        var streamCleanupTask = Task.Run(serverStream.Dispose);
+                        serverStreamCleanupTask = Task.WhenAll(
+                            serverStreamCleanupTask,
+                            streamCleanupTask);
+                        return streamCleanupTask;
+                    }
+
+                    return closeTask ?? Task.CompletedTask;
+                }
+            }
+
+            public Task Close ()
+            {
+                lock (syncRoot)
+                {
+                    if (closeTask != null)
+                    {
+                        return closeTask;
+                    }
+
+                    isClosed = true;
+                    var serverStream = activeServerStream;
+                    activeServerStream = null;
+                    if (serverStream != null)
+                    {
+                        serverStreamCleanupTask = Task.WhenAll(
+                            serverStreamCleanupTask,
+                            Task.Run(serverStream.Dispose));
+                    }
+
+                    connectionGroup.Release();
+                    closeTask = serverStreamCleanupTask;
+                    return closeTask;
+                }
+            }
+
+            public Task CompleteRunAsync ()
+            {
+                lock (syncRoot)
+                {
+                    if (runCompletionTask != null)
+                    {
+                        return runCompletionTask;
+                    }
+
+                    var listenerCloseTask = Close();
+                    var lease = ownershipLease;
+                    ownershipLease = null;
+                    runCompletionTask = CompleteRunCoreAsync(
+                        listenerCloseTask,
+                        lease);
+                    return runCompletionTask;
+                }
+            }
+
+            private static async Task CompleteRunCoreAsync (
+                Task listenerCloseTask,
+                FileExclusiveLock ownershipLease)
+            {
+                try
+                {
+                    await listenerCloseTask.ConfigureAwait(false);
+                }
+                finally
+                {
+                    await Task.Run(ownershipLease.Dispose)
+                        .ConfigureAwait(false);
+                }
+            }
         }
 
-        private void ClearActiveServerStream (NamedPipeServerStream serverStream)
+        private sealed class RunReservation
         {
-            lock (syncRoot)
+            private int isClaimed;
+
+            private int isClosed;
+
+            public RunReservation (CancellationToken cancellationToken)
             {
-                if (ReferenceEquals(activeServerStream, serverStream))
-                {
-                    activeServerStream = null;
-                }
+                CancellationToken = cancellationToken;
+            }
+
+            public CancellationToken CancellationToken { get; }
+
+            public bool IsClosed => Volatile.Read(ref isClosed) != 0;
+
+            public bool TryClaim ()
+            {
+                return Interlocked.CompareExchange(ref isClaimed, 1, 0) == 0;
+            }
+
+            public void Close ()
+            {
+                _ = Interlocked.Exchange(ref isClosed, 1);
             }
         }
 

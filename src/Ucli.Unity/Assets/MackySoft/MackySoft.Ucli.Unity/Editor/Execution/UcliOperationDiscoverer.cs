@@ -16,15 +16,6 @@ namespace MackySoft.Ucli.Unity.Execution
     {
         private const string NUnitFrameworkAssemblyName = "nunit.framework";
 
-        private static readonly Lazy<IServiceProvider> DefaultOperationServiceProvider = new(CreateDefaultOperationServiceProvider);
-
-        /// <summary> Discovers operation instances from currently loaded assemblies. </summary>
-        /// <returns> The discovered operation registration list. </returns>
-        public static IReadOnlyList<UcliOperationRegistration> Discover ()
-        {
-            return Discover(DefaultOperationServiceProvider.Value);
-        }
-
         /// <summary> Discovers operation instances from currently loaded assemblies. </summary>
         /// <param name="serviceProvider"> The service provider used to activate operation instances. </param>
         /// <returns> The discovered operation registration list. </returns>
@@ -47,36 +38,26 @@ namespace MackySoft.Ucli.Unity.Execution
         /// <summary> Discovers operation instances from currently loaded assemblies with source-kind filtering. </summary>
         /// <param name="includeUcliDefinedAssemblies"> Whether built-in uCLI operation assemblies should be discovered. </param>
         /// <param name="includeUserDefinedAssemblies"> Whether user-defined operation assemblies should be discovered. </param>
+        /// <param name="serviceProvider"> The service provider used to activate operation instances. </param>
         /// <returns> The discovered operation registration list. </returns>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="serviceProvider" /> is <see langword="null" />. </exception>
+        /// <exception cref="InvalidOperationException"> Thrown when one discovered operation type is invalid. </exception>
         internal static IReadOnlyList<UcliOperationRegistration> Discover (
             bool includeUcliDefinedAssemblies,
-            bool includeUserDefinedAssemblies)
+            bool includeUserDefinedAssemblies,
+            IServiceProvider serviceProvider)
         {
+            if (serviceProvider == null)
+            {
+                throw new ArgumentNullException(nameof(serviceProvider));
+            }
+
             var types = ResolveDiscoveryTypes(
                 includeUcliDefinedAssemblies,
                 includeUserDefinedAssemblies,
                 allowedAssemblyNames: null);
 
-            return DiscoverFromTypes(types, DefaultOperationServiceProvider.Value);
-        }
-
-        /// <summary> Discovers operation instances from a specified assembly set. </summary>
-        /// <param name="assemblies"> The assembly set to inspect. </param>
-        /// <param name="includeUcliDefinedAssemblies"> Whether built-in uCLI operation assemblies should be discovered. </param>
-        /// <param name="includeUserDefinedAssemblies"> Whether user-defined operation assemblies should be discovered. </param>
-        /// <returns> The discovered operation registration list. </returns>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="assemblies" /> is <see langword="null" />. </exception>
-        /// <exception cref="InvalidOperationException"> Thrown when one discovered operation type is invalid. </exception>
-        internal static IReadOnlyList<UcliOperationRegistration> Discover (
-            IReadOnlyList<RuntimeAssembly> assemblies,
-            bool includeUcliDefinedAssemblies,
-            bool includeUserDefinedAssemblies)
-        {
-            return Discover(
-                assemblies,
-                includeUcliDefinedAssemblies,
-                includeUserDefinedAssemblies,
-                DefaultOperationServiceProvider.Value);
+            return DiscoverFromTypes(types, serviceProvider);
         }
 
         /// <summary> Discovers operation instances from a specified assembly set. </summary>
@@ -109,16 +90,6 @@ namespace MackySoft.Ucli.Unity.Execution
                 allowedAssemblyNames);
 
             return DiscoverFromTypes(types, serviceProvider);
-        }
-
-        /// <summary> Discovers operation instances from a specified type set. </summary>
-        /// <param name="types"> The candidate type set. </param>
-        /// <returns> The discovered operation registration list. </returns>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="types" /> is <see langword="null" />. </exception>
-        /// <exception cref="InvalidOperationException"> Thrown when one discovered operation type is invalid. </exception>
-        internal static IReadOnlyList<UcliOperationRegistration> DiscoverFromTypes (IReadOnlyList<Type?> types)
-        {
-            return DiscoverFromTypes(types, DefaultOperationServiceProvider.Value);
         }
 
         /// <summary> Discovers operation instances from a specified type set. </summary>
@@ -362,15 +333,6 @@ namespace MackySoft.Ucli.Unity.Execution
             }
 
             return typedOperationInterface;
-        }
-
-        /// <summary> Creates the default operation service provider used by discovery-only callers. </summary>
-        /// <returns> The default operation service provider. </returns>
-        private static IServiceProvider CreateDefaultOperationServiceProvider ()
-        {
-            return new ServiceCollection()
-                .AddUnityOperationServices()
-                .BuildServiceProvider();
         }
 
         /// <summary> Creates one operation instance through dependency injection. </summary>

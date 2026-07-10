@@ -43,7 +43,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             try
             {
-                var stepResult = await executor(cancellationToken).ConfigureAwait(false);
+                var stepResult = await executor(cancellationToken);
                 if (stepResult == null)
                 {
                     return OperationPhaseStepResult.Failed(new OperationFailure(

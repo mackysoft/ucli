@@ -3,12 +3,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
-using UnityEngine;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Handles <c>gui.rebootstrap</c> IPC method requests. </summary>
-    internal sealed class GuiRebootstrapUnityIpcMethodHandler : IUnityIpcMethodHandler
+    internal sealed class GuiRebootstrapUnityIpcMethodHandler : IUnityControlPlaneIpcMethodHandler
     {
         private readonly string projectFingerprint;
 
@@ -77,7 +76,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                     : UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession;
                 var startResult = await bootstrapStarter.StartAsync(
                     bootstrapArguments: null,
-                    sessionReplacementScope: sessionReplacementScope);
+                    sessionReplacementScope: sessionReplacementScope,
+                    cancellationToken: cancellationToken);
                 if (!startResult.IsSuccess)
                 {
                     daemonLogger.Warning(
@@ -100,13 +100,16 @@ namespace MackySoft.Ucli.Unity.Ipc
                     ProcessId: currentProcess.Id);
                 return UnityIpcResponseFactory.CreateSuccessResponse(request, response);
             }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
             catch (Exception exception)
             {
                 daemonLogger.Exception(
                     DaemonLogCategories.Lifecycle,
                     "GUI daemon rebootstrap request failed.",
                     exception);
-                Debug.LogException(exception);
                 return UnityIpcResponseFactory.CreateErrorResponse(
                     request,
                     UcliCoreErrorCodes.InternalError,
@@ -120,18 +123,21 @@ namespace MackySoft.Ucli.Unity.Ipc
     {
         Task<UnityGuiBootstrapStartResult> StartAsync (
             IpcGuiBootstrapArguments bootstrapArguments,
-            UnityGuiSessionReplacementScope sessionReplacementScope);
+            UnityGuiSessionReplacementScope sessionReplacementScope,
+            CancellationToken cancellationToken);
     }
 
     internal sealed class UnityGuiBootstrapStarter : IUnityGuiBootstrapStarter
     {
         public Task<UnityGuiBootstrapStartResult> StartAsync (
             IpcGuiBootstrapArguments bootstrapArguments,
-            UnityGuiSessionReplacementScope sessionReplacementScope)
+            UnityGuiSessionReplacementScope sessionReplacementScope,
+            CancellationToken cancellationToken)
         {
             return UnityGuiBootstrap.StartAsync(
                 bootstrapArguments: bootstrapArguments,
-                sessionReplacementScope: sessionReplacementScope);
+                sessionReplacementScope: sessionReplacementScope,
+                cancellationToken: cancellationToken);
         }
     }
 }

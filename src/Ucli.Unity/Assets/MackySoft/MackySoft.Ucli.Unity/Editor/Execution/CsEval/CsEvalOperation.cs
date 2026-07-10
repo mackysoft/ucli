@@ -9,6 +9,7 @@ using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.Requests;
+using MackySoft.Ucli.Unity.Runtime;
 using MackySoft.Ucli.Contracts.Operations;
 
 #nullable enable
@@ -25,14 +26,18 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
 
         private readonly CsEvalReturnValueSerializer returnValueSerializer;
 
+        private readonly IUnityMutationLaneControl mutationLaneControl;
+
         public CsEvalOperation (
             CsEvalCompilationService compilationService,
             CsEvalEntryPointReflectionResolver entryPointResolver,
-            CsEvalReturnValueSerializer returnValueSerializer)
+            CsEvalReturnValueSerializer returnValueSerializer,
+            IUnityMutationLaneControl mutationLaneControl)
         {
             this.compilationService = compilationService ?? throw new ArgumentNullException(nameof(compilationService));
             this.entryPointResolver = entryPointResolver ?? throw new ArgumentNullException(nameof(entryPointResolver));
             this.returnValueSerializer = returnValueSerializer ?? throw new ArgumentNullException(nameof(returnValueSerializer));
+            this.mutationLaneControl = mutationLaneControl ?? throw new ArgumentNullException(nameof(mutationLaneControl));
         }
 
         public override UcliOperationMetadata Metadata { get; } = CreateMetadata();
@@ -139,7 +144,11 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
 
             try
             {
-                returnObject = await CsEvalEntryPointReturnValueResolver.ResolveAsync(method.ReturnType, returnObject, cancellationToken);
+                returnObject = await CsEvalEntryPointReturnValueResolver.ResolveAsync(
+                    method.ReturnType,
+                    returnObject,
+                    cancellationToken,
+                    mutationLaneControl.Poison);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -168,6 +177,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
             }
 
             stopwatch.Stop();
+            cancellationToken.ThrowIfCancellationRequested();
             if (!returnValueSerializer.TrySerialize(returnObject, out var returnValue, out var returnValueError))
             {
                 return CreatePostInvocationInvalidArgumentFailure(

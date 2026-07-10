@@ -1,10 +1,12 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Assurance.Build;
@@ -22,6 +24,7 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.TestTools;
 
 #nullable enable
 
@@ -32,6 +35,8 @@ namespace MackySoft.Ucli.Unity.Tests
         private const string ProjectFingerprint = "project-fingerprint";
         private const string RunId = "build-run-1";
         private const string ExecuteMethodTypeName = "MackySoft.Ucli.Unity.Tests.BuildRunUnityIpcMethodHandlerTests";
+
+        private static readonly TimeSpan SignalWaitTimeout = TimeSpan.FromSeconds(5);
 
         private static UcliBuildRunnerContext? executeMethodContext;
         private static IUnityLogStream? executeMethodLogStream;
@@ -507,6 +512,56 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
+        public async Task HandleStreamingAsync_WhenProgressCompletionFails_DisposesRequestTimeoutScope ()
+        {
+            using (var scope = TemporaryDirectoryScope.Create())
+            using (var editorScope = new EditorTestScope().SuppressExistingPersistentDirtyObjects())
+            {
+                var identity = CreateProjectIdentity(scope.ProjectPath);
+                var timeoutScopeFactory = new CountingTimeoutScopeFactory();
+                var handler = new BuildRunUnityIpcMethodHandler(
+                    new UnityBuildPreconditionProbe(
+                        new CountingReadinessGate(),
+                        identity,
+                        new StubServerVersionProvider("1.2.3"),
+                        new CountingBuildTargetSupportProbe()),
+                    new UnsupportedUnityBuildProfileInputResolver(),
+                    new UnityProjectMutationAuditProbe(),
+                    new CountingBuildPipelineRunner(),
+                    new UnsupportedUnityBuildProfileBuildRunner(),
+                    CreateExecuteMethodRunner(),
+                    new CountingEditorLogRangeExporter(),
+                    identity,
+                    timeoutScopeFactory,
+                    new UnityLogRedactionScopeProvider(),
+                    new UnityLogRingBuffer());
+                var payload = CreateRequest(scope.ProjectPath, identity);
+                Directory.CreateDirectory(Path.GetDirectoryName(payload.OutputLayout.LocationPathName)!);
+                File.WriteAllText(payload.OutputLayout.LocationPathName, "existing player");
+                var streamWriter = new FailingIpcStreamFrameWriter(
+                    new IOException("progress write failed"));
+
+                IOException exception = null;
+                try
+                {
+                    await handler.HandleStreamingAsync(
+                        CreateStreamingIpcRequest(payload),
+                        streamWriter,
+                        CancellationToken.None);
+                }
+                catch (IOException caughtException)
+                {
+                    exception = caughtException;
+                }
+
+                Assert.That(exception, Is.Not.Null);
+                Assert.That(timeoutScopeFactory.CallCount, Is.EqualTo(1));
+                Assert.That(timeoutScopeFactory.DisposeCount, Is.EqualTo(1));
+            }
+        }
+
+        [Test]
+        [Category("Size.Small")]
         public async Task HandleAsync_WithUnityBuildProfileRunnerInputFailure_ReturnsBuildProfileInvalid ()
         {
             using (var scope = TemporaryDirectoryScope.Create())
@@ -759,6 +814,106 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(payload.Logs.Window.CursorEnd, Is.Not.Null);
             }
         }
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator HandleStreamingAsync_WhenRequestTimeoutElapsesWithPendingProgress_StopsWaitingAndReturnsIpcTimeout () => UniTask.ToCoroutine(async () =>
+        {
+            using (var scope = TemporaryDirectoryScope.Create())
+            using (var editorScope = new EditorTestScope().SuppressExistingPersistentDirtyObjects())
+            {
+                var identity = CreateProjectIdentity(scope.ProjectPath);
+                var requestPayload = CreateRequest(scope.ProjectPath, identity) with
+                {
+                    TimeoutMilliseconds = 1000,
+                };
+                Directory.CreateDirectory(requestPayload.OutputPath);
+                var timeoutScopeFactory = new CancelableTimeoutScopeFactory();
+                var reportArtifact = CreateReportArtifact(
+                    ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+                    requestPayload.OutputLayout.LocationPathName,
+                    errorCount: 0,
+                    warningCount: 0);
+                var buildPipelineRunner = new CountingBuildPipelineRunner(
+                    reportArtifact,
+                    _ => timeoutScopeFactory.Cancel());
+                var handler = new BuildRunUnityIpcMethodHandler(
+                    new UnityBuildPreconditionProbe(
+                        new CountingReadinessGate(),
+                        identity,
+                        new StubServerVersionProvider("1.2.3"),
+                        new CountingBuildTargetSupportProbe()),
+                    new UnsupportedUnityBuildProfileInputResolver(),
+                    new UnityProjectMutationAuditProbe(),
+                    buildPipelineRunner,
+                    new UnsupportedUnityBuildProfileBuildRunner(),
+                    CreateExecuteMethodRunner(),
+                    new CountingEditorLogRangeExporter(),
+                    identity,
+                    timeoutScopeFactory,
+                    new UnityLogRedactionScopeProvider(),
+                    new UnityLogRingBuffer());
+                var streamWriter = new BlockingIpcStreamFrameWriter();
+
+                var responseTask = handler.HandleStreamingAsync(
+                        CreateStreamingIpcRequest(requestPayload),
+                        streamWriter,
+                        CancellationToken.None)
+                    .AsTask();
+
+                try
+                {
+                    var response = await TestAwaiter.WaitAsync(
+                        responseTask,
+                        "streaming build-run timeout response",
+                        SignalWaitTimeout);
+
+                    Assert.That(streamWriter.FirstWriteObserved.IsCompleted, Is.True);
+                    Assert.That(streamWriter.LastWriteCancellationToken.IsCancellationRequested, Is.True);
+                    Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+                    Assert.That(response.Errors.Count, Is.EqualTo(1));
+                    Assert.That(response.Errors[0].Code, Is.EqualTo(IpcTransportErrorCodes.IpcTimeout));
+                }
+                finally
+                {
+                    streamWriter.ReleaseWrites();
+                }
+            }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator BuildRunProgressSink_WhenCompletionStarts_FlushesAcceptedFrameAndIgnoresLaterPublish () => UniTask.ToCoroutine(async () =>
+        {
+            var streamWriter = new BlockingIpcStreamFrameWriter();
+            var progressSink = new UnityIpcBuildRunProgressSink(
+                streamWriter,
+                RunId,
+                CancellationToken.None);
+            progressSink.Publish(
+                BuildRunProgressEventNames.ReadinessCompleted,
+                new UcliEmptyArgs());
+            await TestAwaiter.WaitAsync(
+                streamWriter.FirstWriteObserved,
+                "accepted build-run progress write",
+                SignalWaitTimeout);
+
+            var completionTask = progressSink.CompleteAndFlushAsync(CancellationToken.None);
+            progressSink.Publish(
+                BuildRunProgressEventNames.RunnerStarted,
+                new UcliEmptyArgs());
+
+            Assert.That(completionTask.IsCompleted, Is.False);
+
+            streamWriter.ReleaseWrites();
+            await TestAwaiter.WaitAsync(
+                completionTask,
+                "build-run progress completion",
+                SignalWaitTimeout);
+
+            Assert.DoesNotThrow(() => progressSink.Publish(string.Empty, null!));
+            Assert.That(streamWriter.ProgressWriteAttemptCount, Is.EqualTo(1));
+        });
 
         [Test]
         [Category("Size.Small")]
@@ -1751,24 +1906,103 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         }
 
+        private sealed class BlockingIpcStreamFrameWriter : IIpcStreamFrameWriter
+        {
+            private readonly TaskCompletionSource<bool> writeReleaseSource =
+                new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            private readonly TaskCompletionSource<bool> firstWriteObservedSource =
+                new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            public Task FirstWriteObserved => firstWriteObservedSource.Task;
+
+            public CancellationToken LastWriteCancellationToken { get; private set; }
+
+            public int ProgressWriteAttemptCount { get; private set; }
+
+            public async ValueTask WriteProgressAsync<TPayload> (
+                string eventName,
+                TPayload payload,
+                CancellationToken cancellationToken = default)
+                where TPayload : notnull
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                LastWriteCancellationToken = cancellationToken;
+                ProgressWriteAttemptCount++;
+                firstWriteObservedSource.TrySetResult(true);
+                await writeReleaseSource.Task.ConfigureAwait(false);
+            }
+
+            public ValueTask WriteTerminalAsync (
+                IpcResponse response,
+                CancellationToken cancellationToken = default)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                return default;
+            }
+
+            public void ReleaseWrites ()
+            {
+                writeReleaseSource.TrySetResult(true);
+            }
+        }
+
+        private sealed class FailingIpcStreamFrameWriter : IIpcStreamFrameWriter
+        {
+            private readonly Exception exception;
+
+            public FailingIpcStreamFrameWriter (Exception exception)
+            {
+                this.exception = exception;
+            }
+
+            public ValueTask WriteProgressAsync<TPayload> (
+                string eventName,
+                TPayload payload,
+                CancellationToken cancellationToken = default)
+                where TPayload : notnull
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                return new ValueTask(Task.FromException(exception));
+            }
+
+            public ValueTask WriteTerminalAsync (
+                IpcResponse response,
+                CancellationToken cancellationToken = default)
+            {
+                throw new InvalidOperationException("build.run handler does not write terminal frames directly.");
+            }
+        }
+
         private sealed class CountingTimeoutScopeFactory : IIpcRequestTimeoutScopeFactory
         {
             public int CallCount { get; private set; }
+
+            public int DisposeCount { get; private set; }
 
             public IIpcRequestTimeoutScope CreateLinked (
                 int? timeoutMilliseconds,
                 CancellationToken cancellationToken)
             {
                 CallCount++;
-                return new PassthroughTimeoutScope(cancellationToken);
+                return new PassthroughTimeoutScope(
+                    cancellationToken,
+                    () => DisposeCount++);
             }
         }
 
         private sealed class PassthroughTimeoutScope : IIpcRequestTimeoutScope
         {
-            public PassthroughTimeoutScope (CancellationToken token)
+            private readonly Action onDispose;
+
+            private int disposed;
+
+            public PassthroughTimeoutScope (
+                CancellationToken token,
+                Action onDispose)
             {
                 Token = token;
+                this.onDispose = onDispose;
             }
 
             public CancellationToken Token { get; }
@@ -1777,6 +2011,10 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public void Dispose ()
             {
+                if (Interlocked.Exchange(ref disposed, 1) == 0)
+                {
+                    onDispose();
+                }
             }
         }
 

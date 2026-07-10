@@ -18,4 +18,11 @@ namespace MackySoft.Ucli.Unity.Ipc
             IpcRequest request,
             CancellationToken cancellationToken);
     }
+
+    /// <summary>
+    /// Marks an IPC method that must remain available independently of the exclusive Unity mutation lane.
+    /// </summary>
+    internal interface IUnityControlPlaneIpcMethodHandler : IUnityIpcMethodHandler
+    {
+    }
 }

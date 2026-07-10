@@ -26,11 +26,11 @@ namespace MackySoft.Ucli.Unity.Ipc
         public UnityConsoleClearUnityIpcMethodHandler (
             IUnityConsoleClearer unityConsoleClearer,
             IUnityEditorReadinessGate readinessGate,
-            IDaemonLogger daemonLogger = null)
+            IDaemonLogger daemonLogger)
         {
             this.unityConsoleClearer = unityConsoleClearer ?? throw new ArgumentNullException(nameof(unityConsoleClearer));
             this.readinessGate = readinessGate ?? throw new ArgumentNullException(nameof(readinessGate));
-            this.daemonLogger = daemonLogger ?? NoOpDaemonLogger.Instance;
+            this.daemonLogger = daemonLogger ?? throw new ArgumentNullException(nameof(daemonLogger));
         }
 
         /// <inheritdoc />

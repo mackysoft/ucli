@@ -1,23 +1,24 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Infrastructure.Storage;
-
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Persists GUI supervisor metadata for CLI-side rebootstrap attach. </summary>
     internal static class UnityGuiSupervisorPersistence
     {
-        public static GuiSupervisorManifestJsonContract Write (
+        private static readonly TimeSpan ManifestLockAcquireTimeout = TimeSpan.FromSeconds(1);
+
+        public static async ValueTask<PublicationLease> AcquirePublicationLeaseAsync (
             string storageRoot,
             string projectFingerprint,
-            IpcEndpoint endpoint,
-            string sessionToken,
-            DateTimeOffset issuedAtUtc)
+            CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(storageRoot))
             {
@@ -29,50 +30,66 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentException("Project fingerprint must not be empty.", nameof(projectFingerprint));
             }
 
-            if (endpoint == null)
-            {
-                throw new ArgumentNullException(nameof(endpoint));
-            }
-
-            if (string.IsNullOrWhiteSpace(sessionToken))
-            {
-                throw new ArgumentException("Session token must not be empty.", nameof(sessionToken));
-            }
-
-            using var currentProcess = Process.GetCurrentProcess();
-            var manifest = new GuiSupervisorManifestJsonContract(
-                SchemaVersion: GuiSupervisorManifestJsonContract.CurrentSchemaVersion,
-                SessionToken: sessionToken,
-                ProjectFingerprint: projectFingerprint,
-                EndpointTransportKind: ContractLiteralCodec.ToValue(endpoint.TransportKind),
-                EndpointAddress: endpoint.Address,
-                ProcessId: currentProcess.Id,
-                ProcessStartedAtUtc: TryGetProcessStartedAtUtc(currentProcess),
-                IssuedAtUtc: issuedAtUtc);
-            var manifestPath = UcliStoragePathResolver.ResolveGuiSupervisorManifestPath(storageRoot, projectFingerprint);
-            var manifestDirectory = Path.GetDirectoryName(manifestPath);
-            if (string.IsNullOrEmpty(manifestDirectory))
-            {
-                throw new InvalidOperationException($"GUI supervisor manifest directory could not be resolved. Path={manifestPath}");
-            }
-
-            FileSystemAccessBoundary.EnsureSecureDirectory(manifestDirectory);
-            File.WriteAllText(
-                manifestPath,
-                GuiSupervisorManifestJsonContractSerializer.Serialize(manifest) + Environment.NewLine);
-            FileSystemAccessBoundary.EnsureSecureFile(manifestPath);
-            return manifest;
+            var manifestLockPath = UcliStoragePathResolver.ResolveGuiSupervisorManifestLockPath(
+                storageRoot,
+                projectFingerprint);
+            var manifestLock = await FileExclusiveLock.AcquireAsync(
+                    manifestLockPath,
+                    ManifestLockAcquireTimeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return new PublicationLease(storageRoot, projectFingerprint, manifestLock);
         }
 
         public static void Delete (
             string storageRoot,
-            string projectFingerprint)
+            string projectFingerprint,
+            string expectedSessionToken)
+        {
+            if (string.IsNullOrWhiteSpace(expectedSessionToken))
+            {
+                throw new ArgumentException("Expected session token must not be empty.", nameof(expectedSessionToken));
+            }
+
+            var manifestLockPath = UcliStoragePathResolver.ResolveGuiSupervisorManifestLockPath(
+                storageRoot,
+                projectFingerprint);
+            using var manifestLock = FileExclusiveLock.Acquire(
+                manifestLockPath,
+                ManifestLockAcquireTimeout,
+                CancellationToken.None);
+            DeleteWhileLockIsHeld(storageRoot, projectFingerprint, expectedSessionToken);
+        }
+
+        private static void DeleteWhileLockIsHeld (
+            string storageRoot,
+            string projectFingerprint,
+            string expectedSessionToken)
         {
             var manifestPath = UcliStoragePathResolver.ResolveGuiSupervisorManifestPath(storageRoot, projectFingerprint);
-            if (File.Exists(manifestPath))
+            var json = FileUtilities.ReadAllTextOrNull(manifestPath);
+            if (json == null)
             {
-                File.Delete(manifestPath);
+                return;
             }
+
+            GuiSupervisorManifestJsonContract manifest;
+            try
+            {
+                manifest = GuiSupervisorManifestJsonContractSerializer.Deserialize(json);
+            }
+            catch (Exception exception) when (exception is ArgumentException or System.Text.Json.JsonException)
+            {
+                return;
+            }
+
+            if (manifest == null
+                || !string.Equals(manifest.SessionToken, expectedSessionToken, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            FileUtilities.DeleteIfExists(manifestPath);
         }
 
         private static DateTimeOffset? TryGetProcessStartedAtUtc (Process process)
@@ -89,6 +106,100 @@ namespace MackySoft.Ucli.Unity.Ipc
             catch (Exception exception) when (exception is InvalidOperationException or NotSupportedException)
             {
                 return null;
+            }
+        }
+
+        internal sealed class PublicationLease : IDisposable
+        {
+            private readonly string storageRoot;
+
+            private readonly string projectFingerprint;
+
+            private FileExclusiveLock manifestLock;
+
+            public PublicationLease (
+                string storageRoot,
+                string projectFingerprint,
+                FileExclusiveLock manifestLock)
+            {
+                this.storageRoot = storageRoot;
+                this.projectFingerprint = projectFingerprint;
+                this.manifestLock = manifestLock ?? throw new ArgumentNullException(nameof(manifestLock));
+            }
+
+            public async ValueTask<GuiSupervisorManifestJsonContract> PublishAsync (
+                IpcEndpoint endpoint,
+                string sessionToken,
+                DateTimeOffset issuedAtUtc,
+                CancellationToken cancellationToken)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (manifestLock == null)
+                {
+                    throw new ObjectDisposedException(nameof(PublicationLease));
+                }
+
+                if (endpoint == null)
+                {
+                    throw new ArgumentNullException(nameof(endpoint));
+                }
+
+                if (string.IsNullOrWhiteSpace(sessionToken))
+                {
+                    throw new ArgumentException("Session token must not be empty.", nameof(sessionToken));
+                }
+
+                using var currentProcess = Process.GetCurrentProcess();
+                var manifest = new GuiSupervisorManifestJsonContract(
+                    SchemaVersion: GuiSupervisorManifestJsonContract.CurrentSchemaVersion,
+                    SessionToken: sessionToken,
+                    ProjectFingerprint: projectFingerprint,
+                    EndpointTransportKind: ContractLiteralCodec.ToValue(endpoint.TransportKind),
+                    EndpointAddress: endpoint.Address,
+                    ProcessId: currentProcess.Id,
+                    ProcessStartedAtUtc: TryGetProcessStartedAtUtc(currentProcess),
+                    IssuedAtUtc: issuedAtUtc);
+                var manifestPath = UcliStoragePathResolver.ResolveGuiSupervisorManifestPath(
+                    storageRoot,
+                    projectFingerprint);
+                var manifestDirectory = Path.GetDirectoryName(manifestPath);
+                if (string.IsNullOrEmpty(manifestDirectory))
+                {
+                    throw new InvalidOperationException(
+                        $"GUI supervisor manifest directory could not be resolved. Path={manifestPath}");
+                }
+
+                FileSystemAccessBoundary.EnsureSecureDirectory(manifestDirectory);
+                await FileUtilities.WriteAllTextAtomicallyAsync(
+                        manifestPath,
+                        GuiSupervisorManifestJsonContractSerializer.Serialize(manifest) + Environment.NewLine,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                FileSystemAccessBoundary.EnsureSecureFile(manifestPath);
+                return manifest;
+            }
+
+            public void DeleteIfOwned (string expectedSessionToken)
+            {
+                if (manifestLock == null)
+                {
+                    throw new ObjectDisposedException(nameof(PublicationLease));
+                }
+
+                if (string.IsNullOrWhiteSpace(expectedSessionToken))
+                {
+                    throw new ArgumentException(
+                        "Expected session token must not be empty.",
+                        nameof(expectedSessionToken));
+                }
+
+                DeleteWhileLockIsHeld(storageRoot, projectFingerprint, expectedSessionToken);
+            }
+
+            public void Dispose ()
+            {
+                var ownedLock = Interlocked.Exchange(ref manifestLock, null);
+                ownedLock?.Dispose();
             }
         }
     }

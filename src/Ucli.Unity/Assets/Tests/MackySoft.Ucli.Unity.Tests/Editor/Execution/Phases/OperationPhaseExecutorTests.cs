@@ -1340,6 +1340,30 @@ namespace MackySoft.Ucli.Unity.Tests
                 secondOperation.CalledPhases);
         });
 
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Execute_WhenCallAwaitsAsynchronously_ContinuesNextOperationOnUnityMainThread () => UniTask.ToCoroutine(async () =>
+        {
+            var expectedThreadId = Thread.CurrentThread.ManagedThreadId;
+            var asynchronousOperation = new AsynchronousCallPhaseOperation("ucli.tests.async-call");
+            var threadCapturingOperation = new ThreadCapturingCallPhaseOperation("ucli.tests.thread-capture");
+            var executor = CreateExecutor(CreateRegistry(
+                (asynchronousOperation.Metadata.OperationName, asynchronousOperation),
+                (threadCapturingOperation.Metadata.OperationName, threadCapturingOperation)));
+            var request = CreateRequest(
+                ("op-1", asynchronousOperation.Metadata.OperationName),
+                ("op-2", threadCapturingOperation.Metadata.OperationName));
+
+            var trace = await ExecuteAsync(
+                executor,
+                PhaseExecutionCommand.Call,
+                request,
+                "Main-thread continuation after asynchronous operation call");
+
+            Assert.That(trace.IsSuccess, Is.True);
+            Assert.That(threadCapturingOperation.CallThreadId, Is.EqualTo(expectedThreadId));
+        });
+
         private static OperationPhaseExecutor CreateExecutor (IUcliOperation operation)
         {
             return CreateExecutor(CreateRegistry((UcliPrimitiveOperationNames.Resolve, operation)));
@@ -1892,6 +1916,88 @@ namespace MackySoft.Ucli.Unity.Tests
             [UcliRequired]
             [UcliDescription("Target GameObject reference.")]
             public GameObjectReferenceArgs? Target { get; set; }
+        }
+
+        private sealed class AsynchronousCallPhaseOperation : IUcliOperation
+        {
+            public AsynchronousCallPhaseOperation (string operationName)
+            {
+                Metadata = new UcliOperationMetadata(
+                    operationName,
+                    UcliOperationKind.Mutation,
+                    CreateDescribeContract(operationName, assurance: CreateMutableAssurance()),
+                    typeof(UcliEmptyArgs),
+                    typeof(UcliNoResult));
+            }
+
+            public UcliOperationMetadata Metadata { get; }
+
+            public Task<OperationPhaseStepResult> ValidateAsync (
+                NormalizedOperation operation,
+                OperationExecutionContext executionContext,
+                CancellationToken cancellationToken = default)
+            {
+                return Task.FromResult(OperationPhaseStepResult.Success());
+            }
+
+            public Task<OperationPhaseStepResult> PlanAsync (
+                NormalizedOperation operation,
+                OperationExecutionContext executionContext,
+                CancellationToken cancellationToken = default)
+            {
+                return Task.FromResult(OperationPhaseStepResult.Success());
+            }
+
+            public async Task<OperationPhaseStepResult> CallAsync (
+                NormalizedOperation operation,
+                OperationExecutionContext executionContext,
+                CancellationToken cancellationToken = default)
+            {
+                await Task.Delay(10, cancellationToken).ConfigureAwait(false);
+                return OperationPhaseStepResult.Success();
+            }
+        }
+
+        private sealed class ThreadCapturingCallPhaseOperation : IUcliOperation
+        {
+            public ThreadCapturingCallPhaseOperation (string operationName)
+            {
+                Metadata = new UcliOperationMetadata(
+                    operationName,
+                    UcliOperationKind.Mutation,
+                    CreateDescribeContract(operationName, assurance: CreateMutableAssurance()),
+                    typeof(UcliEmptyArgs),
+                    typeof(UcliNoResult));
+            }
+
+            public UcliOperationMetadata Metadata { get; }
+
+            public int? CallThreadId { get; private set; }
+
+            public Task<OperationPhaseStepResult> ValidateAsync (
+                NormalizedOperation operation,
+                OperationExecutionContext executionContext,
+                CancellationToken cancellationToken = default)
+            {
+                return Task.FromResult(OperationPhaseStepResult.Success());
+            }
+
+            public Task<OperationPhaseStepResult> PlanAsync (
+                NormalizedOperation operation,
+                OperationExecutionContext executionContext,
+                CancellationToken cancellationToken = default)
+            {
+                return Task.FromResult(OperationPhaseStepResult.Success());
+            }
+
+            public Task<OperationPhaseStepResult> CallAsync (
+                NormalizedOperation operation,
+                OperationExecutionContext executionContext,
+                CancellationToken cancellationToken = default)
+            {
+                CallThreadId = Thread.CurrentThread.ManagedThreadId;
+                return Task.FromResult(OperationPhaseStepResult.Success());
+            }
         }
 
         private sealed class RecordingPhaseOperation : IUcliOperation

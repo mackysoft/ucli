@@ -1,9 +1,9 @@
 using System;
-using System.IO;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
+using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Runtime;
 
 namespace MackySoft.Ucli.Unity.Ipc
@@ -44,15 +44,15 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return CachedTask.FromResult(false);
             }
 
-            if (!File.Exists(sessionPath))
+            // Session replacement uses atomic rename. The shared reader keeps delete sharing enabled so
+            // a probe cannot prevent GUI rebootstrap from publishing the rotated session token on Windows.
+            var json = FileUtilities.ReadAllTextOrNull(sessionPath);
+            if (json == null)
             {
                 ClearCachedToken();
                 return CachedTask.FromResult(false);
             }
 
-            // NOTE: This validator runs on the Unity main-thread IPC path. The session file is small and local;
-            // synchronous content reads avoid an async continuation delay while still verifying token rotation.
-            var json = File.ReadAllText(sessionPath);
             cancellationToken.ThrowIfCancellationRequested();
             if (TryReadCachedToken(json, out var cachedToken))
             {

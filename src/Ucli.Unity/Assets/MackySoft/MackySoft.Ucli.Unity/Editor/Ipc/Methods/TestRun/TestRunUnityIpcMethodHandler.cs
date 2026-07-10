@@ -84,19 +84,18 @@ namespace MackySoft.Ucli.Unity.Ipc
                 executionCancellationToken => new UnityIpcTestRunProgressSink(
                     streamWriter,
                     testRunRequest!.RunId,
-                    executionCancellationToken,
-                    cancellationToken),
+                    executionCancellationToken),
                 cancellationToken);
         }
 
         private async ValueTask<IpcResponse> HandleDecodedAsync (
             IpcRequest request,
             IpcTestRunRequest testRunRequest,
-            Func<CancellationToken, IUnityTestRunProgressSink> progressSinkFactory,
+            Func<CancellationToken, UnityIpcTestRunProgressSink> progressSinkFactory,
             CancellationToken cancellationToken)
         {
             IpcResponse response;
-            IUnityTestRunProgressSink progressSink = null;
+            UnityIpcTestRunProgressSink progressSink = null;
             IIpcRequestTimeoutScope requestTimeoutScope = null;
             try
             {
@@ -128,25 +127,52 @@ namespace MackySoft.Ucli.Unity.Ipc
                         error.Code,
                         error.Message,
                         error.OpId);
-                    return await FlushAndReturnAsync(request, response, progressSink, cancellationToken);
+                    return await CompleteProgressAndReturnAsync(
+                        request,
+                        response,
+                        progressSink,
+                        requestTimeoutScope,
+                        cancellationToken,
+                        testRunRequest.TimeoutMilliseconds);
                 }
 
                 response = UnityIpcResponseFactory.CreateSuccessResponse(request, result.Payload!);
-                return await FlushAndReturnAsync(request, response, progressSink, cancellationToken);
+                return await CompleteProgressAndReturnAsync(
+                    request,
+                    response,
+                    progressSink,
+                    requestTimeoutScope,
+                    cancellationToken,
+                    testRunRequest.TimeoutMilliseconds);
             }
             catch (OperationCanceledException) when (IsRequestTimeout(
                 requestTimeoutScope,
                 cancellationToken))
             {
-                response = UnityIpcResponseFactory.CreateErrorResponse(
+                response = CreateTimeoutResponse(request, testRunRequest.TimeoutMilliseconds);
+                return await CompleteProgressAndReturnAsync(
                     request,
-                    IpcTransportErrorCodes.IpcTimeout,
-                    $"Unity test run timed out after {testRunRequest.TimeoutMilliseconds.Value} milliseconds.",
-                    null);
-                return await FlushAndReturnAsync(request, response, progressSink, cancellationToken);
+                    response,
+                    progressSink,
+                    requestTimeoutScope,
+                    cancellationToken,
+                    testRunRequest.TimeoutMilliseconds);
             }
             catch (OperationCanceledException)
             {
+                if (progressSink != null)
+                {
+                    try
+                    {
+                        await progressSink.CompleteAndFlushAsync(
+                            requestTimeoutScope?.Token ?? cancellationToken);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        // Completion already sealed progress acceptance and observes any active drain failure.
+                    }
+                }
+
                 throw;
             }
             catch (ArgumentException exception)
@@ -156,7 +182,13 @@ namespace MackySoft.Ucli.Unity.Ipc
                     UcliCoreErrorCodes.InvalidArgument,
                     exception.Message,
                     null);
-                return await FlushAndReturnAsync(request, response, progressSink, cancellationToken);
+                return await CompleteProgressAndReturnAsync(
+                    request,
+                    response,
+                    progressSink,
+                    requestTimeoutScope,
+                    cancellationToken,
+                    testRunRequest.TimeoutMilliseconds);
             }
             catch (Exception exception)
             {
@@ -165,7 +197,13 @@ namespace MackySoft.Ucli.Unity.Ipc
                     UcliCoreErrorCodes.InternalError,
                     $"Unity test run failed. {exception.Message}",
                     null);
-                return await FlushAndReturnAsync(request, response, progressSink, cancellationToken);
+                return await CompleteProgressAndReturnAsync(
+                    request,
+                    response,
+                    progressSink,
+                    requestTimeoutScope,
+                    cancellationToken,
+                    testRunRequest.TimeoutMilliseconds);
             }
             finally
             {
@@ -173,17 +211,26 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
         }
 
-        private static async ValueTask<IpcResponse> FlushAndReturnAsync (
+        private static async ValueTask<IpcResponse> CompleteProgressAndReturnAsync (
             IpcRequest request,
             IpcResponse response,
-            IUnityTestRunProgressSink progressSink,
-            CancellationToken cancellationToken)
+            UnityIpcTestRunProgressSink progressSink,
+            IIpcRequestTimeoutScope requestTimeoutScope,
+            CancellationToken callerCancellationToken,
+            int? timeoutMilliseconds)
         {
             if (progressSink != null)
             {
                 try
                 {
-                    await progressSink.FlushAsync(cancellationToken);
+                    await progressSink.CompleteAndFlushAsync(
+                        requestTimeoutScope?.Token ?? callerCancellationToken);
+                }
+                catch (OperationCanceledException) when (IsRequestTimeout(
+                    requestTimeoutScope,
+                    callerCancellationToken))
+                {
+                    return CreateTimeoutResponse(request, timeoutMilliseconds);
                 }
                 catch (OperationCanceledException)
                 {
@@ -200,6 +247,17 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             return response;
+        }
+
+        private static IpcResponse CreateTimeoutResponse (
+            IpcRequest request,
+            int? timeoutMilliseconds)
+        {
+            return UnityIpcResponseFactory.CreateErrorResponse(
+                request,
+                IpcTransportErrorCodes.IpcTimeout,
+                $"Unity test run timed out after {timeoutMilliseconds!.Value} milliseconds.",
+                null);
         }
 
         private static bool TryValidateTimeoutMilliseconds (

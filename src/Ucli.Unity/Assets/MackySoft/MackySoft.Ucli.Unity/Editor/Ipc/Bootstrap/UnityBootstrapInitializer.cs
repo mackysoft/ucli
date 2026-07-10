@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
 using UnityEditor;
@@ -135,7 +136,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                     _ = UnityGuiSupervisorBootstrap.StartAsync();
                     _ = UnityGuiBootstrap.StartAsync(
                         bootstrapArguments: guiBootstrapArguments,
-                        sessionReplacementScope: UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession);
+                        sessionReplacementScope: UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession,
+                        cancellationToken: CancellationToken.None);
                     break;
 
                 default:

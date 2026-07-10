@@ -46,7 +46,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return errorResponse!;
             }
 
-            var readinessResult = await readinessGate.EnsureExecutionReadyAsync(payload!.FailFast, cancellationToken).ConfigureAwait(false);
+            var readinessResult = await readinessGate.EnsureExecutionReadyAsync(payload!.FailFast, cancellationToken);
             if (!readinessResult.IsReady)
             {
                 var error = readinessResult.Error!;

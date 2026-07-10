@@ -4,9 +4,8 @@ using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Unity.Runtime;
-
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Unity.Runtime;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -35,14 +34,14 @@ namespace MackySoft.Ucli.Unity.Ipc
             IpcProjectIdentity projectIdentity,
             IUnityEditorUpdateAwaiter editorUpdateAwaiter,
             IUnityPlayModeController playModeController,
-            IDaemonLogger daemonLogger = null)
+            IDaemonLogger daemonLogger)
         {
             this.serverVersionProvider = serverVersionProvider ?? throw new ArgumentNullException(nameof(serverVersionProvider));
             this.readinessGate = readinessGate ?? throw new ArgumentNullException(nameof(readinessGate));
             this.projectIdentity = projectIdentity ?? throw new ArgumentNullException(nameof(projectIdentity));
             this.editorUpdateAwaiter = editorUpdateAwaiter ?? throw new ArgumentNullException(nameof(editorUpdateAwaiter));
             this.playModeController = playModeController ?? throw new ArgumentNullException(nameof(playModeController));
-            this.daemonLogger = daemonLogger ?? NoOpDaemonLogger.Instance;
+            this.daemonLogger = daemonLogger ?? throw new ArgumentNullException(nameof(daemonLogger));
         }
 
         /// <summary> Executes Play Mode enter and waits until Unity reports an entered snapshot. </summary>
@@ -91,7 +90,10 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             // NOTE: This must be persisted before Unity is asked to enter Play Mode.
             // Entering Play Mode can trigger domain reload before this daemon can respond.
-            var persistFailure = TryPersistPendingEnter(recoverableContext, before);
+            var persistFailure = await TryPersistPendingEnterAsync(
+                recoverableContext,
+                before,
+                cancellationToken);
             if (persistFailure != null)
             {
                 return persistFailure;
@@ -234,20 +236,24 @@ namespace MackySoft.Ucli.Unity.Ipc
             return true;
         }
 
-        private PlayEnterTransitionExecutionResult TryPersistPendingEnter (
+        private async Task<PlayEnterTransitionExecutionResult> TryPersistPendingEnterAsync (
             RecoverableIpcOperationContext recoverableContext,
-            IpcPlayLifecycleSnapshot before)
+            IpcPlayLifecycleSnapshot before,
+            CancellationToken cancellationToken)
         {
             if (recoverableContext == null)
             {
                 return null;
             }
 
-            return recoverableContext.TryMarkPending(new PlayEnterRecoveryPayload(before), out var errorMessage)
+            var result = await recoverableContext.MarkPendingAsync(
+                new PlayEnterRecoveryPayload(before),
+                cancellationToken);
+            return result.IsSuccess
                 ? null
                 : CreateFailure(
                     PlayModeErrorCodes.PlayModeEnterRejected,
-                    $"Unity Play Mode enter could not persist transition recovery state. {errorMessage}",
+                    $"Unity Play Mode enter could not persist transition recovery state. {result.ErrorMessage}",
                     before,
                     before,
                     IpcPlayApplicationStateNames.NotApplied);

@@ -135,8 +135,37 @@ namespace MackySoft.Ucli.Unity.Tests
             OneshotRequestCompletionSignal completionSignal)
         {
             return new UnityOneshotConnectionHandler(
-                new UnityIpcConnectionHandler(new StubRequestProcessor(expectedRequest, response)),
+                new UnityIpcConnectionHandler(
+                    new StubRequestHandler(expectedRequest, response),
+                    new PreparedShutdownAdmissionCoordinator(expectedRequest),
+                    UnityIpcConnectionHandler.DefaultInitialFrameReadTimeout,
+                    UnityIpcConnectionHandler.DefaultResponseFrameWriteTimeout),
                 completionSignal);
+        }
+
+        private sealed class PreparedShutdownAdmissionCoordinator : IUnityShutdownAdmissionCoordinator
+        {
+            private readonly IpcRequest preparedRequest;
+
+            public PreparedShutdownAdmissionCoordinator (IpcRequest preparedRequest)
+            {
+                this.preparedRequest = preparedRequest;
+            }
+
+            public bool TryPrepare (IpcRequest request, out string errorMessage)
+            {
+                errorMessage = null;
+                return ReferenceEquals(preparedRequest, request);
+            }
+
+            public bool TryCommit (IpcRequest request)
+            {
+                return ReferenceEquals(preparedRequest, request);
+            }
+
+            public void Abort (IpcRequest request)
+            {
+            }
         }
 
         private static async Task<MemoryStream> CreateStreamAsync (IpcRequest request)
@@ -164,13 +193,13 @@ namespace MackySoft.Ucli.Unity.Tests
                 responseMode: IpcResponseMode.Single);
         }
 
-        private sealed class StubRequestProcessor : IUnityIpcRequestProcessor
+        private sealed class StubRequestHandler : IUnityIpcRequestHandler
         {
             private readonly IpcRequest expectedRequest;
 
             private readonly IpcResponse response;
 
-            public StubRequestProcessor (
+            public StubRequestHandler (
                 IpcRequest expectedRequest,
                 IpcResponse response)
             {
@@ -178,7 +207,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 this.response = response;
             }
 
-            public Task<IpcResponse> ProcessAsync (
+            public Task<IpcResponse> HandleAsync (
                 IpcRequest request,
                 CancellationToken cancellationToken = default)
             {
@@ -188,7 +217,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 return Task.FromResult(response);
             }
 
-            public Task<IpcResponse> ProcessStreamingAsync (
+            public Task<IpcResponse> HandleStreamingAsync (
                 IpcRequest request,
                 IIpcStreamFrameWriter streamWriter,
                 CancellationToken cancellationToken = default)

@@ -59,7 +59,7 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
                 case ExecuteRequestIdempotencyStoreDecision.DecisionKind.ExecuteOwner:
                     try
                     {
-                        IpcResponse response = await executeRequest(cancellationToken).ConfigureAwait(false);
+                        IpcResponse response = await executeRequest(cancellationToken);
 
                         if (response == null)
                         {
@@ -94,7 +94,7 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
                         throw new InvalidOperationException("Wait decision did not contain a shared response task.");
                     }
 
-                    return await WaitForSharedResponseAsync(decision.SharedResponseTask, cancellationToken).ConfigureAwait(false);
+                    return await WaitForSharedResponseAsync(decision.SharedResponseTask, cancellationToken);
 
                 case ExecuteRequestIdempotencyStoreDecision.DecisionKind.Conflict:
                     return createConflictResponse();

@@ -5,18 +5,16 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
-using MackySoft.Ucli.Contracts.Daemon;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Project;
 using MackySoft.Ucli.Unity.Runtime;
 using UnityEditor;
 using UnityEditor.Compilation;
 using UnityEngine;
-
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -40,12 +38,12 @@ namespace MackySoft.Ucli.Unity.Ipc
             IUnityEditorReadinessGate readinessGate,
             IpcProjectIdentity projectIdentity,
             IServerVersionProvider serverVersionProvider,
-            IDaemonLogger daemonLogger = null)
+            IDaemonLogger daemonLogger)
         {
             this.readinessGate = readinessGate ?? throw new ArgumentNullException(nameof(readinessGate));
             this.projectIdentity = projectIdentity ?? throw new ArgumentNullException(nameof(projectIdentity));
             this.serverVersionProvider = serverVersionProvider ?? throw new ArgumentNullException(nameof(serverVersionProvider));
-            this.daemonLogger = daemonLogger ?? NoOpDaemonLogger.Instance;
+            this.daemonLogger = daemonLogger ?? throw new ArgumentNullException(nameof(daemonLogger));
         }
 
         /// <inheritdoc />
@@ -963,10 +961,16 @@ namespace MackySoft.Ucli.Unity.Ipc
                     serverVersionProvider,
                     startedAtUtc);
 
-                if (recoverableContext != null
-                    && !recoverableContext.TryMarkPending(pendingSummary, out var recoveryErrorMessage))
+                if (recoverableContext != null)
                 {
-                    throw new InvalidOperationException($"Compile recovery state could not be persisted. {recoveryErrorMessage}");
+                    var recoveryWriteResult = await recoverableContext.MarkPendingAsync(
+                        pendingSummary,
+                        cancellationToken);
+                    if (!recoveryWriteResult.IsSuccess)
+                    {
+                        throw new InvalidOperationException(
+                            $"Compile recovery state could not be persisted. {recoveryWriteResult.ErrorMessage}");
+                    }
                 }
 
                 // NOTE: Remove completed outputs only after pending recovery state is durable.

@@ -1,10 +1,10 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using Microsoft.Extensions.DependencyInjection;
 using UnityEditor;
-using UnityEngine;
 
 using MackySoft.Ucli.Contracts.Text;
 
@@ -22,6 +22,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentNullException(nameof(bootstrapArguments));
             }
 
+            var daemonLogStream = new DaemonLogRingBuffer();
+            var daemonLogger = new DaemonLogger(
+                daemonLogStream,
+                UnityMainThreadDaemonConsoleLogSink.CaptureCurrent());
             try
             {
                 using var parentProcessWatcher = OneshotParentProcessWatcher.Start(bootstrapArguments.ParentProcessId);
@@ -30,7 +34,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                 services.AddUnityIpcApplicationServices(
                     new ExactSessionTokenValidator(bootstrapArguments.SessionToken),
                     bootstrapArguments.ProjectFingerprint,
-                    NoOpDaemonLogger.Instance);
+                    daemonLogger,
+                    DaemonEditorMode.Batchmode);
                 services.AddUnityIpcOneshotHostServices();
 
                 IServiceProvider serviceProvider = services.BuildServiceProvider();
@@ -44,15 +49,25 @@ namespace MackySoft.Ucli.Unity.Ipc
                     }
 
                     var endpoint = new IpcEndpoint(transportKind, bootstrapArguments.EndpointAddress);
-                    await server.StartAsync(endpoint, CancellationToken.None);
+                    using var publicationFence = await server.StartAsync(endpoint, CancellationToken.None);
+                    Task requestCompletionTask = null;
+                    Task serverTerminationTask = null;
+                    if (!publicationFence.TryCommitActiveOwnership(() =>
+                        {
+                            requestCompletionTask = completionSignal.WaitAsync(CancellationToken.None);
+                            serverTerminationTask = server.WaitForTerminationAsync(CancellationToken.None);
+                        }))
+                    {
+                        throw new InvalidOperationException(
+                            "IPC listener terminated before oneshot endpoint ownership could become active.");
+                    }
+
                     if (parentProcessWatcher.HasRequestedExit)
                     {
                         await server.StopAsync(CancellationToken.None);
                         return;
                     }
 
-                    var requestCompletionTask = completionSignal.WaitAsync(CancellationToken.None);
-                    var serverTerminationTask = server.WaitForTerminationAsync(CancellationToken.None);
                     var deadlineTask = deadlineWatcher.WaitAsync();
                     var completedTask = await Task.WhenAny(requestCompletionTask, serverTerminationTask, deadlineTask);
                     if (ReferenceEquals(completedTask, serverTerminationTask))
@@ -84,7 +99,10 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
             catch (Exception exception)
             {
-                Debug.LogException(exception);
+                daemonLogger.Exception(
+                    DaemonLogCategories.Lifecycle,
+                    "uCLI oneshot bootstrap failed.",
+                    exception);
                 EditorApplication.Exit(1);
             }
         }
