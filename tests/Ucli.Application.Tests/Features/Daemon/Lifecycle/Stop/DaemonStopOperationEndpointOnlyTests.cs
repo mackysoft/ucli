@@ -39,6 +39,7 @@ public sealed class DaemonStopOperationEndpointOnlyTests
         Assert.Null(result.Error);
         DaemonShutdownClientAssert.EndpointShutdownAttempted(shutdownClient, context, session);
         AssertSessionArtifactsInvalidatedWithoutProcessTermination(processTerminationService, artifactCleaner, context);
+        Assert.Equal(session, Assert.Single(artifactCleaner.Invocations).ExpectedSession);
     }
 
     [Fact]

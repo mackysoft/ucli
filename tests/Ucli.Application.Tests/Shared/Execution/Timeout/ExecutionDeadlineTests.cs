@@ -99,7 +99,17 @@ public sealed class ExecutionDeadlineTests
     {
         Assert.Throws<ArgumentOutOfRangeException>(() =>
         {
-            _ = ExecutionDeadline.Start(TimeSpan.Zero);
+            _ = ExecutionDeadline.Start(TimeSpan.Zero, TimeProvider.System);
+        });
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Start_WhenTimeProviderIsNull_ThrowsArgumentNullException ()
+    {
+        Assert.Throws<ArgumentNullException>(() =>
+        {
+            _ = ExecutionDeadline.Start(TimeSpan.FromSeconds(1), null!);
         });
     }
 }

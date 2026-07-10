@@ -97,7 +97,10 @@ internal sealed class IpcTransportClient : IIpcTransportClient
             return await ReadStreamingResponseAsync(
                     stream,
                     request,
-                    onProgressFrame,
+                    (frame, callbackCancellationToken) => InvokeBoundedProgressFrameAsync(
+                        frame,
+                        onProgressFrame,
+                        callbackCancellationToken),
                     ipcCancellationToken)
                 .ConfigureAwait(false);
         }
@@ -297,6 +300,93 @@ internal sealed class IpcTransportClient : IIpcTransportClient
 
             return frame.Response!;
         }
+    }
+
+    private static async ValueTask InvokeBoundedProgressFrameAsync (
+        IpcStreamFrame frame,
+        Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var callbackCancellationTokenSource = new CancellationTokenSource();
+        var disposeCallbackCancellationTokenSource = true;
+        try
+        {
+            var cancellationSignalSource = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            using var cancellationRegistration = cancellationToken.UnsafeRegister(
+                static state => ((TaskCompletionSource)state!).TrySetResult(),
+                cancellationSignalSource);
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // NOTE: The callback receives an independently owned token so a blocking callback registered on it
+            // cannot delay the transport deadline signal. Cancellation is requested asynchronously after the
+            // deadline wins, while the caller-visible operation returns without waiting for callback cooperation.
+            var callbackTask = Task.Run(
+                async () => await onProgressFrame(
+                        frame,
+                        callbackCancellationTokenSource.Token)
+                    .ConfigureAwait(false),
+                CancellationToken.None);
+            var completedTask = await Task.WhenAny(callbackTask, cancellationSignalSource.Task).ConfigureAwait(false);
+            if (ReferenceEquals(completedTask, callbackTask))
+            {
+                await callbackTask.ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+                return;
+            }
+
+            if (callbackTask.IsCompleted)
+            {
+                ObserveFault(callbackTask);
+            }
+            else
+            {
+                var cancellationRequestTask = callbackCancellationTokenSource.CancelAsync();
+                disposeCallbackCancellationTokenSource = false;
+                ObserveAndDisposeAfterCompletion(
+                    callbackTask,
+                    cancellationRequestTask,
+                    callbackCancellationTokenSource);
+            }
+
+            throw new OperationCanceledException(cancellationToken);
+        }
+        finally
+        {
+            if (disposeCallbackCancellationTokenSource)
+            {
+                callbackCancellationTokenSource.Dispose();
+            }
+        }
+    }
+
+    private static void ObserveAndDisposeAfterCompletion (
+        Task callbackTask,
+        Task cancellationRequestTask,
+        CancellationTokenSource callbackCancellationTokenSource)
+    {
+        ObserveFault(callbackTask);
+        ObserveFault(cancellationRequestTask);
+        _ = Task.WhenAll(callbackTask, cancellationRequestTask).ContinueWith(
+            static (completedTask, state) =>
+            {
+                _ = completedTask.Exception;
+                ((CancellationTokenSource)state!).Dispose();
+            },
+            callbackCancellationTokenSource,
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+    }
+
+    private static void ObserveFault (Task task)
+    {
+        _ = task.ContinueWith(
+            static completedTask => _ = completedTask.Exception,
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously | TaskContinuationOptions.OnlyOnFaulted,
+            TaskScheduler.Default);
     }
 
     private static void ValidateStreamingFrame (

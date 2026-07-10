@@ -21,12 +21,12 @@ internal sealed class DaemonGuiSessionRegistrationAwaiter : IDaemonGuiSessionReg
         IDaemonSessionStore daemonSessionStore,
         IDaemonPingInfoClient daemonPingInfoClient,
         IDaemonReachabilityClassifier reachabilityClassifier,
-        TimeProvider? timeProvider = null)
+        TimeProvider timeProvider)
     {
         this.daemonSessionStore = daemonSessionStore ?? throw new ArgumentNullException(nameof(daemonSessionStore));
         this.daemonPingInfoClient = daemonPingInfoClient ?? throw new ArgumentNullException(nameof(daemonPingInfoClient));
         this.reachabilityClassifier = reachabilityClassifier ?? throw new ArgumentNullException(nameof(reachabilityClassifier));
-        this.timeProvider = timeProvider ?? TimeProvider.System;
+        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
     /// <inheritdoc />
@@ -52,11 +52,23 @@ internal sealed class DaemonGuiSessionRegistrationAwaiter : IDaemonGuiSessionReg
                     $"Timed out while waiting for GUI daemon session registration. ProcessId={expectedProcessId}."));
             }
 
-            var readResult = await daemonSessionStore.ReadAsync(
-                    unityProject.RepositoryRoot,
-                    unityProject.ProjectFingerprint,
-                    cancellationToken)
+            var readOperation = await ExecutionDeadlineOperation.ExecuteAsync(
+                    deadline,
+                    cancellationToken,
+                    $"Timed out before reading GUI daemon session registration. ProcessId={expectedProcessId}.",
+                    $"Timed out while reading GUI daemon session registration. ProcessId={expectedProcessId}.",
+                    token => daemonSessionStore.ReadAsync(
+                        unityProject.RepositoryRoot,
+                        unityProject.ProjectFingerprint,
+                        token))
                 .ConfigureAwait(false);
+            if (!readOperation.IsSuccess)
+            {
+                return DaemonGuiSessionRegistrationWaitResult.Failure(
+                    CreateTimeoutError(readOperation.Error!.Message));
+            }
+
+            var readResult = readOperation.Value!;
             if (!readResult.IsSuccess && readResult.FailureKind != DaemonSessionReadFailureKind.InvalidSession)
             {
                 return DaemonGuiSessionRegistrationWaitResult.Failure(readResult.Error!);
@@ -106,10 +118,13 @@ internal sealed class DaemonGuiSessionRegistrationAwaiter : IDaemonGuiSessionReg
 
         try
         {
-            var pingResponse = await daemonPingInfoClient.PingAndReadAsync(
+            var attemptTimeout = remainingTimeout < DaemonTimeouts.ProbeAttemptTimeoutCap
+                ? remainingTimeout
+                : DaemonTimeouts.ProbeAttemptTimeoutCap;
+            var pingResponse = await daemonPingInfoClient.PingSessionAndReadAsync(
                     unityProject,
-                    remainingTimeout,
-                    session.SessionToken,
+                    session,
+                    attemptTimeout,
                     validateProjectFingerprint: false,
                     cancellationToken: cancellationToken)
                 .ConfigureAwait(false);

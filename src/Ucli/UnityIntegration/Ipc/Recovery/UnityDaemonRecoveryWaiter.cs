@@ -18,23 +18,18 @@ internal sealed class UnityDaemonRecoveryWaiter
 
     private readonly IDaemonProcessIdentityAssessor processIdentityAssessor;
 
-    private readonly TimeProvider timeProvider;
-
     /// <summary> Initializes a new instance of the <see cref="UnityDaemonRecoveryWaiter" /> class. </summary>
     /// <param name="daemonSessionStore"> The daemon session store dependency. </param>
     /// <param name="daemonLifecycleStore"> The daemon lifecycle sidecar store dependency. </param>
     /// <param name="processIdentityAssessor"> The daemon process identity assessor dependency. </param>
-    /// <param name="timeProvider"> The time provider used for retry delays. </param>
     public UnityDaemonRecoveryWaiter (
         IDaemonSessionStore daemonSessionStore,
         IDaemonLifecycleStore daemonLifecycleStore,
-        IDaemonProcessIdentityAssessor processIdentityAssessor,
-        TimeProvider? timeProvider = null)
+        IDaemonProcessIdentityAssessor processIdentityAssessor)
     {
         this.daemonSessionStore = daemonSessionStore ?? throw new ArgumentNullException(nameof(daemonSessionStore));
         this.daemonLifecycleStore = daemonLifecycleStore ?? throw new ArgumentNullException(nameof(daemonLifecycleStore));
         this.processIdentityAssessor = processIdentityAssessor ?? throw new ArgumentNullException(nameof(processIdentityAssessor));
-        this.timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     /// <summary> Delays one retry interval when the persisted lifecycle proves daemon endpoint recovery is in progress. </summary>
@@ -50,7 +45,15 @@ internal sealed class UnityDaemonRecoveryWaiter
         ArgumentNullException.ThrowIfNull(unityProject);
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (!await IsRecoveringSessionAsync(unityProject, cancellationToken).ConfigureAwait(false)
+        var recoveryReadOperation = await ExecutionDeadlineOperation.ExecuteAsync(
+                deadline,
+                cancellationToken,
+                "Timed out before daemon recovery state could be read.",
+                "Timed out while reading daemon recovery state.",
+                token => IsRecoveringSessionAsync(unityProject, token))
+            .ConfigureAwait(false);
+        if (!recoveryReadOperation.IsSuccess
+            || !recoveryReadOperation.Value
             || !deadline.TryGetRemainingTimeout(out var remainingTimeout))
         {
             return false;
@@ -58,10 +61,10 @@ internal sealed class UnityDaemonRecoveryWaiter
 
         await TimeProviderDelay.DelayAsync(
                 GetRetryDelay(remainingTimeout),
-                timeProvider,
+                deadline.Clock,
                 cancellationToken)
             .ConfigureAwait(false);
-        return true;
+        return deadline.TryGetRemainingTimeout(out _);
     }
 
     private async ValueTask<bool> IsRecoveringSessionAsync (

@@ -7,4 +7,9 @@ internal interface IDaemonReachabilityClassifier
     /// <param name="exception"> The exception to classify. </param>
     /// <returns> <see langword="true" /> when endpoint is treated as not running; otherwise <see langword="false" />. </returns>
     bool IsNotRunning (Exception exception);
+
+    /// <summary> Determines whether one exception rejects a session token that may have rotated. </summary>
+    /// <param name="exception"> The exception to classify. </param>
+    /// <returns> <see langword="true" /> when the endpoint specifically reports an invalid session token; otherwise <see langword="false" />. </returns>
+    bool IsSessionTokenInvalid (Exception exception);
 }

@@ -18,17 +18,20 @@ public sealed class DaemonCleanupOperationInvalidSessionTests
             OwnerProcessId = null,
             ProjectFingerprint = context.ProjectFingerprint,
         };
+        var artifactIdentity = DaemonSessionArtifactIdentity.Create("{ invalid session artifact");
         var artifactCleaner = new RecordingDaemonArtifactCleaner
         {
             NextResult = DaemonArtifactCleanupResult.Success(),
         };
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
+            TimeProvider.System,
             daemonSessionStore: new RecordingDaemonSessionStore
             {
                 ReadResult = DaemonSessionReadResult.Failure(
                     ExecutionError.InvalidArgument("invalid session"),
                     DaemonSessionReadFailureKind.InvalidSession,
-                    invalidSession),
+                    invalidSession,
+                    artifactIdentity),
             },
             daemonPingClient: DaemonCleanupOperationTestSupport.CreateNotRunningPingClient(),
             artifactCleaner: artifactCleaner,
@@ -40,6 +43,7 @@ public sealed class DaemonCleanupOperationInvalidSessionTests
         var result = await operation.CleanupAsync(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         DaemonCleanupOperationAssert.CompletedAfterArtifactCleanup(result, artifactCleaner, context);
+        Assert.Equal(artifactIdentity, Assert.Single(artifactCleaner.Invocations).ExpectedArtifactIdentity);
     }
 
     [Fact]
@@ -52,11 +56,14 @@ public sealed class DaemonCleanupOperationInvalidSessionTests
             NextResult = DaemonArtifactCleanupResult.Success(),
         };
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
+            TimeProvider.System,
             daemonSessionStore: new RecordingDaemonSessionStore
             {
                 ReadResult = DaemonSessionReadResult.Failure(
                     ExecutionError.InvalidArgument("invalid session"),
-                    DaemonSessionReadFailureKind.InvalidSession),
+                    DaemonSessionReadFailureKind.InvalidSession,
+                    session: null,
+                    artifactIdentity: null),
             },
             daemonPingClient: DaemonCleanupOperationTestSupport.CreateNotRunningPingClient(),
             artifactCleaner: artifactCleaner);
@@ -73,11 +80,14 @@ public sealed class DaemonCleanupOperationInvalidSessionTests
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-cleanup-invalid-connect-timeout");
         var artifactCleaner = new RecordingDaemonArtifactCleaner();
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
+            TimeProvider.System,
             daemonSessionStore: new RecordingDaemonSessionStore
             {
                 ReadResult = DaemonSessionReadResult.Failure(
                     ExecutionError.InvalidArgument("invalid session"),
-                    DaemonSessionReadFailureKind.InvalidSession),
+                    DaemonSessionReadFailureKind.InvalidSession,
+                    session: null,
+                    artifactIdentity: null),
             },
             daemonPingClient: DaemonCleanupOperationTestSupport.CreateFailingPingClient(
                 new IpcConnectTimeoutException("connect timeout")),
@@ -103,12 +113,14 @@ public sealed class DaemonCleanupOperationInvalidSessionTests
         };
         var artifactCleaner = new RecordingDaemonArtifactCleaner();
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
+            TimeProvider.System,
             daemonSessionStore: new RecordingDaemonSessionStore
             {
                 ReadResult = DaemonSessionReadResult.Failure(
                     ExecutionError.InvalidArgument("invalid session"),
                     DaemonSessionReadFailureKind.InvalidSession,
-                    invalidSession),
+                    invalidSession,
+                    artifactIdentity: null),
             },
             daemonPingClient: DaemonCleanupOperationTestSupport.CreateFailingPingClient(
                 new InvalidDataException("probe should not run")),

@@ -62,7 +62,11 @@ public sealed class PlayStatusServiceSessionGateTests
     public async Task Execute_WhenSessionReadFails_ReturnsSessionReadErrorWithoutIpcCall ()
     {
         var expectedError = ExecutionError.InternalError("Failed to read daemon session.");
-        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Failure(expectedError));
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Failure(
+            expectedError,
+            DaemonSessionReadFailureKind.Unknown,
+            session: null,
+            artifactIdentity: null));
         var requestExecutor = new UnexpectedUnityRequestExecutor();
         var service = CreateService(PlayProjectContext, sessionStore, requestExecutor);
 

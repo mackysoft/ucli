@@ -19,6 +19,8 @@ internal sealed class RecordingDaemonLifecycleStore : IDaemonLifecycleStore
 
     public Action? OnRead { get; set; }
 
+    public Func<string, string, CancellationToken, ValueTask<DaemonLifecycleObservationReadResult>>? ReadAsyncHandler { get; set; }
+
     public ValueTask<DaemonLifecycleObservationReadResult> ReadAsync (
         string storageRoot,
         string projectFingerprint,
@@ -28,6 +30,10 @@ internal sealed class RecordingDaemonLifecycleStore : IDaemonLifecycleStore
 
         readInvocations.Add(new ReadInvocation(storageRoot, projectFingerprint, cancellationToken));
         OnRead?.Invoke();
+        if (ReadAsyncHandler is not null)
+        {
+            return ReadAsyncHandler(storageRoot, projectFingerprint, cancellationToken);
+        }
 
         return ValueTask.FromResult(ReadResult);
     }

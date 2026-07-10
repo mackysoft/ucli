@@ -2,9 +2,11 @@ using System.Net.Sockets;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Testing;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
+using MackySoft.Ucli.UnityIntegration.Ipc.Execution;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 using static MackySoft.Ucli.Tests.Ipc.UnityDaemonIpcClientTestSupport;
 
@@ -14,12 +16,97 @@ public sealed class UnityDaemonIpcClientStreamingTests
 {
     [Fact]
     [Trait("Size", "Small")]
+    public async Task SendStreamingAsync_WhenDispatchUsesRotatedSessionToken_ReloadsSessionAndRetriesSameRequest ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var transportClient = new RecordingIpcTransportClient(_ => CreateResponse("unused"));
+        transportClient.EnqueueResponse(CreateSessionTokenInvalidResponse());
+        transportClient.EnqueueResponse(CreateResponse("req-recovered-session"));
+        var sessionConnectionProvider = new QueuedDaemonSessionConnectionProvider(
+            CreateConnectionResult("daemon-token-1"),
+            CreateConnectionResult("daemon-token-2"));
+        var client = new UnityDaemonIpcClient(
+            transportClient,
+            sessionConnectionProvider,
+            recoveryWaiter: null,
+            timeProvider: timeProvider);
+        var dispatchRequest = CreateDispatchRequest().WithResponseMode(IpcResponseMode.Stream);
+
+        var sendTask = client.SendStreamingAsync(
+                ResolvedUnityProjectContextTestFactory.Create(),
+                dispatchRequest,
+                TimeSpan.FromSeconds(5),
+                (_, _) => ValueTask.CompletedTask,
+                CancellationToken.None)
+            .AsTask();
+
+        var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
+        await timeProvider.WaitForTimerDueWithinAsync(retryDelay).WaitAsync(TimeSpan.FromSeconds(1));
+        timeProvider.Advance(retryDelay);
+        var result = await sendTask;
+
+        Assert.True(result.IsSuccess);
+        var requests = DaemonIpcDispatchAssert.RecoveredStreamingDispatchesWithReloadedSessionToken(
+            transportClient,
+            IpcMethodNames.OpsRead,
+            "daemon-token-1",
+            "daemon-token-2");
+        _ = IpcRequestAssert.SingleRequestId(requests);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendStreamingAsync_WithServerExecutionTimeout_ReservesResponseGraceBeforeTransportDeadline ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var response = CreateResponse("req-stream-server-timeout-grace");
+        var transportClient = new RecordingIpcTransportClient(_ => response);
+        var sessionConnectionProvider = new QueuedDaemonSessionConnectionProvider(
+            CreateConnectionResult("daemon-token"));
+        var client = new UnityDaemonIpcClient(
+            transportClient,
+            sessionConnectionProvider,
+            recoveryWaiter: null,
+            timeProvider: timeProvider);
+        var dispatchRequest = new UnityIpcRequestBuilder()
+            .Build(new UnityRequestPayload.TestRun(
+                TestRunPlatformCodec.EditMode,
+                TestFilter: null,
+                TestCategories: [],
+                AssemblyNames: [],
+                TestSettingsPath: null,
+                ResultsXmlPath: "/tmp/results.xml",
+                EditorLogPath: "/tmp/editor.log",
+                FailFast: false,
+                RunId: "run-1"))
+            .WithResponseMode(IpcResponseMode.Stream);
+
+        var result = await client.SendStreamingAsync(
+            ResolvedUnityProjectContextTestFactory.Create(),
+            dispatchRequest,
+            TimeSpan.FromSeconds(30),
+            (_, _) => ValueTask.CompletedTask,
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(TimeSpan.FromSeconds(30), Assert.Single(transportClient.Timeouts));
+        var request = Assert.Single(transportClient.StreamingRequests);
+        Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcTestRunRequest payload, out _));
+        Assert.Equal(29000, payload.TimeoutMilliseconds);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task SendStreamingAsync_WhenDispatchIsRecoverable_ReturnsFailureWithoutCallingTransport ()
     {
         var transportClient = new RecordingIpcTransportClient(_ => CreateResponse("unused"));
         var sessionConnectionProvider = new UnexpectedDaemonSessionConnectionProvider(
             "Recoverable streaming dispatch should fail before session connection resolution.");
-        var client = new UnityDaemonIpcClient(transportClient, sessionConnectionProvider);
+        var client = new UnityDaemonIpcClient(
+            transportClient,
+            sessionConnectionProvider,
+            recoveryWaiter: null,
+            timeProvider: TimeProvider.System);
 
         var result = await client.SendStreamingAsync(
             ResolvedUnityProjectContextTestFactory.Create(),
@@ -46,7 +133,11 @@ public sealed class UnityDaemonIpcClientStreamingTests
         transportClient.EnqueueException(new IpcProgressFrameHandlerException(handlerException));
         var sessionConnectionProvider = new QueuedDaemonSessionConnectionProvider(
             CreateConnectionResult("daemon-token"));
-        var client = new UnityDaemonIpcClient(transportClient, sessionConnectionProvider);
+        var client = new UnityDaemonIpcClient(
+            transportClient,
+            sessionConnectionProvider,
+            recoveryWaiter: null,
+            timeProvider: TimeProvider.System);
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
@@ -74,7 +165,7 @@ public sealed class UnityDaemonIpcClientStreamingTests
         var transportClient = new RecordingIpcTransportClient(_ => CreateResponse("unused"));
         transportClient.EnqueueResponse(CreateResponse("req-recovered-stream"));
         var session = DaemonSessionTestFactory.CreateEditorInstance();
-        var recoveryWaiter = CreateRecoveryWaiter(session, timeProvider);
+        var recoveryWaiter = CreateRecoveryWaiter(session);
         var sessionConnectionProvider = new QueuedDaemonSessionConnectionProvider(
             DaemonSessionConnectionResolutionResult.SessionNotAvailable(),
             CreateConnectionResult("daemon-token-2"));
@@ -96,7 +187,9 @@ public sealed class UnityDaemonIpcClientStreamingTests
             .AsTask();
         Assert.False(sendTask.IsCompleted);
 
-        timeProvider.Advance(TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
+        var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
+        await timeProvider.WaitForTimerDueWithinAsync(retryDelay).WaitAsync(TimeSpan.FromSeconds(1));
+        timeProvider.Advance(retryDelay);
         var result = await sendTask;
 
         Assert.True(result.IsSuccess);
@@ -116,7 +209,7 @@ public sealed class UnityDaemonIpcClientStreamingTests
         transportClient.EnqueueException(new SocketException((int)SocketError.ConnectionRefused));
         transportClient.EnqueueResponse(CreateResponse("req-recovered-stream"));
         var session = DaemonSessionTestFactory.CreateEditorInstance();
-        var recoveryWaiter = CreateRecoveryWaiter(session, timeProvider);
+        var recoveryWaiter = CreateRecoveryWaiter(session);
         var sessionConnectionProvider = new QueuedDaemonSessionConnectionProvider(
             CreateConnectionResult("daemon-token-1"),
             CreateConnectionResult("daemon-token-2"));
@@ -138,7 +231,9 @@ public sealed class UnityDaemonIpcClientStreamingTests
             .AsTask();
         Assert.False(sendTask.IsCompleted);
 
-        timeProvider.Advance(TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
+        var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
+        await timeProvider.WaitForTimerDueWithinAsync(retryDelay).WaitAsync(TimeSpan.FromSeconds(1));
+        timeProvider.Advance(retryDelay);
         var result = await sendTask;
 
         Assert.True(result.IsSuccess);

@@ -9,6 +9,8 @@ internal sealed class RecordingUnityGuiEditorProcessProbe : IUnityGuiEditorProce
 
     public Action? OnProbe { get; set; }
 
+    public Func<UnityEditorInstanceMarker, CancellationToken, ValueTask<UnityGuiEditorProcessProbeResult>>? ProbeAsyncHandler { get; set; }
+
     public IReadOnlyList<Invocation> Invocations => invocations;
 
     public ValueTask<UnityGuiEditorProcessProbeResult> ProbeAsync (
@@ -18,6 +20,11 @@ internal sealed class RecordingUnityGuiEditorProcessProbe : IUnityGuiEditorProce
         cancellationToken.ThrowIfCancellationRequested();
         OnProbe?.Invoke();
         invocations.Add(new Invocation(marker, cancellationToken));
+        if (ProbeAsyncHandler is not null)
+        {
+            return ProbeAsyncHandler(marker, cancellationToken);
+        }
+
         return ValueTask.FromResult(Result);
     }
 

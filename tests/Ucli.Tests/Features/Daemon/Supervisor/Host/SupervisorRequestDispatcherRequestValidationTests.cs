@@ -78,7 +78,8 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: projectFingerprint,
-                        TimeoutMilliseconds: 1000,
+                        DeadlineUtc: CreateEnsureRunningDeadline(1000),
+                        AttemptTimeoutMilliseconds: 1000,
                         EditorMode: null,
                         OnStartupBlocked: "auto")),
                 ResponseMode: "unsupported"));
@@ -112,7 +113,8 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: projectFingerprint,
-                        TimeoutMilliseconds: 1000,
+                        DeadlineUtc: CreateEnsureRunningDeadline(1000),
+                        AttemptTimeoutMilliseconds: 1000,
                         EditorMode: null,
                         OnStartupBlocked: "auto")),
                 ResponseMode: null!));
@@ -137,7 +139,8 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
             new SupervisorIpcContracts.EnsureRunningRequest(
                 UnityProjectRoot: unityProjectRoot,
                 ProjectFingerprint: projectFingerprint,
-                TimeoutMilliseconds: 1000,
+                DeadlineUtc: CreateEnsureRunningDeadline(1000),
+                AttemptTimeoutMilliseconds: 1000,
                 EditorMode: null,
                 OnStartupBlocked: "auto"));
         var rawRequest = JsonSerializer.SerializeToElement(
@@ -207,7 +210,8 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: "bad\u0000path",
                         ProjectFingerprint: "fingerprint",
-                        TimeoutMilliseconds: 1000,
+                        DeadlineUtc: CreateEnsureRunningDeadline(1000),
+                        AttemptTimeoutMilliseconds: 1000,
                         EditorMode: null,
                         OnStartupBlocked: "auto")),
                 responseMode: IpcResponseMode.Single));
@@ -252,7 +256,8 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: "mismatched-fingerprint",
-                        TimeoutMilliseconds: 1000,
+                        DeadlineUtc: CreateEnsureRunningDeadline(1000),
+                        AttemptTimeoutMilliseconds: 1000,
                         EditorMode: null,
                         OnStartupBlocked: "auto")),
                 responseMode: IpcResponseMode.Single));
@@ -285,7 +290,8 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: projectFingerprint,
-                        TimeoutMilliseconds: 1000,
+                        DeadlineUtc: CreateEnsureRunningDeadline(1000),
+                        AttemptTimeoutMilliseconds: 1000,
                         EditorMode: "unsupported",
                         OnStartupBlocked: "auto")),
                 responseMode: IpcResponseMode.Single));
@@ -318,7 +324,8 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: projectFingerprint,
-                        TimeoutMilliseconds: 1000,
+                        DeadlineUtc: CreateEnsureRunningDeadline(1000),
+                        AttemptTimeoutMilliseconds: 1000,
                         EditorMode: null,
                         OnStartupBlocked: "unsupported")),
                 responseMode: IpcResponseMode.Single));

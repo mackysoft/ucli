@@ -25,12 +25,12 @@ internal sealed class IpcDaemonReachabilityProbe : IDaemonReachabilityProbe
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="daemonPingClient" /> is <see langword="null" />. </exception>
     public IpcDaemonReachabilityProbe (
         IDaemonPingClient daemonPingClient,
-        UnityDaemonRecoveryWaiter? recoveryWaiter = null,
-        TimeProvider? timeProvider = null)
+        UnityDaemonRecoveryWaiter? recoveryWaiter,
+        TimeProvider timeProvider)
     {
         this.daemonPingClient = daemonPingClient ?? throw new ArgumentNullException(nameof(daemonPingClient));
         this.recoveryWaiter = recoveryWaiter;
-        this.timeProvider = timeProvider ?? TimeProvider.System;
+        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
     /// <summary> Probes whether daemon for the specified project is reachable. </summary>
@@ -60,8 +60,21 @@ internal sealed class IpcDaemonReachabilityProbe : IDaemonReachabilityProbe
         if (endpoint.TransportKind == IpcTransportKind.UnixDomainSocket
             && !File.Exists(endpoint.Address))
         {
-            if (recoveryWaiter == null
-                || !await recoveryWaiter.DelayIfRecoveringAsync(unityProject, deadline, cancellationToken).ConfigureAwait(false))
+            if (recoveryWaiter == null)
+            {
+                return DaemonReachabilityProbeResult.NotRunning();
+            }
+
+            var recoveryDelayConsumed = await recoveryWaiter
+                .DelayIfRecoveringAsync(unityProject, deadline, cancellationToken)
+                .ConfigureAwait(false);
+            if (!deadline.TryGetRemainingTimeout(out _))
+            {
+                return DaemonReachabilityProbeResult.Failure(ExecutionError.Timeout(
+                    $"Timed out while probing daemon reachability. Timeout={timeout.TotalMilliseconds:0}ms."));
+            }
+
+            if (!recoveryDelayConsumed)
             {
                 return DaemonReachabilityProbeResult.NotRunning();
             }
@@ -100,8 +113,15 @@ internal sealed class IpcDaemonReachabilityProbe : IDaemonReachabilityProbe
             }
             catch (Exception exception) when (DaemonProbeExceptionClassifier.IsNotRunning(exception))
             {
-                if (recoveryWaiter != null
-                    && await recoveryWaiter.DelayIfRecoveringAsync(unityProject, deadline, cancellationToken).ConfigureAwait(false))
+                var recoveryDelayConsumed = recoveryWaiter != null
+                    && await recoveryWaiter.DelayIfRecoveringAsync(unityProject, deadline, cancellationToken).ConfigureAwait(false);
+                if (!deadline.TryGetRemainingTimeout(out remainingTimeout))
+                {
+                    return DaemonReachabilityProbeResult.Failure(ExecutionError.Timeout(
+                        $"Timed out while probing daemon reachability. Timeout={timeout.TotalMilliseconds:0}ms."));
+                }
+
+                if (recoveryDelayConsumed)
                 {
                     continue;
                 }

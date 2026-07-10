@@ -44,7 +44,7 @@ internal sealed class ReadyService : IReadyService
         IUnityRequestExecutor unityRequestExecutor,
         IReadIndexArtifactReader readIndexArtifactReader,
         IReadIndexFreshnessEvaluator readIndexFreshnessEvaluator,
-        TimeProvider? timeProvider = null)
+        TimeProvider timeProvider)
     {
         this.projectContextResolver = projectContextResolver ?? throw new ArgumentNullException(nameof(projectContextResolver));
         this.executionModeDecisionService = executionModeDecisionService ?? throw new ArgumentNullException(nameof(executionModeDecisionService));
@@ -52,7 +52,7 @@ internal sealed class ReadyService : IReadyService
         this.unityRequestExecutor = unityRequestExecutor ?? throw new ArgumentNullException(nameof(unityRequestExecutor));
         this.readIndexArtifactReader = readIndexArtifactReader ?? throw new ArgumentNullException(nameof(readIndexArtifactReader));
         this.readIndexFreshnessEvaluator = readIndexFreshnessEvaluator ?? throw new ArgumentNullException(nameof(readIndexFreshnessEvaluator));
-        this.timeProvider = timeProvider ?? TimeProvider.System;
+        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
     /// <inheritdoc />
@@ -247,6 +247,7 @@ internal sealed class ReadyService : IReadyService
                 var pingResponse = await daemonPingInfoClient.PingAndReadAsync(
                         unityProject,
                         attemptTimeout,
+                        validateProjectFingerprint: true,
                         cancellationToken: cancellationToken)
                     .ConfigureAwait(false);
                 lastLifecycle = ReadyLifecycleOutputFactory.Create(pingResponse);

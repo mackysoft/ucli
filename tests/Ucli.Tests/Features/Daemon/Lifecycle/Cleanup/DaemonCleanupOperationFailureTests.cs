@@ -13,6 +13,7 @@ public sealed class DaemonCleanupOperationFailureTests
     {
         var artifactCleaner = new RecordingDaemonArtifactCleaner();
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
+            TimeProvider.System,
             daemonSessionStore: new RecordingDaemonSessionStore
             {
                 ReadResult = DaemonSessionReadResult.Success(DaemonSessionTestFactory.Create(processId: 2011)),
@@ -37,6 +38,7 @@ public sealed class DaemonCleanupOperationFailureTests
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-cleanup-lock-context");
         var lockProvider = new StubProjectLifecycleLockProvider();
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
+            TimeProvider.System,
             lifecycleLockProvider: lockProvider,
             daemonSessionStore: new RecordingDaemonSessionStore
             {
@@ -55,6 +57,7 @@ public sealed class DaemonCleanupOperationFailureTests
     public async Task Cleanup_WhenLifecycleLockAcquireTimesOut_ReturnsTimeoutFailure ()
     {
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
+            TimeProvider.System,
             lifecycleLockProvider: new StubProjectLifecycleLockProvider(throwTimeout: true));
 
         var result = await operation.CleanupAsync(ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-cleanup-lock-timeout"), TimeSpan.FromMilliseconds(500), CancellationToken.None);

@@ -23,13 +23,14 @@ internal readonly struct ExecutionDeadline
     /// <param name="timeout"> The timeout budget. Must be greater than <see cref="TimeSpan.Zero" />. </param>
     /// <param name="timeProvider"> The time provider used for monotonic elapsed-time measurements. </param>
     /// <returns> The created execution deadline value. </returns>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="timeProvider" /> is <see langword="null" />. </exception>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
     public static ExecutionDeadline Start (
         TimeSpan timeout,
-        TimeProvider? timeProvider = null)
+        TimeProvider timeProvider)
     {
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
-        timeProvider ??= TimeProvider.System;
+        ArgumentNullException.ThrowIfNull(timeProvider);
 
         return new ExecutionDeadline(
             timeProvider,
@@ -39,6 +40,9 @@ internal readonly struct ExecutionDeadline
 
     /// <summary> Gets whether the execution deadline has already elapsed. </summary>
     public bool IsExpired => !TryGetRemainingTimeout(out _);
+
+    /// <summary> Gets the time provider that owns this deadline. </summary>
+    internal TimeProvider Clock => timeProvider;
 
     /// <summary> Tries to get remaining timeout budget from monotonic elapsed time. </summary>
     /// <param name="remainingTimeout"> The remaining timeout when available; otherwise <see cref="TimeSpan.Zero" />. </param>

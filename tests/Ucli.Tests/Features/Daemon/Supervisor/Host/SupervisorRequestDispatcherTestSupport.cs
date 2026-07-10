@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
@@ -8,26 +9,44 @@ namespace MackySoft.Ucli.Tests.Supervisor;
 
 internal static class SupervisorRequestDispatcherTestSupport
 {
-    public static SupervisorRequestDispatcher CreateDispatcher (RecordingDaemonStartOperation? startOperation = null)
+    private static readonly DateTimeOffset DefaultUtcNow = new(2026, 03, 11, 0, 0, 0, TimeSpan.Zero);
+
+    public static SupervisorRequestDispatcher CreateDispatcher (
+        RecordingDaemonStartOperation? startOperation = null,
+        TimeProvider? timeProvider = null,
+        RecordingDaemonStopOperation? stopOperation = null)
     {
+        var effectiveTimeProvider = timeProvider ?? FixedUtcTimeProvider.Instance;
         var activityTracker = new SupervisorActivityTracker();
         var diagnosisStore = new RecordingDaemonDiagnosisStore();
         var runtimeLogger = new SupervisorRuntimeLogger();
         var coordinator = new SupervisorProjectCoordinator(
             startOperation ?? new RecordingDaemonStartOperation(),
-            new RecordingDaemonStopOperation(),
+            stopOperation ?? new RecordingDaemonStopOperation(),
             new RecordingDaemonPingClient(),
             new DaemonReachabilityClassifier(),
             new SupervisorStabilityVerifier(
                 new RecordingDaemonPingClient(),
-                new SupervisorDiagnosisWriter(diagnosisStore)),
+                new SupervisorDiagnosisWriter(diagnosisStore),
+                new DaemonCompensationOperationOwner(),
+                effectiveTimeProvider),
             new SupervisorExitHandler(
                 new RecordingDaemonSessionStore(),
                 new RecordingDaemonArtifactCleaner(),
                 new SupervisorDiagnosisWriter(diagnosisStore),
                 runtimeLogger),
-            runtimeLogger);
-        return new SupervisorRequestDispatcher(activityTracker, coordinator);
+            runtimeLogger,
+            effectiveTimeProvider);
+        return new SupervisorRequestDispatcher(
+            activityTracker,
+            coordinator,
+            effectiveTimeProvider);
+    }
+
+    public static DateTimeOffset CreateEnsureRunningDeadline (int timeoutMilliseconds)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(timeoutMilliseconds);
+        return DefaultUtcNow.AddMilliseconds(timeoutMilliseconds);
     }
 
     public static SupervisorRuntimeContext CreateRuntimeContext ()
@@ -82,7 +101,12 @@ internal static class SupervisorRequestDispatcherTestSupport
         var requestLength = stream.Length;
         stream.Position = 0;
 
-        await dispatcher.HandleConnectionAsync(stream, runtimeContext, CancellationToken.None).ConfigureAwait(false);
+        await dispatcher.HandleConnectionAsync(
+                stream,
+                runtimeContext,
+                SupervisorConstants.InitialFrameReadTimeout,
+                CancellationToken.None)
+            .ConfigureAwait(false);
 
         stream.Position = requestLength;
         return await IpcFrameCodec.ReadModelAsync<IpcResponse>(
@@ -98,7 +122,12 @@ internal static class SupervisorRequestDispatcherTestSupport
     {
         using var stream = new DuplexMemoryStream(await CreateRequestFrameBytesAsync(request).ConfigureAwait(false));
 
-        await dispatcher.HandleConnectionAsync(stream, runtimeContext, CancellationToken.None).ConfigureAwait(false);
+        await dispatcher.HandleConnectionAsync(
+                stream,
+                runtimeContext,
+                SupervisorConstants.InitialFrameReadTimeout,
+                CancellationToken.None)
+            .ConfigureAwait(false);
 
         using var outputStream = new MemoryStream(stream.GetWrittenBytes());
         var frames = new List<IpcStreamFrame>();
@@ -126,7 +155,12 @@ internal static class SupervisorRequestDispatcherTestSupport
             FailWriteCount = 1,
         };
 
-        await dispatcher.HandleConnectionAsync(stream, runtimeContext, CancellationToken.None).ConfigureAwait(false);
+        await dispatcher.HandleConnectionAsync(
+                stream,
+                runtimeContext,
+                SupervisorConstants.InitialFrameReadTimeout,
+                CancellationToken.None)
+            .ConfigureAwait(false);
 
         using var outputStream = new MemoryStream(stream.GetWrittenBytes());
         var frames = new List<IpcStreamFrame>();
@@ -155,7 +189,12 @@ internal static class SupervisorRequestDispatcherTestSupport
         var requestLength = stream.Length;
         stream.Position = 0;
 
-        await dispatcher.HandleConnectionAsync(stream, runtimeContext, CancellationToken.None).ConfigureAwait(false);
+        await dispatcher.HandleConnectionAsync(
+                stream,
+                runtimeContext,
+                SupervisorConstants.InitialFrameReadTimeout,
+                CancellationToken.None)
+            .ConfigureAwait(false);
 
         stream.Position = requestLength;
         return await IpcFrameCodec.ReadModelAsync<IpcResponse>(
@@ -173,5 +212,12 @@ internal static class SupervisorRequestDispatcherTestSupport
                 IpcJsonSerializerOptions.Default)
             .ConfigureAwait(false);
         return stream.ToArray();
+    }
+
+    private sealed class FixedUtcTimeProvider : TimeProvider
+    {
+        public static FixedUtcTimeProvider Instance { get; } = new();
+
+        public override DateTimeOffset GetUtcNow () => DefaultUtcNow;
     }
 }

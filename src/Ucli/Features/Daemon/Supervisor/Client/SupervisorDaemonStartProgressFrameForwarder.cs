@@ -138,7 +138,8 @@ internal sealed class SupervisorDaemonStartProgressFrameForwarder
     {
         return ContractLiteralCodec.Matches(payloadKind, expectedPayloadKind)
             && string.Equals(entryProjectFingerprint, projectFingerprint, StringComparison.Ordinal)
-            && entryTimeoutMilliseconds == timeoutMilliseconds
+            && entryTimeoutMilliseconds > 0
+            && entryTimeoutMilliseconds <= timeoutMilliseconds
             && ContractLiteralCodec.Matches(entryOnStartupBlocked, onStartupBlocked)
             && IsOptionalContractLiteral<DaemonEditorMode>(entryEditorMode)
             && (!editorMode.HasValue || ContractLiteralCodec.Matches(entryEditorMode, editorMode.Value));

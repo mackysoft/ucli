@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.LaunchAttempts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Contracts;
@@ -42,6 +43,8 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
 
     private readonly IDaemonLaunchAttemptStore launchAttemptStore;
 
+    private readonly DaemonCompensationOperationOwner compensationOperationOwner;
+
     private readonly TimeProvider timeProvider;
 
     /// <summary> Initializes a new instance of the <see cref="DaemonLaunchService" /> class. </summary>
@@ -52,6 +55,9 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
     /// <param name="guiStartupObserver"> The GUI startup observer dependency. </param>
     /// <param name="daemonLaunchCompensationService"> The daemon launch-compensation service dependency. </param>
     /// <param name="daemonDiagnosisStore"> The daemon diagnosis store dependency. </param>
+    /// <param name="launchAttemptIdGenerator"> The launch-attempt identifier generator dependency. </param>
+    /// <param name="launchAttemptStore"> The launch-attempt artifact store dependency. </param>
+    /// <param name="compensationOperationOwner"> The owner for compensation that outlives a caller deadline. </param>
     /// <param name="timeProvider"> The time provider used for timeout-budget accounting and timestamps. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public DaemonLaunchService (
@@ -64,7 +70,8 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         IDaemonDiagnosisStore daemonDiagnosisStore,
         IDaemonLaunchAttemptIdGenerator launchAttemptIdGenerator,
         IDaemonLaunchAttemptStore launchAttemptStore,
-        TimeProvider? timeProvider = null)
+        DaemonCompensationOperationOwner compensationOperationOwner,
+        TimeProvider timeProvider)
     {
         this.daemonLaunchSessionService = daemonLaunchSessionService ?? throw new ArgumentNullException(nameof(daemonLaunchSessionService));
         this.unityDaemonProcessLauncher = unityDaemonProcessLauncher ?? throw new ArgumentNullException(nameof(unityDaemonProcessLauncher));
@@ -75,7 +82,8 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         this.daemonDiagnosisStore = daemonDiagnosisStore ?? throw new ArgumentNullException(nameof(daemonDiagnosisStore));
         this.launchAttemptIdGenerator = launchAttemptIdGenerator ?? throw new ArgumentNullException(nameof(launchAttemptIdGenerator));
         this.launchAttemptStore = launchAttemptStore ?? throw new ArgumentNullException(nameof(launchAttemptStore));
-        this.timeProvider = timeProvider ?? TimeProvider.System;
+        this.compensationOperationOwner = compensationOperationOwner ?? throw new ArgumentNullException(nameof(compensationOperationOwner));
+        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
     /// <summary> Launches daemon lifecycle for the specified Unity project context. </summary>
@@ -100,6 +108,17 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         var deadline = ExecutionDeadline.Start(timeout, timeProvider);
+        var admissionError = await compensationOperationOwner.WaitForQuiescenceAsync(
+                unityProject,
+                deadline,
+                cancellationToken,
+                "Timed out waiting for prior daemon compensation to quiesce.")
+            .ConfigureAwait(false);
+        if (admissionError is not null)
+        {
+            return DaemonStartResult.Failure(admissionError);
+        }
+
         var launchStartedAtUtc = timeProvider.GetUtcNow();
         var launchAttemptId = CreateUniqueLaunchAttemptId(unityProject, launchStartedAtUtc);
 
@@ -163,13 +182,12 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                 .ConfigureAwait(false);
         }
         var session = initializeSessionResult.Session!;
-        await EmitSessionRegisteredAsync(progressObserver, session, launchAttemptId, cancellationToken).ConfigureAwait(false);
         var launchedProcessId = default(int?);
         var launchedProcessStartedAtUtc = default(DateTimeOffset?);
-        var expectedIssuedAtUtc = session.IssuedAtUtc;
 
         try
         {
+            await EmitSessionRegisteredAsync(progressObserver, session, launchAttemptId, cancellationToken).ConfigureAwait(false);
             var unityLogPath = UcliStoragePathResolver.ResolveUnityLogPath(
                 unityProject.RepositoryRoot,
                 unityProject.ProjectFingerprint);
@@ -195,7 +213,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                         unityProject,
                         launchResult.ProcessId,
                         launchResult.ProcessStartedAtUtc,
-                        expectedIssuedAtUtc,
+                        session,
                         launchAttemptId,
                         launchStartedAtUtc,
                         ContractLiteralCodec.ToValue(DaemonEditorMode.Batchmode),
@@ -223,7 +241,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                         unityProject,
                         launchedProcessId,
                         launchedProcessStartedAtUtc,
-                        expectedIssuedAtUtc,
+                        session,
                         launchAttemptId,
                         launchStartedAtUtc,
                         ContractLiteralCodec.ToValue(DaemonEditorMode.Batchmode),
@@ -236,7 +254,6 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
             }
 
             session = updateProcessIdResult.Session!;
-            expectedIssuedAtUtc = session.IssuedAtUtc;
             await EmitWaitingForEndpointAsync(
                     progressObserver,
                     launchAttemptId,
@@ -253,7 +270,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                         unityProject,
                         launchedProcessId,
                         launchedProcessStartedAtUtc,
-                        expectedIssuedAtUtc,
+                        session,
                         launchAttemptId,
                         launchStartedAtUtc,
                         ContractLiteralCodec.ToValue(DaemonEditorMode.Batchmode),
@@ -302,7 +319,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                         onStartupBlocked,
                         launchedProcessId,
                         launchedProcessStartedAtUtc,
-                        expectedIssuedAtUtc,
+                        session,
                         launchAttemptId,
                         launchStartedAtUtc,
                         unityLogPath)
@@ -313,7 +330,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                     unityProject,
                     launchedProcessId,
                     launchedProcessStartedAtUtc,
-                    expectedIssuedAtUtc,
+                    session,
                     launchAttemptId,
                     launchStartedAtUtc,
                     ContractLiteralCodec.ToValue(DaemonEditorMode.Batchmode),
@@ -326,13 +343,12 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                     "ProbeError")
                 .ConfigureAwait(false);
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        catch (Exception)
         {
-            await daemonLaunchCompensationService.CleanupFailedLaunchAsync(
+            await RunLaunchCompensationBestEffortAsync(
                     unityProject,
-                    CreateTerminationTarget(launchedProcessId, launchedProcessStartedAtUtc),
-                    DaemonTimeouts.LaunchCompensationTimeout,
-                    CancellationToken.None)
+                    session,
+                    CreateTerminationTarget(launchedProcessId, launchedProcessStartedAtUtc))
                 .ConfigureAwait(false);
             throw;
         }
@@ -386,7 +402,9 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
 
         var processId = launchResult.ProcessId!.Value;
         var processStartedAtUtc = launchResult.ProcessStartedAtUtc!.Value;
-        await EmitWaitingForEndpointAsync(
+        try
+        {
+            await EmitWaitingForEndpointAsync(
                 progressObserver,
                 launchAttemptId,
                 ContractLiteralCodec.ToValue(DaemonEditorMode.Gui),
@@ -396,26 +414,23 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                 processStartedAtUtc,
                 cancellationToken)
             .ConfigureAwait(false);
-        if (!deadline.TryGetRemainingTimeout(out var waitTimeout))
-        {
-            return await CreateGuiEndpointNotRegisteredFailureWithCompensationAsync(
-                    unityProject,
-                    processId,
-                    processStartedAtUtc,
-                    unityLogPath,
-                    launchAttemptId,
-                    launchStartedAtUtc,
-                    onStartupBlocked,
-                    ExecutionError.Timeout(
-                        "Timed out before GUI daemon session registration wait could begin.",
-                        ExecutionErrorCodes.IpcTimeout))
-                .ConfigureAwait(false);
-        }
+            if (!deadline.TryGetRemainingTimeout(out var waitTimeout))
+            {
+                return await CreateGuiEndpointNotRegisteredFailureWithCompensationAsync(
+                        unityProject,
+                        processId,
+                        processStartedAtUtc,
+                        unityLogPath,
+                        launchAttemptId,
+                        launchStartedAtUtc,
+                        onStartupBlocked,
+                        ExecutionError.Timeout(
+                            "Timed out before GUI daemon session registration wait could begin.",
+                            ExecutionErrorCodes.IpcTimeout))
+                    .ConfigureAwait(false);
+            }
 
-        DaemonGuiStartupObservationResult waitResult;
-        try
-        {
-            waitResult = await guiStartupObserver.WaitForStartupAsync(
+            var waitResult = await guiStartupObserver.WaitForStartupAsync(
                     unityProject,
                     processId,
                     processStartedAtUtc,
@@ -423,20 +438,9 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                     waitTimeout,
                     cancellationToken)
                 .ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            await daemonLaunchCompensationService.CleanupFailedLaunchAsync(
-                    unityProject,
-                    CreateTerminationTarget(processId, processStartedAtUtc),
-                    DaemonTimeouts.LaunchCompensationTimeout,
-                    CancellationToken.None)
-                .ConfigureAwait(false);
-            throw;
-        }
-        if (waitResult.IsSuccess)
-        {
-            await EmitEndpointReadyAsync(
+            if (waitResult.IsSuccess)
+            {
+                await EmitEndpointReadyAsync(
                     progressObserver,
                     waitResult.Session!,
                     launchAttemptId,
@@ -444,24 +448,24 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                     emitSessionRegistered: true,
                     cancellationToken)
                 .ConfigureAwait(false);
-            return DaemonStartResult.Started(waitResult.Session!, waitResult.LifecycleSnapshot);
-        }
+                return DaemonStartResult.Started(waitResult.Session!, waitResult.LifecycleSnapshot);
+            }
 
-        if (waitResult.IsBlocked)
-        {
-            await EmitGuiBlockerDetectedAsync(progressObserver, waitResult.Blocker!, launchAttemptId, cancellationToken).ConfigureAwait(false);
-            return await CreateGuiStartupBlockedFailureAsync(
+            if (waitResult.IsBlocked)
+            {
+                await EmitGuiBlockerDetectedAsync(progressObserver, waitResult.Blocker!, launchAttemptId, cancellationToken).ConfigureAwait(false);
+                return await CreateGuiStartupBlockedFailureAsync(
                     unityProject,
                     waitResult.Blocker!,
                     launchAttemptId,
                     launchStartedAtUtc,
                     onStartupBlocked)
                 .ConfigureAwait(false);
-        }
+            }
 
-        if (waitResult.Error!.Kind == ExecutionErrorKind.Timeout)
-        {
-            return await CreateGuiEndpointNotRegisteredFailureWithCompensationAsync(
+            if (waitResult.Error!.Kind == ExecutionErrorKind.Timeout)
+            {
+                return await CreateGuiEndpointNotRegisteredFailureWithCompensationAsync(
                     unityProject,
                     processId,
                     processStartedAtUtc,
@@ -471,9 +475,9 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                     onStartupBlocked,
                     waitResult.Error)
                 .ConfigureAwait(false);
-        }
+            }
 
-        return await CreateGuiStartupFailureWithCompensationAsync(
+            return await CreateGuiStartupFailureWithCompensationAsync(
                 unityProject,
                 processId,
                 processStartedAtUtc,
@@ -482,13 +486,23 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                 launchStartedAtUtc,
                 waitResult.Error)
             .ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            await RunLaunchCompensationBestEffortAsync(
+                    unityProject,
+                    expectedSession: null,
+                    target: CreateTerminationTarget(processId, processStartedAtUtc))
+                .ConfigureAwait(false);
+            throw;
+        }
     }
 
     private async ValueTask<DaemonStartResult> CreateFailureWithCompensationAsync (
         ResolvedUnityProjectContext unityProject,
         int? processId,
         DateTimeOffset? processStartedAtUtc,
-        DateTimeOffset expectedIssuedAtUtc,
+        DaemonSession expectedSession,
         string launchAttemptId,
         DateTimeOffset launchStartedAtUtc,
         string editorMode,
@@ -506,21 +520,16 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
             UpdatedAtUtc: timeProvider.GetUtcNow(),
             ProcessId: processId,
             EditorInstancePath: null,
-            SessionIssuedAtUtc: expectedIssuedAtUtc,
+            SessionIssuedAtUtc: expectedSession.IssuedAtUtc,
             ProcessStartedAtUtc: processStartedAtUtc,
             UnityLogPath: unityLogPath);
-        var diagnosisWriteResult = await daemonDiagnosisStore.WriteAsync(
-                unityProject.RepositoryRoot,
-                unityProject.ProjectFingerprint,
-                diagnosis,
-                CancellationToken.None)
-            .ConfigureAwait(false);
-        var compensationResult = await daemonLaunchCompensationService.CleanupFailedLaunchAsync(
+        var compensationResult = await RunLaunchCompensationAsync(
                 unityProject,
+                expectedSession,
                 CreateTerminationTarget(processId, processStartedAtUtc),
-                DaemonTimeouts.LaunchCompensationTimeout,
                 CancellationToken.None)
             .ConfigureAwait(false);
+        var diagnosisWriteResult = await WriteDiagnosisAsync(unityProject, diagnosis).ConfigureAwait(false);
         var processAction = ResolveCompensatedProcessAction(processId, compensationResult);
         var startup = CreateStartupFailureObservation(
             startupStatus,
@@ -696,11 +705,38 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
             UnityLogPath: unityLogPath,
             ArtifactPath: artifactPath,
             Diagnosis: diagnosis);
+        var persistenceDeadline = ExecutionDeadline.Start(
+            DaemonTimeouts.SupplementalPersistenceTimeout,
+            timeProvider);
+        var executionResult = await compensationOperationOwner.ExecuteAsync(
+                unityProject,
+                DaemonOperationLane.SupplementalPersistence,
+                persistenceDeadline,
+                CancellationToken.None,
+                "Timed out before launch-attempt persistence could begin.",
+                "Timed out while persisting the launch-attempt artifact.",
+                (_, ownedCancellationToken) => WriteLaunchAttemptCoreAsync(
+                    unityProject,
+                    launchAttempt,
+                    pruneAfterWrite,
+                    ownedCancellationToken))
+            .ConfigureAwait(false);
+        return executionResult.IsSuccess
+            ? executionResult.Value!
+            : DaemonLaunchAttemptStoreOperationResult.Failure(executionResult.Error!);
+    }
+
+    private async ValueTask<DaemonLaunchAttemptStoreOperationResult> WriteLaunchAttemptCoreAsync (
+        ResolvedUnityProjectContext unityProject,
+        DaemonLaunchAttempt launchAttempt,
+        bool pruneAfterWrite,
+        CancellationToken cancellationToken)
+    {
         var writeResult = await launchAttemptStore.WriteFailureAsync(
                 unityProject.RepositoryRoot,
                 unityProject.ProjectFingerprint,
                 launchAttempt,
-                CancellationToken.None)
+                cancellationToken)
             .ConfigureAwait(false);
         if (!writeResult.IsSuccess)
         {
@@ -716,8 +752,82 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                 unityProject.RepositoryRoot,
                 unityProject.ProjectFingerprint,
                 keepCount: 20,
-                CancellationToken.None)
+                cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    private async ValueTask<DaemonDiagnosisStoreOperationResult> WriteDiagnosisAsync (
+        ResolvedUnityProjectContext unityProject,
+        DaemonDiagnosis diagnosis)
+    {
+        var persistenceDeadline = ExecutionDeadline.Start(
+            DaemonTimeouts.SupplementalPersistenceTimeout,
+            timeProvider);
+        var executionResult = await compensationOperationOwner.ExecuteAsync(
+                unityProject,
+                DaemonOperationLane.SupplementalPersistence,
+                persistenceDeadline,
+                CancellationToken.None,
+                "Timed out before daemon diagnosis persistence could begin.",
+                "Timed out while persisting daemon diagnosis.",
+                (_, ownedCancellationToken) => daemonDiagnosisStore.WriteAsync(
+                    unityProject.RepositoryRoot,
+                    unityProject.ProjectFingerprint,
+                    diagnosis,
+                    ownedCancellationToken))
+            .ConfigureAwait(false);
+        return executionResult.IsSuccess
+            ? executionResult.Value!
+            : DaemonDiagnosisStoreOperationResult.Failure(executionResult.Error!);
+    }
+
+    private async ValueTask<DaemonSessionStoreOperationResult> RunLaunchCompensationAsync (
+        ResolvedUnityProjectContext unityProject,
+        DaemonSession? expectedSession,
+        DaemonProcessTerminationTarget? target,
+        CancellationToken cancellationToken)
+    {
+        var compensationDeadline = ExecutionDeadline.Start(
+            DaemonTimeouts.LaunchCompensationTimeout,
+            timeProvider);
+        var executionResult = await compensationOperationOwner.ExecuteAsync(
+                unityProject,
+                DaemonOperationLane.LifecycleCompensation,
+                compensationDeadline,
+                cancellationToken,
+                "Timed out waiting for prior daemon compensation to quiesce.",
+                "Timed out before failed daemon launch compensation could complete.",
+                (remainingTimeout, ownedCancellationToken) =>
+                    daemonLaunchCompensationService.CleanupFailedLaunchAsync(
+                        unityProject,
+                        expectedSession,
+                        target,
+                        remainingTimeout,
+                        ownedCancellationToken))
+            .ConfigureAwait(false);
+        return executionResult.IsSuccess
+            ? executionResult.Value!
+            : DaemonSessionStoreOperationResult.Failure(executionResult.Error!);
+    }
+
+    private async ValueTask RunLaunchCompensationBestEffortAsync (
+        ResolvedUnityProjectContext unityProject,
+        DaemonSession? expectedSession,
+        DaemonProcessTerminationTarget? target)
+    {
+        try
+        {
+            _ = await RunLaunchCompensationAsync(
+                    unityProject,
+                    expectedSession,
+                    target,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            // The failure that entered this compensation boundary remains the primary exception.
+        }
     }
 
     private static DaemonProcessTerminationTarget? CreateTerminationTarget (
@@ -781,7 +891,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
         int? processId,
         DateTimeOffset? processStartedAtUtc,
-        DateTimeOffset sessionIssuedAtUtc,
+        DaemonSession expectedSession,
         string launchAttemptId,
         DateTimeOffset launchStartedAtUtc,
         string? unityLogPath)
@@ -795,27 +905,29 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
             UpdatedAtUtc: updatedAtUtc,
             ProcessId: processId,
             EditorInstancePath: null,
-            SessionIssuedAtUtc: sessionIssuedAtUtc,
+            SessionIssuedAtUtc: expectedSession.IssuedAtUtc,
             ProcessStartedAtUtc: processStartedAtUtc,
             UnityLogPath: unityLogPath,
             StartupPhase: classification.StartupPhase,
             ActionRequired: classification.ActionRequired,
             PrimaryDiagnostic: classification.PrimaryDiagnostic);
-        var diagnosisWriteResult = await daemonDiagnosisStore.WriteAsync(
-                unityProject.RepositoryRoot,
-                unityProject.ProjectFingerprint,
-                diagnosis,
-                CancellationToken.None)
-            .ConfigureAwait(false);
         var policyResolution = DaemonStartupBlockedProcessPolicyResolver.Resolve(
             onStartupBlocked,
             ContractLiteralCodec.ToValue(DaemonEditorMode.Batchmode),
             ContractLiteralCodec.ToValue(DaemonSessionOwnerKind.Cli),
             canShutdownProcess: true,
             processId);
-        var initialProcessAction = policyResolution.ShouldTerminateProcess
-            ? ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Unknown)
-            : policyResolution.ProcessActionWhenNotTerminated;
+        // Mandatory process compensation starts before any supplemental persistence. A blocked
+        // diagnosis or launch-attempt store must never leave the launched process running.
+        var policyResult = await ApplyBatchmodeStartupBlockedProcessPolicyAsync(
+                unityProject,
+                policyResolution,
+                expectedSession,
+                processId,
+                processStartedAtUtc,
+                CancellationToken.None)
+            .ConfigureAwait(false);
+        var diagnosisWriteResult = await WriteDiagnosisAsync(unityProject, diagnosis).ConfigureAwait(false);
         var launchAttemptWriteResult = await WriteLaunchAttemptAsync(
                 unityProject,
                 launchAttemptId,
@@ -824,45 +936,13 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                 ContractLiteralCodec.ToValue(DaemonStartupStatus.Blocked),
                 classification.StartupBlockingReason,
                 classification.RetryDisposition,
-                initialProcessAction,
+                policyResult.ProcessAction,
                 ContractLiteralCodec.ToValue(DaemonEditorMode.Batchmode),
                 processId,
                 processStartedAtUtc,
                 unityLogPath,
-                diagnosis,
-                pruneAfterWrite: !policyResolution.ShouldTerminateProcess)
+                diagnosis)
             .ConfigureAwait(false);
-        // NOTE: Classified batchmode blockers are hard blockers. Persistence failures are reported as secondary
-        // errors, but they do not disable termination after both persistence operations have been attempted.
-        var policyResult = await ApplyBatchmodeStartupBlockedProcessPolicyAsync(
-                unityProject,
-                policyResolution,
-                processId,
-                processStartedAtUtc,
-                CancellationToken.None)
-            .ConfigureAwait(false);
-        if (policyResolution.ShouldTerminateProcess)
-        {
-            var finalLaunchAttemptWriteResult = await WriteLaunchAttemptAsync(
-                    unityProject,
-                    launchAttemptId,
-                    launchStartedAtUtc,
-                    updatedAtUtc,
-                    ContractLiteralCodec.ToValue(DaemonStartupStatus.Blocked),
-                    classification.StartupBlockingReason,
-                    classification.RetryDisposition,
-                    policyResult.ProcessAction,
-                    ContractLiteralCodec.ToValue(DaemonEditorMode.Batchmode),
-                    processId,
-                    processStartedAtUtc,
-                    unityLogPath,
-                    diagnosis)
-                .ConfigureAwait(false);
-            if (launchAttemptWriteResult.IsSuccess)
-            {
-                launchAttemptWriteResult = finalLaunchAttemptWriteResult;
-            }
-        }
 
         var startup = CreateStartupFailureObservation(
             ContractLiteralCodec.ToValue(DaemonStartupStatus.Blocked),
@@ -942,6 +1022,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
     private async ValueTask<StartupBlockedProcessPolicyResult> ApplyBatchmodeStartupBlockedProcessPolicyAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonStartupBlockedProcessPolicyResolution policyResolution,
+        DaemonSession expectedSession,
         int? processId,
         DateTimeOffset? processStartedAtUtc,
         CancellationToken cancellationToken)
@@ -955,10 +1036,10 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                 ProcessAction: policyResolution.ProcessActionWhenNotTerminated);
         }
 
-        var cleanupResult = await daemonLaunchCompensationService.CleanupFailedLaunchAsync(
+        var cleanupResult = await RunLaunchCompensationAsync(
                 unityProject,
+                expectedSession,
                 CreateTerminationTarget(processId, processStartedAtUtc),
-                DaemonTimeouts.LaunchCompensationTimeout,
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -991,6 +1072,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
     {
         return await DaemonGuiEndpointNotRegisteredFailureFactory.CreateFailureAsync(
                 unityProject,
+                compensationOperationOwner,
                 daemonDiagnosisStore,
                 timeProvider,
                 "GUI Editor",
@@ -998,7 +1080,8 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                 processId,
                 waitError,
                 processStartedAtUtc,
-                unityLogPath)
+                unityLogPath,
+                CancellationToken.None)
             .ConfigureAwait(false);
     }
 
@@ -1012,13 +1095,6 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
         ExecutionError waitError)
     {
-        var startResult = await CreateGuiEndpointNotRegisteredFailureAsync(
-                unityProject,
-                processId,
-                processStartedAtUtc,
-                unityLogPath,
-                waitError)
-            .ConfigureAwait(false);
         var policyResolution = DaemonStartupBlockedProcessPolicyResolver.Resolve(
             onStartupBlocked,
             ContractLiteralCodec.ToValue(DaemonEditorMode.Gui),
@@ -1026,13 +1102,20 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
             canShutdownProcess: true,
             processId);
         var compensationResult = policyResolution.ShouldTerminateProcess
-            ? await daemonLaunchCompensationService.CleanupFailedLaunchAsync(
+            ? await RunLaunchCompensationAsync(
                     unityProject,
-                    CreateTerminationTarget(processId, processStartedAtUtc),
-                    DaemonTimeouts.LaunchCompensationTimeout,
-                    CancellationToken.None)
+                    expectedSession: null,
+                    target: CreateTerminationTarget(processId, processStartedAtUtc),
+                    cancellationToken: CancellationToken.None)
                 .ConfigureAwait(false)
             : null;
+        var startResult = await CreateGuiEndpointNotRegisteredFailureAsync(
+                unityProject,
+                processId,
+                processStartedAtUtc,
+                unityLogPath,
+                waitError)
+            .ConfigureAwait(false);
         var processAction = compensationResult is null
             ? policyResolution.ProcessActionWhenNotTerminated
             : ResolveCompensatedProcessAction(processId, compensationResult);
@@ -1102,11 +1185,11 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         DateTimeOffset launchStartedAtUtc,
         ExecutionError startupError)
     {
-        var compensationResult = await daemonLaunchCompensationService.CleanupFailedLaunchAsync(
+        var compensationResult = await RunLaunchCompensationAsync(
                 unityProject,
-                CreateTerminationTarget(processId, processStartedAtUtc),
-                DaemonTimeouts.LaunchCompensationTimeout,
-                CancellationToken.None)
+                expectedSession: null,
+                target: CreateTerminationTarget(processId, processStartedAtUtc),
+                cancellationToken: CancellationToken.None)
             .ConfigureAwait(false);
         var processAction = ResolveCompensatedProcessAction(processId, compensationResult);
         var startResult = await CreateFailureWithLaunchAttemptAsync(
@@ -1166,18 +1249,13 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
             StartupPhase: blocker.StartupPhase,
             ActionRequired: blocker.ActionRequired,
             PrimaryDiagnostic: blocker.PrimaryDiagnostic);
-        var diagnosisWriteResult = await daemonDiagnosisStore.WriteAsync(
-                unityProject.RepositoryRoot,
-                unityProject.ProjectFingerprint,
-                diagnosis,
-                CancellationToken.None)
-            .ConfigureAwait(false);
         var processPolicyResult = await ApplyGuiStartupBlockedProcessPolicyAsync(
                 unityProject,
                 blocker,
                 onStartupBlocked,
                 CancellationToken.None)
             .ConfigureAwait(false);
+        var diagnosisWriteResult = await WriteDiagnosisAsync(unityProject, diagnosis).ConfigureAwait(false);
         var startup = CreateGuiStartupBlockedObservation(
             blocker,
             launchAttemptId,
@@ -1251,11 +1329,11 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
 
         if (ContractLiteralCodec.Matches(blocker.StartupBlockingReason, DaemonStartupBlockingReason.ProcessExit))
         {
-            var cleanupResult = await daemonLaunchCompensationService.CleanupFailedLaunchAsync(
+            var cleanupResult = await RunLaunchCompensationAsync(
                     unityProject,
+                    expectedSession: null,
                     target: null,
-                    DaemonTimeouts.LaunchCompensationTimeout,
-                    cancellationToken)
+                    cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
             return new StartupBlockedProcessPolicyResult(
                 cleanupResult,
@@ -1276,11 +1354,11 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                 ProcessAction: policyResolution.ProcessActionWhenNotTerminated);
         }
 
-        var terminationResult = await daemonLaunchCompensationService.CleanupFailedLaunchAsync(
+        var terminationResult = await RunLaunchCompensationAsync(
                 unityProject,
-                CreateTerminationTarget(blocker.ProcessId, blocker.ProcessStartedAtUtc),
-                DaemonTimeouts.LaunchCompensationTimeout,
-                cancellationToken)
+                expectedSession: null,
+                target: CreateTerminationTarget(blocker.ProcessId, blocker.ProcessStartedAtUtc),
+                cancellationToken: cancellationToken)
             .ConfigureAwait(false);
 
         return new StartupBlockedProcessPolicyResult(

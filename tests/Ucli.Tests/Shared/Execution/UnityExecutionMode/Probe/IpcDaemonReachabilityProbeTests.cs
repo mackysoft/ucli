@@ -1,9 +1,13 @@
 using System.Net.Sockets;
 using MackySoft.Tests;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
+using MackySoft.Ucli.UnityIntegration.Ipc.Recovery;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.Tests.Execution.Mode;
@@ -57,7 +61,10 @@ public sealed class IpcDaemonReachabilityProbeTests
 
         using var scope = TestDirectories.CreateTempScope("mode-probe", "unix-socket-missing");
         var daemonPingClient = new UnexpectedDaemonPingClient("Missing Unix socket must return not running before ping.");
-        var probe = new IpcDaemonReachabilityProbe(daemonPingClient);
+        var probe = new IpcDaemonReachabilityProbe(
+            daemonPingClient,
+            recoveryWaiter: null,
+            TimeProvider.System);
 
         var result = await probe.ProbeAsync(
             ResolvedUnityProjectContextTestFactory.Create(
@@ -78,7 +85,10 @@ public sealed class IpcDaemonReachabilityProbeTests
     {
         using var scope = TestDirectories.CreateTempScope("mode-probe", "ping-success");
         var daemonPingClient = new RecordingDaemonPingClient(static (_, _, _, _) => ValueTask.CompletedTask);
-        var probe = new IpcDaemonReachabilityProbe(daemonPingClient);
+        var probe = new IpcDaemonReachabilityProbe(
+            daemonPingClient,
+            recoveryWaiter: null,
+            TimeProvider.System);
 
         var context = CreateReadyContext(scope);
         var result = await probe.ProbeAsync(context, DefaultProbeTimeout, CancellationToken.None);
@@ -101,7 +111,10 @@ public sealed class IpcDaemonReachabilityProbeTests
             using var scope = TestDirectories.CreateTempScope("mode-probe", exceptionCase.ScopeName);
             var timeProvider = new ManualTimeProvider();
             var daemonPingClient = new RecordingDaemonPingClient((_, _, _, _) => throw exceptionCase.CreateException());
-            var probe = new IpcDaemonReachabilityProbe(daemonPingClient, timeProvider: timeProvider);
+            var probe = new IpcDaemonReachabilityProbe(
+                daemonPingClient,
+                recoveryWaiter: null,
+                timeProvider);
 
             var resultTask = probe.ProbeAsync(CreateReadyContext(scope), TimeoutClassificationProbeTimeout, CancellationToken.None).AsTask();
             await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
@@ -139,7 +152,10 @@ public sealed class IpcDaemonReachabilityProbeTests
 
                 return ValueTask.CompletedTask;
             });
-            var probe = new IpcDaemonReachabilityProbe(daemonPingClient, timeProvider: timeProvider);
+            var probe = new IpcDaemonReachabilityProbe(
+                daemonPingClient,
+                recoveryWaiter: null,
+                timeProvider);
 
             var resultTask = probe.ProbeAsync(CreateReadyContext(scope), DefaultProbeTimeout, CancellationToken.None).AsTask();
             await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
@@ -166,7 +182,10 @@ public sealed class IpcDaemonReachabilityProbeTests
         {
             using var scope = TestDirectories.CreateTempScope("mode-probe", exceptionCase.ScopeName);
             var daemonPingClient = new RecordingDaemonPingClient((_, _, _, _) => throw exceptionCase.CreateException());
-            var probe = new IpcDaemonReachabilityProbe(daemonPingClient);
+            var probe = new IpcDaemonReachabilityProbe(
+                daemonPingClient,
+                recoveryWaiter: null,
+                TimeProvider.System);
 
             var result = await probe.ProbeAsync(CreateReadyContext(scope), DefaultProbeTimeout, CancellationToken.None);
 
@@ -174,6 +193,76 @@ public sealed class IpcDaemonReachabilityProbeTests
             Assert.False(result.HasError);
             Assert.Null(result.Error);
             DaemonPingClientAssert.PingedAtLeastOnce(daemonPingClient);
+        }
+    }
+
+    [Theory]
+    [Trait("Size", "Medium")]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Probe_WhenRecoveryReadConsumesDeadline_ReturnsTimeoutInsteadOfNotRunning (bool endpointMissing)
+    {
+        if (endpointMissing && OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        using var scope = TestDirectories.CreateTempScope("mode-probe", endpointMissing ? "missing-recovery-timeout" : "ping-recovery-timeout");
+        var timeProvider = new ManualTimeProvider();
+        var readStartedSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var readReleaseSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var sessionStore = new RecordingDaemonSessionStore
+        {
+            ReadAsyncHandler = async (_, _, _) =>
+            {
+                readStartedSource.TrySetResult(true);
+                await readReleaseSource.Task;
+                return DaemonSessionReadResult.Success(null);
+            },
+        };
+        var recoveryWaiter = new UnityDaemonRecoveryWaiter(
+            sessionStore,
+            new RecordingDaemonLifecycleStore
+            {
+                ReadResult = DaemonLifecycleObservationReadResult.Success(null),
+            },
+            new RecordingDaemonProcessIdentityAssessor(DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess));
+        IDaemonPingClient daemonPingClient = endpointMissing
+            ? new UnexpectedDaemonPingClient("A missing endpoint must enter recovery before ping.")
+            : new RecordingDaemonPingClient((_, _, _, _) =>
+                throw new SocketException((int)SocketError.ConnectionRefused));
+        var probe = new IpcDaemonReachabilityProbe(
+            daemonPingClient,
+            recoveryWaiter,
+            timeProvider);
+        var context = endpointMissing
+            ? ResolvedUnityProjectContextTestFactory.Create(
+                unityProjectRoot: scope.FullPath,
+                repositoryRoot: scope.FullPath,
+                projectFingerprint: "fingerprint")
+            : CreateReadyContext(scope);
+        var timeout = TimeSpan.FromSeconds(5);
+        var probeTask = probe.ProbeAsync(context, timeout, CancellationToken.None).AsTask();
+
+        try
+        {
+            await readStartedSource.Task.WaitAsync(TimeSpan.FromSeconds(1));
+            await timeProvider
+                .WaitForTimerDueWithinAsync(timeout)
+                .WaitAsync(TimeSpan.FromSeconds(1));
+
+            timeProvider.Advance(timeout);
+
+            var completedTask = await Task.WhenAny(probeTask, Task.Delay(TimeSpan.FromSeconds(1)));
+            Assert.Same(probeTask, completedTask);
+            var result = await probeTask;
+            Assert.False(result.IsRunning);
+            Assert.True(result.HasError);
+            Assert.Equal(ExecutionErrorKind.Timeout, Assert.IsType<ExecutionError>(result.Error).Kind);
+        }
+        finally
+        {
+            readReleaseSource.TrySetResult(true);
         }
     }
 
@@ -185,7 +274,10 @@ public sealed class IpcDaemonReachabilityProbeTests
         {
             using var scope = TestDirectories.CreateTempScope("mode-probe", exceptionCase.ScopeName);
             var daemonPingClient = new RecordingDaemonPingClient((_, _, _, _) => throw exceptionCase.CreateException());
-            var probe = new IpcDaemonReachabilityProbe(daemonPingClient);
+            var probe = new IpcDaemonReachabilityProbe(
+                daemonPingClient,
+                recoveryWaiter: null,
+                TimeProvider.System);
 
             var result = await probe.ProbeAsync(CreateReadyContext(scope), DefaultProbeTimeout, CancellationToken.None);
 
@@ -203,7 +295,10 @@ public sealed class IpcDaemonReachabilityProbeTests
     public async Task Probe_WhenCanceled_ThrowsOperationCanceledException ()
     {
         var daemonPingClient = new UnexpectedDaemonPingClient("Canceled probe must stop before ping.");
-        var probe = new IpcDaemonReachabilityProbe(daemonPingClient);
+        var probe = new IpcDaemonReachabilityProbe(
+            daemonPingClient,
+            recoveryWaiter: null,
+            TimeProvider.System);
         using var cancellationTokenSource = new CancellationTokenSource();
         cancellationTokenSource.Cancel();
         var projectRoot = Path.GetFullPath(".");
@@ -234,7 +329,10 @@ public sealed class IpcDaemonReachabilityProbeTests
             pingStarted.TrySetResult();
             return new ValueTask(Task.Delay(System.Threading.Timeout.Infinite, cancellationToken));
         });
-        var probe = new IpcDaemonReachabilityProbe(daemonPingClient);
+        var probe = new IpcDaemonReachabilityProbe(
+            daemonPingClient,
+            recoveryWaiter: null,
+            TimeProvider.System);
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var probeTask = probe.ProbeAsync(CreateReadyContext(scope), DefaultProbeTimeout, cancellationTokenSource.Token).AsTask();
@@ -253,7 +351,10 @@ public sealed class IpcDaemonReachabilityProbeTests
     {
         using var scope = TestDirectories.CreateTempScope("mode-probe", "nested-project");
         var daemonPingClient = new RecordingDaemonPingClient(static (_, _, _, _) => ValueTask.CompletedTask);
-        var probe = new IpcDaemonReachabilityProbe(daemonPingClient);
+        var probe = new IpcDaemonReachabilityProbe(
+            daemonPingClient,
+            recoveryWaiter: null,
+            TimeProvider.System);
         var repositoryRoot = scope.CreateDirectory("Repo");
         var unityProjectRoot = Path.Combine(repositoryRoot, "UnityProject");
         var context = ResolvedUnityProjectContextTestFactory.Create(
@@ -279,7 +380,10 @@ public sealed class IpcDaemonReachabilityProbeTests
         foreach (int timeoutMilliseconds in NonPositiveTimeoutMilliseconds)
         {
             var daemonPingClient = new UnexpectedDaemonPingClient("Invalid timeout must stop before ping.");
-            var probe = new IpcDaemonReachabilityProbe(daemonPingClient);
+            var probe = new IpcDaemonReachabilityProbe(
+                daemonPingClient,
+                recoveryWaiter: null,
+                TimeProvider.System);
             var timeout = TimeSpan.FromMilliseconds(timeoutMilliseconds);
             var projectRoot = Path.GetFullPath(".");
 

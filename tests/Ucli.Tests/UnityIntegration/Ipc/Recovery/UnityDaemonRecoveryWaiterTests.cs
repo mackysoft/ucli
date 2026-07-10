@@ -18,14 +18,15 @@ public sealed class UnityDaemonRecoveryWaiterTests
         var waiter = CreateWaiter(
             session,
             CreateObservation(session, IpcEditorLifecycleStateCodec.DomainReloading),
-            DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess,
-            timeProvider);
+            DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess);
         var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider);
 
         var delayTask = waiter.DelayIfRecoveringAsync(ResolvedUnityProjectContextTestFactory.Create(), deadline, CancellationToken.None).AsTask();
         Assert.False(delayTask.IsCompleted);
 
-        timeProvider.Advance(TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
+        var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
+        await timeProvider.WaitForTimerDueWithinAsync(retryDelay).WaitAsync(TimeSpan.FromSeconds(1));
+        timeProvider.Advance(retryDelay);
 
         Assert.True(await delayTask);
     }
@@ -38,8 +39,7 @@ public sealed class UnityDaemonRecoveryWaiterTests
         var waiter = CreateWaiter(
             DaemonSessionTestFactory.CreateEditorInstance(),
             observation: null,
-            DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess,
-            timeProvider);
+            DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess);
         var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider);
 
         var result = await waiter.DelayIfRecoveringAsync(ResolvedUnityProjectContextTestFactory.Create(), deadline, CancellationToken.None);
@@ -60,14 +60,15 @@ public sealed class UnityDaemonRecoveryWaiterTests
         var waiter = CreateWaiter(
             session,
             observation,
-            DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess,
-            timeProvider);
+            DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess);
         var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider);
 
         var delayTask = waiter.DelayIfRecoveringAsync(ResolvedUnityProjectContextTestFactory.Create(), deadline, CancellationToken.None).AsTask();
         Assert.False(delayTask.IsCompleted);
 
-        timeProvider.Advance(TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
+        var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
+        await timeProvider.WaitForTimerDueWithinAsync(retryDelay).WaitAsync(TimeSpan.FromSeconds(1));
+        timeProvider.Advance(retryDelay);
 
         Assert.True(await delayTask);
     }
@@ -85,8 +86,7 @@ public sealed class UnityDaemonRecoveryWaiterTests
         var waiter = CreateWaiter(
             session,
             observation,
-            DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess,
-            timeProvider);
+            DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess);
         var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider);
 
         var result = await waiter.DelayIfRecoveringAsync(ResolvedUnityProjectContextTestFactory.Create(), deadline, CancellationToken.None);
@@ -107,8 +107,7 @@ public sealed class UnityDaemonRecoveryWaiterTests
         var waiter = CreateWaiter(
             session,
             observation,
-            DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess,
-            timeProvider);
+            DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess);
         var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider);
 
         var result = await waiter.DelayIfRecoveringAsync(ResolvedUnityProjectContextTestFactory.Create(), deadline, CancellationToken.None);
@@ -125,8 +124,7 @@ public sealed class UnityDaemonRecoveryWaiterTests
         var waiter = CreateWaiter(
             session,
             CreateObservation(session, IpcEditorLifecycleStateCodec.Recovering),
-            DaemonProcessIdentityAssessmentStatus.DifferentProcess,
-            timeProvider);
+            DaemonProcessIdentityAssessmentStatus.DifferentProcess);
         var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider);
 
         var result = await waiter.DelayIfRecoveringAsync(ResolvedUnityProjectContextTestFactory.Create(), deadline, CancellationToken.None);
@@ -143,8 +141,7 @@ public sealed class UnityDaemonRecoveryWaiterTests
         var waiter = CreateWaiter(
             session,
             CreateObservation(session, IpcEditorLifecycleStateCodec.DomainReloading),
-            DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess,
-            timeProvider);
+            DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess);
         var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider);
 
         var result = await waiter.DelayIfRecoveringAsync(ResolvedUnityProjectContextTestFactory.Create(), deadline, CancellationToken.None);
@@ -152,11 +149,87 @@ public sealed class UnityDaemonRecoveryWaiterTests
         Assert.False(result);
     }
 
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task DelayIfRecoveringAsync_WhenStoreReadDoesNotQuiesce_ReturnsFalseAtDeadline (
+        bool blockLifecycleRead,
+        bool blockCancellationCallback)
+    {
+        var timeProvider = new ManualTimeProvider();
+        var session = DaemonSessionTestFactory.CreateEditorInstance();
+        var sessionStore = new RecordingDaemonSessionStore
+        {
+            ReadResult = DaemonSessionReadResult.Success(session),
+        };
+        var lifecycleStore = new RecordingDaemonLifecycleStore
+        {
+            ReadResult = DaemonLifecycleObservationReadResult.Success(
+                CreateObservation(session, IpcEditorLifecycleStateCodec.DomainReloading)),
+        };
+        IBlockingReadOperation blockingReadOperation;
+        if (blockLifecycleRead)
+        {
+            var lifecycleReadOperation = new BlockingReadOperation<DaemonLifecycleObservationReadResult>(
+                lifecycleStore.ReadResult,
+                blockCancellationCallback);
+            lifecycleStore.ReadAsyncHandler = (_, _, cancellationToken) =>
+                lifecycleReadOperation.ExecuteAsync(cancellationToken);
+            blockingReadOperation = lifecycleReadOperation;
+        }
+        else
+        {
+            var sessionReadOperation = new BlockingReadOperation<DaemonSessionReadResult>(
+                sessionStore.ReadResult,
+                blockCancellationCallback);
+            sessionStore.ReadAsyncHandler = (_, _, cancellationToken) =>
+                sessionReadOperation.ExecuteAsync(cancellationToken);
+            blockingReadOperation = sessionReadOperation;
+        }
+
+        var waiter = new UnityDaemonRecoveryWaiter(
+            sessionStore,
+            lifecycleStore,
+            new RecordingDaemonProcessIdentityAssessor(DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess));
+        var timeout = TimeSpan.FromSeconds(5);
+        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
+        var waitTask = waiter.DelayIfRecoveringAsync(
+                ResolvedUnityProjectContextTestFactory.Create(),
+                deadline,
+                CancellationToken.None)
+            .AsTask();
+
+        try
+        {
+            await blockingReadOperation.Started.WaitAsync(TimeSpan.FromSeconds(1));
+            await timeProvider
+                .WaitForTimerDueWithinAsync(timeout)
+                .WaitAsync(TimeSpan.FromSeconds(1));
+
+            timeProvider.Advance(timeout);
+            if (blockCancellationCallback)
+            {
+                await blockingReadOperation.CancellationCallbackStarted.WaitAsync(TimeSpan.FromSeconds(1));
+            }
+
+            var completedTask = await Task.WhenAny(waitTask, Task.Delay(TimeSpan.FromSeconds(1)));
+            Assert.Same(waitTask, completedTask);
+            Assert.False(await waitTask);
+        }
+        finally
+        {
+            blockingReadOperation.ReleaseCancellationCallback();
+            blockingReadOperation.ReleaseOperation();
+        }
+    }
+
     private static UnityDaemonRecoveryWaiter CreateWaiter (
         DaemonSession session,
         DaemonLifecycleObservation? observation,
-        DaemonProcessIdentityAssessmentStatus processStatus,
-        TimeProvider timeProvider)
+        DaemonProcessIdentityAssessmentStatus processStatus)
     {
         return new UnityDaemonRecoveryWaiter(
             new RecordingDaemonSessionStore
@@ -167,8 +240,7 @@ public sealed class UnityDaemonRecoveryWaiterTests
             {
                 ReadResult = DaemonLifecycleObservationReadResult.Success(observation),
             },
-            new RecordingDaemonProcessIdentityAssessor(processStatus),
-            timeProvider);
+            new RecordingDaemonProcessIdentityAssessor(processStatus));
     }
 
     private static DaemonLifecycleObservation CreateObservation (
@@ -190,6 +262,73 @@ public sealed class UnityDaemonRecoveryWaiterTests
         {
             EditorInstanceId = session.EditorInstanceId,
         };
+    }
+
+    private interface IBlockingReadOperation
+    {
+        Task Started { get; }
+
+        Task CancellationCallbackStarted { get; }
+
+        void ReleaseCancellationCallback ();
+
+        void ReleaseOperation ();
+    }
+
+    private sealed class BlockingReadOperation<T> : IBlockingReadOperation
+    {
+        private readonly T result;
+
+        private readonly bool blockCancellationCallback;
+
+        private readonly TaskCompletionSource<bool> startedSource =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        private readonly TaskCompletionSource<bool> cancellationCallbackStartedSource =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        private readonly TaskCompletionSource<bool> cancellationCallbackReleaseSource =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        private readonly TaskCompletionSource<bool> operationReleaseSource =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public BlockingReadOperation (
+            T result,
+            bool blockCancellationCallback)
+        {
+            this.result = result;
+            this.blockCancellationCallback = blockCancellationCallback;
+        }
+
+        public Task Started => startedSource.Task;
+
+        public Task CancellationCallbackStarted => cancellationCallbackStartedSource.Task;
+
+        public async ValueTask<T> ExecuteAsync (CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            startedSource.TrySetResult(true);
+            using var cancellationRegistration = blockCancellationCallback
+                ? cancellationToken.Register(() =>
+                {
+                    cancellationCallbackStartedSource.TrySetResult(true);
+                    cancellationCallbackReleaseSource.Task.GetAwaiter().GetResult();
+                })
+                : default;
+            await operationReleaseSource.Task;
+            return result;
+        }
+
+        public void ReleaseCancellationCallback ()
+        {
+            cancellationCallbackReleaseSource.TrySetResult(true);
+        }
+
+        public void ReleaseOperation ()
+        {
+            operationReleaseSource.TrySetResult(true);
+        }
     }
 
 }

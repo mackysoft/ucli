@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
@@ -14,20 +16,25 @@ internal sealed class SupervisorStabilityVerifier
 
     private readonly SupervisorDiagnosisWriter diagnosisWriter;
 
+    private readonly DaemonCompensationOperationOwner compensationOperationOwner;
+
     private readonly TimeProvider timeProvider;
 
     /// <summary> Initializes a new instance of the <see cref="SupervisorStabilityVerifier" /> class. </summary>
     /// <param name="daemonPingClient"> The daemon ping-client dependency. </param>
     /// <param name="diagnosisWriter"> The supervisor diagnosis-writer dependency. </param>
+    /// <param name="compensationOperationOwner"> The owner for diagnosis writes that outlive the stability deadline. </param>
     /// <param name="timeProvider"> The time provider used for timeout-budget accounting. </param>
     public SupervisorStabilityVerifier (
         IDaemonPingClient daemonPingClient,
         SupervisorDiagnosisWriter diagnosisWriter,
-        TimeProvider? timeProvider = null)
+        DaemonCompensationOperationOwner compensationOperationOwner,
+        TimeProvider timeProvider)
     {
         this.daemonPingClient = daemonPingClient ?? throw new ArgumentNullException(nameof(daemonPingClient));
         this.diagnosisWriter = diagnosisWriter ?? throw new ArgumentNullException(nameof(diagnosisWriter));
-        this.timeProvider = timeProvider ?? TimeProvider.System;
+        this.compensationOperationOwner = compensationOperationOwner ?? throw new ArgumentNullException(nameof(compensationOperationOwner));
+        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
     /// <summary> Ensures that one started daemon stays reachable for the supervisor stability probe sequence. </summary>
@@ -72,10 +79,10 @@ internal sealed class SupervisorStabilityVerifier
                     cancellationToken,
                     attemptTimeout,
                     timeProvider);
-                await daemonPingClient.PingAsync(
+                await daemonPingClient.PingSessionAsync(
                         unityProject,
+                        session,
                         attemptTimeout,
-                        session.SessionToken,
                         pingCancellationScope.Token)
                     .ConfigureAwait(false);
                 successCount++;
@@ -128,12 +135,10 @@ internal sealed class SupervisorStabilityVerifier
         ArgumentNullException.ThrowIfNull(primaryError);
 
         var effectiveError = primaryError;
-        var diagnosisWriteResult = await diagnosisWriter.WriteUnexpectedAsync(
+        var diagnosisWriteResult = await WriteDiagnosisWithinOwnedPhaseAsync(
                 unityProject,
                 session,
-                DaemonDiagnosisReasonValues.StartupUnstable,
-                effectiveError.Message,
-                CancellationToken.None)
+                effectiveError.Message)
             .ConfigureAwait(false);
         if (!diagnosisWriteResult.IsSuccess)
         {
@@ -152,25 +157,41 @@ internal sealed class SupervisorStabilityVerifier
     {
         const string Message = "Unity daemon stability verification exceeded the remaining timeout.";
 
-        var timeoutError = ExecutionError.Timeout(Message);
-        var diagnosisWriteResult = await diagnosisWriter.WriteUnexpectedAsync(
+        // NOTE:
+        // The primary timeout is final. Only the separately bounded diagnosis phase runs before the coordinator
+        // receives it and schedules compensation stop.
+        return await FailStabilityCheckAsync(
                 unityProject,
                 session,
-                DaemonDiagnosisReasonValues.StartupUnstable,
-                Message,
-                CancellationToken.None)
+                ExecutionError.Timeout(Message))
             .ConfigureAwait(false);
-        if (!diagnosisWriteResult.IsSuccess)
-        {
-            timeoutError = CreateAugmentedPrimaryError(
-                timeoutError,
-                diagnosisWriteResult.Error,
-                "DiagnosisError");
-        }
+    }
 
-        // NOTE:
-        // timeout must be reported within the caller budget. compensation stop is scheduled by the coordinator.
-        return SupervisorStabilityVerificationResult.Failure(timeoutError);
+    private async ValueTask<DaemonDiagnosisStoreOperationResult> WriteDiagnosisWithinOwnedPhaseAsync (
+        ResolvedUnityProjectContext unityProject,
+        DaemonSession session,
+        string message)
+    {
+        var diagnosisDeadline = ExecutionDeadline.Start(
+            SupervisorConstants.StabilityDiagnosisWriteTimeout,
+            timeProvider);
+        var executionResult = await compensationOperationOwner.ExecuteAsync(
+                unityProject,
+                DaemonOperationLane.SupplementalPersistence,
+                diagnosisDeadline,
+                CancellationToken.None,
+                "Timed out before the supervisor stability diagnosis write could begin.",
+                "Timed out while writing the supervisor stability diagnosis.",
+                (_, ownedCancellationToken) => diagnosisWriter.WriteUnexpectedAsync(
+                    unityProject,
+                    session,
+                    DaemonDiagnosisReasonValues.StartupUnstable,
+                    message,
+                    ownedCancellationToken))
+            .ConfigureAwait(false);
+        return executionResult.IsSuccess
+            ? executionResult.Value!
+            : DaemonDiagnosisStoreOperationResult.Failure(executionResult.Error!);
     }
 
     private static ExecutionError CreateAugmentedPrimaryError (

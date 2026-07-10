@@ -32,12 +32,20 @@ internal sealed class SupervisorExternalProcessRunner
 
         using var process = Process.Start(startInfo)
             ?? throw new InvalidOperationException($"Process could not be started: {fileName}");
-        var standardOutputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
-        var standardErrorTask = process.StandardError.ReadToEndAsync(cancellationToken);
-        await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
-        var standardOutput = await standardOutputTask.ConfigureAwait(false);
-        var standardError = await standardErrorTask.ConfigureAwait(false);
-        return new SupervisorExternalProcessExecutionResult(process.ExitCode, standardOutput, standardError);
+        try
+        {
+            var standardOutputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
+            var standardErrorTask = process.StandardError.ReadToEndAsync(cancellationToken);
+            await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+            var standardOutput = await standardOutputTask.ConfigureAwait(false);
+            var standardError = await standardErrorTask.ConfigureAwait(false);
+            return new SupervisorExternalProcessExecutionResult(process.ExitCode, standardOutput, standardError);
+        }
+        catch (Exception)
+        {
+            await TerminateBestEffortAsync(process).ConfigureAwait(false);
+            throw;
+        }
     }
 
     /// <summary> Executes one external process and suppresses any bootstrap-recovery failure. </summary>
@@ -91,5 +99,21 @@ internal sealed class SupervisorExternalProcessRunner
         }
 
         return $"ExitCode={result.ExitCode}. stdout={output} stderr={error}";
+    }
+
+    private static async ValueTask TerminateBestEffortAsync (Process process)
+    {
+        try
+        {
+            _ = await ProcessTerminator.TerminateAsync(
+                    process,
+                    ProcessTerminationPolicy.ForceKill,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            // The execution failure or caller cancellation remains the primary failure.
+        }
     }
 }

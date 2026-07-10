@@ -23,7 +23,11 @@ internal static class UnityIpcRequestExecutorTestSupport
     {
         return
         [
-            new UnityDaemonIpcClient(daemonTransportClient, sessionConnectionProvider),
+            new UnityDaemonIpcClient(
+                daemonTransportClient,
+                sessionConnectionProvider,
+                recoveryWaiter: null,
+                timeProvider: TimeProvider.System),
             new UnityOneshotIpcClient(
                 launcher,
                 oneshotTransportClient,
@@ -45,7 +49,7 @@ internal static class UnityIpcRequestExecutorTestSupport
                 modeDecisionService,
                 new UnityIpcPluginVerifier(pluginLocator)),
             new UnityIpcClientSelector(clients),
-            new UnityDaemonReadinessGate(daemonPingInfoClient, timeProvider),
+            new UnityDaemonReadinessGate(daemonPingInfoClient, timeProvider ?? TimeProvider.System),
             timeProvider);
     }
 

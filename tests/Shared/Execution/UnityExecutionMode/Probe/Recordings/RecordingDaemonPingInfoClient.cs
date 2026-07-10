@@ -1,4 +1,5 @@
 using MackySoft.Tests;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Contracts.Ipc;
 
@@ -35,9 +36,39 @@ internal sealed class RecordingDaemonPingInfoClient : IDaemonPingInfoClient
     public ValueTask<IpcPingResponse> PingAndReadAsync (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
-        string? sessionToken = null,
-        bool validateProjectFingerprint = true,
+        bool validateProjectFingerprint,
         CancellationToken cancellationToken = default)
+    {
+        return RecordPingAndRead(
+            unityProject,
+            timeout,
+            session: null,
+            validateProjectFingerprint,
+            cancellationToken);
+    }
+
+    public ValueTask<IpcPingResponse> PingSessionAndReadAsync (
+        ResolvedUnityProjectContext unityProject,
+        DaemonSession session,
+        TimeSpan timeout,
+        bool validateProjectFingerprint,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        return RecordPingAndRead(
+            unityProject,
+            timeout,
+            session,
+            validateProjectFingerprint,
+            cancellationToken);
+    }
+
+    private ValueTask<IpcPingResponse> RecordPingAndRead (
+        ResolvedUnityProjectContext unityProject,
+        TimeSpan timeout,
+        DaemonSession? session,
+        bool validateProjectFingerprint,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
         cancellationToken.ThrowIfCancellationRequested();
@@ -45,7 +76,7 @@ internal sealed class RecordingDaemonPingInfoClient : IDaemonPingInfoClient
         invocations.Add(new Invocation(
             unityProject,
             timeout,
-            sessionToken,
+            session,
             validateProjectFingerprint,
             cancellationToken));
         firstInvocationObserved.TrySetResult(null);
@@ -56,7 +87,7 @@ internal sealed class RecordingDaemonPingInfoClient : IDaemonPingInfoClient
             return PingAndReadHandler(
                 unityProject,
                 timeout,
-                sessionToken,
+                session?.SessionToken,
                 validateProjectFingerprint,
                 cancellationToken);
         }
@@ -78,7 +109,10 @@ internal sealed class RecordingDaemonPingInfoClient : IDaemonPingInfoClient
     internal readonly record struct Invocation (
         ResolvedUnityProjectContext UnityProject,
         TimeSpan Timeout,
-        string? SessionToken,
+        DaemonSession? Session,
         bool ValidateProjectFingerprint,
-        CancellationToken CancellationToken);
+        CancellationToken CancellationToken)
+    {
+        public string? SessionToken => Session?.SessionToken;
+    }
 }

@@ -9,6 +9,8 @@ internal sealed class RecordingUnityEditorInstanceMarkerReader : IUnityEditorIns
 
     public Action? OnRead { get; set; }
 
+    public Func<ResolvedUnityProjectContext, CancellationToken, ValueTask<UnityEditorInstanceMarkerReadResult>>? ReadAsyncHandler { get; set; }
+
     public IReadOnlyList<Invocation> Invocations => invocations;
 
     public ValueTask<UnityEditorInstanceMarkerReadResult> ReadAsync (
@@ -18,6 +20,11 @@ internal sealed class RecordingUnityEditorInstanceMarkerReader : IUnityEditorIns
         cancellationToken.ThrowIfCancellationRequested();
         OnRead?.Invoke();
         invocations.Add(new Invocation(unityProject, cancellationToken));
+        if (ReadAsyncHandler is not null)
+        {
+            return ReadAsyncHandler(unityProject, cancellationToken);
+        }
+
         return ValueTask.FromResult(ReadResult);
     }
 

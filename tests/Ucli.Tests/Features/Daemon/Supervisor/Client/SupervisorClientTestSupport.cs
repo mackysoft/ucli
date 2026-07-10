@@ -7,6 +7,13 @@ namespace MackySoft.Ucli.Tests.Supervisor;
 
 internal static class SupervisorClientTestSupport
 {
+    public const string RequestId = "supervisor-request";
+
+    public static DateTimeOffset CreateDeadline (TimeSpan timeout)
+    {
+        return TimeProvider.System.GetUtcNow().Add(timeout);
+    }
+
     public static SupervisorInstanceManifest CreateManifest (
         int? processId = null,
         string endpointTransportKind = "namedPipe")
@@ -131,7 +138,7 @@ internal static class SupervisorClientTestSupport
         string? message = null)
     {
         var progressPayload = DaemonStartProgressEntryTestFactory.CreateStartupObservation(
-            timeoutMilliseconds: 5000,
+            timeoutMilliseconds: 4000,
             editorMode: "gui",
             onStartupBlocked: onStartupBlocked,
             processId: 42,
@@ -151,7 +158,7 @@ internal static class SupervisorClientTestSupport
         var progressPayload = new DaemonStartLifecycleSnapshotProgressEntry(
             ContractLiteralCodec.ToValue(DaemonStartProgressPayloadKind.LifecycleSnapshot),
             "fingerprint",
-            5000,
+            4000,
             "gui",
             "auto",
             IpcEditorLifecycleStateCodec.Compiling,

@@ -173,7 +173,8 @@ internal static class DaemonLaunchInvocationAssert
         Assert.Null(invocation.Target);
         if (timeout.HasValue)
         {
-            Assert.Equal(timeout.Value, invocation.Timeout);
+            Assert.True(invocation.Timeout > TimeSpan.Zero);
+            Assert.True(invocation.Timeout <= timeout.Value);
         }
 
         return invocation;
@@ -193,7 +194,8 @@ internal static class DaemonLaunchInvocationAssert
         Assert.Equal(processStartedAtUtc, target.ProcessStartedAtUtc);
         if (timeout.HasValue)
         {
-            Assert.Equal(timeout.Value, invocation.Timeout);
+            Assert.True(invocation.Timeout > TimeSpan.Zero);
+            Assert.True(invocation.Timeout <= timeout.Value);
         }
 
         return invocation;

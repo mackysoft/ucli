@@ -13,6 +13,53 @@ public sealed class DaemonSessionStoreTests
 {
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task Write_WhenSessionGenerationLockIsOwned_DoesNotPublishAnotherSession ()
+    {
+        using var scope = TestDirectories.CreateTempScope("daemon-session-store", "write-generation-lock-owned");
+        var store = new DaemonSessionStore(new DaemonSessionJsonSerializer(), new DaemonSessionValidator());
+        var session = DaemonSessionTestFactory.Create(
+            projectFingerprint: "fingerprint-write-generation-lock-owned",
+            sessionToken: "successor-token");
+        var lockPath = UcliStoragePathResolver.ResolveDaemonSessionLockPath(
+            scope.FullPath,
+            session.ProjectFingerprint);
+        using var sessionLock = FileExclusiveLock.Acquire(
+            lockPath,
+            TimeSpan.FromSeconds(1),
+            CancellationToken.None);
+
+        var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);
+
+        Assert.False(writeResult.IsSuccess);
+        Assert.False(File.Exists(UcliStoragePathResolver.ResolveSessionPath(
+            scope.FullPath,
+            session.ProjectFingerprint)));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Delete_WhenSessionGenerationLockIsOwned_DoesNotDeleteCurrentSession ()
+    {
+        using var scope = TestDirectories.CreateTempScope("daemon-session-store", "delete-generation-lock-owned");
+        const string projectFingerprint = "fingerprint-delete-generation-lock-owned";
+        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, projectFingerprint);
+        Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
+        await File.WriteAllTextAsync(sessionPath, "current-session", CancellationToken.None);
+        var lockPath = UcliStoragePathResolver.ResolveDaemonSessionLockPath(scope.FullPath, projectFingerprint);
+        using var sessionLock = FileExclusiveLock.Acquire(
+            lockPath,
+            TimeSpan.FromSeconds(1),
+            CancellationToken.None);
+        var store = new DaemonSessionStore(new DaemonSessionJsonSerializer(), new DaemonSessionValidator());
+
+        var deleteResult = await store.DeleteAsync(scope.FullPath, projectFingerprint, CancellationToken.None);
+
+        Assert.False(deleteResult.IsSuccess);
+        Assert.Equal("current-session", await File.ReadAllTextAsync(sessionPath, CancellationToken.None));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task WriteReadDelete_RoundTripsSessionJson ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "roundtrip");
@@ -45,6 +92,10 @@ public sealed class DaemonSessionStoreTests
         Assert.Equal(session.EndpointAddress, loadedSession.EndpointAddress);
         Assert.Equal(session.ProcessId, loadedSession.ProcessId);
         Assert.Equal(session.ProcessStartedAtUtc, loadedSession.ProcessStartedAtUtc);
+        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, session.ProjectFingerprint);
+        Assert.Equal(
+            DaemonSessionArtifactIdentity.Create(await File.ReadAllTextAsync(sessionPath, CancellationToken.None)),
+            readResult.ArtifactIdentity);
 
         var deleteResult = await store.DeleteAsync(scope.FullPath, session.ProjectFingerprint, CancellationToken.None);
 
@@ -166,6 +217,7 @@ public sealed class DaemonSessionStoreTests
         Assert.False(readResult.IsSuccess);
         Assert.False(readResult.Exists);
         Assert.Equal(DaemonSessionReadFailureKind.InvalidSession, readResult.FailureKind);
+        Assert.Equal(DaemonSessionArtifactIdentity.Create("{"), readResult.ArtifactIdentity);
         var error = Assert.IsType<ExecutionError>(readResult.Error);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
         Assert.Contains("invalid", error.Message, StringComparison.OrdinalIgnoreCase);

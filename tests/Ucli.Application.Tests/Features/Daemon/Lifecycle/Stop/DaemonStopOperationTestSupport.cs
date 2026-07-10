@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 
@@ -18,6 +19,7 @@ internal static class DaemonStopOperationTestSupport
         RecordingDaemonShutdownClient? shutdownClient = null,
         RecordingDaemonProcessTerminationService? processTerminationService = null,
         RecordingDaemonArtifactCleaner? artifactCleaner = null,
+        DaemonCompensationOperationOwner? compensationOperationOwner = null,
         TimeProvider? timeProvider = null)
     {
         return new DaemonStopOperation(
@@ -26,6 +28,7 @@ internal static class DaemonStopOperationTestSupport
             shutdownClient: shutdownClient ?? new RecordingDaemonShutdownClient(),
             processTerminationService: processTerminationService ?? new RecordingDaemonProcessTerminationService(),
             artifactCleaner: artifactCleaner ?? new RecordingDaemonArtifactCleaner(),
-            timeProvider: timeProvider);
+            compensationOperationOwner: compensationOperationOwner ?? new DaemonCompensationOperationOwner(),
+            timeProvider: timeProvider ?? TimeProvider.System);
     }
 }

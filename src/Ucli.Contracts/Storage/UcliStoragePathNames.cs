@@ -117,6 +117,9 @@ public static class UcliStoragePathNames
     /// <summary> Gets the daemon session file name under one fingerprint directory. </summary>
     public const string SessionFileName = "session.json";
 
+    /// <summary> Gets the daemon session-generation lock file name under one fingerprint directory. </summary>
+    public const string DaemonSessionLockFileName = "session.lock";
+
     /// <summary> Gets the daemon diagnosis file name under one fingerprint directory. </summary>
     public const string DaemonDiagnosisFileName = "daemon-diagnosis.json";
 
@@ -125,6 +128,9 @@ public static class UcliStoragePathNames
 
     /// <summary> Gets the GUI supervisor manifest file name under one fingerprint directory. </summary>
     public const string GuiSupervisorManifestFileName = "gui-supervisor.json";
+
+    /// <summary> Gets the GUI supervisor manifest lock file name under one fingerprint directory. </summary>
+    public const string GuiSupervisorManifestLockFileName = "gui-supervisor.lock";
 
     /// <summary> Gets the launch-attempts directory name under one fingerprint directory. </summary>
     public const string LaunchAttemptsDirectoryName = "launch-attempts";
@@ -143,6 +149,9 @@ public static class UcliStoragePathNames
 
     /// <summary> Gets the supervisor manifest file name under <c>.ucli/local/supervisor</c>. </summary>
     public const string SupervisorManifestFileName = "manifest.json";
+
+    /// <summary> Gets the supervisor manifest mutation lock file name under <c>.ucli/local/supervisor</c>. </summary>
+    public const string SupervisorManifestLockFileName = "manifest.lock";
 
     /// <summary> Gets the supervisor bootstrap lock file name under <c>.ucli/local/supervisor</c>. </summary>
     public const string SupervisorBootstrapLockFileName = "bootstrap.lock";

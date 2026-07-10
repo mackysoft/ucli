@@ -1,6 +1,7 @@
 namespace MackySoft.Ucli.Tests.Daemon;
 
 using MackySoft.Tests;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Startup;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -14,13 +15,15 @@ internal static class DaemonStartupReadinessProbeTestSupport
         IDaemonPingInfoClient pingClient,
         IUnityLogReader logReader,
         UnityProjectLockFileProbeResult? lockFileProbeResult = null,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        IUnityProjectLockPreflightService? projectLockPreflightService = null)
     {
         return new DaemonStartupReadinessProbe(
             pingClient,
             logReader,
-            CreateProjectLockPreflightService(lockFileProbeResult),
-            timeProvider);
+            projectLockPreflightService ?? CreateProjectLockPreflightService(lockFileProbeResult),
+            new DaemonCompensationOperationOwner(),
+            timeProvider ?? TimeProvider.System);
     }
 
     public static async Task<DaemonStartupReadinessProbeResult> WaitUntilStartupDeadlineAsync (

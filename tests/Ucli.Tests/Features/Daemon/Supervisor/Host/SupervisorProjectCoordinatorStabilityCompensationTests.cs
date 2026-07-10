@@ -1,4 +1,6 @@
+using System.Reflection;
 using MackySoft.Tests;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
@@ -199,6 +201,88 @@ public sealed class SupervisorProjectCoordinatorStabilityCompensationTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task EnsureRunning_WhenCompensationLogWriterIsOccupied_StartsStopBeforeLogCompletes ()
+    {
+        using var daemonProcess = SupervisorOwnedDaemonProcess.Start();
+        using var scope = CreateUnityProjectScope(nameof(EnsureRunning_WhenCompensationLogWriterIsOccupied_StartsStopBeforeLogCompletes));
+        var unityProject = CreateUnityProject(scope);
+        var startOperation = new RecordingDaemonStartOperation
+        {
+            StartResult = DaemonStartResult.Started(daemonProcess.CreateSession()),
+        };
+        var pingClient = new RecordingDaemonPingClient(static (_, _, _, _) =>
+            ValueTask.FromException(new InvalidOperationException("ping failed")));
+        var stopStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var stopRelease = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var stopOperation = new RecordingDaemonStopOperation
+        {
+            StopHandler = async (_, _, _) =>
+            {
+                stopStarted.TrySetResult();
+                await stopRelease.Task.ConfigureAwait(false);
+                return DaemonStopResult.Stopped();
+            },
+        };
+        var diagnosisStore = new RecordingDaemonDiagnosisStore();
+        var sessionStore = new RecordingDaemonSessionStore();
+        var runtimeLogger = new SupervisorRuntimeLogger();
+        var runtimeLogWriteGate = GetRuntimeLogWriteGate(runtimeLogger);
+        await runtimeLogWriteGate.WaitAsync();
+        var diagnosisWriter = new SupervisorDiagnosisWriter(diagnosisStore);
+        var coordinator = new SupervisorProjectCoordinator(
+            startOperation,
+            stopOperation,
+            pingClient,
+            new DaemonReachabilityClassifier(),
+            new SupervisorStabilityVerifier(
+                pingClient,
+                diagnosisWriter,
+                new DaemonCompensationOperationOwner(),
+                TimeProvider.System),
+            new SupervisorExitHandler(
+                sessionStore,
+                new RecordingDaemonArtifactCleaner(),
+                diagnosisWriter,
+                runtimeLogger),
+            runtimeLogger,
+            TimeProvider.System);
+
+        var stopStartedBeforeLogRelease = false;
+        try
+        {
+            var result = await coordinator.EnsureRunningAsync(
+                unityProject,
+                TimeSpan.FromMilliseconds(500),
+                editorMode: null,
+                onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+                cancellationToken: CancellationToken.None);
+            Assert.False(result.IsSuccess);
+
+            await stopStarted.Task.WaitAsync(TimeSpan.FromMilliseconds(250));
+            stopStartedBeforeLogRelease = true;
+        }
+        finally
+        {
+            runtimeLogWriteGate.Release();
+            try
+            {
+                await TestAwaiter.WaitAsync(
+                    stopStarted.Task,
+                    "Daemon compensation stop after runtime-log release",
+                    SignalWaitTimeout);
+            }
+            finally
+            {
+                stopRelease.TrySetResult();
+                await daemonProcess.TerminateAndAwaitCoordinatorAsync(coordinator);
+            }
+        }
+
+        Assert.True(stopStartedBeforeLogRelease);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task StopProject_WhenBackgroundCompensationIsStillRunning_RespectsCallerTimeout ()
     {
         using var daemonProcess = SupervisorOwnedDaemonProcess.Start();
@@ -266,5 +350,14 @@ public sealed class SupervisorProjectCoordinatorStabilityCompensationTests
         }
 
         Assert.False(coordinator.HasActiveProjectWork);
+    }
+
+    private static SemaphoreSlim GetRuntimeLogWriteGate (SupervisorRuntimeLogger runtimeLogger)
+    {
+        var writeGateField = typeof(SupervisorRuntimeLogger).GetField(
+            "writeGate",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(writeGateField);
+        return Assert.IsType<SemaphoreSlim>(writeGateField.GetValue(runtimeLogger));
     }
 }

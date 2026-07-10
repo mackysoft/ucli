@@ -1,3 +1,4 @@
+using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Project;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
@@ -7,6 +8,118 @@ namespace MackySoft.Ucli.Tests.Supervisor;
 
 public sealed class SupervisorRequestDispatcherEnsureRunningTests
 {
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task HandleConnection_WhenRequestDeliveryIsDelayed_UsesDeadlineRemainingAtReceipt ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var startOperation = new RecordingDaemonStartOperation();
+        var dispatcher = CreateDispatcher(startOperation, timeProvider);
+        var runtimeContext = CreateRuntimeContext();
+        var unityProjectRoot = Path.Combine(runtimeContext.StorageRoot, "UnityProject");
+        var projectFingerprint = UnityProjectFingerprintCalculator.Create(runtimeContext.StorageRoot, unityProjectRoot);
+        var deadlineUtc = timeProvider.GetUtcNow().AddSeconds(1);
+        timeProvider.Advance(TimeSpan.FromMilliseconds(400));
+
+        var response = await SendRequestAsync(
+            dispatcher,
+            runtimeContext,
+            new IpcRequest(
+                ProtocolVersion: IpcProtocol.CurrentVersion,
+                RequestId: "request-delayed-delivery",
+                SessionToken: runtimeContext.Manifest.SessionToken,
+                Method: SupervisorIpcContracts.EnsureRunningMethod,
+                Payload: IpcPayloadCodec.SerializeToElement(new
+                {
+                    UnityProjectRoot = unityProjectRoot,
+                    ProjectFingerprint = projectFingerprint,
+                    DeadlineUtc = deadlineUtc,
+                    AttemptTimeoutMilliseconds = 800,
+                    EditorMode = (string?)null,
+                    OnStartupBlocked = "auto",
+                }),
+                responseMode: IpcResponseMode.Single));
+
+        Assert.Equal(IpcProtocol.StatusOk, response.Status);
+        var invocation = Assert.Single(startOperation.Invocations);
+        Assert.Equal(TimeSpan.FromMilliseconds(600), invocation.Timeout);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task HandleConnection_WhenUtcClockMovesBackward_CapsExecutionWithAttemptTimeout ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var startOperation = new RecordingDaemonStartOperation();
+        var dispatcher = CreateDispatcher(startOperation, timeProvider);
+        var runtimeContext = CreateRuntimeContext();
+        var unityProjectRoot = Path.Combine(runtimeContext.StorageRoot, "UnityProject");
+        var projectFingerprint = UnityProjectFingerprintCalculator.Create(
+            runtimeContext.StorageRoot,
+            unityProjectRoot);
+        var deadlineUtc = timeProvider.GetUtcNow().AddSeconds(1);
+        timeProvider.ShiftUtc(TimeSpan.FromDays(-1));
+
+        var response = await SendRequestAsync(
+            dispatcher,
+            runtimeContext,
+            new IpcRequest(
+                ProtocolVersion: IpcProtocol.CurrentVersion,
+                RequestId: "ensure-request-clock-rollback",
+                SessionToken: runtimeContext.Manifest.SessionToken,
+                Method: SupervisorIpcContracts.EnsureRunningMethod,
+                Payload: IpcPayloadCodec.SerializeToElement(
+                    new SupervisorIpcContracts.EnsureRunningRequest(
+                        UnityProjectRoot: unityProjectRoot,
+                        ProjectFingerprint: projectFingerprint,
+                        DeadlineUtc: deadlineUtc,
+                        AttemptTimeoutMilliseconds: 700,
+                        EditorMode: null,
+                        OnStartupBlocked: "auto")),
+                responseMode: IpcResponseMode.Single));
+
+        Assert.Equal(IpcProtocol.StatusOk, response.Status);
+        Assert.Equal(TimeSpan.FromMilliseconds(700), Assert.Single(startOperation.Invocations).Timeout);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task HandleConnection_WhenUtcClockMovesPastDeadline_ReturnsStructuredTimeoutWithoutDispatch ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var startOperation = new RecordingDaemonStartOperation();
+        var dispatcher = CreateDispatcher(startOperation, timeProvider);
+        var runtimeContext = CreateRuntimeContext();
+        var unityProjectRoot = Path.Combine(runtimeContext.StorageRoot, "UnityProject");
+        var projectFingerprint = UnityProjectFingerprintCalculator.Create(
+            runtimeContext.StorageRoot,
+            unityProjectRoot);
+        var deadlineUtc = timeProvider.GetUtcNow().AddSeconds(1);
+        timeProvider.ShiftUtc(TimeSpan.FromDays(1));
+
+        var response = await SendRequestAsync(
+            dispatcher,
+            runtimeContext,
+            new IpcRequest(
+                ProtocolVersion: IpcProtocol.CurrentVersion,
+                RequestId: "ensure-request-clock-forward",
+                SessionToken: runtimeContext.Manifest.SessionToken,
+                Method: SupervisorIpcContracts.EnsureRunningMethod,
+                Payload: IpcPayloadCodec.SerializeToElement(
+                    new SupervisorIpcContracts.EnsureRunningRequest(
+                        UnityProjectRoot: unityProjectRoot,
+                        ProjectFingerprint: projectFingerprint,
+                        DeadlineUtc: deadlineUtc,
+                        AttemptTimeoutMilliseconds: 700,
+                        EditorMode: null,
+                        OnStartupBlocked: "auto")),
+                responseMode: IpcResponseMode.Single));
+
+        Assert.Equal(IpcProtocol.StatusError, response.Status);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, Assert.Single(response.Errors).Code);
+        Assert.Empty(startOperation.Invocations);
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task HandleConnection_WhenEditorModeIsSpecified_PassesNormalizedValueToStartOperation ()
@@ -44,7 +157,8 @@ public sealed class SupervisorRequestDispatcherEnsureRunningTests
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: projectFingerprint,
-                        TimeoutMilliseconds: 1000,
+                        DeadlineUtc: CreateEnsureRunningDeadline(1000),
+                        AttemptTimeoutMilliseconds: 1000,
                         EditorMode: " gui ",
                         OnStartupBlocked: " terminate ")),
                 responseMode: IpcResponseMode.Single));
@@ -104,7 +218,8 @@ public sealed class SupervisorRequestDispatcherEnsureRunningTests
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: projectFingerprint,
-                        TimeoutMilliseconds: 1000,
+                        DeadlineUtc: CreateEnsureRunningDeadline(1000),
+                        AttemptTimeoutMilliseconds: 1000,
                         EditorMode: "gui",
                         OnStartupBlocked: "auto")),
                 responseMode: IpcResponseMode.Single));

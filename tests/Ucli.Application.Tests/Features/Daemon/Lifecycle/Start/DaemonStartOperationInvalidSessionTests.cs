@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using static MackySoft.Ucli.Application.Tests.Daemon.DaemonStartOperationTestSupport;
@@ -15,7 +16,8 @@ public sealed class DaemonStartOperationInvalidSessionTests
         var readResult = DaemonSessionReadResult.Failure(
             ExecutionError.InvalidArgument("invalid session"),
             DaemonSessionReadFailureKind.InvalidSession,
-            DaemonSessionTestFactory.Create(processId: 1111, projectFingerprint: context.ProjectFingerprint));
+            DaemonSessionTestFactory.Create(processId: 1111, projectFingerprint: context.ProjectFingerprint),
+            artifactIdentity: null);
         var sessionStore = new RecordingDaemonSessionStore(readResult);
         var cleanupService = new RecordingDaemonSessionCleanupService
         {
@@ -57,7 +59,8 @@ public sealed class DaemonStartOperationInvalidSessionTests
         var readResult = DaemonSessionReadResult.Failure(
             ExecutionError.InvalidArgument("invalid session"),
             DaemonSessionReadFailureKind.InvalidSession,
-            DaemonSessionTestFactory.Create(processId: 1111, projectFingerprint: context.ProjectFingerprint));
+            DaemonSessionTestFactory.Create(processId: 1111, projectFingerprint: context.ProjectFingerprint),
+            artifactIdentity: null);
         var expectedError = ExecutionError.InternalError("cleanup failed");
         var sessionStore = new RecordingDaemonSessionStore(readResult);
         var cleanupService = new RecordingDaemonSessionCleanupService
@@ -104,7 +107,8 @@ public sealed class DaemonStartOperationInvalidSessionTests
         var readResult = DaemonSessionReadResult.Failure(
             ExecutionError.InvalidArgument("invalid session"),
             DaemonSessionReadFailureKind.InvalidSession,
-            legacySession);
+            legacySession,
+            artifactIdentity: null);
         var sessionStore = new RecordingDaemonSessionStore(readResult);
         var processTerminationService = new RecordingDaemonProcessTerminationService
         {
@@ -114,7 +118,11 @@ public sealed class DaemonStartOperationInvalidSessionTests
         {
             NextResult = DaemonArtifactCleanupResult.Success(),
         };
-        var cleanupService = new DaemonSessionCleanupService(processTerminationService, artifactCleaner);
+        var cleanupService = new DaemonSessionCleanupService(
+            processTerminationService,
+            artifactCleaner,
+            new DaemonCompensationOperationOwner(),
+            TimeProvider.System);
         var launchService = new RecordingDaemonLaunchService
         {
             NextResult = DaemonStartResult.Started(DaemonSessionTestFactory.Create(processId: 3333, projectFingerprint: context.ProjectFingerprint)),
@@ -147,7 +155,11 @@ public sealed class DaemonStartOperationInvalidSessionTests
     public async Task Start_WhenSessionReadReturnsNonInvalidSessionError_ReturnsFailureWithoutCleanupOrLaunch ()
     {
         var expectedError = ExecutionError.InvalidArgument("path invalid");
-        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Failure(expectedError, DaemonSessionReadFailureKind.PathInvalid));
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Failure(
+            expectedError,
+            DaemonSessionReadFailureKind.PathInvalid,
+            session: null,
+            artifactIdentity: null));
         var cleanupService = new RecordingDaemonSessionCleanupService();
         var existingSessionGateService = new RecordingDaemonExistingSessionGateService();
         var launchService = new RecordingDaemonLaunchService

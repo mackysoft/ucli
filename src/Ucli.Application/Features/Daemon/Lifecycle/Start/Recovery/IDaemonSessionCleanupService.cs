@@ -8,7 +8,7 @@ internal interface IDaemonSessionCleanupService
     /// <summary> Cleans invalid-session artifacts from daemon-session read results. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="readResult"> The failed daemon-session read result. </param>
-    /// <param name="timeout"> The timeout used for process-termination attempts. </param>
+    /// <param name="timeout"> The timeout shared by process termination and artifact cleanup. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The cleanup operation result. </returns>
     ValueTask<DaemonSessionStoreOperationResult> CleanupInvalidSessionArtifactsAsync (
@@ -20,7 +20,7 @@ internal interface IDaemonSessionCleanupService
     /// <summary> Cleans stale-session artifacts from existing daemon session metadata. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="session"> The existing daemon session metadata. </param>
-    /// <param name="timeout"> The timeout used for process-termination attempts. </param>
+    /// <param name="timeout"> The timeout shared by process termination and artifact cleanup. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The cleanup operation result. </returns>
     ValueTask<DaemonSessionStoreOperationResult> CleanupStaleSessionArtifactsAsync (

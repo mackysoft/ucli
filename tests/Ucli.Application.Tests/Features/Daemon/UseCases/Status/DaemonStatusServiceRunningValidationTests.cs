@@ -19,7 +19,8 @@ public sealed class DaemonStatusServiceRunningValidationTests
                 Status: DaemonStatusKind.Running,
                 Session: null,
                 Diagnosis: null,
-                Error: null));
+                Error: null,
+                PingResponse: CreatePingResponse()));
         var service = CreateService(
             resolver,
             daemonStatusOperation);
@@ -31,5 +32,30 @@ public sealed class DaemonStatusServiceRunningValidationTests
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
         Assert.Equal("Daemon status is running but daemon session is missing.", error.Message);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task GetStatus_WhenRunningPingResponseIsMissing_ReturnsInternalError ()
+    {
+        var context = DaemonCommandExecutionContextTestFactory.Create(timeoutMilliseconds: 2475);
+        var resolver = new RecordingDaemonCommandExecutionContextResolver(
+            DaemonCommandExecutionContextResolutionResult.Success(context));
+        var daemonStatusOperation = new RecordingDaemonStatusOperation(
+            new DaemonStatusResult(
+                Status: DaemonStatusKind.Running,
+                Session: DaemonSessionTestFactory.Create(),
+                Diagnosis: null,
+                Error: null,
+                PingResponse: null));
+        var service = CreateService(resolver, daemonStatusOperation);
+
+        var result = await service.GetStatusAsync(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Null(result.Output);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.Equal("Daemon status is running but daemon ping response is missing.", error.Message);
     }
 }

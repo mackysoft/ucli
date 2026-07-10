@@ -1,6 +1,8 @@
 using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Inventory;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Application.Shared.Git;
@@ -19,7 +21,10 @@ internal static class DaemonListQueryServiceTestSupport
         IDaemonDiagnosisStore daemonDiagnosisStore,
         IDaemonPingInfoClient daemonPingClient,
         IDaemonReachabilityClassifier reachabilityClassifier,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        IDaemonLifecycleStore? daemonLifecycleStore = null,
+        IDaemonProcessIdentityAssessor? processIdentityAssessor = null,
+        IDaemonSessionDiagnosisResolver? daemonSessionDiagnosisResolver = null)
     {
         return CreateService(
             new RecordingGitWorktreeQueryService(GitWorktreeQueryResult.Success(new GitWorktreeQueryOutput(
@@ -34,7 +39,10 @@ internal static class DaemonListQueryServiceTestSupport
             daemonDiagnosisStore,
             daemonPingClient,
             reachabilityClassifier,
-            timeProvider);
+            timeProvider,
+            daemonLifecycleStore,
+            processIdentityAssessor,
+            daemonSessionDiagnosisResolver);
     }
 
     public static DaemonListQueryService CreateService (
@@ -44,21 +52,27 @@ internal static class DaemonListQueryServiceTestSupport
         IDaemonDiagnosisStore daemonDiagnosisStore,
         IDaemonPingInfoClient daemonPingClient,
         IDaemonReachabilityClassifier daemonReachabilityClassifier,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        IDaemonLifecycleStore? daemonLifecycleStore = null,
+        IDaemonProcessIdentityAssessor? processIdentityAssessor = null,
+        IDaemonSessionDiagnosisResolver? daemonSessionDiagnosisResolver = null)
     {
         return new DaemonListQueryService(
             gitWorktreeQueryService,
             unityProjectResolver,
             daemonSessionStore,
             daemonDiagnosisStore,
-            daemonPingClient,
+            new DaemonSessionProbe(
+                daemonSessionStore,
+                daemonPingClient,
+                daemonReachabilityClassifier),
             daemonReachabilityClassifier,
-            new RecordingDaemonLifecycleStore(),
-            new RecordingDaemonProcessIdentityAssessor(),
-            CreateDiagnosisResolver(daemonDiagnosisStore),
+            daemonLifecycleStore ?? new RecordingDaemonLifecycleStore(),
+            processIdentityAssessor ?? new RecordingDaemonProcessIdentityAssessor(),
+            daemonSessionDiagnosisResolver ?? CreateDiagnosisResolver(daemonDiagnosisStore),
             new DaemonDiagnosisOutputMapper(),
             new DefaultWorktreeProjectPathResolver(),
-            timeProvider);
+            timeProvider ?? TimeProvider.System);
     }
 
     public static ResolvedUnityProjectContext CreateUnityProject (
@@ -182,7 +196,7 @@ internal static class DaemonListQueryServiceTestSupport
                         unityProject.RepositoryRoot,
                         unityProject.ProjectFingerprint,
                         diagnosis,
-                        CancellationToken.None)
+                        cancellationToken)
                     .ConfigureAwait(false);
                 return diagnosis;
             },

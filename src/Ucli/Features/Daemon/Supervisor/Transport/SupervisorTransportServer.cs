@@ -1,9 +1,7 @@
-using System.Collections.Concurrent;
 using System.IO.Pipes;
 using System.Net.Sockets;
 using System.Runtime.ExceptionServices;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Infrastructure.Ipc;
 
 namespace MackySoft.Ucli.Features.Daemon.Supervisor.Transport;
 
@@ -12,7 +10,7 @@ internal sealed class SupervisorTransportServer
 {
     private readonly object syncRoot = new();
 
-    private readonly ConcurrentDictionary<int, Task> activeConnectionTasks = new();
+    private readonly SupervisorTransportConnectionGroup activeConnections;
 
     private NamedPipeServerStream? activePipeStream;
 
@@ -20,32 +18,52 @@ internal sealed class SupervisorTransportServer
 
     private ExceptionDispatchInfo? fatalConnectionException;
 
-    private int nextConnectionId;
+    /// <summary> Initializes a new instance of the <see cref="SupervisorTransportServer" /> class. </summary>
+    public SupervisorTransportServer ()
+    {
+        activeConnections = new SupervisorTransportConnectionGroup(
+            stream => TryDisposeTransportHandle(stream),
+            RecordFatalConnectionException);
+    }
 
     /// <summary> Runs the listener loop for the specified endpoint until cancellation is requested. </summary>
     /// <param name="endpoint"> The listener endpoint. </param>
     /// <param name="connectionHandler"> The per-connection request handler. </param>
     /// <param name="onStarted"> The callback invoked after the listener becomes ready. </param>
+    /// <param name="maximumActiveConnections"> The maximum number of accepted connections handled concurrently. </param>
+    /// <param name="connectionDrainTimeout"> The upper bound for draining accepted connections during shutdown. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by the host. </param>
+    /// <exception cref="ArgumentOutOfRangeException"> Thrown when one transport limit is not positive. </exception>
     public async Task RunAsync (
         IpcEndpoint endpoint,
         Func<Stream, CancellationToken, Task> connectionHandler,
         Func<CancellationToken, Task> onStarted,
+        int maximumActiveConnections,
+        TimeSpan connectionDrainTimeout,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(connectionHandler);
         ArgumentNullException.ThrowIfNull(onStarted);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(maximumActiveConnections, 0);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(connectionDrainTimeout, TimeSpan.Zero);
 
         if (endpoint.TransportKind == IpcTransportKind.NamedPipe)
         {
             try
             {
-                await RunNamedPipeAsync(endpoint.Address, connectionHandler, onStarted, cancellationToken).ConfigureAwait(false);
+                await RunNamedPipeAsync(
+                        endpoint.Address,
+                        connectionHandler,
+                        onStarted,
+                        maximumActiveConnections,
+                        cancellationToken)
+                    .ConfigureAwait(false);
             }
             finally
             {
-                await AwaitActiveConnectionsAsync().ConfigureAwait(false);
+                activeConnections.Release();
+                await AwaitActiveConnectionsAsync(connectionDrainTimeout).ConfigureAwait(false);
             }
 
             return;
@@ -55,11 +73,18 @@ internal sealed class SupervisorTransportServer
         {
             try
             {
-                await RunUnixSocketAsync(endpoint.Address, connectionHandler, onStarted, cancellationToken).ConfigureAwait(false);
+                await RunUnixSocketAsync(
+                        endpoint.Address,
+                        connectionHandler,
+                        onStarted,
+                        maximumActiveConnections,
+                        cancellationToken)
+                    .ConfigureAwait(false);
             }
             finally
             {
-                await AwaitActiveConnectionsAsync().ConfigureAwait(false);
+                activeConnections.Release();
+                await AwaitActiveConnectionsAsync(connectionDrainTimeout).ConfigureAwait(false);
             }
 
             return;
@@ -68,23 +93,29 @@ internal sealed class SupervisorTransportServer
         throw new InvalidOperationException($"Unsupported supervisor IPC transport kind: {endpoint.TransportKind}.");
     }
 
-    /// <summary> Releases any actively bound transport resources. </summary>
+    /// <summary> Releases listener handles and starts non-blocking cleanup for accepted connection handles. </summary>
     public void Release ()
     {
+        NamedPipeServerStream? pipeStream;
+        Socket? socket;
         lock (syncRoot)
         {
-            activePipeStream?.Dispose();
+            pipeStream = activePipeStream;
             activePipeStream = null;
-
-            activeSocket?.Dispose();
+            socket = activeSocket;
             activeSocket = null;
         }
+
+        TryDisposeTransportHandle(pipeStream);
+        TryDisposeTransportHandle(socket);
+        activeConnections.Release();
     }
 
     private async Task RunNamedPipeAsync (
         string address,
         Func<Stream, CancellationToken, Task> connectionHandler,
         Func<CancellationToken, Task> onStarted,
+        int maximumActiveConnections,
         CancellationToken cancellationToken)
     {
         var started = false;
@@ -121,8 +152,14 @@ internal sealed class SupervisorTransportServer
                     }
                 }
 
-                TrackConnection(serverStream, connectionHandler, cancellationToken);
-                serverStream = null;
+                if (activeConnections.TryStart(
+                        serverStream,
+                        connectionHandler,
+                        maximumActiveConnections,
+                        cancellationToken))
+                {
+                    serverStream = null;
+                }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -141,7 +178,7 @@ internal sealed class SupervisorTransportServer
                     }
                 }
 
-                serverStream?.Dispose();
+                TryDisposeTransportHandle(serverStream);
             }
         }
     }
@@ -150,25 +187,29 @@ internal sealed class SupervisorTransportServer
         string address,
         Func<Stream, CancellationToken, Task> connectionHandler,
         Func<CancellationToken, Task> onStarted,
+        int maximumActiveConnections,
         CancellationToken cancellationToken)
     {
-        var accessBoundary = new UnixSocketAccessBoundary(address, UcliIpcEndpointNames.SupervisorAddressPrefix);
-        accessBoundary.PrepareForBind();
-
-        using var listener = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
-        listener.Bind(new UnixDomainSocketEndPoint(address));
-        accessBoundary.HardenBoundSocket();
-        listener.Listen(8);
-
-        lock (syncRoot)
-        {
-            activeSocket = listener;
-        }
-
-        await onStarted(cancellationToken).ConfigureAwait(false);
+        var endpointOwnership = new SupervisorUnixSocketEndpointOwnership(address);
+        Socket? listener = null;
 
         try
         {
+            endpointOwnership.PrepareForBind();
+            listener = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
+            listener.Bind(new UnixDomainSocketEndPoint(endpointOwnership.BoundAddress));
+            endpointOwnership.HardenBoundSocket();
+            listener.Listen(maximumActiveConnections);
+            endpointOwnership.PublishBoundEndpoint();
+
+            lock (syncRoot)
+            {
+                activeSocket = listener;
+            }
+
+            await onStarted(cancellationToken).ConfigureAwait(false);
+            endpointOwnership.CommitPublication();
+
             while (!cancellationToken.IsCancellationRequested)
             {
                 ThrowIfFatalConnectionException();
@@ -179,8 +220,14 @@ internal sealed class SupervisorTransportServer
                     acceptedSocket = await listener.AcceptAsync(cancellationToken).ConfigureAwait(false);
                     networkStream = new NetworkStream(acceptedSocket, ownsSocket: true);
                     acceptedSocket = null;
-                    TrackConnection(networkStream, connectionHandler, cancellationToken);
-                    networkStream = null;
+                    if (activeConnections.TryStart(
+                            networkStream,
+                            connectionHandler,
+                            maximumActiveConnections,
+                            cancellationToken))
+                    {
+                        networkStream = null;
+                    }
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
@@ -191,8 +238,8 @@ internal sealed class SupervisorTransportServer
                 }
                 finally
                 {
-                    networkStream?.Dispose();
-                    acceptedSocket?.Dispose();
+                    TryDisposeTransportHandle(networkStream);
+                    TryDisposeTransportHandle(acceptedSocket);
                 }
             }
         }
@@ -200,68 +247,20 @@ internal sealed class SupervisorTransportServer
         {
             lock (syncRoot)
             {
-                if (ReferenceEquals(activeSocket, listener))
+                if (listener != null && ReferenceEquals(activeSocket, listener))
                 {
                     activeSocket = null;
                 }
             }
 
-            accessBoundary.Cleanup();
+            TryDisposeTransportHandle(listener);
+            endpointOwnership.Cleanup();
         }
     }
 
-    private void TrackConnection (
-        Stream stream,
-        Func<Stream, CancellationToken, Task> connectionHandler,
-        CancellationToken cancellationToken)
+    private async Task AwaitActiveConnectionsAsync (TimeSpan connectionDrainTimeout)
     {
-        var connectionId = Interlocked.Increment(ref nextConnectionId);
-        var connectionTask = HandleConnectionAsync(stream, connectionHandler, cancellationToken);
-        activeConnectionTasks.TryAdd(connectionId, connectionTask);
-        _ = connectionTask.ContinueWith(
-            _ =>
-            {
-                Task? ignoredTask;
-                activeConnectionTasks.TryRemove(connectionId, out ignoredTask);
-            },
-            CancellationToken.None,
-            TaskContinuationOptions.ExecuteSynchronously,
-            TaskScheduler.Default);
-    }
-
-    private async Task HandleConnectionAsync (
-        Stream stream,
-        Func<Stream, CancellationToken, Task> connectionHandler,
-        CancellationToken cancellationToken)
-    {
-        using var ownedStream = stream;
-        try
-        {
-            await connectionHandler(ownedStream, cancellationToken).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-        }
-        catch (Exception exception) when (exception is IOException or InvalidDataException or SocketException or ObjectDisposedException)
-        {
-        }
-        catch (Exception exception)
-        {
-            RecordFatalConnectionException(exception);
-            throw;
-        }
-    }
-
-    private async Task AwaitActiveConnectionsAsync ()
-    {
-        var connectionTasks = activeConnectionTasks.Values.ToArray();
-        if (connectionTasks.Length == 0)
-        {
-            ThrowIfFatalConnectionException();
-            return;
-        }
-
-        await Task.WhenAll(connectionTasks).ConfigureAwait(false);
+        await activeConnections.DrainAsync(connectionDrainTimeout).ConfigureAwait(false);
         ThrowIfFatalConnectionException();
     }
 
@@ -270,13 +269,9 @@ internal sealed class SupervisorTransportServer
         lock (syncRoot)
         {
             fatalConnectionException ??= ExceptionDispatchInfo.Capture(exception);
-
-            activePipeStream?.Dispose();
-            activePipeStream = null;
-
-            activeSocket?.Dispose();
-            activeSocket = null;
         }
+
+        Release();
     }
 
     private void ThrowIfFatalConnectionException ()
@@ -288,5 +283,25 @@ internal sealed class SupervisorTransportServer
         }
 
         capturedException?.Throw();
+    }
+
+    private void TryDisposeTransportHandle (IDisposable? transportHandle)
+    {
+        if (transportHandle is null)
+        {
+            return;
+        }
+
+        try
+        {
+            transportHandle.Dispose();
+        }
+        catch (Exception exception) when (exception is IOException or InvalidDataException or SocketException or ObjectDisposedException or InvalidOperationException)
+        {
+        }
+        catch (Exception exception)
+        {
+            RecordFatalConnectionException(exception);
+        }
     }
 }

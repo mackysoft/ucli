@@ -22,11 +22,15 @@ public sealed class IpcDaemonPingClientPayloadTests
                     unityVersion: "2022.3.5f1",
                     projectFingerprint: "fingerprint",
                     compileState: "ready")));
-        var pingClient = new IpcDaemonPingClient(unityIpcClient, CreateResolvedSessionProvider());
+        var pingClient = new IpcDaemonPingClient(
+            unityIpcClient,
+            CreateResolvedSessionProvider(),
+            TimeProvider.System);
 
         var result = await pingClient.PingAndReadAsync(
             CreateFingerprintMatchedProject(),
             DefaultTimeout,
+            validateProjectFingerprint: true,
             cancellationToken: CancellationToken.None);
 
         Assert.Equal("0.5.0", result.ServerVersion);
@@ -45,7 +49,10 @@ public sealed class IpcDaemonPingClientPayloadTests
                 request,
                 IpcProtocol.StatusOk,
                 Array.Empty<IpcError>()));
-        var pingClient = new IpcDaemonPingClient(unityIpcClient, CreateResolvedSessionProvider());
+        var pingClient = new IpcDaemonPingClient(
+            unityIpcClient,
+            CreateResolvedSessionProvider(),
+            TimeProvider.System);
 
         var exception = await Assert.ThrowsAsync<DaemonPingResponseException>(async () =>
         {
@@ -53,6 +60,7 @@ public sealed class IpcDaemonPingClientPayloadTests
                 pingClient.PingAndReadAsync(
                     CreateFingerprintMatchedProject(),
                     DefaultTimeout,
+                    validateProjectFingerprint: true,
                     cancellationToken: CancellationToken.None).AsTask(),
                 "Invalid ping payload result",
                 AsyncWaitTimeout);
@@ -77,11 +85,15 @@ public sealed class IpcDaemonPingClientPayloadTests
                     unityVersion = "2022.3.5f1",
                     projectFingerprint = "fingerprint",
                 }));
-        var pingClient = new IpcDaemonPingClient(unityIpcClient, CreateResolvedSessionProvider());
+        var pingClient = new IpcDaemonPingClient(
+            unityIpcClient,
+            CreateResolvedSessionProvider(),
+            TimeProvider.System);
 
         var result = await pingClient.PingAndReadAsync(
             CreateFingerprintMatchedProject(),
             DefaultTimeout,
+            validateProjectFingerprint: true,
             cancellationToken: CancellationToken.None);
 
         Assert.Equal("0.5.0", result.ServerVersion);

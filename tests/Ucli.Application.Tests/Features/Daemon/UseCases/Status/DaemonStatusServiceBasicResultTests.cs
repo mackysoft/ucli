@@ -109,7 +109,7 @@ public sealed class DaemonStatusServiceBasicResultTests
         var resolver = new RecordingDaemonCommandExecutionContextResolver(
             DaemonCommandExecutionContextResolutionResult.Success(context));
         var daemonStatusOperation = new RecordingDaemonStatusOperation(
-            new DaemonStatusResult(DaemonStatusKind.Failed, null, null, null));
+            new DaemonStatusResult(DaemonStatusKind.Failed, null, null, null, PingResponse: null));
         var service = CreateService(
             resolver,
             daemonStatusOperation);
@@ -135,7 +135,8 @@ public sealed class DaemonStatusServiceBasicResultTests
                 Status: (DaemonStatusKind)int.MaxValue,
                 Session: DaemonSessionTestFactory.Create(),
                 Diagnosis: null,
-                Error: null));
+                Error: null,
+                PingResponse: null));
         var service = CreateService(
             resolver,
             daemonStatusOperation);

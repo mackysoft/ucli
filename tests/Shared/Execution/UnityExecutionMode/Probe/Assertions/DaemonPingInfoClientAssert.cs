@@ -28,18 +28,19 @@ internal static class DaemonPingInfoClientAssert
     {
         var invocation = Assert.Single(pingInfoClient.Invocations);
         Assert.Equal(expectedUnityProject, invocation.UnityProject);
+        Assert.Equal(expectedSession, invocation.Session);
         Assert.Equal(expectedSession.SessionToken, invocation.SessionToken);
         Assert.False(invocation.ValidateProjectFingerprint);
         return invocation;
     }
 
-    public static RecordingDaemonPingInfoClient.Invocation GuiSessionPingReadWithTimeoutAboveProbeCap (
+    public static RecordingDaemonPingInfoClient.Invocation GuiSessionPingReadWithAttemptCap (
         RecordingDaemonPingInfoClient pingInfoClient,
         ResolvedUnityProjectContext expectedUnityProject,
         DaemonSession expectedSession)
     {
         var invocation = GuiSessionPingRead(pingInfoClient, expectedUnityProject, expectedSession);
-        Assert.True(invocation.Timeout > DaemonTimeouts.ProbeAttemptTimeoutCap);
+        Assert.Equal(DaemonTimeouts.ProbeAttemptTimeoutCap, invocation.Timeout);
         return invocation;
     }
 
@@ -52,6 +53,7 @@ internal static class DaemonPingInfoClientAssert
         Assert.All(pingInfoClient.Invocations, invocation =>
         {
             Assert.Equal(expectedUnityProject, invocation.UnityProject);
+            Assert.Equal(expectedSession, invocation.Session);
             Assert.Equal(expectedSession.SessionToken, invocation.SessionToken);
             Assert.False(invocation.ValidateProjectFingerprint);
         });
@@ -68,6 +70,7 @@ internal static class DaemonPingInfoClientAssert
         Assert.All(pingInfoClient.Invocations, invocation =>
         {
             Assert.Equal(expectedUnityProject, invocation.UnityProject);
+            Assert.Equal(expectedSession, invocation.Session);
             Assert.Equal(expectedSession.SessionToken, invocation.SessionToken);
             Assert.Equal(expectedCancellationToken, invocation.CancellationToken);
         });
@@ -99,6 +102,7 @@ internal static class DaemonPingInfoClientAssert
         CancellationToken expectedCancellationToken)
     {
         Assert.Equal(expectedUnityProject, invocation.UnityProject);
+        Assert.Null(invocation.Session);
         Assert.Equal(expectedCancellationToken, invocation.CancellationToken);
     }
 }

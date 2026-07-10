@@ -25,6 +25,7 @@ using MackySoft.Ucli.Features.Daemon.Lifecycle.LaunchAttempts;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Start.GuiEndpoint;
 using MackySoft.Ucli.Features.Daemon.Supervisor.Host;
+using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.UnityIntegration.Ipc.Process;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -50,8 +51,6 @@ internal static class DaemonServiceCollectionExtensions
 
     private static IServiceCollection AddUcliDaemonLifecycleServices (this IServiceCollection services)
     {
-        services.AddSingleton<IDaemonSessionSerializer, DaemonSessionJsonSerializer>();
-        services.AddSingleton<IDaemonSessionValidator, DaemonSessionValidator>();
         services.AddSingleton<IDaemonSessionStore, DaemonSessionStore>();
         services.AddSingleton<IDaemonDiagnosisStore, DaemonDiagnosisStore>();
         services.AddSingleton<IDaemonLaunchAttemptIdGenerator, DaemonLaunchAttemptIdGenerator>();
@@ -75,7 +74,7 @@ internal static class DaemonServiceCollectionExtensions
         services.AddSingleton<IDaemonPingInfoClient>(provider => provider.GetRequiredService<IpcDaemonPingClient>());
         services.AddSingleton<IDaemonStartupReadinessProbe, DaemonStartupReadinessProbe>();
         services.AddSingleton<IDaemonGuiStartupObserver, DaemonGuiStartupObserver>();
-        services.AddSingleton<GuiSupervisorManifestStore>();
+        services.AddSingleton<IGuiSupervisorManifestStore, GuiSupervisorManifestStore>();
         services.AddSingleton<IDaemonGuiRebootstrapClient, DaemonGuiRebootstrapClient>();
         services.AddSingleton<IDaemonShutdownClient, DaemonShutdownClient>();
         services.AddSingleton<IDaemonArtifactCleaner, DaemonArtifactCleaner>();
@@ -100,7 +99,11 @@ internal static class DaemonServiceCollectionExtensions
     {
         services.AddSingleton<SupervisorActivityTracker>();
         services.AddSingleton<SupervisorRuntimeLogger>();
-        services.AddSingleton<SupervisorManifestStore>();
+        services.AddSingleton(serviceProvider => new SupervisorManifestStore(
+            serviceProvider.GetRequiredService<TimeProvider>(),
+            static (path, cancellationToken) => FileUtilities.ReadAllTextOrNullAsync(path, cancellationToken),
+            static (path, contents, cancellationToken) => FileUtilities.WriteAllTextAtomicallyAsync(path, contents, cancellationToken),
+            static path => FileUtilities.DeleteIfExists(path)));
         services.AddSingleton<SupervisorEndpointResolver>();
         services.AddSingleton<SupervisorBootstrapLockProvider>();
         services.AddSingleton<SupervisorDiagnosisWriter>();

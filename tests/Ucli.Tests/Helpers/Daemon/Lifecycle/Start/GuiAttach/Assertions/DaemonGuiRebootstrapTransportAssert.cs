@@ -24,7 +24,7 @@ internal static class DaemonGuiRebootstrapTransportAssert
         Assert.Equal(expectedManifest.SessionToken, invocation.Request.SessionToken);
         Assert.Equal(ContractLiteralCodec.ToValue(IpcResponseMode.Single), invocation.Request.ResponseMode);
         Assert.Equal(ResolveEndpoint(expectedManifest), invocation.Endpoint);
-        Assert.Equal(expectedTimeout, invocation.Timeout);
+        Assert.InRange(invocation.Timeout, TimeSpan.FromTicks(1), expectedTimeout);
 
         Assert.True(
             IpcPayloadCodec.TryDeserialize(invocation.Request.Payload, out IpcGuiRebootstrapRequest payload, out var payloadError),

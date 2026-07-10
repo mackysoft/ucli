@@ -139,6 +139,35 @@ public sealed class DaemonSessionDiagnosisResolverTests
         DaemonDiagnosisStoreAssert.DiagnosisWrittenFor(diagnosisStore, unityProject);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task ResolveForSession_WhenCallerCancelsDuringDiagnosisWrite_RethrowsCancellation ()
+    {
+        var unityProject = ResolvedUnityProjectContextTestFactory.Create(
+            unityProjectRoot: "/tmp/unity-project",
+            repositoryRoot: "/tmp/repo-root",
+            projectFingerprint: "fingerprint-resolver-write-cancellation");
+        var session = DaemonSessionTestFactory.Create(
+            processId: int.MaxValue,
+            projectFingerprint: unityProject.ProjectFingerprint,
+            endpointTransportKind: "unixDomainSocket",
+            endpointAddress: "/tmp/ucli.sock");
+        using var cancellationTokenSource = new CancellationTokenSource();
+        var diagnosisStore = new CancelingDaemonDiagnosisStore(cancellationTokenSource);
+        var resolver = new DaemonSessionDiagnosisResolver(diagnosisStore);
+
+        var exception = await Record.ExceptionAsync(async () =>
+            await resolver.ResolveForSessionAsync(
+                    unityProject,
+                    session,
+                    persistedDiagnosis: null,
+                    cancellationTokenSource.Token)
+                .ConfigureAwait(false));
+
+        Assert.IsAssignableFrom<OperationCanceledException>(exception);
+        Assert.Equal(cancellationTokenSource.Token, diagnosisStore.WriteCancellationToken);
+    }
+
     private static DaemonDiagnosis CreateDiagnosis (
         DaemonSession session,
         string reason)
@@ -153,6 +182,46 @@ public sealed class DaemonSessionDiagnosisResolverTests
             EditorInstancePath: null,
             SessionIssuedAtUtc: session.IssuedAtUtc,
             ProcessStartedAtUtc: session.ProcessStartedAtUtc);
+    }
+
+    private sealed class CancelingDaemonDiagnosisStore : IDaemonDiagnosisStore
+    {
+        private readonly CancellationTokenSource cancellationTokenSource;
+
+        public CancelingDaemonDiagnosisStore (CancellationTokenSource cancellationTokenSource)
+        {
+            this.cancellationTokenSource = cancellationTokenSource;
+        }
+
+        public CancellationToken WriteCancellationToken { get; private set; }
+
+        public ValueTask<DaemonDiagnosisReadResult> ReadAsync (
+            string storageRoot,
+            string projectFingerprint,
+            CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException();
+        }
+
+        public ValueTask<DaemonDiagnosisStoreOperationResult> WriteAsync (
+            string storageRoot,
+            string projectFingerprint,
+            DaemonDiagnosis diagnosis,
+            CancellationToken cancellationToken = default)
+        {
+            WriteCancellationToken = cancellationToken;
+            cancellationTokenSource.Cancel();
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValueTask.FromResult(DaemonDiagnosisStoreOperationResult.Success());
+        }
+
+        public ValueTask<DaemonDiagnosisStoreOperationResult> DeleteAsync (
+            string storageRoot,
+            string projectFingerprint,
+            CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException();
+        }
     }
 
 }

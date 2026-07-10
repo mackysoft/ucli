@@ -8,6 +8,8 @@ internal sealed class RecordingDaemonProcessTerminationService : IDaemonProcessT
 
     public DaemonSessionStoreOperationResult NextResult { get; set; } = DaemonSessionStoreOperationResult.Success();
 
+    public Func<DaemonProcessTerminationTarget?, TimeSpan, CancellationToken, ValueTask<DaemonSessionStoreOperationResult>>? Handler { get; set; }
+
     public IReadOnlyList<Invocation> Invocations => invocations;
 
     public ValueTask<DaemonSessionStoreOperationResult> EnsureStoppedAsync (
@@ -17,6 +19,11 @@ internal sealed class RecordingDaemonProcessTerminationService : IDaemonProcessT
     {
         cancellationToken.ThrowIfCancellationRequested();
         invocations.Add(new Invocation(target, timeout, cancellationToken));
+        if (Handler is not null)
+        {
+            return Handler(target, timeout, cancellationToken);
+        }
+
         return ValueTask.FromResult(NextResult);
     }
 

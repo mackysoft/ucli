@@ -13,4 +13,9 @@ internal sealed class StubDaemonReachabilityClassifier : IDaemonReachabilityClas
     {
         return isNotRunning(exception);
     }
+
+    public bool IsSessionTokenInvalid (Exception exception)
+    {
+        return false;
+    }
 }

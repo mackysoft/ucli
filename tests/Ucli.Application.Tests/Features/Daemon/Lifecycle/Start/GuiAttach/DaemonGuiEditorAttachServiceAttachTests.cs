@@ -1,4 +1,5 @@
 using MackySoft.Tests;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -35,6 +36,7 @@ public sealed class DaemonGuiEditorAttachServiceAttachTests
             awaiter,
             rebootstrapClient,
             diagnosisStore,
+            new DaemonCompensationOperationOwner(),
             new ManualTimeProvider());
         var progressObserver = new CollectingDaemonStartProgressObserver();
 
@@ -89,7 +91,14 @@ public sealed class DaemonGuiEditorAttachServiceAttachTests
         awaiter.Results.Enqueue(DaemonGuiSessionRegistrationWaitResult.Success(session, lifecycleSnapshot));
         var diagnosisStore = new UnexpectedDaemonDiagnosisStore("Successful GUI rebootstrap attach should not write diagnosis.");
         var rebootstrapClient = new RecordingDaemonGuiRebootstrapClient();
-        var service = new DaemonGuiEditorAttachService(markerReader, processProbe, awaiter, rebootstrapClient, diagnosisStore);
+        var service = new DaemonGuiEditorAttachService(
+            markerReader,
+            processProbe,
+            awaiter,
+            rebootstrapClient,
+            diagnosisStore,
+            new DaemonCompensationOperationOwner(),
+            TimeProvider.System);
         var progressObserver = new CollectingDaemonStartProgressObserver();
 
         var result = await service.TryAttachExistingGuiEditorAsync(

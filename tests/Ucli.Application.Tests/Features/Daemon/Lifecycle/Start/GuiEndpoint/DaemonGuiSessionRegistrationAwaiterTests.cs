@@ -29,7 +29,64 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task WaitForSession_WhenTimeoutExceedsProbeCap_PassesRemainingBudgetToPing ()
+    public async Task WaitForSession_WhenSessionReadIgnoresCancellation_ReturnsAtDeadline ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var readStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var readCompletion = new TaskCompletionSource<DaemonSessionReadResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var cancellationCallbackStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var cancellationCallbackCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var allowCancellationCallbackCompletion = new ManualResetEventSlim();
+        var unityProject = DaemonCommandExecutionContextTestFactory.Create(1000).Context.UnityProject;
+        var sessionStore = new RecordingDaemonSessionStore
+        {
+            ReadAsyncHandler = (_, _, cancellationToken) =>
+            {
+                _ = cancellationToken.Register(() =>
+                {
+                    cancellationCallbackStarted.TrySetResult();
+                    allowCancellationCallbackCompletion.Wait();
+                    cancellationCallbackCompleted.TrySetResult();
+                });
+                readStarted.TrySetResult();
+                return new ValueTask<DaemonSessionReadResult>(readCompletion.Task);
+            },
+        };
+        var pingClient = new UnexpectedDaemonPingInfoClient("A timed-out session read must not reach the GUI daemon ping.");
+        var awaiter = CreateAwaiter(sessionStore, pingClient, timeProvider);
+
+        var resultTask = awaiter.WaitForSessionAsync(
+                unityProject,
+                expectedProcessId: 4321,
+                WaitTimeout,
+                cancellationToken: CancellationToken.None)
+            .AsTask();
+        await TestAwaiter.WaitAsync(readStarted.Task, "blocking GUI session read", TimeSpan.FromSeconds(5));
+        await timeProvider
+            .WaitForTimerDueWithinAsync(WaitTimeout)
+            .WaitAsync(TimeSpan.FromSeconds(1));
+
+        try
+        {
+            timeProvider.Advance(WaitTimeout);
+            var result = await resultTask.WaitAsync(TimeSpan.FromSeconds(1));
+            await cancellationCallbackStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+
+            Assert.False(result.IsSuccess);
+            Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
+            Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.Error.Code);
+        }
+        finally
+        {
+            allowCancellationCallbackCompletion.Set();
+            await cancellationCallbackCompleted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+            readCompletion.TrySetResult(DaemonSessionReadResult.Success(null));
+        }
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task WaitForSession_WhenTimeoutExceedsProbeCap_CapsPingAttempt ()
     {
         var unityProject = DaemonCommandExecutionContextTestFactory.Create(5000).Context.UnityProject;
         var session = CreateGuiSession(unityProject.ProjectFingerprint, processId: 4321);
@@ -40,7 +97,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
         var result = await awaiter.WaitForSessionAsync(unityProject, expectedProcessId: 4321, TimeSpan.FromSeconds(5));
 
         Assert.True(result.IsSuccess);
-        DaemonPingInfoClientAssert.GuiSessionPingReadWithTimeoutAboveProbeCap(pingClient, unityProject, session);
+        DaemonPingInfoClientAssert.GuiSessionPingReadWithAttemptCap(pingClient, unityProject, session);
     }
 
     [Theory]
@@ -68,6 +125,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
 
         var resultTask = awaiter.WaitForSessionAsync(unityProject, expectedProcessId: 4321, WaitTimeout).AsTask();
         await TestAwaiter.WaitAsync(firstRead.Task, "first session read", TimeSpan.FromSeconds(5));
+        await timeProvider.WaitForTimerDueWithinAsync(WaitTimeout).WaitAsync(TimeSpan.FromSeconds(1));
         timeProvider.Advance(WaitTimeout);
 
         var result = await TestAwaiter.WaitAsync(resultTask, "session mismatch timeout", TimeSpan.FromSeconds(5));
@@ -185,6 +243,53 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task WaitForSession_WhenPingTimesOut_RereadsSessionBeforeNextPing ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var firstPingObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var unityProject = DaemonCommandExecutionContextTestFactory.Create(5000).Context.UnityProject;
+        var firstSession = CreateGuiSession(unityProject.ProjectFingerprint, processId: 4321) with
+        {
+            SessionToken = "first-session-token",
+        };
+        var replacementSession = firstSession with
+        {
+            SessionToken = "replacement-session-token",
+        };
+        var sessionStore = new RecordingDaemonSessionStore
+        {
+            ReadHandler = invocations => invocations.Count == 1
+                ? DaemonSessionReadResult.Success(firstSession)
+                : DaemonSessionReadResult.Success(replacementSession),
+        };
+        var pingClient = new RecordingDaemonPingInfoClient(
+            new TimeoutException("old endpoint timed out"),
+            CreatePingResponse(unityProject.ProjectFingerprint, "gui"))
+        {
+            OnPingAndRead = () => firstPingObserved.TrySetResult(),
+        };
+        var awaiter = CreateAwaiter(sessionStore, pingClient, timeProvider);
+
+        var resultTask = awaiter.WaitForSessionAsync(
+            unityProject,
+            expectedProcessId: 4321,
+            TimeSpan.FromSeconds(5)).AsTask();
+        await TestAwaiter.WaitAsync(firstPingObserved.Task, "first registration ping", TimeSpan.FromSeconds(5));
+        timeProvider.Advance(TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
+
+        var result = await TestAwaiter.WaitAsync(resultTask, "replacement registration", TimeSpan.FromSeconds(5));
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(replacementSession, result.Session);
+        Assert.Collection(
+            pingClient.Invocations,
+            invocation => Assert.Equal(firstSession.SessionToken, invocation.SessionToken),
+            invocation => Assert.Equal(replacementSession.SessionToken, invocation.SessionToken));
+        Assert.Equal(2, sessionStore.ReadInvocations.Count);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task WaitForSession_WhenPingThrowsReachabilityError_RetriesUntilOverallTimeout ()
     {
         var timeProvider = new ManualTimeProvider();
@@ -245,7 +350,9 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
                     firstRead.TrySetResult();
                     return DaemonSessionReadResult.Failure(
                         ExecutionError.InvalidArgument("invalid session"),
-                        DaemonSessionReadFailureKind.InvalidSession);
+                        DaemonSessionReadFailureKind.InvalidSession,
+                        session: null,
+                        artifactIdentity: null);
                 }
 
                 return DaemonSessionReadResult.Success(session);
@@ -274,7 +381,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
             sessionStore,
             pingClient,
             reachabilityClassifier ?? new StubDaemonReachabilityClassifier(_ => true),
-            timeProvider);
+            timeProvider ?? TimeProvider.System);
     }
 
     private static DaemonSession CreateGuiSession (

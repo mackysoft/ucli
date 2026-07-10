@@ -91,7 +91,8 @@ internal sealed class UnityIpcRequestBuilder
                     TimeoutMilliseconds = playEnter.TimeoutMilliseconds,
                 }),
                 isRecoverable: true,
-                recoverableResponseAttemptTimeout: PlayTransitionRecoverableResponseAttemptTimeout),
+                recoverableResponseAttemptTimeout: PlayTransitionRecoverableResponseAttemptTimeout,
+                dispatchTimeoutPayloadTransformer: ApplyPlayEnterDispatchTimeout),
             UnityRequestPayload.PlayExit playExit => new UnityIpcDispatchRequest(
                 IpcMethodNames.PlayExit,
                 IpcPayloadCodec.SerializeToElement(new IpcPlayExitRequest
@@ -99,7 +100,8 @@ internal sealed class UnityIpcRequestBuilder
                     TimeoutMilliseconds = playExit.TimeoutMilliseconds,
                 }),
                 isRecoverable: true,
-                recoverableResponseAttemptTimeout: PlayTransitionRecoverableResponseAttemptTimeout),
+                recoverableResponseAttemptTimeout: PlayTransitionRecoverableResponseAttemptTimeout,
+                dispatchTimeoutPayloadTransformer: ApplyPlayExitDispatchTimeout),
             UnityRequestPayload.ExecuteJson executeJson => new UnityIpcDispatchRequest(
                 IpcMethodNames.Execute,
                 CreateExecutePayload(
@@ -138,6 +140,36 @@ internal sealed class UnityIpcRequestBuilder
         }
 
         return IpcPayloadCodec.SerializeToElement(compileRequest with
+        {
+            TimeoutMilliseconds = ToTimeoutMilliseconds(dispatchTimeout),
+        });
+    }
+
+    private static JsonElement ApplyPlayEnterDispatchTimeout (
+        JsonElement payload,
+        TimeSpan dispatchTimeout)
+    {
+        if (!IpcPayloadCodec.TryDeserialize(payload, out IpcPlayEnterRequest playEnterRequest, out _))
+        {
+            return payload;
+        }
+
+        return IpcPayloadCodec.SerializeToElement(playEnterRequest with
+        {
+            TimeoutMilliseconds = ToTimeoutMilliseconds(dispatchTimeout),
+        });
+    }
+
+    private static JsonElement ApplyPlayExitDispatchTimeout (
+        JsonElement payload,
+        TimeSpan dispatchTimeout)
+    {
+        if (!IpcPayloadCodec.TryDeserialize(payload, out IpcPlayExitRequest playExitRequest, out _))
+        {
+            return payload;
+        }
+
+        return IpcPayloadCodec.SerializeToElement(playExitRequest with
         {
             TimeoutMilliseconds = ToTimeoutMilliseconds(dispatchTimeout),
         });

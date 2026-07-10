@@ -11,6 +11,7 @@ namespace MackySoft.Ucli.Tests.Daemon;
 internal static class DaemonCleanupOperationTestSupport
 {
     public static DaemonCleanupOperation CreateOperation (
+        TimeProvider timeProvider,
         IProjectLifecycleLockProvider? lifecycleLockProvider = null,
         IDaemonSessionStore? daemonSessionStore = null,
         IDaemonPingClient? daemonPingClient = null,
@@ -18,13 +19,15 @@ internal static class DaemonCleanupOperationTestSupport
         IDaemonInvalidSessionCleanupSafetyEvaluator? invalidSessionCleanupSafetyEvaluator = null,
         IDaemonCleanupReachabilityProbe? cleanupReachabilityProbe = null)
     {
+        ArgumentNullException.ThrowIfNull(timeProvider);
         var effectivePingClient = daemonPingClient ?? CreateSuccessfulPingClient();
         return new DaemonCleanupOperation(
             lifecycleLockProvider ?? new StubProjectLifecycleLockProvider(),
             daemonSessionStore ?? new RecordingDaemonSessionStore(),
             artifactCleaner ?? new RecordingDaemonArtifactCleaner(),
             invalidSessionCleanupSafetyEvaluator ?? new RecordingDaemonInvalidSessionCleanupSafetyEvaluator(),
-            cleanupReachabilityProbe ?? new DaemonCleanupReachabilityProbe(effectivePingClient));
+            cleanupReachabilityProbe ?? new DaemonCleanupReachabilityProbe(effectivePingClient),
+            timeProvider);
     }
 
     public static RecordingDaemonPingClient CreateSuccessfulPingClient ()

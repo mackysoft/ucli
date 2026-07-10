@@ -57,7 +57,7 @@ internal sealed class DaemonSessionDiagnosisResolver : IDaemonSessionDiagnosisRe
                 unityProject.RepositoryRoot,
                 unityProject.ProjectFingerprint,
                 diagnosis,
-                CancellationToken.None)
+                cancellationToken)
             .ConfigureAwait(false);
         if (!writeResult.IsSuccess)
         {

@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Contracts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Contracts.Storage;
 
@@ -47,32 +48,51 @@ internal sealed class SupervisorExitHandler
             return;
         }
 
+        var hasStoppedProcess = DaemonSessionTerminationPolicy.TryGetTerminationTarget(
+            managedProcess.Session,
+            out var stoppedProcess);
         var currentSessionRead = await daemonSessionStore.ReadAsync(
                 managedProcess.UnityProject.RepositoryRoot,
                 managedProcess.UnityProject.ProjectFingerprint,
                 cancellationToken)
             .ConfigureAwait(false);
         var shouldWriteUnexpectedDiagnosis = false;
+        string? sessionReadFailureMessage = null;
         if (currentSessionRead.IsSuccess && currentSessionRead.Exists)
         {
             var currentSession = currentSessionRead.Session!;
             if (!SupervisorSessionIdentity.IsSameSession(currentSession, managedProcess.Session))
             {
-                return;
+                if (!hasStoppedProcess || !MatchesStoppedProcess(currentSession, stoppedProcess))
+                {
+                    return;
+                }
             }
 
             shouldWriteUnexpectedDiagnosis = !managedProcess.IsStopRequested;
         }
         else if (!currentSessionRead.IsSuccess)
         {
-            await runtimeLogger.WriteAsync(
-                    managedProcess.UnityProject.RepositoryRoot,
-                    "error",
-                    $"Supervisor session read failed during exit cleanup. fingerprint={managedProcess.UnityProject.ProjectFingerprint} kind={currentSessionRead.FailureKind} error={currentSessionRead.Error!.Message}",
-                    CancellationToken.None)
-                .ConfigureAwait(false);
+            sessionReadFailureMessage =
+                $"Supervisor session read failed during exit cleanup. fingerprint={managedProcess.UnityProject.ProjectFingerprint} kind={currentSessionRead.FailureKind} error={currentSessionRead.Error!.Message}";
         }
 
+        var cleanupResult = hasStoppedProcess
+            ? await daemonArtifactCleaner.CleanupIfStoppedProcessMatchesAsync(
+                    managedProcess.UnityProject,
+                    stoppedProcess,
+                    cancellationToken)
+                .ConfigureAwait(false)
+            : await daemonArtifactCleaner.CleanupIfSessionMatchesAsync(
+                    managedProcess.UnityProject,
+                    managedProcess.Session,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        var cleanupFailureMessage = cleanupResult.IsSuccess
+            ? null
+            : $"Supervisor artifact cleanup failed after daemon exit. fingerprint={managedProcess.UnityProject.ProjectFingerprint} error={cleanupResult.Error!.Message}";
+
+        string? diagnosisFailureMessage = null;
         if (shouldWriteUnexpectedDiagnosis)
         {
             var diagnosisWriteResult = await diagnosisWriter.WriteUnexpectedAsync(
@@ -84,25 +104,37 @@ internal sealed class SupervisorExitHandler
                 .ConfigureAwait(false);
             if (!diagnosisWriteResult.IsSuccess)
             {
-                await runtimeLogger.WriteAsync(
-                        managedProcess.UnityProject.RepositoryRoot,
-                        "error",
-                        $"Supervisor diagnosis write failed after daemon exit. fingerprint={managedProcess.UnityProject.ProjectFingerprint} error={diagnosisWriteResult.Error!.Message}",
-                        CancellationToken.None)
-                    .ConfigureAwait(false);
+                diagnosisFailureMessage =
+                    $"Supervisor diagnosis write failed after daemon exit. fingerprint={managedProcess.UnityProject.ProjectFingerprint} error={diagnosisWriteResult.Error!.Message}";
             }
         }
 
-        var cleanupResult = await daemonArtifactCleaner.CleanupAsync(
-                managedProcess.UnityProject,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (!cleanupResult.IsSuccess)
+        if (sessionReadFailureMessage is not null)
         {
             await runtimeLogger.WriteAsync(
                     managedProcess.UnityProject.RepositoryRoot,
                     "error",
-                    $"Supervisor artifact cleanup failed after daemon exit. fingerprint={managedProcess.UnityProject.ProjectFingerprint} error={cleanupResult.Error!.Message}",
+                    sessionReadFailureMessage,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+        }
+
+        if (diagnosisFailureMessage is not null)
+        {
+            await runtimeLogger.WriteAsync(
+                    managedProcess.UnityProject.RepositoryRoot,
+                    "error",
+                    diagnosisFailureMessage,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+        }
+
+        if (cleanupFailureMessage is not null)
+        {
+            await runtimeLogger.WriteAsync(
+                    managedProcess.UnityProject.RepositoryRoot,
+                    "error",
+                    cleanupFailureMessage,
                     CancellationToken.None)
                 .ConfigureAwait(false);
         }
@@ -113,5 +145,13 @@ internal sealed class SupervisorExitHandler
                 $"Unity daemon exited. fingerprint={managedProcess.UnityProject.ProjectFingerprint} pid={managedProcess.ProcessId?.ToString() ?? "unknown"} stopRequested={managedProcess.IsStopRequested}",
                 CancellationToken.None)
             .ConfigureAwait(false);
+    }
+
+    private static bool MatchesStoppedProcess (
+        DaemonSession session,
+        DaemonProcessTerminationTarget stoppedProcess)
+    {
+        return session.ProcessId == stoppedProcess.ProcessId
+            && session.ProcessStartedAtUtc == stoppedProcess.ProcessStartedAtUtc;
     }
 }

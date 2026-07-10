@@ -1,8 +1,12 @@
 using System.Net.Sockets;
+using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Inventory;
+using MackySoft.Ucli.Application.Shared.Git;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using static MackySoft.Ucli.Application.Tests.Daemon.DaemonListQueryServiceTestSupport;
 
@@ -10,6 +14,134 @@ namespace MackySoft.Ucli.Application.Tests.Daemon;
 
 public sealed class DaemonListQueryServiceProbeFailureTests
 {
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task List_WhenSessionTokenRotatesDuringProbe_RetriesWithRefreshedSessionMetadata ()
+    {
+        var currentProject = CreateUnityProject("/repo/wt-current", "UnityProject", "fp-current");
+        var firstSession = DaemonSessionTestFactory.Create(
+            sessionToken: "first-token",
+            projectFingerprint: currentProject.ProjectFingerprint,
+            endpointAddress: "first-endpoint",
+            processId: 2001);
+        var refreshedSession = firstSession with
+        {
+            SessionToken = "refreshed-token",
+            EndpointAddress = "refreshed-endpoint",
+            ProcessId = 2002,
+            IssuedAtUtc = firstSession.IssuedAtUtc.AddSeconds(1),
+        };
+        var sessionStore = new RecordingDaemonSessionStore
+        {
+            ReadHandler = invocations => invocations.Count == 1
+                ? DaemonSessionReadResult.Success(firstSession)
+                : DaemonSessionReadResult.Success(refreshedSession),
+        };
+        var pingResponse = CreatePingResponse(currentProject);
+        var pingClient = new RecordingDaemonPingInfoClient(
+            new SessionTokenInvalidTestException(),
+            pingResponse);
+        var service = CreateService(
+            new RecordingGitWorktreeQueryService(GitWorktreeQueryResult.Success(new GitWorktreeQueryOutput(
+                CurrentWorktreeRoot: currentProject.RepositoryRoot,
+                ProjectRelativePath: "UnityProject",
+                Worktrees:
+                [
+                    new GitWorktreeInfo(currentProject.RepositoryRoot, "abcdef01", "refs/heads/main"),
+                ]))),
+            RecordingUnityProjectResolver.FromContexts(currentProject),
+            sessionStore,
+            new RecordingDaemonDiagnosisStore(),
+            pingClient,
+            new SessionTokenRotationReachabilityClassifier());
+
+        var result = await service.GetListAsync(
+            currentProject,
+            TimeSpan.FromMilliseconds(1200),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var item = Assert.Single(result.Output!.Items);
+        Assert.Equal(DaemonListItemState.Running, item.State);
+        Assert.Equal(refreshedSession.ProcessId, item.ProcessId);
+        Assert.Equal(refreshedSession.EndpointAddress, item.EndpointAddress);
+        Assert.Equal(2, sessionStore.ReadInvocations.Count);
+        Assert.Collection(
+            pingClient.Invocations,
+            invocation => Assert.Equal(firstSession, invocation.Session),
+            invocation => Assert.Equal(refreshedSession, invocation.Session));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    [Trait("Size", "Small")]
+    public async Task List_WhenReplacementSessionProbeFails_AttributesItemToReplacementSession (
+        bool probeTimesOut)
+    {
+        var currentProject = CreateUnityProject(
+            "/repo/wt-current",
+            "UnityProject",
+            $"fp-replacement-failure-{probeTimesOut}");
+        var observedSession = DaemonSessionTestFactory.Create(
+            sessionToken: "observed-token",
+            projectFingerprint: currentProject.ProjectFingerprint,
+            endpointAddress: "observed-endpoint",
+            processId: 2011);
+        var replacementSession = observedSession with
+        {
+            SessionToken = "replacement-token",
+            EndpointAddress = "replacement-endpoint",
+            ProcessId = 2012,
+            IssuedAtUtc = observedSession.IssuedAtUtc.AddSeconds(1),
+        };
+        var sessionStore = new RecordingDaemonSessionStore
+        {
+            ReadHandler = invocations => invocations.Count == 1
+                ? DaemonSessionReadResult.Success(observedSession)
+                : DaemonSessionReadResult.Success(replacementSession),
+        };
+        Exception replacementFailure = probeTimesOut
+            ? new TimeoutException("Replacement probe timed out.")
+            : new SocketException((int)SocketError.ConnectionRefused);
+        var pingClient = new RecordingDaemonPingInfoClient(
+            new SessionTokenInvalidTestException(),
+            replacementFailure);
+        var service = CreateService(
+            new RecordingGitWorktreeQueryService(GitWorktreeQueryResult.Success(new GitWorktreeQueryOutput(
+                CurrentWorktreeRoot: currentProject.RepositoryRoot,
+                ProjectRelativePath: "UnityProject",
+                Worktrees:
+                [
+                    new GitWorktreeInfo(currentProject.RepositoryRoot, "abcdef01", "refs/heads/main"),
+                ]))),
+            RecordingUnityProjectResolver.FromContexts(currentProject),
+            sessionStore,
+            new RecordingDaemonDiagnosisStore(),
+            pingClient,
+            new SessionTokenRotationReachabilityClassifier());
+
+        var result = await service.GetListAsync(
+            currentProject,
+            TimeSpan.FromMilliseconds(1200),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var item = Assert.Single(result.Output!.Items);
+        Assert.Equal(
+            probeTimesOut ? DaemonListItemState.Error : DaemonListItemState.Stale,
+            item.State);
+        Assert.Equal(
+            probeTimesOut ? DaemonListItemReason.ProbeTimeout : DaemonListItemReason.StaleSession,
+            item.Reason);
+        Assert.Equal(replacementSession.ProcessId, item.ProcessId);
+        Assert.Equal(replacementSession.EndpointAddress, item.EndpointAddress);
+        Assert.Collection(
+            pingClient.Invocations,
+            invocation => Assert.Equal(observedSession, invocation.Session),
+            invocation => Assert.Equal(replacementSession, invocation.Session));
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task List_WhenProbeTimesOut_ReturnsProbeTimeoutItem ()
@@ -39,6 +171,98 @@ public sealed class DaemonListQueryServiceProbeFailureTests
         Assert.Equal(2100, item.ProcessId);
         Assert.Equal("endpoint-timeout", item.EndpointAddress);
         Assert.Null(item.Diagnosis);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task List_WhenProbeTimesOutWithFreshRecoveringSidecar_DoesNotReportRunningOrLifecycleTelemetry ()
+    {
+        var now = new DateTimeOffset(2026, 7, 10, 0, 0, 0, TimeSpan.Zero);
+        var currentProject = CreateUnityProject("/repo/wt-current", "UnityProject", "fp-current");
+        var session = CreateGuiSession("fp-current", processId: 2101);
+        var lifecycleStore = CreateRecoveringLifecycleStore(session, now);
+        var processIdentityAssessor = RecordingDaemonProcessIdentityAssessor.MatchingLiveProcess(session.ProcessStartedAtUtc);
+        var service = CreateSingleWorktreeService(
+            currentProject,
+            DaemonSessionReadResult.Success(session),
+            new RecordingDaemonDiagnosisStore(),
+            CreateThrowingPingClient(new TimeoutException("probe timed out")),
+            new StubDaemonReachabilityClassifier(static _ => false),
+            new ManualTimeProvider(now),
+            lifecycleStore,
+            processIdentityAssessor);
+
+        var result = await service.GetListAsync(currentProject, TimeSpan.FromMilliseconds(1200), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var item = Assert.Single(result.Output!.Items);
+        Assert.Equal(DaemonListItemState.Error, item.State);
+        Assert.Equal(DaemonListItemReason.ProbeTimeout, item.Reason);
+        AssertUnreachableLifecycle(item);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task List_WhenProbeIsUnreachableWithFreshRecoveringSidecar_ReturnsStaleWithoutExternalTerminationDiagnosis ()
+    {
+        var now = new DateTimeOffset(2026, 7, 10, 0, 0, 0, TimeSpan.Zero);
+        var currentProject = CreateUnityProject("/repo/wt-current", "UnityProject", "fp-current");
+        var session = CreateGuiSession("fp-current", processId: 2201);
+        var lifecycleStore = CreateRecoveringLifecycleStore(session, now);
+        var processIdentityAssessor = RecordingDaemonProcessIdentityAssessor.MatchingLiveProcess(session.ProcessStartedAtUtc);
+        var service = CreateSingleWorktreeService(
+            currentProject,
+            DaemonSessionReadResult.Success(session),
+            new RecordingDaemonDiagnosisStore(),
+            CreateThrowingPingClient(new SocketException((int)SocketError.ConnectionRefused)),
+            new StubDaemonReachabilityClassifier(static exception => exception is SocketException),
+            new ManualTimeProvider(now),
+            lifecycleStore,
+            processIdentityAssessor);
+
+        var result = await service.GetListAsync(currentProject, TimeSpan.FromMilliseconds(1200), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var item = Assert.Single(result.Output!.Items);
+        Assert.Equal(DaemonListItemState.Stale, item.State);
+        Assert.Equal(DaemonListItemReason.StaleSession, item.Reason);
+        AssertUnreachableLifecycle(item);
+        Assert.Null(item.Diagnosis);
+        Assert.Single(lifecycleStore.ReadInvocations);
+        Assert.Single(processIdentityAssessor.Invocations);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task List_WhenRecoveringSidecarIsStale_DoesNotUseItAsLiveProcessEvidence ()
+    {
+        var now = new DateTimeOffset(2026, 7, 10, 0, 0, 0, TimeSpan.Zero);
+        var currentProject = CreateUnityProject("/repo/wt-current", "UnityProject", "fp-current");
+        var session = CreateGuiSession("fp-current", processId: 2202);
+        var lifecycleStore = CreateRecoveringLifecycleStore(
+            session,
+            now - DaemonLifecycleObservationTimings.FreshnessWindow - TimeSpan.FromMilliseconds(1));
+        var processIdentityAssessor = RecordingDaemonProcessIdentityAssessor.MatchingLiveProcess(session.ProcessStartedAtUtc);
+        var diagnosisStore = new RecordingDaemonDiagnosisStore();
+        var service = CreateSingleWorktreeService(
+            currentProject,
+            DaemonSessionReadResult.Success(session),
+            diagnosisStore,
+            CreateThrowingPingClient(new SocketException((int)SocketError.ConnectionRefused)),
+            new StubDaemonReachabilityClassifier(static exception => exception is SocketException),
+            new ManualTimeProvider(now),
+            lifecycleStore,
+            processIdentityAssessor);
+
+        var result = await service.GetListAsync(currentProject, TimeSpan.FromMilliseconds(1200), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var item = Assert.Single(result.Output!.Items);
+        Assert.Equal(DaemonListItemState.Stale, item.State);
+        Assert.Equal(DaemonListItemReason.StaleSession, item.Reason);
+        AssertUnreachableLifecycle(item);
+        Assert.Equal(DaemonDiagnosisReasonValues.ExternalTerminationSuspected, item.Diagnosis!.Reason);
+        Assert.Empty(processIdentityAssessor.Invocations);
     }
 
     [Fact]
@@ -150,5 +374,73 @@ public sealed class DaemonListQueryServiceProbeFailureTests
         Assert.Equal(DaemonListItemReason.ProbeFailed, item.Reason);
         Assert.Equal(2300, item.ProcessId);
         Assert.Null(item.Diagnosis);
+    }
+
+    private static DaemonSession CreateGuiSession (
+        string projectFingerprint,
+        int processId)
+    {
+        return DaemonSessionTestFactory.Create(
+            projectFingerprint: projectFingerprint,
+            processId: processId,
+            editorMode: "gui") with
+        {
+            EditorInstanceId = $"editor-instance-{processId}",
+        };
+    }
+
+    private static RecordingDaemonLifecycleStore CreateRecoveringLifecycleStore (
+        DaemonSession session,
+        DateTimeOffset observedAtUtc)
+    {
+        return new RecordingDaemonLifecycleStore
+        {
+            ReadResult = DaemonLifecycleObservationReadResult.Success(new DaemonLifecycleObservation(
+                ProcessId: session.ProcessId!.Value,
+                ProcessStartedAtUtc: session.ProcessStartedAtUtc!.Value,
+                EditorMode: session.EditorMode,
+                LifecycleState: IpcEditorLifecycleStateCodec.Recovering,
+                BlockingReason: IpcEditorBlockingReasonCodec.Recovery,
+                CompileState: IpcCompileStateCodec.Ready,
+                CompileGeneration: "1",
+                DomainReloadGeneration: "2",
+                ObservedAtUtc: observedAtUtc,
+                ActionRequired: null,
+                PrimaryDiagnostic: null)
+            {
+                CanAcceptExecutionRequests = true,
+                EditorInstanceId = session.EditorInstanceId,
+            }),
+        };
+    }
+
+    private static void AssertUnreachableLifecycle (DaemonListItemOutput item)
+    {
+        Assert.Null(item.LifecycleState);
+        Assert.Null(item.BlockingReason);
+        Assert.Null(item.CompileState);
+        Assert.Null(item.CompileGeneration);
+        Assert.Null(item.DomainReloadGeneration);
+        Assert.False(item.CanAcceptExecutionRequests);
+        Assert.Null(item.ObservedAtUtc);
+        Assert.Null(item.ActionRequired);
+        Assert.Null(item.PrimaryDiagnostic);
+    }
+
+    private sealed class SessionTokenInvalidTestException : Exception
+    {
+    }
+
+    private sealed class SessionTokenRotationReachabilityClassifier : IDaemonReachabilityClassifier
+    {
+        public bool IsNotRunning (Exception exception)
+        {
+            return exception is SessionTokenInvalidTestException or SocketException;
+        }
+
+        public bool IsSessionTokenInvalid (Exception exception)
+        {
+            return exception is SessionTokenInvalidTestException;
+        }
     }
 }

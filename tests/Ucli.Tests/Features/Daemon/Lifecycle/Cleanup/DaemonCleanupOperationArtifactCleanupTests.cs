@@ -16,6 +16,7 @@ public sealed class DaemonCleanupOperationArtifactCleanupTests
             NextResult = DaemonArtifactCleanupResult.Success(),
         };
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
+            TimeProvider.System,
             daemonSessionStore: new RecordingDaemonSessionStore
             {
                 ReadResult = DaemonSessionReadResult.Success(null),
@@ -38,6 +39,7 @@ public sealed class DaemonCleanupOperationArtifactCleanupTests
             NextResult = DaemonArtifactCleanupResult.Success(deletedLaunchAttemptCount: 3),
         };
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
+            TimeProvider.System,
             daemonSessionStore: new RecordingDaemonSessionStore
             {
                 ReadResult = DaemonSessionReadResult.Success(null),
@@ -65,6 +67,7 @@ public sealed class DaemonCleanupOperationArtifactCleanupTests
             NextResult = DaemonArtifactCleanupResult.Success(),
         };
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
+            TimeProvider.System,
             daemonSessionStore: new RecordingDaemonSessionStore
             {
                 ReadResult = DaemonSessionReadResult.Success(session),
@@ -75,5 +78,6 @@ public sealed class DaemonCleanupOperationArtifactCleanupTests
         var result = await operation.CleanupAsync(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         DaemonCleanupOperationAssert.CompletedAfterArtifactCleanup(result, artifactCleaner, context);
+        Assert.Equal(session, Assert.Single(artifactCleaner.Invocations).ExpectedSession);
     }
 }

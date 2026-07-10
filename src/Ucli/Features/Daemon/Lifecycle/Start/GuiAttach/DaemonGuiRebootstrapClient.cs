@@ -3,6 +3,7 @@ using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Identity;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiAttach;
 using MackySoft.Ucli.Application.Shared.Context.Project;
+using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
@@ -14,16 +15,20 @@ namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Start.GuiAttach;
 /// <summary> Requests daemon endpoint rebootstrap from a project-scoped GUI supervisor endpoint. </summary>
 internal sealed class DaemonGuiRebootstrapClient : IDaemonGuiRebootstrapClient
 {
-    private readonly GuiSupervisorManifestStore manifestStore;
+    private readonly IGuiSupervisorManifestStore manifestStore;
 
     private readonly IIpcTransportClient transportClient;
 
+    private readonly TimeProvider timeProvider;
+
     public DaemonGuiRebootstrapClient (
-        GuiSupervisorManifestStore manifestStore,
-        IIpcTransportClient transportClient)
+        IGuiSupervisorManifestStore manifestStore,
+        IIpcTransportClient transportClient,
+        TimeProvider timeProvider)
     {
         this.manifestStore = manifestStore ?? throw new ArgumentNullException(nameof(manifestStore));
         this.transportClient = transportClient ?? throw new ArgumentNullException(nameof(transportClient));
+        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
     /// <inheritdoc />
@@ -39,78 +44,162 @@ internal sealed class DaemonGuiRebootstrapClient : IDaemonGuiRebootstrapClient
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(expectedProcessId, 0);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
-        GuiSupervisorManifestJsonContract? manifest;
-        try
-        {
-            manifest = await manifestStore.ReadOrNullAsync(
-                    unityProject.RepositoryRoot,
-                    unityProject.ProjectFingerprint,
-                    cancellationToken)
-                .ConfigureAwait(false);
-        }
-        catch (Exception exception) when (exception is JsonException or InvalidDataException or IOException or UnauthorizedAccessException)
-        {
-            return DaemonGuiRebootstrapRequestResult.Unavailable(ExecutionError.InternalError(
-                $"GUI supervisor manifest could not be read. {exception.Message}",
-                DaemonErrorCodes.DaemonEndpointNotRegistered));
-        }
+        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
+        var canReloadAfterTokenRejection = true;
+        string? rejectedSessionToken = null;
+        IpcResponse? sessionTokenRejection = null;
+        IpcRequest? request = null;
 
-        var validationError = ValidateManifest(
-            manifest,
-            unityProject,
-            expectedProcessId,
-            expectedProcessStartedAtUtc);
-        if (validationError != null)
+        while (true)
         {
-            return DaemonGuiRebootstrapRequestResult.Unavailable(validationError);
-        }
+            GuiSupervisorManifestJsonContract? manifest;
+            try
+            {
+                if (!deadline.TryGetRemainingTimeout(out var manifestReadTimeout))
+                {
+                    return CreateTimeoutResult("Timed out before GUI supervisor manifest read could begin.");
+                }
 
-        try
-        {
-            var request = new IpcRequest(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: $"gui-rebootstrap-{Guid.NewGuid():N}",
-                SessionToken: manifest!.SessionToken,
-                Method: IpcMethodNames.GuiRebootstrap,
-                Payload: IpcPayloadCodec.SerializeToElement(new IpcGuiRebootstrapRequest(
-                    ProjectFingerprint: unityProject.ProjectFingerprint,
-                    ReplaceExistingSession: true)),
-                responseMode: IpcResponseMode.Single);
-            var response = await transportClient.SendAsync(
-                    ResolveEndpoint(manifest),
-                    request,
-                    timeout,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (IpcResponseFailureReader.TryRead(response, out var firstError, out _))
+                var manifestReadOperation = await ExecutionDeadlineOperation.ExecuteAsync(
+                        deadline,
+                        cancellationToken,
+                        "Timed out before GUI supervisor manifest read could begin.",
+                        "Timed out while reading GUI supervisor manifest.",
+                        token => manifestStore.ReadAfterEndpointPublicationAsync(
+                            unityProject.RepositoryRoot,
+                            unityProject.ProjectFingerprint,
+                            manifestReadTimeout,
+                            token))
+                    .ConfigureAwait(false);
+                if (!manifestReadOperation.IsSuccess)
+                {
+                    return CreateTimeoutResult(manifestReadOperation.Error!.Message);
+                }
+
+                manifest = manifestReadOperation.Value;
+            }
+            catch (TimeoutException exception)
+            {
+                return CreateTimeoutResult(
+                    $"Timed out while waiting for GUI supervisor manifest publication. {exception.Message}");
+            }
+            catch (Exception exception) when (exception is JsonException or InvalidDataException or IOException or UnauthorizedAccessException)
             {
                 return DaemonGuiRebootstrapRequestResult.Unavailable(ExecutionError.InternalError(
-                    firstError?.Message ?? "GUI supervisor rebootstrap request failed.",
+                    $"GUI supervisor manifest could not be read. {exception.Message}",
                     DaemonErrorCodes.DaemonEndpointNotRegistered));
             }
 
-            if (!IpcPayloadCodec.TryDeserialize(response.Payload, out IpcGuiRebootstrapResponse payload, out var payloadError)
-                || !payload.Accepted
-                || payload.ProcessId != expectedProcessId
-                || !string.Equals(payload.ProjectFingerprint, unityProject.ProjectFingerprint, StringComparison.Ordinal))
+            var validationError = ValidateManifest(
+                manifest,
+                unityProject,
+                expectedProcessId,
+                expectedProcessStartedAtUtc);
+            if (validationError != null)
             {
-                return DaemonGuiRebootstrapRequestResult.Unavailable(ExecutionError.InternalError(
-                    $"GUI supervisor rebootstrap response is invalid. {payloadError.Message}",
-                    DaemonErrorCodes.DaemonEndpointNotRegistered));
+                return DaemonGuiRebootstrapRequestResult.Unavailable(validationError);
             }
 
-            return DaemonGuiRebootstrapRequestResult.Accepted();
+            if (rejectedSessionToken is not null
+                && string.Equals(manifest!.SessionToken, rejectedSessionToken, StringComparison.Ordinal))
+            {
+                return CreateResponseFailureResult(sessionTokenRejection!);
+            }
+
+            try
+            {
+                if (!deadline.TryGetRemainingTimeout(out var requestTimeout))
+                {
+                    return CreateTimeoutResult("Timed out before GUI supervisor rebootstrap request could begin.");
+                }
+
+                request ??= new IpcRequest(
+                    ProtocolVersion: IpcProtocol.CurrentVersion,
+                    RequestId: $"gui-rebootstrap-{Guid.NewGuid():N}",
+                    SessionToken: manifest!.SessionToken,
+                    Method: IpcMethodNames.GuiRebootstrap,
+                    Payload: IpcPayloadCodec.SerializeToElement(new IpcGuiRebootstrapRequest(
+                        ProjectFingerprint: unityProject.ProjectFingerprint,
+                        ReplaceExistingSession: true)),
+                    responseMode: IpcResponseMode.Single);
+                var requestForManifest = string.Equals(
+                    request.SessionToken,
+                    manifest!.SessionToken,
+                    StringComparison.Ordinal)
+                        ? request
+                        : request with { SessionToken = manifest.SessionToken };
+                var response = await transportClient.SendAsync(
+                        ResolveEndpoint(manifest),
+                        requestForManifest,
+                        requestTimeout,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (deadline.IsExpired)
+                {
+                    return CreateTimeoutResult("Timed out while requesting GUI supervisor rebootstrap.");
+                }
+
+                if (IsSessionTokenInvalid(response) && canReloadAfterTokenRejection)
+                {
+                    canReloadAfterTokenRejection = false;
+                    rejectedSessionToken = manifest.SessionToken;
+                    sessionTokenRejection = response;
+                    continue;
+                }
+
+                if (IpcResponseFailureReader.TryRead(response, out _, out _))
+                {
+                    return CreateResponseFailureResult(response);
+                }
+
+                if (!IpcPayloadCodec.TryDeserialize(response.Payload, out IpcGuiRebootstrapResponse payload, out var payloadError)
+                    || !payload.Accepted
+                    || payload.ProcessId != expectedProcessId
+                    || !string.Equals(payload.ProjectFingerprint, unityProject.ProjectFingerprint, StringComparison.Ordinal))
+                {
+                    return DaemonGuiRebootstrapRequestResult.Unavailable(ExecutionError.InternalError(
+                        $"GUI supervisor rebootstrap response is invalid. {payloadError.Message}",
+                        DaemonErrorCodes.DaemonEndpointNotRegistered));
+                }
+
+                return DaemonGuiRebootstrapRequestResult.Accepted();
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (TimeoutException exception)
+            {
+                return CreateTimeoutResult(
+                    $"Timed out while requesting GUI supervisor rebootstrap. {exception.Message}");
+            }
+            catch (Exception exception) when (exception is IpcConnectTimeoutException or IOException or UnauthorizedAccessException or InvalidDataException or SocketException)
+            {
+                return DaemonGuiRebootstrapRequestResult.Unavailable(ExecutionError.InternalError(
+                    $"GUI supervisor rebootstrap request could not be completed. {exception.Message}",
+                    DaemonErrorCodes.DaemonEndpointNotRegistered));
+            }
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (Exception exception) when (exception is TimeoutException or IpcConnectTimeoutException or IOException or UnauthorizedAccessException or InvalidDataException or SocketException)
-        {
-            return DaemonGuiRebootstrapRequestResult.Unavailable(ExecutionError.InternalError(
-                $"GUI supervisor rebootstrap request could not be completed. {exception.Message}",
-                DaemonErrorCodes.DaemonEndpointNotRegistered));
-        }
+    }
+
+    private static DaemonGuiRebootstrapRequestResult CreateResponseFailureResult (IpcResponse response)
+    {
+        _ = IpcResponseFailureReader.TryRead(response, out var firstError, out _);
+        return DaemonGuiRebootstrapRequestResult.Unavailable(ExecutionError.InternalError(
+            firstError?.Message ?? "GUI supervisor rebootstrap request failed.",
+            DaemonErrorCodes.DaemonEndpointNotRegistered));
+    }
+
+    private static bool IsSessionTokenInvalid (IpcResponse response)
+    {
+        return response.Errors.Any(static error => error.Code == IpcSessionErrorCodes.SessionTokenInvalid);
+    }
+
+    private static DaemonGuiRebootstrapRequestResult CreateTimeoutResult (string message)
+    {
+        return DaemonGuiRebootstrapRequestResult.Unavailable(ExecutionError.Timeout(
+            message,
+            DaemonErrorCodes.DaemonEndpointNotRegistered));
     }
 
     private static ExecutionError? ValidateManifest (

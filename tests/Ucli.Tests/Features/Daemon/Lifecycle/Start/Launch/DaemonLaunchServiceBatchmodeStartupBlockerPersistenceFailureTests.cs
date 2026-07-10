@@ -32,9 +32,11 @@ public sealed class DaemonLaunchServiceBatchmodeStartupBlockerPersistenceFailure
             processStartedAtUtc: scenario.ProcessStartedAtUtc);
         Assert.NotNull(result.Startup);
         Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated), result.Startup!.ProcessAction);
-        DaemonLaunchAttemptStoreAssert.LaunchAttemptEvidenceBeforeAndAfterCompensationFor(
+        DaemonLaunchAttemptStoreAssert.SingleLaunchAttemptRecordedAndPrunedFor(
             scenario.LaunchAttemptStore,
             scenario.Context,
+            result.Startup.LaunchAttemptId!,
+            ContractLiteralCodec.ToValue(DaemonStartupStatus.Blocked),
             ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated));
     }
 
@@ -62,40 +64,11 @@ public sealed class DaemonLaunchServiceBatchmodeStartupBlockerPersistenceFailure
             processStartedAtUtc: scenario.ProcessStartedAtUtc);
         Assert.NotNull(result.Startup);
         Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated), result.Startup!.ProcessAction);
-        DaemonLaunchAttemptStoreAssert.LaunchAttemptEvidenceBeforeAndAfterCompensationWithoutPruneFor(
+        DaemonLaunchAttemptStoreAssert.SingleLaunchAttemptRecordedWithoutPruneFor(
             scenario.LaunchAttemptStore,
             scenario.Context,
-            ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated));
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task Launch_WhenBatchmodeClassifiedBlockerFinalLaunchAttemptWriteFails_PreservesPrimaryBlockerAndReportsArtifactError ()
-    {
-        var scenario = CreateClassifiedBlockerScenario(
-            "fingerprint-probe-classified-blocker-final-artifact-fail",
-            processId: 7784);
-        scenario.LaunchAttemptStore.WriteResults.Enqueue(DaemonLaunchAttemptStoreOperationResult.Success());
-        scenario.LaunchAttemptStore.WriteResults.Enqueue(
-            DaemonLaunchAttemptStoreOperationResult.Failure(ExecutionError.InternalError("final artifact failed")));
-
-        var result = await scenario.LaunchAsync();
-
-        Assert.Equal(DaemonStartStatus.Failed, result.Status);
-        var error = Assert.IsType<ExecutionError>(result.Error);
-        Assert.Equal(DaemonErrorCodes.DaemonStartupBlocked, error.Code);
-        Assert.Contains("StartupError=Unity scripts have compiler errors.", error.Message, StringComparison.Ordinal);
-        Assert.Contains("ArtifactError=final artifact failed", error.Message, StringComparison.Ordinal);
-        DaemonLaunchInvocationAssert.LaunchCompensationAttempted(
-            scenario.CompensationService,
-            scenario.Context,
-            processId: scenario.ProcessId,
-            processStartedAtUtc: scenario.ProcessStartedAtUtc);
-        Assert.NotNull(result.Startup);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated), result.Startup!.ProcessAction);
-        DaemonLaunchAttemptStoreAssert.LaunchAttemptEvidenceBeforeAndAfterCompensationFor(
-            scenario.LaunchAttemptStore,
-            scenario.Context,
+            result.Startup.LaunchAttemptId!,
+            ContractLiteralCodec.ToValue(DaemonStartupStatus.Blocked),
             ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated));
     }
 }

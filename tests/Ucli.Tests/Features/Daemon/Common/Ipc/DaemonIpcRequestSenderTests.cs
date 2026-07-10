@@ -23,7 +23,8 @@ public sealed class DaemonIpcRequestSenderTests
         var sender = new DaemonIpcRequestSender(
             transportClient,
             new StaticDaemonSessionConnectionProvider(DaemonSessionConnectionResolutionResult.SessionNotAvailable()),
-            recoveryWaiter: null);
+            recoveryWaiter: null,
+            TimeProvider.System);
 
         var result = await sender.SendAsync(
             ResolvedUnityProjectContextTestFactory.Create(),
@@ -47,7 +48,8 @@ public sealed class DaemonIpcRequestSenderTests
         var sender = new DaemonIpcRequestSender(
             transportClient,
             new StaticDaemonSessionConnectionProvider(CreateConnectionResult("daemon-token")),
-            recoveryWaiter: null);
+            recoveryWaiter: null,
+            TimeProvider.System);
 
         var result = await sender.SendAsync(
             ResolvedUnityProjectContextTestFactory.Create(),
@@ -61,6 +63,142 @@ public sealed class DaemonIpcRequestSenderTests
             expectedMethod: "logs.unity.read",
             expectedSessionToken: "daemon-token",
             minimumTimeout: TimeSpan.FromSeconds(4.9));
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SendAsync_WhenSessionResolutionDoesNotQuiesce_ReturnsTimeoutAtDeadline (
+        bool blockCancellationCallback)
+    {
+        var timeProvider = new ManualTimeProvider();
+        var sessionConnectionProvider = new BlockingSessionConnectionProvider(
+            CreateConnectionResult("daemon-token"),
+            blockCancellationCallback);
+        var sender = new DaemonIpcRequestSender(
+            new UnexpectedIpcTransportClient("Timed-out session resolution must stop before transport dispatch."),
+            sessionConnectionProvider,
+            recoveryWaiter: null,
+            timeProvider);
+        var timeout = TimeSpan.FromSeconds(5);
+        var sendTask = sender.SendAsync(
+                ResolvedUnityProjectContextTestFactory.Create(),
+                sessionToken => CreateRequest("logs.unity.read", sessionToken),
+                timeout,
+                CancellationToken.None)
+            .AsTask();
+
+        try
+        {
+            await sessionConnectionProvider.Started.WaitAsync(TimeSpan.FromSeconds(1));
+            await timeProvider
+                .WaitForTimerDueWithinAsync(timeout)
+                .WaitAsync(TimeSpan.FromSeconds(1));
+
+            timeProvider.Advance(timeout);
+            if (blockCancellationCallback)
+            {
+                await sessionConnectionProvider.CancellationCallbackStarted.WaitAsync(TimeSpan.FromSeconds(1));
+            }
+
+            var completedTask = await Task.WhenAny(sendTask, Task.Delay(TimeSpan.FromSeconds(1)));
+            Assert.Same(sendTask, completedTask);
+            var result = await sendTask;
+            Assert.False(result.IsSuccess);
+            Assert.Equal(ExecutionErrorKind.Timeout, Assert.IsType<ExecutionError>(result.Error).Kind);
+        }
+        finally
+        {
+            sessionConnectionProvider.ReleaseCancellationCallback();
+            sessionConnectionProvider.ReleaseResolution();
+            await ObserveCompletionAsync(sendTask);
+        }
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendAsync_WhenSessionResolutionConsumesBudget_PassesRemainingTimeoutToTransport ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var transportClient = CreateTransportClient();
+        var sender = new DaemonIpcRequestSender(
+            transportClient,
+            new TimeAdvancingSessionConnectionProvider(
+                timeProvider,
+                TimeSpan.FromSeconds(2),
+                CreateConnectionResult("daemon-token")),
+            recoveryWaiter: null,
+            timeProvider);
+
+        var result = await sender.SendAsync(
+            ResolvedUnityProjectContextTestFactory.Create(),
+            sessionToken => CreateRequest("logs.unity.read", sessionToken),
+            TimeSpan.FromSeconds(5),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(TimeSpan.FromSeconds(3), Assert.Single(transportClient.Timeouts));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendAsync_WhenRecoveryReadConsumesDeadline_ReturnsTimeoutWithoutAdditionalRetryDelay ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var transportClient = CreateTransportClient();
+        transportClient.EnqueueException(new SocketException((int)SocketError.ConnectionRefused));
+        var readStartedSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var readReleaseSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var sessionStore = new RecordingDaemonSessionStore
+        {
+            ReadAsyncHandler = async (_, _, _) =>
+            {
+                readStartedSource.TrySetResult(true);
+                await readReleaseSource.Task;
+                return DaemonSessionReadResult.Success(null);
+            },
+        };
+        var recoveryWaiter = new UnityDaemonRecoveryWaiter(
+            sessionStore,
+            new RecordingDaemonLifecycleStore
+            {
+                ReadResult = DaemonLifecycleObservationReadResult.Success(null),
+            },
+            new RecordingDaemonProcessIdentityAssessor(DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess));
+        var sender = new DaemonIpcRequestSender(
+            transportClient,
+            new StaticDaemonSessionConnectionProvider(CreateConnectionResult("daemon-token")),
+            recoveryWaiter,
+            timeProvider);
+        var timeout = TimeSpan.FromSeconds(5);
+        var sendTask = sender.SendAsync(
+                ResolvedUnityProjectContextTestFactory.Create(),
+                sessionToken => CreateRequest("logs.unity.read", sessionToken),
+                timeout,
+                CancellationToken.None)
+            .AsTask();
+
+        try
+        {
+            await readStartedSource.Task.WaitAsync(TimeSpan.FromSeconds(1));
+            await timeProvider
+                .WaitForTimerDueWithinAsync(timeout)
+                .WaitAsync(TimeSpan.FromSeconds(1));
+
+            timeProvider.Advance(timeout);
+
+            var completedTask = await Task.WhenAny(sendTask, Task.Delay(TimeSpan.FromSeconds(1)));
+            Assert.Same(sendTask, completedTask);
+            var result = await sendTask;
+            Assert.False(result.IsSuccess);
+            Assert.Equal(ExecutionErrorKind.Timeout, Assert.IsType<ExecutionError>(result.Error).Kind);
+            Assert.Single(transportClient.Requests);
+        }
+        finally
+        {
+            readReleaseSource.TrySetResult(true);
+        }
     }
 
     [Fact]
@@ -81,11 +219,11 @@ public sealed class DaemonIpcRequestSenderTests
             {
                 ReadResult = DaemonLifecycleObservationReadResult.Success(CreateRecoveringObservation(session)),
             },
-            new RecordingDaemonProcessIdentityAssessor(DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess),
-            timeProvider);
+            new RecordingDaemonProcessIdentityAssessor(DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess));
         var sessionConnectionProvider = new QueuedDaemonSessionConnectionProvider(
             CreateConnectionResult("daemon-token-1"),
             CreateConnectionResult("daemon-token-2"));
+        var requestCreationCount = 0;
         var sender = new DaemonIpcRequestSender(
             transportClient,
             sessionConnectionProvider,
@@ -94,18 +232,188 @@ public sealed class DaemonIpcRequestSenderTests
 
         var sendTask = sender.SendAsync(
                 ResolvedUnityProjectContextTestFactory.Create(),
-                sessionToken => CreateRequest("logs.unity.read", sessionToken),
+                sessionToken =>
+                {
+                    Interlocked.Increment(ref requestCreationCount);
+                    return CreateRequest("logs.unity.read", sessionToken);
+                },
                 TimeSpan.FromSeconds(5),
                 CancellationToken.None)
             .AsTask();
         Assert.False(sendTask.IsCompleted);
 
-        timeProvider.Advance(TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
+        var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
+        await timeProvider.WaitForTimerDueWithinAsync(retryDelay).WaitAsync(TimeSpan.FromSeconds(1));
+        timeProvider.Advance(retryDelay);
         var result = await sendTask;
 
         Assert.True(result.IsSuccess);
         var requests = IpcRequestAssert.Methods(transportClient, "logs.unity.read", "logs.unity.read");
         IpcRequestAssert.SessionTokens(requests, "daemon-token-1", "daemon-token-2");
+        Assert.Equal(1, requestCreationCount);
+        _ = IpcRequestAssert.SingleRequestId(requests);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendAsync_WhenSessionTokenIsRejected_RetriesOnceWithReloadedSuccessorToken ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var transportClient = CreateTransportClient();
+        transportClient.EnqueueResponse(static request => CreateSessionTokenInvalidResponse(request.RequestId));
+        transportClient.EnqueueResponse(static request => CreateResponse(request.RequestId));
+        var sender = new DaemonIpcRequestSender(
+            transportClient,
+            new QueuedDaemonSessionConnectionProvider(
+                CreateConnectionResult("daemon-token-1"),
+                CreateConnectionResult("daemon-token-2")),
+            recoveryWaiter: null,
+            timeProvider);
+        var requestCreationCount = 0;
+
+        var resultTask = sender.SendAsync(
+                ResolvedUnityProjectContextTestFactory.Create(),
+                sessionToken =>
+                {
+                    Interlocked.Increment(ref requestCreationCount);
+                    return CreateRequest("logs.unity.read", sessionToken);
+                },
+                TimeSpan.FromSeconds(5),
+                CancellationToken.None)
+            .AsTask();
+        await timeProvider
+            .WaitForTimerDueWithinAsync(TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds))
+            .WaitAsync(AsyncWaitTimeout);
+        timeProvider.Advance(TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
+
+        var result = await resultTask.WaitAsync(AsyncWaitTimeout);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(IpcProtocol.StatusOk, result.Response!.Status);
+        var requests = IpcRequestAssert.Methods(transportClient, "logs.unity.read", "logs.unity.read");
+        IpcRequestAssert.SessionTokens(requests, "daemon-token-1", "daemon-token-2");
+        Assert.Equal(1, requestCreationCount);
+        _ = IpcRequestAssert.SingleRequestId(requests);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendAsync_WhenSuccessorSessionTokenIsRejected_DoesNotRetryThirdSession ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var transportClient = CreateTransportClient();
+        transportClient.EnqueueResponse(static request => CreateSessionTokenInvalidResponse(request.RequestId));
+        transportClient.EnqueueResponse(static request => CreateSessionTokenInvalidResponse(request.RequestId));
+        transportClient.EnqueueResponse(static request => CreateResponse(request.RequestId));
+        var sender = new DaemonIpcRequestSender(
+            transportClient,
+            new QueuedDaemonSessionConnectionProvider(
+                CreateConnectionResult("daemon-token-1"),
+                CreateConnectionResult("daemon-token-2"),
+                CreateConnectionResult("daemon-token-3")),
+            recoveryWaiter: null,
+            timeProvider);
+
+        var resultTask = sender.SendAsync(
+                ResolvedUnityProjectContextTestFactory.Create(),
+                sessionToken => CreateRequest("logs.unity.read", sessionToken),
+                TimeSpan.FromSeconds(5),
+                CancellationToken.None)
+            .AsTask();
+        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
+            timeProvider,
+            resultTask,
+            TimeSpan.FromSeconds(1),
+            TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
+
+        var result = await resultTask;
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(IpcProtocol.StatusError, result.Response!.Status);
+        Assert.Equal(IpcSessionErrorCodes.SessionTokenInvalid, Assert.Single(result.Response.Errors).Code);
+        var requests = IpcRequestAssert.Methods(transportClient, "logs.unity.read", "logs.unity.read");
+        IpcRequestAssert.SessionTokens(requests, "daemon-token-1", "daemon-token-2");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendAsync_WhenSuccessorReplayIsRefused_DoesNotReplayWithThirdSessionToken ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var attempt = 0;
+        var transportClient = new RecordingIpcTransportClient(request =>
+        {
+            return Interlocked.Increment(ref attempt) switch
+            {
+                1 => CreateSessionTokenInvalidResponse(request.RequestId),
+                2 => throw new SocketException((int)SocketError.ConnectionRefused),
+                _ => CreateResponse(request.RequestId),
+            };
+        });
+        var sender = new DaemonIpcRequestSender(
+            transportClient,
+            new QueuedDaemonSessionConnectionProvider(
+                CreateConnectionResult("daemon-token-1"),
+                CreateConnectionResult("daemon-token-2"),
+                CreateConnectionResult("daemon-token-3")),
+            recoveryWaiter: null,
+            timeProvider);
+
+        var resultTask = sender.SendAsync(
+                ResolvedUnityProjectContextTestFactory.Create(),
+                sessionToken => CreateRequest("logs.unity.read", sessionToken),
+                TimeSpan.FromSeconds(5),
+                CancellationToken.None)
+            .AsTask();
+        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
+            timeProvider,
+            resultTask,
+            TimeSpan.FromSeconds(1),
+            TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
+
+        var result = await resultTask;
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(
+            DaemonErrorCodes.DaemonSessionNotAvailable,
+            Assert.IsType<ExecutionError>(result.Error).Code);
+        var requests = IpcRequestAssert.Methods(transportClient, "logs.unity.read", "logs.unity.read");
+        IpcRequestAssert.SessionTokens(requests, "daemon-token-1", "daemon-token-2");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendAsync_WhenRejectedSessionTokenIsStillCurrent_DoesNotReplayRequest ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var transportClient = CreateTransportClient();
+        transportClient.EnqueueResponse(static request => CreateSessionTokenInvalidResponse(request.RequestId));
+        transportClient.EnqueueResponse(static request => CreateResponse(request.RequestId));
+        var sender = new DaemonIpcRequestSender(
+            transportClient,
+            new StaticDaemonSessionConnectionProvider(CreateConnectionResult("daemon-token")),
+            recoveryWaiter: null,
+            timeProvider);
+
+        var resultTask = sender.SendAsync(
+                ResolvedUnityProjectContextTestFactory.Create(),
+                sessionToken => CreateRequest("logs.unity.read", sessionToken),
+                TimeSpan.FromSeconds(5),
+                CancellationToken.None)
+            .AsTask();
+        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
+            timeProvider,
+            resultTask,
+            TimeSpan.FromSeconds(1),
+            TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
+
+        var result = await resultTask;
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(IpcProtocol.StatusError, result.Response!.Status);
+        Assert.Equal(IpcSessionErrorCodes.SessionTokenInvalid, Assert.Single(result.Response.Errors).Code);
+        var request = Assert.Single(transportClient.Requests);
+        Assert.Equal("daemon-token", request.SessionToken);
     }
 
     [Fact]
@@ -176,6 +484,22 @@ public sealed class DaemonIpcRequestSenderTests
             Errors: Array.Empty<IpcError>());
     }
 
+    private static IpcResponse CreateSessionTokenInvalidResponse (string requestId)
+    {
+        return new IpcResponse(
+            ProtocolVersion: IpcProtocol.CurrentVersion,
+            RequestId: requestId,
+            Status: IpcProtocol.StatusError,
+            Payload: JsonDocument.Parse("{}").RootElement.Clone(),
+            Errors:
+            [
+                new IpcError(
+                    IpcSessionErrorCodes.SessionTokenInvalid,
+                    "Session token is invalid.",
+                    OpId: null),
+            ]);
+    }
+
     private static RecordingIpcTransportClient CreateTransportClient ()
     {
         return new RecordingIpcTransportClient(static request => CreateResponse(request.RequestId));
@@ -205,6 +529,103 @@ public sealed class DaemonIpcRequestSenderTests
         {
             EditorInstanceId = session.EditorInstanceId,
         };
+    }
+
+    private static async Task ObserveCompletionAsync (Task task)
+    {
+        var completedTask = await Task.WhenAny(task, Task.Delay(TimeSpan.FromSeconds(1)));
+        if (ReferenceEquals(completedTask, task))
+        {
+            _ = task.Exception;
+        }
+    }
+
+    private sealed class TimeAdvancingSessionConnectionProvider : IDaemonSessionConnectionProvider
+    {
+        private readonly ManualTimeProvider timeProvider;
+
+        private readonly TimeSpan elapsed;
+
+        private readonly DaemonSessionConnectionResolutionResult result;
+
+        public TimeAdvancingSessionConnectionProvider (
+            ManualTimeProvider timeProvider,
+            TimeSpan elapsed,
+            DaemonSessionConnectionResolutionResult result)
+        {
+            this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
+            this.elapsed = elapsed;
+            this.result = result ?? throw new ArgumentNullException(nameof(result));
+        }
+
+        public ValueTask<DaemonSessionConnectionResolutionResult> ResolveAsync (
+            ResolvedUnityProjectContext unityProject,
+            CancellationToken cancellationToken = default)
+        {
+            ArgumentNullException.ThrowIfNull(unityProject);
+            cancellationToken.ThrowIfCancellationRequested();
+            timeProvider.Advance(elapsed);
+            return ValueTask.FromResult(result);
+        }
+    }
+
+    private sealed class BlockingSessionConnectionProvider : IDaemonSessionConnectionProvider
+    {
+        private readonly DaemonSessionConnectionResolutionResult result;
+
+        private readonly bool blockCancellationCallback;
+
+        private readonly TaskCompletionSource<bool> startedSource =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        private readonly TaskCompletionSource<bool> cancellationCallbackStartedSource =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        private readonly TaskCompletionSource<bool> cancellationCallbackReleaseSource =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        private readonly TaskCompletionSource<bool> resolutionReleaseSource =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public BlockingSessionConnectionProvider (
+            DaemonSessionConnectionResolutionResult result,
+            bool blockCancellationCallback)
+        {
+            this.result = result ?? throw new ArgumentNullException(nameof(result));
+            this.blockCancellationCallback = blockCancellationCallback;
+        }
+
+        public Task Started => startedSource.Task;
+
+        public Task CancellationCallbackStarted => cancellationCallbackStartedSource.Task;
+
+        public async ValueTask<DaemonSessionConnectionResolutionResult> ResolveAsync (
+            ResolvedUnityProjectContext unityProject,
+            CancellationToken cancellationToken = default)
+        {
+            ArgumentNullException.ThrowIfNull(unityProject);
+            cancellationToken.ThrowIfCancellationRequested();
+            startedSource.TrySetResult(true);
+            using var cancellationRegistration = blockCancellationCallback
+                ? cancellationToken.Register(() =>
+                {
+                    cancellationCallbackStartedSource.TrySetResult(true);
+                    cancellationCallbackReleaseSource.Task.GetAwaiter().GetResult();
+                })
+                : default;
+            await resolutionReleaseSource.Task;
+            return result;
+        }
+
+        public void ReleaseCancellationCallback ()
+        {
+            cancellationCallbackReleaseSource.TrySetResult(true);
+        }
+
+        public void ReleaseResolution ()
+        {
+            resolutionReleaseSource.TrySetResult(true);
+        }
     }
 
 }

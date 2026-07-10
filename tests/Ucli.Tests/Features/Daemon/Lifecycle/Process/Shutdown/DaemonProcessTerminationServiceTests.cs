@@ -164,7 +164,9 @@ public sealed class DaemonProcessTerminationServiceTests
 
     private static DaemonProcessTerminationService CreateService ()
     {
-        return new DaemonProcessTerminationService(new DaemonProcessIdentityAssessor());
+        return new DaemonProcessTerminationService(
+            new DaemonProcessIdentityAssessor(),
+            TimeProvider.System);
     }
 
     private static DaemonProcessTerminationTarget CreateTarget (

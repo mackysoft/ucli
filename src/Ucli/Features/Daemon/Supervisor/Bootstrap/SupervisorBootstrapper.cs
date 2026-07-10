@@ -1,8 +1,6 @@
 using System.Text.Json;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
 
@@ -41,14 +39,14 @@ internal sealed class SupervisorBootstrapper
         ISupervisorProcessLauncher processLauncher,
         SupervisorBootstrapLockProvider bootstrapLockProvider,
         SupervisorEndpointResolver endpointResolver,
-        TimeProvider? timeProvider = null)
+        TimeProvider timeProvider)
     {
         this.manifestStore = manifestStore ?? throw new ArgumentNullException(nameof(manifestStore));
         this.supervisorClient = supervisorClient ?? throw new ArgumentNullException(nameof(supervisorClient));
         this.processLauncher = processLauncher ?? throw new ArgumentNullException(nameof(processLauncher));
         this.bootstrapLockProvider = bootstrapLockProvider ?? throw new ArgumentNullException(nameof(bootstrapLockProvider));
         this.endpointResolver = endpointResolver ?? throw new ArgumentNullException(nameof(endpointResolver));
-        this.timeProvider = timeProvider ?? TimeProvider.System;
+        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
     /// <summary> Ensures the supervisor for the specified storage root is running and reachable. </summary>
@@ -229,10 +227,19 @@ internal sealed class SupervisorBootstrapper
         {
             return ManifestAvailabilityProbe.Failure(ExecutionError.Timeout(exception.Message));
         }
+        catch (SupervisorManifestFormatException exception)
+        {
+            return await CleanupMalformedRuntimeStateAsync(
+                    storageRoot,
+                    exception.ArtifactIdentity,
+                    deadline,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
         catch (Exception exception) when (exception is JsonException or InvalidDataException)
         {
-            await CleanupStaleRuntimeStateAsync(storageRoot).ConfigureAwait(false);
-            return ManifestAvailabilityProbe.ShouldLaunch();
+            return ManifestAvailabilityProbe.Failure(ExecutionError.InternalError(
+                $"Failed to identify malformed supervisor manifest generation. {exception.Message}"));
         }
         catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
@@ -275,45 +282,90 @@ internal sealed class SupervisorBootstrapper
             return ManifestAvailabilityProbe.Pending();
         }
 
-        await CleanupStaleRuntimeStateAsync(storageRoot).ConfigureAwait(false);
-        return ManifestAvailabilityProbe.ShouldLaunch();
+        return await CleanupObservedRuntimeStateAsync(storageRoot, manifest, deadline, cancellationToken).ConfigureAwait(false);
     }
 
-    private async ValueTask CleanupStaleRuntimeStateAsync (string storageRoot)
+    private async ValueTask<ManifestAvailabilityProbe> CleanupObservedRuntimeStateAsync (
+        string storageRoot,
+        SupervisorInstanceManifest expectedManifest,
+        ExecutionDeadline deadline,
+        CancellationToken cancellationToken)
     {
-        try
+        if (!deadline.TryGetRemainingTimeout(out var remainingTimeout))
         {
-            manifestStore.DeleteIfExists(storageRoot);
-        }
-        catch (Exception)
-        {
-            // NOTE:
-            // best-effort cleanup should not block relaunch when stale manifest deletion fails.
+            return ManifestAvailabilityProbe.Failure(ExecutionError.Timeout(
+                "Timed out before stale supervisor runtime cleanup could begin."));
         }
 
         try
         {
-            // NOTE:
-            // The manifest may be stale or corrupted. Cleanup only deletes the deterministic
-            // endpoint owned by the current storage root, never a path read from manifest JSON.
-            var endpoint = endpointResolver.Resolve(storageRoot);
-            if (endpoint.TransportKind == IpcTransportKind.UnixDomainSocket)
-            {
-                FileUtilities.DeleteIfExists(endpoint.Address);
-
-                UnixSocketPathUtilities.DeleteEmptyFallbackDirectoryIfPresent(
-                    endpoint.Address,
-                    UcliIpcEndpointNames.SupervisorAddressPrefix);
-            }
+            var cleanupStatus = await manifestStore.CleanupRuntimeIfManifestMatchesAsync(
+                    storageRoot,
+                    expectedManifest,
+                    endpointResolver.ResolveCanonicalEndpoint(storageRoot),
+                    GetManifestMutationLockTimeout(remainingTimeout),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return ToManifestAvailabilityProbe(cleanupStatus);
         }
-        catch (Exception)
+        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
-            // NOTE:
-            // bootstrap can continue even when stale socket cleanup fails because the new listener
-            // will retry binding after process-manager restart or use a freshly recreated path.
+            return ManifestAvailabilityProbe.Failure(ExecutionError.InvalidArgument(
+                $"Supervisor runtime cleanup path is invalid. {exception.Message}"));
+        }
+        catch (Exception exception) when (exception is TimeoutException or IOException or UnauthorizedAccessException)
+        {
+            return ManifestAvailabilityProbe.Pending();
+        }
+    }
+
+    private async ValueTask<ManifestAvailabilityProbe> CleanupMalformedRuntimeStateAsync (
+        string storageRoot,
+        string expectedArtifactIdentity,
+        ExecutionDeadline deadline,
+        CancellationToken cancellationToken)
+    {
+        if (!deadline.TryGetRemainingTimeout(out var remainingTimeout))
+        {
+            return ManifestAvailabilityProbe.Failure(ExecutionError.Timeout(
+                "Timed out before malformed supervisor runtime cleanup could begin."));
         }
 
-        await Task.CompletedTask.ConfigureAwait(false);
+        try
+        {
+            var cleanupStatus = await manifestStore.CleanupRuntimeIfMalformedArtifactMatchesAsync(
+                    storageRoot,
+                    expectedArtifactIdentity,
+                    endpointResolver.ResolveCanonicalEndpoint(storageRoot),
+                    GetManifestMutationLockTimeout(remainingTimeout),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return ToManifestAvailabilityProbe(cleanupStatus);
+        }
+        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
+        {
+            return ManifestAvailabilityProbe.Failure(ExecutionError.InvalidArgument(
+                $"Supervisor runtime cleanup path is invalid. {exception.Message}"));
+        }
+        catch (Exception exception) when (exception is TimeoutException or IOException or UnauthorizedAccessException)
+        {
+            return ManifestAvailabilityProbe.Pending();
+        }
+    }
+
+    private static ManifestAvailabilityProbe ToManifestAvailabilityProbe (
+        SupervisorManifestCleanupStatus cleanupStatus)
+    {
+        return cleanupStatus == SupervisorManifestCleanupStatus.GenerationMismatch
+            ? ManifestAvailabilityProbe.Pending()
+            : ManifestAvailabilityProbe.ShouldLaunch();
+    }
+
+    private static TimeSpan GetManifestMutationLockTimeout (TimeSpan remainingTimeout)
+    {
+        return remainingTimeout < SupervisorConstants.ManifestMutationLockTimeout
+            ? remainingTimeout
+            : SupervisorConstants.ManifestMutationLockTimeout;
     }
 
     private bool IsWithinManifestPublicationGrace (long launchTimestamp)

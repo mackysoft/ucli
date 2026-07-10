@@ -12,6 +12,8 @@ internal sealed class SupervisorHost
 
     private readonly SupervisorEndpointResolver endpointResolver;
 
+    private readonly SupervisorBootstrapLockProvider bootstrapLockProvider;
+
     private readonly IDaemonSessionTokenGenerator sessionTokenGenerator;
 
     private readonly SupervisorTransportServer transportServer;
@@ -28,6 +30,7 @@ internal sealed class SupervisorHost
     public SupervisorHost (
         SupervisorManifestStore manifestStore,
         SupervisorEndpointResolver endpointResolver,
+        SupervisorBootstrapLockProvider bootstrapLockProvider,
         IDaemonSessionTokenGenerator sessionTokenGenerator,
         SupervisorTransportServer transportServer,
         SupervisorRequestDispatcher requestDispatcher,
@@ -37,6 +40,7 @@ internal sealed class SupervisorHost
     {
         this.manifestStore = manifestStore ?? throw new ArgumentNullException(nameof(manifestStore));
         this.endpointResolver = endpointResolver ?? throw new ArgumentNullException(nameof(endpointResolver));
+        this.bootstrapLockProvider = bootstrapLockProvider ?? throw new ArgumentNullException(nameof(bootstrapLockProvider));
         this.sessionTokenGenerator = sessionTokenGenerator ?? throw new ArgumentNullException(nameof(sessionTokenGenerator));
         this.transportServer = transportServer ?? throw new ArgumentNullException(nameof(transportServer));
         this.requestDispatcher = requestDispatcher ?? throw new ArgumentNullException(nameof(requestDispatcher));
@@ -77,10 +81,34 @@ internal sealed class SupervisorHost
             try
             {
                 var endpoint = ResolveEndpoint(runtimeContext.Manifest);
+                using var endpointPublicationLease = await manifestStore.AcquireEndpointPublicationLeaseAsync(
+                        runtimeContext.StorageRoot,
+                        SupervisorConstants.ManifestMutationLockTimeout,
+                        hostCancellationToken)
+                    .ConfigureAwait(false);
                 await transportServer.RunAsync(
                         endpoint,
-                        (stream, token) => requestDispatcher.HandleConnectionAsync(stream, runtimeContext, token),
-                        token => manifestStore.WriteAsync(runtimeContext.StorageRoot, runtimeContext.Manifest, token).AsTask(),
+                        (stream, token) => requestDispatcher.HandleConnectionAsync(
+                            stream,
+                            runtimeContext,
+                            SupervisorConstants.InitialFrameReadTimeout,
+                            token),
+                        async token =>
+                        {
+                            try
+                            {
+                                await endpointPublicationLease.PublishAsync(
+                                        runtimeContext.Manifest,
+                                        token)
+                                    .ConfigureAwait(false);
+                            }
+                            finally
+                            {
+                                endpointPublicationLease.Dispose();
+                            }
+                        },
+                        SupervisorConstants.MaximumActiveConnections,
+                        SupervisorConstants.ConnectionDrainTimeout,
                         hostCancellationToken)
                     .ConfigureAwait(false);
             }
@@ -133,12 +161,13 @@ internal sealed class SupervisorHost
     private SupervisorRuntimeContext CreateRuntimeContext (string repositoryRoot)
     {
         var storageRoot = UcliStoragePathResolver.NormalizeStorageRootPath(repositoryRoot);
-        var endpoint = endpointResolver.Resolve(storageRoot);
+        var sessionToken = sessionTokenGenerator.Create();
+        var endpoint = endpointResolver.ResolveRuntimeEndpoint(storageRoot, sessionToken);
         return new SupervisorRuntimeContext(
             storageRoot,
             new SupervisorInstanceManifest(
                 ProcessId: Environment.ProcessId,
-                SessionToken: sessionTokenGenerator.Create(),
+                SessionToken: sessionToken,
                 EndpointTransportKind: ContractLiteralCodec.ToValue(endpoint.TransportKind),
                 EndpointAddress: endpoint.Address,
                 IssuedAtUtc: DateTimeOffset.UtcNow));
@@ -172,11 +201,18 @@ internal sealed class SupervisorHost
     {
         try
         {
-            var manifest = await manifestStore.ReadOrNullAsync(runtimeContext.StorageRoot, cancellationToken).ConfigureAwait(false);
-            if (manifest != null && manifest.ProcessId == Environment.ProcessId)
-            {
-                manifestStore.DeleteIfExists(runtimeContext.StorageRoot);
-            }
+            await using var bootstrapLock = await bootstrapLockProvider.AcquireAsync(
+                    runtimeContext.StorageRoot,
+                    SupervisorConstants.ManifestMutationLockTimeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            _ = await manifestStore.CleanupRuntimeIfManifestMatchesAsync(
+                    runtimeContext.StorageRoot,
+                    runtimeContext.Manifest,
+                    endpointResolver.ResolveCanonicalEndpoint(runtimeContext.StorageRoot),
+                    SupervisorConstants.ManifestMutationLockTimeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (Exception)
         {

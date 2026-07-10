@@ -81,38 +81,6 @@ internal static class DaemonLaunchAttemptStoreAssert
         return launchAttempt;
     }
 
-    public static DaemonLaunchAttempt LaunchAttemptEvidenceBeforeAndAfterCompensationFor (
-        RecordingDaemonLaunchAttemptStore launchAttemptStore,
-        ResolvedUnityProjectContext expectedUnityProject,
-        string expectedFinalProcessAction)
-    {
-        DaemonLaunchAttempt? initialAttempt = null;
-        DaemonLaunchAttempt? finalAttempt = null;
-        Assert.Collection(
-            launchAttemptStore.WriteInvocations,
-            invocation => initialAttempt = AssertLaunchAttemptWrite(invocation, expectedUnityProject),
-            invocation => finalAttempt = AssertLaunchAttemptWrite(invocation, expectedUnityProject));
-
-        Assert.NotNull(initialAttempt);
-        Assert.NotNull(finalAttempt);
-        Assert.Equal(initialAttempt!.LaunchAttemptId, finalAttempt!.LaunchAttemptId);
-        Assert.Equal(expectedFinalProcessAction, finalAttempt.ProcessAction);
-        return finalAttempt;
-    }
-
-    public static DaemonLaunchAttempt LaunchAttemptEvidenceBeforeAndAfterCompensationWithoutPruneFor (
-        RecordingDaemonLaunchAttemptStore launchAttemptStore,
-        ResolvedUnityProjectContext expectedUnityProject,
-        string expectedFinalProcessAction)
-    {
-        var finalAttempt = LaunchAttemptEvidenceBeforeAndAfterCompensationFor(
-            launchAttemptStore,
-            expectedUnityProject,
-            expectedFinalProcessAction);
-        Assert.Empty(launchAttemptStore.PruneInvocations);
-        return finalAttempt;
-    }
-
     public static void LaunchAttemptPrunedFor (
         RecordingDaemonLaunchAttemptStore launchAttemptStore,
         ResolvedUnityProjectContext expectedUnityProject)

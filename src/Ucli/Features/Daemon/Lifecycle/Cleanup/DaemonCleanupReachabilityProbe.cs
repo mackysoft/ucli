@@ -58,7 +58,7 @@ internal sealed class DaemonCleanupReachabilityProbe : IDaemonCleanupReachabilit
         // cleanup. Only direct endpoint-level absence evidence may map to NotRunning here.
         try
         {
-            await daemonPingClient.PingAsync(
+            await daemonPingClient.PingCanonicalEndpointWithTokenAsync(
                     unityProject,
                     pingTimeout,
                     sessionToken,

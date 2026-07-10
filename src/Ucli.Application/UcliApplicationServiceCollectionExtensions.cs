@@ -18,6 +18,7 @@ using MackySoft.Ucli.Application.Features.CodeCatalog.Catalog;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
 using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.ExistingSession;
@@ -70,6 +71,7 @@ using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Assets;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace MackySoft.Ucli.Application;
 
@@ -84,6 +86,7 @@ public static class UcliApplicationServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
+        services.TryAddSingleton(TimeProvider.System);
         services.AddUcliApplicationSharedServices();
         services.AddUcliApplicationCodeCatalogServices();
         services.AddUcliApplicationAssuranceServices();
@@ -191,11 +194,13 @@ public static class UcliApplicationServiceCollectionExtensions
         services.AddSingleton<IDaemonSessionCleanupService, DaemonSessionCleanupService>();
         services.AddSingleton<IDaemonExistingSessionGateService, DaemonExistingSessionGateService>();
         services.AddSingleton<IDaemonGuiSessionRegistrationAwaiter, DaemonGuiSessionRegistrationAwaiter>();
+        services.AddSingleton<DaemonCompensationOperationOwner>();
         services.AddSingleton<IDaemonGuiEditorAttachService, DaemonGuiEditorAttachService>();
         services.AddSingleton<IDaemonLaunchCompensationService, DaemonLaunchCompensationService>();
         services.AddSingleton<IDaemonStartOperation, DaemonStartOperation>();
         services.AddSingleton<IDaemonStopOperation, DaemonStopOperation>();
         services.AddSingleton<IDaemonCleanupOperation, DaemonCleanupOperation>();
+        services.AddSingleton<DaemonSessionProbe>();
         services.AddSingleton<IDaemonStatusOperation, DaemonStatusOperation>();
         services.AddSingleton<IDaemonInvalidSessionCleanupSafetyEvaluator, DaemonInvalidSessionCleanupSafetyEvaluator>();
 

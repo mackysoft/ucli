@@ -9,10 +9,10 @@ namespace MackySoft.Ucli.Features.Daemon.Supervisor.Bootstrap;
 /// <summary> Resolves transport endpoints for the worktree-local supervisor runtime. </summary>
 internal sealed class SupervisorEndpointResolver
 {
-    /// <summary> Resolves one transport endpoint for the specified storage root. </summary>
+    /// <summary> Resolves the canonical endpoint used for filesystem cleanup coordination. </summary>
     /// <param name="storageRoot"> The storage-root path. </param>
     /// <returns> The resolved transport endpoint. </returns>
-    public IpcEndpoint Resolve (string storageRoot)
+    public IpcEndpoint ResolveCanonicalEndpoint (string storageRoot)
     {
         if (string.IsNullOrWhiteSpace(storageRoot))
         {
@@ -25,7 +25,7 @@ internal sealed class SupervisorEndpointResolver
         {
             return new IpcEndpoint(
                 IpcTransportKind.NamedPipe,
-                UcliIpcEndpointNames.SupervisorAddressPrefix + ComputeIdentityHash(normalizedStorageRoot)[..24]);
+                CreateNamedPipeGenerationAddress(normalizedStorageRoot, "canonical"));
         }
 
         var preferredSocketPath = Path.Combine(
@@ -41,6 +41,32 @@ internal sealed class SupervisorEndpointResolver
             UnixSocketPathUtilities.BuildFallbackSocketPath(
                 UcliIpcEndpointNames.SupervisorAddressPrefix,
                 normalizedStorageRoot));
+    }
+
+    /// <summary> Resolves one listener endpoint for a specific supervisor generation. </summary>
+    public IpcEndpoint ResolveRuntimeEndpoint (
+        string storageRoot,
+        string generationIdentity)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(generationIdentity);
+        var canonicalEndpoint = ResolveCanonicalEndpoint(storageRoot);
+        return canonicalEndpoint.TransportKind == IpcTransportKind.NamedPipe
+            ? new IpcEndpoint(
+                IpcTransportKind.NamedPipe,
+                CreateNamedPipeGenerationAddress(storageRoot, generationIdentity))
+            : canonicalEndpoint;
+    }
+
+    internal static string CreateNamedPipeGenerationAddress (
+        string storageRoot,
+        string generationIdentity)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(storageRoot);
+        ArgumentException.ThrowIfNullOrWhiteSpace(generationIdentity);
+        var normalizedStorageRoot = UcliStoragePathResolver.NormalizeStorageRootPath(storageRoot);
+        var worktreeIdentity = ComputeIdentityHash(normalizedStorageRoot)[..24];
+        var generationHash = ComputeIdentityHash(generationIdentity)[..12];
+        return $"{UcliIpcEndpointNames.SupervisorAddressPrefix}{worktreeIdentity}-{generationHash}";
     }
 
     private static string ComputeIdentityHash (string normalizedStorageRoot)

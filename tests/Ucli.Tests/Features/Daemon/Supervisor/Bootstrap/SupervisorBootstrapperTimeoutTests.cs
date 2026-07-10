@@ -28,10 +28,10 @@ public sealed class SupervisorBootstrapperTimeoutTests
             LaunchStarted = launchStarted,
         };
         var bootstrapper = new SupervisorBootstrapper(
-            new SupervisorManifestStore(),
-            new SupervisorClient(transportClient),
+            SupervisorManifestStoreTestSupport.CreateFileBacked(timeProvider),
+            new SupervisorClient(transportClient, timeProvider),
             launcher,
-            new SupervisorBootstrapLockProvider(),
+            new SupervisorBootstrapLockProvider(timeProvider),
             new SupervisorEndpointResolver(),
             timeProvider);
 
@@ -63,6 +63,7 @@ public sealed class SupervisorBootstrapperTimeoutTests
         };
         var manifestReadStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var manifestStore = new SupervisorManifestStore(
+            timeProvider,
             readAllTextOrNull: async (_, cancellationToken) =>
             {
                 manifestReadStarted.TrySetResult();
@@ -70,13 +71,12 @@ public sealed class SupervisorBootstrapperTimeoutTests
                 return null;
             },
             writeAllTextAtomically: static (_, _, _) => ValueTask.CompletedTask,
-            deleteIfExists: static _ => { },
-            timeProvider: timeProvider);
+            deleteIfExists: static _ => { });
         var bootstrapper = new SupervisorBootstrapper(
             manifestStore,
-            new SupervisorClient(transportClient),
+            new SupervisorClient(transportClient, timeProvider),
             new RecordingSupervisorProcessLauncher(),
-            new SupervisorBootstrapLockProvider(),
+            new SupervisorBootstrapLockProvider(timeProvider),
             new SupervisorEndpointResolver(),
             timeProvider);
 
@@ -114,10 +114,10 @@ public sealed class SupervisorBootstrapperTimeoutTests
             LaunchHandler = static (_, _) => ValueTask.FromResult<ExecutionError?>(null),
         };
         var bootstrapper = new SupervisorBootstrapper(
-            new SupervisorManifestStore(),
-            new SupervisorClient(transportClient),
+            SupervisorManifestStoreTestSupport.CreateFileBacked(timeProvider),
+            new SupervisorClient(transportClient, timeProvider),
             launcher,
-            new SupervisorBootstrapLockProvider(),
+            new SupervisorBootstrapLockProvider(timeProvider),
             new SupervisorEndpointResolver(),
             timeProvider);
 

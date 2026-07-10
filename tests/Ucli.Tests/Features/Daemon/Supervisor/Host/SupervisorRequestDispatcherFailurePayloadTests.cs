@@ -40,7 +40,8 @@ public sealed class SupervisorRequestDispatcherFailurePayloadTests
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: projectFingerprint,
-                        TimeoutMilliseconds: 1000,
+                        DeadlineUtc: CreateEnsureRunningDeadline(1000),
+                        AttemptTimeoutMilliseconds: 1000,
                         EditorMode: null,
                         OnStartupBlocked: "auto")),
                 responseMode: IpcResponseMode.Single));
@@ -86,7 +87,8 @@ public sealed class SupervisorRequestDispatcherFailurePayloadTests
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: projectFingerprint,
-                        TimeoutMilliseconds: 1,
+                        DeadlineUtc: CreateEnsureRunningDeadline(1),
+                        AttemptTimeoutMilliseconds: 1000,
                         EditorMode: null,
                         OnStartupBlocked: "auto")),
                 responseMode: IpcResponseMode.Single));
@@ -126,7 +128,8 @@ public sealed class SupervisorRequestDispatcherFailurePayloadTests
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: projectFingerprint,
-                        TimeoutMilliseconds: 1000,
+                        DeadlineUtc: CreateEnsureRunningDeadline(1000),
+                        AttemptTimeoutMilliseconds: 1000,
                         EditorMode: null,
                         OnStartupBlocked: "auto")),
                 responseMode: IpcResponseMode.Single));

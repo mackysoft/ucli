@@ -14,7 +14,10 @@ internal static class DaemonGuiRebootstrapClientTestSupport
 
     public static DaemonGuiRebootstrapClient CreateClient (StubIpcTransportClient transportClient)
     {
-        return new DaemonGuiRebootstrapClient(new GuiSupervisorManifestStore(), transportClient);
+        return new DaemonGuiRebootstrapClient(
+            new GuiSupervisorManifestStore(),
+            transportClient,
+            TimeProvider.System);
     }
 
     public static GuiSupervisorManifestJsonContract CreateManifest ()

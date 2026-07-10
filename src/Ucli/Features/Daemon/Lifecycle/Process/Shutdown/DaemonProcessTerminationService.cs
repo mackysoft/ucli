@@ -16,12 +16,18 @@ internal sealed class DaemonProcessTerminationService : IDaemonProcessTerminatio
 
     private readonly DaemonProcessIdentityAssessor daemonProcessIdentityAssessor;
 
+    private readonly TimeProvider timeProvider;
+
     /// <summary> Initializes a new instance of the <see cref="DaemonProcessTerminationService" /> class. </summary>
     /// <param name="daemonProcessIdentityAssessor"> The daemon process-identity assessor dependency. </param>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="daemonProcessIdentityAssessor" /> is <see langword="null" />. </exception>
-    public DaemonProcessTerminationService (DaemonProcessIdentityAssessor daemonProcessIdentityAssessor)
+    /// <param name="timeProvider"> The time provider used for process termination deadlines. </param>
+    /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
+    public DaemonProcessTerminationService (
+        DaemonProcessIdentityAssessor daemonProcessIdentityAssessor,
+        TimeProvider timeProvider)
     {
         this.daemonProcessIdentityAssessor = daemonProcessIdentityAssessor ?? throw new ArgumentNullException(nameof(daemonProcessIdentityAssessor));
+        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
     /// <summary> Ensures daemon process is stopped before timeout expires. </summary>
@@ -78,7 +84,7 @@ internal sealed class DaemonProcessTerminationService : IDaemonProcessTerminatio
                     throw new ArgumentOutOfRangeException(nameof(identityAssessment), identityAssessment.Status, "Unsupported daemon process identity assessment status.");
             }
 
-            var deadline = ExecutionDeadline.Start(timeout);
+            var deadline = ExecutionDeadline.Start(timeout, timeProvider);
             // NOTE: Stop may have already sent a shutdown IPC request; Unity needs a few seconds to
             // complete its own shutdown path and remove Temp/UnityLockfile before SIGTERM is used.
             if (!deadline.TryGetRemainingTimeout(out var remainingTimeout))
@@ -159,7 +165,7 @@ internal sealed class DaemonProcessTerminationService : IDaemonProcessTerminatio
     /// <param name="timeout"> The maximum wait time. Must be greater than <see cref="TimeSpan.Zero" />. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
     /// <returns> <see langword="true" /> when the process exit is observed; otherwise <see langword="false" />. </returns>
-    private static async ValueTask<bool> WaitUntilExitedAsync (
+    private async ValueTask<bool> WaitUntilExitedAsync (
         DiagnosticsProcess process,
         TimeSpan timeout,
         CancellationToken cancellationToken)
@@ -170,7 +176,7 @@ internal sealed class DaemonProcessTerminationService : IDaemonProcessTerminatio
             return true;
         }
 
-        using var timeoutCancellationTokenSource = new CancellationTokenSource(timeout);
+        using var timeoutCancellationTokenSource = new CancellationTokenSource(timeout, timeProvider);
         using var linkedCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(
             cancellationToken,
             timeoutCancellationTokenSource.Token);

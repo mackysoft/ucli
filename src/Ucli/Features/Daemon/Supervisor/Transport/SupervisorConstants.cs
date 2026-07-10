@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Timing;
+
 namespace MackySoft.Ucli.Features.Daemon.Supervisor.Transport;
 
 /// <summary> Defines internal constants used by the worktree-local supervisor runtime. </summary>
@@ -18,11 +20,44 @@ internal static class SupervisorConstants
     /// <summary> Gets the grace period allowed for a launched supervisor to publish a reachable manifest. </summary>
     public static readonly TimeSpan ManifestPublicationTimeout = TimeSpan.FromSeconds(15);
 
+    /// <summary> Gets the maximum time allowed for one supervisor manifest mutation lock acquisition. </summary>
+    public static readonly TimeSpan ManifestMutationLockTimeout = TimeSpan.FromSeconds(1);
+
     /// <summary> Gets the idle delay after which an unused supervisor exits. </summary>
     public static readonly TimeSpan IdleShutdownDelay = TimeSpan.FromSeconds(10);
 
     /// <summary> Gets the time budget used for one supervisor ping attempt. </summary>
     public static readonly TimeSpan PingTimeout = TimeSpan.FromSeconds(1);
+
+    /// <summary> Gets the maximum time allowed for a connected supervisor client to send its first request frame. </summary>
+    public static readonly TimeSpan InitialFrameReadTimeout = TimeSpan.FromSeconds(5);
+
+    /// <summary> Gets the maximum number of supervisor connections handled concurrently. </summary>
+    public const int MaximumActiveConnections = 32;
+
+    /// <summary> Gets the maximum time allowed for accepted supervisor connections to drain during shutdown. </summary>
+    public static readonly TimeSpan ConnectionDrainTimeout = TimeSpan.FromSeconds(1);
+
+    /// <summary> Gets the owned follow-up budget for persisting one supervisor stability diagnosis. </summary>
+    public static readonly TimeSpan StabilityDiagnosisWriteTimeout = TimeSpan.FromSeconds(1);
+
+    /// <summary> Gets the maximum time allowed for writing one supervisor response frame. </summary>
+    public static readonly TimeSpan ResponseFrameWriteTimeout = TimeSpan.FromSeconds(1);
+
+    /// <summary> Gets the maximum time allowed for one best-effort supervisor runtime-log write. </summary>
+    public static readonly TimeSpan RuntimeLogWriteTimeout = TimeSpan.FromSeconds(1);
+
+    /// <summary> Gets the grace period for receiving an ensure-running terminal response after its command timeout. </summary>
+    public static readonly TimeSpan EnsureRunningTerminalResponseGrace =
+        DaemonTimeouts.LaunchCompensationTimeout
+        + DaemonTimeouts.SupplementalPersistenceTimeout
+        + DaemonTimeouts.SupplementalPersistenceTimeout
+        + ResponseFrameWriteTimeout;
+
+    /// <summary> Gets the grace period for receiving a stop-project terminal response after its command deadline. </summary>
+    public static readonly TimeSpan StopProjectTerminalResponseGrace =
+        DaemonTimeouts.StopCompensationTimeout
+        + ResponseFrameWriteTimeout;
 
     /// <summary> Gets the fixed stability window used after daemon reachability is first established. </summary>
     public static readonly TimeSpan StabilityWindow = TimeSpan.FromSeconds(2);

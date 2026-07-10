@@ -19,7 +19,10 @@ public sealed class IpcDaemonPingClientFingerprintTests
                 IpcProtocol.StatusOk,
                 Array.Empty<IpcError>(),
                 IpcPingResponseTestFactory.Create(projectFingerprint: "different-fingerprint")));
-        var pingClient = new IpcDaemonPingClient(unityIpcClient, CreateResolvedSessionProvider());
+        var pingClient = new IpcDaemonPingClient(
+            unityIpcClient,
+            CreateResolvedSessionProvider(),
+            TimeProvider.System);
 
         var exception = await Assert.ThrowsAsync<DaemonPingResponseException>(async () =>
         {
@@ -42,7 +45,10 @@ public sealed class IpcDaemonPingClientFingerprintTests
                 IpcProtocol.StatusOk,
                 Array.Empty<IpcError>(),
                 IpcPingResponseTestFactory.Create(projectFingerprint: "different-fingerprint")));
-        var pingClient = new IpcDaemonPingClient(unityIpcClient, CreateResolvedSessionProvider());
+        var pingClient = new IpcDaemonPingClient(
+            unityIpcClient,
+            CreateResolvedSessionProvider(),
+            TimeProvider.System);
 
         var result = await pingClient.PingAndReadAsync(
             CreateFingerprintMatchedProject(),
@@ -66,6 +72,7 @@ public sealed class IpcDaemonPingClientFingerprintTests
             nameof(IpcDaemonPingClient.PingAndReadAsync) => new ValueTask(pingClient.PingAndReadAsync(
                 CreateFingerprintMatchedProject(),
                 DefaultTimeout,
+                validateProjectFingerprint: true,
                 cancellationToken: CancellationToken.None).AsTask()),
             _ => throw new ArgumentOutOfRangeException(nameof(methodName), methodName, "Unsupported ping method."),
         };

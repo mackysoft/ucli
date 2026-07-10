@@ -4,13 +4,12 @@ using MackySoft.Ucli.Infrastructure.Storage;
 namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Start.GuiAttach;
 
 /// <summary> Reads persisted GUI supervisor manifests for existing GUI Editor attach. </summary>
-internal sealed class GuiSupervisorManifestStore
+internal sealed class GuiSupervisorManifestStore : IGuiSupervisorManifestStore
 {
-    /// <summary> Reads a GUI supervisor manifest when one exists. </summary>
-    public async ValueTask<GuiSupervisorManifestJsonContract?> ReadOrNullAsync (
+    private static async ValueTask<GuiSupervisorManifestJsonContract?> ReadWithoutPublicationLockAsync (
         string storageRoot,
         string projectFingerprint,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentException.ThrowIfNullOrWhiteSpace(storageRoot);
@@ -24,7 +23,36 @@ internal sealed class GuiSupervisorManifestStore
             return null;
         }
 
-        var json = await File.ReadAllTextAsync(manifestPath, cancellationToken).ConfigureAwait(false);
-        return GuiSupervisorManifestJsonContractSerializer.Deserialize(json);
+        var json = await FileUtilities.ReadAllTextOrNullAsync(manifestPath, cancellationToken).ConfigureAwait(false);
+        return json is null
+            ? null
+            : GuiSupervisorManifestJsonContractSerializer.Deserialize(json);
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<GuiSupervisorManifestJsonContract?> ReadAfterEndpointPublicationAsync (
+        string storageRoot,
+        string projectFingerprint,
+        TimeSpan timeout,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentException.ThrowIfNullOrWhiteSpace(storageRoot);
+        ArgumentException.ThrowIfNullOrWhiteSpace(projectFingerprint);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
+
+        var manifestLockPath = UcliStoragePathResolver.ResolveGuiSupervisorManifestLockPath(
+            storageRoot,
+            projectFingerprint);
+        using var manifestLock = await FileExclusiveLock.AcquireAsync(
+                manifestLockPath,
+                timeout,
+                cancellationToken)
+            .ConfigureAwait(false);
+        return await ReadWithoutPublicationLockAsync(
+                storageRoot,
+                projectFingerprint,
+                cancellationToken)
+            .ConfigureAwait(false);
     }
 }

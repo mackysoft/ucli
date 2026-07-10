@@ -11,4 +11,12 @@ internal sealed class DaemonReachabilityClassifier : IDaemonReachabilityClassifi
         ArgumentNullException.ThrowIfNull(exception);
         return DaemonProbeExceptionClassifier.IsNotRunning(exception);
     }
+
+    /// <inheritdoc />
+    public bool IsSessionTokenInvalid (Exception exception)
+    {
+        ArgumentNullException.ThrowIfNull(exception);
+        return exception is DaemonPingResponseException pingResponseException
+            && pingResponseException.ErrorCode == IpcSessionErrorCodes.SessionTokenInvalid;
+    }
 }

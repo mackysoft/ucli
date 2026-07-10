@@ -165,5 +165,10 @@ public sealed class DaemonStopOperationProcessShutdownTests
         DaemonShutdownClientAssert.EndpointShutdownAttempted(shutdownClient, context, session);
         AssertProcessTerminationAttempted(processTerminationService, 654, processStartedAtUtc);
         AssertSessionArtifactsInvalidated(artifactCleaner, context);
+        var cleanupInvocation = Assert.Single(artifactCleaner.Invocations);
+        Assert.Null(cleanupInvocation.ExpectedSession);
+        Assert.Equal(
+            new DaemonProcessTerminationTarget(654, processStartedAtUtc),
+            cleanupInvocation.ExpectedStoppedProcess);
     }
 }

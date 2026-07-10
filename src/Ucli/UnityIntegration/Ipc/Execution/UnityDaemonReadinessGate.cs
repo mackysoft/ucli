@@ -22,10 +22,10 @@ internal sealed class UnityDaemonReadinessGate
     /// <param name="timeProvider"> The time provider used for retry delays. </param>
     public UnityDaemonReadinessGate (
         IDaemonPingInfoClient daemonPingInfoClient,
-        TimeProvider? timeProvider = null)
+        TimeProvider timeProvider)
     {
         this.daemonPingInfoClient = daemonPingInfoClient ?? throw new ArgumentNullException(nameof(daemonPingInfoClient));
-        this.timeProvider = timeProvider ?? TimeProvider.System;
+        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
     /// <summary> Tries to read readiness gate settings from one dispatch request. </summary>
@@ -140,6 +140,7 @@ internal sealed class UnityDaemonReadinessGate
                 var pingResponse = await daemonPingInfoClient.PingAndReadAsync(
                         unityProject,
                         attemptTimeout,
+                        validateProjectFingerprint: true,
                         cancellationToken: cancellationToken)
                     .ConfigureAwait(false);
                 var readinessDecision = UnityDaemonReadinessPolicy.Evaluate(pingResponse, failFast);

@@ -12,6 +12,8 @@ internal sealed class ManualTimeProvider : TimeProvider
 
     private long currentTimestamp;
 
+    private long utcOffsetTicks;
+
     internal ManualTimeProvider (DateTimeOffset? startUtc = null)
     {
         this.startUtc = startUtc ?? DateTimeOffset.UnixEpoch;
@@ -23,12 +25,13 @@ internal sealed class ManualTimeProvider : TimeProvider
 
     public override DateTimeOffset GetUtcNow ()
     {
-        return startUtc + TimeSpan.FromTicks(currentTimestamp);
+        return startUtc + TimeSpan.FromTicks(
+            Volatile.Read(ref currentTimestamp) + Volatile.Read(ref utcOffsetTicks));
     }
 
     public override long GetTimestamp ()
     {
-        return currentTimestamp;
+        return Volatile.Read(ref currentTimestamp);
     }
 
     internal int ActiveTimerCount
@@ -101,7 +104,7 @@ internal sealed class ManualTimeProvider : TimeProvider
         List<(TimerCallback Callback, object? State)> pendingCallbacks = [];
         lock (syncObject)
         {
-            currentTimestamp += elapsed.Ticks;
+            _ = Interlocked.Add(ref currentTimestamp, elapsed.Ticks);
             CollectDueCallbacks(pendingCallbacks);
         }
 
@@ -119,6 +122,11 @@ internal sealed class ManualTimeProvider : TimeProvider
                 CompleteTimerWaitersIfNeeded();
             }
         }
+    }
+
+    internal void ShiftUtc (TimeSpan offset)
+    {
+        _ = Interlocked.Add(ref utcOffsetTicks, offset.Ticks);
     }
 
     private int GetActiveTimerCountCore ()

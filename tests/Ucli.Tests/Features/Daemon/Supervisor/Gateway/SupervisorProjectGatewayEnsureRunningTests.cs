@@ -11,6 +11,138 @@ public sealed class SupervisorProjectGatewayEnsureRunningTests
 {
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task EnsureRunning_WhenSupervisorTokenRotates_ReloadsManifestAndReplaysSameRequestOnce ()
+    {
+        using var scope = TestDirectories.CreateTempScope(
+            "supervisor-project-gateway",
+            "ensure-running-token-rotation");
+        var timeProvider = new ManualTimeProvider();
+        var scenario = await SupervisorProjectGatewayTestSupport.CreateManifestBackedScenarioAsync(
+            scope.FullPath,
+            timeProvider);
+        var successorManifest = scenario.Manifest with
+        {
+            SessionToken = "successor-token",
+            IssuedAtUtc = scenario.Manifest.IssuedAtUtc.AddSeconds(1),
+        };
+        var ensureRunningAttempt = 0;
+        scenario.TransportClient.SendHandler = async (_, request, _, cancellationToken) =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (string.Equals(request.Method, SupervisorIpcContracts.PingMethod, StringComparison.Ordinal))
+            {
+                return SupervisorProjectGatewayTestSupport.CreateSupervisorPingResponse(
+                    request,
+                    scenario.Manifest);
+            }
+
+            Assert.Equal(SupervisorIpcContracts.EnsureRunningMethod, request.Method);
+            if (Interlocked.Increment(ref ensureRunningAttempt) == 1)
+            {
+                timeProvider.Advance(TimeSpan.FromMilliseconds(200));
+                await scenario.ManifestStore.WriteAsync(
+                    scope.FullPath,
+                    successorManifest,
+                    cancellationToken);
+                return IpcResponseTestFactory.CreateError(
+                    request,
+                    IpcSessionErrorCodes.SessionTokenInvalid,
+                    "Initial supervisor token is invalid.");
+            }
+
+            return SupervisorProjectGatewayTestSupport.CreateStartedEnsureRunningResponse(request);
+        };
+
+        var result = await scenario.Gateway.EnsureRunningAsync(
+            scenario.CreateUnityProject(),
+            TimeSpan.FromSeconds(1),
+            editorMode: null,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+            cancellationToken: CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var requests = scenario.TransportClient.Invocations
+            .Select(static invocation => invocation.Request)
+            .Where(static request => request.Method == SupervisorIpcContracts.EnsureRunningMethod)
+            .ToArray();
+        IpcRequestAssert.SessionTokens(
+            requests,
+            scenario.Manifest.SessionToken,
+            successorManifest.SessionToken);
+        _ = IpcRequestAssert.SingleRequestId(requests);
+        var firstPayload = SupervisorProjectGatewayTestSupport.ReadEnsureRunningRequest(requests[0]);
+        var replayPayload = SupervisorProjectGatewayTestSupport.ReadEnsureRunningRequest(requests[1]);
+        Assert.Equal(firstPayload.DeadlineUtc, replayPayload.DeadlineUtc);
+        Assert.True(firstPayload.AttemptTimeoutMilliseconds > replayPayload.AttemptTimeoutMilliseconds);
+        Assert.Equal(
+            firstPayload with
+            {
+                AttemptTimeoutMilliseconds = replayPayload.AttemptTimeoutMilliseconds,
+            },
+            replayPayload);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task EnsureRunning_WhenSuccessorTokenIsAlsoRejected_DoesNotDispatchThirdRequest ()
+    {
+        using var scope = TestDirectories.CreateTempScope(
+            "supervisor-project-gateway",
+            "ensure-running-successor-token-rejected");
+        var scenario = await SupervisorProjectGatewayTestSupport.CreateManifestBackedScenarioAsync(scope.FullPath);
+        var successorManifest = scenario.Manifest with
+        {
+            SessionToken = "successor-token",
+            IssuedAtUtc = scenario.Manifest.IssuedAtUtc.AddSeconds(1),
+        };
+        var ensureRunningAttempt = 0;
+        scenario.TransportClient.SendHandler = async (_, request, _, cancellationToken) =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (string.Equals(request.Method, SupervisorIpcContracts.PingMethod, StringComparison.Ordinal))
+            {
+                return SupervisorProjectGatewayTestSupport.CreateSupervisorPingResponse(
+                    request,
+                    scenario.Manifest);
+            }
+
+            Assert.Equal(SupervisorIpcContracts.EnsureRunningMethod, request.Method);
+            if (Interlocked.Increment(ref ensureRunningAttempt) == 1)
+            {
+                await scenario.ManifestStore.WriteAsync(
+                    scope.FullPath,
+                    successorManifest,
+                    cancellationToken);
+            }
+
+            return IpcResponseTestFactory.CreateError(
+                request,
+                IpcSessionErrorCodes.SessionTokenInvalid,
+                "Supervisor token is invalid.");
+        };
+
+        var result = await scenario.Gateway.EnsureRunningAsync(
+            scenario.CreateUnityProject(),
+            TimeSpan.FromSeconds(1),
+            editorMode: null,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+            cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(IpcSessionErrorCodes.SessionTokenInvalid, result.Error!.Code);
+        var requests = scenario.TransportClient.Invocations
+            .Select(static invocation => invocation.Request)
+            .Where(static request => request.Method == SupervisorIpcContracts.EnsureRunningMethod)
+            .ToArray();
+        IpcRequestAssert.SessionTokens(
+            requests,
+            scenario.Manifest.SessionToken,
+            successorManifest.SessionToken);
+        _ = IpcRequestAssert.SingleRequestId(requests);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task EnsureRunning_WhenBootstrapConsumesBudget_PassesRemainingTimeoutToSupervisorClient ()
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-project-gateway", "ensure-running-timeout");
@@ -36,7 +168,7 @@ public sealed class SupervisorProjectGatewayEnsureRunningTests
             if (string.Equals(request.Method, SupervisorIpcContracts.EnsureRunningMethod, StringComparison.Ordinal))
             {
                 var payload = SupervisorProjectGatewayTestSupport.ReadEnsureRunningRequest(request);
-                observedEnsureRunningTimeout = TimeSpan.FromMilliseconds(payload.TimeoutMilliseconds);
+                observedEnsureRunningTimeout = TimeSpan.FromMilliseconds(payload.AttemptTimeoutMilliseconds);
                 observedEditorMode = payload.EditorMode;
                 observedOnStartupBlocked = payload.OnStartupBlocked;
                 return ValueTask.FromResult(SupervisorProjectGatewayTestSupport.CreateStartedEnsureRunningResponse(request));
@@ -102,7 +234,7 @@ public sealed class SupervisorProjectGatewayEnsureRunningTests
                         ContractLiteralCodec.ToValue(DaemonStartProgressEvent.WaitingForEndpoint),
                         DaemonStartProgressEntryTestFactory.CreateStartupObservation(
                             projectFingerprint: payload.ProjectFingerprint,
-                            timeoutMilliseconds: payload.TimeoutMilliseconds,
+                            timeoutMilliseconds: checked((int)timeout.TotalMilliseconds),
                             onStartupBlocked: payload.OnStartupBlocked,
                             startupStatus: ContractLiteralCodec.ToValue(DaemonStartupStatus.WaitingForEndpoint),
                             startupPhase: ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.EndpointRegistration))),
@@ -153,7 +285,7 @@ public sealed class SupervisorProjectGatewayEnsureRunningTests
             if (string.Equals(request.Method, SupervisorIpcContracts.EnsureRunningMethod, StringComparison.Ordinal))
             {
                 var payload = SupervisorProjectGatewayTestSupport.ReadEnsureRunningRequest(request);
-                observedEnsureRunningTimeout = TimeSpan.FromMilliseconds(payload.TimeoutMilliseconds);
+                observedEnsureRunningTimeout = TimeSpan.FromMilliseconds(payload.AttemptTimeoutMilliseconds);
                 return ValueTask.FromResult(SupervisorProjectGatewayTestSupport.CreateStartedEnsureRunningResponse(request));
             }
 
@@ -236,12 +368,12 @@ public sealed class SupervisorProjectGatewayEnsureRunningTests
     public async Task EnsureRunning_WhenSupervisorBootstrapFails_EmitsFailedProgressEntry ()
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-project-gateway", "bootstrap-progress-failure");
-        var manifestStore = new SupervisorManifestStore();
+        var manifestStore = SupervisorManifestStoreTestSupport.CreateFileBacked(TimeProvider.System);
         var transportClient = new StubIpcTransportClient
         {
             SendHandler = static (_, _, _, _) => throw new InvalidOperationException("Supervisor IPC should not be used when bootstrap launch fails."),
         };
-        var client = new SupervisorClient(transportClient);
+        var client = new SupervisorClient(transportClient, TimeProvider.System);
         var launcher = new RecordingSupervisorProcessLauncher
         {
             LaunchError = ExecutionError.InternalError(

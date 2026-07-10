@@ -9,6 +9,9 @@ internal enum SupervisorReachabilityProbeStatus
     /// <summary> The probe exceeded its request budget before reachability could be confirmed. </summary>
     TimedOut,
 
+    /// <summary> The endpoint rejected the manifest generation's session token. </summary>
+    SessionTokenRejected,
+
     /// <summary> The supervisor endpoint could not be reached or returned an invalid response. </summary>
     Unreachable,
 }

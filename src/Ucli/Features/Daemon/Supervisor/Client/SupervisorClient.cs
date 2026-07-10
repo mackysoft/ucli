@@ -4,6 +4,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Application.Shared.Execution.Progress;
+using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
@@ -17,11 +18,17 @@ internal sealed class SupervisorClient
 {
     private readonly IIpcTransportClient transportClient;
 
+    private readonly TimeProvider timeProvider;
+
     /// <summary> Initializes a new instance of the <see cref="SupervisorClient" /> class. </summary>
     /// <param name="transportClient"> The explicit-endpoint transport client dependency. </param>
-    public SupervisorClient (IIpcTransportClient transportClient)
+    /// <param name="timeProvider"> The time source used for bounded response waits. </param>
+    public SupervisorClient (
+        IIpcTransportClient transportClient,
+        TimeProvider timeProvider)
     {
         this.transportClient = transportClient ?? throw new ArgumentNullException(nameof(transportClient));
+        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
     /// <summary> Probes whether the specified supervisor manifest is reachable. </summary>
@@ -38,17 +45,29 @@ internal sealed class SupervisorClient
         {
             var request = CreateRequest(
                 manifest,
+                CreateRequestId(),
                 SupervisorIpcContracts.PingMethod,
                 new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion));
             var response = await SendAsync(manifest, request, timeout, cancellationToken).ConfigureAwait(false);
-            if (IpcResponseFailureReader.TryRead(response, out _, out _))
+            if (IpcResponseFailureReader.TryRead(response, out var firstError, out _))
+            {
+                return firstError?.Code == IpcSessionErrorCodes.SessionTokenInvalid
+                    ? SupervisorReachabilityProbeStatus.SessionTokenRejected
+                    : SupervisorReachabilityProbeStatus.Unreachable;
+            }
+
+            if (!IpcPayloadCodec.TryDeserialize(
+                    response.Payload,
+                    out SupervisorIpcContracts.PingResponse payload,
+                    out _))
             {
                 return SupervisorReachabilityProbeStatus.Unreachable;
             }
 
-            return IpcPayloadCodec.TryDeserialize(response.Payload, out SupervisorIpcContracts.PingResponse _, out _)
-                ? SupervisorReachabilityProbeStatus.Reachable
-                : SupervisorReachabilityProbeStatus.Unreachable;
+            return payload.ProcessId == manifest.ProcessId
+                && payload.IssuedAtUtc == manifest.IssuedAtUtc
+                    ? SupervisorReachabilityProbeStatus.Reachable
+                    : SupervisorReachabilityProbeStatus.Unreachable;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -89,17 +108,24 @@ internal sealed class SupervisorClient
 
     /// <summary> Ensures one Unity daemon is running through the supervisor runtime. </summary>
     /// <param name="manifest"> The reachable supervisor manifest. </param>
+    /// <param name="requestId"> The stable IPC request identifier for this logical operation. </param>
     /// <param name="unityProject"> The resolved Unity project context. </param>
-    /// <param name="timeout"> The command timeout. Must be greater than <see cref="TimeSpan.Zero" />. </param>
+    /// <param name="deadlineUtc"> The shared absolute command deadline. </param>
+    /// <param name="attemptTimeout"> The monotonic budget remaining when this delivery attempt begins. </param>
     /// <param name="editorMode"> The optional requested daemon Editor mode. </param>
     /// <param name="onStartupBlocked"> The startup-blocked process policy requested by the caller. </param>
     /// <param name="progressSink"> The optional caller progress sink that receives supervisor-internal daemon-start progress entries. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The mapped daemon-start result. </returns>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// Thrown when <paramref name="attemptTimeout" /> cannot be represented by the IPC millisecond contract.
+    /// </exception>
     public async ValueTask<DaemonStartResult> EnsureRunningAsync (
         SupervisorInstanceManifest manifest,
+        string requestId,
         ResolvedUnityProjectContext unityProject,
-        TimeSpan timeout,
+        DateTimeOffset deadlineUtc,
+        TimeSpan attemptTimeout,
         DaemonEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
         ICommandProgressSink? progressSink = null,
@@ -107,21 +133,25 @@ internal sealed class SupervisorClient
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(manifest);
+        ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(unityProject);
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
+        var timeoutMilliseconds = ValidateAttemptTimeout(attemptTimeout, "ensureRunning");
+        var terminalResponseTimeout = attemptTimeout.Add(SupervisorConstants.EnsureRunningTerminalResponseGrace);
 
         try
         {
             var ensureRunningPayload = new SupervisorIpcContracts.EnsureRunningRequest(
                     UnityProjectRoot: unityProject.UnityProjectRoot,
                     ProjectFingerprint: unityProject.ProjectFingerprint,
-                    TimeoutMilliseconds: checked((int)timeout.TotalMilliseconds),
+                    DeadlineUtc: deadlineUtc,
+                    AttemptTimeoutMilliseconds: timeoutMilliseconds,
                     EditorMode: editorMode.HasValue
                     ? ContractLiteralCodec.ToValue(editorMode.Value)
                     : null,
                 OnStartupBlocked: ContractLiteralCodec.ToValue(onStartupBlocked));
             var request = CreateRequest(
                 manifest,
+                requestId,
                 SupervisorIpcContracts.EnsureRunningMethod,
                 ensureRunningPayload,
                 progressSink is null ? IpcResponseMode.Single : IpcResponseMode.Stream);
@@ -130,18 +160,37 @@ internal sealed class SupervisorClient
                 : new SupervisorDaemonStartProgressFrameForwarder(
                     progressSink,
                     ensureRunningPayload.ProjectFingerprint,
-                    ensureRunningPayload.TimeoutMilliseconds,
+                    timeoutMilliseconds,
                     editorMode,
                     onStartupBlocked);
-            var response = progressFrameForwarder is null
-                ? await SendWithUnboundedResponseWaitAsync(manifest, request, timeout, cancellationToken).ConfigureAwait(false)
-                : await SendStreamingWithUnboundedResponseWaitAsync(
-                        manifest,
-                        request,
-                        timeout,
-                        progressFrameForwarder.ForwardAsync,
-                        cancellationToken)
-                    .ConfigureAwait(false);
+            var terminalResponseDeadline = ExecutionDeadline.Start(
+                terminalResponseTimeout,
+                timeProvider);
+            var endpoint = ResolveEndpoint(manifest);
+            var terminalResponseResult = await ExecutionDeadlineOperation.ExecuteAsync(
+                    terminalResponseDeadline,
+                    cancellationToken,
+                    "Timed out before waiting for the supervisor ensureRunning terminal response.",
+                    "Timed out while waiting for the supervisor ensureRunning terminal response.",
+                    operationCancellationToken => progressFrameForwarder is null
+                        ? transportClient.SendWithUnboundedResponseWaitAsync(
+                            endpoint,
+                            request,
+                            attemptTimeout,
+                            operationCancellationToken)
+                        : transportClient.SendStreamingWithUnboundedResponseWaitAsync(
+                            endpoint,
+                            request,
+                            attemptTimeout,
+                            progressFrameForwarder.ForwardAsync,
+                            operationCancellationToken))
+                .ConfigureAwait(false);
+            if (!terminalResponseResult.IsSuccess)
+            {
+                return DaemonStartResult.Failure(terminalResponseResult.Error!);
+            }
+
+            var response = terminalResponseResult.Value!;
             if (IpcResponseFailureReader.TryRead(response, out var firstError, out var status))
             {
                 var failurePayload = TryReadEnsureRunningFailurePayload(response);
@@ -197,31 +246,58 @@ internal sealed class SupervisorClient
 
     /// <summary> Stops one Unity daemon through the supervisor runtime. </summary>
     /// <param name="manifest"> The reachable supervisor manifest. </param>
+    /// <param name="requestId"> The stable IPC request identifier for this logical operation. </param>
     /// <param name="unityProject"> The resolved Unity project context. </param>
-    /// <param name="timeout"> The command timeout. Must be greater than <see cref="TimeSpan.Zero" />. </param>
+    /// <param name="deadlineUtc"> The shared absolute command deadline. </param>
+    /// <param name="attemptTimeout"> The monotonic budget remaining when this delivery attempt begins. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The mapped daemon-stop result. </returns>
     public async ValueTask<DaemonStopResult> StopProjectAsync (
         SupervisorInstanceManifest manifest,
+        string requestId,
         ResolvedUnityProjectContext unityProject,
-        TimeSpan timeout,
+        DateTimeOffset deadlineUtc,
+        TimeSpan attemptTimeout,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(manifest);
+        ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(unityProject);
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
+        var timeoutMilliseconds = ValidateAttemptTimeout(attemptTimeout, "stopProject");
 
         try
         {
             var request = CreateRequest(
                 manifest,
+                requestId,
                 SupervisorIpcContracts.StopProjectMethod,
                 new SupervisorIpcContracts.StopProjectRequest(
                     UnityProjectRoot: unityProject.UnityProjectRoot,
                     ProjectFingerprint: unityProject.ProjectFingerprint,
-                    TimeoutMilliseconds: checked((int)timeout.TotalMilliseconds)));
-            var response = await SendAsync(manifest, request, timeout, cancellationToken).ConfigureAwait(false);
+                    DeadlineUtc: deadlineUtc,
+                    AttemptTimeoutMilliseconds: timeoutMilliseconds));
+            var terminalResponseDeadline = ExecutionDeadline.Start(
+                attemptTimeout.Add(SupervisorConstants.StopProjectTerminalResponseGrace),
+                timeProvider);
+            var endpoint = ResolveEndpoint(manifest);
+            var terminalResponseResult = await ExecutionDeadlineOperation.ExecuteAsync(
+                    terminalResponseDeadline,
+                    cancellationToken,
+                    "Timed out before waiting for the supervisor stopProject terminal response.",
+                    "Timed out while waiting for the supervisor stopProject terminal response.",
+                    operationCancellationToken => transportClient.SendWithUnboundedResponseWaitAsync(
+                        endpoint,
+                        request,
+                        attemptTimeout,
+                        operationCancellationToken))
+                .ConfigureAwait(false);
+            if (!terminalResponseResult.IsSuccess)
+            {
+                return DaemonStopResult.Failure(terminalResponseResult.Error!);
+            }
+
+            var response = terminalResponseResult.Value!;
             if (IpcResponseFailureReader.TryRead(response, out var firstError, out var status))
             {
                 return DaemonStopResult.Failure(MapResponseFailure(firstError, status));
@@ -275,46 +351,48 @@ internal sealed class SupervisorClient
         return await transportClient.SendAsync(endpoint, request, timeout, cancellationToken).ConfigureAwait(false);
     }
 
-    private async ValueTask<IpcResponse> SendWithUnboundedResponseWaitAsync (
-        SupervisorInstanceManifest manifest,
-        IpcRequest request,
-        TimeSpan sendTimeout,
-        CancellationToken cancellationToken)
+    private static int ValidateAttemptTimeout (
+        TimeSpan attemptTimeout,
+        string operation)
     {
-        var endpoint = ResolveEndpoint(manifest);
-        return await transportClient.SendWithUnboundedResponseWaitAsync(endpoint, request, sendTimeout, cancellationToken).ConfigureAwait(false);
-    }
+        if (attemptTimeout <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(attemptTimeout),
+                attemptTimeout,
+                $"Supervisor {operation} attempt timeout must be greater than zero.");
+        }
 
-    private async ValueTask<IpcResponse> SendStreamingWithUnboundedResponseWaitAsync (
-        SupervisorInstanceManifest manifest,
-        IpcRequest request,
-        TimeSpan sendTimeout,
-        Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
-        CancellationToken cancellationToken)
-    {
-        var endpoint = ResolveEndpoint(manifest);
-        return await transportClient.SendStreamingWithUnboundedResponseWaitAsync(
-                endpoint,
-                request,
-                sendTimeout,
-                onProgressFrame,
-                cancellationToken)
-            .ConfigureAwait(false);
+        if (attemptTimeout.TotalMilliseconds > int.MaxValue)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(attemptTimeout),
+                attemptTimeout,
+                $"Supervisor {operation} attempt timeout must not exceed {int.MaxValue} milliseconds.");
+        }
+
+        return checked((int)Math.Ceiling(attemptTimeout.TotalMilliseconds));
     }
 
     private static IpcRequest CreateRequest<TPayload> (
         SupervisorInstanceManifest manifest,
+        string requestId,
         string method,
         TPayload payload,
         IpcResponseMode responseMode = IpcResponseMode.Single)
     {
         return new IpcRequest(
             ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: $"supervisor-{Guid.NewGuid():N}",
+            RequestId: requestId,
             SessionToken: manifest.SessionToken,
             Method: method,
             Payload: IpcPayloadCodec.SerializeToElement(payload),
             responseMode: responseMode);
+    }
+
+    private static string CreateRequestId ()
+    {
+        return $"supervisor-{Guid.NewGuid():N}";
     }
 
     private static IpcEndpoint ResolveEndpoint (SupervisorInstanceManifest manifest)

@@ -165,7 +165,9 @@ public sealed class DaemonListQueryServiceTests
             currentProject,
             DaemonSessionReadResult.Failure(
                 ExecutionError.InvalidArgument("Daemon session JSON is invalid."),
-                DaemonSessionReadFailureKind.InvalidSession),
+                DaemonSessionReadFailureKind.InvalidSession,
+                session: null,
+                artifactIdentity: null),
             new RecordingDaemonDiagnosisStore(),
             CreateDefaultPingClient(),
             new StubDaemonReachabilityClassifier(static _ => false));

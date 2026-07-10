@@ -36,7 +36,10 @@ public sealed class IpcDaemonPingClientFailureTests
     public async Task Ping_WhenResponseReportsFailure_ThrowsDaemonPingResponseException (PingResponseFailureCase testCase)
     {
         var unityIpcClient = new RecordingIpcTransportClient(testCase.CreateResponse);
-        var pingClient = new IpcDaemonPingClient(unityIpcClient, CreateResolvedSessionProvider());
+        var pingClient = new IpcDaemonPingClient(
+            unityIpcClient,
+            CreateResolvedSessionProvider(),
+            TimeProvider.System);
 
         await Assert.ThrowsAsync<DaemonPingResponseException>(async () =>
         {
@@ -56,7 +59,10 @@ public sealed class IpcDaemonPingClientFailureTests
     {
         var unityIpcClient = new UnexpectedIpcTransportClient("Missing daemon session must stop before sending IPC requests.");
         var sessionConnectionProvider = new StaticDaemonSessionConnectionProvider(DaemonSessionConnectionResolutionResult.SessionNotAvailable());
-        var pingClient = new IpcDaemonPingClient(unityIpcClient, sessionConnectionProvider);
+        var pingClient = new IpcDaemonPingClient(
+            unityIpcClient,
+            sessionConnectionProvider,
+            TimeProvider.System);
 
         var exception = await Assert.ThrowsAsync<DaemonPingResponseException>(async () =>
         {
@@ -81,7 +87,10 @@ public sealed class IpcDaemonPingClientFailureTests
         var unityIpcClient = new UnexpectedIpcTransportClient("Failed daemon session resolution must stop before sending IPC requests.");
         var sessionConnectionProvider = new StaticDaemonSessionConnectionProvider(DaemonSessionConnectionResolutionResult.Failure(
             new ExecutionError((ExecutionErrorKind)errorKind, "session token read failed")));
-        var pingClient = new IpcDaemonPingClient(unityIpcClient, sessionConnectionProvider);
+        var pingClient = new IpcDaemonPingClient(
+            unityIpcClient,
+            sessionConnectionProvider,
+            TimeProvider.System);
 
         var exception = await Assert.ThrowsAsync<DaemonPingResponseException>(async () =>
         {

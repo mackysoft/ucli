@@ -1,14 +1,249 @@
 namespace MackySoft.Ucli.Tests.Daemon;
 
 using MackySoft.Tests;
+using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Features.Daemon.Lifecycle.Start.GuiAttach;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
 using static MackySoft.Ucli.Tests.Daemon.DaemonGuiRebootstrapClientTestSupport;
 
 public sealed class DaemonGuiRebootstrapClientAcceptedTests
 {
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task RequestRebootstrapAsync_WhenSessionTokenRotates_ReloadsManifestAndReplaysSameRequestOnce ()
+    {
+        var initialManifest = CreateManifest() with { SessionToken = "initial-token" };
+        var successorManifest = initialManifest with
+        {
+            SessionToken = "successor-token",
+            IssuedAtUtc = initialManifest.IssuedAtUtc.AddSeconds(1),
+        };
+        var unityProject = ResolvedUnityProjectContextTestFactory.Create(
+            projectFingerprint: initialManifest.ProjectFingerprint);
+        var manifestReadCount = 0;
+        var manifestStore = new StubGuiSupervisorManifestStore(_ =>
+            ValueTask.FromResult<GuiSupervisorManifestJsonContract?>(
+                Interlocked.Increment(ref manifestReadCount) == 1
+                    ? initialManifest
+                    : successorManifest));
+        var transportClient = new StubIpcTransportClient
+        {
+            SendHandler = (_, request, _, cancellationToken) =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                return ValueTask.FromResult(
+                    string.Equals(request.SessionToken, initialManifest.SessionToken, StringComparison.Ordinal)
+                        ? IpcResponseTestFactory.CreateError(
+                            request,
+                            IpcSessionErrorCodes.SessionTokenInvalid,
+                            "Initial GUI supervisor session token is invalid.")
+                        : IpcResponseTestFactory.CreateSuccess(
+                            request,
+                            new IpcGuiRebootstrapResponse(
+                                Accepted: true,
+                                ProjectFingerprint: unityProject.ProjectFingerprint,
+                                ProcessId: successorManifest.ProcessId)));
+            },
+        };
+        var client = new DaemonGuiRebootstrapClient(
+            manifestStore,
+            transportClient,
+            TimeProvider.System);
+
+        var result = await client.RequestRebootstrapAsync(
+            unityProject,
+            initialManifest.ProcessId,
+            ProcessStartedAtUtc,
+            TimeSpan.FromSeconds(1),
+            CancellationToken.None);
+
+        Assert.True(result.IsAccepted);
+        Assert.Equal(2, manifestReadCount);
+        var requests = transportClient.Invocations.Select(static invocation => invocation.Request).ToArray();
+        IpcRequestAssert.SessionTokens(requests, initialManifest.SessionToken, successorManifest.SessionToken);
+        _ = IpcRequestAssert.SingleRequestId(requests);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task RequestRebootstrapAsync_WhenRejectedSessionTokenIsStillPublished_DoesNotReplayRequest ()
+    {
+        var manifest = CreateManifest();
+        var unityProject = ResolvedUnityProjectContextTestFactory.Create(projectFingerprint: manifest.ProjectFingerprint);
+        var manifestReadCount = 0;
+        var manifestStore = new StubGuiSupervisorManifestStore(_ =>
+        {
+            Interlocked.Increment(ref manifestReadCount);
+            return ValueTask.FromResult<GuiSupervisorManifestJsonContract?>(manifest);
+        });
+        var transportClient = new StubIpcTransportClient
+        {
+            SendHandler = (_, request, _, cancellationToken) =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                return ValueTask.FromResult(IpcResponseTestFactory.CreateError(
+                    request,
+                    IpcSessionErrorCodes.SessionTokenInvalid,
+                    "GUI supervisor session token is invalid."));
+            },
+        };
+        var client = new DaemonGuiRebootstrapClient(
+            manifestStore,
+            transportClient,
+            TimeProvider.System);
+
+        var result = await client.RequestRebootstrapAsync(
+            unityProject,
+            manifest.ProcessId,
+            ProcessStartedAtUtc,
+            TimeSpan.FromSeconds(1),
+            CancellationToken.None);
+
+        Assert.False(result.IsAccepted);
+        Assert.Equal(2, manifestReadCount);
+        Assert.Single(transportClient.Invocations);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task RequestRebootstrapAsync_WhenSuccessorTokenIsAlsoRejected_DoesNotObserveThirdGeneration ()
+    {
+        var initialManifest = CreateManifest() with { SessionToken = "initial-token" };
+        var successorManifest = initialManifest with
+        {
+            SessionToken = "successor-token",
+            IssuedAtUtc = initialManifest.IssuedAtUtc.AddSeconds(1),
+        };
+        var unexpectedThirdManifest = successorManifest with
+        {
+            SessionToken = "unexpected-third-token",
+            IssuedAtUtc = successorManifest.IssuedAtUtc.AddSeconds(1),
+        };
+        var unityProject = ResolvedUnityProjectContextTestFactory.Create(
+            projectFingerprint: initialManifest.ProjectFingerprint);
+        var manifestReadCount = 0;
+        var manifestStore = new StubGuiSupervisorManifestStore(_ =>
+            ValueTask.FromResult<GuiSupervisorManifestJsonContract?>(
+                Interlocked.Increment(ref manifestReadCount) switch
+                {
+                    1 => initialManifest,
+                    2 => successorManifest,
+                    _ => unexpectedThirdManifest,
+                }));
+        var transportClient = new StubIpcTransportClient
+        {
+            SendHandler = (_, request, _, cancellationToken) =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                return ValueTask.FromResult(IpcResponseTestFactory.CreateError(
+                    request,
+                    IpcSessionErrorCodes.SessionTokenInvalid,
+                    "GUI supervisor session token is invalid."));
+            },
+        };
+        var client = new DaemonGuiRebootstrapClient(
+            manifestStore,
+            transportClient,
+            TimeProvider.System);
+
+        var result = await client.RequestRebootstrapAsync(
+            unityProject,
+            initialManifest.ProcessId,
+            ProcessStartedAtUtc,
+            TimeSpan.FromSeconds(1),
+            CancellationToken.None);
+
+        Assert.False(result.IsAccepted);
+        Assert.Equal(2, manifestReadCount);
+        var requests = transportClient.Invocations.Select(static invocation => invocation.Request).ToArray();
+        IpcRequestAssert.SessionTokens(requests, initialManifest.SessionToken, successorManifest.SessionToken);
+        _ = IpcRequestAssert.SingleRequestId(requests);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task RequestRebootstrapAsync_WhenManifestReadConsumesBudget_UsesRemainingTimeoutForIpc ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var manifest = CreateManifest();
+        var unityProject = ResolvedUnityProjectContextTestFactory.Create(projectFingerprint: manifest.ProjectFingerprint);
+        var manifestStore = new StubGuiSupervisorManifestStore(cancellationToken =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            timeProvider.Advance(TimeSpan.FromMilliseconds(400));
+            return ValueTask.FromResult<GuiSupervisorManifestJsonContract?>(manifest);
+        });
+        var transportClient = CreateAcceptingTransport(unityProject.ProjectFingerprint, manifest);
+        var client = new DaemonGuiRebootstrapClient(manifestStore, transportClient, timeProvider);
+
+        var result = await client.RequestRebootstrapAsync(
+            unityProject,
+            manifest.ProcessId,
+            ProcessStartedAtUtc,
+            TimeSpan.FromMilliseconds(500),
+            CancellationToken.None);
+
+        Assert.True(result.IsAccepted);
+        var invocation = DaemonGuiRebootstrapTransportAssert.RebootstrapRequestedForManifest(
+            transportClient,
+            manifest,
+            unityProject.ProjectFingerprint,
+            TimeSpan.FromMilliseconds(100));
+        Assert.Equal(TimeSpan.FromMilliseconds(100), invocation.Timeout);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task RequestRebootstrapAsync_WhenManifestReadIgnoresCancellation_ReturnsAtDeadline ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var readStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var readCompletion = new TaskCompletionSource<GuiSupervisorManifestJsonContract?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var manifest = CreateManifest();
+        var unityProject = ResolvedUnityProjectContextTestFactory.Create(projectFingerprint: manifest.ProjectFingerprint);
+        var manifestStore = new StubGuiSupervisorManifestStore(_ =>
+        {
+            readStarted.TrySetResult();
+            return new ValueTask<GuiSupervisorManifestJsonContract?>(readCompletion.Task);
+        });
+        var transportClient = new StubIpcTransportClient
+        {
+            SendHandler = (_, _, _, _) => throw new InvalidOperationException(
+                "A timed-out manifest read must not send a GUI rebootstrap request."),
+        };
+        var client = new DaemonGuiRebootstrapClient(manifestStore, transportClient, timeProvider);
+        var timeout = TimeSpan.FromSeconds(1);
+
+        var resultTask = client.RequestRebootstrapAsync(
+                unityProject,
+                manifest.ProcessId,
+                ProcessStartedAtUtc,
+                timeout,
+                CancellationToken.None)
+            .AsTask();
+        await readStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+
+        try
+        {
+            await timeProvider
+                .WaitForTimerDueWithinAsync(timeout)
+                .WaitAsync(TimeSpan.FromSeconds(1));
+            timeProvider.Advance(timeout);
+            var result = await resultTask.WaitAsync(TimeSpan.FromSeconds(1));
+
+            Assert.False(result.IsAccepted);
+            Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
+            DaemonGuiRebootstrapTransportAssert.NoIpcRequestWasSent(transportClient);
+        }
+        finally
+        {
+            readCompletion.TrySetResult(null);
+        }
+    }
+
     [Fact]
     [Trait("Size", "Medium")]
     public async Task RequestRebootstrapAsync_WhenManifestMatchesAndSupervisorAccepts_ReturnsAccepted ()
@@ -83,5 +318,28 @@ public sealed class DaemonGuiRebootstrapClientAcceptedTests
                     ProjectFingerprint: projectFingerprint,
                     ProcessId: manifest.ProcessId))),
         };
+    }
+
+    private sealed class StubGuiSupervisorManifestStore : IGuiSupervisorManifestStore
+    {
+        private readonly Func<CancellationToken, ValueTask<GuiSupervisorManifestJsonContract?>> read;
+
+        public StubGuiSupervisorManifestStore (
+            Func<CancellationToken, ValueTask<GuiSupervisorManifestJsonContract?>> read)
+        {
+            this.read = read ?? throw new ArgumentNullException(nameof(read));
+        }
+
+        public ValueTask<GuiSupervisorManifestJsonContract?> ReadAfterEndpointPublicationAsync (
+            string storageRoot,
+            string projectFingerprint,
+            TimeSpan timeout,
+            CancellationToken cancellationToken)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(storageRoot);
+            ArgumentException.ThrowIfNullOrWhiteSpace(projectFingerprint);
+            ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
+            return read(cancellationToken);
+        }
     }
 }

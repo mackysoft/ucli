@@ -62,7 +62,7 @@ internal sealed class SupervisorProjectCoordinator
         SupervisorStabilityVerifier stabilityVerifier,
         SupervisorExitHandler exitHandler,
         SupervisorRuntimeLogger runtimeLogger,
-        TimeProvider? timeProvider = null)
+        TimeProvider timeProvider)
     {
         this.daemonStartOperation = daemonStartOperation ?? throw new ArgumentNullException(nameof(daemonStartOperation));
         this.daemonStopOperation = daemonStopOperation ?? throw new ArgumentNullException(nameof(daemonStopOperation));
@@ -71,7 +71,7 @@ internal sealed class SupervisorProjectCoordinator
         this.stabilityVerifier = stabilityVerifier ?? throw new ArgumentNullException(nameof(stabilityVerifier));
         this.exitHandler = exitHandler ?? throw new ArgumentNullException(nameof(exitHandler));
         this.runtimeLogger = runtimeLogger ?? throw new ArgumentNullException(nameof(runtimeLogger));
-        this.timeProvider = timeProvider ?? TimeProvider.System;
+        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
     /// <summary> Gets a value indicating whether one or more managed Unity daemon processes are currently tracked. </summary>
@@ -467,60 +467,99 @@ internal sealed class SupervisorProjectCoordinator
         }
 
         Interlocked.Increment(ref pendingOperationCount);
-        slot.PendingOperation = RunBackgroundCompensationStopAsync(slot, unityProject, slot.ManagedProcess);
+        var startSignal = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        slot.PendingOperation = RunBackgroundCompensationStopAsync(
+            startSignal.Task,
+            slot,
+            unityProject,
+            slot.ManagedProcess);
+        startSignal.TrySetResult();
     }
 
     private async Task RunBackgroundCompensationStopAsync (
+        Task startSignal,
         SupervisorProjectSlot slot,
         ResolvedUnityProjectContext unityProject,
         SupervisorManagedDaemonProcess managedProcess)
     {
+        ArgumentNullException.ThrowIfNull(startSignal);
         ArgumentNullException.ThrowIfNull(slot);
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentNullException.ThrowIfNull(managedProcess);
 
+        await startSignal.ConfigureAwait(false);
         managedProcess.BeginStopRequest();
+        var queuedLogTask = WriteRuntimeLogBestEffortAsync(
+            unityProject.RepositoryRoot,
+            "warning",
+            string.Format(
+                StabilityCompensationLogMessage,
+                unityProject.ProjectFingerprint));
         try
         {
-            await runtimeLogger.WriteAsync(
-                    unityProject.RepositoryRoot,
-                    "warning",
-                    string.Format(
-                        StabilityCompensationLogMessage,
-                        unityProject.ProjectFingerprint),
-                    CancellationToken.None)
-                .ConfigureAwait(false);
-
             var stopResult = await daemonStopOperation.StopAsync(
                     unityProject,
                     DaemonTimeouts.StopCompensationTimeout,
                     CancellationToken.None)
                 .ConfigureAwait(false);
             managedProcess.CompleteStopRequest(stopResult.IsSuccess);
+            await queuedLogTask.ConfigureAwait(false);
             if (!stopResult.IsSuccess)
             {
-                await runtimeLogger.WriteAsync(
+                await WriteRuntimeLogBestEffortAsync(
                         unityProject.RepositoryRoot,
                         "error",
-                        $"Background compensation stop failed. fingerprint={unityProject.ProjectFingerprint} error={stopResult.Error!.Message}",
-                        CancellationToken.None)
+                        $"Background compensation stop failed. fingerprint={unityProject.ProjectFingerprint} error={stopResult.Error!.Message}")
                     .ConfigureAwait(false);
             }
         }
         catch (Exception exception)
         {
             managedProcess.CompleteStopRequest(false);
-            await runtimeLogger.WriteAsync(
+            await queuedLogTask.ConfigureAwait(false);
+            await WriteRuntimeLogBestEffortAsync(
                     unityProject.RepositoryRoot,
                     "error",
-                    $"Background compensation stop crashed. fingerprint={unityProject.ProjectFingerprint} {exception}",
-                    CancellationToken.None)
+                    $"Background compensation stop crashed. fingerprint={unityProject.ProjectFingerprint} {exception}")
                 .ConfigureAwait(false);
         }
         finally
         {
             slot.PendingOperation = null;
             Interlocked.Decrement(ref pendingOperationCount);
+        }
+    }
+
+    private async Task WriteRuntimeLogBestEffortAsync (
+        string storageRoot,
+        string level,
+        string message)
+    {
+        try
+        {
+            var deadline = ExecutionDeadline.Start(
+                SupervisorConstants.RuntimeLogWriteTimeout,
+                timeProvider);
+            _ = await ExecutionDeadlineOperation.ExecuteAsync(
+                    deadline,
+                    CancellationToken.None,
+                    "Timed out before the supervisor runtime-log write could begin.",
+                    "Timed out while writing the supervisor runtime log.",
+                    async operationCancellationToken =>
+                    {
+                        await runtimeLogger.WriteAsync(
+                                storageRoot,
+                                level,
+                                message,
+                                operationCancellationToken)
+                            .ConfigureAwait(false);
+                        return true;
+                    })
+                .ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            // Runtime logging is supplemental and must not delay or fail required compensation.
         }
     }
 

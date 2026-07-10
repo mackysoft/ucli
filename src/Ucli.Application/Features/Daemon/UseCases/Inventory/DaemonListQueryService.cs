@@ -22,7 +22,7 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
 
     private readonly IDaemonDiagnosisStore daemonDiagnosisStore;
 
-    private readonly IDaemonPingInfoClient daemonPingInfoClient;
+    private readonly DaemonSessionProbe daemonSessionProbe;
 
     private readonly IDaemonReachabilityClassifier daemonReachabilityClassifier;
 
@@ -43,7 +43,7 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
     /// <param name="unityProjectResolver"> The Unity-project resolver dependency. </param>
     /// <param name="daemonSessionStore"> The daemon session-store dependency. </param>
     /// <param name="daemonDiagnosisStore"> The daemon diagnosis-store dependency. </param>
-    /// <param name="daemonPingInfoClient"> The daemon ping-info client dependency. </param>
+    /// <param name="daemonSessionProbe"> The exact-session probe and token-rotation dependency. </param>
     /// <param name="daemonReachabilityClassifier"> The daemon reachability-classifier dependency. </param>
     /// <param name="daemonLifecycleStore"> The daemon lifecycle observation store dependency. </param>
     /// <param name="processIdentityAssessor"> The daemon process identity assessor dependency. </param>
@@ -57,27 +57,27 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
         IUnityProjectResolver unityProjectResolver,
         IDaemonSessionStore daemonSessionStore,
         IDaemonDiagnosisStore daemonDiagnosisStore,
-        IDaemonPingInfoClient daemonPingInfoClient,
+        DaemonSessionProbe daemonSessionProbe,
         IDaemonReachabilityClassifier daemonReachabilityClassifier,
         IDaemonLifecycleStore daemonLifecycleStore,
         IDaemonProcessIdentityAssessor processIdentityAssessor,
         IDaemonSessionDiagnosisResolver daemonSessionDiagnosisResolver,
         IDaemonDiagnosisOutputMapper daemonDiagnosisOutputMapper,
         IWorktreeProjectPathResolver worktreeProjectPathResolver,
-        TimeProvider? timeProvider = null)
+        TimeProvider timeProvider)
     {
         this.gitWorktreeQueryService = gitWorktreeQueryService ?? throw new ArgumentNullException(nameof(gitWorktreeQueryService));
         this.unityProjectResolver = unityProjectResolver ?? throw new ArgumentNullException(nameof(unityProjectResolver));
         this.daemonSessionStore = daemonSessionStore ?? throw new ArgumentNullException(nameof(daemonSessionStore));
         this.daemonDiagnosisStore = daemonDiagnosisStore ?? throw new ArgumentNullException(nameof(daemonDiagnosisStore));
-        this.daemonPingInfoClient = daemonPingInfoClient ?? throw new ArgumentNullException(nameof(daemonPingInfoClient));
+        this.daemonSessionProbe = daemonSessionProbe ?? throw new ArgumentNullException(nameof(daemonSessionProbe));
         this.daemonReachabilityClassifier = daemonReachabilityClassifier ?? throw new ArgumentNullException(nameof(daemonReachabilityClassifier));
         this.daemonLifecycleStore = daemonLifecycleStore ?? throw new ArgumentNullException(nameof(daemonLifecycleStore));
         this.processIdentityAssessor = processIdentityAssessor ?? throw new ArgumentNullException(nameof(processIdentityAssessor));
         this.daemonSessionDiagnosisResolver = daemonSessionDiagnosisResolver ?? throw new ArgumentNullException(nameof(daemonSessionDiagnosisResolver));
         this.daemonDiagnosisOutputMapper = daemonDiagnosisOutputMapper ?? throw new ArgumentNullException(nameof(daemonDiagnosisOutputMapper));
         this.worktreeProjectPathResolver = worktreeProjectPathResolver ?? throw new ArgumentNullException(nameof(worktreeProjectPathResolver));
-        this.timeProvider = timeProvider ?? TimeProvider.System;
+        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
     /// <summary> Resolves daemon registrations across Git worktrees for one Unity project context. </summary>
@@ -179,39 +179,22 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
         }
 
         var candidateProject = candidateProjectResult.Context!;
-        if (!TryGetRemainingTimeout(
+        var sessionReadOperation = await ExecutionDeadlineOperation.ExecuteAsync(
                 deadline,
+                cancellationToken,
                 "Timed out before daemon session read could begin.",
-                out var sessionReadTimeout,
-                out var sessionReadTimeoutError))
-        {
-            return WorktreeObservationResult.Failure(sessionReadTimeoutError!);
-        }
-
-        using var sessionReadCancellationScope = TimeProviderCancellationScope.CreateLinked(
-            cancellationToken,
-            sessionReadTimeout,
-            timeProvider);
-
-        DaemonSessionReadResult sessionReadResult;
-        try
-        {
-            sessionReadResult = await daemonSessionStore.ReadAsync(
+                "Timed out while reading daemon session.",
+                token => daemonSessionStore.ReadAsync(
                     candidateProject.RepositoryRoot,
                     candidateProject.ProjectFingerprint,
-                    sessionReadCancellationScope.Token)
-                .ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                    token))
+            .ConfigureAwait(false);
+        if (!sessionReadOperation.IsSuccess)
         {
-            throw;
+            return WorktreeObservationResult.Failure(sessionReadOperation.Error!);
         }
-        catch (OperationCanceledException) when (sessionReadCancellationScope.HasTimedOut
-            && !cancellationToken.IsCancellationRequested)
-        {
-            return WorktreeObservationResult.Failure(ExecutionError.Timeout(
-                "Timed out while reading daemon session."));
-        }
+
+        var sessionReadResult = sessionReadOperation.Value!;
 
         if (!sessionReadResult.IsSuccess)
         {
@@ -246,52 +229,40 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
         ExecutionDeadline deadline,
         CancellationToken cancellationToken)
     {
-        if (!TryGetRemainingTimeout(
+        var probeResult = await daemonSessionProbe.ProbeAsync(
+                candidateProject,
+                session,
                 deadline,
-                "Timed out before daemon session probe could begin.",
-                out var probeTimeout,
-                out var probeTimeoutError))
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (probeResult.SessionReadFailure is not null)
         {
-            return WorktreeObservationResult.Failure(probeTimeoutError!);
+            return WorktreeObservationResult.Success(
+                CreateSessionReadFailureItem(
+                    worktree,
+                    candidateProject,
+                    probeResult.SessionReadFailure));
         }
 
-        using var probeCancellationScope = TimeProviderCancellationScope.CreateLinked(
-            cancellationToken,
-            probeTimeout,
-            timeProvider);
-
-        try
+        var probedSession = probeResult.Session;
+        if (probeResult.IsSuccess)
         {
-            var pingResponse = await daemonPingInfoClient.PingAndReadAsync(
-                    candidateProject,
-                    probeTimeout,
-                    session.SessionToken,
-                    cancellationToken: probeCancellationScope.Token)
-                .ConfigureAwait(false);
             var observation = StatusDaemonObservationCodec.CreateFromPing(
                 DaemonStatusKind.Running,
-                pingResponse);
+                probeResult.PingResponse!);
 
             return WorktreeObservationResult.Success(CreateItem(
                 worktree,
                 candidateProject,
                 DaemonListItemState.Running,
                 null,
-                session,
+                probedSession,
                 observation,
                 diagnosis: null));
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (OperationCanceledException) when (probeCancellationScope.HasTimedOut
-            && !cancellationToken.IsCancellationRequested)
-        {
-            return WorktreeObservationResult.Failure(ExecutionError.Timeout(
-                "Timed out while probing daemon session."));
-        }
-        catch (TimeoutException)
+
+        var probeFailure = probeResult.ProbeFailure!;
+        if (probeFailure is TimeoutException)
         {
             if (deadline.IsExpired)
             {
@@ -299,76 +270,47 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
                     "Timed out while probing daemon session."));
             }
 
-            var observation = await CreateUnreachableObservationAsync(
-                    candidateProject,
-                    session,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (observation.DaemonStatus == DaemonStatusKind.Running)
-            {
-                return WorktreeObservationResult.Success(CreateItem(
-                    worktree,
-                    candidateProject,
-                    DaemonListItemState.Running,
-                    null,
-                    session,
-                    observation,
-                    diagnosis: null));
-            }
-
             return WorktreeObservationResult.Success(CreateItem(
                 worktree,
                 candidateProject,
                 DaemonListItemState.Error,
                 DaemonListItemReason.ProbeTimeout,
-                session,
-                observation,
+                probedSession,
+                StatusDaemonObservationCodec.CreateWithoutPing(DaemonStatusKind.Stale),
                 diagnosis: null));
         }
-        catch (Exception exception) when (daemonReachabilityClassifier.IsNotRunning(exception))
+
+        if (daemonReachabilityClassifier.IsNotRunning(probeFailure))
         {
-            var observation = await CreateUnreachableObservationAsync(
+            var unreachableSessionResolution = await ResolveUnreachableSessionAsync(
                     candidateProject,
-                    session,
+                    probedSession,
+                    deadline,
                     cancellationToken)
                 .ConfigureAwait(false);
-            if (observation.DaemonStatus == DaemonStatusKind.Running)
+            if (!unreachableSessionResolution.IsSuccess)
             {
-                return WorktreeObservationResult.Success(CreateItem(
-                    worktree,
-                    candidateProject,
-                    DaemonListItemState.Running,
-                    null,
-                    session,
-                    observation,
-                    diagnosis: null));
+                return WorktreeObservationResult.Failure(unreachableSessionResolution.Error!);
             }
 
-            var diagnosis = await ResolveStaleDiagnosisAsync(
-                    candidateProject,
-                    session,
-                    cancellationToken)
-                .ConfigureAwait(false);
             return WorktreeObservationResult.Success(CreateItem(
                 worktree,
                 candidateProject,
                 DaemonListItemState.Stale,
                 DaemonListItemReason.StaleSession,
-                session,
-                observation,
-                diagnosis));
+                probedSession,
+                StatusDaemonObservationCodec.CreateWithoutPing(DaemonStatusKind.Stale),
+                unreachableSessionResolution.Diagnosis));
         }
-        catch (Exception)
-        {
-            return WorktreeObservationResult.Success(CreateItem(
-                worktree,
-                candidateProject,
-                DaemonListItemState.Error,
-                DaemonListItemReason.ProbeFailed,
-                session,
-                StatusDaemonObservationCodec.CreateUnavailable(DaemonStatusKind.Stale),
-                diagnosis: null));
-        }
+
+        return WorktreeObservationResult.Success(CreateItem(
+            worktree,
+            candidateProject,
+            DaemonListItemState.Error,
+            DaemonListItemReason.ProbeFailed,
+            probedSession,
+            StatusDaemonObservationCodec.CreateWithoutPing(DaemonStatusKind.Stale),
+            diagnosis: null));
     }
 
     /// <summary> Gets remaining timeout from the shared execution deadline. </summary>
@@ -461,73 +403,83 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
             Diagnosis: diagnosis);
     }
 
-    private async ValueTask<StatusDaemonObservation> CreateUnreachableObservationAsync (
+    private async ValueTask<UnreachableSessionResolution> ResolveUnreachableSessionAsync (
         ResolvedUnityProjectContext candidateProject,
         DaemonSession session,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken)
     {
-        var lifecycleReadResult = await daemonLifecycleStore.ReadAsync(
-                candidateProject.RepositoryRoot,
-                candidateProject.ProjectFingerprint,
-                cancellationToken)
+        var lifecycleReadOperation = await ExecutionDeadlineOperation.ExecuteAsync(
+                deadline,
+                cancellationToken,
+                "Timed out before daemon lifecycle read could begin.",
+                "Timed out while reading daemon lifecycle observation.",
+                token => daemonLifecycleStore.ReadAsync(
+                    candidateProject.RepositoryRoot,
+                    candidateProject.ProjectFingerprint,
+                    token))
             .ConfigureAwait(false);
-        if (lifecycleReadResult.IsSuccess
+        if (!lifecycleReadOperation.IsSuccess)
+        {
+            return UnreachableSessionResolution.Failure(lifecycleReadOperation.Error!);
+        }
+
+        var lifecycleReadResult = lifecycleReadOperation.Value!;
+        var observation = lifecycleReadResult.Observation;
+        var hasUsableRecoveringObservation = lifecycleReadResult.IsSuccess
             && lifecycleReadResult.Exists
-            && lifecycleReadResult.Observation!.IsRecovering
-            && DaemonLifecycleObservationMatcher.MatchesSessionByEditorInstance(lifecycleReadResult.Observation, session)
-            && IsMatchingLiveProcess(session))
+            && observation is not null
+            && observation.IsRecovering
+            && DaemonLifecycleObservationAvailability.IsUsableForSession(
+                observation,
+                session,
+                processIdentityAssessor,
+                timeProvider);
+        if (hasUsableRecoveringObservation)
         {
-            return StatusDaemonObservationCodec.CreateFromLifecycleObservation(
-                DaemonStatusKind.Running,
-                lifecycleReadResult.Observation);
+            return UnreachableSessionResolution.Success(diagnosis: null);
         }
 
-        return StatusDaemonObservationCodec.CreateUnavailable(DaemonStatusKind.Stale);
-    }
-
-    private bool IsMatchingLiveProcess (DaemonSession session)
-    {
-        if (session.ProcessId is not int processId)
-        {
-            return false;
-        }
-
-        return processIdentityAssessor.AssessByProcessId(processId, session.ProcessStartedAtUtc).Status
-            == DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess;
-    }
-
-    /// <summary> Resolves diagnosis payload for one stale daemon session when available. </summary>
-    /// <param name="candidateProject"> The resolved Unity project context for the candidate worktree. </param>
-    /// <param name="session"> The stale daemon session metadata. </param>
-    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
-    /// <returns> The daemon diagnosis payload when available; otherwise <see langword="null" />. </returns>
-    private async ValueTask<DaemonDiagnosisOutput?> ResolveStaleDiagnosisAsync (
-        ResolvedUnityProjectContext candidateProject,
-        DaemonSession session,
-        CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        ArgumentNullException.ThrowIfNull(candidateProject);
-        ArgumentNullException.ThrowIfNull(session);
-
-        var diagnosisReadResult = await daemonDiagnosisStore.ReadAsync(
-                candidateProject.RepositoryRoot,
-                candidateProject.ProjectFingerprint,
-                cancellationToken)
+        var diagnosisReadOperation = await ExecutionDeadlineOperation.ExecuteAsync(
+                deadline,
+                cancellationToken,
+                "Timed out before stale daemon diagnosis read could begin.",
+                "Timed out while reading stale daemon diagnosis.",
+                token => daemonDiagnosisStore.ReadAsync(
+                    candidateProject.RepositoryRoot,
+                    candidateProject.ProjectFingerprint,
+                    token))
             .ConfigureAwait(false);
+        if (!diagnosisReadOperation.IsSuccess)
+        {
+            return UnreachableSessionResolution.Failure(diagnosisReadOperation.Error!);
+        }
+
+        var diagnosisReadResult = diagnosisReadOperation.Value!;
         var persistedDiagnosis = diagnosisReadResult.IsSuccess
             ? diagnosisReadResult.Diagnosis
             : null;
 
-        var diagnosis = await daemonSessionDiagnosisResolver.ResolveForSessionAsync(
-                candidateProject,
-                session,
-                persistedDiagnosis,
-                cancellationToken)
+        var diagnosisResolution = await ExecutionDeadlineOperation.ExecuteAsync(
+                deadline,
+                cancellationToken,
+                "Timed out before stale daemon diagnosis resolution could begin.",
+                "Timed out while resolving stale daemon diagnosis.",
+                token => daemonSessionDiagnosisResolver.ResolveForSessionAsync(
+                    candidateProject,
+                    session,
+                    persistedDiagnosis,
+                    token))
             .ConfigureAwait(false);
+        if (!diagnosisResolution.IsSuccess)
+        {
+            return UnreachableSessionResolution.Failure(diagnosisResolution.Error!);
+        }
+
+        var diagnosis = diagnosisResolution.Value;
         return diagnosis is null
-            ? null
-            : daemonDiagnosisOutputMapper.ToOutput(diagnosis);
+            ? UnreachableSessionResolution.Success(diagnosis: null)
+            : UnreachableSessionResolution.Success(daemonDiagnosisOutputMapper.ToOutput(diagnosis));
     }
 
     /// <summary> Creates one complete daemon-list execution output. </summary>
@@ -599,4 +551,23 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
             return new WorktreeObservationResult(null, error);
         }
     }
+
+    private readonly record struct UnreachableSessionResolution (
+        DaemonDiagnosisOutput? Diagnosis,
+        ExecutionError? Error)
+    {
+        public bool IsSuccess => Error is null;
+
+        public static UnreachableSessionResolution Success (DaemonDiagnosisOutput? diagnosis)
+        {
+            return new UnreachableSessionResolution(diagnosis, null);
+        }
+
+        public static UnreachableSessionResolution Failure (ExecutionError error)
+        {
+            ArgumentNullException.ThrowIfNull(error);
+            return new UnreachableSessionResolution(null, error);
+        }
+    }
+
 }

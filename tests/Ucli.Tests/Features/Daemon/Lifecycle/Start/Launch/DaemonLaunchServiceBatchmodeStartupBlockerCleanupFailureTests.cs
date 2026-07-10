@@ -12,14 +12,13 @@ public sealed class DaemonLaunchServiceBatchmodeStartupBlockerCleanupFailureTest
 {
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Launch_WhenBatchmodeClassifiedBlockerFinalLaunchAttemptWriteAndCleanupFail_ReportsBothSecondaryErrors ()
+    public async Task Launch_WhenBatchmodeClassifiedBlockerLaunchAttemptWriteAndCleanupFail_ReportsBothSecondaryErrors ()
     {
         var scenario = CreateClassifiedBlockerScenario(
             "fingerprint-probe-classified-blocker-final-artifact-cleanup-fail",
             processId: 7785);
-        scenario.LaunchAttemptStore.WriteResults.Enqueue(DaemonLaunchAttemptStoreOperationResult.Success());
-        scenario.LaunchAttemptStore.WriteResults.Enqueue(
-            DaemonLaunchAttemptStoreOperationResult.Failure(ExecutionError.InternalError("final artifact failed")));
+        scenario.LaunchAttemptStore.WriteResult =
+            DaemonLaunchAttemptStoreOperationResult.Failure(ExecutionError.InternalError("artifact failed"));
         scenario.CompensationService.NextResult =
             DaemonSessionStoreOperationResult.Failure(ExecutionError.InternalError("cleanup failed"));
 
@@ -29,13 +28,15 @@ public sealed class DaemonLaunchServiceBatchmodeStartupBlockerCleanupFailureTest
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(DaemonErrorCodes.DaemonStartupBlocked, error.Code);
         Assert.Contains("StartupError=Unity scripts have compiler errors.", error.Message, StringComparison.Ordinal);
-        Assert.Contains("ArtifactError=final artifact failed", error.Message, StringComparison.Ordinal);
+        Assert.Contains("ArtifactError=artifact failed", error.Message, StringComparison.Ordinal);
         Assert.Contains("CleanupError=cleanup failed", error.Message, StringComparison.Ordinal);
         Assert.NotNull(result.Startup);
         Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Unknown), result.Startup!.ProcessAction);
-        DaemonLaunchAttemptStoreAssert.LaunchAttemptEvidenceBeforeAndAfterCompensationFor(
+        DaemonLaunchAttemptStoreAssert.SingleLaunchAttemptRecordedWithoutPruneFor(
             scenario.LaunchAttemptStore,
             scenario.Context,
+            result.Startup.LaunchAttemptId!,
+            ContractLiteralCodec.ToValue(DaemonStartupStatus.Blocked),
             ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Unknown));
     }
 
@@ -76,9 +77,11 @@ public sealed class DaemonLaunchServiceBatchmodeStartupBlockerCleanupFailureTest
         Assert.Equal(primaryDiagnostic, result.Diagnosis.PrimaryDiagnostic);
         Assert.NotNull(result.Startup);
         Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Unknown), result.Startup!.ProcessAction);
-        var finalLaunchAttempt = DaemonLaunchAttemptStoreAssert.LaunchAttemptEvidenceBeforeAndAfterCompensationFor(
+        var finalLaunchAttempt = DaemonLaunchAttemptStoreAssert.SingleLaunchAttemptRecordedAndPrunedFor(
             scenario.LaunchAttemptStore,
             scenario.Context,
+            result.Startup.LaunchAttemptId!,
+            ContractLiteralCodec.ToValue(DaemonStartupStatus.Blocked),
             ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Unknown));
         Assert.Equal(result.Diagnosis, finalLaunchAttempt.Diagnosis);
     }

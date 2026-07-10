@@ -31,7 +31,11 @@ public sealed class DaemonGuiStartupObserverTests
         var logReader = new UnexpectedUnityLogReader(
             "Session registration success should not read the Unity log.");
         var processIdentityAssessor = RecordingDaemonProcessIdentityAssessor.MatchingLiveProcess();
-        var observer = new DaemonGuiStartupObserver(awaiter, logReader, processIdentityAssessor);
+        var observer = new DaemonGuiStartupObserver(
+            awaiter,
+            logReader,
+            processIdentityAssessor,
+            TimeProvider.System);
         var processStartedAtUtc = DateTimeOffset.UtcNow;
 
         var result = await observer.WaitForStartupAsync(
@@ -67,7 +71,8 @@ public sealed class DaemonGuiStartupObserverTests
         var observer = new DaemonGuiStartupObserver(
             awaiter,
             new UnexpectedUnityLogReader("Session registration success should not read the Unity log."),
-            RecordingDaemonProcessIdentityAssessor.MatchingLiveProcess());
+            RecordingDaemonProcessIdentityAssessor.MatchingLiveProcess(),
+            TimeProvider.System);
 
         var result = await observer.WaitForStartupAsync(
             ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-gui-observer-session"),
@@ -103,7 +108,8 @@ public sealed class DaemonGuiStartupObserverTests
         var observer = new DaemonGuiStartupObserver(
             awaiter,
             logReader,
-            RecordingDaemonProcessIdentityAssessor.MatchingLiveProcess());
+            RecordingDaemonProcessIdentityAssessor.MatchingLiveProcess(),
+            TimeProvider.System);
 
         var result = await observer.WaitForStartupAsync(
             ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-gui-observer-compiler"),
@@ -185,7 +191,8 @@ public sealed class DaemonGuiStartupObserverTests
         var observer = new DaemonGuiStartupObserver(
             awaiter,
             logReader,
-            RecordingDaemonProcessIdentityAssessor.MatchingLiveProcess());
+            RecordingDaemonProcessIdentityAssessor.MatchingLiveProcess(),
+            TimeProvider.System);
 
         var result = await observer.WaitForStartupAsync(
             ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext($"fingerprint-gui-observer-{expectedReason}"),
@@ -225,7 +232,11 @@ public sealed class DaemonGuiStartupObserverTests
                 ObservedStartTimeUtc: null,
                 Error: null),
         };
-        var observer = new DaemonGuiStartupObserver(awaiter, logReader, processIdentityAssessor);
+        var observer = new DaemonGuiStartupObserver(
+            awaiter,
+            logReader,
+            processIdentityAssessor,
+            TimeProvider.System);
 
         var result = await observer.WaitForStartupAsync(
             ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-gui-observer-exit"),
@@ -268,7 +279,11 @@ public sealed class DaemonGuiStartupObserverTests
                 ObservedStartTimeUtc: null,
                 Error: null),
         };
-        var observer = new DaemonGuiStartupObserver(awaiter, logReader, processIdentityAssessor);
+        var observer = new DaemonGuiStartupObserver(
+            awaiter,
+            logReader,
+            processIdentityAssessor,
+            TimeProvider.System);
 
         var result = await observer.WaitForStartupAsync(
             ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-gui-observer-exit-with-log"),
@@ -296,10 +311,8 @@ public sealed class DaemonGuiStartupObserverTests
             NextResult = DaemonGuiSessionRegistrationWaitResult.Failure(ExecutionError.Timeout("registration timeout")),
             OnWaitForSession = () => timeProvider.Advance(TimeSpan.FromMilliseconds(20)),
         };
-        var logReader = new RecordingUnityLogReader
-        {
-            NextResult = UnityLogReadResult.Success(string.Empty, truncated: false, path: "/tmp/unity.log", sizeBytes: 0),
-        };
+        var logReader = new UnexpectedUnityLogReader(
+            "An exhausted GUI startup deadline must not begin another Unity log read.");
         var observer = new DaemonGuiStartupObserver(
             awaiter,
             logReader,
@@ -319,6 +332,65 @@ public sealed class DaemonGuiStartupObserverTests
         Assert.NotNull(result.Error);
         Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.Error.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task WaitForStartup_WhenLogReadIgnoresCancellation_ReturnsAtDeadline ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var logReadStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var logReadCompletion = new TaskCompletionSource<UnityLogReadResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var awaiter = new RecordingDaemonGuiSessionRegistrationAwaiter
+        {
+            NextResult = DaemonGuiSessionRegistrationWaitResult.Failure(ExecutionError.Timeout("registration timeout")),
+        };
+        var logReader = new RecordingUnityLogReader
+        {
+            ReadAsyncHandler = (_, _, _, _) =>
+            {
+                logReadStarted.TrySetResult();
+                return new ValueTask<UnityLogReadResult>(logReadCompletion.Task);
+            },
+        };
+        var observer = new DaemonGuiStartupObserver(
+            awaiter,
+            logReader,
+            RecordingDaemonProcessIdentityAssessor.MatchingLiveProcess(),
+            timeProvider);
+        var timeout = TimeSpan.FromSeconds(1);
+
+        var resultTask = observer.WaitForStartupAsync(
+                ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-gui-observer-log-timeout"),
+                processId: Environment.ProcessId,
+                processStartedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero),
+                unityLogPath: "/tmp/unity.log",
+                timeout: timeout,
+                cancellationToken: CancellationToken.None)
+            .AsTask();
+        await logReadStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+
+        try
+        {
+            await timeProvider
+                .WaitForTimerDueWithinAsync(timeout)
+                .WaitAsync(TimeSpan.FromSeconds(1));
+            timeProvider.Advance(timeout);
+            var result = await resultTask.WaitAsync(TimeSpan.FromSeconds(1));
+
+            Assert.False(result.IsSuccess);
+            Assert.False(result.IsBlocked);
+            Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
+            Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.Error.Code);
+        }
+        finally
+        {
+            logReadCompletion.TrySetResult(UnityLogReadResult.Success(
+                string.Empty,
+                truncated: false,
+                path: "/tmp/unity.log",
+                sizeBytes: 0));
+        }
     }
 
 }

@@ -44,7 +44,9 @@ public sealed class UnityProjectLockOwnerProbeTests
             {
                 ReadResult = DaemonSessionReadResult.Failure(
                     ExecutionError.InternalError("session read failed"),
-                    DaemonSessionReadFailureKind.IoFailure),
+                    DaemonSessionReadFailureKind.IoFailure,
+                    session: null,
+                    artifactIdentity: null),
             },
             new StubUnityEditorInstanceProbe(UnityEditorInstanceProbeResult.NotFound()),
             new StubUnityProjectProcessScanner(UnityProjectProcessScanResult.Success([])));

@@ -1,8 +1,10 @@
 using System.Text.Json;
+using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Artifacts;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Contracts;
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
 using MackySoft.Ucli.Application.Features.Assurance.Semantics;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Assets;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
@@ -14,6 +16,57 @@ namespace MackySoft.Ucli.Tests.Hosting.Composition;
 
 public sealed class UcliServiceCollectionExtensionsTests
 {
+    [Theory]
+    [InlineData(typeof(IDaemonSessionSerializer))]
+    [InlineData(typeof(IDaemonSessionValidator))]
+    [Trait("Size", "Small")]
+    public void AddUcliServices_RegistersOneDaemonSessionContractImplementation (Type serviceType)
+    {
+        var services = new ServiceCollection();
+        services.AddUcliServices();
+
+        _ = Assert.Single(services, descriptor => descriptor.ServiceType == serviceType);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void AddUcliServices_RegistersSystemTimeProviderAsSingleton ()
+    {
+        var services = new ServiceCollection();
+        services.AddUcliServices();
+        var descriptor = Assert.Single(
+            services,
+            candidate => candidate.ServiceType == typeof(TimeProvider));
+
+        using var serviceProvider = services.BuildServiceProvider();
+
+        Assert.Equal(ServiceLifetime.Singleton, descriptor.Lifetime);
+        Assert.Same(TimeProvider.System, descriptor.ImplementationInstance);
+        Assert.Same(TimeProvider.System, serviceProvider.GetRequiredService<TimeProvider>());
+        Assert.Same(
+            serviceProvider.GetRequiredService<TimeProvider>(),
+            serviceProvider.GetRequiredService<TimeProvider>());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void AddUcliServices_PreservesRegisteredTimeProvider ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var services = new ServiceCollection();
+        services.AddSingleton<TimeProvider>(timeProvider);
+        services.AddUcliServices();
+
+        using var serviceProvider = services.BuildServiceProvider(
+            new ServiceProviderOptions
+            {
+                ValidateOnBuild = true,
+                ValidateScopes = true,
+            });
+
+        Assert.Same(timeProvider, serviceProvider.GetRequiredService<TimeProvider>());
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public void AddUcliServices_ResolvesReadIndexPolicyAndAdapterGraph ()

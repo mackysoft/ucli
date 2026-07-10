@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
+
 namespace MackySoft.Ucli.Application.Tests.Daemon;
 
 public sealed class DaemonGuiEditorAttachServicePreEndpointTests
@@ -22,7 +24,9 @@ public sealed class DaemonGuiEditorAttachServicePreEndpointTests
             processProbe,
             awaiter,
             new UnexpectedDaemonGuiRebootstrapClient("Batchmode editor mode mismatch should not request rebootstrap."),
-            diagnosisStore);
+            diagnosisStore,
+            new DaemonCompensationOperationOwner(),
+            TimeProvider.System);
 
         var result = await service.TryAttachExistingGuiEditorAsync(
             DaemonGuiEditorAttachServiceTestSupport.UnityProject,
@@ -54,7 +58,9 @@ public sealed class DaemonGuiEditorAttachServicePreEndpointTests
             processProbe,
             awaiter,
             new UnexpectedDaemonGuiRebootstrapClient("Rejected GUI marker should not request rebootstrap."),
-            new UnexpectedDaemonDiagnosisStore("Rejected GUI marker should not write diagnosis."));
+            new UnexpectedDaemonDiagnosisStore("Rejected GUI marker should not write diagnosis."),
+            new DaemonCompensationOperationOwner(),
+            TimeProvider.System);
 
         var result = await service.TryAttachExistingGuiEditorAsync(
             DaemonGuiEditorAttachServiceTestSupport.UnityProject,

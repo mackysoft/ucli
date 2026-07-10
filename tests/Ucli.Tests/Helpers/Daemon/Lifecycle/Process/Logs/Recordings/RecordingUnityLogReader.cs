@@ -16,6 +16,8 @@ internal sealed class RecordingUnityLogReader : IUnityLogReader
 
     public UnityLogReadResult NextResult { get; set; }
 
+    public Func<string, string, int, CancellationToken, ValueTask<UnityLogReadResult>>? ReadAsyncHandler { get; set; }
+
     public IReadOnlyList<Invocation> Invocations => invocations;
 
     public ValueTask<UnityLogReadResult> ReadTailAsync (
@@ -26,6 +28,11 @@ internal sealed class RecordingUnityLogReader : IUnityLogReader
     {
         cancellationToken.ThrowIfCancellationRequested();
         invocations.Add(new Invocation(storageRoot, projectFingerprint, maxBytes, cancellationToken));
+        if (ReadAsyncHandler is not null)
+        {
+            return ReadAsyncHandler(storageRoot, projectFingerprint, maxBytes, cancellationToken);
+        }
+
         return ValueTask.FromResult(NextResult);
     }
 

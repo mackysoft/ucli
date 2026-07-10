@@ -23,10 +23,12 @@ internal static class DaemonExistingSessionGateServiceTestSupport
             daemonSessionCleanupService: cleanupService ?? new RecordingDaemonSessionCleanupService(),
             daemonLifecycleStore: lifecycleStore ?? new RecordingDaemonLifecycleStore(),
             processIdentityAssessor: processIdentityAssessor ?? new RecordingDaemonProcessIdentityAssessor(),
-            timeProvider: timeProvider);
+            timeProvider: timeProvider ?? TimeProvider.System);
     }
 
-    public static DaemonLifecycleObservation CreateRecoveringObservation (DaemonSession session)
+    public static DaemonLifecycleObservation CreateRecoveringObservation (
+        DaemonSession session,
+        DateTimeOffset? observedAtUtc = null)
     {
         return new DaemonLifecycleObservation(
             ProcessId: session.ProcessId!.Value,
@@ -37,7 +39,7 @@ internal static class DaemonExistingSessionGateServiceTestSupport
             CompileState: IpcCompileStateCodec.Ready,
             CompileGeneration: "1",
             DomainReloadGeneration: "2",
-            ObservedAtUtc: DateTimeOffset.UtcNow,
+            ObservedAtUtc: observedAtUtc ?? DateTimeOffset.UtcNow,
             ActionRequired: null,
             PrimaryDiagnostic: null)
         {
@@ -61,11 +63,13 @@ internal static class DaemonExistingSessionGateServiceTestSupport
         };
     }
 
-    public static RecordingDaemonLifecycleStore CreateRecoveringLifecycleStore (DaemonSession session)
+    public static RecordingDaemonLifecycleStore CreateRecoveringLifecycleStore (
+        DaemonSession session,
+        DateTimeOffset? observedAtUtc = null)
     {
         return new RecordingDaemonLifecycleStore
         {
-            ReadResult = DaemonLifecycleObservationReadResult.Success(CreateRecoveringObservation(session)),
+            ReadResult = DaemonLifecycleObservationReadResult.Success(CreateRecoveringObservation(session, observedAtUtc)),
         };
     }
 

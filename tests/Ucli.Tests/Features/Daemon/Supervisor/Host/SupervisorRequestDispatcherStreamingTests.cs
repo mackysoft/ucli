@@ -8,6 +8,8 @@ namespace MackySoft.Ucli.Tests.Supervisor;
 
 public sealed class SupervisorRequestDispatcherStreamingTests
 {
+    private static readonly TimeSpan SignalWaitTimeout = TimeSpan.FromSeconds(5);
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task HandleConnection_WhenEnsureRunningStreamEmitsProgress_WritesProgressBeforeTerminal ()
@@ -61,7 +63,8 @@ public sealed class SupervisorRequestDispatcherStreamingTests
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: projectFingerprint,
-                        TimeoutMilliseconds: 1000,
+                        DeadlineUtc: CreateEnsureRunningDeadline(1000),
+                        AttemptTimeoutMilliseconds: 1000,
                         EditorMode: "batchmode",
                         OnStartupBlocked: "auto")),
                 responseMode: IpcResponseMode.Stream));
@@ -98,38 +101,33 @@ public sealed class SupervisorRequestDispatcherStreamingTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task HandleConnection_WhenEnsureRunningStreamProgressWriteFails_CancelsStartOperation ()
+    public async Task HandleConnection_WhenEnsureRunningStreamProgressWriteFails_CancelsStartOperationAndSealsStream ()
     {
-        var progressWriteCanceled = false;
+        var progressWriteCancellationObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var cancellationRegistration = default(CancellationTokenRegistration);
         var startOperation = new RecordingDaemonStartOperation
         {
             OnStart = async (progressObserver, cancellationToken) =>
             {
                 Assert.NotNull(progressObserver);
-                try
-                {
-                    await progressObserver!.EmitWaitingForEndpointAsync(
-                            new DaemonStartStartupProgressObservation(
-                                LaunchAttemptId: "attempt-1",
-                                EditorMode: "batchmode",
-                                OwnerKind: "cli",
-                                CanShutdownProcess: true,
-                                ProcessId: 42,
-                                ProcessStartedAtUtc: DateTimeOffset.UtcNow,
-                                StartupStatus: "waitingForEndpoint",
-                                StartupBlockingReason: null,
-                                StartupPhase: "endpointRegistration",
-                                RetryDisposition: null,
-                                Message: null,
-                                ErrorCode: null),
-                            cancellationToken)
-                        .ConfigureAwait(false);
-                }
-                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-                {
-                    progressWriteCanceled = true;
-                    throw;
-                }
+                cancellationRegistration = cancellationToken.Register(
+                    () => progressWriteCancellationObserved.TrySetResult());
+                await progressObserver!.EmitWaitingForEndpointAsync(
+                        new DaemonStartStartupProgressObservation(
+                            LaunchAttemptId: "attempt-1",
+                            EditorMode: "batchmode",
+                            OwnerKind: "cli",
+                            CanShutdownProcess: true,
+                            ProcessId: 42,
+                            ProcessStartedAtUtc: DateTimeOffset.UtcNow,
+                            StartupStatus: "waitingForEndpoint",
+                            StartupBlockingReason: null,
+                            StartupPhase: "endpointRegistration",
+                            RetryDisposition: null,
+                            Message: null,
+                            ErrorCode: null),
+                        cancellationToken)
+                    .ConfigureAwait(false);
             },
         };
         var dispatcher = CreateDispatcher(startOperation);
@@ -149,12 +147,17 @@ public sealed class SupervisorRequestDispatcherStreamingTests
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: projectFingerprint,
-                        TimeoutMilliseconds: 1000,
+                        DeadlineUtc: CreateEnsureRunningDeadline(1000),
+                        AttemptTimeoutMilliseconds: 1000,
                         EditorMode: "batchmode",
                         OnStartupBlocked: "auto")),
                 responseMode: IpcResponseMode.Stream));
 
-        Assert.True(progressWriteCanceled);
+        await TestAwaiter.WaitAsync(
+            progressWriteCancellationObserved.Task,
+            "Supervisor progress-write cancellation",
+            SignalWaitTimeout);
+        cancellationRegistration.Dispose();
         DaemonStartOperationAssert.EnsureRunningStreamRequested(
             startOperation,
             runtimeContext.StorageRoot,
@@ -163,12 +166,123 @@ public sealed class SupervisorRequestDispatcherStreamingTests
             TimeSpan.FromMilliseconds(1000),
             DaemonEditorMode.Batchmode,
             DaemonStartupBlockedProcessPolicy.Auto);
-        var terminalFrame = Assert.Single(frames);
-        Assert.Equal(IpcStreamFrameKinds.Terminal, terminalFrame.Kind);
-        var terminalResponse = Assert.IsType<IpcResponse>(terminalFrame.Response);
-        Assert.Equal(IpcProtocol.StatusError, terminalResponse.Status);
-        var error = Assert.Single(terminalResponse.Errors);
-        Assert.Equal(ExecutionErrorCodes.IpcTimeout, error.Code);
-        Assert.Contains("caller disconnected", error.Message, StringComparison.Ordinal);
+        Assert.Empty(frames);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task HandleConnection_WhenStartOperationHasUnrelatedCancellation_DoesNotClassifyCallerDisconnect ()
+    {
+        var expectedException = new OperationCanceledException(
+            "unrelated start cancellation",
+            new ArgumentException("not a connection write failure"),
+            CancellationToken.None);
+        var startOperation = new RecordingDaemonStartOperation
+        {
+            OnStart = (_, _) => throw expectedException,
+        };
+        var dispatcher = CreateDispatcher(startOperation);
+        var runtimeContext = CreateRuntimeContext();
+        var unityProjectRoot = Path.Combine(runtimeContext.StorageRoot, "UnityProject");
+        var projectFingerprint = UnityProjectFingerprintCalculator.Create(runtimeContext.StorageRoot, unityProjectRoot);
+        var request = new IpcRequest(
+            ProtocolVersion: IpcProtocol.CurrentVersion,
+            RequestId: "request-unrelated-start-cancellation",
+            SessionToken: runtimeContext.Manifest.SessionToken,
+            Method: SupervisorIpcContracts.EnsureRunningMethod,
+            Payload: IpcPayloadCodec.SerializeToElement(
+                new SupervisorIpcContracts.EnsureRunningRequest(
+                    UnityProjectRoot: unityProjectRoot,
+                    ProjectFingerprint: projectFingerprint,
+                    DeadlineUtc: CreateEnsureRunningDeadline(1000),
+                    AttemptTimeoutMilliseconds: 1000,
+                    EditorMode: "batchmode",
+                    OnStartupBlocked: "auto")),
+            responseMode: IpcResponseMode.Single);
+
+        var actualException = await Assert.ThrowsAsync<OperationCanceledException>(
+            () => SendRequestAsync(dispatcher, runtimeContext, request));
+
+        Assert.Same(expectedException, actualException);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task HandleConnection_WhenProgressWriteFailureRunsBlockingCancellationCallback_ReturnsWithoutWaitingForCallback ()
+    {
+        using var releaseCancellationCallback = new ManualResetEventSlim();
+        var cancellationCallbackEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var cancellationRegistration = default(CancellationTokenRegistration);
+        var startOperation = new RecordingDaemonStartOperation
+        {
+            OnStart = async (progressObserver, cancellationToken) =>
+            {
+                Assert.NotNull(progressObserver);
+                cancellationRegistration = cancellationToken.Register(() =>
+                {
+                    cancellationCallbackEntered.TrySetResult();
+                    releaseCancellationCallback.Wait();
+                });
+                await progressObserver!.EmitWaitingForEndpointAsync(
+                        new DaemonStartStartupProgressObservation(
+                            LaunchAttemptId: "attempt-blocking-cancellation",
+                            EditorMode: "batchmode",
+                            OwnerKind: "cli",
+                            CanShutdownProcess: true,
+                            ProcessId: 42,
+                            ProcessStartedAtUtc: DateTimeOffset.UtcNow,
+                            StartupStatus: "waitingForEndpoint",
+                            StartupBlockingReason: null,
+                            StartupPhase: "endpointRegistration",
+                            RetryDisposition: null,
+                            Message: null,
+                            ErrorCode: null),
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            },
+        };
+        var dispatcher = CreateDispatcher(startOperation);
+        var runtimeContext = CreateRuntimeContext();
+        var unityProjectRoot = Path.Combine(runtimeContext.StorageRoot, "UnityProject");
+        var projectFingerprint = UnityProjectFingerprintCalculator.Create(runtimeContext.StorageRoot, unityProjectRoot);
+
+        var sendTask = SendStreamingRequestWithTransientWriteFailureAsync(
+            dispatcher,
+            runtimeContext,
+            new IpcRequest(
+                ProtocolVersion: IpcProtocol.CurrentVersion,
+                RequestId: "request-stream-blocking-cancellation",
+                SessionToken: runtimeContext.Manifest.SessionToken,
+                Method: SupervisorIpcContracts.EnsureRunningMethod,
+                Payload: IpcPayloadCodec.SerializeToElement(
+                    new SupervisorIpcContracts.EnsureRunningRequest(
+                        UnityProjectRoot: unityProjectRoot,
+                        ProjectFingerprint: projectFingerprint,
+                        DeadlineUtc: CreateEnsureRunningDeadline(1000),
+                        AttemptTimeoutMilliseconds: 1000,
+                        EditorMode: "batchmode",
+                        OnStartupBlocked: "auto")),
+                responseMode: IpcResponseMode.Stream));
+        await TestAwaiter.WaitAsync(
+            cancellationCallbackEntered.Task,
+            "Supervisor blocking cancellation callback",
+            SignalWaitTimeout);
+
+        IReadOnlyList<IpcStreamFrame> frames;
+        var returnedWithoutWaiting = false;
+        try
+        {
+            frames = await sendTask.WaitAsync(TimeSpan.FromMilliseconds(250));
+            returnedWithoutWaiting = true;
+        }
+        finally
+        {
+            releaseCancellationCallback.Set();
+            frames = await sendTask.WaitAsync(SignalWaitTimeout);
+            cancellationRegistration.Dispose();
+        }
+
+        Assert.True(returnedWithoutWaiting);
+        Assert.Empty(frames);
     }
 }

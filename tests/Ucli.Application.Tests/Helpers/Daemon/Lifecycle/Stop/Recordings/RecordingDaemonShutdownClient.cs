@@ -13,6 +13,8 @@ internal sealed class RecordingDaemonShutdownClient : IDaemonShutdownClient
 
     public ManualTimeProvider? TimeProvider { get; set; }
 
+    public Action? OnSend { get; set; }
+
     public IReadOnlyList<Invocation> Invocations => invocations;
 
     public ValueTask<DaemonShutdownAttemptResult> SendShutdownAsync (
@@ -22,6 +24,7 @@ internal sealed class RecordingDaemonShutdownClient : IDaemonShutdownClient
         CancellationToken cancellationToken = default)
     {
         invocations.Add(new Invocation(unityProject, session, timeout, cancellationToken));
+        OnSend?.Invoke();
         if (Delay > TimeSpan.Zero)
         {
             if (TimeProvider != null)

@@ -19,25 +19,30 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
 
     private readonly IDaemonInvalidSessionCleanupSafetyEvaluator invalidSessionCleanupSafetyEvaluator;
 
+    private readonly TimeProvider timeProvider;
+
     /// <summary> Initializes a new instance of the <see cref="DaemonCleanupOperation" /> class. </summary>
     /// <param name="lifecycleLockProvider"> The project lifecycle lock provider dependency. </param>
     /// <param name="daemonSessionStore"> The daemon session-store dependency. </param>
     /// <param name="artifactCleaner"> The daemon artifact-cleaner dependency. </param>
-    /// <param name="cleanupReachabilityProbe"> The cleanup reachability-probe dependency. </param>
     /// <param name="invalidSessionCleanupSafetyEvaluator"> The invalid-session cleanup safety-evaluator dependency. </param>
+    /// <param name="cleanupReachabilityProbe"> The cleanup reachability-probe dependency. </param>
+    /// <param name="timeProvider"> The time provider used for cleanup deadline accounting. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public DaemonCleanupOperation (
         IProjectLifecycleLockProvider lifecycleLockProvider,
         IDaemonSessionStore daemonSessionStore,
         IDaemonArtifactCleaner artifactCleaner,
         IDaemonInvalidSessionCleanupSafetyEvaluator invalidSessionCleanupSafetyEvaluator,
-        IDaemonCleanupReachabilityProbe cleanupReachabilityProbe)
+        IDaemonCleanupReachabilityProbe cleanupReachabilityProbe,
+        TimeProvider timeProvider)
     {
         this.lifecycleLockProvider = lifecycleLockProvider ?? throw new ArgumentNullException(nameof(lifecycleLockProvider));
         this.daemonSessionStore = daemonSessionStore ?? throw new ArgumentNullException(nameof(daemonSessionStore));
         this.artifactCleaner = artifactCleaner ?? throw new ArgumentNullException(nameof(artifactCleaner));
         this.invalidSessionCleanupSafetyEvaluator = invalidSessionCleanupSafetyEvaluator ?? throw new ArgumentNullException(nameof(invalidSessionCleanupSafetyEvaluator));
         this.cleanupReachabilityProbe = cleanupReachabilityProbe ?? throw new ArgumentNullException(nameof(cleanupReachabilityProbe));
+        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
     /// <summary> Cleans safe daemon artifacts for the specified Unity project context. </summary>
@@ -56,7 +61,7 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
-        var deadline = ExecutionDeadline.Start(timeout);
+        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
         if (!deadline.TryGetRemainingTimeout(out var lockAcquireTimeout))
         {
             return DaemonCleanupResult.Failure(ExecutionError.Timeout("Timed out before daemon cleanup workflow began."));
@@ -103,7 +108,9 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
                     unityProject,
                     deadline,
                     MetadataUnavailableProbeSessionToken,
-                    cancellationToken)
+                    expectedSession: null,
+                    expectedArtifactIdentity: null,
+                    cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
         }
 
@@ -111,7 +118,9 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
                 unityProject,
                 deadline,
                 readResult.Session!.SessionToken,
-                cancellationToken)
+                readResult.Session,
+                expectedArtifactIdentity: null,
+                cancellationToken: cancellationToken)
             .ConfigureAwait(false);
     }
 
@@ -132,7 +141,9 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
                     unityProject,
                     deadline,
                     MetadataUnavailableProbeSessionToken,
-                    cancellationToken)
+                    expectedSession: null,
+                    expectedArtifactIdentity: readResult.ArtifactIdentity,
+                    cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
         }
 
@@ -157,13 +168,22 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
             return DaemonCleanupResult.Failure(cleanupProbeResult.Error!);
         }
 
-        return await HandleProbeResultAsync(unityProject, deadline, cleanupProbeResult, cancellationToken).ConfigureAwait(false);
+        return await HandleProbeResultAsync(
+                unityProject,
+                deadline,
+                cleanupProbeResult,
+                readResult.Session,
+                readResult.ArtifactIdentity,
+                cancellationToken)
+            .ConfigureAwait(false);
     }
 
     private async ValueTask<DaemonCleanupResult> HandleReachabilityResultAsync (
         ResolvedUnityProjectContext unityProject,
         ExecutionDeadline deadline,
         string sessionToken,
+        DaemonSession? expectedSession,
+        DaemonSessionArtifactIdentity? expectedArtifactIdentity,
         CancellationToken cancellationToken)
     {
         var probeResult = await cleanupReachabilityProbe.ProbeAsync(
@@ -173,18 +193,33 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
                 cancellationToken)
             .ConfigureAwait(false);
 
-        return await HandleProbeResultAsync(unityProject, deadline, probeResult, cancellationToken).ConfigureAwait(false);
+        return await HandleProbeResultAsync(
+                unityProject,
+                deadline,
+                probeResult,
+                expectedSession,
+                expectedArtifactIdentity,
+                cancellationToken)
+            .ConfigureAwait(false);
     }
 
     private async ValueTask<DaemonCleanupResult> HandleProbeResultAsync (
         ResolvedUnityProjectContext unityProject,
         ExecutionDeadline deadline,
         DaemonCleanupReachabilityProbeResult probeResult,
+        DaemonSession? expectedSession,
+        DaemonSessionArtifactIdentity? expectedArtifactIdentity,
         CancellationToken cancellationToken)
     {
         return probeResult.Status switch
         {
-            DaemonCleanupReachabilityStatus.NotRunning => await CleanupArtifactsWithinBudgetAsync(unityProject, deadline, cancellationToken).ConfigureAwait(false),
+            DaemonCleanupReachabilityStatus.NotRunning => await CleanupArtifactsWithinBudgetAsync(
+                    unityProject,
+                    deadline,
+                    expectedSession,
+                    expectedArtifactIdentity,
+                    cancellationToken)
+                .ConfigureAwait(false),
             DaemonCleanupReachabilityStatus.Running => DaemonCleanupResult.Skipped(DaemonCleanupSkipReason.Running),
             DaemonCleanupReachabilityStatus.Uncertain => DaemonCleanupResult.Skipped(DaemonCleanupSkipReason.UncertainReachability),
             DaemonCleanupReachabilityStatus.Failed => DaemonCleanupResult.Failure(probeResult.Error!),
@@ -195,6 +230,8 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
     private async ValueTask<DaemonCleanupResult> CleanupArtifactsWithinBudgetAsync (
         ResolvedUnityProjectContext unityProject,
         ExecutionDeadline deadline,
+        DaemonSession? expectedSession,
+        DaemonSessionArtifactIdentity? expectedArtifactIdentity,
         CancellationToken cancellationToken)
     {
         if (!deadline.TryGetRemainingTimeout(out _))
@@ -203,7 +240,28 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
                 "Timed out before daemon artifact cleanup could begin."));
         }
 
-        var cleanupResult = await artifactCleaner.CleanupAsync(unityProject, cancellationToken).ConfigureAwait(false);
+        DaemonArtifactCleanupResult cleanupResult;
+        if (expectedArtifactIdentity is not null)
+        {
+            cleanupResult = await artifactCleaner.CleanupIfSessionArtifactMatchesAsync(
+                    unityProject,
+                    expectedArtifactIdentity,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        else if (expectedSession is not null)
+        {
+            cleanupResult = await artifactCleaner.CleanupIfSessionMatchesAsync(
+                    unityProject,
+                    expectedSession,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        else
+        {
+            cleanupResult = await artifactCleaner.CleanupIfSessionMissingAsync(unityProject, cancellationToken).ConfigureAwait(false);
+        }
+
         return cleanupResult.IsSuccess
             ? DaemonCleanupResult.Completed(cleanupResult.DeletedLaunchAttemptCount)
             : DaemonCleanupResult.Failure(cleanupResult.Error!);

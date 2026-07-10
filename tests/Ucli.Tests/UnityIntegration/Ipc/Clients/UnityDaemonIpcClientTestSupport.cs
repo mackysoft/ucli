@@ -1,5 +1,4 @@
 using System.Text.Json;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -30,6 +29,22 @@ internal static class UnityDaemonIpcClientTestSupport
             Errors: Array.Empty<IpcError>());
     }
 
+    public static IpcResponse CreateSessionTokenInvalidResponse ()
+    {
+        return new IpcResponse(
+            ProtocolVersion: IpcProtocol.CurrentVersion,
+            RequestId: "req-stale-session",
+            Status: IpcProtocol.StatusError,
+            Payload: CreateDispatchPayload(),
+            Errors:
+            [
+                new IpcError(
+                    IpcSessionErrorCodes.SessionTokenInvalid,
+                    "The daemon session token rotated during endpoint recovery.",
+                    null),
+            ]);
+    }
+
     public static DaemonSessionConnectionResolutionResult CreateConnectionResult (string sessionToken)
     {
         return DaemonSessionConnectionResolutionResult.Success(new DaemonSessionConnection(
@@ -37,9 +52,7 @@ internal static class UnityDaemonIpcClientTestSupport
             new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-session.sock")));
     }
 
-    public static UnityDaemonRecoveryWaiter CreateRecoveryWaiter (
-        DaemonSession session,
-        ManualTimeProvider timeProvider)
+    public static UnityDaemonRecoveryWaiter CreateRecoveryWaiter (DaemonSession session)
     {
         return new UnityDaemonRecoveryWaiter(
             new RecordingDaemonSessionStore
@@ -50,8 +63,7 @@ internal static class UnityDaemonIpcClientTestSupport
             {
                 ReadResult = DaemonLifecycleObservationReadResult.Success(CreateRecoveringObservation(session)),
             },
-            new RecordingDaemonProcessIdentityAssessor(DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess),
-            timeProvider);
+            new RecordingDaemonProcessIdentityAssessor(DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess));
     }
 
     public static void AssertUnityResponse (

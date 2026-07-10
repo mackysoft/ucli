@@ -9,6 +9,8 @@ internal sealed class RecordingDaemonLaunchService : IDaemonLaunchService
     public DaemonStartResult NextResult { get; set; } =
         DaemonStartResult.Started(DaemonSessionTestFactory.Create(processId: 9090));
 
+    public Func<ResolvedUnityProjectContext, TimeSpan, DaemonEditorMode, DaemonStartupBlockedProcessPolicy, IDaemonStartProgressObserver?, CancellationToken, ValueTask<DaemonStartResult>>? Handler { get; set; }
+
     public IReadOnlyList<Invocation> Invocations => invocations;
 
     public ValueTask<DaemonStartResult> LaunchAsync (
@@ -23,6 +25,11 @@ internal sealed class RecordingDaemonLaunchService : IDaemonLaunchService
         cancellationToken.ThrowIfCancellationRequested();
 
         invocations.Add(new Invocation(unityProject, timeout, editorMode, onStartupBlocked, progressObserver, cancellationToken));
+        if (Handler is not null)
+        {
+            return Handler(unityProject, timeout, editorMode, onStartupBlocked, progressObserver, cancellationToken);
+        }
+
         return ValueTask.FromResult(NextResult);
     }
 

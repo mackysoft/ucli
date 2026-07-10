@@ -18,13 +18,13 @@ public sealed class SupervisorBootstrapperLaunchRecoveryTests
         var launchCount = 0;
         var manifest = SupervisorBootstrapperTestSupport.CreateManifest();
         var manifestStore = new SupervisorManifestStore(
+            timeProvider,
             readAllTextOrNull: (path, cancellationToken) => ValueTask.FromResult<string?>(
                 timeProvider.GetUtcNow() >= manifestPublicationTime
                     ? JsonSerializer.Serialize(manifest)
                     : null),
             writeAllTextAtomically: static (_, _, _) => ValueTask.CompletedTask,
-            deleteIfExists: static _ => { },
-            timeProvider: timeProvider);
+            deleteIfExists: static _ => { });
         var transportClient = CreatePingTransport(manifest);
         var launchStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var launcher = new RecordingSupervisorProcessLauncher
@@ -38,9 +38,9 @@ public sealed class SupervisorBootstrapperLaunchRecoveryTests
         };
         var bootstrapper = new SupervisorBootstrapper(
             manifestStore,
-            new SupervisorClient(transportClient),
+            new SupervisorClient(transportClient, TimeProvider.System),
             launcher,
-            new SupervisorBootstrapLockProvider(),
+            new SupervisorBootstrapLockProvider(timeProvider),
             new SupervisorEndpointResolver(),
             timeProvider);
 
@@ -72,6 +72,7 @@ public sealed class SupervisorBootstrapperLaunchRecoveryTests
         var launchCount = 0;
         var manifest = SupervisorBootstrapperTestSupport.CreateManifest();
         var manifestStore = new SupervisorManifestStore(
+            timeProvider,
             readAllTextOrNull: (path, cancellationToken) => ValueTask.FromResult<string?>(
                 launchCount >= 2 ? JsonSerializer.Serialize(manifest) : null),
             writeAllTextAtomically: static (_, _, _) => ValueTask.CompletedTask,
@@ -87,9 +88,9 @@ public sealed class SupervisorBootstrapperLaunchRecoveryTests
         };
         var bootstrapper = new SupervisorBootstrapper(
             manifestStore,
-            new SupervisorClient(transportClient),
+            new SupervisorClient(transportClient, TimeProvider.System),
             launcher,
-            new SupervisorBootstrapLockProvider(),
+            new SupervisorBootstrapLockProvider(timeProvider),
             new SupervisorEndpointResolver(),
             timeProvider);
 
@@ -128,6 +129,7 @@ public sealed class SupervisorBootstrapperLaunchRecoveryTests
         var timeProvider = new ManualTimeProvider();
         var launchCount = 0;
         var manifestStore = new SupervisorManifestStore(
+            timeProvider,
             readAllTextOrNull: static (path, cancellationToken) => ValueTask.FromResult<string?>(null),
             writeAllTextAtomically: static (_, _, _) => ValueTask.CompletedTask,
             deleteIfExists: static _ => { });
@@ -145,9 +147,9 @@ public sealed class SupervisorBootstrapperLaunchRecoveryTests
         };
         var bootstrapper = new SupervisorBootstrapper(
             manifestStore,
-            new SupervisorClient(transportClient),
+            new SupervisorClient(transportClient, TimeProvider.System),
             launcher,
-            new SupervisorBootstrapLockProvider(),
+            new SupervisorBootstrapLockProvider(timeProvider),
             new SupervisorEndpointResolver(),
             timeProvider);
 

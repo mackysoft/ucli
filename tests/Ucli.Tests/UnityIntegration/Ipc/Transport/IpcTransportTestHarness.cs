@@ -39,6 +39,8 @@ internal static class IpcTransportTestHarness
                 startedTaskSource.TrySetResult();
                 return Task.CompletedTask;
             },
+            SupervisorConstants.MaximumActiveConnections,
+            SupervisorConstants.ConnectionDrainTimeout,
             cancellationTokenSource.Token);
 
         try
@@ -96,6 +98,8 @@ internal static class IpcTransportTestHarness
                 startedTaskSource.TrySetResult();
                 return Task.CompletedTask;
             },
+            SupervisorConstants.MaximumActiveConnections,
+            SupervisorConstants.ConnectionDrainTimeout,
             cancellationTokenSource.Token);
 
         try

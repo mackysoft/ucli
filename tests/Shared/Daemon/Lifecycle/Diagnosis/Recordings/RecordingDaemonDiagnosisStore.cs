@@ -21,6 +21,10 @@ internal sealed class RecordingDaemonDiagnosisStore : IDaemonDiagnosisStore
     public DaemonDiagnosisStoreOperationResult DeleteResult { get; set; } =
         DaemonDiagnosisStoreOperationResult.Success();
 
+    public Func<string, string, CancellationToken, ValueTask<DaemonDiagnosisStoreOperationResult>>? DeleteAsyncHandler { get; set; }
+
+    public Func<string, string, DaemonDiagnosis, CancellationToken, ValueTask<DaemonDiagnosisStoreOperationResult>>? WriteAsyncHandler { get; set; }
+
     public IReadOnlyList<ReadInvocation> ReadInvocations => readInvocations;
 
     public IReadOnlyList<WriteInvocation> WriteInvocations => writeInvocations;
@@ -51,6 +55,11 @@ internal sealed class RecordingDaemonDiagnosisStore : IDaemonDiagnosisStore
         writeInvocations.Add(new WriteInvocation(storageRoot, projectFingerprint, diagnosis, cancellationToken));
         OnWrite?.Invoke(diagnosis);
 
+        if (WriteAsyncHandler is not null)
+        {
+            return WriteAsyncHandler(storageRoot, projectFingerprint, diagnosis, cancellationToken);
+        }
+
         return ValueTask.FromResult(WriteResult);
     }
 
@@ -62,6 +71,11 @@ internal sealed class RecordingDaemonDiagnosisStore : IDaemonDiagnosisStore
         cancellationToken.ThrowIfCancellationRequested();
 
         deleteInvocations.Add(new DeleteInvocation(storageRoot, projectFingerprint, cancellationToken));
+
+        if (DeleteAsyncHandler is not null)
+        {
+            return DeleteAsyncHandler(storageRoot, projectFingerprint, cancellationToken);
+        }
 
         return ValueTask.FromResult(DeleteResult);
     }

@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
@@ -11,22 +12,32 @@ internal sealed class DaemonSessionCleanupService : IDaemonSessionCleanupService
 
     private readonly IDaemonArtifactCleaner artifactCleaner;
 
+    private readonly DaemonCompensationOperationOwner compensationOperationOwner;
+
+    private readonly TimeProvider timeProvider;
+
     /// <summary> Initializes a new instance of the <see cref="DaemonSessionCleanupService" /> class. </summary>
     /// <param name="processTerminationService"> The process-termination service dependency. </param>
     /// <param name="artifactCleaner"> The daemon artifact-cleaner dependency. </param>
+    /// <param name="compensationOperationOwner"> The owner of cleanup mutations that outlive their caller. </param>
+    /// <param name="timeProvider"> The time provider used for cleanup deadline accounting. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public DaemonSessionCleanupService (
         IDaemonProcessTerminationService processTerminationService,
-        IDaemonArtifactCleaner artifactCleaner)
+        IDaemonArtifactCleaner artifactCleaner,
+        DaemonCompensationOperationOwner compensationOperationOwner,
+        TimeProvider timeProvider)
     {
         this.processTerminationService = processTerminationService ?? throw new ArgumentNullException(nameof(processTerminationService));
         this.artifactCleaner = artifactCleaner ?? throw new ArgumentNullException(nameof(artifactCleaner));
+        this.compensationOperationOwner = compensationOperationOwner ?? throw new ArgumentNullException(nameof(compensationOperationOwner));
+        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
     /// <summary> Cleans invalid-session artifacts from daemon-session read results. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="readResult"> The failed daemon-session read result. </param>
-    /// <param name="timeout"> The timeout used for process-termination attempts. </param>
+    /// <param name="timeout"> The timeout shared by process termination and artifact cleanup. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The cleanup operation result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> or <paramref name="readResult" /> is <see langword="null" />. </exception>
@@ -47,29 +58,29 @@ internal sealed class DaemonSessionCleanupService : IDaemonSessionCleanupService
             return DaemonSessionStoreOperationResult.Failure(unsafeRelaunchError!);
         }
 
-        if (TryGetInvalidSessionStopTarget(readResult, unityProject, out var target))
-        {
-            var stopResult = await processTerminationService.EnsureStoppedAsync(
-                    target,
-                    timeout,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (!stopResult.IsSuccess)
-            {
-                return stopResult;
-            }
-        }
-
-        var cleanupResult = await artifactCleaner.CleanupAsync(unityProject, cancellationToken).ConfigureAwait(false);
-        return cleanupResult.IsSuccess
-            ? DaemonSessionStoreOperationResult.Success()
-            : DaemonSessionStoreOperationResult.Failure(cleanupResult.Error!);
+        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
+        var executionResult = await compensationOperationOwner.ExecuteAsync(
+                unityProject,
+                DaemonOperationLane.LifecycleCompensation,
+                deadline,
+                cancellationToken,
+                "Timed out waiting to clean invalid daemon session artifacts.",
+                "Timed out while cleaning invalid daemon session artifacts.",
+                (_, ownedCancellationToken) => CleanupInvalidSessionArtifactsCoreAsync(
+                    unityProject,
+                    readResult,
+                    deadline,
+                    ownedCancellationToken))
+            .ConfigureAwait(false);
+        return executionResult.IsSuccess
+            ? executionResult.Value!
+            : DaemonSessionStoreOperationResult.Failure(executionResult.Error!);
     }
 
     /// <summary> Cleans stale-session artifacts from existing daemon session metadata. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="session"> The existing daemon session metadata. </param>
-    /// <param name="timeout"> The timeout used for process-termination attempts. </param>
+    /// <param name="timeout"> The timeout shared by process termination and artifact cleanup. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The cleanup operation result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> or <paramref name="session" /> is <see langword="null" />. </exception>
@@ -85,23 +96,143 @@ internal sealed class DaemonSessionCleanupService : IDaemonSessionCleanupService
         ArgumentNullException.ThrowIfNull(session);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
-        if (TryGetSessionStopTarget(session, unityProject, out var target))
+        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
+        var executionResult = await compensationOperationOwner.ExecuteAsync(
+                unityProject,
+                DaemonOperationLane.LifecycleCompensation,
+                deadline,
+                cancellationToken,
+                "Timed out waiting to clean stale daemon session artifacts.",
+                "Timed out while cleaning stale daemon session artifacts.",
+                (_, ownedCancellationToken) => CleanupStaleSessionArtifactsCoreAsync(
+                    unityProject,
+                    session,
+                    deadline,
+                    ownedCancellationToken))
+            .ConfigureAwait(false);
+        return executionResult.IsSuccess
+            ? executionResult.Value!
+            : DaemonSessionStoreOperationResult.Failure(executionResult.Error!);
+    }
+
+    private async ValueTask<DaemonSessionStoreOperationResult> CleanupInvalidSessionArtifactsCoreAsync (
+        ResolvedUnityProjectContext unityProject,
+        DaemonSessionReadResult readResult,
+        ExecutionDeadline deadline,
+        CancellationToken cancellationToken)
+    {
+        var hasStopTarget = TryGetInvalidSessionStopTarget(readResult, unityProject, out var target);
+        if (hasStopTarget)
         {
-            var stopResult = await processTerminationService.EnsureStoppedAsync(
-                    target,
-                    timeout,
-                    cancellationToken)
-                .ConfigureAwait(false);
+            var stopResult = await EnsureStoppedAsync(target, deadline, cancellationToken).ConfigureAwait(false);
             if (!stopResult.IsSuccess)
             {
                 return stopResult;
             }
         }
 
-        var cleanupResult = await artifactCleaner.CleanupAsync(unityProject, cancellationToken).ConfigureAwait(false);
+        if (!deadline.TryGetRemainingTimeout(out _))
+        {
+            return CreateTimeoutFailure("Timed out before invalid daemon session artifact cleanup could begin.");
+        }
+
+        DaemonArtifactCleanupResult cleanupResult;
+        if (hasStopTarget)
+        {
+            cleanupResult = await artifactCleaner.CleanupIfStoppedProcessMatchesAsync(
+                    unityProject,
+                    target,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        else if (readResult.ArtifactIdentity is not null)
+        {
+            cleanupResult = await artifactCleaner.CleanupIfSessionArtifactMatchesAsync(
+                    unityProject,
+                    readResult.ArtifactIdentity,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        else if (TryGetObservedSessionGeneration(readResult.Session, unityProject, out var expectedSession))
+        {
+            cleanupResult = await artifactCleaner.CleanupIfSessionMatchesAsync(
+                    unityProject,
+                    expectedSession!,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        else
+        {
+            return DaemonSessionStoreOperationResult.Failure(ExecutionError.InternalError(
+                "Invalid daemon session cleanup requires an observed session artifact identity."));
+        }
+
+        return ToSessionStoreResult(cleanupResult);
+    }
+
+    private async ValueTask<DaemonSessionStoreOperationResult> CleanupStaleSessionArtifactsCoreAsync (
+        ResolvedUnityProjectContext unityProject,
+        DaemonSession session,
+        ExecutionDeadline deadline,
+        CancellationToken cancellationToken)
+    {
+        var hasStopTarget = TryGetSessionStopTarget(session, unityProject, out var target);
+        if (hasStopTarget)
+        {
+            var stopResult = await EnsureStoppedAsync(target, deadline, cancellationToken).ConfigureAwait(false);
+            if (!stopResult.IsSuccess)
+            {
+                return stopResult;
+            }
+        }
+
+        if (!deadline.TryGetRemainingTimeout(out _))
+        {
+            return CreateTimeoutFailure("Timed out before stale daemon session artifact cleanup could begin.");
+        }
+
+        var cleanupResult = hasStopTarget
+            ? await artifactCleaner.CleanupIfStoppedProcessMatchesAsync(
+                    unityProject,
+                    target,
+                    cancellationToken)
+                .ConfigureAwait(false)
+            : await artifactCleaner.CleanupIfSessionMatchesAsync(
+                    unityProject,
+                    session,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        return ToSessionStoreResult(cleanupResult);
+    }
+
+    private async ValueTask<DaemonSessionStoreOperationResult> EnsureStoppedAsync (
+        DaemonProcessTerminationTarget target,
+        ExecutionDeadline deadline,
+        CancellationToken cancellationToken)
+    {
+        if (!deadline.TryGetRemainingTimeout(out var remainingTimeout))
+        {
+            return CreateTimeoutFailure("Timed out before invalid or stale daemon process termination could begin.");
+        }
+
+        return await processTerminationService.EnsureStoppedAsync(
+                target,
+                remainingTimeout,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private static DaemonSessionStoreOperationResult ToSessionStoreResult (
+        DaemonArtifactCleanupResult cleanupResult)
+    {
         return cleanupResult.IsSuccess
             ? DaemonSessionStoreOperationResult.Success()
             : DaemonSessionStoreOperationResult.Failure(cleanupResult.Error!);
+    }
+
+    private static DaemonSessionStoreOperationResult CreateTimeoutFailure (string message)
+    {
+        return DaemonSessionStoreOperationResult.Failure(ExecutionError.Timeout(message));
     }
 
     private static bool TryCreateUnsafeInvalidSessionRelaunchError (
@@ -179,5 +310,26 @@ internal sealed class DaemonSessionCleanupService : IDaemonSessionCleanupService
         // Cleanup may only terminate processes owned by the current uCLI batchmode
         // contract. User-owned GUI sessions can be stale without granting process shutdown.
         return DaemonSessionTerminationPolicy.TryGetTerminationTarget(session, out target);
+    }
+
+    private static bool TryGetObservedSessionGeneration (
+        DaemonSession? session,
+        ResolvedUnityProjectContext unityProject,
+        out DaemonSession? expectedSession)
+    {
+        expectedSession = null;
+        if (session == null
+            || string.IsNullOrWhiteSpace(session.SessionToken)
+            || session.IssuedAtUtc == default
+            || !string.Equals(
+                session.ProjectFingerprint,
+                unityProject.ProjectFingerprint,
+                StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        expectedSession = session;
+        return true;
     }
 }

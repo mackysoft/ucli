@@ -20,6 +20,10 @@ internal sealed class RecordingUnityProjectLockPreflightService : IUnityProjectL
     public UnityProjectLockPreflightResult CleanupResult { get; set; }
         = UnityProjectLockPreflightResult.Unlocked("/tmp/unity-project/Temp/UnityLockfile");
 
+    public Func<ResolvedUnityProjectContext, CancellationToken, ValueTask<UnityProjectLockPreflightResult>>? PrepareAsyncHandler { get; set; }
+
+    public Func<ResolvedUnityProjectContext, CancellationToken, ValueTask<UnityProjectLockPreflightResult>>? CleanupAsyncHandler { get; set; }
+
     public IReadOnlyList<Invocation> PrepareInvocations => prepareInvocations;
 
     public IReadOnlyList<Invocation> CleanupInvocations => cleanupInvocations;
@@ -50,6 +54,11 @@ internal sealed class RecordingUnityProjectLockPreflightService : IUnityProjectL
 
         prepareInvocations.Add(new Invocation(unityProject, cancellationToken));
 
+        if (PrepareAsyncHandler is not null)
+        {
+            return PrepareAsyncHandler(unityProject, cancellationToken);
+        }
+
         var resultIndex = Math.Min(nextPrepareResultIndex, prepareResults.Count - 1);
         nextPrepareResultIndex++;
         return ValueTask.FromResult(prepareResults[resultIndex]);
@@ -62,6 +71,11 @@ internal sealed class RecordingUnityProjectLockPreflightService : IUnityProjectL
         cancellationToken.ThrowIfCancellationRequested();
 
         cleanupInvocations.Add(new Invocation(unityProject, cancellationToken));
+
+        if (CleanupAsyncHandler is not null)
+        {
+            return CleanupAsyncHandler(unityProject, cancellationToken);
+        }
 
         return ValueTask.FromResult(CleanupResult);
     }

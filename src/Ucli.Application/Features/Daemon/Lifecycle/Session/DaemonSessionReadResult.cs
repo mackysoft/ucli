@@ -6,10 +6,12 @@ namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 /// <param name="Session"> The loaded daemon session. </param>
 /// <param name="Error"> The structured error when read fails; otherwise <see langword="null" />. </param>
 /// <param name="FailureKind"> The categorized failure kind when read fails; otherwise <see cref="DaemonSessionReadFailureKind.None" />. </param>
+/// <param name="ArtifactIdentity"> The exact serialized artifact identity when a session file was observed. </param>
 internal sealed record DaemonSessionReadResult (
     DaemonSession? Session,
     ExecutionError? Error,
-    DaemonSessionReadFailureKind FailureKind)
+    DaemonSessionReadFailureKind FailureKind,
+    DaemonSessionArtifactIdentity? ArtifactIdentity)
 {
     /// <summary> Gets a value indicating whether session read operation succeeded. </summary>
     public bool IsSuccess => Error is null;
@@ -22,21 +24,23 @@ internal sealed record DaemonSessionReadResult (
     /// <returns> The successful read result. </returns>
     public static DaemonSessionReadResult Success (DaemonSession? session)
     {
-        return new DaemonSessionReadResult(session, null, DaemonSessionReadFailureKind.None);
+        return new DaemonSessionReadResult(session, null, DaemonSessionReadFailureKind.None, ArtifactIdentity: null);
     }
 
     /// <summary> Creates a failed read result. </summary>
     /// <param name="error"> The structured error. </param>
     /// <param name="failureKind"> The categorized failure kind for read operation. </param>
     /// <param name="session"> The parsed daemon session snapshot when available for cleanup; otherwise <see langword="null" />. </param>
+    /// <param name="artifactIdentity"> The exact serialized artifact identity when a session file was observed. </param>
     /// <returns> The failed read result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="error" /> is <see langword="null" />. </exception>
     public static DaemonSessionReadResult Failure (
         ExecutionError error,
-        DaemonSessionReadFailureKind failureKind = DaemonSessionReadFailureKind.Unknown,
-        DaemonSession? session = null)
+        DaemonSessionReadFailureKind failureKind,
+        DaemonSession? session,
+        DaemonSessionArtifactIdentity? artifactIdentity)
     {
         ArgumentNullException.ThrowIfNull(error);
-        return new DaemonSessionReadResult(session, error, failureKind);
+        return new DaemonSessionReadResult(session, error, failureKind, artifactIdentity);
     }
 }

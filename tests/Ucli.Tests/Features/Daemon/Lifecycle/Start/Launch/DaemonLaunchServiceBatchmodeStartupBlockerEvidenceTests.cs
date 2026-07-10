@@ -7,7 +7,7 @@ public sealed class DaemonLaunchServiceBatchmodeStartupBlockerEvidenceTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Launch_WhenBatchmodeClassifiedBlockerTerminates_SavesEvidenceBeforeCompensationAndStoresFinalProcessAction ()
+    public async Task Launch_WhenBatchmodeClassifiedBlockerTerminates_CompensatesBeforeSupplementalEvidence ()
     {
         var scenario = CreateClassifiedBlockerScenario(
             "fingerprint-probe-classified-blocker-order",
@@ -22,16 +22,15 @@ public sealed class DaemonLaunchServiceBatchmodeStartupBlockerEvidenceTests
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated), result.Startup!.ProcessAction);
         var cleanupIndex = sequence.IndexOf("cleanup");
-        Assert.True(cleanupIndex > sequence.IndexOf("diagnosis"));
+        Assert.Equal(0, cleanupIndex);
         Assert.Contains(
-            sequence.Take(cleanupIndex),
-            value => value.StartsWith("launchAttempt:", StringComparison.Ordinal));
-        Assert.Contains(
-            sequence.Skip(cleanupIndex + 1),
+            sequence.Skip(1),
             value => string.Equals(
                 value,
                 $"launchAttempt:{ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated)}",
                 StringComparison.Ordinal));
+        Assert.Contains("diagnosis", sequence.Skip(1));
+        Assert.Single(scenario.LaunchAttemptStore.WriteInvocations);
         Assert.Equal(
             ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated),
             DaemonLaunchAttemptStoreAssert.LatestLaunchAttemptWrittenFor(scenario.LaunchAttemptStore, scenario.Context).ProcessAction);

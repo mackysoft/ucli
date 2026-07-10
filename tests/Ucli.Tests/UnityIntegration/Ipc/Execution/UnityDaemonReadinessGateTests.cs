@@ -47,7 +47,7 @@ public sealed class UnityDaemonReadinessGateTests
     {
         var pingClient = new RecordingDaemonPingInfoClient(CreatePingPayload(IpcEditorLifecycleStateCodec.Busy, false));
         var daemonClient = new RecordingUnityIpcClient(CreateSuccessResult());
-        var gate = new UnityDaemonReadinessGate(pingClient);
+        var gate = new UnityDaemonReadinessGate(pingClient, TimeProvider.System);
 
         var result = await gate.ExecuteAsync(
             CreateContext("fail-fast-busy"),
@@ -69,7 +69,7 @@ public sealed class UnityDaemonReadinessGateTests
     {
         var pingClient = new RecordingDaemonPingInfoClient(CreatePingPayload(IpcEditorLifecycleStateCodec.DomainReloading, false));
         var daemonClient = new RecordingUnityIpcClient(CreateSuccessResult());
-        var gate = new UnityDaemonReadinessGate(pingClient);
+        var gate = new UnityDaemonReadinessGate(pingClient, TimeProvider.System);
         var unityProject = CreateContext("domain-reloading");
 
         var result = await gate.ExecuteAsync(
@@ -96,7 +96,7 @@ public sealed class UnityDaemonReadinessGateTests
             lifecycleState: IpcEditorLifecycleStateCodec.Playmode,
             canAcceptExecutionRequests: false));
         var daemonClient = new RecordingUnityIpcClient(CreateSuccessResult());
-        var gate = new UnityDaemonReadinessGate(pingClient);
+        var gate = new UnityDaemonReadinessGate(pingClient, TimeProvider.System);
         var unityProject = CreateContext("gui-playmode");
 
         var result = await gate.ExecuteAsync(
@@ -148,7 +148,7 @@ public sealed class UnityDaemonReadinessGateTests
     {
         var pingClient = new RecordingDaemonPingInfoClient(new SocketException((int)SocketError.ConnectionRefused));
         var daemonClient = new RecordingUnityIpcClient(CreateSuccessResult());
-        var gate = new UnityDaemonReadinessGate(pingClient);
+        var gate = new UnityDaemonReadinessGate(pingClient, TimeProvider.System);
         var unityProject = CreateContext("probe-daemon-not-running");
 
         var result = await gate.ExecuteAsync(
@@ -172,7 +172,7 @@ public sealed class UnityDaemonReadinessGateTests
     {
         var pingClient = new RecordingDaemonPingInfoClient(new InvalidOperationException("probe failed"));
         var daemonClient = new RecordingUnityIpcClient(CreateSuccessResult());
-        var gate = new UnityDaemonReadinessGate(pingClient);
+        var gate = new UnityDaemonReadinessGate(pingClient, TimeProvider.System);
         var unityProject = CreateContext("probe-unexpected");
 
         var result = await gate.ExecuteAsync(
@@ -197,7 +197,7 @@ public sealed class UnityDaemonReadinessGateTests
     {
         var pingClient = new RecordingDaemonPingInfoClient(CreatePingPayload("unsupported", false));
         var daemonClient = new RecordingUnityIpcClient(CreateSuccessResult());
-        var gate = new UnityDaemonReadinessGate(pingClient);
+        var gate = new UnityDaemonReadinessGate(pingClient, TimeProvider.System);
 
         var result = await gate.ExecuteAsync(
             CreateContext("unsupported"),
@@ -225,7 +225,7 @@ public sealed class UnityDaemonReadinessGateTests
                 EditorLifecycleErrorCodes.EditorBusy,
                 "Unity editor is busy with internal work."))),
             CreateSuccessResult());
-        var gate = new UnityDaemonReadinessGate(pingClient);
+        var gate = new UnityDaemonReadinessGate(pingClient, TimeProvider.System);
         var unityProject = CreateContext("late-regression");
 
         var result = await gate.ExecuteAsync(
@@ -272,7 +272,9 @@ public sealed class UnityDaemonReadinessGateTests
     {
         using var cancellationTokenSource = new CancellationTokenSource();
         await cancellationTokenSource.CancelAsync();
-        var gate = new UnityDaemonReadinessGate(new RecordingDaemonPingInfoClient());
+        var gate = new UnityDaemonReadinessGate(
+            new RecordingDaemonPingInfoClient(),
+            TimeProvider.System);
 
         await Assert.ThrowsAsync<OperationCanceledException>(async () => await gate.ExecuteAsync(
             CreateContext("canceled"),

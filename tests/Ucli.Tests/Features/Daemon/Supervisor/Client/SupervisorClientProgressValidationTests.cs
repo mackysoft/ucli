@@ -79,12 +79,14 @@ public sealed class SupervisorClientProgressValidationTests
                 cancellationToken);
         });
         var progressSink = new CollectingCommandProgressSink();
-        var client = new SupervisorClient(transportClient);
+        var client = new SupervisorClient(transportClient, TimeProvider.System);
 
         var result = await client.EnsureRunningAsync(
             SupervisorClientTestSupport.CreateManifest(),
+            SupervisorClientTestSupport.RequestId,
             SupervisorClientTestSupport.CreateUnityProject(),
-            TimeSpan.FromSeconds(5),
+            SupervisorClientTestSupport.CreateDeadline(TimeSpan.FromSeconds(5)),
+            attemptTimeout: TimeSpan.FromSeconds(5),
             editorMode: DaemonEditorMode.Gui,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             progressSink,
@@ -106,12 +108,14 @@ public sealed class SupervisorClientProgressValidationTests
                 SupervisorClientTestSupport.CreateWaitingForEndpointProgressFrame(request),
                 cancellationToken);
         });
-        var client = new SupervisorClient(transportClient);
+        var client = new SupervisorClient(transportClient, TimeProvider.System);
 
         var result = await client.EnsureRunningAsync(
             SupervisorClientTestSupport.CreateManifest(),
+            SupervisorClientTestSupport.RequestId,
             SupervisorClientTestSupport.CreateUnityProject(),
-            TimeSpan.FromSeconds(5),
+            SupervisorClientTestSupport.CreateDeadline(TimeSpan.FromSeconds(5)),
+            attemptTimeout: TimeSpan.FromSeconds(5),
             editorMode: DaemonEditorMode.Gui,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             new ThrowingCommandProgressSink(new IOException("Simulated progress sink failure.")),

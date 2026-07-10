@@ -150,10 +150,10 @@ internal sealed class SupervisorManagedDaemonProcess
 
                 try
                 {
-                    await daemonPingClient.PingAsync(
+                    await daemonPingClient.PingSessionAsync(
                             UnityProject,
+                            Session,
                             SupervisorConstants.PingTimeout,
-                            Session.SessionToken,
                             cancellationToken)
                         .ConfigureAwait(false);
                 }

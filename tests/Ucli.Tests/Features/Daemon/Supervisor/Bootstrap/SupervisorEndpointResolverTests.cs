@@ -8,11 +8,26 @@ public sealed class SupervisorEndpointResolverTests
 {
     [Fact]
     [Trait("Size", "Small")]
+    public void CreateNamedPipeGenerationAddress_WithDifferentGenerationIdentity_ReturnsDistinctStableNames ()
+    {
+        var storageRoot = Path.GetFullPath(Path.Combine(".", "sandbox", "Supervisor"));
+
+        var first = SupervisorEndpointResolver.CreateNamedPipeGenerationAddress(storageRoot, "generation-a");
+        var firstAgain = SupervisorEndpointResolver.CreateNamedPipeGenerationAddress(storageRoot, "generation-a");
+        var second = SupervisorEndpointResolver.CreateNamedPipeGenerationAddress(storageRoot, "generation-b");
+
+        Assert.Equal(first, firstAgain);
+        Assert.NotEqual(first, second);
+        Assert.StartsWith(UcliIpcEndpointNames.SupervisorAddressPrefix, first, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Resolve_WithEmptyStorageRoot_ThrowsArgumentException ()
     {
         var resolver = new SupervisorEndpointResolver();
 
-        Assert.Throws<ArgumentException>(() => resolver.Resolve(""));
+        Assert.Throws<ArgumentException>(() => resolver.ResolveCanonicalEndpoint(""));
     }
 
     [Fact]
@@ -22,7 +37,7 @@ public sealed class SupervisorEndpointResolverTests
         var resolver = new SupervisorEndpointResolver();
         var storageRoot = Path.GetFullPath(Path.Combine(".", "sandbox", "Supervisor"));
 
-        var endpoint = resolver.Resolve(storageRoot);
+        var endpoint = resolver.ResolveCanonicalEndpoint(storageRoot);
 
         if (OperatingSystem.IsWindows())
         {
@@ -60,8 +75,8 @@ public sealed class SupervisorEndpointResolverTests
             "ucli-tests",
             new string('a', 140)));
 
-        var endpoint1 = resolver.Resolve(storageRoot);
-        var endpoint2 = resolver.Resolve(storageRoot);
+        var endpoint1 = resolver.ResolveCanonicalEndpoint(storageRoot);
+        var endpoint2 = resolver.ResolveCanonicalEndpoint(storageRoot);
 
         Assert.Equal(IpcTransportKind.UnixDomainSocket, endpoint1.TransportKind);
         Assert.Equal(endpoint1.Address, endpoint2.Address);

@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
@@ -11,19 +12,23 @@ internal static class DaemonGuiEndpointNotRegisteredFailureFactory
     /// <summary> Creates the timeout error returned when a GUI endpoint is not registered within the start budget. </summary>
     public static async ValueTask<DaemonStartResult> CreateFailureAsync (
         ResolvedUnityProjectContext unityProject,
+        DaemonCompensationOperationOwner operationOwner,
         IDaemonDiagnosisStore daemonDiagnosisStore,
         TimeProvider timeProvider,
         string endpointOwnerDescription,
         string editorInstancePath,
         int? processId,
         ExecutionError waitError,
-        DateTimeOffset? processStartedAtUtc = null,
-        string? unityLogPath = null)
+        DateTimeOffset? processStartedAtUtc,
+        string? unityLogPath,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
+        ArgumentNullException.ThrowIfNull(operationOwner);
         ArgumentNullException.ThrowIfNull(daemonDiagnosisStore);
         ArgumentNullException.ThrowIfNull(timeProvider);
         ArgumentException.ThrowIfNullOrWhiteSpace(editorInstancePath);
+        cancellationToken.ThrowIfCancellationRequested();
 
         var timeoutError = CreateTimeoutError(endpointOwnerDescription, processId, waitError);
         var diagnosis = CreateDiagnosis(
@@ -33,12 +38,25 @@ internal static class DaemonGuiEndpointNotRegisteredFailureFactory
             timeProvider.GetUtcNow(),
             processStartedAtUtc,
             unityLogPath);
-        var diagnosisWriteResult = await daemonDiagnosisStore.WriteAsync(
-                unityProject.RepositoryRoot,
-                unityProject.ProjectFingerprint,
-                diagnosis,
-                CancellationToken.None)
+        var persistenceDeadline = ExecutionDeadline.Start(
+            DaemonTimeouts.SupplementalPersistenceTimeout,
+            timeProvider);
+        var persistenceExecution = await operationOwner.ExecuteAsync(
+                unityProject,
+                DaemonOperationLane.SupplementalPersistence,
+                persistenceDeadline,
+                cancellationToken,
+                "Timed out before GUI endpoint diagnosis persistence could begin.",
+                "Timed out while persisting GUI endpoint diagnosis.",
+                (_, ownedCancellationToken) => daemonDiagnosisStore.WriteAsync(
+                    unityProject.RepositoryRoot,
+                    unityProject.ProjectFingerprint,
+                    diagnosis,
+                    ownedCancellationToken))
             .ConfigureAwait(false);
+        var diagnosisWriteResult = persistenceExecution.IsSuccess
+            ? persistenceExecution.Value!
+            : DaemonDiagnosisStoreOperationResult.Failure(persistenceExecution.Error!);
         if (!diagnosisWriteResult.IsSuccess)
         {
             return DaemonStartResult.Failure(

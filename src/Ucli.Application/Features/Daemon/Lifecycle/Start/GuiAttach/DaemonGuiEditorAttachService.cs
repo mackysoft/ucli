@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiEndpoint;
@@ -21,6 +22,8 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
 
     private readonly IDaemonDiagnosisStore daemonDiagnosisStore;
 
+    private readonly DaemonCompensationOperationOwner compensationOperationOwner;
+
     private readonly TimeProvider timeProvider;
 
     /// <summary> Initializes a new instance of the <see cref="DaemonGuiEditorAttachService" /> class. </summary>
@@ -30,14 +33,16 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
         IDaemonGuiSessionRegistrationAwaiter sessionRegistrationAwaiter,
         IDaemonGuiRebootstrapClient rebootstrapClient,
         IDaemonDiagnosisStore daemonDiagnosisStore,
-        TimeProvider? timeProvider = null)
+        DaemonCompensationOperationOwner compensationOperationOwner,
+        TimeProvider timeProvider)
     {
         this.markerReader = markerReader ?? throw new ArgumentNullException(nameof(markerReader));
         this.processProbe = processProbe ?? throw new ArgumentNullException(nameof(processProbe));
         this.sessionRegistrationAwaiter = sessionRegistrationAwaiter ?? throw new ArgumentNullException(nameof(sessionRegistrationAwaiter));
         this.rebootstrapClient = rebootstrapClient ?? throw new ArgumentNullException(nameof(rebootstrapClient));
         this.daemonDiagnosisStore = daemonDiagnosisStore ?? throw new ArgumentNullException(nameof(daemonDiagnosisStore));
-        this.timeProvider = timeProvider ?? TimeProvider.System;
+        this.compensationOperationOwner = compensationOperationOwner ?? throw new ArgumentNullException(nameof(compensationOperationOwner));
+        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
     /// <inheritdoc />
@@ -54,7 +59,19 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
         var deadline = ExecutionDeadline.Start(timeout, timeProvider);
-        var markerReadResult = await markerReader.ReadAsync(unityProject, cancellationToken).ConfigureAwait(false);
+        var markerReadOperation = await ExecutionDeadlineOperation.ExecuteAsync(
+                deadline,
+                cancellationToken,
+                "Timed out before Unity Editor instance marker read could begin.",
+                "Timed out while reading the Unity Editor instance marker.",
+                token => markerReader.ReadAsync(unityProject, token))
+            .ConfigureAwait(false);
+        if (!markerReadOperation.IsSuccess)
+        {
+            return DaemonStartResult.Failure(CreateTimeoutError(markerReadOperation.Error!.Message));
+        }
+
+        var markerReadResult = markerReadOperation.Value!;
         if (!markerReadResult.IsSuccess)
         {
             return DaemonStartResult.Failure(markerReadResult.Error!);
@@ -66,7 +83,19 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
         }
 
         var marker = markerReadResult.Marker!;
-        var probeResult = await processProbe.ProbeAsync(marker, cancellationToken).ConfigureAwait(false);
+        var processProbeOperation = await ExecutionDeadlineOperation.ExecuteAsync(
+                deadline,
+                cancellationToken,
+                "Timed out before Unity GUI Editor process probe could begin.",
+                "Timed out while probing the Unity GUI Editor process.",
+                token => processProbe.ProbeAsync(marker, token))
+            .ConfigureAwait(false);
+        if (!processProbeOperation.IsSuccess)
+        {
+            return DaemonStartResult.Failure(CreateTimeoutError(processProbeOperation.Error!.Message));
+        }
+
+        var probeResult = processProbeOperation.Value!;
         if (!probeResult.IsMatchingGuiEditor)
         {
             return null;
@@ -238,13 +267,16 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
         cancellationToken.ThrowIfCancellationRequested();
         var result = await DaemonGuiEndpointNotRegisteredFailureFactory.CreateFailureAsync(
                 unityProject,
+                compensationOperationOwner,
                 daemonDiagnosisStore,
                 timeProvider,
                 "existing GUI Editor",
                 marker.MarkerPath,
                 marker.ProcessId,
                 waitError,
-                processStartedAtUtc)
+                processStartedAtUtc,
+                unityLogPath: null,
+                cancellationToken)
             .ConfigureAwait(false);
         var policyResolution = DaemonStartupBlockedProcessPolicyResolver.Resolve(
             onStartupBlocked,

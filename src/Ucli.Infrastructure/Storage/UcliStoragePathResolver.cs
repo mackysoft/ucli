@@ -178,6 +178,16 @@ public static class UcliStoragePathResolver
             UcliStoragePathNames.SupervisorManifestFileName);
     }
 
+    /// <summary> Resolves the absolute path to supervisor <c>manifest.lock</c>. </summary>
+    /// <param name="storageRoot"> The storage-root path. </param>
+    /// <returns> The absolute supervisor manifest mutation lock file path. </returns>
+    public static string ResolveSupervisorManifestLockPath (string storageRoot)
+    {
+        return Path.Combine(
+            ResolveSupervisorDirectoryPath(storageRoot),
+            UcliStoragePathNames.SupervisorManifestLockFileName);
+    }
+
     /// <summary> Resolves the absolute path to supervisor <c>bootstrap.lock</c>. </summary>
     /// <param name="storageRoot"> The storage-root path. </param>
     /// <returns> The absolute supervisor bootstrap lock file path. </returns>
@@ -619,6 +629,19 @@ public static class UcliStoragePathResolver
             UcliStoragePathNames.SessionFileName);
     }
 
+    /// <summary> Resolves the absolute daemon session-generation lock path. </summary>
+    /// <param name="storageRoot"> The storage-root path. </param>
+    /// <param name="projectFingerprint"> The project fingerprint value. </param>
+    /// <returns> The absolute daemon session-generation lock path. </returns>
+    public static string ResolveDaemonSessionLockPath (
+        string storageRoot,
+        string projectFingerprint)
+    {
+        return Path.Combine(
+            ResolveFingerprintDirectory(storageRoot, projectFingerprint),
+            UcliStoragePathNames.DaemonSessionLockFileName);
+    }
+
     /// <summary> Resolves the absolute path to daemon <c>daemon-diagnosis.json</c>. </summary>
     /// <param name="storageRoot"> The storage-root path. </param>
     /// <param name="projectFingerprint"> The project fingerprint value. </param>
@@ -656,6 +679,19 @@ public static class UcliStoragePathResolver
         return Path.Combine(
             ResolveFingerprintDirectory(storageRoot, projectFingerprint),
             UcliStoragePathNames.GuiSupervisorManifestFileName);
+    }
+
+    /// <summary> Resolves the absolute GUI supervisor manifest lock path. </summary>
+    /// <param name="storageRoot"> The storage-root path. </param>
+    /// <param name="projectFingerprint"> The project fingerprint value. </param>
+    /// <returns> The absolute GUI supervisor manifest lock path. </returns>
+    public static string ResolveGuiSupervisorManifestLockPath (
+        string storageRoot,
+        string projectFingerprint)
+    {
+        return Path.Combine(
+            ResolveFingerprintDirectory(storageRoot, projectFingerprint),
+            UcliStoragePathNames.GuiSupervisorManifestLockFileName);
     }
 
     /// <summary> Resolves the absolute path to the daemon launch-attempts directory under one fingerprint directory. </summary>

@@ -7,6 +7,40 @@ public sealed class UcliStoragePathResolverContractTests
 {
     [Fact]
     [Trait("Size", "Small")]
+    public void ResolveSupervisorManifestLockPath_ReturnsSupervisorScopedPath ()
+    {
+        var resolvedPath = UcliStoragePathResolver.ResolveSupervisorManifestLockPath(
+            UcliStoragePathResolverTestSupport.StorageRoot);
+
+        UcliStoragePathResolverTestSupport.AssertStoragePath(
+            resolvedPath,
+            UcliStoragePathNames.UcliDirectoryName,
+            UcliStoragePathNames.LocalDirectoryName,
+            UcliStoragePathNames.SupervisorDirectoryName,
+            UcliStoragePathNames.SupervisorManifestLockFileName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ResolveSessionOwnershipLockPaths_ReturnFingerprintScopedPaths ()
+    {
+        var sessionLockPath = UcliStoragePathResolver.ResolveDaemonSessionLockPath(
+            UcliStoragePathResolverTestSupport.StorageRoot,
+            UcliStoragePathResolverTestSupport.ProjectFingerprint);
+        var supervisorLockPath = UcliStoragePathResolver.ResolveGuiSupervisorManifestLockPath(
+            UcliStoragePathResolverTestSupport.StorageRoot,
+            UcliStoragePathResolverTestSupport.ProjectFingerprint);
+
+        UcliStoragePathResolverTestSupport.AssertFingerprintPath(
+            sessionLockPath,
+            UcliStoragePathNames.DaemonSessionLockFileName);
+        UcliStoragePathResolverTestSupport.AssertFingerprintPath(
+            supervisorLockPath,
+            UcliStoragePathNames.GuiSupervisorManifestLockFileName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void ResolveConfigPath_ReturnsSharedUcliConfigPath ()
     {
         var resolvedPath = UcliStoragePathResolver.ResolveConfigPath(UcliStoragePathResolverTestSupport.StorageRoot);

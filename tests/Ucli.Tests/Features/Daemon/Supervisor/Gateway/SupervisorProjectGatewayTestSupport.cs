@@ -15,11 +15,12 @@ internal static class SupervisorProjectGatewayTestSupport
         TimeProvider? timeProvider = null)
     {
         var manifest = SupervisorClientTestSupport.CreateManifest();
-        var manifestStore = new SupervisorManifestStore();
+        var manifestStore = SupervisorManifestStoreTestSupport.CreateFileBacked(
+            timeProvider ?? TimeProvider.System);
         await manifestStore.WriteAsync(repositoryRoot, manifest, CancellationToken.None).ConfigureAwait(false);
 
         var transportClient = new StubIpcTransportClient();
-        var client = new SupervisorClient(transportClient);
+        var client = new SupervisorClient(transportClient, timeProvider ?? TimeProvider.System);
         var launcher = new RecordingSupervisorProcessLauncher();
         var gateway = CreateGateway(
             manifestStore,
@@ -30,6 +31,7 @@ internal static class SupervisorProjectGatewayTestSupport
         return new SupervisorProjectGatewayScenario(
             repositoryRoot,
             manifest,
+            manifestStore,
             transportClient,
             gateway);
     }
@@ -40,17 +42,20 @@ internal static class SupervisorProjectGatewayTestSupport
         RecordingSupervisorProcessLauncher launcher,
         TimeProvider? timeProvider = null)
     {
+        var effectiveTimeProvider = timeProvider ?? TimeProvider.System;
         return new SupervisorProjectGateway(
             new SupervisorBootstrapper(
                 manifestStore,
                 client,
                 launcher,
-                new SupervisorBootstrapLockProvider(),
+                new SupervisorBootstrapLockProvider(effectiveTimeProvider),
                 new SupervisorEndpointResolver(),
-                timeProvider),
+                effectiveTimeProvider),
             manifestStore,
             client,
-            timeProvider);
+            new SupervisorBootstrapLockProvider(effectiveTimeProvider),
+            new SupervisorEndpointResolver(),
+            effectiveTimeProvider);
     }
 
     public static ResolvedUnityProjectContext CreateUnityProject (
@@ -130,16 +135,20 @@ internal sealed class SupervisorProjectGatewayScenario
     public SupervisorProjectGatewayScenario (
         string repositoryRoot,
         SupervisorInstanceManifest manifest,
+        SupervisorManifestStore manifestStore,
         StubIpcTransportClient transportClient,
         SupervisorProjectGateway gateway)
     {
         this.repositoryRoot = repositoryRoot;
         Manifest = manifest;
+        ManifestStore = manifestStore;
         TransportClient = transportClient;
         Gateway = gateway;
     }
 
     public SupervisorInstanceManifest Manifest { get; }
+
+    public SupervisorManifestStore ManifestStore { get; }
 
     public StubIpcTransportClient TransportClient { get; }
 
