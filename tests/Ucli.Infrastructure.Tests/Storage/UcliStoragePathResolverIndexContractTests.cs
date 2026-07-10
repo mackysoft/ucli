@@ -22,6 +22,20 @@ public sealed class UcliStoragePathResolverIndexContractTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void ResolveReadIndexWriteLockPath_ReturnsFingerprintScopedPath ()
+    {
+        var resolvedPath = UcliStoragePathResolver.ResolveReadIndexWriteLockPath(
+            UcliStoragePathResolverTestSupport.StorageRoot,
+            UcliStoragePathResolverTestSupport.ProjectFingerprint);
+
+        UcliStoragePathResolverTestSupport.AssertFingerprintPath(
+            resolvedPath,
+            UcliStoragePathNames.IndexDirectoryName,
+            UcliStoragePathNames.ReadIndexWriteLockFileName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void ResolveIndexCatalogsDirectory_ReturnsFingerprintScopedPath ()
     {
         var resolvedPath = UcliStoragePathResolver.ResolveIndexCatalogsDirectory(

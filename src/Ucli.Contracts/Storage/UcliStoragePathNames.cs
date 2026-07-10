@@ -30,6 +30,9 @@ public static class UcliStoragePathNames
     /// <summary> Gets the read-index directory name under one fingerprint directory. </summary>
     public const string IndexDirectoryName = "index";
 
+    /// <summary> Gets the read-index writer lock file name under one read-index directory. </summary>
+    public const string ReadIndexWriteLockFileName = "write.lock";
+
     /// <summary> Gets the catalogs directory name under one read-index directory. </summary>
     public const string CatalogsDirectoryName = "catalogs";
 

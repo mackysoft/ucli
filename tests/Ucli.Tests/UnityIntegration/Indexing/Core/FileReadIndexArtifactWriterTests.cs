@@ -47,6 +47,106 @@ public sealed class FileReadIndexArtifactWriterTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task WriteOpsCatalog_WhenOperationChanges_UsesContentAddressedDescribeKeyAndPreservesPreviousDetail ()
+    {
+        using var scope = TestDirectories.CreateTempScope("read-index-writer", "ops-content-addressed");
+        var writer = CreateWriter();
+        var reader = new FileReadIndexArtifactReader();
+        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, "fingerprint");
+        var firstOperation = ReadIndexOperationTestFactory.CreateGoDescribeEntry();
+        var secondOperation = firstOperation with { Description = "Updated operation description." };
+
+        await writer.WriteOpsCatalogAsync(
+            scope.FullPath,
+            "fingerprint",
+            DateTimeOffset.Parse("2026-03-08T00:00:00+00:00"),
+            [firstOperation],
+            "first-ops-hash",
+            manifestInputSnapshot: null,
+            CancellationToken.None);
+
+        var firstCatalogResult = await reader.ReadOpsCatalogAsync(project, CancellationToken.None);
+        Assert.True(firstCatalogResult.IsSuccess);
+        var firstEntry = Assert.Single(firstCatalogResult.Value!.Entries!);
+        var firstDescribePath = UcliStoragePathResolver.ResolveOpsDescribePath(
+            scope.FullPath,
+            "fingerprint",
+            firstEntry.DescribeKey!);
+
+        await writer.WriteOpsCatalogAsync(
+            scope.FullPath,
+            "fingerprint",
+            DateTimeOffset.Parse("2026-03-08T00:01:00+00:00"),
+            [secondOperation],
+            "second-ops-hash",
+            manifestInputSnapshot: null,
+            CancellationToken.None);
+
+        var secondCatalogResult = await reader.ReadOpsCatalogAsync(project, CancellationToken.None);
+        Assert.True(secondCatalogResult.IsSuccess);
+        var secondEntry = Assert.Single(secondCatalogResult.Value!.Entries!);
+        var secondDescribePath = UcliStoragePathResolver.ResolveOpsDescribePath(
+            scope.FullPath,
+            "fingerprint",
+            secondEntry.DescribeKey!);
+        var firstDescribeResult = await reader.ReadOpsDescribeAsync(
+            project,
+            firstEntry,
+            "first-ops-hash",
+            CancellationToken.None);
+
+        Assert.Equal(firstEntry.DescribeHash, firstEntry.DescribeKey);
+        Assert.Equal(secondEntry.DescribeHash, secondEntry.DescribeKey);
+        Assert.NotEqual(firstEntry.DescribeKey, secondEntry.DescribeKey);
+        Assert.True(File.Exists(firstDescribePath));
+        Assert.True(File.Exists(secondDescribePath));
+        Assert.True(firstDescribeResult.IsSuccess);
+        Assert.Equal(firstOperation.Description, firstDescribeResult.Value!.Operation!.Description);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task WriteOpsCatalog_WhenDescribeDirectoryContainsManyOrphans_PrunesOldUnreferencedArtifacts ()
+    {
+        using var scope = TestDirectories.CreateTempScope("read-index-writer", "ops-describe-prune");
+        const string projectFingerprint = "fingerprint";
+        var describeDirectory = UcliStoragePathResolver.ResolveOpsDescribeDirectory(
+            scope.FullPath,
+            projectFingerprint);
+        Directory.CreateDirectory(describeDirectory);
+        for (var index = 0; index < 520; index++)
+        {
+            await File.WriteAllTextAsync(
+                Path.Combine(describeDirectory, $"{index:x64}.json"),
+                "{}");
+        }
+
+        var writer = CreateWriter();
+        await writer.WriteOpsCatalogAsync(
+            scope.FullPath,
+            projectFingerprint,
+            DateTimeOffset.Parse("2026-03-08T00:00:00+00:00"),
+            [ReadIndexOperationTestFactory.CreateGoDescribeEntry()],
+            "ops-hash",
+            manifestInputSnapshot: null,
+            CancellationToken.None);
+
+        var reader = new FileReadIndexArtifactReader();
+        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, projectFingerprint);
+        var catalogResult = await reader.ReadOpsCatalogAsync(project, CancellationToken.None);
+        Assert.True(catalogResult.IsSuccess);
+        var currentEntry = Assert.Single(catalogResult.Value!.Entries!);
+        var currentDescribePath = UcliStoragePathResolver.ResolveOpsDescribePath(
+            scope.FullPath,
+            projectFingerprint,
+            currentEntry.DescribeKey!);
+
+        Assert.True(File.Exists(currentDescribePath));
+        Assert.True(Directory.EnumerateFiles(describeDirectory, "*.json").Count() <= 513);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task WriteOpsCatalog_WithoutManifest_WritesCatalogOnly ()
     {
         using var scope = TestDirectories.CreateTempScope("read-index-writer", "ops-no-manifest");
@@ -122,6 +222,207 @@ public sealed class FileReadIndexArtifactWriterTests
 
         Assert.True(describeResult.IsSuccess);
         Assert.Equal(oldOperation.Description, describeResult.Value!.Operation!.Description);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task WriteOpsCatalog_WhileAnotherWriterTargetsSameFingerprint_SerializesCompleteWrites ()
+    {
+        using var scope = TestDirectories.CreateTempScope("read-index-writer", "same-fingerprint-serialization");
+        var firstDescribeWriter = new BlockingJsonContractWriter<IndexOpsDescribeJsonContract>(
+            new IndexOpsDescribeJsonContractWriter());
+        var firstWriter = CreateWriter(opsDescribeWriter: firstDescribeWriter);
+        var secondWriter = CreateWriter();
+
+        var firstWriteTask = Task.Run(async () => await firstWriter.WriteOpsCatalogAsync(
+            scope.FullPath,
+            "fingerprint",
+            DateTimeOffset.Parse("2026-03-08T00:00:00+00:00"),
+            [ReadIndexOperationTestFactory.CreateGoDescribeEntry()],
+            "ops-hash",
+            manifestInputSnapshot: null,
+            CancellationToken.None));
+        await firstDescribeWriter.WaitUntilEnteredAsync();
+
+        var secondWriteTask = secondWriter.WriteAssetLookupsAsync(
+                scope.FullPath,
+                "fingerprint",
+                DateTimeOffset.Parse("2026-03-08T00:01:00+00:00"),
+                Array.Empty<IndexAssetSearchEntryJsonContract>(),
+                Array.Empty<IndexGuidPathEntryJsonContract>(),
+                CreateSnapshot(),
+                CancellationToken.None)
+            .AsTask();
+        await Task.Delay(TimeSpan.FromMilliseconds(50));
+        Assert.False(secondWriteTask.IsCompleted);
+
+        firstDescribeWriter.Release();
+        await firstWriteTask;
+        await secondWriteTask;
+
+        Assert.True(File.Exists(UcliStoragePathResolver.ResolveOpsCatalogPath(scope.FullPath, "fingerprint")));
+        Assert.True(File.Exists(UcliStoragePathResolver.ResolveAssetSearchLookupPath(scope.FullPath, "fingerprint")));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task WriteOpsCatalog_AfterWaitingForLock_PreservesCurrentAssetHashesInManifest ()
+    {
+        using var scope = TestDirectories.CreateTempScope("read-index-writer", "ops-manifest-rebase");
+        using var heldLock = await FileExclusiveLock.AcquireAsync(
+            UcliStoragePathResolver.ResolveReadIndexWriteLockPath(scope.FullPath, "fingerprint"),
+            TimeSpan.FromSeconds(1),
+            CancellationToken.None);
+        var writer = CreateWriter();
+        var suppliedSnapshot = CreateSnapshot();
+
+        var writeTask = writer.WriteOpsCatalogAsync(
+                scope.FullPath,
+                "fingerprint",
+                DateTimeOffset.Parse("2026-03-08T00:01:00+00:00"),
+                [ReadIndexOperationTestFactory.CreateGoDescribeEntry()],
+                "ops-hash",
+                suppliedSnapshot,
+                CancellationToken.None)
+            .AsTask();
+        await Task.Delay(TimeSpan.FromMilliseconds(50));
+        Assert.False(writeTask.IsCompleted);
+
+        var currentManifest = new IndexInputsManifestJsonContract(
+            SchemaVersion: 1,
+            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-08T00:00:00+00:00"),
+            ScriptAssembliesHash: "current-script",
+            PackagesManifestHash: "current-manifest",
+            PackagesLockHash: "current-lock",
+            AssemblyDefinitionHash: "current-asmdef",
+            AssetsContentHash: "current-assets",
+            AssetSearchHash: "current-asset-search",
+            GuidPathHash: "current-guid-path",
+            CombinedHash: "current-combined");
+        var manifestPath = UcliStoragePathResolver.ResolveIndexInputsManifestPath(scope.FullPath, "fingerprint");
+        await FileUtilities.WriteAllTextAtomicallyAsync(
+            manifestPath,
+            new IndexInputsManifestJsonContractWriter().Write(currentManifest),
+            CancellationToken.None);
+
+        heldLock.Dispose();
+        await writeTask;
+
+        var reader = new FileReadIndexArtifactReader();
+        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, "fingerprint");
+        var manifestResult = await reader.ReadInputsManifestAsync(project, CancellationToken.None);
+
+        Assert.True(manifestResult.IsSuccess);
+        Assert.Equal(suppliedSnapshot.ScriptAssembliesHash, manifestResult.Value!.ScriptAssembliesHash);
+        Assert.Equal(suppliedSnapshot.CombinedHash, manifestResult.Value.CombinedHash);
+        Assert.Equal("current-assets", manifestResult.Value.AssetsContentHash);
+        Assert.Equal("current-asset-search", manifestResult.Value.AssetSearchHash);
+        Assert.Equal("current-guid-path", manifestResult.Value.GuidPathHash);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task WriteAssetLookups_AfterWaitingForLock_PreservesCurrentCoreHashesInManifest ()
+    {
+        using var scope = TestDirectories.CreateTempScope("read-index-writer", "asset-manifest-rebase");
+        using var heldLock = await FileExclusiveLock.AcquireAsync(
+            UcliStoragePathResolver.ResolveReadIndexWriteLockPath(scope.FullPath, "fingerprint"),
+            TimeSpan.FromSeconds(1),
+            CancellationToken.None);
+        var writer = CreateWriter();
+        var suppliedSnapshot = CreateSnapshot();
+
+        var writeTask = writer.WriteAssetLookupsAsync(
+                scope.FullPath,
+                "fingerprint",
+                DateTimeOffset.Parse("2026-03-08T00:01:00+00:00"),
+                Array.Empty<IndexAssetSearchEntryJsonContract>(),
+                Array.Empty<IndexGuidPathEntryJsonContract>(),
+                suppliedSnapshot,
+                CancellationToken.None)
+            .AsTask();
+        await Task.Delay(TimeSpan.FromMilliseconds(50));
+        Assert.False(writeTask.IsCompleted);
+
+        var currentManifest = new IndexInputsManifestJsonContract(
+            SchemaVersion: 1,
+            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-08T00:00:00+00:00"),
+            ScriptAssembliesHash: "current-script",
+            PackagesManifestHash: "current-manifest",
+            PackagesLockHash: "current-lock",
+            AssemblyDefinitionHash: "current-asmdef",
+            AssetsContentHash: "current-assets",
+            AssetSearchHash: "current-asset-search",
+            GuidPathHash: "current-guid-path",
+            CombinedHash: "current-combined");
+        var manifestPath = UcliStoragePathResolver.ResolveIndexInputsManifestPath(scope.FullPath, "fingerprint");
+        await FileUtilities.WriteAllTextAtomicallyAsync(
+            manifestPath,
+            new IndexInputsManifestJsonContractWriter().Write(currentManifest),
+            CancellationToken.None);
+
+        heldLock.Dispose();
+        await writeTask;
+
+        var reader = new FileReadIndexArtifactReader();
+        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, "fingerprint");
+        var manifestResult = await reader.ReadInputsManifestAsync(project, CancellationToken.None);
+
+        Assert.True(manifestResult.IsSuccess);
+        Assert.Equal("current-script", manifestResult.Value!.ScriptAssembliesHash);
+        Assert.Equal("current-manifest", manifestResult.Value.PackagesManifestHash);
+        Assert.Equal("current-lock", manifestResult.Value.PackagesLockHash);
+        Assert.Equal("current-asmdef", manifestResult.Value.AssemblyDefinitionHash);
+        Assert.Equal("current-combined", manifestResult.Value.CombinedHash);
+        Assert.Equal(suppliedSnapshot.AssetsContentHash, manifestResult.Value.AssetsContentHash);
+        Assert.Equal(suppliedSnapshot.AssetSearchHash, manifestResult.Value.AssetSearchHash);
+        Assert.Equal(suppliedSnapshot.GuidPathHash, manifestResult.Value.GuidPathHash);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task WriteAssetLookups_WhenSecondLookupWriteFails_RestoresPreviousArtifactSet ()
+    {
+        using var scope = TestDirectories.CreateTempScope("read-index-writer", "asset-rollback");
+        var initialWriter = CreateWriter();
+        var initialSnapshot = CreateSnapshot();
+        await initialWriter.WriteAssetLookupsAsync(
+            scope.FullPath,
+            "fingerprint",
+            DateTimeOffset.Parse("2026-03-08T00:00:00+00:00"),
+            [new IndexAssetSearchEntryJsonContract("Assets/Old.asset", "old-guid", "Old", "Old.Type", ["Old.Type"])],
+            [new IndexGuidPathEntryJsonContract("old-guid", "Assets/Old.asset")],
+            initialSnapshot,
+            CancellationToken.None);
+
+        var assetSearchPath = UcliStoragePathResolver.ResolveAssetSearchLookupPath(scope.FullPath, "fingerprint");
+        var guidPath = UcliStoragePathResolver.ResolveGuidPathLookupPath(scope.FullPath, "fingerprint");
+        var manifestPath = UcliStoragePathResolver.ResolveIndexInputsManifestPath(scope.FullPath, "fingerprint");
+        var initialAssetSearchJson = await File.ReadAllTextAsync(assetSearchPath);
+        var initialGuidJson = await File.ReadAllTextAsync(guidPath);
+        var initialManifestJson = await File.ReadAllTextAsync(manifestPath);
+        var failingWriter = CreateWriter(
+            guidPathLookupWriter: new ThrowingJsonContractWriter<IndexGuidPathLookupJsonContract>(
+                new IOException("guid lookup write failed")));
+        var updatedSnapshot = initialSnapshot with
+        {
+            AssetsContentHash = "updated-assets",
+            AssetSearchHash = "updated-asset-search",
+            GuidPathHash = "updated-guid-path",
+        };
+
+        await Assert.ThrowsAsync<IOException>(async () => await failingWriter.WriteAssetLookupsAsync(
+            scope.FullPath,
+            "fingerprint",
+            DateTimeOffset.Parse("2026-03-08T00:01:00+00:00"),
+            [new IndexAssetSearchEntryJsonContract("Assets/New.asset", "new-guid", "New", "New.Type", ["New.Type"])],
+            [new IndexGuidPathEntryJsonContract("new-guid", "Assets/New.asset")],
+            updatedSnapshot,
+            CancellationToken.None));
+
+        Assert.Equal(initialAssetSearchJson, await File.ReadAllTextAsync(assetSearchPath));
+        Assert.Equal(initialGuidJson, await File.ReadAllTextAsync(guidPath));
+        Assert.Equal(initialManifestJson, await File.ReadAllTextAsync(manifestPath));
     }
 
     [Fact]
@@ -274,13 +575,15 @@ public sealed class FileReadIndexArtifactWriterTests
     }
 
     private static FileReadIndexArtifactWriter CreateWriter (
-        IJsonContractWriter<IndexOpsCatalogJsonContract>? opsCatalogWriter = null)
+        IJsonContractWriter<IndexOpsCatalogJsonContract>? opsCatalogWriter = null,
+        IJsonContractWriter<IndexOpsDescribeJsonContract>? opsDescribeWriter = null,
+        IJsonContractWriter<IndexGuidPathLookupJsonContract>? guidPathLookupWriter = null)
     {
         return new FileReadIndexArtifactWriter(
             opsCatalogWriter ?? new IndexOpsCatalogJsonContractWriter(),
-            new IndexOpsDescribeJsonContractWriter(),
+            opsDescribeWriter ?? new IndexOpsDescribeJsonContractWriter(),
             new IndexAssetSearchLookupJsonContractWriter(),
-            new IndexGuidPathLookupJsonContractWriter(),
+            guidPathLookupWriter ?? new IndexGuidPathLookupJsonContractWriter(),
             new IndexSceneTreeLiteLookupJsonContractWriter(),
             new IndexInputsManifestJsonContractWriter());
     }
@@ -305,6 +608,37 @@ public sealed class FileReadIndexArtifactWriterTests
             AssetSearchHash: "asset-search",
             GuidPathHash: "guid-path",
             CombinedHash: "combined");
+    }
+
+    private sealed class BlockingJsonContractWriter<TContract> : IJsonContractWriter<TContract>
+    {
+        private readonly IJsonContractWriter<TContract> innerWriter;
+
+        private readonly TaskCompletionSource entered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        private readonly TaskCompletionSource release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public BlockingJsonContractWriter (IJsonContractWriter<TContract> innerWriter)
+        {
+            this.innerWriter = innerWriter ?? throw new ArgumentNullException(nameof(innerWriter));
+        }
+
+        public string Write (TContract contract)
+        {
+            entered.TrySetResult();
+            release.Task.WaitAsync(TimeSpan.FromSeconds(5)).GetAwaiter().GetResult();
+            return innerWriter.Write(contract);
+        }
+
+        public Task WaitUntilEnteredAsync ()
+        {
+            return entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+
+        public void Release ()
+        {
+            release.TrySetResult();
+        }
     }
 
 }

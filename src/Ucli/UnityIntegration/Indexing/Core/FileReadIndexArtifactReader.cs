@@ -88,10 +88,10 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
                 $"Index contract file was not found: {contractName}.");
         }
 
-        string json;
+        string? json;
         try
         {
-            json = await File.ReadAllTextAsync(contractPath, cancellationToken).ConfigureAwait(false);
+            json = await FileUtilities.ReadAllTextOrNullAsync(contractPath, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -108,6 +108,13 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
             return ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract>.Failure(
                 ReadIndexErrorCodes.ReadIndexBootstrapFailed,
                 $"Failed to read index contract file '{contractName}'. {ex.Message}");
+        }
+
+        if (json is null)
+        {
+            return ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract>.Failure(
+                ReadIndexErrorCodes.ReadIndexBootstrapFailed,
+                $"Index contract file was not found: {contractName}.");
         }
 
         var actualHash = Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(json));
@@ -376,10 +383,10 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
                 $"Index contract file was not found: {contractName}.");
         }
 
-        string json;
+        string? json;
         try
         {
-            json = await File.ReadAllTextAsync(contractPath, cancellationToken).ConfigureAwait(false);
+            json = await FileUtilities.ReadAllTextOrNullAsync(contractPath, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -396,6 +403,13 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
             return ReadIndexArtifactReadResult<TContract>.Failure(
                 ReadIndexErrorCodes.ReadIndexBootstrapFailed,
                 $"Failed to read index contract file '{contractName}'. {ex.Message}");
+        }
+
+        if (json is null)
+        {
+            return ReadIndexArtifactReadResult<TContract>.Failure(
+                ReadIndexErrorCodes.ReadIndexBootstrapFailed,
+                $"Index contract file was not found: {contractName}.");
         }
 
         TContract? contract;

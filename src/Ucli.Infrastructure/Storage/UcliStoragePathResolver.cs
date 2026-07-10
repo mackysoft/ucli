@@ -241,6 +241,20 @@ public static class UcliStoragePathResolver
             UcliStoragePathNames.IndexDirectoryName);
     }
 
+    /// <summary> Resolves the absolute read-index writer lock path for one project fingerprint. </summary>
+    /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
+    /// <param name="projectFingerprint"> The project fingerprint value. Must not be <see langword="null" />, empty, or whitespace. </param>
+    /// <returns> The absolute read-index writer lock path. </returns>
+    /// <exception cref="ArgumentException"> Thrown when any argument is <see langword="null" />, empty, or whitespace. </exception>
+    public static string ResolveReadIndexWriteLockPath (
+        string storageRoot,
+        string projectFingerprint)
+    {
+        return Path.Combine(
+            ResolveIndexDirectory(storageRoot, projectFingerprint),
+            UcliStoragePathNames.ReadIndexWriteLockFileName);
+    }
+
     /// <summary> Resolves the absolute path to one read-index catalogs directory under <c>.ucli/local/fingerprints/&lt;projectFingerprint&gt;/index/catalogs</c>. </summary>
     /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
     /// <param name="projectFingerprint"> The project fingerprint value. Must not be <see langword="null" />, empty, or whitespace. </param>
