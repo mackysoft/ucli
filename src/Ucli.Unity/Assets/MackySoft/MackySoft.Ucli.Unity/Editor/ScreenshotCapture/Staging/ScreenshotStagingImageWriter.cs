@@ -36,18 +36,13 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Staging
         /// <inheritdoc />
         public async Task<long> WriteAtomicAsync (
             string path,
-            byte[] bytes,
+            ReadOnlyMemory<byte> bytes,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (string.IsNullOrWhiteSpace(path))
             {
                 throw new ArgumentException("Screenshot staging path must not be empty.", nameof(path));
-            }
-
-            if (bytes == null)
-            {
-                throw new ArgumentNullException(nameof(bytes));
             }
 
             var fullPath = ValidatePreparedStagingPath(path);
@@ -75,7 +70,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Staging
                     bufferSize: 81920,
                     useAsync: true))
                 {
-                    await stream.WriteAsync(bytes, 0, bytes.Length, cancellationToken);
+                    await stream.WriteAsync(bytes, cancellationToken);
                     await stream.FlushAsync(cancellationToken);
                 }
 
@@ -84,7 +79,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Staging
                 File.Move(temporaryPath, fullPath);
                 published = true;
                 FileSystemAccessBoundary.EnsureSecureFile(fullPath);
-                return bytes.LongLength;
+                return bytes.Length;
             }
             catch
             {

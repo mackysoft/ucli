@@ -63,6 +63,6 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Capture
             int Width,
             int Height,
             string ColorSpace,
-            byte[] Rgba8SrgbTopDown);
+            ReadOnlyMemory<byte> Rgba8SrgbTopDown);
     }
 }

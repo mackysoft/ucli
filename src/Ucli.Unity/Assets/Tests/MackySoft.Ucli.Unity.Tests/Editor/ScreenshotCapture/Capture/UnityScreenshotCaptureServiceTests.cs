@@ -58,7 +58,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(writer.WriteCallCount, Is.EqualTo(1));
             Assert.That(writer.LastPath, Is.EqualTo(StagingPath));
-            Assert.That(writer.LastBytes, Is.EqualTo(CreateFrameBytes()));
+            Assert.That(writer.LastBytes.ToArray(), Is.EqualTo(CreateFrameBytes()));
             Assert.That(
                 result.Response.Capture.Target,
                 Is.EqualTo(ContractLiteralCodec.ToValue(IpcScreenshotTarget.Game)));
@@ -316,13 +316,13 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public string LastPath { get; private set; }
 
-            public byte[] LastBytes { get; private set; }
+            public ReadOnlyMemory<byte> LastBytes { get; private set; }
 
             public List<string> DeletedPaths { get; } = new List<string>();
 
             public Task<long> WriteAtomicAsync (
                 string path,
-                byte[] bytes,
+                ReadOnlyMemory<byte> bytes,
                 CancellationToken cancellationToken)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -330,7 +330,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 LastPath = path;
                 LastBytes = bytes;
                 afterWrite?.Invoke();
-                return Task.FromResult(reportedSizeBytes ?? bytes.LongLength);
+                return Task.FromResult(reportedSizeBytes ?? bytes.Length);
             }
 
             public void DeleteIfExists (string path)

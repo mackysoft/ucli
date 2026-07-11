@@ -90,8 +90,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Capture
 
                 var frame = backendResult.Frame;
                 var expectedSizeBytes = checked((long)frame.Width * frame.Height * 4L);
-                if (frame.Rgba8SrgbTopDown == null
-                    || frame.Rgba8SrgbTopDown.LongLength != expectedSizeBytes)
+                if (frame.Rgba8SrgbTopDown.Length != expectedSizeBytes)
                 {
                     return UnityScreenshotCaptureResult.Failure(
                         UcliCoreErrorCodes.InternalError,

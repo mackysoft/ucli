@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.Threading;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
@@ -106,7 +107,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
 
                 if (!rawIsTopDown)
                 {
-                    ReverseRowsInPlace(rawBytes, width, height, cancellationToken);
+                    ReverseRowsInPlace(rawBytes.AsSpan(), width, height, cancellationToken);
                 }
 
                 cancellationToken.ThrowIfCancellationRequested();
@@ -252,28 +253,28 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
                 }
 
                 cancellationToken.ThrowIfCancellationRequested();
-                var bottomUp = new byte[]
+                ReadOnlySpan<byte> bottomUp = stackalloc byte[]
                 {
                     255, 0, 0, 255,
                     0, 255, 0, 255,
                     0, 0, 255, 255,
                     255, 255, 0, 255,
                 };
-                var topDown = new byte[]
+                ReadOnlySpan<byte> topDown = stackalloc byte[]
                 {
                     0, 0, 255, 255,
                     255, 255, 0, 255,
                     255, 0, 0, 255,
                     0, 255, 0, 255,
                 };
-                if (BytesEqual(rawBytes, topDown))
+                if (rawBytes.AsSpan().SequenceEqual(topDown))
                 {
                     rawIsTopDown = true;
                     errorMessage = null;
                     return true;
                 }
 
-                if (BytesEqual(rawBytes, bottomUp))
+                if (rawBytes.AsSpan().SequenceEqual(bottomUp))
                 {
                     rawIsTopDown = false;
                     errorMessage = null;
@@ -423,42 +424,32 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
         }
 
         private static void ReverseRowsInPlace (
-            byte[] bytes,
+            Span<byte> bytes,
             int width,
             int height,
             CancellationToken cancellationToken)
         {
             var rowStride = checked(width * 4);
-            var temporaryRow = new byte[rowStride];
-            for (var row = 0; row < height / 2; row++)
+            var rentedRow = ArrayPool<byte>.Shared.Rent(rowStride);
+            try
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                var topOffset = row * rowStride;
-                var bottomOffset = (height - row - 1) * rowStride;
-                Buffer.BlockCopy(bytes, topOffset, temporaryRow, 0, rowStride);
-                Buffer.BlockCopy(bytes, bottomOffset, bytes, topOffset, rowStride);
-                Buffer.BlockCopy(temporaryRow, 0, bytes, bottomOffset, rowStride);
-            }
-
-            cancellationToken.ThrowIfCancellationRequested();
-        }
-
-        private static bool BytesEqual (byte[] left, byte[] right)
-        {
-            if (left == null || right == null || left.Length != right.Length)
-            {
-                return false;
-            }
-
-            for (var index = 0; index < left.Length; index++)
-            {
-                if (left[index] != right[index])
+                var temporaryRow = rentedRow.AsSpan(0, rowStride);
+                for (var row = 0; row < height / 2; row++)
                 {
-                    return false;
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var topRow = bytes.Slice(row * rowStride, rowStride);
+                    var bottomRow = bytes.Slice((height - row - 1) * rowStride, rowStride);
+                    topRow.CopyTo(temporaryRow);
+                    bottomRow.CopyTo(topRow);
+                    temporaryRow.CopyTo(bottomRow);
                 }
-            }
 
-            return true;
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(rentedRow, clearArray: true);
+            }
         }
 
         private static void DestroyImmediate (Object value)
