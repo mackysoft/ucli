@@ -120,6 +120,8 @@ private enum Sentinel {
     case red
     case green
     case blue
+    case cyan
+    case magenta
     case yellow
 
     func matches(_ pixel: Rgba) -> Bool {
@@ -133,6 +135,10 @@ private enum Sentinel {
             return green >= 180 && red <= 105 && blue <= 105
         case .blue:
             return blue >= 180 && red <= 105 && green <= 135
+        case .cyan:
+            return green >= 180 && blue >= 180 && red <= 115
+        case .magenta:
+            return red >= 180 && blue >= 180 && green <= 115
         case .yellow:
             return red >= 180 && green >= 180 && blue <= 115
         }
@@ -157,6 +163,31 @@ private struct ComparisonMetrics: Codable {
     let maximumDeltaE76: Double
     let maximumLuminanceError: Double
     let grayRampRmsLuminanceError: Double
+}
+
+private struct FullImageComparisonMetrics: Codable {
+    let dimensionsMatch: Bool
+    let leftWidth: Int
+    let leftHeight: Int
+    let rightWidth: Int
+    let rightHeight: Int
+    let totalPixelCount: Int
+    let comparedPixelCount: Int
+    let excludedNonOpaquePixelCount: Int
+    let leftNonOpaquePixelCount: Int
+    let rightNonOpaquePixelCount: Int
+    let alphaMasksMatch: Bool
+    let alphaMaskTopologyValid: Bool
+    let matchingAlphaMasksRequired: Bool
+    let comparedRgbChannelCount: Int
+    let meanAbsoluteRgbChannelErrorNormalized: Double?
+    let percentile95AbsoluteRgbChannelErrorNormalized: Double?
+    let maximumAbsoluteRgbChannelErrorNormalized: Double?
+}
+
+private enum FullImageAlphaMaskPolicy: Equatable {
+    case matchingWindowMasks
+    case opaqueArtifactAndWindowMask
 }
 
 private struct FixtureValidity: Codable {
@@ -222,6 +253,8 @@ private struct AnalysisResult: Codable {
     let referenceAfterFixtureValidity: FixtureValidity
     let referenceStability: ComparisonMetrics
     let artifactFidelity: ComparisonMetrics
+    let referenceFullImageStability: FullImageComparisonMetrics?
+    let artifactFullImageFidelity: FullImageComparisonMetrics?
     let failures: [String]
     let analyzedAtUtc: String
 }
@@ -230,6 +263,8 @@ private struct SelfCheckResult: Codable {
     let passed: Bool
     let validFixture: FixtureValidity
     let blackFixture: FixtureValidity
+    let sceneSentinelLocatorPassed: Bool
+    let fullImageComparisonPassed: Bool
     let checkedAtUtc: String
 }
 
@@ -312,6 +347,13 @@ private let maximumFidelityLuminanceError = 0.03
 private let maximumGrayRampRmsLuminanceError = 0.02
 private let maximumStabilityDeltaE76 = 2.0
 private let maximumStabilityLuminanceError = 0.012
+// These Scene full-image limits were fixed from the documented pre-implementation
+// measurement (mean 0.073/255, p95 1/255, max 1/255). Do not tune them from a
+// candidate run of this benchmark.
+private let maximumSceneMeanAbsoluteRgbChannelErrorNormalized = 0.5 / 255.0
+private let maximumScenePercentile95AbsoluteRgbChannelErrorNormalized = 2.0 / 255.0
+private let maximumSceneAbsoluteRgbChannelErrorNormalized = 4.0 / 255.0
+private let minimumSceneOpaquePixelCoverage = 0.999
 private let minimumGrayDistinctLevelCount = 12
 private let minimumGrayLuminanceRange = 0.45
 private let minimumColorPatchLuminance = 0.015
@@ -371,17 +413,376 @@ private func runSelfCheck(outputPath: String) throws {
     }
     let validFixture = validateFixtureSamples(validSamples)
     let blackFixture = validateFixtureSamples(blackSamples)
-    let passed = validFixture.isValid && !blackFixture.isValid
+    let sceneSentinelLocatorPassed = runSceneSentinelLocatorSelfCheck()
+    let fullImageComparisonPassed = try runFullImageComparisonSelfCheck()
+    let passed = validFixture.isValid
+        && !blackFixture.isValid
+        && sceneSentinelLocatorPassed
+        && fullImageComparisonPassed
     try writeJson(
         SelfCheckResult(
             passed: passed,
             validFixture: validFixture,
             blackFixture: blackFixture,
+            sceneSentinelLocatorPassed: sceneSentinelLocatorPassed,
+            fullImageComparisonPassed: fullImageComparisonPassed,
             checkedAtUtc: iso8601Now()),
         path: outputPath)
     if !passed {
         throw OracleError.failed("Screenshot fidelity oracle fixture-validity self-check failed; see \(outputPath)")
     }
+}
+
+private func runSceneSentinelLocatorSelfCheck() -> Bool {
+    let width = 160
+    let height = 120
+    var pixels = [UInt8](repeating: 0, count: width * height * 4)
+    for alphaOffset in stride(from: 3, to: pixels.count, by: 4) {
+        pixels[alphaOffset] = 255
+    }
+
+    func paint(x: Range<Int>, y: Range<Int>, color: Rgba) {
+        for pixelY in y {
+            for pixelX in x {
+                let offset = (pixelY * width + pixelX) * 4
+                pixels[offset] = color.red
+                pixels[offset + 1] = color.green
+                pixels[offset + 2] = color.blue
+                pixels[offset + 3] = color.alpha
+            }
+        }
+    }
+
+    let cyan = Rgba(red: 0, green: 255, blue: 255, alpha: 255)
+    let magenta = Rgba(red: 255, green: 0, blue: 255, alpha: 255)
+    let yellow = Rgba(red: 255, green: 255, blue: 0, alpha: 255)
+    paint(x: 0..<6, y: 0..<6, color: cyan)
+    paint(x: 27..<132, y: 20..<22, color: cyan)
+    paint(x: 27..<125, y: 98..<100, color: magenta)
+    paint(x: 125..<140, y: 88..<100, color: yellow)
+    paint(x: 20..<28, y: 20..<28, color: cyan)
+    paint(x: 20..<28, y: 92..<100, color: magenta)
+    paint(x: 132..<140, y: 92..<100, color: yellow)
+
+    let image = PixelImage(
+        width: width,
+        height: height,
+        pixels: pixels,
+        sourceColorSpace: "synthetic-sRGB")
+    guard (try? locateSceneFixtureContent(in: image))
+        == IntRect(x: 20, y: 20, width: 120, height: 80) else {
+        return false
+    }
+
+    let horizontalFlip = flipPixelImage(image, horizontally: true, vertically: false)
+    let verticalFlip = flipPixelImage(image, horizontally: false, vertically: true)
+    let missingSentinel = removingPixels(matching: .yellow, from: image)
+    let ambiguous = syntheticAmbiguousSceneLocatorImage()
+    return rejectsSceneFixture(horizontalFlip)
+        && rejectsSceneFixture(verticalFlip)
+        && rejectsSceneFixture(missingSentinel)
+        && rejectsSceneFixture(ambiguous)
+}
+
+private func runFullImageComparisonSelfCheck() throws -> Bool {
+    let baseline = syntheticSolidImage(width: 10, height: 1, channelValue: 100)
+    var boundaryPixels = baseline.pixels
+    boundaryPixels[0] = 104
+    boundaryPixels[1] = 102
+    let boundary = PixelImage(
+        width: baseline.width,
+        height: baseline.height,
+        pixels: boundaryPixels,
+        sourceColorSpace: "synthetic-sRGB")
+    let rect = IntRect(x: 0, y: 0, width: baseline.width, height: baseline.height)
+    let boundaryMetrics = try compareFullImageRgb(
+        left: baseline,
+        leftRect: rect,
+        right: boundary,
+        rightRect: rect,
+        alphaMaskPolicy: .matchingWindowMasks)
+    let epsilon = 0.000_000_000_001
+    guard let boundaryMean = boundaryMetrics.meanAbsoluteRgbChannelErrorNormalized,
+          let boundaryPercentile95 = boundaryMetrics.percentile95AbsoluteRgbChannelErrorNormalized,
+          let boundaryMaximum = boundaryMetrics.maximumAbsoluteRgbChannelErrorNormalized,
+          abs(boundaryMean - (0.2 / 255.0)) <= epsilon,
+          abs(boundaryPercentile95 - (2.0 / 255.0)) <= epsilon,
+          abs(boundaryMaximum - (4.0 / 255.0)) <= epsilon,
+          sceneFullImageFailures(
+              metrics: boundaryMetrics,
+              comparisonName: "self-check boundary").isEmpty else {
+        return false
+    }
+
+    let overMean = syntheticSolidImage(width: 10, height: 1, channelValue: 101)
+    let overMeanMetrics = try compareFullImageRgb(
+        left: baseline,
+        leftRect: rect,
+        right: overMean,
+        rightRect: rect,
+        alphaMaskPolicy: .matchingWindowMasks)
+    guard !sceneFullImageFailures(
+        metrics: overMeanMetrics,
+        comparisonName: "self-check over-mean").isEmpty else {
+        return false
+    }
+
+    var overPercentilePixels = baseline.pixels
+    overPercentilePixels[0] = 103
+    overPercentilePixels[1] = 103
+    let overPercentile = PixelImage(
+        width: baseline.width,
+        height: baseline.height,
+        pixels: overPercentilePixels,
+        sourceColorSpace: "synthetic-sRGB")
+    let overPercentileMetrics = try compareFullImageRgb(
+        left: baseline,
+        leftRect: rect,
+        right: overPercentile,
+        rightRect: rect,
+        alphaMaskPolicy: .matchingWindowMasks)
+    guard let overPercentileMean = overPercentileMetrics.meanAbsoluteRgbChannelErrorNormalized,
+          let overPercentile95 = overPercentileMetrics.percentile95AbsoluteRgbChannelErrorNormalized,
+          let overPercentileMaximum = overPercentileMetrics.maximumAbsoluteRgbChannelErrorNormalized,
+          overPercentileMean <= maximumSceneMeanAbsoluteRgbChannelErrorNormalized,
+          overPercentile95 > maximumScenePercentile95AbsoluteRgbChannelErrorNormalized,
+          overPercentileMaximum <= maximumSceneAbsoluteRgbChannelErrorNormalized,
+          !sceneFullImageFailures(
+              metrics: overPercentileMetrics,
+              comparisonName: "self-check over-p95").isEmpty else {
+        return false
+    }
+
+    var overMaximumPixels = baseline.pixels
+    overMaximumPixels[0] = 105
+    let overMaximum = PixelImage(
+        width: baseline.width,
+        height: baseline.height,
+        pixels: overMaximumPixels,
+        sourceColorSpace: "synthetic-sRGB")
+    let overMaximumMetrics = try compareFullImageRgb(
+        left: baseline,
+        leftRect: rect,
+        right: overMaximum,
+        rightRect: rect,
+        alphaMaskPolicy: .matchingWindowMasks)
+    guard let overMaximumMean = overMaximumMetrics.meanAbsoluteRgbChannelErrorNormalized,
+          let overMaximum95 = overMaximumMetrics.percentile95AbsoluteRgbChannelErrorNormalized,
+          let overMaximumError = overMaximumMetrics.maximumAbsoluteRgbChannelErrorNormalized,
+          overMaximumMean <= maximumSceneMeanAbsoluteRgbChannelErrorNormalized,
+          overMaximum95 <= maximumScenePercentile95AbsoluteRgbChannelErrorNormalized,
+          overMaximumError > maximumSceneAbsoluteRgbChannelErrorNormalized,
+          !sceneFullImageFailures(
+              metrics: overMaximumMetrics,
+              comparisonName: "self-check over-maximum").isEmpty else {
+        return false
+    }
+
+    let coverageBaseline = syntheticSolidImage(width: 100, height: 100, channelValue: 100)
+    var roundedMaskPixels = coverageBaseline.pixels
+    let bottomLeftOffset = ((coverageBaseline.height - 1) * coverageBaseline.width) * 4
+    roundedMaskPixels[bottomLeftOffset] = 255
+    roundedMaskPixels[bottomLeftOffset + 1] = 0
+    roundedMaskPixels[bottomLeftOffset + 2] = 255
+    roundedMaskPixels[bottomLeftOffset + 3] = 0
+    let roundedMaskReference = PixelImage(
+        width: coverageBaseline.width,
+        height: coverageBaseline.height,
+        pixels: roundedMaskPixels,
+        sourceColorSpace: "synthetic-sRGB")
+    let coverageRect = IntRect(x: 0, y: 0, width: 100, height: 100)
+    let roundedMaskMetrics = try compareFullImageRgb(
+        left: coverageBaseline,
+        leftRect: coverageRect,
+        right: roundedMaskReference,
+        rightRect: coverageRect,
+        alphaMaskPolicy: .opaqueArtifactAndWindowMask)
+    guard roundedMaskMetrics.excludedNonOpaquePixelCount == 1,
+          roundedMaskMetrics.comparedPixelCount == 9_999,
+          roundedMaskMetrics.alphaMaskTopologyValid,
+          sceneFullImageFailures(
+              metrics: roundedMaskMetrics,
+              comparisonName: "self-check rounded mask").isEmpty else {
+        return false
+    }
+
+    var excessiveMaskPixels = coverageBaseline.pixels
+    for pixelIndex in 0..<11 {
+        let x = pixelIndex % 3
+        let y = pixelIndex / 3
+        excessiveMaskPixels[(y * coverageBaseline.width + x) * 4 + 3] = 0
+    }
+    let excessiveMaskReference = PixelImage(
+        width: coverageBaseline.width,
+        height: coverageBaseline.height,
+        pixels: excessiveMaskPixels,
+        sourceColorSpace: "synthetic-sRGB")
+    let excessiveMaskMetrics = try compareFullImageRgb(
+        left: coverageBaseline,
+        leftRect: coverageRect,
+        right: excessiveMaskReference,
+        rightRect: coverageRect,
+        alphaMaskPolicy: .opaqueArtifactAndWindowMask)
+    guard excessiveMaskMetrics.alphaMaskTopologyValid,
+          !sceneFullImageFailures(
+        metrics: excessiveMaskMetrics,
+        comparisonName: "self-check excessive mask").isEmpty else {
+        return false
+    }
+
+    var interiorMaskPixels = coverageBaseline.pixels
+    interiorMaskPixels[(50 * coverageBaseline.width + 50) * 4 + 3] = 0
+    let interiorMaskReference = PixelImage(
+        width: coverageBaseline.width,
+        height: coverageBaseline.height,
+        pixels: interiorMaskPixels,
+        sourceColorSpace: "synthetic-sRGB")
+    let interiorMaskMetrics = try compareFullImageRgb(
+        left: coverageBaseline,
+        leftRect: coverageRect,
+        right: interiorMaskReference,
+        rightRect: coverageRect,
+        alphaMaskPolicy: .opaqueArtifactAndWindowMask)
+    guard !interiorMaskMetrics.alphaMaskTopologyValid,
+          !sceneFullImageFailures(
+              metrics: interiorMaskMetrics,
+              comparisonName: "self-check interior mask").isEmpty else {
+        return false
+    }
+
+    let mismatchedMaskMetrics = try compareFullImageRgb(
+        left: coverageBaseline,
+        leftRect: coverageRect,
+        right: roundedMaskReference,
+        rightRect: coverageRect,
+        alphaMaskPolicy: .matchingWindowMasks)
+    guard mismatchedMaskMetrics.alphaMaskTopologyValid,
+          !mismatchedMaskMetrics.alphaMasksMatch,
+          !sceneFullImageFailures(
+              metrics: mismatchedMaskMetrics,
+              comparisonName: "self-check mismatched masks").isEmpty else {
+        return false
+    }
+
+    let mismatched = syntheticSolidImage(width: 9, height: 1, channelValue: 100)
+    let mismatchedMetrics = try compareFullImageRgb(
+        left: baseline,
+        leftRect: rect,
+        right: mismatched,
+        rightRect: IntRect(x: 0, y: 0, width: mismatched.width, height: mismatched.height),
+        alphaMaskPolicy: .matchingWindowMasks)
+    return !mismatchedMetrics.dimensionsMatch
+        && mismatchedMetrics.meanAbsoluteRgbChannelErrorNormalized == nil
+        && !sceneFullImageFailures(
+            metrics: mismatchedMetrics,
+            comparisonName: "self-check dimensions").isEmpty
+}
+
+private func flipPixelImage(
+    _ image: PixelImage,
+    horizontally: Bool,
+    vertically: Bool) -> PixelImage {
+    var pixels = [UInt8](repeating: 0, count: image.pixels.count)
+    for y in 0..<image.height {
+        for x in 0..<image.width {
+            let sourceX = horizontally ? image.width - 1 - x : x
+            let sourceY = vertically ? image.height - 1 - y : y
+            let sourceOffset = (sourceY * image.width + sourceX) * 4
+            let destinationOffset = (y * image.width + x) * 4
+            for channel in 0..<4 {
+                pixels[destinationOffset + channel] = image.pixels[sourceOffset + channel]
+            }
+        }
+    }
+
+    return PixelImage(
+        width: image.width,
+        height: image.height,
+        pixels: pixels,
+        sourceColorSpace: image.sourceColorSpace)
+}
+
+private func removingPixels(matching sentinel: Sentinel, from image: PixelImage) -> PixelImage {
+    var pixels = image.pixels
+    for y in 0..<image.height {
+        for x in 0..<image.width where sentinel.matches(image.pixel(x: x, y: y)) {
+            let offset = (y * image.width + x) * 4
+            pixels[offset] = 0
+            pixels[offset + 1] = 0
+            pixels[offset + 2] = 0
+            pixels[offset + 3] = 255
+        }
+    }
+
+    return PixelImage(
+        width: image.width,
+        height: image.height,
+        pixels: pixels,
+        sourceColorSpace: image.sourceColorSpace)
+}
+
+private func syntheticAmbiguousSceneLocatorImage() -> PixelImage {
+    let width = 300
+    let height = 120
+    var pixels = [UInt8](repeating: 0, count: width * height * 4)
+    for alphaOffset in stride(from: 3, to: pixels.count, by: 4) {
+        pixels[alphaOffset] = 255
+    }
+
+    func paint(x: Range<Int>, y: Range<Int>, color: Rgba) {
+        for pixelY in y {
+            for pixelX in x {
+                let offset = (pixelY * width + pixelX) * 4
+                pixels[offset] = color.red
+                pixels[offset + 1] = color.green
+                pixels[offset + 2] = color.blue
+                pixels[offset + 3] = color.alpha
+            }
+        }
+    }
+
+    for originX in [10, 160] {
+        paint(
+            x: originX..<(originX + 8),
+            y: 20..<28,
+            color: Rgba(red: 0, green: 255, blue: 255, alpha: 255))
+        paint(
+            x: originX..<(originX + 8),
+            y: 92..<100,
+            color: Rgba(red: 255, green: 0, blue: 255, alpha: 255))
+        paint(
+            x: (originX + 112)..<(originX + 120),
+            y: 92..<100,
+            color: Rgba(red: 255, green: 255, blue: 0, alpha: 255))
+    }
+
+    return PixelImage(
+        width: width,
+        height: height,
+        pixels: pixels,
+        sourceColorSpace: "synthetic-sRGB")
+}
+
+private func rejectsSceneFixture(_ image: PixelImage) -> Bool {
+    do {
+        _ = try locateSceneFixtureContent(in: image)
+        return false
+    } catch {
+        return true
+    }
+}
+
+private func syntheticSolidImage(width: Int, height: Int, channelValue: UInt8) -> PixelImage {
+    var pixels = [UInt8](repeating: channelValue, count: width * height * 4)
+    for alphaOffset in stride(from: 3, to: pixels.count, by: 4) {
+        pixels[alphaOffset] = 255
+    }
+
+    return PixelImage(
+        width: width,
+        height: height,
+        pixels: pixels,
+        sourceColorSpace: "synthetic-sRGB")
 }
 
 private func writeEnvironment(outputPath: String) throws {
@@ -543,9 +944,9 @@ private func analyze(
     let artifact = try PixelImage.load(path: artifactPath)
     let referenceBefore = try PixelImage.load(path: referenceBeforePath)
     let referenceAfter = try PixelImage.load(path: referenceAfterPath)
-    let artifactRect = try locateFixtureContent(in: artifact)
-    let referenceBeforeRect = try locateFixtureContent(in: referenceBefore)
-    let referenceAfterRect = try locateFixtureContent(in: referenceAfter)
+    let artifactRect = try locateFixtureContent(in: artifact, target: target)
+    let referenceBeforeRect = try locateFixtureContent(in: referenceBefore, target: target)
+    let referenceAfterRect = try locateFixtureContent(in: referenceAfter, target: target)
 
     let artifactSamples = sampleColors(image: artifact, contentRect: artifactRect)
     let referenceBeforeSamples = sampleColors(image: referenceBefore, contentRect: referenceBeforeRect)
@@ -555,6 +956,25 @@ private func analyze(
     let referenceAfterFixtureValidity = validateFixtureSamples(referenceAfterSamples)
     let stability = compareSamples(referenceBeforeSamples, referenceAfterSamples)
     let fidelity = compareSamples(artifactSamples, referenceAfterSamples)
+    let referenceFullImageStability: FullImageComparisonMetrics?
+    let artifactFullImageFidelity: FullImageComparisonMetrics?
+    if target == "scene" {
+        referenceFullImageStability = try compareFullImageRgb(
+            left: referenceBefore,
+            leftRect: referenceBeforeRect,
+            right: referenceAfter,
+            rightRect: referenceAfterRect,
+            alphaMaskPolicy: .matchingWindowMasks)
+        artifactFullImageFidelity = try compareFullImageRgb(
+            left: artifact,
+            leftRect: IntRect(x: 0, y: 0, width: artifact.width, height: artifact.height),
+            right: referenceAfter,
+            rightRect: referenceAfterRect,
+            alphaMaskPolicy: .opaqueArtifactAndWindowMask)
+    } else {
+        referenceFullImageStability = nil
+        artifactFullImageFidelity = nil
+    }
 
     let alphaOpaque = stride(from: 3, to: artifact.pixels.count, by: 4).allSatisfy {
         artifact.pixels[$0] == 255
@@ -579,6 +999,29 @@ private func analyze(
         || artifact.width - artifactRect.maxX - 1 > edgeTolerance
         || artifact.height - artifactRect.maxY - 1 > edgeTolerance {
         failures.append("Artifact contains crop padding or content outside the fixture presentation border.")
+    }
+
+    if target == "scene" {
+        let fullArtifactRect = IntRect(x: 0, y: 0, width: artifact.width, height: artifact.height)
+        if artifactRect != fullArtifactRect {
+            failures.append(
+                "Scene sentinel rectangle does not equal the complete artifact bounds: "
+                    + "sentinel \(artifactRect.width)x\(artifactRect.height) "
+                    + "at \(artifactRect.x),\(artifactRect.y), "
+                    + "artifact \(artifact.width)x\(artifact.height).")
+        }
+
+        if let referenceFullImageStability {
+            failures.append(contentsOf: sceneFullImageFailures(
+                metrics: referenceFullImageStability,
+                comparisonName: "Window presentation before/after stability"))
+        }
+
+        if let artifactFullImageFidelity {
+            failures.append(contentsOf: sceneFullImageFailures(
+                metrics: artifactFullImageFidelity,
+                comparisonName: "Scene artifact/window fidelity"))
+        }
     }
 
     if !alphaOpaque {
@@ -651,6 +1094,8 @@ private func analyze(
         referenceAfterFixtureValidity: referenceAfterFixtureValidity,
         referenceStability: stability,
         artifactFidelity: fidelity,
+        referenceFullImageStability: referenceFullImageStability,
+        artifactFullImageFidelity: artifactFullImageFidelity,
         failures: failures,
         analyzedAtUtc: iso8601Now())
     try writeJson(result, path: outputPath)
@@ -659,7 +1104,13 @@ private func analyze(
     }
 }
 
-private func locateFixtureContent(in image: PixelImage) throws -> IntRect {
+private func locateFixtureContent(in image: PixelImage, target: String) throws -> IntRect {
+    target == "scene"
+        ? try locateSceneFixtureContent(in: image)
+        : try locateGameFixtureContent(in: image)
+}
+
+private func locateGameFixtureContent(in image: PixelImage) throws -> IntRect {
     let green = try selectCornerComponent(in: image, sentinel: .green, corner: .topRight)
     let blue = try selectCornerComponent(in: image, sentinel: .blue, corner: .bottomLeft)
     let yellow = try selectCornerComponent(in: image, sentinel: .yellow, corner: .bottomRight)
@@ -696,6 +1147,73 @@ private func locateFixtureContent(in image: PixelImage) throws -> IntRect {
     }
 
     return rect
+}
+
+private struct SceneSentinelCandidate {
+    let cyan: Component
+    let magenta: Component
+    let yellow: Component
+    let rect: IntRect
+}
+
+private func locateSceneFixtureContent(in image: PixelImage) throws -> IntRect {
+    // Only the outer-edge coordinates are contractual. A sentinel may join a
+    // same-colored fixture edge, so component size and fill are not crop inputs.
+    let cyanComponents = connectedComponents(in: image, matching: .cyan).filter {
+        $0.area >= 16 && $0.maxY - $0.minY + 1 >= 4
+    }
+    let magentaComponents = connectedComponents(in: image, matching: .magenta).filter {
+        $0.area >= 16 && $0.maxY - $0.minY + 1 >= 4
+    }
+    let yellowComponents = connectedComponents(in: image, matching: .yellow).filter { $0.area >= 16 }
+    var candidates: [SceneSentinelCandidate] = []
+
+    for cyan in cyanComponents {
+        for magenta in magentaComponents {
+            for yellow in yellowComponents {
+                let edgeAlignmentTolerance = 2
+                guard abs(cyan.minX - magenta.minX) <= edgeAlignmentTolerance,
+                      abs(magenta.maxY - yellow.maxY) <= edgeAlignmentTolerance,
+                      cyan.minY < magenta.minY,
+                      magenta.minX < yellow.minX else {
+                    continue
+                }
+
+                let x = min(cyan.minX, magenta.minX)
+                let y = cyan.minY
+                let maxX = yellow.maxX
+                let maxY = max(magenta.maxY, yellow.maxY)
+                let rect = IntRect(x: x, y: y, width: maxX - x + 1, height: maxY - y + 1)
+                guard rect.width >= 100,
+                      rect.height >= 80 else {
+                    continue
+                }
+
+                candidates.append(SceneSentinelCandidate(
+                    cyan: cyan,
+                    magenta: magenta,
+                    yellow: yellow,
+                    rect: rect))
+            }
+        }
+    }
+
+    guard candidates.count == 1, let candidate = candidates.first else {
+        let details = candidates.map { describe($0) }.joined(separator: "; ")
+        let candidateDetails = details.isEmpty ? "none" : details
+        throw OracleError.failed(
+            "Expected exactly one Scene fixture rectangle from the outer-edge "
+                + "top-left cyan, bottom-left magenta, and bottom-right yellow sentinels; "
+                + "found \(candidates.count). Candidates: \(candidateDetails).")
+    }
+
+    return candidate.rect
+}
+
+private func describe(_ candidate: SceneSentinelCandidate) -> String {
+    "rect=\(candidate.rect.x),\(candidate.rect.y),\(candidate.rect.width)x\(candidate.rect.height); "
+        + "cyan=\(describe(candidate.cyan)); magenta=\(describe(candidate.magenta)); "
+        + "yellow=\(describe(candidate.yellow))"
 }
 
 private func describe(_ component: Component) -> String {
@@ -933,6 +1451,299 @@ private func compareSamples(_ left: [ColorSample], _ right: [ColorSample]) -> Co
         maximumDeltaE76: maximumDeltaE,
         maximumLuminanceError: maximumLuminanceError,
         grayRampRmsLuminanceError: grayCount == 0 ? 0 : sqrt(graySquaredError / Double(grayCount)))
+}
+
+// The full-image benchmark compares corresponding physical pixels after ImageIO
+// has color-managed both inputs into decoded sRGB8. Each observation is one
+// absolute R, G, or B channel delta divided by 255; alpha has its own opaque
+// artifact contract. A WindowServer non-opaque pixel is excluded only when its
+// binary alpha mask is confined to corner-connected components inside the fixed
+// coverage-derived corner envelope. Before/after WindowServer masks must match.
+// p95 is the nearest-rank 95th percentile over all compared channel observations.
+private func compareFullImageRgb(
+    left: PixelImage,
+    leftRect: IntRect,
+    right: PixelImage,
+    rightRect: IntRect,
+    alphaMaskPolicy: FullImageAlphaMaskPolicy) throws -> FullImageComparisonMetrics {
+    let dimensionsMatch = leftRect.width == rightRect.width
+        && leftRect.height == rightRect.height
+    guard dimensionsMatch else {
+        return FullImageComparisonMetrics(
+            dimensionsMatch: false,
+            leftWidth: leftRect.width,
+            leftHeight: leftRect.height,
+            rightWidth: rightRect.width,
+            rightHeight: rightRect.height,
+            totalPixelCount: 0,
+            comparedPixelCount: 0,
+            excludedNonOpaquePixelCount: 0,
+            leftNonOpaquePixelCount: 0,
+            rightNonOpaquePixelCount: 0,
+            alphaMasksMatch: false,
+            alphaMaskTopologyValid: false,
+            matchingAlphaMasksRequired: alphaMaskPolicy == .matchingWindowMasks,
+            comparedRgbChannelCount: 0,
+            meanAbsoluteRgbChannelErrorNormalized: nil,
+            percentile95AbsoluteRgbChannelErrorNormalized: nil,
+            maximumAbsoluteRgbChannelErrorNormalized: nil)
+    }
+
+    guard leftRect.x >= 0,
+          leftRect.y >= 0,
+          leftRect.maxX < left.width,
+          leftRect.maxY < left.height,
+          rightRect.x >= 0,
+          rightRect.y >= 0,
+          rightRect.maxX < right.width,
+          rightRect.maxY < right.height else {
+        throw OracleError.failed("Full-image comparison rectangle exceeds a decoded image boundary.")
+    }
+
+    let totalPixelCount = try checkedMultiply(leftRect.width, leftRect.height)
+    let leftNonOpaqueMask = nonOpaqueMask(image: left, rect: leftRect)
+    let rightNonOpaqueMask = nonOpaqueMask(image: right, rect: rightRect)
+    let leftNonOpaquePixelCount = leftNonOpaqueMask.reduce(0) { $0 + ($1 ? 1 : 0) }
+    let rightNonOpaquePixelCount = rightNonOpaqueMask.reduce(0) { $0 + ($1 ? 1 : 0) }
+    let alphaMasksMatch = leftNonOpaqueMask == rightNonOpaqueMask
+    let leftMaskTopologyValid = cornerMaskIsValid(
+        leftNonOpaqueMask,
+        width: leftRect.width,
+        height: leftRect.height)
+    let rightMaskTopologyValid = cornerMaskIsValid(
+        rightNonOpaqueMask,
+        width: rightRect.width,
+        height: rightRect.height)
+    let alphaMaskTopologyValid: Bool
+    switch alphaMaskPolicy {
+    case .matchingWindowMasks:
+        alphaMaskTopologyValid = leftMaskTopologyValid && rightMaskTopologyValid
+    case .opaqueArtifactAndWindowMask:
+        alphaMaskTopologyValid = leftNonOpaquePixelCount == 0 && rightMaskTopologyValid
+    }
+
+    var histogram = [Int](repeating: 0, count: 256)
+    var absoluteErrorSum: UInt64 = 0
+    var maximumAbsoluteError = 0
+    var comparedPixelCount = 0
+    var excludedNonOpaquePixelCount = 0
+    for relativeY in 0..<leftRect.height {
+        for relativeX in 0..<leftRect.width {
+            let relativeIndex = relativeY * leftRect.width + relativeX
+            let leftPixel = left.pixel(
+                x: leftRect.x + relativeX,
+                y: leftRect.y + relativeY)
+            let rightPixel = right.pixel(
+                x: rightRect.x + relativeX,
+                y: rightRect.y + relativeY)
+            if leftNonOpaqueMask[relativeIndex] || rightNonOpaqueMask[relativeIndex] {
+                excludedNonOpaquePixelCount += 1
+                continue
+            }
+
+            comparedPixelCount += 1
+            let channelErrors = [
+                abs(Int(leftPixel.red) - Int(rightPixel.red)),
+                abs(Int(leftPixel.green) - Int(rightPixel.green)),
+                abs(Int(leftPixel.blue) - Int(rightPixel.blue)),
+            ]
+            for error in channelErrors {
+                histogram[error] += 1
+                absoluteErrorSum += UInt64(error)
+                maximumAbsoluteError = max(maximumAbsoluteError, error)
+            }
+        }
+    }
+
+    let channelCount = try checkedMultiply(comparedPixelCount, 3)
+    guard channelCount > 0 else {
+        return FullImageComparisonMetrics(
+            dimensionsMatch: true,
+            leftWidth: leftRect.width,
+            leftHeight: leftRect.height,
+            rightWidth: rightRect.width,
+            rightHeight: rightRect.height,
+            totalPixelCount: totalPixelCount,
+            comparedPixelCount: 0,
+            excludedNonOpaquePixelCount: excludedNonOpaquePixelCount,
+            leftNonOpaquePixelCount: leftNonOpaquePixelCount,
+            rightNonOpaquePixelCount: rightNonOpaquePixelCount,
+            alphaMasksMatch: alphaMasksMatch,
+            alphaMaskTopologyValid: alphaMaskTopologyValid,
+            matchingAlphaMasksRequired: alphaMaskPolicy == .matchingWindowMasks,
+            comparedRgbChannelCount: 0,
+            meanAbsoluteRgbChannelErrorNormalized: nil,
+            percentile95AbsoluteRgbChannelErrorNormalized: nil,
+            maximumAbsoluteRgbChannelErrorNormalized: nil)
+    }
+
+    let percentile95Rank = Int(ceil(Double(channelCount) * 0.95))
+    var cumulativeCount = 0
+    var percentile95AbsoluteError = 0
+    for error in 0..<histogram.count {
+        cumulativeCount += histogram[error]
+        if cumulativeCount >= percentile95Rank {
+            percentile95AbsoluteError = error
+            break
+        }
+    }
+
+    return FullImageComparisonMetrics(
+        dimensionsMatch: true,
+        leftWidth: leftRect.width,
+        leftHeight: leftRect.height,
+        rightWidth: rightRect.width,
+        rightHeight: rightRect.height,
+        totalPixelCount: totalPixelCount,
+        comparedPixelCount: comparedPixelCount,
+        excludedNonOpaquePixelCount: excludedNonOpaquePixelCount,
+        leftNonOpaquePixelCount: leftNonOpaquePixelCount,
+        rightNonOpaquePixelCount: rightNonOpaquePixelCount,
+        alphaMasksMatch: alphaMasksMatch,
+        alphaMaskTopologyValid: alphaMaskTopologyValid,
+        matchingAlphaMasksRequired: alphaMaskPolicy == .matchingWindowMasks,
+        comparedRgbChannelCount: channelCount,
+        meanAbsoluteRgbChannelErrorNormalized: Double(absoluteErrorSum) / Double(channelCount) / 255.0,
+        percentile95AbsoluteRgbChannelErrorNormalized: Double(percentile95AbsoluteError) / 255.0,
+        maximumAbsoluteRgbChannelErrorNormalized: Double(maximumAbsoluteError) / 255.0)
+}
+
+private func nonOpaqueMask(image: PixelImage, rect: IntRect) -> [Bool] {
+    var mask = [Bool](repeating: false, count: rect.width * rect.height)
+    for relativeY in 0..<rect.height {
+        for relativeX in 0..<rect.width {
+            mask[relativeY * rect.width + relativeX] = image.pixel(
+                x: rect.x + relativeX,
+                y: rect.y + relativeY).alpha != 255
+        }
+    }
+
+    return mask
+}
+
+private func cornerMaskIsValid(_ mask: [Bool], width: Int, height: Int) -> Bool {
+    let maskedPixelCount = mask.reduce(0) { $0 + ($1 ? 1 : 0) }
+    if maskedPixelCount == 0 {
+        return true
+    }
+
+    let totalPixelCount = width * height
+    let maximumExcludedPixelCount = Double(totalPixelCount) * (1.0 - minimumSceneOpaquePixelCoverage)
+    let cornerInsetLimit = max(1, Int(ceil(sqrt(maximumExcludedPixelCount))))
+    for index in mask.indices where mask[index] {
+        let x = index % width
+        let y = index / width
+        let nearHorizontalEdge = x < cornerInsetLimit || width - 1 - x < cornerInsetLimit
+        let nearVerticalEdge = y < cornerInsetLimit || height - 1 - y < cornerInsetLimit
+        if !nearHorizontalEdge || !nearVerticalEdge {
+            return false
+        }
+    }
+
+    var visited = [Bool](repeating: false, count: mask.count)
+    for startIndex in mask.indices where mask[startIndex] && !visited[startIndex] {
+        var queue = [startIndex]
+        var queueIndex = 0
+        var touchesCorner = false
+        visited[startIndex] = true
+        while queueIndex < queue.count {
+            let index = queue[queueIndex]
+            queueIndex += 1
+            let x = index % width
+            let y = index / width
+            if (x == 0 || x == width - 1) && (y == 0 || y == height - 1) {
+                touchesCorner = true
+            }
+
+            let neighbors = [
+                (x - 1, y),
+                (x + 1, y),
+                (x, y - 1),
+                (x, y + 1),
+            ]
+            for (neighborX, neighborY) in neighbors {
+                if neighborX < 0 || neighborY < 0 || neighborX >= width || neighborY >= height {
+                    continue
+                }
+
+                let neighborIndex = neighborY * width + neighborX
+                if mask[neighborIndex] && !visited[neighborIndex] {
+                    visited[neighborIndex] = true
+                    queue.append(neighborIndex)
+                }
+            }
+        }
+
+        if !touchesCorner {
+            return false
+        }
+    }
+
+    return true
+}
+
+private func sceneFullImageFailures(
+    metrics: FullImageComparisonMetrics,
+    comparisonName: String) -> [String] {
+    guard metrics.dimensionsMatch else {
+        return [
+            "\(comparisonName) physical dimensions differ: "
+                + "\(metrics.leftWidth)x\(metrics.leftHeight) versus "
+                + "\(metrics.rightWidth)x\(metrics.rightHeight).",
+        ]
+    }
+
+    guard let meanError = metrics.meanAbsoluteRgbChannelErrorNormalized,
+          let percentile95Error = metrics.percentile95AbsoluteRgbChannelErrorNormalized,
+          let maximumError = metrics.maximumAbsoluteRgbChannelErrorNormalized else {
+        return ["\(comparisonName) full-image RGB metrics are unavailable."]
+    }
+
+    var failures: [String] = []
+    if !metrics.alphaMaskTopologyValid {
+        failures.append(
+            "\(comparisonName) contains a non-opaque mask outside a corner-connected WindowServer mask envelope.")
+    }
+
+    if metrics.matchingAlphaMasksRequired && !metrics.alphaMasksMatch {
+        failures.append(
+            "\(comparisonName) uses different non-opaque WindowServer masks before and after capture.")
+    }
+
+    let opaqueCoverage = metrics.totalPixelCount == 0
+        ? 0
+        : Double(metrics.comparedPixelCount) / Double(metrics.totalPixelCount)
+    if opaqueCoverage < minimumSceneOpaquePixelCoverage {
+        failures.append(String(
+            format: "%@ color-managed WindowServer coverage %.5f is below the fixed %.5f minimum; %d pixels were excluded because the OS window mask made them non-opaque.",
+            comparisonName,
+            opaqueCoverage,
+            minimumSceneOpaquePixelCoverage,
+            metrics.excludedNonOpaquePixelCount))
+    }
+
+    if meanError > maximumSceneMeanAbsoluteRgbChannelErrorNormalized {
+        failures.append(String(
+            format: "%@ mean absolute RGB channel error %.3f/255 exceeds the fixed 0.500/255 limit.",
+            comparisonName,
+            meanError * 255.0))
+    }
+
+    if percentile95Error > maximumScenePercentile95AbsoluteRgbChannelErrorNormalized {
+        failures.append(String(
+            format: "%@ p95 absolute RGB channel error %.3f/255 exceeds the fixed 2.000/255 limit.",
+            comparisonName,
+            percentile95Error * 255.0))
+    }
+
+    if maximumError > maximumSceneAbsoluteRgbChannelErrorNormalized {
+        failures.append(String(
+            format: "%@ maximum absolute RGB channel error %.3f/255 exceeds the fixed 4.000/255 limit.",
+            comparisonName,
+            maximumError * 255.0))
+    }
+
+    return failures
 }
 
 private func decodeResolutionMarker(image: PixelImage) throws -> (width: Int, height: Int) {

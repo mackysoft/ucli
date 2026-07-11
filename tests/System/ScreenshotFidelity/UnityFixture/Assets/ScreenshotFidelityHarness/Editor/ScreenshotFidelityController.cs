@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
@@ -58,6 +59,8 @@ namespace MackySoft.Ucli.ScreenshotFidelity
         private static FidelityFixtureBehaviour fixtureBehaviour;
 
         private static FixtureTarget activeTarget;
+
+        private static object displayedConfigurableOverlay;
 
         /// <summary> Starts one idempotent controller for the supplied test-run directory. </summary>
         public static void Start (string directory)
@@ -172,8 +175,26 @@ namespace MackySoft.Ucli.ScreenshotFidelity
 
                         break;
 
-                    case "prepareSceneStandardOverlay":
+                    case "prepareSceneCurrent":
                         PrepareSceneFixture(request);
+                        break;
+
+                    case "snapshotScene":
+                        if (sceneView == null)
+                        {
+                            throw new InvalidOperationException("SceneView fixture has not been prepared.");
+                        }
+
+                        break;
+
+                    case "prepareSceneOverlayMenu":
+                        PrepareSceneFixture(request);
+                        ShowSceneOverlayMenu(sceneView);
+                        break;
+
+                    case "prepareSceneConfigurableOverlay":
+                        PrepareSceneFixture(request);
+                        displayedConfigurableOverlay = ShowConfigurableOverlayPanel(sceneView);
                         break;
 
                     case "quit":
@@ -199,6 +220,7 @@ namespace MackySoft.Ucli.ScreenshotFidelity
         private static void CompletePendingControl ()
         {
             var request = pendingControl.request;
+            ValidateSceneControlPostcondition();
             WriteControlSuccess(request);
             lastSequence = request.sequence;
             pendingControl = null;
@@ -247,6 +269,7 @@ namespace MackySoft.Ucli.ScreenshotFidelity
             sceneView.Show();
             sceneView.Focus();
 
+            displayedConfigurableOverlay = null;
             HideConfigurableOverlays(sceneView);
 
             activeTarget = FixtureTarget.Scene;
@@ -492,6 +515,11 @@ namespace MackySoft.Ucli.ScreenshotFidelity
                 return;
             }
 
+            if (Event.current.type != EventType.Repaint)
+            {
+                return;
+            }
+
             var previousColor = Handles.color;
             try
             {
@@ -509,6 +537,93 @@ namespace MackySoft.Ucli.ScreenshotFidelity
             {
                 Handles.color = previousColor;
             }
+
+            DrawSceneScreenFixture();
+        }
+
+        private static void DrawSceneScreenFixture ()
+        {
+            Handles.BeginGUI();
+            try
+            {
+                var viewport = ResolveCurrentGuiClipRect();
+                const float sentinelSize = 16f;
+                EditorGUI.DrawRect(
+                    new Rect(viewport.xMin, viewport.yMin, sentinelSize, sentinelSize),
+                    Color.cyan);
+                EditorGUI.DrawRect(
+                    new Rect(
+                        viewport.xMin,
+                        viewport.yMax - sentinelSize,
+                        sentinelSize,
+                        sentinelSize),
+                    Color.magenta);
+                EditorGUI.DrawRect(
+                    new Rect(
+                        viewport.xMax - sentinelSize,
+                        viewport.yMax - sentinelSize,
+                        sentinelSize,
+                        sentinelSize),
+                    Color.yellow);
+
+                const int grayStepCount = 17;
+                for (var index = 0; index < grayStepCount; index++)
+                {
+                    var gray = index / (grayStepCount - 1f);
+                    DrawNormalizedSceneRect(
+                        viewport,
+                        new Rect(
+                            index / (float)grayStepCount,
+                            0.41f,
+                            1f / grayStepCount,
+                            0.18f),
+                        new Color(gray, gray, gray, 1f));
+                }
+
+                DrawNormalizedSceneRect(viewport, new Rect(0.12f, 0.64f, 0.10f, 0.14f), new Color(0.62f, 0.11f, 0.055f, 1f));
+                DrawNormalizedSceneRect(viewport, new Rect(0.30f, 0.64f, 0.10f, 0.14f), new Color(0.08f, 0.48f, 0.16f, 1f));
+                DrawNormalizedSceneRect(viewport, new Rect(0.48f, 0.64f, 0.10f, 0.14f), new Color(0.55f, 0.25f, 0.16f, 1f));
+                DrawNormalizedSceneRect(viewport, new Rect(0.66f, 0.64f, 0.10f, 0.14f), new Color(0.07f, 0.18f, 0.68f, 1f));
+                DrawNormalizedSceneRect(viewport, new Rect(0.24f, 0.20f, 0.06f, 0.08f), new Color(0.2528f, 0.4856f, 0.4066f, 1f));
+                DrawNormalizedSceneRect(viewport, new Rect(0.70f, 0.20f, 0.06f, 0.08f), new Color(0.5472f, 0.4856f, 0.2134f, 1f));
+            }
+            finally
+            {
+                Handles.EndGUI();
+            }
+        }
+
+        private static void DrawNormalizedSceneRect (
+            Rect viewport,
+            Rect normalizedRect,
+            Color color)
+        {
+            EditorGUI.DrawRect(
+                new Rect(
+                    viewport.x + normalizedRect.x * viewport.width,
+                    viewport.y + normalizedRect.y * viewport.height,
+                    normalizedRect.width * viewport.width,
+                    normalizedRect.height * viewport.height),
+                color);
+        }
+
+        private static Rect ResolveCurrentGuiClipRect ()
+        {
+            var guiClipType = typeof(GUI).Assembly.GetType("UnityEngine.GUIClip");
+            var visibleRectProperty = guiClipType == null
+                ? null
+                : FindProperty(guiClipType, "visibleRect", StaticMembers);
+            if (visibleRectProperty?.GetValue(null) is not Rect visibleRect
+                || !IsFinite(visibleRect.x)
+                || !IsFinite(visibleRect.y)
+                || !IsFinitePositive(visibleRect.width)
+                || !IsFinitePositive(visibleRect.height))
+            {
+                throw new InvalidOperationException(
+                    "The active OnSceneGUI clip rectangle cannot be observed by this fixture environment.");
+            }
+
+            return visibleRect;
         }
 
         private static void WriteControlSuccess (ControlRequest request)
@@ -520,9 +635,27 @@ namespace MackySoft.Ucli.ScreenshotFidelity
 
         private static void WriteControlFailure (ControlRequest request, Exception exception)
         {
-            var response = CreateControlResponse(request);
+            ControlResponse response;
+            try
+            {
+                response = CreateControlResponse(request);
+            }
+            catch (Exception observationException)
+            {
+                response = new ControlResponse
+                {
+                    sequence = request.sequence,
+                    action = request.action,
+                    nonce = request.nonce,
+                    processId = GetCurrentProcessId(),
+                    observedAtUtc = DateTimeOffset.UtcNow.ToString("O"),
+                    displayedExcludedOverlays = Array.Empty<string>(),
+                    message = $"{exception.Message} Fixture state observation also failed: {observationException.Message}",
+                };
+            }
+
             response.status = "error";
-            response.message = exception.Message;
+            response.message ??= exception.Message;
             WriteJsonAtomic(ResponsePath(request.sequence), response);
         }
 
@@ -535,8 +668,18 @@ namespace MackySoft.Ucli.ScreenshotFidelity
                 nonce = request.nonce,
                 processId = GetCurrentProcessId(),
                 observedAtUtc = DateTimeOffset.UtcNow.ToString("O"),
-                overlayMenuDisplayed = IsStandardOverlayMenuControlDisplayed(),
+                overlayMenuDisplayed = IsOverlayMenuDisplayed(),
             };
+
+            if (activeTarget == FixtureTarget.Scene && sceneView != null)
+            {
+                response.displayedExcludedOverlays = GetDisplayedExcludedOverlayNames(sceneView);
+                response.displayedExcludedOverlayCount = response.displayedExcludedOverlays.Length;
+            }
+            else
+            {
+                response.displayedExcludedOverlays = Array.Empty<string>();
+            }
 
             var window = activeTarget == FixtureTarget.Game
                 ? gameView
@@ -655,11 +798,22 @@ namespace MackySoft.Ucli.ScreenshotFidelity
             return true;
         }
 
-        private static bool IsStandardOverlayMenuControlDisplayed ()
+        private static bool IsOverlayMenuDisplayed ()
         {
             if (sceneView == null)
             {
                 return false;
+            }
+
+            var canvas = sceneView.overlayCanvas;
+            var canvasRootVisualElementProperty = canvas == null
+                ? null
+                : FindProperty(canvas.GetType(), "rootVisualElement");
+            if (canvasRootVisualElementProperty?.GetValue(canvas)
+                    is VisualElement canvasRootVisualElement
+                && FindDisplayedOverlayMenuControl(canvasRootVisualElement) != null)
+            {
+                return true;
             }
 
             if (FindDisplayedOverlayMenuControl(sceneView.rootVisualElement) != null)
@@ -679,19 +833,20 @@ namespace MackySoft.Ucli.ScreenshotFidelity
         private static void HideConfigurableOverlays (SceneView targetSceneView)
         {
             var canvas = targetSceneView.overlayCanvas;
+            var includedOrientationGizmo = ResolveIncludedOrientationGizmo(targetSceneView);
+            var overlaysEnabledProperty = FindProperty(canvas.GetType(), "overlaysEnabled");
             var overlaysProperty = FindProperty(canvas.GetType(), "overlays");
-            if (overlaysProperty?.GetValue(canvas) is not IEnumerable overlays)
+            if (overlaysEnabledProperty == null
+                || overlaysProperty?.GetValue(canvas) is not IEnumerable overlays)
             {
                 throw new InvalidOperationException("SceneView configurable Overlay collection could not be resolved.");
             }
 
+            SetOverlaysEnabled(canvas, overlaysEnabledProperty, enabled: true);
+
             foreach (var overlay in overlays)
             {
-                if (overlay == null
-                    || string.Equals(
-                        overlay.GetType().Name,
-                        "SceneOrientationGizmo",
-                        StringComparison.Ordinal))
+                if (overlay == null)
                 {
                     continue;
                 }
@@ -705,7 +860,204 @@ namespace MackySoft.Ucli.ScreenshotFidelity
                         $"SceneView Overlay visibility could not be controlled: {overlay.GetType().FullName}");
                 }
 
-                displayedProperty.SetValue(overlay, false);
+                var expectedDisplayed = ReferenceEquals(overlay, includedOrientationGizmo);
+                displayedProperty.SetValue(overlay, expectedDisplayed);
+                if (displayedProperty.GetValue(overlay) is not bool displayed
+                    || displayed != expectedDisplayed)
+                {
+                    throw new InvalidOperationException(
+                        $"SceneView Overlay could not enter its fixture state: {GetOverlayIdentity(overlay)}");
+                }
+            }
+        }
+
+        private static object ShowConfigurableOverlayPanel (SceneView targetSceneView)
+        {
+            var canvas = targetSceneView.overlayCanvas;
+            var includedOrientationGizmo = ResolveIncludedOrientationGizmo(targetSceneView);
+            var overlaysEnabledProperty = FindProperty(canvas.GetType(), "overlaysEnabled");
+            var overlaysProperty = FindProperty(canvas.GetType(), "overlays");
+            if (overlaysEnabledProperty == null
+                || overlaysProperty?.GetValue(canvas) is not IEnumerable overlays)
+            {
+                throw new InvalidOperationException(
+                    "SceneView configurable Overlay capability cannot be controlled by this fixture environment.");
+            }
+
+            SetOverlaysEnabled(canvas, overlaysEnabledProperty, enabled: true);
+
+            var candidates = new List<object>();
+            foreach (var overlay in overlays)
+            {
+                if (overlay != null && !ReferenceEquals(overlay, includedOrientationGizmo))
+                {
+                    candidates.Add(overlay);
+                }
+            }
+
+            candidates.Sort((left, right) => string.CompareOrdinal(
+                GetOverlayIdentity(left),
+                GetOverlayIdentity(right)));
+            foreach (var overlay in candidates)
+            {
+                var displayedProperty = FindProperty(overlay.GetType(), "displayed");
+                var activeLayoutProperty = FindProperty(overlay.GetType(), "activeLayout");
+                var rootVisualElementProperty = FindProperty(overlay.GetType(), "rootVisualElement");
+                if (displayedProperty == null
+                    || !displayedProperty.CanWrite
+                    || activeLayoutProperty?.GetValue(overlay)?.ToString() != "Panel"
+                    || rootVisualElementProperty?.GetValue(overlay) is not VisualElement)
+                {
+                    continue;
+                }
+
+                displayedProperty.SetValue(overlay, true);
+                if (displayedProperty.GetValue(overlay) is bool displayed && displayed)
+                {
+                    targetSceneView.Repaint();
+                    return overlay;
+                }
+            }
+
+            throw new InvalidOperationException(
+                "No configurable SceneView Overlay panel can be displayed by this fixture environment.");
+        }
+
+        private static void SetOverlaysEnabled (
+            object canvas,
+            PropertyInfo overlaysEnabledProperty,
+            bool enabled)
+        {
+            var setter = overlaysEnabledProperty.GetSetMethod(nonPublic: true);
+            if (setter != null)
+            {
+                setter.Invoke(canvas, new object[] { enabled });
+            }
+            else
+            {
+                var setOverlaysEnabledMethod = FindMethod(
+                    canvas.GetType(),
+                    "SetOverlaysEnabled",
+                    new[] { typeof(bool) });
+                if (setOverlaysEnabledMethod == null
+                    || setOverlaysEnabledMethod.ReturnType != typeof(void))
+                {
+                    throw new InvalidOperationException(
+                        "SceneView Overlay presentation cannot be controlled by this fixture environment.");
+                }
+
+                setOverlaysEnabledMethod.Invoke(canvas, new object[] { enabled });
+            }
+
+            if (overlaysEnabledProperty.GetValue(canvas) is not bool actualEnabled
+                || actualEnabled != enabled)
+            {
+                throw new InvalidOperationException(
+                    "SceneView Overlay presentation did not enter the requested fixture state.");
+            }
+        }
+
+        private static string[] GetDisplayedExcludedOverlayNames (SceneView targetSceneView)
+        {
+            var canvas = targetSceneView.overlayCanvas;
+            var includedOrientationGizmo = ResolveIncludedOrientationGizmo(targetSceneView);
+            var overlaysEnabledProperty = FindProperty(canvas.GetType(), "overlaysEnabled");
+            var overlaysProperty = FindProperty(canvas.GetType(), "overlays");
+            if (overlaysEnabledProperty?.GetValue(canvas) is not bool overlaysEnabled
+                || overlaysProperty?.GetValue(canvas) is not IEnumerable overlays)
+            {
+                throw new InvalidOperationException(
+                    "SceneView configurable Overlay visibility cannot be observed by this fixture environment.");
+            }
+
+            if (!overlaysEnabled)
+            {
+                return Array.Empty<string>();
+            }
+
+            var names = new List<string>();
+            foreach (var overlay in overlays)
+            {
+                if (overlay == null || ReferenceEquals(overlay, includedOrientationGizmo))
+                {
+                    continue;
+                }
+
+                var displayedProperty = FindProperty(overlay.GetType(), "displayed");
+                if (displayedProperty?.GetValue(overlay) is not bool displayed)
+                {
+                    throw new InvalidOperationException(
+                        $"SceneView Overlay visibility cannot be observed: {GetOverlayIdentity(overlay)}");
+                }
+
+                if (displayed)
+                {
+                    names.Add(GetOverlayIdentity(overlay));
+                }
+            }
+
+            names.Sort(StringComparer.Ordinal);
+            return names.ToArray();
+        }
+
+        private static object ResolveIncludedOrientationGizmo (SceneView targetSceneView)
+        {
+            var orientationGizmoField = FindField(typeof(SceneView), "m_OrientationGizmo");
+            return orientationGizmoField?.GetValue(targetSceneView)
+                ?? throw new InvalidOperationException(
+                    "SceneView included orientation gizmo identity could not be resolved by this fixture environment.");
+        }
+
+        private static string GetOverlayIdentity (object overlay)
+        {
+            var displayNameProperty = FindProperty(overlay.GetType(), "displayName");
+            return displayNameProperty?.GetValue(overlay) is string displayName
+                && !string.IsNullOrWhiteSpace(displayName)
+                    ? $"{overlay.GetType().FullName}:{displayName}"
+                    : overlay.GetType().FullName;
+        }
+
+        private static void ValidateSceneControlPostcondition ()
+        {
+            if (activeTarget != FixtureTarget.Scene || sceneView == null)
+            {
+                return;
+            }
+
+            var displayedExcludedOverlays = GetDisplayedExcludedOverlayNames(sceneView);
+            if (displayedConfigurableOverlay != null)
+            {
+                if (displayedConfigurableOverlay == null)
+                {
+                    throw new InvalidOperationException(
+                        "The configurable SceneView Overlay panel fixture was not selected.");
+                }
+
+                var expectedIdentity = GetOverlayIdentity(displayedConfigurableOverlay);
+                var rootVisualElementProperty = FindProperty(
+                    displayedConfigurableOverlay.GetType(),
+                    "rootVisualElement");
+                if (displayedExcludedOverlays.Length != 1
+                    || !string.Equals(
+                        displayedExcludedOverlays[0],
+                        expectedIdentity,
+                        StringComparison.Ordinal)
+                    || rootVisualElementProperty?.GetValue(displayedConfigurableOverlay)
+                        is not VisualElement rootVisualElement
+                    || !IsDisplayed(rootVisualElement))
+                {
+                    throw new InvalidOperationException(
+                        $"The configurable SceneView Overlay panel did not become visibly displayed: {expectedIdentity}");
+                }
+
+                return;
+            }
+
+            if (displayedExcludedOverlays.Length != 0)
+            {
+                throw new InvalidOperationException(
+                    "The SceneView fixture unexpectedly displays excluded configurable Overlays: "
+                    + string.Join(", ", displayedExcludedOverlays));
             }
         }
 
@@ -735,10 +1087,23 @@ namespace MackySoft.Ucli.ScreenshotFidelity
 
         private static bool IsOverlayMenuControl (VisualElement element)
         {
-            return string.Equals(element.name, "overlay-menu-btn", StringComparison.Ordinal)
-                || string.Equals(element.name, "overlay-menu-icon", StringComparison.Ordinal)
-                || element.ClassListContains("overlay-menu-btn")
-                || element.ClassListContains("overlay-menu-icon");
+            return string.Equals(element.name, "overlay-menu", StringComparison.Ordinal)
+                || element.ClassListContains("overlay-menu");
+        }
+
+        private static void ShowSceneOverlayMenu (SceneView targetSceneView)
+        {
+            var canvas = targetSceneView.overlayCanvas;
+            var showMenuMethod = FindMethod(
+                canvas.GetType(),
+                "ShowMenu",
+                new[] { typeof(bool), typeof(bool) });
+            if (showMenuMethod == null || showMenuMethod.ReturnType != typeof(void))
+            {
+                throw new InvalidOperationException("SceneView Overlay Menu visibility cannot be controlled by this fixture environment.");
+            }
+
+            showMenuMethod.Invoke(canvas, new object[] { true, false });
         }
 
         private static bool IsDisplayed (VisualElement element)
@@ -754,6 +1119,16 @@ namespace MackySoft.Ucli.ScreenshotFidelity
             }
 
             return element.worldBound.width > 0f && element.worldBound.height > 0f;
+        }
+
+        private static bool IsFinite (float value)
+        {
+            return !float.IsNaN(value) && !float.IsInfinity(value);
+        }
+
+        private static bool IsFinitePositive (float value)
+        {
+            return IsFinite(value) && value > 0f;
         }
 
         private static void SetBooleanField (
@@ -956,6 +1331,10 @@ namespace MackySoft.Ucli.ScreenshotFidelity
             public bool hdrActive;
 
             public bool overlayMenuDisplayed;
+
+            public int displayedExcludedOverlayCount;
+
+            public string[] displayedExcludedOverlays;
 
             public int gameSelectedSizeIndex;
 
