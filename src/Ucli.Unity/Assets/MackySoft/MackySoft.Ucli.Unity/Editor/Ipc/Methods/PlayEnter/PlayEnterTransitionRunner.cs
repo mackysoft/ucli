@@ -51,7 +51,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <returns> The structured transition result. </returns>
         public async Task<PlayEnterTransitionExecutionResult> EnterAsync (
             int timeoutMilliseconds,
-            RecoverableIpcOperationContext recoverableContext,
+            RecoverableIpcOperationContext? recoverableContext,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -237,7 +237,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         private async Task<PlayEnterTransitionExecutionResult> TryPersistPendingEnterAsync (
-            RecoverableIpcOperationContext recoverableContext,
+            RecoverableIpcOperationContext? recoverableContext,
             IpcPlayLifecycleSnapshot before,
             CancellationToken cancellationToken)
         {

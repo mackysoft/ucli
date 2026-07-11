@@ -827,7 +827,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return false;
             }
 
-            if (string.IsNullOrWhiteSpace(request.BuildTarget)
+            var buildTarget = request.BuildTarget;
+            if (buildTarget == null
+                || string.IsNullOrWhiteSpace(buildTarget)
                 || string.IsNullOrWhiteSpace(request.UnityBuildTarget)
                 || string.IsNullOrWhiteSpace(request.SceneSource))
             {
@@ -835,9 +837,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return false;
             }
 
-            if (!BuildTargetStableNameUnityBuildTargetResolver.TryResolve(request.BuildTarget, out var expectedUnityBuildTarget))
+            if (!BuildTargetStableNameUnityBuildTargetResolver.TryResolve(buildTarget, out var expectedUnityBuildTarget))
             {
-                errorMessage = $"Build buildTarget stable name is unsupported: {request.BuildTarget}.";
+                errorMessage = $"Build buildTarget stable name is unsupported: {buildTarget}.";
                 return false;
             }
 
@@ -855,9 +857,9 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             IpcBuildOutputLayout? expectedOutputLayout = null;
             if (runnerKind == IpcBuildRunnerKind.BuildPipeline
-                && !IpcBuildOutputLayoutResolver.TryResolve(expectedOutputPath, request.BuildTarget, out expectedOutputLayout))
+                && !IpcBuildOutputLayoutResolver.TryResolve(expectedOutputPath, buildTarget, out expectedOutputLayout))
             {
-                errorMessage = $"Build outputLayout could not be resolved for build target: {request.BuildTarget}.";
+                errorMessage = $"Build outputLayout could not be resolved for build target: {buildTarget}.";
                 return false;
             }
 

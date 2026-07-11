@@ -222,15 +222,16 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 var identity = CreateProjectIdentity(scope.ProjectPath);
                 var request = CreateRequest(scope.ProjectPath, identity);
+                var outputLayout = GetRequiredOutputLayout(request);
                 request = scenario switch
                 {
                     "missing" => request with
                     {
-                        OutputLayout = null!,
+                        OutputLayout = null,
                     },
                     "shapeMismatch" => request with
                     {
-                        OutputLayout = request.OutputLayout with
+                        OutputLayout = outputLayout with
                         {
                             Shape = ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.Directory),
                         },
@@ -497,8 +498,11 @@ namespace MackySoft.Ucli.Unity.Tests
                     new UnityLogRedactionScopeProvider(),
                     new UnityLogRingBuffer());
                 var payload = CreateRequest(scope.ProjectPath, identity);
-                Directory.CreateDirectory(Path.GetDirectoryName(payload.OutputLayout.LocationPathName)!);
-                File.WriteAllText(payload.OutputLayout.LocationPathName, "existing player");
+                var outputLayout = GetRequiredOutputLayout(payload);
+                var outputDirectory = Path.GetDirectoryName(outputLayout.LocationPathName)
+                    ?? throw new InvalidOperationException("Build output location did not contain a parent directory.");
+                Directory.CreateDirectory(outputDirectory);
+                File.WriteAllText(outputLayout.LocationPathName, "existing player");
 
                 var response = await handler.HandleAsync(CreateIpcRequest(payload), CancellationToken.None);
 
@@ -536,12 +540,15 @@ namespace MackySoft.Ucli.Unity.Tests
                     new UnityLogRedactionScopeProvider(),
                     new UnityLogRingBuffer());
                 var payload = CreateRequest(scope.ProjectPath, identity);
-                Directory.CreateDirectory(Path.GetDirectoryName(payload.OutputLayout.LocationPathName)!);
-                File.WriteAllText(payload.OutputLayout.LocationPathName, "existing player");
+                var outputLayout = GetRequiredOutputLayout(payload);
+                var outputDirectory = Path.GetDirectoryName(outputLayout.LocationPathName)
+                    ?? throw new InvalidOperationException("Build output location did not contain a parent directory.");
+                Directory.CreateDirectory(outputDirectory);
+                File.WriteAllText(outputLayout.LocationPathName, "existing player");
                 var streamWriter = new FailingIpcStreamFrameWriter(
                     new IOException("progress write failed"));
 
-                IOException exception = null;
+                IOException? exception = null;
                 try
                 {
                     await handler.HandleStreamingAsync(
@@ -676,10 +683,11 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 var identity = CreateProjectIdentity(scope.ProjectPath);
                 var requestPayload = CreateRequest(scope.ProjectPath, identity);
+                var outputLayout = GetRequiredOutputLayout(requestPayload);
                 Directory.CreateDirectory(requestPayload.OutputPath);
                 var reportArtifact = CreateReportArtifact(
                     ContractLiteralCodec.ToValue(reportResult),
-                    requestPayload.OutputLayout.LocationPathName,
+                    outputLayout.LocationPathName,
                     reportErrorCount,
                     reportWarningCount);
                 var buildPipelineRunner = new CountingBuildPipelineRunner(reportArtifact);
@@ -711,16 +719,20 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
                 Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcBuildRunResponse payload, out _), Is.True);
-                Assert.That(payload.RunId, Is.EqualTo(RunId));
-                Assert.That(payload.Report.Result, Is.EqualTo(ContractLiteralCodec.ToValue(reportResult)));
-                Assert.That(payload.Report.ErrorCount, Is.EqualTo(reportErrorCount));
-                Assert.That(payload.Report.WarningCount, Is.EqualTo(reportWarningCount));
-                Assert.That(payload.Logs.CompletionReason, Is.EqualTo(ContractLiteralCodec.ToValue(completionReason)));
-                Assert.That(payload.Logs.EntryCount, Is.EqualTo(3));
-                Assert.That(payload.Logs.ErrorCount, Is.EqualTo(1));
-                Assert.That(payload.Logs.WarningCount, Is.EqualTo(1));
+                var responsePayload = payload
+                    ?? throw new InvalidOperationException("Successful build response did not contain a payload.");
+                var buildReport = responsePayload.Report
+                    ?? throw new InvalidOperationException("Successful BuildPipeline response did not contain a build report.");
+                Assert.That(responsePayload.RunId, Is.EqualTo(RunId));
+                Assert.That(buildReport.Result, Is.EqualTo(ContractLiteralCodec.ToValue(reportResult)));
+                Assert.That(buildReport.ErrorCount, Is.EqualTo(reportErrorCount));
+                Assert.That(buildReport.WarningCount, Is.EqualTo(reportWarningCount));
+                Assert.That(responsePayload.Logs.CompletionReason, Is.EqualTo(ContractLiteralCodec.ToValue(completionReason)));
+                Assert.That(responsePayload.Logs.EntryCount, Is.EqualTo(3));
+                Assert.That(responsePayload.Logs.ErrorCount, Is.EqualTo(1));
+                Assert.That(responsePayload.Logs.WarningCount, Is.EqualTo(1));
                 Assert.That(buildPipelineRunner.CallCount, Is.EqualTo(1));
-                Assert.That(buildPipelineRunner.LastOptions.locationPathName, Is.EqualTo(requestPayload.OutputLayout.LocationPathName));
+                Assert.That(buildPipelineRunner.LastOptions.locationPathName, Is.EqualTo(outputLayout.LocationPathName));
                 Assert.That(logRangeExporter.CallCount, Is.EqualTo(1));
                 Assert.That(File.Exists(requestPayload.BuildReportPath), Is.True);
                 Assert.That(File.Exists(requestPayload.BuildLogPath), Is.True);
@@ -749,11 +761,12 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 var identity = CreateProjectIdentity(scope.ProjectPath);
                 var requestPayload = CreateRequest(scope.ProjectPath, identity);
+                var outputLayout = GetRequiredOutputLayout(requestPayload);
                 Directory.CreateDirectory(requestPayload.OutputPath);
                 var unityLogStream = new UnityLogRingBuffer();
                 var reportArtifact = CreateReportArtifact(
                     ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
-                    requestPayload.OutputLayout.LocationPathName,
+                    outputLayout.LocationPathName,
                     errorCount: 0,
                     warningCount: 1);
                 var buildPipelineRunner = new CountingBuildPipelineRunner(
@@ -827,11 +840,12 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                     TimeoutMilliseconds = 1000,
                 };
+                var outputLayout = GetRequiredOutputLayout(requestPayload);
                 Directory.CreateDirectory(requestPayload.OutputPath);
                 var timeoutScopeFactory = new CancelableTimeoutScopeFactory();
                 var reportArtifact = CreateReportArtifact(
                     ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
-                    requestPayload.OutputLayout.LocationPathName,
+                    outputLayout.LocationPathName,
                     errorCount: 0,
                     warningCount: 0);
                 var buildPipelineRunner = new CountingBuildPipelineRunner(
@@ -928,12 +942,13 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 var identity = CreateProjectIdentity(scope.ProjectPath);
                 var requestPayload = CreateRequest(scope.ProjectPath, identity);
+                var outputLayout = GetRequiredOutputLayout(requestPayload);
                 Directory.CreateDirectory(requestPayload.OutputPath);
                 var unityLogStream = new UnityLogRingBuffer();
                 var oversizedMessage = new string('x', 70 * 1024);
                 var reportArtifact = CreateReportArtifact(
                     ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
-                    requestPayload.OutputLayout.LocationPathName,
+                    outputLayout.LocationPathName,
                     errorCount: 0,
                     warningCount: 0);
                 var buildPipelineRunner = new CountingBuildPipelineRunner(
@@ -1350,7 +1365,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 storageRoot,
                 identity.ProjectFingerprint,
                 RunId);
-            if (!IpcBuildOutputLayoutResolver.TryResolve(outputPath, "standaloneLinux64", out var outputLayout))
+            if (!IpcBuildOutputLayoutResolver.TryResolve(outputPath, "standaloneLinux64", out var outputLayout)
+                || outputLayout == null)
             {
                 throw new InvalidOperationException("Test build target must resolve a BuildPipeline output layout.");
             }
@@ -1364,7 +1380,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 ScenePaths: new[] { "Assets/Scenes/SampleScene.unity" },
                 Development: true,
                 OutputPath: outputPath,
-                OutputLayout: outputLayout!,
+                OutputLayout: outputLayout,
                 BuildReportPath: Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildReportFileName),
                 BuildLogPath: Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildLogFileName),
                 AllowedEditorModes: new[] { ContractLiteralCodec.ToValue(DaemonEditorMode.Batchmode) },
@@ -1373,6 +1389,12 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 ProfileDigest = new string('a', 64),
             };
+        }
+
+        private static IpcBuildOutputLayout GetRequiredOutputLayout (IpcBuildRunRequest request)
+        {
+            return request.OutputLayout
+                ?? throw new InvalidOperationException("Explicit build request output layout was not created.");
         }
 
         private static IpcBuildRunRequest CreateExecuteMethodRequest (

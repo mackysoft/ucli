@@ -38,7 +38,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private long nextMaintenanceTimestamp;
         private int maintenanceScheduled;
-        private string maintenanceFailureMessage;
+        private string? maintenanceFailureMessage;
         private string maintenanceCursorDirectoryName;
 
         private FileRecoverableIpcOperationStore (
@@ -192,7 +192,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         /// <inheritdoc />
-        public string ConsumeMaintenanceFailure ()
+        public string? ConsumeMaintenanceFailure ()
         {
             return Interlocked.Exchange(ref maintenanceFailureMessage, null);
         }

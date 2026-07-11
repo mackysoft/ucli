@@ -6,6 +6,8 @@ using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
 
+#nullable enable
+
 namespace MackySoft.Ucli.Unity.Tests
 {
     internal sealed class StubUnityEditorReadinessGate : IUnityEditorReadinessGate

@@ -11,6 +11,8 @@ using MackySoft.Ucli.Unity.Runtime;
 using NUnit.Framework;
 using UnityEngine.TestTools;
 
+#nullable enable
+
 namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class PlayExitUnityIpcMethodHandlerTests
@@ -198,8 +200,11 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Response.Transition.Result, Is.EqualTo(IpcPlayTransitionResultNames.Exited));
             Assert.That(recoverableStore.PendingWriteCallCount, Is.EqualTo(1));
-            Assert.That(recoverableStore.PendingPayload, Is.Not.Null);
-            Assert.That(recoverableStore.PendingPayload.Before.PlayMode!.Generation, Is.EqualTo("31"));
+            var pendingPayload = recoverableStore.PendingPayload
+                ?? throw new InvalidOperationException("Recoverable store did not capture the pending exit payload.");
+            var pendingPlayMode = pendingPayload.Before.PlayMode
+                ?? throw new InvalidOperationException("Pending exit payload did not include Play Mode state.");
+            Assert.That(pendingPlayMode.Generation, Is.EqualTo("31"));
             Assert.That(exitRequestCount, Is.EqualTo(1));
         });
 
@@ -360,7 +365,11 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.Error.Code, Is.EqualTo(PlayModeErrorCodes.PlayModeTransitionBlocked));
             Assert.That(result.Response.Transition.Result, Is.EqualTo(IpcPlayTransitionResultNames.Blocked));
             Assert.That(result.Response.Transition.ApplicationState, Is.EqualTo(IpcPlayApplicationStateNames.Applied));
-            Assert.That(result.Response.Transition.Observed.PlayMode!.State, Is.EqualTo("stopped"));
+            var observed = result.Response.Transition.Observed
+                ?? throw new InvalidOperationException("Applied blocked transition did not include an observed snapshot.");
+            var observedPlayMode = observed.PlayMode
+                ?? throw new InvalidOperationException("Observed transition snapshot did not include Play Mode state.");
+            Assert.That(observedPlayMode.State, Is.EqualTo("stopped"));
         });
 
         [UnityTest]
@@ -391,8 +400,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static PlayExitTransitionRunner CreateRunner (
             MutableUnityEditorReadinessGate readinessGate,
-            Func<CancellationToken, Task> editorUpdateAwaiter = null,
-            Action exitPlayModeRequester = null)
+            Func<CancellationToken, Task>? editorUpdateAwaiter = null,
+            Action? exitPlayModeRequester = null)
         {
             return new PlayExitTransitionRunner(
                 new StubServerVersionProvider("1.2.3"),
@@ -627,9 +636,9 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public bool PendingWriteResult { get; set; } = true;
 
-            public string PendingWriteErrorMessage { get; set; }
+            public string? PendingWriteErrorMessage { get; set; }
 
-            public PlayExitRecoveryPayload PendingPayload { get; private set; }
+            public PlayExitRecoveryPayload? PendingPayload { get; private set; }
 
             public ValueTask<RecoverableIpcOperationReadResult> ReadAsync (
                 string method,
@@ -652,11 +661,18 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 PendingWriteCallCount++;
-                IpcPayloadCodec.TryDeserialize(recoveryPayload, out PlayExitRecoveryPayload pendingPayload, out _);
+                if (!IpcPayloadCodec.TryDeserialize(recoveryPayload, out PlayExitRecoveryPayload pendingPayload, out var readError)
+                    || pendingPayload == null)
+                {
+                    throw new InvalidOperationException($"Pending exit payload was invalid. {readError.Message}");
+                }
+
                 PendingPayload = pendingPayload;
                 return new ValueTask<RecoverableIpcOperationStoreResult>(PendingWriteResult
                     ? RecoverableIpcOperationStoreResult.Success()
-                    : RecoverableIpcOperationStoreResult.Failure(PendingWriteErrorMessage));
+                    : RecoverableIpcOperationStoreResult.Failure(
+                        PendingWriteErrorMessage
+                        ?? throw new InvalidOperationException("Pending exit write failure did not define an error message.")));
             }
 
             public ValueTask<RecoverableIpcOperationStoreResult> WriteCompletedAsync (
@@ -674,7 +690,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     RecoverableIpcOperationStoreResult.Success());
             }
 
-            public string ConsumeMaintenanceFailure ()
+            public string? ConsumeMaintenanceFailure ()
             {
                 return null;
             }

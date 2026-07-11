@@ -14,7 +14,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <returns> The completed test result adaptor. </returns>
         Task<ITestResultAdaptor> RunAsync (
             UnityTestRunRequestContext requestContext,
-            IUnityTestRunProgressSink progressSink = null,
+            IUnityTestRunProgressSink? progressSink = null,
             CancellationToken cancellationToken = default);
     }
 }

@@ -37,7 +37,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             CancellationToken cancellationToken);
 
         /// <summary> Consumes the latest background-maintenance failure for main-thread reporting. </summary>
-        string ConsumeMaintenanceFailure ();
+        string? ConsumeMaintenanceFailure ();
     }
 
     /// <summary> Represents one recoverable operation store mutation outcome. </summary>

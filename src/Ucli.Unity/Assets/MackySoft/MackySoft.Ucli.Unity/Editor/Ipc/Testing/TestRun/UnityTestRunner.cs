@@ -37,7 +37,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="requestContext" /> is <see langword="null" />. </exception>
         public async Task<ITestResultAdaptor> RunAsync (
             UnityTestRunRequestContext requestContext,
-            IUnityTestRunProgressSink progressSink = null,
+            IUnityTestRunProgressSink? progressSink = null,
             CancellationToken cancellationToken = default)
         {
             if (requestContext == null)
@@ -248,7 +248,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         internal sealed class TestRunCallbacks : ICallbacks
         {
             private readonly UnityTestRunRequestContext requestContext;
-            private readonly IUnityTestRunProgressSink progressSink;
+            private readonly IUnityTestRunProgressSink? progressSink;
 
             private readonly TaskCompletionSource<ITestResultAdaptor> completionSource =
                 new TaskCompletionSource<ITestResultAdaptor>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -256,7 +256,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             /// <summary> Initializes a new instance of the <see cref="TestRunCallbacks" /> class. </summary>
             public TestRunCallbacks (
                 UnityTestRunRequestContext requestContext,
-                IUnityTestRunProgressSink progressSink)
+                IUnityTestRunProgressSink? progressSink)
             {
                 this.requestContext = requestContext ?? throw new ArgumentNullException(nameof(requestContext));
                 this.progressSink = progressSink;

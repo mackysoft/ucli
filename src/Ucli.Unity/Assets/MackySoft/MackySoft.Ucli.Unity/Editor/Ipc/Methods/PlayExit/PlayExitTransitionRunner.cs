@@ -52,7 +52,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <returns> The structured transition result. </returns>
         public async Task<PlayExitTransitionExecutionResult> ExitAsync (
             int timeoutMilliseconds,
-            RecoverableIpcOperationContext recoverableContext,
+            RecoverableIpcOperationContext? recoverableContext,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -239,7 +239,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         private async Task<PlayExitTransitionExecutionResult> TryPersistPendingExitAsync (
-            RecoverableIpcOperationContext recoverableContext,
+            RecoverableIpcOperationContext? recoverableContext,
             IpcPlayLifecycleSnapshot before,
             CancellationToken cancellationToken)
         {

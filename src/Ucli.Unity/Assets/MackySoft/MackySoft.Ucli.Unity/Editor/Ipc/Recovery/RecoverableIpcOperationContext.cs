@@ -27,7 +27,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             string method,
             string requestId,
             string requestPayloadHash,
-            RecoverableIpcOperationRecord record)
+            RecoverableIpcOperationRecord? record)
         {
             this.store = store ?? throw new ArgumentNullException(nameof(store));
             if (string.IsNullOrWhiteSpace(method))
