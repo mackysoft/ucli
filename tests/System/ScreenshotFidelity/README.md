@@ -48,6 +48,8 @@ bash tests/System/ScreenshotFidelity/run-macos.sh \
 
 Use `--keep-work-directory` to retain the imported disposable Unity project for diagnosis. Without it, the runner removes the copied Unity `Library`, `Temp`, and `Logs` directories after the run.
 
+The fixture starts only through its `InitializeOnLoad` bootstrap. The runner does not also use `-executeMethod`, which would request a redundant reload during a cold GUI import and duplicate scripted-importer registration. The complete GUI log is rejected if it contains C# diagnostics, shader compilation failures, or rejected importer registrations.
+
 ## Cases
 
 The lane runs these contracts through the public CLI:
@@ -70,7 +72,7 @@ The fixture includes asymmetric corners, a one-pixel edge signature, a camera-re
 - per-case crop, alpha-mask topology, physical-pixel coverage, full-image RGB error, color-difference, luminance, gray-ramp, and resolution-marker results
 - the GameView state comparison and `GameViewSizes.asset` hash before and after Editor exit
 - the fixture lighting, RenderSettings, renderer-feature, camera, layer, Volume, Canvas, shader-message, and SceneView isolation state
-- the measurement-window Unity runtime/compile error and warning counts, plus pre-bootstrap C# compiler diagnostics
+- the measurement-window Unity runtime error and warning counts, plus pre-bootstrap compiler and importer-registration diagnostics from the complete GUI log
 - the source revision, exact Git tree assembled from tracked and non-ignored untracked working-tree files, and whether that source snapshot differed from the revision
 - the path, digest, and file count of `execution-input-manifest.json`, which hashes every file and symbolic link supplied to the disposable Unity project, published uCLI host, and WindowServer oracle
 

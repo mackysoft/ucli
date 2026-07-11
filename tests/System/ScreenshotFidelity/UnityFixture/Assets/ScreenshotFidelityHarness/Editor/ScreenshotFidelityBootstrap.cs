@@ -14,12 +14,6 @@ namespace MackySoft.Ucli.ScreenshotFidelity
             TryStartFromCommandLine();
         }
 
-        /// <summary> Unity <c>-executeMethod</c> entry point used by the macOS system-test runner. </summary>
-        public static void Start ()
-        {
-            TryStartFromCommandLine();
-        }
-
         private static void TryStartFromCommandLine ()
         {
             var arguments = Environment.GetCommandLineArgs();

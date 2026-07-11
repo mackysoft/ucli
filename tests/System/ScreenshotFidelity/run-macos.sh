@@ -503,6 +503,18 @@ assert_unity_log_query_empty() {
     || fail "${context} emitted Unity diagnostics; see ${result_path} and ${result_path%.json}.stderr.log"
 }
 
+assert_unity_compile_import_log_clean() {
+  local log_path="$1"
+  local diagnostics_path="$2"
+  local context="$3"
+  local diagnostic_pattern='(^|[^[:alnum:]_])(warning|error) CS[0-9]{4}([^[:digit:]]|$)|The scripted importer .+ Registration rejected\.|Shader (warning|error) in|Scripts have compiler errors|Compilation failed'
+
+  if grep -E "${diagnostic_pattern}" "${log_path}" > "${diagnostics_path}"; then
+    fail "${context} emitted compiler or importer diagnostics; see ${diagnostics_path}."
+  fi
+  : > "${diagnostics_path}"
+}
+
 assert_overlay_failure() {
   local command_result="$1"
   local condition_name="$2"
@@ -610,14 +622,12 @@ if [[ -n "${unity_application_path}" ]]; then
   open -n -W -a "${unity_application_path}" --args \
     -projectPath "${unity_project}" \
     -logFile "${results_directory}/unity.log" \
-    -executeMethod MackySoft.Ucli.ScreenshotFidelity.ScreenshotFidelityBootstrap.Start \
     -ucliScreenshotFidelityRunDirectory "${run_directory}" &
   unity_launcher_pid=$!
 else
   "${unity_executable}" \
     -projectPath "${unity_project}" \
     -logFile "${results_directory}/unity.log" \
-    -executeMethod MackySoft.Ucli.ScreenshotFidelity.ScreenshotFidelityBootstrap.Start \
     -ucliScreenshotFidelityRunDirectory "${run_directory}" &
   unity_launcher_pid=$!
   unity_pid="${unity_launcher_pid}"
@@ -631,6 +641,10 @@ fi
 unity_pid="${bootstrap_process_id}"
 wait_for_gui_session "${unity_pid}" 120
 cp "${gui_session_path}" "${results_directory}/gui-session.json"
+assert_unity_compile_import_log_clean \
+  "${results_directory}/unity.log" \
+  "${results_directory}/unity-bootstrap-diagnostics.txt" \
+  "Unity GUI bootstrap"
 
 invoke_ucli "${results_directory}/daemon-start.json" \
   daemon start \
@@ -916,12 +930,10 @@ fi
 wait "${unity_pid}" 2>/dev/null || true
 controller_started=false
 
-compiler_diagnostics_path="${results_directory}/unity-compiler-diagnostics.txt"
-if grep -E '(^|[^[:alnum:]_])(warning|error) CS[0-9]{4}([^[:digit:]]|$)' \
-  "${results_directory}/unity.log" > "${compiler_diagnostics_path}"; then
-  fail "Unity fixture compilation emitted C# diagnostics; see ${compiler_diagnostics_path}."
-fi
-: > "${compiler_diagnostics_path}"
+assert_unity_compile_import_log_clean \
+  "${results_directory}/unity.log" \
+  "${results_directory}/unity-complete-diagnostics.txt" \
+  "Unity GUI fixture"
 
 game_view_sizes_hash_after="$(if [[ -f "${game_view_sizes_path}" ]]; then shasum -a 256 "${game_view_sizes_path}" | awk '{print $1}'; else echo absent; fi)"
 [[ "${game_view_sizes_hash_before}" == "${game_view_sizes_hash_after}" ]] \
@@ -953,7 +965,8 @@ jq -n \
       unityDiagnostics:{
         errorCount:$unityErrors[0].payload.count,
         warningCount:$unityWarnings[0].payload.count,
-        compilerDiagnosticCount:0
+        compilerDiagnosticCount:0,
+        importerRegistrationDiagnosticCount:0
       }
     },
     stateRestoration:{gameViewSizesHashBefore:$gameViewSizesHashBefore,gameViewSizesHashAfter:$gameViewSizesHashAfter},
