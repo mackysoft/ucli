@@ -76,6 +76,10 @@ Shader "Hidden/uCLI/ScreenshotFidelityPattern"
                         ? float4(1.0, 0.5, 0.0, 1.0)
                         : float4(0.45, 0.0, 1.0, 1.0);
 
+                // Keep each corner sentinel disconnected from color-graded interior pixels.
+                if (uv.x < 0.07 || uv.x > 0.93 || uv.y < 0.07 || uv.y > 0.93)
+                    return float4(0.12, 0.12, 0.12, 1.0);
+
                 // Seventeen linear gray steps expose missing and double sRGB conversion.
                 if (uv.y >= 0.41 && uv.y <= 0.59)
                 {
