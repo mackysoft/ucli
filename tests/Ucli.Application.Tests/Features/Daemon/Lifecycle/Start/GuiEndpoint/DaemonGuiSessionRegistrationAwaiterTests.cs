@@ -286,7 +286,12 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
             expectedProcessId: 4321,
             TimeSpan.FromSeconds(5)).AsTask();
         await TestAwaiter.WaitAsync(firstPingObserved.Task, "first registration ping", TimeSpan.FromSeconds(5));
-        timeProvider.Advance(TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
+        var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
+        await TestAwaiter.WaitAsync(
+            timeProvider.WaitForTimerDueWithinAsync(retryDelay),
+            "Registration retry timer",
+            SignalWaitTimeout);
+        timeProvider.Advance(retryDelay);
 
         var result = await TestAwaiter.WaitAsync(resultTask, "replacement registration", TimeSpan.FromSeconds(5));
 
@@ -374,7 +379,12 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
 
         var resultTask = awaiter.WaitForSessionAsync(unityProject, expectedProcessId: 4321, WaitTimeout).AsTask();
         await TestAwaiter.WaitAsync(firstRead.Task, "first invalid session read", TimeSpan.FromSeconds(5));
-        timeProvider.Advance(TimeSpan.FromMilliseconds(100));
+        var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
+        await TestAwaiter.WaitAsync(
+            timeProvider.WaitForTimerDueWithinAsync(retryDelay),
+            "Invalid session retry timer",
+            SignalWaitTimeout);
+        timeProvider.Advance(retryDelay);
 
         var result = await TestAwaiter.WaitAsync(resultTask, "retry success", TimeSpan.FromSeconds(5));
 
