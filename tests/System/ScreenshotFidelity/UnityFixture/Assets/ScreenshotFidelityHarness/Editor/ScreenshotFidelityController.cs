@@ -275,6 +275,7 @@ namespace MackySoft.Ucli.ScreenshotFidelity
             gameView.Focus();
 
             activeTarget = FixtureTarget.Game;
+            SetGamePresentationRoutesEnabled(enabled: true);
             RefreshFixture();
             RepaintFixtureWindows();
         }
@@ -309,8 +310,17 @@ namespace MackySoft.Ucli.ScreenshotFidelity
             HideConfigurableOverlays(sceneView);
 
             activeTarget = FixtureTarget.Scene;
+            SetGamePresentationRoutesEnabled(enabled: false);
             RefreshFixture();
             RepaintFixtureWindows();
+        }
+
+        private static void SetGamePresentationRoutesEnabled (bool enabled)
+        {
+            // These probes belong to the Game presentation. A Screen Space Overlay Canvas is
+            // represented as world content in SceneView and would cover its independent samples.
+            presentationCanvas.gameObject.SetActive(enabled);
+            fixtureBehaviour.enabled = enabled;
         }
 
         private static void EnsureFixtureScene ()
@@ -597,10 +607,13 @@ namespace MackySoft.Ucli.ScreenshotFidelity
 
             if (presentationCanvas == null
                 || presentationCanvas.renderMode != RenderMode.ScreenSpaceOverlay
-                || presentationCanvas.sortingOrder != short.MaxValue)
+                || presentationCanvas.sortingOrder != short.MaxValue
+                || presentationCanvas.gameObject.activeSelf != (activeTarget == FixtureTarget.Game)
+                || fixtureBehaviour == null
+                || fixtureBehaviour.enabled != (activeTarget == FixtureTarget.Game))
             {
                 throw new InvalidOperationException(
-                    "Screenshot fidelity presentation Canvas is not the isolated Screen Space Overlay probe.");
+                    "Screenshot fidelity Game presentation probes are not isolated from the active target.");
             }
 
             if (activeTarget == FixtureTarget.Scene && sceneView != null)
@@ -1025,6 +1038,9 @@ namespace MackySoft.Ucli.ScreenshotFidelity
                 canvasRenderMode = presentationCanvas == null
                     ? null
                     : presentationCanvas.renderMode.ToString(),
+                presentationCanvasActive = presentationCanvas != null
+                    && presentationCanvas.gameObject.activeSelf,
+                runtimeImguiEnabled = fixtureBehaviour != null && fixtureBehaviour.enabled,
                 sceneCameraMode = sceneView == null ? null : sceneView.cameraMode.drawMode.ToString(),
                 sceneIn2DMode = sceneView != null && sceneView.in2DMode,
                 sceneDrawGizmos = sceneView != null && sceneView.drawGizmos,
@@ -1737,6 +1753,10 @@ namespace MackySoft.Ucli.ScreenshotFidelity
             public int volumeComponentCount;
 
             public string canvasRenderMode;
+
+            public bool presentationCanvasActive;
+
+            public bool runtimeImguiEnabled;
 
             public string sceneCameraMode;
 

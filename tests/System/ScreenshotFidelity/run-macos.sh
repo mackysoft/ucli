@@ -471,6 +471,12 @@ assert_fixture_render_isolation() {
       and $state.volumeComponentCount == 2
       and $state.canvasRenderMode == "ScreenSpaceOverlay"
       and (
+        if $state.target == "Game"
+        then $state.presentationCanvasActive == true and $state.runtimeImguiEnabled == true
+        else $state.presentationCanvasActive == false and $state.runtimeImguiEnabled == false
+        end
+      )
+      and (
         $state.target != "Scene"
         or (
           $state.sceneCameraMode == "Textured"
