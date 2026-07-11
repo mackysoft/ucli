@@ -611,7 +611,7 @@ public sealed class UnityDaemonIpcClientDispatchTests
             transportClient,
             sessionConnectionProvider,
             recoveryWaiter: null,
-            timeProvider: TimeProvider.System);
+            new ManualTimeProvider());
 
         var result = await client.SendAsync(
             ResolvedUnityProjectContextTestFactory.Create(),
@@ -621,6 +621,7 @@ public sealed class UnityDaemonIpcClientDispatchTests
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
+        _ = Assert.Single(transportClient.Requests);
     }
 
     [Fact]
