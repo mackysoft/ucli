@@ -249,7 +249,7 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
     {
         var requestResult = await unityStreamingRequestExecutor.ExecuteAsync(
                 UcliCommandIds.TestRun,
-                context.Configuration.Mode,
+                UnityExecutionTargetModeMapper.ToExplicitMode(context.Target),
                 context.Timeout,
                 context.Config,
                 context.Configuration.UnityProject,
@@ -271,7 +271,7 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
     {
         var requestResult = await unityRequestExecutor.ExecuteAsync(
                 UcliCommandIds.TestRun,
-                context.Configuration.Mode,
+                UnityExecutionTargetModeMapper.ToExplicitMode(context.Target),
                 context.Timeout,
                 context.Config,
                 context.Configuration.UnityProject,

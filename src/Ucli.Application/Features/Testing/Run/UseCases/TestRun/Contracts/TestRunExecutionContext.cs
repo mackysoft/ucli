@@ -6,7 +6,7 @@ namespace MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun.Contr
 /// <summary> Represents preflight-resolved execution context for test-run pipeline. </summary>
 /// <param name="Configuration"> The resolved test-run configuration. </param>
 /// <param name="Config"> The loaded uCLI configuration used for Unity IPC policy. </param>
-/// <param name="Target"> The resolved Unity execution target. </param>
+/// <param name="Target"> The Unity execution target selected during preflight and held fixed for the entire test-run execution. </param>
 /// <param name="Timeout"> The resolved timeout used for execution and daemon probing. </param>
 /// <param name="FailFast"> Whether readiness-gated Unity execution should fail immediately instead of waiting for lifecycle readiness. </param>
 /// <param name="AllowEmptyTestRun"> Whether a run that reports zero test cases should be accepted. </param>
