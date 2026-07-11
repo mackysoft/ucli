@@ -127,7 +127,7 @@ internal sealed class CompileService : ICompileService
         var responseSummary = await DispatchCompileAsync(
                 context,
                 project,
-                ResolveExecutionMode(executionTarget),
+                UnityExecutionTargetModeMapper.ToExplicitMode(executionTarget),
                 requestTimeout,
                 runId,
                 resolvedProgressSink,
@@ -778,16 +778,6 @@ internal sealed class CompileService : ICompileService
         }
 
         return CompileVerdictValues.Pass;
-    }
-
-    private static UnityExecutionMode ResolveExecutionMode (UnityExecutionTarget executionTarget)
-    {
-        return executionTarget switch
-        {
-            UnityExecutionTarget.Daemon => UnityExecutionMode.Daemon,
-            UnityExecutionTarget.Oneshot => UnityExecutionMode.Oneshot,
-            _ => throw new ArgumentOutOfRangeException(nameof(executionTarget), executionTarget, "Unsupported execution target."),
-        };
     }
 
     private static ApplicationFailure CreateTimeoutFailure (TimeSpan timeout)

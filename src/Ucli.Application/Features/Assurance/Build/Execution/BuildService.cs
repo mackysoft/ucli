@@ -687,7 +687,7 @@ internal sealed class BuildService : IBuildService
         {
             return await unityRequestExecutor.ExecuteAsync(
                     UcliCommandIds.BuildRun,
-                    ResolveExecutionMode(executionTarget),
+                    UnityExecutionTargetModeMapper.ToExplicitMode(executionTarget),
                     requestTimeout,
                     context.Config,
                     context.UnityProject,
@@ -698,7 +698,7 @@ internal sealed class BuildService : IBuildService
 
         return await unityStreamingRequestExecutor.ExecuteAsync(
                 UcliCommandIds.BuildRun,
-                ResolveExecutionMode(executionTarget),
+                UnityExecutionTargetModeMapper.ToExplicitMode(executionTarget),
                 requestTimeout,
                 context.Config,
                 context.UnityProject,
@@ -2582,16 +2582,6 @@ internal sealed class BuildService : IBuildService
         {
             UnityExecutionTarget.Daemon => BuildProfileRuntimeExecutionMode.Daemon,
             UnityExecutionTarget.Oneshot => BuildProfileRuntimeExecutionMode.Oneshot,
-            _ => throw new ArgumentOutOfRangeException(nameof(executionTarget), executionTarget, "Unsupported execution target."),
-        };
-    }
-
-    private static UnityExecutionMode ResolveExecutionMode (UnityExecutionTarget executionTarget)
-    {
-        return executionTarget switch
-        {
-            UnityExecutionTarget.Daemon => UnityExecutionMode.Daemon,
-            UnityExecutionTarget.Oneshot => UnityExecutionMode.Oneshot,
             _ => throw new ArgumentOutOfRangeException(nameof(executionTarget), executionTarget, "Unsupported execution target."),
         };
     }
