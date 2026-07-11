@@ -14,6 +14,12 @@ namespace MackySoft.Ucli.Tests.Execution.Mode;
 
 public sealed class IpcDaemonReachabilityProbeTests
 {
+    public static TheoryData<UcliCode> SessionAuthenticationErrorCodes =>
+    [
+        IpcSessionErrorCodes.SessionTokenRequired,
+        IpcSessionErrorCodes.SessionTokenInvalid,
+    ];
+
     private static readonly ProbeExceptionCase[] TimeoutProbeExceptionCases =
     [
         new("ping-timeout", static () => new TimeoutException("timeout")),
@@ -23,8 +29,6 @@ public sealed class IpcDaemonReachabilityProbeTests
     private static readonly ProbeExceptionCase[] NotRunningConnectivityExceptionCases =
     [
         new("connection-refused", static () => new SocketException((int)SocketError.ConnectionRefused)),
-        new("token-invalid", static () => new DaemonPingResponseException("token invalid", IpcSessionErrorCodes.SessionTokenInvalid)),
-        new("token-required", static () => new DaemonPingResponseException("token required", IpcSessionErrorCodes.SessionTokenRequired)),
     ];
 
     private static readonly ProbeExceptionCase[] InternalFailureExceptionCases =
@@ -32,6 +36,7 @@ public sealed class IpcDaemonReachabilityProbeTests
         new("unexpected", static () => new InvalidOperationException("boom")),
         new("io-failure", static () => new IOException("io")),
         new("truncated-frame", static () => new EndOfStreamException("truncated frame")),
+        new("connection-reset", static () => new SocketException((int)SocketError.ConnectionReset)),
         new("ping-response-rejected", static () => new DaemonPingResponseException("status=error", UcliCoreErrorCodes.InternalError)),
         new("unauthorized", static () => new UnauthorizedAccessException("unauthorized")),
     ];
@@ -194,6 +199,68 @@ public sealed class IpcDaemonReachabilityProbeTests
             Assert.Null(result.Error);
             DaemonPingClientAssert.PingedAtLeastOnce(daemonPingClient);
         }
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Probe_WhenLocalSessionMetadataIsUnavailable_ReturnsNotRunningWithoutTransportDispatch ()
+    {
+        using var scope = TestDirectories.CreateTempScope("mode-probe", "session-unavailable");
+        var transportClient = new UnexpectedIpcTransportClient(
+            "Missing local session metadata must stop before sending IPC requests.");
+        var daemonPingClient = new IpcDaemonPingClient(
+            transportClient,
+            new StaticDaemonSessionConnectionProvider(DaemonSessionConnectionResolutionResult.SessionNotAvailable()),
+            TimeProvider.System);
+        var probe = new IpcDaemonReachabilityProbe(
+            daemonPingClient,
+            recoveryWaiter: null,
+            TimeProvider.System);
+
+        var result = await probe.ProbeAsync(
+            CreateReadyContext(scope),
+            DefaultProbeTimeout,
+            CancellationToken.None);
+
+        Assert.False(result.IsRunning);
+        Assert.False(result.HasError);
+        Assert.Null(result.Error);
+    }
+
+    [Theory]
+    [MemberData(nameof(SessionAuthenticationErrorCodes))]
+    [Trait("Size", "Medium")]
+    public async Task Probe_WhenReachableDaemonRejectsSessionAuthentication_ReturnsInternalError (UcliCode errorCode)
+    {
+        using var scope = TestDirectories.CreateTempScope("mode-probe", errorCode.Value.ToLowerInvariant());
+        var transportClient = new RecordingIpcTransportClient(request =>
+            IpcDaemonPingClientTestSupport.CreateResponse(
+                request,
+                IpcProtocol.StatusError,
+                [
+                    new IpcError(
+                        errorCode,
+                        "Session authentication rejected.",
+                        OpId: null),
+                ]));
+        var daemonPingClient = new IpcDaemonPingClient(
+            transportClient,
+            IpcDaemonPingClientTestSupport.CreateResolvedSessionProvider(),
+            TimeProvider.System);
+        var probe = new IpcDaemonReachabilityProbe(
+            daemonPingClient,
+            recoveryWaiter: null,
+            TimeProvider.System);
+
+        var result = await probe.ProbeAsync(
+            CreateReadyContext(scope),
+            DefaultProbeTimeout,
+            CancellationToken.None);
+
+        Assert.False(result.IsRunning);
+        Assert.True(result.HasError);
+        Assert.Equal(ExecutionErrorKind.InternalError, Assert.IsType<ExecutionError>(result.Error).Kind);
+        Assert.Single(transportClient.Requests);
     }
 
     [Theory]

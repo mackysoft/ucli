@@ -4,6 +4,12 @@ namespace MackySoft.Ucli.Tests.Execution.Mode;
 
 public sealed class DaemonProbeExceptionClassifierTests
 {
+    public static TheoryData<UcliCode> SessionAuthenticationErrorCodes =>
+    [
+        IpcSessionErrorCodes.SessionTokenRequired,
+        IpcSessionErrorCodes.SessionTokenInvalid,
+    ];
+
     [Fact]
     [Trait("Size", "Small")]
     public void IsNotRunning_WhenTimeoutException_ReturnsFalse ()
@@ -26,7 +32,7 @@ public sealed class DaemonProbeExceptionClassifierTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void IsNotRunning_WhenSocketException_ReturnsTrue ()
+    public void IsNotRunning_WhenConnectionIsRefused_ReturnsTrue ()
     {
         var result = DaemonProbeExceptionClassifier.IsNotRunning(
             new SocketException((int)SocketError.ConnectionRefused));
@@ -36,11 +42,32 @@ public sealed class DaemonProbeExceptionClassifierTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void IsNotRunning_WhenSessionTokenInvalidResponse_ReturnsTrue ()
+    public void IsNotRunning_WhenSocketFailureDoesNotProveEndpointAbsence_ReturnsFalse ()
     {
         var result = DaemonProbeExceptionClassifier.IsNotRunning(
-            new DaemonPingResponseException("token invalid", IpcSessionErrorCodes.SessionTokenInvalid));
+            new SocketException((int)SocketError.ConnectionReset));
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IsNotRunning_WhenDaemonSessionMetadataIsUnavailable_ReturnsTrue ()
+    {
+        var result = DaemonProbeExceptionClassifier.IsNotRunning(
+            new DaemonSessionNotAvailableException("Daemon session is not available."));
 
         Assert.True(result);
+    }
+
+    [Theory]
+    [MemberData(nameof(SessionAuthenticationErrorCodes))]
+    [Trait("Size", "Small")]
+    public void IsNotRunning_WhenSessionAuthenticationIsRejected_ReturnsFalse (UcliCode errorCode)
+    {
+        var result = DaemonProbeExceptionClassifier.IsNotRunning(
+            new DaemonPingResponseException("session authentication rejected", errorCode));
+
+        Assert.False(result);
     }
 }

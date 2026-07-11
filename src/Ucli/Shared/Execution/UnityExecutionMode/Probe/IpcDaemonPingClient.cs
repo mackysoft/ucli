@@ -1,3 +1,4 @@
+using System.Runtime.ExceptionServices;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
@@ -134,11 +135,21 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
         catch (DaemonPingResponseException exception) when (
             exception.ErrorCode == IpcSessionErrorCodes.SessionTokenInvalid)
         {
-            var refreshedSessionConnection = await ResolveSessionConnectionWithinDeadlineAsync(
-                    unityProject,
-                    deadline,
-                    cancellationToken)
-                .ConfigureAwait(false);
+            DaemonSessionConnection refreshedSessionConnection;
+            try
+            {
+                refreshedSessionConnection = await ResolveSessionConnectionWithinDeadlineAsync(
+                        unityProject,
+                        deadline,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (DaemonSessionNotAvailableException)
+            {
+                ExceptionDispatchInfo.Capture(exception).Throw();
+                throw;
+            }
+
             if (Equals(refreshedSessionConnection, sessionConnection))
             {
                 throw;
@@ -234,9 +245,7 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
         {
             if (sessionConnectionResult.IsSessionNotAvailable)
             {
-                throw new DaemonPingResponseException(
-                    "Daemon session is required.",
-                    IpcSessionErrorCodes.SessionTokenRequired);
+                throw new DaemonSessionNotAvailableException(sessionConnectionResult.Error!.Message);
             }
 
             throw new DaemonPingResponseException(

@@ -5,20 +5,17 @@ namespace MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 /// <summary> Classifies daemon probe exceptions by IPC transport meaning. </summary>
 internal static class DaemonProbeExceptionClassifier
 {
-    /// <summary> Determines whether one exception means daemon endpoint is not reachable. </summary>
+    /// <summary> Determines whether one probe exception permits treating the daemon as not running before a response is received. </summary>
     /// <param name="exception"> The exception to classify. </param>
-    /// <returns> <see langword="true" /> when endpoint is treated as not running; otherwise <see langword="false" />. </returns>
+    /// <returns> <see langword="true" /> for missing local session metadata or direct endpoint absence; otherwise <see langword="false" />. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="exception" /> is <see langword="null" />. </exception>
     public static bool IsNotRunning (Exception exception)
     {
         ArgumentNullException.ThrowIfNull(exception);
 
-        if (exception is DaemonPingResponseException pingResponseException)
-        {
-            return IsSessionAuthenticationRejected(pingResponseException.ErrorCode);
-        }
-
-        return exception is SocketException;
+        return exception is DaemonSessionNotAvailableException
+            || (exception is SocketException socketException
+            && DaemonEndpointAbsenceClassifier.IsDirectEndpointAbsence(socketException));
     }
 
     /// <summary> Determines whether one daemon error code indicates session authentication rejection. </summary>

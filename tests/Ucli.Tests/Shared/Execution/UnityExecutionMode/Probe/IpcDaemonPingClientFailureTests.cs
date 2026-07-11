@@ -55,10 +55,49 @@ public sealed class IpcDaemonPingClientFailureTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Ping_WhenSessionIsNotAvailable_ThrowsDaemonPingResponseExceptionWithSessionTokenRequired ()
+    public async Task Ping_WhenSessionIsNotAvailable_ThrowsDaemonSessionNotAvailableException ()
     {
         var unityIpcClient = new UnexpectedIpcTransportClient("Missing daemon session must stop before sending IPC requests.");
         var sessionConnectionProvider = new StaticDaemonSessionConnectionProvider(DaemonSessionConnectionResolutionResult.SessionNotAvailable());
+        var pingClient = new IpcDaemonPingClient(
+            unityIpcClient,
+            sessionConnectionProvider,
+            TimeProvider.System);
+
+        var exception = await Assert.ThrowsAsync<DaemonSessionNotAvailableException>(async () =>
+        {
+            await TestAwaiter.WaitAsync(
+                pingClient.PingAsync(
+                    CreateFingerprintMatchedProject(),
+                    DefaultTimeout,
+                    cancellationToken: CancellationToken.None).AsTask(),
+                "Missing session token ping result",
+                AsyncWaitTimeout);
+        });
+
+        Assert.Equal(DaemonSessionConnectionResolutionResult.SessionNotAvailableMessage, exception.Message);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Ping_WhenRejectedTokenRefreshFindsNoSession_PreservesReachableDaemonResponseFailure ()
+    {
+        var unityIpcClient = CreateSuccessfulPingTransportClient();
+        unityIpcClient.EnqueueResponse(request => CreateResponse(
+            request,
+            IpcProtocol.StatusError,
+            [
+                new IpcError(
+                    IpcSessionErrorCodes.SessionTokenInvalid,
+                    "The session token was replaced.",
+                    OpId: null),
+            ]));
+        var firstConnection = new DaemonSessionConnection(
+            "first-token",
+            new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-first-session.sock"));
+        var sessionConnectionProvider = new QueuedDaemonSessionConnectionProvider(
+            DaemonSessionConnectionResolutionResult.Success(firstConnection),
+            DaemonSessionConnectionResolutionResult.SessionNotAvailable());
         var pingClient = new IpcDaemonPingClient(
             unityIpcClient,
             sessionConnectionProvider,
@@ -71,11 +110,12 @@ public sealed class IpcDaemonPingClientFailureTests
                     CreateFingerprintMatchedProject(),
                     DefaultTimeout,
                     cancellationToken: CancellationToken.None).AsTask(),
-                "Missing session token ping result",
+                "Rejected token with unavailable refreshed session",
                 AsyncWaitTimeout);
         });
 
-        Assert.Equal(IpcSessionErrorCodes.SessionTokenRequired, exception.ErrorCode!.Value);
+        Assert.Equal(IpcSessionErrorCodes.SessionTokenInvalid, exception.ErrorCode);
+        Assert.Single(unityIpcClient.Requests);
     }
 
     [Theory]
