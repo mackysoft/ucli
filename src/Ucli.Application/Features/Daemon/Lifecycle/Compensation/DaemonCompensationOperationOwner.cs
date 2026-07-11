@@ -204,7 +204,7 @@ internal sealed class DaemonCompensationOperationOwner
         }
 
         var cancellationRequestTask = waitResult == TaskWaitResult.TimedOut
-            ? RequestCancellationAsync(ownedCompensation.CancellationTokenSource)
+            ? ownedCompensation.CancellationTokenSource.CancelAsync()
             : RequestCancellationAtDeadlineAsync(
                 operationTask,
                 deadline,
@@ -322,20 +322,6 @@ internal sealed class DaemonCompensationOperationOwner
             : TaskWaitResult.TimedOut;
     }
 
-    private static Task RequestCancellationAsync (CancellationTokenSource cancellationTokenSource)
-    {
-        return Task.Run(async () =>
-        {
-            try
-            {
-                await cancellationTokenSource.CancelAsync().ConfigureAwait(false);
-            }
-            catch (ObjectDisposedException)
-            {
-            }
-        });
-    }
-
     private static async Task RequestCancellationAtDeadlineAsync (
         Task operationTask,
         ExecutionDeadline deadline,
@@ -348,7 +334,7 @@ internal sealed class DaemonCompensationOperationOwner
 
         if (!deadline.TryGetRemainingTimeout(out var remainingTimeout))
         {
-            await RequestCancellationAsync(cancellationTokenSource).ConfigureAwait(false);
+            await cancellationTokenSource.CancelAsync().ConfigureAwait(false);
             return;
         }
 
@@ -364,7 +350,7 @@ internal sealed class DaemonCompensationOperationOwner
             return;
         }
 
-        await RequestCancellationAsync(cancellationTokenSource).ConfigureAwait(false);
+        await cancellationTokenSource.CancelAsync().ConfigureAwait(false);
     }
 
     private static OwnedOperationKey CreateOperationKey (

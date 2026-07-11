@@ -68,7 +68,7 @@ internal static class ExecutionDeadlineOperation
             if (!ReferenceEquals(completedTask, operationTask)
                 || cancellationToken.IsCancellationRequested)
             {
-                var cancellationRequestTask = RequestCancellationAsync(operationCancellationTokenSource);
+                var cancellationRequestTask = operationCancellationTokenSource.CancelAsync();
                 disposeOperationCancellationTokenSource = false;
                 ObserveAndDisposeAfterCompletion(
                     operationTask,
@@ -85,7 +85,7 @@ internal static class ExecutionDeadlineOperation
             }
             catch (Exception) when (cancellationToken.IsCancellationRequested)
             {
-                var cancellationRequestTask = RequestCancellationAsync(operationCancellationTokenSource);
+                var cancellationRequestTask = operationCancellationTokenSource.CancelAsync();
                 disposeOperationCancellationTokenSource = false;
                 ObserveAndDisposeAfterCompletion(
                     operationTask,
@@ -134,19 +134,5 @@ internal static class ExecutionDeadlineOperation
             CancellationToken.None,
             TaskContinuationOptions.ExecuteSynchronously,
             TaskScheduler.Default);
-    }
-
-    private static Task RequestCancellationAsync (CancellationTokenSource cancellationTokenSource)
-    {
-        return Task.Run(() =>
-        {
-            try
-            {
-                cancellationTokenSource.Cancel();
-            }
-            catch (ObjectDisposedException)
-            {
-            }
-        });
     }
 }

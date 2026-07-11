@@ -320,6 +320,7 @@ public sealed class DaemonCompensationOperationOwnerTests
             TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseCallback = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
+        var operationCancellationToken = CancellationToken.None;
         var executionTask = owner.ExecuteAsync(
                 context,
                 DaemonOperationLane.LifecycleCompensation,
@@ -329,6 +330,7 @@ public sealed class DaemonCompensationOperationOwnerTests
                 "Timed out while callback compensation was running.",
                 async (_, ownedCancellationToken) =>
                 {
+                    operationCancellationToken = ownedCancellationToken;
                     using var registration = ownedCancellationToken.Register(() =>
                     {
                         callbackStarted.TrySetResult();
@@ -352,6 +354,7 @@ public sealed class DaemonCompensationOperationOwnerTests
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
+        Assert.True(operationCancellationToken.IsCancellationRequested);
         await TestAwaiter.WaitAsync(
             callbackStarted.Task,
             "Blocking cancellation callback start",

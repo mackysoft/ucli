@@ -58,15 +58,17 @@ public sealed class ExecutionDeadlineOperationTests
         var cancellationCallbackCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var allowCancellationCallbackCompletion = new ManualResetEventSlim();
         var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(1), timeProvider);
+        var operationCancellationToken = CancellationToken.None;
 
         var executionTask = ExecutionDeadlineOperation.ExecuteAsync<string>(
                 deadline,
                 CancellationToken.None,
                 "Deadline elapsed before operation.",
                 "Deadline elapsed during operation.",
-                operationCancellationToken =>
+                cancellationToken =>
                 {
-                    _ = operationCancellationToken.Register(() =>
+                    operationCancellationToken = cancellationToken;
+                    _ = cancellationToken.Register(() =>
                     {
                         cancellationCallbackEntered.TrySetResult();
                         allowCancellationCallbackCompletion.Wait();
@@ -87,6 +89,7 @@ public sealed class ExecutionDeadlineOperationTests
 
             Assert.False(result.IsSuccess);
             Assert.Equal(ExecutionErrorKind.Timeout, result.Error?.Kind);
+            Assert.True(operationCancellationToken.IsCancellationRequested);
         }
         finally
         {
