@@ -239,7 +239,8 @@ public static class UcliApplicationServiceCollectionExtensions
 
     private static IServiceCollection AddUcliApplicationScreenshotServices (this IServiceCollection services)
     {
-        services.AddSingleton<IScreenshotCaptureIdFactory, ScreenshotCaptureIdFactory>();
+        services.AddSingleton<IScreenshotCaptureIdFactory>(_ =>
+            new ScreenshotCaptureIdFactory(TimeProvider.System));
         services.AddSingleton<IScreenshotCaptureService, ScreenshotCaptureService>();
         return services;
     }
