@@ -26,7 +26,7 @@ public sealed class TestRunServiceDaemonExecutionTests
                 new UnityExecutionModeDecision(UnityExecutionMode.Auto, true, UnityExecutionTarget.Daemon, TimeSpan.FromSeconds(30)))),
             artifactsService: new StubTestRunArtifactsService(
                 prepare: _ => ArtifactsPreparationResult.Success(CreateArtifactsSession()),
-                complete: (_, _) => ArtifactsCompletionResult.Success()),
+                complete: (_, _, _) => ArtifactsCompletionResult.Success()),
             unityTestExecutor: unityTestExecutor,
             resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))),
             daemonTestRunClient: daemonTestRunClient);
@@ -55,7 +55,7 @@ public sealed class TestRunServiceDaemonExecutionTests
                 new UnityExecutionModeDecision(UnityExecutionMode.Auto, true, UnityExecutionTarget.Daemon, TimeSpan.FromSeconds(30)))),
             artifactsService: new StubTestRunArtifactsService(
                 prepare: _ => ArtifactsPreparationResult.Success(CreateArtifactsSession()),
-                complete: (_, _) => ArtifactsCompletionResult.Success()),
+                complete: (_, _, _) => ArtifactsCompletionResult.Success()),
             unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) =>
                 ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
             resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))),
@@ -86,7 +86,7 @@ public sealed class TestRunServiceDaemonExecutionTests
                 new UnityExecutionModeDecision(UnityExecutionMode.Auto, true, UnityExecutionTarget.Daemon, TimeSpan.FromSeconds(30)))),
             artifactsService: new StubTestRunArtifactsService(
                 prepare: _ => ArtifactsPreparationResult.Success(CreateArtifactsSession()),
-                complete: (_, _) => ArtifactsCompletionResult.Success()),
+                complete: (_, _, _) => ArtifactsCompletionResult.Success()),
             unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) =>
                 ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
             resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))),
@@ -112,7 +112,7 @@ public sealed class TestRunServiceDaemonExecutionTests
                 new UnityExecutionModeDecision(UnityExecutionMode.Auto, true, UnityExecutionTarget.Daemon, TimeSpan.FromSeconds(30)))),
             artifactsService: new StubTestRunArtifactsService(
                 prepare: _ => ArtifactsPreparationResult.Success(CreateArtifactsSession()),
-                complete: (_, _) => ArtifactsCompletionResult.Success()),
+                complete: (_, _, _) => ArtifactsCompletionResult.Success()),
             unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) =>
                 ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
             resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))),
@@ -147,7 +147,7 @@ public sealed class TestRunServiceDaemonExecutionTests
                 new UnityExecutionModeDecision(UnityExecutionMode.Auto, true, UnityExecutionTarget.Daemon, TimeSpan.FromSeconds(30)))),
             artifactsService: new StubTestRunArtifactsService(
                 prepare: _ => ArtifactsPreparationResult.Success(CreateArtifactsSession()),
-                complete: (_, _) => ArtifactsCompletionResult.Success()),
+                complete: (_, _, _) => ArtifactsCompletionResult.Success()),
             unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) =>
                 ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
             resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))),
@@ -178,7 +178,7 @@ public sealed class TestRunServiceDaemonExecutionTests
                 new UnityExecutionModeDecision(UnityExecutionMode.Auto, true, UnityExecutionTarget.Daemon, TimeSpan.FromSeconds(30)))),
             artifactsService: new StubTestRunArtifactsService(
                 prepare: _ => ArtifactsPreparationResult.Success(CreateArtifactsSession()),
-                complete: (_, _) => ArtifactsCompletionResult.Success()),
+                complete: (_, _, _) => ArtifactsCompletionResult.Success()),
             unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) =>
                 ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
             resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))),
@@ -209,7 +209,7 @@ public sealed class TestRunServiceDaemonExecutionTests
                 new UnityExecutionModeDecision(UnityExecutionMode.Auto, true, UnityExecutionTarget.Daemon, TimeSpan.FromSeconds(30)))),
             artifactsService: new StubTestRunArtifactsService(
                 prepare: _ => ArtifactsPreparationResult.Success(CreateArtifactsSession()),
-                complete: (_, _) => ArtifactsCompletionResult.Success()),
+                complete: (_, _, _) => ArtifactsCompletionResult.Success()),
             unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) =>
                 ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
             resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))),
@@ -240,7 +240,7 @@ public sealed class TestRunServiceDaemonExecutionTests
                 new UnityExecutionModeDecision(UnityExecutionMode.Auto, true, UnityExecutionTarget.Daemon, TimeSpan.FromSeconds(30)))),
             artifactsService: new StubTestRunArtifactsService(
                 prepare: _ => ArtifactsPreparationResult.Success(session),
-                complete: (_, _) => ArtifactsCompletionResult.Failure(ExecutionError.InternalError("completion failed"))),
+                complete: (_, _, _) => ArtifactsCompletionResult.Failure(ExecutionError.InternalError("completion failed"))),
             unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) =>
                 ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
             resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))),
@@ -271,7 +271,7 @@ public sealed class TestRunServiceDaemonExecutionTests
                 new UnityExecutionModeDecision(UnityExecutionMode.Auto, true, UnityExecutionTarget.Daemon, TimeSpan.FromSeconds(30)))),
             artifactsService: new StubTestRunArtifactsService(
                 prepare: _ => ArtifactsPreparationResult.Success(CreateArtifactsSession()),
-                complete: (_, _) => ArtifactsCompletionResult.Success()),
+                complete: (_, _, _) => ArtifactsCompletionResult.Success()),
             unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) =>
                 ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
             resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))),

@@ -27,7 +27,7 @@ public sealed class TestRunServiceResultProjectionTests
                 new UnityExecutionModeDecision(UnityExecutionMode.Oneshot, false, UnityExecutionTarget.Oneshot, TimeSpan.FromSeconds(30)))),
             artifactsService: new StubTestRunArtifactsService(
                 prepare: _ => ArtifactsPreparationResult.Success(session),
-                complete: (_, _) => ArtifactsCompletionResult.Success()),
+                complete: (_, _, _) => ArtifactsCompletionResult.Success()),
             unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
             resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(hasFailedTests))));
 
@@ -63,7 +63,7 @@ public sealed class TestRunServiceResultProjectionTests
                 new UnityExecutionModeDecision(UnityExecutionMode.Oneshot, false, UnityExecutionTarget.Oneshot, TimeSpan.FromSeconds(30)))),
             artifactsService: new StubTestRunArtifactsService(
                 prepare: _ => ArtifactsPreparationResult.Success(session),
-                complete: (_, _) => ArtifactsCompletionResult.Success()),
+                complete: (_, _, _) => ArtifactsCompletionResult.Success()),
             unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
             resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(
                 hasFailedTests: false,

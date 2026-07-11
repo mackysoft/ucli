@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -66,12 +67,98 @@ public sealed class TestRunArtifactsServiceTests
         var before = ReadMetaJson(session.Paths.MetaJsonPath);
         timeProvider.Advance(TimeSpan.FromMilliseconds(20));
 
-        var completeResult = await service.CompleteAsync(configuration, session);
+        var completeResult = await service.CompleteAsync(configuration, session, UnityExecutionTarget.Oneshot);
 
         var after = ReadMetaJson(session.Paths.MetaJsonPath);
         Assert.True(completeResult.IsSuccess);
         Assert.Equal(before.StartedAt, after.StartedAt);
         Assert.True(after.FinishedAt > before.FinishedAt);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Complete_WithOneshotTarget_DeletesInterruptedEditorLogExport ()
+    {
+        using var scope = TestDirectories.CreateTempScope("test-run-artifacts", "cleanup-editor-log-export");
+        var configuration = CreateResolvedConfiguration(scope);
+        var service = new TestRunArtifactsService(new TestRunMetaStore());
+        var prepareResult = await service.PrepareAsync(configuration);
+        var session = Assert.IsType<ArtifactsSession>(prepareResult.Session);
+        var interruptedExportPath = CreateOwnedTemporaryPath(session.Paths.EditorLogPath, int.MaxValue);
+        var unrelatedPath = session.Paths.EditorLogPath + ".tmp.keep";
+        File.WriteAllText(interruptedExportPath, "partial");
+        File.WriteAllText(unrelatedPath, "keep");
+
+        var completeResult = await service.CompleteAsync(configuration, session, UnityExecutionTarget.Oneshot);
+
+        Assert.True(completeResult.IsSuccess);
+        Assert.False(File.Exists(interruptedExportPath));
+        Assert.True(File.Exists(unrelatedPath));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Complete_WithDaemonTarget_PreservesEditorLogExport ()
+    {
+        using var scope = TestDirectories.CreateTempScope("test-run-artifacts", "preserve-daemon-editor-log-export");
+        var configuration = CreateResolvedConfiguration(scope);
+        var service = new TestRunArtifactsService(new TestRunMetaStore());
+        var prepareResult = await service.PrepareAsync(configuration);
+        var session = Assert.IsType<ArtifactsSession>(prepareResult.Session);
+        var interruptedExportPath = CreateOwnedTemporaryPath(session.Paths.EditorLogPath, int.MaxValue);
+        File.WriteAllText(interruptedExportPath, "partial");
+
+        var completeResult = await service.CompleteAsync(configuration, session, UnityExecutionTarget.Daemon);
+
+        Assert.True(completeResult.IsSuccess);
+        Assert.True(File.Exists(interruptedExportPath));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Complete_WithOneshotTargetAndActiveEditorLogExport_PreservesExport ()
+    {
+        using var scope = TestDirectories.CreateTempScope("test-run-artifacts", "preserve-active-editor-log-export");
+        var configuration = CreateResolvedConfiguration(scope);
+        var service = new TestRunArtifactsService(new TestRunMetaStore());
+        var prepareResult = await service.PrepareAsync(configuration);
+        var session = Assert.IsType<ArtifactsSession>(prepareResult.Session);
+        using var currentProcess = Process.GetCurrentProcess();
+        var activeExportPath = CreateOwnedTemporaryPath(session.Paths.EditorLogPath, currentProcess.Id);
+        File.WriteAllText(activeExportPath, "in progress");
+
+        var completeResult = await service.CompleteAsync(configuration, session, UnityExecutionTarget.Oneshot);
+
+        Assert.True(completeResult.IsSuccess);
+        Assert.True(File.Exists(activeExportPath));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Complete_WithOneshotTargetAndMissingOwnerProcessId_PreservesExport ()
+    {
+        using var scope = TestDirectories.CreateTempScope("test-run-artifacts", "preserve-unowned-editor-log-export");
+        var configuration = CreateResolvedConfiguration(scope);
+        var service = new TestRunArtifactsService(new TestRunMetaStore());
+        var prepareResult = await service.PrepareAsync(configuration);
+        var session = Assert.IsType<ArtifactsSession>(prepareResult.Session);
+        var unownedExportPath = session.Paths.EditorLogPath + ".tmp." + Guid.NewGuid().ToString("N");
+        File.WriteAllText(unownedExportPath, "unknown owner");
+
+        var completeResult = await service.CompleteAsync(configuration, session, UnityExecutionTarget.Oneshot);
+
+        Assert.True(completeResult.IsSuccess);
+        Assert.True(File.Exists(unownedExportPath));
+    }
+
+    private static string CreateOwnedTemporaryPath (string destinationPath, int processId)
+    {
+        return string.Concat(
+            destinationPath,
+            ".tmp.",
+            processId.ToString(CultureInfo.InvariantCulture),
+            ".",
+            Guid.NewGuid().ToString("N"));
     }
 
     private static ResolvedTestRunConfiguration CreateResolvedConfiguration (TestDirectoryScope scope)

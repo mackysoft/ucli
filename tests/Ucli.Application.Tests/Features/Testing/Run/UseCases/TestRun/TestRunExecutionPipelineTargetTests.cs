@@ -33,7 +33,11 @@ public sealed class TestRunExecutionPipelineTargetTests
         var pipeline = new TestRunExecutionPipeline(
             new StubTestRunArtifactsService(
                 prepare: _ => ArtifactsPreparationResult.Success(session),
-                complete: (_, _) => ArtifactsCompletionResult.Success()),
+                complete: (_, _, completionTarget) =>
+                {
+                    Assert.Equal(target, completionTarget);
+                    return ArtifactsCompletionResult.Success();
+                }),
             requestExecutor,
             new StubUnityResultsConverter(_ =>
                 ValueTask.FromResult(UnityResultsConversionResult.Success(hasFailedTests: false))),

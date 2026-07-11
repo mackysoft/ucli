@@ -67,7 +67,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     $"Editor log offset is out of range. start={startOffset}, end={endOffset}, length={sourceStream.Length}.");
             }
 
-            var temporaryPath = destinationPath + $".tmp.{Guid.NewGuid():N}";
+            var temporaryPath = ProcessOwnedTemporaryFilePath.Create(destinationPath);
             try
             {
                 var counter = new BuildLogLineCounter();

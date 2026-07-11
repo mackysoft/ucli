@@ -116,6 +116,7 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
         var completionResult = await CompleteArtifactsSafelyAsync(
             configuration,
             artifactsSession,
+            context.Target,
             CancellationToken.None).ConfigureAwait(false);
         if (conversionUnexpectedError is not null)
         {
@@ -171,17 +172,19 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
     /// <summary> Completes artifacts session and maps unexpected exceptions into internal errors. </summary>
     /// <param name="configuration"> The resolved run configuration. </param>
     /// <param name="session"> The prepared artifacts session. </param>
+    /// <param name="target"> The execution target held fixed for this test run. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
     /// <returns> A task that resolves to the artifact completion result. </returns>
     private async ValueTask<ArtifactsCompletionResult> CompleteArtifactsSafelyAsync (
         ResolvedTestRunConfiguration configuration,
         ArtifactsSession session,
+        UnityExecutionTarget target,
         CancellationToken cancellationToken)
     {
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return await artifactsService.CompleteAsync(configuration, session, cancellationToken).ConfigureAwait(false);
+            return await artifactsService.CompleteAsync(configuration, session, target, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

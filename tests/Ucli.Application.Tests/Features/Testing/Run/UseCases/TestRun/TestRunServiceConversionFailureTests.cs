@@ -23,7 +23,7 @@ public sealed class TestRunServiceConversionFailureTests
                 new UnityExecutionModeDecision(UnityExecutionMode.Oneshot, false, UnityExecutionTarget.Oneshot, TimeSpan.FromSeconds(30)))),
             artifactsService: new StubTestRunArtifactsService(
                 prepare: _ => ArtifactsPreparationResult.Success(session),
-                complete: (_, _) => ArtifactsCompletionResult.Failure(ExecutionError.InternalError("completion failed"))),
+                complete: (_, _, _) => ArtifactsCompletionResult.Failure(ExecutionError.InternalError("completion failed"))),
             unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) =>
                 ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
             resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Failure(
@@ -52,7 +52,7 @@ public sealed class TestRunServiceConversionFailureTests
                 new UnityExecutionModeDecision(UnityExecutionMode.Oneshot, false, UnityExecutionTarget.Oneshot, TimeSpan.FromSeconds(30)))),
             artifactsService: new StubTestRunArtifactsService(
                 prepare: _ => ArtifactsPreparationResult.Success(session),
-                complete: (_, _) => ArtifactsCompletionResult.Failure(ExecutionError.InternalError("completion failed"))),
+                complete: (_, _, _) => ArtifactsCompletionResult.Failure(ExecutionError.InternalError("completion failed"))),
             unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) =>
                 ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
             resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(hasFailedTests: true))));
@@ -78,7 +78,7 @@ public sealed class TestRunServiceConversionFailureTests
                 new UnityExecutionModeDecision(UnityExecutionMode.Oneshot, false, UnityExecutionTarget.Oneshot, TimeSpan.FromSeconds(30)))),
             artifactsService: new StubTestRunArtifactsService(
                 prepare: _ => ArtifactsPreparationResult.Success(session),
-                complete: (_, _) => ArtifactsCompletionResult.Success()),
+                complete: (_, _, _) => ArtifactsCompletionResult.Success()),
             unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
             resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Failure(
                 UnityResultsConversionFailureKind.OutputWriteFailed,
@@ -106,7 +106,7 @@ public sealed class TestRunServiceConversionFailureTests
                 new UnityExecutionModeDecision(UnityExecutionMode.Oneshot, false, UnityExecutionTarget.Oneshot, TimeSpan.FromSeconds(30)))),
             artifactsService: new StubTestRunArtifactsService(
                 prepare: _ => ArtifactsPreparationResult.Success(session),
-                complete: (_, _) => ArtifactsCompletionResult.Success()),
+                complete: (_, _, _) => ArtifactsCompletionResult.Success()),
             unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
             resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Failure(
                 UnityResultsConversionFailureKind.ResultsXmlReadFailed,
@@ -134,7 +134,7 @@ public sealed class TestRunServiceConversionFailureTests
                 new UnityExecutionModeDecision(UnityExecutionMode.Oneshot, false, UnityExecutionTarget.Oneshot, TimeSpan.FromSeconds(30)))),
             artifactsService: new StubTestRunArtifactsService(
                 prepare: _ => ArtifactsPreparationResult.Success(session),
-                complete: (_, _) => ArtifactsCompletionResult.Success()),
+                complete: (_, _, _) => ArtifactsCompletionResult.Success()),
             unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
             resultsConverter: new StubUnityResultsConverter(_ => throw new InvalidOperationException("boom")));
 
@@ -160,7 +160,7 @@ public sealed class TestRunServiceConversionFailureTests
                 new UnityExecutionModeDecision(UnityExecutionMode.Oneshot, false, UnityExecutionTarget.Oneshot, TimeSpan.FromSeconds(30)))),
             artifactsService: new StubTestRunArtifactsService(
                 prepare: _ => ArtifactsPreparationResult.Success(session),
-                complete: (_, _) => ArtifactsCompletionResult.Failure(ExecutionError.InternalError("completion failed"))),
+                complete: (_, _, _) => ArtifactsCompletionResult.Failure(ExecutionError.InternalError("completion failed"))),
             unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
             resultsConverter: new StubUnityResultsConverter(_ => throw new InvalidOperationException("boom")));
 

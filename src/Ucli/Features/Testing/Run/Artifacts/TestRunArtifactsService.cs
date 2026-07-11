@@ -1,8 +1,11 @@
+using System.ComponentModel;
 using System.Globalization;
 using System.Security.Cryptography;
 using MackySoft.Ucli.Application.Features.Testing.Run.Artifacts;
 using MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
+using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Infrastructure.Execution;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
 
@@ -124,14 +127,16 @@ internal sealed class TestRunArtifactsService : ITestRunArtifactsService
             SummaryJsonPath: Path.Combine(artifactsDir, "summary.json"));
     }
 
-    /// <summary> Completes one run-scoped artifacts session by updating completion metadata. </summary>
+    /// <summary> Completes one run-scoped artifact session by attempting to remove interrupted oneshot editor-log exports and updating completion metadata. </summary>
     /// <param name="configuration"> The resolved test-run configuration. </param>
     /// <param name="session"> The prepared artifacts session. </param>
+    /// <param name="target"> The execution target held fixed for this test run; <see cref="UnityExecutionTarget.Oneshot" /> enables interrupted editor-log export cleanup. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
     /// <returns> A task that resolves to the completion result. </returns>
     public async ValueTask<ArtifactsCompletionResult> CompleteAsync (
         ResolvedTestRunConfiguration configuration,
         ArtifactsSession session,
+        UnityExecutionTarget target,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -140,6 +145,11 @@ internal sealed class TestRunArtifactsService : ITestRunArtifactsService
 
         try
         {
+            if (target == UnityExecutionTarget.Oneshot)
+            {
+                TryDeleteInterruptedEditorLogExports(session.Paths);
+            }
+
             await metaStore.WriteAsync(
                 configuration,
                 session,
@@ -156,6 +166,51 @@ internal sealed class TestRunArtifactsService : ITestRunArtifactsService
         {
             return ArtifactsCompletionResult.Failure(ExecutionError.InternalError(
                 $"Failed to update meta.json: {session.Paths.MetaJsonPath}. {exception.Message}"));
+        }
+    }
+
+    /// <summary> Deletes run-scoped editor-log exporter temporary files on a best-effort basis. </summary>
+    /// <param name="artifactPaths"> The run-scoped artifact paths that bound the deletion. </param>
+    private static void TryDeleteInterruptedEditorLogExports (ArtifactPaths artifactPaths)
+    {
+        var temporaryFileNamePrefix = Path.GetFileName(artifactPaths.EditorLogPath) + ".tmp.";
+        // Best-effort cleanup must not replace the primary test-run result.
+        try
+        {
+            foreach (var path in Directory.EnumerateFiles(
+                artifactPaths.ArtifactsDir,
+                temporaryFileNamePrefix + "*",
+                SearchOption.TopDirectoryOnly))
+            {
+                if (!ProcessOwnedTemporaryFilePath.TryGetOwnerProcessId(
+                    artifactPaths.EditorLogPath,
+                    path,
+                    out var processId)
+                    || !IsOwnerProcessKnownToHaveExited(processId))
+                {
+                    continue;
+                }
+
+                File.Delete(path);
+            }
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+        }
+    }
+
+    /// <summary> Gets whether the owner is known to have exited, preserving the file when process state cannot be queried. </summary>
+    /// <param name="processId"> The owner process identifier encoded in the temporary file path. </param>
+    /// <returns> <see langword="true" /> only when the owner process is confirmed not to be alive. </returns>
+    private static bool IsOwnerProcessKnownToHaveExited (int processId)
+    {
+        try
+        {
+            return !ProcessLivenessProbe.IsAlive(processId);
+        }
+        catch (Exception exception) when (exception is Win32Exception or NotSupportedException)
+        {
+            return false;
         }
     }
 
