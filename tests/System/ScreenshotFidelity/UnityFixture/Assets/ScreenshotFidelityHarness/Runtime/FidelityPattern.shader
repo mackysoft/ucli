@@ -112,6 +112,46 @@ Shader "Hidden/uCLI/ScreenshotFidelityPattern"
             }
             ENDHLSL
         }
+
+        Pass
+        {
+            Name "DepthOnly"
+            Tags { "LightMode" = "DepthOnly" }
+
+            Cull Off
+            ZWrite On
+            ColorMask 0
+
+            HLSLPROGRAM
+            #pragma target 3.5
+            #pragma vertex DepthOnlyVertex
+            #pragma fragment DepthOnlyFragment
+
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+
+            struct DepthOnlyAttributes
+            {
+                float4 positionOS : POSITION;
+            };
+
+            struct DepthOnlyVaryings
+            {
+                float4 positionCS : SV_POSITION;
+            };
+
+            DepthOnlyVaryings DepthOnlyVertex (DepthOnlyAttributes input)
+            {
+                DepthOnlyVaryings output;
+                output.positionCS = TransformObjectToHClip(input.positionOS.xyz);
+                return output;
+            }
+
+            float4 DepthOnlyFragment () : SV_Target
+            {
+                return 0.0;
+            }
+            ENDHLSL
+        }
     }
 
     Fallback Off
