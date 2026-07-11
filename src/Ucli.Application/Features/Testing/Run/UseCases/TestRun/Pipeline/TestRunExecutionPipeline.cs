@@ -13,6 +13,9 @@ namespace MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun.Pipel
 /// <summary> Implements one test-run execution pipeline from artifacts preparation to conversion completion. </summary>
 internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
 {
+    private const string RecoverableOneshotIncompleteFrameMessage =
+        "Failed to execute Unity oneshot IPC request. IPC stream ended before a complete frame was read.";
+
     private readonly ITestRunArtifactsService artifactsService;
 
     private readonly IUnityRequestExecutor unityRequestExecutor;
@@ -402,11 +405,9 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
         // Unity Test Runner can close oneshot IPC during post-test domain reload after it has
         // already written complete results. Treat only that exact transport loss as recoverable;
         // all other abnormal exits preserve the primary execution failure.
-        if (!unityExecutionResult.ErrorMessage.StartsWith(
-                "Failed to execute Unity oneshot IPC request.",
-                StringComparison.Ordinal)
-            || !unityExecutionResult.ErrorMessage.Contains(
-                "IPC stream ended before a complete frame was read.",
+        if (!string.Equals(
+                unityExecutionResult.ErrorMessage,
+                RecoverableOneshotIncompleteFrameMessage,
                 StringComparison.Ordinal))
         {
             return false;

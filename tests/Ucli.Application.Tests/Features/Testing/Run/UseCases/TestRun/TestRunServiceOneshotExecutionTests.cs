@@ -112,6 +112,49 @@ public sealed class TestRunServiceOneshotExecutionTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task Execute_WhenOneshotFailureOnlyContainsRecoverableMessage_DoesNotRecover ()
+    {
+        using var scope = TestDirectories.CreateTempScope(
+            "test-run-service",
+            "oneshot-failure-contains-recoverable-message");
+        var configuration = CreateResolvedConfiguration();
+        var session = CreateArtifactsSession(scope.GetPath("artifacts"));
+        var convertCount = 0;
+        const string failureMessage =
+            "Failed to execute Unity oneshot IPC request. IPC stream ended before a complete frame was read. Unity process remained active.";
+
+        var service = CreateService(
+            configurationResolver: new StubTestRunConfigurationResolver(TestRunConfigurationResolutionResult.Success(configuration)),
+            modeDecisionService: new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
+                new UnityExecutionModeDecision(UnityExecutionMode.Auto, false, UnityExecutionTarget.Oneshot, TimeSpan.FromSeconds(30)))),
+            artifactsService: new StubTestRunArtifactsService(
+                prepare: _ => ArtifactsPreparationResult.Success(session),
+                complete: (_, _, _) => ArtifactsCompletionResult.Success()),
+            unityTestExecutor: new StubUnityTestExecutor((_, artifactPaths, _, _) =>
+            {
+                WriteGeneratedTestArtifacts(artifactPaths);
+                return ValueTask.FromResult(UnityTestExecutionResult.Failure(
+                    UnityTestExecutionFailureKind.AbnormalExit,
+                    failureMessage,
+                    UcliCoreErrorCodes.InternalError));
+            }),
+            resultsConverter: new StubUnityResultsConverter(_ =>
+            {
+                convertCount++;
+                return ValueTask.FromResult(UnityResultsConversionResult.Success(hasFailedTests: false));
+            }));
+
+        var result = await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None);
+
+        Assert.Null(result.Result);
+        Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
+        Assert.Equal(failureMessage, result.Message);
+        Assert.Equal(0, convertCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task Execute_WhenOneshotIpcStreamEndsBeforeResultsWereWritten_DoesNotRecoverFromEditorLogPlaceholder ()
     {
         using var scope = TestDirectories.CreateTempScope(

@@ -1,3 +1,4 @@
+using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Testing.Run.Artifacts;
 using MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
 using MackySoft.Ucli.Application.Features.Testing.Run.Execution;
@@ -284,5 +285,53 @@ public sealed class TestRunServiceDaemonExecutionTests
         Assert.Equal(ApplicationOutcome.InfrastructureError, result.Outcome);
         Assert.Equal(TestRunErrorCodes.UnityTestExecutionFailed, result.ErrorCode);
         Assert.Equal("Generated test artifacts are missing.", result.Message);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Execute_WhenDaemonFailureMatchesOneshotRecoveryMessage_DoesNotRecoverFromGeneratedArtifacts ()
+    {
+        using var scope = TestDirectories.CreateTempScope(
+            "test-run-service",
+            "daemon-failure-matches-oneshot-recovery");
+        var configuration = CreateResolvedConfiguration();
+        var session = CreateArtifactsSession(scope.GetPath("artifacts"));
+        var convertCount = 0;
+        const string failureMessage =
+            "Failed to execute Unity oneshot IPC request. IPC stream ended before a complete frame was read.";
+        var daemonTestRunClient = new RecordingDaemonTestRunClient((_, artifactPaths, _, _, _) =>
+        {
+            Directory.CreateDirectory(artifactPaths.ArtifactsDir);
+            File.WriteAllText(artifactPaths.ResultsXmlPath, "<test-run />");
+            File.WriteAllText(artifactPaths.EditorLogPath, string.Empty);
+            return ValueTask.FromResult(UnityTestExecutionResult.Failure(
+                UnityTestExecutionFailureKind.AbnormalExit,
+                failureMessage,
+                UcliCoreErrorCodes.InternalError));
+        });
+
+        var service = CreateService(
+            configurationResolver: new StubTestRunConfigurationResolver(TestRunConfigurationResolutionResult.Success(configuration)),
+            modeDecisionService: new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
+                new UnityExecutionModeDecision(UnityExecutionMode.Auto, true, UnityExecutionTarget.Daemon, TimeSpan.FromSeconds(30)))),
+            artifactsService: new StubTestRunArtifactsService(
+                prepare: _ => ArtifactsPreparationResult.Success(session),
+                complete: (_, _, _) => ArtifactsCompletionResult.Success()),
+            unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) =>
+                ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
+            resultsConverter: new StubUnityResultsConverter(_ =>
+            {
+                convertCount++;
+                return ValueTask.FromResult(UnityResultsConversionResult.Success(hasFailedTests: false));
+            }),
+            daemonTestRunClient: daemonTestRunClient);
+
+        var result = await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None);
+
+        Assert.Null(result.Result);
+        Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
+        Assert.Equal(failureMessage, result.Message);
+        Assert.Equal(0, convertCount);
     }
 }
