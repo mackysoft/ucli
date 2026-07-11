@@ -91,6 +91,7 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.needs_dotnet == 'true' }}
     runs-on: ${{ matrix.runs_on }}
+    timeout-minutes: 30
 
     strategy:
       fail-fast: true
