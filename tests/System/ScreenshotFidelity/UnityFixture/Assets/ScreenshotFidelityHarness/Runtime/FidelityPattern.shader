@@ -17,8 +17,10 @@ Shader "Hidden/uCLI/ScreenshotFidelityPattern"
 
         Pass
         {
+            Tags { "LightMode" = "SRPDefaultUnlit" }
+
             Cull Off
-            ZWrite Off
+            ZWrite On
             ZTest Always
             Blend Off
 
@@ -92,6 +94,10 @@ Shader "Hidden/uCLI/ScreenshotFidelityPattern"
                     if (uv.x >= 0.66 && uv.x <= 0.76)
                         return float4(0.07, 0.18, 0.68, 1.0);
                 }
+
+                // The oracle requires this neutral source patch to become warm after the intentional Volume pass.
+                if (uv.x >= 0.82 && uv.x <= 0.90 && uv.y >= 0.72 && uv.y <= 0.80)
+                    return float4(0.35, 0.35, 0.35, 1.0);
 
                 float3 gradient = float3(
                     0.08 + uv.x * 0.64,

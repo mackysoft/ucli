@@ -202,6 +202,24 @@ private struct FixtureValidity: Codable {
     let minimumColorPatchDeltaE76: Double
 }
 
+private struct RouteValidity: Codable {
+    let isValid: Bool
+    let worldPatternValid: Bool
+    let cameraStackMarkerPresent: Bool
+    let cameraStackMarkerSample: ColorSample
+    let postProcessProbePresent: Bool
+    let postProcessProbeSample: ColorSample
+    let runtimeImguiPresent: Bool
+    let runtimeImguiWhiteSample: ColorSample
+    let runtimeImguiBlackSample: ColorSample
+    let runtimeImguiCyanSample: ColorSample
+    let resolutionMarkerValid: Bool
+    let decodedResolutionWidth: Int?
+    let decodedResolutionHeight: Int?
+    let expectedResolutionWidth: Int
+    let expectedResolutionHeight: Int
+}
+
 private struct WindowMetadata: Codable {
     let windowId: UInt32
     let processId: Int32
@@ -253,6 +271,9 @@ private struct AnalysisResult: Codable {
     let artifactFixtureValidity: FixtureValidity
     let referenceBeforeFixtureValidity: FixtureValidity
     let referenceAfterFixtureValidity: FixtureValidity
+    let artifactRouteValidity: RouteValidity?
+    let referenceBeforeRouteValidity: RouteValidity?
+    let referenceAfterRouteValidity: RouteValidity?
     let referenceStability: ComparisonMetrics
     let artifactFidelity: ComparisonMetrics
     let referenceFullImageStability: FullImageComparisonMetrics?
@@ -267,6 +288,7 @@ private struct SelfCheckResult: Codable {
     let blackFixture: FixtureValidity
     let sceneSentinelLocatorPassed: Bool
     let fullImageComparisonPassed: Bool
+    let gameRouteValidityPassed: Bool
     let checkedAtUtc: String
 }
 
@@ -349,13 +371,13 @@ private let maximumFidelityLuminanceError = 0.03
 private let maximumGrayRampRmsLuminanceError = 0.02
 private let maximumStabilityDeltaE76 = 2.0
 private let maximumStabilityLuminanceError = 0.012
-// These Scene full-image limits were fixed from the documented pre-implementation
+// These full-image limits were fixed from the documented pre-implementation
 // measurement (mean 0.073/255, p95 1/255, max 1/255). Do not tune them from a
 // candidate run of this benchmark.
-private let maximumSceneMeanAbsoluteRgbChannelErrorNormalized = 0.5 / 255.0
-private let maximumScenePercentile95AbsoluteRgbChannelErrorNormalized = 2.0 / 255.0
-private let maximumSceneAbsoluteRgbChannelErrorNormalized = 4.0 / 255.0
-private let minimumSceneOpaquePixelCoverage = 0.999
+private let maximumFullImageMeanAbsoluteRgbChannelErrorNormalized = 0.5 / 255.0
+private let maximumFullImagePercentile95AbsoluteRgbChannelErrorNormalized = 2.0 / 255.0
+private let maximumFullImageAbsoluteRgbChannelErrorNormalized = 4.0 / 255.0
+private let minimumFullImageOpaquePixelCoverage = 0.999
 private let minimumGrayDistinctLevelCount = 12
 private let minimumGrayLuminanceRange = 0.45
 private let minimumColorPatchLuminance = 0.015
@@ -417,10 +439,14 @@ private func runSelfCheck(outputPath: String) throws {
     let blackFixture = validateFixtureSamples(blackSamples)
     let sceneSentinelLocatorPassed = runSceneSentinelLocatorSelfCheck()
     let fullImageComparisonPassed = try runFullImageComparisonSelfCheck()
+    let gameRouteValidityPassed = runGameRouteValiditySelfCheck(
+        validWorldPattern: validFixture,
+        invalidWorldPattern: blackFixture)
     let passed = validFixture.isValid
         && !blackFixture.isValid
         && sceneSentinelLocatorPassed
         && fullImageComparisonPassed
+        && gameRouteValidityPassed
     try writeJson(
         SelfCheckResult(
             passed: passed,
@@ -428,6 +454,7 @@ private func runSelfCheck(outputPath: String) throws {
             blackFixture: blackFixture,
             sceneSentinelLocatorPassed: sceneSentinelLocatorPassed,
             fullImageComparisonPassed: fullImageComparisonPassed,
+            gameRouteValidityPassed: gameRouteValidityPassed,
             checkedAtUtc: iso8601Now()),
         path: outputPath)
     if !passed {
@@ -510,7 +537,7 @@ private func runFullImageComparisonSelfCheck() throws -> Bool {
           abs(boundaryMean - (0.2 / 255.0)) <= epsilon,
           abs(boundaryPercentile95 - (2.0 / 255.0)) <= epsilon,
           abs(boundaryMaximum - (4.0 / 255.0)) <= epsilon,
-          sceneFullImageFailures(
+          fullImageFailures(
               metrics: boundaryMetrics,
               comparisonName: "self-check boundary").isEmpty else {
         return false
@@ -523,7 +550,7 @@ private func runFullImageComparisonSelfCheck() throws -> Bool {
         right: overMean,
         rightRect: rect,
         alphaMaskPolicy: .matchingWindowMasks)
-    guard !sceneFullImageFailures(
+    guard !fullImageFailures(
         metrics: overMeanMetrics,
         comparisonName: "self-check over-mean").isEmpty else {
         return false
@@ -546,10 +573,10 @@ private func runFullImageComparisonSelfCheck() throws -> Bool {
     guard let overPercentileMean = overPercentileMetrics.meanAbsoluteRgbChannelErrorNormalized,
           let overPercentile95 = overPercentileMetrics.percentile95AbsoluteRgbChannelErrorNormalized,
           let overPercentileMaximum = overPercentileMetrics.maximumAbsoluteRgbChannelErrorNormalized,
-          overPercentileMean <= maximumSceneMeanAbsoluteRgbChannelErrorNormalized,
-          overPercentile95 > maximumScenePercentile95AbsoluteRgbChannelErrorNormalized,
-          overPercentileMaximum <= maximumSceneAbsoluteRgbChannelErrorNormalized,
-          !sceneFullImageFailures(
+          overPercentileMean <= maximumFullImageMeanAbsoluteRgbChannelErrorNormalized,
+          overPercentile95 > maximumFullImagePercentile95AbsoluteRgbChannelErrorNormalized,
+          overPercentileMaximum <= maximumFullImageAbsoluteRgbChannelErrorNormalized,
+          !fullImageFailures(
               metrics: overPercentileMetrics,
               comparisonName: "self-check over-p95").isEmpty else {
         return false
@@ -571,10 +598,10 @@ private func runFullImageComparisonSelfCheck() throws -> Bool {
     guard let overMaximumMean = overMaximumMetrics.meanAbsoluteRgbChannelErrorNormalized,
           let overMaximum95 = overMaximumMetrics.percentile95AbsoluteRgbChannelErrorNormalized,
           let overMaximumError = overMaximumMetrics.maximumAbsoluteRgbChannelErrorNormalized,
-          overMaximumMean <= maximumSceneMeanAbsoluteRgbChannelErrorNormalized,
-          overMaximum95 <= maximumScenePercentile95AbsoluteRgbChannelErrorNormalized,
-          overMaximumError > maximumSceneAbsoluteRgbChannelErrorNormalized,
-          !sceneFullImageFailures(
+          overMaximumMean <= maximumFullImageMeanAbsoluteRgbChannelErrorNormalized,
+          overMaximum95 <= maximumFullImagePercentile95AbsoluteRgbChannelErrorNormalized,
+          overMaximumError > maximumFullImageAbsoluteRgbChannelErrorNormalized,
+          !fullImageFailures(
               metrics: overMaximumMetrics,
               comparisonName: "self-check over-maximum").isEmpty else {
         return false
@@ -602,7 +629,7 @@ private func runFullImageComparisonSelfCheck() throws -> Bool {
     guard roundedMaskMetrics.excludedNonOpaquePixelCount == 1,
           roundedMaskMetrics.comparedPixelCount == 9_999,
           roundedMaskMetrics.alphaMaskTopologyValid,
-          sceneFullImageFailures(
+          fullImageFailures(
               metrics: roundedMaskMetrics,
               comparisonName: "self-check rounded mask").isEmpty else {
         return false
@@ -626,7 +653,7 @@ private func runFullImageComparisonSelfCheck() throws -> Bool {
         rightRect: coverageRect,
         alphaMaskPolicy: .opaqueArtifactAndWindowMask)
     guard excessiveMaskMetrics.alphaMaskTopologyValid,
-          !sceneFullImageFailures(
+          !fullImageFailures(
         metrics: excessiveMaskMetrics,
         comparisonName: "self-check excessive mask").isEmpty else {
         return false
@@ -646,7 +673,7 @@ private func runFullImageComparisonSelfCheck() throws -> Bool {
         rightRect: coverageRect,
         alphaMaskPolicy: .opaqueArtifactAndWindowMask)
     guard !interiorMaskMetrics.alphaMaskTopologyValid,
-          !sceneFullImageFailures(
+          !fullImageFailures(
               metrics: interiorMaskMetrics,
               comparisonName: "self-check interior mask").isEmpty else {
         return false
@@ -660,7 +687,7 @@ private func runFullImageComparisonSelfCheck() throws -> Bool {
         alphaMaskPolicy: .matchingWindowMasks)
     guard mismatchedMaskMetrics.alphaMaskTopologyValid,
           !mismatchedMaskMetrics.alphaMasksMatch,
-          !sceneFullImageFailures(
+          !fullImageFailures(
               metrics: mismatchedMaskMetrics,
               comparisonName: "self-check mismatched masks").isEmpty else {
         return false
@@ -675,9 +702,201 @@ private func runFullImageComparisonSelfCheck() throws -> Bool {
         alphaMaskPolicy: .matchingWindowMasks)
     return !mismatchedMetrics.dimensionsMatch
         && mismatchedMetrics.meanAbsoluteRgbChannelErrorNormalized == nil
-        && !sceneFullImageFailures(
+        && !fullImageFailures(
             metrics: mismatchedMetrics,
             comparisonName: "self-check dimensions").isEmpty
+}
+
+private func runGameRouteValiditySelfCheck(
+    validWorldPattern: FixtureValidity,
+    invalidWorldPattern: FixtureValidity) -> Bool {
+    // Both dimensions exceed the former ten-bit ceiling, so the self-check proves
+    // that the complete twelve-bit width and height fields participate in decoding.
+    let image = syntheticGameRouteImage(width: 1_200, height: 1_100)
+    let presentationRect = IntRect(x: 0, y: 0, width: image.width, height: image.height)
+    let valid = evaluateGameRouteValidity(
+        image: image,
+        presentationRect: presentationRect,
+        worldPatternValidity: validWorldPattern)
+    guard valid.isValid,
+          valid.decodedResolutionWidth == image.width,
+          valid.decodedResolutionHeight == image.height else {
+        return false
+    }
+
+    let missingWorldPattern = evaluateGameRouteValidity(
+        image: image,
+        presentationRect: presentationRect,
+        worldPatternValidity: invalidWorldPattern)
+    let missingCameraStack = evaluateGameRouteValidity(
+        image: paintingNormalizedRect(
+            in: image,
+            normalizedRect: CGRect(x: 0.47, y: 0.12, width: 0.06, height: 0.05),
+            color: Rgba(red: 0, green: 0, blue: 0, alpha: 255)),
+        presentationRect: presentationRect,
+        worldPatternValidity: validWorldPattern)
+    let missingPostProcess = evaluateGameRouteValidity(
+        image: paintingNormalizedRect(
+            in: image,
+            normalizedRect: CGRect(x: 0.82, y: 0.20, width: 0.08, height: 0.08),
+            color: Rgba(red: 160, green: 160, blue: 160, alpha: 255)),
+        presentationRect: presentationRect,
+        worldPatternValidity: validWorldPattern)
+    var missingImguiImage = image
+    for rect in [
+        CGRect(x: 0.020, y: 0.070, width: 0.035, height: 0.015),
+        CGRect(x: 0.020, y: 0.085, width: 0.020, height: 0.015),
+        CGRect(x: 0.040, y: 0.085, width: 0.015, height: 0.015),
+    ] {
+        missingImguiImage = paintingNormalizedRect(
+            in: missingImguiImage,
+            normalizedRect: rect,
+            color: Rgba(red: 0, green: 0, blue: 0, alpha: 255))
+    }
+    let missingImgui = evaluateGameRouteValidity(
+        image: missingImguiImage,
+        presentationRect: presentationRect,
+        worldPatternValidity: validWorldPattern)
+    let missingResolution = evaluateGameRouteValidity(
+        image: removingSyntheticResolutionMarker(
+            from: image,
+            presentationRect: presentationRect),
+        presentationRect: presentationRect,
+        worldPatternValidity: validWorldPattern)
+
+    return !missingWorldPattern.isValid
+        && !missingWorldPattern.worldPatternValid
+        && !missingCameraStack.isValid
+        && !missingCameraStack.cameraStackMarkerPresent
+        && !missingPostProcess.isValid
+        && !missingPostProcess.postProcessProbePresent
+        && !missingImgui.isValid
+        && !missingImgui.runtimeImguiPresent
+        && !missingResolution.isValid
+        && !missingResolution.resolutionMarkerValid
+}
+
+private func syntheticGameRouteImage(width: Int, height: Int) -> PixelImage {
+    var image = syntheticSolidImage(width: width, height: height, channelValue: 0)
+    image = paintingNormalizedRect(
+        in: image,
+        normalizedRect: CGRect(x: 0.47, y: 0.12, width: 0.06, height: 0.05),
+        color: Rgba(red: 255, green: 0, blue: 255, alpha: 255))
+    image = paintingNormalizedRect(
+        in: image,
+        normalizedRect: CGRect(x: 0.82, y: 0.20, width: 0.08, height: 0.08),
+        color: Rgba(red: 140, green: 110, blue: 90, alpha: 255))
+    image = paintingNormalizedRect(
+        in: image,
+        normalizedRect: CGRect(x: 0.020, y: 0.070, width: 0.035, height: 0.015),
+        color: Rgba(red: 255, green: 255, blue: 255, alpha: 255))
+    image = paintingNormalizedRect(
+        in: image,
+        normalizedRect: CGRect(x: 0.020, y: 0.085, width: 0.020, height: 0.015),
+        color: Rgba(red: 0, green: 0, blue: 0, alpha: 255))
+    image = paintingNormalizedRect(
+        in: image,
+        normalizedRect: CGRect(x: 0.040, y: 0.085, width: 0.015, height: 0.015),
+        color: Rgba(red: 0, green: 255, blue: 255, alpha: 255))
+    return paintingSyntheticResolutionMarker(
+        in: image,
+        presentationRect: IntRect(x: 0, y: 0, width: width, height: height),
+        width: width,
+        height: height)
+}
+
+private func paintingNormalizedRect(
+    in image: PixelImage,
+    normalizedRect: CGRect,
+    color: Rgba) -> PixelImage {
+    var pixels = image.pixels
+    let minX = min(max(Int(floor(normalizedRect.minX * Double(image.width))), 0), image.width)
+    let maxX = min(max(Int(ceil(normalizedRect.maxX * Double(image.width))), minX), image.width)
+    let minY = min(max(Int(floor(normalizedRect.minY * Double(image.height))), 0), image.height)
+    let maxY = min(max(Int(ceil(normalizedRect.maxY * Double(image.height))), minY), image.height)
+    paintPixels(
+        &pixels,
+        imageWidth: image.width,
+        xRange: minX..<maxX,
+        yRange: minY..<maxY,
+        color: color)
+    return PixelImage(
+        width: image.width,
+        height: image.height,
+        pixels: pixels,
+        sourceColorSpace: image.sourceColorSpace)
+}
+
+private func paintingSyntheticResolutionMarker(
+    in image: PixelImage,
+    presentationRect: IntRect,
+    width: Int,
+    height: Int) -> PixelImage {
+    var pixels = image.pixels
+    let values = [width, height]
+    let sampleY = presentationRect.maxY - 23
+    for index in 0..<24 {
+        let dimensionIndex = index / 12
+        let bitIndex = index % 12
+        let cellIndex = index + (index >= 12 ? 1 : 0)
+        let sampleX = presentationRect.x + 42 + cellIndex * 8
+        let value = (values[dimensionIndex] & (1 << (11 - bitIndex))) != 0
+        let color = value
+            ? Rgba(red: 0, green: 255, blue: 255, alpha: 255)
+            : Rgba(red: 255, green: 0, blue: 255, alpha: 255)
+        paintPixels(
+            &pixels,
+            imageWidth: image.width,
+            xRange: (sampleX - 1)...(sampleX + 1),
+            yRange: (sampleY - 1)...(sampleY + 1),
+            color: color)
+    }
+
+    return PixelImage(
+        width: image.width,
+        height: image.height,
+        pixels: pixels,
+        sourceColorSpace: image.sourceColorSpace)
+}
+
+private func removingSyntheticResolutionMarker(
+    from image: PixelImage,
+    presentationRect: IntRect) -> PixelImage {
+    var pixels = image.pixels
+    let sampleY = presentationRect.maxY - 23
+    for index in 0..<24 {
+        let cellIndex = index + (index >= 12 ? 1 : 0)
+        let sampleX = presentationRect.x + 42 + cellIndex * 8
+        paintPixels(
+            &pixels,
+            imageWidth: image.width,
+            xRange: (sampleX - 1)...(sampleX + 1),
+            yRange: (sampleY - 1)...(sampleY + 1),
+            color: Rgba(red: 0, green: 0, blue: 0, alpha: 255))
+    }
+
+    return PixelImage(
+        width: image.width,
+        height: image.height,
+        pixels: pixels,
+        sourceColorSpace: image.sourceColorSpace)
+}
+
+private func paintPixels<RX: Sequence, RY: Sequence>(
+    _ pixels: inout [UInt8],
+    imageWidth: Int,
+    xRange: RX,
+    yRange: RY,
+    color: Rgba) where RX.Element == Int, RY.Element == Int {
+    for y in yRange {
+        for x in xRange {
+            let offset = (y * imageWidth + x) * 4
+            pixels[offset] = color.red
+            pixels[offset + 1] = color.green
+            pixels[offset + 2] = color.blue
+            pixels[offset + 3] = color.alpha
+        }
+    }
 }
 
 private func flipPixelImage(
@@ -967,25 +1186,50 @@ private func analyze(
     let artifactFixtureValidity = validateFixtureSamples(artifactSamples)
     let referenceBeforeFixtureValidity = validateFixtureSamples(referenceBeforeSamples)
     let referenceAfterFixtureValidity = validateFixtureSamples(referenceAfterSamples)
+    let artifactPresentationRect = target == "game"
+        ? gamePresentationRect(image: artifact, fixtureRect: artifactRect)
+        : IntRect(x: 0, y: 0, width: artifact.width, height: artifact.height)
+    let referenceBeforePresentationRect = target == "game"
+        ? gamePresentationRect(image: referenceBefore, fixtureRect: referenceBeforeRect)
+        : referenceBeforeRect
+    let referenceAfterPresentationRect = target == "game"
+        ? gamePresentationRect(image: referenceAfter, fixtureRect: referenceAfterRect)
+        : referenceAfterRect
+    let artifactRouteValidity = target == "game"
+        ? evaluateGameRouteValidity(
+            image: artifact,
+            presentationRect: artifactPresentationRect,
+            worldPatternValidity: artifactFixtureValidity)
+        : nil
+    let referenceBeforeRouteValidity = target == "game"
+        ? evaluateGameRouteValidity(
+            image: referenceBefore,
+            presentationRect: referenceBeforePresentationRect,
+            worldPatternValidity: referenceBeforeFixtureValidity)
+        : nil
+    let referenceAfterRouteValidity = target == "game"
+        ? evaluateGameRouteValidity(
+            image: referenceAfter,
+            presentationRect: referenceAfterPresentationRect,
+            worldPatternValidity: referenceAfterFixtureValidity)
+        : nil
     let stability = compareSamples(referenceBeforeSamples, referenceAfterSamples)
     let fidelity = compareSamples(artifactSamples, referenceAfterSamples)
-    let referenceFullImageStability: FullImageComparisonMetrics?
+    let referenceFullImageStability = try compareFullImageRgb(
+        left: referenceBefore,
+        leftRect: referenceBeforePresentationRect,
+        right: referenceAfter,
+        rightRect: referenceAfterPresentationRect,
+        alphaMaskPolicy: .matchingWindowMasks)
     let artifactFullImageFidelity: FullImageComparisonMetrics?
-    if target == "scene" {
-        referenceFullImageStability = try compareFullImageRgb(
-            left: referenceBefore,
-            leftRect: referenceBeforeRect,
-            right: referenceAfter,
-            rightRect: referenceAfterRect,
-            alphaMaskPolicy: .matchingWindowMasks)
+    if target == "scene" || (expectedWidth == nil && expectedHeight == nil) {
         artifactFullImageFidelity = try compareFullImageRgb(
             left: artifact,
-            leftRect: IntRect(x: 0, y: 0, width: artifact.width, height: artifact.height),
+            leftRect: artifactPresentationRect,
             right: referenceAfter,
-            rightRect: referenceAfterRect,
+            rightRect: referenceAfterPresentationRect,
             alphaMaskPolicy: .opaqueArtifactAndWindowMask)
     } else {
-        referenceFullImageStability = nil
         artifactFullImageFidelity = nil
     }
 
@@ -1006,6 +1250,24 @@ private func analyze(
         failures.append("After-reference fixture samples are missing, black, collapsed, or not mutually identifiable.")
     }
 
+    if let artifactRouteValidity {
+        failures.append(contentsOf: routeFailures(
+            validity: artifactRouteValidity,
+            imageName: "Artifact"))
+    }
+
+    if let referenceBeforeRouteValidity {
+        failures.append(contentsOf: routeFailures(
+            validity: referenceBeforeRouteValidity,
+            imageName: "Before-reference"))
+    }
+
+    if let referenceAfterRouteValidity {
+        failures.append(contentsOf: routeFailures(
+            validity: referenceAfterRouteValidity,
+            imageName: "After-reference"))
+    }
+
     let edgeTolerance = 2
     if artifactRect.x > edgeTolerance
         || artifactRect.y > edgeTolerance
@@ -1024,17 +1286,16 @@ private func analyze(
                     + "artifact \(artifact.width)x\(artifact.height).")
         }
 
-        if let referenceFullImageStability {
-            failures.append(contentsOf: sceneFullImageFailures(
-                metrics: referenceFullImageStability,
-                comparisonName: "Window presentation before/after stability"))
-        }
+    }
 
-        if let artifactFullImageFidelity {
-            failures.append(contentsOf: sceneFullImageFailures(
-                metrics: artifactFullImageFidelity,
-                comparisonName: "Scene artifact/window fidelity"))
-        }
+    failures.append(contentsOf: fullImageFailures(
+        metrics: referenceFullImageStability,
+        comparisonName: "Window presentation before/after stability"))
+
+    if let artifactFullImageFidelity {
+        failures.append(contentsOf: fullImageFailures(
+            metrics: artifactFullImageFidelity,
+            comparisonName: "\(target == "scene" ? "Scene" : "Game") artifact/window fidelity"))
     }
 
     if !alphaOpaque {
@@ -1075,18 +1336,8 @@ private func analyze(
             maximumGrayRampRmsLuminanceError))
     }
 
-    var decodedWidth: Int?
-    var decodedHeight: Int?
-    if target == "game", expectedWidth != nil || expectedHeight != nil {
-        let decoded = try decodeResolutionMarker(image: artifact)
-        decodedWidth = decoded.width
-        decodedHeight = decoded.height
-        if decodedWidth != expectedWidth || decodedHeight != expectedHeight {
-            failures.append(
-                "Artifact resolution marker is stale: decoded \(decoded.width)x\(decoded.height), "
-                    + "expected \(expectedWidth ?? -1)x\(expectedHeight ?? -1).")
-        }
-    }
+    let decodedWidth = artifactRouteValidity?.decodedResolutionWidth
+    let decodedHeight = artifactRouteValidity?.decodedResolutionHeight
 
     let result = AnalysisResult(
         target: target,
@@ -1105,6 +1356,9 @@ private func analyze(
         artifactFixtureValidity: artifactFixtureValidity,
         referenceBeforeFixtureValidity: referenceBeforeFixtureValidity,
         referenceAfterFixtureValidity: referenceAfterFixtureValidity,
+        artifactRouteValidity: artifactRouteValidity,
+        referenceBeforeRouteValidity: referenceBeforeRouteValidity,
+        referenceAfterRouteValidity: referenceAfterRouteValidity,
         referenceStability: stability,
         artifactFidelity: fidelity,
         referenceFullImageStability: referenceFullImageStability,
@@ -1115,6 +1369,44 @@ private func analyze(
     if !failures.isEmpty {
         throw OracleError.failed("Screenshot fidelity analysis failed; see \(outputPath)")
     }
+}
+
+private func routeFailures(
+    validity: RouteValidity,
+    imageName: String) -> [String] {
+    var failures: [String] = []
+    if !validity.worldPatternValid {
+        failures.append("\(imageName) GameView world-pattern route is missing or invalid.")
+    }
+
+    if !validity.cameraStackMarkerPresent {
+        failures.append("\(imageName) GameView camera-stack marker is missing.")
+    }
+
+    if !validity.postProcessProbePresent {
+        failures.append(
+            "\(imageName) GameView post-process probe is missing or did not receive the required warm color shift.")
+    }
+
+    if !validity.runtimeImguiPresent {
+        failures.append("\(imageName) GameView runtime IMGUI signature is missing or invalid.")
+    }
+
+    if !validity.resolutionMarkerValid {
+        let decodedResolution: String
+        if let decodedWidth = validity.decodedResolutionWidth,
+           let decodedHeight = validity.decodedResolutionHeight {
+            decodedResolution = "\(decodedWidth)x\(decodedHeight)"
+        } else {
+            decodedResolution = "unavailable"
+        }
+
+        failures.append(
+            "\(imageName) GameView resolution marker decoded \(decodedResolution); "
+                + "expected \(validity.expectedResolutionWidth)x\(validity.expectedResolutionHeight).")
+    }
+
+    return failures
 }
 
 private func locateFixtureContent(in image: PixelImage, target: String) throws -> IntRect {
@@ -1388,6 +1680,153 @@ private func sampleColors(image: PixelImage, contentRect: IntRect) -> [ColorSamp
     }
 }
 
+private func evaluateGameRouteValidity(
+    image: PixelImage,
+    presentationRect: IntRect,
+    worldPatternValidity: FixtureValidity) -> RouteValidity {
+    let cameraStackSample = sampleMedianColor(
+        image: image,
+        contentRect: presentationRect,
+        name: "camera-stack-marker",
+        normalizedX: 0.5,
+        normalizedY: 0.145,
+        normalizedRadiusX: 0.01,
+        normalizedRadiusY: 0.004)
+    let cameraStackMarkerPresent = sampleMatches(
+        cameraStackSample,
+        sentinel: .magenta)
+
+    let postProcessSample = sampleMedianColor(
+        image: image,
+        contentRect: presentationRect,
+        name: "post-process-probe",
+        normalizedX: 0.86,
+        normalizedY: 0.24,
+        normalizedRadiusX: 0.01,
+        normalizedRadiusY: 0.01)
+    let postProcessProbePresent = postProcessSample.red - postProcessSample.blue >= 0.03
+        && luminance(linearRgb(postProcessSample)) >= minimumColorPatchLuminance
+
+    let imguiWhiteSample = sampleMedianColor(
+        image: image,
+        contentRect: presentationRect,
+        name: "runtime-imgui-white",
+        normalizedX: 0.0375,
+        normalizedY: 0.0775,
+        normalizedRadiusX: 0.004,
+        normalizedRadiusY: 0.003)
+    let imguiBlackSample = sampleMedianColor(
+        image: image,
+        contentRect: presentationRect,
+        name: "runtime-imgui-black",
+        normalizedX: 0.03,
+        normalizedY: 0.0925,
+        normalizedRadiusX: 0.004,
+        normalizedRadiusY: 0.003)
+    let imguiCyanSample = sampleMedianColor(
+        image: image,
+        contentRect: presentationRect,
+        name: "runtime-imgui-cyan",
+        normalizedX: 0.0475,
+        normalizedY: 0.0925,
+        normalizedRadiusX: 0.003,
+        normalizedRadiusY: 0.003)
+    let runtimeImguiPresent = sampleIsWhite(imguiWhiteSample)
+        && sampleIsBlack(imguiBlackSample)
+        && sampleMatches(imguiCyanSample, sentinel: .cyan)
+
+    let decodedResolution = try? decodeResolutionMarker(
+        image: image,
+        presentationRect: presentationRect)
+    let resolutionMarkerValid = decodedResolution?.width == presentationRect.width
+        && decodedResolution?.height == presentationRect.height
+    let isValid = worldPatternValidity.isValid
+        && cameraStackMarkerPresent
+        && postProcessProbePresent
+        && runtimeImguiPresent
+        && resolutionMarkerValid
+    return RouteValidity(
+        isValid: isValid,
+        worldPatternValid: worldPatternValidity.isValid,
+        cameraStackMarkerPresent: cameraStackMarkerPresent,
+        cameraStackMarkerSample: cameraStackSample,
+        postProcessProbePresent: postProcessProbePresent,
+        postProcessProbeSample: postProcessSample,
+        runtimeImguiPresent: runtimeImguiPresent,
+        runtimeImguiWhiteSample: imguiWhiteSample,
+        runtimeImguiBlackSample: imguiBlackSample,
+        runtimeImguiCyanSample: imguiCyanSample,
+        resolutionMarkerValid: resolutionMarkerValid,
+        decodedResolutionWidth: decodedResolution?.width,
+        decodedResolutionHeight: decodedResolution?.height,
+        expectedResolutionWidth: presentationRect.width,
+        expectedResolutionHeight: presentationRect.height)
+}
+
+private func sampleMedianColor(
+    image: PixelImage,
+    contentRect: IntRect,
+    name: String,
+    normalizedX: Double,
+    normalizedY: Double,
+    normalizedRadiusX: Double,
+    normalizedRadiusY: Double) -> ColorSample {
+    let centerX = contentRect.x
+        + Int((Double(contentRect.width - 1) * normalizedX).rounded())
+    let centerY = contentRect.y
+        + Int((Double(contentRect.height - 1) * normalizedY).rounded())
+    let radiusX = max(1, Int((Double(contentRect.width) * normalizedRadiusX).rounded()))
+    let radiusY = max(1, Int((Double(contentRect.height) * normalizedRadiusY).rounded()))
+    let minX = max(contentRect.x, centerX - radiusX)
+    let maxX = min(contentRect.maxX, centerX + radiusX)
+    let minY = max(contentRect.y, centerY - radiusY)
+    let maxY = min(contentRect.maxY, centerY + radiusY)
+    var red: [UInt8] = []
+    var green: [UInt8] = []
+    var blue: [UInt8] = []
+    for y in minY...maxY {
+        for x in minX...maxX {
+            let pixel = image.pixel(x: x, y: y)
+            red.append(pixel.red)
+            green.append(pixel.green)
+            blue.append(pixel.blue)
+        }
+    }
+
+    return ColorSample(
+        name: name,
+        red: Double(median(red)) / 255.0,
+        green: Double(median(green)) / 255.0,
+        blue: Double(median(blue)) / 255.0)
+}
+
+private func sampleMatches(_ sample: ColorSample, sentinel: Sentinel) -> Bool {
+    sentinel.matches(Rgba(
+        red: UInt8((sample.red * 255.0).rounded()),
+        green: UInt8((sample.green * 255.0).rounded()),
+        blue: UInt8((sample.blue * 255.0).rounded()),
+        alpha: 255))
+}
+
+private func sampleIsWhite(_ sample: ColorSample) -> Bool {
+    min(sample.red, sample.green, sample.blue) >= 0.8
+}
+
+private func sampleIsBlack(_ sample: ColorSample) -> Bool {
+    max(sample.red, sample.green, sample.blue) <= 0.2
+}
+
+private func gamePresentationRect(
+    image: PixelImage,
+    fixtureRect: IntRect) -> IntRect {
+    let presentationY = max(0, fixtureRect.y - 1)
+    return IntRect(
+        x: 0,
+        y: presentationY,
+        width: image.width,
+        height: image.height - presentationY)
+}
+
 private func validateFixtureSamples(_ samples: [ColorSample]) -> FixtureValidity {
     let graySamples = samples.filter { $0.name.hasPrefix("gray-") }
     let grayLuminances = graySamples.map { luminance(linearRgb($0)) }
@@ -1641,7 +2080,7 @@ private func cornerMaskIsValid(_ mask: [Bool], width: Int, height: Int) -> Bool 
     }
 
     let totalPixelCount = width * height
-    let maximumExcludedPixelCount = Double(totalPixelCount) * (1.0 - minimumSceneOpaquePixelCoverage)
+    let maximumExcludedPixelCount = Double(totalPixelCount) * (1.0 - minimumFullImageOpaquePixelCoverage)
     let cornerInsetLimit = max(1, Int(ceil(sqrt(maximumExcludedPixelCount))))
     for index in mask.indices where mask[index] {
         let x = index % width
@@ -1695,7 +2134,7 @@ private func cornerMaskIsValid(_ mask: [Bool], width: Int, height: Int) -> Bool 
     return true
 }
 
-private func sceneFullImageFailures(
+private func fullImageFailures(
     metrics: FullImageComparisonMetrics,
     comparisonName: String) -> [String] {
     guard metrics.dimensionsMatch else {
@@ -1726,30 +2165,30 @@ private func sceneFullImageFailures(
     let opaqueCoverage = metrics.totalPixelCount == 0
         ? 0
         : Double(metrics.comparedPixelCount) / Double(metrics.totalPixelCount)
-    if opaqueCoverage < minimumSceneOpaquePixelCoverage {
+    if opaqueCoverage < minimumFullImageOpaquePixelCoverage {
         failures.append(String(
             format: "%@ color-managed WindowServer coverage %.5f is below the fixed %.5f minimum; %d pixels were excluded because the OS window mask made them non-opaque.",
             comparisonName,
             opaqueCoverage,
-            minimumSceneOpaquePixelCoverage,
+            minimumFullImageOpaquePixelCoverage,
             metrics.excludedNonOpaquePixelCount))
     }
 
-    if meanError > maximumSceneMeanAbsoluteRgbChannelErrorNormalized {
+    if meanError > maximumFullImageMeanAbsoluteRgbChannelErrorNormalized {
         failures.append(String(
             format: "%@ mean absolute RGB channel error %.3f/255 exceeds the fixed 0.500/255 limit.",
             comparisonName,
             meanError * 255.0))
     }
 
-    if percentile95Error > maximumScenePercentile95AbsoluteRgbChannelErrorNormalized {
+    if percentile95Error > maximumFullImagePercentile95AbsoluteRgbChannelErrorNormalized {
         failures.append(String(
             format: "%@ p95 absolute RGB channel error %.3f/255 exceeds the fixed 2.000/255 limit.",
             comparisonName,
             percentile95Error * 255.0))
     }
 
-    if maximumError > maximumSceneAbsoluteRgbChannelErrorNormalized {
+    if maximumError > maximumFullImageAbsoluteRgbChannelErrorNormalized {
         failures.append(String(
             format: "%@ maximum absolute RGB channel error %.3f/255 exceeds the fixed 4.000/255 limit.",
             comparisonName,
@@ -1759,12 +2198,22 @@ private func sceneFullImageFailures(
     return failures
 }
 
-private func decodeResolutionMarker(image: PixelImage) throws -> (width: Int, height: Int) {
+private func decodeResolutionMarker(
+    image: PixelImage,
+    presentationRect: IntRect) throws -> (width: Int, height: Int) {
     var bits: [Bool] = []
-    let sampleY = image.height - 24
-    for index in 0..<20 {
-        let cellIndex = index + (index >= 10 ? 1 : 0)
-        let sampleX = 42 + cellIndex * 8
+    let sampleY = presentationRect.maxY - 23
+    guard sampleY >= presentationRect.y else {
+        throw OracleError.failed("Resolution marker does not fit inside the GameView presentation.")
+    }
+
+    for index in 0..<24 {
+        let cellIndex = index + (index >= 12 ? 1 : 0)
+        let sampleX = presentationRect.x + 42 + cellIndex * 8
+        guard sampleX <= presentationRect.maxX else {
+            throw OracleError.failed("Resolution marker does not fit inside the GameView presentation.")
+        }
+
         let pixel = image.pixel(x: sampleX, y: sampleY)
         let red = Int(pixel.red)
         let green = Int(pixel.green)
@@ -1785,7 +2234,7 @@ private func decodeResolutionMarker(image: PixelImage) throws -> (width: Int, he
         }
     }
 
-    return (width: decode(0..<10), height: decode(10..<20))
+    return (width: decode(0..<12), height: decode(12..<24))
 }
 
 private struct LinearRgb {

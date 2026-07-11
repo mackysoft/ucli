@@ -7,7 +7,7 @@ namespace MackySoft.Ucli.ScreenshotFidelity
     [ExecuteAlways]
     public sealed class FidelityFixtureBehaviour : MonoBehaviour
     {
-        private const int EncodedBitCount = 10;
+        private const int EncodedBitCount = 12;
 
         private Camera fixtureCamera;
 
@@ -44,8 +44,9 @@ namespace MackySoft.Ucli.ScreenshotFidelity
                 return;
             }
 
-            var pixelWidth = Mathf.Clamp(fixtureCamera.pixelWidth, 0, 1023);
-            var pixelHeight = Mathf.Clamp(fixtureCamera.pixelHeight, 0, 1023);
+            var maximumEncodedValue = (1 << EncodedBitCount) - 1;
+            var pixelWidth = Mathf.Clamp(fixtureCamera.pixelWidth, 0, maximumEncodedValue);
+            var pixelHeight = Mathf.Clamp(fixtureCamera.pixelHeight, 0, maximumEncodedValue);
             for (var index = 0; index < EncodedBitCount; index++)
             {
                 var shift = EncodedBitCount - index - 1;
@@ -66,13 +67,21 @@ namespace MackySoft.Ucli.ScreenshotFidelity
             var previousColor = GUI.color;
             try
             {
-                // This asymmetric marker proves that runtime IMGUI is present in the GameView source.
+                // This normalized asymmetric signature lets the oracle prove that runtime IMGUI reached the GameView.
+                var width = Mathf.Max(Screen.width, 1);
+                var height = Mathf.Max(Screen.height, 1);
                 GUI.color = Color.white;
-                GUI.DrawTexture(new Rect(42f, 42f, 30f, 7f), Texture2D.whiteTexture);
+                GUI.DrawTexture(
+                    new Rect(width * 0.020f, height * 0.070f, width * 0.035f, height * 0.015f),
+                    Texture2D.whiteTexture);
                 GUI.color = Color.black;
-                GUI.DrawTexture(new Rect(42f, 49f, 18f, 7f), Texture2D.whiteTexture);
+                GUI.DrawTexture(
+                    new Rect(width * 0.020f, height * 0.085f, width * 0.020f, height * 0.015f),
+                    Texture2D.whiteTexture);
                 GUI.color = Color.cyan;
-                GUI.DrawTexture(new Rect(60f, 49f, 12f, 7f), Texture2D.whiteTexture);
+                GUI.DrawTexture(
+                    new Rect(width * 0.040f, height * 0.085f, width * 0.015f, height * 0.015f),
+                    Texture2D.whiteTexture);
             }
             finally
             {

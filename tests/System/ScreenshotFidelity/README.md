@@ -15,9 +15,11 @@ Production and reference pixels follow separate paths:
 
 The oracle does not reference the production capture API, normalization shader, row-order calibration, or PNG validator. GameView uses four asymmetric fixture sentinels. SceneView uses three asymmetric edge sentinels placed from the active `OnSceneGUI` clip observed through `GUIClip.visibleRect`; the fixture does not use the production `SceneView.cameraViewport` crop authority.
 
-Before comparing artifact and reference colors, the oracle requires the 17-step gray ramp to retain sufficient luminance range and distinct levels, and requires every named color patch to be non-black and distinguishable from the other patches. An all-black artifact and all-black reference therefore cannot pass with a zero color difference. The runner also executes a synthetic oracle self-check before launching Unity and writes its result to `oracle-self-check.json`.
+Before comparing artifact and reference colors, the oracle requires the camera-rendered 17-step gray ramp to retain sufficient luminance range and distinct levels, and requires every named color patch to be non-black and distinguishable from the other patches. The Canvas and `OnSceneGUI` probes do not duplicate those samples. An absent world-render path therefore cannot be hidden by a later UI composite.
 
-SceneView additionally compares every corresponding decoded sRGB8 RGB channel at the same physical pixel. The fixed limits are mean absolute error `0.5/255`, p95 absolute error `2/255`, and maximum absolute error `4/255`. These limits are benchmark inputs fixed from the documented independent baseline and are not calibrated from the candidate run.
+GameView additionally requires independent presence signatures for the world pattern, the intentional post-process Volume, the overlay camera in the camera stack, Screen Space Overlay UI, and runtime IMGUI. The post-process probe starts as a neutral shader color and must show the predeclared warm-channel separation after presentation. The resolution marker is encoded independently by the Canvas and must decode to the artifact dimensions. The runner executes synthetic positive and one-missing-route oracle checks before launching Unity and writes the result to `oracle-self-check.json`.
+
+GameView current-surface and SceneView capture additionally compare every corresponding decoded sRGB8 RGB channel at the same physical pixel. The fixed limits are mean absolute error `0.5/255`, p95 absolute error `2/255`, and maximum absolute error `4/255`. Requested-resolution GameView capture has a different physical size from the restored WindowServer reference, so it uses the route, sample, exact-dimension, and restoration gates instead of a false one-to-one full-image comparison. These limits and route-presence thresholds are benchmark inputs fixed before the candidate run and are not calibrated from its output.
 
 WindowServer's rounded window mask can make the outer corner pixels non-opaque. Such pixels are excluded only when every non-opaque component touches an image corner, remains inside the coverage-derived corner envelope, and the compared before/after WindowServer masks are identical. At least `0.999` of physical pixels must remain compared. An interior mask, a changed mask, or lower coverage fails the lane. The screenshot artifact itself must remain fully opaque.
 
@@ -30,7 +32,9 @@ WindowServer's rounded window mask can make the outer corner pixels non-opaque. 
 - `jq`, `rsync`, `nuget` (or `nuget.exe`), and `system_profiler`
 - a licensed Unity Editor that can open the copied `src/Ucli.Unity` project
 
-The Unity window must remain on-screen and unminimized. Each WindowServer reference waits until the Unity fixture process is frontmost, and the Scene fixture fixes its selected object and transform tool before measurement. A locked desktop, missing Screen Recording permission, an ambiguous window, an empty OS capture, an unknown image color space, or a missing fixture border fails the lane.
+The Unity window must remain on-screen and unminimized. Each WindowServer reference waits until the Unity fixture process is frontmost, and the Scene fixture fixes its selected object, transform tool, camera mode, lighting, gizmo, and Scene effects state before measurement. A locked desktop, missing Screen Recording permission, an ambiguous window, an empty OS capture, an unknown image color space, or a missing fixture border fails the lane.
+
+The disposable fixture contains no `Light`. Fog, skybox, ambient contribution, reflections, shadows, light probes, reflection probes, occlusion culling, dynamic resolution, antialiasing, XR, and project renderer features are disabled. The pattern and overlay marker use separate explicit layers and an `SRPDefaultUnlit` pass. The only intentional presentation effects are the declared post-process Volume, camera stack, Screen Space Overlay Canvas, runtime IMGUI, and Scene handles. Their configuration is checked after every fixture action and recorded in `fixture-render-isolation.json`.
 
 ## Run
 
@@ -56,7 +60,7 @@ The lane runs these contracts through the public CLI:
 
 The fixture discovers the Overlay Menu and configurable panel through the members exposed by the running Editor. It does not branch on a Unity version string. If the fixture cannot construct or observe the required condition, the harness reports an unsupported fixture failure rather than treating the case as passing.
 
-The fixture includes asymmetric corners, a one-pixel edge signature, a Screen Space 17-step gray ramp and color patches, a URP post-process volume, a camera-stack marker, runtime IMGUI, SceneView handles, and a GameView resolution marker. The oracle rejects vertical or horizontal inversion, channel swaps, crop padding, non-opaque artifact alpha, invalid or collapsed fixture samples, material color or luminance changes, stale requested-resolution frames, and presentation changes between the before and after OS captures. SceneView's full-image comparison also rejects any localized difference beyond its fixed limits.
+The fixture includes asymmetric corners, a one-pixel edge signature, a camera-rendered 17-step gray ramp and color patches, an independently identifiable URP post-process probe, camera-stack marker, Screen Space resolution marker, runtime IMGUI signature, and SceneView handles. The oracle rejects vertical or horizontal inversion, channel swaps, crop padding, non-opaque artifact alpha, a missing render route, invalid or collapsed fixture samples, material color or luminance changes, stale requested-resolution frames, and presentation changes between the before and after OS captures. GameView current-surface and SceneView full-image comparison also reject any localized difference beyond the fixed limits.
 
 ## Results
 
@@ -65,6 +69,8 @@ The fixture includes asymmetric corners, a one-pixel edge signature, a Screen Sp
 - Unity, macOS, GPU, graphics API, active color space, render pipeline, display, and backing-scale observations
 - per-case crop, alpha-mask topology, physical-pixel coverage, full-image RGB error, color-difference, luminance, gray-ramp, and resolution-marker results
 - the GameView state comparison and `GameViewSizes.asset` hash before and after Editor exit
+- the fixture lighting, RenderSettings, renderer-feature, camera, layer, Volume, Canvas, shader-message, and SceneView isolation state
+- the measurement-window Unity runtime/compile error and warning counts, plus pre-bootstrap C# compiler diagnostics
 - the source revision, exact Git tree assembled from tracked and non-ignored untracked working-tree files, and whether that source snapshot differed from the revision
 - the path, digest, and file count of `execution-input-manifest.json`, which hashes every file and symbolic link supplied to the disposable Unity project, published uCLI host, and WindowServer oracle
 

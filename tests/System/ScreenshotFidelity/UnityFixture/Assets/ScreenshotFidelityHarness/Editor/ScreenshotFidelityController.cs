@@ -36,6 +36,14 @@ namespace MackySoft.Ucli.ScreenshotFidelity
 
         private const int StabilizationUpdateCount = 12;
 
+        private const int ResolutionBitCount = 12;
+
+        private const int VolumeLayer = 28;
+
+        private const int PatternLayer = 29;
+
+        private const int OverlayLayer = 30;
+
         private static string runDirectory;
 
         private static string controlPath;
@@ -53,6 +61,24 @@ namespace MackySoft.Ucli.ScreenshotFidelity
         private static SceneView sceneView;
 
         private static Camera baseCamera;
+
+        private static Camera overlayCamera;
+
+        private static UniversalAdditionalCameraData baseCameraData;
+
+        private static UniversalAdditionalCameraData overlayCameraData;
+
+        private static MeshRenderer patternRenderer;
+
+        private static MeshRenderer overlayRenderer;
+
+        private static Volume postProcessVolume;
+
+        private static Canvas presentationCanvas;
+
+        private static Shader patternShader;
+
+        private static ScriptableRendererData fixtureRendererData;
 
         private static Transform patternTransform;
 
@@ -220,6 +246,7 @@ namespace MackySoft.Ucli.ScreenshotFidelity
         private static void CompletePendingControl ()
         {
             var request = pendingControl.request;
+            ValidateRenderIsolationPostcondition();
             ValidateSceneControlPostcondition();
             WriteControlSuccess(request);
             lastSequence = request.sequence;
@@ -262,8 +289,13 @@ namespace MackySoft.Ucli.ScreenshotFidelity
                 focus: true);
             sceneView.titleContent = new GUIContent(SceneWindowTitlePrefix + request.nonce);
             sceneView.position = new Rect(90f, 90f, 760f, 520f);
+            sceneView.cameraMode = SceneView.GetBuiltinCameraMode(DrawCameraMode.Textured);
+            sceneView.in2DMode = false;
+            sceneView.drawGizmos = false;
             sceneView.showGrid = true;
             sceneView.sceneLighting = false;
+            sceneView.sceneViewState.SetAllEnabled(false);
+            sceneView.sceneViewState.fxEnabled = false;
             sceneView.LookAtDirect(Vector3.zero, Quaternion.identity, 5f);
             sceneView.orthographic = true;
             Selection.activeTransform = patternTransform;
@@ -281,36 +313,40 @@ namespace MackySoft.Ucli.ScreenshotFidelity
 
         private static void EnsureFixtureScene ()
         {
-            if (fixtureBehaviour != null && baseCamera != null && patternTransform != null)
+            if (fixtureBehaviour != null
+                && baseCamera != null
+                && overlayCamera != null
+                && patternTransform != null)
             {
                 return;
             }
 
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            ConfigureRenderSettings();
+            fixtureRendererData = ResolveFixtureRendererData();
 
-            var patternShader = Shader.Find(PatternShaderName);
+            patternShader = Shader.Find(PatternShaderName);
             if (patternShader == null || !patternShader.isSupported)
             {
                 throw new InvalidOperationException($"Fixture shader is unavailable: {PatternShaderName}");
             }
 
+            var shaderMessages = ShaderUtil.GetShaderMessages(patternShader);
+            if (shaderMessages.Length != 0)
+            {
+                throw new InvalidOperationException(
+                    $"Fixture shader has {shaderMessages.Length} compiler message(s): {shaderMessages[0].message}");
+            }
+
             var baseCameraObject = new GameObject("Fidelity Base Camera");
             SceneManager.MoveGameObjectToScene(baseCameraObject, scene);
             baseCamera = baseCameraObject.AddComponent<Camera>();
-            baseCamera.orthographic = true;
-            baseCamera.orthographicSize = 5f;
-            baseCamera.transform.position = new Vector3(0f, 0f, -10f);
-            baseCamera.transform.rotation = Quaternion.identity;
-            baseCamera.clearFlags = CameraClearFlags.SolidColor;
-            baseCamera.backgroundColor = Color.black;
-            baseCamera.allowHDR = false;
-            baseCamera.allowMSAA = false;
-            baseCamera.cullingMask = ~(1 << 30);
-            baseCamera.depth = 0f;
+            ConfigureCamera(baseCamera, 1 << PatternLayer, CameraClearFlags.SolidColor, depth: 0f);
 
             var patternObject = GameObject.CreatePrimitive(PrimitiveType.Quad);
             patternObject.name = "Fidelity Presentation Pattern";
             SceneManager.MoveGameObjectToScene(patternObject, scene);
+            patternObject.layer = PatternLayer;
             patternObject.transform.position = Vector3.zero;
             patternTransform = patternObject.transform;
             Object.DestroyImmediate(patternObject.GetComponent<Collider>());
@@ -319,25 +355,19 @@ namespace MackySoft.Ucli.ScreenshotFidelity
                 name = "Fidelity Pattern Material",
                 hideFlags = HideFlags.HideAndDontSave,
             };
-            patternObject.GetComponent<MeshRenderer>().sharedMaterial = patternMaterial;
+            patternRenderer = patternObject.GetComponent<MeshRenderer>();
+            ConfigureRenderer(patternRenderer, patternMaterial);
 
             var overlayCameraObject = new GameObject("Fidelity Overlay Camera");
             SceneManager.MoveGameObjectToScene(overlayCameraObject, scene);
-            var overlayCamera = overlayCameraObject.AddComponent<Camera>();
-            overlayCamera.orthographic = true;
-            overlayCamera.orthographicSize = 5f;
-            overlayCamera.transform.position = new Vector3(0f, 0f, -10f);
-            overlayCamera.transform.rotation = Quaternion.identity;
-            overlayCamera.clearFlags = CameraClearFlags.Nothing;
-            overlayCamera.allowHDR = false;
-            overlayCamera.allowMSAA = false;
-            overlayCamera.cullingMask = 1 << 30;
-            overlayCamera.depth = 1f;
+            overlayCamera = overlayCameraObject.AddComponent<Camera>();
+            ConfigureCamera(overlayCamera, 1 << OverlayLayer, CameraClearFlags.Nothing, depth: 1f);
 
-            var baseCameraData = baseCamera.GetUniversalAdditionalCameraData();
+            baseCameraData = baseCamera.GetUniversalAdditionalCameraData();
+            ConfigureAdditionalCameraData(baseCameraData, renderPostProcessing: true, 1 << VolumeLayer);
             baseCameraData.renderType = CameraRenderType.Base;
-            baseCameraData.renderPostProcessing = true;
-            var overlayCameraData = overlayCamera.GetUniversalAdditionalCameraData();
+            overlayCameraData = overlayCamera.GetUniversalAdditionalCameraData();
+            ConfigureAdditionalCameraData(overlayCameraData, renderPostProcessing: false, volumeLayerMask: 0);
             overlayCameraData.renderType = CameraRenderType.Overlay;
             baseCameraData.cameraStack.Clear();
             baseCameraData.cameraStack.Add(overlayCamera);
@@ -345,7 +375,7 @@ namespace MackySoft.Ucli.ScreenshotFidelity
             var overlayMarker = GameObject.CreatePrimitive(PrimitiveType.Quad);
             overlayMarker.name = "Fidelity Camera Stack Marker";
             SceneManager.MoveGameObjectToScene(overlayMarker, scene);
-            overlayMarker.layer = 30;
+            overlayMarker.layer = OverlayLayer;
             overlayMarker.transform.position = new Vector3(0f, 3.55f, -0.1f);
             overlayMarker.transform.localScale = new Vector3(1.35f, 0.36f, 1f);
             Object.DestroyImmediate(overlayMarker.GetComponent<Collider>());
@@ -356,7 +386,8 @@ namespace MackySoft.Ucli.ScreenshotFidelity
             };
             overlayMaterial.SetFloat("_UseSolid", 1f);
             overlayMaterial.SetColor("_SolidColor", new Color(1f, 0f, 0.72f, 1f));
-            overlayMarker.GetComponent<MeshRenderer>().sharedMaterial = overlayMaterial;
+            overlayRenderer = overlayMarker.GetComponent<MeshRenderer>();
+            ConfigureRenderer(overlayRenderer, overlayMaterial);
 
             CreatePostProcessVolume(scene);
             var resolutionBits = CreatePresentationCanvas(scene);
@@ -370,22 +401,300 @@ namespace MackySoft.Ucli.ScreenshotFidelity
             EditorApplication.QueuePlayerLoopUpdate();
         }
 
+        private static void ConfigureRenderSettings ()
+        {
+            RenderSettings.fog = false;
+            RenderSettings.skybox = null;
+            RenderSettings.ambientMode = AmbientMode.Flat;
+            RenderSettings.ambientLight = Color.black;
+            RenderSettings.ambientIntensity = 0f;
+            RenderSettings.reflectionIntensity = 0f;
+            RenderSettings.defaultReflectionMode = DefaultReflectionMode.Custom;
+            RenderSettings.customReflectionTexture = null;
+            RenderSettings.subtractiveShadowColor = Color.black;
+        }
+
+        private static ScriptableRendererData ResolveFixtureRendererData ()
+        {
+            if (GraphicsSettings.currentRenderPipeline is not UniversalRenderPipelineAsset pipelineAsset)
+            {
+                throw new InvalidOperationException("Screenshot fidelity fixture requires Universal Render Pipeline.");
+            }
+
+            var rendererDataList = pipelineAsset.rendererDataList;
+            if (rendererDataList.Length != 1 || rendererDataList[0] == null)
+            {
+                throw new InvalidOperationException(
+                    "Screenshot fidelity fixture requires exactly one explicit URP renderer data asset.");
+            }
+
+            var rendererData = rendererDataList[0];
+            foreach (var rendererFeature in rendererData.rendererFeatures)
+            {
+                if (rendererFeature != null)
+                {
+                    rendererFeature.SetActive(false);
+                }
+            }
+
+            return rendererData;
+        }
+
+        private static void ConfigureCamera (
+            Camera camera,
+            int cullingMask,
+            CameraClearFlags clearFlags,
+            float depth)
+        {
+            camera.orthographic = true;
+            camera.orthographicSize = 5f;
+            camera.transform.position = new Vector3(0f, 0f, -10f);
+            camera.transform.rotation = Quaternion.identity;
+            camera.clearFlags = clearFlags;
+            camera.backgroundColor = Color.black;
+            camera.allowHDR = false;
+            camera.allowMSAA = false;
+            camera.allowDynamicResolution = false;
+            camera.useOcclusionCulling = false;
+            camera.depthTextureMode = DepthTextureMode.None;
+            camera.cullingMask = cullingMask;
+            camera.depth = depth;
+        }
+
+        private static void ConfigureAdditionalCameraData (
+            UniversalAdditionalCameraData cameraData,
+            bool renderPostProcessing,
+            int volumeLayerMask)
+        {
+            cameraData.SetRenderer(0);
+            cameraData.renderShadows = false;
+            cameraData.requiresDepthOption = CameraOverrideOption.Off;
+            cameraData.requiresColorOption = CameraOverrideOption.Off;
+            cameraData.renderPostProcessing = renderPostProcessing;
+            cameraData.antialiasing = AntialiasingMode.None;
+            cameraData.stopNaN = false;
+            cameraData.dithering = false;
+            cameraData.allowXRRendering = false;
+            cameraData.volumeLayerMask = volumeLayerMask;
+        }
+
+        private static void ConfigureRenderer (
+            MeshRenderer renderer,
+            Material material)
+        {
+            renderer.sharedMaterial = material;
+            renderer.shadowCastingMode = ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+            renderer.lightProbeUsage = LightProbeUsage.Off;
+            renderer.reflectionProbeUsage = ReflectionProbeUsage.Off;
+            renderer.motionVectorGenerationMode = MotionVectorGenerationMode.ForceNoMotion;
+            renderer.allowOcclusionWhenDynamic = false;
+        }
+
+        private static void ValidateRenderIsolationPostcondition ()
+        {
+            var lights = FindFixtureComponents<Light>();
+            if (lights.Length != 0)
+            {
+                throw new InvalidOperationException(
+                    $"Screenshot fidelity fixture contains {lights.Length} Light component(s).");
+            }
+
+            var meshRenderers = FindFixtureComponents<MeshRenderer>();
+            if (meshRenderers.Length != 2
+                || Array.IndexOf(meshRenderers, patternRenderer) < 0
+                || Array.IndexOf(meshRenderers, overlayRenderer) < 0)
+            {
+                throw new InvalidOperationException(
+                    "Screenshot fidelity fixture must contain only its pattern and camera-stack MeshRenderers.");
+            }
+
+            if (RenderSettings.fog
+                || RenderSettings.skybox != null
+                || RenderSettings.ambientMode != AmbientMode.Flat
+                || RenderSettings.ambientLight.maxColorComponent != 0f
+                || RenderSettings.ambientIntensity != 0f
+                || RenderSettings.reflectionIntensity != 0f
+                || RenderSettings.defaultReflectionMode != DefaultReflectionMode.Custom
+                || RenderSettings.customReflectionTexture != null)
+            {
+                throw new InvalidOperationException(
+                    "Screenshot fidelity RenderSettings are not isolated from lighting, fog, skybox, or reflections.");
+            }
+
+            if (patternShader == null
+                || !patternShader.isSupported
+                || ShaderUtil.GetShaderMessages(patternShader).Length != 0)
+            {
+                throw new InvalidOperationException(
+                    "Screenshot fidelity pattern shader is unsupported or has compiler messages.");
+            }
+
+            foreach (var rendererFeature in fixtureRendererData.rendererFeatures)
+            {
+                if (rendererFeature != null && rendererFeature.isActive)
+                {
+                    throw new InvalidOperationException(
+                        $"Screenshot fidelity fixture renderer feature remained active: {rendererFeature.name}");
+                }
+            }
+
+            if (baseCamera.cullingMask != 1 << PatternLayer
+                || overlayCamera.cullingMask != 1 << OverlayLayer
+                || baseCamera.allowHDR
+                || overlayCamera.allowHDR
+                || baseCamera.allowMSAA
+                || overlayCamera.allowMSAA
+                || baseCamera.allowDynamicResolution
+                || overlayCamera.allowDynamicResolution
+                || baseCamera.useOcclusionCulling
+                || overlayCamera.useOcclusionCulling
+                || baseCamera.depthTextureMode != DepthTextureMode.None
+                || overlayCamera.depthTextureMode != DepthTextureMode.None)
+            {
+                throw new InvalidOperationException(
+                    "Screenshot fidelity cameras are not isolated from unrelated layers or implicit render inputs.");
+            }
+
+            if (baseCameraData.renderType != CameraRenderType.Base
+                || overlayCameraData.renderType != CameraRenderType.Overlay
+                || !baseCameraData.renderPostProcessing
+                || overlayCameraData.renderPostProcessing
+                || baseCameraData.renderShadows
+                || overlayCameraData.renderShadows
+                || baseCameraData.requiresDepthOption != CameraOverrideOption.Off
+                || overlayCameraData.requiresDepthOption != CameraOverrideOption.Off
+                || baseCameraData.requiresColorOption != CameraOverrideOption.Off
+                || overlayCameraData.requiresColorOption != CameraOverrideOption.Off
+                || baseCameraData.antialiasing != AntialiasingMode.None
+                || overlayCameraData.antialiasing != AntialiasingMode.None
+                || baseCameraData.dithering
+                || overlayCameraData.dithering
+                || baseCameraData.stopNaN
+                || overlayCameraData.stopNaN
+                || baseCameraData.allowXRRendering
+                || overlayCameraData.allowXRRendering
+                || baseCameraData.volumeLayerMask.value != 1 << VolumeLayer
+                || overlayCameraData.volumeLayerMask.value != 0
+                || baseCameraData.cameraStack.Count != 1
+                || baseCameraData.cameraStack[0] != overlayCamera)
+            {
+                throw new InvalidOperationException(
+                    "Screenshot fidelity URP camera stack or explicit render options changed unexpectedly.");
+            }
+
+            ValidateRendererIsolation(patternRenderer, PatternLayer, "pattern");
+            ValidateRendererIsolation(overlayRenderer, OverlayLayer, "camera-stack marker");
+            ValidatePostProcessIsolation();
+
+            if (presentationCanvas == null
+                || presentationCanvas.renderMode != RenderMode.ScreenSpaceOverlay
+                || presentationCanvas.sortingOrder != short.MaxValue)
+            {
+                throw new InvalidOperationException(
+                    "Screenshot fidelity presentation Canvas is not the isolated Screen Space Overlay probe.");
+            }
+
+            if (activeTarget == FixtureTarget.Scene && sceneView != null)
+            {
+                var state = sceneView.sceneViewState;
+                if (sceneView.cameraMode.drawMode != DrawCameraMode.Textured
+                    || sceneView.in2DMode
+                    || sceneView.drawGizmos
+                    || !sceneView.showGrid
+                    || sceneView.sceneLighting
+                    || state.fxEnabled
+                    || state.fogEnabled
+                    || state.skyboxEnabled
+                    || state.cloudsEnabled
+                    || state.flaresEnabled
+                    || state.imageEffectsEnabled
+                    || state.particleSystemsEnabled
+                    || state.visualEffectGraphsEnabled)
+                {
+                    throw new InvalidOperationException(
+                        "Screenshot fidelity SceneView inherited an uncontrolled render or lighting state.");
+                }
+            }
+        }
+
+        private static void ValidateRendererIsolation (
+            MeshRenderer renderer,
+            int expectedLayer,
+            string description)
+        {
+            if (renderer == null
+                || renderer.gameObject.layer != expectedLayer
+                || renderer.sharedMaterial == null
+                || renderer.sharedMaterial.shader != patternShader
+                || renderer.shadowCastingMode != ShadowCastingMode.Off
+                || renderer.receiveShadows
+                || renderer.lightProbeUsage != LightProbeUsage.Off
+                || renderer.reflectionProbeUsage != ReflectionProbeUsage.Off
+                || renderer.motionVectorGenerationMode != MotionVectorGenerationMode.ForceNoMotion
+                || renderer.allowOcclusionWhenDynamic)
+            {
+                throw new InvalidOperationException(
+                    $"Screenshot fidelity {description} renderer is not isolated from lighting or renderer probes.");
+            }
+        }
+
+        private static void ValidatePostProcessIsolation ()
+        {
+            var volumes = FindFixtureComponents<Volume>();
+            if (volumes.Length != 1
+                || volumes[0] != postProcessVolume
+                || postProcessVolume.gameObject.layer != VolumeLayer
+                || !postProcessVolume.isGlobal
+                || postProcessVolume.sharedProfile == null
+                || postProcessVolume.sharedProfile.components.Count != 2
+                || !postProcessVolume.sharedProfile.TryGet(out ColorAdjustments colorAdjustments)
+                || !postProcessVolume.sharedProfile.TryGet(out WhiteBalance whiteBalance)
+                || !Mathf.Approximately(colorAdjustments.postExposure.value, 0.25f)
+                || !Mathf.Approximately(colorAdjustments.contrast.value, 8f)
+                || colorAdjustments.colorFilter.value != new Color(1f, 0.96f, 0.9f, 1f)
+                || !Mathf.Approximately(whiteBalance.temperature.value, 12f)
+                || !Mathf.Approximately(whiteBalance.tint.value, -4f))
+            {
+                throw new InvalidOperationException(
+                    "Screenshot fidelity post-process probe is missing or has uncontrolled components.");
+            }
+        }
+
+        private static T[] FindFixtureComponents<T> ()
+            where T : Component
+        {
+            if (baseCamera == null || !baseCamera.gameObject.scene.IsValid())
+            {
+                return Array.Empty<T>();
+            }
+
+            var components = new List<T>();
+            foreach (var rootObject in baseCamera.gameObject.scene.GetRootGameObjects())
+            {
+                components.AddRange(rootObject.GetComponentsInChildren<T>(includeInactive: true));
+            }
+
+            return components.ToArray();
+        }
+
         private static void CreatePostProcessVolume (Scene scene)
         {
             var volumeObject = new GameObject("Fidelity Post Process Volume");
             SceneManager.MoveGameObjectToScene(volumeObject, scene);
-            var volume = volumeObject.AddComponent<Volume>();
-            volume.isGlobal = true;
-            volume.priority = 1000f;
-            volume.sharedProfile = ScriptableObject.CreateInstance<VolumeProfile>();
-            volume.sharedProfile.hideFlags = HideFlags.HideAndDontSave;
+            volumeObject.layer = VolumeLayer;
+            postProcessVolume = volumeObject.AddComponent<Volume>();
+            postProcessVolume.isGlobal = true;
+            postProcessVolume.priority = 1000f;
+            postProcessVolume.sharedProfile = ScriptableObject.CreateInstance<VolumeProfile>();
+            postProcessVolume.sharedProfile.hideFlags = HideFlags.HideAndDontSave;
 
-            var colorAdjustments = volume.sharedProfile.Add<ColorAdjustments>(overrides: true);
+            var colorAdjustments = postProcessVolume.sharedProfile.Add<ColorAdjustments>(overrides: true);
             colorAdjustments.postExposure.Override(0.25f);
             colorAdjustments.contrast.Override(8f);
             colorAdjustments.colorFilter.Override(new Color(1f, 0.96f, 0.9f, 1f));
 
-            var whiteBalance = volume.sharedProfile.Add<WhiteBalance>(overrides: true);
+            var whiteBalance = postProcessVolume.sharedProfile.Add<WhiteBalance>(overrides: true);
             whiteBalance.temperature.Override(12f);
             whiteBalance.tint.Override(-4f);
         }
@@ -397,30 +706,29 @@ namespace MackySoft.Ucli.ScreenshotFidelity
                 typeof(Canvas),
                 typeof(CanvasScaler));
             SceneManager.MoveGameObjectToScene(canvasObject, scene);
-            var canvas = canvasObject.GetComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = short.MaxValue;
+            presentationCanvas = canvasObject.GetComponent<Canvas>();
+            presentationCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            presentationCanvas.sortingOrder = short.MaxValue;
             var scaler = canvasObject.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ConstantPixelSize;
             scaler.scaleFactor = 1f;
 
-            CreateCanvasColorSamples(canvas.transform);
-            CreateImage(canvas.transform, "Top Left Sentinel", Color.red, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(16f, 16f), Vector2.zero);
-            CreateImage(canvas.transform, "Top Right Sentinel", Color.green, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(16f, 16f), Vector2.zero);
-            CreateImage(canvas.transform, "Bottom Left Sentinel", Color.blue, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(16f, 16f), Vector2.zero);
-            CreateImage(canvas.transform, "Bottom Right Sentinel", Color.yellow, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(16f, 16f), Vector2.zero);
-            CreateImage(canvas.transform, "Top Border", Color.cyan, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0f, 1f), new Vector2(0f, -0.5f));
-            CreateImage(canvas.transform, "Bottom Border", Color.magenta, new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(0f, 1f), new Vector2(0f, 0.5f));
-            CreateImage(canvas.transform, "Left Border", new Color(1f, 0.5f, 0f, 1f), new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(1f, 0f), new Vector2(0.5f, 0f));
-            CreateImage(canvas.transform, "Right Border", new Color(0.45f, 0f, 1f, 1f), new Vector2(1f, 0f), new Vector2(1f, 1f), new Vector2(1f, 0f), new Vector2(-0.5f, 0f));
+            CreateImage(presentationCanvas.transform, "Top Left Sentinel", Color.red, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(16f, 16f), Vector2.zero);
+            CreateImage(presentationCanvas.transform, "Top Right Sentinel", Color.green, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(16f, 16f), Vector2.zero);
+            CreateImage(presentationCanvas.transform, "Bottom Left Sentinel", Color.blue, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(16f, 16f), Vector2.zero);
+            CreateImage(presentationCanvas.transform, "Bottom Right Sentinel", Color.yellow, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(16f, 16f), Vector2.zero);
+            CreateImage(presentationCanvas.transform, "Top Border", Color.cyan, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0f, 1f), new Vector2(0f, -0.5f));
+            CreateImage(presentationCanvas.transform, "Bottom Border", Color.magenta, new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(0f, 1f), new Vector2(0f, 0.5f));
+            CreateImage(presentationCanvas.transform, "Left Border", new Color(1f, 0.5f, 0f, 1f), new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(1f, 0f), new Vector2(0.5f, 0f));
+            CreateImage(presentationCanvas.transform, "Right Border", new Color(0.45f, 0f, 1f, 1f), new Vector2(1f, 0f), new Vector2(1f, 1f), new Vector2(1f, 0f), new Vector2(-0.5f, 0f));
 
-            CreateImage(canvas.transform, "Resolution Anchor", Color.yellow, Vector2.zero, Vector2.zero, new Vector2(6f, 10f), new Vector2(31f, 18f));
-            var bits = new Image[20];
+            CreateImage(presentationCanvas.transform, "Resolution Anchor", Color.yellow, Vector2.zero, Vector2.zero, new Vector2(6f, 10f), new Vector2(31f, 18f));
+            var bits = new Image[ResolutionBitCount * 2];
             for (var index = 0; index < bits.Length; index++)
             {
-                var cellIndex = index + (index >= 10 ? 1 : 0);
+                var cellIndex = index + (index >= ResolutionBitCount ? 1 : 0);
                 bits[index] = CreateImage(
-                    canvas.transform,
+                    presentationCanvas.transform,
                     $"Resolution Bit {index:00}",
                     Color.magenta,
                     Vector2.zero,
@@ -430,30 +738,6 @@ namespace MackySoft.Ucli.ScreenshotFidelity
             }
 
             return bits;
-        }
-
-        private static void CreateCanvasColorSamples (Transform parent)
-        {
-            const int grayStepCount = 17;
-            for (var index = 0; index < grayStepCount; index++)
-            {
-                var gray = index / (grayStepCount - 1f);
-                CreateImage(
-                    parent,
-                    $"Gray Step {index:00}",
-                    new Color(gray, gray, gray, 1f),
-                    new Vector2(index / (float)grayStepCount, 0.41f),
-                    new Vector2((index + 1f) / grayStepCount, 0.59f),
-                    Vector2.zero,
-                    Vector2.zero);
-            }
-
-            CreateImage(parent, "Warm Color Sample", new Color(0.62f, 0.11f, 0.055f, 1f), new Vector2(0.12f, 0.22f), new Vector2(0.22f, 0.36f), Vector2.zero, Vector2.zero);
-            CreateImage(parent, "Green Color Sample", new Color(0.08f, 0.48f, 0.16f, 1f), new Vector2(0.30f, 0.22f), new Vector2(0.40f, 0.36f), Vector2.zero, Vector2.zero);
-            CreateImage(parent, "Skin Color Sample", new Color(0.55f, 0.25f, 0.16f, 1f), new Vector2(0.48f, 0.22f), new Vector2(0.58f, 0.36f), Vector2.zero, Vector2.zero);
-            CreateImage(parent, "Blue Color Sample", new Color(0.07f, 0.18f, 0.68f, 1f), new Vector2(0.66f, 0.22f), new Vector2(0.76f, 0.36f), Vector2.zero, Vector2.zero);
-            CreateImage(parent, "Gradient Sample A", new Color(0.2528f, 0.4856f, 0.4066f, 1f), new Vector2(0.24f, 0.72f), new Vector2(0.30f, 0.80f), Vector2.zero, Vector2.zero);
-            CreateImage(parent, "Gradient Sample B", new Color(0.5472f, 0.4856f, 0.2134f, 1f), new Vector2(0.70f, 0.72f), new Vector2(0.76f, 0.80f), Vector2.zero, Vector2.zero);
         }
 
         private static Image CreateImage (
@@ -567,46 +851,11 @@ namespace MackySoft.Ucli.ScreenshotFidelity
                         sentinelSize,
                         sentinelSize),
                     Color.yellow);
-
-                const int grayStepCount = 17;
-                for (var index = 0; index < grayStepCount; index++)
-                {
-                    var gray = index / (grayStepCount - 1f);
-                    DrawNormalizedSceneRect(
-                        viewport,
-                        new Rect(
-                            index / (float)grayStepCount,
-                            0.41f,
-                            1f / grayStepCount,
-                            0.18f),
-                        new Color(gray, gray, gray, 1f));
-                }
-
-                DrawNormalizedSceneRect(viewport, new Rect(0.12f, 0.64f, 0.10f, 0.14f), new Color(0.62f, 0.11f, 0.055f, 1f));
-                DrawNormalizedSceneRect(viewport, new Rect(0.30f, 0.64f, 0.10f, 0.14f), new Color(0.08f, 0.48f, 0.16f, 1f));
-                DrawNormalizedSceneRect(viewport, new Rect(0.48f, 0.64f, 0.10f, 0.14f), new Color(0.55f, 0.25f, 0.16f, 1f));
-                DrawNormalizedSceneRect(viewport, new Rect(0.66f, 0.64f, 0.10f, 0.14f), new Color(0.07f, 0.18f, 0.68f, 1f));
-                DrawNormalizedSceneRect(viewport, new Rect(0.24f, 0.20f, 0.06f, 0.08f), new Color(0.2528f, 0.4856f, 0.4066f, 1f));
-                DrawNormalizedSceneRect(viewport, new Rect(0.70f, 0.20f, 0.06f, 0.08f), new Color(0.5472f, 0.4856f, 0.2134f, 1f));
             }
             finally
             {
                 Handles.EndGUI();
             }
-        }
-
-        private static void DrawNormalizedSceneRect (
-            Rect viewport,
-            Rect normalizedRect,
-            Color color)
-        {
-            EditorGUI.DrawRect(
-                new Rect(
-                    viewport.x + normalizedRect.x * viewport.width,
-                    viewport.y + normalizedRect.y * viewport.height,
-                    normalizedRect.width * viewport.width,
-                    normalizedRect.height * viewport.height),
-                color);
         }
 
         private static Rect ResolveCurrentGuiClipRect ()
@@ -708,9 +957,76 @@ namespace MackySoft.Ucli.ScreenshotFidelity
             {
                 response.fixturePixelWidth = baseCamera.pixelWidth;
                 response.fixturePixelHeight = baseCamera.pixelHeight;
+                response.renderIsolation = CreateRenderIsolationSnapshot();
             }
 
             return response;
+        }
+
+        private static RenderIsolationSnapshot CreateRenderIsolationSnapshot ()
+        {
+            var rendererFeatureCount = 0;
+            var activeRendererFeatureCount = 0;
+            if (fixtureRendererData != null)
+            {
+                foreach (var rendererFeature in fixtureRendererData.rendererFeatures)
+                {
+                    if (rendererFeature == null)
+                    {
+                        continue;
+                    }
+
+                    rendererFeatureCount++;
+                    if (rendererFeature.isActive)
+                    {
+                        activeRendererFeatureCount++;
+                    }
+                }
+            }
+
+            var sceneState = sceneView == null ? null : sceneView.sceneViewState;
+            return new RenderIsolationSnapshot
+            {
+                target = activeTarget.ToString(),
+                lightCount = FindFixtureComponents<Light>().Length,
+                meshRendererCount = FindFixtureComponents<MeshRenderer>().Length,
+                fogEnabled = RenderSettings.fog,
+                skyboxAssigned = RenderSettings.skybox != null,
+                ambientMode = RenderSettings.ambientMode.ToString(),
+                ambientLightMaximum = RenderSettings.ambientLight.maxColorComponent,
+                ambientIntensity = RenderSettings.ambientIntensity,
+                reflectionIntensity = RenderSettings.reflectionIntensity,
+                customReflectionAssigned = RenderSettings.customReflectionTexture != null,
+                patternShaderName = patternShader == null ? null : patternShader.name,
+                patternShaderSupported = patternShader != null && patternShader.isSupported,
+                patternShaderMessageCount = patternShader == null
+                    ? -1
+                    : ShaderUtil.GetShaderMessages(patternShader).Length,
+                rendererDataName = fixtureRendererData == null ? null : fixtureRendererData.name,
+                rendererFeatureCount = rendererFeatureCount,
+                activeRendererFeatureCount = activeRendererFeatureCount,
+                baseCameraCullingMask = baseCamera == null ? 0 : baseCamera.cullingMask,
+                overlayCameraCullingMask = overlayCamera == null ? 0 : overlayCamera.cullingMask,
+                baseCameraPostProcessing = baseCameraData != null && baseCameraData.renderPostProcessing,
+                overlayCameraPostProcessing = overlayCameraData != null && overlayCameraData.renderPostProcessing,
+                baseCameraStackCount = baseCameraData?.cameraStack?.Count ?? 0,
+                patternLayer = patternRenderer == null ? -1 : patternRenderer.gameObject.layer,
+                overlayLayer = overlayRenderer == null ? -1 : overlayRenderer.gameObject.layer,
+                volumeLayer = postProcessVolume == null ? -1 : postProcessVolume.gameObject.layer,
+                volumeComponentCount = postProcessVolume?.sharedProfile?.components.Count ?? 0,
+                canvasRenderMode = presentationCanvas == null
+                    ? null
+                    : presentationCanvas.renderMode.ToString(),
+                sceneCameraMode = sceneView == null ? null : sceneView.cameraMode.drawMode.ToString(),
+                sceneIn2DMode = sceneView != null && sceneView.in2DMode,
+                sceneDrawGizmos = sceneView != null && sceneView.drawGizmos,
+                sceneLighting = sceneView != null && sceneView.sceneLighting,
+                sceneFxEnabled = sceneState != null && sceneState.fxEnabled,
+                sceneFogEnabled = sceneState != null && sceneState.fogEnabled,
+                sceneSkyboxEnabled = sceneState != null && sceneState.skyboxEnabled,
+                sceneImageEffectsEnabled = sceneState != null && sceneState.imageEffectsEnabled,
+                sceneParticleSystemsEnabled = sceneState != null && sceneState.particleSystemsEnabled,
+            };
         }
 
         private static void PopulateGameViewState (
@@ -1355,6 +1671,82 @@ namespace MackySoft.Ucli.ScreenshotFidelity
             public int fixturePixelWidth;
 
             public int fixturePixelHeight;
+
+            public RenderIsolationSnapshot renderIsolation;
+        }
+
+        [Serializable]
+        private sealed class RenderIsolationSnapshot
+        {
+            public string target;
+
+            public int lightCount;
+
+            public int meshRendererCount;
+
+            public bool fogEnabled;
+
+            public bool skyboxAssigned;
+
+            public string ambientMode;
+
+            public float ambientLightMaximum;
+
+            public float ambientIntensity;
+
+            public float reflectionIntensity;
+
+            public bool customReflectionAssigned;
+
+            public string patternShaderName;
+
+            public bool patternShaderSupported;
+
+            public int patternShaderMessageCount;
+
+            public string rendererDataName;
+
+            public int rendererFeatureCount;
+
+            public int activeRendererFeatureCount;
+
+            public int baseCameraCullingMask;
+
+            public int overlayCameraCullingMask;
+
+            public bool baseCameraPostProcessing;
+
+            public bool overlayCameraPostProcessing;
+
+            public int baseCameraStackCount;
+
+            public int patternLayer;
+
+            public int overlayLayer;
+
+            public int volumeLayer;
+
+            public int volumeComponentCount;
+
+            public string canvasRenderMode;
+
+            public string sceneCameraMode;
+
+            public bool sceneIn2DMode;
+
+            public bool sceneDrawGizmos;
+
+            public bool sceneLighting;
+
+            public bool sceneFxEnabled;
+
+            public bool sceneFogEnabled;
+
+            public bool sceneSkyboxEnabled;
+
+            public bool sceneImageEffectsEnabled;
+
+            public bool sceneParticleSystemsEnabled;
         }
 
         [Serializable]

@@ -368,6 +368,7 @@ send_control() {
   if [[ "$(jq -r '.status' "${response_path}")" != "ready" ]]; then
     fail "Unity fixture action failed: ${action}: $(jq -r '.message // "unknown error"' "${response_path}")"
   fi
+  assert_fixture_render_isolation "${response_path}" "${action}"
   control_response_path="${response_path}"
   next_sequence=$((next_sequence + 1))
 }
@@ -439,6 +440,61 @@ assert_command_success() {
   [[ "${last_ucli_exit}" -eq 0 ]] || fail "Command failed with exit ${last_ucli_exit}: ${command_result}"
   [[ "$(jq -r '.status' "${command_result}")" == "ok" ]] \
     || fail "Command did not return status=ok: ${command_result}"
+}
+
+assert_fixture_render_isolation() {
+  local response_path="$1"
+  local context="$2"
+  jq -e '
+    .renderIsolation as $state
+    | $state.lightCount == 0
+      and $state.meshRendererCount == 2
+      and $state.fogEnabled == false
+      and $state.skyboxAssigned == false
+      and $state.ambientMode == "Flat"
+      and $state.ambientLightMaximum == 0
+      and $state.ambientIntensity == 0
+      and $state.reflectionIntensity == 0
+      and $state.customReflectionAssigned == false
+      and $state.patternShaderName == "Hidden/uCLI/ScreenshotFidelityPattern"
+      and $state.patternShaderSupported == true
+      and $state.patternShaderMessageCount == 0
+      and $state.activeRendererFeatureCount == 0
+      and $state.baseCameraCullingMask == 536870912
+      and $state.overlayCameraCullingMask == 1073741824
+      and $state.baseCameraPostProcessing == true
+      and $state.overlayCameraPostProcessing == false
+      and $state.baseCameraStackCount == 1
+      and $state.patternLayer == 29
+      and $state.overlayLayer == 30
+      and $state.volumeLayer == 28
+      and $state.volumeComponentCount == 2
+      and $state.canvasRenderMode == "ScreenSpaceOverlay"
+      and (
+        $state.target != "Scene"
+        or (
+          $state.sceneCameraMode == "Textured"
+          and $state.sceneIn2DMode == false
+          and $state.sceneDrawGizmos == false
+          and $state.sceneLighting == false
+          and $state.sceneFxEnabled == false
+          and $state.sceneFogEnabled == false
+          and $state.sceneSkyboxEnabled == false
+          and $state.sceneImageEffectsEnabled == false
+          and $state.sceneParticleSystemsEnabled == false
+        )
+      )' \
+    "${response_path}" >/dev/null \
+    || fail "${context} fixture render isolation is invalid: ${response_path}"
+}
+
+assert_unity_log_query_empty() {
+  local result_path="$1"
+  local context="$2"
+  assert_command_success "${result_path}"
+  jq -e '.payload.count == 0 and .payload.completionReason == "completed"' \
+    "${result_path}" >/dev/null \
+    || fail "${context} emitted Unity diagnostics; see ${result_path} and ${result_path%.json}.stderr.log"
 }
 
 assert_overlay_failure() {
@@ -576,6 +632,26 @@ invoke_ucli "${results_directory}/daemon-start.json" \
   --editorMode gui \
   --timeout 180000
 assert_command_success "${results_directory}/daemon-start.json"
+
+invoke_ucli "${results_directory}/unity-console-clear.json" \
+  logs unity clear \
+  --projectPath "${unity_project}" \
+  --timeout 30000
+assert_command_success "${results_directory}/unity-console-clear.json"
+
+invoke_ucli "${results_directory}/unity-log-baseline.json" \
+  logs unity read \
+  --projectPath "${unity_project}" \
+  --tail 1 \
+  --level all \
+  --source all \
+  --stackTrace none \
+  --format json \
+  --timeout 30000
+assert_command_success "${results_directory}/unity-log-baseline.json"
+unity_log_baseline_cursor="$(jq -r '.payload.nextCursor // empty' "${results_directory}/unity-log-baseline.json")"
+[[ -n "${unity_log_baseline_cursor}" ]] \
+  || fail "Unity log baseline did not return an incremental cursor."
 
 run_game_case() {
   local case_name="$1"
@@ -783,6 +859,41 @@ jq -n \
   '{status:$status,failureCode:$failureCode,artifactSetStatus:$artifactSetStatus,displayedOverlay:$displayedOverlay}' \
   > "${panel_directory}/analysis.json"
 
+jq -s \
+  '{
+    game: .[0].renderIsolation,
+    scene: .[1].renderIsolation
+  }' \
+  "${case_directory}/game-current/fixture-before.json" \
+  "${case_directory}/scene-current/fixture-before.json" \
+  > "${results_directory}/fixture-render-isolation.json"
+
+invoke_ucli "${results_directory}/unity-errors.json" \
+  logs unity read \
+  --projectPath "${unity_project}" \
+  --after "${unity_log_baseline_cursor}" \
+  --level error \
+  --source all \
+  --stackTrace all \
+  --format json \
+  --timeout 30000
+assert_unity_log_query_empty \
+  "${results_directory}/unity-errors.json" \
+  "Screenshot fidelity measurement"
+
+invoke_ucli "${results_directory}/unity-warnings.json" \
+  logs unity read \
+  --projectPath "${unity_project}" \
+  --after "${unity_log_baseline_cursor}" \
+  --level warning \
+  --source all \
+  --stackTrace all \
+  --format json \
+  --timeout 30000
+assert_unity_log_query_empty \
+  "${results_directory}/unity-warnings.json" \
+  "Screenshot fidelity measurement"
+
 invoke_ucli "${results_directory}/daemon-stop.json" \
   daemon stop \
   --projectPath "${unity_project}" \
@@ -799,6 +910,13 @@ fi
 wait "${unity_pid}" 2>/dev/null || true
 controller_started=false
 
+compiler_diagnostics_path="${results_directory}/unity-compiler-diagnostics.txt"
+if grep -E '(^|[^[:alnum:]_])(warning|error) CS[0-9]{4}([^[:digit:]]|$)' \
+  "${results_directory}/unity.log" > "${compiler_diagnostics_path}"; then
+  fail "Unity fixture compilation emitted C# diagnostics; see ${compiler_diagnostics_path}."
+fi
+: > "${compiler_diagnostics_path}"
+
 game_view_sizes_hash_after="$(if [[ -f "${game_view_sizes_path}" ]]; then shasum -a 256 "${game_view_sizes_path}" | awk '{print $1}'; else echo absent; fi)"
 [[ "${game_view_sizes_hash_before}" == "${game_view_sizes_hash_after}" ]] \
   || fail "GameViewSizes.asset changed during screenshot capture. The runner did not overwrite it; the pre-run copy is ${game_view_sizes_backup}."
@@ -811,6 +929,9 @@ jq -n \
   --slurpfile source "${source_provenance_path}" \
   --slurpfile macos "${results_directory}/macos-environment.json" \
   --slurpfile unity "${run_directory}/unity-environment.json" \
+  --slurpfile renderIsolation "${results_directory}/fixture-render-isolation.json" \
+  --slurpfile unityErrors "${results_directory}/unity-errors.json" \
+  --slurpfile unityWarnings "${results_directory}/unity-warnings.json" \
   --slurpfile gameCurrent "${case_directory}/game-current/analysis.json" \
   --slurpfile gameRequested "${case_directory}/game-requested-321x197/analysis.json" \
   --slurpfile sceneCurrent "${case_directory}/scene-current/analysis.json" \
@@ -821,6 +942,14 @@ jq -n \
     size:$size,
     source:$source[0],
     environment:{macos:$macos[0],unity:$unity[0]},
+    verification:{
+      renderIsolation:$renderIsolation[0],
+      unityDiagnostics:{
+        errorCount:$unityErrors[0].payload.count,
+        warningCount:$unityWarnings[0].payload.count,
+        compilerDiagnosticCount:0
+      }
+    },
     stateRestoration:{gameViewSizesHashBefore:$gameViewSizesHashBefore,gameViewSizesHashAfter:$gameViewSizesHashAfter},
     cases:{
       gameCurrent:$gameCurrent[0],
