@@ -1,5 +1,6 @@
 namespace MackySoft.Ucli.Application.Tests.Daemon;
 
+using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Identity;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
@@ -9,6 +10,15 @@ using MackySoft.Ucli.Contracts.Ipc;
 
 internal static class DaemonExistingSessionGateServiceTestSupport
 {
+    private static readonly DateTimeOffset DefaultUtcNow = new(
+        2026,
+        03,
+        12,
+        00,
+        00,
+        00,
+        TimeSpan.Zero);
+
     public static DaemonExistingSessionGateService CreateService (
         IDaemonPingInfoClient? daemonPingInfoClient = null,
         IDaemonReachabilityClassifier? reachabilityClassifier = null,
@@ -23,7 +33,7 @@ internal static class DaemonExistingSessionGateServiceTestSupport
             daemonSessionCleanupService: cleanupService ?? new RecordingDaemonSessionCleanupService(),
             daemonLifecycleStore: lifecycleStore ?? new RecordingDaemonLifecycleStore(),
             processIdentityAssessor: processIdentityAssessor ?? new RecordingDaemonProcessIdentityAssessor(),
-            timeProvider: timeProvider ?? TimeProvider.System);
+            timeProvider: timeProvider ?? new ManualTimeProvider(DefaultUtcNow));
     }
 
     public static DaemonLifecycleObservation CreateRecoveringObservation (
@@ -39,7 +49,7 @@ internal static class DaemonExistingSessionGateServiceTestSupport
             CompileState: IpcCompileStateCodec.Ready,
             CompileGeneration: "1",
             DomainReloadGeneration: "2",
-            ObservedAtUtc: observedAtUtc ?? DateTimeOffset.UtcNow,
+            ObservedAtUtc: observedAtUtc ?? DefaultUtcNow,
             ActionRequired: null,
             PrimaryDiagnostic: null)
         {

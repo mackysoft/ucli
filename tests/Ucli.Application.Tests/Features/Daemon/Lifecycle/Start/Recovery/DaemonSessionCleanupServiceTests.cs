@@ -26,7 +26,7 @@ public sealed class DaemonSessionCleanupServiceTests
             processTerminationService,
             artifactCleaner,
             new DaemonCompensationOperationOwner(),
-            TimeProvider.System);
+            new ManualTimeProvider());
 
         var result = await service.CleanupInvalidSessionArtifactsAsync(
             context,
@@ -64,7 +64,7 @@ public sealed class DaemonSessionCleanupServiceTests
             processTerminationService,
             artifactCleaner,
             new DaemonCompensationOperationOwner(),
-            TimeProvider.System);
+            new ManualTimeProvider());
 
         var result = await service.CleanupInvalidSessionArtifactsAsync(context, readResult, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
@@ -107,7 +107,7 @@ public sealed class DaemonSessionCleanupServiceTests
             processTerminationService,
             artifactCleaner,
             new DaemonCompensationOperationOwner(),
-            TimeProvider.System);
+            new ManualTimeProvider());
 
         var result = await service.CleanupInvalidSessionArtifactsAsync(context, readResult, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
@@ -145,7 +145,7 @@ public sealed class DaemonSessionCleanupServiceTests
             processTerminationService,
             artifactCleaner,
             new DaemonCompensationOperationOwner(),
-            TimeProvider.System);
+            new ManualTimeProvider());
 
         var result = await service.CleanupInvalidSessionArtifactsAsync(
             context,
@@ -180,7 +180,7 @@ public sealed class DaemonSessionCleanupServiceTests
             processTerminationService,
             artifactCleaner,
             new DaemonCompensationOperationOwner(),
-            TimeProvider.System);
+            new ManualTimeProvider());
 
         var result = await service.CleanupStaleSessionArtifactsAsync(context, session, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
@@ -221,7 +221,7 @@ public sealed class DaemonSessionCleanupServiceTests
             processTerminationService,
             artifactCleaner,
             new DaemonCompensationOperationOwner(),
-            TimeProvider.System);
+            new ManualTimeProvider());
 
         var result = await service.CleanupStaleSessionArtifactsAsync(context, session, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
@@ -256,7 +256,7 @@ public sealed class DaemonSessionCleanupServiceTests
             processTerminationService,
             artifactCleaner,
             new DaemonCompensationOperationOwner(),
-            TimeProvider.System);
+            new ManualTimeProvider());
 
         var result = await service.CleanupInvalidSessionArtifactsAsync(context, readResult, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 

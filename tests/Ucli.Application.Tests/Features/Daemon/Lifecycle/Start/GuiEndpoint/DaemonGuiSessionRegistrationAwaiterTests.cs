@@ -402,7 +402,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
             sessionStore,
             pingClient,
             reachabilityClassifier ?? new StubDaemonReachabilityClassifier(_ => true),
-            timeProvider ?? TimeProvider.System);
+            timeProvider ?? new ManualTimeProvider());
     }
 
     private static DaemonSession CreateGuiSession (

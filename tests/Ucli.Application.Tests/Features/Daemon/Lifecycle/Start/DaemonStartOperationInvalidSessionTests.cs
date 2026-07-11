@@ -1,3 +1,4 @@
+using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
@@ -118,11 +119,12 @@ public sealed class DaemonStartOperationInvalidSessionTests
         {
             NextResult = DaemonArtifactCleanupResult.Success(),
         };
+        var timeProvider = new ManualTimeProvider();
         var cleanupService = new DaemonSessionCleanupService(
             processTerminationService,
             artifactCleaner,
             new DaemonCompensationOperationOwner(),
-            TimeProvider.System);
+            timeProvider);
         var launchService = new RecordingDaemonLaunchService
         {
             NextResult = DaemonStartResult.Started(DaemonSessionTestFactory.Create(processId: 3333, projectFingerprint: context.ProjectFingerprint)),
@@ -131,7 +133,8 @@ public sealed class DaemonStartOperationInvalidSessionTests
             daemonSessionStore: sessionStore,
             daemonSessionCleanupService: cleanupService,
             daemonExistingSessionGateService: new RecordingDaemonExistingSessionGateService(),
-            daemonLaunchService: launchService);
+            daemonLaunchService: launchService,
+            timeProvider: timeProvider);
 
         var result = await operation.StartAsync(
             context,

@@ -1,3 +1,4 @@
+using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
@@ -27,6 +28,6 @@ internal static class DaemonStartOperationTestSupport
             daemonGuiEditorAttachService: daemonGuiEditorAttachService ?? new RecordingDaemonGuiEditorAttachService(),
             daemonLaunchService: daemonLaunchService,
             compensationOperationOwner: compensationOperationOwner ?? new DaemonCompensationOperationOwner(),
-            timeProvider: timeProvider ?? TimeProvider.System);
+            timeProvider: timeProvider ?? new ManualTimeProvider());
     }
 }

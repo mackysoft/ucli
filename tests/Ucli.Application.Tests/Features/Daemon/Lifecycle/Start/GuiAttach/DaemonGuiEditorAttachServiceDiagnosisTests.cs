@@ -36,7 +36,7 @@ public sealed class DaemonGuiEditorAttachServiceDiagnosisTests
             rebootstrapClient,
             diagnosisStore,
             new DaemonCompensationOperationOwner(),
-            TimeProvider.System);
+            new ManualTimeProvider());
         var progressObserver = new CollectingDaemonStartProgressObserver();
 
         var result = await service.TryAttachExistingGuiEditorAsync(
@@ -110,7 +110,7 @@ public sealed class DaemonGuiEditorAttachServiceDiagnosisTests
             rebootstrapClient,
             diagnosisStore,
             new DaemonCompensationOperationOwner(),
-            TimeProvider.System);
+            new ManualTimeProvider());
         var progressObserver = new CollectingDaemonStartProgressObserver();
 
         var result = await service.TryAttachExistingGuiEditorAsync(

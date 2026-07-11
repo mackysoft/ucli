@@ -29,7 +29,7 @@ public sealed class DaemonLaunchCompensationServiceTests
         var service = new DaemonLaunchCompensationService(
             processTerminationService,
             artifactCleaner,
-            TimeProvider.System);
+            new ManualTimeProvider());
         var result = await service.CleanupFailedLaunchAsync(
             context,
             expectedSession: observedSession,
@@ -73,7 +73,7 @@ public sealed class DaemonLaunchCompensationServiceTests
         var service = new DaemonLaunchCompensationService(
             processTerminationService,
             artifactCleaner,
-            TimeProvider.System);
+            new ManualTimeProvider());
 
         var result = await service.CleanupFailedLaunchAsync(
             context,
@@ -103,7 +103,7 @@ public sealed class DaemonLaunchCompensationServiceTests
         var service = new DaemonLaunchCompensationService(
             processTerminationService,
             artifactCleaner,
-            TimeProvider.System);
+            new ManualTimeProvider());
 
         var result = await service.CleanupFailedLaunchAsync(
             context,
@@ -140,7 +140,7 @@ public sealed class DaemonLaunchCompensationServiceTests
         var service = new DaemonLaunchCompensationService(
             processTerminationService,
             artifactCleaner,
-            TimeProvider.System);
+            new ManualTimeProvider());
         var failedLaunchTarget = CreateTarget(2468);
 
         var result = await service.CleanupFailedLaunchAsync(
@@ -170,7 +170,7 @@ public sealed class DaemonLaunchCompensationServiceTests
         var service = new DaemonLaunchCompensationService(
             processTerminationService,
             artifactCleaner,
-            TimeProvider.System);
+            new ManualTimeProvider());
         var target = CreateTarget(8642);
 
         var result = await service.CleanupFailedLaunchAsync(
@@ -205,7 +205,7 @@ public sealed class DaemonLaunchCompensationServiceTests
         var service = new DaemonLaunchCompensationService(
             processTerminationService,
             artifactCleaner,
-            TimeProvider.System);
+            new ManualTimeProvider());
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-compensation-cleanup-fail");
         var target = CreateTarget(1010);
 
@@ -244,7 +244,7 @@ public sealed class DaemonLaunchCompensationServiceTests
         var service = new DaemonLaunchCompensationService(
             processTerminationService,
             artifactCleaner,
-            TimeProvider.System);
+            new ManualTimeProvider());
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-compensation-timeout-cap");
         var target = CreateTarget(4040);
 
