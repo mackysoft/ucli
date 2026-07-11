@@ -10,12 +10,32 @@ namespace MackySoft.Ucli.Unity.Ipc
     {
         private static readonly TimeSpan StartupCompletionRaceGracePeriod = TimeSpan.FromMilliseconds(100);
 
+        private readonly object syncRoot = new object();
+
         private readonly TaskCompletionSource<bool> startupCompletionSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        /// <summary> Marks startup as completed after transport listener begins accept loop. </summary>
-        public void Complete ()
+        private bool listenerStarted;
+
+        private bool listenerLifetimeTracked;
+
+        /// <summary> Records that the transport listener began accepting connections. </summary>
+        public void SignalListenerStarted ()
         {
-            startupCompletionSource.TrySetResult(true);
+            lock (syncRoot)
+            {
+                listenerStarted = true;
+                TryCompleteWithoutLock();
+            }
+        }
+
+        /// <summary> Records that the listener lifetime task is available to endpoint publication checks. </summary>
+        public void MarkListenerLifetimeTracked ()
+        {
+            lock (syncRoot)
+            {
+                listenerLifetimeTracked = true;
+                TryCompleteWithoutLock();
+            }
         }
 
         /// <summary> Marks startup as canceled while shutdown is in progress. </summary>
@@ -37,22 +57,6 @@ namespace MackySoft.Ucli.Unity.Ipc
             startupCompletionSource.TrySetException(exception);
         }
 
-        /// <summary> Fails startup when listener loop exits unexpectedly before startup completion signal. </summary>
-        /// <param name="isCancellationRequested"> Whether cancellation was already requested. </param>
-        /// <param name="isRunning"> Whether server lifecycle is still marked as running. </param>
-        public void FailOnUnexpectedExit (
-            bool isCancellationRequested,
-            bool isRunning)
-        {
-            if (startupCompletionSource.Task.IsCompleted || isCancellationRequested || !isRunning)
-            {
-                return;
-            }
-
-            startupCompletionSource.TrySetException(
-                new InvalidOperationException("IPC server loop exited unexpectedly before startup completed."));
-        }
-
         /// <summary> Waits until startup succeeds, fails, or caller cancellation is requested. </summary>
         /// <param name="cancellationToken"> The cancellation token propagated by start operation. </param>
         /// <returns> A task that completes when startup result is determined. </returns>
@@ -62,6 +66,14 @@ namespace MackySoft.Ucli.Unity.Ipc
         {
             var startupTask = startupCompletionSource.Task;
             await CancellationGracePeriodAwaiter.WaitAsync(startupTask, cancellationToken, StartupCompletionRaceGracePeriod);
+        }
+
+        private void TryCompleteWithoutLock ()
+        {
+            if (listenerStarted && listenerLifetimeTracked)
+            {
+                startupCompletionSource.TrySetResult(true);
+            }
         }
     }
 }

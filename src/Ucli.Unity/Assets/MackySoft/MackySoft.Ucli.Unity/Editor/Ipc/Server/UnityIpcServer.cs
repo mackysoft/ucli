@@ -449,17 +449,24 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 try
                 {
-                    await listener.RunAsync(
+                    var listenerRunTask = listener.RunAsync(
                         endpoint.Address,
                         connectionHandler,
-                        () => CompleteStartupForGeneration(publicationState, startupCoordinator),
+                        () => SignalStartupForGeneration(publicationState, startupCoordinator),
                         result => HandleConnectionCompleted(publicationState, result),
                         cancellationToken);
+                    publicationState.AttachListenerTask(listenerRunTask);
+                    if (publicationState.IsListenerRunning)
+                    {
+                        startupCoordinator.MarkListenerLifetimeTracked();
+                    }
+
+                    await listenerRunTask;
                 }
                 finally
                 {
-                    // This flag closes the interval between RunAsync termination and the lifecycle lock.
-                    // Durable publication commits must fail as soon as the listener begins unwinding.
+                    // Publication checks observe listenerRunTask directly; this phase preserves
+                    // termination after the server loop resumes and before it takes the lifecycle lock.
                     publicationState.MarkTerminationStarted();
                 }
 
@@ -470,9 +477,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                         "IPC server listener exited unexpectedly while its generation was still active.");
                 }
 
-                startupCoordinator.FailOnUnexpectedExit(
-                    cancellationToken.IsCancellationRequested,
-                    IsListenerGenerationRunning(publicationState));
+                startupCoordinator.Cancel();
             }
             catch (OperationCanceledException) when (!IsListenerGenerationRunning(publicationState) || cancellationToken.IsCancellationRequested)
             {
@@ -599,13 +604,12 @@ namespace MackySoft.Ucli.Unity.Ipc
         {
             return publicationState != null
                 && publicationState.IsPublicationPending
+                && publicationState.IsListenerRunning
                 && ReferenceEquals(activeListenerPublicationState, publicationState)
-                && isRunning
-                && listenerTask != null
-                && !listenerTask.IsCompleted;
+                && isRunning;
         }
 
-        private void CompleteStartupForGeneration (
+        private void SignalStartupForGeneration (
             ListenerGenerationPublicationState publicationState,
             UnityIpcServerStartupCoordinator startupCoordinator)
         {
@@ -613,7 +617,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 if (isRunning && ReferenceEquals(activeListenerPublicationState, publicationState))
                 {
-                    startupCoordinator.Complete();
+                    startupCoordinator.SignalListenerStarted();
                     return;
                 }
 
@@ -930,10 +934,34 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             private const int PublicationPhaseTerminated = 2;
 
+            private Task? listenerRunTask;
+
             private int publicationPhase;
 
             public bool IsPublicationPending =>
                 Volatile.Read(ref publicationPhase) == PublicationPhasePending;
+
+            public bool IsListenerRunning
+            {
+                get
+                {
+                    var capturedListenerRunTask = Volatile.Read(ref listenerRunTask);
+                    return capturedListenerRunTask != null && !capturedListenerRunTask.IsCompleted;
+                }
+            }
+
+            public void AttachListenerTask (Task listenerRunTask)
+            {
+                if (listenerRunTask == null)
+                {
+                    throw new ArgumentNullException(nameof(listenerRunTask));
+                }
+
+                if (Interlocked.CompareExchange(ref this.listenerRunTask, listenerRunTask, null) != null)
+                {
+                    throw new InvalidOperationException("The listener generation already has a transport task.");
+                }
+            }
 
             public void MarkTerminationStarted ()
             {
@@ -945,10 +973,30 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             public bool TryBeginPublicationCommit ()
             {
-                return Interlocked.CompareExchange(
+                var capturedListenerRunTask = Volatile.Read(ref listenerRunTask);
+                if (capturedListenerRunTask == null || capturedListenerRunTask.IsCompleted)
+                {
+                    return false;
+                }
+
+                if (Interlocked.CompareExchange(
+                        ref publicationPhase,
+                        PublicationPhaseCommitted,
+                        PublicationPhasePending) != PublicationPhasePending)
+                {
+                    return false;
+                }
+
+                if (!capturedListenerRunTask.IsCompleted)
+                {
+                    return true;
+                }
+
+                _ = Interlocked.CompareExchange(
                     ref publicationPhase,
-                    PublicationPhaseCommitted,
-                    PublicationPhasePending) == PublicationPhasePending;
+                    PublicationPhaseTerminated,
+                    PublicationPhaseCommitted);
+                return false;
             }
         }
 

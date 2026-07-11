@@ -48,7 +48,8 @@ namespace MackySoft.Ucli.Unity.Tests
             using var cancellationTokenSource = new CancellationTokenSource();
             var waitTask = startupCoordinator.WaitAsync(cancellationTokenSource.Token);
 
-            startupCoordinator.Complete();
+            startupCoordinator.MarkListenerLifetimeTracked();
+            startupCoordinator.SignalListenerStarted();
             cancellationTokenSource.Cancel();
 
             await TestAwaiter.WaitAsync(waitTask, "Startup completion before cancellation", SignalWaitTimeout);
@@ -60,12 +61,29 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var startupCoordinator = new UnityIpcServerStartupCoordinator();
             using var cancellationTokenSource = new CancellationTokenSource();
-            using var completionRegistration = cancellationTokenSource.Token.Register(startupCoordinator.Complete);
+            startupCoordinator.MarkListenerLifetimeTracked();
+            using var completionRegistration = cancellationTokenSource.Token.Register(startupCoordinator.SignalListenerStarted);
             var waitTask = startupCoordinator.WaitAsync(cancellationTokenSource.Token);
 
             cancellationTokenSource.Cancel();
 
             await TestAwaiter.WaitAsync(waitTask, "Startup completion after cancellation", SignalWaitTimeout);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator StartupCoordinator_Wait_WhenListenerStartsBeforeLifetimeTracking_WaitsForTracking () => UniTask.ToCoroutine(async () =>
+        {
+            var startupCoordinator = new UnityIpcServerStartupCoordinator();
+            var waitTask = startupCoordinator.WaitAsync(CancellationToken.None);
+
+            startupCoordinator.SignalListenerStarted();
+
+            Assert.That(waitTask.IsCompleted, Is.False);
+
+            startupCoordinator.MarkListenerLifetimeTracked();
+
+            await TestAwaiter.WaitAsync(waitTask, "Startup listener lifetime tracking", SignalWaitTimeout);
         });
 
         [UnityTest]

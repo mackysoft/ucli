@@ -617,6 +617,28 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Start_WhenLifecycleReleaseOccursBeforeImmediateListenerReturn_CompletesAsCanceled () => UniTask.ToCoroutine(async () =>
+        {
+            var listener = new ImmediateTerminationTransportListener(throwAfterStartup: false);
+            var server = CreateServer(listener);
+            listener.AfterStartup = server.ReleaseForEditorLifecycleEvent;
+            var endpoint = new IpcEndpoint(
+                IpcTransportKind.NamedPipe,
+                "ucli-generation-release-before-immediate-return");
+
+            await AsyncExceptionCapture.CaptureAsync<OperationCanceledException>(async () =>
+            {
+                await TestAwaiter.WaitAsync(
+                    server.StartAsync(endpoint),
+                    "Immediate listener return after lifecycle release",
+                    SignalWaitTimeout);
+            }, "Released immediate listener startup result", SignalWaitTimeout);
+
+            Assert.That(server.IsRunning, Is.False);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Start_WhenGenerationIsAlreadyRunning_DoesNotIssueASecondPublicationFence () => UniTask.ToCoroutine(async () =>
         {
             var listener = new UnexpectedReturnTransportListener();
@@ -923,8 +945,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     ? "ucli-generation-immediate-startup-throw"
                     : "ucli-generation-immediate-startup-return");
             IUnityIpcServerPublicationFence publicationFence = null;
-            Exception startException = null;
-            var ownershipCommitted = false;
+            InvalidOperationException startException = null;
             try
             {
                 try
@@ -934,22 +955,13 @@ namespace MackySoft.Ucli.Unity.Tests
                         "Immediate listener termination startup",
                         SignalWaitTimeout);
                 }
-                catch (Exception exception) when (
-                    exception is InvalidOperationException or OperationCanceledException)
+                catch (InvalidOperationException exception)
                 {
                     startException = exception;
                 }
 
-                if (publicationFence != null)
-                {
-                    Assert.That(
-                        publicationFence.TryCommitActiveOwnership(
-                            () => ownershipCommitted = true),
-                        Is.False);
-                }
-
-                Assert.That(ownershipCommitted, Is.False);
-                Assert.That(startException != null || publicationFence != null, Is.True);
+                Assert.That(publicationFence, Is.Null);
+                Assert.That(startException, Is.Not.Null);
             }
             finally
             {
@@ -1163,6 +1175,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public IpcTransportKind TransportKind => IpcTransportKind.NamedPipe;
 
+            public Action AfterStartup { private get; set; }
+
             public Task RunAsync (
                 string address,
                 IUnityIpcConnectionHandler connectionHandler,
@@ -1171,6 +1185,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 CancellationToken cancellationToken)
             {
                 onStarted();
+                AfterStartup?.Invoke();
                 return throwAfterStartup
                     ? Task.FromException(new InvalidOperationException("Immediate listener failure."))
                     : Task.CompletedTask;
