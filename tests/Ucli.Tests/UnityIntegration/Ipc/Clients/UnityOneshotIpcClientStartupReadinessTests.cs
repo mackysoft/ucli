@@ -4,6 +4,7 @@ using MackySoft.Ucli.Tests.Helpers.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Process;
 using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
 using MackySoft.Ucli.UnityIntegration.Ipc.Process;
+using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 using static MackySoft.Ucli.Tests.Ipc.UnityOneshotIpcClientTestSupport;
 
 namespace MackySoft.Ucli.Tests.Ipc;
@@ -278,6 +279,51 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
             return request.Method switch
             {
                 IpcMethodNames.Ping when ++pingAttempt == 1 => throw new TimeoutException("startup ping timed out"),
+                IpcMethodNames.Ping => CreatePingResponse(request.RequestId),
+                IpcMethodNames.OpsRead => CreateSuccessResponse(request.RequestId),
+                _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
+            };
+        });
+        var client = new UnityOneshotIpcClient(
+            launcher,
+            transportClient,
+            new StubProjectLifecycleLockProvider(),
+            CreateProjectLockPreflightService(),
+            timeProvider: timeProvider);
+
+        var resultTask = client.SendAsync(
+            unityProject,
+            CreateDispatchRequest(),
+            TimeSpan.FromSeconds(30),
+            CancellationToken.None).AsTask();
+        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
+            timeProvider,
+            resultTask,
+            TimeSpan.FromSeconds(30),
+            MaximumStartupRetryDelay);
+        var result = await resultTask;
+
+        Assert.True(result.IsSuccess);
+        IpcRequestAssert.Methods(transportClient, IpcMethodNames.Ping, IpcMethodNames.Ping, IpcMethodNames.OpsRead);
+        UnityBatchmodeProcessHandleAssert.WasNotTerminated(processHandle);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task SendAsync_WhenStartupPingResponseReadIsInterrupted_RetriesUntilReachable ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "startup-response-read-interrupted");
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath);
+        var timeProvider = new ManualTimeProvider(DateTimeOffset.UtcNow);
+        var processHandle = new StubUnityBatchmodeProcessHandle();
+        var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
+        var pingAttempt = 0;
+        var transportClient = new RecordingUnityIpcTransportClient(request =>
+        {
+            return request.Method switch
+            {
+                IpcMethodNames.Ping when ++pingAttempt == 1 => throw new IpcResponseReadInterruptedException(
+                    new IOException("Pipe is broken.")),
                 IpcMethodNames.Ping => CreatePingResponse(request.RequestId),
                 IpcMethodNames.OpsRead => CreateSuccessResponse(request.RequestId),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),

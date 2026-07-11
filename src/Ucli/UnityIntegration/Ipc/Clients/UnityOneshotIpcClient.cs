@@ -878,7 +878,9 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
     private static bool IsStartupRetryable (Exception exception)
     {
         ArgumentNullException.ThrowIfNull(exception);
-        return exception is TimeoutException or System.Net.Sockets.SocketException;
+        return exception is TimeoutException
+            or System.Net.Sockets.SocketException
+            or IpcResponseReadInterruptedException;
     }
 
     /// <summary> Calculates one startup retry delay bounded by the remaining timeout. </summary>
