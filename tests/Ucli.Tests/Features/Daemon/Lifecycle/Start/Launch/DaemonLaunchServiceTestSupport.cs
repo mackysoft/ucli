@@ -1,3 +1,4 @@
+using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.LaunchAttempts;
@@ -37,7 +38,7 @@ internal static class DaemonLaunchServiceTestSupport
             launchAttemptIdGenerator: launchAttemptIdGenerator ?? new SequentialDaemonLaunchAttemptIdGenerator(),
             launchAttemptStore: launchAttemptStore ?? new RecordingDaemonLaunchAttemptStore(),
             compensationOperationOwner: compensationOperationOwner ?? new DaemonCompensationOperationOwner(),
-            timeProvider: timeProvider ?? TimeProvider.System);
+            timeProvider: timeProvider ?? new ManualTimeProvider());
     }
 
     public static string AssertStartupLaunchAttemptId (DaemonStartupObservation? startup)
