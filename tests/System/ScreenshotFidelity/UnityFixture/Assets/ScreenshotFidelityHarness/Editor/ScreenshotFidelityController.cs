@@ -82,6 +82,8 @@ namespace MackySoft.Ucli.ScreenshotFidelity
 
         private static Transform patternTransform;
 
+        private static Transform sceneSelectionTransform;
+
         private static FidelityFixtureBehaviour fixtureBehaviour;
 
         private static FixtureTarget activeTarget;
@@ -298,7 +300,7 @@ namespace MackySoft.Ucli.ScreenshotFidelity
             sceneView.sceneViewState.fxEnabled = false;
             sceneView.LookAtDirect(Vector3.zero, Quaternion.identity, 5f);
             sceneView.orthographic = true;
-            Selection.activeTransform = patternTransform;
+            Selection.activeTransform = sceneSelectionTransform;
             Tools.current = Tool.Move;
             sceneView.Show();
             sceneView.Focus();
@@ -316,7 +318,8 @@ namespace MackySoft.Ucli.ScreenshotFidelity
             if (fixtureBehaviour != null
                 && baseCamera != null
                 && overlayCamera != null
-                && patternTransform != null)
+                && patternTransform != null
+                && sceneSelectionTransform != null)
             {
                 return;
             }
@@ -396,6 +399,11 @@ namespace MackySoft.Ucli.ScreenshotFidelity
             SceneManager.MoveGameObjectToScene(behaviourObject, scene);
             fixtureBehaviour = behaviourObject.AddComponent<FidelityFixtureBehaviour>();
             fixtureBehaviour.Configure(baseCamera, patternTransform, resolutionBits);
+
+            var selectionObject = new GameObject("Fidelity Scene Selection Anchor");
+            SceneManager.MoveGameObjectToScene(selectionObject, scene);
+            selectionObject.transform.position = new Vector3(1000f, 1000f, 1000f);
+            sceneSelectionTransform = selectionObject.transform;
 
             Selection.activeGameObject = overlayMarker;
             EditorApplication.QueuePlayerLoopUpdate();
