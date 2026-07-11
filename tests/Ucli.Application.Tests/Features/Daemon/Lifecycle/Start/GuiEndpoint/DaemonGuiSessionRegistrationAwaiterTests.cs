@@ -21,8 +21,13 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
         var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(session));
         var pingClient = new RecordingDaemonPingInfoClient(CreatePingResponse(unityProject.ProjectFingerprint, "gui"));
         var awaiter = CreateAwaiter(sessionStore, pingClient);
+        using var cancellationTokenSource = new CancellationTokenSource(SignalWaitTimeout);
 
-        var result = await awaiter.WaitForSessionAsync(unityProject, expectedProcessId: 4321, WaitTimeout);
+        var result = await awaiter.WaitForSessionAsync(
+            unityProject,
+            expectedProcessId: 4321,
+            WaitTimeout,
+            cancellationToken: cancellationTokenSource.Token);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(session, result.Session);
@@ -103,8 +108,13 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
         var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(session));
         var pingClient = new RecordingDaemonPingInfoClient(CreatePingResponse(unityProject.ProjectFingerprint, "gui"));
         var awaiter = CreateAwaiter(sessionStore, pingClient);
+        using var cancellationTokenSource = new CancellationTokenSource(SignalWaitTimeout);
 
-        var result = await awaiter.WaitForSessionAsync(unityProject, expectedProcessId: 4321, TimeSpan.FromSeconds(5));
+        var result = await awaiter.WaitForSessionAsync(
+            unityProject,
+            expectedProcessId: 4321,
+            TimeSpan.FromSeconds(5),
+            cancellationToken: cancellationTokenSource.Token);
 
         Assert.True(result.IsSuccess);
         DaemonPingInfoClientAssert.GuiSessionPingReadWithAttemptCap(pingClient, unityProject, session);
@@ -160,12 +170,14 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
         var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(session));
         var pingClient = new RecordingDaemonPingInfoClient(CreatePingResponse(unityProject.ProjectFingerprint, "gui"));
         var awaiter = CreateAwaiter(sessionStore, pingClient);
+        using var cancellationTokenSource = new CancellationTokenSource(SignalWaitTimeout);
 
         var result = await awaiter.WaitForSessionAsync(
             unityProject,
             expectedProcessId: 4321,
             WaitTimeout,
-            expectedProcessStartedAtUtc: expectedProcessStartedAtUtc);
+            expectedProcessStartedAtUtc: expectedProcessStartedAtUtc,
+            cancellationToken: cancellationTokenSource.Token);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(session, result.Session);
@@ -341,8 +353,13 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
             sessionStore,
             pingClient,
             reachabilityClassifier: new StubDaemonReachabilityClassifier(_ => false));
+        using var cancellationTokenSource = new CancellationTokenSource(SignalWaitTimeout);
 
-        var result = await awaiter.WaitForSessionAsync(unityProject, expectedProcessId: 4321, WaitTimeout);
+        var result = await awaiter.WaitForSessionAsync(
+            unityProject,
+            expectedProcessId: 4321,
+            WaitTimeout,
+            cancellationToken: cancellationTokenSource.Token);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorKind.InternalError, result.Error!.Kind);
