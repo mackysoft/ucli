@@ -112,7 +112,7 @@ public sealed class SupervisorStabilityVerifierTests
             pingClient,
             new SupervisorDiagnosisWriter(diagnosisStore),
             new DaemonCompensationOperationOwner(),
-            TimeProvider.System);
+            new ManualTimeProvider());
 
         var result = await verifier.EnsureStableAsync(
             unityProject,
@@ -142,7 +142,7 @@ public sealed class SupervisorStabilityVerifierTests
             pingClient,
             new SupervisorDiagnosisWriter(diagnosisStore),
             new DaemonCompensationOperationOwner(),
-            TimeProvider.System);
+            new ManualTimeProvider());
 
         var result = await verifier.EnsureStableAsync(
             ResolvedUnityProjectContextTestFactory.Create(

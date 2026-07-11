@@ -1,5 +1,6 @@
 namespace MackySoft.Ucli.Tests.Daemon;
 
+using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Process;
@@ -13,7 +14,7 @@ public sealed class DaemonStartupReadinessProbeLifecycleTests
     {
         var pingClient = new RecordingDaemonPingInfoClient(CreatePingPayload(canAcceptExecutionRequests: true));
         var logReader = new UnexpectedUnityLogReader("Ready ping success should not inspect the Unity log.");
-        var probe = CreateProbe(pingClient, logReader);
+        var probe = CreateProbe(pingClient, logReader, timeProvider: new ManualTimeProvider());
 
         var result = await probe.WaitUntilReadyAsync(
             ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-readiness-success"),
@@ -80,7 +81,7 @@ public sealed class DaemonStartupReadinessProbeLifecycleTests
             lifecycleState: IpcEditorLifecycleStateCodec.Compiling,
             canAcceptExecutionRequests: false));
         var logReader = new UnexpectedUnityLogReader("Compiling lifecycle snapshot should not inspect the Unity log.");
-        var probe = CreateProbe(pingClient, logReader);
+        var probe = CreateProbe(pingClient, logReader, timeProvider: new ManualTimeProvider());
 
         var result = await probe.WaitUntilReadyAsync(
             ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-readiness-compiling"),
