@@ -127,18 +127,26 @@ namespace MackySoft.Ucli.Unity.Ipc
                         ?? lifecycleTransportReleaseCompletionSource?.Task;
                     if (lifecycleTransitionTask == null)
                     {
-                        isRunning = true;
-                        nextListenerPublicationState = new ListenerGenerationPublicationState();
-                        activeListenerPublicationState = nextListenerPublicationState;
-                        nextListenerCancellationTokenSource = new CancellationTokenSource();
-                        listenerCancellationTokenSource = nextListenerCancellationTokenSource;
-                        startupCoordinator = new UnityIpcServerStartupCoordinator();
                         nextTransportListener = ResolveTransportListener(endpoint.TransportKind);
-                        if (nextTransportListener is IUnityIpcTransportRunReservation runReservation)
+                        nextListenerPublicationState = new ListenerGenerationPublicationState();
+                        nextListenerCancellationTokenSource = new CancellationTokenSource();
+                        startupCoordinator = new UnityIpcServerStartupCoordinator();
+                        try
                         {
-                            runReservation.ReserveRun(nextListenerCancellationTokenSource.Token);
+                            if (nextTransportListener is IUnityIpcTransportRunReservation runReservation)
+                            {
+                                runReservation.ReserveRun(nextListenerCancellationTokenSource.Token);
+                            }
+                        }
+                        catch
+                        {
+                            nextListenerCancellationTokenSource.Dispose();
+                            throw;
                         }
 
+                        isRunning = true;
+                        activeListenerPublicationState = nextListenerPublicationState;
+                        listenerCancellationTokenSource = nextListenerCancellationTokenSource;
                         nextListenerTask = Task.Run(() => RunServerLoopAsync(
                             endpoint,
                             nextTransportListener,

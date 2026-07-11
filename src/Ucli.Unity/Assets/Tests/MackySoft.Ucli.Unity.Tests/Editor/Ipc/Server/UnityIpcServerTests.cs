@@ -113,6 +113,54 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Start_WhenTransportIsUnsupported_LeavesServerAvailableForLaterStart () => UniTask.ToCoroutine(async () =>
+        {
+            var listener = new BlockingTransportListener(
+                IpcTransportKind.NamedPipe,
+                signalStarted: true);
+            var server = CreateServer(
+                new PermitAllSessionTokenValidator(),
+                new StubExecuteRequestDispatcher(),
+                new StubUnityTestRunService(),
+                new StubDaemonShutdownSignal(),
+                new IUnityIpcTransportListener[]
+                {
+                    listener,
+                });
+            var unsupportedEndpoint = new IpcEndpoint(
+                (IpcTransportKind)int.MaxValue,
+                "ucli-unsupported-transport");
+            var validEndpoint = new IpcEndpoint(
+                IpcTransportKind.NamedPipe,
+                "ucli-supported-transport");
+
+            try
+            {
+                await AsyncExceptionCapture.CaptureAsync<InvalidOperationException>(async () =>
+                {
+                    await server.StartAsync(unsupportedEndpoint).AsUniTask();
+                }, "Unsupported transport start", SignalWaitTimeout);
+
+                Assert.That(server.IsRunning, Is.False);
+
+                await TestAwaiter.WaitAsync(
+                    server.StartAsync(validEndpoint).AsUniTask(),
+                    "Server start after unsupported transport",
+                    SignalWaitTimeout);
+
+                Assert.That(server.IsRunning, Is.True);
+            }
+            finally
+            {
+                await TestAwaiter.WaitAsync(
+                    server.StopAsync().AsUniTask(),
+                    "Server cleanup after unsupported transport",
+                    SignalWaitTimeout);
+            }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Start_ThenStop_TransitionsRunningState () => UniTask.ToCoroutine(async () =>
         {
             var server = CreateServerForLifecycle();
