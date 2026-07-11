@@ -13,7 +13,8 @@ public sealed class SupervisorRequestDispatcherConnectionLifetimeTests
     [Trait("Size", "Small")]
     public async Task HandleConnection_WhenConnectedPeerSendsNoInitialFrame_ReturnsAtInitialFrameDeadline ()
     {
-        var dispatcher = CreateDispatcher();
+        var timeProvider = new ManualTimeProvider();
+        var dispatcher = CreateDispatcher(timeProvider: timeProvider);
         var runtimeContext = CreateRuntimeContext();
         await using var stream = new SupervisorControlledReadStream(
             SupervisorControlledReadMode.AsynchronousIgnoringCancellation);
@@ -27,6 +28,11 @@ public sealed class SupervisorRequestDispatcherConnectionLifetimeTests
             stream.ReadStarted,
             "Supervisor initial frame read",
             SignalWaitTimeout);
+        await TestAwaiter.WaitAsync(
+            timeProvider.WaitForTimerDueWithinAsync(TimeSpan.FromMilliseconds(50)),
+            "Supervisor initial frame timer",
+            SignalWaitTimeout);
+        timeProvider.Advance(TimeSpan.FromMilliseconds(50));
 
         try
         {
@@ -49,7 +55,8 @@ public sealed class SupervisorRequestDispatcherConnectionLifetimeTests
     [Trait("Size", "Small")]
     public async Task HandleConnection_WhenInitialReadBlocksBeforeReturningValueTask_ReturnsAtInitialFrameDeadline ()
     {
-        var dispatcher = CreateDispatcher();
+        var timeProvider = new ManualTimeProvider();
+        var dispatcher = CreateDispatcher(timeProvider: timeProvider);
         var runtimeContext = CreateRuntimeContext();
         await using var stream = new SupervisorControlledReadStream(
             SupervisorControlledReadMode.SynchronousBeforeValueTaskReturn);
@@ -65,6 +72,11 @@ public sealed class SupervisorRequestDispatcherConnectionLifetimeTests
                 stream.ReadStarted,
                 "Synchronous supervisor initial frame read",
                 SignalWaitTimeout);
+            await TestAwaiter.WaitAsync(
+                timeProvider.WaitForTimerDueWithinAsync(TimeSpan.FromMilliseconds(50)),
+                "Synchronous supervisor initial frame timer",
+                SignalWaitTimeout);
+            timeProvider.Advance(TimeSpan.FromMilliseconds(50));
             await TestAwaiter.WaitAsync(
                 handleTask,
                 "Synchronous supervisor initial frame deadline",
@@ -84,7 +96,8 @@ public sealed class SupervisorRequestDispatcherConnectionLifetimeTests
     [Trait("Size", "Small")]
     public async Task HandleConnection_WhenInitialReadFaultsAfterDeadline_ObservesLateFault ()
     {
-        var dispatcher = CreateDispatcher();
+        var timeProvider = new ManualTimeProvider();
+        var dispatcher = CreateDispatcher(timeProvider: timeProvider);
         var runtimeContext = CreateRuntimeContext();
         await using var stream = new SupervisorControlledReadStream(
             SupervisorControlledReadMode.AsynchronousIgnoringCancellation);
@@ -97,6 +110,11 @@ public sealed class SupervisorRequestDispatcherConnectionLifetimeTests
             stream.ReadStarted,
             "Supervisor initial frame read",
             SignalWaitTimeout);
+        await TestAwaiter.WaitAsync(
+            timeProvider.WaitForTimerDueWithinAsync(TimeSpan.FromMilliseconds(50)),
+            "Supervisor initial frame timer",
+            SignalWaitTimeout);
+        timeProvider.Advance(TimeSpan.FromMilliseconds(50));
         await TestAwaiter.WaitAsync(
             handleTask,
             "Supervisor initial frame deadline",
