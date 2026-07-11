@@ -40,11 +40,10 @@ public sealed class ExecutionDeadlineOperationTests
                 }
             }));
 
-        await TestAwaiter.WaitAsync(operationEntered.Task, "Blocking operation start", SignalWaitTimeout);
-        timeProvider.Advance(TimeSpan.FromSeconds(1));
-
         try
         {
+            await TestAwaiter.WaitAsync(operationEntered.Task, "Blocking operation start", SignalWaitTimeout);
+            timeProvider.Advance(TimeSpan.FromSeconds(1));
             var result = await TestAwaiter.WaitAsync(
                 executionTask,
                 "Blocking operation deadline result",
@@ -57,8 +56,15 @@ public sealed class ExecutionDeadlineOperationTests
         finally
         {
             allowOperationToReturn.Set();
+            _ = await TestAwaiter.WaitAsync(
+                executionTask,
+                "Blocking operation cleanup",
+                SignalWaitTimeout);
             await TestAwaiter.WaitAsync(operationExited.Task, "Blocking operation exit", SignalWaitTimeout);
-            await WaitForCancellationTokenSourceDisposalAsync(operationCancellationToken);
+            if (operationCancellationToken.CanBeCanceled)
+            {
+                await WaitForCancellationTokenSourceDisposalAsync(operationCancellationToken);
+            }
         }
     }
 
@@ -94,11 +100,10 @@ public sealed class ExecutionDeadlineOperationTests
                 })
             .AsTask();
 
-        await TestAwaiter.WaitAsync(operationEntered.Task, "Non-cooperative operation start", SignalWaitTimeout);
-        timeProvider.Advance(TimeSpan.FromSeconds(1));
-
         try
         {
+            await TestAwaiter.WaitAsync(operationEntered.Task, "Non-cooperative operation start", SignalWaitTimeout);
+            timeProvider.Advance(TimeSpan.FromSeconds(1));
             var result = await TestAwaiter.WaitAsync(
                 executionTask,
                 "Non-cooperative operation deadline result",
@@ -115,12 +120,23 @@ public sealed class ExecutionDeadlineOperationTests
         finally
         {
             allowCancellationCallbackCompletion.Set();
-            operationCompletion.TrySetException(new InvalidOperationException("Late read failure."));
-            await TestAwaiter.WaitAsync(
-                cancellationCallbackCompleted.Task,
-                "Blocking cancellation callback completion",
+            operationCompletion.TrySetResult("late value");
+            _ = await TestAwaiter.WaitAsync(
+                executionTask,
+                "Non-cooperative operation cleanup",
                 SignalWaitTimeout);
-            await WaitForCancellationTokenSourceDisposalAsync(operationCancellationToken);
+            if (operationCancellationToken.IsCancellationRequested)
+            {
+                await TestAwaiter.WaitAsync(
+                    cancellationCallbackCompleted.Task,
+                    "Blocking cancellation callback completion",
+                    SignalWaitTimeout);
+            }
+
+            if (operationCancellationToken.CanBeCanceled)
+            {
+                await WaitForCancellationTokenSourceDisposalAsync(operationCancellationToken);
+            }
         }
     }
 

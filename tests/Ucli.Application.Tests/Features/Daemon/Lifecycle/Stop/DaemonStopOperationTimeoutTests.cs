@@ -56,10 +56,9 @@ public sealed class DaemonStopOperationTimeoutTests
                 timeout,
                 cancellationToken: CancellationToken.None)
             .AsTask();
-        await TestAwaiter.WaitAsync(readStarted.Task, "Non-cooperative stop session read", SignalWaitTimeout);
-
         try
         {
+            await TestAwaiter.WaitAsync(readStarted.Task, "Non-cooperative stop session read", SignalWaitTimeout);
             await TestAwaiter.WaitAsync(
                 timeProvider.WaitForTimerDueWithinAsync(timeout),
                 "Stop session read deadline timer",

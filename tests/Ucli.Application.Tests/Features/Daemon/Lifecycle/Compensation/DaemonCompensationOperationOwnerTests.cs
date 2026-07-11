@@ -341,50 +341,67 @@ public sealed class DaemonCompensationOperationOwnerTests
                     return true;
                 })
             .AsTask();
-        await TestAwaiter.WaitAsync(
-            operationStarted.Task,
-            "Blocking-callback compensation start",
-            TimeSpan.FromSeconds(5));
+        try
+        {
+            await TestAwaiter.WaitAsync(
+                operationStarted.Task,
+                "Blocking-callback compensation start",
+                TimeSpan.FromSeconds(5));
 
-        timeProvider.Advance(TimeSpan.FromMilliseconds(100));
-        var result = await TestAwaiter.WaitAsync(
-            executionTask,
-            "Blocking cancellation callback deadline result",
-            TimeSpan.FromSeconds(5));
+            timeProvider.Advance(TimeSpan.FromMilliseconds(100));
+            var result = await TestAwaiter.WaitAsync(
+                executionTask,
+                "Blocking cancellation callback deadline result",
+                TimeSpan.FromSeconds(5));
 
-        Assert.False(result.IsSuccess);
-        Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
-        Assert.True(operationCancellationToken.IsCancellationRequested);
-        await TestAwaiter.WaitAsync(
-            callbackStarted.Task,
-            "Blocking cancellation callback start",
-            TimeSpan.FromSeconds(5));
+            Assert.False(result.IsSuccess);
+            Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
+            Assert.True(operationCancellationToken.IsCancellationRequested);
+            await TestAwaiter.WaitAsync(
+                callbackStarted.Task,
+                "Blocking cancellation callback start",
+                TimeSpan.FromSeconds(5));
 
-        releaseOperation.TrySetResult();
-        var admissionTask = owner.WaitForQuiescenceAsync(
-                context,
-                ExecutionDeadline.Start(TimeSpan.FromMilliseconds(50), timeProvider),
-                CancellationToken.None,
-                "Timed out waiting for blocking cancellation callback.")
-            .AsTask();
-        timeProvider.Advance(TimeSpan.FromMilliseconds(50));
-        var admissionError = await TestAwaiter.WaitAsync(
-            admissionTask,
-            "Blocking callback admission result",
-            TimeSpan.FromSeconds(5));
-        Assert.Equal(ExecutionErrorKind.Timeout, admissionError!.Kind);
-
-        releaseCallback.TrySetResult();
-        var quiescenceError = await TestAwaiter.WaitAsync(
-            owner.WaitForQuiescenceAsync(
+            releaseOperation.TrySetResult();
+            var admissionTask = owner.WaitForQuiescenceAsync(
                     context,
-                    ExecutionDeadline.Start(TimeSpan.FromSeconds(1), timeProvider),
+                    ExecutionDeadline.Start(TimeSpan.FromMilliseconds(50), timeProvider),
                     CancellationToken.None,
-                    "Timed out waiting for callback compensation quiescence.")
-                .AsTask(),
-            "Blocking callback compensation quiescence",
-            TimeSpan.FromSeconds(5));
-        Assert.Null(quiescenceError);
+                    "Timed out waiting for blocking cancellation callback.")
+                .AsTask();
+            timeProvider.Advance(TimeSpan.FromMilliseconds(50));
+            var admissionError = await TestAwaiter.WaitAsync(
+                admissionTask,
+                "Blocking callback admission result",
+                TimeSpan.FromSeconds(5));
+            Assert.Equal(ExecutionErrorKind.Timeout, admissionError!.Kind);
+
+            releaseCallback.TrySetResult();
+            var quiescenceError = await TestAwaiter.WaitAsync(
+                owner.WaitForQuiescenceAsync(
+                        context,
+                        ExecutionDeadline.Start(TimeSpan.FromSeconds(1), timeProvider),
+                        CancellationToken.None,
+                        "Timed out waiting for callback compensation quiescence.")
+                    .AsTask(),
+                "Blocking callback compensation quiescence",
+                TimeSpan.FromSeconds(5));
+            Assert.Null(quiescenceError);
+        }
+        finally
+        {
+            releaseOperation.TrySetResult();
+            releaseCallback.TrySetResult();
+            _ = await TestAwaiter.WaitAsync(
+                owner.WaitForQuiescenceAsync(
+                        context,
+                        ExecutionDeadline.Start(TimeSpan.FromSeconds(1), timeProvider),
+                        CancellationToken.None,
+                        "Timed out cleaning up blocking callback compensation.")
+                    .AsTask(),
+                "Blocking callback compensation cleanup",
+                TimeSpan.FromSeconds(5));
+        }
     }
 
     [Fact]

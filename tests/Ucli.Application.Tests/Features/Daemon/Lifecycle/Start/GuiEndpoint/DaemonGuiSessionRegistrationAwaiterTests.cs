@@ -66,14 +66,13 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
                 WaitTimeout,
                 cancellationToken: CancellationToken.None)
             .AsTask();
-        await TestAwaiter.WaitAsync(readStarted.Task, "Non-cooperative GUI session read", SignalWaitTimeout);
-        await TestAwaiter.WaitAsync(
-            timeProvider.WaitForTimerDueWithinAsync(WaitTimeout),
-            "GUI session read deadline timer",
-            SignalWaitTimeout);
-
         try
         {
+            await TestAwaiter.WaitAsync(readStarted.Task, "Non-cooperative GUI session read", SignalWaitTimeout);
+            await TestAwaiter.WaitAsync(
+                timeProvider.WaitForTimerDueWithinAsync(WaitTimeout),
+                "GUI session read deadline timer",
+                SignalWaitTimeout);
             timeProvider.Advance(WaitTimeout);
             var result = await TestAwaiter.WaitAsync(
                 resultTask,
