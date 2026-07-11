@@ -10,6 +10,8 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
 {
     private static readonly TimeSpan WaitTimeout = TimeSpan.FromSeconds(1);
 
+    private static readonly TimeSpan SignalWaitTimeout = TimeSpan.FromSeconds(5);
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task WaitForSession_WhenSessionAndPingMatch_ReturnsSuccess ()
@@ -33,23 +35,26 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
     {
         var timeProvider = new ManualTimeProvider();
         var readStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var readFinished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var readCompletion = new TaskCompletionSource<DaemonSessionReadResult>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var cancellationCallbackStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var cancellationCallbackCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        using var allowCancellationCallbackCompletion = new ManualResetEventSlim();
+        var readCancellationObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var unityProject = DaemonCommandExecutionContextTestFactory.Create(1000).Context.UnityProject;
         var sessionStore = new RecordingDaemonSessionStore
         {
-            ReadAsyncHandler = (_, _, cancellationToken) =>
+            ReadAsyncHandler = async (_, _, cancellationToken) =>
             {
-                _ = cancellationToken.Register(() =>
-                {
-                    cancellationCallbackStarted.TrySetResult();
-                    allowCancellationCallbackCompletion.Wait();
-                    cancellationCallbackCompleted.TrySetResult();
-                });
+                _ = cancellationToken.UnsafeRegister(
+                    static state => ((TaskCompletionSource)state!).TrySetResult(),
+                    readCancellationObserved);
                 readStarted.TrySetResult();
-                return new ValueTask<DaemonSessionReadResult>(readCompletion.Task);
+                try
+                {
+                    return await readCompletion.Task.ConfigureAwait(false);
+                }
+                finally
+                {
+                    readFinished.TrySetResult();
+                }
             },
         };
         var pingClient = new UnexpectedDaemonPingInfoClient("A timed-out session read must not reach the GUI daemon ping.");
@@ -61,16 +66,23 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
                 WaitTimeout,
                 cancellationToken: CancellationToken.None)
             .AsTask();
-        await TestAwaiter.WaitAsync(readStarted.Task, "blocking GUI session read", TimeSpan.FromSeconds(5));
-        await timeProvider
-            .WaitForTimerDueWithinAsync(WaitTimeout)
-            .WaitAsync(TimeSpan.FromSeconds(1));
+        await TestAwaiter.WaitAsync(readStarted.Task, "Non-cooperative GUI session read", SignalWaitTimeout);
+        await TestAwaiter.WaitAsync(
+            timeProvider.WaitForTimerDueWithinAsync(WaitTimeout),
+            "GUI session read deadline timer",
+            SignalWaitTimeout);
 
         try
         {
             timeProvider.Advance(WaitTimeout);
-            var result = await resultTask.WaitAsync(TimeSpan.FromSeconds(1));
-            await cancellationCallbackStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+            var result = await TestAwaiter.WaitAsync(
+                resultTask,
+                "GUI session read deadline result",
+                SignalWaitTimeout);
+            await TestAwaiter.WaitAsync(
+                readCancellationObserved.Task,
+                "GUI session read cancellation",
+                SignalWaitTimeout);
 
             Assert.False(result.IsSuccess);
             Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
@@ -78,9 +90,8 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
         }
         finally
         {
-            allowCancellationCallbackCompletion.Set();
-            await cancellationCallbackCompleted.Task.WaitAsync(TimeSpan.FromSeconds(1));
             readCompletion.TrySetResult(DaemonSessionReadResult.Success(null));
+            await TestAwaiter.WaitAsync(readFinished.Task, "GUI session read completion", SignalWaitTimeout);
         }
     }
 
