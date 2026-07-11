@@ -508,10 +508,14 @@ assert_unity_compile_import_log_clean() {
   local diagnostics_path="$2"
   local context="$3"
   local diagnostic_pattern='(^|[^[:alnum:]_])(warning|error) CS[0-9]{4}([^[:digit:]]|$)|The scripted importer .+ Registration rejected\.|Shader (warning|error) in|Scripts have compiler errors|Compilation failed'
+  local grep_exit=0
 
-  if grep -E "${diagnostic_pattern}" "${log_path}" > "${diagnostics_path}"; then
+  grep -E "${diagnostic_pattern}" "${log_path}" > "${diagnostics_path}" || grep_exit=$?
+  if [[ "${grep_exit}" -eq 0 ]]; then
     fail "${context} emitted compiler or importer diagnostics; see ${diagnostics_path}."
   fi
+  [[ "${grep_exit}" -eq 1 ]] \
+    || fail "${context} log inspection failed with exit ${grep_exit}: ${log_path}."
   : > "${diagnostics_path}"
 }
 
