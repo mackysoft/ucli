@@ -125,7 +125,7 @@ jobs:
           --solution "$DOTNET_SOLUTION"
           --configuration Release
           --
-          --logger "trx;LogFileName=${{ matrix.os_name }}.trx"
+          --logger "trx;LogFilePrefix=${{ matrix.os_name }}"
           --results-directory "artifacts/test-results/${{ matrix.os_name }}"
 
       - name: Upload test results
