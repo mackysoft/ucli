@@ -1,3 +1,4 @@
+using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
@@ -16,7 +17,7 @@ public sealed class DaemonCleanupOperationArtifactCleanupTests
             NextResult = DaemonArtifactCleanupResult.Success(),
         };
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
-            TimeProvider.System,
+            new ManualTimeProvider(),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
                 ReadResult = DaemonSessionReadResult.Success(null),
@@ -39,7 +40,7 @@ public sealed class DaemonCleanupOperationArtifactCleanupTests
             NextResult = DaemonArtifactCleanupResult.Success(deletedLaunchAttemptCount: 3),
         };
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
-            TimeProvider.System,
+            new ManualTimeProvider(),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
                 ReadResult = DaemonSessionReadResult.Success(null),
@@ -67,7 +68,7 @@ public sealed class DaemonCleanupOperationArtifactCleanupTests
             NextResult = DaemonArtifactCleanupResult.Success(),
         };
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
-            TimeProvider.System,
+            new ManualTimeProvider(),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
                 ReadResult = DaemonSessionReadResult.Success(session),

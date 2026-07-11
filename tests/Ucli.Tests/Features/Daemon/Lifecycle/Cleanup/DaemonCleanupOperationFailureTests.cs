@@ -1,3 +1,4 @@
+using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -13,7 +14,7 @@ public sealed class DaemonCleanupOperationFailureTests
     {
         var artifactCleaner = new RecordingDaemonArtifactCleaner();
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
-            TimeProvider.System,
+            new ManualTimeProvider(),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
                 ReadResult = DaemonSessionReadResult.Success(DaemonSessionTestFactory.Create(processId: 2011)),
@@ -38,7 +39,7 @@ public sealed class DaemonCleanupOperationFailureTests
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-cleanup-lock-context");
         var lockProvider = new StubProjectLifecycleLockProvider();
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
-            TimeProvider.System,
+            new ManualTimeProvider(),
             lifecycleLockProvider: lockProvider,
             daemonSessionStore: new RecordingDaemonSessionStore
             {

@@ -1,3 +1,4 @@
+using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -24,7 +25,7 @@ public sealed class DaemonCleanupOperationInvalidSessionTests
             NextResult = DaemonArtifactCleanupResult.Success(),
         };
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
-            TimeProvider.System,
+            new ManualTimeProvider(),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
                 ReadResult = DaemonSessionReadResult.Failure(
@@ -56,7 +57,7 @@ public sealed class DaemonCleanupOperationInvalidSessionTests
             NextResult = DaemonArtifactCleanupResult.Success(),
         };
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
-            TimeProvider.System,
+            new ManualTimeProvider(),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
                 ReadResult = DaemonSessionReadResult.Failure(
@@ -80,7 +81,7 @@ public sealed class DaemonCleanupOperationInvalidSessionTests
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-cleanup-invalid-connect-timeout");
         var artifactCleaner = new RecordingDaemonArtifactCleaner();
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
-            TimeProvider.System,
+            new ManualTimeProvider(),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
                 ReadResult = DaemonSessionReadResult.Failure(
@@ -113,7 +114,7 @@ public sealed class DaemonCleanupOperationInvalidSessionTests
         };
         var artifactCleaner = new RecordingDaemonArtifactCleaner();
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
-            TimeProvider.System,
+            new ManualTimeProvider(),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
                 ReadResult = DaemonSessionReadResult.Failure(
