@@ -6,6 +6,54 @@ namespace MackySoft.Ucli.Tests.Ipc;
 
 public sealed class IpcTransportClientStreamingTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    [Trait("Size", "Medium")]
+    public async Task SendStreamingResponseAsync_WhenServerClosesAfterReadingRequest_ThrowsResponseReadInterrupted (
+        bool useUnboundedResponseWait)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        await IpcTransportTestHarness.WithUnixStreamingServerAsync(
+            static (_, _, _) => Task.CompletedTask,
+            async (endpoint, request) =>
+            {
+                var client = new IpcTransportClient();
+                var exceptionTask = Assert.ThrowsAsync<IpcResponseReadInterruptedException>(async () =>
+                {
+                    if (useUnboundedResponseWait)
+                    {
+                        await client.SendStreamingWithUnboundedResponseWaitAsync(
+                                endpoint,
+                                request,
+                                IpcTransportClientTestSupport.DefaultTimeout,
+                                (_, _) => ValueTask.CompletedTask)
+                            .AsTask();
+                    }
+                    else
+                    {
+                        await client.SendStreamingAsync(
+                                endpoint,
+                                request,
+                                IpcTransportClientTestSupport.DefaultTimeout,
+                                (_, _) => ValueTask.CompletedTask)
+                            .AsTask();
+                    }
+                });
+
+                var exception = await TestAwaiter.WaitAsync(
+                    exceptionTask,
+                    "Interrupted IPC streaming response read",
+                    IpcTransportClientTestSupport.WaitTimeout);
+                Assert.IsType<EndOfStreamException>(exception.InnerException);
+            },
+            IpcTransportClientTestSupport.WaitTimeout);
+    }
+
     [Fact]
     [Trait("Size", "Medium")]
     public async Task SendStreamingAsync_WhenServerReturnsProgressThenTerminal_ForwardsProgressAndReturnsResponse ()

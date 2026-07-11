@@ -15,6 +15,7 @@ internal interface IUnityIpcTransportClient
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="request" /> is <see langword="null" />. </exception>
     /// <exception cref="ArgumentException"> Thrown when <paramref name="storageRoot" /> or <paramref name="projectFingerprint" /> is <see langword="null" />, empty, or whitespace. </exception>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
+    /// <exception cref="IpcResponseReadInterruptedException"> Thrown when request transmission completed but the response frame read was interrupted. </exception>
     ValueTask<IpcResponse> SendAsync (
         string storageRoot,
         string projectFingerprint,
@@ -30,6 +31,7 @@ internal interface IUnityIpcTransportClient
     /// <param name="onProgressFrame"> The callback invoked for each progress frame. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The terminal response envelope received from the Unity IPC host. </returns>
+    /// <exception cref="IpcResponseReadInterruptedException"> Thrown when request transmission completed but a response stream frame read was interrupted. </exception>
     ValueTask<IpcResponse> SendStreamingAsync (
         string storageRoot,
         string projectFingerprint,

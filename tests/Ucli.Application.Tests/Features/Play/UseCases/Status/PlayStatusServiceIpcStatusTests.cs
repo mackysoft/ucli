@@ -82,6 +82,7 @@ public sealed class PlayStatusServiceIpcStatusTests
     {
         var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(CreatePlaySession()));
         var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Failure(new UnityRequestFailure(
+            UnityRequestFailureKind.General,
             ExecutionErrorCodes.IpcTimeout,
             "play status timed out")));
         var service = CreateService(PlayProjectContext, sessionStore, requestExecutor);
@@ -100,6 +101,7 @@ public sealed class PlayStatusServiceIpcStatusTests
     {
         var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(CreatePlaySession()));
         var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Failure(new UnityRequestFailure(
+            UnityRequestFailureKind.General,
             UnityExecutionModeDecisionErrorCodes.DaemonNotRunning,
             "Daemon is not running.")));
         var service = CreateService(PlayProjectContext, sessionStore, requestExecutor);

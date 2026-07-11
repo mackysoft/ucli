@@ -184,6 +184,7 @@ internal sealed class TestRunResultMapper : ITestRunResultMapper
     {
         return failureKind is UnityTestExecutionFailureKind.IpcTimedOut
             or UnityTestExecutionFailureKind.ProcessTimedOut
+            or UnityTestExecutionFailureKind.IpcTransportInterrupted
             or UnityTestExecutionFailureKind.AbnormalExit
             or UnityTestExecutionFailureKind.ArtifactMissing
             or UnityTestExecutionFailureKind.ClientSetupFailed;

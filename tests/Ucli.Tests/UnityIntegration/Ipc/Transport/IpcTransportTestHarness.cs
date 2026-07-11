@@ -63,7 +63,7 @@ internal static class IpcTransportTestHarness
     }
 
     internal static async Task WithUnixResponseServerAsync (
-        Func<IpcRequest, IpcResponse> createResponse,
+        Func<IpcRequest, Stream, CancellationToken, Task> writeResponseAsync,
         Func<IpcEndpoint, IpcRequest, Task> executeClientAsync,
         TimeSpan waitTimeout)
     {
@@ -87,11 +87,7 @@ internal static class IpcTransportTestHarness
                     throw new InvalidDataException(readResult.ErrorMessage);
                 }
 
-                await IpcFrameCodec.WriteModelAsync(
-                    stream,
-                    createResponse(readResult.Value),
-                    IpcJsonSerializerOptions.Default,
-                    cancellationToken: cancellationToken);
+                await writeResponseAsync(readResult.Value, stream, cancellationToken);
             },
             cancellationToken =>
             {

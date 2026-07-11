@@ -36,11 +36,7 @@ internal sealed class IpcTransportClient : IIpcTransportClient
                     cancellationToken: ipcCancellationToken)
                 .ConfigureAwait(false);
 
-            var response = await IpcFrameCodec.ReadModelAsync<IpcResponse>(
-                    stream,
-                    IpcJsonSerializerOptions.Default,
-                    cancellationToken: ipcCancellationToken)
-                .ConfigureAwait(false);
+            var response = await ReadResponseModelAsync<IpcResponse>(stream, ipcCancellationToken).ConfigureAwait(false);
 
             ValidateIpcResponse(request, response);
             return response;
@@ -143,11 +139,7 @@ internal sealed class IpcTransportClient : IIpcTransportClient
                     cancellationToken: sendCancellationToken)
                 .ConfigureAwait(false);
 
-            var response = await IpcFrameCodec.ReadModelAsync<IpcResponse>(
-                    stream,
-                    IpcJsonSerializerOptions.Default,
-                    cancellationToken: cancellationToken)
-                .ConfigureAwait(false);
+            var response = await ReadResponseModelAsync<IpcResponse>(stream, cancellationToken).ConfigureAwait(false);
 
             ValidateIpcResponse(request, response);
             return response;
@@ -244,11 +236,7 @@ internal sealed class IpcTransportClient : IIpcTransportClient
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var frame = await IpcFrameCodec.ReadModelAsync<IpcStreamFrame>(
-                    stream,
-                    IpcJsonSerializerOptions.Default,
-                    cancellationToken: cancellationToken)
-                .ConfigureAwait(false);
+            var frame = await ReadResponseModelAsync<IpcStreamFrame>(stream, cancellationToken).ConfigureAwait(false);
 
             ValidateStreamingFrame(request, frame);
             if (string.Equals(frame.Kind, IpcStreamFrameKinds.Progress, StringComparison.Ordinal))
@@ -270,6 +258,24 @@ internal sealed class IpcTransportClient : IIpcTransportClient
             }
 
             return frame.Response!;
+        }
+    }
+
+    private static async ValueTask<T> ReadResponseModelAsync<T> (
+        Stream stream,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await IpcFrameCodec.ReadModelAsync<T>(
+                    stream,
+                    IpcJsonSerializerOptions.Default,
+                    cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (IOException exception)
+        {
+            throw new IpcResponseReadInterruptedException(exception);
         }
     }
 

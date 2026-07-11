@@ -13,9 +13,6 @@ namespace MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun.Pipel
 /// <summary> Implements one test-run execution pipeline from artifacts preparation to conversion completion. </summary>
 internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
 {
-    private const string RecoverableOneshotIncompleteFrameMessage =
-        "Failed to execute Unity oneshot IPC request. IPC stream ended before a complete frame was read.";
-
     private readonly ITestRunArtifactsService artifactsService;
 
     private readonly IUnityRequestExecutor unityRequestExecutor;
@@ -394,25 +391,16 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
         ArtifactsSession session)
     {
         if (target != UnityExecutionTarget.Oneshot
-            || unityExecutionResult.FailureKind != UnityTestExecutionFailureKind.AbnormalExit
-            || unityExecutionResult.ErrorCode != UcliCoreErrorCodes.InternalError
-            || string.IsNullOrWhiteSpace(unityExecutionResult.ErrorMessage))
+            || unityExecutionResult.FailureKind != UnityTestExecutionFailureKind.IpcTransportInterrupted
+            || unityExecutionResult.ErrorCode != UcliCoreErrorCodes.InternalError)
         {
             return false;
         }
 
         // NOTE:
         // Unity Test Runner can close oneshot IPC during post-test domain reload after it has
-        // already written complete results. Treat only that exact transport loss as recoverable;
+        // already written complete results. Treat only a classified transport interruption as recoverable;
         // all other abnormal exits preserve the primary execution failure.
-        if (!string.Equals(
-                unityExecutionResult.ErrorMessage,
-                RecoverableOneshotIncompleteFrameMessage,
-                StringComparison.Ordinal))
-        {
-            return false;
-        }
-
         return artifactExistenceProbe.ValidateGeneratedFiles(session.Paths).IsSuccess;
     }
 
@@ -431,6 +419,11 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
         UnityRequestFailure failure,
         UnityExecutionTarget target)
     {
+        if (failure.FailureKind == UnityRequestFailureKind.TransportInterrupted)
+        {
+            return UnityTestExecutionFailureKind.IpcTransportInterrupted;
+        }
+
         var code = failure.Code;
         if (code == ExecutionErrorCodes.IpcTimeout)
         {

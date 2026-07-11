@@ -68,7 +68,7 @@ public sealed class TestRunServiceOneshotExecutionTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task Execute_WhenOneshotIpcStreamEndsAfterResultsWereWritten_RecoversFromGeneratedArtifacts ()
+    public async Task Execute_WhenOneshotTransportIsInterruptedAfterResultsWereWritten_RecoversFromGeneratedArtifacts ()
     {
         using var scope = TestDirectories.CreateTempScope(
             "test-run-service",
@@ -88,8 +88,8 @@ public sealed class TestRunServiceOneshotExecutionTests
             {
                 WriteGeneratedTestArtifacts(artifactPaths);
                 return ValueTask.FromResult(UnityTestExecutionResult.Failure(
-                    UnityTestExecutionFailureKind.AbnormalExit,
-                    "Failed to execute Unity oneshot IPC request. IPC stream ended before a complete frame was read.",
+                    UnityTestExecutionFailureKind.IpcTransportInterrupted,
+                    "Failed to execute Unity oneshot IPC request. Pipe is broken.",
                     UcliCoreErrorCodes.InternalError));
             }),
             resultsConverter: new StubUnityResultsConverter(convertSession =>
@@ -112,16 +112,16 @@ public sealed class TestRunServiceOneshotExecutionTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task Execute_WhenOneshotFailureOnlyContainsRecoverableMessage_DoesNotRecover ()
+    public async Task Execute_WhenGeneralOneshotFailureDescribesTransportInterruption_DoesNotRecover ()
     {
         using var scope = TestDirectories.CreateTempScope(
             "test-run-service",
-            "oneshot-failure-contains-recoverable-message");
+            "general-oneshot-transport-message");
         var configuration = CreateResolvedConfiguration();
         var session = CreateArtifactsSession(scope.GetPath("artifacts"));
         var convertCount = 0;
         const string failureMessage =
-            "Failed to execute Unity oneshot IPC request. IPC stream ended before a complete frame was read. Unity process remained active.";
+            "Failed to execute Unity oneshot IPC request. Pipe is broken. Unity process cleanup did not complete.";
 
         var service = CreateService(
             configurationResolver: new StubTestRunConfigurationResolver(TestRunConfigurationResolutionResult.Success(configuration)),
@@ -155,7 +155,7 @@ public sealed class TestRunServiceOneshotExecutionTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task Execute_WhenOneshotIpcStreamEndsBeforeResultsWereWritten_DoesNotRecoverFromEditorLogPlaceholder ()
+    public async Task Execute_WhenOneshotTransportIsInterruptedBeforeResultsWereWritten_ReturnsInfrastructureFailure ()
     {
         using var scope = TestDirectories.CreateTempScope(
             "test-run-service",
@@ -176,8 +176,8 @@ public sealed class TestRunServiceOneshotExecutionTests
                 Directory.CreateDirectory(artifactPaths.ArtifactsDir);
                 File.WriteAllText(artifactPaths.EditorLogPath, string.Empty);
                 return ValueTask.FromResult(UnityTestExecutionResult.Failure(
-                    UnityTestExecutionFailureKind.AbnormalExit,
-                    "Failed to execute Unity oneshot IPC request. IPC stream ended before a complete frame was read.",
+                    UnityTestExecutionFailureKind.IpcTransportInterrupted,
+                    "Failed to execute Unity oneshot IPC request. Pipe is broken.",
                     UcliCoreErrorCodes.InternalError));
             }),
             resultsConverter: new StubUnityResultsConverter(_ =>
@@ -190,6 +190,7 @@ public sealed class TestRunServiceOneshotExecutionTests
 
         Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
+        Assert.Equal(ApplicationOutcome.InfrastructureError, result.Outcome);
         Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
         Assert.StartsWith("Failed to execute Unity oneshot IPC request.", result.Message, StringComparison.Ordinal);
         Assert.Equal(0, convertCount);
@@ -197,7 +198,7 @@ public sealed class TestRunServiceOneshotExecutionTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task Execute_WhenOneshotIpcStreamEndsWithInvalidResultsXml_DoesNotReportPass ()
+    public async Task Execute_WhenOneshotTransportIsInterruptedWithInvalidResultsXml_ReturnsInfrastructureFailure ()
     {
         using var scope = TestDirectories.CreateTempScope(
             "test-run-service",
@@ -218,8 +219,8 @@ public sealed class TestRunServiceOneshotExecutionTests
                 File.WriteAllText(artifactPaths.ResultsXmlPath, "not xml");
                 File.WriteAllText(artifactPaths.EditorLogPath, string.Empty);
                 return ValueTask.FromResult(UnityTestExecutionResult.Failure(
-                    UnityTestExecutionFailureKind.AbnormalExit,
-                    "Failed to execute Unity oneshot IPC request. IPC stream ended before a complete frame was read.",
+                    UnityTestExecutionFailureKind.IpcTransportInterrupted,
+                    "Failed to execute Unity oneshot IPC request. Pipe is broken.",
                     UcliCoreErrorCodes.InternalError));
             }),
             resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult(
@@ -231,6 +232,7 @@ public sealed class TestRunServiceOneshotExecutionTests
 
         Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
+        Assert.Equal(ApplicationOutcome.InfrastructureError, result.Outcome);
         Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
     }
 

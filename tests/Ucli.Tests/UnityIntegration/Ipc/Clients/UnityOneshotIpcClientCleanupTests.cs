@@ -5,6 +5,7 @@ using MackySoft.Ucli.Tests.Helpers.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Process;
 using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
 using MackySoft.Ucli.UnityIntegration.Ipc.Process;
+using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 using static MackySoft.Ucli.Tests.Ipc.UnityOneshotIpcClientTestSupport;
 
 namespace MackySoft.Ucli.Tests.Ipc;
@@ -471,7 +472,8 @@ public sealed class UnityOneshotIpcClientCleanupTests
             return request.Method switch
             {
                 IpcMethodNames.Ping => CreatePingResponse(request.RequestId),
-                IpcMethodNames.OpsRead => throw new EndOfStreamException("IPC stream ended before a complete frame was read."),
+                IpcMethodNames.OpsRead => throw new IpcResponseReadInterruptedException(
+                    new EndOfStreamException("IPC stream ended before a complete frame was read.")),
                 IpcMethodNames.Shutdown => CreateShutdownResponse(request.RequestId),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
@@ -496,6 +498,7 @@ public sealed class UnityOneshotIpcClientCleanupTests
 
             Assert.False(result.IsSuccess);
             Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
+            Assert.Equal(UnityRequestFailureKind.General, result.FailureInfo!.FailureKind);
             Assert.StartsWith(
                 "Failed to execute Unity oneshot IPC request. IPC stream ended before a complete frame was read.",
                 result.Message,
@@ -515,6 +518,44 @@ public sealed class UnityOneshotIpcClientCleanupTests
             "Transferred oneshot process handle disposal",
             TimeSpan.FromSeconds(5));
         Assert.Equal(1, processHandle.DisposeCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task SendAsync_WhenResponseReadIsInterruptedAndPostExitCleanupAddsNoDiagnostic_PreservesTransportInterruption ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "response-read-interrupted-clean-exit");
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath);
+        var processHandle = StubUnityBatchmodeProcessHandle.CreateNonExiting();
+        var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
+        var transportClient = new RecordingUnityIpcTransportClient(request =>
+        {
+            return request.Method switch
+            {
+                IpcMethodNames.Ping => CreatePingResponse(request.RequestId),
+                IpcMethodNames.OpsRead => throw new IpcResponseReadInterruptedException(new IOException("Pipe is broken.")),
+                IpcMethodNames.Shutdown => CreateShutdownResponse(request.RequestId),
+                _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
+            };
+        });
+        var client = new UnityOneshotIpcClient(
+            launcher,
+            transportClient,
+            new StubProjectLifecycleLockProvider(),
+            CreateProjectLockPreflightService(),
+            TimeSpan.FromMilliseconds(20),
+            TimeSpan.FromMilliseconds(1));
+
+        var result = await client.SendAsync(
+            unityProject,
+            CreateDispatchRequest(),
+            TimeSpan.FromSeconds(30),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(UnityRequestFailureKind.TransportInterrupted, result.FailureInfo!.FailureKind);
+        Assert.Equal("Failed to execute Unity oneshot IPC request. Pipe is broken.", result.Message);
+        UnityBatchmodeProcessHandleAssert.TerminatedOnce(processHandle);
     }
 
     [Fact]

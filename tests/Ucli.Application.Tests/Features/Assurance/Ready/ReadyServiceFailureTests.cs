@@ -79,6 +79,7 @@ public sealed class ReadyServiceFailureTests
                 daemonRunning: false,
                 UnityExecutionTarget.Oneshot),
             unityRequestExecutor: new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Failure(new UnityRequestFailure(
+                UnityRequestFailureKind.General,
                 DaemonErrorCodes.DaemonStartupBlocked,
                 "Unity startup is blocked.",
                 startupFailure))));

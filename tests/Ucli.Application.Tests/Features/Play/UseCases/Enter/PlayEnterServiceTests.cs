@@ -100,6 +100,7 @@ public sealed class PlayEnterServiceTests
     {
         var requestExecutor = new RecordingUnityRequestExecutor(
             UnityRequestExecutionResult.Failure(new UnityRequestFailure(
+                UnityRequestFailureKind.General,
                 UcliCoreErrorCodes.InternalError,
                 "Failed to execute Unity daemon IPC request. IPC stream ended before a complete frame was read.")));
         var service = CreateService(PlayProjectContext, CreateGuiSessionStore(), requestExecutor);

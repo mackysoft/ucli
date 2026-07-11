@@ -18,6 +18,7 @@ public sealed class CompileServiceStartupDiagnosticsTests
         var progressSink = new CollectingCommandProgressSink();
         var service = CreateService(
             unityRequestExecutor: new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Failure(new UnityRequestFailure(
+                UnityRequestFailureKind.General,
                 DaemonErrorCodes.DaemonStartupBlocked,
                 "Unity startup was blocked by script compilation errors.",
                 CreateCompilerStartupFailure()))),
@@ -55,6 +56,7 @@ public sealed class CompileServiceStartupDiagnosticsTests
         var artifactStore = new StubCompileRunArtifactStore();
         var service = CreateService(
             unityRequestExecutor: new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Failure(new UnityRequestFailure(
+                UnityRequestFailureKind.General,
                 DaemonErrorCodes.DaemonStartupBlocked,
                 "Unity startup was blocked by script compilation errors.",
                 CreateStartupFailure(
@@ -83,6 +85,7 @@ public sealed class CompileServiceStartupDiagnosticsTests
         var artifactStore = new StubCompileRunArtifactStore();
         var service = CreateService(
             unityRequestExecutor: new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Failure(new UnityRequestFailure(
+                UnityRequestFailureKind.General,
                 DaemonErrorCodes.DaemonStartupBlocked,
                 "Unity startup was blocked by package resolution.",
                 CreateStartupFailure(

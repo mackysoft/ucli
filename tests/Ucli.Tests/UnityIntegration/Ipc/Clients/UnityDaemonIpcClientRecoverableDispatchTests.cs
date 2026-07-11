@@ -7,6 +7,7 @@ using MackySoft.Ucli.Tests.Helpers.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 using MackySoft.Ucli.UnityIntegration.Ipc.Execution;
+using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 using static MackySoft.Ucli.Tests.Ipc.UnityDaemonIpcClientTestSupport;
 
 namespace MackySoft.Ucli.Tests.Ipc;
@@ -101,7 +102,8 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
     public async Task SendAsync_WhenRecoverableDispatchLosesResponse_RetriesWithSameRequestIdAndReloadedSessionToken ()
     {
         var transportClient = new RecordingIpcTransportClient(_ => CreateResponse("unused"));
-        transportClient.EnqueueException(new EndOfStreamException("lost response"));
+        transportClient.EnqueueException(new IpcResponseReadInterruptedException(
+            new EndOfStreamException("lost response")));
         transportClient.EnqueueResponse(CreateResponse("req-recovered"));
         var sessionConnectionProvider = new QueuedDaemonSessionConnectionProvider(
             CreateConnectionResult("daemon-token-1"),

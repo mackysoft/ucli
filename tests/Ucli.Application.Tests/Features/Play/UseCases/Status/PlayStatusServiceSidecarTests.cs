@@ -29,6 +29,7 @@ public sealed class PlayStatusServiceSidecarTests
         };
         var processIdentityAssessor = CreateProcessIdentityAssessor(DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess);
         var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Failure(new UnityRequestFailure(
+            UnityRequestFailureKind.General,
             ExecutionErrorCodes.IpcTimeout,
             "play status timed out")));
         var service = CreateService(
@@ -69,6 +70,7 @@ public sealed class PlayStatusServiceSidecarTests
         };
         var processIdentityAssessor = CreateProcessIdentityAssessor(DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess);
         var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Failure(new UnityRequestFailure(
+            UnityRequestFailureKind.General,
             ExecutionErrorCodes.IpcTimeout,
             "play status timed out")));
         var service = CreateService(

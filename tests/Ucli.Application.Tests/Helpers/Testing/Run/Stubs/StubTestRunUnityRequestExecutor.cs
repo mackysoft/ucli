@@ -99,6 +99,7 @@ internal sealed class StubTestRunUnityRequestExecutor : IUnityRequestExecutor, I
         }
 
         return UnityRequestExecutionResult.Failure(new UnityRequestFailure(
+            ResolveFailureKind(executionResult),
             ResolveErrorCode(executionResult),
             executionResult.ErrorMessage ?? "Unity test execution failed.",
             executionResult.StartupFailure));
@@ -126,6 +127,13 @@ internal sealed class StubTestRunUnityRequestExecutor : IUnityRequestExecutor, I
         Directory.CreateDirectory(artifactPaths.ArtifactsDir);
         File.WriteAllText(artifactPaths.ResultsXmlPath, "<test-run />");
         File.WriteAllText(artifactPaths.EditorLogPath, string.Empty);
+    }
+
+    private static UnityRequestFailureKind ResolveFailureKind (UnityTestExecutionResult executionResult)
+    {
+        return executionResult.FailureKind == UnityTestExecutionFailureKind.IpcTransportInterrupted
+            ? UnityRequestFailureKind.TransportInterrupted
+            : UnityRequestFailureKind.General;
     }
 
     private static UcliCode ResolveErrorCode (UnityTestExecutionResult executionResult)

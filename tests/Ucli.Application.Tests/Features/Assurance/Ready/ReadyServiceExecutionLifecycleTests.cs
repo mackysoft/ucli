@@ -75,6 +75,7 @@ public sealed class ReadyServiceExecutionLifecycleTests
                 daemonRunning: false,
                 UnityExecutionTarget.Oneshot),
             unityRequestExecutor: new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Failure(new UnityRequestFailure(
+                UnityRequestFailureKind.General,
                 EditorLifecycleErrorCodes.EditorCompileFailed,
                 "Unity editor has script compilation failures."))));
 

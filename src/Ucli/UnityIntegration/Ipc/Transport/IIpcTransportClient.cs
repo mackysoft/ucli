@@ -11,6 +11,7 @@ internal interface IIpcTransportClient
     /// <param name="timeout"> The timeout for one request. Must be greater than <see cref="TimeSpan.Zero" />. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The response envelope. </returns>
+    /// <exception cref="IpcResponseReadInterruptedException"> Thrown when request transmission completed but the response frame read was interrupted. </exception>
     ValueTask<IpcResponse> SendAsync (
         IpcEndpoint endpoint,
         IpcRequest request,
@@ -24,6 +25,7 @@ internal interface IIpcTransportClient
     /// <param name="onProgressFrame"> The callback invoked for each progress frame. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The terminal response envelope. </returns>
+    /// <exception cref="IpcResponseReadInterruptedException"> Thrown when request transmission completed but a response stream frame read was interrupted. </exception>
     ValueTask<IpcResponse> SendStreamingAsync (
         IpcEndpoint endpoint,
         IpcRequest request,
@@ -41,6 +43,7 @@ internal interface IIpcTransportClient
     /// <param name="onProgressFrame"> The callback invoked for each progress frame. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The terminal response envelope. </returns>
+    /// <exception cref="IpcResponseReadInterruptedException"> Thrown when request transmission completed but a response stream frame read was interrupted. </exception>
     ValueTask<IpcResponse> SendStreamingWithUnboundedResponseWaitAsync (
         IpcEndpoint endpoint,
         IpcRequest request,
@@ -57,6 +60,7 @@ internal interface IIpcTransportClient
     /// <param name="sendTimeout"> The timeout for connection and request write. Must be greater than <see cref="TimeSpan.Zero" />. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The response envelope. </returns>
+    /// <exception cref="IpcResponseReadInterruptedException"> Thrown when request transmission completed but the response frame read was interrupted. </exception>
     ValueTask<IpcResponse> SendWithUnboundedResponseWaitAsync (
         IpcEndpoint endpoint,
         IpcRequest request,

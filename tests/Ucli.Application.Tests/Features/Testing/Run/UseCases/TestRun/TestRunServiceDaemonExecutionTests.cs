@@ -289,23 +289,23 @@ public sealed class TestRunServiceDaemonExecutionTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task Execute_WhenDaemonFailureMatchesOneshotRecoveryMessage_DoesNotRecoverFromGeneratedArtifacts ()
+    public async Task Execute_WhenDaemonTransportIsInterrupted_DoesNotRecoverFromGeneratedArtifacts ()
     {
         using var scope = TestDirectories.CreateTempScope(
             "test-run-service",
-            "daemon-failure-matches-oneshot-recovery");
+            "daemon-transport-interrupted");
         var configuration = CreateResolvedConfiguration();
         var session = CreateArtifactsSession(scope.GetPath("artifacts"));
         var convertCount = 0;
         const string failureMessage =
-            "Failed to execute Unity oneshot IPC request. IPC stream ended before a complete frame was read.";
+            "Failed to execute Unity daemon IPC request. Pipe is broken.";
         var daemonTestRunClient = new RecordingDaemonTestRunClient((_, artifactPaths, _, _, _) =>
         {
             Directory.CreateDirectory(artifactPaths.ArtifactsDir);
             File.WriteAllText(artifactPaths.ResultsXmlPath, "<test-run />");
             File.WriteAllText(artifactPaths.EditorLogPath, string.Empty);
             return ValueTask.FromResult(UnityTestExecutionResult.Failure(
-                UnityTestExecutionFailureKind.AbnormalExit,
+                UnityTestExecutionFailureKind.IpcTransportInterrupted,
                 failureMessage,
                 UcliCoreErrorCodes.InternalError));
         });

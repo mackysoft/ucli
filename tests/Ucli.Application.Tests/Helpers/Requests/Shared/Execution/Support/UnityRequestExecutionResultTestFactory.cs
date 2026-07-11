@@ -7,6 +7,7 @@ internal static class UnityRequestExecutionResultTestFactory
         UcliCode errorCode)
     {
         return UnityRequestExecutionResult.Failure(new UnityRequestFailure(
+            UnityRequestFailureKind.General,
             errorCode,
             message));
     }

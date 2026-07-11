@@ -52,6 +52,7 @@ public sealed class RequestFailureNormalizerContractTests
     public void Failure_FromUnityRequestFailure_ReclassifiesInvalidArgumentCode ()
     {
         var failure = new UnityRequestFailure(
+            UnityRequestFailureKind.General,
             PlanTokenErrorCodes.PlanTokenInvalid,
             "Plan token is invalid.");
 
@@ -68,10 +69,22 @@ public sealed class RequestFailureNormalizerContractTests
     public void UnityRequestFailure_WhenCodeOrMessageIsMissing_Throws ()
     {
         Assert.ThrowsAny<ArgumentException>(() => new UnityRequestFailure(
+            UnityRequestFailureKind.General,
             default,
             "Invalid argument."));
         Assert.ThrowsAny<ArgumentException>(() => new UnityRequestFailure(
+            UnityRequestFailureKind.General,
             UcliCoreErrorCodes.InvalidArgument,
             ""));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void UnityRequestFailure_WhenFailureKindIsInvalid_Throws ()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => new UnityRequestFailure(
+            (UnityRequestFailureKind)(-1),
+            UcliCoreErrorCodes.InternalError,
+            "Unity request failed."));
     }
 }

@@ -18,6 +18,7 @@ public sealed class CompileServiceRecoveryTests
     {
         var service = CreateService(
             unityRequestExecutor: new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Failure(new UnityRequestFailure(
+                UnityRequestFailureKind.General,
                 ExecutionErrorCodes.IpcTimeout,
                 "Unity compile request timed out."))),
             artifactStore: new StubCompileRunArtifactStore(CompileRunArtifactReadResult.Success(CreateSummary(runId: "other-run"))));

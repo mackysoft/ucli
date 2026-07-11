@@ -842,6 +842,11 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
 
         var failure = result.FailureInfo!;
         var message = await AppendPostUnityProcessExitLockFileDiagnosticAsync(failure.Message, unityProject).ConfigureAwait(false);
+        if (string.Equals(message, failure.Message, StringComparison.Ordinal))
+        {
+            return result;
+        }
+
         return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.FromCodeAndMessage(
             failure.Code,
             message,
