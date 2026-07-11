@@ -154,7 +154,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     return false;
                 }
 
-                assignments.Add(new SerializedPropertyAssignment(sourceAssignment.Path, sourceAssignment.Value.Clone()));
+                var path = sourceAssignment.Path?.Value;
+                if (path == null)
+                {
+                    errorMessage = $"Operation 'args.sets[{i}]' requires property '{PathPropertyName}'.";
+                    return false;
+                }
+
+                assignments.Add(new SerializedPropertyAssignment(path, sourceAssignment.Value.Clone()));
             }
 
             return true;

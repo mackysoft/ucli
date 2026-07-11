@@ -11,6 +11,8 @@ using MackySoft.Ucli.Unity.Runtime;
 using NUnit.Framework;
 using UnityEngine.TestTools;
 
+#nullable enable
+
 namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class PlayExitUnityIpcMethodHandlerTests
@@ -198,8 +200,14 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Response.Transition.Result, Is.EqualTo(IpcPlayTransitionResultNames.Exited));
             Assert.That(recoverableStore.PendingWriteCallCount, Is.EqualTo(1));
-            Assert.That(recoverableStore.PendingPayload, Is.Not.Null);
-            Assert.That(recoverableStore.PendingPayload.Before.PlayMode!.Generation, Is.EqualTo("31"));
+            var pendingPayload = recoverableStore.PendingPayload;
+            Assert.That(pendingPayload, Is.Not.Null);
+            if (pendingPayload == null)
+            {
+                throw new AssertionException("The pending recovery payload was not captured.");
+            }
+
+            Assert.That(pendingPayload.Before.PlayMode!.Generation, Is.EqualTo("31"));
             Assert.That(exitRequestCount, Is.EqualTo(1));
         });
 
@@ -360,7 +368,14 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.Error.Code, Is.EqualTo(PlayModeErrorCodes.PlayModeTransitionBlocked));
             Assert.That(result.Response.Transition.Result, Is.EqualTo(IpcPlayTransitionResultNames.Blocked));
             Assert.That(result.Response.Transition.ApplicationState, Is.EqualTo(IpcPlayApplicationStateNames.Applied));
-            Assert.That(result.Response.Transition.Observed.PlayMode!.State, Is.EqualTo("stopped"));
+            var observed = result.Response.Transition.Observed;
+            Assert.That(observed, Is.Not.Null);
+            if (observed == null)
+            {
+                throw new AssertionException("The blocked exit result did not include its observed state.");
+            }
+
+            Assert.That(observed.PlayMode!.State, Is.EqualTo("stopped"));
         });
 
         [UnityTest]
@@ -389,8 +404,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static PlayExitTransitionRunner CreateRunner (
             MutableUnityEditorReadinessGate readinessGate,
-            Func<CancellationToken, Task> editorUpdateAwaiter = null,
-            Action exitPlayModeRequester = null)
+            Func<CancellationToken, Task>? editorUpdateAwaiter = null,
+            Action? exitPlayModeRequester = null)
         {
             return new PlayExitTransitionRunner(
                 new StubServerVersionProvider("1.2.3"),
@@ -624,16 +639,16 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public bool PendingWriteResult { get; set; } = true;
 
-            public string PendingWriteErrorMessage { get; set; }
+            public string? PendingWriteErrorMessage { get; set; }
 
-            public PlayExitRecoveryPayload PendingPayload { get; private set; }
+            public PlayExitRecoveryPayload? PendingPayload { get; private set; }
 
             public bool TryRead (
                 string method,
                 string requestId,
                 string requestPayloadHash,
-                out RecoverableIpcOperationRecord record,
-                out string errorMessage)
+                out RecoverableIpcOperationRecord? record,
+                out string? errorMessage)
             {
                 record = null;
                 errorMessage = null;
@@ -646,7 +661,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 string requestPayloadHash,
                 DateTimeOffset startedAtUtc,
                 System.Text.Json.JsonElement recoveryPayload,
-                out string errorMessage)
+                out string? errorMessage)
             {
                 PendingWriteCallCount++;
                 IpcPayloadCodec.TryDeserialize(recoveryPayload, out PlayExitRecoveryPayload pendingPayload, out _);
@@ -663,7 +678,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 DateTimeOffset completedAtUtc,
                 System.Text.Json.JsonElement recoveryPayload,
                 IpcResponse response,
-                out string errorMessage)
+                out string? errorMessage)
             {
                 errorMessage = null;
                 return true;
@@ -671,7 +686,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public bool TryPurgeExpiredRecords (
                 DateTimeOffset nowUtc,
-                out string errorMessage)
+                out string? errorMessage)
             {
                 errorMessage = null;
                 return true;

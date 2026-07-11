@@ -2,6 +2,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using UnityEditor.TestTools.TestRunner.Api;
 
+#nullable enable annotations
+
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Executes Unity Test Framework runs from normalized test-run request contexts. </summary>
@@ -14,7 +16,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <returns> The completed test result adaptor. </returns>
         Task<ITestResultAdaptor> RunAsync (
             UnityTestRunRequestContext requestContext,
-            IUnityTestRunProgressSink progressSink = null,
+            IUnityTestRunProgressSink? progressSink = null,
             CancellationToken cancellationToken = default);
     }
 }

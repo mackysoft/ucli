@@ -9,6 +9,8 @@ using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Runtime;
 
+#nullable enable annotations
+
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Stores recoverable IPC operation records under the project-local uCLI state directory. </summary>
@@ -75,8 +77,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             string method,
             string requestId,
             string requestPayloadHash,
-            out RecoverableIpcOperationRecord record,
-            out string errorMessage)
+            out RecoverableIpcOperationRecord? record,
+            out string? errorMessage)
         {
             record = null;
             if (string.IsNullOrWhiteSpace(requestPayloadHash))
@@ -121,7 +123,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             string requestPayloadHash,
             DateTimeOffset startedAtUtc,
             JsonElement recoveryPayload,
-            out string errorMessage)
+            out string? errorMessage)
         {
             if (string.IsNullOrWhiteSpace(requestPayloadHash))
             {
@@ -154,7 +156,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             DateTimeOffset completedAtUtc,
             JsonElement recoveryPayload,
             IpcResponse response,
-            out string errorMessage)
+            out string? errorMessage)
         {
             if (response == null)
             {
@@ -188,7 +190,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <inheritdoc />
         public bool TryPurgeExpiredRecords (
             DateTimeOffset nowUtc,
-            out string errorMessage)
+            out string? errorMessage)
         {
             try
             {

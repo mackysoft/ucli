@@ -5,6 +5,8 @@ using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using NUnit.Framework;
 
+#nullable enable
+
 namespace MackySoft.Ucli.Unity.Tests
 {
     /// <summary> Provides fluent assertions over one compiled public step and its lowered primitive operations. </summary>

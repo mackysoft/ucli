@@ -92,7 +92,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             if (!GoOperationUtilities.TryEnsureRequestLocalPlanGameObject(
-                    validationState.Target!,
+                    validationState.Target,
                     validationState.SourceResource,
                     executionContext,
                     out var projectionErrorMessage))
@@ -108,7 +108,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             executionContext.MarkRequestAttributedChange(validationState.SourceResource);
-            executionContext.TrackPlannedPrefabCreation(validationState.Target!, validationState.PrefabPath);
+            executionContext.TrackPlannedPrefabCreation(validationState.Target, validationState.PrefabPath);
             return Task.FromResult(OperationPhaseStepResult.Success(
                 applied: false,
                 changed: true,
@@ -191,14 +191,24 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (!PrefabOperationUtilities.TryEnsurePrefabAssetCanBeCreated(args.Path, out var normalizedPrefabPath, out errorMessage))
+            var requestedPrefabPath = args.Path?.Value ?? string.Empty;
+            if (!PrefabOperationUtilities.TryEnsurePrefabAssetCanBeCreated(requestedPrefabPath, out var normalizedPrefabPath, out errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;
             }
 
+            var target = targetResolution.GameObject;
+            if (target == null)
+            {
+                failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
+                    operation.Id,
+                    "Reference did not resolve to a GameObject.");
+                return false;
+            }
+
             validationState = new ValidationState(
-                targetResolution.GameObject!,
+                target,
                 targetResolution.Resource,
                 normalizedPrefabPath);
             return true;
@@ -234,7 +244,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 PrefabPath = prefabPath;
             }
 
-            public GameObject? Target { get; }
+            public GameObject Target { get; }
 
             public OperationResource SourceResource { get; }
 

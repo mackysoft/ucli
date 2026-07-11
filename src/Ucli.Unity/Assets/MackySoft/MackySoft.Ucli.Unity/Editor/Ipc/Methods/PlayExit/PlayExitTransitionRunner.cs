@@ -8,6 +8,8 @@ using MackySoft.Ucli.Unity.Runtime;
 
 using MackySoft.Ucli.Contracts.Text;
 
+#nullable enable annotations
+
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Executes and observes a Unity Editor Play Mode exit transition. </summary>
@@ -36,7 +38,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             IpcProjectIdentity projectIdentity,
             IUnityEditorUpdateAwaiter editorUpdateAwaiter,
             IUnityPlayModeController playModeController,
-            IDaemonLogger daemonLogger = null)
+            IDaemonLogger? daemonLogger = null)
         {
             this.serverVersionProvider = serverVersionProvider ?? throw new ArgumentNullException(nameof(serverVersionProvider));
             this.readinessGate = readinessGate ?? throw new ArgumentNullException(nameof(readinessGate));
@@ -53,7 +55,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <returns> The structured transition result. </returns>
         public async Task<PlayExitTransitionExecutionResult> ExitAsync (
             int timeoutMilliseconds,
-            RecoverableIpcOperationContext recoverableContext,
+            RecoverableIpcOperationContext? recoverableContext,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -199,7 +201,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         private bool TryReadPendingExit (
-            RecoverableIpcOperationContext recoverableContext,
+            RecoverableIpcOperationContext? recoverableContext,
             out IpcPlayLifecycleSnapshot before,
             out string errorMessage)
         {
@@ -237,7 +239,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         private PlayExitTransitionExecutionResult TryPersistPendingExit (
-            RecoverableIpcOperationContext recoverableContext,
+            RecoverableIpcOperationContext? recoverableContext,
             IpcPlayLifecycleSnapshot before)
         {
             if (recoverableContext == null)

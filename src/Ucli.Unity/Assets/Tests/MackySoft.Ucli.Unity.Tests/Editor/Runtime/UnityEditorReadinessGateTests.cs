@@ -237,9 +237,9 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(snapshot.CanAcceptExecutionRequests, Is.True);
         }
 
-        [UnityTest]
+        [Test]
         [Category("Size.Small")]
-        public IEnumerator CaptureSnapshot_WhenPlaymodeIsActive_ReturnsPlaymodeSnapshot () => UniTask.ToCoroutine(async () =>
+        public void CaptureSnapshot_WhenPlaymodeIsActive_ReturnsPlaymodeSnapshot ()
         {
             var gate = CreateGate(
                 compileGeneration: 5,
@@ -260,7 +260,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(snapshot.PlayMode.Transition, Is.EqualTo("none"));
             Assert.That(snapshot.PlayMode.IsPlaying, Is.True);
             Assert.That(snapshot.PlayMode.IsPlayingOrWillChangePlaymode, Is.True);
-        });
+        }
 
         [Test]
         [Category("Size.Small")]
@@ -437,9 +437,9 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(UnityEditorSessionStateStore.RestorePlayModeStableState(), Is.EqualTo(IpcPlayModeState.Playing));
         }
 
-        [UnityTest]
+        [Test]
         [Category("Size.Small")]
-        public IEnumerator CaptureSnapshot_WhenEditorIsIdle_ReturnsReadySnapshot () => UniTask.ToCoroutine(async () =>
+        public void CaptureSnapshot_WhenEditorIsIdle_ReturnsReadySnapshot ()
         {
             var gate = CreateGate(
                 compileGeneration: 5,
@@ -458,7 +458,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(snapshot.CanAcceptExecutionRequests, Is.True);
             Assert.That(snapshot.CompileGeneration, Is.EqualTo("5"));
             Assert.That(snapshot.DomainReloadGeneration, Is.EqualTo("12"));
-        });
+        }
 
         [UnityTest]
         [Category("Size.Small")]

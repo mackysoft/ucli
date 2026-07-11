@@ -11,6 +11,8 @@ using MackySoft.Ucli.Unity.Runtime;
 using NUnit.Framework;
 using UnityEngine.TestTools;
 
+#nullable enable
+
 namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class PlayEnterUnityIpcMethodHandlerTests
@@ -192,8 +194,14 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Response.Transition.Result, Is.EqualTo(IpcPlayTransitionResultNames.Entered));
             Assert.That(recoverableStore.PendingWriteCallCount, Is.EqualTo(1));
-            Assert.That(recoverableStore.PendingPayload, Is.Not.Null);
-            Assert.That(recoverableStore.PendingPayload.Before.PlayMode!.Generation, Is.EqualTo("21"));
+            var pendingPayload = recoverableStore.PendingPayload;
+            Assert.That(pendingPayload, Is.Not.Null);
+            if (pendingPayload == null)
+            {
+                throw new AssertionException("The pending recovery payload was not captured.");
+            }
+
+            Assert.That(pendingPayload.Before.PlayMode!.Generation, Is.EqualTo("21"));
             Assert.That(enterRequestCount, Is.EqualTo(1));
         });
 
@@ -370,8 +378,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static PlayEnterTransitionRunner CreateRunner (
             MutableUnityEditorReadinessGate readinessGate,
-            Func<CancellationToken, Task> editorUpdateAwaiter = null,
-            Action enterPlayModeRequester = null)
+            Func<CancellationToken, Task>? editorUpdateAwaiter = null,
+            Action? enterPlayModeRequester = null)
         {
             return new PlayEnterTransitionRunner(
                 new StubServerVersionProvider("1.2.3"),
@@ -600,16 +608,16 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public bool PendingWriteResult { get; set; } = true;
 
-            public string PendingWriteErrorMessage { get; set; }
+            public string? PendingWriteErrorMessage { get; set; }
 
-            public PlayEnterRecoveryPayload PendingPayload { get; private set; }
+            public PlayEnterRecoveryPayload? PendingPayload { get; private set; }
 
             public bool TryRead (
                 string method,
                 string requestId,
                 string requestPayloadHash,
-                out RecoverableIpcOperationRecord record,
-                out string errorMessage)
+                out RecoverableIpcOperationRecord? record,
+                out string? errorMessage)
             {
                 record = null;
                 errorMessage = null;
@@ -622,7 +630,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 string requestPayloadHash,
                 DateTimeOffset startedAtUtc,
                 System.Text.Json.JsonElement recoveryPayload,
-                out string errorMessage)
+                out string? errorMessage)
             {
                 PendingWriteCallCount++;
                 IpcPayloadCodec.TryDeserialize(recoveryPayload, out PlayEnterRecoveryPayload pendingPayload, out _);
@@ -639,7 +647,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 DateTimeOffset completedAtUtc,
                 System.Text.Json.JsonElement recoveryPayload,
                 IpcResponse response,
-                out string errorMessage)
+                out string? errorMessage)
             {
                 errorMessage = null;
                 return true;
@@ -647,7 +655,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public bool TryPurgeExpiredRecords (
                 DateTimeOffset nowUtc,
-                out string errorMessage)
+                out string? errorMessage)
             {
                 errorMessage = null;
                 return true;

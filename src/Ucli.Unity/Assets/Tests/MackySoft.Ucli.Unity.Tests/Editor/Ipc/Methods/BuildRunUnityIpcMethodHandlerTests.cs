@@ -217,15 +217,16 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 var identity = CreateProjectIdentity(scope.ProjectPath);
                 var request = CreateRequest(scope.ProjectPath, identity);
+                var outputLayout = RequireOutputLayout(request);
                 request = scenario switch
                 {
                     "missing" => request with
                     {
-                        OutputLayout = null!,
+                        OutputLayout = null,
                     },
                     "shapeMismatch" => request with
                     {
-                        OutputLayout = request.OutputLayout with
+                        OutputLayout = outputLayout with
                         {
                             Shape = ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.Directory),
                         },
@@ -492,8 +493,15 @@ namespace MackySoft.Ucli.Unity.Tests
                     new UnityLogRedactionScopeProvider(),
                     new UnityLogRingBuffer());
                 var payload = CreateRequest(scope.ProjectPath, identity);
-                Directory.CreateDirectory(Path.GetDirectoryName(payload.OutputLayout.LocationPathName)!);
-                File.WriteAllText(payload.OutputLayout.LocationPathName, "existing player");
+                var outputLayout = RequireOutputLayout(payload);
+                var outputDirectoryPath = Path.GetDirectoryName(outputLayout.LocationPathName);
+                if (string.IsNullOrEmpty(outputDirectoryPath))
+                {
+                    throw new AssertionException("Expected the build output layout to have a parent directory.");
+                }
+
+                Directory.CreateDirectory(outputDirectoryPath);
+                File.WriteAllText(outputLayout.LocationPathName, "existing player");
 
                 var response = await handler.HandleAsync(CreateIpcRequest(payload), CancellationToken.None);
 
@@ -621,10 +629,11 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 var identity = CreateProjectIdentity(scope.ProjectPath);
                 var requestPayload = CreateRequest(scope.ProjectPath, identity);
+                var outputLayout = RequireOutputLayout(requestPayload);
                 Directory.CreateDirectory(requestPayload.OutputPath);
                 var reportArtifact = CreateReportArtifact(
                     ContractLiteralCodec.ToValue(reportResult),
-                    requestPayload.OutputLayout.LocationPathName,
+                    outputLayout.LocationPathName,
                     reportErrorCount,
                     reportWarningCount);
                 var buildPipelineRunner = new CountingBuildPipelineRunner(reportArtifact);
@@ -656,16 +665,22 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
                 Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcBuildRunResponse payload, out _), Is.True);
+                var report = payload.Report;
+                if (report is null)
+                {
+                    throw new AssertionException("Expected a normalized BuildReport artifact in the terminal response.");
+                }
+
                 Assert.That(payload.RunId, Is.EqualTo(RunId));
-                Assert.That(payload.Report.Result, Is.EqualTo(ContractLiteralCodec.ToValue(reportResult)));
-                Assert.That(payload.Report.ErrorCount, Is.EqualTo(reportErrorCount));
-                Assert.That(payload.Report.WarningCount, Is.EqualTo(reportWarningCount));
+                Assert.That(report.Result, Is.EqualTo(ContractLiteralCodec.ToValue(reportResult)));
+                Assert.That(report.ErrorCount, Is.EqualTo(reportErrorCount));
+                Assert.That(report.WarningCount, Is.EqualTo(reportWarningCount));
                 Assert.That(payload.Logs.CompletionReason, Is.EqualTo(ContractLiteralCodec.ToValue(completionReason)));
                 Assert.That(payload.Logs.EntryCount, Is.EqualTo(3));
                 Assert.That(payload.Logs.ErrorCount, Is.EqualTo(1));
                 Assert.That(payload.Logs.WarningCount, Is.EqualTo(1));
                 Assert.That(buildPipelineRunner.CallCount, Is.EqualTo(1));
-                Assert.That(buildPipelineRunner.LastOptions.locationPathName, Is.EqualTo(requestPayload.OutputLayout.LocationPathName));
+                Assert.That(buildPipelineRunner.LastOptions.locationPathName, Is.EqualTo(outputLayout.LocationPathName));
                 Assert.That(logRangeExporter.CallCount, Is.EqualTo(1));
                 Assert.That(File.Exists(requestPayload.BuildReportPath), Is.True);
                 Assert.That(File.Exists(requestPayload.BuildLogPath), Is.True);
@@ -694,11 +709,12 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 var identity = CreateProjectIdentity(scope.ProjectPath);
                 var requestPayload = CreateRequest(scope.ProjectPath, identity);
+                var outputLayout = RequireOutputLayout(requestPayload);
                 Directory.CreateDirectory(requestPayload.OutputPath);
                 var unityLogStream = new UnityLogRingBuffer();
                 var reportArtifact = CreateReportArtifact(
                     ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
-                    requestPayload.OutputLayout.LocationPathName,
+                    outputLayout.LocationPathName,
                     errorCount: 0,
                     warningCount: 1);
                 var buildPipelineRunner = new CountingBuildPipelineRunner(
@@ -773,12 +789,13 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 var identity = CreateProjectIdentity(scope.ProjectPath);
                 var requestPayload = CreateRequest(scope.ProjectPath, identity);
+                var outputLayout = RequireOutputLayout(requestPayload);
                 Directory.CreateDirectory(requestPayload.OutputPath);
                 var unityLogStream = new UnityLogRingBuffer();
                 var oversizedMessage = new string('x', 70 * 1024);
                 var reportArtifact = CreateReportArtifact(
                     ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
-                    requestPayload.OutputLayout.LocationPathName,
+                    outputLayout.LocationPathName,
                     errorCount: 0,
                     warningCount: 0);
                 var buildPipelineRunner = new CountingBuildPipelineRunner(
@@ -1182,6 +1199,12 @@ namespace MackySoft.Ucli.Unity.Tests
                 UnityVersion: "6000.1.4f1");
         }
 
+        private static IpcBuildOutputLayout RequireOutputLayout (IpcBuildRunRequest request)
+        {
+            return request.OutputLayout
+                ?? throw new AssertionException("Expected the build request to contain a resolved output layout.");
+        }
+
         private static IpcBuildRunRequest CreateRequest (
             string projectPath,
             IpcProjectIdentity identity)
@@ -1195,7 +1218,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 storageRoot,
                 identity.ProjectFingerprint,
                 RunId);
-            if (!IpcBuildOutputLayoutResolver.TryResolve(outputPath, "standaloneLinux64", out var outputLayout))
+            if (!IpcBuildOutputLayoutResolver.TryResolve(outputPath, "standaloneLinux64", out var outputLayout)
+                || outputLayout is null)
             {
                 throw new InvalidOperationException("Test build target must resolve a BuildPipeline output layout.");
             }
@@ -1209,7 +1233,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 ScenePaths: new[] { "Assets/Scenes/SampleScene.unity" },
                 Development: true,
                 OutputPath: outputPath,
-                OutputLayout: outputLayout!,
+                OutputLayout: outputLayout,
                 BuildReportPath: Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildReportFileName),
                 BuildLogPath: Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildLogFileName),
                 AllowedEditorModes: new[] { ContractLiteralCodec.ToValue(DaemonEditorMode.Batchmode) },

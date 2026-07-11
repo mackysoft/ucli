@@ -17,6 +17,8 @@ using UnityEngine.TestTools;
 using UnityTestMode = UnityEditor.TestTools.TestRunner.Api.TestMode;
 using UnityTestStatus = UnityEditor.TestTools.TestRunner.Api.TestStatus;
 
+#nullable enable
+
 namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class UnityTestRunServiceTests
@@ -185,7 +187,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public Task<ITestResultAdaptor> RunAsync (
                 UnityTestRunRequestContext requestContext,
-                IUnityTestRunProgressSink progressSink = null,
+                IUnityTestRunProgressSink? progressSink = null,
                 CancellationToken cancellationToken = default)
             {
                 cancellationToken.ThrowIfCancellationRequested();

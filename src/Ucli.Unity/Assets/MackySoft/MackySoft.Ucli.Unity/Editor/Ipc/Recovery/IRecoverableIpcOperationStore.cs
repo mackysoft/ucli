@@ -2,6 +2,8 @@ using System;
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
 
+#nullable enable annotations
+
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Persists recoverable IPC operation state across Unity domain reload. </summary>
@@ -12,8 +14,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             string method,
             string requestId,
             string requestPayloadHash,
-            out RecoverableIpcOperationRecord record,
-            out string errorMessage);
+            out RecoverableIpcOperationRecord? record,
+            out string? errorMessage);
 
         /// <summary> Writes one pending recoverable operation record. </summary>
         bool TryWritePending (
@@ -22,7 +24,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             string requestPayloadHash,
             DateTimeOffset startedAtUtc,
             JsonElement recoveryPayload,
-            out string errorMessage);
+            out string? errorMessage);
 
         /// <summary> Writes one completed recoverable operation record. </summary>
         bool TryWriteCompleted (
@@ -33,11 +35,11 @@ namespace MackySoft.Ucli.Unity.Ipc
             DateTimeOffset completedAtUtc,
             JsonElement recoveryPayload,
             IpcResponse response,
-            out string errorMessage);
+            out string? errorMessage);
 
         /// <summary> Removes expired operation records retained by the store. </summary>
         bool TryPurgeExpiredRecords (
             DateTimeOffset nowUtc,
-            out string errorMessage);
+            out string? errorMessage);
     }
 }

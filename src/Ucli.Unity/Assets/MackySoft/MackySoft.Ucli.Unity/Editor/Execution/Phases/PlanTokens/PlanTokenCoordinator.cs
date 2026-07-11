@@ -224,7 +224,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             failure = null;
 
             var config = PlanTokenConfigResolver.Resolve(snapshot.RepositoryRoot);
-            if (string.IsNullOrWhiteSpace(request.PlanToken))
+            var planToken = request.PlanToken;
+            if (planToken == null || string.IsNullOrWhiteSpace(planToken))
             {
                 if (config.Mode == PlanTokenMode.Required)
                 {
@@ -238,7 +239,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return true;
             }
 
-            if (!PlanTokenCompactCodec.TryDecodeToken(request.PlanToken, out var parsedToken))
+            if (!PlanTokenCompactCodec.TryDecodeToken(planToken, out var parsedToken))
             {
                 failure = CreateInvalidTokenFailure("Plan token format is invalid.");
                 return false;

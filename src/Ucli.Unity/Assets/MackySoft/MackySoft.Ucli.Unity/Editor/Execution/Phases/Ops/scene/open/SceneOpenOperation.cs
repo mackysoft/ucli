@@ -164,13 +164,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             validationState = default;
             failure = null;
 
-            if (!SceneAssetSourceUtilities.TryEnsureSceneAssetExists(args.Path, out var sceneErrorMessage))
+            var scenePath = args.Path?.Value ?? string.Empty;
+            if (!SceneAssetSourceUtilities.TryEnsureSceneAssetExists(scenePath, out var sceneErrorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, sceneErrorMessage);
                 return false;
             }
 
-            validationState = new ValidationState(args.Path);
+            validationState = new ValidationState(scenePath);
             return true;
         }
 

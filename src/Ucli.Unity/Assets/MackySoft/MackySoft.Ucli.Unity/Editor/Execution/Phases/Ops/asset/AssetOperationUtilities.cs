@@ -103,9 +103,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 throw new ArgumentNullException(nameof(executionContext));
             }
 
+            var alias = reference.Alias;
             if (allowTemporaryState
                 && reference.Kind == UnityObjectReferenceKind.Alias
-                && executionContext.TryGetTemporaryAliasState(reference.Alias!, out var temporaryAliasState))
+                && alias != null
+                && executionContext.TryGetTemporaryAliasState(alias, out var temporaryAliasState))
             {
                 assetPath = temporaryAliasState.Resource.Path;
                 sourceGlobalObjectId = temporaryAliasState.SourceGlobalObjectId;
@@ -118,7 +120,16 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     return false;
                 }
 
-                if (!TryValidateTemporaryAssetTarget(temporaryAliasState.UnityObject!, reference.Alias!, out errorMessage))
+                var temporaryObject = temporaryAliasState.UnityObject;
+                if (temporaryObject == null)
+                {
+                    errorMessage = $"Reference alias was not found: {alias}.";
+                    assetPath = string.Empty;
+                    sourceGlobalObjectId = null;
+                    return false;
+                }
+
+                if (!TryValidateTemporaryAssetTarget(temporaryObject, alias, out errorMessage))
                 {
                     unityObject = null;
                     assetPath = string.Empty;
@@ -126,16 +137,26 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     return false;
                 }
 
-                unityObject = temporaryAliasState.UnityObject;
+                unityObject = temporaryObject;
                 return true;
             }
 
+            var selectorAssetPath = reference.Selector.AssetPath;
             if (allowTemporaryState
                 && reference.Kind == UnityObjectReferenceKind.Selector
                 && reference.Selector.Kind == ResolveSelectorKind.AssetPath
-                && executionContext.TryGetPlannedAssetState(reference.Selector.AssetPath!, out var plannedAssetState))
+                && selectorAssetPath != null
+                && executionContext.TryGetPlannedAssetState(selectorAssetPath, out var plannedAssetState))
             {
-                unityObject = plannedAssetState.UnityObject;
+                var plannedObject = plannedAssetState.UnityObject;
+                if (plannedObject == null)
+                {
+                    errorMessage = $"Planned asset is no longer available: {plannedAssetState.AssetPath}.";
+                    assetPath = string.Empty;
+                    return false;
+                }
+
+                unityObject = plannedObject;
                 assetPath = plannedAssetState.AssetPath;
                 sourceGlobalObjectId = null;
                 errorMessage = string.Empty;
@@ -146,7 +167,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 reference,
                 executionContext,
                 OperationObjectReferenceUtilities.ReferenceResolutionPolicy.LiveOnly,
-                out unityObject,
+                out var resolvedObject,
                 out errorMessage))
             {
                 assetPath = string.Empty;
@@ -154,16 +175,26 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (!TryValidatePersistentMainAssetTarget(unityObject!, out assetPath, out errorMessage))
+            if (resolvedObject == null)
+            {
+                errorMessage = "Reference did not resolve to an asset.";
+                assetPath = string.Empty;
+                sourceGlobalObjectId = null;
+                return false;
+            }
+
+            if (!TryValidatePersistentMainAssetTarget(resolvedObject, out assetPath, out errorMessage))
             {
                 unityObject = null;
                 sourceGlobalObjectId = null;
                 return false;
             }
 
-            sourceGlobalObjectId = UnityObjectReferenceResolver.TryCreateResolvedReference(unityObject!, out var resolvedReference)
-                ? resolvedReference!.GlobalObjectId
-                : null;
+            unityObject = resolvedObject;
+            sourceGlobalObjectId = UnityObjectReferenceResolver.TryCreateResolvedReference(resolvedObject, out var resolvedReference)
+                && resolvedReference != null
+                    ? resolvedReference.GlobalObjectId
+                    : null;
             return true;
         }
 
