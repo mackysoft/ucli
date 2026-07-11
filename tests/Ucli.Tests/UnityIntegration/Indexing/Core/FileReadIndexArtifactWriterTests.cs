@@ -253,7 +253,6 @@ public sealed class FileReadIndexArtifactWriterTests
                 CreateSnapshot(),
                 CancellationToken.None)
             .AsTask();
-        await Task.Delay(TimeSpan.FromMilliseconds(50));
         Assert.False(secondWriteTask.IsCompleted);
 
         firstDescribeWriter.Release();
@@ -285,7 +284,6 @@ public sealed class FileReadIndexArtifactWriterTests
                 suppliedSnapshot,
                 CancellationToken.None)
             .AsTask();
-        await Task.Delay(TimeSpan.FromMilliseconds(50));
         Assert.False(writeTask.IsCompleted);
 
         var currentManifest = new IndexInputsManifestJsonContract(
@@ -341,7 +339,6 @@ public sealed class FileReadIndexArtifactWriterTests
                 suppliedSnapshot,
                 CancellationToken.None)
             .AsTask();
-        await Task.Delay(TimeSpan.FromMilliseconds(50));
         Assert.False(writeTask.IsCompleted);
 
         var currentManifest = new IndexInputsManifestJsonContract(

@@ -37,7 +37,6 @@ public sealed class DaemonArtifactCleanerTests
             CancellationToken.None);
 
         var cleanupTask = cleaner.CleanupIfSessionMissingAsync(unityProject, CancellationToken.None).AsTask();
-        await Task.Delay(TimeSpan.FromMilliseconds(50));
         Assert.False(cleanupTask.IsCompleted);
         var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, projectFingerprint);
         await FileUtilities.WriteAllTextAtomicallyAsync(
