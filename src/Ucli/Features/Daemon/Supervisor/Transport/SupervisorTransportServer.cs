@@ -19,11 +19,14 @@ internal sealed class SupervisorTransportServer
     private ExceptionDispatchInfo? fatalConnectionException;
 
     /// <summary> Initializes a new instance of the <see cref="SupervisorTransportServer" /> class. </summary>
-    public SupervisorTransportServer ()
+    /// <param name="timeProvider"> The time provider used for bounded connection draining. </param>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="timeProvider" /> is <see langword="null" />. </exception>
+    public SupervisorTransportServer (TimeProvider timeProvider)
     {
         activeConnections = new SupervisorTransportConnectionGroup(
             stream => TryDisposeTransportHandle(stream),
-            RecordFatalConnectionException);
+            RecordFatalConnectionException,
+            timeProvider ?? throw new ArgumentNullException(nameof(timeProvider)));
     }
 
     /// <summary> Runs the listener loop for the specified endpoint until cancellation is requested. </summary>

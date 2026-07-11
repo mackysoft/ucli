@@ -17,7 +17,7 @@ public sealed class SupervisorTransportServerTests
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-transport-server", "parallel-accept");
         var endpoint = CreateEndpoint(scope.FullPath);
-        var server = new SupervisorTransportServer();
+        var server = new SupervisorTransportServer(TimeProvider.System);
         var startedTaskSource = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var slowRequestEnteredTaskSource = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseSlowRequestTaskSource = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -117,7 +117,7 @@ public sealed class SupervisorTransportServerTests
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-transport-server", "synchronous-handler-block");
         var endpoint = CreateEndpoint(scope.FullPath);
-        var server = new SupervisorTransportServer();
+        var server = new SupervisorTransportServer(TimeProvider.System);
         var startedTaskSource = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var firstHandlerEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseFirstHandler = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -205,8 +205,8 @@ public sealed class SupervisorTransportServerTests
 
         using var scope = TestDirectories.CreateTempScope("supervisor-transport-server", "successor-socket-ownership");
         var endpoint = CreateEndpoint(scope.FullPath);
-        var originalServer = new SupervisorTransportServer();
-        var successorServer = new SupervisorTransportServer();
+        var originalServer = new SupervisorTransportServer(TimeProvider.System);
+        var successorServer = new SupervisorTransportServer(TimeProvider.System);
         var originalBound = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseOriginalPublication = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var successorStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -283,8 +283,8 @@ public sealed class SupervisorTransportServerTests
             UnixSocketPathUtilities.BuildFallbackSocketPath(
                 UcliIpcEndpointNames.SupervisorAddressPrefix,
                 Guid.NewGuid().ToString("N")));
-        var originalServer = new SupervisorTransportServer();
-        var successorServer = new SupervisorTransportServer();
+        var originalServer = new SupervisorTransportServer(TimeProvider.System);
+        var successorServer = new SupervisorTransportServer(TimeProvider.System);
         var originalStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var originalCancellationTokenSource = new CancellationTokenSource();
         var originalTask = originalServer.RunAsync(
@@ -350,7 +350,7 @@ public sealed class SupervisorTransportServerTests
             UnixSocketPathUtilities.BuildFallbackSocketPath(
                 UcliIpcEndpointNames.SupervisorAddressPrefix,
                 Guid.NewGuid().ToString("N")));
-        var server = new SupervisorTransportServer();
+        var server = new SupervisorTransportServer(TimeProvider.System);
         using var cancellationTokenSource = new CancellationTokenSource();
         var generationAddress = string.Empty;
 
@@ -391,7 +391,7 @@ public sealed class SupervisorTransportServerTests
         var endpoint = new IpcEndpoint(
             IpcTransportKind.UnixDomainSocket,
             Path.Combine(blockedDirectoryPath, UcliIpcEndpointNames.UnixSocketFileName));
-        var server = new SupervisorTransportServer();
+        var server = new SupervisorTransportServer(TimeProvider.System);
 
         var exception = await Assert.ThrowsAsync<IOException>(async () =>
         {
@@ -424,7 +424,7 @@ public sealed class SupervisorTransportServerTests
         var endpoint = new IpcEndpoint(
             IpcTransportKind.UnixDomainSocket,
             UnixSocketPathUtilities.BuildFallbackSocketPath("ucli-supervisor-", Guid.NewGuid().ToString("N")));
-        var server = new SupervisorTransportServer();
+        var server = new SupervisorTransportServer(TimeProvider.System);
         var startedTaskSource = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var cancellationTokenSource = new CancellationTokenSource();
 
@@ -476,7 +476,7 @@ public sealed class SupervisorTransportServerTests
             IpcTransportKind.UnixDomainSocket,
             UnixSocketPathUtilities.BuildFallbackSocketPath("ucli-supervisor-", Guid.NewGuid().ToString("N")));
         var socketDirectoryPath = Path.GetDirectoryName(endpoint.Address)!;
-        var server = new SupervisorTransportServer();
+        var server = new SupervisorTransportServer(TimeProvider.System);
         var startedTaskSource = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var cancellationTokenSource = new CancellationTokenSource();
 
@@ -521,7 +521,7 @@ public sealed class SupervisorTransportServerTests
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-transport-server", "connection-limit");
         var endpoint = CreateEndpoint(scope.FullPath);
-        var server = new SupervisorTransportServer();
+        var server = new SupervisorTransportServer(TimeProvider.System);
         var startedTaskSource = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var firstHandlerEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseFirstHandler = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -611,7 +611,8 @@ public sealed class SupervisorTransportServerTests
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-transport-server", "bounded-drain");
         var endpoint = CreateEndpoint(scope.FullPath);
-        var server = new SupervisorTransportServer();
+        var timeProvider = new ManualTimeProvider();
+        var server = new SupervisorTransportServer(timeProvider);
         var startedTaskSource = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var handlerEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseHandler = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -646,6 +647,11 @@ public sealed class SupervisorTransportServerTests
 
             cancellationTokenSource.Cancel();
             server.Release();
+            await TestAwaiter.WaitAsync(
+                timeProvider.WaitForTimerDueWithinAsync(TimeSpan.FromMilliseconds(50)),
+                "Supervisor connection drain timer",
+                SignalWaitTimeout);
+            timeProvider.Advance(TimeSpan.FromMilliseconds(50));
             await serverTask.WaitAsync(SignalWaitTimeout);
             returnedAtDrainDeadline = true;
         }

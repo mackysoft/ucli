@@ -174,7 +174,8 @@ public sealed class SupervisorRequestDispatcherConnectionLifetimeTests
         var fatalException = new TaskCompletionSource<Exception>(TaskCreationOptions.RunContinuationsAsynchronously);
         var connectionGroup = new SupervisorTransportConnectionGroup(
             static connectionStream => connectionStream.Dispose(),
-            exception => fatalException.TrySetResult(exception));
+            exception => fatalException.TrySetResult(exception),
+            TimeProvider.System);
         Assert.True(connectionGroup.TryStart(
             stream,
             async (connectionStream, cancellationToken) =>

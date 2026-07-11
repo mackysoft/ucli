@@ -15,7 +15,7 @@ internal static class IpcTransportTestHarness
         var endpoint = new IpcEndpoint(
             IpcTransportKind.UnixDomainSocket,
             UnixSocketPathUtilities.BuildFallbackSocketPath("ucli-supervisor-", Guid.NewGuid().ToString("N")));
-        var server = new SupervisorTransportServer();
+        var server = new SupervisorTransportServer(TimeProvider.System);
         var startedTaskSource = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var cancellationTokenSource = new CancellationTokenSource();
 
@@ -70,7 +70,7 @@ internal static class IpcTransportTestHarness
         var endpoint = new IpcEndpoint(
             IpcTransportKind.UnixDomainSocket,
             UnixSocketPathUtilities.BuildFallbackSocketPath("ucli-supervisor-", Guid.NewGuid().ToString("N")));
-        var server = new SupervisorTransportServer();
+        var server = new SupervisorTransportServer(TimeProvider.System);
         var startedTaskSource = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var cancellationTokenSource = new CancellationTokenSource();
 

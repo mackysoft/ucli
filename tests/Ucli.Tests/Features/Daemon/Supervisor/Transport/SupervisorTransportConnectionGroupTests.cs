@@ -13,7 +13,8 @@ public sealed class SupervisorTransportConnectionGroupTests
         var fatalException = new TaskCompletionSource<Exception>(TaskCreationOptions.RunContinuationsAsynchronously);
         var group = new SupervisorTransportConnectionGroup(
             static stream => stream.Dispose(),
-            exception => fatalException.TrySetResult(exception));
+            exception => fatalException.TrySetResult(exception),
+            TimeProvider.System);
         using var firstStream = new BlockingDisposeStream();
         using var secondStream = new MemoryStream();
         var secondHandlerEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -86,7 +87,8 @@ public sealed class SupervisorTransportConnectionGroupTests
 
                 stream.Dispose();
             },
-            exception => fatalException.TrySetResult(exception));
+            exception => fatalException.TrySetResult(exception),
+            TimeProvider.System);
         using var firstStream = new MemoryStream();
         using var secondStream = new MemoryStream();
 

@@ -11,6 +11,8 @@ internal sealed class SupervisorTransportConnectionGroup
 
     private readonly Action<Exception> recordFatalConnectionException;
 
+    private readonly TimeProvider timeProvider;
+
     private readonly Dictionary<int, ActiveConnection> activeConnections = new();
 
     private bool isReleased;
@@ -20,12 +22,15 @@ internal sealed class SupervisorTransportConnectionGroup
     /// <summary> Initializes a new instance of the <see cref="SupervisorTransportConnectionGroup" /> class. </summary>
     /// <param name="releaseTransportHandle"> The non-throwing transport-handle cleanup dependency. </param>
     /// <param name="recordFatalConnectionException"> The callback that records a connection failure that must stop the listener. </param>
+    /// <param name="timeProvider"> The time provider used for bounded connection draining. </param>
     public SupervisorTransportConnectionGroup (
         Action<Stream> releaseTransportHandle,
-        Action<Exception> recordFatalConnectionException)
+        Action<Exception> recordFatalConnectionException,
+        TimeProvider timeProvider)
     {
         this.releaseTransportHandle = releaseTransportHandle ?? throw new ArgumentNullException(nameof(releaseTransportHandle));
         this.recordFatalConnectionException = recordFatalConnectionException ?? throw new ArgumentNullException(nameof(recordFatalConnectionException));
+        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
     /// <summary> Attempts to admit and start one accepted connection without running its handler on the listener loop. </summary>
@@ -108,7 +113,10 @@ internal sealed class SupervisorTransportConnectionGroup
 
         var completionTask = Task.WhenAll(connectionTasks);
         using var timeoutCancellationTokenSource = new CancellationTokenSource();
-        var timeoutTask = Task.Delay(drainTimeout, timeoutCancellationTokenSource.Token);
+        var timeoutTask = Task.Delay(
+            drainTimeout,
+            timeProvider,
+            timeoutCancellationTokenSource.Token);
         var completedTask = await Task.WhenAny(completionTask, timeoutTask).ConfigureAwait(false);
         if (!ReferenceEquals(completedTask, completionTask) && !completionTask.IsCompleted)
         {
