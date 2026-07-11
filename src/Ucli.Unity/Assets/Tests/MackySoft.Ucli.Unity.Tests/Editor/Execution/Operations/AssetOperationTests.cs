@@ -139,6 +139,33 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Set_Validate_WhenSetItemIsNull_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new AssetSetOperation();
+            var requestOperation = CreateOperation(
+                opId: "op-set",
+                opName: UcliPrimitiveOperationNames.AssetSet,
+                args: new
+                {
+                    target = new
+                    {
+                        @var = "target",
+                    },
+                    sets = new object?[]
+                    {
+                        null,
+                    },
+                });
+
+            using var executionContext = new OperationExecutionContext();
+            var result = await operation.ValidateAsync(requestOperation, executionContext, CancellationToken.None);
+
+            AssertInvalidArgument(result, "op-set");
+            Assert.That(result.Failure!.Message, Does.Contain("args.sets[0]").And.Contain("must be an object"));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Create_Validate_WhenTypeIsNotScriptableObject_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
             var operation = new AssetCreateOperation();

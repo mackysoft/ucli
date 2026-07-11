@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 
 #nullable enable
 
@@ -148,13 +149,32 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             for (var i = 0; i < sourceAssignments.Count; i++)
             {
                 var sourceAssignment = sourceAssignments[i];
+                if (sourceAssignment == null)
+                {
+                    errorMessage = $"Operation 'args.sets[{i}]' must be an object.";
+                    return false;
+                }
+
                 if (sourceAssignment.Value.ValueKind == JsonValueKind.Undefined)
                 {
                     errorMessage = $"Operation 'args.sets[{i}]' requires property '{ValuePropertyName}'.";
                     return false;
                 }
 
-                assignments.Add(new SerializedPropertyAssignment(sourceAssignment.Path, sourceAssignment.Value.Clone()));
+                var path = sourceAssignment.Path?.Value;
+                if (path == null || string.IsNullOrWhiteSpace(path))
+                {
+                    errorMessage = $"Operation 'args.sets[{i}].path' must not be empty or whitespace.";
+                    return false;
+                }
+
+                if (StringValueValidator.HasOuterWhitespace(path))
+                {
+                    errorMessage = $"Operation 'args.sets[{i}].path' must not contain leading or trailing whitespace.";
+                    return false;
+                }
+
+                assignments.Add(new SerializedPropertyAssignment(path, sourceAssignment.Value.Clone()));
             }
 
             return true;
