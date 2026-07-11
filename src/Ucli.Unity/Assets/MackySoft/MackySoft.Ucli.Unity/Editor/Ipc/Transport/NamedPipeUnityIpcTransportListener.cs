@@ -163,7 +163,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                                 started = true;
                             }
 
-                            await serverStream.WaitForConnectionAsync(cancellationToken)
+                            // Closing the generation's server stream is the single cancellation mechanism.
+                            // Unity's Windows Mono runtime can otherwise dispose the pipe operation's internal
+                            // cancellation source before its overlapped I/O callback completes during Domain Reload.
+                            await serverStream.WaitForConnectionAsync()
                                 .ConfigureAwait(false);
                             if (!listenerGeneration.TryDetachConnectedStream(serverStream))
                             {

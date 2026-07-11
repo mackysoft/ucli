@@ -165,6 +165,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         SignalWaitTimeout);
 
                     releasedCancellationTokenSource.Cancel();
+                    releasedCancellationTokenSource.Dispose();
 
                     using var successorCancellationTokenSource = new CancellationTokenSource();
                     var successorStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
