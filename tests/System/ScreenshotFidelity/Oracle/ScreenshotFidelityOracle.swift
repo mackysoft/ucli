@@ -1503,13 +1503,21 @@ private func locateSceneFixtureContent(in image: PixelImage) throws -> IntRect {
         }
     }
 
-    guard candidates.count == 1, let candidate = candidates.first else {
+    let outermostCandidates: [SceneSentinelCandidate]
+    if let minimumY = candidates.map(\.rect.y).min() {
+        outermostCandidates = candidates.filter { $0.rect.y == minimumY }
+    } else {
+        outermostCandidates = []
+    }
+
+    guard outermostCandidates.count == 1, let candidate = outermostCandidates.first else {
         let details = candidates.map { describe($0) }.joined(separator: "; ")
         let candidateDetails = details.isEmpty ? "none" : details
         throw OracleError.failed(
-            "Expected exactly one Scene fixture rectangle from the outer-edge "
+            "Expected exactly one outermost Scene fixture rectangle from the outer-edge "
                 + "top-left cyan, bottom-left magenta, and bottom-right yellow sentinels; "
-                + "found \(candidates.count). Candidates: \(candidateDetails).")
+                + "found \(outermostCandidates.count) among \(candidates.count) aligned candidates. "
+                + "Candidates: \(candidateDetails).")
     }
 
     return candidate.rect
