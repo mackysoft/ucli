@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
 
@@ -38,14 +39,13 @@ public sealed class IpcProtocolVocabularyTests
     [Trait("Size", "Small")]
     public void IpcScreenshotLiteralContracts_ExposeExpectedLiterals ()
     {
-        Assert.Equal("game", IpcScreenshotTargetNames.Game);
-        Assert.Equal("scene", IpcScreenshotTargetNames.Scene);
-        Assert.Equal("currentSurface", IpcScreenshotSizeModeNames.CurrentSurface);
-        Assert.Equal("requestedResolution", IpcScreenshotSizeModeNames.RequestedResolution);
-        Assert.Equal("gamma", IpcScreenshotColorSpaceNames.Gamma);
-        Assert.Equal("linear", IpcScreenshotColorSpaceNames.Linear);
-        Assert.Equal("rgba8Srgb", IpcScreenshotPixelFormatNames.Rgba8Srgb);
-        Assert.Equal("topDown", IpcScreenshotRowOrderNames.TopDown);
+        Assert.Equal(["game", "scene"], ContractLiteralCodec.GetLiterals<IpcScreenshotTarget>());
+        Assert.Equal(
+            ["currentSurface", "requestedResolution"],
+            ContractLiteralCodec.GetLiterals<IpcScreenshotSizeMode>());
+        Assert.Equal(["gamma", "linear"], ContractLiteralCodec.GetLiterals<IpcScreenshotColorSpace>());
+        Assert.Equal(["rgba8Srgb"], ContractLiteralCodec.GetLiterals<IpcScreenshotPixelFormat>());
+        Assert.Equal(["topDown"], ContractLiteralCodec.GetLiterals<IpcScreenshotRowOrder>());
     }
 
     [Fact]

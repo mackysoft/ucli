@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Screenshot.Capture;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
@@ -30,7 +31,9 @@ internal static class ScreenshotCommandResultFactory
                 capture = new
                 {
                     target = ContractLiteralCodec.ToValue(output.Target),
-                    sizeMode = output.RequestedWidth.HasValue ? "requestedResolution" : "currentSurface",
+                    sizeMode = ContractLiteralCodec.ToValue(output.RequestedWidth.HasValue
+                        ? IpcScreenshotSizeMode.RequestedResolution
+                        : IpcScreenshotSizeMode.CurrentSurface),
                     requestedWidth = output.RequestedWidth,
                     requestedHeight = output.RequestedHeight,
                     output.Width,
@@ -43,8 +46,8 @@ internal static class ScreenshotCommandResultFactory
                 },
                 artifact = new
                 {
-                    kind = "screenshot",
-                    mediaType = "image/png",
+                    kind = ContractLiteralCodec.ToValue(ScreenshotArtifactKind.Screenshot),
+                    mediaType = ScreenshotArtifactContract.MediaType,
                     path = output.ArtifactPath,
                     digest = output.ArtifactDigest,
                     sizeBytes = output.ArtifactSizeBytes,

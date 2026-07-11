@@ -4,7 +4,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Unity.ScreenshotCapture;
+using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Unity.ScreenshotCapture.Capture;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -118,10 +119,10 @@ namespace MackySoft.Ucli.Unity.Ipc
             IpcScreenshotCaptureRequest request,
             out string errorMessage)
         {
-            if (!string.Equals(request.Target, IpcScreenshotTargetNames.Game, StringComparison.Ordinal)
-                && !string.Equals(request.Target, IpcScreenshotTargetNames.Scene, StringComparison.Ordinal))
+            if (!ContractLiteralCodec.TryParse<IpcScreenshotTarget>(request.Target, out var target))
             {
-                errorMessage = $"Screenshot target must be '{IpcScreenshotTargetNames.Game}' or '{IpcScreenshotTargetNames.Scene}'.";
+                errorMessage =
+                    $"Screenshot target must be one of: {string.Join(", ", ContractLiteralCodec.GetLiterals<IpcScreenshotTarget>())}.";
                 return false;
             }
 
@@ -149,7 +150,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return false;
             }
 
-            if (string.Equals(request.Target, IpcScreenshotTargetNames.Scene, StringComparison.Ordinal)
+            if (target == IpcScreenshotTarget.Scene
                 && request.RequestedWidth.HasValue)
             {
                 errorMessage = "Requested screenshot dimensions are supported only for the game target.";

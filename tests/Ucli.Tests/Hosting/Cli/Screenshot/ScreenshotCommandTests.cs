@@ -1,5 +1,6 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Screenshot.Capture;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Screenshot;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 
@@ -56,7 +57,7 @@ public sealed class ScreenshotCommandTests
     {
         var service = new RecordingScreenshotCaptureService((_, _) => ValueTask.FromResult(
             ScreenshotCaptureResult.Success(CreateOutput(
-                ScreenshotCaptureTarget.Game,
+                IpcScreenshotTarget.Game,
                 requestedWidth: 1920,
                 requestedHeight: 1080))));
         var command = new ScreenshotGameCommand(service, CommandResultTestWriter.Create());
@@ -71,7 +72,7 @@ public sealed class ScreenshotCommandTests
 
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         var input = Assert.Single(service.Inputs);
-        Assert.Equal(ScreenshotCaptureTarget.Game, input.Target);
+        Assert.Equal(IpcScreenshotTarget.Game, input.Target);
         Assert.Equal(1920, input.RequestedWidth);
         Assert.Equal(1080, input.RequestedHeight);
         Assert.Equal(5000, input.TimeoutMilliseconds);
@@ -106,7 +107,7 @@ public sealed class ScreenshotCommandTests
     {
         var service = new RecordingScreenshotCaptureService((_, _) => ValueTask.FromResult(
             ScreenshotCaptureResult.Success(CreateOutput(
-                ScreenshotCaptureTarget.Scene,
+                IpcScreenshotTarget.Scene,
                 requestedWidth: null,
                 requestedHeight: null))));
         var command = new ScreenshotSceneCommand(service, CommandResultTestWriter.Create());
@@ -116,7 +117,7 @@ public sealed class ScreenshotCommandTests
 
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         var input = Assert.Single(service.Inputs);
-        Assert.Equal(ScreenshotCaptureTarget.Scene, input.Target);
+        Assert.Equal(IpcScreenshotTarget.Scene, input.Target);
         Assert.Null(input.RequestedWidth);
         Assert.Null(input.RequestedHeight);
     }
@@ -128,7 +129,7 @@ public sealed class ScreenshotCommandTests
     }
 
     private static ScreenshotCaptureOutput CreateOutput (
-        ScreenshotCaptureTarget target,
+        IpcScreenshotTarget target,
         int? requestedWidth,
         int? requestedHeight)
     {

@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Ipc;
+
 namespace MackySoft.Ucli.Application.Features.Screenshot.Capture;
 
 /// <summary> Represents normalized inputs for one screenshot capture. </summary>
@@ -7,7 +9,7 @@ namespace MackySoft.Ucli.Application.Features.Screenshot.Capture;
 /// <param name="RequestedHeight"> The requested GameView render height, or <see langword="null" /> for the current surface. </param>
 /// <param name="TimeoutMilliseconds"> The optional timeout override in milliseconds. </param>
 internal sealed record ScreenshotCaptureInput (
-    ScreenshotCaptureTarget Target,
+    IpcScreenshotTarget Target,
     string? ProjectPath,
     int? RequestedWidth,
     int? RequestedHeight,

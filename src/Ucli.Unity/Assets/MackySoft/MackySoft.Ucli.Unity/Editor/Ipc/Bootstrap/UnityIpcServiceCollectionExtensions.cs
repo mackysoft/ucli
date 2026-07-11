@@ -7,7 +7,11 @@ using MackySoft.Ucli.Unity.Execution;
 using MackySoft.Ucli.Unity.Index;
 using MackySoft.Ucli.Unity.Project;
 using MackySoft.Ucli.Unity.Runtime;
-using MackySoft.Ucli.Unity.ScreenshotCapture;
+using MackySoft.Ucli.Unity.ScreenshotCapture.Capture;
+using MackySoft.Ucli.Unity.ScreenshotCapture.GameView;
+using MackySoft.Ucli.Unity.ScreenshotCapture.GameView.Resolution;
+using MackySoft.Ucli.Unity.ScreenshotCapture.SceneView;
+using MackySoft.Ucli.Unity.ScreenshotCapture.Staging;
 using Microsoft.Extensions.DependencyInjection;
 using UnityEngine;
 
@@ -174,6 +178,12 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddSingleton<UnityLogsReadQueryEngine>();
             services.AddSingleton<UnityLogsReadResponseFactory>();
             services.AddSingleton<IUnityConsoleClearer, UnityEditorConsoleClearer>();
+            services.AddSingleton<IUnityScreenshotResolutionOrphanCleaner, UnityScreenshotResolutionOrphanCleaner>();
+            services.AddSingleton<UnityGameViewResolutionAdapter>();
+            services.AddSingleton<UnityGameViewPresentationAdapter>();
+            services.AddSingleton<UnityGameViewScreenshotCapture>();
+            services.AddSingleton<UnitySceneViewPresentationAdapter>();
+            services.AddSingleton<UnitySceneViewScreenshotCapture>();
             services.AddSingleton<IUnityScreenshotCaptureBackend, UnityEditorScreenshotCaptureBackend>();
             services.AddSingleton<IScreenshotStagingImageWriter, ScreenshotStagingImageWriter>();
             services.AddSingleton<IUnityScreenshotCaptureService, UnityScreenshotCaptureService>();

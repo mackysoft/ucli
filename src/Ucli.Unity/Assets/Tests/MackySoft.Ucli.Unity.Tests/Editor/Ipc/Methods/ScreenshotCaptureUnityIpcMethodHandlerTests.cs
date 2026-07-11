@@ -3,8 +3,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Unity.Ipc;
-using MackySoft.Ucli.Unity.ScreenshotCapture;
+using MackySoft.Ucli.Unity.ScreenshotCapture.Capture;
 using NUnit.Framework;
 
 namespace MackySoft.Ucli.Unity.Tests
@@ -15,7 +16,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public async Task HandleAsync_WithValidRequest_ReturnsCaptureResponse ()
         {
-            var service = new StubCaptureService(CreateSuccessResult());
+            var service = CreateCaptureService(CreateSuccessResult());
             var handler = new ScreenshotCaptureUnityIpcMethodHandler(
                 service,
                 new IpcRequestTimeoutScopeFactory());
@@ -27,7 +28,9 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
             Assert.That(response.Errors, Is.Empty);
             Assert.That(service.CallCount, Is.EqualTo(1));
-            Assert.That(service.LastRequest.Target, Is.EqualTo(IpcScreenshotTargetNames.Game));
+            Assert.That(
+                service.LastRequest.Target,
+                Is.EqualTo(ContractLiteralCodec.ToValue(IpcScreenshotTarget.Game)));
             Assert.That(
                 IpcPayloadCodec.TryDeserialize(
                     response.Payload,
@@ -42,13 +45,13 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public async Task HandleAsync_WithSceneRequestedSize_ReturnsInvalidArgumentWithoutCapture ()
         {
-            var service = new StubCaptureService(CreateSuccessResult());
+            var service = CreateCaptureService(CreateSuccessResult());
             var handler = new ScreenshotCaptureUnityIpcMethodHandler(
                 service,
                 new IpcRequestTimeoutScopeFactory());
             var request = CreateRequest(CreatePayload() with
             {
-                Target = IpcScreenshotTargetNames.Scene,
+                Target = ContractLiteralCodec.ToValue(IpcScreenshotTarget.Scene),
                 RequestedWidth = 640,
                 RequestedHeight = 480,
             });
@@ -64,7 +67,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public async Task HandleAsync_WithOversizedRequestedRaster_ReturnsInvalidArgumentWithoutCapture ()
         {
-            var service = new StubCaptureService(CreateSuccessResult());
+            var service = CreateCaptureService(CreateSuccessResult());
             var handler = new ScreenshotCaptureUnityIpcMethodHandler(
                 service,
                 new IpcRequestTimeoutScopeFactory());
@@ -85,7 +88,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public async Task HandleAsync_WhenCaptureReportsUnsupported_PreservesErrorCode ()
         {
-            var service = new StubCaptureService(UnityScreenshotCaptureResult.Failure(
+            var service = CreateCaptureService(UnityScreenshotCaptureResult.Failure(
                 ScreenshotErrorCodes.ScreenshotCaptureUnsupported,
                 "unsupported tuple"));
             var handler = new ScreenshotCaptureUnityIpcMethodHandler(
@@ -123,7 +126,7 @@ namespace MackySoft.Ucli.Unity.Tests
         private static IpcScreenshotCaptureRequest CreatePayload ()
         {
             return new IpcScreenshotCaptureRequest(
-                IpcScreenshotTargetNames.Game,
+                ContractLiteralCodec.ToValue(IpcScreenshotTarget.Game),
                 RequestedWidth: null,
                 RequestedHeight: null,
                 StagingPath: "/tmp/ucli-screenshot-test/capture.rgba",
@@ -145,33 +148,33 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             return UnityScreenshotCaptureResult.Success(new IpcScreenshotCaptureResponse(
                 new IpcScreenshotCapture(
-                    IpcScreenshotTargetNames.Game,
-                    IpcScreenshotSizeModeNames.CurrentSurface,
+                    ContractLiteralCodec.ToValue(IpcScreenshotTarget.Game),
+                    ContractLiteralCodec.ToValue(IpcScreenshotSizeMode.CurrentSurface),
                     RequestedWidth: null,
                     RequestedHeight: null,
                     Width: 2,
                     Height: 1,
-                    IpcScreenshotColorSpaceNames.Linear,
+                    ContractLiteralCodec.ToValue(IpcScreenshotColorSpace.Linear),
                     LifecycleStateAtCapture: IpcEditorLifecycleStateCodec.Ready,
                     CompileStateAtCapture: IpcCompileStateCodec.Ready,
                     DomainReloadGeneration: 4,
-                    PlayModeState: "stopped"),
+                    PlayModeState: ContractLiteralCodec.ToValue(IpcPlayModeState.Stopped)),
                 new IpcScreenshotStagingImage(
                     "/tmp/ucli-screenshot-test/capture.rgba",
-                    IpcScreenshotPixelFormatNames.Rgba8Srgb,
-                    IpcScreenshotRowOrderNames.TopDown,
+                    ContractLiteralCodec.ToValue(IpcScreenshotPixelFormat.Rgba8Srgb),
+                    ContractLiteralCodec.ToValue(IpcScreenshotRowOrder.TopDown),
                     RowStrideBytes: 8,
                     SizeBytes: 8)));
+        }
+
+        private static StubCaptureService CreateCaptureService (UnityScreenshotCaptureResult result)
+        {
+            return new StubCaptureService((_, _) => Task.FromResult(result));
         }
 
         private sealed class StubCaptureService : IUnityScreenshotCaptureService
         {
             private readonly Func<IpcScreenshotCaptureRequest, CancellationToken, Task<UnityScreenshotCaptureResult>> capture;
-
-            public StubCaptureService (UnityScreenshotCaptureResult result)
-                : this((_, _) => Task.FromResult(result))
-            {
-            }
 
             public StubCaptureService (
                 Func<IpcScreenshotCaptureRequest, CancellationToken, Task<UnityScreenshotCaptureResult>> capture)

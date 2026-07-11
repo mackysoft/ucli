@@ -1,5 +1,6 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
 
@@ -10,28 +11,28 @@ public sealed class IpcScreenshotContractSerializationTests
     public void ScreenshotContracts_SerializeWithCamelCaseFields ()
     {
         var request = IpcPayloadCodec.SerializeToElement(new IpcScreenshotCaptureRequest(
-            Target: IpcScreenshotTargetNames.Game,
+            Target: ContractLiteralCodec.ToValue(IpcScreenshotTarget.Game),
             RequestedWidth: 1920,
             RequestedHeight: 1080,
             StagingPath: "/tmp/ucli-screenshot.raw",
             TimeoutMilliseconds: 30000));
         var response = IpcPayloadCodec.SerializeToElement(new IpcScreenshotCaptureResponse(
             Capture: new IpcScreenshotCapture(
-                Target: IpcScreenshotTargetNames.Game,
-                SizeMode: IpcScreenshotSizeModeNames.RequestedResolution,
+                Target: ContractLiteralCodec.ToValue(IpcScreenshotTarget.Game),
+                SizeMode: ContractLiteralCodec.ToValue(IpcScreenshotSizeMode.RequestedResolution),
                 RequestedWidth: 1920,
                 RequestedHeight: 1080,
                 Width: 1920,
                 Height: 1080,
-                ColorSpace: IpcScreenshotColorSpaceNames.Linear,
+                ColorSpace: ContractLiteralCodec.ToValue(IpcScreenshotColorSpace.Linear),
                 LifecycleStateAtCapture: "ready",
-                CompileStateAtCapture: "idle",
+                CompileStateAtCapture: IpcCompileStateCodec.Ready,
                 DomainReloadGeneration: 7,
-                PlayModeState: "playing"),
+                PlayModeState: ContractLiteralCodec.ToValue(IpcPlayModeState.Playing)),
             Staging: new IpcScreenshotStagingImage(
                 Path: "/tmp/ucli-screenshot.raw",
-                PixelFormat: IpcScreenshotPixelFormatNames.Rgba8Srgb,
-                RowOrder: IpcScreenshotRowOrderNames.TopDown,
+                PixelFormat: ContractLiteralCodec.ToValue(IpcScreenshotPixelFormat.Rgba8Srgb),
+                RowOrder: ContractLiteralCodec.ToValue(IpcScreenshotRowOrder.TopDown),
                 RowStrideBytes: 7680,
                 SizeBytes: 8294400)));
 
@@ -49,7 +50,7 @@ public sealed class IpcScreenshotContractSerializationTests
                 .HasInt32("height", 1080)
                 .HasString("colorSpace", "linear")
                 .HasString("lifecycleStateAtCapture", "ready")
-                .HasString("compileStateAtCapture", "idle")
+                .HasString("compileStateAtCapture", "ready")
                 .HasInt32("domainReloadGeneration", 7)
                 .HasString("playModeState", "playing"))
             .HasProperty("staging", staging => staging

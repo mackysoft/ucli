@@ -156,8 +156,8 @@ public sealed class FileScreenshotArtifactStoreTests
             paths.RawStagingPath,
             Width: width,
             Height: 1,
-            IpcScreenshotPixelFormatNames.Rgba8Srgb,
-            IpcScreenshotRowOrderNames.TopDown,
+            ContractLiteralCodec.ToValue(IpcScreenshotPixelFormat.Rgba8Srgb),
+            ContractLiteralCodec.ToValue(IpcScreenshotRowOrder.TopDown),
             RowStrideBytes: rawBytes.Length,
             SizeBytes: rawBytes.LongLength);
 
@@ -324,23 +324,19 @@ public sealed class FileScreenshotArtifactStoreTests
         return new FileScreenshotArtifactStore(
             new Rgba8SrgbPngEncoder(),
             new Rgba8SrgbPngValidator(),
-            new ManualTimeProvider(CreatedAtUtc));
+            new ManualTimeProvider(CreatedAtUtc),
+            File.Delete);
     }
 
     private static FileScreenshotArtifactStore CreateStore (
         TimeProvider timeProvider,
         Action<string>? deleteOwnedFile = null)
     {
-        return deleteOwnedFile == null
-            ? new FileScreenshotArtifactStore(
-                new Rgba8SrgbPngEncoder(),
-                new Rgba8SrgbPngValidator(),
-                timeProvider)
-            : new FileScreenshotArtifactStore(
-                new Rgba8SrgbPngEncoder(),
-                new Rgba8SrgbPngValidator(),
-                timeProvider,
-                deleteOwnedFile);
+        return new FileScreenshotArtifactStore(
+            new Rgba8SrgbPngEncoder(),
+            new Rgba8SrgbPngValidator(),
+            timeProvider,
+            deleteOwnedFile ?? File.Delete);
     }
 
     private static ScreenshotArtifactPaths Prepare (
@@ -364,8 +360,8 @@ public sealed class FileScreenshotArtifactStoreTests
             paths.RawStagingPath,
             Width: 2,
             Height: 2,
-            IpcScreenshotPixelFormatNames.Rgba8Srgb,
-            IpcScreenshotRowOrderNames.TopDown,
+            ContractLiteralCodec.ToValue(IpcScreenshotPixelFormat.Rgba8Srgb),
+            ContractLiteralCodec.ToValue(IpcScreenshotRowOrder.TopDown),
             RowStrideBytes: 8,
             SizeBytes: 16);
     }

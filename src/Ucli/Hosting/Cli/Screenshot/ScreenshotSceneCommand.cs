@@ -1,5 +1,6 @@
 using ConsoleAppFramework;
 using MackySoft.Ucli.Application.Features.Screenshot.Capture;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 
@@ -48,7 +49,7 @@ internal sealed class ScreenshotSceneCommand
 
         var result = await captureService.CaptureAsync(
                 new ScreenshotCaptureInput(
-                    ScreenshotCaptureTarget.Scene,
+                    IpcScreenshotTarget.Scene,
                     projectPath,
                     RequestedWidth: null,
                     RequestedHeight: null,

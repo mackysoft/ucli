@@ -46,7 +46,7 @@ public sealed class ScreenshotCaptureServiceTests
         Assert.Equal(UcliCommandIds.ScreenshotGame, invocation.Command);
         Assert.Equal(UnityExecutionMode.Daemon, invocation.Mode);
         var payload = Assert.IsType<UnityRequestPayload.ScreenshotCapture>(invocation.Payload);
-        Assert.Equal(IpcScreenshotTargetNames.Game, payload.Target);
+        Assert.Equal(ContractLiteralCodec.ToValue(IpcScreenshotTarget.Game), payload.Target);
         Assert.Equal(1920, payload.RequestedWidth);
         Assert.Equal(1080, payload.RequestedHeight);
         Assert.Equal(5000, payload.TimeoutMilliseconds);
@@ -54,8 +54,8 @@ public sealed class ScreenshotCaptureServiceTests
         var commit = Assert.Single(artifactStore.CommitRequests);
         Assert.Equal(1920, commit.Width);
         Assert.Equal(1080, commit.Height);
-        Assert.Equal(IpcScreenshotPixelFormatNames.Rgba8Srgb, commit.PixelFormat);
-        Assert.Equal(IpcScreenshotRowOrderNames.TopDown, commit.RowOrder);
+        Assert.Equal(ContractLiteralCodec.ToValue(IpcScreenshotPixelFormat.Rgba8Srgb), commit.PixelFormat);
+        Assert.Equal(ContractLiteralCodec.ToValue(IpcScreenshotRowOrder.TopDown), commit.RowOrder);
         Assert.Equal(1920 * 4, commit.RowStrideBytes);
         Assert.Equal((long)1920 * 1080 * 4, commit.SizeBytes);
         Assert.Equal(0, artifactStore.DiscardCount);
@@ -100,11 +100,28 @@ public sealed class ScreenshotCaptureServiceTests
         Assert.Equal(1, artifactStore.DiscardCount);
     }
 
-    [Fact]
+    [Theory]
+    [InlineData("color-space", "linear ")]
+    [InlineData("color-space", "unsupported")]
+    [InlineData("lifecycle-state", "ready ")]
+    [InlineData("lifecycle-state", "unsupported")]
+    [InlineData("compile-state", "ready ")]
+    [InlineData("compile-state", "unsupported")]
+    [InlineData("play-mode-state", "playing ")]
+    [InlineData("play-mode-state", "unsupported")]
     [Trait("Size", "Small")]
-    public async Task Capture_WhenUnityReturnsInvalidStateMetadata_RejectsAndDiscardsWithoutCommit ()
+    public async Task Capture_WhenUnityReturnsNonCanonicalStateMetadata_RejectsAndDiscardsWithoutCommit (
+        string caseName,
+        string invalidValue)
     {
-        var response = CreateResponse(width: 1920, height: 1080, colorSpace: "displayP3");
+        var response = caseName switch
+        {
+            "color-space" => CreateResponse(width: 1920, height: 1080, colorSpace: invalidValue),
+            "lifecycle-state" => CreateResponse(width: 1920, height: 1080, lifecycleState: invalidValue),
+            "compile-state" => CreateResponse(width: 1920, height: 1080, compileState: invalidValue),
+            "play-mode-state" => CreateResponse(width: 1920, height: 1080, playModeState: invalidValue),
+            _ => throw new ArgumentOutOfRangeException(nameof(caseName), caseName, "Unknown metadata case."),
+        };
         var unityExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(response));
         var artifactStore = new RecordingScreenshotArtifactStore();
         var service = CreateService(CreateGuiSessionResult(), unityExecutor, artifactStore);
@@ -179,7 +196,7 @@ public sealed class ScreenshotCaptureServiceTests
         int height = 1080)
     {
         return new ScreenshotCaptureInput(
-            ScreenshotCaptureTarget.Game,
+            IpcScreenshotTarget.Game,
             ProjectPath: null,
             RequestedWidth: width,
             RequestedHeight: height,
@@ -198,26 +215,29 @@ public sealed class ScreenshotCaptureServiceTests
         int height,
         int requestedWidth = 1920,
         int requestedHeight = 1080,
-        string colorSpace = IpcScreenshotColorSpaceNames.Linear)
+        string? colorSpace = null,
+        string? lifecycleState = null,
+        string? compileState = null,
+        string? playModeState = null)
     {
         var paths = RecordingScreenshotArtifactStore.Paths;
         var payload = new IpcScreenshotCaptureResponse(
             new IpcScreenshotCapture(
-                IpcScreenshotTargetNames.Game,
-                IpcScreenshotSizeModeNames.RequestedResolution,
+                ContractLiteralCodec.ToValue(IpcScreenshotTarget.Game),
+                ContractLiteralCodec.ToValue(IpcScreenshotSizeMode.RequestedResolution),
                 RequestedWidth: requestedWidth,
                 RequestedHeight: requestedHeight,
                 width,
                 height,
-                colorSpace,
-                IpcEditorLifecycleStateCodec.Ready,
-                IpcCompileStateCodec.Ready,
+                colorSpace ?? ContractLiteralCodec.ToValue(IpcScreenshotColorSpace.Linear),
+                lifecycleState ?? IpcEditorLifecycleStateCodec.Ready,
+                compileState ?? IpcCompileStateCodec.Ready,
                 DomainReloadGeneration: 7,
-                PlayModeState: "playing"),
+                playModeState ?? ContractLiteralCodec.ToValue(IpcPlayModeState.Playing)),
             new IpcScreenshotStagingImage(
                 paths.RawStagingPath,
-                IpcScreenshotPixelFormatNames.Rgba8Srgb,
-                IpcScreenshotRowOrderNames.TopDown,
+                ContractLiteralCodec.ToValue(IpcScreenshotPixelFormat.Rgba8Srgb),
+                ContractLiteralCodec.ToValue(IpcScreenshotRowOrder.TopDown),
                 RowStrideBytes: width * 4,
                 SizeBytes: (long)width * height * 4));
         return UnityRequestResponseTestFactory.Create(new IpcResponse(

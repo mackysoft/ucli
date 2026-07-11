@@ -1392,20 +1392,20 @@ internal static class Program
     {
         return OneOfSchema(
             CreateScreenshotPayloadSchema(
-                IpcScreenshotTargetNames.Game,
-                IpcScreenshotSizeModeNames.CurrentSurface,
+                ContractLiteralCodec.ToValue(IpcScreenshotTarget.Game),
+                ContractLiteralCodec.ToValue(IpcScreenshotSizeMode.CurrentSurface),
                 hasRequestedResolution: false),
             CreateScreenshotPayloadSchema(
-                IpcScreenshotTargetNames.Game,
-                IpcScreenshotSizeModeNames.RequestedResolution,
+                ContractLiteralCodec.ToValue(IpcScreenshotTarget.Game),
+                ContractLiteralCodec.ToValue(IpcScreenshotSizeMode.RequestedResolution),
                 hasRequestedResolution: true));
     }
 
     private static Dictionary<string, object?> CreateScreenshotScenePayloadSchema ()
     {
         return CreateScreenshotPayloadSchema(
-            IpcScreenshotTargetNames.Scene,
-            IpcScreenshotSizeModeNames.CurrentSurface,
+            ContractLiteralCodec.ToValue(IpcScreenshotTarget.Scene),
+            ContractLiteralCodec.ToValue(IpcScreenshotSizeMode.CurrentSurface),
             hasRequestedResolution: false);
     }
 
@@ -1430,17 +1430,17 @@ internal static class Program
                 Required("height", PositiveIntegerSchema()),
                 Required(
                     "colorSpace",
-                    EnumSchema(
-                        IpcScreenshotColorSpaceNames.Gamma,
-                        IpcScreenshotColorSpaceNames.Linear)),
+                    EnumSchema(ContractLiteralCodec.GetLiterals<IpcScreenshotColorSpace>().ToArray())),
                 Required("lifecycleStateAtCapture", StringSchema()),
                 Required("compileStateAtCapture", StringSchema()),
                 Required("domainReloadGeneration", NonNegativeIntegerSchema()),
                 Required("playModeState", StringSchema()))),
             Required("artifact", ObjectSchema(
                 additionalProperties: false,
-                Required("kind", ConstString("screenshot")),
-                Required("mediaType", ConstString("image/png")),
+                Required(
+                    "kind",
+                    ConstString(ContractLiteralCodec.ToValue(ScreenshotArtifactKind.Screenshot))),
+                Required("mediaType", ConstString(ScreenshotArtifactContract.MediaType)),
                 Required("path", StringSchema()),
                 Required("digest", Sha256LowerHexSchema()),
                 Required("sizeBytes", PositiveIntegerSchema()),

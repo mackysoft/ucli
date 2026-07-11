@@ -2,6 +2,7 @@ namespace MackySoft.Ucli.Tests.Ipc;
 
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Testing;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 using MackySoft.Ucli.UnityIntegration.Ipc.Execution;
 using static MackySoft.Ucli.Tests.Ipc.UnityIpcRequestBuilderTestSupport;
@@ -29,7 +30,7 @@ public sealed class UnityIpcRequestFactoryTimeoutTests
     public void UnityIpcRequestFactory_WithScreenshotDispatchTimeout_InjectsTimeoutPayload ()
     {
         var dispatchRequest = new UnityIpcRequestBuilder().Build(new UnityRequestPayload.ScreenshotCapture(
-            Target: IpcScreenshotTargetNames.Game,
+            Target: ContractLiteralCodec.ToValue(IpcScreenshotTarget.Game),
             RequestedWidth: null,
             RequestedHeight: null,
             StagingPath: "/tmp/ucli-screenshot.raw",

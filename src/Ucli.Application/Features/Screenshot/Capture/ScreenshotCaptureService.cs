@@ -47,7 +47,7 @@ internal sealed class ScreenshotCaptureService : IScreenshotCaptureService
             return ScreenshotCaptureResult.Failure(inputError);
         }
 
-        var command = input.Target == ScreenshotCaptureTarget.Game
+        var command = input.Target == IpcScreenshotTarget.Game
             ? UcliCommandIds.ScreenshotGame
             : UcliCommandIds.ScreenshotScene;
         var contextResult = await projectContextResolver.ResolveAsync(input.ProjectPath, cancellationToken).ConfigureAwait(false);
@@ -218,7 +218,7 @@ internal sealed class ScreenshotCaptureService : IScreenshotCaptureService
                 "Requested width and height must be omitted together or specified together as positive integers.");
         }
 
-        if (input.Target == ScreenshotCaptureTarget.Scene && hasWidth)
+        if (input.Target == IpcScreenshotTarget.Scene && hasWidth)
         {
             return ExecutionError.InvalidArgument("SceneView screenshot capture does not accept a requested resolution.");
         }
@@ -240,10 +240,10 @@ internal sealed class ScreenshotCaptureService : IScreenshotCaptureService
         var staging = response.Staging;
         var expectedTarget = ContractLiteralCodec.ToValue(input.Target);
         var expectedSizeMode = input.RequestedWidth.HasValue
-            ? IpcScreenshotSizeModeNames.RequestedResolution
-            : IpcScreenshotSizeModeNames.CurrentSurface;
+            ? IpcScreenshotSizeMode.RequestedResolution
+            : IpcScreenshotSizeMode.CurrentSurface;
         if (!string.Equals(capture.Target, expectedTarget, StringComparison.Ordinal)
-            || !string.Equals(capture.SizeMode, expectedSizeMode, StringComparison.Ordinal)
+            || !ContractLiteralCodec.Matches(capture.SizeMode, expectedSizeMode)
             || capture.RequestedWidth != input.RequestedWidth
             || capture.RequestedHeight != input.RequestedHeight)
         {
@@ -260,19 +260,18 @@ internal sealed class ScreenshotCaptureService : IScreenshotCaptureService
             return InvalidResponse("captured dimensions do not satisfy the request");
         }
 
-        if ((!string.Equals(capture.ColorSpace, IpcScreenshotColorSpaceNames.Gamma, StringComparison.Ordinal)
-                && !string.Equals(capture.ColorSpace, IpcScreenshotColorSpaceNames.Linear, StringComparison.Ordinal))
-            || string.IsNullOrWhiteSpace(capture.LifecycleStateAtCapture)
-            || string.IsNullOrWhiteSpace(capture.CompileStateAtCapture)
+        if (!ContractLiteralCodec.TryParse<IpcScreenshotColorSpace>(capture.ColorSpace, out _)
+            || !IsCanonicalLifecycleState(capture.LifecycleStateAtCapture)
+            || !IsCanonicalCompileState(capture.CompileStateAtCapture)
             || capture.DomainReloadGeneration < 0
-            || string.IsNullOrWhiteSpace(capture.PlayModeState))
+            || !ContractLiteralCodec.TryParse<IpcPlayModeState>(capture.PlayModeState, out _))
         {
             return InvalidResponse("capture state metadata is invalid");
         }
 
         if (!string.Equals(staging.Path, paths.RawStagingPath, StringComparison.Ordinal)
-            || !string.Equals(staging.PixelFormat, IpcScreenshotPixelFormatNames.Rgba8Srgb, StringComparison.Ordinal)
-            || !string.Equals(staging.RowOrder, IpcScreenshotRowOrderNames.TopDown, StringComparison.Ordinal)
+            || !ContractLiteralCodec.Matches(staging.PixelFormat, IpcScreenshotPixelFormat.Rgba8Srgb)
+            || !ContractLiteralCodec.Matches(staging.RowOrder, IpcScreenshotRowOrder.TopDown)
             || staging.RowStrideBytes <= 0
             || (long)staging.RowStrideBytes != (long)capture.Width * 4
             || staging.SizeBytes != (long)staging.RowStrideBytes * capture.Height
@@ -282,6 +281,18 @@ internal sealed class ScreenshotCaptureService : IScreenshotCaptureService
         }
 
         return null;
+    }
+
+    private static bool IsCanonicalLifecycleState (string? value)
+    {
+        return IpcEditorLifecycleStateCodec.TryParse(value, out var canonicalValue)
+            && string.Equals(value, canonicalValue, StringComparison.Ordinal);
+    }
+
+    private static bool IsCanonicalCompileState (string? value)
+    {
+        return IpcCompileStateCodec.TryParse(value, out var canonicalValue)
+            && string.Equals(value, canonicalValue, StringComparison.Ordinal);
     }
 
     private static bool IsGuiSession (DaemonSession session)

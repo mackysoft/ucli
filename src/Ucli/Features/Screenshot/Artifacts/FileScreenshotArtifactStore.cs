@@ -5,6 +5,7 @@ using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Features.Screenshot.Artifacts.Png;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
@@ -24,21 +25,12 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
     public FileScreenshotArtifactStore (
         Rgba8SrgbPngEncoder pngEncoder,
         Rgba8SrgbPngValidator pngValidator,
-        TimeProvider? timeProvider = null)
-        : this(pngEncoder, pngValidator, timeProvider, File.Delete)
-    {
-    }
-
-    /// <summary> Initializes a screenshot artifact store with explicit owned-file deletion for tests. </summary>
-    internal FileScreenshotArtifactStore (
-        Rgba8SrgbPngEncoder pngEncoder,
-        Rgba8SrgbPngValidator pngValidator,
-        TimeProvider? timeProvider,
+        TimeProvider timeProvider,
         Action<string> deleteOwnedFile)
     {
         this.pngEncoder = pngEncoder ?? throw new ArgumentNullException(nameof(pngEncoder));
         this.pngValidator = pngValidator ?? throw new ArgumentNullException(nameof(pngValidator));
-        this.timeProvider = timeProvider ?? TimeProvider.System;
+        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
         this.deleteOwnedFile = deleteOwnedFile ?? throw new ArgumentNullException(nameof(deleteOwnedFile));
     }
 
@@ -287,14 +279,16 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
             throw new ScreenshotCaptureContractException("Unity returned a staging path other than the host-prepared path.");
         }
 
-        if (!string.Equals(request.PixelFormat, IpcScreenshotPixelFormatNames.Rgba8Srgb, StringComparison.Ordinal))
+        if (!ContractLiteralCodec.Matches(request.PixelFormat, IpcScreenshotPixelFormat.Rgba8Srgb))
         {
-            throw new ScreenshotCaptureContractException($"Pixel format must be {IpcScreenshotPixelFormatNames.Rgba8Srgb}: {request.PixelFormat}.");
+            throw new ScreenshotCaptureContractException(
+                $"Pixel format must be {ContractLiteralCodec.ToValue(IpcScreenshotPixelFormat.Rgba8Srgb)}: {request.PixelFormat}.");
         }
 
-        if (!string.Equals(request.RowOrder, IpcScreenshotRowOrderNames.TopDown, StringComparison.Ordinal))
+        if (!ContractLiteralCodec.Matches(request.RowOrder, IpcScreenshotRowOrder.TopDown))
         {
-            throw new ScreenshotCaptureContractException($"Row order must be {IpcScreenshotRowOrderNames.TopDown}: {request.RowOrder}.");
+            throw new ScreenshotCaptureContractException(
+                $"Row order must be {ContractLiteralCodec.ToValue(IpcScreenshotRowOrder.TopDown)}: {request.RowOrder}.");
         }
 
         if (request.Width <= 0 || request.Height <= 0)

@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Ipc;
+
 namespace MackySoft.Ucli.Application.Features.Screenshot.Capture;
 
 /// <summary> Represents one successfully captured screenshot and its committed PNG artifact. </summary>
@@ -18,7 +20,7 @@ namespace MackySoft.Ucli.Application.Features.Screenshot.Capture;
 /// <param name="ArtifactCreatedAtUtc"> The PNG artifact creation timestamp. </param>
 internal sealed record ScreenshotCaptureOutput (
     ProjectIdentityInfo Project,
-    ScreenshotCaptureTarget Target,
+    IpcScreenshotTarget Target,
     int? RequestedWidth,
     int? RequestedHeight,
     int Width,
