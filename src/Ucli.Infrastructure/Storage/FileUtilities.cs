@@ -11,7 +11,7 @@ public static class FileUtilities
 
     private const int TemporaryFileTokenLength = 12;
 
-    private const int FileReplacementRetryLimit = 3;
+    private const int FileReplacementRetryLimit = 20;
 
     private const int FileReplacementRetryDelayMilliseconds = 5;
 

@@ -23,6 +23,7 @@ public sealed class FileUtilitiesTests
     [InlineData(1, 5)]
     [InlineData(2, 10)]
     [InlineData(3, 15)]
+    [InlineData(20, 100)]
     public void ResolveFileReplacementRetryDelay_WithWindowsSharingViolation_UsesBoundedBackoff (
         int failureCount,
         int expectedDelayMilliseconds)
@@ -40,7 +41,7 @@ public sealed class FileUtilitiesTests
     {
         var exception = new IOExceptionWithHResult(unchecked((int)0x80070020));
 
-        var delay = FileUtilities.ResolveFileReplacementRetryDelay(exception, failureCount: 4);
+        var delay = FileUtilities.ResolveFileReplacementRetryDelay(exception, failureCount: 21);
 
         Assert.Null(delay);
     }
@@ -78,10 +79,12 @@ public sealed class FileUtilitiesTests
         Assert.Equal("new-contents", File.ReadAllText(path));
     }
 
-    [Fact]
+    [Theory]
     [Trait("Size", "Medium")]
     [SupportedOSPlatform("windows")]
-    public async Task WriteAllTextAtomically_OnWindows_RetriesBriefSharingViolation ()
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task WriteAllTextAtomically_OnWindows_RetriesBriefSharingViolation (bool useAsyncApi)
     {
         if (!OperatingSystem.IsWindows())
         {
@@ -91,18 +94,35 @@ public sealed class FileUtilitiesTests
         using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "atomic-write-sharing-violation");
         var path = scope.WriteFile("lifecycle.json", "old-contents");
         Task writeTask;
+        bool observationCompleted;
+        bool temporaryFileObserved;
+        bool completedWhileLocked;
         using (new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
         {
-            writeTask = Task.Run(() => FileUtilities.WriteAllTextAtomically(path, "new-contents"));
-            var temporaryFilePattern = Path.GetFileName(path) + ".tmp.*";
-            Assert.True(SpinWait.SpinUntil(
-                () => writeTask.IsCompleted || Directory.EnumerateFiles(scope.FullPath, temporaryFilePattern).Any(),
-                TimeSpan.FromSeconds(5)));
-            Assert.False(writeTask.IsCompleted);
+            writeTask = useAsyncApi
+                ? FileUtilities.WriteAllTextAtomicallyAsync(path, "new-contents").AsTask()
+                : Task.Run(() => FileUtilities.WriteAllTextAtomically(path, "new-contents"));
+
+            observationCompleted = SpinWait.SpinUntil(
+                () => writeTask.IsCompleted || Directory.GetFiles(scope.FullPath).Length > 1,
+                TimeSpan.FromSeconds(5));
+            temporaryFileObserved = Directory.GetFiles(scope.FullPath).Length > 1;
+
+            if (temporaryFileObserved && !writeTask.IsCompleted)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(100));
+            }
+
+            completedWhileLocked = writeTask.IsCompleted;
         }
 
-        await writeTask;
+        var exception = await Record.ExceptionAsync(
+            () => writeTask.WaitAsync(TimeSpan.FromSeconds(5)));
 
+        Assert.True(observationCompleted);
+        Assert.True(temporaryFileObserved);
+        Assert.False(completedWhileLocked);
+        Assert.Null(exception);
         Assert.Equal("new-contents", File.ReadAllText(path));
     }
 
