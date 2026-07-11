@@ -21,7 +21,9 @@ private struct PixelImage {
     let pixels: [UInt8]
     let sourceColorSpace: String
 
-    static func load(path: String) throws -> PixelImage {
+    static func load(
+        path: String,
+        destinationColorSpaceName: CFString = CGColorSpace.sRGB) throws -> PixelImage {
         let url = URL(fileURLWithPath: path) as CFURL
         guard let source = CGImageSourceCreateWithURL(url, nil),
               let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
@@ -41,8 +43,9 @@ private struct PixelImage {
             throw OracleError.failed("Decoded image is not RGB: \(path), colorSpace=\(sourceColorSpaceName)")
         }
 
-        guard let destinationColorSpace = CGColorSpace(name: CGColorSpace.sRGB) else {
-            throw OracleError.failed("CoreGraphics could not create the sRGB comparison color space.")
+        guard let destinationColorSpace = CGColorSpace(name: destinationColorSpaceName) else {
+            throw OracleError.failed(
+                "CoreGraphics could not create the requested comparison color space: \(destinationColorSpaceName)")
         }
 
         let byteCount = try checkedMultiply(image.width, image.height, 4)
@@ -63,7 +66,8 @@ private struct PixelImage {
                     | CGImageAlphaInfo.premultipliedLast.rawValue)
         }
         guard let context = createdContext else {
-            throw OracleError.failed("CoreGraphics could not create an RGBA8 sRGB decode context.")
+            throw OracleError.failed(
+                "CoreGraphics could not create an RGBA8 decode context for \(destinationColorSpaceName).")
         }
 
         // ImageIO's CGImage draws into this bitmap with its first decoded row at byte offset zero.
@@ -262,6 +266,7 @@ private struct AnalysisResult: Codable {
     let artifactColorSpace: String
     let referenceBeforeColorSpace: String
     let referenceAfterColorSpace: String
+    let fullImageComparisonColorSpace: String
     let artifactContentRect: IntRect
     let referenceBeforeContentRect: IntRect
     let referenceAfterContentRect: IntRect
@@ -371,6 +376,10 @@ private let maximumFidelityLuminanceError = 0.03
 private let maximumGrayRampRmsLuminanceError = 0.02
 private let maximumStabilityDeltaE76 = 2.0
 private let maximumStabilityLuminanceError = 0.012
+// Full-image byte metrics use Display P3 as their common RGB space because it contains
+// the artifact's sRGB gamut. Decoding an 8-bit Display P3 WindowServer reference down to
+// 8-bit sRGB amplifies quantization at saturated sRGB boundaries before comparison.
+private let fullImageComparisonColorSpaceName = CGColorSpace.displayP3
 // These full-image limits were fixed from the documented pre-implementation
 // measurement (mean 0.073/255, p95 1/255, max 1/255). Do not tune them from a
 // candidate run of this benchmark.
@@ -1176,6 +1185,15 @@ private func analyze(
     let artifact = try PixelImage.load(path: artifactPath)
     let referenceBefore = try PixelImage.load(path: referenceBeforePath)
     let referenceAfter = try PixelImage.load(path: referenceAfterPath)
+    let artifactFullImage = try PixelImage.load(
+        path: artifactPath,
+        destinationColorSpaceName: fullImageComparisonColorSpaceName)
+    let referenceBeforeFullImage = try PixelImage.load(
+        path: referenceBeforePath,
+        destinationColorSpaceName: fullImageComparisonColorSpaceName)
+    let referenceAfterFullImage = try PixelImage.load(
+        path: referenceAfterPath,
+        destinationColorSpaceName: fullImageComparisonColorSpaceName)
     let artifactRect = try locateFixtureContent(in: artifact, target: target)
     let referenceBeforeRect = try locateFixtureContent(in: referenceBefore, target: target)
     let referenceAfterRect = try locateFixtureContent(in: referenceAfter, target: target)
@@ -1216,17 +1234,17 @@ private func analyze(
     let stability = compareSamples(referenceBeforeSamples, referenceAfterSamples)
     let fidelity = compareSamples(artifactSamples, referenceAfterSamples)
     let referenceFullImageStability = try compareFullImageRgb(
-        left: referenceBefore,
+        left: referenceBeforeFullImage,
         leftRect: referenceBeforePresentationRect,
-        right: referenceAfter,
+        right: referenceAfterFullImage,
         rightRect: referenceAfterPresentationRect,
         alphaMaskPolicy: .matchingWindowMasks)
     let artifactFullImageFidelity: FullImageComparisonMetrics?
     if target == "scene" || (expectedWidth == nil && expectedHeight == nil) {
         artifactFullImageFidelity = try compareFullImageRgb(
-            left: artifact,
+            left: artifactFullImage,
             leftRect: artifactPresentationRect,
-            right: referenceAfter,
+            right: referenceAfterFullImage,
             rightRect: referenceAfterPresentationRect,
             alphaMaskPolicy: .opaqueArtifactAndWindowMask)
     } else {
@@ -1347,6 +1365,7 @@ private func analyze(
         artifactColorSpace: artifact.sourceColorSpace,
         referenceBeforeColorSpace: referenceBefore.sourceColorSpace,
         referenceAfterColorSpace: referenceAfter.sourceColorSpace,
+        fullImageComparisonColorSpace: fullImageComparisonColorSpaceName as String,
         artifactContentRect: artifactRect,
         referenceBeforeContentRect: referenceBeforeRect,
         referenceAfterContentRect: referenceAfterRect,
