@@ -53,6 +53,8 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
 
     private readonly IUnityLogReader? unityLogReader;
 
+    private readonly UnityBatchmodeProcessLifetimeOwner processLifetimeOwner = new();
+
     private readonly TimeSpan cleanupTimeout;
 
     private readonly TimeSpan cleanupRetryDelay;
@@ -351,6 +353,20 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                     catch (Exception exception)
                     {
                         processCleanupException = exception;
+                    }
+
+                    if (terminationResult == ProcessTerminationResult.ForceKillFailed
+                        || processCleanupException is not null)
+                    {
+                        try
+                        {
+                            processLifetimeOwner.Transfer(processHandle);
+                            processHandleDisposal.RelinquishOwnership();
+                        }
+                        catch (Exception exception)
+                        {
+                            processCleanupException ??= exception;
+                        }
                     }
                 }
             }
@@ -1010,7 +1026,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
     /// <summary> Releases one owned resource without allowing release failure to replace the primary outcome. </summary>
     private sealed class BestEffortAsyncDisposable : IAsyncDisposable
     {
-        private readonly IAsyncDisposable disposable;
+        private IAsyncDisposable? disposable;
 
         /// <summary> Initializes a new instance of the <see cref="BestEffortAsyncDisposable" /> class. </summary>
         /// <param name="disposable"> The owned resource to release. </param>
@@ -1019,12 +1035,25 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
             this.disposable = disposable ?? throw new ArgumentNullException(nameof(disposable));
         }
 
+        /// <summary> Transfers resource release responsibility to another owner. </summary>
+        public void RelinquishOwnership ()
+        {
+            disposable = null;
+        }
+
         /// <inheritdoc />
         public async ValueTask DisposeAsync ()
         {
+            var ownedDisposable = disposable;
+            disposable = null;
+            if (ownedDisposable is null)
+            {
+                return;
+            }
+
             try
             {
-                await disposable.DisposeAsync().ConfigureAwait(false);
+                await ownedDisposable.DisposeAsync().ConfigureAwait(false);
             }
             catch (Exception)
             {

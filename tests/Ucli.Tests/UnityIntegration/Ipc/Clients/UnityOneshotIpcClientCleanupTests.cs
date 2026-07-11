@@ -196,6 +196,71 @@ public sealed class UnityOneshotIpcClientCleanupTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task SendAsync_WhenCompletedResponseCleanupCannotConfirmExit_RetainsProcessHandleUntilExit ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "response-success-exit-unconfirmed");
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath);
+        var releaseOwnedProcess = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var handleDisposed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var waitCount = 0;
+        var processHandle = new StubUnityBatchmodeProcessHandle(
+            waitForExitBehavior: cancellationToken =>
+            {
+                return Interlocked.Increment(ref waitCount) <= 2
+                    ? Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken)
+                    : releaseOwnedProcess.Task.WaitAsync(cancellationToken);
+            })
+        {
+            TerminateHandler = static (_, _) => Task.FromResult(ProcessTerminationResult.ForceKillFailed),
+            OnDispose = handleDisposed.SetResult,
+        };
+        var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
+        var transportClient = new RecordingUnityIpcTransportClient(request =>
+        {
+            return request.Method switch
+            {
+                IpcMethodNames.Ping => CreatePingResponse(request.RequestId),
+                IpcMethodNames.OpsRead => CreateSuccessResponse(request.RequestId),
+                IpcMethodNames.Shutdown => CreateShutdownResponse(request.RequestId),
+                _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
+            };
+        });
+        var client = new UnityOneshotIpcClient(
+            launcher,
+            transportClient,
+            new StubProjectLifecycleLockProvider(),
+            CreateProjectLockPreflightService(),
+            TimeSpan.FromMilliseconds(20),
+            TimeSpan.FromMilliseconds(1));
+
+        try
+        {
+            var result = await client.SendAsync(
+                unityProject,
+                CreateDispatchRequest(),
+                TimeSpan.FromSeconds(30),
+                CancellationToken.None);
+
+            Assert.True(result.IsSuccess);
+            UnityBatchmodeProcessHandleAssert.TerminatedOnceWithMode(
+                processHandle,
+                ProcessTerminationMode.GracefulThenKill);
+            Assert.Equal(0, processHandle.DisposeCount);
+        }
+        finally
+        {
+            releaseOwnedProcess.TrySetResult();
+        }
+
+        await TestAwaiter.WaitAsync(
+            handleDisposed.Task,
+            "Successful oneshot process handle disposal",
+            TimeSpan.FromSeconds(5));
+        Assert.Equal(1, processHandle.DisposeCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task SendAsync_WhenPostResponseExitWaitThrows_ReturnsSuccessAndTerminatesProcess ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "post-response-exit-wait-throws");
@@ -386,7 +451,19 @@ public sealed class UnityOneshotIpcClientCleanupTests
         using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "force-kill-exit-unconfirmed");
         var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath);
         var lockFilePath = scope.GetPath("UnityProject/Temp/UnityLockfile");
-        var processHandle = StubUnityBatchmodeProcessHandle.CreateNonExiting();
+        var releaseOwnedProcess = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var handleDisposed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var waitCount = 0;
+        var processHandle = new StubUnityBatchmodeProcessHandle(
+            waitForExitBehavior: cancellationToken =>
+            {
+                return Interlocked.Increment(ref waitCount) == 1
+                    ? Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken)
+                    : releaseOwnedProcess.Task.WaitAsync(cancellationToken);
+            })
+        {
+            OnDispose = handleDisposed.SetResult,
+        };
         processHandle.TerminateHandler = static (_, _) => Task.FromResult(ProcessTerminationResult.ForceKillFailed);
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var transportClient = new RecordingUnityIpcTransportClient(request =>
@@ -409,21 +486,35 @@ public sealed class UnityOneshotIpcClientCleanupTests
             TimeSpan.FromMilliseconds(20),
             TimeSpan.FromMilliseconds(1));
 
-        var result = await client.SendAsync(
-            unityProject,
-            CreateDispatchRequest(),
-            TimeSpan.FromSeconds(30),
-            CancellationToken.None);
+        try
+        {
+            var result = await client.SendAsync(
+                unityProject,
+                CreateDispatchRequest(),
+                TimeSpan.FromSeconds(30),
+                CancellationToken.None);
 
-        Assert.False(result.IsSuccess);
-        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
-        Assert.StartsWith(
-            "Failed to execute Unity oneshot IPC request. IPC stream ended before a complete frame was read.",
-            result.Message,
-            StringComparison.Ordinal);
-        Assert.Contains("could not be confirmed stopped", result.Message, StringComparison.Ordinal);
-        Assert.Empty(projectLockPreflightService.CleanupInvocations);
-        UnityBatchmodeProcessHandleAssert.TerminatedOnceWithMode(processHandle, ProcessTerminationMode.GracefulThenKill);
+            Assert.False(result.IsSuccess);
+            Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
+            Assert.StartsWith(
+                "Failed to execute Unity oneshot IPC request. IPC stream ended before a complete frame was read.",
+                result.Message,
+                StringComparison.Ordinal);
+            Assert.Contains("could not be confirmed stopped", result.Message, StringComparison.Ordinal);
+            Assert.Empty(projectLockPreflightService.CleanupInvocations);
+            UnityBatchmodeProcessHandleAssert.TerminatedOnceWithMode(processHandle, ProcessTerminationMode.GracefulThenKill);
+            Assert.Equal(0, processHandle.DisposeCount);
+        }
+        finally
+        {
+            releaseOwnedProcess.TrySetResult();
+        }
+
+        await TestAwaiter.WaitAsync(
+            handleDisposed.Task,
+            "Transferred oneshot process handle disposal",
+            TimeSpan.FromSeconds(5));
+        Assert.Equal(1, processHandle.DisposeCount);
     }
 
     [Fact]
