@@ -229,7 +229,7 @@ jobs:
         shell: bash
 
       - name: Run uCLI player build
-        if: ${{ runner.os == 'Linux' && steps.unity_test.outputs.exit_code == '0' }}
+        if: ${{ runner.os == 'Linux' && steps.unity_test.outcome == 'success' && steps.unity_test.outputs.exit_code == '0' }}
         run: |
           set -euo pipefail
 
@@ -239,11 +239,12 @@ jobs:
             --unity-editor-path "${{ steps.unity_setup.outputs.unity-editor-path }}" \
             --result-dir "artifacts/unity/${{ matrix.os_name }}/build-run" \
             --no-restore \
-            --no-build
+            --no-build \
+            --no-package-restore
         shell: bash
 
       - name: Run uCLI Unity Build Profile player build
-        if: ${{ matrix.os_name == 'linux-6000' && steps.unity_test.outputs.exit_code == '0' }}
+        if: ${{ matrix.os_name == 'linux-6000' && steps.unity_test.outcome == 'success' && steps.unity_test.outputs.exit_code == '0' }}
         run: |
           set -euo pipefail
 
@@ -253,7 +254,8 @@ jobs:
             --unity-editor-path "${{ steps.unity_setup.outputs.unity-editor-path }}" \
             --result-dir "artifacts/unity/${{ matrix.os_name }}/build-profile-run" \
             --no-restore \
-            --no-build
+            --no-build \
+            --no-package-restore
         shell: bash
 
       - name: Upload Unity artifacts
@@ -268,7 +270,7 @@ jobs:
           if-no-files-found: warn
 
       - name: Validate Unity command result on Linux or macOS
-        if: ${{ runner.os != 'Windows' && steps.unity_test.outputs.exit_code == '0' }}
+        if: ${{ runner.os != 'Windows' && steps.unity_test.outcome == 'success' && steps.unity_test.outputs.exit_code == '0' }}
         run: |
           set -euo pipefail
 
@@ -281,7 +283,7 @@ jobs:
         shell: bash
 
       - name: Validate Unity command result on Windows
-        if: ${{ runner.os == 'Windows' && steps.unity_test.outputs.exit_code == '0' }}
+        if: ${{ runner.os == 'Windows' && steps.unity_test.outcome == 'success' && steps.unity_test.outputs.exit_code == '0' }}
         run: |
           $jsonPath = Join-Path $env:GITHUB_WORKSPACE 'artifacts/unity/${{ matrix.os_name }}/command-result.json'
           $result = Get-Content -Path $jsonPath -Raw | ConvertFrom-Json
@@ -292,16 +294,16 @@ jobs:
         shell: pwsh
 
       - name: Fail when Unity tests fail on Linux or macOS
-        if: ${{ runner.os != 'Windows' && steps.unity_test.outputs.exit_code != '0' }}
+        if: ${{ runner.os != 'Windows' && (steps.unity_test.outcome != 'success' || steps.unity_test.outputs.exit_code != '0') }}
         run: |
-          echo "Unity EditMode tests failed with exit code ${{ steps.unity_test.outputs.exit_code }}." >&2
+          echo "Unity EditMode test step failed. Outcome=${{ steps.unity_test.outcome }} ExitCode=${{ steps.unity_test.outputs.exit_code }}" >&2
           exit 1
         shell: bash
 
       - name: Fail when Unity tests fail on Windows
-        if: ${{ runner.os == 'Windows' && steps.unity_test.outputs.exit_code != '0' }}
+        if: ${{ runner.os == 'Windows' && (steps.unity_test.outcome != 'success' || steps.unity_test.outputs.exit_code != '0') }}
         run: |
-          Write-Error "Unity EditMode tests failed with exit code ${{ steps.unity_test.outputs.exit_code }}."
+          Write-Error "Unity EditMode test step failed. Outcome=${{ steps.unity_test.outcome }} ExitCode=${{ steps.unity_test.outputs.exit_code }}"
         shell: pwsh
 
   shared_pack:
