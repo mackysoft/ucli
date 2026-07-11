@@ -1933,7 +1933,7 @@ private func compareSamples(_ left: [ColorSample], _ right: [ColorSample]) -> Co
 }
 
 // The full-image benchmark compares corresponding physical pixels after ImageIO
-// has color-managed both inputs into decoded sRGB8. Each observation is one
+// has color-managed both inputs into decoded Display P3 8-bit RGB. Each observation is one
 // absolute R, G, or B channel delta divided by 255; alpha has its own opaque
 // artifact contract. A WindowServer non-opaque pixel is excluded only when its
 // binary alpha mask is confined to corner-connected components inside the fixed
