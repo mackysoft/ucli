@@ -39,14 +39,18 @@ public sealed class FileExclusiveLockTests
             lockPath,
             TimeSpan.FromSeconds(1),
             CancellationToken.None);
-        using var cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromMilliseconds(50));
+        using var cancellationTokenSource = new CancellationTokenSource();
+        var contenderTask = FileExclusiveLock.AcquireAsync(
+                lockPath,
+                TimeSpan.FromSeconds(1),
+                cancellationTokenSource.Token)
+            .AsTask();
+
+        cancellationTokenSource.Cancel();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
         {
-            using var contender = await FileExclusiveLock.AcquireAsync(
-                lockPath,
-                TimeSpan.FromSeconds(1),
-                cancellationTokenSource.Token);
+            using var contender = await contenderTask;
         });
 
         owner.Dispose();
