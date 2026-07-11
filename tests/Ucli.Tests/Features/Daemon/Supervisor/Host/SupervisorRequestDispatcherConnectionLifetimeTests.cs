@@ -154,7 +154,8 @@ public sealed class SupervisorRequestDispatcherConnectionLifetimeTests
     [Trait("Size", "Small")]
     public async Task HandleConnection_WhenSingleResponseWriteAndDisposeBlock_ReturnsAtFrameDeadline ()
     {
-        var dispatcher = CreateDispatcher();
+        var timeProvider = new ManualTimeProvider();
+        var dispatcher = CreateDispatcher(timeProvider: timeProvider);
         var runtimeContext = CreateRuntimeContext();
         var request = new IpcRequest(
             ProtocolVersion: IpcProtocol.CurrentVersion,
@@ -175,7 +176,7 @@ public sealed class SupervisorRequestDispatcherConnectionLifetimeTests
         var connectionGroup = new SupervisorTransportConnectionGroup(
             static connectionStream => connectionStream.Dispose(),
             exception => fatalException.TrySetResult(exception),
-            TimeProvider.System);
+            timeProvider);
         Assert.True(connectionGroup.TryStart(
             stream,
             async (connectionStream, cancellationToken) =>
@@ -197,9 +198,14 @@ public sealed class SupervisorRequestDispatcherConnectionLifetimeTests
                 "Supervisor single-response write",
                 SignalWaitTimeout);
             await TestAwaiter.WaitAsync(
+                timeProvider.WaitForTimerDueWithinAsync(SupervisorConstants.ResponseFrameWriteTimeout),
+                "Supervisor single-response frame timer",
+                SignalWaitTimeout);
+            timeProvider.Advance(SupervisorConstants.ResponseFrameWriteTimeout);
+            await TestAwaiter.WaitAsync(
                 handlerReturned.Task,
                 "Supervisor single-response frame deadline",
-                SupervisorConstants.ResponseFrameWriteTimeout + TimeSpan.FromSeconds(1));
+                SignalWaitTimeout);
             await TestAwaiter.WaitAsync(
                 stream.DisposeStarted,
                 "Supervisor timed-out response stream disposal",
@@ -211,7 +217,10 @@ public sealed class SupervisorRequestDispatcherConnectionLifetimeTests
             stream.CompleteWrite();
             stream.CompleteDispose();
             connectionGroup.Release();
-            await connectionGroup.DrainAsync(SignalWaitTimeout);
+            await TestAwaiter.WaitAsync(
+                connectionGroup.DrainAsync(SignalWaitTimeout),
+                "Supervisor connection drain",
+                SignalWaitTimeout);
         }
     }
 }
