@@ -67,6 +67,14 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             var startOffset = GetFileLengthOrZero(requestContext.ConsoleLogPath);
+            // Unity Test Runner can reload the scripting domain before the final log export completes.
+            // Publish an empty recovery artifact first so completed results remain recoverable after IPC loss.
+            await editorLogRangeExporter.ExportRangeAsync(
+                requestContext.ConsoleLogPath,
+                requestContext.EditorLogPath,
+                startOffset,
+                startOffset,
+                cancellationToken: cancellationToken);
             var testResult = await unityTestRunner.RunAsync(requestContext, progressSink, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
             var endOffset = GetFileLengthOrZero(requestContext.ConsoleLogPath);

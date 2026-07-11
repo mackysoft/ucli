@@ -60,7 +60,52 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(response.Payload!.ExitCode, Is.EqualTo(0));
             Assert.That(runner.CallCount, Is.EqualTo(1));
             Assert.That(resultsWriter.CallCount, Is.EqualTo(1));
-            Assert.That(editorLogExporter.CallCount, Is.EqualTo(1));
+            Assert.That(editorLogExporter.CallCount, Is.EqualTo(2));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Execute_WhileTestRunIsActive_PublishesRecoveryEditorLogBeforeCompletion () => UniTask.ToCoroutine(async () =>
+        {
+            var runEntered = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var runCompletion = new TaskCompletionSource<ITestResultAdaptor>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var requestContext = CreateRequestContext();
+            var runner = new StubUnityTestRunner((_, _) =>
+            {
+                runEntered.TrySetResult(true);
+                return runCompletion.Task;
+            });
+            var editorLogExporter = new SpyEditorLogRangeExporter();
+            var service = new UnityTestRunService(
+                new StubUnityTestRunRequestContextFactory(_ => requestContext),
+                runner,
+                new SpyUnityTestResultsXmlWriter(),
+                editorLogExporter,
+                new StubUnityEditorReadinessGate());
+
+            var responseTask = service.ExecuteAsync(
+                CreateRequest(),
+                cancellationToken: CancellationToken.None);
+            try
+            {
+                await TestAwaiter.WaitAsync(runEntered.Task, "Unity test run entry", SignalWaitTimeout);
+
+                Assert.That(editorLogExporter.CallCount, Is.EqualTo(1));
+                var recoveryExport = editorLogExporter.Invocations[0];
+                Assert.That(recoveryExport.SourcePath, Is.EqualTo(requestContext.ConsoleLogPath));
+                Assert.That(recoveryExport.DestinationPath, Is.EqualTo(requestContext.EditorLogPath));
+                Assert.That(recoveryExport.EndOffset, Is.EqualTo(recoveryExport.StartOffset));
+            }
+            finally
+            {
+                runCompletion.TrySetResult(new StubTestResultAdaptor(failCount: 0));
+                await TestAwaiter.WaitAsync(responseTask.AsUniTask(), "Unity test run cleanup", SignalWaitTimeout);
+            }
+
+            var response = await responseTask;
+
+            Assert.That(response.IsSuccess, Is.True);
+            Assert.That(editorLogExporter.CallCount, Is.EqualTo(2));
         });
 
         [UnityTest]
@@ -201,7 +246,12 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private sealed class SpyEditorLogRangeExporter : IEditorLogRangeExporter
         {
+            private readonly List<(string SourcePath, string DestinationPath, long StartOffset, long EndOffset)> invocations =
+                new List<(string SourcePath, string DestinationPath, long StartOffset, long EndOffset)>();
+
             public int CallCount { get; private set; }
+
+            public IReadOnlyList<(string SourcePath, string DestinationPath, long StartOffset, long EndOffset)> Invocations => invocations;
 
             public Task<EditorLogRangeExportResult> ExportRangeAsync (
                 string sourcePath,
@@ -213,6 +263,11 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 CallCount++;
+                invocations.Add((
+                    sourcePath,
+                    destinationPath,
+                    startOffset,
+                    endOffset));
                 return Task.FromResult(new EditorLogRangeExportResult(0, 0, 0));
             }
         }

@@ -111,6 +111,87 @@ public sealed class TestRunServiceOneshotExecutionTests
     }
 
     [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Execute_WhenOneshotIpcStreamEndsBeforeResultsWereWritten_DoesNotRecoverFromEditorLogPlaceholder ()
+    {
+        using var scope = TestDirectories.CreateTempScope(
+            "test-run-service",
+            "oneshot-stream-ended-before-results");
+        var configuration = CreateResolvedConfiguration();
+        var session = CreateArtifactsSession(scope.GetPath("artifacts"));
+        var convertCount = 0;
+
+        var service = CreateService(
+            configurationResolver: new StubTestRunConfigurationResolver(TestRunConfigurationResolutionResult.Success(configuration)),
+            modeDecisionService: new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
+                new UnityExecutionModeDecision(UnityExecutionMode.Auto, false, UnityExecutionTarget.Oneshot, TimeSpan.FromSeconds(30)))),
+            artifactsService: new StubTestRunArtifactsService(
+                prepare: _ => ArtifactsPreparationResult.Success(session),
+                complete: (_, _) => ArtifactsCompletionResult.Success()),
+            unityTestExecutor: new StubUnityTestExecutor((_, artifactPaths, _, _) =>
+            {
+                Directory.CreateDirectory(artifactPaths.ArtifactsDir);
+                File.WriteAllText(artifactPaths.EditorLogPath, string.Empty);
+                return ValueTask.FromResult(UnityTestExecutionResult.Failure(
+                    UnityTestExecutionFailureKind.AbnormalExit,
+                    "Failed to execute Unity oneshot IPC request. IPC stream ended before a complete frame was read.",
+                    UcliCoreErrorCodes.InternalError));
+            }),
+            resultsConverter: new StubUnityResultsConverter(_ =>
+            {
+                convertCount++;
+                return ValueTask.FromResult(UnityResultsConversionResult.Success(hasFailedTests: false));
+            }));
+
+        var result = await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None);
+
+        Assert.Null(result.Result);
+        Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
+        Assert.StartsWith("Failed to execute Unity oneshot IPC request.", result.Message, StringComparison.Ordinal);
+        Assert.Equal(0, convertCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Execute_WhenOneshotIpcStreamEndsWithInvalidResultsXml_DoesNotReportPass ()
+    {
+        using var scope = TestDirectories.CreateTempScope(
+            "test-run-service",
+            "oneshot-stream-ended-with-invalid-results");
+        var configuration = CreateResolvedConfiguration();
+        var session = CreateArtifactsSession(scope.GetPath("artifacts"));
+
+        var service = CreateService(
+            configurationResolver: new StubTestRunConfigurationResolver(TestRunConfigurationResolutionResult.Success(configuration)),
+            modeDecisionService: new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
+                new UnityExecutionModeDecision(UnityExecutionMode.Auto, false, UnityExecutionTarget.Oneshot, TimeSpan.FromSeconds(30)))),
+            artifactsService: new StubTestRunArtifactsService(
+                prepare: _ => ArtifactsPreparationResult.Success(session),
+                complete: (_, _) => ArtifactsCompletionResult.Success()),
+            unityTestExecutor: new StubUnityTestExecutor((_, artifactPaths, _, _) =>
+            {
+                Directory.CreateDirectory(artifactPaths.ArtifactsDir);
+                File.WriteAllText(artifactPaths.ResultsXmlPath, "not xml");
+                File.WriteAllText(artifactPaths.EditorLogPath, string.Empty);
+                return ValueTask.FromResult(UnityTestExecutionResult.Failure(
+                    UnityTestExecutionFailureKind.AbnormalExit,
+                    "Failed to execute Unity oneshot IPC request. IPC stream ended before a complete frame was read.",
+                    UcliCoreErrorCodes.InternalError));
+            }),
+            resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult(
+                UnityResultsConversionResult.Failure(
+                    UnityResultsConversionFailureKind.InvalidResultsXml,
+                    "Unity results XML is invalid."))));
+
+        var result = await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None);
+
+        Assert.Null(result.Result);
+        Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
+    }
+
+    [Fact]
     [Trait("Size", "Small")]
     public async Task Execute_WithCallerCancellationDuringUnityExecution_ReturnsCanceledToolErrorWithRunContext ()
     {
