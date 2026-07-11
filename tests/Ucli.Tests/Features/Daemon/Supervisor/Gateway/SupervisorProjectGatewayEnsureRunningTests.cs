@@ -368,12 +368,13 @@ public sealed class SupervisorProjectGatewayEnsureRunningTests
     public async Task EnsureRunning_WhenSupervisorBootstrapFails_EmitsFailedProgressEntry ()
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-project-gateway", "bootstrap-progress-failure");
-        var manifestStore = SupervisorManifestStoreTestSupport.CreateFileBacked(TimeProvider.System);
+        var timeProvider = new ManualTimeProvider();
+        var manifestStore = SupervisorManifestStoreTestSupport.CreateFileBacked(timeProvider);
         var transportClient = new StubIpcTransportClient
         {
             SendHandler = static (_, _, _, _) => throw new InvalidOperationException("Supervisor IPC should not be used when bootstrap launch fails."),
         };
-        var client = new SupervisorClient(transportClient, TimeProvider.System);
+        var client = new SupervisorClient(transportClient, timeProvider);
         var launcher = new RecordingSupervisorProcessLauncher
         {
             LaunchError = ExecutionError.InternalError(
@@ -383,7 +384,8 @@ public sealed class SupervisorProjectGatewayEnsureRunningTests
         var gateway = SupervisorProjectGatewayTestSupport.CreateGateway(
             manifestStore,
             client,
-            launcher);
+            launcher,
+            timeProvider);
         var progressSink = new CollectingCommandProgressSink();
         var progressEmitter = SupervisorProjectGatewayTestSupport.CreateStartProgressEmitter(progressSink);
 

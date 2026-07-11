@@ -42,22 +42,23 @@ internal static class SupervisorProjectGatewayTestSupport
         SupervisorManifestStore manifestStore,
         SupervisorClient client,
         RecordingSupervisorProcessLauncher launcher,
-        TimeProvider? timeProvider = null)
+        TimeProvider timeProvider)
     {
-        var effectiveTimeProvider = timeProvider ?? new ManualTimeProvider();
+        ArgumentNullException.ThrowIfNull(timeProvider);
+
         return new SupervisorProjectGateway(
             new SupervisorBootstrapper(
                 manifestStore,
                 client,
                 launcher,
-                new SupervisorBootstrapLockProvider(effectiveTimeProvider),
+                new SupervisorBootstrapLockProvider(timeProvider),
                 new SupervisorEndpointResolver(),
-                effectiveTimeProvider),
+                timeProvider),
             manifestStore,
             client,
-            new SupervisorBootstrapLockProvider(effectiveTimeProvider),
+            new SupervisorBootstrapLockProvider(timeProvider),
             new SupervisorEndpointResolver(),
-            effectiveTimeProvider);
+            timeProvider);
     }
 
     public static ResolvedUnityProjectContext CreateUnityProject (

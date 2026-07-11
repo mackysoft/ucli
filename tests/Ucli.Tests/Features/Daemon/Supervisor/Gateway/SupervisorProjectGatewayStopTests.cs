@@ -145,7 +145,7 @@ public sealed class SupervisorProjectGatewayStopTests
         {
             SendHandler = static (_, _, _, _) => throw new InvalidOperationException("Transport should not be used when manifest read fails."),
         };
-        var client = new SupervisorClient(transportClient, TimeProvider.System);
+        var client = new SupervisorClient(transportClient, timeProvider);
         var gateway = SupervisorProjectGatewayTestSupport.CreateGateway(
             manifestStore,
             client,
