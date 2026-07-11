@@ -143,7 +143,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             public string AssetPath { get; }
 
             /// <summary> Gets the live planned asset object. Collected states always provide a non-destroyed object. </summary>
-            public UnityEngine.Object? UnityObject { get; }
+            public UnityEngine.Object UnityObject { get; }
         }
     }
 }

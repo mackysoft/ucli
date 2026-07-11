@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using MackySoft.Ucli.Unity.SceneInspection;
 using UnityEditor.SceneManagement;
@@ -224,7 +225,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> <see langword="true" /> when tracked root exists; otherwise <see langword="false" />. </returns>
         internal bool TryGetTemporaryPrefabContentsRoot (
             string prefabPath,
-            out GameObject? prefabContentsRoot)
+            [NotNullWhen(true)] out GameObject? prefabContentsRoot)
         {
             return temporaryObjectScope.TryGetTemporaryPrefabContentsRoot(prefabPath, out prefabContentsRoot);
         }
@@ -952,7 +953,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> <see langword="true" /> when shadow exists; otherwise <see langword="false" />. </returns>
         internal bool TryGetAssetShadow (
             string globalObjectId,
-            out UnityEngine.Object? unityObject,
+            [NotNullWhen(true)] out UnityEngine.Object? unityObject,
             out string assetPath)
         {
             return assetSandboxRegistry.TryGetAssetShadow(globalObjectId, out unityObject, out assetPath);

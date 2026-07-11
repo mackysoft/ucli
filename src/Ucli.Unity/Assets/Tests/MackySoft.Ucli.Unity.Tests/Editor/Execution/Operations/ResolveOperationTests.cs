@@ -380,9 +380,13 @@ namespace MackySoft.Ucli.Unity.Tests
                 SourceKind: NormalizedOperation.SourceStepKind.Edit);
             var openResult = await openOperation.PlanAsync(openRequest, context, CancellationToken.None);
             Assert.That(context.TryGetTemporaryPrefabContentsRoot(prefabPath, out var temporaryRoot), Is.True);
-            Assert.That(temporaryRoot, Is.Not.Null);
-            Assert.That(UnityObjectReferenceResolver.TryCreateResolvedReference(temporaryRoot!, out var temporaryRootReference), Is.True);
-            Assert.That(context.TryResolveTemporaryPrefabStableReference(prefabPath, temporaryRoot!, out var temporaryRootStableReference), Is.True);
+            if (temporaryRoot == null)
+            {
+                throw new InvalidOperationException("Prefab preview did not expose its temporary root.");
+            }
+
+            Assert.That(UnityObjectReferenceResolver.TryCreateResolvedReference(temporaryRoot, out var temporaryRootReference), Is.True);
+            Assert.That(context.TryResolveTemporaryPrefabStableReference(prefabPath, temporaryRoot, out var temporaryRootStableReference), Is.True);
             var resolveRequest = CreateOperation(
                 opId: "op-resolve",
                 alias: "resolved",

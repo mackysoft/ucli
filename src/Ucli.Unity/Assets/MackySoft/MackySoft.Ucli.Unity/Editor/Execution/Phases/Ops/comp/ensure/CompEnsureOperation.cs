@@ -123,7 +123,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                             targetReferenceKey,
                             validationState.ComponentType,
                             component!,
-                            validationState.Target!,
+                            validationState.Target,
                             validationState.Resource);
                     }
                 }
@@ -202,9 +202,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             validationState = new ValidationState(
-                targetResolution.GameObject!,
+                targetResolution.GameObject,
                 targetResolution.Resource,
-                resolvedComponentType!);
+                resolvedComponentType);
             return true;
         }
 
@@ -257,11 +257,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 ComponentType = componentType;
             }
 
-            public GameObject? Target { get; }
+            public GameObject Target { get; }
 
             public OperationResource Resource { get; }
 
-            public Type? ComponentType { get; }
+            public Type ComponentType { get; }
         }
     }
 }

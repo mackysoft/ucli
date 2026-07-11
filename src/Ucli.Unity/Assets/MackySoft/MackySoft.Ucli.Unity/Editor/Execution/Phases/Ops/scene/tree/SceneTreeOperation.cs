@@ -146,7 +146,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             var windowOptions = BoundedWindowOptionsNormalizer.NormalizeValidated(args.Limit, args.Cursor);
 
-            var scenePath = args.Path;
+            var scenePath = args.Path.Value;
+
             SceneSourceLease sceneLease;
             string sceneErrorMessage;
             var acquired = allowTemporaryState

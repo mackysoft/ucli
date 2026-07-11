@@ -651,8 +651,13 @@ namespace MackySoft.Ucli.Unity.Tests
             AssertSuccess(result, applied: false, changed: true, scenePath);
             var targetGlobalObjectId = UnityObjectReferenceResolver.CreateResolvedReference(target).GlobalObjectId;
             Assert.That(context.TryGetComponentShadowState(targetGlobalObjectId, out var shadowState), Is.True);
-            Assert.That(shadowState.Component, Is.TypeOf<CompOperationTestComponent>());
-            Assert.That(((CompOperationTestComponent)shadowState.Component).ObjectReferenceValue, Is.SameAs(previewOnly));
+            var shadowComponent = shadowState.Component as CompOperationTestComponent;
+            if (shadowComponent == null)
+            {
+                throw new InvalidOperationException("Component shadow did not contain the expected test component.");
+            }
+
+            Assert.That(shadowComponent.ObjectReferenceValue, Is.SameAs(previewOnly));
             Assert.That(target.ObjectReferenceValue, Is.Null);
         });
 

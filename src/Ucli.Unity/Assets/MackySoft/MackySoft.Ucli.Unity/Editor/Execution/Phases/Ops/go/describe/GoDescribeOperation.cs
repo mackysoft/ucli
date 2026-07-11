@@ -150,7 +150,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             validationState = new ValidationState(
-                targetResolution.GameObject!,
+                targetResolution.GameObject,
                 args.Depth);
             return true;
         }
@@ -165,7 +165,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 Depth = depth;
             }
 
-            public GameObject? Target { get; }
+            public GameObject Target { get; }
 
             public int? Depth { get; }
         }

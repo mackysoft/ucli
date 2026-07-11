@@ -81,13 +81,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             var extractionResult = await schemaExtractor.ExtractAsync(
-                new[] { validationState.ComponentType! },
+                new[] { validationState.ComponentType },
                 cancellationToken);
             if (extractionResult.Entries.Count == 0)
             {
                 return OperationPhaseStepResult.Failed(new OperationFailure(
                     Code: UcliCoreErrorCodes.InternalError,
-                    Message: $"Schema could not be extracted for type '{validationState.ComponentType!.FullName}'.",
+                    Message: $"Schema could not be extracted for type '{validationState.ComponentType.FullName}'.",
                     OpId: operation.Id));
             }
 
@@ -122,7 +122,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 ComponentType = componentType;
             }
 
-            public Type? ComponentType { get; }
+            public Type ComponentType { get; }
         }
     }
 }

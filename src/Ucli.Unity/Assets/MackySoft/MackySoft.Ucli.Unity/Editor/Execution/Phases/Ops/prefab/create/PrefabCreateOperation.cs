@@ -92,7 +92,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             if (!GoOperationUtilities.TryEnsureRequestLocalPlanGameObject(
-                    validationState.Target!,
+                    validationState.Target,
                     validationState.SourceResource,
                     executionContext,
                     out var projectionErrorMessage))
@@ -108,7 +108,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             executionContext.MarkRequestAttributedChange(validationState.SourceResource);
-            executionContext.TrackPlannedPrefabCreation(validationState.Target!, validationState.PrefabPath);
+            executionContext.TrackPlannedPrefabCreation(validationState.Target, validationState.PrefabPath);
             return Task.FromResult(OperationPhaseStepResult.Success(
                 applied: false,
                 changed: true,
@@ -198,7 +198,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             validationState = new ValidationState(
-                targetResolution.GameObject!,
+                targetResolution.GameObject,
                 targetResolution.Resource,
                 normalizedPrefabPath);
             return true;
@@ -234,7 +234,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 PrefabPath = prefabPath;
             }
 
-            public GameObject? Target { get; }
+            public GameObject Target { get; }
 
             public OperationResource SourceResource { get; }
 

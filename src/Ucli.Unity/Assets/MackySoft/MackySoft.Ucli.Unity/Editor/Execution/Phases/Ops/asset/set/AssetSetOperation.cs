@@ -203,14 +203,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            UnityEngine.Object? unityObject;
-            string assetPath;
             if (!AssetOperationUtilities.TryResolveAssetTarget(
                 arguments.TargetReference,
                 executionContext,
                 allowTemporaryState: true,
-                out unityObject,
-                out assetPath,
+                out var unityObject,
+                out var assetPath,
                 out var sourceGlobalObjectId,
                 out errorMessage))
             {
@@ -225,7 +223,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     : null;
             validatedTargetState = new ValidatedTargetState(
                 arguments,
-                unityObject!,
+                unityObject,
                 assetPath,
                 sourceGlobalObjectId,
                 plannedOwnerExecutionKey);
@@ -253,11 +251,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 ? targetReference.Alias
                 : null;
 
-            if (!string.IsNullOrWhiteSpace(validatedTargetState.SourceGlobalObjectId)
+            if (validatedTargetState.SourceGlobalObjectId != null
+                && !string.IsNullOrWhiteSpace(validatedTargetState.SourceGlobalObjectId)
                 && executionContext.TryGetAssetShadow(validatedTargetState.SourceGlobalObjectId, out var shadowAsset, out var shadowAssetPath))
             {
                 binding = new TargetBinding(
-                    shadowAsset!,
+                    shadowAsset,
                     shadowAssetPath,
                     validatedTargetState.SourceGlobalObjectId,
                     alias,

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -146,7 +147,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> <see langword="true" /> when a temporary prefab root is tracked for <paramref name="prefabPath" />; otherwise <see langword="false" />. </returns>
         public bool TryGetTemporaryPrefabContentsRoot (
             string prefabPath,
-            out GameObject? prefabContentsRoot)
+            [NotNullWhen(true)] out GameObject? prefabContentsRoot)
         {
             prefabContentsRoot = null;
             if (string.IsNullOrWhiteSpace(prefabPath))

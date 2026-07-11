@@ -25,12 +25,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="errorMessage"> The validation error message when validation fails. </param>
         /// <returns> <see langword="true" /> when the path is valid for <c>ucli.asset.create</c>; otherwise <see langword="false" />. </returns>
         public static bool TryValidateCreateAssetPath (
-            string assetPath,
+            string? assetPath,
             out string normalizedAssetPath,
             out string errorMessage)
         {
             normalizedAssetPath = string.Empty;
-            if (string.IsNullOrWhiteSpace(assetPath))
+            if (assetPath == null || string.IsNullOrWhiteSpace(assetPath))
             {
                 errorMessage = "Asset path must not be empty or whitespace.";
                 return false;
@@ -118,7 +118,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     return false;
                 }
 
-                if (!TryValidateTemporaryAssetTarget(temporaryAliasState.UnityObject!, reference.Alias!, out errorMessage))
+                if (!TryValidateTemporaryAssetTarget(temporaryAliasState.UnityObject, reference.Alias!, out errorMessage))
                 {
                     unityObject = null;
                     assetPath = string.Empty;
@@ -146,7 +146,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 reference,
                 executionContext,
                 OperationObjectReferenceUtilities.ReferenceResolutionPolicy.LiveOnly,
-                out unityObject,
+                out var resolvedUnityObject,
                 out errorMessage))
             {
                 assetPath = string.Empty;
@@ -154,14 +154,23 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (!TryValidatePersistentMainAssetTarget(unityObject!, out assetPath, out errorMessage))
+            if (resolvedUnityObject is not UnityEngine.Object liveUnityObject || liveUnityObject == null)
+            {
+                assetPath = string.Empty;
+                sourceGlobalObjectId = null;
+                errorMessage = "Reference did not resolve to a live Unity object.";
+                return false;
+            }
+
+            if (!TryValidatePersistentMainAssetTarget(liveUnityObject, out assetPath, out errorMessage))
             {
                 unityObject = null;
                 sourceGlobalObjectId = null;
                 return false;
             }
 
-            sourceGlobalObjectId = UnityObjectReferenceResolver.TryCreateResolvedReference(unityObject!, out var resolvedReference)
+            unityObject = liveUnityObject;
+            sourceGlobalObjectId = UnityObjectReferenceResolver.TryCreateResolvedReference(liveUnityObject, out var resolvedReference)
                 ? resolvedReference!.GlobalObjectId
                 : null;
             return true;

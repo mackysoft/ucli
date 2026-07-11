@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using UnityEngine;
 
 #nullable enable
@@ -47,7 +48,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         public bool TryGetAssetShadow (
             string globalObjectId,
-            out UnityEngine.Object? unityObject,
+            [NotNullWhen(true)] out UnityEngine.Object? unityObject,
             out string assetPath)
         {
             unityObject = null;
@@ -134,7 +135,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             public string SourceGlobalObjectId { get; }
 
             /// <summary> Gets the live shadow object. Collected states always provide a non-destroyed object. </summary>
-            public UnityEngine.Object? UnityObject { get; }
+            public UnityEngine.Object UnityObject { get; }
 
             /// <summary> Gets the asset path that remains associated with the shadowed persistent asset. </summary>
             public string AssetPath { get; }

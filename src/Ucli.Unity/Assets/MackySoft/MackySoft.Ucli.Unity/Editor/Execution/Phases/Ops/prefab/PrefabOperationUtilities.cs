@@ -20,7 +20,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="errorMessage"> The validation error message when failed. </param>
         /// <returns> <see langword="true" /> when prefab asset exists; otherwise <see langword="false" />. </returns>
         public static bool TryEnsurePrefabAssetExists (
-            string prefabPath,
+            string? prefabPath,
             out string normalizedPrefabPath,
             out string errorMessage)
         {
@@ -47,7 +47,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="errorMessage"> The validation error message when failed. </param>
         /// <returns> <see langword="true" /> when the path is creatable; otherwise <see langword="false" />. </returns>
         public static bool TryEnsurePrefabAssetCanBeCreated (
-            string prefabPath,
+            string? prefabPath,
             out string normalizedPrefabPath,
             out string errorMessage)
         {
@@ -236,12 +236,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         }
 
         private static bool TryNormalizePrefabAssetPath (
-            string prefabPath,
+            string? prefabPath,
             out string normalizedPrefabPath,
             out string errorMessage)
         {
             normalizedPrefabPath = string.Empty;
-            if (string.IsNullOrWhiteSpace(prefabPath))
+            if (prefabPath == null || string.IsNullOrWhiteSpace(prefabPath))
             {
                 errorMessage = "Prefab path must not be null, empty, or whitespace.";
                 return false;

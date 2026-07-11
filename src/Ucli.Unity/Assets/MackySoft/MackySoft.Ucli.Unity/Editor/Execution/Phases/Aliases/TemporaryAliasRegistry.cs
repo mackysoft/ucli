@@ -202,7 +202,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 SourceGlobalObjectId = sourceGlobalObjectId;
             }
 
-            public UnityEngine.Object? UnityObject { get; }
+            public UnityEngine.Object UnityObject { get; }
 
             public OperationResource Resource { get; }
 

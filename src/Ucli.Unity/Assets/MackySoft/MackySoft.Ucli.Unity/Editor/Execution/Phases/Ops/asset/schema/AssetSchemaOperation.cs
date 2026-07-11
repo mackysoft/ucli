@@ -171,6 +171,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             if (allowTemporaryState
+                && sourceGlobalObjectId != null
                 && !string.IsNullOrWhiteSpace(sourceGlobalObjectId)
                 && executionContext.TryGetAssetShadow(sourceGlobalObjectId, out var shadowAsset, out _))
             {

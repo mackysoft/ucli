@@ -19,6 +19,8 @@ using Microsoft.Extensions.DependencyInjection;
 using NUnit.Framework;
 using MackySoft.Ucli.Contracts.Operations;
 
+#nullable enable
+
 namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class UcliOperationDiscovererTests
@@ -74,8 +76,10 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(operations[0].Metadata.ArgsType, Is.EqualTo(typeof(GenericDiscoverableArgs)));
             Assert.That(operations[0].Metadata.ResultType, Is.EqualTo(typeof(UcliNoResult)));
             Assert.That(operations[0].Metadata.DescribeContract.Description, Is.EqualTo("Generic operation used to verify custom operation authoring."));
-            Assert.That(operations[0].Metadata.DescribeContract.Inputs!.Count, Is.EqualTo(1));
-            Assert.That(operations[0].Metadata.DescribeContract.Inputs[0].Name, Is.EqualTo("path"));
+            var inputs = operations[0].Metadata.DescribeContract.Inputs
+                ?? throw new InvalidOperationException("Generic operation describe contract did not expose inputs.");
+            Assert.That(inputs.Count, Is.EqualTo(1));
+            Assert.That(inputs[0].Name, Is.EqualTo("path"));
         }
 
         [Test]

@@ -29,12 +29,13 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             }
 
             error = default!;
-            if (string.IsNullOrWhiteSpace(step.OperationName))
+            var operationName = step.OperationName;
+            if (operationName == null || string.IsNullOrWhiteSpace(operationName))
             {
                 return true;
             }
 
-            if (!operationRegistry.TryResolve(step.OperationName, out var operation))
+            if (!operationRegistry.TryResolve(operationName, out var operation))
             {
                 if (!allowPlayMode)
                 {
@@ -42,12 +43,12 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 }
 
                 error = ExecuteRequestNormalizationError.InvalidArgument(
-                    $"Operation '{step.OperationName}' is not registered and cannot be used in Play Mode execution.",
+                    $"Operation '{operationName}' is not registered and cannot be used in Play Mode execution.",
                     step.Id);
                 return false;
             }
 
-            return TryValidateResolvedSupport(operation.Metadata.PlayModeSupport, step.OperationName, step.Id, allowPlayMode, out error);
+            return TryValidateResolvedSupport(operation.Metadata.PlayModeSupport, operationName, step.Id, allowPlayMode, out error);
         }
 
         private static bool TryValidateResolvedSupport (

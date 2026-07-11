@@ -365,7 +365,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 Resource = resource;
             }
 
-            public GameObject? GameObject { get; }
+            public GameObject GameObject { get; }
 
             public OperationResource Resource { get; }
         }
@@ -380,7 +380,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 Scene = scene;
             }
 
-            public GameObject? GameObject { get; }
+            public GameObject GameObject { get; }
 
             public Scene Scene { get; }
         }

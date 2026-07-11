@@ -1632,7 +1632,7 @@ namespace EvalScripts
 
             public bool IsPoisoned { get; private set; }
 
-            public string PoisonReason { get; private set; }
+            public string? PoisonReason { get; private set; }
 
             public void Poison (string reason)
             {
@@ -1642,8 +1642,7 @@ namespace EvalScripts
 
             public bool TrySealAdmissionWhenIdle (out IDisposable admissionSeal)
             {
-                admissionSeal = null;
-                return false;
+                throw new InvalidOperationException("C# eval tests must not seal mutation admission.");
             }
         }
 
