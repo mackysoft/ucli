@@ -200,11 +200,12 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                 return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.OneshotTimeout(timeout));
             }
 
-            await using var lifecycleLock = await lifecycleLockProvider.AcquireAsync(
-                    new ProjectLifecycleLockRequest(unityProject.UnityProjectRoot),
-                    lockTimeout,
-                    cancellationToken)
-                .ConfigureAwait(false);
+            await using var lifecycleLock = new BestEffortAsyncDisposable(
+                await lifecycleLockProvider.AcquireAsync(
+                        new ProjectLifecycleLockRequest(unityProject.UnityProjectRoot),
+                        lockTimeout,
+                        cancellationToken)
+                    .ConfigureAwait(false));
 
             var unityLogDirectoryPath = Path.GetDirectoryName(unityLogPath);
             if (!string.IsNullOrWhiteSpace(unityLogDirectoryPath))
@@ -237,22 +238,24 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                     UnityIpcFailureClassifier.FromExecutionError(launchResult.Error!));
             }
 
-            await using var processHandle = launchResult.ProcessHandle!;
+            var processHandle = launchResult.ProcessHandle!;
+            await using var processHandleDisposal = new BestEffortAsyncDisposable(processHandle);
             var shouldTerminateProcess = true;
             var terminationResult = ProcessTerminationResult.None;
+            Exception? processCleanupException = null;
             UnityRequestExecutionResult result;
             try
             {
                 var startupProbeFailure = await WaitUntilReachableAsync(
-                        unityProject,
-                        sessionToken,
-                        dispatchRequest,
-                        ResolveStartupProbeFailFast(dispatchRequest),
-                        deadline,
-                        processHandle,
-                        timeout,
-                        cancellationToken)
-                    .ConfigureAwait(false);
+                    unityProject,
+                    sessionToken,
+                    dispatchRequest,
+                    ResolveStartupProbeFailFast(dispatchRequest),
+                    deadline,
+                    processHandle,
+                    timeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
                 if (startupProbeFailure != null)
                 {
                     result = UnityRequestExecutionResult.Failure(startupProbeFailure);
@@ -285,22 +288,35 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                         result = UnityRequestExecutionResult.Failure(
                             UnityIpcFailureClassifier.FromExecutionError(terminalPingShutdownError));
                     }
-                    else if (await WaitForExitAsync(processHandle, cleanupTimeout, timeProvider, cancellationToken).ConfigureAwait(false) is { } exitWaitError)
+                    else
                     {
-                        if (ShouldPreserveResponseAfterPostResponseExitWaitFailure(dispatchRequest, exitWaitError))
+                        try
+                        {
+                            var exitWaitError = await WaitForExitAsync(
+                                    processHandle,
+                                    cleanupTimeout,
+                                    timeProvider,
+                                    cancellationToken)
+                                .ConfigureAwait(false);
+                            if (exitWaitError == null)
+                            {
+                                shouldTerminateProcess = false;
+                                result = responseResult;
+                            }
+                            else if (IsCommandResponseBoundary(dispatchRequest))
+                            {
+                                result = responseResult;
+                            }
+                            else
+                            {
+                                result = UnityRequestExecutionResult.Failure(
+                                    UnityIpcFailureClassifier.FromExecutionError(exitWaitError));
+                            }
+                        }
+                        catch (Exception) when (IsCommandResponseBoundary(dispatchRequest))
                         {
                             result = responseResult;
                         }
-                        else
-                        {
-                            result = UnityRequestExecutionResult.Failure(
-                                UnityIpcFailureClassifier.FromExecutionError(exitWaitError));
-                        }
-                    }
-                    else
-                    {
-                        shouldTerminateProcess = false;
-                        result = responseResult;
                     }
                 }
             }
@@ -319,14 +335,31 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
             }
             finally
             {
-                if (shouldTerminateProcess && !processHandle.HasExited)
+                if (shouldTerminateProcess)
                 {
-                    terminationResult = await CleanupLaunchedProcessAsync(
-                            unityProject,
-                            sessionToken,
-                            processHandle)
-                        .ConfigureAwait(false);
+                    try
+                    {
+                        if (!processHandle.HasExited)
+                        {
+                            terminationResult = await CleanupLaunchedProcessAsync(
+                                    unityProject,
+                                    sessionToken,
+                                    processHandle)
+                                .ConfigureAwait(false);
+                        }
+                    }
+                    catch (Exception exception)
+                    {
+                        processCleanupException = exception;
+                    }
                 }
+            }
+
+            if (processCleanupException is not null && !result.IsSuccess)
+            {
+                result = AppendFailureDiagnostic(
+                    result,
+                    $"Unity oneshot process cleanup did not complete. {processCleanupException.Message}");
             }
 
             return await AppendPostTerminationDiagnosticAsync(result, terminationResult, unityProject).ConfigureAwait(false);
@@ -385,13 +418,10 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
             cancellationToken);
     }
 
-    private static bool ShouldPreserveResponseAfterPostResponseExitWaitFailure (
-        UnityIpcDispatchRequest dispatchRequest,
-        ExecutionError exitWaitError)
+    private static bool IsCommandResponseBoundary (UnityIpcDispatchRequest dispatchRequest)
     {
         // NOTE: A non-ping response is the command contract boundary; delayed Unity process exit is cleanup work.
-        return !string.Equals(dispatchRequest.Method, IpcMethodNames.Ping, StringComparison.Ordinal)
-            && exitWaitError.Kind == ExecutionErrorKind.Timeout;
+        return !string.Equals(dispatchRequest.Method, IpcMethodNames.Ping, StringComparison.Ordinal);
     }
 
     private async ValueTask<ExecutionError?> RequestTerminalPingShutdownAsync (
@@ -806,11 +836,18 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         string message,
         ResolvedUnityProjectContext unityProject)
     {
-        var preflightResult = await unityProjectLockPreflightService.CleanupStaleLockAfterUnityProcessExitAsync(
-                unityProject,
-                CancellationToken.None)
-            .ConfigureAwait(false);
-        return UnityProjectLockPreflightErrorFactory.AppendPostExitDiagnostic(message, preflightResult);
+        try
+        {
+            var preflightResult = await unityProjectLockPreflightService.CleanupStaleLockAfterUnityProcessExitAsync(
+                    unityProject,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+            return UnityProjectLockPreflightErrorFactory.AppendPostExitDiagnostic(message, preflightResult);
+        }
+        catch (Exception exception)
+        {
+            return $"{message}{Environment.NewLine}Post-exit Unity project lock cleanup failed. {exception.Message}";
+        }
     }
 
     /// <summary> Returns whether a startup probe exception can be retried before the deadline expires. </summary>
@@ -968,5 +1005,31 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         }
 
         return null;
+    }
+
+    /// <summary> Releases one owned resource without allowing release failure to replace the primary outcome. </summary>
+    private sealed class BestEffortAsyncDisposable : IAsyncDisposable
+    {
+        private readonly IAsyncDisposable disposable;
+
+        /// <summary> Initializes a new instance of the <see cref="BestEffortAsyncDisposable" /> class. </summary>
+        /// <param name="disposable"> The owned resource to release. </param>
+        public BestEffortAsyncDisposable (IAsyncDisposable disposable)
+        {
+            this.disposable = disposable ?? throw new ArgumentNullException(nameof(disposable));
+        }
+
+        /// <inheritdoc />
+        public async ValueTask DisposeAsync ()
+        {
+            try
+            {
+                await disposable.DisposeAsync().ConfigureAwait(false);
+            }
+            catch (Exception)
+            {
+                // A completed response, primary failure, cancellation, or progress callback exception remains authoritative.
+            }
+        }
     }
 }

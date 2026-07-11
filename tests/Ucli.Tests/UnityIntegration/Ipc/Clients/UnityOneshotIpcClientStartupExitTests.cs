@@ -72,6 +72,38 @@ public sealed class UnityOneshotIpcClientStartupExitTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task SendAsync_WhenPostExitLockCleanupThrows_PreservesStartupExitFailure ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "startup-exit-lock-cleanup-throws");
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath);
+        var processHandle = new StubUnityBatchmodeProcessHandle(hasExited: true, exitCode: 1);
+        var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
+        var projectLockPreflightService = CreateProjectLockPreflightService();
+        projectLockPreflightService.CleanupAsyncHandler = static (_, _) =>
+            ValueTask.FromException<UnityProjectLockPreflightResult>(new IOException("lock cleanup failed"));
+        var client = new UnityOneshotIpcClient(
+            launcher,
+            new RecordingUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Transport should not be called.")),
+            new StubProjectLifecycleLockProvider(),
+            projectLockPreflightService);
+
+        var result = await client.SendAsync(
+            unityProject,
+            CreateDispatchRequest(),
+            TimeSpan.FromSeconds(30),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(DaemonErrorCodes.DaemonStartProcessExited, result.ErrorCode);
+        Assert.Contains("exited before startup readiness", result.Message, StringComparison.Ordinal);
+        Assert.Contains("Post-exit Unity project lock cleanup failed", result.Message, StringComparison.Ordinal);
+        Assert.Contains("lock cleanup failed", result.Message, StringComparison.Ordinal);
+        Assert.NotNull(result.FailureInfo!.StartupFailure);
+        Assert.Equal("failed", result.FailureInfo.StartupFailure!.Startup!.StartupStatus);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task SendAsync_WhenUnityExitsWithCompileErrorLog_ReturnsClassifiedStartupFailure ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "exit-compile-error");
