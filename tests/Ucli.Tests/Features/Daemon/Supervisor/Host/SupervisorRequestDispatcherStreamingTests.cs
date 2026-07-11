@@ -272,7 +272,7 @@ public sealed class SupervisorRequestDispatcherStreamingTests
         var returnedWithoutWaiting = false;
         try
         {
-            frames = await sendTask.WaitAsync(TimeSpan.FromMilliseconds(250));
+            frames = await sendTask.WaitAsync(SignalWaitTimeout);
             returnedWithoutWaiting = true;
         }
         finally

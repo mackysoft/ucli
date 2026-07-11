@@ -68,7 +68,7 @@ public sealed class SupervisorRequestDispatcherConnectionLifetimeTests
             await TestAwaiter.WaitAsync(
                 handleTask,
                 "Synchronous supervisor initial frame deadline",
-                TimeSpan.FromMilliseconds(500));
+                SignalWaitTimeout);
         }
         finally
         {

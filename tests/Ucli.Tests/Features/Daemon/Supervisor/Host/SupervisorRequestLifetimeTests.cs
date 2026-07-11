@@ -34,7 +34,7 @@ public sealed class SupervisorRequestLifetimeTests
         var returnedWithoutWaiting = false;
         try
         {
-            await cancelInvocationTask.WaitAsync(TimeSpan.FromMilliseconds(250));
+            await cancelInvocationTask.WaitAsync(SignalWaitTimeout);
             await TestAwaiter.WaitAsync(
                 stream.ReadReturned,
                 "Supervisor disconnect monitor read return",
@@ -68,7 +68,7 @@ public sealed class SupervisorRequestLifetimeTests
         var returnedWithoutWaiting = false;
         try
         {
-            await releaseTask.WaitAsync(TimeSpan.FromMilliseconds(250));
+            await releaseTask.WaitAsync(SignalWaitTimeout);
             returnedWithoutWaiting = true;
         }
         finally
@@ -100,7 +100,7 @@ public sealed class SupervisorRequestLifetimeTests
         var returnedWithoutWaiting = false;
         try
         {
-            requestLifetime = await startTask.WaitAsync(TimeSpan.FromMilliseconds(250));
+            requestLifetime = await startTask.WaitAsync(SignalWaitTimeout);
             returnedWithoutWaiting = true;
         }
         finally

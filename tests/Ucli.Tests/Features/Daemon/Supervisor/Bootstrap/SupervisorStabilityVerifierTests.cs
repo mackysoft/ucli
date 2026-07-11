@@ -198,7 +198,7 @@ public sealed class SupervisorStabilityVerifierTests
         var replacementSupplementalInvoked = false;
         try
         {
-            result = await verificationTask.WaitAsync(TimeSpan.FromMilliseconds(250));
+            result = await verificationTask.WaitAsync(SignalWaitTimeout);
             lifecycleQuiescenceError = await compensationOwner.WaitForQuiescenceAsync(
                 unityProject,
                 ExecutionDeadline.Start(TimeSpan.FromMilliseconds(50), timeProvider),

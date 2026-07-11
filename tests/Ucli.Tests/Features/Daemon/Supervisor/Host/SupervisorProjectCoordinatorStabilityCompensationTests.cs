@@ -259,7 +259,7 @@ public sealed class SupervisorProjectCoordinatorStabilityCompensationTests
                 cancellationToken: CancellationToken.None);
             Assert.False(result.IsSuccess);
 
-            await stopStarted.Task.WaitAsync(TimeSpan.FromMilliseconds(250));
+            await stopStarted.Task.WaitAsync(SignalWaitTimeout);
             stopStartedBeforeLogRelease = true;
         }
         finally

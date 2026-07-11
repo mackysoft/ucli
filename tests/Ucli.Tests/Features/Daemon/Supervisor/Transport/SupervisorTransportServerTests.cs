@@ -646,7 +646,7 @@ public sealed class SupervisorTransportServerTests
 
             cancellationTokenSource.Cancel();
             server.Release();
-            await serverTask.WaitAsync(TimeSpan.FromMilliseconds(500));
+            await serverTask.WaitAsync(SignalWaitTimeout);
             returnedAtDrainDeadline = true;
         }
         finally
