@@ -14,22 +14,23 @@ public sealed class SupervisorBootstrapperManifestFailureTests
     public async Task EnsureReady_WhenManifestReadFailsWithUnauthorizedAccess_ReturnsInternalError ()
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-bootstrapper", "manifest-read-unauthorized");
+        var timeProvider = new ManualTimeProvider();
         var transportClient = new StubIpcTransportClient
         {
             SendHandler = static (_, _, _, _) => throw new InvalidOperationException("Supervisor transport should not be called when manifest read fails."),
         };
         var manifestStore = new SupervisorManifestStore(
-            TimeProvider.System,
+            timeProvider,
             readAllTextOrNull: static (_, _) => throw new UnauthorizedAccessException("manifest denied"),
             writeAllTextAtomically: static (_, _, _) => ValueTask.CompletedTask,
             deleteIfExists: static _ => { });
         var bootstrapper = new SupervisorBootstrapper(
             manifestStore,
-            new SupervisorClient(transportClient, TimeProvider.System),
+            new SupervisorClient(transportClient, timeProvider),
             new RecordingSupervisorProcessLauncher(),
-            new SupervisorBootstrapLockProvider(TimeProvider.System),
+            new SupervisorBootstrapLockProvider(timeProvider),
             new SupervisorEndpointResolver(),
-            TimeProvider.System);
+            timeProvider);
 
         var result = await bootstrapper.EnsureReadyAsync(
             scope.FullPath,
