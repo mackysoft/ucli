@@ -8,8 +8,10 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class IndexCatalogTestComponent : MonoBehaviour
     {
+#pragma warning disable CS0414 // Unity reads this serialized test field through reflection.
         [SerializeField]
         private int integerValue = 1;
+#pragma warning restore CS0414
 
         [SerializeField]
         private List<IndexCatalogNestedValue> items = new();
