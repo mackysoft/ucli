@@ -317,7 +317,7 @@ public sealed class ExecutionDeadlineOperationTests
                 return;
             }
 
-            await Task.Yield();
+            await Task.Delay(TimeSpan.FromMilliseconds(10));
         }
 
         Assert.Fail("Operation cancellation token source was not disposed after late operation completion.");
