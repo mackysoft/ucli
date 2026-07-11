@@ -35,7 +35,7 @@ public sealed class DaemonGuiStartupObserverTests
             awaiter,
             logReader,
             processIdentityAssessor,
-            TimeProvider.System);
+            new ManualTimeProvider());
         var processStartedAtUtc = DateTimeOffset.UtcNow;
 
         var result = await observer.WaitForStartupAsync(
@@ -109,7 +109,7 @@ public sealed class DaemonGuiStartupObserverTests
             awaiter,
             logReader,
             RecordingDaemonProcessIdentityAssessor.MatchingLiveProcess(),
-            TimeProvider.System);
+            new ManualTimeProvider());
 
         var result = await observer.WaitForStartupAsync(
             ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-gui-observer-compiler"),
@@ -192,7 +192,7 @@ public sealed class DaemonGuiStartupObserverTests
             awaiter,
             logReader,
             RecordingDaemonProcessIdentityAssessor.MatchingLiveProcess(),
-            TimeProvider.System);
+            new ManualTimeProvider());
 
         var result = await observer.WaitForStartupAsync(
             ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext($"fingerprint-gui-observer-{expectedReason}"),
@@ -236,7 +236,7 @@ public sealed class DaemonGuiStartupObserverTests
             awaiter,
             logReader,
             processIdentityAssessor,
-            TimeProvider.System);
+            new ManualTimeProvider());
 
         var result = await observer.WaitForStartupAsync(
             ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-gui-observer-exit"),
@@ -283,7 +283,7 @@ public sealed class DaemonGuiStartupObserverTests
             awaiter,
             logReader,
             processIdentityAssessor,
-            TimeProvider.System);
+            new ManualTimeProvider());
 
         var result = await observer.WaitForStartupAsync(
             ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-gui-observer-exit-with-log"),
