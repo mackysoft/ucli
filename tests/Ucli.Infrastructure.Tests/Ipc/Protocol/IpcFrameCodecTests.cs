@@ -134,6 +134,20 @@ public sealed class IpcFrameCodecTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task ReadModelAsync_WhenTransportReadFails_ThrowsIOException ()
+    {
+        await using var stream = new ThrowingReadStream(new IOException("connection reset"));
+
+        var exception = await Assert.ThrowsAsync<IOException>(async () =>
+        {
+            await IpcFrameCodec.ReadModelAsync<TestEnvelope>(stream, IpcJsonSerializerOptions.Default);
+        });
+
+        Assert.Contains("connection reset", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task ReadModelAsync_WithInvalidJson_ThrowsInvalidDataException ()
     {
         await using var stream = new MemoryStream();

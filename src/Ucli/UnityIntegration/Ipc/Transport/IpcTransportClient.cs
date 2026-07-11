@@ -36,18 +36,14 @@ internal sealed class IpcTransportClient : IIpcTransportClient
                     cancellationToken: ipcCancellationToken)
                 .ConfigureAwait(false);
 
-            var readResult = await IpcFrameCodec.TryReadModelAsync<IpcResponse>(
+            var response = await IpcFrameCodec.ReadModelAsync<IpcResponse>(
                     stream,
                     IpcJsonSerializerOptions.Default,
                     cancellationToken: ipcCancellationToken)
                 .ConfigureAwait(false);
-            if (!readResult.IsSuccess)
-            {
-                throw CreateFrameReadException(readResult.ErrorKind, readResult.ErrorMessage);
-            }
 
-            ValidateIpcResponse(request, readResult.Value);
-            return readResult.Value;
+            ValidateIpcResponse(request, response);
+            return response;
         }
         catch (OperationCanceledException exception)
             when (!cancellationToken.IsCancellationRequested && timeoutCancellationTokenSource.IsCancellationRequested)
@@ -147,18 +143,14 @@ internal sealed class IpcTransportClient : IIpcTransportClient
                     cancellationToken: sendCancellationToken)
                 .ConfigureAwait(false);
 
-            var readResult = await IpcFrameCodec.TryReadModelAsync<IpcResponse>(
+            var response = await IpcFrameCodec.ReadModelAsync<IpcResponse>(
                     stream,
                     IpcJsonSerializerOptions.Default,
                     cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
-            if (!readResult.IsSuccess)
-            {
-                throw CreateFrameReadException(readResult.ErrorKind, readResult.ErrorMessage);
-            }
 
-            ValidateIpcResponse(request, readResult.Value);
-            return readResult.Value;
+            ValidateIpcResponse(request, response);
+            return response;
         }
         catch (OperationCanceledException exception)
             when (!cancellationToken.IsCancellationRequested && sendTimeoutCancellationTokenSource.IsCancellationRequested)
@@ -228,22 +220,6 @@ internal sealed class IpcTransportClient : IIpcTransportClient
         }
     }
 
-    /// <summary> Maps one frame read error kind to legacy exception categories for caller compatibility. </summary>
-    /// <param name="errorKind"> The frame read error kind. </param>
-    /// <param name="errorMessage"> The diagnostic frame read error message. </param>
-    /// <returns> The mapped exception value. </returns>
-    private static Exception CreateFrameReadException (
-        IpcFrameReadErrorKind errorKind,
-        string errorMessage)
-    {
-        return errorKind switch
-        {
-            IpcFrameReadErrorKind.HeaderTruncated => new EndOfStreamException(errorMessage),
-            IpcFrameReadErrorKind.PayloadTruncated => new EndOfStreamException(errorMessage),
-            _ => new InvalidDataException(errorMessage),
-        };
-    }
-
     private static void EnsureResponseMode (
         IpcRequest request,
         IpcResponseMode expectedResponseMode,
@@ -268,17 +244,12 @@ internal sealed class IpcTransportClient : IIpcTransportClient
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var readResult = await IpcFrameCodec.TryReadModelAsync<IpcStreamFrame>(
+            var frame = await IpcFrameCodec.ReadModelAsync<IpcStreamFrame>(
                     stream,
                     IpcJsonSerializerOptions.Default,
                     cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
-            if (!readResult.IsSuccess)
-            {
-                throw CreateFrameReadException(readResult.ErrorKind, readResult.ErrorMessage);
-            }
 
-            var frame = readResult.Value;
             ValidateStreamingFrame(request, frame);
             if (string.Equals(frame.Kind, IpcStreamFrameKinds.Progress, StringComparison.Ordinal))
             {
