@@ -11,6 +11,8 @@ internal sealed class IpcStreamFrameWriter : IIpcStreamFrameWriter
 
     private readonly CancellationToken connectionLifetimeCancellationToken;
 
+    private readonly CancellationToken transportWriteCancellationToken;
+
     private readonly TimeSpan frameWriteTimeout;
 
     private readonly Action<Exception>? writeFailureHandler;
@@ -23,6 +25,7 @@ internal sealed class IpcStreamFrameWriter : IIpcStreamFrameWriter
     /// <param name="stream"> The connected transport stream. </param>
     /// <param name="request"> The request that owns the stream response. </param>
     /// <param name="connectionLifetimeCancellationToken"> The cancellation token for the connected transport lifetime. </param>
+    /// <param name="transportWriteCancellationToken"> The cancellation token passed to transport write operations. </param>
     /// <param name="frameWriteTimeout"> The upper bound for writing one frame. </param>
     /// <param name="writeFailureHandler"> The callback invoked when a connection-local write failure occurs, or <see langword="null" /> when no notification is required. </param>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="stream" /> or <paramref name="request" /> is <see langword="null" />. </exception>
@@ -31,6 +34,7 @@ internal sealed class IpcStreamFrameWriter : IIpcStreamFrameWriter
         Stream stream,
         IpcRequest request,
         CancellationToken connectionLifetimeCancellationToken,
+        CancellationToken transportWriteCancellationToken,
         TimeSpan frameWriteTimeout,
         Action<Exception>? writeFailureHandler)
     {
@@ -42,6 +46,7 @@ internal sealed class IpcStreamFrameWriter : IIpcStreamFrameWriter
 
         requestId = request.RequestId;
         this.connectionLifetimeCancellationToken = connectionLifetimeCancellationToken;
+        this.transportWriteCancellationToken = transportWriteCancellationToken;
         if (frameWriteTimeout <= TimeSpan.Zero)
         {
             throw new ArgumentOutOfRangeException(
@@ -136,12 +141,16 @@ internal sealed class IpcStreamFrameWriter : IIpcStreamFrameWriter
                     frameWriteTimeout,
                     frameWriteTimeoutCancellationTokenSource.Token);
                 var writeTask = Task.Run(
-                    async () => await IpcFrameCodec.WriteModelAsync(
-                            stream,
-                            frame,
-                            IpcJsonSerializerOptions.Default,
-                            cancellationToken: connectionLifetimeCancellationToken)
-                        .ConfigureAwait(false),
+                    async () =>
+                    {
+                        connectionLifetimeCancellationToken.ThrowIfCancellationRequested();
+                        await IpcFrameCodec.WriteModelAsync(
+                                stream,
+                                frame,
+                                IpcJsonSerializerOptions.Default,
+                                cancellationToken: transportWriteCancellationToken)
+                            .ConfigureAwait(false);
+                    },
                     CancellationToken.None);
                 var completedTask = await Task.WhenAny(writeTask, timeoutTask).ConfigureAwait(false);
                 if (!ReferenceEquals(completedTask, writeTask))

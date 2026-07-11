@@ -21,6 +21,8 @@ namespace MackySoft.Ucli.Unity.Tests
     {
         private static readonly TimeSpan SignalWaitTimeout = TimeSpan.FromSeconds(5);
 
+        private const int NamedPipeCancellationStressIterationCount = 16;
+
         [UnityTest]
         [Category("Size.Small")]
         public IEnumerator Handle_WhenMalformedFrameAndErrorResponseWriteFails_DoesNotThrow () => UniTask.ToCoroutine(async () =>
@@ -51,6 +53,10 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(result.Request, Is.Null);
             Assert.That(result.Response, Is.Null);
+            await TestAwaiter.WaitAsync(
+                stream.Disposed,
+                "Malformed-frame response stream cleanup",
+                SignalWaitTimeout);
             Assert.That(stream.WasDisposed, Is.True);
             Assert.That(requestHandler.CallCount, Is.EqualTo(0));
         });
@@ -86,6 +92,53 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(result.Request, Is.Null);
             Assert.That(result.Response, Is.Null);
+            Assert.That(requestHandler.CallCount, Is.EqualTo(0));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Handle_WhenNamedPipeInitialFrameIsPendingAndLifecycleIsCanceled_ReleasesConnectionAfterTokenSourceDisposal () => UniTask.ToCoroutine(async () =>
+        {
+            var requestHandler = new StubRequestHandler();
+            var handler = CreateConnectionHandler(
+                requestHandler,
+                initialFrameReadTimeout: TimeSpan.FromSeconds(5));
+            var pipeName = "ucli-" + Guid.NewGuid().ToString("N").Substring(0, 8);
+            using var serverStream = new NamedPipeServerStream(
+                pipeName,
+                PipeDirection.InOut,
+                1,
+                PipeTransmissionMode.Byte,
+                PipeOptions.Asynchronous);
+            var connectionTask = serverStream.WaitForConnectionAsync(CancellationToken.None);
+            using var clientStream = new NamedPipeClientStream(
+                ".",
+                pipeName,
+                PipeDirection.InOut,
+                PipeOptions.Asynchronous);
+            clientStream.Connect((int)SignalWaitTimeout.TotalMilliseconds);
+            await TestAwaiter.WaitAsync(connectionTask, "Named pipe connection for lifecycle cancellation", SignalWaitTimeout);
+            var lifecycleCancellationTokenSource = new CancellationTokenSource();
+            var handleTask = handler.HandleAsync(serverStream, lifecycleCancellationTokenSource.Token);
+            await Task.Delay(TimeSpan.FromMilliseconds(25));
+
+            lifecycleCancellationTokenSource.Cancel();
+            lifecycleCancellationTokenSource.Dispose();
+
+            OperationCanceledException cancellationException = null;
+            try
+            {
+                await TestAwaiter.WaitAsync(
+                    handleTask,
+                    "Canceled initial IPC frame read",
+                    SignalWaitTimeout);
+            }
+            catch (OperationCanceledException exception)
+            {
+                cancellationException = exception;
+            }
+
+            Assert.That(cancellationException, Is.Not.Null);
             Assert.That(requestHandler.CallCount, Is.EqualTo(0));
         });
 
@@ -229,6 +282,59 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Handle_WhenNamedPipeRequestCompletesWithPendingPeerMonitor_RepeatedlyReleasesConnection () => UniTask.ToCoroutine(async () =>
+        {
+            for (var iteration = 0; iteration < NamedPipeCancellationStressIterationCount; iteration++)
+            {
+                var requestHandler = new StubRequestHandler();
+                var handler = CreateConnectionHandler(requestHandler);
+                var request = CreateShutdownRequest($"req-pending-peer-monitor-{iteration}", IpcResponseMode.Single);
+                var pipeName = "ucli-" + Guid.NewGuid().ToString("N").Substring(0, 8);
+                using var serverStream = new NamedPipeServerStream(
+                    pipeName,
+                    PipeDirection.InOut,
+                    1,
+                    PipeTransmissionMode.Byte,
+                    PipeOptions.Asynchronous);
+                var connectionTask = serverStream.WaitForConnectionAsync(CancellationToken.None);
+                using var clientStream = new NamedPipeClientStream(
+                    ".",
+                    pipeName,
+                    PipeDirection.InOut,
+                    PipeOptions.Asynchronous);
+                clientStream.Connect((int)SignalWaitTimeout.TotalMilliseconds);
+                await TestAwaiter.WaitAsync(
+                    connectionTask,
+                    $"Named pipe connection for pending peer monitor {iteration}",
+                    SignalWaitTimeout);
+
+                var handleTask = handler.HandleAsync(serverStream, CancellationToken.None);
+                await IpcFrameCodec.WriteModelAsync(
+                    clientStream,
+                    request,
+                    IpcJsonSerializerOptions.Default,
+                    cancellationToken: CancellationToken.None);
+                var response = await TestAwaiter.WaitAsync(
+                    IpcFrameCodec.ReadModelAsync<IpcResponse>(
+                            clientStream,
+                            IpcJsonSerializerOptions.Default,
+                            cancellationToken: CancellationToken.None)
+                        .AsTask(),
+                    $"Named pipe response for pending peer monitor {iteration}",
+                    SignalWaitTimeout);
+                var result = await TestAwaiter.WaitAsync(
+                    handleTask,
+                    $"Named pipe handler completion with pending peer monitor {iteration}",
+                    SignalWaitTimeout);
+
+                Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+                Assert.That(result.Response, Is.Not.Null);
+                Assert.That(requestHandler.CallCount, Is.EqualTo(1));
+            }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator StreamFrameWriter_WhenProgressWriteFails_InvokesWriteFailureHandler () => UniTask.ToCoroutine(async () =>
         {
             var request = new IpcRequest(
@@ -243,6 +349,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var streamWriter = new IpcStreamFrameWriter(
                 stream,
                 request,
+                CancellationToken.None,
                 CancellationToken.None,
                 TimeSpan.FromSeconds(5),
                 exception => observedFailure = exception);
@@ -343,8 +450,91 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(result.Request, Is.Null);
             Assert.That(result.Response, Is.Null);
+            await TestAwaiter.WaitAsync(
+                stream.Disposed,
+                "Shutdown response stream cleanup",
+                SignalWaitTimeout);
             Assert.That(stream.WasDisposed, Is.True);
             Assert.That(mutationExecutor.IsBusy, Is.False);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Handle_WhenSingleResponseWriteIsPendingAndLifecycleIsCanceled_ReleasesStreamWithinDeadline () => UniTask.ToCoroutine(async () =>
+        {
+            var request = CreateShutdownRequest("req-single-write-lifecycle-canceled", IpcResponseMode.Single);
+            using var requestBytes = new MemoryStream();
+            await IpcFrameCodec.WriteModelAsync(
+                requestBytes,
+                request,
+                IpcJsonSerializerOptions.Default,
+                cancellationToken: CancellationToken.None);
+            using var stream = new BlockingWriteMemoryStream(requestBytes.ToArray());
+            var handler = CreateConnectionHandler(new StubRequestHandler());
+            var lifecycleCancellationTokenSource = new CancellationTokenSource();
+            var handleTask = handler.HandleAsync(stream, lifecycleCancellationTokenSource.Token);
+            await TestAwaiter.WaitAsync(
+                stream.WriteStarted,
+                "Pending single response write",
+                SignalWaitTimeout);
+
+            lifecycleCancellationTokenSource.Cancel();
+            lifecycleCancellationTokenSource.Dispose();
+
+            OperationCanceledException cancellationException = null;
+            try
+            {
+                await TestAwaiter.WaitAsync(
+                    handleTask,
+                    "Canceled single response write",
+                    SignalWaitTimeout);
+            }
+            catch (OperationCanceledException exception)
+            {
+                cancellationException = exception;
+            }
+
+            Assert.That(cancellationException, Is.Not.Null);
+            await TestAwaiter.WaitAsync(
+                stream.Disposed,
+                "Canceled single response stream cleanup",
+                SignalWaitTimeout);
+            Assert.That(stream.WasDisposed, Is.True);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Handle_WhenLifecycleIsCanceledBeforeSingleResponseWrite_DoesNotWriteResponseBytes () => UniTask.ToCoroutine(async () =>
+        {
+            var request = CreateShutdownRequest("req-single-write-pre-canceled", IpcResponseMode.Single);
+            using var stream = new MemoryStream();
+            await IpcFrameCodec.WriteModelAsync(
+                stream,
+                request,
+                IpcJsonSerializerOptions.Default,
+                cancellationToken: CancellationToken.None);
+            var requestLength = stream.Length;
+            stream.Position = 0;
+            var lifecycleCancellationTokenSource = new CancellationTokenSource();
+            var handler = CreateConnectionHandler(
+                new CancelBeforeResponseWriteRequestHandler(lifecycleCancellationTokenSource));
+
+            OperationCanceledException cancellationException = null;
+            try
+            {
+                await handler.HandleAsync(stream, lifecycleCancellationTokenSource.Token);
+            }
+            catch (OperationCanceledException exception)
+            {
+                cancellationException = exception;
+            }
+            finally
+            {
+                lifecycleCancellationTokenSource.Dispose();
+            }
+
+            Assert.That(cancellationException, Is.Not.Null);
+            Assert.That(stream.Length, Is.EqualTo(requestLength));
         });
 
         [UnityTest]
@@ -526,6 +716,10 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(result.Request, Is.Null);
             Assert.That(result.Response, Is.Null);
+            await TestAwaiter.WaitAsync(
+                stream.Disposed,
+                "Streaming response stream cleanup",
+                SignalWaitTimeout);
             Assert.That(stream.WasDisposed, Is.True);
         });
 
@@ -696,6 +890,38 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         }
 
+        private sealed class CancelBeforeResponseWriteRequestHandler : IUnityIpcRequestHandler
+        {
+            private readonly CancellationTokenSource lifecycleCancellationTokenSource;
+
+            public CancelBeforeResponseWriteRequestHandler (
+                CancellationTokenSource lifecycleCancellationTokenSource)
+            {
+                this.lifecycleCancellationTokenSource = lifecycleCancellationTokenSource;
+            }
+
+            public Task<IpcResponse> HandleAsync (
+                IpcRequest request,
+                CancellationToken cancellationToken = default)
+            {
+                lifecycleCancellationTokenSource.Cancel();
+                return Task.FromResult(new IpcResponse(
+                    ProtocolVersion: IpcProtocol.CurrentVersion,
+                    RequestId: request.RequestId,
+                    Status: IpcProtocol.StatusOk,
+                    Payload: JsonSerializer.SerializeToElement(new IpcShutdownResponse(true, "ok")),
+                    Errors: Array.Empty<IpcError>()));
+            }
+
+            public Task<IpcResponse> HandleStreamingAsync (
+                IpcRequest request,
+                IIpcStreamFrameWriter streamWriter,
+                CancellationToken cancellationToken = default)
+            {
+                throw new NotSupportedException();
+            }
+        }
+
         private sealed class ShutdownPreparingRequestHandler : IUnityIpcRequestHandler
         {
             private readonly IUnityShutdownAdmissionCoordinator shutdownAdmissionCoordinator;
@@ -771,12 +997,17 @@ namespace MackySoft.Ucli.Unity.Tests
             private readonly TaskCompletionSource<bool> writeRelease =
                 new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
+            private readonly TaskCompletionSource<bool> disposed =
+                new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
             public BlockingWriteMemoryStream (byte[] requestBytes)
                 : base(requestBytes, writable: false)
             {
             }
 
             public Task WriteStarted => writeStarted.Task;
+
+            public Task Disposed => disposed.Task;
 
             public bool WasDisposed { get; private set; }
 
@@ -791,6 +1022,7 @@ namespace MackySoft.Ucli.Unity.Tests
             protected override void Dispose (bool disposing)
             {
                 WasDisposed = true;
+                disposed.TrySetResult(true);
                 writeRelease.TrySetException(new ObjectDisposedException(nameof(BlockingWriteMemoryStream)));
                 base.Dispose(disposing);
             }

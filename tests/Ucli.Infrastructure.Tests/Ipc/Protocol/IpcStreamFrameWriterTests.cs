@@ -20,6 +20,7 @@ public sealed class IpcStreamFrameWriterTests
             stream,
             request,
             CancellationToken.None,
+            CancellationToken.None,
             TestFrameWriteTimeout,
             writeFailureHandler: null);
 
@@ -52,6 +53,7 @@ public sealed class IpcStreamFrameWriterTests
         var writer = new IpcStreamFrameWriter(
             stream,
             request,
+            CancellationToken.None,
             CancellationToken.None,
             TestFrameWriteTimeout,
             writeFailureHandler: null);
@@ -86,6 +88,7 @@ public sealed class IpcStreamFrameWriterTests
         var writer = new IpcStreamFrameWriter(
             stream,
             request,
+            CancellationToken.None,
             CancellationToken.None,
             TestFrameWriteTimeout,
             writeFailureHandler: null);
@@ -129,6 +132,7 @@ public sealed class IpcStreamFrameWriterTests
             stream,
             request,
             CancellationToken.None,
+            CancellationToken.None,
             TestFrameWriteTimeout,
             exception =>
             {
@@ -157,6 +161,7 @@ public sealed class IpcStreamFrameWriterTests
         var writer = new IpcStreamFrameWriter(
             stream,
             request,
+            CancellationToken.None,
             CancellationToken.None,
             TestFrameWriteTimeout,
             static _ => throw new InvalidOperationException("Cancellation must not be reported as a write failure."));
@@ -187,6 +192,7 @@ public sealed class IpcStreamFrameWriterTests
         var writer = new IpcStreamFrameWriter(
             stream,
             request,
+            CancellationToken.None,
             CancellationToken.None,
             TimeSpan.FromMilliseconds(100),
             exception =>
@@ -225,6 +231,7 @@ public sealed class IpcStreamFrameWriterTests
             stream,
             request,
             CancellationToken.None,
+            CancellationToken.None,
             TimeSpan.FromMilliseconds(100),
             writeFailureHandler: null);
         var writeTask = writer
@@ -252,6 +259,7 @@ public sealed class IpcStreamFrameWriterTests
         var writer = new IpcStreamFrameWriter(
             stream,
             request,
+            CancellationToken.None,
             CancellationToken.None,
             TimeSpan.FromMilliseconds(100),
             writeFailureHandler: null);
@@ -282,6 +290,7 @@ public sealed class IpcStreamFrameWriterTests
         var writer = new IpcStreamFrameWriter(
             stream,
             request,
+            CancellationToken.None,
             CancellationToken.None,
             TimeSpan.FromMilliseconds(100),
             _ =>
@@ -318,6 +327,7 @@ public sealed class IpcStreamFrameWriterTests
             stream,
             request,
             CancellationToken.None,
+            CancellationToken.None,
             TimeSpan.FromMilliseconds(100),
             writeFailureHandler: null);
         var writeTask = writer
@@ -340,7 +350,7 @@ public sealed class IpcStreamFrameWriterTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task WriteProgressAsync_WhenConnectionLifetimeIsCanceledDuringNonCooperativeWrite_DoesNotReportWriteFailure ()
+    public async Task WriteProgressAsync_WhenConnectionLifetimeIsCanceledDuringUncancellableTransportWrite_ReleasesOwnedStream ()
     {
         var request = CreateRequest("request-active-write-canceled");
         await using var stream = new NonCooperativeWriteStream();
@@ -350,6 +360,7 @@ public sealed class IpcStreamFrameWriterTests
             stream,
             request,
             connectionLifetimeCancellationTokenSource.Token,
+            CancellationToken.None,
             TestFrameWriteTimeout,
             exception => observedException = exception);
         var writeTask = writer
@@ -361,11 +372,14 @@ public sealed class IpcStreamFrameWriterTests
         await stream.WriteStarted.WaitAsync(TimeSpan.FromSeconds(5));
 
         connectionLifetimeCancellationTokenSource.Cancel();
+        connectionLifetimeCancellationTokenSource.Dispose();
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => writeTask);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            writeTask.WaitAsync(TimeSpan.FromSeconds(2)));
         await stream.Disposed.WaitAsync(TimeSpan.FromSeconds(2));
         Assert.Null(observedException);
         Assert.Equal(1, stream.WriteCount);
+        Assert.False(stream.WriteCancellationCanBeCanceled);
         Assert.True(stream.IsDisposed);
     }
 
@@ -381,6 +395,7 @@ public sealed class IpcStreamFrameWriterTests
         var writer = new IpcStreamFrameWriter(
             stream,
             request,
+            CancellationToken.None,
             CancellationToken.None,
             TestFrameWriteTimeout,
             exception => observedException = exception);
@@ -472,6 +487,8 @@ public sealed class IpcStreamFrameWriterTests
 
         private int isDisposed;
 
+        private int writeCancellationCanBeCanceled;
+
         public Task WriteStarted => writeStarted.Task;
 
         public Task Disposed => disposed.Task;
@@ -479,6 +496,8 @@ public sealed class IpcStreamFrameWriterTests
         public Task SecondWriteStarted => secondWriteStarted.Task;
 
         public int WriteCount => Volatile.Read(ref writeCount);
+
+        public bool WriteCancellationCanBeCanceled => Volatile.Read(ref writeCancellationCanBeCanceled) != 0;
 
         public bool IsDisposed => Volatile.Read(ref isDisposed) != 0;
 
@@ -537,6 +556,9 @@ public sealed class IpcStreamFrameWriterTests
             ReadOnlyMemory<byte> buffer,
             CancellationToken cancellationToken = default)
         {
+            Volatile.Write(
+                ref writeCancellationCanBeCanceled,
+                cancellationToken.CanBeCanceled ? 1 : 0);
             if (Interlocked.Increment(ref writeCount) >= 2)
             {
                 secondWriteStarted.TrySetResult();

@@ -185,6 +185,7 @@ internal sealed class SupervisorRequestDispatcher
             stream,
             request,
             cancellationToken,
+            cancellationToken,
             SupervisorConstants.ResponseFrameWriteTimeout,
             _ => activeRequestLifetime?.CancelForResponseStreamFailure());
         var response = await ProcessRequestAsync(

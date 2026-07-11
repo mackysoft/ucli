@@ -71,14 +71,19 @@ namespace MackySoft.Ucli.Unity.Ipc
             Stream stream,
             CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             IpcFrameReadResult<IpcRequest> readResult;
             using (var initialFrameReadCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
             {
+                var transportReadCancellationToken = ResolveTransportIoCancellationToken(
+                    stream,
+                    initialFrameReadCancellationTokenSource.Token);
                 var frameReadTask = Task.Run(
                     async () => await IpcFrameCodec.TryReadModelAsync<IpcRequest>(
                             stream,
                             IpcJsonSerializerOptions.Default,
-                            cancellationToken: initialFrameReadCancellationTokenSource.Token)
+                            cancellationToken: transportReadCancellationToken)
                         .ConfigureAwait(false),
                     CancellationToken.None);
                 var timeoutTask = Task.Delay(initialFrameReadTimeout, initialFrameReadCancellationTokenSource.Token);
@@ -126,6 +131,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                         stream,
                         request,
                         requestCancellationTokenSource.Token,
+                        ResolveTransportIoCancellationToken(stream, requestCancellationTokenSource.Token),
                         responseFrameWriteTimeout,
                         _ => TryCancel(requestCancellationTokenSource));
                     var streamingResponse = await ProcessStreamingSafelyAsync(
@@ -221,11 +227,26 @@ namespace MackySoft.Ucli.Unity.Ipc
             return stream is PipeStream or NetworkStream;
         }
 
+        private static CancellationToken ResolveTransportIoCancellationToken (
+            Stream stream,
+            CancellationToken operationCancellationToken)
+        {
+            // Closing the owned PipeStream is the single transport-I/O cancellation mechanism.
+            // Unity's Windows Mono runtime can otherwise dispose the pipe operation's internal
+            // cancellation source before its overlapped I/O callback completes during Domain Reload.
+            return stream is PipeStream
+                ? CancellationToken.None
+                : operationCancellationToken;
+        }
+
         private static async Task MonitorPeerDisconnectAsync (
             Stream stream,
             CancellationTokenSource requestCancellationTokenSource)
         {
             var buffer = new byte[1];
+            var transportReadCancellationToken = ResolveTransportIoCancellationToken(
+                stream,
+                requestCancellationTokenSource.Token);
             try
             {
                 while (!requestCancellationTokenSource.IsCancellationRequested)
@@ -234,7 +255,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                         buffer,
                         0,
                         buffer.Length,
-                        requestCancellationTokenSource.Token);
+                        transportReadCancellationToken);
                     if (readLength == 0)
                     {
                         TryCancel(requestCancellationTokenSource);
@@ -317,14 +338,21 @@ namespace MackySoft.Ucli.Unity.Ipc
             CancellationToken cancellationToken,
             TimeSpan writeTimeout)
         {
+            var transportWriteCancellationToken = ResolveTransportIoCancellationToken(
+                stream,
+                cancellationToken);
             return WriteResponseFrameSafelyAsync(
                 stream,
-                () => IpcFrameCodec.WriteModelAsync(
-                        stream,
-                        response,
-                        IpcJsonSerializerOptions.Default,
-                        cancellationToken: cancellationToken)
-                    .AsTask(),
+                () =>
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    return IpcFrameCodec.WriteModelAsync(
+                            stream,
+                            response,
+                            IpcJsonSerializerOptions.Default,
+                            cancellationToken: transportWriteCancellationToken)
+                        .AsTask();
+                },
                 cancellationToken,
                 writeTimeout);
         }
@@ -355,6 +383,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             CancellationToken cancellationToken,
             TimeSpan writeTimeout)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             try
             {
                 using var writeDeadlineCancellationTokenSource =
