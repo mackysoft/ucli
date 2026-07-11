@@ -87,7 +87,7 @@ public sealed class SupervisorProjectCoordinatorTests
         var pingClient = new RecordingDaemonPingClient(async (_, _, _, cancellationToken) =>
         {
             await releasePing.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
-            throw new SocketException();
+            throw new SocketException((int)SocketError.ConnectionRefused);
         });
         var coordinator = CreateCoordinator(
             startOperation,
