@@ -20,7 +20,7 @@ using VisualElement = UnityEngine.UIElements.VisualElement;
 namespace MackySoft.Ucli.ScreenshotFidelity
 {
     /// <summary> Owns test-only fixture state and a file control channel for the external system-test runner. </summary>
-    internal static class ScreenshotFidelityController
+    public static class ScreenshotFidelityFixture
     {
         private const BindingFlags InstanceMembers =
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
@@ -90,45 +90,65 @@ namespace MackySoft.Ucli.ScreenshotFidelity
 
         private static object displayedConfigurableOverlay;
 
-        /// <summary> Starts one idempotent controller for the supplied test-run directory. </summary>
-        public static void Start (string directory)
+        /// <summary> Starts this fixture once for the supplied test-run directory. </summary>
+        /// <param name="directory"> The non-empty absolute directory reserved for this fixture execution. </param>
+        /// <returns> <see langword="true" /> when this call started the fixture; otherwise <see langword="false" />. </returns>
+        /// <exception cref="ArgumentException"> Thrown when <paramref name="directory" /> is empty or not absolute. </exception>
+        /// <exception cref="InvalidOperationException"> Thrown when the controller is already running for another directory. </exception>
+        public static bool Start (string directory)
         {
-            if (started)
-            {
-                return;
-            }
-
             if (string.IsNullOrWhiteSpace(directory) || !Path.IsPathRooted(directory))
             {
                 throw new ArgumentException("Screenshot fidelity run directory must be absolute.", nameof(directory));
             }
 
-            runDirectory = Path.GetFullPath(directory);
+            var normalizedDirectory = Path.GetFullPath(directory);
+            if (started)
+            {
+                if (string.Equals(runDirectory, normalizedDirectory, StringComparison.Ordinal))
+                {
+                    return false;
+                }
+
+                throw new InvalidOperationException(
+                    $"Screenshot fidelity fixture is already running for another directory: {runDirectory}");
+            }
+
+            runDirectory = normalizedDirectory;
             controlPath = Path.Combine(runDirectory, "control.json");
             responseDirectory = Path.Combine(runDirectory, "responses");
             Directory.CreateDirectory(responseDirectory);
 
             started = true;
-            EditorApplication.update -= OnEditorUpdate;
-            EditorApplication.update += OnEditorUpdate;
-            SceneView.duringSceneGui -= DrawSceneFixtureHandles;
-            SceneView.duringSceneGui += DrawSceneFixtureHandles;
-            AssemblyReloadEvents.beforeAssemblyReload -= StopForReload;
-            AssemblyReloadEvents.beforeAssemblyReload += StopForReload;
-            EditorApplication.quitting -= StopForQuit;
-            EditorApplication.quitting += StopForQuit;
+            try
+            {
+                EditorApplication.update -= OnEditorUpdate;
+                EditorApplication.update += OnEditorUpdate;
+                SceneView.duringSceneGui -= DrawSceneFixtureHandles;
+                SceneView.duringSceneGui += DrawSceneFixtureHandles;
+                AssemblyReloadEvents.beforeAssemblyReload -= StopForReload;
+                AssemblyReloadEvents.beforeAssemblyReload += StopForReload;
+                EditorApplication.quitting -= StopForQuit;
+                EditorApplication.quitting += StopForQuit;
 
-            WriteJsonAtomic(
-                Path.Combine(runDirectory, "unity-environment.json"),
-                CreateEnvironmentSnapshot());
-            WriteJsonAtomic(
-                Path.Combine(runDirectory, "bootstrap-ready.json"),
-                new BootstrapResponse
-                {
-                    status = "ready",
-                    processId = GetCurrentProcessId(),
-                    observedAtUtc = DateTimeOffset.UtcNow.ToString("O"),
-                });
+                WriteJsonAtomic(
+                    Path.Combine(runDirectory, "unity-environment.json"),
+                    CreateEnvironmentSnapshot());
+                WriteJsonAtomic(
+                    Path.Combine(runDirectory, "fixture-ready.json"),
+                    new FixtureReadyResponse
+                    {
+                        status = "ready",
+                        processId = GetCurrentProcessId(),
+                        observedAtUtc = DateTimeOffset.UtcNow.ToString("O"),
+                    });
+                return true;
+            }
+            catch
+            {
+                StopSubscriptions();
+                throw;
+            }
         }
 
         private static void OnEditorUpdate ()
@@ -1632,7 +1652,7 @@ namespace MackySoft.Ucli.ScreenshotFidelity
         }
 
         [Serializable]
-        private sealed class BootstrapResponse
+        private sealed class FixtureReadyResponse
         {
             public string status;
 

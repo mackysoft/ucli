@@ -47,8 +47,9 @@ bash tests/System/ScreenshotFidelity/run-macos.sh \
 ```
 
 Use `--keep-work-directory` to retain the imported disposable Unity project for diagnosis. Without it, the runner removes the copied Unity `Library`, `Temp`, and `Logs` directories after the run.
+An explicit `--results-dir` must not already exist; the runner reserves it atomically so concurrent measurements cannot share a Unity project or evidence files.
 
-The fixture starts only through its `InitializeOnLoad` bootstrap. The runner does not also use `-executeMethod`, which would request a redundant reload during a cold GUI import and duplicate scripted-importer registration. The complete GUI log is rejected if it contains C# diagnostics, shader compilation failures, or rejected importer registrations.
+Unity starts only through uCLI's production GUI bootstrap. After the GUI daemon session is ready, the runner uses the exact-allowlisted existing `ucli.cs.eval` operation to call the fixture's public `Start` API; the test assembly owns neither an `InitializeOnLoad` bootstrap nor an `-executeMethod` entry point. Eval is explicitly authorized as dangerous because the activated control protocol writes under the supplied isolated run directory. The complete GUI log is rejected if it contains C# diagnostics, shader compilation failures, or rejected importer registrations.
 
 ## Cases
 

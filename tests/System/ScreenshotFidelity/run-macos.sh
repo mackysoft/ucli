@@ -69,8 +69,12 @@ if [[ "${results_directory}" != /* ]]; then
   echo "--results-dir must be absolute: ${results_directory}" >&2
   exit 2
 fi
+mkdir -p "$(dirname "${results_directory}")"
+if ! mkdir "${results_directory}" 2>/dev/null; then
+  echo "--results-dir must not already exist: ${results_directory}" >&2
+  exit 2
+fi
 
-mkdir -p "${results_directory}"
 results_directory="$(cd "${results_directory}" && pwd -P)"
 run_directory="${results_directory}/work"
 test_repository="${run_directory}/repository"
@@ -84,8 +88,8 @@ oracle="${oracle_directory}/screenshot-fidelity-oracle"
 ucli_directory="${tool_directory}/ucli"
 ucli_executable="${ucli_directory}/MackySoft.Ucli"
 unity_pid=""
-unity_launcher_pid=""
-controller_started=false
+daemon_started=false
+fixture_started=false
 next_sequence=1
 overall_status="error"
 failure_message="System-test runner did not reach completion."
@@ -95,6 +99,7 @@ source_provenance_path="${results_directory}/source-provenance.json"
 source_snapshot="${run_directory}/source"
 build_workspace="${run_directory}/build-source"
 execution_input_manifest_path="${results_directory}/execution-input-manifest.json"
+fixture_ready_path="${run_directory}/fixture-ready.json"
 
 write_runner_status() {
   jq -n \
@@ -108,17 +113,9 @@ write_runner_status() {
 cleanup() {
   local cleanup_exit=$?
   set +e
-  if [[ "${controller_started}" == true && -x "${ucli_executable}" ]]; then
-    "${ucli_executable}" \
-      daemon stop \
-      --projectPath "${unity_project}" \
-      --timeout 10000 \
-      > "${results_directory}/cleanup-daemon-stop.json" \
-      2> "${results_directory}/cleanup-daemon-stop.stderr.log"
-  fi
-
-  if [[ "${controller_started}" == true && -n "${unity_pid}" ]] && kill -0 "${unity_pid}" 2>/dev/null; then
+  if [[ "${fixture_started}" == true && -n "${unity_pid}" ]] && kill -0 "${unity_pid}" 2>/dev/null; then
     local sequence="${next_sequence}"
+    next_sequence=$((next_sequence + 1))
     jq -n --argjson sequence "${sequence}" '{sequence:$sequence,action:"quit",nonce:"cleanup"}' \
       > "${run_directory}/control.json.tmp"
     mv "${run_directory}/control.json.tmp" "${run_directory}/control.json"
@@ -128,20 +125,19 @@ cleanup() {
     done
   fi
 
+  if [[ "${daemon_started}" == true && -x "${ucli_executable}" ]] \
+    && [[ -n "${unity_pid}" ]] && kill -0 "${unity_pid}" 2>/dev/null; then
+    "${ucli_executable}" \
+      daemon stop \
+      --projectPath "${unity_project}" \
+      --timeout 10000 \
+      > "${results_directory}/cleanup-daemon-stop.json" \
+      2> "${results_directory}/cleanup-daemon-stop.stderr.log"
+  fi
+
   if [[ -n "${unity_pid}" ]] && kill -0 "${unity_pid}" 2>/dev/null; then
     kill "${unity_pid}" 2>/dev/null
     wait "${unity_pid}" 2>/dev/null
-  fi
-
-  if [[ -n "${unity_launcher_pid}" && "${unity_launcher_pid}" != "${unity_pid}" ]]; then
-    for _ in $(seq 1 50); do
-      kill -0 "${unity_launcher_pid}" 2>/dev/null || break
-      sleep 0.1
-    done
-    if kill -0 "${unity_launcher_pid}" 2>/dev/null; then
-      kill "${unity_launcher_pid}" 2>/dev/null
-    fi
-    wait "${unity_launcher_pid}" 2>/dev/null
   fi
 
   if [[ "${keep_work_directory}" != true ]]; then
@@ -268,6 +264,7 @@ write_execution_input_manifest() {
 
   : > "${entries_path}"
   append_execution_input_entries "unityProject" "${unity_project}" "${entries_path}"
+  append_execution_input_entries "ucliConfig" "${test_repository}/.ucli" "${entries_path}"
   append_execution_input_entries "ucliHost" "${ucli_directory}" "${entries_path}"
   append_execution_input_entries "windowServerOracle" "${oracle_directory}" "${entries_path}"
 
@@ -302,10 +299,6 @@ wait_for_file() {
     if [[ -n "${unity_pid}" ]] && ! kill -0 "${unity_pid}" 2>/dev/null; then
       fail "Unity exited while waiting for ${path}. See ${results_directory}/unity.log"
     fi
-    if [[ -z "${unity_pid}" && -n "${unity_launcher_pid}" ]] \
-      && ! kill -0 "${unity_launcher_pid}" 2>/dev/null; then
-      fail "Unity launcher exited while waiting for ${path}. See ${results_directory}/unity.log"
-    fi
     if (( waited >= timeout_seconds * 10 )); then
       fail "Timed out waiting for ${path}. See ${results_directory}/unity.log"
     fi
@@ -317,20 +310,40 @@ wait_for_file() {
 wait_for_gui_session() {
   local expected_process_id="$1"
   local timeout_seconds="$2"
+  [[ -n "${expected_process_id}" ]] \
+    || fail "Unity process identity is required before waiting for its uCLI GUI session."
   local waited=0
   local session_path
+  local session_process_id
+  local matched_path
+  local matched_process_id
+  local match_count
   while true; do
+    matched_path=""
+    matched_process_id=""
+    match_count=0
     for session_path in "${test_repository}"/.ucli/local/fingerprints/*/session.json; do
       [[ -f "${session_path}" ]] || continue
-      if jq -e \
-        --argjson expectedProcessId "${expected_process_id}" \
-        '.editorMode == "gui" and .processId == $expectedProcessId' \
-        "${session_path}" >/dev/null 2>&1; then
-        gui_session_path="${session_path}"
-        return
+      jq -e '.editorMode == "gui" and (.processId | type == "number")' \
+        "${session_path}" >/dev/null 2>&1 || continue
+      session_process_id="$(jq -r '.processId' "${session_path}")"
+      if [[ "${session_process_id}" != "${expected_process_id}" ]]; then
+        continue
       fi
+      kill -0 "${session_process_id}" 2>/dev/null || continue
+      matched_path="${session_path}"
+      matched_process_id="${session_process_id}"
+      match_count=$((match_count + 1))
     done
 
+    if [[ "${match_count}" -eq 1 ]]; then
+      gui_session_path="${matched_path}"
+      unity_pid="${matched_process_id}"
+      return
+    fi
+    if [[ "${match_count}" -gt 1 ]]; then
+      fail "Multiple live uCLI GUI sessions were registered for the disposable fixture repository."
+    fi
     if ! kill -0 "${expected_process_id}" 2>/dev/null; then
       fail "Unity exited before its uCLI GUI session was registered. See ${results_directory}/unity.log"
     fi
@@ -356,6 +369,7 @@ send_control() {
   local nonce="$2"
   local sequence="${next_sequence}"
   local response_path
+  next_sequence=$((next_sequence + 1))
   response_path="${run_directory}/responses/$(printf '%04d' "${sequence}").json"
   jq -n \
     --argjson sequence "${sequence}" \
@@ -370,7 +384,6 @@ send_control() {
   fi
   assert_fixture_render_isolation "${response_path}" "${action}"
   control_response_path="${response_path}"
-  next_sequence=$((next_sequence + 1))
 }
 
 capture_reference() {
@@ -605,6 +618,14 @@ rsync -a \
 git -C "${test_repository}" init -q
 git -C "${test_repository}" config user.email "screenshot-fidelity@example.invalid"
 git -C "${test_repository}" config user.name "Screenshot Fidelity Harness"
+mkdir -p "${test_repository}/.ucli"
+jq -n \
+  '{
+    schemaVersion:1,
+    operationPolicy:"dangerous",
+    planTokenMode:"optional",
+    operationAllowlist:["^ucli\\.cs\\.eval$"]
+  }' > "${test_repository}/.ucli/config.json"
 
 if [[ -f "${game_view_sizes_path}" ]]; then
   cp -p "${game_view_sizes_path}" "${game_view_sizes_backup}"
@@ -622,28 +643,11 @@ dotnet publish \
 write_execution_input_manifest
 
 echo "Launching Unity GUI fixture..." >&2
-if [[ -n "${unity_application_path}" ]]; then
-  open -n -W -a "${unity_application_path}" --args \
-    -projectPath "${unity_project}" \
-    -logFile "${results_directory}/unity.log" \
-    -ucliScreenshotFidelityRunDirectory "${run_directory}" &
-  unity_launcher_pid=$!
-else
-  "${unity_executable}" \
-    -projectPath "${unity_project}" \
-    -logFile "${results_directory}/unity.log" \
-    -ucliScreenshotFidelityRunDirectory "${run_directory}" &
-  unity_launcher_pid=$!
-  unity_pid="${unity_launcher_pid}"
-fi
-wait_for_file "${run_directory}/bootstrap-ready.json" 360
-controller_started=true
-bootstrap_process_id="$(jq -r '.processId' "${run_directory}/bootstrap-ready.json")"
-if [[ -n "${unity_pid}" && "${bootstrap_process_id}" != "${unity_pid}" ]]; then
-  fail "Unity fixture process identity changed unexpectedly. Launched=${unity_pid}, Fixture=${bootstrap_process_id}"
-fi
-unity_pid="${bootstrap_process_id}"
-wait_for_gui_session "${unity_pid}" 120
+"${unity_executable}" \
+  -projectPath "${unity_project}" \
+  -logFile "${results_directory}/unity.log" &
+unity_pid=$!
+wait_for_gui_session "${unity_pid}" 360
 cp "${gui_session_path}" "${results_directory}/gui-session.json"
 assert_unity_compile_import_log_clean \
   "${results_directory}/unity.log" \
@@ -656,6 +660,34 @@ invoke_ucli "${results_directory}/daemon-start.json" \
   --editorMode gui \
   --timeout 180000
 assert_command_success "${results_directory}/daemon-start.json"
+daemon_started=true
+
+fixture_start_source="$(jq -nr \
+  --arg directory "${run_directory}" \
+  '$directory | @json | "return MackySoft.Ucli.ScreenshotFidelity.ScreenshotFidelityFixture.Start(" + . + ");"')"
+invoke_ucli \
+  "${results_directory}/fixture-start.json" \
+  eval \
+  --projectPath "${unity_project}" \
+  --mode daemon \
+  --allowDangerous \
+  --source "${fixture_start_source}" \
+  --timeout 30000
+assert_command_success "${results_directory}/fixture-start.json"
+fixture_started=true
+jq -e '
+  .payload.opResults
+  | length == 1
+    and .[0].op == "ucli.cs.eval"
+    and .[0].result.compile.status == "succeeded"
+    and .[0].result.returnValue.kind == "json"
+    and .[0].result.returnValue.value == true
+' "${results_directory}/fixture-start.json" >/dev/null \
+  || fail "Screenshot fidelity fixture did not report a first successful start."
+wait_for_file "${fixture_ready_path}" 60
+fixture_process_id="$(jq -r '.processId' "${fixture_ready_path}")"
+[[ "${fixture_process_id}" == "${unity_pid}" ]] \
+  || fail "Screenshot fidelity fixture started in an unexpected process. Session=${unity_pid}, Fixture=${fixture_process_id}"
 
 invoke_ucli "${results_directory}/unity-console-clear.json" \
   logs unity clear \
@@ -923,6 +955,7 @@ invoke_ucli "${results_directory}/daemon-stop.json" \
   --projectPath "${unity_project}" \
   --timeout 30000
 assert_command_success "${results_directory}/daemon-stop.json"
+daemon_started=false
 send_control "quit" "completed"
 for _ in $(seq 1 100); do
   kill -0 "${unity_pid}" 2>/dev/null || break
@@ -932,7 +965,7 @@ if kill -0 "${unity_pid}" 2>/dev/null; then
   fail "Unity did not exit after the fidelity fixture completed."
 fi
 wait "${unity_pid}" 2>/dev/null || true
-controller_started=false
+fixture_started=false
 
 assert_unity_compile_import_log_clean \
   "${results_directory}/unity.log" \
