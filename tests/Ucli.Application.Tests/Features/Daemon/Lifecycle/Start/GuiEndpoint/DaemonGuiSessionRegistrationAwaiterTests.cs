@@ -134,8 +134,11 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
         var awaiter = CreateAwaiter(sessionStore, pingClient, timeProvider);
 
         var resultTask = awaiter.WaitForSessionAsync(unityProject, expectedProcessId: 4321, WaitTimeout).AsTask();
-        await TestAwaiter.WaitAsync(firstRead.Task, "first session read", TimeSpan.FromSeconds(5));
-        await timeProvider.WaitForTimerDueWithinAsync(WaitTimeout).WaitAsync(TimeSpan.FromSeconds(1));
+        await TestAwaiter.WaitAsync(firstRead.Task, "first session read", SignalWaitTimeout);
+        await TestAwaiter.WaitAsync(
+            timeProvider.WaitForTimerDueWithinAsync(WaitTimeout),
+            "Session mismatch deadline timer",
+            SignalWaitTimeout);
         timeProvider.Advance(WaitTimeout);
 
         var result = await TestAwaiter.WaitAsync(resultTask, "session mismatch timeout", TimeSpan.FromSeconds(5));
