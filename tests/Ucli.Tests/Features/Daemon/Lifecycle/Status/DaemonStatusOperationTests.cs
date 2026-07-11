@@ -38,7 +38,7 @@ public sealed class DaemonStatusOperationTests
             daemonSessionProbe: CreateSessionProbe(sessionStore, pingInfoClient),
             reachabilityClassifier: new DaemonReachabilityClassifier(),
             daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore),
-            timeProvider: TimeProvider.System);
+            timeProvider: new ManualTimeProvider());
 
         var result = await operation.GetStatusAsync(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
@@ -85,7 +85,7 @@ public sealed class DaemonStatusOperationTests
             daemonSessionProbe: CreateSessionProbe(sessionStore, pingInfoClient),
             reachabilityClassifier: new DaemonReachabilityClassifier(),
             daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore),
-            timeProvider: TimeProvider.System);
+            timeProvider: new ManualTimeProvider());
 
         var result = await operation.GetStatusAsync(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
@@ -141,7 +141,7 @@ public sealed class DaemonStatusOperationTests
             daemonSessionProbe: CreateSessionProbe(sessionStore, pingInfoClient),
             reachabilityClassifier: new DaemonReachabilityClassifier(),
             daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore),
-            timeProvider: TimeProvider.System);
+            timeProvider: new ManualTimeProvider());
 
         var result = await operation.GetStatusAsync(
             context,
@@ -177,7 +177,7 @@ public sealed class DaemonStatusOperationTests
                 new RecordingDaemonPingInfoClient(new TimeoutException("probe timeout"))),
             reachabilityClassifier: new DaemonReachabilityClassifier(),
             daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore),
-            timeProvider: TimeProvider.System);
+            timeProvider: new ManualTimeProvider());
 
         var result = await operation.GetStatusAsync(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
@@ -216,7 +216,7 @@ public sealed class DaemonStatusOperationTests
                 new RecordingDaemonPingInfoClient(new TimeoutException("probe timeout"))),
             reachabilityClassifier: new DaemonReachabilityClassifier(),
             daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore),
-            timeProvider: TimeProvider.System);
+            timeProvider: new ManualTimeProvider());
 
         var result = await operation.GetStatusAsync(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
@@ -250,7 +250,7 @@ public sealed class DaemonStatusOperationTests
                 new RecordingDaemonPingInfoClient(new SocketException((int)SocketError.ConnectionRefused))),
             reachabilityClassifier: new DaemonReachabilityClassifier(),
             daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore),
-            timeProvider: TimeProvider.System);
+            timeProvider: new ManualTimeProvider());
 
         var result = await operation.GetStatusAsync(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
@@ -281,7 +281,7 @@ public sealed class DaemonStatusOperationTests
                 new RecordingDaemonPingInfoClient(new InvalidOperationException("broken pipe"))),
             reachabilityClassifier: new DaemonReachabilityClassifier(),
             daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore),
-            timeProvider: TimeProvider.System);
+            timeProvider: new ManualTimeProvider());
 
         var result = await operation.GetStatusAsync(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
@@ -311,7 +311,7 @@ public sealed class DaemonStatusOperationTests
             reachabilityClassifier: new DaemonReachabilityClassifier(),
             daemonSessionDiagnosisResolver: new ThrowingDaemonSessionDiagnosisResolver(
                 new InvalidOperationException("diagnosis store failed")),
-            timeProvider: TimeProvider.System);
+            timeProvider: new ManualTimeProvider());
 
         var result = await operation.GetStatusAsync(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
@@ -344,7 +344,7 @@ public sealed class DaemonStatusOperationTests
                 new UnexpectedDaemonPingInfoClient("No session exists.")),
             reachabilityClassifier: new DaemonReachabilityClassifier(),
             daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore),
-            timeProvider: TimeProvider.System);
+            timeProvider: new ManualTimeProvider());
 
         var result = await operation.GetStatusAsync(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
@@ -378,7 +378,7 @@ public sealed class DaemonStatusOperationTests
                 new UnexpectedDaemonPingInfoClient("No session exists.")),
             reachabilityClassifier: new DaemonReachabilityClassifier(),
             daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore),
-            timeProvider: TimeProvider.System);
+            timeProvider: new ManualTimeProvider());
 
         var result = await operation.GetStatusAsync(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
@@ -411,7 +411,7 @@ public sealed class DaemonStatusOperationTests
                 new RecordingDaemonPingInfoClient(new SocketException((int)SocketError.ConnectionRefused))),
             reachabilityClassifier: new DaemonReachabilityClassifier(),
             daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore),
-            timeProvider: TimeProvider.System);
+            timeProvider: new ManualTimeProvider());
 
         var result = await operation.GetStatusAsync(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
@@ -451,7 +451,7 @@ public sealed class DaemonStatusOperationTests
                 new RecordingDaemonPingInfoClient(new SocketException((int)SocketError.ConnectionRefused))),
             reachabilityClassifier: new DaemonReachabilityClassifier(),
             daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore),
-            timeProvider: TimeProvider.System);
+            timeProvider: new ManualTimeProvider());
 
         var result = await operation.GetStatusAsync(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
@@ -487,7 +487,7 @@ public sealed class DaemonStatusOperationTests
                 new RecordingDaemonPingInfoClient(IpcPingResponseTestFactory.Create(projectFingerprint: context.ProjectFingerprint))),
             reachabilityClassifier: new DaemonReachabilityClassifier(),
             daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore),
-            timeProvider: TimeProvider.System);
+            timeProvider: new ManualTimeProvider());
 
         var result = await operation.GetStatusAsync(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
