@@ -11,7 +11,9 @@ using MackySoft.Ucli.Infrastructure.Storage;
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Implements unix-domain-socket transport accept loop for Unity IPC server. </summary>
-    internal sealed class UnixDomainSocketUnityIpcTransportListener : IUnityIpcTransportListener
+    internal sealed class UnixDomainSocketUnityIpcTransportListener :
+        IUnityIpcTransportListener,
+        IUnityIpcTransportRunReservation
     {
         private const string EndpointOwnershipLockDirectoryPrefix = "ucli-ipc-lock-";
 
@@ -20,9 +22,14 @@ namespace MackySoft.Ucli.Unity.Ipc
         private static readonly Dictionary<string, EndpointOwnershipState> ActiveEndpointOwners =
             new Dictionary<string, EndpointOwnershipState>(StringComparer.Ordinal);
 
+        private static readonly SemaphoreSlim EndpointOwnershipClaimGate = new SemaphoreSlim(1, 1);
+
         private static readonly TimeSpan EndpointOwnershipAcquireTimeout = TimeSpan.FromSeconds(1);
 
         private readonly object syncRoot = new object();
+
+        private readonly Dictionary<CancellationToken, RunReservation> runReservations =
+            new Dictionary<CancellationToken, RunReservation>();
 
         private readonly IDaemonLogger daemonLogger;
 
@@ -84,37 +91,50 @@ namespace MackySoft.Ucli.Unity.Ipc
             Action<UnityIpcConnectionHandleResult> onConnectionCompleted,
             CancellationToken cancellationToken)
         {
-            if (string.IsNullOrWhiteSpace(address))
+            var runReservation = ClaimRunReservation(cancellationToken);
+            try
             {
-                throw new ArgumentException("Socket address must not be empty or whitespace.", nameof(address));
-            }
+                if (string.IsNullOrWhiteSpace(address))
+                {
+                    throw new ArgumentException("Socket address must not be empty or whitespace.", nameof(address));
+                }
 
-            if (connectionHandler == null)
+                if (connectionHandler == null)
+                {
+                    throw new ArgumentNullException(nameof(connectionHandler));
+                }
+
+                if (onStarted == null)
+                {
+                    throw new ArgumentNullException(nameof(onStarted));
+                }
+
+                if (onConnectionCompleted == null)
+                {
+                    throw new ArgumentNullException(nameof(onConnectionCompleted));
+                }
+
+                UnixSocketPathUtilities.ValidateSocketPathLength(address, nameof(address));
+                cancellationToken.ThrowIfCancellationRequested();
+                if (runReservation.IsClosed)
+                {
+                    return;
+                }
+
+                // Native socket and filesystem operations must not capture or block Unity's main-thread context.
+                await Task.Run(() => RunCoreAsync(
+                        address,
+                        connectionHandler,
+                        onStarted,
+                        onConnectionCompleted,
+                        runReservation,
+                        cancellationToken))
+                    .ConfigureAwait(false);
+            }
+            finally
             {
-                throw new ArgumentNullException(nameof(connectionHandler));
+                RemoveRunReservation(runReservation);
             }
-
-            if (onStarted == null)
-            {
-                throw new ArgumentNullException(nameof(onStarted));
-            }
-
-            if (onConnectionCompleted == null)
-            {
-                throw new ArgumentNullException(nameof(onConnectionCompleted));
-            }
-
-            UnixSocketPathUtilities.ValidateSocketPathLength(address, nameof(address));
-            cancellationToken.ThrowIfCancellationRequested();
-
-            // Native socket and filesystem operations must not capture or block Unity's main-thread context.
-            await Task.Run(() => RunCoreAsync(
-                    address,
-                    connectionHandler,
-                    onStarted,
-                    onConnectionCompleted,
-                    cancellationToken))
-                .ConfigureAwait(false);
         }
 
         private async Task RunCoreAsync (
@@ -122,12 +142,19 @@ namespace MackySoft.Ucli.Unity.Ipc
             IUnityIpcConnectionHandler connectionHandler,
             Action onStarted,
             Action<UnityIpcConnectionHandleResult> onConnectionCompleted,
+            RunReservation runReservation,
             CancellationToken cancellationToken)
         {
+            if (runReservation.IsClosed)
+            {
+                return;
+            }
+
             var accessBoundary = new UnixSocketAccessBoundary(address, UcliIpcEndpointNames.DaemonAddressPrefix);
             using var endpointOwnershipLease = await ClaimEndpointOwnershipAsync(
                     address,
                     accessBoundary,
+                    runReservation,
                     cancellationToken)
                 .ConfigureAwait(false);
             using var listener = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
@@ -140,6 +167,17 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 lock (syncRoot)
                 {
+                    if (runReservation.IsClosed)
+                    {
+                        return;
+                    }
+
+                    if (activeListenerSocket != null)
+                    {
+                        throw new InvalidOperationException(
+                            "The Unix domain socket listener already has an active RunAsync generation.");
+                    }
+
                     cancellationToken.ThrowIfCancellationRequested();
                     accessBoundary.PrepareForBind();
                     listener.Bind(new UnixDomainSocketEndPoint(address));
@@ -148,6 +186,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     activeEndpointOwnershipLease = endpointOwnershipLease;
                     activeListenerSocket = listener;
                     activeConnectionGroup = connectionGroup;
+                    RemoveRunReservationWithoutLock(runReservation);
                 }
 
                 cancellationRegistration = cancellationToken.Register(
@@ -223,6 +262,11 @@ namespace MackySoft.Ucli.Unity.Ipc
             UnityIpcTransportConnectionGroup connectionGroup;
             lock (syncRoot)
             {
+                foreach (var runReservation in runReservations.Values)
+                {
+                    runReservation.Close();
+                }
+
                 listenerSocket = activeListenerSocket;
                 if (listenerSocket != null)
                 {
@@ -241,93 +285,164 @@ namespace MackySoft.Ucli.Unity.Ipc
             connectionGroup?.Release();
         }
 
+        /// <inheritdoc />
+        public void ReserveRun (CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            lock (syncRoot)
+            {
+                if (runReservations.ContainsKey(cancellationToken))
+                {
+                    throw new InvalidOperationException(
+                        "The Unix domain socket listener already has a reservation for the specified Run cancellation token.");
+                }
+
+                runReservations.Add(
+                    cancellationToken,
+                    new RunReservation(cancellationToken));
+            }
+        }
+
+        private RunReservation ClaimRunReservation (CancellationToken cancellationToken)
+        {
+            lock (syncRoot)
+            {
+                if (!runReservations.TryGetValue(cancellationToken, out var runReservation))
+                {
+                    runReservation = new RunReservation(cancellationToken);
+                    runReservations.Add(cancellationToken, runReservation);
+                }
+
+                if (!runReservation.TryClaim())
+                {
+                    throw new InvalidOperationException(
+                        "The Unix domain socket listener Run reservation has already been claimed.");
+                }
+
+                return runReservation;
+            }
+        }
+
+        private void RemoveRunReservation (RunReservation runReservation)
+        {
+            lock (syncRoot)
+            {
+                RemoveRunReservationWithoutLock(runReservation);
+            }
+        }
+
+        private void RemoveRunReservationWithoutLock (RunReservation runReservation)
+        {
+            if (runReservations.TryGetValue(runReservation.CancellationToken, out var activeReservation)
+                && ReferenceEquals(activeReservation, runReservation))
+            {
+                runReservations.Remove(runReservation.CancellationToken);
+            }
+        }
+
         private static async ValueTask<EndpointOwnershipLease> ClaimEndpointOwnershipAsync (
             string address,
             UnixSocketAccessBoundary accessBoundary,
+            RunReservation runReservation,
             CancellationToken cancellationToken)
         {
             var normalizedAddress = Path.GetFullPath(address);
             var ownershipToken = new object();
-            lock (EndpointOwnershipSyncRoot)
+            // The cross-process lock is retained for the active endpoint lifetime. This shorter gate serializes
+            // process-local state discovery and registration without making a successor wait on that retained lock.
+            await EndpointOwnershipClaimGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
             {
-                if (ActiveEndpointOwners.TryGetValue(normalizedAddress, out var ownershipState))
+                var processLocalOwnershipLease = ClaimProcessLocalEndpointOwnershipIfPresent(
+                    normalizedAddress,
+                    ownershipToken,
+                    accessBoundary,
+                    runReservation);
+                if (processLocalOwnershipLease != null)
                 {
-                    return ClaimExistingEndpointOwnership(
-                        normalizedAddress,
-                        ownershipToken,
-                        accessBoundary,
-                        ownershipState);
+                    return processLocalOwnershipLease;
                 }
-            }
 
-            var lockPath = ResolveEndpointOwnershipLockPath(normalizedAddress);
-            FileExclusiveLock ownershipLock;
-            try
-            {
-                ownershipLock = await FileExclusiveLock.AcquireAsync(
-                        lockPath,
-                        EndpointOwnershipAcquireTimeout,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-            }
-            catch (TimeoutException exception)
-            {
-                throw new TimeoutException(
-                    $"Unix socket endpoint is already owned by another process. Address={normalizedAddress}",
-                    exception);
-            }
-
-            try
-            {
-                FileSystemAccessBoundary.EnsureSecureFile(lockPath);
-                lock (EndpointOwnershipSyncRoot)
+                var lockPath = ResolveEndpointOwnershipLockPath(normalizedAddress);
+                FileExclusiveLock ownershipLock;
+                try
                 {
-                    if (ActiveEndpointOwners.ContainsKey(normalizedAddress))
+                    ownershipLock = await FileExclusiveLock.AcquireAsync(
+                            lockPath,
+                            EndpointOwnershipAcquireTimeout,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                }
+                catch (TimeoutException exception)
+                {
+                    throw new TimeoutException(
+                        $"Unix socket endpoint is already owned by another process. Address={normalizedAddress}",
+                        exception);
+                }
+
+                try
+                {
+                    FileSystemAccessBoundary.EnsureSecureFile(lockPath);
+                    lock (EndpointOwnershipSyncRoot)
                     {
-                        throw new InvalidOperationException(
-                            $"Unix socket endpoint ownership changed while its cross-process lock was being acquired. Address={normalizedAddress}");
+                        var ownershipState = new EndpointOwnershipState(ownershipLock)
+                        {
+                            ActiveOwnershipToken = ownershipToken,
+                            ActiveRunReservation = runReservation,
+                            LeaseCount = 1,
+                        };
+                        ActiveEndpointOwners.Add(normalizedAddress, ownershipState);
+                        ownershipLock = null;
                     }
 
-                    var ownershipState = new EndpointOwnershipState(ownershipLock)
-                    {
-                        ActiveOwnershipToken = ownershipToken,
-                        LeaseCount = 1,
-                    };
-                    ActiveEndpointOwners.Add(normalizedAddress, ownershipState);
-                    ownershipLock = null;
+                    return new EndpointOwnershipLease(
+                        normalizedAddress,
+                        ownershipToken,
+                        accessBoundary);
+                }
+                finally
+                {
+                    ownershipLock?.Dispose();
+                }
+            }
+            finally
+            {
+                EndpointOwnershipClaimGate.Release();
+            }
+        }
+
+        private static EndpointOwnershipLease ClaimProcessLocalEndpointOwnershipIfPresent (
+            string normalizedAddress,
+            object ownershipToken,
+            UnixSocketAccessBoundary accessBoundary,
+            RunReservation runReservation)
+        {
+            lock (EndpointOwnershipSyncRoot)
+            {
+                if (!ActiveEndpointOwners.TryGetValue(normalizedAddress, out var ownershipState))
+                {
+                    return null;
                 }
 
+                // A lifecycle release can close a reserved Run after it claims process-local ownership but before bind.
+                // The closed reservation authorizes its successor without waiting for the abandoned Run to unwind.
+                if (ownershipState.ActiveOwnershipToken != null
+                    && !ownershipState.AllowsSameProcessSuccessor
+                    && !(ownershipState.ActiveRunReservation?.IsClosed ?? false))
+                {
+                    throw new InvalidOperationException(
+                        $"Unix socket endpoint is already owned by an active listener in this process. Address={normalizedAddress}");
+                }
+
+                ownershipState.ActiveOwnershipToken = ownershipToken;
+                ownershipState.ActiveRunReservation = runReservation;
+                ownershipState.AllowsSameProcessSuccessor = false;
+                ownershipState.LeaseCount++;
                 return new EndpointOwnershipLease(
                     normalizedAddress,
                     ownershipToken,
                     accessBoundary);
             }
-            finally
-            {
-                ownershipLock?.Dispose();
-            }
-        }
-
-        private static EndpointOwnershipLease ClaimExistingEndpointOwnership (
-            string normalizedAddress,
-            object ownershipToken,
-            UnixSocketAccessBoundary accessBoundary,
-            EndpointOwnershipState ownershipState)
-        {
-            if (ownershipState.ActiveOwnershipToken != null
-                && !ownershipState.AllowsSameProcessSuccessor)
-            {
-                throw new InvalidOperationException(
-                    $"Unix socket endpoint is already owned by an active listener in this process. Address={normalizedAddress}");
-            }
-
-            ownershipState.ActiveOwnershipToken = ownershipToken;
-            ownershipState.AllowsSameProcessSuccessor = false;
-            ownershipState.LeaseCount++;
-            return new EndpointOwnershipLease(
-                normalizedAddress,
-                ownershipToken,
-                accessBoundary);
         }
 
         private static void ReleaseEndpointOwnership (
@@ -360,6 +475,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                         if (ownsActiveEndpoint)
                         {
                             ownershipState.ActiveOwnershipToken = null;
+                            ownershipState.ActiveRunReservation = null;
                             ownershipState.AllowsSameProcessSuccessor = false;
                         }
 
@@ -419,6 +535,8 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             public object ActiveOwnershipToken { get; set; }
 
+            public RunReservation ActiveRunReservation { get; set; }
+
             public int LeaseCount { get; set; }
 
             public bool AllowsSameProcessSuccessor { get; set; }
@@ -465,6 +583,32 @@ namespace MackySoft.Ucli.Unity.Ipc
                         normalizedAddress,
                         ownershipToken);
                 }
+            }
+        }
+
+        private sealed class RunReservation
+        {
+            private int isClaimed;
+
+            private int isClosed;
+
+            public RunReservation (CancellationToken cancellationToken)
+            {
+                CancellationToken = cancellationToken;
+            }
+
+            public CancellationToken CancellationToken { get; }
+
+            public bool IsClosed => Volatile.Read(ref isClosed) != 0;
+
+            public bool TryClaim ()
+            {
+                return Interlocked.CompareExchange(ref isClaimed, 1, 0) == 0;
+            }
+
+            public void Close ()
+            {
+                _ = Interlocked.Exchange(ref isClosed, 1);
             }
         }
 

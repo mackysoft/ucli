@@ -25,6 +25,130 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Run_WhenReservedGenerationFailsValidation_ReleasesReservation () => UniTask.ToCoroutine(async () =>
+        {
+            var socketDirectoryPath = Path.Combine(
+                Path.GetTempPath(),
+                UcliIpcEndpointNames.DaemonAddressPrefix + Guid.NewGuid().ToString("N"));
+            var address = Path.Combine(socketDirectoryPath, UcliIpcEndpointNames.UnixSocketFileName);
+            var listener = new UnixDomainSocketUnityIpcTransportListener(
+                NoOpDaemonLogger.Instance,
+                MaximumActiveConnections,
+                ConnectionDrainTimeout);
+            using var cancellationTokenSource = new CancellationTokenSource();
+
+            try
+            {
+                listener.ReserveRun(cancellationTokenSource.Token);
+                ArgumentException validationException = null;
+                try
+                {
+                    await listener.RunAsync(
+                        string.Empty,
+                        new NoOpConnectionHandler(),
+                        () => { },
+                        _ => { },
+                        cancellationTokenSource.Token);
+                }
+                catch (ArgumentException exception)
+                {
+                    validationException = exception;
+                }
+
+                Assert.That(validationException, Is.Not.Null);
+
+                listener.ReserveRun(cancellationTokenSource.Token);
+                listener.Release();
+                await listener.RunAsync(
+                    address,
+                    new NoOpConnectionHandler(),
+                    () => { },
+                    _ => { },
+                    cancellationTokenSource.Token);
+            }
+            finally
+            {
+                listener.Release();
+            }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Run_WhenReservedGenerationIsReleasedBeforeBackgroundEntry_DoesNotStartAndAllowsSuccessor () => UniTask.ToCoroutine(async () =>
+        {
+            if (Application.platform == RuntimePlatform.WindowsEditor)
+            {
+                return;
+            }
+
+            var socketDirectoryPath = Path.Combine(
+                Path.GetTempPath(),
+                UcliIpcEndpointNames.DaemonAddressPrefix + Guid.NewGuid().ToString("N"));
+            var address = Path.Combine(socketDirectoryPath, UcliIpcEndpointNames.UnixSocketFileName);
+            var listener = new UnixDomainSocketUnityIpcTransportListener(
+                NoOpDaemonLogger.Instance,
+                MaximumActiveConnections,
+                ConnectionDrainTimeout);
+            using var releasedCancellationTokenSource = new CancellationTokenSource();
+            using var successorCancellationTokenSource = new CancellationTokenSource();
+            var releasedGenerationStarted = false;
+            var successorStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            Task releasedRunTask = null;
+            Task successorRunTask = null;
+
+            try
+            {
+                listener.ReserveRun(releasedCancellationTokenSource.Token);
+                listener.Release();
+
+                releasedRunTask = listener.RunAsync(
+                    address,
+                    new NoOpConnectionHandler(),
+                    () => releasedGenerationStarted = true,
+                    _ => { },
+                    releasedCancellationTokenSource.Token);
+                await TestAwaiter.WaitAsync(
+                    releasedRunTask,
+                    "Released pre-entry Unix socket generation",
+                    SignalWaitTimeout);
+
+                listener.ReserveRun(successorCancellationTokenSource.Token);
+                successorRunTask = listener.RunAsync(
+                    address,
+                    new NoOpConnectionHandler(),
+                    () => successorStarted.TrySetResult(true),
+                    _ => { },
+                    successorCancellationTokenSource.Token);
+                await TestAwaiter.WaitAsync(
+                    successorStarted.Task,
+                    "Successor after released pre-entry Unix socket generation",
+                    SignalWaitTimeout);
+
+                Assert.That(releasedGenerationStarted, Is.False);
+            }
+            finally
+            {
+                releasedCancellationTokenSource.Cancel();
+                successorCancellationTokenSource.Cancel();
+                listener.Release();
+                if (releasedRunTask != null)
+                {
+                    await WaitForListenerStopAsync(
+                        releasedRunTask,
+                        "Released pre-entry Unix socket generation cleanup");
+                }
+
+                if (successorRunTask != null)
+                {
+                    await WaitForListenerStopAsync(
+                        successorRunTask,
+                        "Successor after pre-entry Unix socket release cleanup");
+                }
+            }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Run_WhenReleasedGenerationCompletesAfterSameListenerRestarts_DoesNotDeleteRestartedSocket () => UniTask.ToCoroutine(async () =>
         {
             await AssertReleasedGenerationDoesNotDeleteRestartedSocketAsync(useSeparateListenerInstance: false);
