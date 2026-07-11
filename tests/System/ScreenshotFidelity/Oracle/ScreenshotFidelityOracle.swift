@@ -1,3 +1,4 @@
+import AppKit
 import CoreGraphics
 import Foundation
 import ImageIO
@@ -212,6 +213,7 @@ private struct WindowMetadata: Codable {
     let imageWidth: Int
     let imageHeight: Int
     let sourceColorSpace: String
+    let applicationFrontmost: Bool
     let capturedAtUtc: String
 }
 
@@ -842,6 +844,8 @@ private func captureWindow(
             "macOS Screen Recording permission is required for the independent WindowServer oracle.")
     }
 
+    try requireFrontmostApplication(processId: processId)
+
     let window = try resolveWindow(processId: processId, title: title)
     let process = Process()
     process.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
@@ -855,6 +859,7 @@ private func captureWindow(
         let error = String(data: data, encoding: .utf8) ?? "unknown screencapture error"
         throw OracleError.failed("screencapture failed with exit \(process.terminationStatus): \(error)")
     }
+    try requireFrontmostApplication(processId: processId)
 
     let image = try PixelImage.load(path: outputPath)
     let opaqueOrColoredPixels = stride(from: 0, to: image.pixels.count, by: 4).reduce(into: 0) { count, offset in
@@ -878,8 +883,16 @@ private func captureWindow(
         imageWidth: image.width,
         imageHeight: image.height,
         sourceColorSpace: image.sourceColorSpace,
+        applicationFrontmost: true,
         capturedAtUtc: iso8601Now())
     try writeJson(metadata, path: metadataPath)
+}
+
+private func requireFrontmostApplication(processId: Int32) throws {
+    guard NSWorkspace.shared.frontmostApplication?.processIdentifier == processId else {
+        throw OracleError.failed(
+            "The Unity fixture application is not frontmost; its presentation focus state is not stable yet.")
+    }
 }
 
 private func resolveWindow(processId: Int32, title: String) throws -> ResolvedWindow {

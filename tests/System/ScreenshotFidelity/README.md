@@ -30,7 +30,7 @@ WindowServer's rounded window mask can make the outer corner pixels non-opaque. 
 - `jq`, `rsync`, `nuget` (or `nuget.exe`), and `system_profiler`
 - a licensed Unity Editor that can open the copied `src/Ucli.Unity` project
 
-The Unity window must remain on-screen and unminimized. A locked desktop, missing Screen Recording permission, an ambiguous window, an empty OS capture, an unknown image color space, or a missing fixture border fails the lane.
+The Unity window must remain on-screen and unminimized. Each WindowServer reference waits until the Unity fixture process is frontmost, and the Scene fixture fixes its selected object and transform tool before measurement. A locked desktop, missing Screen Recording permission, an ambiguous window, an empty OS capture, an unknown image color space, or a missing fixture border fails the lane.
 
 ## Run
 

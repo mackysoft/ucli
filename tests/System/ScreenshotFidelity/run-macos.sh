@@ -472,6 +472,19 @@ displayed_excluded_overlays() {
   jq -c '(.displayedExcludedOverlays // []) | sort' "${response_path}"
 }
 
+assert_scene_fixture_state_unchanged() {
+  local before_path="$1"
+  local after_path="$2"
+  local context="$3"
+  local before_state="${run_directory}/scene-state-before.json"
+  local after_state="${run_directory}/scene-state-after.json"
+
+  jq '{windowInstanceId,sceneTool,sceneSelectionInstanceId}' "${before_path}" > "${before_state}"
+  jq '{windowInstanceId,sceneTool,sceneSelectionInstanceId}' "${after_path}" > "${after_state}"
+  cmp -s "${before_state}" "${after_state}" \
+    || fail "${context} changed the SceneView tool, selection, or window identity."
+}
+
 snapshot_screenshot_artifacts() {
   find "${test_repository}/.ucli" -type f -path '*/artifacts/screenshot/*' -exec shasum -a 256 {} \; 2>/dev/null \
     | LC_ALL=C sort
@@ -654,6 +667,10 @@ assert_command_success "${scene_directory}/command.json"
 copy_artifact_from_result "${scene_directory}/command.json" "${scene_directory}/artifact.png"
 send_control "snapshotScene" "scene-current"
 cp "${control_response_path}" "${scene_directory}/fixture-after.json"
+assert_scene_fixture_state_unchanged \
+  "${scene_directory}/fixture-before.json" \
+  "${scene_directory}/fixture-after.json" \
+  "Scene positive capture"
 [[ "$(jq -r '.overlayMenuDisplayed' "${control_response_path}")" == "false" ]] \
   || fail "Scene Overlay Menu became visible during positive fidelity capture."
 assert_no_excluded_overlays "${control_response_path}" "Scene positive fixture after capture"
@@ -697,6 +714,10 @@ assert_overlay_failure \
   "Displayed SceneView Overlay Menu"
 send_control "snapshotScene" "scene-overlay-menu-after-command"
 cp "${control_response_path}" "${overlay_directory}/fixture-after-command.json"
+assert_scene_fixture_state_unchanged \
+  "${overlay_directory}/fixture-before.json" \
+  "${overlay_directory}/fixture-after-command.json" \
+  "Scene Overlay Menu capture"
 [[ "$(jq -r '.overlayMenuDisplayed' "${control_response_path}")" == "true" ]] \
   || fail "Scene screenshot command changed the displayed Overlay Menu state."
 assert_no_excluded_overlays "${control_response_path}" "Scene Overlay Menu fixture after command"
@@ -743,6 +764,10 @@ assert_overlay_failure \
   "Displayed configurable Overlay panel or toolbar"
 send_control "snapshotScene" "scene-configurable-overlay-after-command"
 cp "${control_response_path}" "${panel_directory}/fixture-after-command.json"
+assert_scene_fixture_state_unchanged \
+  "${panel_directory}/fixture-before.json" \
+  "${panel_directory}/fixture-after-command.json" \
+  "Scene configurable Overlay capture"
 [[ "$(jq -r '.overlayMenuDisplayed' "${control_response_path}")" == "false" ]] \
   || fail "Overlay Menu appeared after the configurable Overlay negative command."
 [[ "$(displayed_excluded_overlays "${control_response_path}")" == "${panel_overlay_state}" ]] \

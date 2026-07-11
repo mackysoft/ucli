@@ -266,6 +266,8 @@ namespace MackySoft.Ucli.ScreenshotFidelity
             sceneView.sceneLighting = false;
             sceneView.LookAtDirect(Vector3.zero, Quaternion.identity, 5f);
             sceneView.orthographic = true;
+            Selection.activeTransform = patternTransform;
+            Tools.current = Tool.Move;
             sceneView.Show();
             sceneView.Focus();
 
@@ -675,6 +677,8 @@ namespace MackySoft.Ucli.ScreenshotFidelity
             {
                 response.displayedExcludedOverlays = GetDisplayedExcludedOverlayNames(sceneView);
                 response.displayedExcludedOverlayCount = response.displayedExcludedOverlays.Length;
+                response.sceneTool = Tools.current.ToString();
+                response.sceneSelectionInstanceId = Selection.activeInstanceID;
             }
             else
             {
@@ -1335,6 +1339,10 @@ namespace MackySoft.Ucli.ScreenshotFidelity
             public int displayedExcludedOverlayCount;
 
             public string[] displayedExcludedOverlays;
+
+            public string sceneTool;
+
+            public int sceneSelectionInstanceId;
 
             public int gameSelectedSizeIndex;
 
