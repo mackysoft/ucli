@@ -284,6 +284,53 @@ public sealed class UnityOneshotIpcClientCleanupTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task SendAsync_WhenForceKillCannotConfirmExit_DoesNotRunPostExitLockCleanupAndAppendsDiagnostic ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "force-kill-exit-unconfirmed");
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath);
+        var lockFilePath = scope.GetPath("UnityProject/Temp/UnityLockfile");
+        var processHandle = StubUnityBatchmodeProcessHandle.CreateNonExiting();
+        processHandle.TerminateHandler = static (_, _) => Task.FromResult(ProcessTerminationResult.ForceKillFailed);
+        var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
+        var transportClient = new RecordingUnityIpcTransportClient(request =>
+        {
+            return request.Method switch
+            {
+                IpcMethodNames.Ping => CreatePingResponse(request.RequestId),
+                IpcMethodNames.OpsRead => throw new EndOfStreamException("IPC stream ended before a complete frame was read."),
+                IpcMethodNames.Shutdown => CreateShutdownResponse(request.RequestId),
+                _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
+            };
+        });
+        var projectLockPreflightService = CreateProjectLockPreflightService(
+            UnityProjectLockFileProbeResult.Locked(lockFilePath));
+        var client = new UnityOneshotIpcClient(
+            launcher,
+            transportClient,
+            new StubProjectLifecycleLockProvider(),
+            projectLockPreflightService,
+            TimeSpan.FromMilliseconds(20),
+            TimeSpan.FromMilliseconds(1));
+
+        var result = await client.SendAsync(
+            unityProject,
+            CreateDispatchRequest(),
+            TimeSpan.FromSeconds(30),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
+        Assert.StartsWith(
+            "Failed to execute Unity oneshot IPC request. IPC stream ended before a complete frame was read.",
+            result.Message,
+            StringComparison.Ordinal);
+        Assert.Contains("could not be confirmed stopped", result.Message, StringComparison.Ordinal);
+        Assert.Empty(projectLockPreflightService.CleanupInvocations);
+        UnityBatchmodeProcessHandleAssert.TerminatedOnceWithMode(processHandle, ProcessTerminationMode.GracefulThenKill);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task SendAsync_WhenCleanupTerminatesProcessAndStaleUnityLockFileRemains_ReturnsOriginalFailureWithCleanupDiagnostic ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "request-timeout-stale-lock");

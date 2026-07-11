@@ -26,6 +26,8 @@ namespace MackySoft.Ucli.UnityIntegration.Ipc.Clients;
 internal sealed class UnityOneshotIpcClient : IUnityIpcClient
 {
     private const string CleanupShutdownRequestedBy = "ucli-oneshot-cleanup";
+    private const string ForceKillExitUnconfirmedDiagnostic =
+        "Unity oneshot process could not be confirmed stopped after forced termination.";
 
     private delegate ValueTask<IpcResponse> SendPreparedIpcRequestAsync (
         ResolvedUnityProjectContext unityProject,
@@ -327,7 +329,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                 }
             }
 
-            return await AppendPostTerminationLockFileDiagnosticAsync(result, terminationResult, unityProject).ConfigureAwait(false);
+            return await AppendPostTerminationDiagnosticAsync(result, terminationResult, unityProject).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -746,12 +748,12 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         return $"{primaryMessage}{Environment.NewLine}{fallbackMessage}";
     }
 
-    /// <summary> Appends a post-exit Unity lock-file cleanup diagnostic after uCLI has terminated a oneshot Unity process. </summary>
-    /// <param name="result"> The primary request result. Must be a failure when <paramref name="terminationResult" /> is not <see cref="ProcessTerminationResult.None" />. </param>
+    /// <summary> Appends a process-termination or post-exit lock-file diagnostic without replacing the primary result. </summary>
+    /// <param name="result"> The primary request result. </param>
     /// <param name="terminationResult"> The observed termination result. </param>
     /// <param name="unityProject"> The resolved Unity project context. </param>
-    /// <returns> The original result, or an equivalent failure with a post-exit cleanup diagnostic appended. </returns>
-    private ValueTask<UnityRequestExecutionResult> AppendPostTerminationLockFileDiagnosticAsync (
+    /// <returns> The original result, or an equivalent failure with a termination diagnostic appended. </returns>
+    private ValueTask<UnityRequestExecutionResult> AppendPostTerminationDiagnosticAsync (
         UnityRequestExecutionResult result,
         ProcessTerminationResult terminationResult,
         ResolvedUnityProjectContext unityProject)
@@ -761,8 +763,26 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
             return ValueTask.FromResult(result);
         }
 
+        if (terminationResult == ProcessTerminationResult.ForceKillFailed)
+        {
+            return ValueTask.FromResult(AppendFailureDiagnostic(
+                result,
+                ForceKillExitUnconfirmedDiagnostic));
+        }
+
         // NOTE: Post-exit UnityLockfile cleanup is diagnostic only; the IPC failure code and outcome remain unchanged.
         return AppendPostUnityProcessExitLockFileDiagnosticAsync(result, unityProject);
+    }
+
+    private static UnityRequestExecutionResult AppendFailureDiagnostic (
+        UnityRequestExecutionResult result,
+        string diagnostic)
+    {
+        var failure = result.FailureInfo!;
+        return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.FromCodeAndMessage(
+            failure.Code,
+            $"{failure.Message}{Environment.NewLine}{diagnostic}",
+            failure.StartupFailure));
     }
 
     private async ValueTask<UnityRequestExecutionResult> AppendPostUnityProcessExitLockFileDiagnosticAsync (
