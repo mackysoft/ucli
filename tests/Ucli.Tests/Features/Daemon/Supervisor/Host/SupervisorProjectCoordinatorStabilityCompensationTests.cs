@@ -226,6 +226,7 @@ public sealed class SupervisorProjectCoordinatorStabilityCompensationTests
         var diagnosisStore = new RecordingDaemonDiagnosisStore();
         var sessionStore = new RecordingDaemonSessionStore();
         var runtimeLogger = new SupervisorRuntimeLogger();
+        var timeProvider = new ManualTimeProvider();
         var runtimeLogWriteGate = GetRuntimeLogWriteGate(runtimeLogger);
         await runtimeLogWriteGate.WaitAsync();
         var diagnosisWriter = new SupervisorDiagnosisWriter(diagnosisStore);
@@ -238,14 +239,14 @@ public sealed class SupervisorProjectCoordinatorStabilityCompensationTests
                 pingClient,
                 diagnosisWriter,
                 new DaemonCompensationOperationOwner(),
-                TimeProvider.System),
+                timeProvider),
             new SupervisorExitHandler(
                 sessionStore,
                 new RecordingDaemonArtifactCleaner(),
                 diagnosisWriter,
                 runtimeLogger),
             runtimeLogger,
-            TimeProvider.System);
+            timeProvider);
 
         var stopStartedBeforeLogRelease = false;
         try

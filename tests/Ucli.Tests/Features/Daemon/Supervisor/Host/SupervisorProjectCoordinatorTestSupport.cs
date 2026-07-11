@@ -22,7 +22,7 @@ internal static class SupervisorProjectCoordinatorTestSupport
         IDaemonArtifactCleaner? artifactCleaner = null,
         TimeProvider? timeProvider = null)
     {
-        var effectiveTimeProvider = timeProvider ?? TimeProvider.System;
+        var effectiveTimeProvider = timeProvider ?? new ManualTimeProvider();
         var runtimeLogger = new SupervisorRuntimeLogger();
         var stabilityVerifier = new SupervisorStabilityVerifier(
             pingClient,
