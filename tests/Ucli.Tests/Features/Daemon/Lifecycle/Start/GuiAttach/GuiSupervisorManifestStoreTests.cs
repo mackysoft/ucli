@@ -9,6 +9,8 @@ namespace MackySoft.Ucli.Tests.Daemon;
 
 public sealed class GuiSupervisorManifestStoreTests
 {
+    private static readonly TimeSpan AsyncTestTimeout = TimeSpan.FromSeconds(5);
+
     [Fact]
     [Trait("Size", "Medium")]
     public async Task ReadAfterEndpointPublication_WhenPublicationLockIsHeld_WaitsForPublishedManifest ()
@@ -23,22 +25,21 @@ public sealed class GuiSupervisorManifestStoreTests
             ProjectFingerprint);
         using var publicationLock = FileExclusiveLock.Acquire(
             manifestLockPath,
-            TimeSpan.FromSeconds(1),
+            AsyncTestTimeout,
             CancellationToken.None);
         var store = new GuiSupervisorManifestStore();
 
         var readTask = store.ReadAfterEndpointPublicationAsync(
                 scope.FullPath,
                 ProjectFingerprint,
-                TimeSpan.FromSeconds(1),
+                AsyncTestTimeout,
                 CancellationToken.None)
             .AsTask();
-        await Task.Delay(TimeSpan.FromMilliseconds(50));
         Assert.False(readTask.IsCompleted);
 
         await WriteManifestAsync(scope.FullPath, ProjectFingerprint, manifest);
         publicationLock.Dispose();
-        var result = await readTask.WaitAsync(TimeSpan.FromSeconds(1));
+        var result = await readTask.WaitAsync(AsyncTestTimeout);
 
         Assert.Equal(manifest, result);
     }

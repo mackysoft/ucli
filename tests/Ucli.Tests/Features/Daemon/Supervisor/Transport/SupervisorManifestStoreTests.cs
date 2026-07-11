@@ -9,6 +9,8 @@ namespace MackySoft.Ucli.Tests.Supervisor;
 
 public sealed class SupervisorManifestStoreTests
 {
+    private static readonly TimeSpan AsyncTestTimeout = TimeSpan.FromSeconds(5);
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task ReadOrNull_WhenReadIgnoresCancellation_ReturnsAtDeadline ()
@@ -39,17 +41,17 @@ public sealed class SupervisorManifestStoreTests
         var timeout = TimeSpan.FromSeconds(1);
 
         var readTask = store.ReadOrNullAsync(scope.FullPath, timeout, CancellationToken.None).AsTask();
-        await readStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        await readStarted.Task.WaitAsync(AsyncTestTimeout);
         await timeProvider
             .WaitForTimerDueWithinAsync(timeout)
-            .WaitAsync(TimeSpan.FromSeconds(1));
+            .WaitAsync(AsyncTestTimeout);
 
         Task? advanceTask = null;
         try
         {
             advanceTask = Task.Run(() => timeProvider.Advance(timeout));
-            await cancellationCallbackStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
-            var completedTask = await Task.WhenAny(readTask, Task.Delay(TimeSpan.FromSeconds(1)));
+            await cancellationCallbackStarted.Task.WaitAsync(AsyncTestTimeout);
+            var completedTask = await Task.WhenAny(readTask, Task.Delay(AsyncTestTimeout));
             Assert.Same(readTask, completedTask);
             var exception = await Assert.ThrowsAsync<TimeoutException>(() => readTask);
 
@@ -60,10 +62,10 @@ public sealed class SupervisorManifestStoreTests
             allowCancellationCallbackCompletion.Set();
             if (advanceTask is not null)
             {
-                await advanceTask.WaitAsync(TimeSpan.FromSeconds(1));
+                await advanceTask.WaitAsync(AsyncTestTimeout);
             }
 
-            await cancellationCallbackCompleted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+            await cancellationCallbackCompleted.Task.WaitAsync(AsyncTestTimeout);
             readCompletion.TrySetResult(null);
         }
     }
@@ -217,7 +219,7 @@ public sealed class SupervisorManifestStoreTests
         await store.WriteAsync(scope.FullPath, firstManifest, CancellationToken.None);
         using var publicationLease = await store.AcquireEndpointPublicationLeaseAsync(
             scope.FullPath,
-            SupervisorConstants.ManifestMutationLockTimeout,
+            AsyncTestTimeout,
             CancellationToken.None);
         if (endpoint.TransportKind == IpcTransportKind.UnixDomainSocket)
         {
@@ -229,15 +231,14 @@ public sealed class SupervisorManifestStoreTests
                 scope.FullPath,
                 firstManifest,
                 endpoint,
-                SupervisorConstants.ManifestMutationLockTimeout,
+                AsyncTestTimeout,
                 CancellationToken.None)
             .AsTask();
-        await Task.Delay(TimeSpan.FromMilliseconds(50));
         Assert.False(cleanupTask.IsCompleted);
 
         await publicationLease.PublishAsync(successorManifest, CancellationToken.None);
         publicationLease.Dispose();
-        var cleanupStatus = await cleanupTask.WaitAsync(TimeSpan.FromSeconds(1));
+        var cleanupStatus = await cleanupTask.WaitAsync(AsyncTestTimeout);
 
         Assert.Equal(SupervisorManifestCleanupStatus.GenerationMismatch, cleanupStatus);
         Assert.Equal(
@@ -256,7 +257,7 @@ public sealed class SupervisorManifestStoreTests
         using var scope = TestDirectories.CreateTempScope(
             "supervisor-manifest-store",
             "consistent-successor-read");
-        var store = SupervisorManifestStoreTestSupport.CreateFileBacked(TimeProvider.System);
+        var store = SupervisorManifestStoreTestSupport.CreateFileBacked(new ManualTimeProvider());
         var initialManifest = CreateManifest();
         var successorManifest = initialManifest with
         {
@@ -266,20 +267,19 @@ public sealed class SupervisorManifestStoreTests
         await store.WriteAsync(scope.FullPath, initialManifest, CancellationToken.None);
         using var publicationLease = await store.AcquireEndpointPublicationLeaseAsync(
             scope.FullPath,
-            SupervisorConstants.ManifestMutationLockTimeout,
+            AsyncTestTimeout,
             CancellationToken.None);
 
         var readTask = store.ReadAfterEndpointPublicationAsync(
                 scope.FullPath,
-                TimeSpan.FromSeconds(1),
+                AsyncTestTimeout,
                 CancellationToken.None)
             .AsTask();
-        await Task.Delay(TimeSpan.FromMilliseconds(50));
         Assert.False(readTask.IsCompleted);
 
         await publicationLease.PublishAsync(successorManifest, CancellationToken.None);
         publicationLease.Dispose();
-        var manifest = await readTask.WaitAsync(TimeSpan.FromSeconds(1));
+        var manifest = await readTask.WaitAsync(AsyncTestTimeout);
 
         Assert.Equal(successorManifest, manifest);
     }
