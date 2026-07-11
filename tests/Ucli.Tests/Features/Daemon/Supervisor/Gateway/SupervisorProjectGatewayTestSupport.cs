@@ -1,3 +1,4 @@
+using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
@@ -14,19 +15,20 @@ internal static class SupervisorProjectGatewayTestSupport
         string repositoryRoot,
         TimeProvider? timeProvider = null)
     {
+        var effectiveTimeProvider = timeProvider ?? new ManualTimeProvider();
         var manifest = SupervisorClientTestSupport.CreateManifest();
         var manifestStore = SupervisorManifestStoreTestSupport.CreateFileBacked(
-            timeProvider ?? TimeProvider.System);
+            effectiveTimeProvider);
         await manifestStore.WriteAsync(repositoryRoot, manifest, CancellationToken.None).ConfigureAwait(false);
 
         var transportClient = new StubIpcTransportClient();
-        var client = new SupervisorClient(transportClient, timeProvider ?? TimeProvider.System);
+        var client = new SupervisorClient(transportClient, effectiveTimeProvider);
         var launcher = new RecordingSupervisorProcessLauncher();
         var gateway = CreateGateway(
             manifestStore,
             client,
             launcher,
-            timeProvider);
+            effectiveTimeProvider);
 
         return new SupervisorProjectGatewayScenario(
             repositoryRoot,
@@ -42,7 +44,7 @@ internal static class SupervisorProjectGatewayTestSupport
         RecordingSupervisorProcessLauncher launcher,
         TimeProvider? timeProvider = null)
     {
-        var effectiveTimeProvider = timeProvider ?? TimeProvider.System;
+        var effectiveTimeProvider = timeProvider ?? new ManualTimeProvider();
         return new SupervisorProjectGateway(
             new SupervisorBootstrapper(
                 manifestStore,
