@@ -1,0 +1,36 @@
+{
+  "protocolVersion": 1,
+  "command": "screenshot.game",
+  "status": "ok",
+  "exitCode": 0,
+  "message": "Screenshot capture completed.",
+  "payload": {
+    "project": {
+      "projectPath": "<projectPath>",
+      "projectFingerprint": "<projectFingerprint>",
+      "unityVersion": "6000.0.77f1"
+    },
+    "capture": {
+      "target": "game",
+      "sizeMode": "requestedResolution",
+      "requestedWidth": 1920,
+      "requestedHeight": 1080,
+      "width": 1920,
+      "height": 1080,
+      "colorSpace": "linear",
+      "lifecycleStateAtCapture": "playmode",
+      "compileStateAtCapture": "ready",
+      "domainReloadGeneration": 7,
+      "playModeState": "playing"
+    },
+    "artifact": {
+      "kind": "screenshot",
+      "mediaType": "image/png",
+      "path": ".ucli/local/fingerprints/<projectFingerprint>/artifacts/screenshot/20260711_010203Z_01234567/screenshot.png",
+      "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sizeBytes": 48321,
+      "createdAtUtc": "2026-07-11T01:02:03+00:00"
+    }
+  },
+  "errors": []
+}

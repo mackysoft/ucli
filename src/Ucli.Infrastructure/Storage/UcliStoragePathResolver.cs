@@ -491,6 +491,92 @@ public static class UcliStoragePathResolver
             UcliStoragePathNames.BuildArtifactsDirectoryName);
     }
 
+    /// <summary> Resolves the fingerprint-scoped screenshot artifact directory. </summary>
+    /// <param name="storageRoot"> The storage-root path. </param>
+    /// <param name="projectFingerprint"> The project fingerprint value. </param>
+    /// <returns> The absolute screenshot artifact directory path. </returns>
+    public static string ResolveScreenshotArtifactsDirectory (
+        string storageRoot,
+        string projectFingerprint)
+    {
+        return Path.Combine(
+            ResolveArtifactsDirectory(storageRoot, projectFingerprint),
+            UcliStoragePathNames.ScreenshotDirectoryName);
+    }
+
+    /// <summary> Resolves one capture-scoped screenshot artifact directory. </summary>
+    /// <param name="storageRoot"> The storage-root path. </param>
+    /// <param name="projectFingerprint"> The project fingerprint value. </param>
+    /// <param name="captureId"> The capture identifier. </param>
+    /// <returns> The absolute capture artifact directory path. </returns>
+    public static string ResolveScreenshotCaptureArtifactsDirectory (
+        string storageRoot,
+        string projectFingerprint,
+        string captureId)
+    {
+        return Path.Combine(
+            ResolveScreenshotArtifactsDirectory(storageRoot, projectFingerprint),
+            NormalizeCaptureId(captureId));
+    }
+
+    /// <summary> Resolves one final screenshot PNG artifact path. </summary>
+    /// <param name="storageRoot"> The storage-root path. </param>
+    /// <param name="projectFingerprint"> The project fingerprint value. </param>
+    /// <param name="captureId"> The capture identifier. </param>
+    /// <returns> The absolute screenshot PNG artifact path. </returns>
+    public static string ResolveScreenshotCaptureArtifactPath (
+        string storageRoot,
+        string projectFingerprint,
+        string captureId)
+    {
+        return Path.Combine(
+            ResolveScreenshotCaptureArtifactsDirectory(storageRoot, projectFingerprint, captureId),
+            UcliStoragePathNames.ScreenshotPngFileName);
+    }
+
+    /// <summary> Resolves the fingerprint-scoped screenshot work directory. </summary>
+    /// <param name="storageRoot"> The storage-root path. </param>
+    /// <param name="projectFingerprint"> The project fingerprint value. </param>
+    /// <returns> The absolute screenshot work directory path. </returns>
+    public static string ResolveScreenshotWorkDirectory (
+        string storageRoot,
+        string projectFingerprint)
+    {
+        return Path.Combine(
+            ResolveWorkDirectory(storageRoot, projectFingerprint),
+            UcliStoragePathNames.ScreenshotDirectoryName);
+    }
+
+    /// <summary> Resolves one capture-scoped screenshot staging directory. </summary>
+    /// <param name="storageRoot"> The storage-root path. </param>
+    /// <param name="projectFingerprint"> The project fingerprint value. </param>
+    /// <param name="captureId"> The capture identifier. </param>
+    /// <returns> The absolute capture staging directory path. </returns>
+    public static string ResolveScreenshotCaptureStagingDirectory (
+        string storageRoot,
+        string projectFingerprint,
+        string captureId)
+    {
+        return Path.Combine(
+            ResolveScreenshotWorkDirectory(storageRoot, projectFingerprint),
+            NormalizeCaptureId(captureId));
+    }
+
+    /// <summary> Resolves one normalized raw screenshot staging file path. </summary>
+    /// <param name="storageRoot"> The storage-root path. </param>
+    /// <param name="projectFingerprint"> The project fingerprint value. </param>
+    /// <param name="captureId"> The capture identifier. </param>
+    /// <returns> The absolute raw screenshot staging file path. </returns>
+    public static string ResolveScreenshotCaptureRawStagingPath (
+        string storageRoot,
+        string projectFingerprint,
+        string captureId)
+    {
+        return Path.Combine(
+            ResolveScreenshotCaptureStagingDirectory(storageRoot, projectFingerprint, captureId),
+            UcliStoragePathNames.ScreenshotRawStagingFileName);
+    }
+
     /// <summary> Resolves the absolute path to one fingerprint build-work directory under <c>.ucli/local/fingerprints/&lt;projectFingerprint&gt;/work/build</c>. </summary>
     /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
     /// <param name="projectFingerprint"> The project fingerprint value. Must not be <see langword="null" />, empty, or whitespace. </param>
@@ -813,6 +899,39 @@ public static class UcliStoragePathResolver
         }
 
         return normalizedLaunchAttemptId;
+    }
+
+    private static string NormalizeCaptureId (string captureId)
+    {
+        if (string.IsNullOrWhiteSpace(captureId))
+        {
+            throw new ArgumentException("Capture identifier must not be empty.", nameof(captureId));
+        }
+
+        if (!string.Equals(captureId, captureId.Trim(), StringComparison.Ordinal))
+        {
+            throw new ArgumentException("Capture identifier must not contain outer whitespace.", nameof(captureId));
+        }
+
+        for (var i = 0; i < captureId.Length; i++)
+        {
+            var character = captureId[i];
+            if (!IsAsciiLetterOrDigit(character) && character is not '-' and not '_')
+            {
+                throw new ArgumentException(
+                    "Capture identifier must contain only ASCII letters, digits, hyphen, or underscore.",
+                    nameof(captureId));
+            }
+        }
+
+        return captureId;
+    }
+
+    private static bool IsAsciiLetterOrDigit (char value)
+    {
+        return value is (>= 'A' and <= 'Z')
+            or (>= 'a' and <= 'z')
+            or (>= '0' and <= '9');
     }
 
     private static string NormalizeOpsDescribeKey (string opKey)

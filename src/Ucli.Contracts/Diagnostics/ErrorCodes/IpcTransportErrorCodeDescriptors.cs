@@ -22,6 +22,8 @@ internal static class IpcTransportErrorCodeDescriptors
                 UcliCommandIds.LogsDaemonRead,
                 UcliCommandIds.LogsUnityRead,
                 UcliCommandIds.LogsUnityClear,
+                UcliCommandIds.ScreenshotGame,
+                UcliCommandIds.ScreenshotScene,
                 UcliCommandIds.Test,
                 UcliCommandIds.TestRun,
                 UcliCommandIds.Plan,

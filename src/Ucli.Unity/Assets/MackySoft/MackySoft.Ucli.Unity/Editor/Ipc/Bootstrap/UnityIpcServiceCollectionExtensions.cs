@@ -7,6 +7,7 @@ using MackySoft.Ucli.Unity.Execution;
 using MackySoft.Ucli.Unity.Index;
 using MackySoft.Ucli.Unity.Project;
 using MackySoft.Ucli.Unity.Runtime;
+using MackySoft.Ucli.Unity.ScreenshotCapture;
 using Microsoft.Extensions.DependencyInjection;
 using UnityEngine;
 
@@ -173,9 +174,13 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddSingleton<UnityLogsReadQueryEngine>();
             services.AddSingleton<UnityLogsReadResponseFactory>();
             services.AddSingleton<IUnityConsoleClearer, UnityEditorConsoleClearer>();
+            services.AddSingleton<IUnityScreenshotCaptureBackend, UnityEditorScreenshotCaptureBackend>();
+            services.AddSingleton<IScreenshotStagingImageWriter, ScreenshotStagingImageWriter>();
+            services.AddSingleton<IUnityScreenshotCaptureService, UnityScreenshotCaptureService>();
             services.AddSingleton<IUnityIpcMethodHandler, DaemonLogsReadUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodHandler, UnityLogsReadUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodHandler, UnityConsoleClearUnityIpcMethodHandler>();
+            services.AddSingleton<IUnityIpcMethodHandler, ScreenshotCaptureUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodHandler, ShutdownUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcConnectionHandler, UnityIpcConnectionHandler>();
             services.AddSingleton<NamedPipeUnityIpcTransportListener>();

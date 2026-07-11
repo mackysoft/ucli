@@ -60,6 +60,15 @@ public static class UcliCommandIds
     /// <summary> Gets command identifier for <c>logs.unity.clear</c>. </summary>
     public static UcliCommand LogsUnityClear { get; } = new("logs.unity.clear");
 
+    /// <summary> Gets command identifier for <c>screenshot</c>. </summary>
+    public static UcliCommand Screenshot { get; } = new("screenshot");
+
+    /// <summary> Gets command identifier for <c>screenshot.game</c>. </summary>
+    public static UcliCommand ScreenshotGame { get; } = new("screenshot.game");
+
+    /// <summary> Gets command identifier for <c>screenshot.scene</c>. </summary>
+    public static UcliCommand ScreenshotScene { get; } = new("screenshot.scene");
+
     /// <summary> Gets command identifier for <c>codes</c>. </summary>
     public static UcliCommand Codes { get; } = new("codes");
 

@@ -118,6 +118,8 @@ internal static class Program
             CreatePayloadSchema(UcliCommandIds.PlayStatus.Name, CreatePlayStatusPayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.PlayEnter.Name, CreatePlayEnterPayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.PlayExit.Name, CreatePlayExitPayloadSchema()),
+            CreatePayloadSchema(UcliCommandIds.ScreenshotGame.Name, CreateScreenshotGamePayloadSchema()),
+            CreatePayloadSchema(UcliCommandIds.ScreenshotScene.Name, CreateScreenshotScenePayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.DaemonStart.Name, CreateDaemonStartPayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.DaemonStatus.Name, CreateDaemonStatusPayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.TestProfileInit.Name, CreateTestProfileInitPayloadSchema()),
@@ -1384,6 +1386,65 @@ internal static class Program
         return ObjectSchema(
             additionalProperties: false,
             CreatePlayLifecyclePayloadProperties(Required("timeoutMilliseconds", IntegerSchema())));
+    }
+
+    private static Dictionary<string, object?> CreateScreenshotGamePayloadSchema ()
+    {
+        return OneOfSchema(
+            CreateScreenshotPayloadSchema(
+                IpcScreenshotTargetNames.Game,
+                IpcScreenshotSizeModeNames.CurrentSurface,
+                hasRequestedResolution: false),
+            CreateScreenshotPayloadSchema(
+                IpcScreenshotTargetNames.Game,
+                IpcScreenshotSizeModeNames.RequestedResolution,
+                hasRequestedResolution: true));
+    }
+
+    private static Dictionary<string, object?> CreateScreenshotScenePayloadSchema ()
+    {
+        return CreateScreenshotPayloadSchema(
+            IpcScreenshotTargetNames.Scene,
+            IpcScreenshotSizeModeNames.CurrentSurface,
+            hasRequestedResolution: false);
+    }
+
+    private static Dictionary<string, object?> CreateScreenshotPayloadSchema (
+        string target,
+        string sizeMode,
+        bool hasRequestedResolution)
+    {
+        var requestedDimensionSchema = hasRequestedResolution
+            ? PositiveIntegerSchema()
+            : NullSchema();
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("project", ReferenceSchema("../defs/project.schema.json")),
+            Required("capture", ObjectSchema(
+                additionalProperties: false,
+                Required("target", ConstString(target)),
+                Required("sizeMode", ConstString(sizeMode)),
+                Required("requestedWidth", requestedDimensionSchema),
+                Required("requestedHeight", requestedDimensionSchema),
+                Required("width", PositiveIntegerSchema()),
+                Required("height", PositiveIntegerSchema()),
+                Required(
+                    "colorSpace",
+                    EnumSchema(
+                        IpcScreenshotColorSpaceNames.Gamma,
+                        IpcScreenshotColorSpaceNames.Linear)),
+                Required("lifecycleStateAtCapture", StringSchema()),
+                Required("compileStateAtCapture", StringSchema()),
+                Required("domainReloadGeneration", NonNegativeIntegerSchema()),
+                Required("playModeState", StringSchema()))),
+            Required("artifact", ObjectSchema(
+                additionalProperties: false,
+                Required("kind", ConstString("screenshot")),
+                Required("mediaType", ConstString("image/png")),
+                Required("path", StringSchema()),
+                Required("digest", Sha256LowerHexSchema()),
+                Required("sizeBytes", PositiveIntegerSchema()),
+                Required("createdAtUtc", StringSchema()))));
     }
 
     private static Dictionary<string, object?> CreatePlayEnterPayloadSchema ()

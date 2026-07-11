@@ -56,6 +56,7 @@ using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Validation.Parsing;
 using MackySoft.Ucli.Application.Features.Requests.Validate.UseCases.Validate;
+using MackySoft.Ucli.Application.Features.Screenshot.Capture;
 using MackySoft.Ucli.Application.Features.Status.UseCases.Status;
 using MackySoft.Ucli.Application.Features.Status.UseCases.Status.Observation;
 using MackySoft.Ucli.Application.Features.Status.UseCases.Status.Preflight;
@@ -92,6 +93,7 @@ public static class UcliApplicationServiceCollectionExtensions
         services.AddUcliApplicationDaemonServices();
         services.AddUcliApplicationInitServices();
         services.AddUcliApplicationPlayServices();
+        services.AddUcliApplicationScreenshotServices();
         services.AddUcliApplicationStatusServices();
         services.AddUcliApplicationTestingServices();
         return services;
@@ -232,6 +234,13 @@ public static class UcliApplicationServiceCollectionExtensions
         services.AddSingleton<IPlayEnterService, PlayEnterService>();
         services.AddSingleton<IPlayExitService, PlayExitService>();
         services.AddSingleton<IPlayStatusService, PlayStatusService>();
+        return services;
+    }
+
+    private static IServiceCollection AddUcliApplicationScreenshotServices (this IServiceCollection services)
+    {
+        services.AddSingleton<IScreenshotCaptureIdFactory, ScreenshotCaptureIdFactory>();
+        services.AddSingleton<IScreenshotCaptureService, ScreenshotCaptureService>();
         return services;
     }
 

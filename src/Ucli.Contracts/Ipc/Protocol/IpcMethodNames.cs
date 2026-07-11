@@ -39,6 +39,9 @@ public static class IpcMethodNames
     /// <summary> Gets the method name used for Unity Editor Console clear requests. </summary>
     public const string UnityConsoleClear = "unity.console.clear";
 
+    /// <summary> Gets the method name used for Unity Editor screenshot capture requests. </summary>
+    public const string ScreenshotCapture = "screenshot.capture";
+
     /// <summary> Gets the method name used for Play Mode status requests. </summary>
     public const string PlayStatus = "play.status";
 

@@ -28,9 +28,24 @@ public sealed class IpcProtocolVocabularyTests
         Assert.Equal("daemon.logs.read", IpcMethodNames.DaemonLogsRead);
         Assert.Equal("unity.logs.read", IpcMethodNames.UnityLogsRead);
         Assert.Equal("unity.console.clear", IpcMethodNames.UnityConsoleClear);
+        Assert.Equal("screenshot.capture", IpcMethodNames.ScreenshotCapture);
         Assert.Equal("play.status", IpcMethodNames.PlayStatus);
         Assert.Equal("play.enter", IpcMethodNames.PlayEnter);
         Assert.Equal("play.exit", IpcMethodNames.PlayExit);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcScreenshotLiteralContracts_ExposeExpectedLiterals ()
+    {
+        Assert.Equal("game", IpcScreenshotTargetNames.Game);
+        Assert.Equal("scene", IpcScreenshotTargetNames.Scene);
+        Assert.Equal("currentSurface", IpcScreenshotSizeModeNames.CurrentSurface);
+        Assert.Equal("requestedResolution", IpcScreenshotSizeModeNames.RequestedResolution);
+        Assert.Equal("gamma", IpcScreenshotColorSpaceNames.Gamma);
+        Assert.Equal("linear", IpcScreenshotColorSpaceNames.Linear);
+        Assert.Equal("rgba8Srgb", IpcScreenshotPixelFormatNames.Rgba8Srgb);
+        Assert.Equal("topDown", IpcScreenshotRowOrderNames.TopDown);
     }
 
     [Fact]
