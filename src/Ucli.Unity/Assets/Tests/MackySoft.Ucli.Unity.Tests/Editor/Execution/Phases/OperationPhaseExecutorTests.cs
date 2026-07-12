@@ -1540,8 +1540,6 @@ namespace MackySoft.Ucli.Unity.Tests
             }
 
             return new NormalizedExecuteRequest(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
                 SourceSteps: sourceSteps,
                 AllowDangerous: allowDangerous,
                 AllowPlayMode: allowPlayMode,
@@ -1555,8 +1553,6 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             using var document = JsonDocument.Parse(stepJson);
             return new NormalizedExecuteRequest(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
                 SourceSteps: new[]
                 {
                     new IpcRequestContractStep(

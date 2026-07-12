@@ -65,8 +65,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 if (!requestValidationResult.IsSuccess)
                 {
                     return PhaseExecutionTrace.Failure(
-                        protocolVersion: request.ProtocolVersion,
-                        requestId: request.RequestId,
                         steps: CreateUncompiledSteps(request.SourceSteps),
                         operationTraces: Array.Empty<OperationPhaseTrace>(),
                         errors: new[]
@@ -96,8 +94,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 }
 
                 return PhaseExecutionTrace.Failure(
-                    protocolVersion: request.ProtocolVersion,
-                    requestId: request.RequestId,
                     steps: planPassResult.CompiledSteps,
                     operationTraces: planPassResult.OperationTraces,
                     errors: planPassResult.Errors);
@@ -106,8 +102,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (command == PhaseExecutionCommand.PlanWithoutToken)
             {
                 return PhaseExecutionTrace.Success(
-                    protocolVersion: request.ProtocolVersion,
-                    requestId: request.RequestId,
                     steps: planPassResult.CompiledSteps,
                     operationTraces: planPassResult.OperationTraces);
             }
@@ -122,8 +116,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 if (!issueResult.IsSuccess)
                 {
                     return PhaseExecutionTrace.Failure(
-                        protocolVersion: request.ProtocolVersion,
-                        requestId: request.RequestId,
                         steps: planPassResult.CompiledSteps,
                         operationTraces: planPassResult.OperationTraces,
                         errors: new[]
@@ -133,8 +125,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 }
 
                 return PhaseExecutionTrace.Success(
-                    protocolVersion: request.ProtocolVersion,
-                    requestId: request.RequestId,
                     steps: planPassResult.CompiledSteps,
                     operationTraces: planPassResult.OperationTraces,
                     planToken: issueResult.PlanToken);
@@ -148,8 +138,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (!validationResult.IsSuccess)
             {
                 return PhaseExecutionTrace.Failure(
-                    protocolVersion: request.ProtocolVersion,
-                    requestId: request.RequestId,
                     steps: planPassResult.CompiledSteps,
                     operationTraces: planPassResult.OperationTraces,
                     errors: new[]
@@ -161,8 +149,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (!dangerousOperationCallAuthorizer.TryAuthorize(planPassResult.PreparedOperations, request.AllowDangerous, out var dangerousCallFailure))
             {
                 return PhaseExecutionTrace.Failure(
-                    protocolVersion: request.ProtocolVersion,
-                    requestId: request.RequestId,
                     steps: planPassResult.CompiledSteps,
                     operationTraces: planPassResult.OperationTraces,
                     errors: new[]
@@ -173,8 +159,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             var callPassResult = await callPassExecutor.ExecuteAsync(planPassResult.PreparedOperations, executionContext, cancellationToken);
             return callPassResult.IsSuccess
-                ? PhaseExecutionTrace.Success(request.ProtocolVersion, request.RequestId, planPassResult.CompiledSteps, callPassResult.OperationTraces)
-                : PhaseExecutionTrace.Failure(request.ProtocolVersion, request.RequestId, planPassResult.CompiledSteps, callPassResult.OperationTraces, callPassResult.Errors);
+                ? PhaseExecutionTrace.Success(planPassResult.CompiledSteps, callPassResult.OperationTraces)
+                : PhaseExecutionTrace.Failure(planPassResult.CompiledSteps, callPassResult.OperationTraces, callPassResult.Errors);
         }
 
         private static Func<NormalizedOperation, IUcliOperation, OperationFailure?> CreateOperationPreflight (
@@ -274,8 +260,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             return PhaseExecutionTrace.Failure(
-                protocolVersion: request.ProtocolVersion,
-                requestId: request.RequestId,
                 steps: planPassResult.CompiledSteps,
                 operationTraces: remappedTraces,
                 errors: remappedErrors);

@@ -127,8 +127,6 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             }
 
             var normalizedRequest = new NormalizedExecuteRequest(
-                ProtocolVersion: parsedContract.ProtocolVersion,
-                RequestId: parsedContract.RequestId,
                 SourceSteps: sourceSteps,
                 AllowDangerous: request.AllowDangerous,
                 AllowPlayMode: request.AllowPlayMode,

@@ -60,8 +60,6 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.Error, Is.Null);
 
             var normalizedRequest = result.Request!;
-            Assert.That(normalizedRequest.ProtocolVersion, Is.EqualTo(IpcProtocol.CurrentVersion));
-            Assert.That(normalizedRequest.RequestId, Is.EqualTo(RequestId));
             Assert.That(normalizedRequest.SourceSteps.Count, Is.EqualTo(1));
             Assert.That(normalizedRequest.SourceSteps[0].Kind, Is.EqualTo(IpcRequestStepKind.Op));
             Assert.That(normalizedRequest.SourceSteps[0].OperationName, Is.EqualTo(UcliPrimitiveOperationNames.Resolve));

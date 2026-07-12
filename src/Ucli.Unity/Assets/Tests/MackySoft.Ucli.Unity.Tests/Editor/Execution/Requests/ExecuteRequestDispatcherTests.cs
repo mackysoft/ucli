@@ -109,8 +109,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 }),
             };
             var phaseExecutor = new SpyOperationPhaseExecutor(PhaseExecutionTrace.Success(
-                protocolVersion: normalizedRequest.ProtocolVersion,
-                requestId: normalizedRequest.RequestId,
                 steps: CreateTraceSteps(normalizedRequest),
                 operationTraces: new[]
                 {
@@ -153,8 +151,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 },
             };
             var phaseExecutor = new SpyOperationPhaseExecutor(PhaseExecutionTrace.Success(
-                protocolVersion: normalizedRequest.ProtocolVersion,
-                requestId: normalizedRequest.RequestId,
                 steps: CreateTraceSteps(normalizedRequest),
                 operationTraces: new[]
                 {
@@ -184,8 +180,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 ("refresh", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh));
             var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
             var phaseExecutor = new SpyOperationPhaseExecutor(PhaseExecutionTrace.Success(
-                protocolVersion: normalizedRequest.ProtocolVersion,
-                requestId: normalizedRequest.RequestId,
                 steps: CreateTraceSteps(normalizedRequest),
                 operationTraces: new[]
                 {
@@ -242,8 +236,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 ("step-1", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh));
             var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
             var phaseExecutor = new SpyOperationPhaseExecutor(PhaseExecutionTrace.Success(
-                protocolVersion: normalizedRequest.ProtocolVersion,
-                requestId: normalizedRequest.RequestId,
                 steps: CreateTraceSteps(normalizedRequest),
                 operationTraces: new[]
                 {
@@ -289,8 +281,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 ("step-1", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh));
             var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
             var phaseExecutor = new SpyOperationPhaseExecutor(PhaseExecutionTrace.Success(
-                protocolVersion: normalizedRequest.ProtocolVersion,
-                requestId: normalizedRequest.RequestId,
                 steps: CreateTraceSteps(normalizedRequest),
                 operationTraces: new[]
                 {
@@ -333,8 +323,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 ("step-1", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh));
             var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
             var phaseExecutor = new SpyOperationPhaseExecutor(PhaseExecutionTrace.Success(
-                protocolVersion: normalizedRequest.ProtocolVersion,
-                requestId: normalizedRequest.RequestId,
                 steps: CreateTraceSteps(normalizedRequest),
                 operationTraces: new[]
                 {
@@ -372,8 +360,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 ("step-1", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneQuery));
             var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
             var phaseExecutor = new SpyOperationPhaseExecutor(PhaseExecutionTrace.Success(
-                protocolVersion: normalizedRequest.ProtocolVersion,
-                requestId: normalizedRequest.RequestId,
                 steps: CreateTraceSteps(normalizedRequest),
                 operationTraces: new[]
                 {
@@ -430,8 +416,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 ("step-1", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh));
             var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
             var phaseExecutor = new SpyOperationPhaseExecutor(PhaseExecutionTrace.Success(
-                protocolVersion: normalizedRequest.ProtocolVersion,
-                requestId: normalizedRequest.RequestId,
                 steps: CreateTraceSteps(normalizedRequest),
                 operationTraces: new[]
                 {
@@ -476,8 +460,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 ("step-1", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh));
             var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
             var phaseExecutor = new SpyOperationPhaseExecutor(PhaseExecutionTrace.Success(
-                protocolVersion: normalizedRequest.ProtocolVersion,
-                requestId: normalizedRequest.RequestId,
                 steps: CreateTraceSteps(normalizedRequest),
                 operationTraces: new[]
                 {
@@ -521,8 +503,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 ("step-1", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh));
             var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
             var phaseExecutor = new SpyOperationPhaseExecutor(PhaseExecutionTrace.Success(
-                protocolVersion: normalizedRequest.ProtocolVersion,
-                requestId: normalizedRequest.RequestId,
                 steps: CreateTraceSteps(normalizedRequest),
                 operationTraces: new[]
                 {
@@ -566,8 +546,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 ("step-1", "game.cheat.runtime-state"));
             var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
             var phaseExecutor = new SpyOperationPhaseExecutor(PhaseExecutionTrace.Success(
-                protocolVersion: normalizedRequest.ProtocolVersion,
-                requestId: normalizedRequest.RequestId,
                 steps: CreateTraceSteps(normalizedRequest),
                 operationTraces: new[]
                 {
@@ -605,8 +583,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 ("step-1", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneSave));
             var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
             var phaseExecutor = new SpyOperationPhaseExecutor(PhaseExecutionTrace.Success(
-                protocolVersion: normalizedRequest.ProtocolVersion,
-                requestId: normalizedRequest.RequestId,
                 steps: CreateTraceSteps(normalizedRequest),
                 operationTraces: new[]
                 {
@@ -652,8 +628,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 ("step-1", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh));
             var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
             var phaseExecutor = new SpyOperationPhaseExecutor(PhaseExecutionTrace.Success(
-                protocolVersion: normalizedRequest.ProtocolVersion,
-                requestId: normalizedRequest.RequestId,
                 steps: CreateTraceSteps(normalizedRequest),
                 operationTraces: new[]
                 {
@@ -703,8 +677,6 @@ namespace MackySoft.Ucli.Unity.Tests
             };
             var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
             var phaseExecutor = new SpyOperationPhaseExecutor(PhaseExecutionTrace.Success(
-                protocolVersion: normalizedRequest.ProtocolVersion,
-                requestId: normalizedRequest.RequestId,
                 steps: traceSteps,
                 operationTraces: new[]
                 {
@@ -853,8 +825,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 },
             };
             var phaseExecutor = new SpyOperationPhaseExecutor(PhaseExecutionTrace.Success(
-                protocolVersion: normalizedRequest.ProtocolVersion,
-                requestId: normalizedRequest.RequestId,
                 steps: CreateTraceSteps(normalizedRequest),
                 operationTraces: new[]
                 {
@@ -896,8 +866,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 ("op-2", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh));
             var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
             var phaseExecutor = new SpyOperationPhaseExecutor(PhaseExecutionTrace.Success(
-                protocolVersion: normalizedRequest.ProtocolVersion,
-                requestId: normalizedRequest.RequestId,
                 steps: CreateTraceSteps(normalizedRequest),
                 operationTraces: new[]
                 {
@@ -955,8 +923,6 @@ namespace MackySoft.Ucli.Unity.Tests
             var normalizedRequest = CreateNormalizedRequest();
             var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
             var phaseExecutor = new SpyOperationPhaseExecutor(PhaseExecutionTrace.Success(
-                protocolVersion: normalizedRequest.ProtocolVersion,
-                requestId: normalizedRequest.RequestId,
                 steps: CreateTraceSteps(normalizedRequest),
                 operationTraces: new[]
                 {
@@ -1366,8 +1332,6 @@ namespace MackySoft.Ucli.Unity.Tests
             var normalizedRequest = CreateNormalizedEditRequest(stepId: "edit-1");
             var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
             var phaseExecutor = new SpyOperationPhaseExecutor(PhaseExecutionTrace.Success(
-                protocolVersion: normalizedRequest.ProtocolVersion,
-                requestId: normalizedRequest.RequestId,
                 steps: CreateTraceSteps(normalizedRequest, editPrimitiveCount: 0),
                 operationTraces: Array.Empty<OperationPhaseTrace>()));
             var dispatcher = CreateDispatcher(normalizer, phaseExecutor);
@@ -1460,8 +1424,6 @@ namespace MackySoft.Ucli.Unity.Tests
             var normalizedRequest = CreateNormalizedRequest(operationName);
             var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
             var phaseExecutor = new SpyOperationPhaseExecutor(PhaseExecutionTrace.Success(
-                protocolVersion: normalizedRequest.ProtocolVersion,
-                requestId: normalizedRequest.RequestId,
                 steps: CreateTraceSteps(normalizedRequest),
                 operationTraces: new[]
                 {
@@ -1670,8 +1632,6 @@ namespace MackySoft.Ucli.Unity.Tests
             params (string OperationId, string OperationName)[] operations)
         {
             return new NormalizedExecuteRequest(
-                ProtocolVersion: 1,
-                RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
                 SourceSteps: CreateSourceSteps(operations),
                 AllowDangerous: false,
                 AllowPlayMode: false,
@@ -1684,8 +1644,6 @@ namespace MackySoft.Ucli.Unity.Tests
             params (string OperationId, string OperationName)[] operations)
         {
             return new NormalizedExecuteRequest(
-                ProtocolVersion: 1,
-                RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
                 SourceSteps: new[]
                 {
                     CreateEditSourceStep(stepId),
@@ -1860,8 +1818,6 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var traces = operationTraces ?? CreateDefaultOperationTraces(request);
             return PhaseExecutionTrace.Success(
-                protocolVersion: request.ProtocolVersion,
-                requestId: request.RequestId,
                 steps: CreateTraceSteps(request),
                 operationTraces: traces,
                 planToken: planToken);
@@ -1873,8 +1829,6 @@ namespace MackySoft.Ucli.Unity.Tests
             IReadOnlyList<OperationFailure> errors)
         {
             return PhaseExecutionTrace.Failure(
-                protocolVersion: request.ProtocolVersion,
-                requestId: request.RequestId,
                 steps: CreateTraceSteps(
                     request,
                     request.SourceSteps.Count == 1 && request.SourceSteps[0].Kind == IpcRequestStepKind.Edit
