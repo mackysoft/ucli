@@ -22,7 +22,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="steps" /> is <see langword="null" />. </exception>
         public static ReadOnlyMemory<byte> WriteDigestPayload (
             int protocolVersion,
-            IReadOnlyList<IpcRequestContractStep> steps,
+            IReadOnlyList<IpcExecuteStepContract> steps,
             bool allowPlayMode)
         {
             if (steps == null)
@@ -58,7 +58,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="step" /> is <see langword="null" />. </exception>
         private static void WriteStep (
             Utf8JsonWriter writer,
-            IpcRequestContractStep step)
+            IpcExecuteStepContract step)
         {
             if (step == null)
             {

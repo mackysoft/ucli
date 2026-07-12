@@ -159,7 +159,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                     applied: applied,
                     changed: changed,
                     touched: touchedResources,
-                    result: step.Kind == IpcRequestStepKind.Op ? result : null,
+                    result: step.Kind == IpcExecuteStepKind.Op ? result : null,
                     diagnostics: diagnostics);
                 operationTraceIndex += step.PrimitiveCount;
             }

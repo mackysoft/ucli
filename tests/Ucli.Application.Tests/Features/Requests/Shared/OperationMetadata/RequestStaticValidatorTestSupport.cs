@@ -141,7 +141,7 @@ internal static class RequestStaticValidatorTestSupport
         });
 
         return new ValidateRequestStep(
-            Kind: IpcRequestStepKind.Op,
+            Kind: IpcExecuteStepKind.Op,
             StepId: stepId,
             Op: operationName,
             Element: stepElement);
@@ -162,7 +162,7 @@ internal static class RequestStaticValidatorTestSupport
         });
 
         return new ValidateRequestStep(
-            Kind: IpcRequestStepKind.Op,
+            Kind: IpcExecuteStepKind.Op,
             StepId: stepId,
             Op: operationName,
             Element: stepElement);
@@ -174,7 +174,7 @@ internal static class RequestStaticValidatorTestSupport
     {
         using var document = JsonDocument.Parse(stepJson);
         return new ValidateRequestStep(
-            Kind: IpcRequestStepKind.Edit,
+            Kind: IpcExecuteStepKind.Edit,
             StepId: stepId,
             Op: null,
             Element: document.RootElement.Clone());

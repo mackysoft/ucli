@@ -98,7 +98,7 @@ internal static class CallServiceTestSupport
             Steps:
             [
                 new ValidateRequestStep(
-                    Kind: IpcRequestStepKind.Op,
+                    Kind: IpcExecuteStepKind.Op,
                     StepId: "step-1",
                     Op: operationName,
                     Element: JsonSerializer.SerializeToElement(new
@@ -138,7 +138,7 @@ internal static class CallServiceTestSupport
             Steps:
             [
                 new ValidateRequestStep(
-                    Kind: IpcRequestStepKind.Edit,
+                    Kind: IpcExecuteStepKind.Edit,
                     StepId: "edit-1",
                     Op: null,
                     Element: document.RootElement.GetProperty("steps")[0].Clone()),

@@ -1,16 +1,16 @@
 namespace MackySoft.Ucli.Contracts.Ipc.ContractReading;
 
-/// <summary> Defines machine-readable error kinds for request-contract reads. </summary>
-internal enum IpcRequestContractReadErrorKind
+/// <summary> Defines machine-readable error kinds for <c>execute</c> arguments contract reads. </summary>
+internal enum IpcExecuteArgumentsContractReadErrorKind
 {
     /// <summary> No error. </summary>
     None = 0,
 
-    /// <summary> The request root must be a JSON object. </summary>
-    RequestMustBeObject,
+    /// <summary> The arguments root must be a JSON object. </summary>
+    ArgumentsMustBeObject,
 
-    /// <summary> The request contains one unknown top-level property. </summary>
-    UnknownRequestProperty,
+    /// <summary> The arguments object contains one unknown top-level property. </summary>
+    UnknownArgumentsProperty,
 
     /// <summary> Required property <c>protocolVersion</c> is missing. </summary>
     ProtocolVersionMissing,
@@ -63,6 +63,6 @@ internal enum IpcRequestContractReadErrorKind
     /// <summary> One <c>kind:"edit"</c> step violates the detailed public edit-step contract. </summary>
     StepEditContractViolation,
 
-    /// <summary> Step identifier is duplicated in the same request. </summary>
+    /// <summary> Step identifier is duplicated in the same arguments payload. </summary>
     DuplicatedStepId,
 }

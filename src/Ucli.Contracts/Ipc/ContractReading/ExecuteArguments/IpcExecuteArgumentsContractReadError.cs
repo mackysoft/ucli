@@ -1,6 +1,6 @@
 namespace MackySoft.Ucli.Contracts.Ipc.ContractReading;
 
-/// <summary> Represents one request-contract read error. </summary>
+/// <summary> Represents one <c>execute</c> arguments contract read error. </summary>
 /// <param name="Kind"> The machine-readable error kind. </param>
 /// <param name="StepIndex"> The step index when the error is step-scoped; otherwise <c>-1</c>. </param>
 /// <param name="UnknownPropertyName"> The unknown property name when the error is unknown-property related. </param>
@@ -9,8 +9,8 @@ namespace MackySoft.Ucli.Contracts.Ipc.ContractReading;
 /// <param name="DiagnosticMessage"> The nested detailed diagnostic message for structural contract violations. </param>
 /// <param name="JsonStringReadError"> The nested JSON string read error for string-contract violations. </param>
 /// <param name="StepPropertyReadErrorKind"> The nested object/array property read error kind for step contract violations. </param>
-internal readonly record struct IpcRequestContractReadError (
-    IpcRequestContractReadErrorKind Kind,
+internal readonly record struct IpcExecuteArgumentsContractReadError (
+    IpcExecuteArgumentsContractReadErrorKind Kind,
     int StepIndex,
     string? UnknownPropertyName,
     string? StepId,
@@ -20,8 +20,8 @@ internal readonly record struct IpcRequestContractReadError (
     StepPropertyReadErrorKind StepPropertyReadErrorKind)
 {
     /// <summary> Gets an empty error value that indicates success. </summary>
-    public static IpcRequestContractReadError None => new(
-        Kind: IpcRequestContractReadErrorKind.None,
+    public static IpcExecuteArgumentsContractReadError None => new(
+        Kind: IpcExecuteArgumentsContractReadErrorKind.None,
         StepIndex: -1,
         UnknownPropertyName: null,
         StepId: null,
@@ -30,190 +30,190 @@ internal readonly record struct IpcRequestContractReadError (
         JsonStringReadError: JsonStringReadError.None,
         StepPropertyReadErrorKind: StepPropertyReadErrorKind.None);
 
-    public static IpcRequestContractReadError RequestMustBeObject ()
+    public static IpcExecuteArgumentsContractReadError ArgumentsMustBeObject ()
     {
-        return Create(IpcRequestContractReadErrorKind.RequestMustBeObject);
+        return Create(IpcExecuteArgumentsContractReadErrorKind.ArgumentsMustBeObject);
     }
 
-    public static IpcRequestContractReadError UnknownRequestProperty (string unknownPropertyName)
+    public static IpcExecuteArgumentsContractReadError UnknownArgumentsProperty (string unknownPropertyName)
     {
         return Create(
-            IpcRequestContractReadErrorKind.UnknownRequestProperty,
+            IpcExecuteArgumentsContractReadErrorKind.UnknownArgumentsProperty,
             unknownPropertyName: unknownPropertyName);
     }
 
-    public static IpcRequestContractReadError ProtocolVersionMissing ()
+    public static IpcExecuteArgumentsContractReadError ProtocolVersionMissing ()
     {
-        return Create(IpcRequestContractReadErrorKind.ProtocolVersionMissing);
+        return Create(IpcExecuteArgumentsContractReadErrorKind.ProtocolVersionMissing);
     }
 
-    public static IpcRequestContractReadError ProtocolVersionTypeMismatch ()
+    public static IpcExecuteArgumentsContractReadError ProtocolVersionTypeMismatch ()
     {
-        return Create(IpcRequestContractReadErrorKind.ProtocolVersionTypeMismatch);
+        return Create(IpcExecuteArgumentsContractReadErrorKind.ProtocolVersionTypeMismatch);
     }
 
-    public static IpcRequestContractReadError StepsMissing ()
+    public static IpcExecuteArgumentsContractReadError StepsMissing ()
     {
-        return Create(IpcRequestContractReadErrorKind.StepsMissing);
+        return Create(IpcExecuteArgumentsContractReadErrorKind.StepsMissing);
     }
 
-    public static IpcRequestContractReadError StepsTypeMismatch ()
+    public static IpcExecuteArgumentsContractReadError StepsTypeMismatch ()
     {
-        return Create(IpcRequestContractReadErrorKind.StepsTypeMismatch);
+        return Create(IpcExecuteArgumentsContractReadErrorKind.StepsTypeMismatch);
     }
 
-    public static IpcRequestContractReadError StepMustBeObject (int stepIndex)
+    public static IpcExecuteArgumentsContractReadError StepMustBeObject (int stepIndex)
     {
-        return Create(IpcRequestContractReadErrorKind.StepMustBeObject, stepIndex: stepIndex);
+        return Create(IpcExecuteArgumentsContractReadErrorKind.StepMustBeObject, stepIndex: stepIndex);
     }
 
-    public static IpcRequestContractReadError StepKindContractViolation (
+    public static IpcExecuteArgumentsContractReadError StepKindContractViolation (
         int stepIndex,
         JsonStringReadError jsonStringReadError)
     {
         return Create(
-            IpcRequestContractReadErrorKind.StepKindContractViolation,
+            IpcExecuteArgumentsContractReadErrorKind.StepKindContractViolation,
             stepIndex: stepIndex,
             jsonStringReadError: jsonStringReadError);
     }
 
-    public static IpcRequestContractReadError StepKindUnsupported (
+    public static IpcExecuteArgumentsContractReadError StepKindUnsupported (
         int stepIndex,
         string stepKind)
     {
         return Create(
-            IpcRequestContractReadErrorKind.StepKindUnsupported,
+            IpcExecuteArgumentsContractReadErrorKind.StepKindUnsupported,
             stepIndex: stepIndex,
             unknownPropertyName: stepKind);
     }
 
-    public static IpcRequestContractReadError UnknownStepProperty (
+    public static IpcExecuteArgumentsContractReadError UnknownStepProperty (
         int stepIndex,
         string unknownPropertyName)
     {
         return Create(
-            IpcRequestContractReadErrorKind.UnknownStepProperty,
+            IpcExecuteArgumentsContractReadErrorKind.UnknownStepProperty,
             stepIndex: stepIndex,
             unknownPropertyName: unknownPropertyName);
     }
 
-    public static IpcRequestContractReadError StepIdContractViolation (
+    public static IpcExecuteArgumentsContractReadError StepIdContractViolation (
         int stepIndex,
         JsonStringReadError jsonStringReadError)
     {
         return Create(
-            IpcRequestContractReadErrorKind.StepIdContractViolation,
+            IpcExecuteArgumentsContractReadErrorKind.StepIdContractViolation,
             stepIndex: stepIndex,
             jsonStringReadError: jsonStringReadError);
     }
 
-    public static IpcRequestContractReadError StepOpContractViolation (
+    public static IpcExecuteArgumentsContractReadError StepOpContractViolation (
         int stepIndex,
         string? stepId,
         JsonStringReadError jsonStringReadError)
     {
         return Create(
-            IpcRequestContractReadErrorKind.StepOpContractViolation,
+            IpcExecuteArgumentsContractReadErrorKind.StepOpContractViolation,
             stepIndex: stepIndex,
             stepId: stepId,
             jsonStringReadError: jsonStringReadError);
     }
 
-    public static IpcRequestContractReadError StepArgsContractViolation (
+    public static IpcExecuteArgumentsContractReadError StepArgsContractViolation (
         int stepIndex,
         string? stepId,
         StepPropertyReadErrorKind propertyReadErrorKind)
     {
         return Create(
-            IpcRequestContractReadErrorKind.StepArgsContractViolation,
+            IpcExecuteArgumentsContractReadErrorKind.StepArgsContractViolation,
             stepIndex: stepIndex,
             stepId: stepId,
             stepPropertyReadErrorKind: propertyReadErrorKind);
     }
 
-    public static IpcRequestContractReadError StepOnContractViolation (
+    public static IpcExecuteArgumentsContractReadError StepOnContractViolation (
         int stepIndex,
         string? stepId,
         StepPropertyReadErrorKind propertyReadErrorKind)
     {
         return Create(
-            IpcRequestContractReadErrorKind.StepOnContractViolation,
+            IpcExecuteArgumentsContractReadErrorKind.StepOnContractViolation,
             stepIndex: stepIndex,
             stepId: stepId,
             stepPropertyReadErrorKind: propertyReadErrorKind);
     }
 
-    public static IpcRequestContractReadError StepSelectContractViolation (
+    public static IpcExecuteArgumentsContractReadError StepSelectContractViolation (
         int stepIndex,
         string? stepId,
         StepPropertyReadErrorKind propertyReadErrorKind)
     {
         return Create(
-            IpcRequestContractReadErrorKind.StepSelectContractViolation,
+            IpcExecuteArgumentsContractReadErrorKind.StepSelectContractViolation,
             stepIndex: stepIndex,
             stepId: stepId,
             stepPropertyReadErrorKind: propertyReadErrorKind);
     }
 
-    public static IpcRequestContractReadError StepActionsContractViolation (
+    public static IpcExecuteArgumentsContractReadError StepActionsContractViolation (
         int stepIndex,
         string? stepId,
         StepPropertyReadErrorKind propertyReadErrorKind)
     {
         return Create(
-            IpcRequestContractReadErrorKind.StepActionsContractViolation,
+            IpcExecuteArgumentsContractReadErrorKind.StepActionsContractViolation,
             stepIndex: stepIndex,
             stepId: stepId,
             stepPropertyReadErrorKind: propertyReadErrorKind);
     }
 
-    public static IpcRequestContractReadError StepActionMustBeObject (
+    public static IpcExecuteArgumentsContractReadError StepActionMustBeObject (
         int stepIndex,
         string? stepId)
     {
         return Create(
-            IpcRequestContractReadErrorKind.StepActionMustBeObject,
+            IpcExecuteArgumentsContractReadErrorKind.StepActionMustBeObject,
             stepIndex: stepIndex,
             stepId: stepId);
     }
 
-    public static IpcRequestContractReadError StepCommitContractViolation (
+    public static IpcExecuteArgumentsContractReadError StepCommitContractViolation (
         int stepIndex,
         string? stepId,
         JsonStringReadError jsonStringReadError)
     {
         return Create(
-            IpcRequestContractReadErrorKind.StepCommitContractViolation,
+            IpcExecuteArgumentsContractReadErrorKind.StepCommitContractViolation,
             stepIndex: stepIndex,
             stepId: stepId,
             jsonStringReadError: jsonStringReadError);
     }
 
-    public static IpcRequestContractReadError StepEditContractViolation (
+    public static IpcExecuteArgumentsContractReadError StepEditContractViolation (
         int stepIndex,
         string? stepId,
         string diagnosticMessage)
     {
         return Create(
-            IpcRequestContractReadErrorKind.StepEditContractViolation,
+            IpcExecuteArgumentsContractReadErrorKind.StepEditContractViolation,
             stepIndex: stepIndex,
             stepId: stepId,
             diagnosticMessage: diagnosticMessage);
     }
 
-    public static IpcRequestContractReadError DuplicatedStepIdError (
+    public static IpcExecuteArgumentsContractReadError DuplicatedStepIdError (
         int stepIndex,
         string duplicatedStepId)
     {
         return Create(
-            IpcRequestContractReadErrorKind.DuplicatedStepId,
+            IpcExecuteArgumentsContractReadErrorKind.DuplicatedStepId,
             stepIndex: stepIndex,
             stepId: duplicatedStepId,
             duplicatedStepId: duplicatedStepId);
     }
 
-    private static IpcRequestContractReadError Create (
-        IpcRequestContractReadErrorKind kind,
+    private static IpcExecuteArgumentsContractReadError Create (
+        IpcExecuteArgumentsContractReadErrorKind kind,
         int stepIndex = -1,
         string? unknownPropertyName = null,
         string? stepId = null,
@@ -227,7 +227,7 @@ internal readonly record struct IpcRequestContractReadError (
             jsonStringReadError = JsonStringReadError.None;
         }
 
-        return new IpcRequestContractReadError(
+        return new IpcExecuteArgumentsContractReadError(
             Kind: kind,
             StepIndex: stepIndex,
             UnknownPropertyName: unknownPropertyName,

@@ -31,7 +31,7 @@ internal sealed class CallDangerousOperationGuard : ICallDangerousOperationGuard
 
             switch (step.Kind)
             {
-                case IpcRequestStepKind.Op:
+                case IpcExecuteStepKind.Op:
                     if (!StringValueNormalizer.TryTrimToNonEmpty(step.Op, out var operationName))
                     {
                         continue;
@@ -47,7 +47,7 @@ internal sealed class CallDangerousOperationGuard : ICallDangerousOperationGuard
 
                     break;
 
-                case IpcRequestStepKind.Edit:
+                case IpcExecuteStepKind.Edit:
                     if (!RequestEditStepLowerPreviewBuilder.TryBuild(
                             step.Element,
                             preparedRequest.Request.AllowPlayMode,

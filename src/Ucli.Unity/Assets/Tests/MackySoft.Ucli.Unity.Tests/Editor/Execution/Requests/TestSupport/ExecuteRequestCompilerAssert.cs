@@ -37,7 +37,7 @@ namespace MackySoft.Ucli.Unity.Tests
         /// <param name="expectedPrimitiveOperationNames"> The expected primitive operation names in order. </param>
         /// <returns> The current assertion instance. </returns>
         public ExecuteRequestCompilerAssert HasLoweredOperations (
-            IpcRequestStepKind expectedKind,
+            IpcExecuteStepKind expectedKind,
             string expectedOperationName,
             params string[] expectedPrimitiveOperationNames)
         {

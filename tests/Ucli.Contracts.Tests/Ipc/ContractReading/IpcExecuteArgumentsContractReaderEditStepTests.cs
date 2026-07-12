@@ -4,7 +4,7 @@ using MackySoft.Ucli.Contracts.Ipc.ContractReading;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.ContractReading;
 
-public sealed class IpcRequestContractReaderEditStepTests
+public sealed class IpcExecuteArgumentsContractReaderEditStepTests
 {
     [Fact]
     [Trait("Size", "Small")]
@@ -40,17 +40,17 @@ public sealed class IpcRequestContractReaderEditStepTests
             }
             """);
 
-        var result = IpcRequestContractReader.TryRead(
-            requestObject: document.RootElement,
-            profile: IpcRequestContractReadProfile.StrictExecute,
-            requestContract: out var parsedDocument,
+        var result = IpcExecuteArgumentsContractReader.TryRead(
+            argumentsObject: document.RootElement,
+            profile: IpcExecuteArgumentsContractReadProfile.StrictExecute,
+            argumentsContract: out var parsedArguments,
             error: out var error);
 
         Assert.True(result);
-        Assert.Equal(IpcRequestContractReadErrorKind.None, error.Kind);
-        var step = Assert.Single(parsedDocument.Steps!);
+        Assert.Equal(IpcExecuteArgumentsContractReadErrorKind.None, error.Kind);
+        var step = Assert.Single(parsedArguments.Steps!);
         Assert.NotNull(step);
-        Assert.Equal(IpcRequestStepKind.Edit, step!.Kind);
+        Assert.Equal(IpcExecuteStepKind.Edit, step!.Kind);
         Assert.Equal("edit-1", step.Id);
         Assert.Null(step.OperationName);
     }
@@ -82,14 +82,14 @@ public sealed class IpcRequestContractReaderEditStepTests
             }
             """);
 
-        var result = IpcRequestContractReader.TryRead(
-            requestObject: document.RootElement,
-            profile: IpcRequestContractReadProfile.StrictExecute,
-            requestContract: out _,
+        var result = IpcExecuteArgumentsContractReader.TryRead(
+            argumentsObject: document.RootElement,
+            profile: IpcExecuteArgumentsContractReadProfile.StrictExecute,
+            argumentsContract: out _,
             error: out var error);
 
         Assert.False(result);
-        Assert.Equal(IpcRequestContractReadErrorKind.StepSelectContractViolation, error.Kind);
+        Assert.Equal(IpcExecuteArgumentsContractReadErrorKind.StepSelectContractViolation, error.Kind);
         Assert.Equal(0, error.StepIndex);
         Assert.Equal("edit-1", error.StepId);
         Assert.Equal(StepPropertyReadErrorKind.TypeMismatch, error.StepPropertyReadErrorKind);
@@ -125,18 +125,18 @@ public sealed class IpcRequestContractReaderEditStepTests
             }
             """);
 
-        var result = IpcRequestContractReader.TryRead(
-            requestObject: document.RootElement,
-            profile: IpcRequestContractReadProfile.StrictExecute,
-            requestContract: out var parsedDocument,
+        var result = IpcExecuteArgumentsContractReader.TryRead(
+            argumentsObject: document.RootElement,
+            profile: IpcExecuteArgumentsContractReadProfile.StrictExecute,
+            argumentsContract: out var parsedArguments,
             error: out var error);
 
         Assert.True(result);
-        Assert.Equal(IpcRequestContractReadErrorKind.None, error.Kind);
-        Assert.NotNull(parsedDocument.Steps);
-        var step = Assert.Single(parsedDocument.Steps!);
+        Assert.Equal(IpcExecuteArgumentsContractReadErrorKind.None, error.Kind);
+        Assert.NotNull(parsedArguments.Steps);
+        var step = Assert.Single(parsedArguments.Steps!);
         Assert.NotNull(step);
-        Assert.Equal(IpcRequestStepKind.Edit, step!.Kind);
+        Assert.Equal(IpcExecuteStepKind.Edit, step!.Kind);
         Assert.Equal("edit-1", step.Id);
         Assert.Null(step.OperationName);
     }
@@ -171,14 +171,14 @@ public sealed class IpcRequestContractReaderEditStepTests
             }
             """);
 
-        var result = IpcRequestContractReader.TryRead(
-            requestObject: document.RootElement,
-            profile: IpcRequestContractReadProfile.StrictExecute,
-            requestContract: out _,
+        var result = IpcExecuteArgumentsContractReader.TryRead(
+            argumentsObject: document.RootElement,
+            profile: IpcExecuteArgumentsContractReadProfile.StrictExecute,
+            argumentsContract: out _,
             error: out var error);
 
         Assert.False(result);
-        Assert.Equal(IpcRequestContractReadErrorKind.StepEditContractViolation, error.Kind);
+        Assert.Equal(IpcExecuteArgumentsContractReadErrorKind.StepEditContractViolation, error.Kind);
         Assert.Equal(0, error.StepIndex);
         Assert.Equal("edit-unsupported-commit", error.StepId);
         Assert.Equal("Edit step property 'step.commit' must be one of 'none', 'context', or 'project'.", error.DiagnosticMessage);
@@ -221,14 +221,14 @@ public sealed class IpcRequestContractReaderEditStepTests
             """
                 .Replace("__SCENE_QUERY_OP__", UcliPrimitiveOperationNames.SceneQuery, StringComparison.Ordinal));
 
-        var result = IpcRequestContractReader.TryRead(
-            requestObject: document.RootElement,
-            profile: IpcRequestContractReadProfile.StrictExecute,
-            requestContract: out _,
+        var result = IpcExecuteArgumentsContractReader.TryRead(
+            argumentsObject: document.RootElement,
+            profile: IpcExecuteArgumentsContractReadProfile.StrictExecute,
+            argumentsContract: out _,
             error: out var error);
 
         Assert.False(result);
-        Assert.Equal(IpcRequestContractReadErrorKind.StepEditContractViolation, error.Kind);
+        Assert.Equal(IpcExecuteArgumentsContractReadErrorKind.StepEditContractViolation, error.Kind);
         Assert.Equal(0, error.StepIndex);
         Assert.Equal("edit-query-extra", error.StepId);
         Assert.Equal("Edit step property 'step.select.from' contains an unknown property: extra.", error.DiagnosticMessage);

@@ -19,7 +19,7 @@ public sealed class ValidateRequestJsonParserSuccessTests
         Assert.NotNull(result.Request);
         Assert.Equal(1, result.Request!.ProtocolVersion);
         var step = Assert.IsType<ValidateRequestStep>(Assert.Single(result.Request.Steps!));
-        Assert.Equal(IpcRequestStepKind.Op, step.Kind);
+        Assert.Equal(IpcExecuteStepKind.Op, step.Kind);
         Assert.Equal("step-1", step.StepId);
         Assert.Equal(UcliPrimitiveOperationNames.SceneOpen, step.Op);
         Assert.Null(result.Error);
@@ -61,7 +61,7 @@ public sealed class ValidateRequestJsonParserSuccessTests
 
         Assert.True(result.IsSuccess);
         var step = Assert.IsType<ValidateRequestStep>(Assert.Single(result.Request!.Steps!));
-        Assert.Equal(IpcRequestStepKind.Edit, step.Kind);
+        Assert.Equal(IpcExecuteStepKind.Edit, step.Kind);
         Assert.Equal("edit-1", step.StepId);
     }
 
@@ -106,7 +106,7 @@ public sealed class ValidateRequestJsonParserSuccessTests
 
         Assert.True(result.IsSuccess);
         var step = Assert.IsType<ValidateRequestStep>(Assert.Single(result.Request!.Steps!));
-        Assert.Equal(IpcRequestStepKind.Edit, step.Kind);
+        Assert.Equal(IpcExecuteStepKind.Edit, step.Kind);
         Assert.Equal("edit-1", step.StepId);
     }
 }

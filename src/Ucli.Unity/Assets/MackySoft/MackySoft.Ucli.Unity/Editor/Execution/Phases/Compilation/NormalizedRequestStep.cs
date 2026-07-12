@@ -11,7 +11,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     /// <param name="PrimitiveCount"> The number of compiled primitives emitted for this step. </param>
     internal sealed record NormalizedRequestStep (
         string Id,
-        IpcRequestStepKind Kind,
+        IpcExecuteStepKind Kind,
         string OperationName,
         int PrimitiveCount)
     {

@@ -213,17 +213,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return true;
         }
 
-        private static IReadOnlyList<NormalizedRequestStep> CreateUncompiledSteps (IReadOnlyList<IpcRequestContractStep> sourceSteps)
+        private static IReadOnlyList<NormalizedRequestStep> CreateUncompiledSteps (IReadOnlyList<IpcExecuteStepContract> sourceSteps)
         {
             var steps = new NormalizedRequestStep[sourceSteps.Count];
             for (var i = 0; i < sourceSteps.Count; i++)
             {
                 var sourceStep = sourceSteps[i];
-                var kind = sourceStep.Kind ?? IpcRequestStepKind.Op;
+                var kind = sourceStep.Kind ?? IpcExecuteStepKind.Op;
                 steps[i] = new NormalizedRequestStep(
                     Id: sourceStep.Id ?? string.Empty,
                     Kind: kind,
-                    OperationName: kind == IpcRequestStepKind.Edit
+                    OperationName: kind == IpcExecuteStepKind.Edit
                         ? "edit"
                         : sourceStep.OperationName ?? string.Empty,
                     PrimitiveCount: 0);

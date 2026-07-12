@@ -42,7 +42,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="error"> The structured normalization error when compilation fails. </param>
         /// <returns> <see langword="true" /> when the source step can be compiled for the current execution state; otherwise <see langword="false" />. </returns>
         public bool TryCompileExecutionStep (
-            IpcRequestContractStep step,
+            IpcExecuteStepContract step,
             OperationExecutionContext executionContext,
             bool allowPlayMode,
             out NormalizedRequestStep compiledStep,
@@ -54,7 +54,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             operations = Array.Empty<NormalizedOperation>();
             diagnostics = Array.Empty<OperationDiagnostic>();
 
-            if (step.Kind == IpcRequestStepKind.Op)
+            if (step.Kind == IpcExecuteStepKind.Op)
             {
                 if (!RawOperationPlayModeSupportValidator.TryValidate(operationRegistry, step, allowPlayMode, out error))
                 {
@@ -64,7 +64,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return TryCompileOpStep(step, out compiledStep, out operations, out error);
             }
 
-            if (step.Kind == IpcRequestStepKind.Edit)
+            if (step.Kind == IpcExecuteStepKind.Edit)
             {
                 return TryCompileEditStep(step, executionContext, allowPlayMode, out compiledStep, out operations, out diagnostics, out error);
             }
@@ -76,7 +76,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         }
 
         private static bool TryValidateOpStep (
-            IpcRequestContractStep step,
+            IpcExecuteStepContract step,
             out ExecuteRequestNormalizationError error)
         {
             if (step.OperationName == null)
@@ -101,7 +101,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         }
 
         private static bool TryCompileOpStep (
-            IpcRequestContractStep step,
+            IpcExecuteStepContract step,
             out NormalizedRequestStep compiledStep,
             out IReadOnlyList<NormalizedOperation> operations,
             out ExecuteRequestNormalizationError error)
@@ -126,7 +126,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             };
             compiledStep = new NormalizedRequestStep(
                 Id: step.Id!,
-                Kind: IpcRequestStepKind.Op,
+                Kind: IpcExecuteStepKind.Op,
                 OperationName: step.OperationName!,
                 PrimitiveCount: operations.Count)
             {
@@ -137,7 +137,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         }
 
         private bool TryCompileEditStep (
-            IpcRequestContractStep step,
+            IpcExecuteStepContract step,
             OperationExecutionContext executionContext,
             bool allowPlayMode,
             out NormalizedRequestStep compiledStep,
@@ -208,7 +208,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             compiledStep = new NormalizedRequestStep(
                 Id: editStep.Id,
-                Kind: IpcRequestStepKind.Edit,
+                Kind: IpcExecuteStepKind.Edit,
                 OperationName: EditOperationName,
                 PrimitiveCount: stepOperations.Count)
             {

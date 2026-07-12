@@ -1,11 +1,11 @@
 namespace MackySoft.Ucli.Contracts.Ipc.ContractReading;
 
-/// <summary> Defines normalized machine-readable violation kinds for request-contract reads. </summary>
-internal enum IpcRequestContractViolationKind
+/// <summary> Defines normalized machine-readable violation kinds for <c>execute</c> arguments contract reads. </summary>
+internal enum IpcExecuteArgumentsContractViolationKind
 {
     None = 0,
-    RequestMustBeObject,
-    UnknownRequestProperty,
+    ArgumentsMustBeObject,
+    UnknownArgumentsProperty,
     ProtocolVersionMissing,
     ProtocolVersionTypeMismatch,
     StepsMissing,

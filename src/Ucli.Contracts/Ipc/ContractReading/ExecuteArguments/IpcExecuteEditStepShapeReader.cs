@@ -2,15 +2,15 @@ using System.Text.Json;
 
 namespace MackySoft.Ucli.Contracts.Ipc.ContractReading;
 
-/// <summary> Validates the raw shape of one public <c>kind:"edit"</c> request step. </summary>
-internal static class IpcRequestEditShapeReader
+/// <summary> Validates the raw shape of one public <c>kind:"edit"</c> execute step. </summary>
+internal static class IpcExecuteEditStepShapeReader
 {
     public static bool TryRead (
         JsonElement stepElement,
         int stepIndex,
         string? stepId,
-        in IpcRequestContractReadProfile profile,
-        out IpcRequestContractReadError error)
+        in IpcExecuteArgumentsContractReadProfile profile,
+        out IpcExecuteArgumentsContractReadError error)
     {
         return TryReadContext(stepElement, stepIndex, stepId, profile, out error)
             && TryReadSelection(stepElement, stepIndex, stepId, profile, out error)
@@ -23,8 +23,8 @@ internal static class IpcRequestEditShapeReader
         JsonElement stepElement,
         int stepIndex,
         string? stepId,
-        in IpcRequestContractReadProfile profile,
-        out IpcRequestContractReadError error)
+        in IpcExecuteArgumentsContractReadProfile profile,
+        out IpcExecuteArgumentsContractReadError error)
     {
         return TryReadObject(
             stepElement,
@@ -32,7 +32,7 @@ internal static class IpcRequestEditShapeReader
             stepIndex,
             stepId,
             profile,
-            IpcRequestContractReadError.StepOnContractViolation,
+            IpcExecuteArgumentsContractReadError.StepOnContractViolation,
             out error);
     }
 
@@ -40,8 +40,8 @@ internal static class IpcRequestEditShapeReader
         JsonElement stepElement,
         int stepIndex,
         string? stepId,
-        in IpcRequestContractReadProfile profile,
-        out IpcRequestContractReadError error)
+        in IpcExecuteArgumentsContractReadProfile profile,
+        out IpcExecuteArgumentsContractReadError error)
     {
         return TryReadObject(
             stepElement,
@@ -49,7 +49,7 @@ internal static class IpcRequestEditShapeReader
             stepIndex,
             stepId,
             profile,
-            IpcRequestContractReadError.StepSelectContractViolation,
+            IpcExecuteArgumentsContractReadError.StepSelectContractViolation,
             out error);
     }
 
@@ -58,13 +58,13 @@ internal static class IpcRequestEditShapeReader
         string propertyName,
         int stepIndex,
         string? stepId,
-        in IpcRequestContractReadProfile profile,
-        Func<int, string?, StepPropertyReadErrorKind, IpcRequestContractReadError> createError,
-        out IpcRequestContractReadError error)
+        in IpcExecuteArgumentsContractReadProfile profile,
+        Func<int, string?, StepPropertyReadErrorKind, IpcExecuteArgumentsContractReadError> createError,
+        out IpcExecuteArgumentsContractReadError error)
     {
-        if (IpcRequestStepPropertyReader.TryReadRequiredObject(stepElement, propertyName, profile.RequireStepObject, out var errorKind))
+        if (IpcExecuteStepPropertyReader.TryReadRequiredObject(stepElement, propertyName, profile.RequireStepObject, out var errorKind))
         {
-            error = IpcRequestContractReadError.None;
+            error = IpcExecuteArgumentsContractReadError.None;
             return true;
         }
 
@@ -75,23 +75,23 @@ internal static class IpcRequestEditShapeReader
         JsonElement stepElement,
         int stepIndex,
         string? stepId,
-        in IpcRequestContractReadProfile profile,
-        out IpcRequestContractReadError error)
+        in IpcExecuteArgumentsContractReadProfile profile,
+        out IpcExecuteArgumentsContractReadError error)
     {
-        if (!IpcRequestStepPropertyReader.TryReadRequiredArray(stepElement, "actions", profile.RequireStepObject, out var actionsElement, out var errorKind))
+        if (!IpcExecuteStepPropertyReader.TryReadRequiredArray(stepElement, "actions", profile.RequireStepObject, out var actionsElement, out var errorKind))
         {
-            return TryConvertPropertyError(stepIndex, stepId, profile, errorKind, IpcRequestContractReadError.StepActionsContractViolation, out error);
+            return TryConvertPropertyError(stepIndex, stepId, profile, errorKind, IpcExecuteArgumentsContractReadError.StepActionsContractViolation, out error);
         }
 
-        return IpcRequestStepPropertyReader.ValidateActionElements(actionsElement, stepIndex, stepId, out error);
+        return IpcExecuteStepPropertyReader.ValidateActionElements(actionsElement, stepIndex, stepId, out error);
     }
 
     private static bool TryReadCommit (
         JsonElement stepElement,
         int stepIndex,
         string? stepId,
-        in IpcRequestContractReadProfile profile,
-        out IpcRequestContractReadError error)
+        in IpcExecuteArgumentsContractReadProfile profile,
+        out IpcExecuteArgumentsContractReadError error)
     {
         if (!JsonStringContractReader.TryRead(
             stepElement,
@@ -102,11 +102,11 @@ internal static class IpcRequestEditShapeReader
             out _,
             out var readError))
         {
-            error = IpcRequestContractReadError.StepCommitContractViolation(stepIndex, stepId, readError);
+            error = IpcExecuteArgumentsContractReadError.StepCommitContractViolation(stepIndex, stepId, readError);
             return false;
         }
 
-        error = IpcRequestContractReadError.None;
+        error = IpcExecuteArgumentsContractReadError.None;
         return true;
     }
 
@@ -114,26 +114,26 @@ internal static class IpcRequestEditShapeReader
         JsonElement stepElement,
         int stepIndex,
         string? stepId,
-        in IpcRequestContractReadProfile profile,
-        out IpcRequestContractReadError error)
+        in IpcExecuteArgumentsContractReadProfile profile,
+        out IpcExecuteArgumentsContractReadError error)
     {
         if (profile.RequireStepObject && !IpcEditStepContractReader.TryRead(stepElement, out _, out var editErrorMessage))
         {
-            error = IpcRequestContractReadError.StepEditContractViolation(stepIndex, stepId, editErrorMessage);
+            error = IpcExecuteArgumentsContractReadError.StepEditContractViolation(stepIndex, stepId, editErrorMessage);
             return false;
         }
 
-        error = IpcRequestContractReadError.None;
+        error = IpcExecuteArgumentsContractReadError.None;
         return true;
     }
 
     private static bool TryConvertPropertyError (
         int stepIndex,
         string? stepId,
-        in IpcRequestContractReadProfile profile,
+        in IpcExecuteArgumentsContractReadProfile profile,
         StepPropertyReadErrorKind errorKind,
-        Func<int, string?, StepPropertyReadErrorKind, IpcRequestContractReadError> createError,
-        out IpcRequestContractReadError error)
+        Func<int, string?, StepPropertyReadErrorKind, IpcExecuteArgumentsContractReadError> createError,
+        out IpcExecuteArgumentsContractReadError error)
     {
         if (profile.RequireStepObject || errorKind == StepPropertyReadErrorKind.TypeMismatch)
         {
@@ -141,7 +141,7 @@ internal static class IpcRequestEditShapeReader
             return false;
         }
 
-        error = IpcRequestContractReadError.None;
+        error = IpcExecuteArgumentsContractReadError.None;
         return true;
     }
 

@@ -115,7 +115,7 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
 
             switch (step.Kind)
             {
-                case IpcRequestStepKind.Op:
+                case IpcExecuteStepKind.Op:
                     if (!StringValueNormalizer.TryTrimToNonEmpty(step.Op, out var normalizedOperationName))
                     {
                         errors.Add(new ValidationError(
@@ -164,7 +164,7 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
                     }
                     break;
 
-                case IpcRequestStepKind.Edit:
+                case IpcExecuteStepKind.Edit:
                     if (!RequestEditStepLowerPreviewBuilder.TryBuild(
                         step.Element,
                         request.AllowPlayMode,

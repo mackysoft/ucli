@@ -85,7 +85,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             writer.WriteStartObject();
             writer.WriteString("id", step.Id);
-            writer.WriteString("kind", step.Kind == IpcRequestStepKind.Op ? "op" : "edit");
+            writer.WriteString("kind", step.Kind == IpcExecuteStepKind.Op ? "op" : "edit");
             writer.WriteString("op", step.OperationName);
             writer.WriteNumber("primitiveCount", step.PrimitiveCount);
             writer.WriteEndObject();

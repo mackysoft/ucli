@@ -13,7 +13,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
     /// <param name="PlanToken"> The optional plan token passed from CLI options. </param>
     /// <param name="CanonicalDigestPayloadUtf8"> The canonical UTF-8 JSON payload used as request-digest material. </param>
     internal sealed record NormalizedExecuteRequest (
-        IReadOnlyList<IpcRequestContractStep> SourceSteps,
+        IReadOnlyList<IpcExecuteStepContract> SourceSteps,
         bool AllowDangerous,
         bool AllowPlayMode,
         string? PlanToken,

@@ -300,7 +300,7 @@ public sealed class PhaseExecutionPreflightServiceTests
                 Steps:
                 [
                     new ValidateRequestStep(
-                        Kind: MackySoft.Ucli.Contracts.Ipc.ContractReading.IpcRequestStepKind.Op,
+                        Kind: MackySoft.Ucli.Contracts.Ipc.ContractReading.IpcExecuteStepKind.Op,
                         StepId: "step-1",
                         Op: "ucli.scene.open",
                         Element: System.Text.Json.JsonSerializer.SerializeToElement(new

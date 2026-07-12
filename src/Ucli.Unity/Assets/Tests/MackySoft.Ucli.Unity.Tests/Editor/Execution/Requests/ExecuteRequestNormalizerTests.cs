@@ -58,7 +58,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var normalizedRequest = result.Request!;
             Assert.That(normalizedRequest.SourceSteps.Count, Is.EqualTo(1));
-            Assert.That(normalizedRequest.SourceSteps[0].Kind, Is.EqualTo(IpcRequestStepKind.Op));
+            Assert.That(normalizedRequest.SourceSteps[0].Kind, Is.EqualTo(IpcExecuteStepKind.Op));
             Assert.That(normalizedRequest.SourceSteps[0].OperationName, Is.EqualTo(UcliPrimitiveOperationNames.Resolve));
             var (compiledStep, compiledOperations) = CompileSingleStep(normalizedRequest, 0);
             Assert.That(compiledOperations[0].AllowRequestLocalAliases, Is.False);
@@ -177,11 +177,11 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var normalizedRequest = result.Request!;
             Assert.That(normalizedRequest.SourceSteps.Count, Is.EqualTo(1));
-            Assert.That(normalizedRequest.SourceSteps[0].Kind, Is.EqualTo(IpcRequestStepKind.Edit));
+            Assert.That(normalizedRequest.SourceSteps[0].Kind, Is.EqualTo(IpcExecuteStepKind.Edit));
             var (compiledStep, compiledOperations) = CompileSingleStep(normalizedRequest, 0);
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
                 .HasLoweredOperations(
-                    IpcRequestStepKind.Edit,
+                    IpcExecuteStepKind.Edit,
                     "edit",
                     UcliPrimitiveOperationNames.CompEnsure,
                     UcliPrimitiveOperationNames.CompSet,
@@ -248,7 +248,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var (compiledStep, compiledOperations) = CompileSingleStep(normalizedRequest, 0, scope.CreateExecutionContext());
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
                 .HasLoweredOperations(
-                    IpcRequestStepKind.Edit,
+                    IpcExecuteStepKind.Edit,
                     "edit",
                     UcliPrimitiveOperationNames.GoReparent)
                 .HasPostReadSourceStep(
@@ -321,7 +321,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.IsSuccess, Is.True);
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, scope.CreateExecutionContext());
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
-                .HasLoweredOperations(IpcRequestStepKind.Edit, "edit", UcliPrimitiveOperationNames.GoDelete)
+                .HasLoweredOperations(IpcExecuteStepKind.Edit, "edit", UcliPrimitiveOperationNames.GoDelete)
                 .AllHavePublicId("deleteFirst")
                 .HaveDistinctInternalExecutionKeys();
             var target = compiledOperations[0].Args.GetProperty("target");
@@ -753,7 +753,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var executionContext = scope.CreateExecutionContext();
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, executionContext);
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
-                .HasLoweredOperations(IpcRequestStepKind.Edit, "edit", UcliPrimitiveOperationNames.CompEnsure)
+                .HasLoweredOperations(IpcExecuteStepKind.Edit, "edit", UcliPrimitiveOperationNames.CompEnsure)
                 .AllHavePublicId("ensureDirtySceneTarget")
                 .HaveDistinctInternalExecutionKeys();
             Assert.That(executionContext.TryGetTemporaryScene(scenePath, out var temporaryScene), Is.True);
@@ -820,7 +820,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.IsSuccess, Is.True);
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, scope.CreateExecutionContext());
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
-                .HasLoweredOperations(IpcRequestStepKind.Edit, "edit", UcliPrimitiveOperationNames.GoDelete)
+                .HasLoweredOperations(IpcExecuteStepKind.Edit, "edit", UcliPrimitiveOperationNames.GoDelete)
                 .AllHavePublicId("deleteGoodRoot")
                 .HaveDistinctInternalExecutionKeys();
             Assert.That(compiledStep.Diagnostics.Count, Is.EqualTo(1));
@@ -1053,7 +1053,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var executionContext = scope.CreateExecutionContext();
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, executionContext);
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
-                .HasLoweredOperations(IpcRequestStepKind.Edit, "edit", UcliPrimitiveOperationNames.GoDelete)
+                .HasLoweredOperations(IpcExecuteStepKind.Edit, "edit", UcliPrimitiveOperationNames.GoDelete)
                 .AllHavePublicId("loadedSceneDelete")
                 .HaveDistinctInternalExecutionKeys();
             Assert.That(executionContext.TryGetTemporaryScene(scenePath, out var temporaryScene), Is.True);
@@ -1266,7 +1266,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var executionContext = scope.CreateExecutionContext();
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, executionContext);
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
-                .HasLoweredOperations(IpcRequestStepKind.Edit, "edit", UcliPrimitiveOperationNames.CompEnsure)
+                .HasLoweredOperations(IpcExecuteStepKind.Edit, "edit", UcliPrimitiveOperationNames.CompEnsure)
                 .AllHavePublicId("openedPrefabEnsure")
                 .HaveDistinctInternalExecutionKeys();
             Assert.That(executionContext.TryGetTemporaryPrefabContentsRoot(prefabPath, out var temporaryPrefabRoot), Is.True);
@@ -1594,7 +1594,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.IsSuccess, Is.True);
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, scope.CreateExecutionContext());
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
-                .HasLoweredOperations(IpcRequestStepKind.Edit, "edit")
+                .HasLoweredOperations(IpcExecuteStepKind.Edit, "edit")
                 .AllHavePublicId("optionalMissingDirectSelectionNoCommit");
         }
 
@@ -1648,7 +1648,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, scope.CreateExecutionContext());
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
                 .HasLoweredOperations(
-                    IpcRequestStepKind.Edit,
+                    IpcExecuteStepKind.Edit,
                     "edit",
                     UcliPrimitiveOperationNames.ProjectSave)
                 .AllHavePublicId("optionalMissingDirectSelectionProjectCommit");
@@ -1756,7 +1756,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var executionContext = scope.CreateExecutionContext();
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, executionContext);
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
-                .HasLoweredOperations(IpcRequestStepKind.Edit, "edit")
+                .HasLoweredOperations(IpcExecuteStepKind.Edit, "edit")
                 .AllHavePublicId("optionalMissingDirectSelectionNoCommitReleaseScenePreview");
             Assert.That(executionContext.TryGetTemporaryScene(scenePath, out _), Is.False);
         }
@@ -1808,7 +1808,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var executionContext = scope.CreateExecutionContext();
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, executionContext);
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
-                .HasLoweredOperations(IpcRequestStepKind.Edit, "edit")
+                .HasLoweredOperations(IpcExecuteStepKind.Edit, "edit")
                 .AllHavePublicId("optionalMissingDirectSelectionNoCommitReleasePrefabPreview");
             Assert.That(executionContext.TryGetTemporaryPrefabContentsRoot(prefabPath, out _), Is.False);
         }
@@ -2023,7 +2023,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.IsSuccess, Is.True);
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, new OperationExecutionContext(), allowPlayMode: true);
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
-                .HasLoweredOperations(IpcRequestStepKind.Op, UcliPrimitiveOperationNames.CsEval, UcliPrimitiveOperationNames.CsEval)
+                .HasLoweredOperations(IpcExecuteStepKind.Op, UcliPrimitiveOperationNames.CsEval, UcliPrimitiveOperationNames.CsEval)
                 .HasPostReadSourceStep(
                     IpcExecutePostReadSourceKindNames.Operation,
                     null,
@@ -2094,7 +2094,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 allowPlayMode: true,
                 CreateRegistry(CreatePlayModeOperation(operationName, UcliOperationPlayModeSupport.Required)));
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
-                .HasLoweredOperations(IpcRequestStepKind.Op, operationName, operationName);
+                .HasLoweredOperations(IpcExecuteStepKind.Op, operationName, operationName);
         }
 
         [Test]
@@ -2995,12 +2995,12 @@ namespace MackySoft.Ucli.Unity.Tests
                 playModeSupport: playModeSupport));
         }
 
-        private static IpcRequestContractStep ReadSingleSourceStep (IpcExecuteRequest request)
+        private static IpcExecuteStepContract ReadSingleSourceStep (IpcExecuteRequest request)
         {
             Assert.That(
-                IpcRequestContractReader.TryRead(
+                IpcExecuteArgumentsContractReader.TryRead(
                     request.Arguments,
-                    IpcRequestContractReadProfile.StrictExecute,
+                    IpcExecuteArgumentsContractReadProfile.StrictExecute,
                     out var contract,
                     out var error),
                 Is.True,

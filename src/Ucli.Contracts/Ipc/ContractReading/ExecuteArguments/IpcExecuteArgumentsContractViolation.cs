@@ -1,22 +1,22 @@
 namespace MackySoft.Ucli.Contracts.Ipc.ContractReading;
 
-/// <summary> Represents one normalized request-contract violation. </summary>
+/// <summary> Represents one normalized <c>execute</c> arguments contract violation. </summary>
 /// <param name="Kind"> The normalized machine-readable violation kind. </param>
 /// <param name="StepIndex"> The step index for step-scoped violations; otherwise <c>-1</c>. </param>
 /// <param name="StepId"> The step identifier context when available. </param>
 /// <param name="UnknownPropertyName"> The unknown property name for unknown-property violations. </param>
 /// <param name="PropertyPath"> The nested property path when available. </param>
 /// <param name="DuplicatedStepId"> The duplicated step identifier for duplicate-id violations. </param>
-internal readonly record struct IpcRequestContractViolation (
-    IpcRequestContractViolationKind Kind,
+internal readonly record struct IpcExecuteArgumentsContractViolation (
+    IpcExecuteArgumentsContractViolationKind Kind,
     int StepIndex,
     string? StepId,
     string? UnknownPropertyName,
     string? PropertyPath,
     string? DuplicatedStepId)
 {
-    public static IpcRequestContractViolation None => new(
-        Kind: IpcRequestContractViolationKind.None,
+    public static IpcExecuteArgumentsContractViolation None => new(
+        Kind: IpcExecuteArgumentsContractViolationKind.None,
         StepIndex: -1,
         StepId: null,
         UnknownPropertyName: null,

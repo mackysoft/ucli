@@ -1670,14 +1670,14 @@ namespace MackySoft.Ucli.Unity.Tests
             return steps;
         }
 
-        private static IpcRequestContractStep[] CreateSourceSteps (
+        private static IpcExecuteStepContract[] CreateSourceSteps (
             IReadOnlyList<(string OperationId, string OperationName)> operations)
         {
-            var steps = new IpcRequestContractStep[operations.Count];
+            var steps = new IpcExecuteStepContract[operations.Count];
             for (var i = 0; i < operations.Count; i++)
             {
-                steps[i] = new IpcRequestContractStep(
-                    Kind: IpcRequestStepKind.Op,
+                steps[i] = new IpcExecuteStepContract(
+                    Kind: IpcExecuteStepKind.Op,
                     Id: operations[i].OperationId,
                     OperationName: operations[i].OperationName,
                     Element: JsonSerializer.SerializeToElement(new
@@ -1692,10 +1692,10 @@ namespace MackySoft.Ucli.Unity.Tests
             return steps;
         }
 
-        private static IpcRequestContractStep CreateEditSourceStep (string stepId)
+        private static IpcExecuteStepContract CreateEditSourceStep (string stepId)
         {
-            return new IpcRequestContractStep(
-                Kind: IpcRequestStepKind.Edit,
+            return new IpcExecuteStepContract(
+                Kind: IpcExecuteStepKind.Edit,
                 Id: stepId,
                 OperationName: null,
                 Element: JsonSerializer.SerializeToElement(new
@@ -1724,10 +1724,10 @@ namespace MackySoft.Ucli.Unity.Tests
             for (var i = 0; i < request.SourceSteps.Count; i++)
             {
                 var sourceStep = request.SourceSteps[i];
-                var isEditStep = sourceStep.Kind == IpcRequestStepKind.Edit;
+                var isEditStep = sourceStep.Kind == IpcExecuteStepKind.Edit;
                 steps[i] = new NormalizedRequestStep(
                     Id: sourceStep.Id!,
-                    Kind: sourceStep.Kind ?? IpcRequestStepKind.Op,
+                    Kind: sourceStep.Kind ?? IpcExecuteStepKind.Op,
                     OperationName: isEditStep ? "edit" : sourceStep.OperationName!,
                     PrimitiveCount: isEditStep ? editPrimitiveCount : 1)
                 {
@@ -1739,7 +1739,7 @@ namespace MackySoft.Ucli.Unity.Tests
         }
 
         private static IpcExecutePostReadSourceStep CreatePostReadSourceStep (
-            IpcRequestContractStep sourceStep,
+            IpcExecuteStepContract sourceStep,
             bool isEditStep)
         {
             if (isEditStep)
@@ -1829,7 +1829,7 @@ namespace MackySoft.Ucli.Unity.Tests
             return PhaseExecutionTrace.Failure(
                 steps: CreateTraceSteps(
                     request,
-                    request.SourceSteps.Count == 1 && request.SourceSteps[0].Kind == IpcRequestStepKind.Edit
+                    request.SourceSteps.Count == 1 && request.SourceSteps[0].Kind == IpcExecuteStepKind.Edit
                         ? operationTraces.Count
                         : 0),
                 operationTraces: operationTraces,

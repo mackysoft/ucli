@@ -1,7 +1,7 @@
 namespace MackySoft.Ucli.Contracts.Ipc.ContractReading;
 
-/// <summary> Provides the allowed property vocabulary for public request steps. </summary>
-internal static class IpcRequestStepPropertyPolicy
+/// <summary> Provides the allowed property vocabulary for public <c>execute</c> steps. </summary>
+internal static class IpcExecuteStepPropertyPolicy
 {
     private static readonly HashSet<string> AnyStepProperties = new(StringComparer.Ordinal)
     {
@@ -33,14 +33,14 @@ internal static class IpcRequestStepPropertyPolicy
         "commit",
     };
 
-    public static HashSet<string> ResolveAllowedStepProperties (IpcRequestStepKind? stepKind)
+    public static HashSet<string> ResolveAllowedStepProperties (IpcExecuteStepKind? stepKind)
     {
-        if (stepKind == IpcRequestStepKind.Op)
+        if (stepKind == IpcExecuteStepKind.Op)
         {
             return OpStepProperties;
         }
 
-        return stepKind == IpcRequestStepKind.Edit
+        return stepKind == IpcExecuteStepKind.Edit
             ? EditStepProperties
             : AnyStepProperties;
     }

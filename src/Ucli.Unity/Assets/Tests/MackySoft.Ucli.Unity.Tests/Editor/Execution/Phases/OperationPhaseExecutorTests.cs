@@ -768,7 +768,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var planPassResult = new PlanPassResult(
                 CompiledSteps: new[]
                 {
-                    new NormalizedRequestStep("edit-1", IpcRequestStepKind.Edit, "edit", 1),
+                    new NormalizedRequestStep("edit-1", IpcExecuteStepKind.Edit, "edit", 1),
                 },
                 CompiledDigestPayloadUtf8: CreateCompiledDigestPayloadUtf8(),
                 OperationTraces: new[]
@@ -822,7 +822,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var planPassResult = new PlanPassResult(
                 CompiledSteps: new[]
                 {
-                    new NormalizedRequestStep("edit-1", IpcRequestStepKind.Edit, "edit", 1),
+                    new NormalizedRequestStep("edit-1", IpcExecuteStepKind.Edit, "edit", 1),
                 },
                 CompiledDigestPayloadUtf8: CreateCompiledDigestPayloadUtf8(),
                 OperationTraces: new[]
@@ -1522,12 +1522,12 @@ namespace MackySoft.Ucli.Unity.Tests
             bool allowDangerous = false,
             bool allowPlayMode = false)
         {
-            var sourceSteps = new List<IpcRequestContractStep>(operations.Length);
+            var sourceSteps = new List<IpcExecuteStepContract>(operations.Length);
             for (var i = 0; i < operations.Length; i++)
             {
                 var operation = operations[i];
-                sourceSteps.Add(new IpcRequestContractStep(
-                    Kind: IpcRequestStepKind.Op,
+                sourceSteps.Add(new IpcExecuteStepContract(
+                    Kind: IpcExecuteStepKind.Op,
                     Id: operation.OpId,
                     OperationName: operation.Op,
                     Element: JsonSerializer.SerializeToElement(new
@@ -1555,8 +1555,8 @@ namespace MackySoft.Ucli.Unity.Tests
             return new NormalizedExecuteRequest(
                 SourceSteps: new[]
                 {
-                    new IpcRequestContractStep(
-                        Kind: IpcRequestStepKind.Edit,
+                    new IpcExecuteStepContract(
+                        Kind: IpcExecuteStepKind.Edit,
                         Id: stepId,
                         OperationName: null,
                         Element: document.RootElement.Clone()),

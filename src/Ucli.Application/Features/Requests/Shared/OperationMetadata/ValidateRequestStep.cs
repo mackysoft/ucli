@@ -9,7 +9,7 @@ namespace MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 /// <param name="Op"> The operation name for <c>kind:"op"</c> steps. </param>
 /// <param name="Element"> The cloned public step JSON object. </param>
 internal sealed record ValidateRequestStep (
-    IpcRequestStepKind? Kind,
+    IpcExecuteStepKind? Kind,
     string? StepId,
     string? Op,
     JsonElement Element);

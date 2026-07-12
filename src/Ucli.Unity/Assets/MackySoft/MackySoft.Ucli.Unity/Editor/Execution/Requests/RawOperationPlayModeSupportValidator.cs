@@ -14,7 +14,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
         /// <summary> Validates one raw operation step against the operation metadata Play Mode contract. </summary>
         public static bool TryValidate (
             IPhaseOperationRegistry operationRegistry,
-            IpcRequestContractStep step,
+            IpcExecuteStepContract step,
             bool allowPlayMode,
             out ExecuteRequestNormalizationError error)
         {

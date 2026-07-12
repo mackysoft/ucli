@@ -4,7 +4,7 @@ using MackySoft.Ucli.Contracts.Ipc.ContractReading;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.ContractReading;
 
-public sealed class IpcRequestContractReaderStrictExecuteTests
+public sealed class IpcExecuteArgumentsContractReaderStrictExecuteTests
 {
     [Fact]
     [Trait("Size", "Small")]
@@ -16,14 +16,14 @@ public sealed class IpcRequestContractReaderStrictExecuteTests
             """
                 .Replace("__RESOLVE_OP__", UcliPrimitiveOperationNames.Resolve, StringComparison.Ordinal));
 
-        var result = IpcRequestContractReader.TryRead(
-            requestObject: document.RootElement,
-            profile: IpcRequestContractReadProfile.StrictExecute,
-            requestContract: out _,
+        var result = IpcExecuteArgumentsContractReader.TryRead(
+            argumentsObject: document.RootElement,
+            profile: IpcExecuteArgumentsContractReadProfile.StrictExecute,
+            argumentsContract: out _,
             error: out var error);
 
         Assert.False(result);
-        Assert.Equal(IpcRequestContractReadErrorKind.DuplicatedStepId, error.Kind);
+        Assert.Equal(IpcExecuteArgumentsContractReadErrorKind.DuplicatedStepId, error.Kind);
         Assert.Equal(1, error.StepIndex);
         Assert.Equal("same", error.DuplicatedStepId);
     }
@@ -38,18 +38,18 @@ public sealed class IpcRequestContractReaderStrictExecuteTests
             """
                 .Replace("__RESOLVE_OP__", UcliPrimitiveOperationNames.Resolve, StringComparison.Ordinal));
 
-        var result = IpcRequestContractReader.TryRead(
-            requestObject: document.RootElement,
-            profile: IpcRequestContractReadProfile.StrictExecute,
-            requestContract: out var parsedDocument,
+        var result = IpcExecuteArgumentsContractReader.TryRead(
+            argumentsObject: document.RootElement,
+            profile: IpcExecuteArgumentsContractReadProfile.StrictExecute,
+            argumentsContract: out var parsedArguments,
             error: out var error);
 
         Assert.True(result);
-        Assert.Equal(IpcRequestContractReadErrorKind.None, error.Kind);
-        Assert.NotNull(parsedDocument.Steps);
-        var step = Assert.Single(parsedDocument.Steps!);
+        Assert.Equal(IpcExecuteArgumentsContractReadErrorKind.None, error.Kind);
+        Assert.NotNull(parsedArguments.Steps);
+        var step = Assert.Single(parsedArguments.Steps!);
         Assert.NotNull(step);
-        Assert.Equal(IpcRequestStepKind.Op, step!.Kind);
+        Assert.Equal(IpcExecuteStepKind.Op, step!.Kind);
         Assert.Equal("op-1", step.Id);
         Assert.Equal(UcliPrimitiveOperationNames.Resolve, step.OperationName);
     }
@@ -58,19 +58,19 @@ public sealed class IpcRequestContractReaderStrictExecuteTests
     [Trait("Size", "Small")]
     [InlineData("requestId")]
     [InlineData("unknown")]
-    public void TryRead_StrictExecute_ReturnsUnknownRequestPropertyError_WhenUnknownPropertyExists (string propertyName)
+    public void TryRead_StrictExecute_ReturnsUnknownArgumentsPropertyError_WhenUnknownPropertyExists (string propertyName)
     {
         using var document = JsonDocument.Parse(
             $$"""{"protocolVersion":1,"steps":[],"{{propertyName}}":true}""");
 
-        var result = IpcRequestContractReader.TryRead(
-            requestObject: document.RootElement,
-            profile: IpcRequestContractReadProfile.StrictExecute,
-            requestContract: out _,
+        var result = IpcExecuteArgumentsContractReader.TryRead(
+            argumentsObject: document.RootElement,
+            profile: IpcExecuteArgumentsContractReadProfile.StrictExecute,
+            argumentsContract: out _,
             error: out var error);
 
         Assert.False(result);
-        Assert.Equal(IpcRequestContractReadErrorKind.UnknownRequestProperty, error.Kind);
+        Assert.Equal(IpcExecuteArgumentsContractReadErrorKind.UnknownArgumentsProperty, error.Kind);
         Assert.Equal(propertyName, error.UnknownPropertyName);
     }
 
@@ -87,14 +87,14 @@ public sealed class IpcRequestContractReaderStrictExecuteTests
             """{"protocolVersion":1,"steps":[__STEP__]}"""
                 .Replace("__STEP__", stepJson, StringComparison.Ordinal));
 
-        var result = IpcRequestContractReader.TryRead(
-            requestObject: document.RootElement,
-            profile: IpcRequestContractReadProfile.StrictExecute,
-            requestContract: out _,
+        var result = IpcExecuteArgumentsContractReader.TryRead(
+            argumentsObject: document.RootElement,
+            profile: IpcExecuteArgumentsContractReadProfile.StrictExecute,
+            argumentsContract: out _,
             error: out var error);
 
         Assert.False(result);
-        Assert.Equal(IpcRequestContractReadErrorKind.UnknownStepProperty, error.Kind);
+        Assert.Equal(IpcExecuteArgumentsContractReadErrorKind.UnknownStepProperty, error.Kind);
         Assert.Equal(0, error.StepIndex);
         Assert.Equal(expectedUnknownProperty, error.UnknownPropertyName);
     }

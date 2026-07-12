@@ -2,8 +2,8 @@ using System.Text.Json;
 
 namespace MackySoft.Ucli.Contracts.Ipc.ContractReading;
 
-/// <summary> Reads low-level public request step properties with normalized error kinds. </summary>
-internal static class IpcRequestStepPropertyReader
+/// <summary> Reads low-level public <c>execute</c> step properties with normalized error kinds. </summary>
+internal static class IpcExecuteStepPropertyReader
 {
     public static bool TryReadRequiredObject (
         JsonElement jsonObject,
@@ -28,18 +28,18 @@ internal static class IpcRequestStepPropertyReader
         JsonElement actionsElement,
         int stepIndex,
         string? stepId,
-        out IpcRequestContractReadError error)
+        out IpcExecuteArgumentsContractReadError error)
     {
         foreach (var actionElement in actionsElement.EnumerateArray())
         {
             if (actionElement.ValueKind != JsonValueKind.Object)
             {
-                error = IpcRequestContractReadError.StepActionMustBeObject(stepIndex, stepId);
+                error = IpcExecuteArgumentsContractReadError.StepActionMustBeObject(stepIndex, stepId);
                 return false;
             }
         }
 
-        error = IpcRequestContractReadError.None;
+        error = IpcExecuteArgumentsContractReadError.None;
         return true;
     }
 
