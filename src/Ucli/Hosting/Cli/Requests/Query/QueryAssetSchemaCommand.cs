@@ -56,19 +56,21 @@ internal sealed class QueryAssetSchemaCommand
     {
         cancellationToken.ThrowIfCancellationRequested();
         CommandExecutionState.MarkStarted();
+        var requestId = Guid.NewGuid();
 
         var commonOptionsResult = QueryCommonOptionsNormalizer.Normalize(projectPath, mode, timeout, readIndexMode, failFast);
         if (!commonOptionsResult.IsSuccess)
         {
-            return QueryCommandExecutionHelper.WriteExecutionError(commandResultWriter, UcliCommandNames.QueryAssetSchema, commonOptionsResult.Error!);
+            return QueryCommandExecutionHelper.WriteExecutionError(requestId, commandResultWriter, UcliCommandNames.QueryAssetSchema, commonOptionsResult.Error!);
         }
 
         if (!TryCreateArgs(type, globalObjectId, assetGuid, assetPath, projectAssetPath, out var args, out var error))
         {
-            return QueryCommandExecutionHelper.WriteExecutionError(commandResultWriter, UcliCommandNames.QueryAssetSchema, error!);
+            return QueryCommandExecutionHelper.WriteExecutionError(requestId, commandResultWriter, UcliCommandNames.QueryAssetSchema, error!);
         }
 
         return await QueryCommandExecutionHelper.ExecuteAsync(
+                requestId,
                 queryService,
                 commonOptionsResult.Options!,
                 new QueryUnityOperationRequest(

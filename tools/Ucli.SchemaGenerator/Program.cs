@@ -81,6 +81,7 @@ internal static class Program
         {
             CreateSchema("cli-output/envelope.schema.json", "cli-output-envelope", null, CreateEnvelopeSchema()),
             CreateSchema("cli-output/defs/project.schema.json", "cli-output-def", null, CreateProjectSchema()),
+            CreateSchema("cli-output/defs/request-id.schema.json", "cli-output-def", null, CreateRequestIdSchema()),
             CreateSchema("cli-output/defs/read-index.schema.json", "cli-output-def", null, CreateReadIndexSchema()),
             CreateSchema("cli-output/defs/op-result.schema.json", "cli-output-def", null, CreateOperationResultSchema()),
             CreateSchema("cli-output/defs/post-read-source.schema.json", "cli-output-def", null, CreatePostReadSourceSchema()),
@@ -979,7 +980,7 @@ internal static class Program
     {
         var properties = new List<SchemaProperty>
         {
-            Optional("requestId", StringSchema()),
+            Optional("requestId", ReferenceSchema("../defs/request-id.schema.json")),
             Optional("project", ReferenceSchema("../defs/project.schema.json")),
             Optional("opResults", ArraySchema(ReferenceSchema("../defs/op-result.schema.json"))),
             Optional("contractViolations", ArraySchema(ReferenceSchema("../defs/contract-violation.schema.json"))),
@@ -1013,7 +1014,7 @@ internal static class Program
     {
         return ObjectSchema(
             additionalProperties: false,
-            Optional("requestId", StringSchema()),
+            Optional("requestId", ReferenceSchema("../defs/request-id.schema.json")),
             Optional("project", ReferenceSchema("../defs/project.schema.json")),
             Optional("opResults", ArraySchema(ReferenceSchema("../defs/op-result.schema.json"))),
             Optional("contractViolations", ArraySchema(ReferenceSchema("../defs/contract-violation.schema.json"))),
@@ -1907,6 +1908,11 @@ internal static class Program
     private static Dictionary<string, object?> Sha256LowerHexSchema ()
     {
         return PatternStringSchema("^[0-9a-f]{64}$");
+    }
+
+    private static Dictionary<string, object?> CreateRequestIdSchema ()
+    {
+        return PatternStringSchema("^(?!00000000-0000-0000-0000-000000000000$)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$");
     }
 
     private static Dictionary<string, object?> NullableSha256LowerHexSchema ()

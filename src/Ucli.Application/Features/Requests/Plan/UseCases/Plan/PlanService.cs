@@ -42,10 +42,16 @@ internal sealed class PlanService : IPlanService
 
     /// <inheritdoc />
     public async ValueTask<PlanServiceResult> ExecuteAsync (
+        Guid requestId,
         PlanCommandInput input,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        if (requestId == Guid.Empty)
+        {
+            throw new ArgumentException("Request id must not be empty.", nameof(requestId));
+        }
+
         ArgumentNullException.ThrowIfNull(input);
 
         if (input.AllowPlayMode && input.ReadIndexMode != null)
@@ -77,7 +83,7 @@ internal sealed class PlanService : IPlanService
             var preflightPreparedRequest = requestStaticValidationPreflightResult.PreparedRequest;
             if (requestStaticValidationPreflightResult.Error != null)
             {
-                var preflightBaseOutput = PlanExecutionOutputFactory.TryCreateBase(preflightPreparedRequest, requestStaticValidationPreflightResult.ReadIndex);
+                var preflightBaseOutput = PlanExecutionOutputFactory.TryCreateBase(requestId, preflightPreparedRequest, requestStaticValidationPreflightResult.ReadIndex);
                 return PlanFailureResultFactory.FromExecutionError(
                     requestStaticValidationPreflightResult.Error,
                     preflightBaseOutput,
@@ -86,14 +92,14 @@ internal sealed class PlanService : IPlanService
 
             if (requestStaticValidationPreflightResult.HasValidationErrors)
             {
-                var preflightBaseOutput = PlanExecutionOutputFactory.TryCreateBase(preflightPreparedRequest, requestStaticValidationPreflightResult.ReadIndex);
+                var preflightBaseOutput = PlanExecutionOutputFactory.TryCreateBase(requestId, preflightPreparedRequest, requestStaticValidationPreflightResult.ReadIndex);
                 return PlanFailureResultFactory.FromValidationErrors(
                     requestStaticValidationPreflightResult.ValidationErrors,
                     preflightBaseOutput);
             }
 
             preparedRequest = preflightPreparedRequest!;
-            baseOutput = PlanExecutionOutputFactory.CreateBase(preparedRequest, requestStaticValidationPreflightResult.ReadIndex!);
+            baseOutput = PlanExecutionOutputFactory.CreateBase(requestId, preparedRequest, requestStaticValidationPreflightResult.ReadIndex!);
         }
         else
         {
@@ -105,6 +111,7 @@ internal sealed class PlanService : IPlanService
                 },
             };
             baseOutput = PlanExecutionOutputFactory.CreateBase(
+                requestId,
                 preparedRequest,
                 ReadIndexInfoFactory.Unity(PlayModeReadIndexFallbackReason));
             var validationResult = await requestStaticValidationService.ValidateAsync(

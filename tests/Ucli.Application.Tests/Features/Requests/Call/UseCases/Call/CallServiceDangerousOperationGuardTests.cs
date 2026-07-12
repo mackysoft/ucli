@@ -51,6 +51,7 @@ public sealed class CallServiceDangerousOperationGuardTests
             ipcRequestExecutor);
 
         var result = await service.ExecuteAsync(
+            RequestId,
             new CallCommandInput(
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode("daemon"),
@@ -97,6 +98,7 @@ public sealed class CallServiceDangerousOperationGuardTests
             ipcRequestExecutor);
 
         var result = await service.ExecuteAsync(
+            RequestId,
             new CallCommandInput(
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode(null),
@@ -124,6 +126,7 @@ public sealed class CallServiceDangerousOperationGuardTests
             new UnexpectedUnityRequestExecutor());
 
         var result = await service.ExecuteAsync(
+            RequestId,
             new CallCommandInput(
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode(null),
@@ -138,7 +141,7 @@ public sealed class CallServiceDangerousOperationGuardTests
         Assert.False(result.IsSuccess);
         Assert.Equal(ApplicationOutcome.InvalidArgument, result.Outcome);
         Assert.NotNull(result.Output);
-        Assert.Equal("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62", result.Output!.RequestId);
+        Assert.Equal(RequestId, result.Output!.RequestId);
         Assert.Empty(result.Output.OpResults);
         var error = Assert.Single(result.Errors);
         Assert.Equal(OperationAuthorizationErrorCodes.OperationNotAllowed, error.Code);
@@ -160,6 +163,7 @@ public sealed class CallServiceDangerousOperationGuardTests
             new UnexpectedUnityRequestExecutor());
 
         var result = await service.ExecuteAsync(
+            RequestId,
             new CallCommandInput(
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode(null),

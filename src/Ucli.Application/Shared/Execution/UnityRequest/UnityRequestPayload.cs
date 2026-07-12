@@ -104,7 +104,6 @@ internal abstract record UnityRequestPayload
     /// <summary> Represents a single-operation execute request prepared by application orchestration. </summary>
     internal sealed record ExecuteOperation (
         UcliCommand Command,
-        string RequestId,
         string OperationId,
         string OperationName,
         JsonElement Args,

@@ -18,7 +18,7 @@ internal static class CallExecutionPayloadProjector
 
         var payload = new Dictionary<string, object?>
         {
-            ["requestId"] = output.RequestId,
+            ["requestId"] = output.RequestId.ToString("D"),
             ["project"] = ProjectIdentityPayloadProjector.Create(output.Project),
             ["opResults"] = output.OpResults,
         };
@@ -45,8 +45,8 @@ internal static class CallExecutionPayloadProjector
 
         var planPayload = new Dictionary<string, object?>
         {
-            ["requestId"] = output.Plan.RequestId,
-            ["project"] = ProjectIdentityPayloadProjector.Create(output.Plan.Project),
+            ["requestId"] = output.RequestId.ToString("D"),
+            ["project"] = ProjectIdentityPayloadProjector.Create(output.Project),
             ["opResults"] = output.Plan.OpResults,
         };
         if (output.Plan.ContractViolations.Count != 0)

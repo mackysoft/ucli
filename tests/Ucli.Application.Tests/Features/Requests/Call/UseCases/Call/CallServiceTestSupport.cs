@@ -12,6 +12,8 @@ namespace MackySoft.Ucli.Application.Tests;
 
 internal static class CallServiceTestSupport
 {
+    public static readonly Guid RequestId = Guid.Parse("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62");
+
     public static PhaseExecutionPreparedRequest CreatePreparedRequest (
         string requestJson,
         ValidateRequest request,
@@ -20,9 +22,9 @@ internal static class CallServiceTestSupport
     {
         return new PhaseExecutionPreparedRequest(
             PreparedRequest: new PreparedRequestContext(
-                RequestJson: requestJson,
-                Request: request,
-                ProjectContext: ProjectContextTestFactory.CreateRepositoryFixtureProject(config)),
+                requestJson: requestJson,
+                request: request,
+                projectContext: ProjectContextTestFactory.CreateRepositoryFixtureProject(config)),
             OperationsByName: operationsByName);
     }
 
@@ -93,7 +95,6 @@ internal static class CallServiceTestSupport
     {
         return new ValidateRequest(
             ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
             Steps:
             [
                 new ValidateRequestStep(
@@ -115,7 +116,6 @@ internal static class CallServiceTestSupport
         return JsonSerializer.Serialize(new
         {
             protocolVersion = IpcProtocol.CurrentVersion,
-            requestId = "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
             steps = new[]
             {
                 new
@@ -135,7 +135,6 @@ internal static class CallServiceTestSupport
 
         return new ValidateRequest(
             ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
             Steps:
             [
                 new ValidateRequestStep(
@@ -151,7 +150,6 @@ internal static class CallServiceTestSupport
         return """
             {
               "protocolVersion": 1,
-              "requestId": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
               "steps": [
                 {
                   "kind": "edit",

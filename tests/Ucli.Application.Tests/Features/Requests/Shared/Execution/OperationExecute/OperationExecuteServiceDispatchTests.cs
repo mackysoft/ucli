@@ -36,6 +36,7 @@ public sealed class OperationExecuteServiceDispatchTests
             timeProvider: timeProvider);
 
         var result = await service.ExecuteAsync(
+            OperationExecuteServiceTestSupport.RequestId,
             OperationExecuteServiceTestSupport.RefreshOperation,
             OperationExecuteServiceTestSupport.CreateInput(
                 mode: UnityExecutionMode.Daemon,
@@ -43,7 +44,7 @@ public sealed class OperationExecuteServiceDispatchTests
                 failFast: true),
             cancellationToken: CancellationToken.None);
 
-        Assert.True(Guid.TryParseExact(result.RequestId, "D", out _));
+        Assert.Equal(OperationExecuteServiceTestSupport.RequestId, result.RequestId);
         Assert.True(result.IsSuccess);
         Assert.Equal(ApplicationOutcome.Success, result.Outcome);
         Assert.Empty(result.Errors);
@@ -70,7 +71,6 @@ public sealed class OperationExecuteServiceDispatchTests
             UnityExecutionMode.Daemon,
             TimeSpan.FromMilliseconds(120000),
             expectedRepositoryRoot: "/repo",
-            expectedRequestId: result.RequestId,
             expectedFailFast: true,
             expectedOperationId: "refresh",
             expectedOperationName: UcliPrimitiveOperationNames.ProjectRefresh);

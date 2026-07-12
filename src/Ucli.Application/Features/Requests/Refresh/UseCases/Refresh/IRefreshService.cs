@@ -6,10 +6,12 @@ namespace MackySoft.Ucli.Application.Features.Requests.Refresh.UseCases.Refresh;
 internal interface IRefreshService
 {
     /// <summary> Executes one <c>refresh</c> workflow and returns the normalized execution result. </summary>
+    /// <param name="requestId"> The non-empty correlation identifier owned by the CLI command invocation. </param>
     /// <param name="input"> The normalized command input values. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the refresh execution result. </returns>
     ValueTask<OperationExecuteResult> ExecuteAsync (
+        Guid requestId,
         RefreshCommandInput input,
         CancellationToken cancellationToken = default);
 }

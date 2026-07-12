@@ -1,17 +1,14 @@
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Requests;
-using MackySoft.Ucli.Tests.Helpers.Cli;
 
 namespace MackySoft.Ucli.Tests;
 
 public sealed class UserRequestJsonNormalizerTests
 {
-    private const string RequestId = "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62";
-
     [Fact]
     [Trait("Size", "Small")]
-    public void Normalize_WhenUserRequestContainsOnlySteps_AddsProtocolVersionAndRequestId ()
+    public void Normalize_WhenUserRequestContainsOnlySteps_AddsProtocolVersionWithoutRequestId ()
     {
         var normalizer = CreateNormalizer();
 
@@ -22,7 +19,7 @@ public sealed class UserRequestJsonNormalizerTests
         using var document = JsonDocument.Parse(result.RequestJson!);
         var root = document.RootElement;
         Assert.Equal(IpcProtocol.CurrentVersion, root.GetProperty("protocolVersion").GetInt32());
-        Assert.Equal(RequestId, root.GetProperty("requestId").GetString());
+        Assert.False(root.TryGetProperty("requestId", out _));
         Assert.Equal(JsonValueKind.Array, root.GetProperty("steps").ValueKind);
     }
 
@@ -58,37 +55,37 @@ public sealed class UserRequestJsonNormalizerTests
         Assert.Equal("Root", step.GetProperty("args").GetProperty("path").GetString());
     }
 
-    [Theory]
+    [Fact]
     [Trait("Size", "Small")]
-    [InlineData("protocolVersion")]
-    [InlineData("requestId")]
-    public void Normalize_WhenUserRequestContainsReservedRootProperty_ReturnsInvalidArgument (string propertyName)
+    public void Normalize_WhenUserRequestContainsProtocolVersion_ReturnsReservedPropertyError ()
     {
         var normalizer = CreateNormalizer();
-        var requestJson = $$"""{"{{propertyName}}":"value","steps":[]}""";
+
+        var result = normalizer.Normalize("""{"protocolVersion":1,"steps":[]}""");
+
+        Assert.False(result.IsSuccess);
+        Assert.Null(result.RequestJson);
+        Assert.NotNull(result.Error);
+        Assert.Contains("reserved", result.Error!.Message, StringComparison.Ordinal);
+        Assert.Contains("protocolVersion", result.Error.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("requestId")]
+    [InlineData("unknown")]
+    public void Normalize_WhenUserRequestContainsUnknownRootProperty_ReturnsInvalidArgument (string propertyName)
+    {
+        var normalizer = CreateNormalizer();
+        var requestJson = $$"""{"steps":[],"{{propertyName}}":true}""";
 
         var result = normalizer.Normalize(requestJson);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.RequestJson);
         Assert.NotNull(result.Error);
-        Assert.Contains("reserved", result.Error!.Message, StringComparison.Ordinal);
-        Assert.Contains(propertyName, result.Error.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void Normalize_WhenUserRequestContainsUnknownRootProperty_ReturnsInvalidArgument ()
-    {
-        var normalizer = CreateNormalizer();
-
-        var result = normalizer.Normalize("""{"steps":[],"unknown":true}""");
-
-        Assert.False(result.IsSuccess);
-        Assert.Null(result.RequestJson);
-        Assert.NotNull(result.Error);
         Assert.Contains("unknown property", result.Error!.Message, StringComparison.Ordinal);
-        Assert.Contains("unknown", result.Error.Message, StringComparison.Ordinal);
+        Assert.Contains(propertyName, result.Error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -122,6 +119,6 @@ public sealed class UserRequestJsonNormalizerTests
 
     private static UserRequestJsonNormalizer CreateNormalizer ()
     {
-        return new UserRequestJsonNormalizer(new StubRequestIdFactory(RequestId));
+        return new UserRequestJsonNormalizer();
     }
 }

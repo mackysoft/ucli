@@ -5,7 +5,7 @@
   "additionalProperties": false,
   "properties": {
     "requestId": {
-      "type": "string"
+      "$ref": "../defs/request-id.schema.json"
     },
     "project": {
       "$ref": "../defs/project.schema.json"

@@ -294,10 +294,9 @@ public sealed class PhaseExecutionPreflightServiceTests
     private static PreparedRequestContext CreatePreparedRequestContext ()
     {
         return new PreparedRequestContext(
-            RequestJson: """{"protocolVersion":1,"requestId":"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62","steps":[{"kind":"op","id":"step-1","op":"ucli.scene.open","args":{"path":"Assets/Scenes/Main.unity"}}]}""",
-            Request: new ValidateRequest(
+            requestJson: """{"protocolVersion":1,"steps":[{"kind":"op","id":"step-1","op":"ucli.scene.open","args":{"path":"Assets/Scenes/Main.unity"}}]}""",
+            request: new ValidateRequest(
                 ProtocolVersion: 1,
-                RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
                 Steps:
                 [
                     new ValidateRequestStep(
@@ -315,7 +314,7 @@ public sealed class PhaseExecutionPreflightServiceTests
                             },
                         })),
                 ]),
-            ProjectContext: ProjectContextTestFactory.CreateTemporaryFixtureProject());
+            projectContext: ProjectContextTestFactory.CreateTemporaryFixtureProject());
     }
 
     private static UcliOperationDescriptor CreateOperationDescriptor (

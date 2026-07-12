@@ -50,6 +50,23 @@ public sealed class RequestServiceResultConstructionInvariantTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void CorrelatedResult_WhenRequestIdIsEmpty_Throws ()
+    {
+        var readIndex = RequestServiceResultInvariantTestSupport.CreateReadIndexInfo();
+        var project = ProjectIdentityInfoTestFactory.Create();
+
+        var exceptions = new[]
+        {
+            Assert.Throws<ArgumentException>(() => QueryServiceResultFactory.Success("query assets find", Guid.Empty, [], readIndex, project)),
+            Assert.Throws<ArgumentException>(() => ResolveServiceResultFactory.Success(Guid.Empty, [], readIndex, project)),
+            Assert.Throws<ArgumentException>(() => OperationExecuteResultFactory.Success(Guid.Empty, [], "Operation execution completed.", readPostcondition: null, project)),
+        };
+
+        Assert.All(exceptions, static exception => Assert.Equal("requestId", exception.ParamName));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Failure_Errors_AreReturnedAsReadOnlySnapshot ()
     {
         var inputErrors = new List<ApplicationFailure>(RequestServiceResultInvariantTestSupport.CreateErrors());

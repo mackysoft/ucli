@@ -80,19 +80,17 @@ public sealed class RequestStaticValidatorTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Validate_WhenEmptyStepsAndHeaderIsInvalid_PreservesHeaderErrors ()
+    public async Task Validate_WhenEmptyStepsAndProtocolVersionIsInvalid_PreservesProtocolError ()
     {
         var validator = CreateValidator();
         var request = CreateRequest(
             protocolVersion: IpcProtocol.CurrentVersion + 1,
-            requestId: "invalid-request-id",
             steps: Array.Empty<ValidateRequestStep?>());
 
         var result = await validator.ValidateAsync(request, ValidationUnityProject, CreateConfig(OperationPolicy.Safe, "^ucli\\."), CancellationToken.None);
 
         Assert.False(result.IsValid);
         AssertContainsError(result, IpcProtocolErrorCodes.ProtocolVersionMismatch);
-        AssertContainsError(result, ValidationErrorCodes.RequestIdInvalid);
         Assert.Null(result.Error);
     }
 

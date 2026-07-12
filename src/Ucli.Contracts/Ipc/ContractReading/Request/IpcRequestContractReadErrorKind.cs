@@ -18,12 +18,6 @@ internal enum IpcRequestContractReadErrorKind
     /// <summary> Property <c>protocolVersion</c> exists but is not an integer. </summary>
     ProtocolVersionTypeMismatch,
 
-    /// <summary> Property <c>requestId</c> violates string-contract constraints. </summary>
-    RequestIdContractViolation,
-
-    /// <summary> Property <c>requestId</c> is not UUID format <c>D</c>. </summary>
-    RequestIdFormatMismatch,
-
     /// <summary> Required property <c>steps</c> is missing. </summary>
     StepsMissing,
 

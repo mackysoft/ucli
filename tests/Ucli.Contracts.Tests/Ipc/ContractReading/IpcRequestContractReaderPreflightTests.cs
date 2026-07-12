@@ -1,6 +1,5 @@
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
-using MackySoft.Ucli.Contracts.Ipc.Validation;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.ContractReading;
 
@@ -8,7 +7,7 @@ public sealed class IpcRequestContractReaderPreflightTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public void TryRead_PermissivePreflight_AllowsMissingHeadersAndSteps ()
+    public void TryRead_PermissivePreflight_AllowsMissingProtocolVersionAndSteps ()
     {
         using var document = JsonDocument.Parse("{}");
 
@@ -21,7 +20,6 @@ public sealed class IpcRequestContractReaderPreflightTests
         Assert.True(result);
         Assert.Equal(IpcRequestContractReadErrorKind.None, error.Kind);
         Assert.Equal(0, parsedDocument.ProtocolVersion);
-        Assert.Null(parsedDocument.RequestId);
         Assert.Null(parsedDocument.Steps);
     }
 
@@ -66,7 +64,7 @@ public sealed class IpcRequestContractReaderPreflightTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void TryRead_PermissivePreflight_ReturnsRequestIdTypeMismatch_WhenRequestIdIsNonString ()
+    public void TryRead_PermissivePreflight_ReturnsUnknownRequestProperty_WhenRequestIdExists ()
     {
         using var document = JsonDocument.Parse("""{"requestId":1}""");
 
@@ -77,7 +75,7 @@ public sealed class IpcRequestContractReaderPreflightTests
             error: out var error);
 
         Assert.False(result);
-        Assert.Equal(IpcRequestContractReadErrorKind.RequestIdContractViolation, error.Kind);
-        Assert.Equal(JsonStringReadErrorKind.TypeMismatch, error.JsonStringReadError.Kind);
+        Assert.Equal(IpcRequestContractReadErrorKind.UnknownRequestProperty, error.Kind);
+        Assert.Equal("requestId", error.UnknownPropertyName);
     }
 }

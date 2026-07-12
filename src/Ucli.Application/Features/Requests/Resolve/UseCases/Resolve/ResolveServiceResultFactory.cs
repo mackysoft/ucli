@@ -13,7 +13,7 @@ internal static class ResolveServiceResultFactory
 
     /// <summary> Creates one successful resolve result. </summary>
     public static ResolveServiceResult Success (
-        string requestId,
+        Guid requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         ReadIndexInfo readIndex,
         ProjectIdentityInfo project,
@@ -24,7 +24,7 @@ internal static class ResolveServiceResultFactory
 
     /// <summary> Creates one failure result from a structured execution error. </summary>
     public static ResolveServiceResult FromExecutionError (
-        string requestId,
+        Guid requestId,
         ExecutionError error,
         ReadIndexInfo? readIndex = null,
         ProjectIdentityInfo? project = null)
@@ -44,7 +44,7 @@ internal static class ResolveServiceResultFactory
 
     /// <summary> Creates one failure result from one IPC error. </summary>
     public static ResolveServiceResult FromIpcError (
-        string requestId,
+        Guid requestId,
         OperationExecutionError error,
         ReadIndexInfo readIndex,
         ProjectIdentityInfo? project = null)
@@ -61,14 +61,13 @@ internal static class ResolveServiceResultFactory
 
     /// <summary> Creates one failed resolve result. </summary>
     public static ResolveServiceResult Failure (
-        string requestId,
+        Guid requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         IReadOnlyList<ApplicationFailure> errors,
         ReadIndexInfo readIndex,
         ProjectIdentityInfo? project = null,
         IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(opResults);
         ArgumentNullException.ThrowIfNull(readIndex);
 

@@ -44,15 +44,19 @@ internal sealed class OperationExecuteService : IOperationExecuteService
 
     /// <inheritdoc />
     public async ValueTask<OperationExecuteResult> ExecuteAsync (
+        Guid requestId,
         OperationExecuteDefinition definition,
         OperationExecuteInput input,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        if (requestId == Guid.Empty)
+        {
+            throw new ArgumentException("Request id must not be empty.", nameof(requestId));
+        }
+
         ArgumentNullException.ThrowIfNull(definition);
         ArgumentNullException.ThrowIfNull(input);
-
-        var requestId = Guid.NewGuid().ToString("D");
 
         var projectContextResult = await projectContextResolver.ResolveAsync(input.ProjectPath, cancellationToken).ConfigureAwait(false);
         if (!projectContextResult.IsSuccess)
@@ -142,7 +146,6 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                 projectContext.UnityProject,
                 new UnityRequestPayload.ExecuteOperation(
                     UcliCommandIds.Call,
-                    requestId,
                     definition.OperationId,
                     definition.Descriptor.Name,
                     definition.Args,
@@ -208,7 +211,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
     /// <returns> One tuple containing the issued plan token, or a normalized failure result when plan execution cannot continue. </returns>
     private async ValueTask<(string? PlanToken, OperationExecuteResult? FailureResult)> IssuePlanTokenAsync (
         OperationExecuteDefinition definition,
-        string requestId,
+        Guid requestId,
         UnityExecutionMode mode,
         TimeSpan timeout,
         bool failFast,
@@ -219,7 +222,6 @@ internal sealed class OperationExecuteService : IOperationExecuteService
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(definition);
-        ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(unityProject);
 
@@ -231,7 +233,6 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                 unityProject,
                 new UnityRequestPayload.ExecuteOperation(
                     UcliCommandIds.Plan,
-                    requestId,
                     definition.OperationId,
                     definition.Descriptor.Name,
                     definition.Args,

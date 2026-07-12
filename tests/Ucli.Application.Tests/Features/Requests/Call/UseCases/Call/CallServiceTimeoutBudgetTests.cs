@@ -47,6 +47,7 @@ public sealed class CallServiceTimeoutBudgetTests
             timeProvider);
 
         var result = await service.ExecuteAsync(
+            RequestId,
             new CallCommandInput(
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode("oneshot"),
@@ -95,6 +96,7 @@ public sealed class CallServiceTimeoutBudgetTests
             preflightService: preflightService);
 
         var result = await service.ExecuteAsync(
+            RequestId,
             new CallCommandInput(
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode("oneshot"),

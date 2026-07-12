@@ -15,7 +15,6 @@ public sealed class IpcExecuteContractSerializationTests
             Arguments: IpcPayloadCodec.SerializeToElement(new
             {
                 protocolVersion = 1,
-                requestId = "req-1",
                 steps = Array.Empty<object>(),
             }))
         {
@@ -41,7 +40,6 @@ public sealed class IpcExecuteContractSerializationTests
             Arguments: IpcPayloadCodec.SerializeToElement(new
             {
                 protocolVersion = 1,
-                requestId = "req-1",
                 steps = Array.Empty<object>(),
             }))
         {

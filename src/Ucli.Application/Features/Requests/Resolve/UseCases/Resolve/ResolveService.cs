@@ -34,14 +34,18 @@ internal sealed class ResolveService : IResolveService
 
     /// <inheritdoc />
     public async ValueTask<ResolveServiceResult> ExecuteAsync (
+        Guid requestId,
         ResolveCommandInput input,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        if (requestId == Guid.Empty)
+        {
+            throw new ArgumentException("Request id must not be empty.", nameof(requestId));
+        }
+
         ArgumentNullException.ThrowIfNull(input);
         ArgumentNullException.ThrowIfNull(input.Selector);
-
-        var requestId = Guid.NewGuid().ToString("D");
         var projectContextResult = await projectContextResolver.ResolveAsync(input.ProjectPath, cancellationToken).ConfigureAwait(false);
         if (!projectContextResult.IsSuccess)
         {
@@ -112,7 +116,7 @@ internal sealed class ResolveService : IResolveService
     }
 
     private async ValueTask<(ResolveServiceResult? CompletedResult, string FallbackReason)> TryResolveFromSceneTreeLiteIndexAsync (
-        string requestId,
+        Guid requestId,
         ResolveCommandInput input,
         ResolveSceneHierarchySelectorInput selector,
         ProjectContext projectContext,
@@ -174,7 +178,7 @@ internal sealed class ResolveService : IResolveService
     }
 
     private async ValueTask<ResolveServiceResult> ExecuteResolveInUnityAsync (
-        string requestId,
+        Guid requestId,
         ResolveCommandInput input,
         ProjectContext projectContext,
         ProjectIdentityInfo project,
@@ -190,7 +194,7 @@ internal sealed class ResolveService : IResolveService
                 timeout,
                 projectContext.Config,
                 projectContext.UnityProject,
-                CreateExecuteRequestPayload(input.Selector, requestId, input.FailFast),
+                CreateExecuteRequestPayload(input.Selector, input.FailFast),
                 cancellationToken)
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)
@@ -229,12 +233,10 @@ internal sealed class ResolveService : IResolveService
 
     private static UnityRequestPayload CreateExecuteRequestPayload (
         ResolveSelectorInput selector,
-        string requestId,
         bool failFast)
     {
         return new UnityRequestPayload.ExecuteOperation(
             UcliCommandIds.Resolve,
-            requestId,
             ResolveOperationId,
             UcliPrimitiveOperationNames.Resolve,
             ResolveSelectorOperationArgsFactory.Create(selector),

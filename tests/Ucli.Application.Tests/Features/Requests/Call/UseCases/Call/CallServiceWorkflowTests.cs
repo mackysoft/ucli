@@ -47,6 +47,7 @@ public sealed class CallServiceWorkflowTests
             preflightService: preflightService);
 
         var result = await service.ExecuteAsync(
+            RequestId,
             new CallCommandInput(
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode("oneshot"),
@@ -60,7 +61,7 @@ public sealed class CallServiceWorkflowTests
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Output);
-        Assert.Equal("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62", result.Output!.RequestId);
+        Assert.Equal(RequestId, result.Output!.RequestId);
         Assert.Single(result.Output.OpResults);
         Assert.Null(result.Output.Plan);
         CallServiceInvocationAssert.SingleCallDispatched(
@@ -121,6 +122,7 @@ public sealed class CallServiceWorkflowTests
             ipcRequestExecutor);
 
         var result = await service.ExecuteAsync(
+            RequestId,
             new CallCommandInput(
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode("daemon"),
@@ -145,10 +147,9 @@ public sealed class CallServiceWorkflowTests
             expectedAllowDangerous: false,
             expectedAllowPlayMode: true);
 
-        var requestId = result.Output.RequestId;
-        Assert.Equal(requestId, result.Output.Plan.RequestId);
-        Assert.Equal(requestId, executePair.PlanRequest.ExecuteArguments.GetProperty("requestId").GetString());
-        Assert.Equal(requestId, executePair.CallRequest.ExecuteArguments.GetProperty("requestId").GetString());
+        Assert.Equal(RequestId, result.Output.RequestId);
+        Assert.False(executePair.PlanRequest.ExecuteArguments.TryGetProperty("requestId", out _));
+        Assert.False(executePair.CallRequest.ExecuteArguments.TryGetProperty("requestId", out _));
     }
 
     [Fact]
@@ -205,6 +206,7 @@ public sealed class CallServiceWorkflowTests
             timeProvider);
 
         var result = await service.ExecuteAsync(
+            RequestId,
             new CallCommandInput(
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode("daemon"),
@@ -253,6 +255,7 @@ public sealed class CallServiceWorkflowTests
             ipcRequestExecutor);
 
         var result = await service.ExecuteAsync(
+            RequestId,
             new CallCommandInput(
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode(null),

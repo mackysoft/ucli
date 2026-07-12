@@ -45,7 +45,7 @@ internal static class PlanCommandResultFactory
 
         var payload = new Dictionary<string, object?>
         {
-            ["requestId"] = output.RequestId,
+            ["requestId"] = output.RequestId.ToString("D"),
             ["project"] = ProjectIdentityPayloadProjector.Create(output.Project),
             ["opResults"] = output.OpResults,
             ["readIndex"] = ReadIndexInfoPayloadProjector.Create(output.ReadIndex),

@@ -12,8 +12,9 @@ public sealed class RefreshServiceTests
     [Trait("Size", "Small")]
     public async Task Execute_CreatesRefreshOperationDefinitionAndReturnsExecuteResult ()
     {
+        var requestId = Guid.Parse("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62");
         var operationExecuteService = new RecordingOperationExecuteService(OperationExecuteResultFactory.Success(
-            "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+            requestId,
             [],
             "uCLI refresh completed.",
             readPostcondition: null,
@@ -21,6 +22,7 @@ public sealed class RefreshServiceTests
         var service = new RefreshService(operationExecuteService);
 
         var result = await service.ExecuteAsync(
+            requestId,
             new RefreshCommandInput(
                 ProjectPath: "/repo/UnityProject",
                 Mode: UnityExecutionMode.Oneshot,
@@ -29,6 +31,7 @@ public sealed class RefreshServiceTests
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
+        Assert.Equal(requestId, result.RequestId);
         OperationExecuteServiceInvocationAssert.ExecutedOnce(
             operationExecuteService,
             UcliCommandIds.Refresh,

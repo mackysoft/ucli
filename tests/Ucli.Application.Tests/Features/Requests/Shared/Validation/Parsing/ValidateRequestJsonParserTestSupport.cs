@@ -6,7 +6,6 @@ namespace MackySoft.Ucli.Application.Tests;
 
 internal static class ValidateRequestJsonParserTestSupport
 {
-    public const string RequestId = "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62";
     public const string ScenePath = "Assets/Scenes/Main.unity";
 
     public static string ValidOperationStepsJson => $$"""
@@ -29,7 +28,6 @@ internal static class ValidateRequestJsonParserTestSupport
         return $$"""
             {
               "protocolVersion": 1,
-              "requestId": "{{RequestId}}",
               "steps": {{stepsJson}}{{trailingRequestProperties}}
             }
             """;

@@ -24,15 +24,13 @@ public sealed class CallCommandResultFactoryTests
                 ApplicationFailure.InternalError("Call failed."),
             ],
             new CallExecutionOutput(
-                RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
-                Project: ProjectIdentityInfoTestFactory.Create(),
-                OpResults: [],
-                Plan: new CallPlanOutput(
-                    RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
-                    Project: ProjectIdentityInfoTestFactory.Create(),
-                    OpResults: [],
-                    PlanToken: null),
-                ReadPostcondition: null)));
+                requestId: Guid.Parse("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62"),
+                project: ProjectIdentityInfoTestFactory.Create(),
+                opResults: [],
+                plan: new CallPlanOutput(
+                    opResults: [],
+                    planToken: null),
+                readPostcondition: null)));
 
         using var json = JsonDocument.Parse(JsonSerializer.Serialize(result, SerializerOptions));
         var payload = json.RootElement.GetProperty("payload");
@@ -93,15 +91,13 @@ public sealed class CallCommandResultFactoryTests
         var readPostcondition = ReadPostconditionTestFactory.CreateSceneTreeLite();
         var result = CallCommandResultFactory.Create(CallServiceResult.Success(
             new CallExecutionOutput(
-                RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
-                Project: ProjectIdentityInfoTestFactory.Create(),
-                OpResults: [],
-                Plan: new CallPlanOutput(
-                    RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
-                    Project: ProjectIdentityInfoTestFactory.Create(),
-                    OpResults: [],
-                    PlanToken: "plan-token-1"),
-                ReadPostcondition: readPostcondition),
+                requestId: Guid.Parse("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62"),
+                project: ProjectIdentityInfoTestFactory.Create(),
+                opResults: [],
+                plan: new CallPlanOutput(
+                    opResults: [],
+                    planToken: "plan-token-1"),
+                readPostcondition: readPostcondition),
             "uCLI call completed."));
 
         using var json = JsonDocument.Parse(JsonSerializer.Serialize(result, SerializerOptions));

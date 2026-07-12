@@ -2,7 +2,7 @@ namespace MackySoft.Ucli.Application.Tests.Execution.Results;
 
 internal static class RequestServiceResultInvariantTestSupport
 {
-    public const string RequestId = "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62";
+    public static readonly Guid RequestId = Guid.Parse("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62");
 
     public static readonly UcliCode[] InvalidArgumentErrorCodeValues =
     [
@@ -16,7 +16,6 @@ internal static class RequestServiceResultInvariantTestSupport
         ProjectContextErrorCodes.ProjectPathNotFound,
         ProjectContextErrorCodes.UnityProjectMarkerMissing,
         IpcProtocolErrorCodes.ProtocolVersionMismatch,
-        ValidationErrorCodes.RequestIdInvalid,
         ValidationErrorCodes.StepsRequired,
         ValidationErrorCodes.StepIdRequired,
         ValidationErrorCodes.StepIdDuplicated,

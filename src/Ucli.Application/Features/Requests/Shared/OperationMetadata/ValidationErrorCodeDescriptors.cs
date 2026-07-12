@@ -16,12 +16,6 @@ internal static class ValidationErrorCodeDescriptors
     public static IReadOnlyList<UcliErrorDescriptor> All { get; } =
     [
         CreateValidationDescriptor(
-            ValidationErrorCodes.RequestIdInvalid,
-            "requestId is not a valid UUID.",
-            "The requestId field cannot be used for idempotency because it is missing the required UUID format.",
-            ["requestParsing", "staticValidation"]),
-
-        CreateValidationDescriptor(
             ValidationErrorCodes.StepsRequired,
             "steps is missing or empty.",
             "The request does not contain any executable operation steps.",

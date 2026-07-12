@@ -18,7 +18,6 @@ public sealed class ValidateRequestJsonParserSuccessTests
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Request);
         Assert.Equal(1, result.Request!.ProtocolVersion);
-        Assert.Equal(ValidateRequestJsonParserTestSupport.RequestId, result.Request.RequestId);
         var step = Assert.IsType<ValidateRequestStep>(Assert.Single(result.Request.Steps!));
         Assert.Equal(IpcRequestStepKind.Op, step.Kind);
         Assert.Equal("step-1", step.StepId);

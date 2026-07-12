@@ -8,11 +8,13 @@ internal static class QueryCommandTestData
 {
     public const string RequestId = "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62";
 
+    private static readonly Guid RequestGuid = Guid.Parse(RequestId);
+
     public static QueryServiceResult CreateSuccessResult (string commandName)
     {
         return QueryServiceResultFactory.Success(
             commandName,
-            RequestId,
+            RequestGuid,
             [
                 new OperationExecutionOperationResult(
                     OpId: "assets.find",
@@ -42,7 +44,7 @@ internal static class QueryCommandTestData
     {
         return QueryServiceResultFactory.Failure(
             commandName,
-            RequestId,
+            RequestGuid,
             [],
             [
                 ApplicationFailure.InternalError(

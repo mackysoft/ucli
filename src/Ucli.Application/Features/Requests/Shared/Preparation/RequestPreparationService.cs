@@ -27,27 +27,6 @@ internal sealed class RequestPreparationService : IRequestPreparationService
     }
 
     /// <inheritdoc />
-    public ParsedRequestResult Parse (string requestJson)
-    {
-        var normalizationResult = userRequestJsonNormalizer.Normalize(requestJson);
-        if (!normalizationResult.IsSuccess)
-        {
-            return ParsedRequestResult.Failure(normalizationResult.Error!);
-        }
-
-        var normalizedRequestJson = normalizationResult.RequestJson!;
-        var parseResult = requestJsonParser.Parse(normalizedRequestJson);
-        if (!parseResult.IsSuccess)
-        {
-            return ParsedRequestResult.Failure(parseResult.Error!);
-        }
-
-        return ParsedRequestResult.Success(new ParsedRequestContext(
-            RequestJson: normalizedRequestJson,
-            Request: parseResult.Request!));
-    }
-
-    /// <inheritdoc />
     public async ValueTask<RequestPreparationResult> PrepareAsync (
         string? projectPath,
         string requestJson,
@@ -55,10 +34,17 @@ internal sealed class RequestPreparationService : IRequestPreparationService
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var parseRequestResult = Parse(requestJson);
-        if (!parseRequestResult.IsSuccess)
+        var normalizationResult = userRequestJsonNormalizer.Normalize(requestJson);
+        if (!normalizationResult.IsSuccess)
         {
-            return RequestPreparationResult.Failure(parseRequestResult.Error!);
+            return RequestPreparationResult.Failure(normalizationResult.Error!);
+        }
+
+        var normalizedRequestJson = normalizationResult.RequestJson!;
+        var parseResult = requestJsonParser.Parse(normalizedRequestJson);
+        if (!parseResult.IsSuccess)
+        {
+            return RequestPreparationResult.Failure(parseResult.Error!);
         }
 
         var projectContextResult = await projectContextResolver.ResolveAsync(projectPath, cancellationToken).ConfigureAwait(false);
@@ -67,10 +53,9 @@ internal sealed class RequestPreparationService : IRequestPreparationService
             return RequestPreparationResult.Failure(projectContextResult.Error!);
         }
 
-        var parsedRequest = parseRequestResult.ParsedRequest!;
         return RequestPreparationResult.Success(new PreparedRequestContext(
-            RequestJson: parsedRequest.RequestJson,
-            Request: parsedRequest.Request,
-            ProjectContext: projectContextResult.Context!));
+            requestJson: normalizedRequestJson,
+            request: parseResult.Request!,
+            projectContext: projectContextResult.Context!));
     }
 }

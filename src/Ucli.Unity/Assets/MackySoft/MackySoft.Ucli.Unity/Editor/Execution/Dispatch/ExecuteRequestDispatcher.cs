@@ -86,7 +86,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                     () => ExecuteResponseBuilder.CreateErrorResponse(
                         context,
                         ExecuteRequestErrorCodes.RequestIdConflict,
-                        "Request id conflict. The same requestId was already used for a different request content.",
+                        "IPC request id conflict. The same outer request envelope id was already used for different request content.",
                         null,
                         SerializerOptions),
                     cancellationToken);

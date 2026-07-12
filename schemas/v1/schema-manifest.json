@@ -16,6 +16,11 @@
       "kind": "cli-output-def"
     },
     {
+      "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/defs/request-id.schema.json",
+      "path": "cli-output/defs/request-id.schema.json",
+      "kind": "cli-output-def"
+    },
+    {
       "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/defs/read-index.schema.json",
       "path": "cli-output/defs/read-index.schema.json",
       "kind": "cli-output-def"

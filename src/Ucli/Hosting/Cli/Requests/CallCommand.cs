@@ -62,6 +62,7 @@ internal sealed class CallCommand
     {
         cancellationToken.ThrowIfCancellationRequested();
         CommandExecutionState.MarkStarted();
+        var requestId = Guid.NewGuid();
 
         var normalizedTimeoutResult = TimeoutOptionNormalizer.Normalize(timeout);
         if (!normalizedTimeoutResult.IsSuccess)
@@ -73,6 +74,7 @@ internal sealed class CallCommand
             }
 
             var preflightResult = await callCommandPreflightService.PrepareAsync(
+                    requestId,
                     projectPath,
                     requestInputReadResult.Json!,
                     cancellationToken)
@@ -93,6 +95,7 @@ internal sealed class CallCommand
             }
 
             var preflightResult = await callCommandPreflightService.PrepareAsync(
+                    requestId,
                     projectPath,
                     requestInputReadResult.Json!,
                     cancellationToken)
@@ -110,6 +113,7 @@ internal sealed class CallCommand
         }
 
         var serviceResult = await callService.ExecuteAsync(
+                requestId,
                 new CallCommandInput(
                     ProjectPath: projectPath,
                     Mode: normalizedModeResult.Mode,

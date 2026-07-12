@@ -40,6 +40,7 @@ public sealed class CallServicePlanFailureTests
             ipcRequestExecutor);
 
         var result = await service.ExecuteAsync(
+            RequestId,
             new CallCommandInput(
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode(null),
@@ -106,6 +107,7 @@ public sealed class CallServicePlanFailureTests
             ipcRequestExecutor);
 
         var result = await service.ExecuteAsync(
+            RequestId,
             new CallCommandInput(
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode(null),

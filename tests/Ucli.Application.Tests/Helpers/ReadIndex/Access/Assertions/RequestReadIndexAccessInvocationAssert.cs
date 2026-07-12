@@ -112,7 +112,6 @@ internal static class RequestReadIndexAccessInvocationAssert
         UnityExecutionMode expectedMode,
         TimeSpan expectedTimeout,
         bool expectedFailFast,
-        string expectedRequestId,
         string expectedOperationId,
         string expectedOperationName)
     {
@@ -124,7 +123,6 @@ internal static class RequestReadIndexAccessInvocationAssert
         Assert.Equal(expectedMode, execution.Invocation.Mode);
         Assert.Equal(expectedTimeout, execution.Invocation.Timeout);
         Assert.Equal(expectedFailFast, execution.Request.FailFast);
-        Assert.Equal(expectedRequestId, execution.Request.RequestId);
         Assert.Equal(expectedOperationId, execution.Request.OperationId);
         Assert.Equal(expectedOperationName, execution.Request.OperationName);
         return execution;

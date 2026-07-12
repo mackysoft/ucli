@@ -56,6 +56,7 @@ internal sealed class EvalCommand
     {
         cancellationToken.ThrowIfCancellationRequested();
         CommandExecutionState.MarkStarted();
+        var requestId = Guid.NewGuid();
 
         var normalizedTimeoutResult = TimeoutOptionNormalizer.Normalize(timeout);
         if (!normalizedTimeoutResult.IsSuccess)
@@ -77,6 +78,7 @@ internal sealed class EvalCommand
         }
 
         var serviceResult = await callService.ExecuteAsync(
+                requestId,
                 new CallCommandInput(
                     ProjectPath: projectPath,
                     Mode: normalizedModeResult.Mode,

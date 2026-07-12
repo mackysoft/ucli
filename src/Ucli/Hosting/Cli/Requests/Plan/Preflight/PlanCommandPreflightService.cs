@@ -22,12 +22,17 @@ internal sealed class PlanCommandPreflightService : IPlanCommandPreflightService
 
     /// <inheritdoc />
     public async ValueTask<PlanCommandPreflightResult> PrepareAsync (
+        Guid requestId,
         string? projectPath,
         string requestJson,
         ReadIndexMode? readIndexMode,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        if (requestId == Guid.Empty)
+        {
+            throw new ArgumentException("Request id must not be empty.", nameof(requestId));
+        }
 
         var requestPreparationResult = await requestPreparationService.PrepareAsync(
                 projectPath,
@@ -48,6 +53,7 @@ internal sealed class PlanCommandPreflightService : IPlanCommandPreflightService
             .ConfigureAwait(false);
 
         var output = PlanExecutionOutputFactory.TryCreateBase(
+            requestId,
             requestStaticValidationPreflightResult.PreparedRequest,
             requestStaticValidationPreflightResult.ReadIndex);
         if (requestStaticValidationPreflightResult.Error != null)
@@ -69,6 +75,7 @@ internal sealed class PlanCommandPreflightService : IPlanCommandPreflightService
 
         return PlanCommandPreflightResult.Success(
             PlanExecutionOutputFactory.CreateBase(
+                requestId,
                 requestStaticValidationPreflightResult.PreparedRequest!,
                 requestStaticValidationPreflightResult.ReadIndex!));
     }

@@ -30,6 +30,7 @@ public sealed class OperationExecuteServiceFailureTests
             new UnexpectedUnityRequestExecutor());
 
         var result = await service.ExecuteAsync(
+            OperationExecuteServiceTestSupport.RequestId,
             OperationExecuteServiceTestSupport.RefreshOperation,
             OperationExecuteServiceTestSupport.CreateInput(
                 mode: null,
@@ -64,6 +65,7 @@ public sealed class OperationExecuteServiceFailureTests
             ipcRequestExecutor);
 
         var result = await service.ExecuteAsync(
+            OperationExecuteServiceTestSupport.RequestId,
             OperationExecuteServiceTestSupport.RefreshOperation,
             OperationExecuteServiceTestSupport.CreateInput(
                 mode: null,
@@ -98,6 +100,7 @@ public sealed class OperationExecuteServiceFailureTests
             ipcRequestExecutor);
 
         var result = await service.ExecuteAsync(
+            OperationExecuteServiceTestSupport.RequestId,
             OperationExecuteServiceTestSupport.RefreshOperation,
             OperationExecuteServiceTestSupport.CreateInput(
                 mode: null,
@@ -136,6 +139,7 @@ public sealed class OperationExecuteServiceFailureTests
             ipcRequestExecutor);
 
         var result = await service.ExecuteAsync(
+            OperationExecuteServiceTestSupport.RequestId,
             OperationExecuteServiceTestSupport.RefreshOperation,
             OperationExecuteServiceTestSupport.CreateInput(
                 mode: null,
@@ -170,6 +174,7 @@ public sealed class OperationExecuteServiceFailureTests
             ipcRequestExecutor);
 
         var result = await service.ExecuteAsync(
+            OperationExecuteServiceTestSupport.RequestId,
             OperationExecuteServiceTestSupport.RefreshOperation,
             OperationExecuteServiceTestSupport.CreateInput(
                 mode: null,

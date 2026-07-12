@@ -82,7 +82,6 @@ public sealed class UnityIpcRequestFactoryTimeoutTests
         var executeArguments = IpcPayloadCodec.SerializeToElement(new
         {
             protocolVersion = IpcProtocol.CurrentVersion,
-            requestId = "req-1",
             steps = Array.Empty<object>(),
         });
         var dispatchRequest = new UnityIpcRequestBuilder().Build(new UnityRequestPayload.ExecuteJson(
@@ -114,7 +113,6 @@ public sealed class UnityIpcRequestFactoryTimeoutTests
         });
         var dispatchRequest = new UnityIpcRequestBuilder().Build(new UnityRequestPayload.ExecuteOperation(
             UcliCommandIds.Call,
-            "req-1",
             "op-1",
             UcliPrimitiveOperationNames.Resolve,
             args,

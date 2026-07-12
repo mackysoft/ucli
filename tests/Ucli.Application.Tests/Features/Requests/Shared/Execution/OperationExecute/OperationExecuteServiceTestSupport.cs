@@ -11,6 +11,8 @@ namespace MackySoft.Ucli.Application.Tests.Execution.OperationExecute;
 
 internal static class OperationExecuteServiceTestSupport
 {
+    public static readonly Guid RequestId = Guid.Parse("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62");
+
     private static readonly JsonElement EmptyArgs = JsonSerializer.SerializeToElement(new { });
 
     public static readonly OperationExecuteDefinition RefreshOperation = new(

@@ -11,7 +11,6 @@ internal static class IpcRequestContractViolationClassifier
             [IpcRequestContractReadErrorKind.UnknownRequestProperty] = IpcRequestContractViolationKind.UnknownRequestProperty,
             [IpcRequestContractReadErrorKind.ProtocolVersionMissing] = IpcRequestContractViolationKind.ProtocolVersionMissing,
             [IpcRequestContractReadErrorKind.ProtocolVersionTypeMismatch] = IpcRequestContractViolationKind.ProtocolVersionTypeMismatch,
-            [IpcRequestContractReadErrorKind.RequestIdFormatMismatch] = IpcRequestContractViolationKind.RequestIdFormatMismatch,
             [IpcRequestContractReadErrorKind.StepsMissing] = IpcRequestContractViolationKind.StepsMissing,
             [IpcRequestContractReadErrorKind.StepsTypeMismatch] = IpcRequestContractViolationKind.StepsTypeMismatch,
             [IpcRequestContractReadErrorKind.StepMustBeObject] = IpcRequestContractViolationKind.StepMustBeObject,
@@ -30,7 +29,6 @@ internal static class IpcRequestContractViolationClassifier
 
         return readError.Kind switch
         {
-            IpcRequestContractReadErrorKind.RequestIdContractViolation => ClassifyRequestIdContractViolation(readError),
             IpcRequestContractReadErrorKind.StepKindContractViolation => ClassifyStepKindContractViolation(readError),
             IpcRequestContractReadErrorKind.StepIdContractViolation => ClassifyStepIdContractViolation(readError),
             IpcRequestContractReadErrorKind.StepOpContractViolation => ClassifyStepOpContractViolation(readError),
@@ -53,11 +51,6 @@ internal static class IpcRequestContractViolationClassifier
             IpcRequestContractReadErrorKind.StepCommitContractViolation => ClassifyStepCommitContractViolation(readError),
             _ => Create(readError, IpcRequestContractViolationKind.Unknown),
         };
-    }
-
-    private static IpcRequestContractViolation ClassifyRequestIdContractViolation (in IpcRequestContractReadError readError)
-    {
-        return ClassifyJsonString(readError, RequestIdViolationKinds);
     }
 
     private static IpcRequestContractViolation ClassifyStepKindContractViolation (in IpcRequestContractReadError readError)
@@ -119,12 +112,6 @@ internal static class IpcRequestContractViolationClassifier
             PropertyPath: readError.JsonStringReadError.PropertyName,
             DuplicatedStepId: readError.DuplicatedStepId);
     }
-
-    private static readonly JsonStringViolationKinds RequestIdViolationKinds = new(
-        IpcRequestContractViolationKind.RequestIdMissing,
-        IpcRequestContractViolationKind.RequestIdTypeMismatch,
-        IpcRequestContractViolationKind.RequestIdEmptyOrWhitespace,
-        IpcRequestContractViolationKind.RequestIdOuterWhitespace);
 
     private static readonly JsonStringViolationKinds StepKindViolationKinds = new(
         IpcRequestContractViolationKind.StepKindMissing,

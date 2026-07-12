@@ -8,27 +8,11 @@ public sealed class IpcRequestContractReaderStrictExecuteTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public void TryRead_StrictExecute_ReturnsFormatError_WhenRequestIdIsNotCanonicalGuid ()
-    {
-        using var document = JsonDocument.Parse("""{"protocolVersion":1,"requestId":"invalid","steps":[]}""");
-
-        var result = IpcRequestContractReader.TryRead(
-            requestObject: document.RootElement,
-            profile: IpcRequestContractReadProfile.StrictExecute,
-            requestContract: out _,
-            error: out var error);
-
-        Assert.False(result);
-        Assert.Equal(IpcRequestContractReadErrorKind.RequestIdFormatMismatch, error.Kind);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
     public void TryRead_StrictExecute_ReturnsDuplicatedStepIdError_WhenStepIdIsDuplicated ()
     {
         using var document = JsonDocument.Parse(
             """
-            {"protocolVersion":1,"requestId":"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62","steps":[{"kind":"op","id":"same","op":"__RESOLVE_OP__","args":{}},{"kind":"op","id":"same","op":"__RESOLVE_OP__","args":{}}]}
+            {"protocolVersion":1,"steps":[{"kind":"op","id":"same","op":"__RESOLVE_OP__","args":{}},{"kind":"op","id":"same","op":"__RESOLVE_OP__","args":{}}]}
             """
                 .Replace("__RESOLVE_OP__", UcliPrimitiveOperationNames.Resolve, StringComparison.Ordinal));
 
@@ -46,11 +30,11 @@ public sealed class IpcRequestContractReaderStrictExecuteTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void TryRead_StrictExecute_NormalizesRequestIdAndReadsOpStep ()
+    public void TryRead_StrictExecute_ReadsOpStep ()
     {
         using var document = JsonDocument.Parse(
             """
-            {"protocolVersion":1,"requestId":"9B0E6D1E-3F55-4A6B-8C66-5B9A3A7C9C62","steps":[{"kind":"op","id":"op-1","op":"__RESOLVE_OP__","args":{}}]}
+            {"protocolVersion":1,"steps":[{"kind":"op","id":"op-1","op":"__RESOLVE_OP__","args":{}}]}
             """
                 .Replace("__RESOLVE_OP__", UcliPrimitiveOperationNames.Resolve, StringComparison.Ordinal));
 
@@ -62,7 +46,6 @@ public sealed class IpcRequestContractReaderStrictExecuteTests
 
         Assert.True(result);
         Assert.Equal(IpcRequestContractReadErrorKind.None, error.Kind);
-        Assert.Equal("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62", parsedDocument.RequestId);
         Assert.NotNull(parsedDocument.Steps);
         var step = Assert.Single(parsedDocument.Steps!);
         Assert.NotNull(step);
@@ -71,12 +54,14 @@ public sealed class IpcRequestContractReaderStrictExecuteTests
         Assert.Equal(UcliPrimitiveOperationNames.Resolve, step.OperationName);
     }
 
-    [Fact]
+    [Theory]
     [Trait("Size", "Small")]
-    public void TryRead_StrictExecute_ReturnsUnknownRequestPropertyError_WhenUnknownPropertyExists ()
+    [InlineData("requestId")]
+    [InlineData("unknown")]
+    public void TryRead_StrictExecute_ReturnsUnknownRequestPropertyError_WhenUnknownPropertyExists (string propertyName)
     {
         using var document = JsonDocument.Parse(
-            """{"protocolVersion":1,"requestId":"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62","steps":[],"unknown":true}""");
+            $$"""{"protocolVersion":1,"steps":[],"{{propertyName}}":true}""");
 
         var result = IpcRequestContractReader.TryRead(
             requestObject: document.RootElement,
@@ -86,7 +71,7 @@ public sealed class IpcRequestContractReaderStrictExecuteTests
 
         Assert.False(result);
         Assert.Equal(IpcRequestContractReadErrorKind.UnknownRequestProperty, error.Kind);
-        Assert.Equal("unknown", error.UnknownPropertyName);
+        Assert.Equal(propertyName, error.UnknownPropertyName);
     }
 
     [Theory]
@@ -99,7 +84,7 @@ public sealed class IpcRequestContractReaderStrictExecuteTests
         string expectedUnknownProperty)
     {
         using var document = JsonDocument.Parse(
-            """{"protocolVersion":1,"requestId":"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62","steps":[__STEP__]}"""
+            """{"protocolVersion":1,"steps":[__STEP__]}"""
                 .Replace("__STEP__", stepJson, StringComparison.Ordinal));
 
         var result = IpcRequestContractReader.TryRead(

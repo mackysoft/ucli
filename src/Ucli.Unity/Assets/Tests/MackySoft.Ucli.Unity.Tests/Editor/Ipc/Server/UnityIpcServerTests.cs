@@ -1157,7 +1157,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = Guid.NewGuid().ToString("D"),
                     ops = Array.Empty<object>(),
                 },
                 SerializerOptions);

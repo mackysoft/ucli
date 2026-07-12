@@ -30,6 +30,7 @@ public sealed class QueryServiceAssetsFindTests
         var service = new QueryService(projectContextResolver, assetSearchLookupAccessService, sceneTreeLiteAccessService, unityRequestExecutor);
 
         var result = await service.ExecuteAsync(
+            RequestId,
             CreateInput(
                 new QueryAssetsFindOperationRequest(
                     CommandName: "query.assets.find",
@@ -91,6 +92,7 @@ public sealed class QueryServiceAssetsFindTests
             new UnexpectedUnityRequestExecutor());
 
         var result = await service.ExecuteAsync(
+            RequestId,
             CreateInput(
                 new QueryAssetsFindOperationRequest(
                     CommandName: "query.assets.find",

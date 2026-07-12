@@ -10,6 +10,8 @@ namespace MackySoft.Ucli.Application.Tests;
 
 public sealed class ResolveServiceTests
 {
+    private static readonly Guid RequestId = Guid.Parse("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62");
+
     private static readonly ProjectContext ResolveProjectContext = ProjectContextTestFactory.CreateRepositoryFixtureProject(
         UcliConfig.CreateDefault() with
         {
@@ -55,6 +57,7 @@ public sealed class ResolveServiceTests
         var service = new ResolveService(projectContextResolver, sceneTreeLiteAccessService, unityRequestExecutor);
 
         var result = await service.ExecuteAsync(
+            RequestId,
             CreateInput(
                 selector: CreateSceneSelector(),
                 readIndexMode: ReadIndexMode.AllowStale,
@@ -135,6 +138,7 @@ public sealed class ResolveServiceTests
         var service = new ResolveService(projectContextResolver, sceneTreeLiteAccessService, unityRequestExecutor);
 
         var result = await service.ExecuteAsync(
+            RequestId,
             CreateInput(
                 selector: CreateSceneSelector(),
                 readIndexMode: ReadIndexMode.AllowStale),
@@ -165,6 +169,7 @@ public sealed class ResolveServiceTests
         var service = new ResolveService(projectContextResolver, sceneTreeLiteAccessService, unityRequestExecutor);
 
         var result = await service.ExecuteAsync(
+            RequestId,
             CreateInput(
                 selector: new ResolveAssetGuidSelectorInput("11111111111111111111111111111111"),
                 failFast: true),
@@ -178,6 +183,7 @@ public sealed class ResolveServiceTests
         Assert.Equal("/unity/ResponseProject", project.ProjectPath);
         Assert.Equal("unity-response-fingerprint", project.ProjectFingerprint);
         Assert.Equal("7000.0.1f1", project.UnityVersion);
+        Assert.Equal(RequestId, result.RequestId);
 
         var execution = RequestReadIndexAccessInvocationAssert.UnityOperationRequestedOnce(
             unityRequestExecutor,
@@ -185,7 +191,6 @@ public sealed class ResolveServiceTests
             UnityExecutionMode.Oneshot,
             TimeSpan.FromMilliseconds(1234),
             expectedFailFast: true,
-            expectedRequestId: result.RequestId,
             expectedOperationId: "resolve",
             expectedOperationName: UcliPrimitiveOperationNames.Resolve);
         var executeRequest = execution.Request;
@@ -220,6 +225,7 @@ public sealed class ResolveServiceTests
         var service = new ResolveService(projectContextResolver, sceneTreeLiteAccessService, unityRequestExecutor);
 
         var result = await service.ExecuteAsync(
+            RequestId,
             CreateInput(
                 selector: CreateSceneSelector(),
                 readIndexMode: ReadIndexMode.AllowStale),
@@ -238,7 +244,6 @@ public sealed class ResolveServiceTests
             UnityExecutionMode.Oneshot,
             TimeSpan.FromMilliseconds(1234),
             expectedFailFast: false,
-            expectedRequestId: result.RequestId,
             expectedOperationId: "resolve",
             expectedOperationName: UcliPrimitiveOperationNames.Resolve);
         Assert.Equal(ReadIndexInfoSource.Unity, result.ReadIndex.Source);
@@ -259,6 +264,7 @@ public sealed class ResolveServiceTests
         var service = new ResolveService(projectContextResolver, sceneTreeLiteAccessService, unityRequestExecutor);
 
         var result = await service.ExecuteAsync(
+            RequestId,
             CreateInput(
                 selector: CreateSceneSelector(),
                 readIndexMode: ReadIndexMode.AllowStale),
@@ -277,7 +283,6 @@ public sealed class ResolveServiceTests
             UnityExecutionMode.Oneshot,
             TimeSpan.FromMilliseconds(1234),
             expectedFailFast: false,
-            expectedRequestId: result.RequestId,
             expectedOperationId: "resolve",
             expectedOperationName: UcliPrimitiveOperationNames.Resolve);
         Assert.Equal(ReadIndexInfoSource.Unity, result.ReadIndex.Source);

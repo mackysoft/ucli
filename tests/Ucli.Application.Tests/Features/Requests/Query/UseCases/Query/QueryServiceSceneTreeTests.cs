@@ -23,6 +23,7 @@ public sealed class QueryServiceSceneTreeTests
         var service = new QueryService(projectContextResolver, assetSearchLookupAccessService, sceneTreeLiteAccessService, unityRequestExecutor);
 
         var result = await service.ExecuteAsync(
+            RequestId,
             CreateInput(
                 new QuerySceneTreeOperationRequest(
                     CommandName: "query.scene.tree",
@@ -76,6 +77,7 @@ public sealed class QueryServiceSceneTreeTests
             new UnexpectedUnityRequestExecutor());
 
         var result = await service.ExecuteAsync(
+            RequestId,
             CreateInput(
                 new QuerySceneTreeOperationRequest(
                     CommandName: "query.scene.tree",

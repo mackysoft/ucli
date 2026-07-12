@@ -307,7 +307,6 @@ namespace MackySoft.Ucli.Unity.Tests
                     IpcPayloadCodec.SerializeToElement(new
                     {
                         protocolVersion = IpcProtocol.CurrentVersion,
-                        requestId = Guid.NewGuid(),
                         ops = Array.Empty<object>(),
                     })));
 
@@ -348,7 +347,6 @@ namespace MackySoft.Ucli.Unity.Tests
                     IpcPayloadCodec.SerializeToElement(new
                     {
                         protocolVersion = IpcProtocol.CurrentVersion,
-                        requestId = Guid.NewGuid(),
                         steps = Array.Empty<object>(),
                     }))
                 {
@@ -398,7 +396,6 @@ namespace MackySoft.Ucli.Unity.Tests
                     IpcPayloadCodec.SerializeToElement(new
                     {
                         protocolVersion = IpcProtocol.CurrentVersion,
-                        requestId = Guid.NewGuid(),
                         steps = Array.Empty<object>(),
                     }))
                 {
@@ -458,7 +455,6 @@ namespace MackySoft.Ucli.Unity.Tests
                     IpcPayloadCodec.SerializeToElement(new
                     {
                         protocolVersion = IpcProtocol.CurrentVersion,
-                        requestId = Guid.NewGuid(),
                         steps = Array.Empty<object>(),
                     }))
                 {

@@ -7,18 +7,6 @@ public sealed class IpcRequestContractViolationClassifierTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public void Classify_RequestIdMissing_ReturnsNormalizedKind ()
-    {
-        var readError = IpcRequestContractReadError.RequestIdContractViolation(
-            new JsonStringReadError(JsonStringReadErrorKind.Missing, "requestId"));
-
-        var violation = IpcRequestContractViolationClassifier.Classify(readError);
-
-        Assert.Equal(IpcRequestContractViolationKind.RequestIdMissing, violation.Kind);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
     public void Classify_StepArgsTypeMismatch_RetainsStepContext ()
     {
         var readError = IpcRequestContractReadError.StepArgsContractViolation(

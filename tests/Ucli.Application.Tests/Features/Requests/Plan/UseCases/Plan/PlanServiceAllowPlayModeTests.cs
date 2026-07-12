@@ -24,6 +24,7 @@ public sealed class PlanServiceAllowPlayModeTests
             unityRequestExecutor: unityIpcRequestExecutor);
 
         var result = await service.ExecuteAsync(
+            RequestId,
             CreateInput(
                 mode: UnityExecutionMode.Oneshot,
                 timeoutMilliseconds: 1234,
@@ -35,13 +36,13 @@ public sealed class PlanServiceAllowPlayModeTests
             result,
             staticPreflightService,
             staticValidationService);
-        PlanServiceInvocationAssert.PlanDispatched(
-            unityIpcRequestExecutor,
-            UnityExecutionMode.Oneshot,
-            TimeSpan.FromMilliseconds(1234),
-            expectedFailFast: true,
-            expectedAllowPlayMode: true,
-            expectedRequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62");
+        var execution = PlanServiceInvocationAssert.PlanDispatched(unityIpcRequestExecutor);
+        Assert.Equal(UnityExecutionMode.Oneshot, execution.Invocation.Mode);
+        Assert.Equal(TimeSpan.FromMilliseconds(1234), execution.Invocation.Timeout);
+        Assert.True(execution.Request.FailFast);
+        Assert.True(execution.Request.AllowPlayMode);
+        Assert.Null(execution.Request.PlanToken);
+        Assert.False(execution.Request.ExecuteArguments.TryGetProperty("requestId", out _));
     }
 
     [Fact]
@@ -59,6 +60,7 @@ public sealed class PlanServiceAllowPlayModeTests
             unityRequestExecutor: new UnexpectedUnityRequestExecutor());
 
         var result = await service.ExecuteAsync(
+            RequestId,
             CreateInput(
                 mode: UnityExecutionMode.Oneshot,
                 timeoutMilliseconds: 1234,
@@ -93,6 +95,7 @@ public sealed class PlanServiceAllowPlayModeTests
             unityRequestExecutor: new UnexpectedUnityRequestExecutor());
 
         var result = await service.ExecuteAsync(
+            RequestId,
             CreateInput(allowPlayMode: true),
             CancellationToken.None);
 

@@ -43,7 +43,7 @@ public sealed class ValidateServiceReadIndexDisabledTests
             validator,
             expectedCatalogAvailable: false);
         Assert.Equal("/tmp/project", output.Project.ProjectPath);
-        RequestPreparationInvocationAssert.ProjectPreparedWithoutParse(
+        RequestPreparationInvocationAssert.ProjectPreparedOnce(
             requestPreparationService,
             expectedProjectPath: null,
             expectedRequestJson: """{"steps":[]}""");

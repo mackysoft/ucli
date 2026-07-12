@@ -32,14 +32,14 @@ public sealed class CommandResultFactoryStartupFailureTests
             new(
                 UcliCommandNames.Refresh,
                 RefreshCommandResultFactory.Create(OperationExecuteResultFactory.Failure(
-                    "request-id",
+                    Guid.Parse("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62"),
                     [],
                     [CreateStartupFailure()],
                     "Unity startup is blocked."))),
             new(
                 UcliCommandNames.Resolve,
                 ResolveCommandResultFactory.Create(ResolveServiceResult.Failure(
-                    "request-id",
+                    Guid.Parse("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62"),
                     [],
                     [CreateStartupFailure()],
                     "Unity startup is blocked.",
@@ -48,7 +48,7 @@ public sealed class CommandResultFactoryStartupFailureTests
                 UcliCommandNames.Query,
                 QueryCommandResultFactory.Create(QueryServiceResult.Failure(
                     UcliCommandNames.Query,
-                    "request-id",
+                    Guid.Parse("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62"),
                     [],
                     [CreateStartupFailure()],
                     "Unity startup is blocked.",

@@ -117,7 +117,6 @@ internal sealed class UnityIpcRequestBuilder
                 CreateExecutePayload(
                     executeOperation.Command,
                     CreateSingleOperationArguments(
-                        executeOperation.RequestId,
                         executeOperation.OperationId,
                         executeOperation.OperationName,
                     executeOperation.Args),
@@ -238,19 +237,16 @@ internal sealed class UnityIpcRequestBuilder
     }
 
     private static JsonElement CreateSingleOperationArguments (
-        string requestId,
         string operationId,
         string operationName,
         JsonElement args)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentException.ThrowIfNullOrWhiteSpace(operationId);
         ArgumentException.ThrowIfNullOrWhiteSpace(operationName);
 
         return JsonSerializer.SerializeToElement(new
         {
             protocolVersion = IpcProtocol.CurrentVersion,
-            requestId,
             steps = new[]
             {
                 new

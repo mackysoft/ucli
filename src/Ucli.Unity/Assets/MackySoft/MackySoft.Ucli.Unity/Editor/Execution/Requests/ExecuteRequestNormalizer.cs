@@ -70,13 +70,6 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                     actualVersion: parsedContract.ProtocolVersion));
             }
 
-            if (parsedContract.RequestId is null)
-            {
-                return ExecuteRequestNormalizationResult.Failure(ExecuteRequestNormalizationError.InvalidArgument(
-                    message: "Request property 'requestId' is required.",
-                    opId: null));
-            }
-
             if (parsedContract.Steps is null)
             {
                 return ExecuteRequestNormalizationResult.Failure(ExecuteRequestNormalizationError.InvalidArgument(
@@ -322,21 +315,6 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                     null),
                 IpcRequestContractViolationKind.ProtocolVersionTypeMismatch => ExecuteRequestNormalizationError.InvalidArgument(
                     "Request property 'protocolVersion' must be an integer.",
-                    null),
-                IpcRequestContractViolationKind.RequestIdMissing => ExecuteRequestNormalizationError.InvalidArgument(
-                    "Request property 'requestId' is required.",
-                    null),
-                IpcRequestContractViolationKind.RequestIdTypeMismatch => ExecuteRequestNormalizationError.InvalidArgument(
-                    "Request property 'requestId' must be a UUID string.",
-                    null),
-                IpcRequestContractViolationKind.RequestIdEmptyOrWhitespace => ExecuteRequestNormalizationError.InvalidArgument(
-                    "Request property 'requestId' must not contain leading or trailing whitespace.",
-                    null),
-                IpcRequestContractViolationKind.RequestIdOuterWhitespace => ExecuteRequestNormalizationError.InvalidArgument(
-                    "Request property 'requestId' must not contain leading or trailing whitespace.",
-                    null),
-                IpcRequestContractViolationKind.RequestIdFormatMismatch => ExecuteRequestNormalizationError.InvalidArgument(
-                    "Request property 'requestId' must be UUID format 'D'.",
                     null),
                 IpcRequestContractViolationKind.StepsMissing => ExecuteRequestNormalizationError.InvalidArgument(
                     "Request property 'steps' is required.",

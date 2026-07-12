@@ -49,6 +49,7 @@ public sealed class CallServiceReadPostconditionTests
             mutationReadPostconditionStore: readPostconditionStore);
 
         var result = await service.ExecuteAsync(
+            RequestId,
             new CallCommandInput(
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode("oneshot"),
@@ -114,6 +115,7 @@ public sealed class CallServiceReadPostconditionTests
             mutationReadPostconditionStore: readPostconditionStore);
 
         var result = await service.ExecuteAsync(
+            RequestId,
             new CallCommandInput(
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode("oneshot"),

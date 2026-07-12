@@ -11,25 +11,25 @@ internal static class CallCommandTestData
 
     public const string RequestId = "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62";
 
+    private static readonly Guid RequestGuid = Guid.Parse(RequestId);
+
     public static CallServiceResult CreateSuccessResult ()
     {
         return CallServiceResult.Success(
             new CallExecutionOutput(
-                RequestId: RequestId,
-                Project: ProjectIdentityInfoTestFactory.Create(),
-                OpResults:
+                requestId: RequestGuid,
+                project: ProjectIdentityInfoTestFactory.Create(),
+                opResults:
                 [
                     CreateGoDescribeOperationResult(IpcExecuteOperationPhaseNames.Call, applied: true),
                 ],
-                Plan: new CallPlanOutput(
-                    RequestId: RequestId,
-                    Project: ProjectIdentityInfoTestFactory.Create(),
-                    OpResults:
+                plan: new CallPlanOutput(
+                    opResults:
                     [
                         CreateGoDescribeOperationResult(IpcExecuteOperationPhaseNames.Plan, applied: false),
                     ],
-                    PlanToken: "plan-token-1"),
-                ReadPostcondition: null),
+                    planToken: "plan-token-1"),
+                readPostcondition: null),
             "uCLI call completed.");
     }
 
@@ -37,9 +37,9 @@ internal static class CallCommandTestData
     {
         return CallServiceResult.Success(
             new CallExecutionOutput(
-                RequestId: RequestId,
-                Project: ProjectIdentityInfoTestFactory.Create(),
-                OpResults:
+                requestId: RequestGuid,
+                project: ProjectIdentityInfoTestFactory.Create(),
+                opResults:
                 [
                     new OperationExecutionOperationResult(
                         OpId: "step-1",
@@ -49,9 +49,9 @@ internal static class CallCommandTestData
                         Changed: true,
                         Touched: []),
                 ],
-                Plan: null,
-                ReadPostcondition: null,
-                PostReadSource: CreateEditPostReadSource()),
+                plan: null,
+                readPostcondition: null,
+                postReadSource: CreateEditPostReadSource()),
             "uCLI call completed.");
     }
 
@@ -66,27 +66,25 @@ internal static class CallCommandTestData
                     "step-1"),
             ],
             new CallExecutionOutput(
-                RequestId: RequestId,
-                Project: ProjectIdentityInfoTestFactory.Create(),
-                OpResults:
+                requestId: RequestGuid,
+                project: ProjectIdentityInfoTestFactory.Create(),
+                opResults:
                 [
                     CreateViolationOperationResult(IpcExecuteOperationPhaseNames.Call, applied: true),
                 ],
-                Plan: new CallPlanOutput(
-                    RequestId: RequestId,
-                    Project: ProjectIdentityInfoTestFactory.Create(),
-                    OpResults:
+                plan: new CallPlanOutput(
+                    opResults:
                     [
                         CreateViolationOperationResult(IpcExecuteOperationPhaseNames.Plan, applied: false),
                     ],
-                    PlanToken: "plan-token-1")
+                    planToken: "plan-token-1")
                 {
                     ContractViolations =
                     [
                         CreateContractViolation(IpcExecuteApplicationStateNames.Indeterminate),
                     ],
                 },
-                ReadPostcondition: null)
+                readPostcondition: null)
             {
                 ContractViolations =
                 [
@@ -98,11 +96,11 @@ internal static class CallCommandTestData
     public static CallExecutionOutput CreatePreflightOutput ()
     {
         return new CallExecutionOutput(
-            RequestId: RequestId,
-            Project: ProjectIdentityInfoTestFactory.Create(),
-            OpResults: [],
-            Plan: null,
-            ReadPostcondition: null);
+            requestId: RequestGuid,
+            project: ProjectIdentityInfoTestFactory.Create(),
+            opResults: [],
+            plan: null,
+            readPostcondition: null);
     }
 
     private static OperationExecutionOperationResult CreateGoDescribeOperationResult (

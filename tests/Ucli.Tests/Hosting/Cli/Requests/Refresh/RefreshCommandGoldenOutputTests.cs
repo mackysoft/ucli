@@ -13,7 +13,7 @@ public sealed class RefreshCommandGoldenOutputTests
     public async Task Refresh_WhenContractViolationExists_MatchesGolden ()
     {
         var failureResult = OperationExecuteResultFactory.Failure(
-            RequestId,
+            RequestGuid,
             [
                 CreateViolationOperationResult(),
             ],
@@ -48,7 +48,7 @@ public sealed class RefreshCommandGoldenOutputTests
     public async Task Refresh_WhenMayPersistContractViolationExists_MatchesGolden ()
     {
         var failureResult = OperationExecuteResultFactory.Failure(
-            RequestId,
+            RequestGuid,
             [
                 CreateViolationOperationResult(),
             ],

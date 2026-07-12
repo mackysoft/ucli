@@ -16,15 +16,17 @@ internal sealed class RecordingCallCommandPreflightService : ICallCommandPreflig
     public IReadOnlyList<Invocation> Invocations => invocations;
 
     public ValueTask<CallCommandPreflightResult> PrepareAsync (
+        Guid requestId,
         string? projectPath,
         string requestJson,
         CancellationToken cancellationToken = default)
     {
-        invocations.Add(new Invocation(projectPath, requestJson, cancellationToken));
+        invocations.Add(new Invocation(requestId, projectPath, requestJson, cancellationToken));
         return handler(projectPath, requestJson, cancellationToken);
     }
 
     public readonly record struct Invocation (
+        Guid RequestId,
         string? ProjectPath,
         string RequestJson,
         CancellationToken CancellationToken);

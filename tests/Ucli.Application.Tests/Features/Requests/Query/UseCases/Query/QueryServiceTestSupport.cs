@@ -8,6 +8,8 @@ namespace MackySoft.Ucli.Application.Tests;
 
 internal static class QueryServiceTestSupport
 {
+    internal static readonly Guid RequestId = Guid.Parse("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62");
+
     internal static readonly ProjectContext QueryProjectContext = ProjectContextTestFactory.CreateRepositoryFixtureProject(
         UcliConfig.CreateDefault() with
         {

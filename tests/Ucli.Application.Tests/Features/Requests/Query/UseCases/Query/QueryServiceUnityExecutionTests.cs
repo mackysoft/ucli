@@ -26,6 +26,7 @@ public sealed class QueryServiceUnityExecutionTests
             type = "UnityEngine.Transform, UnityEngine.CoreModule",
         });
         var result = await service.ExecuteAsync(
+            RequestId,
             CreateInput(
                 new QueryUnityOperationRequest(
                     CommandName: "query.comp.schema",
@@ -45,6 +46,7 @@ public sealed class QueryServiceUnityExecutionTests
         Assert.Equal("/unity/ResponseProject", project.ProjectPath);
         Assert.Equal("unity-response-fingerprint", project.ProjectFingerprint);
         Assert.Equal("7000.0.1f1", project.UnityVersion);
+        Assert.Equal(RequestId, result.RequestId);
 
         var execution = RequestReadIndexAccessInvocationAssert.UnityOperationRequestedOnce(
             unityRequestExecutor,
@@ -52,7 +54,6 @@ public sealed class QueryServiceUnityExecutionTests
             UnityExecutionMode.Oneshot,
             TimeSpan.FromMilliseconds(1234),
             expectedFailFast: true,
-            expectedRequestId: result.RequestId,
             expectedOperationId: "comp.schema",
             expectedOperationName: UcliPrimitiveOperationNames.CompSchema);
         var executeRequest = execution.Request;

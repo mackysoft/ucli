@@ -7,7 +7,7 @@ internal sealed record QueryServiceResult
 {
     private QueryServiceResult (
         string commandName,
-        string requestId,
+        Guid requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         IReadOnlyList<ApplicationFailure> errors,
         string message,
@@ -15,6 +15,11 @@ internal sealed record QueryServiceResult
         ProjectIdentityInfo? project = null,
         IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null)
     {
+        if (requestId == Guid.Empty)
+        {
+            throw new ArgumentException("Request id must not be empty.", nameof(requestId));
+        }
+
         CommandName = commandName;
         RequestId = requestId;
         OpResults = opResults;
@@ -29,7 +34,7 @@ internal sealed record QueryServiceResult
     public string CommandName { get; }
 
     /// <summary> Gets the request identifier associated with this query execution. </summary>
-    public string RequestId { get; }
+    public Guid RequestId { get; }
 
     /// <summary> Gets the per-step execution results. </summary>
     public IReadOnlyList<OperationExecutionOperationResult> OpResults { get; }
@@ -60,7 +65,7 @@ internal sealed record QueryServiceResult
     /// <summary> Creates one successful typed-query result. </summary>
     internal static QueryServiceResult Success (
         string commandName,
-        string requestId,
+        Guid requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         string message,
         ReadIndexInfo readIndex,
@@ -68,7 +73,6 @@ internal sealed record QueryServiceResult
         IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(commandName);
-        ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(opResults);
         ArgumentNullException.ThrowIfNull(readIndex);
         ArgumentNullException.ThrowIfNull(project);
@@ -88,7 +92,7 @@ internal sealed record QueryServiceResult
     /// <summary> Creates one failed typed-query result. </summary>
     internal static QueryServiceResult Failure (
         string commandName,
-        string requestId,
+        Guid requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         IReadOnlyList<ApplicationFailure> errors,
         string message,
@@ -97,7 +101,6 @@ internal sealed record QueryServiceResult
         IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(commandName);
-        ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(opResults);
         ArgumentNullException.ThrowIfNull(readIndex);
         ArgumentException.ThrowIfNullOrWhiteSpace(message);

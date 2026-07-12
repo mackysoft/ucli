@@ -28,6 +28,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
 
     /// <inheritdoc />
     public async ValueTask<CallServiceResult> ExecuteAsync (
+        Guid requestId,
         PhaseExecutionPreparedRequest preparedRequest,
         UnityExecutionMode mode,
         CallCommandInput input,
@@ -38,7 +39,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
         ArgumentNullException.ThrowIfNull(preparedRequest);
         ArgumentNullException.ThrowIfNull(input);
 
-        var baseOutput = CallExecutionOutputFactory.CreateBase(preparedRequest.PreparedRequest);
+        var baseOutput = CallExecutionOutputFactory.CreateBase(requestId, preparedRequest.PreparedRequest);
         var effectivePlanToken = StringValueNormalizer.TrimToNull(input.PlanToken);
         var executionOwnerCommand = input.ExecutionOwnerCommand;
 
@@ -78,10 +79,8 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
             var convertedPlanResponse = ExecuteResponseConverter.Convert(planExecutionResult.Response!);
             var planProject = convertedPlanResponse.Project ?? baseOutput.Project;
             var planOutput = new CallPlanOutput(
-                RequestId: preparedRequest.Request.RequestId!,
-                Project: planProject,
-                OpResults: convertedPlanResponse.OpResults,
-                PlanToken: convertedPlanResponse.PlanToken)
+                opResults: convertedPlanResponse.OpResults,
+                planToken: convertedPlanResponse.PlanToken)
             {
                 ContractViolations = convertedPlanResponse.ContractViolations,
             };
@@ -154,7 +153,6 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
         var executionOutput = baseOutput with
         {
             Project = callProject,
-            Plan = baseOutput.Plan == null ? null : baseOutput.Plan with { Project = callProject },
             OpResults = convertedCallResponse.OpResults,
             ContractViolations = convertedCallResponse.ContractViolations,
             ReadPostcondition = convertedCallResponse.ReadPostcondition,

@@ -9,19 +9,21 @@ internal static class QueryCommandExecutionHelper
 {
     /// <summary> Writes one execution error and returns its exit code. </summary>
     public static int WriteExecutionError (
+        Guid requestId,
         ICommandResultWriter commandResultWriter,
         string commandName,
         ExecutionError error)
     {
         ArgumentNullException.ThrowIfNull(commandResultWriter);
 
-        var errorResult = QueryCommandResultFactory.CreateExecutionError(commandName, error);
+        var errorResult = QueryCommandResultFactory.CreateExecutionError(requestId, commandName, error);
         commandResultWriter.WriteToStandardOutput(errorResult);
         return errorResult.ExitCode;
     }
 
     /// <summary> Executes a typed-query operation through the query service and writes the command result. </summary>
     public static async Task<int> ExecuteAsync (
+        Guid requestId,
         IQueryService queryService,
         QueryCommonOptions options,
         QueryOperationRequest operation,
@@ -34,6 +36,7 @@ internal static class QueryCommandExecutionHelper
         ArgumentNullException.ThrowIfNull(commandResultWriter);
 
         var serviceResult = await queryService.ExecuteAsync(
+                requestId,
                 new QueryCommandInput(
                     ProjectPath: options.ProjectPath,
                     Mode: options.Mode,

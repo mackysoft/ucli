@@ -9,23 +9,25 @@ internal static class PlanCommandTestData
 
     public const string RequestId = "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62";
 
+    private static readonly Guid RequestGuid = Guid.Parse(RequestId);
+
     public const string ContractViolationMessage = "Operation result violated declared assurance facts.";
 
     public static PlanServiceResult CreateSuccessResult ()
     {
         return PlanServiceResult.Success(
             new PlanExecutionOutput(
-                RequestId: RequestId,
-                Project: ProjectIdentityInfoTestFactory.Create(),
-                OpResults:
+                requestId: RequestGuid,
+                project: ProjectIdentityInfoTestFactory.Create(),
+                opResults:
                 [
                     CreateSuccessOperationResult(),
                 ],
-                ReadIndex: CreateReadIndexInfo(
+                readIndex: CreateReadIndexInfo(
                     used: false,
                     hit: false,
                     fallbackReason: "readIndex disabled by mode."),
-                PlanToken: "plan-token-1"),
+                planToken: "plan-token-1"),
             "uCLI plan completed.");
     }
 
@@ -33,14 +35,14 @@ internal static class PlanCommandTestData
     {
         return PlanServiceResult.Success(
             new PlanExecutionOutput(
-                RequestId: RequestId,
-                Project: ProjectIdentityInfoTestFactory.Create(),
-                OpResults: [],
-                ReadIndex: CreateReadIndexInfo(
+                requestId: RequestGuid,
+                project: ProjectIdentityInfoTestFactory.Create(),
+                opResults: [],
+                readIndex: CreateReadIndexInfo(
                     used: false,
                     hit: false,
                     fallbackReason: "Play Mode mutation uses live Unity state."),
-                PlanToken: "plan-token-1"),
+                planToken: "plan-token-1"),
             "uCLI plan completed.");
     }
 
@@ -55,17 +57,17 @@ internal static class PlanCommandTestData
                     "step-1"),
             ],
             new PlanExecutionOutput(
-                RequestId: RequestId,
-                Project: ProjectIdentityInfoTestFactory.Create(),
-                OpResults:
+                requestId: RequestGuid,
+                project: ProjectIdentityInfoTestFactory.Create(),
+                opResults:
                 [
                     CreateViolationOperationResult(),
                 ],
-                ReadIndex: CreateReadIndexInfo(
+                readIndex: CreateReadIndexInfo(
                     used: false,
                     hit: false,
                     fallbackReason: "readIndex disabled by mode."),
-                PlanToken: null)
+                planToken: null)
             {
                 ContractViolations =
                 [
@@ -85,27 +87,27 @@ internal static class PlanCommandTestData
                     "step-1"),
             ],
             new PlanExecutionOutput(
-                RequestId: RequestId,
-                Project: ProjectIdentityInfoTestFactory.Create(),
-                OpResults: [],
-                ReadIndex: CreateReadIndexInfo(
+                requestId: RequestGuid,
+                project: ProjectIdentityInfoTestFactory.Create(),
+                opResults: [],
+                readIndex: CreateReadIndexInfo(
                     used: true,
                     hit: true,
                     fallbackReason: null),
-                PlanToken: null));
+                planToken: null));
     }
 
     public static PlanExecutionOutput CreatePreflightOutput ()
     {
         return new PlanExecutionOutput(
-            RequestId: RequestId,
-            Project: ProjectIdentityInfoTestFactory.Create(),
-            OpResults: [],
-            ReadIndex: CreateReadIndexInfo(
+            requestId: RequestGuid,
+            project: ProjectIdentityInfoTestFactory.Create(),
+            opResults: [],
+            readIndex: CreateReadIndexInfo(
                 used: false,
                 hit: false,
                 fallbackReason: "readIndex disabled by mode."),
-            PlanToken: null);
+            planToken: null);
     }
 
     private static ReadIndexInfo CreateReadIndexInfo (

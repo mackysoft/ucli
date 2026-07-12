@@ -25,11 +25,11 @@ public sealed class RequestCommandResultFactoryContractViolationTests
             "Operation contract violation.",
             [CreateContractViolationFailure()],
             new PlanExecutionOutput(
-                RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
-                Project: ProjectIdentityInfoTestFactory.Create(),
-                OpResults: [CreateOpResult()],
-                ReadIndex: CreateReadIndexInfo(),
-                PlanToken: null)
+                requestId: Guid.Parse("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62"),
+                project: ProjectIdentityInfoTestFactory.Create(),
+                opResults: [CreateOpResult()],
+                readIndex: CreateReadIndexInfo(),
+                planToken: null)
             {
                 ContractViolations = [CreateContractViolation()],
             }));
@@ -45,11 +45,11 @@ public sealed class RequestCommandResultFactoryContractViolationTests
             "Operation contract violation.",
             [CreateContractViolationFailure()],
             new CallExecutionOutput(
-                RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
-                Project: ProjectIdentityInfoTestFactory.Create(),
-                OpResults: [CreateOpResult()],
-                Plan: null,
-                ReadPostcondition: null)
+                requestId: Guid.Parse("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62"),
+                project: ProjectIdentityInfoTestFactory.Create(),
+                opResults: [CreateOpResult()],
+                plan: null,
+                readPostcondition: null)
             {
                 ContractViolations = [CreateContractViolation()],
             }));
@@ -63,7 +63,7 @@ public sealed class RequestCommandResultFactoryContractViolationTests
     {
         var result = QueryCommandResultFactory.Create(QueryServiceResultFactory.Failure(
             UcliCommandNames.QueryAssetsFind,
-            "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+            Guid.Parse("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62"),
             [CreateOpResult()],
             [CreateContractViolationFailure()],
             "Operation contract violation.",
@@ -79,7 +79,7 @@ public sealed class RequestCommandResultFactoryContractViolationTests
     public void Resolve_Create_WhenContractViolationExists_EmitsErrorCodeAndPayloadDetails ()
     {
         var result = ResolveCommandResultFactory.Create(ResolveServiceResultFactory.Failure(
-            "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+            Guid.Parse("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62"),
             [CreateOpResult()],
             [CreateContractViolationFailure()],
             CreateReadIndexInfo(),
@@ -94,7 +94,7 @@ public sealed class RequestCommandResultFactoryContractViolationTests
     public void Refresh_Create_WhenContractViolationExists_EmitsErrorCodeAndPayloadDetails ()
     {
         var result = RefreshCommandResultFactory.Create(OperationExecuteResultFactory.Failure(
-            "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+            Guid.Parse("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62"),
             [CreateOpResult()],
             [CreateContractViolationFailure()],
             "Operation contract violation.",

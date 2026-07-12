@@ -55,7 +55,7 @@ public sealed class RefreshCommandPayloadTests
     public async Task Refresh_WhenServiceFails_PreservesFailurePayloadAndErrors ()
     {
         var failureResult = OperationExecuteResultFactory.Failure(
-            RequestId,
+            RequestGuid,
             [],
             [
                 ApplicationFailure.InternalError(

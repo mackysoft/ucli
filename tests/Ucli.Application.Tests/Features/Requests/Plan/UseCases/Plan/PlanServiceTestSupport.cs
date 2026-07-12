@@ -9,6 +9,8 @@ namespace MackySoft.Ucli.Application.Tests;
 
 internal static class PlanServiceTestSupport
 {
+    public static readonly Guid RequestId = Guid.Parse("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62");
+
     public static readonly UcliCode[] UnityExecutionToolErrorCodes =
     [
         EditorLifecycleErrorCodes.EditorPlaymode,
@@ -90,18 +92,16 @@ internal static class PlanServiceTestSupport
     public static PreparedRequestContext CreatePreparedRequestContext ()
     {
         return new PreparedRequestContext(
-            RequestJson: """
+            requestJson: """
                 {
                   "protocolVersion": 1,
-                  "requestId": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
                   "steps": []
                 }
                 """,
-            Request: new ValidateRequest(
+            request: new ValidateRequest(
                 ProtocolVersion: 1,
-                RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
                 Steps: Array.Empty<ValidateRequestStep?>()),
-            ProjectContext: ProjectContextTestFactory.CreateRepositoryFixtureProject());
+            projectContext: ProjectContextTestFactory.CreateRepositoryFixtureProject());
     }
 
     public static ReadIndexInfo CreateReadIndexInfo (

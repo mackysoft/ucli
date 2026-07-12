@@ -37,14 +37,18 @@ internal sealed class QueryService : IQueryService
 
     /// <inheritdoc />
     public async ValueTask<QueryServiceResult> ExecuteAsync (
+        Guid requestId,
         QueryCommandInput input,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        if (requestId == Guid.Empty)
+        {
+            throw new ArgumentException("Request id must not be empty.", nameof(requestId));
+        }
+
         ArgumentNullException.ThrowIfNull(input);
         ArgumentNullException.ThrowIfNull(input.Operation);
-
-        var requestId = Guid.NewGuid().ToString("D");
         var projectContextResult = await projectContextResolver.ResolveAsync(input.ProjectPath, cancellationToken).ConfigureAwait(false);
         if (!projectContextResult.IsSuccess)
         {
@@ -131,7 +135,7 @@ internal sealed class QueryService : IQueryService
     }
 
     private async ValueTask<QueryServiceResult> ExecuteAssetsFindAsync (
-        string requestId,
+        Guid requestId,
         QueryAssetsFindOperationRequest operation,
         ProjectContext projectContext,
         ProjectIdentityInfo project,
@@ -180,7 +184,7 @@ internal sealed class QueryService : IQueryService
     }
 
     private async ValueTask<QueryServiceResult> ExecuteSceneTreeAsync (
-        string requestId,
+        Guid requestId,
         QueryCommandInput input,
         QuerySceneTreeOperationRequest operation,
         ProjectContext projectContext,
@@ -227,7 +231,7 @@ internal sealed class QueryService : IQueryService
     }
 
     private async ValueTask<QueryServiceResult> ExecuteInUnityAsync (
-        string requestId,
+        Guid requestId,
         QueryCommandInput input,
         QueryUnityOperationRequest operation,
         ProjectContext projectContext,
@@ -246,7 +250,6 @@ internal sealed class QueryService : IQueryService
                 projectContext.UnityProject,
                 new UnityRequestPayload.ExecuteOperation(
                     UcliCommandIds.Query,
-                    requestId,
                     operation.OperationId,
                     operation.OperationName,
                     operation.Args,

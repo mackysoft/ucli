@@ -64,7 +64,6 @@ internal sealed class ValidateRequestJsonParser : IValidateRequestJsonParser
 
             var parsedRequest = new ValidateRequest(
                 ProtocolVersion: parsedContract.ProtocolVersion,
-                RequestId: parsedContract.RequestId,
                 Steps: parsedSteps);
             return ValidateRequestJsonParseResult.Success(parsedRequest);
         }
@@ -88,16 +87,6 @@ internal sealed class ValidateRequestJsonParser : IValidateRequestJsonParser
                 "Request property 'protocolVersion' is required."),
             IpcRequestContractViolationKind.ProtocolVersionTypeMismatch => ExecutionError.InvalidArgument(
                 "Request property 'protocolVersion' must be an integer."),
-            IpcRequestContractViolationKind.RequestIdMissing => ExecutionError.InvalidArgument(
-                "Request property 'requestId' is invalid."),
-            IpcRequestContractViolationKind.RequestIdTypeMismatch => ExecutionError.InvalidArgument(
-                "Request property 'requestId' is invalid."),
-            IpcRequestContractViolationKind.RequestIdEmptyOrWhitespace => ExecutionError.InvalidArgument(
-                "Request property 'requestId' is invalid."),
-            IpcRequestContractViolationKind.RequestIdOuterWhitespace => ExecutionError.InvalidArgument(
-                "Request property 'requestId' is invalid."),
-            IpcRequestContractViolationKind.RequestIdFormatMismatch => ExecutionError.InvalidArgument(
-                "Request property 'requestId' must be UUID format 'D'."),
             IpcRequestContractViolationKind.StepsMissing => ExecutionError.InvalidArgument(
                 "Request property 'steps' is required."),
             IpcRequestContractViolationKind.StepsTypeMismatch => ExecutionError.InvalidArgument(

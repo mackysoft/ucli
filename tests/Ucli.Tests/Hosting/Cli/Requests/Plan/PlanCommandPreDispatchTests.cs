@@ -60,6 +60,7 @@ public sealed class PlanCommandPreDispatchTests
             timeout: "abc",
             cancellationToken: CancellationToken.None));
 
+        Assert.NotEqual(Guid.Empty, Assert.Single(preflightService.Invocations).RequestId);
         PlanCommandAssert.InvalidArgumentReturnedWithoutPlanExecution(
             result,
             service,

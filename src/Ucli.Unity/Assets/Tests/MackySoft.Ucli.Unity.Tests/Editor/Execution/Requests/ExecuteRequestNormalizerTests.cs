@@ -26,8 +26,6 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class ExecuteRequestNormalizerTests
     {
-        private const string RequestId = "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62";
-
         [Test]
         [Category("Size.Small")]
         public void Normalize_WhenOpRequestIsValid_ReturnsNormalizedRequestAndCanonicalPayload ()
@@ -37,7 +35,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new[]
                     {
                         new
@@ -73,7 +70,6 @@ namespace MackySoft.Ucli.Unity.Tests
                     IpcExecuteExpectedPostStateNames.Unavailable);
 
             var canonicalPayload = Encoding.UTF8.GetString(normalizedRequest.CanonicalDigestPayloadUtf8.ToArray());
-            Assert.That(canonicalPayload, Does.Not.Contain("requestId"));
             Assert.That(canonicalPayload, Does.Contain("\"protocolVersion\":1"));
             Assert.That(canonicalPayload, Does.Contain("\"steps\""));
         }
@@ -87,7 +83,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new[]
                     {
                         new
@@ -137,7 +132,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -218,7 +212,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -290,7 +283,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -346,7 +338,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -408,7 +399,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -478,7 +468,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -543,7 +532,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -610,7 +598,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -664,7 +651,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -726,7 +712,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -796,7 +781,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -861,7 +845,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -913,7 +896,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -965,7 +947,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -1039,7 +1020,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -1098,7 +1078,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -1149,7 +1128,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -1200,7 +1178,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -1255,7 +1232,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -1317,7 +1293,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -1390,7 +1365,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -1461,7 +1435,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -1534,7 +1507,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -1588,7 +1560,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -1642,7 +1613,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -1698,7 +1668,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -1752,7 +1721,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -1805,7 +1773,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -1861,7 +1828,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -1913,7 +1879,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -1961,7 +1926,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = Array.Empty<object>(),
                 });
             request = request with
@@ -1984,7 +1948,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = Array.Empty<object>(),
                 });
             request = request with
@@ -2007,7 +1970,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new[]
                     {
                         new
@@ -2038,7 +2000,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new[]
                     {
                         new
@@ -2080,7 +2041,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new[]
                     {
                         new
@@ -2109,7 +2069,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new[]
                     {
                         new
@@ -2148,7 +2107,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new[]
                     {
                         new
@@ -2181,7 +2139,6 @@ namespace MackySoft.Ucli.Unity.Tests
                     new
                     {
                         protocolVersion = IpcProtocol.CurrentVersion,
-                        requestId = RequestId,
                         steps = new[]
                         {
                             new
@@ -2219,7 +2176,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = Array.Empty<object>(),
                 });
             var playModeRequest = request with
@@ -2248,7 +2204,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -2301,7 +2256,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -2373,7 +2327,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -2450,7 +2403,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -2510,7 +2462,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -2608,7 +2559,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = Array.Empty<object>(),
                 });
 
@@ -2623,11 +2573,11 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var requestA = CreateExecuteRequestFromJson(
                 UcliCommandIds.Plan,
-                "{\"protocolVersion\":1,\"requestId\":\"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62\",\"steps\":[{\"kind\":\"op\",\"id\":\"setSpawner\",\"op\":\"__COMP_SET_OP__\",\"args\":{\"target\":{\"scene\":\"Assets/Scenes/Main.unity\",\"hierarchyPath\":\"Root/Spawner\",\"componentType\":\"UnityEngine.BoxCollider, UnityEngine.PhysicsModule\"},\"sets\":[{\"path\":\"isTrigger\",\"value\":true}]}}]}"
+                "{\"protocolVersion\":1,\"steps\":[{\"kind\":\"op\",\"id\":\"setSpawner\",\"op\":\"__COMP_SET_OP__\",\"args\":{\"target\":{\"scene\":\"Assets/Scenes/Main.unity\",\"hierarchyPath\":\"Root/Spawner\",\"componentType\":\"UnityEngine.BoxCollider, UnityEngine.PhysicsModule\"},\"sets\":[{\"path\":\"isTrigger\",\"value\":true}]}}]}"
                     .Replace("__COMP_SET_OP__", UcliPrimitiveOperationNames.CompSet, StringComparison.Ordinal));
             var requestB = CreateExecuteRequestFromJson(
                 UcliCommandIds.Plan,
-                "{\"requestId\":\"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62\",\"steps\":[{\"args\":{\"sets\":[{\"value\":true,\"path\":\"isTrigger\"}],\"target\":{\"componentType\":\"UnityEngine.BoxCollider, UnityEngine.PhysicsModule\",\"hierarchyPath\":\"Root/Spawner\",\"scene\":\"Assets/Scenes/Main.unity\"}},\"op\":\"__COMP_SET_OP__\",\"id\":\"setSpawner\",\"kind\":\"op\"}],\"protocolVersion\":1}"
+                "{\"steps\":[{\"args\":{\"sets\":[{\"value\":true,\"path\":\"isTrigger\"}],\"target\":{\"componentType\":\"UnityEngine.BoxCollider, UnityEngine.PhysicsModule\",\"hierarchyPath\":\"Root/Spawner\",\"scene\":\"Assets/Scenes/Main.unity\"}},\"op\":\"__COMP_SET_OP__\",\"id\":\"setSpawner\",\"kind\":\"op\"}],\"protocolVersion\":1}"
                     .Replace("__COMP_SET_OP__", UcliPrimitiveOperationNames.CompSet, StringComparison.Ordinal));
 
             var normalizer = CreateNormalizer();
@@ -2648,7 +2598,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = 999,
-                    requestId = RequestId,
                     steps = Array.Empty<object>(),
                 });
 
@@ -2662,39 +2611,21 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Normalize_WhenRequestIdIsInvalid_ReturnsInvalidArgumentError ()
+        public void Normalize_WhenRequestIdExists_ReturnsUnknownPropertyError ()
         {
             var request = CreateExecuteRequest(
                 UcliCommandIds.Call,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = "invalid",
+                    requestId = "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
                     steps = Array.Empty<object>(),
                 });
 
             var result = CreateNormalizer().Normalize(request);
 
             AssertInvalidArgument(result);
-        }
-
-        [Test]
-        [Category("Size.Small")]
-        public void Normalize_WhenTopLevelContainsUnknownProperty_ReturnsInvalidArgumentError ()
-        {
-            var request = CreateExecuteRequest(
-                UcliCommandIds.Resolve,
-                new
-                {
-                    protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
-                    steps = Array.Empty<object>(),
-                    unknown = true,
-                });
-
-            var result = CreateNormalizer().Normalize(request);
-
-            AssertInvalidArgument(result);
+            Assert.That(result.Error!.Message, Does.Contain("unknown property: requestId"));
         }
 
         [Test]
@@ -2706,7 +2637,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new[]
                     {
                         new
@@ -2740,7 +2670,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new[]
                     {
                         new
@@ -2766,7 +2695,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new[]
                     {
                         new
@@ -2793,7 +2721,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -2828,7 +2755,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -2877,7 +2803,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -2923,7 +2848,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new

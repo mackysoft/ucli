@@ -9,12 +9,14 @@ internal static class RefreshCommandTestData
 
     public const string RequestId = "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62";
 
+    public static readonly Guid RequestGuid = Guid.Parse(RequestId);
+
     public static OperationExecuteResult CreateSuccessResult (
         OperationExecutionReadPostcondition? readPostcondition = null,
         OperationExecutionPostReadSource? postReadSource = null)
     {
         return OperationExecuteResultFactory.Success(
-            RequestId,
+            RequestGuid,
             [
                 CreateRefreshOperationResult(),
             ],

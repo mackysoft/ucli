@@ -25,6 +25,7 @@ public sealed class PlanServiceUnityResponseTests
         var service = CreateService(unityRequestExecutor: unityIpcRequestExecutor);
 
         var result = await service.ExecuteAsync(
+            RequestId,
             CreateInput(),
             CancellationToken.None);
 
@@ -49,13 +50,14 @@ public sealed class PlanServiceUnityResponseTests
                 errorCode)));
 
         var result = await service.ExecuteAsync(
+            RequestId,
             CreateInput(),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
         Assert.NotNull(result.Output);
-        Assert.Equal("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62", result.Output!.RequestId);
+        Assert.Equal(RequestId, result.Output!.RequestId);
         Assert.NotNull(result.Output.ReadIndex);
         var error = Assert.Single(result.Errors);
         Assert.Equal(errorCode, error.Code);

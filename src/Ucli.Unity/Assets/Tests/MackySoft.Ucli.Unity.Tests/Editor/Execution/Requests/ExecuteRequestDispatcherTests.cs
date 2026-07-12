@@ -724,7 +724,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
                     steps = new object[]
                     {
                         new
@@ -1562,7 +1561,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 JsonSerializer.SerializeToElement(new
                 {
                     protocolVersion = 1,
-                    requestId = "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
                     steps = CreateExecuteStepContracts(operations),
                 }))
             {

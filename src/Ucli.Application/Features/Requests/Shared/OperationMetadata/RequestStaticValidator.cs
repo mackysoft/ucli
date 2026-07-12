@@ -42,15 +42,6 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
                 OpId: null));
         }
 
-        if (string.IsNullOrWhiteSpace(request.RequestId)
-            || !Guid.TryParseExact(request.RequestId, "D", out _))
-        {
-            errors.Add(new ValidationError(
-                Code: ValidationErrorCodes.RequestIdInvalid,
-                Message: "requestId must be UUID format 'D'.",
-                OpId: null));
-        }
-
         if (request.Steps is null)
         {
             errors.Add(new ValidationError(

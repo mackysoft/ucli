@@ -144,7 +144,6 @@ public static class UcliApplicationServiceCollectionExtensions
     private static IServiceCollection AddUcliApplicationRequestServices (this IServiceCollection services)
     {
         services.AddSingleton<IRequestPreparationService, RequestPreparationService>();
-        services.AddSingleton<IRequestIdFactory, GuidRequestIdFactory>();
         services.AddSingleton<IRequestStaticValidationPreflightService, RequestStaticValidationPreflightService>();
         services.AddSingleton<IValidateRequestJsonParser, ValidateRequestJsonParser>();
 

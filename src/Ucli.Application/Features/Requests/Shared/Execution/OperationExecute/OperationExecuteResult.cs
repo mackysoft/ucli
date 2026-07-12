@@ -6,7 +6,7 @@ namespace MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Operatio
 internal sealed record OperationExecuteResult
 {
     private OperationExecuteResult (
-        string requestId,
+        Guid requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         IReadOnlyList<ApplicationFailure> errors,
         string message,
@@ -15,6 +15,11 @@ internal sealed record OperationExecuteResult
         OperationExecutionPostReadSource? postReadSource,
         ProjectIdentityInfo? project)
     {
+        if (requestId == Guid.Empty)
+        {
+            throw new ArgumentException("Request id must not be empty.", nameof(requestId));
+        }
+
         RequestId = requestId;
         OpResults = opResults;
         Errors = errors;
@@ -26,7 +31,7 @@ internal sealed record OperationExecuteResult
     }
 
     /// <summary> Gets the request identifier associated with this execution. </summary>
-    public string RequestId { get; }
+    public Guid RequestId { get; }
 
     /// <summary> Gets the per-step execution results. </summary>
     public IReadOnlyList<OperationExecutionOperationResult> OpResults { get; }
@@ -59,7 +64,7 @@ internal sealed record OperationExecuteResult
 
     /// <summary> Creates one successful operation execution result. </summary>
     internal static OperationExecuteResult Success (
-        string requestId,
+        Guid requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         string message,
         OperationExecutionReadPostcondition? readPostcondition,
@@ -67,7 +72,6 @@ internal sealed record OperationExecuteResult
         IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null,
         OperationExecutionPostReadSource? postReadSource = null)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(opResults);
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
         ArgumentNullException.ThrowIfNull(project);
@@ -85,7 +89,7 @@ internal sealed record OperationExecuteResult
 
     /// <summary> Creates one failed operation execution result. </summary>
     internal static OperationExecuteResult Failure (
-        string requestId,
+        Guid requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         IReadOnlyList<ApplicationFailure> errors,
         string message,
@@ -94,7 +98,6 @@ internal sealed record OperationExecuteResult
         ProjectIdentityInfo? project = null,
         OperationExecutionPostReadSource? postReadSource = null)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(opResults);
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
         var failureErrors = RequestServiceResultInvariants.RequireFailureErrors(errors);

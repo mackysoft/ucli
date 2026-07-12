@@ -18,7 +18,7 @@ internal static class RefreshCommandResultFactory
 
         var payload = new Dictionary<string, object?>
         {
-            ["requestId"] = executionResult.RequestId,
+            ["requestId"] = executionResult.RequestId.ToString("D"),
         };
         if (executionResult.Project != null)
         {
@@ -64,9 +64,11 @@ internal static class RefreshCommandResultFactory
     /// <summary> Creates one command result for <c>refresh</c> from a normalized execution error. </summary>
     /// <param name="error"> The normalized execution error. </param>
     /// <returns> The command result serialized to stdout. </returns>
-    public static CommandResult CreateExecutionError (ExecutionError error)
+    public static CommandResult CreateExecutionError (
+        Guid requestId,
+        ExecutionError error)
     {
         ArgumentNullException.ThrowIfNull(error);
-        return Create(OperationExecuteResultFactory.FromExecutionError(error));
+        return Create(OperationExecuteResultFactory.FromExecutionError(requestId, error));
     }
 }

@@ -12,7 +12,8 @@ public sealed class UnityIpcRequestBuilderExecuteTests
     {
         var executeArguments = JsonSerializer.SerializeToElement(new
         {
-            requestId = "request-1",
+            protocolVersion = IpcProtocol.CurrentVersion,
+            steps = Array.Empty<object>(),
         });
         var builder = new UnityIpcRequestBuilder();
 
@@ -46,7 +47,6 @@ public sealed class UnityIpcRequestBuilderExecuteTests
 
         var request = builder.Build(new UnityRequestPayload.ExecuteOperation(
             UcliCommandIds.Call,
-            "request-1",
             "op-1",
             "asset.create",
             args,
@@ -62,7 +62,7 @@ public sealed class UnityIpcRequestBuilderExecuteTests
         Assert.False(payload.AllowPlayMode);
         Assert.Equal("plan-token", payload.PlanToken);
         Assert.Equal(IpcProtocol.CurrentVersion, payload.Arguments.GetProperty("protocolVersion").GetInt32());
-        Assert.Equal("request-1", payload.Arguments.GetProperty("requestId").GetString());
+        Assert.False(payload.Arguments.TryGetProperty("requestId", out _));
         var step = payload.Arguments.GetProperty("steps")[0];
         Assert.Equal("op", step.GetProperty("kind").GetString());
         Assert.Equal("op-1", step.GetProperty("id").GetString());

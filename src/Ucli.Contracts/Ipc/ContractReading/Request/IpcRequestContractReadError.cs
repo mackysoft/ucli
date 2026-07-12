@@ -52,18 +52,6 @@ internal readonly record struct IpcRequestContractReadError (
         return Create(IpcRequestContractReadErrorKind.ProtocolVersionTypeMismatch);
     }
 
-    public static IpcRequestContractReadError RequestIdContractViolation (JsonStringReadError jsonStringReadError)
-    {
-        return Create(
-            IpcRequestContractReadErrorKind.RequestIdContractViolation,
-            jsonStringReadError: jsonStringReadError);
-    }
-
-    public static IpcRequestContractReadError RequestIdFormatMismatch ()
-    {
-        return Create(IpcRequestContractReadErrorKind.RequestIdFormatMismatch);
-    }
-
     public static IpcRequestContractReadError StepsMissing ()
     {
         return Create(IpcRequestContractReadErrorKind.StepsMissing);
