@@ -45,7 +45,7 @@ internal sealed class SupervisorClient
         {
             var request = CreateRequest(
                 manifest,
-                CreateRequestId(),
+                Guid.NewGuid(),
                 SupervisorIpcContracts.PingMethod,
                 new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion));
             var response = await SendAsync(manifest, request, timeout, cancellationToken).ConfigureAwait(false);
@@ -117,12 +117,13 @@ internal sealed class SupervisorClient
     /// <param name="progressSink"> The optional caller progress sink that receives supervisor-internal daemon-start progress entries. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The mapped daemon-start result. </returns>
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="requestId" /> is empty. </exception>
     /// <exception cref="ArgumentOutOfRangeException">
     /// Thrown when <paramref name="attemptTimeout" /> cannot be represented by the IPC millisecond contract.
     /// </exception>
     public async ValueTask<DaemonStartResult> EnsureRunningAsync (
         SupervisorInstanceManifest manifest,
-        string requestId,
+        Guid requestId,
         ResolvedUnityProjectContext unityProject,
         DateTimeOffset deadlineUtc,
         TimeSpan attemptTimeout,
@@ -133,7 +134,11 @@ internal sealed class SupervisorClient
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(manifest);
-        ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
+        if (requestId == Guid.Empty)
+        {
+            throw new ArgumentException("Request id must not be empty.", nameof(requestId));
+        }
+
         ArgumentNullException.ThrowIfNull(unityProject);
         var timeoutMilliseconds = ValidateAttemptTimeout(attemptTimeout, "ensureRunning");
         var terminalResponseTimeout = attemptTimeout.Add(SupervisorConstants.EnsureRunningTerminalResponseGrace);
@@ -252,9 +257,10 @@ internal sealed class SupervisorClient
     /// <param name="attemptTimeout"> The monotonic budget remaining when this delivery attempt begins. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The mapped daemon-stop result. </returns>
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="requestId" /> is empty. </exception>
     public async ValueTask<DaemonStopResult> StopProjectAsync (
         SupervisorInstanceManifest manifest,
-        string requestId,
+        Guid requestId,
         ResolvedUnityProjectContext unityProject,
         DateTimeOffset deadlineUtc,
         TimeSpan attemptTimeout,
@@ -262,7 +268,11 @@ internal sealed class SupervisorClient
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(manifest);
-        ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
+        if (requestId == Guid.Empty)
+        {
+            throw new ArgumentException("Request id must not be empty.", nameof(requestId));
+        }
+
         ArgumentNullException.ThrowIfNull(unityProject);
         var timeoutMilliseconds = ValidateAttemptTimeout(attemptTimeout, "stopProject");
 
@@ -376,23 +386,18 @@ internal sealed class SupervisorClient
 
     private static IpcRequest CreateRequest<TPayload> (
         SupervisorInstanceManifest manifest,
-        string requestId,
+        Guid requestId,
         string method,
         TPayload payload,
         IpcResponseMode responseMode = IpcResponseMode.Single)
     {
         return new IpcRequest(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: requestId,
-            SessionToken: manifest.SessionToken,
-            Method: method,
-            Payload: IpcPayloadCodec.SerializeToElement(payload),
-            responseMode: responseMode);
-    }
-
-    private static string CreateRequestId ()
-    {
-        return $"supervisor-{Guid.NewGuid():N}";
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: requestId,
+            sessionToken: manifest.SessionToken,
+            method: method,
+            payload: IpcPayloadCodec.SerializeToElement(payload),
+            responseMode: ContractLiteralCodec.ToValue(responseMode));
     }
 
     private static IpcEndpoint ResolveEndpoint (SupervisorInstanceManifest manifest)

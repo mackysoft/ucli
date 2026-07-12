@@ -455,6 +455,8 @@ public sealed class DaemonIpcRequestSenderTests
         Assert.False(result.IsSuccess);
         var requests = IpcRequestAssert.RetriedAtLeastOnce(transportClient);
         Assert.All(requests, request => Assert.Equal("logs.unity.read", request.Method));
+        var requestId = IpcRequestAssert.SingleRequestId(requests);
+        Assert.NotEqual(Guid.Empty, requestId);
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
         Assert.Equal(DaemonErrorCodes.DaemonSessionNotAvailable, error.Code);
@@ -466,32 +468,32 @@ public sealed class DaemonIpcRequestSenderTests
         string sessionToken)
     {
         return new IpcRequest(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: $"{method}-{Guid.NewGuid():N}",
-            SessionToken: sessionToken,
-            Method: method,
-            Payload: JsonDocument.Parse("{}").RootElement.Clone(),
-            responseMode: IpcResponseMode.Single);
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: Guid.NewGuid(),
+            sessionToken: sessionToken,
+            method: method,
+            payload: JsonDocument.Parse("{}").RootElement.Clone(),
+            responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single));
     }
 
-    private static IpcResponse CreateResponse (string requestId)
+    private static IpcResponse CreateResponse (Guid requestId)
     {
         return new IpcResponse(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: requestId,
-            Status: IpcProtocol.StatusOk,
-            Payload: JsonDocument.Parse("{}").RootElement.Clone(),
-            Errors: Array.Empty<IpcError>());
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: requestId,
+            status: IpcProtocol.StatusOk,
+            payload: JsonDocument.Parse("{}").RootElement.Clone(),
+            errors: Array.Empty<IpcError>());
     }
 
-    private static IpcResponse CreateSessionTokenInvalidResponse (string requestId)
+    private static IpcResponse CreateSessionTokenInvalidResponse (Guid requestId)
     {
         return new IpcResponse(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: requestId,
-            Status: IpcProtocol.StatusError,
-            Payload: JsonDocument.Parse("{}").RootElement.Clone(),
-            Errors:
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: requestId,
+            status: IpcProtocol.StatusError,
+            payload: JsonDocument.Parse("{}").RootElement.Clone(),
+            errors:
             [
                 new IpcError(
                     IpcSessionErrorCodes.SessionTokenInvalid,

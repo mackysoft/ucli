@@ -18,7 +18,7 @@ public sealed class UnityIpcRequestExecutorOneshotDispatchTests
     public async Task Execute_WhenTargetIsOneshot_UsesOneshotClient ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-ipc-request-executor", "oneshot");
-        var response = CreateSuccessResponse("req-oneshot");
+        var response = CreateSuccessResponse(Guid.NewGuid());
         var daemonTransportClient = new RecordingUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Daemon transport must not be called."));
         var oneshotTransportClient = new RecordingUnityIpcTransportClient(request =>
         {

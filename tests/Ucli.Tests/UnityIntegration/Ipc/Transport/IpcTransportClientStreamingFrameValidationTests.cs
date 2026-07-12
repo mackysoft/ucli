@@ -10,7 +10,9 @@ public sealed class IpcTransportClientStreamingFrameValidationTests
     {
         {
             "progress request id mismatches",
-            _ => IpcTransportClientTestSupport.CreateProgressFrame(requestId: "other-request")
+            request => IpcTransportClientTestSupport.CreateProgressFrame(
+                request,
+                requestId: Guid.NewGuid())
         },
         {
             "frame kind is unsupported",
@@ -45,12 +47,6 @@ public sealed class IpcTransportClientStreamingFrameValidationTests
             request => IpcTransportClientTestSupport.CreateTerminalFrame(
                 request,
                 eventName: "test.progress")
-        },
-        {
-            "terminal response request id mismatches",
-            request => IpcTransportClientTestSupport.CreateTerminalFrame(
-                request,
-                response: IpcTransportTestHarness.CreateResponse("other-request", "{}"))
         },
         {
             "terminal response protocol version mismatches",

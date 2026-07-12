@@ -23,7 +23,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         public string Method { get; set; }
 
         /// <summary> Gets or sets the IPC request id. </summary>
-        public string RequestId { get; set; }
+        public Guid RequestId { get; set; }
 
         /// <summary> Gets or sets the hash of the stable request payload identity. </summary>
         public string RequestPayloadHash { get; set; }

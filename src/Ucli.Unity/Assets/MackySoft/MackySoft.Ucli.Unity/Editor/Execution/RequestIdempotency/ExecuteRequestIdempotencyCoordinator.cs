@@ -35,7 +35,7 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
         /// <returns> The coordinated response envelope. </returns>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="executeRequest" /> or <paramref name="createConflictResponse" /> is <see langword="null" />. </exception>
         public async Task<IpcResponse> ExecuteAsync (
-            string requestId,
+            Guid requestId,
             string requestFingerprint,
             Func<CancellationToken, Task<IpcResponse>> executeRequest,
             Func<IpcResponse> createConflictResponse,
@@ -108,10 +108,10 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
         /// <param name="requestId"> The request identifier used as idempotency key. </param>
         /// <param name="requestFingerprint"> The deterministic fingerprint of request payload content. </param>
         /// <returns> The idempotency decision for this request. </returns>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="requestId" /> or <paramref name="requestFingerprint" /> is <see langword="null" />. </exception>
-        /// <exception cref="ArgumentException"> Thrown when <paramref name="requestId" /> or <paramref name="requestFingerprint" /> is empty or whitespace. </exception>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="requestFingerprint" /> is <see langword="null" />. </exception>
+        /// <exception cref="ArgumentException"> Thrown when <paramref name="requestId" /> is empty, or <paramref name="requestFingerprint" /> is empty or whitespace. </exception>
         public ExecuteRequestIdempotencyStoreDecision Acquire (
-            string requestId,
+            Guid requestId,
             string requestFingerprint)
         {
             ValidateRequestId(requestId);
@@ -123,10 +123,10 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
         /// <param name="requestId"> The request identifier used as idempotency key. </param>
         /// <param name="requestFingerprint"> The deterministic fingerprint of request payload content. </param>
         /// <param name="response"> The completed response envelope. </param>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="requestId" />, <paramref name="requestFingerprint" />, or <paramref name="response" /> is <see langword="null" />. </exception>
-        /// <exception cref="ArgumentException"> Thrown when <paramref name="requestId" /> or <paramref name="requestFingerprint" /> is empty or whitespace. </exception>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="requestFingerprint" /> or <paramref name="response" /> is <see langword="null" />. </exception>
+        /// <exception cref="ArgumentException"> Thrown when <paramref name="requestId" /> is empty, <paramref name="requestFingerprint" /> is empty or whitespace, or the response identifies another request. </exception>
         public void CompleteSuccess (
-            string requestId,
+            Guid requestId,
             string requestFingerprint,
             IpcResponse response)
         {
@@ -138,14 +138,20 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
                 throw new ArgumentNullException(nameof(response));
             }
 
+            if (response.RequestId != requestId)
+            {
+                throw new ArgumentException(
+                    "Response request id must match the idempotency request id.",
+                    nameof(response));
+            }
+
             store.CompleteSuccess(requestId, requestFingerprint, response);
         }
 
         /// <summary> Completes one owner execution with cancellation and notifies shared waiters. </summary>
         /// <param name="requestId"> The request identifier used as idempotency key. </param>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="requestId" /> is <see langword="null" />. </exception>
-        /// <exception cref="ArgumentException"> Thrown when <paramref name="requestId" /> is empty or whitespace. </exception>
-        public void CompleteCanceled (string requestId)
+        /// <exception cref="ArgumentException"> Thrown when <paramref name="requestId" /> is empty. </exception>
+        public void CompleteCanceled (Guid requestId)
         {
             ValidateRequestId(requestId);
             store.CompleteCanceled(requestId);
@@ -154,10 +160,10 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
         /// <summary> Completes one owner execution with failure and notifies shared waiters. </summary>
         /// <param name="requestId"> The request identifier used as idempotency key. </param>
         /// <param name="exception"> The execution failure exception. </param>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="requestId" /> or <paramref name="exception" /> is <see langword="null" />. </exception>
-        /// <exception cref="ArgumentException"> Thrown when <paramref name="requestId" /> is empty or whitespace. </exception>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="exception" /> is <see langword="null" />. </exception>
+        /// <exception cref="ArgumentException"> Thrown when <paramref name="requestId" /> is empty. </exception>
         public void CompleteFailed (
-            string requestId,
+            Guid requestId,
             Exception exception)
         {
             ValidateRequestId(requestId);
@@ -172,18 +178,12 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
 
         /// <summary> Validates request-id input constraints. </summary>
         /// <param name="requestId"> The request identifier. </param>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="requestId" /> is <see langword="null" />. </exception>
-        /// <exception cref="ArgumentException"> Thrown when <paramref name="requestId" /> is empty or whitespace. </exception>
-        private static void ValidateRequestId (string requestId)
+        /// <exception cref="ArgumentException"> Thrown when <paramref name="requestId" /> is empty. </exception>
+        private static void ValidateRequestId (Guid requestId)
         {
-            if (requestId == null)
+            if (requestId == Guid.Empty)
             {
-                throw new ArgumentNullException(nameof(requestId));
-            }
-
-            if (string.IsNullOrWhiteSpace(requestId))
-            {
-                throw new ArgumentException("Request id must not be empty or whitespace.", nameof(requestId));
+                throw new ArgumentException("Request id must not be empty.", nameof(requestId));
             }
         }
 

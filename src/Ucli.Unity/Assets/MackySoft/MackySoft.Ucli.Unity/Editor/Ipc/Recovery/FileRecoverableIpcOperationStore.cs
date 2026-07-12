@@ -87,7 +87,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <inheritdoc />
         public ValueTask<RecoverableIpcOperationReadResult> ReadAsync (
             string method,
-            string requestId,
+            Guid requestId,
             string requestPayloadHash,
             CancellationToken cancellationToken)
         {
@@ -110,7 +110,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <inheritdoc />
         public ValueTask<RecoverableIpcOperationStoreResult> WritePendingAsync (
             string method,
-            string requestId,
+            Guid requestId,
             string requestPayloadHash,
             DateTimeOffset startedAtUtc,
             JsonElement recoveryPayload,
@@ -142,7 +142,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <inheritdoc />
         public ValueTask<RecoverableIpcOperationStoreResult> WriteCompletedAsync (
             string method,
-            string requestId,
+            Guid requestId,
             string requestPayloadHash,
             DateTimeOffset startedAtUtc,
             DateTimeOffset completedAtUtc,
@@ -153,6 +153,13 @@ namespace MackySoft.Ucli.Unity.Ipc
             if (response == null)
             {
                 throw new ArgumentNullException(nameof(response));
+            }
+
+            if (response.RequestId != requestId)
+            {
+                throw new ArgumentException(
+                    "Response request id must match the recoverable operation request id.",
+                    nameof(response));
             }
 
             if (string.IsNullOrWhiteSpace(requestPayloadHash))
@@ -199,7 +206,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private async Task<RecoverableIpcOperationReadResult> ReadSerializedAsync (
             string method,
-            string requestId,
+            Guid requestId,
             string requestPayloadHash,
             CancellationToken cancellationToken)
         {
@@ -456,19 +463,19 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private string ResolveRecordPath (
             string method,
-            string requestId)
+            Guid requestId)
         {
             if (string.IsNullOrWhiteSpace(method))
             {
                 throw new ArgumentException("Method must not be empty.", nameof(method));
             }
 
-            if (string.IsNullOrWhiteSpace(requestId))
+            if (requestId == Guid.Empty)
             {
                 throw new ArgumentException("Request id must not be empty.", nameof(requestId));
             }
 
-            var identity = string.Concat(projectFingerprint, "\n", method, "\n", requestId);
+            var identity = string.Concat(projectFingerprint, "\n", method, "\n", requestId.ToString("D"));
             var operationKey = Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(identity));
             return Path.Combine(operationsDirectoryPath, operationKey, RecordFileName);
         }
@@ -476,7 +483,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         private bool IsValidRecord (
             RecoverableIpcOperationRecord record,
             string method,
-            string requestId,
+            Guid requestId,
             string requestPayloadHash,
             out string errorMessage)
         {
@@ -486,7 +493,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 || record.SchemaVersion != SchemaVersion
                 || !string.Equals(record.ProjectFingerprint, projectFingerprint, StringComparison.Ordinal)
                 || !string.Equals(record.Method, method, StringComparison.Ordinal)
-                || !string.Equals(record.RequestId, requestId, StringComparison.Ordinal)
+                || record.RequestId != requestId
                 || !string.Equals(record.RequestPayloadHash, requestPayloadHash, StringComparison.Ordinal)
                 || record.HostProcessId != hostProcessId
                 || !string.Equals(record.HostEditorInstanceId, hostEditorInstanceId, StringComparison.Ordinal))
@@ -520,6 +527,12 @@ namespace MackySoft.Ucli.Unity.Ipc
                 if (record.Response == null || !record.CompletedAtUtc.HasValue)
                 {
                     errorMessage = "Recoverable IPC operation completed response is missing.";
+                    return false;
+                }
+
+                if (record.Response.RequestId != requestId)
+                {
+                    errorMessage = "Recoverable IPC operation completed response identity is invalid.";
                     return false;
                 }
 

@@ -53,8 +53,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             var context = new ExecuteDispatchContext(
-                RequestId: request.RequestId,
-                ProtocolVersion: request.ProtocolVersion)
+                requestId: request.RequestId,
+                protocolVersion: request.ProtocolVersion)
             {
                 Project = projectIdentity,
             };

@@ -16,8 +16,10 @@ public sealed class UnityIpcRequestFactoryTimeoutTests
 
         var request = UnityIpcRequestFactory.Create(
             "session-token",
-            dispatchRequest,
-            TimeSpan.FromMilliseconds(1234));
+            dispatchRequest.Method,
+            dispatchRequest.CreatePayload(TimeSpan.FromMilliseconds(1234)),
+            Guid.NewGuid(),
+            dispatchRequest.ResponseMode);
 
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcCompileRequest compileRequest, out _));
         Assert.Equal("run-1", compileRequest.RunId);
@@ -41,8 +43,10 @@ public sealed class UnityIpcRequestFactoryTimeoutTests
 
         var request = UnityIpcRequestFactory.Create(
             "session-token",
-            dispatchRequest,
-            TimeSpan.FromMilliseconds(1234));
+            dispatchRequest.Method,
+            dispatchRequest.CreatePayload(TimeSpan.FromMilliseconds(1234)),
+            Guid.NewGuid(),
+            dispatchRequest.ResponseMode);
 
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcTestRunRequest testRunRequest, out _));
         Assert.Equal("run-1", testRunRequest.RunId);
@@ -61,8 +65,10 @@ public sealed class UnityIpcRequestFactoryTimeoutTests
 
         var request = UnityIpcRequestFactory.Create(
             "session-token",
-            dispatchRequest,
-            TimeSpan.FromMilliseconds(1234));
+            dispatchRequest.Method,
+            dispatchRequest.CreatePayload(TimeSpan.FromMilliseconds(1234)),
+            Guid.NewGuid(),
+            dispatchRequest.ResponseMode);
 
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcBuildRunRequest buildRunRequest, out _));
         Assert.Equal("build-run-1", buildRunRequest.RunId);
@@ -87,8 +93,10 @@ public sealed class UnityIpcRequestFactoryTimeoutTests
 
         var request = UnityIpcRequestFactory.Create(
             "session-token",
-            dispatchRequest,
-            TimeSpan.FromMilliseconds(1234));
+            dispatchRequest.Method,
+            dispatchRequest.CreatePayload(TimeSpan.FromMilliseconds(1234)),
+            Guid.NewGuid(),
+            dispatchRequest.ResponseMode);
 
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcExecuteRequest executeRequest, out _));
         Assert.Equal(UcliCommandIds.Call.Name, executeRequest.Command);
@@ -115,8 +123,10 @@ public sealed class UnityIpcRequestFactoryTimeoutTests
 
         var request = UnityIpcRequestFactory.Create(
             "session-token",
-            dispatchRequest,
-            TimeSpan.FromMilliseconds(1234));
+            dispatchRequest.Method,
+            dispatchRequest.CreatePayload(TimeSpan.FromMilliseconds(1234)),
+            Guid.NewGuid(),
+            dispatchRequest.ResponseMode);
 
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcExecuteRequest executeRequest, out _));
         Assert.Equal(UcliCommandIds.Call.Name, executeRequest.Command);

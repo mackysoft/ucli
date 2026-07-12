@@ -31,7 +31,7 @@ public sealed class IpcDaemonPingClientRequestTests
             TimeSpan.FromMilliseconds(1),
             DefaultTimeout);
         Assert.Equal(IpcProtocol.CurrentVersion, request.ProtocolVersion);
-        Assert.StartsWith("mode-probe-", request.RequestId, StringComparison.Ordinal);
+        Assert.NotEqual(Guid.Empty, request.RequestId);
         Assert.Equal("ucli-mode-probe", request.Payload.GetProperty("clientVersion").GetString());
     }
 
@@ -127,6 +127,9 @@ public sealed class IpcDaemonPingClientRequestTests
             unityIpcClient.Requests,
             request => Assert.Equal("first-token", request.SessionToken),
             request => Assert.Equal("refreshed-token", request.SessionToken));
+        var requestId = unityIpcClient.Requests[0].RequestId;
+        Assert.NotEqual(Guid.Empty, requestId);
+        Assert.Equal(requestId, unityIpcClient.Requests[1].RequestId);
         Assert.Collection(
             unityIpcClient.Endpoints,
             endpoint => Assert.Equal(firstConnection.Endpoint, endpoint),

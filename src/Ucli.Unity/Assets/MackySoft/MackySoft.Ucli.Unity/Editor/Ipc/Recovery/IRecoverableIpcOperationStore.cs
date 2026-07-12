@@ -12,14 +12,14 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <summary> Reads one recoverable operation record when present. </summary>
         ValueTask<RecoverableIpcOperationReadResult> ReadAsync (
             string method,
-            string requestId,
+            Guid requestId,
             string requestPayloadHash,
             CancellationToken cancellationToken);
 
         /// <summary> Writes one pending recoverable operation record. </summary>
         ValueTask<RecoverableIpcOperationStoreResult> WritePendingAsync (
             string method,
-            string requestId,
+            Guid requestId,
             string requestPayloadHash,
             DateTimeOffset startedAtUtc,
             JsonElement recoveryPayload,
@@ -28,7 +28,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <summary> Writes one completed recoverable operation record. </summary>
         ValueTask<RecoverableIpcOperationStoreResult> WriteCompletedAsync (
             string method,
-            string requestId,
+            Guid requestId,
             string requestPayloadHash,
             DateTimeOffset startedAtUtc,
             DateTimeOffset completedAtUtc,

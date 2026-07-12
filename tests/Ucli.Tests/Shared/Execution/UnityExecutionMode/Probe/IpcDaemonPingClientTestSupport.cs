@@ -38,13 +38,13 @@ internal static class IpcDaemonPingClientTestSupport
         object? payload = null)
     {
         return new IpcResponse(
-            ProtocolVersion: request.ProtocolVersion,
-            RequestId: request.RequestId,
-            Status: status,
-            Payload: payload is null
+            protocolVersion: request.ProtocolVersion,
+            requestId: request.RequestId,
+            status: status,
+            payload: payload is null
                 ? JsonDocument.Parse("{}").RootElement.Clone()
                 : IpcPayloadCodec.SerializeToElement(payload),
-            Errors: errors);
+            errors: errors);
     }
 
     private static DaemonSessionConnectionResolutionResult CreateConnectionResult (string sessionToken)

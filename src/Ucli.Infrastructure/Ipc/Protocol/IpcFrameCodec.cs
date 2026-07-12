@@ -182,6 +182,10 @@ public static class IpcFrameCodec
         {
             return IpcFrameReadResult<T>.Failure(IpcFrameReadErrorKind.PayloadJsonInvalid, exception.Message);
         }
+        catch (ArgumentException exception)
+        {
+            return IpcFrameReadResult<T>.Failure(IpcFrameReadErrorKind.PayloadJsonInvalid, exception.Message);
+        }
     }
 
     /// <summary> Reads exactly the specified number of bytes from the source stream. </summary>

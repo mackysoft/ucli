@@ -20,7 +20,7 @@ public sealed class UnityIpcRequestExecutorDaemonDispatchTests
     public async Task Execute_WhenExplicitDaemonModeIsRequested_DispatchesWithoutReachabilityProbe ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-ipc-request-executor", "explicit-daemon");
-        var response = CreateSuccessResponse("req-explicit-daemon");
+        var response = CreateSuccessResponse(Guid.NewGuid());
         var daemonTransportClient = new RecordingUnityIpcTransportClient(_ => response);
         var oneshotTransportClient = new RecordingUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Oneshot transport must not be called."));
         var sessionConnectionProvider = new QueuedDaemonSessionConnectionProvider(CreateConnectionResult("daemon-token"));
@@ -63,7 +63,7 @@ public sealed class UnityIpcRequestExecutorDaemonDispatchTests
     public async Task Execute_WhenTargetIsDaemon_UsesDaemonClient ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-ipc-request-executor", "daemon");
-        var response = CreateSuccessResponse("req-daemon");
+        var response = CreateSuccessResponse(Guid.NewGuid());
         var daemonTransportClient = new RecordingUnityIpcTransportClient(_ => response);
         var oneshotTransportClient = new RecordingUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Oneshot transport must not be called."));
         var sessionConnectionProvider = new QueuedDaemonSessionConnectionProvider(CreateConnectionResult("daemon-token"));
@@ -108,7 +108,7 @@ public sealed class UnityIpcRequestExecutorDaemonDispatchTests
     public async Task ExecuteStreaming_WhenTargetIsDaemon_SendsStreamResponseModeAndForwardsProgress ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-ipc-request-executor", "daemon-stream");
-        var response = CreateSuccessResponse("req-daemon-stream");
+        var response = CreateSuccessResponse(Guid.NewGuid());
         var daemonTransportClient = new RecordingUnityIpcTransportClient(
             _ => response,
             request => new IpcStreamFrame(
@@ -117,7 +117,7 @@ public sealed class UnityIpcRequestExecutorDaemonDispatchTests
                 IpcStreamFrameKinds.Progress,
                 "ops.progress",
                 EmptyPayload(),
-                Response: null));
+                response: null));
         var oneshotTransportClient = new RecordingUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Oneshot transport must not be called."));
         var sessionConnectionProvider = new QueuedDaemonSessionConnectionProvider(CreateConnectionResult("daemon-token"));
         var progressFrames = new List<UnityRequestProgressFrame>();

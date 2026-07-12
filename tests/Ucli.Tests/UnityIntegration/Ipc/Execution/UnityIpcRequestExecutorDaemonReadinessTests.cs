@@ -17,7 +17,7 @@ public sealed class UnityIpcRequestExecutorDaemonReadinessTests
     public async Task Execute_WhenDaemonOpsReadRequiresReadinessGate_ConvertsDispatchToFailFastGate ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-ipc-request-executor", "daemon-ops-readiness");
-        var response = CreateSuccessResponse("req-daemon-readiness");
+        var response = CreateSuccessResponse(Guid.NewGuid());
         var daemonTransportClient = new RecordingUnityIpcTransportClient(_ => response);
         var oneshotTransportClient = new RecordingUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Oneshot transport must not be called."));
         var sessionConnectionProvider = new QueuedDaemonSessionConnectionProvider(CreateConnectionResult("daemon-token"));
@@ -62,10 +62,10 @@ public sealed class UnityIpcRequestExecutorDaemonReadinessTests
         var responses = new Queue<IpcResponse>(new[]
         {
             CreateErrorResponse(
-                "req-daemon-busy",
+                Guid.NewGuid(),
                 EditorLifecycleErrorCodes.EditorBusy,
                 "Unity editor is busy with internal work. Retry without --failFast or wait until lifecycleState=ready before executing request."),
-            CreateSuccessResponse("req-daemon-ready"),
+            CreateSuccessResponse(Guid.NewGuid()),
         });
         var daemonTransportClient = new RecordingUnityIpcTransportClient(_ => responses.Dequeue());
         var oneshotTransportClient = new RecordingUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Oneshot transport must not be called."));

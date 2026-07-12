@@ -241,6 +241,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
             }
 
             var processHandle = launchResult.ProcessHandle!;
+            var shutdownRequest = CreateShutdownRequest(sessionToken, Guid.NewGuid());
             await using var processHandleDisposal = new BestEffortAsyncDisposable(processHandle);
             var shouldTerminateProcess = true;
             var terminationResult = ProcessTerminationResult.None;
@@ -270,8 +271,10 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                 {
                     var request = UnityIpcRequestFactory.Create(
                         sessionToken,
-                        dispatchRequest,
-                        requestTimeout);
+                        dispatchRequest.Method,
+                        dispatchRequest.CreatePayload(requestTimeout),
+                        Guid.NewGuid(),
+                        dispatchRequest.ResponseMode);
                     var response = await sendPreparedRequestAsync(
                             unityProject,
                             request,
@@ -281,7 +284,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                     var responseResult = UnityRequestExecutionResult.Success(UnityRequestResponseFactory.Create(response));
                     var terminalPingShutdownError = await RequestTerminalPingShutdownAsync(
                             unityProject,
-                            sessionToken,
+                            shutdownRequest,
                             dispatchRequest,
                             processHandle)
                         .ConfigureAwait(false);
@@ -345,7 +348,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                         {
                             terminationResult = await CleanupLaunchedProcessAsync(
                                     unityProject,
-                                    sessionToken,
+                                    shutdownRequest,
                                     processHandle)
                                 .ConfigureAwait(false);
                         }
@@ -442,7 +445,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
 
     private async ValueTask<ExecutionError?> RequestTerminalPingShutdownAsync (
         ResolvedUnityProjectContext unityProject,
-        string sessionToken,
+        IpcRequest shutdownRequest,
         UnityIpcDispatchRequest dispatchRequest,
         IUnityBatchmodeProcessHandle processHandle)
     {
@@ -455,7 +458,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         var cleanupDeadline = ExecutionDeadline.Start(cleanupTimeout, timeProvider);
         if (await TryRequestShutdownUntilCleanupDeadlineAsync(
                 unityProject,
-                sessionToken,
+                shutdownRequest,
                 processHandle,
                 cleanupDeadline)
             .ConfigureAwait(false))
@@ -470,7 +473,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
 
     private async ValueTask<ProcessTerminationResult> CleanupLaunchedProcessAsync (
         ResolvedUnityProjectContext unityProject,
-        string sessionToken,
+        IpcRequest shutdownRequest,
         IUnityBatchmodeProcessHandle processHandle)
     {
         if (processHandle.HasExited)
@@ -479,7 +482,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         }
 
         var cleanupDeadline = ExecutionDeadline.Start(cleanupTimeout, timeProvider);
-        if (await TryRequestShutdownUntilCleanupDeadlineAsync(unityProject, sessionToken, processHandle, cleanupDeadline).ConfigureAwait(false)
+        if (await TryRequestShutdownUntilCleanupDeadlineAsync(unityProject, shutdownRequest, processHandle, cleanupDeadline).ConfigureAwait(false)
             && !processHandle.HasExited
             && cleanupDeadline.TryGetRemainingTimeout(out var exitTimeout))
         {
@@ -503,7 +506,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
 
     private async ValueTask<bool> TryRequestShutdownUntilCleanupDeadlineAsync (
         ResolvedUnityProjectContext unityProject,
-        string sessionToken,
+        IpcRequest shutdownRequest,
         IUnityBatchmodeProcessHandle processHandle,
         ExecutionDeadline cleanupDeadline)
     {
@@ -519,7 +522,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                 var response = await transportClient.SendAsync(
                         unityProject.RepositoryRoot,
                         unityProject.ProjectFingerprint,
-                        CreateShutdownRequest(sessionToken),
+                        shutdownRequest,
                         GetCleanupAttemptTimeout(remainingTimeout),
                         CancellationToken.None)
                     .ConfigureAwait(false);
@@ -564,6 +567,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(dispatchRequest);
+        var startupProbeRequest = CreateStartupProbeRequest(sessionToken, Guid.NewGuid());
 
         while (true)
         {
@@ -603,7 +607,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                 var pingResponse = await transportClient.SendAsync(
                         unityProject.RepositoryRoot,
                         unityProject.ProjectFingerprint,
-                        CreateStartupProbeRequest(sessionToken),
+                        startupProbeRequest,
                         attemptTimeout,
                         cancellationToken)
                     .ConfigureAwait(false);
@@ -971,17 +975,36 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
 
     /// <summary> Creates the startup probe request for one session token. </summary>
     /// <param name="sessionToken"> The session token assigned to the launched oneshot process. Must not be null or white-space. </param>
+    /// <param name="requestId"> The non-empty identifier reused by every startup-probe attempt. </param>
     /// <returns> The IPC ping request used to verify startup readiness. </returns>
-    private static IpcRequest CreateStartupProbeRequest (string sessionToken)
+    private static IpcRequest CreateStartupProbeRequest (
+        string sessionToken,
+        Guid requestId)
     {
         var payload = IpcPayloadCodec.SerializeToElement(new IpcPingRequest(IpcPingClientVersions.OneshotStartup));
-        return UnityIpcRequestFactory.Create(sessionToken, IpcMethodNames.Ping, payload);
+        return UnityIpcRequestFactory.Create(
+            sessionToken,
+            IpcMethodNames.Ping,
+            payload,
+            requestId,
+            IpcResponseMode.Single);
     }
 
-    private static IpcRequest CreateShutdownRequest (string sessionToken)
+    /// <summary> Creates the shutdown request shared by cleanup attempts for one launched process. </summary>
+    /// <param name="sessionToken"> The session token assigned to the launched oneshot process. Must not be null or white-space. </param>
+    /// <param name="requestId"> The non-empty identifier reused by every shutdown attempt. </param>
+    /// <returns> The IPC shutdown request used during process cleanup. </returns>
+    private static IpcRequest CreateShutdownRequest (
+        string sessionToken,
+        Guid requestId)
     {
         var payload = IpcPayloadCodec.SerializeToElement(new IpcShutdownRequest(CleanupShutdownRequestedBy));
-        return UnityIpcRequestFactory.Create(sessionToken, IpcMethodNames.Shutdown, payload);
+        return UnityIpcRequestFactory.Create(
+            sessionToken,
+            IpcMethodNames.Shutdown,
+            payload,
+            requestId,
+            IpcResponseMode.Single);
     }
 
     private static string ResolveUnityLogPath (ResolvedUnityProjectContext unityProject)

@@ -304,7 +304,13 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
         var result = await resultTask;
 
         Assert.True(result.IsSuccess);
-        IpcRequestAssert.Methods(transportClient, IpcMethodNames.Ping, IpcMethodNames.Ping, IpcMethodNames.OpsRead);
+        var requests = IpcRequestAssert.Methods(
+            transportClient,
+            IpcMethodNames.Ping,
+            IpcMethodNames.Ping,
+            IpcMethodNames.OpsRead);
+        var startupProbeRequests = IpcRequestAssert.WithMethod(requests, IpcMethodNames.Ping);
+        Assert.NotEqual(Guid.Empty, IpcRequestAssert.SingleRequestId(startupProbeRequests));
         UnityBatchmodeProcessHandleAssert.WasNotTerminated(processHandle);
     }
 
@@ -349,7 +355,13 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
         var result = await resultTask;
 
         Assert.True(result.IsSuccess);
-        IpcRequestAssert.Methods(transportClient, IpcMethodNames.Ping, IpcMethodNames.Ping, IpcMethodNames.OpsRead);
+        var requests = IpcRequestAssert.Methods(
+            transportClient,
+            IpcMethodNames.Ping,
+            IpcMethodNames.Ping,
+            IpcMethodNames.OpsRead);
+        var startupProbeRequests = IpcRequestAssert.WithMethod(requests, IpcMethodNames.Ping);
+        Assert.NotEqual(Guid.Empty, IpcRequestAssert.SingleRequestId(startupProbeRequests));
         UnityBatchmodeProcessHandleAssert.WasNotTerminated(processHandle);
     }
 }

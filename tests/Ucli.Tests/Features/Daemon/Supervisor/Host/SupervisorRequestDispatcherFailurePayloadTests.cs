@@ -32,11 +32,11 @@ public sealed class SupervisorRequestDispatcherFailurePayloadTests
             dispatcher,
             runtimeContext,
             new IpcRequest(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: "request-diagnosis",
-                SessionToken: runtimeContext.Manifest.SessionToken,
-                Method: SupervisorIpcContracts.EnsureRunningMethod,
-                Payload: IpcPayloadCodec.SerializeToElement(
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: Guid.NewGuid(),
+                sessionToken: runtimeContext.Manifest.SessionToken,
+                method: SupervisorIpcContracts.EnsureRunningMethod,
+                payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: projectFingerprint,
@@ -44,7 +44,7 @@ public sealed class SupervisorRequestDispatcherFailurePayloadTests
                         AttemptTimeoutMilliseconds: 1000,
                         EditorMode: null,
                         OnStartupBlocked: "auto")),
-                responseMode: IpcResponseMode.Single));
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single)));
 
         Assert.Equal(IpcProtocol.StatusError, response.Status);
         var error = Assert.Single(response.Errors);
@@ -79,11 +79,11 @@ public sealed class SupervisorRequestDispatcherFailurePayloadTests
             dispatcher,
             runtimeContext,
             new IpcRequest(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: "request-delayed-diagnosis",
-                SessionToken: runtimeContext.Manifest.SessionToken,
-                Method: SupervisorIpcContracts.EnsureRunningMethod,
-                Payload: IpcPayloadCodec.SerializeToElement(
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: Guid.NewGuid(),
+                sessionToken: runtimeContext.Manifest.SessionToken,
+                method: SupervisorIpcContracts.EnsureRunningMethod,
+                payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: projectFingerprint,
@@ -91,7 +91,7 @@ public sealed class SupervisorRequestDispatcherFailurePayloadTests
                         AttemptTimeoutMilliseconds: 1000,
                         EditorMode: null,
                         OnStartupBlocked: "auto")),
-                responseMode: IpcResponseMode.Single));
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single)));
 
         Assert.Equal(IpcProtocol.StatusError, response.Status);
         var error = Assert.Single(response.Errors);
@@ -120,11 +120,11 @@ public sealed class SupervisorRequestDispatcherFailurePayloadTests
             dispatcher,
             runtimeContext,
             new IpcRequest(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: "request-caller-disconnect",
-                SessionToken: runtimeContext.Manifest.SessionToken,
-                Method: SupervisorIpcContracts.EnsureRunningMethod,
-                Payload: IpcPayloadCodec.SerializeToElement(
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: Guid.NewGuid(),
+                sessionToken: runtimeContext.Manifest.SessionToken,
+                method: SupervisorIpcContracts.EnsureRunningMethod,
+                payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: projectFingerprint,
@@ -132,7 +132,7 @@ public sealed class SupervisorRequestDispatcherFailurePayloadTests
                         AttemptTimeoutMilliseconds: 1000,
                         EditorMode: null,
                         OnStartupBlocked: "auto")),
-                responseMode: IpcResponseMode.Single));
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single)));
 
         Assert.Equal(IpcProtocol.StatusError, response.Status);
         var error = Assert.Single(response.Errors);

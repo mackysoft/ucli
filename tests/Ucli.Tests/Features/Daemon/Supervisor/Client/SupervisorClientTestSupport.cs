@@ -7,8 +7,6 @@ namespace MackySoft.Ucli.Tests.Supervisor;
 
 internal static class SupervisorClientTestSupport
 {
-    public const string RequestId = "supervisor-request";
-
     public static DateTimeOffset CreateDeadline (TimeSpan timeout)
     {
         return TimeProvider.System.GetUtcNow().Add(timeout);
@@ -78,16 +76,16 @@ internal static class SupervisorClientTestSupport
         DaemonStartLifecycleSnapshot? lifecycleSnapshot = null)
     {
         return new IpcResponse(
-            ProtocolVersion: request.ProtocolVersion,
-            RequestId: request.RequestId,
-            Status: IpcProtocol.StatusOk,
-            Payload: IpcPayloadCodec.SerializeToElement(
+            protocolVersion: request.ProtocolVersion,
+            requestId: request.RequestId,
+            status: IpcProtocol.StatusOk,
+            payload: IpcPayloadCodec.SerializeToElement(
                 new SupervisorIpcContracts.EnsureRunningResponse(
                     StartStatus: startStatus,
                     DaemonStatus: daemonStatus,
                     Session: session ?? CreateGuiDaemonSession(),
                     LifecycleSnapshot: lifecycleSnapshot ?? CreateReadyLifecycleSnapshot())),
-            Errors: []);
+            errors: []);
     }
 
     public static IpcResponse CreateEnsureRunningFailureResponse (
@@ -97,12 +95,12 @@ internal static class SupervisorClientTestSupport
         string daemonStatus = "stale")
     {
         return new IpcResponse(
-            ProtocolVersion: request.ProtocolVersion,
-            RequestId: request.RequestId,
-            Status: IpcProtocol.StatusError,
-            Payload: IpcPayloadCodec.SerializeToElement(
+            protocolVersion: request.ProtocolVersion,
+            requestId: request.RequestId,
+            status: IpcProtocol.StatusError,
+            payload: IpcPayloadCodec.SerializeToElement(
                 new SupervisorIpcContracts.EnsureRunningFailureResponse(daemonStatus, diagnosis, startup)),
-            Errors:
+            errors:
             [
                 new IpcError(ExecutionErrorCodes.IpcTimeout, "endpoint registration timed out", null),
             ]);
@@ -129,7 +127,7 @@ internal static class SupervisorClientTestSupport
             IpcStreamFrameKinds.Progress,
             eventName,
             IpcPayloadCodec.SerializeToElement(payload),
-            Response: null);
+            response: null);
     }
 
     public static IpcStreamFrame CreateWaitingForEndpointProgressFrame (

@@ -114,20 +114,26 @@ internal sealed class DaemonGuiRebootstrapClient : IDaemonGuiRebootstrapClient
                 }
 
                 request ??= new IpcRequest(
-                    ProtocolVersion: IpcProtocol.CurrentVersion,
-                    RequestId: $"gui-rebootstrap-{Guid.NewGuid():N}",
-                    SessionToken: manifest!.SessionToken,
-                    Method: IpcMethodNames.GuiRebootstrap,
-                    Payload: IpcPayloadCodec.SerializeToElement(new IpcGuiRebootstrapRequest(
+                    protocolVersion: IpcProtocol.CurrentVersion,
+                    requestId: Guid.NewGuid(),
+                    sessionToken: manifest!.SessionToken,
+                    method: IpcMethodNames.GuiRebootstrap,
+                    payload: IpcPayloadCodec.SerializeToElement(new IpcGuiRebootstrapRequest(
                         ProjectFingerprint: unityProject.ProjectFingerprint,
                         ReplaceExistingSession: true)),
-                    responseMode: IpcResponseMode.Single);
+                    responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single));
                 var requestForManifest = string.Equals(
                     request.SessionToken,
                     manifest!.SessionToken,
                     StringComparison.Ordinal)
                         ? request
-                        : request with { SessionToken = manifest.SessionToken };
+                        : new IpcRequest(
+                            request.ProtocolVersion,
+                            request.RequestId,
+                            manifest.SessionToken,
+                            request.Method,
+                            request.Payload,
+                            request.ResponseMode);
                 var response = await transportClient.SendAsync(
                         ResolveEndpoint(manifest),
                         requestForManifest,

@@ -72,7 +72,7 @@ public sealed class IpcTransportClientResponseValidationTests
                 var response = invalidField switch
                 {
                     "protocol" => IpcTransportTestHarness.CreateResponse(request.RequestId, "{}", protocolVersion: IpcProtocol.CurrentVersion + 1),
-                    "requestId" => IpcTransportTestHarness.CreateResponse("other-request", "{}"),
+                    "requestId" => IpcTransportTestHarness.CreateResponse(Guid.NewGuid(), "{}"),
                     "status" => IpcTransportTestHarness.CreateResponse(request.RequestId, "{}", status: "unknown"),
                     "errors" => new IpcResponse(
                         IpcProtocol.CurrentVersion,

@@ -376,7 +376,7 @@ internal sealed class IpcTransportClient : IIpcTransportClient
                 $"IPC stream frame protocol version mismatch. Requested={IpcProtocol.CurrentVersion}, Actual={frame.ProtocolVersion}.");
         }
 
-        if (!string.Equals(frame.RequestId, request.RequestId, StringComparison.Ordinal))
+        if (frame.RequestId != request.RequestId)
         {
             throw new InvalidDataException(
                 $"IPC stream frame requestId mismatch. Expected={request.RequestId}, Actual={frame.RequestId}.");
@@ -409,7 +409,7 @@ internal sealed class IpcTransportClient : IIpcTransportClient
                 throw new InvalidDataException("IPC terminal stream frame must contain a response.");
             }
 
-            if (!string.Equals(frame.Response.RequestId, request.RequestId, StringComparison.Ordinal))
+            if (frame.Response.RequestId != request.RequestId)
             {
                 throw new InvalidDataException(
                     $"IPC terminal response requestId mismatch. Expected={request.RequestId}, Actual={frame.Response.RequestId}.");
@@ -432,7 +432,7 @@ internal sealed class IpcTransportClient : IIpcTransportClient
                 $"IPC response protocol version mismatch. Requested={IpcProtocol.CurrentVersion}, Actual={response.ProtocolVersion}.");
         }
 
-        if (!string.Equals(response.RequestId, request.RequestId, StringComparison.Ordinal))
+        if (response.RequestId != request.RequestId)
         {
             throw new InvalidDataException(
                 $"IPC response requestId mismatch. Expected={request.RequestId}, Actual={response.RequestId}.");

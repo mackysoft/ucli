@@ -43,7 +43,10 @@ public sealed class IpcTransportClientUnboundedResponseWaitTests
                     "Unbounded IPC streaming response",
                     IpcTransportClientTestSupport.WaitTimeout);
 
-                IpcTransportClientTestSupport.AssertProgressThenTerminalResult(progressFrames, response);
+                IpcTransportClientTestSupport.AssertProgressThenTerminalResult(
+                    progressFrames,
+                    response,
+                    request.RequestId);
             },
             IpcTransportClientTestSupport.WaitTimeout);
     }

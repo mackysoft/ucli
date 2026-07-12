@@ -215,7 +215,7 @@ public sealed class DaemonPingResponseCodecTests
         var payloadElement = payload is null
             ? IpcPayloadCodec.SerializeToElement(new { })
             : IpcPayloadCodec.SerializeToElement(payload);
-        return new IpcResponse(IpcProtocol.CurrentVersion, "req-1", status, payloadElement, errors);
+        return new IpcResponse(IpcProtocol.CurrentVersion, Guid.NewGuid(), status, payloadElement, errors);
     }
 
     private static IpcPingResponse CreatePayload ()

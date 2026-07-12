@@ -326,8 +326,7 @@ public sealed class ResolveServiceTests
                 },
             ],
             errors: [],
-            project: CreateUnityResponseProjectIdentity(),
-            requestId: "unity-response-request-id");
+            project: CreateUnityResponseProjectIdentity());
     }
 
     private static IpcProjectIdentity CreateUnityResponseProjectIdentity ()

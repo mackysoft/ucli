@@ -18,6 +18,11 @@ internal static class IpcUnityLogsRequestCodec
         ArgumentException.ThrowIfNullOrWhiteSpace(sessionToken);
 
         var payload = IpcPayloadCodec.SerializeToElement(query);
-        return UnityIpcRequestFactory.Create(sessionToken, IpcMethodNames.UnityLogsRead, payload);
+        return UnityIpcRequestFactory.Create(
+            sessionToken,
+            IpcMethodNames.UnityLogsRead,
+            payload,
+            Guid.NewGuid(),
+            IpcResponseMode.Single);
     }
 }

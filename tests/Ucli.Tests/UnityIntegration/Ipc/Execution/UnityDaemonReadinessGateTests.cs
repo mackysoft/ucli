@@ -303,11 +303,11 @@ public sealed class UnityDaemonReadinessGateTests
     private static UnityRequestExecutionResult CreateSuccessResult ()
     {
         return UnityRequestExecutionResult.Success(UnityRequestResponseTestFactory.Create(new IpcResponse(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: "req-success",
-            Status: IpcProtocol.StatusOk,
-            Payload: EmptyPayload(),
-            Errors: [])));
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: Guid.NewGuid(),
+            status: IpcProtocol.StatusOk,
+            payload: EmptyPayload(),
+            errors: [])));
     }
 
     private static IpcResponse CreateErrorResponse (
@@ -315,11 +315,11 @@ public sealed class UnityDaemonReadinessGateTests
         string message)
     {
         return new IpcResponse(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: "req-error",
-            Status: IpcProtocol.StatusError,
-            Payload: EmptyPayload(),
-            Errors:
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: Guid.NewGuid(),
+            status: IpcProtocol.StatusError,
+            payload: EmptyPayload(),
+            errors:
             [
                 new IpcError(code, message, null),
             ]);

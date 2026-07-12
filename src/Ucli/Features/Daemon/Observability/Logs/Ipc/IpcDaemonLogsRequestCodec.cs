@@ -20,6 +20,11 @@ internal static class IpcDaemonLogsRequestCodec
         ArgumentException.ThrowIfNullOrWhiteSpace(sessionToken);
 
         var payload = IpcPayloadCodec.SerializeToElement(query);
-        return UnityIpcRequestFactory.Create(sessionToken, IpcMethodNames.DaemonLogsRead, payload);
+        return UnityIpcRequestFactory.Create(
+            sessionToken,
+            IpcMethodNames.DaemonLogsRead,
+            payload,
+            Guid.NewGuid(),
+            IpcResponseMode.Single);
     }
 }

@@ -137,7 +137,7 @@ public sealed class OpsCatalogReaderTests
     {
         return UnityRequestResponseTestFactory.Create(new IpcResponse(
             IpcProtocol.CurrentVersion,
-            "req-ops-1",
+            Guid.NewGuid(),
             status,
             IpcPayloadCodec.SerializeToElement(payload),
             errors));

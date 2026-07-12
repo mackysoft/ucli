@@ -22,7 +22,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var coordinator = CreateCoordinator();
             var executeCount = 0;
-            var requestId = "req-1";
+            var requestId = Guid.NewGuid();
             var firstResponse = await coordinator.ExecuteAsync(
                 requestId: requestId,
                 requestFingerprint: "fingerprint-1",
@@ -56,7 +56,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var coordinator = CreateCoordinator();
             var executeCount = 0;
             var conflictCount = 0;
-            var requestId = "req-1";
+            var requestId = Guid.NewGuid();
             _ = await coordinator.ExecuteAsync(
                 requestId: requestId,
                 requestFingerprint: "fingerprint-1",
@@ -92,12 +92,26 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(conflictResponse.Errors[0].Code, Is.EqualTo(ExecuteRequestErrorCodes.RequestIdConflict));
         });
 
+        [Test]
+        [Category("Size.Small")]
+        public void CompleteSuccess_WhenResponseRequestIdDiffers_ThrowsArgumentException ()
+        {
+            var coordinator = CreateCoordinator();
+            var requestId = Guid.NewGuid();
+            var response = CreateSuccessResponse(Guid.NewGuid(), "other-request");
+
+            var exception = Assert.Throws<ArgumentException>(() =>
+                coordinator.CompleteSuccess(requestId, "fingerprint-1", response));
+
+            Assert.That(exception.ParamName, Is.EqualTo("response"));
+        }
+
         [UnityTest]
         [Category("Size.Small")]
         public IEnumerator Execute_WhenSameRequestIdAndSameFingerprintInFlight_WaitsForOwnerResponse () => UniTask.ToCoroutine(async () =>
         {
             var coordinator = CreateCoordinator();
-            var requestId = "req-1";
+            var requestId = Guid.NewGuid();
             var ownerExecutionCount = 0;
             var waiterExecutionCount = 0;
             var ownerStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -151,7 +165,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Execute_WhenWaiterCancellationRequestedDuringInFlight_ThrowsWithoutCancelingOwner () => UniTask.ToCoroutine(async () =>
         {
             var coordinator = CreateCoordinator();
-            var requestId = "req-1";
+            var requestId = Guid.NewGuid();
             var ownerExecutionCount = 0;
             var waiterExecutionCount = 0;
             var ownerStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -216,7 +230,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Execute_WhenSameRequestIdAndDifferentFingerprintInFlight_ReturnsConflictWithoutExecuting () => UniTask.ToCoroutine(async () =>
         {
             var coordinator = CreateCoordinator();
-            var requestId = "req-1";
+            var requestId = Guid.NewGuid();
             var ownerStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             var ownerRelease = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             var conflictExecutionCount = 0;
@@ -265,7 +279,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var nowUtc = new DateTimeOffset(2026, 3, 3, 0, 0, 0, TimeSpan.Zero);
             var coordinator = CreateCoordinator(TimeSpan.FromHours(24), 10_000, () => nowUtc);
             var executeCount = 0;
-            var requestId = "req-1";
+            var requestId = Guid.NewGuid();
 
             var firstResponse = await coordinator.ExecuteAsync(
                 requestId: requestId,
@@ -300,25 +314,28 @@ namespace MackySoft.Ucli.Unity.Tests
             var nowUtc = new DateTimeOffset(2026, 3, 3, 0, 0, 0, TimeSpan.Zero);
             var coordinator = CreateCoordinator(TimeSpan.FromHours(24), 2, () => nowUtc);
             var executeCount = 0;
+            var firstRequestId = Guid.NewGuid();
+            var secondRequestId = Guid.NewGuid();
+            var thirdRequestId = Guid.NewGuid();
 
-            await ExecuteAsync("req-1", "fingerprint-1", "first-1");
+            await ExecuteAsync(firstRequestId, "fingerprint-1", "first-1");
             nowUtc = nowUtc.AddMinutes(1);
-            await ExecuteAsync("req-2", "fingerprint-2", "second-1");
+            await ExecuteAsync(secondRequestId, "fingerprint-2", "second-1");
             nowUtc = nowUtc.AddMinutes(1);
-            await ExecuteAsync("req-3", "fingerprint-3", "third-1");
+            await ExecuteAsync(thirdRequestId, "fingerprint-3", "third-1");
 
             // req-1 should be evicted because max entries is 2.
             nowUtc = nowUtc.AddMinutes(1);
-            var req1ResponseAfterEviction = await ExecuteAsync("req-1", "fingerprint-1", "first-2");
+            var req1ResponseAfterEviction = await ExecuteAsync(firstRequestId, "fingerprint-1", "first-2");
 
             // req-2 should still be cached.
-            var req2ResponseFromCache = await ExecuteAsync("req-2", "fingerprint-2", "second-2");
+            var req2ResponseFromCache = await ExecuteAsync(secondRequestId, "fingerprint-2", "second-2");
 
             Assert.That(executeCount, Is.EqualTo(5));
             Assert.That(GetMarker(req1ResponseAfterEviction), Is.EqualTo("first-2"));
             Assert.That(GetMarker(req2ResponseFromCache), Is.EqualTo("second-2"));
 
-            async Task<IpcResponse> ExecuteAsync (string requestId, string requestFingerprint, string marker)
+            async Task<IpcResponse> ExecuteAsync (Guid requestId, string requestFingerprint, string marker)
             {
                 return await coordinator.ExecuteAsync(
                     requestId: requestId,
@@ -462,25 +479,25 @@ namespace MackySoft.Ucli.Unity.Tests
         }
 
         private static IpcResponse CreateSuccessResponse (
-            string requestId,
+            Guid requestId,
             string marker)
         {
             return new IpcResponse(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: requestId,
-                Status: IpcProtocol.StatusOk,
-                Payload: JsonSerializer.SerializeToElement(new { marker }),
-                Errors: Array.Empty<IpcError>());
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: requestId,
+                status: IpcProtocol.StatusOk,
+                payload: JsonSerializer.SerializeToElement(new { marker }),
+                errors: Array.Empty<IpcError>());
         }
 
-        private static IpcResponse CreateConflictResponse (string requestId)
+        private static IpcResponse CreateConflictResponse (Guid requestId)
         {
             return new IpcResponse(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: requestId,
-                Status: IpcProtocol.StatusError,
-                Payload: JsonSerializer.SerializeToElement(new { opResults = Array.Empty<object>() }),
-                Errors: new[]
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: requestId,
+                status: IpcProtocol.StatusError,
+                payload: JsonSerializer.SerializeToElement(new { opResults = Array.Empty<object>() }),
+                errors: new[]
                 {
                     new IpcError(ExecuteRequestErrorCodes.RequestIdConflict, "request id conflict", null),
                 });

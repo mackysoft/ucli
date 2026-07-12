@@ -107,34 +107,34 @@ internal static class PlayEnterServiceTestSupport
     public static UnityRequestResponse CreateResponse (IpcPlayTransitionResponse payload)
     {
         return UnityRequestResponseTestFactory.Create(new IpcResponse(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: "request-1",
-            Status: IpcProtocol.StatusOk,
-            Payload: IpcPayloadCodec.SerializeToElement(payload),
-            Errors: []));
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: Guid.NewGuid(),
+            status: IpcProtocol.StatusOk,
+            payload: IpcPayloadCodec.SerializeToElement(payload),
+            errors: []));
     }
 
     public static UnityRequestResponse CreateResponseWithoutTransitionPayload ()
     {
         return UnityRequestResponseTestFactory.Create(new IpcResponse(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: "request-1",
-            Status: IpcProtocol.StatusOk,
-            Payload: IpcPayloadCodec.SerializeToElement(new
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: Guid.NewGuid(),
+            status: IpcProtocol.StatusOk,
+            payload: IpcPayloadCodec.SerializeToElement(new
             {
                 transition = (object?)null,
             }),
-            Errors: []));
+            errors: []));
     }
 
     public static UnityRequestResponse CreateInvalidPayloadResponse ()
     {
         return UnityRequestResponseTestFactory.Create(new IpcResponse(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: "request-1",
-            Status: IpcProtocol.StatusOk,
-            Payload: IpcPayloadCodec.SerializeToElement("invalid"),
-            Errors: []));
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: Guid.NewGuid(),
+            status: IpcProtocol.StatusOk,
+            payload: IpcPayloadCodec.SerializeToElement("invalid"),
+            errors: []));
     }
 
     public static UnityRequestResponse CreateErrorResponse (
@@ -143,11 +143,11 @@ internal static class PlayEnterServiceTestSupport
         string message)
     {
         return UnityRequestResponseTestFactory.Create(new IpcResponse(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: "request-1",
-            Status: IpcProtocol.StatusError,
-            Payload: IpcPayloadCodec.SerializeToElement(payload),
-            Errors:
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: Guid.NewGuid(),
+            status: IpcProtocol.StatusError,
+            payload: IpcPayloadCodec.SerializeToElement(payload),
+            errors:
             [
                 new IpcError(code, message, null),
             ]));
@@ -158,14 +158,14 @@ internal static class PlayEnterServiceTestSupport
         string message)
     {
         return UnityRequestResponseTestFactory.Create(new IpcResponse(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: "request-1",
-            Status: IpcProtocol.StatusError,
-            Payload: IpcPayloadCodec.SerializeToElement(new
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: Guid.NewGuid(),
+            status: IpcProtocol.StatusError,
+            payload: IpcPayloadCodec.SerializeToElement(new
             {
                 ignored = true,
             }),
-            Errors:
+            errors:
             [
                 new IpcError(code, message, null),
             ]));

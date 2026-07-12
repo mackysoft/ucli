@@ -14,7 +14,7 @@ public sealed class IpcStreamFrameWriterTests
     [Trait("Size", "Small")]
     public async Task WriteProgressAsync_WritesProgressFrameWithSerializedPayload ()
     {
-        var request = CreateRequest("request-progress");
+        var request = CreateRequest();
         await using var stream = new MemoryStream();
         var writer = new IpcStreamFrameWriter(
             stream,
@@ -34,7 +34,7 @@ public sealed class IpcStreamFrameWriterTests
             IpcJsonSerializerOptions.Default);
 
         Assert.Equal(IpcProtocol.CurrentVersion, frame.ProtocolVersion);
-        Assert.Equal("request-progress", frame.RequestId);
+        Assert.Equal(request.RequestId, frame.RequestId);
         Assert.Equal(IpcStreamFrameKinds.Progress, frame.Kind);
         Assert.Equal("test.progress", frame.Event);
         Assert.Null(frame.Response);
@@ -47,7 +47,7 @@ public sealed class IpcStreamFrameWriterTests
     [Trait("Size", "Small")]
     public async Task WriteTerminalAsync_WritesTerminalFrameWithResponseAndEmptyPayload ()
     {
-        var request = CreateRequest("request-terminal");
+        var request = CreateRequest();
         var response = CreateResponse(request.RequestId);
         await using var stream = new MemoryStream();
         var writer = new IpcStreamFrameWriter(
@@ -66,14 +66,14 @@ public sealed class IpcStreamFrameWriterTests
             IpcJsonSerializerOptions.Default);
 
         Assert.Equal(IpcProtocol.CurrentVersion, frame.ProtocolVersion);
-        Assert.Equal("request-terminal", frame.RequestId);
+        Assert.Equal(request.RequestId, frame.RequestId);
         Assert.Equal(IpcStreamFrameKinds.Terminal, frame.Kind);
         Assert.Null(frame.Event);
         Assert.Equal(JsonValueKind.Object, frame.Payload.ValueKind);
         Assert.Empty(frame.Payload.EnumerateObject());
         Assert.NotNull(frame.Response);
         Assert.Equal(IpcProtocol.StatusOk, frame.Response.Status);
-        Assert.Equal("request-terminal", frame.Response.RequestId);
+        Assert.Equal(request.RequestId, frame.Response.RequestId);
         Assert.Empty(frame.Response.Errors);
         Assert.Equal(JsonValueKind.Object, frame.Response.Payload.ValueKind);
         Assert.True(frame.Response.Payload.GetProperty("ok").GetBoolean());
@@ -83,7 +83,7 @@ public sealed class IpcStreamFrameWriterTests
     [Trait("Size", "Small")]
     public async Task WriteProgressAsync_WhenConcurrentCallsShareStream_SerializesWrites ()
     {
-        var request = CreateRequest("request-concurrent");
+        var request = CreateRequest();
         await using var stream = new ConcurrentWriteDetectingStream();
         var writer = new IpcStreamFrameWriter(
             stream,
@@ -112,7 +112,7 @@ public sealed class IpcStreamFrameWriterTests
                 IpcJsonSerializerOptions.Default);
 
             Assert.Equal(IpcStreamFrameKinds.Progress, frame.Kind);
-            Assert.Equal("request-concurrent", frame.RequestId);
+            Assert.Equal(request.RequestId, frame.RequestId);
         }
 
         Assert.Equal(outputStream.Length, outputStream.Position);
@@ -122,7 +122,7 @@ public sealed class IpcStreamFrameWriterTests
     [Trait("Size", "Small")]
     public async Task WriteProgressAsync_WhenConnectionLocalWriteFails_InvokesHandlerAndRethrowsOriginalException ()
     {
-        var request = CreateRequest("request-write-failure");
+        var request = CreateRequest();
         var expectedException = new IOException("write failed");
         await using var stream = new ThrowingWriteStream(expectedException);
         Exception? observedException = null;
@@ -156,7 +156,7 @@ public sealed class IpcStreamFrameWriterTests
     [Trait("Size", "Small")]
     public async Task WriteProgressAsync_WhenCanceled_DoesNotInvokeWriteFailureHandler ()
     {
-        var request = CreateRequest("request-canceled");
+        var request = CreateRequest();
         await using var stream = new MemoryStream();
         var writer = new IpcStreamFrameWriter(
             stream,
@@ -183,7 +183,7 @@ public sealed class IpcStreamFrameWriterTests
     [Trait("Size", "Small")]
     public async Task WriteProgressAsync_WhenFrameWriteDoesNotComplete_TimesOutAndRejectsSubsequentFrames ()
     {
-        var request = CreateRequest("request-write-timeout");
+        var request = CreateRequest();
         var response = CreateResponse(request.RequestId);
         await using var stream = new NonCooperativeWriteStream();
         Exception? observedException = null;
@@ -224,7 +224,7 @@ public sealed class IpcStreamFrameWriterTests
     [Trait("Size", "Small")]
     public async Task WriteProgressAsync_WhenTimedOutWriteCompletesLate_RemainsTimedOut ()
     {
-        var request = CreateRequest("request-late-write-completion");
+        var request = CreateRequest();
         var response = CreateResponse(request.RequestId);
         await using var stream = new NonCooperativeWriteStream();
         var writer = new IpcStreamFrameWriter(
@@ -254,7 +254,7 @@ public sealed class IpcStreamFrameWriterTests
     [Trait("Size", "Small")]
     public async Task WriteProgressAsync_WhenStreamBlocksBeforeReturningValueTask_TimesOutAndDisposesStream ()
     {
-        var request = CreateRequest("request-synchronous-write-block");
+        var request = CreateRequest();
         await using var stream = new SynchronousBlockingWriteStream();
         var writer = new IpcStreamFrameWriter(
             stream,
@@ -281,7 +281,7 @@ public sealed class IpcStreamFrameWriterTests
     [Trait("Size", "Small")]
     public async Task WriteProgressAsync_WhenWriteFailureHandlerBlocks_ReturnsAtFrameDeadline ()
     {
-        var request = CreateRequest("request-blocking-write-failure-handler");
+        var request = CreateRequest();
         await using var stream = new NonCooperativeWriteStream();
         var handlerStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
@@ -321,7 +321,7 @@ public sealed class IpcStreamFrameWriterTests
     [Trait("Size", "Small")]
     public async Task WriteProgressAsync_WhenStreamDisposeBlocks_ReturnsAtFrameDeadline ()
     {
-        var request = CreateRequest("request-blocking-stream-dispose");
+        var request = CreateRequest();
         await using var stream = new BlockingDisposeWriteStream();
         var writer = new IpcStreamFrameWriter(
             stream,
@@ -352,7 +352,7 @@ public sealed class IpcStreamFrameWriterTests
     [Trait("Size", "Small")]
     public async Task WriteProgressAsync_WhenConnectionLifetimeIsCanceledDuringUncancellableTransportWrite_ReleasesOwnedStream ()
     {
-        var request = CreateRequest("request-active-write-canceled");
+        var request = CreateRequest();
         await using var stream = new NonCooperativeWriteStream();
         Exception? observedException = null;
         using var connectionLifetimeCancellationTokenSource = new CancellationTokenSource();
@@ -387,7 +387,7 @@ public sealed class IpcStreamFrameWriterTests
     [Trait("Size", "Small")]
     public async Task WriteProgressAsync_WhenExecutionCancellationOccursAfterFrameStarts_CompletesFrameAndAllowsTerminalTimeoutResponse ()
     {
-        var request = CreateRequest("request-partial-frame-canceled");
+        var request = CreateRequest();
         var response = CreateTimeoutResponse(request.RequestId);
         using var executionCancellationTokenSource = new CancellationTokenSource();
         await using var stream = new CancelAfterFirstWriteStream(executionCancellationTokenSource);
@@ -426,35 +426,35 @@ public sealed class IpcStreamFrameWriterTests
         Assert.Equal(IpcTransportErrorCodes.IpcTimeout, Assert.Single(terminalFrame.Response.Errors).Code);
     }
 
-    private static IpcRequest CreateRequest (string requestId)
+    private static IpcRequest CreateRequest ()
     {
         return new IpcRequest(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: requestId,
-            SessionToken: "session-token",
-            Method: "test.method",
-            Payload: IpcPayloadCodec.SerializeToElement(new UcliEmptyArgs()),
-            responseMode: IpcResponseMode.Stream);
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: Guid.NewGuid(),
+            sessionToken: "session-token",
+            method: "test.method",
+            payload: IpcPayloadCodec.SerializeToElement(new UcliEmptyArgs()),
+            responseMode: "stream");
     }
 
-    private static IpcResponse CreateResponse (string requestId)
+    private static IpcResponse CreateResponse (Guid requestId)
     {
         return new IpcResponse(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: requestId,
-            Status: IpcProtocol.StatusOk,
-            Payload: IpcPayloadCodec.SerializeToElement(new TestResponsePayload(true)),
-            Errors: Array.Empty<IpcError>());
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: requestId,
+            status: IpcProtocol.StatusOk,
+            payload: IpcPayloadCodec.SerializeToElement(new TestResponsePayload(true)),
+            errors: Array.Empty<IpcError>());
     }
 
-    private static IpcResponse CreateTimeoutResponse (string requestId)
+    private static IpcResponse CreateTimeoutResponse (Guid requestId)
     {
         return new IpcResponse(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: requestId,
-            Status: IpcProtocol.StatusError,
-            Payload: IpcPayloadCodec.SerializeToElement(new UcliEmptyArgs()),
-            Errors: new[]
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: requestId,
+            status: IpcProtocol.StatusError,
+            payload: IpcPayloadCodec.SerializeToElement(new UcliEmptyArgs()),
+            errors: new[]
             {
                 new IpcError(
                     IpcTransportErrorCodes.IpcTimeout,

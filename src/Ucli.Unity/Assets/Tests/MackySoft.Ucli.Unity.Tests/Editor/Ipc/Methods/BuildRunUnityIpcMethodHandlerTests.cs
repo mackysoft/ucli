@@ -795,10 +795,11 @@ namespace MackySoft.Ucli.Unity.Tests
                     new CountingTimeoutScopeFactory(),
                     new UnityLogRedactionScopeProvider(),
                     unityLogStream);
-                var streamWriter = new CollectingIpcStreamFrameWriter("request-build-run-stream");
+                var request = CreateStreamingIpcRequest(requestPayload);
+                var streamWriter = new CollectingIpcStreamFrameWriter(request.RequestId);
 
                 var response = await handler.HandleStreamingAsync(
-                    CreateStreamingIpcRequest(requestPayload),
+                    request,
                     streamWriter,
                     CancellationToken.None);
 
@@ -977,10 +978,11 @@ namespace MackySoft.Ucli.Unity.Tests
                     new CountingTimeoutScopeFactory(),
                     new UnityLogRedactionScopeProvider(),
                     unityLogStream);
-                var streamWriter = new CollectingIpcStreamFrameWriter("request-build-run-stream");
+                var request = CreateStreamingIpcRequest(requestPayload);
+                var streamWriter = new CollectingIpcStreamFrameWriter(request.RequestId);
 
                 var response = await handler.HandleStreamingAsync(
-                    CreateStreamingIpcRequest(requestPayload),
+                    request,
                     streamWriter,
                     CancellationToken.None);
 
@@ -1035,13 +1037,14 @@ namespace MackySoft.Ucli.Unity.Tests
                     new CountingTimeoutScopeFactory(),
                     new UnityLogRedactionScopeProvider(),
                     unityLogStream);
-                var streamWriter = new CollectingIpcStreamFrameWriter("request-build-run-stream");
+                var request = CreateStreamingIpcRequest(requestPayload);
+                var streamWriter = new CollectingIpcStreamFrameWriter(request.RequestId);
 
                 IpcResponse response;
                 try
                 {
                     response = await handler.HandleStreamingAsync(
-                        CreateStreamingIpcRequest(requestPayload),
+                        request,
                         streamWriter,
                         CancellationToken.None);
                 }
@@ -1513,23 +1516,23 @@ namespace MackySoft.Ucli.Unity.Tests
         private static IpcRequest CreateIpcRequest (IpcBuildRunRequest payload)
         {
             return new IpcRequest(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: "request-build-run",
-                SessionToken: "session-token",
-                Method: IpcMethodNames.BuildRun,
-                Payload: IpcPayloadCodec.SerializeToElement(payload),
-                responseMode: IpcResponseMode.Single);
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: Guid.NewGuid(),
+                sessionToken: "session-token",
+                method: IpcMethodNames.BuildRun,
+                payload: IpcPayloadCodec.SerializeToElement(payload),
+                responseMode: "single");
         }
 
         private static IpcRequest CreateStreamingIpcRequest (IpcBuildRunRequest payload)
         {
             return new IpcRequest(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: "request-build-run-stream",
-                SessionToken: "session-token",
-                Method: IpcMethodNames.BuildRun,
-                Payload: IpcPayloadCodec.SerializeToElement(payload),
-                responseMode: IpcResponseMode.Stream);
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: Guid.NewGuid(),
+                sessionToken: "session-token",
+                method: IpcMethodNames.BuildRun,
+                payload: IpcPayloadCodec.SerializeToElement(payload),
+                responseMode: "stream");
         }
 
         private static string GetArtifactPath (
@@ -1893,9 +1896,9 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private sealed class CollectingIpcStreamFrameWriter : IIpcStreamFrameWriter
         {
-            private readonly string requestId;
+            private readonly Guid requestId;
 
-            public CollectingIpcStreamFrameWriter (string requestId)
+            public CollectingIpcStreamFrameWriter (Guid requestId)
             {
                 this.requestId = requestId;
             }

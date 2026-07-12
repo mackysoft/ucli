@@ -14,6 +14,11 @@ internal static class IpcUnityConsoleClearRequestCodec
         ArgumentException.ThrowIfNullOrWhiteSpace(sessionToken);
 
         var payload = IpcPayloadCodec.SerializeToElement(new IpcUnityConsoleClearRequest(UcliCommandIds.LogsUnityClear.Name));
-        return UnityIpcRequestFactory.Create(sessionToken, IpcMethodNames.UnityConsoleClear, payload);
+        return UnityIpcRequestFactory.Create(
+            sessionToken,
+            IpcMethodNames.UnityConsoleClear,
+            payload,
+            Guid.NewGuid(),
+            IpcResponseMode.Single);
     }
 }

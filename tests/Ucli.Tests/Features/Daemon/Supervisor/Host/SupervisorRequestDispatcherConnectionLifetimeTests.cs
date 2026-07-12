@@ -136,13 +136,13 @@ public sealed class SupervisorRequestDispatcherConnectionLifetimeTests
         var dispatcher = CreateDispatcher(timeProvider: timeProvider);
         var runtimeContext = CreateRuntimeContext();
         var request = new IpcRequest(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: "completed-single-request",
-            SessionToken: runtimeContext.Manifest.SessionToken,
-            Method: SupervisorIpcContracts.PingMethod,
-            Payload: IpcPayloadCodec.SerializeToElement(
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: Guid.NewGuid(),
+            sessionToken: runtimeContext.Manifest.SessionToken,
+            method: SupervisorIpcContracts.PingMethod,
+            payload: IpcPayloadCodec.SerializeToElement(
                 new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion)),
-            responseMode: IpcResponseMode.Single);
+            responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single));
 
         var response = await SendRequestAsync(dispatcher, runtimeContext, request);
 
@@ -158,13 +158,13 @@ public sealed class SupervisorRequestDispatcherConnectionLifetimeTests
         var dispatcher = CreateDispatcher(timeProvider: timeProvider);
         var runtimeContext = CreateRuntimeContext();
         var request = new IpcRequest(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: "blocking-single-response-write",
-            SessionToken: runtimeContext.Manifest.SessionToken,
-            Method: SupervisorIpcContracts.PingMethod,
-            Payload: IpcPayloadCodec.SerializeToElement(
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: Guid.NewGuid(),
+            sessionToken: runtimeContext.Manifest.SessionToken,
+            method: SupervisorIpcContracts.PingMethod,
+            payload: IpcPayloadCodec.SerializeToElement(
                 new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion)),
-            responseMode: IpcResponseMode.Single);
+            responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single));
         using var requestBytes = new MemoryStream();
         await IpcFrameCodec.WriteModelAsync(
             requestBytes,

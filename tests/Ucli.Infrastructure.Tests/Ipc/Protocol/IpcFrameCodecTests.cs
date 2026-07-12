@@ -182,6 +182,27 @@ public sealed class IpcFrameCodecTests
         Assert.Equal(IpcFrameReadErrorKind.PayloadJsonInvalid, result.ErrorKind);
     }
 
+    [Theory]
+    [InlineData("""{"protocolVersion":1,"requestId":"req-9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62","sessionToken":"token","method":"test.method","payload":{},"responseMode":"single"}""")]
+    [InlineData("""{"protocolVersion":1,"requestId":"00000000-0000-0000-0000-000000000000","sessionToken":"token","method":"test.method","payload":{},"responseMode":"single"}""")]
+    [InlineData("""{"protocolVersion":1,"sessionToken":"token","method":"test.method","payload":{},"responseMode":"single"}""")]
+    [Trait("Size", "Small")]
+    public async Task TryReadModelAsync_WithInvalidIpcRequestId_ReturnsPayloadJsonInvalid (string payloadJson)
+    {
+        await using var stream = new MemoryStream();
+        var payload = Encoding.UTF8.GetBytes(payloadJson);
+        var header = new byte[sizeof(int)];
+        BinaryPrimitives.WriteInt32LittleEndian(header, payload.Length);
+        await stream.WriteAsync(header);
+        await stream.WriteAsync(payload);
+        stream.Position = 0;
+
+        var result = await IpcFrameCodec.TryReadModelAsync<IpcRequest>(stream, IpcJsonSerializerOptions.Default);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(IpcFrameReadErrorKind.PayloadJsonInvalid, result.ErrorKind);
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task WriteModelAsync_WithOversizedPayload_ThrowsInvalidDataException ()

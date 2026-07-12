@@ -63,10 +63,10 @@ public sealed class IpcUnityConsoleClearResponseCodecTests
         object? payload)
     {
         return new IpcResponse(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: "req-unity-console-clear",
-            Status: status,
-            Payload: IpcPayloadCodec.SerializeToElement(payload),
-            Errors: errors);
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: Guid.NewGuid(),
+            status: status,
+            payload: IpcPayloadCodec.SerializeToElement(payload),
+            errors: errors);
     }
 }

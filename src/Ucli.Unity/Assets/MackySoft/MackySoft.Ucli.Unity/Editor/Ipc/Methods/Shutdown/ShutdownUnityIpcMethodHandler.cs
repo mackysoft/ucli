@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
@@ -76,13 +77,13 @@ namespace MackySoft.Ucli.Unity.Ipc
     /// <summary> Coordinates mutation admission with one shutdown response exchange. </summary>
     internal interface IUnityShutdownAdmissionCoordinator
     {
-        /// <summary> Seals mutation admission for one decoded shutdown request while the mutation lane is idle. </summary>
+        /// <summary> Seals mutation admission for one logical shutdown request and registers the current response exchange. </summary>
         bool TryPrepare (IpcRequest request, out string errorMessage);
 
-        /// <summary> Commits the seal after the matching shutdown response has been written. </summary>
+        /// <summary> Commits the seal after a response exchange for the matching logical request has been written. </summary>
         bool TryCommit (IpcRequest request);
 
-        /// <summary> Releases an uncommitted seal owned by the matching failed exchange. </summary>
+        /// <summary> Releases one failed response exchange and the uncommitted seal when no matching exchange remains active. </summary>
         void Abort (IpcRequest request);
     }
 
@@ -93,7 +94,9 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private readonly IUnityMutationLaneControl mutationLaneControl;
 
-        private IpcRequest preparedRequest;
+        private readonly List<IpcRequest> activeExchanges = new List<IpcRequest>();
+
+        private Guid? preparedRequestId;
 
         private IDisposable admissionSeal;
 
@@ -123,10 +126,15 @@ namespace MackySoft.Ucli.Unity.Ipc
                     return false;
                 }
 
-                if (preparedRequest != null)
+                if (preparedRequestId.HasValue)
                 {
-                    if (ReferenceEquals(preparedRequest, request))
+                    if (preparedRequestId.Value == request.RequestId)
                     {
+                        if (!isCommitted && !ContainsActiveExchange(request))
+                        {
+                            activeExchanges.Add(request);
+                        }
+
                         errorMessage = null;
                         return true;
                     }
@@ -143,7 +151,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                     return false;
                 }
 
-                preparedRequest = request;
+                preparedRequestId = request.RequestId;
+                activeExchanges.Add(request);
                 admissionSeal = nextAdmissionSeal;
                 errorMessage = null;
                 return true;
@@ -160,12 +169,15 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             lock (syncRoot)
             {
-                if (isDisposed || !ReferenceEquals(preparedRequest, request))
+                if (isDisposed
+                    || preparedRequestId != request.RequestId
+                    || (!isCommitted && !ContainsActiveExchange(request)))
                 {
                     return false;
                 }
 
                 isCommitted = true;
+                activeExchanges.Clear();
                 return true;
             }
         }
@@ -178,12 +190,18 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 if (isDisposed
                     || isCommitted
-                    || !ReferenceEquals(preparedRequest, request))
+                    || preparedRequestId != request.RequestId
+                    || !RemoveActiveExchange(request))
                 {
                     return;
                 }
 
-                preparedRequest = null;
+                if (activeExchanges.Count != 0)
+                {
+                    return;
+                }
+
+                preparedRequestId = null;
                 sealToRelease = admissionSeal;
                 admissionSeal = null;
             }
@@ -203,12 +221,43 @@ namespace MackySoft.Ucli.Unity.Ipc
                 }
 
                 isDisposed = true;
-                preparedRequest = null;
+                preparedRequestId = null;
+                activeExchanges.Clear();
                 sealToRelease = admissionSeal;
                 admissionSeal = null;
             }
 
             sealToRelease?.Dispose();
+        }
+
+        private bool ContainsActiveExchange (IpcRequest request)
+        {
+            return FindActiveExchangeIndex(request) >= 0;
+        }
+
+        private bool RemoveActiveExchange (IpcRequest request)
+        {
+            var index = FindActiveExchangeIndex(request);
+            if (index < 0)
+            {
+                return false;
+            }
+
+            activeExchanges.RemoveAt(index);
+            return true;
+        }
+
+        private int FindActiveExchangeIndex (IpcRequest request)
+        {
+            for (var i = 0; i < activeExchanges.Count; i++)
+            {
+                if (ReferenceEquals(activeExchanges[i], request))
+                {
+                    return i;
+                }
+            }
+
+            return -1;
         }
     }
 }

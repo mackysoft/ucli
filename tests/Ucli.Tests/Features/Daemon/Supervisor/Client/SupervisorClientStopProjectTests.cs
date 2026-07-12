@@ -30,7 +30,7 @@ public sealed class SupervisorClientStopProjectTests
 
         var resultTask = client.StopProjectAsync(
                 SupervisorClientTestSupport.CreateManifest(),
-                SupervisorClientTestSupport.RequestId,
+                Guid.NewGuid(),
                 SupervisorClientTestSupport.CreateUnityProject(),
                 timeProvider.GetUtcNow().Add(commandTimeout),
                 commandTimeout,
@@ -74,7 +74,7 @@ public sealed class SupervisorClientStopProjectTests
 
         var resultTask = client.StopProjectAsync(
                 SupervisorClientTestSupport.CreateManifest(),
-                SupervisorClientTestSupport.RequestId,
+                Guid.NewGuid(),
                 SupervisorClientTestSupport.CreateUnityProject(),
                 timeProvider.GetUtcNow().Add(commandTimeout),
                 commandTimeout,
@@ -96,5 +96,26 @@ public sealed class SupervisorClientStopProjectTests
         {
             terminalResponseSource.TrySetException(new TimeoutException("Release non-cooperative stop response."));
         }
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task StopProject_WhenRequestIdIsEmpty_ThrowsBeforeTransport ()
+    {
+        var transportClient = new StubIpcTransportClient();
+        var client = new SupervisorClient(transportClient, TimeProvider.System);
+
+        var exception = await Assert.ThrowsAsync<ArgumentException>(() => client
+            .StopProjectAsync(
+                SupervisorClientTestSupport.CreateManifest(),
+                Guid.Empty,
+                SupervisorClientTestSupport.CreateUnityProject(),
+                SupervisorClientTestSupport.CreateDeadline(TimeSpan.FromSeconds(1)),
+                TimeSpan.FromSeconds(1),
+                CancellationToken.None)
+            .AsTask());
+
+        Assert.Equal("requestId", exception.ParamName);
+        Assert.Empty(transportClient.Invocations);
     }
 }

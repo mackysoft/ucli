@@ -25,11 +25,11 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var readinessGate = new MutableUnityEditorReadinessGate(CreatePlayingSnapshot());
             var handler = CreateHandler(readinessGate);
-            var firstRequest = CreatePlayExitRequest("req-play-exit-hash-1", new IpcPlayExitRequest
+            var firstRequest = CreatePlayExitRequest(Guid.NewGuid(), new IpcPlayExitRequest
             {
                 TimeoutMilliseconds = 1000,
             });
-            var secondRequest = CreatePlayExitRequest("req-play-exit-hash-2", new IpcPlayExitRequest
+            var secondRequest = CreatePlayExitRequest(Guid.NewGuid(), new IpcPlayExitRequest
             {
                 TimeoutMilliseconds = 2000,
             });
@@ -55,7 +55,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var readinessGate = new MutableUnityEditorReadinessGate(CreatePlayingSnapshot());
             var handler = CreateHandler(readinessGate);
-            var request = CreatePlayExitRequest("req-play-exit-invalid-timeout", new IpcPlayExitRequest
+            var request = CreatePlayExitRequest(Guid.NewGuid(), new IpcPlayExitRequest
             {
                 TimeoutMilliseconds = 0,
             });
@@ -77,7 +77,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var readinessGate = new MutableUnityEditorReadinessGate(CreatePlayingSnapshot());
             var handler = CreateHandler(readinessGate);
-            var request = CreatePlayExitRequest("req-play-exit-invalid", 123);
+            var request = CreatePlayExitRequest(Guid.NewGuid(), 123);
 
             var response = await handler.HandleAsync(request, CancellationToken.None);
 
@@ -93,7 +93,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var readinessGate = new MutableUnityEditorReadinessGate(CreatePlayingSnapshot());
             var handler = CreateHandler(readinessGate);
-            var request = CreatePlayExitRequest("req-play-exit-missing-timeout", new IpcPlayExitRequest());
+            var request = CreatePlayExitRequest(Guid.NewGuid(), new IpcPlayExitRequest());
 
             var response = await handler.HandleAsync(request, CancellationToken.None);
 
@@ -112,7 +112,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 readinessGate,
                 exitPlayModeRequester: () => readinessGate.Snapshot = CreateReadyStoppedSnapshot(generation: "11"));
             var handler = new PlayExitUnityIpcMethodHandler(runner, NoOpDaemonLogger.Instance);
-            var request = CreatePlayExitRequest("req-play-exit-success", new IpcPlayExitRequest
+            var request = CreatePlayExitRequest(Guid.NewGuid(), new IpcPlayExitRequest
             {
                 TimeoutMilliseconds = 1000,
             });
@@ -416,17 +416,18 @@ namespace MackySoft.Ucli.Unity.Tests
             IRecoverableIpcOperationStore store,
             PlayExitRecoveryPayload payload)
         {
+            var requestId = Guid.NewGuid();
             return new RecoverableIpcOperationContext(
                 store,
                 IpcMethodNames.PlayExit,
-                "req-play-exit-recoverable",
+                requestId,
                 RequestPayloadHash,
                 new RecoverableIpcOperationRecord
                 {
                     SchemaVersion = 1,
                     ProjectFingerprint = "project-fingerprint",
                     Method = IpcMethodNames.PlayExit,
-                    RequestId = "req-play-exit-recoverable",
+                    RequestId = requestId,
                     State = RecoverableIpcOperationState.Pending,
                     StartedAtUtc = DateTimeOffset.UtcNow,
                     RecoveryPayload = IpcPayloadCodec.SerializeToElement(payload),
@@ -438,7 +439,7 @@ namespace MackySoft.Ucli.Unity.Tests
             return new RecoverableIpcOperationContext(
                 store,
                 IpcMethodNames.PlayExit,
-                "req-play-exit-recoverable",
+                Guid.NewGuid(),
                 RequestPayloadHash,
                 null);
         }
@@ -459,16 +460,16 @@ namespace MackySoft.Ucli.Unity.Tests
         }
 
         private static IpcRequest CreatePlayExitRequest (
-            string requestId,
+            Guid requestId,
             object payload)
         {
             return new IpcRequest(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: requestId,
-                SessionToken: "session-token",
-                Method: IpcMethodNames.PlayExit,
-                Payload: IpcPayloadCodec.SerializeToElement(payload),
-                responseMode: IpcResponseMode.Single);
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: requestId,
+                sessionToken: "session-token",
+                method: IpcMethodNames.PlayExit,
+                payload: IpcPayloadCodec.SerializeToElement(payload),
+                responseMode: "single");
         }
 
         private static UnityEditorLifecycleSnapshot CreateReadyStoppedSnapshot (string generation = "1")
@@ -642,7 +643,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public ValueTask<RecoverableIpcOperationReadResult> ReadAsync (
                 string method,
-                string requestId,
+                Guid requestId,
                 string requestPayloadHash,
                 CancellationToken cancellationToken)
             {
@@ -653,7 +654,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public ValueTask<RecoverableIpcOperationStoreResult> WritePendingAsync (
                 string method,
-                string requestId,
+                Guid requestId,
                 string requestPayloadHash,
                 DateTimeOffset startedAtUtc,
                 System.Text.Json.JsonElement recoveryPayload,
@@ -677,7 +678,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public ValueTask<RecoverableIpcOperationStoreResult> WriteCompletedAsync (
                 string method,
-                string requestId,
+                Guid requestId,
                 string requestPayloadHash,
                 DateTimeOffset startedAtUtc,
                 DateTimeOffset completedAtUtc,

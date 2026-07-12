@@ -183,11 +183,11 @@ public sealed class AssetLookupSnapshotReaderTests
         IReadOnlyList<IpcError> errors)
     {
         return UnityRequestResponseTestFactory.Create(new IpcResponse(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: "req-1",
-            Status: status,
-            Payload: JsonSerializer.SerializeToElement(payload),
-            Errors: errors));
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: Guid.NewGuid(),
+            status: status,
+            payload: JsonSerializer.SerializeToElement(payload),
+            errors: errors));
     }
 
 }

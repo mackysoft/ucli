@@ -118,7 +118,7 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
         var deadline = ExecutionDeadline.Start(timeout, timeProvider);
-        var requestId = UnityIpcRequestFactory.CreateRequestId(dispatchRequest.Method);
+        var requestId = Guid.NewGuid();
         ExecutionDeadline? endpointAbsenceRetryDeadline = null;
         var sessionTokenRefreshAttempted = false;
         string? rejectedSessionToken = null;
@@ -192,9 +192,10 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
                         sessionConnection.Endpoint,
                         UnityIpcRequestFactory.Create(
                             sessionConnection.SessionToken,
-                            dispatchRequest,
+                            dispatchRequest.Method,
+                            dispatchRequest.CreatePayload(serverExecutionTimeout),
                             requestId,
-                            serverExecutionTimeout),
+                            dispatchRequest.ResponseMode),
                         attemptTimeout,
                         cancellationToken)
                     .ConfigureAwait(false);

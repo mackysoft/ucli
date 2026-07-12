@@ -23,11 +23,11 @@ public sealed class SupervisorRequestDispatcherStopProjectTests
             dispatcher,
             runtimeContext,
             new IpcRequest(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: "stop-request-oversized-attempt-timeout",
-                SessionToken: runtimeContext.Manifest.SessionToken,
-                Method: SupervisorIpcContracts.StopProjectMethod,
-                Payload: IpcPayloadCodec.SerializeToElement(
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: Guid.NewGuid(),
+                sessionToken: runtimeContext.Manifest.SessionToken,
+                method: SupervisorIpcContracts.StopProjectMethod,
+                payload: IpcPayloadCodec.SerializeToElement(
                     new
                     {
                         UnityProjectRoot = unityProjectRoot,
@@ -35,7 +35,7 @@ public sealed class SupervisorRequestDispatcherStopProjectTests
                         DeadlineUtc = DateTimeOffset.MaxValue,
                         AttemptTimeoutMilliseconds = (long)int.MaxValue + 1,
                     }),
-                responseMode: IpcResponseMode.Single));
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single)));
 
         Assert.Equal(IpcProtocol.StatusError, response.Status);
         Assert.Equal(UcliCoreErrorCodes.InvalidArgument, Assert.Single(response.Errors).Code);
@@ -63,17 +63,17 @@ public sealed class SupervisorRequestDispatcherStopProjectTests
             dispatcher,
             runtimeContext,
             new IpcRequest(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: "stop-request-delayed-delivery",
-                SessionToken: runtimeContext.Manifest.SessionToken,
-                Method: SupervisorIpcContracts.StopProjectMethod,
-                Payload: IpcPayloadCodec.SerializeToElement(
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: Guid.NewGuid(),
+                sessionToken: runtimeContext.Manifest.SessionToken,
+                method: SupervisorIpcContracts.StopProjectMethod,
+                payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.StopProjectRequest(
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: projectFingerprint,
                         DeadlineUtc: deadlineUtc,
                         AttemptTimeoutMilliseconds: 800)),
-                responseMode: IpcResponseMode.Single));
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single)));
 
         Assert.Equal(IpcProtocol.StatusOk, response.Status);
         var invocation = Assert.Single(stopOperation.Invocations);
@@ -101,17 +101,17 @@ public sealed class SupervisorRequestDispatcherStopProjectTests
             dispatcher,
             runtimeContext,
             new IpcRequest(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: "stop-request-clock-rollback",
-                SessionToken: runtimeContext.Manifest.SessionToken,
-                Method: SupervisorIpcContracts.StopProjectMethod,
-                Payload: IpcPayloadCodec.SerializeToElement(
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: Guid.NewGuid(),
+                sessionToken: runtimeContext.Manifest.SessionToken,
+                method: SupervisorIpcContracts.StopProjectMethod,
+                payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.StopProjectRequest(
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: projectFingerprint,
                         DeadlineUtc: deadlineUtc,
                         AttemptTimeoutMilliseconds: 700)),
-                responseMode: IpcResponseMode.Single));
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single)));
 
         Assert.Equal(IpcProtocol.StatusOk, response.Status);
         Assert.Equal(TimeSpan.FromMilliseconds(700), Assert.Single(stopOperation.Invocations).Timeout);
@@ -138,17 +138,17 @@ public sealed class SupervisorRequestDispatcherStopProjectTests
             dispatcher,
             runtimeContext,
             new IpcRequest(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: "stop-request-clock-forward",
-                SessionToken: runtimeContext.Manifest.SessionToken,
-                Method: SupervisorIpcContracts.StopProjectMethod,
-                Payload: IpcPayloadCodec.SerializeToElement(
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: Guid.NewGuid(),
+                sessionToken: runtimeContext.Manifest.SessionToken,
+                method: SupervisorIpcContracts.StopProjectMethod,
+                payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.StopProjectRequest(
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: projectFingerprint,
                         DeadlineUtc: deadlineUtc,
                         AttemptTimeoutMilliseconds: 700)),
-                responseMode: IpcResponseMode.Single));
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single)));
 
         Assert.Equal(IpcProtocol.StatusError, response.Status);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, Assert.Single(response.Errors).Code);

@@ -112,9 +112,9 @@ internal static class IpcRequestAssert
         return requests;
     }
 
-    public static string SingleRequestId (IReadOnlyList<IpcRequest> requests)
+    public static Guid SingleRequestId (IReadOnlyList<IpcRequest> requests)
     {
-        return Assert.Single(requests.Select(static request => request.RequestId).Distinct(StringComparer.Ordinal));
+        return Assert.Single(requests.Select(static request => request.RequestId).Distinct());
     }
 
     public static IReadOnlyList<IpcRequest> RetriedAtLeastOnce (

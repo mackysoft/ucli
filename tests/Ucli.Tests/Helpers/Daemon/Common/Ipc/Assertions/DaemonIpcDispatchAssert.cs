@@ -104,7 +104,7 @@ internal static class DaemonIpcDispatchAssert
         return requests;
     }
 
-    public static string RecoverableDispatchRetriedWithReloadedSessionTokenAndAttemptTimeout (
+    public static Guid RecoverableDispatchRetriedWithReloadedSessionTokenAndAttemptTimeout (
         RecordingIpcTransportClient transportClient,
         string expectedMethod,
         string firstSessionToken,

@@ -18,11 +18,11 @@ namespace MackySoft.Ucli.Unity.Ipc
             TPayload payload)
         {
             return new IpcResponse(
-                ProtocolVersion: request.ProtocolVersion,
-                RequestId: request.RequestId,
-                Status: IpcProtocol.StatusOk,
-                Payload: IpcPayloadCodec.SerializeToElement(payload),
-                Errors: Array.Empty<IpcError>());
+                protocolVersion: request.ProtocolVersion,
+                requestId: request.RequestId,
+                status: IpcProtocol.StatusOk,
+                payload: IpcPayloadCodec.SerializeToElement(payload),
+                errors: Array.Empty<IpcError>());
         }
 
         /// <summary> Creates one error response envelope. </summary>
@@ -38,11 +38,11 @@ namespace MackySoft.Ucli.Unity.Ipc
             string? opId)
         {
             return new IpcResponse(
-                ProtocolVersion: request.ProtocolVersion,
-                RequestId: request.RequestId,
-                Status: IpcProtocol.StatusError,
-                Payload: IpcPayloadCodec.SerializeToElement(new { }),
-                Errors: new[]
+                protocolVersion: request.ProtocolVersion,
+                requestId: request.RequestId,
+                status: IpcProtocol.StatusError,
+                payload: IpcPayloadCodec.SerializeToElement(new { }),
+                errors: new[]
                 {
                     new IpcError(code, message, opId),
                 });
@@ -64,11 +64,11 @@ namespace MackySoft.Ucli.Unity.Ipc
             TPayload payload)
         {
             return new IpcResponse(
-                ProtocolVersion: request.ProtocolVersion,
-                RequestId: request.RequestId,
-                Status: IpcProtocol.StatusError,
-                Payload: IpcPayloadCodec.SerializeToElement(payload),
-                Errors: new[]
+                protocolVersion: request.ProtocolVersion,
+                requestId: request.RequestId,
+                status: IpcProtocol.StatusError,
+                payload: IpcPayloadCodec.SerializeToElement(payload),
+                errors: new[]
                 {
                     new IpcError(code, message, opId),
                 });
@@ -86,11 +86,11 @@ namespace MackySoft.Ucli.Unity.Ipc
                 ? IpcProtocolErrorCodes.IpcFrameTooLarge
                 : UcliCoreErrorCodes.InvalidArgument;
             return new IpcResponse(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: string.Empty,
-                Status: IpcProtocol.StatusError,
-                Payload: IpcPayloadCodec.SerializeToElement(new { }),
-                Errors: new[]
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: null,
+                status: IpcProtocol.StatusError,
+                payload: IpcPayloadCodec.SerializeToElement(new { }),
+                errors: new[]
                 {
                     new IpcError(code, $"IPC request frame is invalid. {errorMessage}", null),
                 });

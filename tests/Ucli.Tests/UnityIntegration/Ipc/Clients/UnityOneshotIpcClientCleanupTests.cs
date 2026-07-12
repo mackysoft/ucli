@@ -51,6 +51,49 @@ public sealed class UnityOneshotIpcClientCleanupTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task SendAsync_WhenCleanupShutdownResponseReadIsInterrupted_RetriesWithSameRequestId ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "shutdown-response-read-interrupted");
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath);
+        var processHandle = new StubUnityBatchmodeProcessHandle();
+        var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
+        var shutdownAttempt = 0;
+        var transportClient = new RecordingUnityIpcTransportClient(request =>
+        {
+            return request.Method switch
+            {
+                IpcMethodNames.Ping => CreatePingResponse(request.RequestId),
+                IpcMethodNames.OpsRead => throw new TimeoutException("request timed out"),
+                IpcMethodNames.Shutdown when Interlocked.Increment(ref shutdownAttempt) == 1 =>
+                    throw new IpcResponseReadInterruptedException(new IOException("shutdown response was lost")),
+                IpcMethodNames.Shutdown => CreateShutdownResponse(request.RequestId),
+                _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
+            };
+        });
+        var client = new UnityOneshotIpcClient(
+            launcher,
+            transportClient,
+            new StubProjectLifecycleLockProvider(),
+            CreateProjectLockPreflightService(),
+            TimeSpan.FromSeconds(1),
+            TimeSpan.FromMilliseconds(1));
+
+        var result = await client.SendAsync(
+            unityProject,
+            CreateDispatchRequest(),
+            TimeSpan.FromSeconds(30),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        var shutdownRequests = IpcRequestAssert.WithMethod(transportClient, IpcMethodNames.Shutdown);
+        Assert.Equal(2, shutdownRequests.Count);
+        var requestId = shutdownRequests[0].RequestId;
+        Assert.NotEqual(Guid.Empty, requestId);
+        Assert.All(shutdownRequests, request => Assert.Equal(requestId, request.RequestId));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task SendAsync_WhenStartupTimeoutReachesEndpointDuringCleanup_SendsShutdownWithoutTerminatingProcess ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "startup-timeout-shutdown");

@@ -433,12 +433,12 @@ namespace MackySoft.Ucli.Unity.Tests
                     new UnexpectedMethodDispatcher(),
                     NoOpDaemonLogger.Instance);
                 var previousGenerationPing = new IpcRequest(
-                    ProtocolVersion: IpcProtocol.CurrentVersion,
-                    RequestId: "req-previous-generation-ping",
-                    SessionToken: previousRegistration.SessionToken,
-                    Method: IpcMethodNames.Ping,
-                    Payload: IpcPayloadCodec.SerializeToElement(new IpcPingRequest("tests")),
-                    responseMode: IpcResponseMode.Single);
+                    protocolVersion: IpcProtocol.CurrentVersion,
+                    requestId: Guid.NewGuid(),
+                    sessionToken: previousRegistration.SessionToken,
+                    method: IpcMethodNames.Ping,
+                    payload: IpcPayloadCodec.SerializeToElement(new IpcPingRequest("tests")),
+                    responseMode: "single");
 
                 var previousGenerationResponse = await requestHandler.HandleAsync(
                     previousGenerationPing,

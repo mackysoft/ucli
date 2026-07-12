@@ -11,7 +11,7 @@ namespace MackySoft.Ucli.Unity.Ipc
     {
         private readonly IRecoverableIpcOperationStore store;
         private readonly string method;
-        private readonly string requestId;
+        private readonly Guid requestId;
         private readonly string requestPayloadHash;
 
         private readonly object completionSyncRoot = new object();
@@ -25,7 +25,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         public RecoverableIpcOperationContext (
             IRecoverableIpcOperationStore store,
             string method,
-            string requestId,
+            Guid requestId,
             string requestPayloadHash,
             RecoverableIpcOperationRecord? record)
         {
@@ -35,7 +35,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentException("Method must not be empty.", nameof(method));
             }
 
-            if (string.IsNullOrWhiteSpace(requestId))
+            if (requestId == Guid.Empty)
             {
                 throw new ArgumentException("Request id must not be empty.", nameof(requestId));
             }

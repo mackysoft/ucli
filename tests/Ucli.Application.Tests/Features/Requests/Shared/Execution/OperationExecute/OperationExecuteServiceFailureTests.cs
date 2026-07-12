@@ -159,11 +159,11 @@ public sealed class OperationExecuteServiceFailureTests
         var authorizationService = OperationExecuteServiceTestSupport.CreateAllowedAuthorizationService();
         var ipcRequestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(
             UnityRequestResponseTestFactory.Create(new IpcResponse(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: "req-1",
-                Status: IpcProtocol.StatusOk,
-                Payload: JsonSerializer.SerializeToElement(new { invalid = true }),
-                Errors: []))));
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: Guid.NewGuid(),
+                status: IpcProtocol.StatusOk,
+                payload: JsonSerializer.SerializeToElement(new { invalid = true }),
+                errors: []))));
         var service = OperationExecuteServiceTestSupport.CreateService(
             projectContextResolver,
             authorizationService,

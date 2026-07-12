@@ -15,7 +15,7 @@ internal static class IpcTransportClientTestSupport
     public static IpcStreamFrame CreateProgressFrame (
         IpcRequest request,
         int? protocolVersion = null,
-        string? requestId = null,
+        Guid? requestId = null,
         string kind = IpcStreamFrameKinds.Progress,
         string? eventName = "test.progress",
         IpcResponse? response = null)
@@ -27,18 +27,6 @@ internal static class IpcTransportClientTestSupport
             eventName,
             IpcTransportTestHarness.Json("""{"progress":true}"""),
             response);
-    }
-
-    public static IpcStreamFrame CreateProgressFrame (
-        string requestId)
-    {
-        return new IpcStreamFrame(
-            IpcProtocol.CurrentVersion,
-            requestId,
-            IpcStreamFrameKinds.Progress,
-            "test.progress",
-            IpcTransportTestHarness.Json("""{"progress":true}"""),
-            Response: null);
     }
 
     public static IpcStreamFrame CreateTerminalFrame (
@@ -61,9 +49,9 @@ internal static class IpcTransportClientTestSupport
             IpcProtocol.CurrentVersion,
             request.RequestId,
             IpcStreamFrameKinds.Terminal,
-            Event: null,
+            @event: null,
             IpcTransportTestHarness.Json("{}"),
-            Response: null);
+            response: null);
     }
 
     public static async Task WriteProgressThenTerminalAsync (
@@ -99,12 +87,13 @@ internal static class IpcTransportClientTestSupport
 
     public static void AssertProgressThenTerminalResult (
         IReadOnlyList<IpcStreamFrame> progressFrames,
-        IpcResponse response)
+        IpcResponse response,
+        Guid expectedRequestId)
     {
         var progressFrame = Assert.Single(progressFrames);
         Assert.Equal("test.progress", progressFrame.Event);
         Assert.True(progressFrame.Payload.GetProperty("progress").GetBoolean());
-        Assert.Equal("request-1", response.RequestId);
+        Assert.Equal(expectedRequestId, response.RequestId);
         Assert.True(response.Payload.GetProperty("done").GetBoolean());
     }
 }

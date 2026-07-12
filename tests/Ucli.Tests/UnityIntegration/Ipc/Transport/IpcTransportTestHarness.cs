@@ -133,26 +133,26 @@ internal static class IpcTransportTestHarness
     {
         return new IpcRequest(
             IpcProtocol.CurrentVersion,
-            "request-1",
+            Guid.NewGuid(),
             "token",
             IpcMethodNames.Ping,
             Json("{}"),
-            IpcResponseMode.Stream);
+            ContractLiteralCodec.ToValue(IpcResponseMode.Stream));
     }
 
     internal static IpcRequest CreateSingleRequest ()
     {
         return new IpcRequest(
             IpcProtocol.CurrentVersion,
-            "request-1",
+            Guid.NewGuid(),
             "token",
             IpcMethodNames.Ping,
             Json("{}"),
-            IpcResponseMode.Single);
+            ContractLiteralCodec.ToValue(IpcResponseMode.Single));
     }
 
     internal static IpcResponse CreateResponse (
-        string requestId,
+        Guid requestId,
         string payloadJson,
         int? protocolVersion = null,
         string? status = null)

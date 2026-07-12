@@ -76,43 +76,43 @@ internal static class UnityIpcRequestExecutorTestSupport
         return JsonDocument.Parse("{}").RootElement.Clone();
     }
 
-    public static IpcResponse CreateSuccessResponse (string requestId)
+    public static IpcResponse CreateSuccessResponse (Guid requestId)
     {
         return new IpcResponse(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: requestId,
-            Status: IpcProtocol.StatusOk,
-            Payload: EmptyPayload(),
-            Errors: Array.Empty<IpcError>());
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: requestId,
+            status: IpcProtocol.StatusOk,
+            payload: EmptyPayload(),
+            errors: Array.Empty<IpcError>());
     }
 
     public static IpcResponse CreateErrorResponse (
-        string requestId,
+        Guid requestId,
         UcliCode errorCode,
         string message)
     {
         return new IpcResponse(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: requestId,
-            Status: IpcProtocol.StatusError,
-            Payload: EmptyPayload(),
-            Errors:
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: requestId,
+            status: IpcProtocol.StatusError,
+            payload: EmptyPayload(),
+            errors:
             [
                 new IpcError(errorCode, message, null),
             ]);
     }
 
-    public static IpcResponse CreateReadyPingResponse (string requestId)
+    public static IpcResponse CreateReadyPingResponse (Guid requestId)
     {
         var payload = IpcPayloadCodec.SerializeToElement(CreatePingPayload(
             IpcEditorLifecycleStateCodec.Ready,
             canAcceptExecutionRequests: true));
         return new IpcResponse(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: requestId,
-            Status: IpcProtocol.StatusOk,
-            Payload: payload,
-            Errors: Array.Empty<IpcError>());
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: requestId,
+            status: IpcProtocol.StatusOk,
+            payload: payload,
+            errors: Array.Empty<IpcError>());
     }
 
     public static IpcPingResponse CreatePingPayload (

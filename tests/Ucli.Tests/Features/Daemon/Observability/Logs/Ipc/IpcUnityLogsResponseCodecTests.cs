@@ -83,10 +83,10 @@ public sealed class IpcUnityLogsResponseCodecTests
         object payload)
     {
         return new IpcResponse(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: "req-unity-logs",
-            Status: status,
-            Payload: IpcPayloadCodec.SerializeToElement(payload),
-            Errors: errors);
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: Guid.NewGuid(),
+            status: status,
+            payload: IpcPayloadCodec.SerializeToElement(payload),
+            errors: errors);
     }
 }

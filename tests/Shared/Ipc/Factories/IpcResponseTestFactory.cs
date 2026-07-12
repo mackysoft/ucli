@@ -11,11 +11,11 @@ internal static class IpcResponseTestFactory
         ArgumentNullException.ThrowIfNull(request);
 
         return new IpcResponse(
-            ProtocolVersion: request.ProtocolVersion,
-            RequestId: request.RequestId,
-            Status: IpcProtocol.StatusOk,
-            Payload: IpcPayloadCodec.SerializeToElement(payload),
-            Errors: Array.Empty<IpcError>());
+            protocolVersion: request.ProtocolVersion,
+            requestId: request.RequestId,
+            status: IpcProtocol.StatusOk,
+            payload: IpcPayloadCodec.SerializeToElement(payload),
+            errors: Array.Empty<IpcError>());
     }
 
     public static IpcResponse CreateError (
@@ -27,11 +27,11 @@ internal static class IpcResponseTestFactory
         ArgumentNullException.ThrowIfNull(request);
 
         return new IpcResponse(
-            ProtocolVersion: request.ProtocolVersion,
-            RequestId: request.RequestId,
-            Status: IpcProtocol.StatusError,
-            Payload: IpcPayloadCodec.SerializeToElement(new { }),
-            Errors:
+            protocolVersion: request.ProtocolVersion,
+            requestId: request.RequestId,
+            status: IpcProtocol.StatusError,
+            payload: IpcPayloadCodec.SerializeToElement(new { }),
+            errors:
             [
                 new IpcError(code, message, opId),
             ]);

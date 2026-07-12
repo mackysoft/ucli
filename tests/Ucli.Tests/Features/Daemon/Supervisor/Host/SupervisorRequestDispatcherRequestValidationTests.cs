@@ -19,13 +19,13 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
             dispatcher,
             runtimeContext,
             new IpcRequest(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: "request-missing-token",
-                SessionToken: string.Empty,
-                Method: SupervisorIpcContracts.PingMethod,
-                Payload: IpcPayloadCodec.SerializeToElement(
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: Guid.NewGuid(),
+                sessionToken: string.Empty,
+                method: SupervisorIpcContracts.PingMethod,
+                payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion)),
-                responseMode: IpcResponseMode.Single));
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single)));
 
         Assert.Equal(IpcProtocol.StatusError, response.Status);
         var error = Assert.Single(response.Errors);
@@ -43,13 +43,13 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
             dispatcher,
             runtimeContext,
             new IpcRequest(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: "request-invalid-token",
-                SessionToken: "invalid-token",
-                Method: SupervisorIpcContracts.PingMethod,
-                Payload: IpcPayloadCodec.SerializeToElement(
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: Guid.NewGuid(),
+                sessionToken: "invalid-token",
+                method: SupervisorIpcContracts.PingMethod,
+                payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion)),
-                responseMode: IpcResponseMode.Single));
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single)));
 
         Assert.Equal(IpcProtocol.StatusError, response.Status);
         var error = Assert.Single(response.Errors);
@@ -70,11 +70,11 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
             dispatcher,
             runtimeContext,
             new IpcRequest(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: "request-unsupported-response-mode",
-                SessionToken: runtimeContext.Manifest.SessionToken,
-                Method: SupervisorIpcContracts.EnsureRunningMethod,
-                Payload: IpcPayloadCodec.SerializeToElement(
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: Guid.NewGuid(),
+                sessionToken: runtimeContext.Manifest.SessionToken,
+                method: SupervisorIpcContracts.EnsureRunningMethod,
+                payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: projectFingerprint,
@@ -82,7 +82,7 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
                         AttemptTimeoutMilliseconds: 1000,
                         EditorMode: null,
                         OnStartupBlocked: "auto")),
-                ResponseMode: "unsupported"));
+                responseMode: "unsupported"));
 
         DaemonStartOperationAssert.EnsureRunningRequestRejectedBeforeStartOperation(
             response,
@@ -105,11 +105,11 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
             dispatcher,
             runtimeContext,
             new IpcRequest(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: "request-null-response-mode",
-                SessionToken: runtimeContext.Manifest.SessionToken,
-                Method: SupervisorIpcContracts.EnsureRunningMethod,
-                Payload: IpcPayloadCodec.SerializeToElement(
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: Guid.NewGuid(),
+                sessionToken: runtimeContext.Manifest.SessionToken,
+                method: SupervisorIpcContracts.EnsureRunningMethod,
+                payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: projectFingerprint,
@@ -117,7 +117,7 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
                         AttemptTimeoutMilliseconds: 1000,
                         EditorMode: null,
                         OnStartupBlocked: "auto")),
-                ResponseMode: null!));
+                responseMode: null!));
 
         DaemonStartOperationAssert.EnsureRunningRequestRejectedBeforeStartOperation(
             response,
@@ -147,7 +147,7 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
             new
             {
                 ProtocolVersion = IpcProtocol.CurrentVersion,
-                RequestId = "request-missing-response-mode",
+                RequestId = Guid.NewGuid(),
                 SessionToken = runtimeContext.Manifest.SessionToken,
                 Method = SupervisorIpcContracts.EnsureRunningMethod,
                 Payload = payload,
@@ -174,13 +174,13 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
             dispatcher,
             runtimeContext,
             new IpcRequest(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: "request-ping-stream-response-mode",
-                SessionToken: runtimeContext.Manifest.SessionToken,
-                Method: SupervisorIpcContracts.PingMethod,
-                Payload: IpcPayloadCodec.SerializeToElement(
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: Guid.NewGuid(),
+                sessionToken: runtimeContext.Manifest.SessionToken,
+                method: SupervisorIpcContracts.PingMethod,
+                payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion)),
-                responseMode: IpcResponseMode.Stream));
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Stream)));
 
         var terminalFrame = Assert.Single(frames);
         Assert.Equal(IpcStreamFrameKinds.Terminal, terminalFrame.Kind);
@@ -202,11 +202,11 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
             dispatcher,
             runtimeContext,
             new IpcRequest(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: "request-1",
-                SessionToken: runtimeContext.Manifest.SessionToken,
-                Method: SupervisorIpcContracts.EnsureRunningMethod,
-                Payload: IpcPayloadCodec.SerializeToElement(
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: Guid.NewGuid(),
+                sessionToken: runtimeContext.Manifest.SessionToken,
+                method: SupervisorIpcContracts.EnsureRunningMethod,
+                payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: "bad\u0000path",
                         ProjectFingerprint: "fingerprint",
@@ -214,7 +214,7 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
                         AttemptTimeoutMilliseconds: 1000,
                         EditorMode: null,
                         OnStartupBlocked: "auto")),
-                responseMode: IpcResponseMode.Single));
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single)));
 
         Assert.Equal(IpcProtocol.StatusError, invalidResponse.Status);
         var invalidError = Assert.Single(invalidResponse.Errors);
@@ -224,13 +224,13 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
             dispatcher,
             runtimeContext,
             new IpcRequest(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: "request-2",
-                SessionToken: runtimeContext.Manifest.SessionToken,
-                Method: SupervisorIpcContracts.PingMethod,
-                Payload: IpcPayloadCodec.SerializeToElement(
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: Guid.NewGuid(),
+                sessionToken: runtimeContext.Manifest.SessionToken,
+                method: SupervisorIpcContracts.PingMethod,
+                payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion)),
-                responseMode: IpcResponseMode.Single));
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single)));
 
         Assert.Equal(IpcProtocol.StatusOk, pingResponse.Status);
         Assert.Empty(pingResponse.Errors);
@@ -248,11 +248,11 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
             dispatcher,
             runtimeContext,
             new IpcRequest(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: "request-mismatch",
-                SessionToken: runtimeContext.Manifest.SessionToken,
-                Method: SupervisorIpcContracts.EnsureRunningMethod,
-                Payload: IpcPayloadCodec.SerializeToElement(
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: Guid.NewGuid(),
+                sessionToken: runtimeContext.Manifest.SessionToken,
+                method: SupervisorIpcContracts.EnsureRunningMethod,
+                payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: "mismatched-fingerprint",
@@ -260,7 +260,7 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
                         AttemptTimeoutMilliseconds: 1000,
                         EditorMode: null,
                         OnStartupBlocked: "auto")),
-                responseMode: IpcResponseMode.Single));
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single)));
 
         Assert.Equal(IpcProtocol.StatusError, response.Status);
         var error = Assert.Single(response.Errors);
@@ -282,11 +282,11 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
             dispatcher,
             runtimeContext,
             new IpcRequest(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: "request-invalid-editor-mode",
-                SessionToken: runtimeContext.Manifest.SessionToken,
-                Method: SupervisorIpcContracts.EnsureRunningMethod,
-                Payload: IpcPayloadCodec.SerializeToElement(
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: Guid.NewGuid(),
+                sessionToken: runtimeContext.Manifest.SessionToken,
+                method: SupervisorIpcContracts.EnsureRunningMethod,
+                payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: projectFingerprint,
@@ -294,7 +294,7 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
                         AttemptTimeoutMilliseconds: 1000,
                         EditorMode: "unsupported",
                         OnStartupBlocked: "auto")),
-                responseMode: IpcResponseMode.Single));
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single)));
 
         DaemonStartOperationAssert.EnsureRunningRequestRejectedBeforeStartOperation(
             response,
@@ -316,11 +316,11 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
             dispatcher,
             runtimeContext,
             new IpcRequest(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: "request-invalid-startup-policy",
-                SessionToken: runtimeContext.Manifest.SessionToken,
-                Method: SupervisorIpcContracts.EnsureRunningMethod,
-                Payload: IpcPayloadCodec.SerializeToElement(
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: Guid.NewGuid(),
+                sessionToken: runtimeContext.Manifest.SessionToken,
+                method: SupervisorIpcContracts.EnsureRunningMethod,
+                payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: projectFingerprint,
@@ -328,7 +328,7 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
                         AttemptTimeoutMilliseconds: 1000,
                         EditorMode: null,
                         OnStartupBlocked: "unsupported")),
-                responseMode: IpcResponseMode.Single));
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single)));
 
         DaemonStartOperationAssert.EnsureRunningRequestRejectedBeforeStartOperation(
             response,

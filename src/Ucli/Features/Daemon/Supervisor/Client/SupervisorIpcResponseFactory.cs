@@ -16,11 +16,11 @@ internal static class SupervisorIpcResponseFactory
         TPayload payload)
     {
         return new IpcResponse(
-            ProtocolVersion: request.ProtocolVersion,
-            RequestId: request.RequestId,
-            Status: IpcProtocol.StatusOk,
-            Payload: IpcPayloadCodec.SerializeToElement(payload),
-            Errors: Array.Empty<IpcError>());
+            protocolVersion: request.ProtocolVersion,
+            requestId: request.RequestId,
+            status: IpcProtocol.StatusOk,
+            payload: IpcPayloadCodec.SerializeToElement(payload),
+            errors: Array.Empty<IpcError>());
     }
 
     /// <summary> Creates one failed supervisor response for the specified request. </summary>
@@ -50,11 +50,11 @@ internal static class SupervisorIpcResponseFactory
         TPayload payload)
     {
         return new IpcResponse(
-            ProtocolVersion: request.ProtocolVersion,
-            RequestId: request.RequestId,
-            Status: IpcProtocol.StatusError,
-            Payload: IpcPayloadCodec.SerializeToElement(payload),
-            Errors:
+            protocolVersion: request.ProtocolVersion,
+            requestId: request.RequestId,
+            status: IpcProtocol.StatusError,
+            payload: IpcPayloadCodec.SerializeToElement(payload),
+            errors:
             [
                 new IpcError(code, message, null),
             ]);
@@ -72,11 +72,11 @@ internal static class SupervisorIpcResponseFactory
             ? IpcProtocolErrorCodes.IpcFrameTooLarge
             : UcliCoreErrorCodes.InvalidArgument;
         return new IpcResponse(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: string.Empty,
-            Status: IpcProtocol.StatusError,
-            Payload: IpcPayloadCodec.SerializeToElement(new { }),
-            Errors:
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: null,
+            status: IpcProtocol.StatusError,
+            payload: IpcPayloadCodec.SerializeToElement(new { }),
+            errors:
             [
                 new IpcError(code, $"Supervisor IPC request frame is invalid. {errorMessage}", null),
             ]);

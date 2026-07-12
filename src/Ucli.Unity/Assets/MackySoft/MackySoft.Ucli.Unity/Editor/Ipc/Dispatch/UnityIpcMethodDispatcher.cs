@@ -82,7 +82,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                         null);
                 }
 
-                return await ExecuteOnSelectedLaneAsync(methodHandler, request, executionCancellationToken);
+                var response = await ExecuteOnSelectedLaneAsync(methodHandler, request, executionCancellationToken);
+                return EnsureCorrelatedResponse(request, response);
             }
             catch (OperationCanceledException) when (IsExecutionDeadlineCancellation(executionDeadlineScope, cancellationToken))
             {
@@ -150,7 +151,12 @@ namespace MackySoft.Ucli.Unity.Ipc
                         null);
                 }
 
-                return await ExecuteOnSelectedLaneAsync(streamingMethodHandler, request, streamWriter, executionCancellationToken);
+                var response = await ExecuteOnSelectedLaneAsync(
+                    streamingMethodHandler,
+                    request,
+                    streamWriter,
+                    executionCancellationToken);
+                return EnsureCorrelatedResponse(request, response);
             }
             catch (OperationCanceledException) when (IsExecutionDeadlineCancellation(executionDeadlineScope, cancellationToken))
             {
@@ -211,6 +217,28 @@ namespace MackySoft.Ucli.Unity.Ipc
                 request,
                 IpcTransportErrorCodes.IpcTimeout,
                 $"Unity IPC request timed out before method execution reached a terminal state: {request.Method}.",
+                null);
+        }
+
+        /// <summary> Returns a response correlated to the incoming request. </summary>
+        /// <param name="request"> The incoming request. </param>
+        /// <param name="response"> The response produced by a method handler or recovery replay. </param>
+        /// <returns> The supplied response when correlated; otherwise an internal-error response correlated to <paramref name="request" />. </returns>
+        private static IpcResponse EnsureCorrelatedResponse (
+            IpcRequest request,
+            IpcResponse response)
+        {
+            if (response != null && response.RequestId == request.RequestId)
+            {
+                return response;
+            }
+
+            var actualRequestId = response?.RequestId?.ToString("D") ?? "null";
+            return UnityIpcResponseFactory.CreateErrorResponse(
+                request,
+                UcliCoreErrorCodes.InternalError,
+                $"IPC method '{request.Method}' returned an uncorrelated response. "
+                    + $"Expected requestId={request.RequestId:D}, actual requestId={actualRequestId}.",
                 null);
         }
 
@@ -443,10 +471,12 @@ namespace MackySoft.Ucli.Unity.Ipc
                     ReportMaintenanceFailureOnMainThread();
                 }
 
-                var response = await methodHandler.HandleRecoverableAsync(
+                var response = EnsureCorrelatedResponse(
                     request,
-                    context,
-                    cancellationToken);
+                    await methodHandler.HandleRecoverableAsync(
+                        request,
+                        context,
+                        cancellationToken));
                 terminalResponseSource.TrySetResult(response);
                 return response;
             };

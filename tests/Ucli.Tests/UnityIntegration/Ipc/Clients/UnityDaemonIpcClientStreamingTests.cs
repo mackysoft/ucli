@@ -19,9 +19,9 @@ public sealed class UnityDaemonIpcClientStreamingTests
     public async Task SendStreamingAsync_WhenDispatchUsesRotatedSessionToken_ReloadsSessionAndRetriesSameRequest ()
     {
         var timeProvider = new ManualTimeProvider();
-        var transportClient = new RecordingIpcTransportClient(_ => CreateResponse("unused"));
+        var transportClient = new RecordingIpcTransportClient(_ => CreateResponse(Guid.NewGuid()));
         transportClient.EnqueueResponse(CreateSessionTokenInvalidResponse());
-        transportClient.EnqueueResponse(CreateResponse("req-recovered-session"));
+        transportClient.EnqueueResponse(CreateResponse(Guid.NewGuid()));
         var sessionConnectionProvider = new QueuedDaemonSessionConnectionProvider(
             CreateConnectionResult("daemon-token-1"),
             CreateConnectionResult("daemon-token-2"));
@@ -59,7 +59,7 @@ public sealed class UnityDaemonIpcClientStreamingTests
     public async Task SendStreamingAsync_WithServerExecutionTimeout_ReservesResponseGraceBeforeTransportDeadline ()
     {
         var timeProvider = new ManualTimeProvider();
-        var response = CreateResponse("req-stream-server-timeout-grace");
+        var response = CreateResponse(Guid.NewGuid());
         var transportClient = new RecordingIpcTransportClient(_ => response);
         var sessionConnectionProvider = new QueuedDaemonSessionConnectionProvider(
             CreateConnectionResult("daemon-token"));
@@ -99,7 +99,7 @@ public sealed class UnityDaemonIpcClientStreamingTests
     [Trait("Size", "Small")]
     public async Task SendStreamingAsync_WhenDispatchIsRecoverable_ReturnsFailureWithoutCallingTransport ()
     {
-        var transportClient = new RecordingIpcTransportClient(_ => CreateResponse("unused"));
+        var transportClient = new RecordingIpcTransportClient(_ => CreateResponse(Guid.NewGuid()));
         var sessionConnectionProvider = new UnexpectedDaemonSessionConnectionProvider(
             "Recoverable streaming dispatch should fail before session connection resolution.");
         var client = new UnityDaemonIpcClient(
@@ -129,7 +129,7 @@ public sealed class UnityDaemonIpcClientStreamingTests
     public async Task SendStreamingAsync_WhenProgressFrameHandlerFails_RethrowsHandlerException ()
     {
         var handlerException = new InvalidOperationException("progress frame rejected");
-        var transportClient = new RecordingIpcTransportClient(_ => CreateResponse("unused"));
+        var transportClient = new RecordingIpcTransportClient(_ => CreateResponse(Guid.NewGuid()));
         transportClient.EnqueueException(new IpcProgressFrameHandlerException(handlerException));
         var sessionConnectionProvider = new QueuedDaemonSessionConnectionProvider(
             CreateConnectionResult("daemon-token"));
@@ -162,8 +162,8 @@ public sealed class UnityDaemonIpcClientStreamingTests
     public async Task SendStreamingAsync_WhenSessionTokenIsTemporarilyUnavailableDuringRecovery_WaitsAndSendsRecoveredSessionToken ()
     {
         var timeProvider = new ManualTimeProvider();
-        var transportClient = new RecordingIpcTransportClient(_ => CreateResponse("unused"));
-        transportClient.EnqueueResponse(CreateResponse("req-recovered-stream"));
+        var transportClient = new RecordingIpcTransportClient(_ => CreateResponse(Guid.NewGuid()));
+        transportClient.EnqueueResponse(CreateResponse(Guid.NewGuid()));
         var session = DaemonSessionTestFactory.CreateEditorInstance();
         var recoveryWaiter = CreateRecoveryWaiter(session);
         var sessionConnectionProvider = new QueuedDaemonSessionConnectionProvider(
@@ -197,7 +197,7 @@ public sealed class UnityDaemonIpcClientStreamingTests
             transportClient,
             IpcMethodNames.TestRun,
             "daemon-token-2");
-        Assert.StartsWith($"{IpcMethodNames.TestRun}-", request.RequestId, StringComparison.Ordinal);
+        Assert.NotEqual(Guid.Empty, request.RequestId);
     }
 
     [Fact]
@@ -205,9 +205,9 @@ public sealed class UnityDaemonIpcClientStreamingTests
     public async Task SendStreamingAsync_WhenConnectionIsRefusedDuringRecovery_RetriesWithSameRequestIdAndReloadedSessionToken ()
     {
         var timeProvider = new ManualTimeProvider();
-        var transportClient = new RecordingIpcTransportClient(_ => CreateResponse("unused"));
+        var transportClient = new RecordingIpcTransportClient(_ => CreateResponse(Guid.NewGuid()));
         transportClient.EnqueueException(new SocketException((int)SocketError.ConnectionRefused));
-        transportClient.EnqueueResponse(CreateResponse("req-recovered-stream"));
+        transportClient.EnqueueResponse(CreateResponse(Guid.NewGuid()));
         var session = DaemonSessionTestFactory.CreateEditorInstance();
         var recoveryWaiter = CreateRecoveryWaiter(session);
         var sessionConnectionProvider = new QueuedDaemonSessionConnectionProvider(
@@ -243,6 +243,6 @@ public sealed class UnityDaemonIpcClientStreamingTests
             "daemon-token-1",
             "daemon-token-2");
         var requestId = IpcRequestAssert.SingleRequestId(requests);
-        Assert.StartsWith($"{IpcMethodNames.TestRun}-", requestId, StringComparison.Ordinal);
+        Assert.NotEqual(Guid.Empty, requestId);
     }
 }

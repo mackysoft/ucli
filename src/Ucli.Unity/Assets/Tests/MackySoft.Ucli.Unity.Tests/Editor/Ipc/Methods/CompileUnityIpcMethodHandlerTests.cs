@@ -26,8 +26,8 @@ namespace MackySoft.Ucli.Unity.Tests
         public void TryCreateRecoverableRequestPayloadHash_WhenOnlyTimeoutDiffers_ReturnsSameHash ()
         {
             var handler = CreateHandler();
-            var firstRequest = CreateCompileRequest("req-compile-hash-1", "run-hash", timeoutMilliseconds: 1000);
-            var secondRequest = CreateCompileRequest("req-compile-hash-2", "run-hash", timeoutMilliseconds: 2000);
+            var firstRequest = CreateCompileRequest(Guid.NewGuid(), "run-hash", timeoutMilliseconds: 1000);
+            var secondRequest = CreateCompileRequest(Guid.NewGuid(), "run-hash", timeoutMilliseconds: 2000);
 
             var firstResult = handler.TryCreateRecoverableRequestPayloadHash(
                 firstRequest,
@@ -49,8 +49,8 @@ namespace MackySoft.Ucli.Unity.Tests
         public void TryCreateRecoverableRequestPayloadHash_WhenRunIdDiffers_ReturnsDifferentHash ()
         {
             var handler = CreateHandler();
-            var firstRequest = CreateCompileRequest("req-compile-hash-1", "run-hash-1");
-            var secondRequest = CreateCompileRequest("req-compile-hash-2", "run-hash-2");
+            var firstRequest = CreateCompileRequest(Guid.NewGuid(), "run-hash-1");
+            var secondRequest = CreateCompileRequest(Guid.NewGuid(), "run-hash-2");
 
             var firstResult = handler.TryCreateRecoverableRequestPayloadHash(
                 firstRequest,
@@ -71,7 +71,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public void TryCreateRecoverableRequestPayloadHash_WhenRunIdIsInvalid_ReturnsInvalidArgument ()
         {
             var handler = CreateHandler();
-            var request = CreateCompileRequest("req-compile-invalid-run", "../run");
+            var request = CreateCompileRequest(Guid.NewGuid(), "../run");
 
             var result = handler.TryCreateRecoverableRequestPayloadHash(
                 request,
@@ -89,7 +89,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public void TryCreateRecoverableRequestPayloadHash_WhenTimeoutIsInvalid_ReturnsInvalidArgument ()
         {
             var handler = CreateHandler();
-            var request = CreateCompileRequest("req-compile-invalid-timeout", "run-hash", timeoutMilliseconds: 0);
+            var request = CreateCompileRequest(Guid.NewGuid(), "run-hash", timeoutMilliseconds: 0);
 
             var result = handler.TryCreateRecoverableRequestPayloadHash(
                 request,
@@ -110,7 +110,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var artifactsDirectory = ResolveArtifactsDirectory(runId);
             try
             {
-                var request = CreateCompileRequest("req-compile-recover", runId);
+                var request = CreateCompileRequest(Guid.NewGuid(), runId);
                 var pendingSummary = CreatePendingSummary(runId);
                 Directory.CreateDirectory(artifactsDirectory);
                 var staleSummary = pendingSummary with
@@ -161,20 +161,20 @@ namespace MackySoft.Ucli.Unity.Tests
         });
 
         private static IpcRequest CreateCompileRequest (
-            string requestId,
+            Guid requestId,
             string runId,
             int timeoutMilliseconds = 5000)
         {
             return new IpcRequest(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: requestId,
-                SessionToken: "session-token",
-                Method: IpcMethodNames.Compile,
-                Payload: IpcPayloadCodec.SerializeToElement(new IpcCompileRequest(runId)
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: requestId,
+                sessionToken: "session-token",
+                method: IpcMethodNames.Compile,
+                payload: IpcPayloadCodec.SerializeToElement(new IpcCompileRequest(runId)
                 {
                     TimeoutMilliseconds = timeoutMilliseconds,
                 }),
-                responseMode: IpcResponseMode.Single);
+                responseMode: "single");
         }
 
         private static CompileUnityIpcMethodHandler CreateHandler ()
@@ -274,7 +274,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             public ValueTask<RecoverableIpcOperationReadResult> ReadAsync (
                 string method,
-                string requestId,
+                Guid requestId,
                 string requestPayloadHash,
                 CancellationToken cancellationToken)
             {
@@ -285,7 +285,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public ValueTask<RecoverableIpcOperationStoreResult> WritePendingAsync (
                 string method,
-                string requestId,
+                Guid requestId,
                 string requestPayloadHash,
                 DateTimeOffset startedAtUtc,
                 JsonElement recoveryPayload,
@@ -298,7 +298,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public ValueTask<RecoverableIpcOperationStoreResult> WriteCompletedAsync (
                 string method,
-                string requestId,
+                Guid requestId,
                 string requestPayloadHash,
                 DateTimeOffset startedAtUtc,
                 DateTimeOffset completedAtUtc,

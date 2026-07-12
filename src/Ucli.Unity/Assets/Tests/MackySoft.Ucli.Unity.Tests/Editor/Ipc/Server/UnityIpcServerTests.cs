@@ -600,13 +600,13 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator Start_WhenTransportReportsShutdownCompletion_SignalsShutdown () => UniTask.ToCoroutine(async () =>
         {
-            var request = CreateShutdownRequest("valid-token", "req-server-shutdown-complete");
+            var request = CreateShutdownRequest("valid-token", Guid.NewGuid());
             var response = new IpcResponse(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: request.RequestId,
-                Status: IpcProtocol.StatusOk,
-                Payload: JsonSerializer.SerializeToElement(new IpcShutdownResponse(true, "ok"), SerializerOptions),
-                Errors: Array.Empty<IpcError>());
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: request.RequestId,
+                status: IpcProtocol.StatusOk,
+                payload: JsonSerializer.SerializeToElement(new IpcShutdownResponse(true, "ok"), SerializerOptions),
+                errors: Array.Empty<IpcError>());
             var listener = new CompletionReportingTransportListener(
                 IpcTransportKind.NamedPipe,
                 new UnityIpcConnectionHandleResult(
@@ -981,14 +981,15 @@ namespace MackySoft.Ucli.Unity.Tests
                 new StubSessionTokenValidator(accepted: true),
                 dispatcher,
                 new StubUnityTestRunService());
-            var request = CreateExecuteRequest(sessionToken: "valid-token", requestId: "req-execute");
+            var requestId = Guid.NewGuid();
+            var request = CreateExecuteRequest(sessionToken: "valid-token", requestId);
 
             var response = await requestHandler.HandleAsync(request);
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
             Assert.That(dispatcher.CallCount, Is.EqualTo(1));
             Assert.That(dispatcher.LastContext, Is.Not.Null);
-            Assert.That(dispatcher.LastContext.RequestId, Is.EqualTo("req-execute"));
+            Assert.That(dispatcher.LastContext.RequestId, Is.EqualTo(requestId));
         });
 
         [UnityTest]
@@ -999,7 +1000,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 new StubSessionTokenValidator(accepted: true),
                 new StubExecuteRequestDispatcher(),
                 new StubUnityTestRunService());
-            var request = CreateShutdownRequest(sessionToken: "valid-token", requestId: "req-shutdown");
+            var request = CreateShutdownRequest(sessionToken: "valid-token", Guid.NewGuid());
 
             var response = await requestHandler.HandleAsync(request);
 
@@ -1018,7 +1019,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 new StubSessionTokenValidator(accepted: true),
                 new StubExecuteRequestDispatcher(),
                 testRunService);
-            var request = CreateTestRunRequest(sessionToken: "valid-token", requestId: "req-test-run", failFast: true);
+            var request = CreateTestRunRequest(sessionToken: "valid-token", Guid.NewGuid(), failFast: true);
 
             var response = await requestHandler.HandleAsync(request);
 
@@ -1043,7 +1044,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 new StubSessionTokenValidator(accepted: true),
                 new StubExecuteRequestDispatcher(),
                 testRunService);
-            var request = CreateTestRunRequest(sessionToken: "valid-token", requestId: "req-test-run-lifecycle-error");
+            var request = CreateTestRunRequest(sessionToken: "valid-token", Guid.NewGuid());
 
             var response = await requestHandler.HandleAsync(request);
 
@@ -1064,12 +1065,12 @@ namespace MackySoft.Ucli.Unity.Tests
                 new StubUnityTestRunService());
             var invalidPayload = JsonSerializer.SerializeToElement(123, SerializerOptions);
             var request = new IpcRequest(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: "req-test-run-invalid",
-                SessionToken: "valid-token",
-                Method: IpcMethodNames.TestRun,
-                Payload: invalidPayload,
-                responseMode: IpcResponseMode.Single);
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: Guid.NewGuid(),
+                sessionToken: "valid-token",
+                method: IpcMethodNames.TestRun,
+                payload: invalidPayload,
+                responseMode: "single");
 
             var response = await requestHandler.HandleAsync(request);
 
@@ -1086,7 +1087,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 new StubSessionTokenValidator(accepted: true),
                 new StubExecuteRequestDispatcher(),
                 new StubUnityTestRunService());
-            var request = CreateDaemonLogsReadRequest(sessionToken: "valid-token", requestId: "req-daemon-logs");
+            var request = CreateDaemonLogsReadRequest(sessionToken: "valid-token", Guid.NewGuid());
 
             var response = await requestHandler.HandleAsync(request);
 
@@ -1106,7 +1107,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 new StubSessionTokenValidator(accepted: true),
                 new StubExecuteRequestDispatcher(),
                 new StubUnityTestRunService());
-            var request = CreateUnityLogsReadRequest(sessionToken: "valid-token", requestId: "req-unity-logs");
+            var request = CreateUnityLogsReadRequest(sessionToken: "valid-token", Guid.NewGuid());
 
             var response = await requestHandler.HandleAsync(request);
 
@@ -1127,7 +1128,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 new StubSessionTokenValidator(accepted: true),
                 new StubExecuteRequestDispatcher(),
                 new StubUnityTestRunService());
-            var request = CreateUnityConsoleClearRequest(sessionToken: "valid-token", requestId: "req-unity-console-clear");
+            var request = CreateUnityConsoleClearRequest(sessionToken: "valid-token", Guid.NewGuid());
 
             var response = await requestHandler.HandleAsync(request);
 
@@ -1140,23 +1141,23 @@ namespace MackySoft.Ucli.Unity.Tests
         private static IpcRequest CreatePingRequest (string sessionToken)
         {
             return new IpcRequest(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: "req-ping",
-                SessionToken: sessionToken,
-                Method: IpcMethodNames.Ping,
-                Payload: JsonSerializer.SerializeToElement(new IpcPingRequest("tests"), SerializerOptions),
-                responseMode: IpcResponseMode.Single);
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: Guid.NewGuid(),
+                sessionToken: sessionToken,
+                method: IpcMethodNames.Ping,
+                payload: JsonSerializer.SerializeToElement(new IpcPingRequest("tests"), SerializerOptions),
+                responseMode: "single");
         }
 
         private static IpcRequest CreateExecuteRequest (
             string sessionToken,
-            string requestId)
+            Guid requestId)
         {
             var arguments = JsonSerializer.SerializeToElement(
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId,
+                    requestId = Guid.NewGuid().ToString("D"),
                     ops = Array.Empty<object>(),
                 },
                 SerializerOptions);
@@ -1164,33 +1165,33 @@ namespace MackySoft.Ucli.Unity.Tests
                 new IpcExecuteRequest(UcliCommandIds.Validate, arguments),
                 SerializerOptions);
             return new IpcRequest(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: requestId,
-                SessionToken: sessionToken,
-                Method: IpcMethodNames.Execute,
-                Payload: payload,
-                responseMode: IpcResponseMode.Single);
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: requestId,
+                sessionToken: sessionToken,
+                method: IpcMethodNames.Execute,
+                payload: payload,
+                responseMode: "single");
         }
 
         private static IpcRequest CreateShutdownRequest (
             string sessionToken,
-            string requestId)
+            Guid requestId)
         {
             var payload = JsonSerializer.SerializeToElement(
                 new IpcShutdownRequest("tests"),
                 SerializerOptions);
             return new IpcRequest(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: requestId,
-                SessionToken: sessionToken,
-                Method: IpcMethodNames.Shutdown,
-                Payload: payload,
-                responseMode: IpcResponseMode.Single);
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: requestId,
+                sessionToken: sessionToken,
+                method: IpcMethodNames.Shutdown,
+                payload: payload,
+                responseMode: "single");
         }
 
         private static IpcRequest CreateTestRunRequest (
             string sessionToken,
-            string requestId,
+            Guid requestId,
             bool failFast = false)
         {
             var payload = JsonSerializer.SerializeToElement(
@@ -1206,17 +1207,17 @@ namespace MackySoft.Ucli.Unity.Tests
                     RunId: "run-id"),
                 SerializerOptions);
             return new IpcRequest(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: requestId,
-                SessionToken: sessionToken,
-                Method: IpcMethodNames.TestRun,
-                Payload: payload,
-                responseMode: IpcResponseMode.Single);
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: requestId,
+                sessionToken: sessionToken,
+                method: IpcMethodNames.TestRun,
+                payload: payload,
+                responseMode: "single");
         }
 
         private static IpcRequest CreateDaemonLogsReadRequest (
             string sessionToken,
-            string requestId)
+            Guid requestId)
         {
             var payload = JsonSerializer.SerializeToElement(
                 new IpcDaemonLogsReadRequest(
@@ -1230,17 +1231,17 @@ namespace MackySoft.Ucli.Unity.Tests
                     Category: null),
                 SerializerOptions);
             return new IpcRequest(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: requestId,
-                SessionToken: sessionToken,
-                Method: IpcMethodNames.DaemonLogsRead,
-                Payload: payload,
-                responseMode: IpcResponseMode.Single);
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: requestId,
+                sessionToken: sessionToken,
+                method: IpcMethodNames.DaemonLogsRead,
+                payload: payload,
+                responseMode: "single");
         }
 
         private static IpcRequest CreateUnityLogsReadRequest (
             string sessionToken,
-            string requestId)
+            Guid requestId)
         {
             var payload = JsonSerializer.SerializeToElement(
                 new IpcUnityLogsReadRequest(
@@ -1257,28 +1258,28 @@ namespace MackySoft.Ucli.Unity.Tests
                     StackTraceMaxChars: null),
                 SerializerOptions);
             return new IpcRequest(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: requestId,
-                SessionToken: sessionToken,
-                Method: IpcMethodNames.UnityLogsRead,
-                Payload: payload,
-                responseMode: IpcResponseMode.Single);
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: requestId,
+                sessionToken: sessionToken,
+                method: IpcMethodNames.UnityLogsRead,
+                payload: payload,
+                responseMode: "single");
         }
 
         private static IpcRequest CreateUnityConsoleClearRequest (
             string sessionToken,
-            string requestId)
+            Guid requestId)
         {
             var payload = JsonSerializer.SerializeToElement(
                 new IpcUnityConsoleClearRequest("tests"),
                 SerializerOptions);
             return new IpcRequest(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: requestId,
-                SessionToken: sessionToken,
-                Method: IpcMethodNames.UnityConsoleClear,
-                Payload: payload,
-                responseMode: IpcResponseMode.Single);
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: requestId,
+                sessionToken: sessionToken,
+                method: IpcMethodNames.UnityConsoleClear,
+                payload: payload,
+                responseMode: "single");
         }
 
         private static UnityIpcServer CreateServerForLifecycle ()
@@ -1584,13 +1585,13 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 CallCount++;
-                var request = CreateShutdownRequest("valid-token", "req-transport-shutdown");
+                var request = CreateShutdownRequest("valid-token", Guid.NewGuid());
                 var response = new IpcResponse(
-                    ProtocolVersion: IpcProtocol.CurrentVersion,
-                    RequestId: request.RequestId,
-                    Status: IpcProtocol.StatusOk,
-                    Payload: JsonSerializer.SerializeToElement(new IpcShutdownResponse(true, "ok"), SerializerOptions),
-                    Errors: Array.Empty<IpcError>());
+                    protocolVersion: IpcProtocol.CurrentVersion,
+                    requestId: request.RequestId,
+                    status: IpcProtocol.StatusOk,
+                    payload: JsonSerializer.SerializeToElement(new IpcShutdownResponse(true, "ok"), SerializerOptions),
+                    errors: Array.Empty<IpcError>());
                 return Task.FromResult(new UnityIpcConnectionHandleResult(
                     request,
                     response,
@@ -1752,11 +1753,11 @@ namespace MackySoft.Ucli.Unity.Tests
                     new IpcExecuteResponse(Array.Empty<IpcExecuteOperationResult>()),
                     SerializerOptions);
                 return Task.FromResult(new IpcResponse(
-                    ProtocolVersion: context.ProtocolVersion,
-                    RequestId: context.RequestId,
-                    Status: IpcProtocol.StatusOk,
-                    Payload: payload,
-                    Errors: Array.Empty<IpcError>()));
+                    protocolVersion: context.ProtocolVersion,
+                    requestId: context.RequestId,
+                    status: IpcProtocol.StatusOk,
+                    payload: payload,
+                    errors: Array.Empty<IpcError>()));
             }
         }
 

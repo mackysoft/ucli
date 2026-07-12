@@ -47,11 +47,11 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
             var payloadModel = CreateExecutePayload(context.Project, trace.Steps, trace.OperationTraces, trace.PlanToken, issuedAtUtc, contractViolations);
             var errors = CreateErrors(trace.Errors, contractViolations);
             return new IpcResponse(
-                ProtocolVersion: context.ProtocolVersion,
-                RequestId: context.RequestId,
-                Status: errors.Length == 0 ? IpcProtocol.StatusOk : IpcProtocol.StatusError,
-                Payload: JsonSerializer.SerializeToElement(payloadModel, serializerOptions),
-                Errors: errors);
+                protocolVersion: context.ProtocolVersion,
+                requestId: context.RequestId,
+                status: errors.Length == 0 ? IpcProtocol.StatusOk : IpcProtocol.StatusError,
+                payload: JsonSerializer.SerializeToElement(payloadModel, serializerOptions),
+                errors: errors);
         }
 
         /// <summary> Creates an error response with one error entry. </summary>
@@ -80,11 +80,11 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
             }
 
             return new IpcResponse(
-                ProtocolVersion: context.ProtocolVersion,
-                RequestId: context.RequestId,
-                Status: IpcProtocol.StatusError,
-                Payload: JsonSerializer.SerializeToElement(CreateEmptyExecutePayload(context.Project), serializerOptions),
-                Errors: new[]
+                protocolVersion: context.ProtocolVersion,
+                requestId: context.RequestId,
+                status: IpcProtocol.StatusError,
+                payload: JsonSerializer.SerializeToElement(CreateEmptyExecutePayload(context.Project), serializerOptions),
+                errors: new[]
                 {
                     new IpcError(code, message, opId),
                 });

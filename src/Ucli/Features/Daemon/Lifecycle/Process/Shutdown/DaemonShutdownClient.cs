@@ -4,6 +4,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Process.Shutdown;
@@ -49,12 +50,12 @@ internal sealed class DaemonShutdownClient : IDaemonShutdownClient
 
             var payload = IpcPayloadCodec.SerializeToElement(new IpcShutdownRequest("ucli-daemon-stop"));
             var request = new IpcRequest(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: $"daemon-stop-{Guid.NewGuid():N}",
-                SessionToken: connection.SessionToken,
-                Method: IpcMethodNames.Shutdown,
-                Payload: payload,
-                responseMode: IpcResponseMode.Single);
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: Guid.NewGuid(),
+                sessionToken: connection.SessionToken,
+                method: IpcMethodNames.Shutdown,
+                payload: payload,
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single));
             var response = await transportClient.SendAsync(
                     connection.Endpoint,
                     request,

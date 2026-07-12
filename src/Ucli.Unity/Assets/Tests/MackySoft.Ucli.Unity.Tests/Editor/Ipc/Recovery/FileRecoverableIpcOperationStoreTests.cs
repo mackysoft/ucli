@@ -40,17 +40,18 @@ namespace MackySoft.Ucli.Unity.Tests
                 var store = CreateStore(projectPath);
                 var startedAtUtc = DateTimeOffset.UtcNow;
                 var payload = IpcPayloadCodec.SerializeToElement(new { before = "snapshot" });
+                var requestId = new Guid("7b6d4c17-1b8e-4f28-a2e6-123456789abc");
 
                 var writeResult = await store.WritePendingAsync(
                     IpcMethodNames.PlayEnter,
-                    "req-pending",
+                    requestId,
                     RequestPayloadHash,
                     startedAtUtc,
                     payload,
                     CancellationToken.None);
                 var readResult = await store.ReadAsync(
                     IpcMethodNames.PlayEnter,
-                    "req-pending",
+                    requestId,
                     RequestPayloadHash,
                     CancellationToken.None);
 
@@ -58,10 +59,20 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(readResult.IsSuccess, Is.True, readResult.ErrorMessage);
                 Assert.That(readResult.Record, Is.Not.Null);
                 Assert.That(readResult.Record.State, Is.EqualTo(RecoverableIpcOperationState.Pending));
-                Assert.That(ReadOperationRecordText(projectPath), Does.Contain("\"state\":\"pending\""));
+                var recordPath = FindOperationRecordPath(projectPath);
+                var recordText = ReadOperationRecordText(projectPath);
+                using var recordDocument = JsonDocument.Parse(recordText);
+                Assert.That(recordText, Does.Contain("\"state\":\"pending\""));
+                Assert.That(recordDocument.RootElement.GetProperty("schemaVersion").GetInt32(), Is.EqualTo(1));
+                Assert.That(
+                    recordDocument.RootElement.GetProperty("requestId").GetString(),
+                    Is.EqualTo("7b6d4c17-1b8e-4f28-a2e6-123456789abc"));
+                Assert.That(
+                    Path.GetFileName(Path.GetDirectoryName(recordPath)),
+                    Is.EqualTo("915924c362f3f70836b55eb1ab0c84c5bd107d4bbeb909a20ffc00d4622ec8e2"));
                 Assert.That(readResult.Record.ProjectFingerprint, Is.EqualTo(ProjectFingerprint));
                 Assert.That(readResult.Record.Method, Is.EqualTo(IpcMethodNames.PlayEnter));
-                Assert.That(readResult.Record.RequestId, Is.EqualTo("req-pending"));
+                Assert.That(readResult.Record.RequestId, Is.EqualTo(requestId));
                 Assert.That(readResult.Record.RequestPayloadHash, Is.EqualTo(RequestPayloadHash));
                 Assert.That(readResult.Record.HostEditorInstanceId, Is.EqualTo("editor-instance-pending"));
                 Assert.That(readResult.Record.StartedAtUtc, Is.EqualTo(startedAtUtc));
@@ -74,6 +85,36 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         });
 
+        [Test]
+        [Category("Size.Small")]
+        public void WriteCompletedAsync_WhenResponseRequestIdDiffers_ThrowsArgumentException ()
+        {
+            var projectPath = CreateTemporaryProjectPath();
+            try
+            {
+                UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-response-mismatch");
+                var store = CreateStore(projectPath);
+                var requestId = Guid.NewGuid();
+                var response = CreateSuccessResponse(Guid.NewGuid());
+
+                var exception = Assert.Throws<ArgumentException>(() => store.WriteCompletedAsync(
+                    IpcMethodNames.Compile,
+                    requestId,
+                    RequestPayloadHash,
+                    DateTimeOffset.UtcNow.AddSeconds(-1),
+                    DateTimeOffset.UtcNow,
+                    IpcPayloadCodec.SerializeToElement(new { runId = "run-1" }),
+                    response,
+                    CancellationToken.None));
+
+                Assert.That(exception.ParamName, Is.EqualTo("response"));
+            }
+            finally
+            {
+                DeleteDirectoryIfExists(projectPath);
+            }
+        }
+
         [UnityTest]
         [Category("Size.Small")]
         public IEnumerator WriteCompletedAsync_ThenReadAsync_RestoresCompletedResponse () => UniTask.ToCoroutine(async () =>
@@ -83,11 +124,12 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-completed");
                 var store = CreateStore(projectPath);
-                var response = CreateSuccessResponse("req-completed");
+                var requestId = Guid.NewGuid();
+                var response = CreateSuccessResponse(requestId);
 
                 var writeResult = await store.WriteCompletedAsync(
                     IpcMethodNames.Compile,
-                    "req-completed",
+                    requestId,
                     RequestPayloadHash,
                     DateTimeOffset.UtcNow.AddSeconds(-1),
                     DateTimeOffset.UtcNow,
@@ -96,7 +138,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     CancellationToken.None);
                 var readResult = await store.ReadAsync(
                     IpcMethodNames.Compile,
-                    "req-completed",
+                    requestId,
                     RequestPayloadHash,
                     CancellationToken.None);
 
@@ -124,9 +166,10 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-invalid-record");
                 var store = CreateStore(projectPath);
+                var requestId = Guid.NewGuid();
                 var writeResult = await store.WritePendingAsync(
                     IpcMethodNames.PlayEnter,
-                    "req-invalid",
+                    requestId,
                     RequestPayloadHash,
                     DateTimeOffset.UtcNow,
                     IpcPayloadCodec.SerializeToElement(new { before = "snapshot" }),
@@ -136,13 +179,53 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 var readResult = await store.ReadAsync(
                     IpcMethodNames.PlayEnter,
-                    "req-invalid",
+                    requestId,
                     RequestPayloadHash,
                     CancellationToken.None);
 
                 Assert.That(readResult.IsSuccess, Is.False);
                 Assert.That(readResult.Record, Is.Null);
                 Assert.That(readResult.ErrorMessage, Does.Contain("identity"));
+            }
+            finally
+            {
+                DeleteDirectoryIfExists(projectPath);
+            }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator ReadAsync_WhenCompletedResponseRequestIdDiffers_RejectsRecord () => UniTask.ToCoroutine(async () =>
+        {
+            var projectPath = CreateTemporaryProjectPath();
+            try
+            {
+                UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-corrupt-response-id");
+                var store = CreateStore(projectPath);
+                var requestId = Guid.NewGuid();
+                var writeResult = await store.WriteCompletedAsync(
+                    IpcMethodNames.Compile,
+                    requestId,
+                    RequestPayloadHash,
+                    DateTimeOffset.UtcNow.AddSeconds(-1),
+                    DateTimeOffset.UtcNow,
+                    IpcPayloadCodec.SerializeToElement(new { runId = "run-1" }),
+                    CreateSuccessResponse(requestId),
+                    CancellationToken.None);
+                Assert.That(writeResult.IsSuccess, Is.True, writeResult.ErrorMessage);
+                RewriteOperationRecord(
+                    projectPath,
+                    record => record.Response = CreateSuccessResponse(Guid.NewGuid()));
+
+                var readResult = await store.ReadAsync(
+                    IpcMethodNames.Compile,
+                    requestId,
+                    RequestPayloadHash,
+                    CancellationToken.None);
+
+                Assert.That(readResult.IsSuccess, Is.False);
+                Assert.That(readResult.Record, Is.Null);
+                Assert.That(readResult.ErrorMessage, Does.Contain("response identity"));
             }
             finally
             {
@@ -159,9 +242,10 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-unsupported-state");
                 var store = CreateStore(projectPath);
+                var requestId = Guid.NewGuid();
                 var writeResult = await store.WritePendingAsync(
                     IpcMethodNames.PlayEnter,
-                    "req-unsupported-state",
+                    requestId,
                     RequestPayloadHash,
                     DateTimeOffset.UtcNow,
                     IpcPayloadCodec.SerializeToElement(new { before = "snapshot" }),
@@ -173,7 +257,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 var readResult = await store.ReadAsync(
                     IpcMethodNames.PlayEnter,
-                    "req-unsupported-state",
+                    requestId,
                     RequestPayloadHash,
                     CancellationToken.None);
 
@@ -196,9 +280,10 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-host-process");
                 var store = CreateStore(projectPath);
+                var requestId = Guid.NewGuid();
                 var writeResult = await store.WritePendingAsync(
                     IpcMethodNames.PlayEnter,
-                    "req-host-process-id",
+                    requestId,
                     RequestPayloadHash,
                     DateTimeOffset.UtcNow,
                     IpcPayloadCodec.SerializeToElement(new { before = "snapshot" }),
@@ -208,7 +293,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 var readResult = await store.ReadAsync(
                     IpcMethodNames.PlayEnter,
-                    "req-host-process-id",
+                    requestId,
                     RequestPayloadHash,
                     CancellationToken.None);
 
@@ -231,21 +316,22 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-host-1");
                 var store = CreateStore(projectPath);
+                var requestId = Guid.NewGuid();
                 var writeResult = await store.WriteCompletedAsync(
                     IpcMethodNames.Compile,
-                    "req-host-editor-instance",
+                    requestId,
                     RequestPayloadHash,
                     DateTimeOffset.UtcNow.AddSeconds(-1),
                     DateTimeOffset.UtcNow,
                     IpcPayloadCodec.SerializeToElement(new { runId = "run-1" }),
-                    CreateSuccessResponse("req-host-editor-instance"),
+                    CreateSuccessResponse(requestId),
                     CancellationToken.None);
                 Assert.That(writeResult.IsSuccess, Is.True, writeResult.ErrorMessage);
                 RewriteOperationRecord(projectPath, record => record.HostEditorInstanceId = "editor-instance-host-2");
 
                 var readResult = await store.ReadAsync(
                     IpcMethodNames.Compile,
-                    "req-host-editor-instance",
+                    requestId,
                     RequestPayloadHash,
                     CancellationToken.None);
 
@@ -268,20 +354,21 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-hash");
                 var store = CreateStore(projectPath);
+                var requestId = Guid.NewGuid();
                 var writeResult = await store.WriteCompletedAsync(
                     IpcMethodNames.PlayEnter,
-                    "req-hash-mismatch",
+                    requestId,
                     RequestPayloadHash,
                     DateTimeOffset.UtcNow.AddSeconds(-1),
                     DateTimeOffset.UtcNow,
                     IpcPayloadCodec.SerializeToElement(new { before = "snapshot" }),
-                    CreateSuccessResponse("req-hash-mismatch"),
+                    CreateSuccessResponse(requestId),
                     CancellationToken.None);
                 Assert.That(writeResult.IsSuccess, Is.True, writeResult.ErrorMessage);
 
                 var readResult = await store.ReadAsync(
                     IpcMethodNames.PlayEnter,
-                    "req-hash-mismatch",
+                    requestId,
                     "other-request-payload-hash",
                     CancellationToken.None);
 
@@ -305,21 +392,22 @@ namespace MackySoft.Ucli.Unity.Tests
                 UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-purge");
                 var store = CreateStore(projectPath);
                 var nowUtc = DateTimeOffset.UtcNow;
+                var requestId = Guid.NewGuid();
                 var writeResult = await store.WriteCompletedAsync(
                     IpcMethodNames.Compile,
-                    "req-expired",
+                    requestId,
                     RequestPayloadHash,
                     nowUtc.AddMinutes(-12),
                     nowUtc.AddMinutes(-11),
                     IpcPayloadCodec.SerializeToElement(new { runId = "run-1" }),
-                    CreateSuccessResponse("req-expired"),
+                    CreateSuccessResponse(requestId),
                     CancellationToken.None);
                 Assert.That(writeResult.IsSuccess, Is.True, writeResult.ErrorMessage);
 
                 var purgeResult = await store.PurgeExpiredRecordsAsync(nowUtc, CancellationToken.None);
                 var readResult = await store.ReadAsync(
                     IpcMethodNames.Compile,
-                    "req-expired",
+                    requestId,
                     RequestPayloadHash,
                     CancellationToken.None);
 
@@ -343,9 +431,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-purge-pending");
                 var store = CreateStore(projectPath);
                 var nowUtc = DateTimeOffset.UtcNow;
+                var requestId = Guid.NewGuid();
                 var writeResult = await store.WritePendingAsync(
                     IpcMethodNames.PlayEnter,
-                    "req-expired-pending",
+                    requestId,
                     RequestPayloadHash,
                     nowUtc.AddHours(-25),
                     IpcPayloadCodec.SerializeToElement(new { before = "snapshot" }),
@@ -355,7 +444,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var purgeResult = await store.PurgeExpiredRecordsAsync(nowUtc, CancellationToken.None);
                 var readResult = await store.ReadAsync(
                     IpcMethodNames.PlayEnter,
-                    "req-expired-pending",
+                    requestId,
                     RequestPayloadHash,
                     CancellationToken.None);
 
@@ -379,9 +468,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-purge-invalid");
                 var store = CreateStore(projectPath);
                 var nowUtc = DateTimeOffset.UtcNow;
+                var requestId = Guid.NewGuid();
                 var writeResult = await store.WritePendingAsync(
                     IpcMethodNames.PlayEnter,
-                    "req-expired-invalid",
+                    requestId,
                     RequestPayloadHash,
                     nowUtc,
                     IpcPayloadCodec.SerializeToElement(new { before = "snapshot" }),
@@ -451,6 +541,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-maintenance-gate");
                 var store = CreateStore(projectPath);
                 var maintenanceGate = GetPrivateField<SemaphoreSlim>(store, "maintenanceGate");
+                var requestId = Guid.NewGuid();
                 await maintenanceGate.WaitAsync(CancellationToken.None);
                 Task<RecoverableIpcOperationStoreResult> purgeTask = null;
                 try
@@ -460,7 +551,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         .AsTask();
                     var writeTask = store.WritePendingAsync(
                             IpcMethodNames.PlayEnter,
-                            "req-while-maintenance-queued",
+                            requestId,
                             RequestPayloadHash,
                             DateTimeOffset.UtcNow,
                             IpcPayloadCodec.SerializeToElement(new { before = "snapshot" }),
@@ -501,9 +592,11 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-maintenance-interleave");
                 var store = CreateStore(projectPath);
+                var existingRequestId = Guid.NewGuid();
+                var newRequestId = Guid.NewGuid();
                 var initialWriteResult = await store.WritePendingAsync(
                     IpcMethodNames.PlayEnter,
-                    "req-existing-during-maintenance",
+                    existingRequestId,
                     RequestPayloadHash,
                     DateTimeOffset.UtcNow,
                     IpcPayloadCodec.SerializeToElement(new { before = "existing" }),
@@ -533,13 +626,13 @@ namespace MackySoft.Ucli.Unity.Tests
 
                     var readTask = store.ReadAsync(
                             IpcMethodNames.PlayEnter,
-                            "req-existing-during-maintenance",
+                            existingRequestId,
                             RequestPayloadHash,
                             CancellationToken.None)
                         .AsTask();
                     var writeTask = store.WritePendingAsync(
                             IpcMethodNames.PlayExit,
-                            "req-new-during-maintenance",
+                            newRequestId,
                             RequestPayloadHash,
                             DateTimeOffset.UtcNow,
                             IpcPayloadCodec.SerializeToElement(new { before = "new" }),
@@ -611,9 +704,10 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-large-record");
                 var store = CreateStore(projectPath);
+                var requestId = Guid.NewGuid();
                 var writeResult = await store.WritePendingAsync(
                     IpcMethodNames.PlayEnter,
-                    "req-large-record",
+                    requestId,
                     RequestPayloadHash,
                     DateTimeOffset.UtcNow,
                     IpcPayloadCodec.SerializeToElement(new { before = "snapshot" }),
@@ -624,7 +718,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 var readResult = await store.ReadAsync(
                     IpcMethodNames.PlayEnter,
-                    "req-large-record",
+                    requestId,
                     RequestPayloadHash,
                     CancellationToken.None);
 
@@ -716,14 +810,14 @@ namespace MackySoft.Ucli.Unity.Tests
             File.WriteAllText(recordPath, update(File.ReadAllText(recordPath)));
         }
 
-        private static IpcResponse CreateSuccessResponse (string requestId)
+        private static IpcResponse CreateSuccessResponse (Guid requestId)
         {
             return new IpcResponse(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: requestId,
-                Status: IpcProtocol.StatusOk,
-                Payload: IpcPayloadCodec.SerializeToElement(new { ok = true }),
-                Errors: Array.Empty<IpcError>());
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: requestId,
+                status: IpcProtocol.StatusOk,
+                payload: IpcPayloadCodec.SerializeToElement(new { ok = true }),
+                errors: Array.Empty<IpcError>());
         }
 
         private static void DeleteDirectoryIfExists (string path)

@@ -42,11 +42,11 @@ public sealed class SupervisorTransportServerTests
                 }
 
                 var response = new IpcResponse(
-                    ProtocolVersion: request.ProtocolVersion,
-                    RequestId: request.RequestId,
-                    Status: IpcProtocol.StatusOk,
-                    Payload: IpcPayloadCodec.SerializeToElement(new TransportServerResponse(request.Method)),
-                    Errors: Array.Empty<IpcError>());
+                    protocolVersion: request.ProtocolVersion,
+                    requestId: request.RequestId,
+                    status: IpcProtocol.StatusOk,
+                    payload: IpcPayloadCodec.SerializeToElement(new TransportServerResponse(request.Method)),
+                    errors: Array.Empty<IpcError>());
                 await IpcFrameCodec.WriteModelAsync(
                         stream,
                         response,
@@ -546,11 +546,11 @@ public sealed class SupervisorTransportServerTests
                 await IpcFrameCodec.WriteModelAsync(
                         stream,
                         new IpcResponse(
-                            ProtocolVersion: request.ProtocolVersion,
-                            RequestId: request.RequestId,
-                            Status: IpcProtocol.StatusOk,
-                            Payload: IpcPayloadCodec.SerializeToElement(new TransportServerResponse(request.Method)),
-                            Errors: Array.Empty<IpcError>()),
+                            protocolVersion: request.ProtocolVersion,
+                            requestId: request.RequestId,
+                            status: IpcProtocol.StatusOk,
+                            payload: IpcPayloadCodec.SerializeToElement(new TransportServerResponse(request.Method)),
+                            errors: Array.Empty<IpcError>()),
                         IpcJsonSerializerOptions.Default,
                         cancellationToken: cancellationToken)
                     .ConfigureAwait(false);
@@ -693,11 +693,11 @@ public sealed class SupervisorTransportServerTests
         await IpcFrameCodec.WriteModelAsync(
                 stream,
                 new IpcResponse(
-                    ProtocolVersion: request.ProtocolVersion,
-                    RequestId: request.RequestId,
-                    Status: IpcProtocol.StatusOk,
-                    Payload: IpcPayloadCodec.SerializeToElement(new TransportServerResponse(request.Method)),
-                    Errors: Array.Empty<IpcError>()),
+                    protocolVersion: request.ProtocolVersion,
+                    requestId: request.RequestId,
+                    status: IpcProtocol.StatusOk,
+                    payload: IpcPayloadCodec.SerializeToElement(new TransportServerResponse(request.Method)),
+                    errors: Array.Empty<IpcError>()),
                 IpcJsonSerializerOptions.Default,
                 cancellationToken: cancellationToken)
             .ConfigureAwait(false);
@@ -722,12 +722,12 @@ public sealed class SupervisorTransportServerTests
     private static IpcRequest CreateRequest (string method)
     {
         return new IpcRequest(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: $"request-{Guid.NewGuid():N}",
-            SessionToken: "session-token",
-            Method: method,
-            Payload: IpcPayloadCodec.SerializeToElement(new { }),
-            responseMode: IpcResponseMode.Single);
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: Guid.NewGuid(),
+            sessionToken: "session-token",
+            method: method,
+            payload: IpcPayloadCodec.SerializeToElement(new { }),
+            responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single));
     }
 
     private sealed record TransportServerResponse (string Method);

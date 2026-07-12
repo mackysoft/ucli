@@ -12,11 +12,11 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
     {
         private readonly object syncRoot = new object();
 
-        private readonly Dictionary<string, CompletedEntry> completedEntries = new Dictionary<string, CompletedEntry>(StringComparer.Ordinal);
+        private readonly Dictionary<Guid, CompletedEntry> completedEntries = new Dictionary<Guid, CompletedEntry>();
 
-        private readonly LinkedList<string> completedOrder = new LinkedList<string>();
+        private readonly LinkedList<Guid> completedOrder = new LinkedList<Guid>();
 
-        private readonly Dictionary<string, InFlightEntry> inFlightEntries = new Dictionary<string, InFlightEntry>(StringComparer.Ordinal);
+        private readonly Dictionary<Guid, InFlightEntry> inFlightEntries = new Dictionary<Guid, InFlightEntry>();
 
         private readonly TimeSpan cacheTtl;
 
@@ -55,7 +55,7 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
         /// <param name="requestFingerprint"> The deterministic request fingerprint. </param>
         /// <returns> The idempotency decision. </returns>
         public ExecuteRequestIdempotencyStoreDecision Acquire (
-            string requestId,
+            Guid requestId,
             string requestFingerprint)
         {
             var nowUtc = utcNowProvider();
@@ -96,7 +96,7 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
         /// <param name="response"> The completed response envelope. </param>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="response" /> is <see langword="null" />. </exception>
         public void CompleteSuccess (
-            string requestId,
+            Guid requestId,
             string requestFingerprint,
             IpcResponse response)
         {
@@ -121,7 +121,7 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
 
         /// <summary> Completes one owner execution with cancellation and notifies shared waiters. </summary>
         /// <param name="requestId"> The request identifier. </param>
-        public void CompleteCanceled (string requestId)
+        public void CompleteCanceled (Guid requestId)
         {
             lock (syncRoot)
             {
@@ -140,7 +140,7 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
         /// <param name="exception"> The execution failure exception. </param>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="exception" /> is <see langword="null" />. </exception>
         public void CompleteFailed (
-            string requestId,
+            Guid requestId,
             Exception exception)
         {
             if (exception == null)
@@ -166,7 +166,7 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
         /// <param name="response"> The completed response. </param>
         /// <param name="createdAtUtc"> The completion timestamp in UTC. </param>
         private void SaveCompletedEntry (
-            string requestId,
+            Guid requestId,
             string requestFingerprint,
             IpcResponse response,
             DateTimeOffset createdAtUtc)
@@ -235,6 +235,6 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
             string RequestFingerprint,
             IpcResponse Response,
             DateTimeOffset ExpiresAtUtc,
-            LinkedListNode<string> OrderNode);
+            LinkedListNode<Guid> OrderNode);
     }
 }

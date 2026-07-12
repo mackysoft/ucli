@@ -135,11 +135,11 @@ internal static class PlayStatusServiceTestSupport
     public static UnityRequestResponse CreateResponse (IpcPlayStatusResponse payload)
     {
         return UnityRequestResponseTestFactory.Create(new IpcResponse(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: "request-1",
-            Status: IpcProtocol.StatusOk,
-            Payload: IpcPayloadCodec.SerializeToElement(payload),
-            Errors: []));
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: Guid.NewGuid(),
+            status: IpcProtocol.StatusOk,
+            payload: IpcPayloadCodec.SerializeToElement(payload),
+            errors: []));
     }
 
     public static UnityRequestResponse CreateErrorResponse (
@@ -147,11 +147,11 @@ internal static class PlayStatusServiceTestSupport
         string message)
     {
         return UnityRequestResponseTestFactory.Create(new IpcResponse(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: "request-1",
-            Status: IpcProtocol.StatusError,
-            Payload: IpcPayloadCodec.SerializeToElement(new { }),
-            Errors:
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: Guid.NewGuid(),
+            status: IpcProtocol.StatusError,
+            payload: IpcPayloadCodec.SerializeToElement(new { }),
+            errors:
             [
                 new IpcError(code, message, null),
             ]));

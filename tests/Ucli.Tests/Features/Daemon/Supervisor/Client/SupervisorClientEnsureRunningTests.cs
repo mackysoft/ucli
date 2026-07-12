@@ -39,7 +39,7 @@ public sealed class SupervisorClientEnsureRunningTests
 
         var result = await client.EnsureRunningAsync(
             SupervisorClientTestSupport.CreateManifest(),
-            SupervisorClientTestSupport.RequestId,
+            Guid.NewGuid(),
             SupervisorClientTestSupport.CreateUnityProject(),
             timeProvider.GetUtcNow().Add(requestedTimeout),
             attemptTimeout: requestedTimeout,
@@ -78,7 +78,7 @@ public sealed class SupervisorClientEnsureRunningTests
 
         var result = await client.EnsureRunningAsync(
             SupervisorClientTestSupport.CreateManifest(),
-            SupervisorClientTestSupport.RequestId,
+            Guid.NewGuid(),
             SupervisorClientTestSupport.CreateUnityProject(),
             SupervisorClientTestSupport.CreateDeadline(TimeSpan.FromMilliseconds(100)),
             attemptTimeout: TimeSpan.FromMilliseconds(100),
@@ -107,7 +107,7 @@ public sealed class SupervisorClientEnsureRunningTests
 
         var result = await client.EnsureRunningAsync(
             SupervisorClientTestSupport.CreateManifest(),
-            SupervisorClientTestSupport.RequestId,
+            Guid.NewGuid(),
             SupervisorClientTestSupport.CreateUnityProject(),
             SupervisorClientTestSupport.CreateDeadline(TimeSpan.FromMilliseconds(100)),
             attemptTimeout: TimeSpan.FromMilliseconds(100),
@@ -144,7 +144,7 @@ public sealed class SupervisorClientEnsureRunningTests
 
         var resultTask = client.EnsureRunningAsync(
                 SupervisorClientTestSupport.CreateManifest(),
-                SupervisorClientTestSupport.RequestId,
+                Guid.NewGuid(),
                 SupervisorClientTestSupport.CreateUnityProject(),
                 SupervisorClientTestSupport.CreateDeadline(TimeSpan.FromMilliseconds(1)),
                 attemptTimeout: TimeSpan.FromMilliseconds(1),
@@ -185,7 +185,7 @@ public sealed class SupervisorClientEnsureRunningTests
         var client = new SupervisorClient(transportClient, TimeProvider.System);
         var resultTask = client.EnsureRunningAsync(
                 SupervisorClientTestSupport.CreateManifest(),
-                SupervisorClientTestSupport.RequestId,
+                Guid.NewGuid(),
                 SupervisorClientTestSupport.CreateUnityProject(),
                 SupervisorClientTestSupport.CreateDeadline(TimeSpan.FromMilliseconds(1)),
                 attemptTimeout: TimeSpan.FromMilliseconds(1),
@@ -223,7 +223,7 @@ public sealed class SupervisorClientEnsureRunningTests
         var exception = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => client
             .EnsureRunningAsync(
                 SupervisorClientTestSupport.CreateManifest(),
-                SupervisorClientTestSupport.RequestId,
+                Guid.NewGuid(),
                 SupervisorClientTestSupport.CreateUnityProject(),
                 SupervisorClientTestSupport.CreateDeadline(timeout),
                 attemptTimeout: timeout,
@@ -233,6 +233,29 @@ public sealed class SupervisorClientEnsureRunningTests
             .AsTask());
 
         Assert.Equal("attemptTimeout", exception.ParamName);
+        Assert.Empty(transportClient.Invocations);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task EnsureRunning_WhenRequestIdIsEmpty_ThrowsBeforeTransport ()
+    {
+        var transportClient = new StubIpcTransportClient();
+        var client = new SupervisorClient(transportClient, TimeProvider.System);
+
+        var exception = await Assert.ThrowsAsync<ArgumentException>(() => client
+            .EnsureRunningAsync(
+                SupervisorClientTestSupport.CreateManifest(),
+                Guid.Empty,
+                SupervisorClientTestSupport.CreateUnityProject(),
+                SupervisorClientTestSupport.CreateDeadline(TimeSpan.FromSeconds(1)),
+                attemptTimeout: TimeSpan.FromSeconds(1),
+                editorMode: DaemonEditorMode.Gui,
+                onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+                cancellationToken: CancellationToken.None)
+            .AsTask());
+
+        Assert.Equal("requestId", exception.ParamName);
         Assert.Empty(transportClient.Invocations);
     }
 }

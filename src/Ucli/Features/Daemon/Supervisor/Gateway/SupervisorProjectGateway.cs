@@ -116,7 +116,7 @@ internal sealed class SupervisorProjectGateway : IDaemonProjectLifecycleGateway
             return failure;
         }
 
-        var ensureRunningRequestId = CreateRequestId();
+        var ensureRunningRequestId = Guid.NewGuid();
         var ensureRunningDeadlineUtc = timeProvider.GetUtcNow().Add(ensureRunningTimeout);
         var manifest = bootstrapResult.Manifest!;
         var startResult = await supervisorClient.EnsureRunningAsync(
@@ -319,7 +319,7 @@ internal sealed class SupervisorProjectGateway : IDaemonProjectLifecycleGateway
                     "Timed out before supervisor stopProject could begin."));
             }
 
-            var stopProjectRequestId = CreateRequestId();
+            var stopProjectRequestId = Guid.NewGuid();
             var stopProjectDeadlineUtc = timeProvider.GetUtcNow().Add(stopTimeout);
             var stopResult = await supervisorClient.StopProjectAsync(
                     manifest,
@@ -506,11 +506,6 @@ internal sealed class SupervisorProjectGateway : IDaemonProjectLifecycleGateway
     private static bool IsSessionTokenInvalid (ExecutionError? error)
     {
         return error?.Code == IpcSessionErrorCodes.SessionTokenInvalid;
-    }
-
-    private static string CreateRequestId ()
-    {
-        return $"supervisor-{Guid.NewGuid():N}";
     }
 
     private static async ValueTask EmitProgressOutsideBudgetAsync (

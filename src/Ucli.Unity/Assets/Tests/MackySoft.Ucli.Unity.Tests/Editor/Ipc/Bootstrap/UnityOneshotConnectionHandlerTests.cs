@@ -185,12 +185,12 @@ namespace MackySoft.Ucli.Unity.Tests
             JsonElement payload)
         {
             return new IpcRequest(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: $"req-{method}",
-                SessionToken: "oneshot",
-                Method: method,
-                Payload: payload,
-                responseMode: IpcResponseMode.Single);
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: Guid.NewGuid(),
+                sessionToken: "oneshot",
+                method: method,
+                payload: payload,
+                responseMode: "single");
         }
 
         private sealed class StubRequestHandler : IUnityIpcRequestHandler
@@ -226,26 +226,26 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         }
 
-        private static IpcResponse CreateSuccessResponse (string requestId)
+        private static IpcResponse CreateSuccessResponse (Guid requestId)
         {
             return new IpcResponse(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: requestId,
-                Status: IpcProtocol.StatusOk,
-                Payload: JsonSerializer.SerializeToElement(new { ok = true }),
-                Errors: System.Array.Empty<IpcError>());
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: requestId,
+                status: IpcProtocol.StatusOk,
+                payload: JsonSerializer.SerializeToElement(new { ok = true }),
+                errors: System.Array.Empty<IpcError>());
         }
 
         private static IpcResponse CreateErrorResponse (
-            string requestId,
+            Guid requestId,
             UcliCode errorCode)
         {
             return new IpcResponse(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: requestId,
-                Status: IpcProtocol.StatusError,
-                Payload: JsonSerializer.SerializeToElement(new { }),
-                Errors: new[]
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: requestId,
+                status: IpcProtocol.StatusError,
+                payload: JsonSerializer.SerializeToElement(new { }),
+                errors: new[]
                 {
                     new IpcError(errorCode, "error", null),
                 });

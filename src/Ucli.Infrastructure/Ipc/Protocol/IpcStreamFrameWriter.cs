@@ -7,7 +7,7 @@ internal sealed class IpcStreamFrameWriter : IIpcStreamFrameWriter
 {
     private readonly Stream stream;
 
-    private readonly string requestId;
+    private readonly Guid requestId;
 
     private readonly CancellationToken connectionLifetimeCancellationToken;
 
@@ -86,12 +86,12 @@ internal sealed class IpcStreamFrameWriter : IIpcStreamFrameWriter
         cancellationToken.ThrowIfCancellationRequested();
 
         var frame = new IpcStreamFrame(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: requestId,
-            Kind: IpcStreamFrameKinds.Progress,
-            Event: eventName,
-            Payload: IpcPayloadCodec.SerializeToElement(payload),
-            Response: null);
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: requestId,
+            kind: IpcStreamFrameKinds.Progress,
+            @event: eventName,
+            payload: IpcPayloadCodec.SerializeToElement(payload),
+            response: null);
         await WriteFrameAsync(frame, cancellationToken).ConfigureAwait(false);
     }
 
@@ -112,12 +112,12 @@ internal sealed class IpcStreamFrameWriter : IIpcStreamFrameWriter
         cancellationToken.ThrowIfCancellationRequested();
 
         var frame = new IpcStreamFrame(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: requestId,
-            Kind: IpcStreamFrameKinds.Terminal,
-            Event: null,
-            Payload: IpcPayloadCodec.SerializeToElement(new UcliEmptyArgs()),
-            Response: response);
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: requestId,
+            kind: IpcStreamFrameKinds.Terminal,
+            @event: null,
+            payload: IpcPayloadCodec.SerializeToElement(new UcliEmptyArgs()),
+            response: response);
         await WriteFrameAsync(frame, cancellationToken).ConfigureAwait(false);
     }
 

@@ -83,7 +83,7 @@ public sealed class SupervisorClientProgressValidationTests
 
         var result = await client.EnsureRunningAsync(
             SupervisorClientTestSupport.CreateManifest(),
-            SupervisorClientTestSupport.RequestId,
+            Guid.NewGuid(),
             SupervisorClientTestSupport.CreateUnityProject(),
             SupervisorClientTestSupport.CreateDeadline(TimeSpan.FromSeconds(5)),
             attemptTimeout: TimeSpan.FromSeconds(5),
@@ -112,7 +112,7 @@ public sealed class SupervisorClientProgressValidationTests
 
         var result = await client.EnsureRunningAsync(
             SupervisorClientTestSupport.CreateManifest(),
-            SupervisorClientTestSupport.RequestId,
+            Guid.NewGuid(),
             SupervisorClientTestSupport.CreateUnityProject(),
             SupervisorClientTestSupport.CreateDeadline(TimeSpan.FromSeconds(5)),
             attemptTimeout: TimeSpan.FromSeconds(5),

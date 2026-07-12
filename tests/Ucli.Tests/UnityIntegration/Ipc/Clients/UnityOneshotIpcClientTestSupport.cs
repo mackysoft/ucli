@@ -55,27 +55,27 @@ internal static class UnityOneshotIpcClientTestSupport
             [IpcEditorLifecycleStateCodec.CompileFailed, IpcEditorLifecycleStateCodec.SafeMode]);
     }
 
-    public static IpcResponse CreateSuccessResponse (string requestId)
+    public static IpcResponse CreateSuccessResponse (Guid requestId)
     {
         return new IpcResponse(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: requestId,
-            Status: IpcProtocol.StatusOk,
-            Payload: EmptyPayload(),
-            Errors: Array.Empty<IpcError>());
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: requestId,
+            status: IpcProtocol.StatusOk,
+            payload: EmptyPayload(),
+            errors: Array.Empty<IpcError>());
     }
 
-    public static IpcResponse CreateShutdownResponse (string requestId)
+    public static IpcResponse CreateShutdownResponse (Guid requestId)
     {
         var payload = IpcPayloadCodec.SerializeToElement(new IpcShutdownResponse(
             Accepted: true,
             Message: "Shutdown request accepted."));
         return new IpcResponse(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: requestId,
-            Status: IpcProtocol.StatusOk,
-            Payload: payload,
-            Errors: Array.Empty<IpcError>());
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: requestId,
+            status: IpcProtocol.StatusOk,
+            payload: payload,
+            errors: Array.Empty<IpcError>());
     }
 
     public static void AssertTerminalPingAndCleanupShutdownRequests (RecordingUnityIpcTransportClient transportClient)
@@ -86,6 +86,9 @@ internal static class UnityOneshotIpcClientTestSupport
             AssertOneshotCleanupShutdownRequest,
             AssertOneshotCleanupShutdownRequest);
         Assert.Single(shutdownRequests.Select(static request => request.SessionToken).Distinct(StringComparer.Ordinal));
+        var shutdownRequestId = shutdownRequests[0].RequestId;
+        Assert.NotEqual(Guid.Empty, shutdownRequestId);
+        Assert.All(shutdownRequests, request => Assert.Equal(shutdownRequestId, request.RequestId));
     }
 
     public static IpcOneshotBootstrapArguments AssertCleanupShutdownUsesLaunchSession (
@@ -114,7 +117,7 @@ internal static class UnityOneshotIpcClientTestSupport
     }
 
     public static IpcResponse CreatePingResponse (
-        string requestId,
+        Guid requestId,
         string lifecycleState = IpcEditorLifecycleStateCodec.Ready,
         bool canAcceptExecutionRequests = true,
         string projectFingerprint = "project-fingerprint")
@@ -124,11 +127,11 @@ internal static class UnityOneshotIpcClientTestSupport
             canAcceptExecutionRequests: canAcceptExecutionRequests,
             projectFingerprint: projectFingerprint));
         return new IpcResponse(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: requestId,
-            Status: IpcProtocol.StatusOk,
-            Payload: payload,
-            Errors: Array.Empty<IpcError>());
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: requestId,
+            status: IpcProtocol.StatusOk,
+            payload: payload,
+            errors: Array.Empty<IpcError>());
     }
 
     public static RecordingUnityProjectLockPreflightService CreateProjectLockPreflightService (

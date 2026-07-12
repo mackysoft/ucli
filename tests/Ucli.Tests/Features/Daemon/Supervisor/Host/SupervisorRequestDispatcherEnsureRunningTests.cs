@@ -25,11 +25,11 @@ public sealed class SupervisorRequestDispatcherEnsureRunningTests
             dispatcher,
             runtimeContext,
             new IpcRequest(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: "request-delayed-delivery",
-                SessionToken: runtimeContext.Manifest.SessionToken,
-                Method: SupervisorIpcContracts.EnsureRunningMethod,
-                Payload: IpcPayloadCodec.SerializeToElement(new
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: Guid.NewGuid(),
+                sessionToken: runtimeContext.Manifest.SessionToken,
+                method: SupervisorIpcContracts.EnsureRunningMethod,
+                payload: IpcPayloadCodec.SerializeToElement(new
                 {
                     UnityProjectRoot = unityProjectRoot,
                     ProjectFingerprint = projectFingerprint,
@@ -38,7 +38,7 @@ public sealed class SupervisorRequestDispatcherEnsureRunningTests
                     EditorMode = (string?)null,
                     OnStartupBlocked = "auto",
                 }),
-                responseMode: IpcResponseMode.Single));
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single)));
 
         Assert.Equal(IpcProtocol.StatusOk, response.Status);
         var invocation = Assert.Single(startOperation.Invocations);
@@ -64,11 +64,11 @@ public sealed class SupervisorRequestDispatcherEnsureRunningTests
             dispatcher,
             runtimeContext,
             new IpcRequest(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: "ensure-request-clock-rollback",
-                SessionToken: runtimeContext.Manifest.SessionToken,
-                Method: SupervisorIpcContracts.EnsureRunningMethod,
-                Payload: IpcPayloadCodec.SerializeToElement(
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: Guid.NewGuid(),
+                sessionToken: runtimeContext.Manifest.SessionToken,
+                method: SupervisorIpcContracts.EnsureRunningMethod,
+                payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: projectFingerprint,
@@ -76,7 +76,7 @@ public sealed class SupervisorRequestDispatcherEnsureRunningTests
                         AttemptTimeoutMilliseconds: 700,
                         EditorMode: null,
                         OnStartupBlocked: "auto")),
-                responseMode: IpcResponseMode.Single));
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single)));
 
         Assert.Equal(IpcProtocol.StatusOk, response.Status);
         Assert.Equal(TimeSpan.FromMilliseconds(700), Assert.Single(startOperation.Invocations).Timeout);
@@ -101,11 +101,11 @@ public sealed class SupervisorRequestDispatcherEnsureRunningTests
             dispatcher,
             runtimeContext,
             new IpcRequest(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: "ensure-request-clock-forward",
-                SessionToken: runtimeContext.Manifest.SessionToken,
-                Method: SupervisorIpcContracts.EnsureRunningMethod,
-                Payload: IpcPayloadCodec.SerializeToElement(
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: Guid.NewGuid(),
+                sessionToken: runtimeContext.Manifest.SessionToken,
+                method: SupervisorIpcContracts.EnsureRunningMethod,
+                payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: projectFingerprint,
@@ -113,7 +113,7 @@ public sealed class SupervisorRequestDispatcherEnsureRunningTests
                         AttemptTimeoutMilliseconds: 700,
                         EditorMode: null,
                         OnStartupBlocked: "auto")),
-                responseMode: IpcResponseMode.Single));
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single)));
 
         Assert.Equal(IpcProtocol.StatusError, response.Status);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, Assert.Single(response.Errors).Code);
@@ -149,11 +149,11 @@ public sealed class SupervisorRequestDispatcherEnsureRunningTests
             dispatcher,
             runtimeContext,
             new IpcRequest(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: "request-editor-mode",
-                SessionToken: runtimeContext.Manifest.SessionToken,
-                Method: SupervisorIpcContracts.EnsureRunningMethod,
-                Payload: IpcPayloadCodec.SerializeToElement(
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: Guid.NewGuid(),
+                sessionToken: runtimeContext.Manifest.SessionToken,
+                method: SupervisorIpcContracts.EnsureRunningMethod,
+                payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: projectFingerprint,
@@ -161,7 +161,7 @@ public sealed class SupervisorRequestDispatcherEnsureRunningTests
                         AttemptTimeoutMilliseconds: 1000,
                         EditorMode: " gui ",
                         OnStartupBlocked: " terminate ")),
-                responseMode: IpcResponseMode.Single));
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single)));
 
         Assert.True(
             string.Equals(IpcProtocol.StatusOk, response.Status, StringComparison.Ordinal),
@@ -210,11 +210,11 @@ public sealed class SupervisorRequestDispatcherEnsureRunningTests
             dispatcher,
             runtimeContext,
             new IpcRequest(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: "request-attached",
-                SessionToken: runtimeContext.Manifest.SessionToken,
-                Method: SupervisorIpcContracts.EnsureRunningMethod,
-                Payload: IpcPayloadCodec.SerializeToElement(
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: Guid.NewGuid(),
+                sessionToken: runtimeContext.Manifest.SessionToken,
+                method: SupervisorIpcContracts.EnsureRunningMethod,
+                payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: projectFingerprint,
@@ -222,7 +222,7 @@ public sealed class SupervisorRequestDispatcherEnsureRunningTests
                         AttemptTimeoutMilliseconds: 1000,
                         EditorMode: "gui",
                         OnStartupBlocked: "auto")),
-                responseMode: IpcResponseMode.Single));
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single)));
 
         Assert.Equal(IpcProtocol.StatusOk, response.Status);
         Assert.True(IpcPayloadCodec.TryDeserialize(

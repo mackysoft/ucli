@@ -19,24 +19,24 @@ internal static class UnityDaemonIpcClientTestSupport
         return new UnityIpcDispatchRequest(IpcMethodNames.OpsRead, CreateDispatchPayload());
     }
 
-    public static IpcResponse CreateResponse (string requestId)
+    public static IpcResponse CreateResponse (Guid requestId)
     {
         return new IpcResponse(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: requestId,
-            Status: IpcProtocol.StatusOk,
-            Payload: EmptyPayload(),
-            Errors: Array.Empty<IpcError>());
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: requestId,
+            status: IpcProtocol.StatusOk,
+            payload: EmptyPayload(),
+            errors: Array.Empty<IpcError>());
     }
 
     public static IpcResponse CreateSessionTokenInvalidResponse ()
     {
         return new IpcResponse(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: "req-stale-session",
-            Status: IpcProtocol.StatusError,
-            Payload: CreateDispatchPayload(),
-            Errors:
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: Guid.NewGuid(),
+            status: IpcProtocol.StatusError,
+            payload: CreateDispatchPayload(),
+            errors:
             [
                 new IpcError(
                     IpcSessionErrorCodes.SessionTokenInvalid,

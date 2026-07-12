@@ -16,8 +16,8 @@ public sealed class UnityIpcRequestExecutorModeDecisionTests
     public async Task Execute_WhenAutoModeDecisionReturnsContractError_ReturnsContractFailureWithoutCallingClients ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-ipc-request-executor", "contract-error");
-        var daemonTransportClient = new RecordingUnityIpcTransportClient(_ => CreateSuccessResponse("unused"));
-        var oneshotTransportClient = new RecordingUnityIpcTransportClient(_ => CreateSuccessResponse("unused"));
+        var daemonTransportClient = new RecordingUnityIpcTransportClient(_ => CreateSuccessResponse(Guid.NewGuid()));
+        var oneshotTransportClient = new RecordingUnityIpcTransportClient(_ => CreateSuccessResponse(Guid.NewGuid()));
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(new StubUnityBatchmodeProcessHandle()));
         var executor = CreateExecutor(
             new StubModeDecisionService(

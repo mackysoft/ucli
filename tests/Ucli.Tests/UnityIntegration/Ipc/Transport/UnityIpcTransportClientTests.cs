@@ -13,10 +13,10 @@ public sealed class UnityIpcTransportClientTests
     [Trait("Size", "Small")]
     public async Task SendAsync_ResolvesEndpointAndForwardsRequest ()
     {
-        var sendResponse = IpcTransportTestHarness.CreateResponse("request-1", """{"sent":true}""");
+        var request = IpcTransportTestHarness.CreateSingleRequest();
+        var sendResponse = IpcTransportTestHarness.CreateResponse(request.RequestId, """{"sent":true}""");
         var transportClient = new RecordingIpcTransportClient(_ => sendResponse);
         var client = new UnityIpcTransportClient(transportClient);
-        var request = IpcTransportTestHarness.CreateSingleRequest();
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var response = await client.SendAsync(
@@ -39,11 +39,11 @@ public sealed class UnityIpcTransportClientTests
     [Trait("Size", "Small")]
     public async Task SendStreamingAsync_ResolvesEndpointAndForwardsProgressCallback ()
     {
-        var progressFrame = CreateProgressFrame();
-        var streamingResponse = IpcTransportTestHarness.CreateResponse("request-1", """{"streamed":true}""");
+        var request = IpcTransportTestHarness.CreateStreamingRequest();
+        var progressFrame = CreateProgressFrame(request.RequestId);
+        var streamingResponse = IpcTransportTestHarness.CreateResponse(request.RequestId, """{"streamed":true}""");
         var transportClient = new RecordingIpcTransportClient(_ => streamingResponse, _ => progressFrame);
         var client = new UnityIpcTransportClient(transportClient);
-        var request = IpcTransportTestHarness.CreateStreamingRequest();
         var progressFrames = new List<IpcStreamFrame>();
         using var cancellationTokenSource = new CancellationTokenSource();
 
@@ -75,7 +75,7 @@ public sealed class UnityIpcTransportClientTests
     [InlineData(-1)]
     public async Task SendAsync_WithNonPositiveTimeout_ThrowsArgumentOutOfRangeExceptionWithoutSendingRequest (int timeoutMilliseconds)
     {
-        var transportClient = new RecordingIpcTransportClient(_ => IpcTransportTestHarness.CreateResponse("unused", "{}"));
+        var transportClient = new RecordingIpcTransportClient(_ => IpcTransportTestHarness.CreateResponse(Guid.NewGuid(), "{}"));
         var client = new UnityIpcTransportClient(transportClient);
 
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () =>
@@ -96,7 +96,7 @@ public sealed class UnityIpcTransportClientTests
     [InlineData(-1)]
     public async Task SendStreamingAsync_WithNonPositiveTimeout_ThrowsArgumentOutOfRangeExceptionWithoutSendingRequest (int timeoutMilliseconds)
     {
-        var transportClient = new RecordingIpcTransportClient(_ => IpcTransportTestHarness.CreateResponse("unused", "{}"));
+        var transportClient = new RecordingIpcTransportClient(_ => IpcTransportTestHarness.CreateResponse(Guid.NewGuid(), "{}"));
         var client = new UnityIpcTransportClient(transportClient);
 
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () =>
@@ -116,7 +116,7 @@ public sealed class UnityIpcTransportClientTests
     [Trait("Size", "Small")]
     public async Task SendAsync_WhenCancellationIsRequested_ThrowsOperationCanceledExceptionWithoutSendingRequest ()
     {
-        var transportClient = new RecordingIpcTransportClient(_ => IpcTransportTestHarness.CreateResponse("unused", "{}"));
+        var transportClient = new RecordingIpcTransportClient(_ => IpcTransportTestHarness.CreateResponse(Guid.NewGuid(), "{}"));
         var client = new UnityIpcTransportClient(transportClient);
         using var cancellationTokenSource = new CancellationTokenSource();
         cancellationTokenSource.Cancel();
@@ -138,7 +138,7 @@ public sealed class UnityIpcTransportClientTests
     [Trait("Size", "Small")]
     public async Task SendStreamingAsync_WhenCancellationIsRequested_ThrowsOperationCanceledExceptionWithoutSendingRequest ()
     {
-        var transportClient = new RecordingIpcTransportClient(_ => IpcTransportTestHarness.CreateResponse("unused", "{}"));
+        var transportClient = new RecordingIpcTransportClient(_ => IpcTransportTestHarness.CreateResponse(Guid.NewGuid(), "{}"));
         var client = new UnityIpcTransportClient(transportClient);
         using var cancellationTokenSource = new CancellationTokenSource();
         cancellationTokenSource.Cancel();
@@ -157,15 +157,15 @@ public sealed class UnityIpcTransportClientTests
         UnityIpcTransportClientAssert.NoEndpointRequestWasSent(transportClient);
     }
 
-    private static IpcStreamFrame CreateProgressFrame ()
+    private static IpcStreamFrame CreateProgressFrame (Guid requestId)
     {
         return new IpcStreamFrame(
             IpcProtocol.CurrentVersion,
-            "request-1",
+            requestId,
             IpcStreamFrameKinds.Progress,
             "test.progress",
             IpcTransportTestHarness.Json("{}"),
-            Response: null);
+            response: null);
     }
 
 }

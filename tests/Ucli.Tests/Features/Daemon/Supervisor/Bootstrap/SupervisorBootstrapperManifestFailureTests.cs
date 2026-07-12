@@ -166,14 +166,14 @@ public sealed class SupervisorBootstrapperManifestFailureTests
         }
     }
 
-    private static IpcResponse CreateSessionTokenInvalidResponse (string requestId)
+    private static IpcResponse CreateSessionTokenInvalidResponse (Guid requestId)
     {
         return new IpcResponse(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: requestId,
-            Status: IpcProtocol.StatusError,
-            Payload: IpcPayloadCodec.SerializeToElement(new UcliEmptyArgs()),
-            Errors:
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: requestId,
+            status: IpcProtocol.StatusError,
+            payload: IpcPayloadCodec.SerializeToElement(new UcliEmptyArgs()),
+            errors:
             [
                 new IpcError(
                     IpcSessionErrorCodes.SessionTokenInvalid,
@@ -183,16 +183,16 @@ public sealed class SupervisorBootstrapperManifestFailureTests
     }
 
     private static IpcResponse CreatePingResponse (
-        string requestId,
+        Guid requestId,
         SupervisorInstanceManifest manifest)
     {
         return new IpcResponse(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: requestId,
-            Status: IpcProtocol.StatusOk,
-            Payload: IpcPayloadCodec.SerializeToElement(new SupervisorIpcContracts.PingResponse(
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: requestId,
+            status: IpcProtocol.StatusOk,
+            payload: IpcPayloadCodec.SerializeToElement(new SupervisorIpcContracts.PingResponse(
                 manifest.ProcessId,
                 manifest.IssuedAtUtc)),
-            Errors: Array.Empty<IpcError>());
+            errors: Array.Empty<IpcError>());
     }
 }

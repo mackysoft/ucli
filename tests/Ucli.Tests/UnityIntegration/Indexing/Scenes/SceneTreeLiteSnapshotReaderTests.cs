@@ -164,11 +164,11 @@ public sealed class SceneTreeLiteSnapshotReaderTests
         object payload)
     {
         return UnityRequestResponseTestFactory.Create(new IpcResponse(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: "req-scene-tree-lite",
-            Status: status,
-            Payload: IpcPayloadCodec.SerializeToElement(payload),
-            Errors: Array.Empty<IpcError>()));
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: Guid.NewGuid(),
+            status: status,
+            payload: IpcPayloadCodec.SerializeToElement(payload),
+            errors: Array.Empty<IpcError>()));
     }
 
 }

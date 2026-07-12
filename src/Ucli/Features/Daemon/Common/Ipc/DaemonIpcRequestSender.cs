@@ -117,7 +117,13 @@ internal sealed class DaemonIpcRequestSender : IDaemonIpcRequestSender
                     sessionConnection.SessionToken,
                     StringComparison.Ordinal)
                         ? request
-                        : request with { SessionToken = sessionConnection.SessionToken };
+                        : new IpcRequest(
+                            request.ProtocolVersion,
+                            request.RequestId,
+                            sessionConnection.SessionToken,
+                            request.Method,
+                            request.Payload,
+                            request.ResponseMode);
                 var response = await transportClient.SendAsync(
                         sessionConnection.Endpoint,
                         requestForSession,

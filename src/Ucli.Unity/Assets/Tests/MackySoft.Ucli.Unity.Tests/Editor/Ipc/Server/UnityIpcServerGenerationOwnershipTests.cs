@@ -976,18 +976,18 @@ namespace MackySoft.Ucli.Unity.Tests
         private static UnityIpcConnectionHandleResult CreateSuccessfulShutdownResult ()
         {
             var request = new IpcRequest(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: "req-stale-shutdown-completion",
-                SessionToken: "session-token",
-                Method: IpcMethodNames.Shutdown,
-                Payload: IpcPayloadCodec.SerializeToElement(new IpcShutdownRequest("tests")),
-                responseMode: IpcResponseMode.Single);
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: Guid.NewGuid(),
+                sessionToken: "session-token",
+                method: IpcMethodNames.Shutdown,
+                payload: IpcPayloadCodec.SerializeToElement(new IpcShutdownRequest("tests")),
+                responseMode: "single");
             var response = new IpcResponse(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: request.RequestId,
-                Status: IpcProtocol.StatusOk,
-                Payload: IpcPayloadCodec.SerializeToElement(new IpcShutdownResponse(true, "ok")),
-                Errors: Array.Empty<IpcError>());
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: request.RequestId,
+                status: IpcProtocol.StatusOk,
+                payload: IpcPayloadCodec.SerializeToElement(new IpcShutdownResponse(true, "ok")),
+                errors: Array.Empty<IpcError>());
             return new UnityIpcConnectionHandleResult(
                 request,
                 response,

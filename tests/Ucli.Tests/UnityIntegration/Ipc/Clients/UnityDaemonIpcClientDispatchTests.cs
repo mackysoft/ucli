@@ -19,7 +19,7 @@ public sealed class UnityDaemonIpcClientDispatchTests
     [Trait("Size", "Small")]
     public async Task SendAsync_WhenSuccessful_ResolvesSessionConnectionAndDelegatesToTransport ()
     {
-        var response = CreateResponse("req-success");
+        var response = CreateResponse(Guid.NewGuid());
         var transportClient = new RecordingIpcTransportClient(_ => response);
         var sessionConnectionProvider = new QueuedDaemonSessionConnectionProvider(
             CreateConnectionResult("daemon-token"));
@@ -43,6 +43,41 @@ public sealed class UnityDaemonIpcClientDispatchTests
             IpcMethodNames.OpsRead,
             "daemon-token");
         Assert.Equal(CreateDispatchPayload().GetRawText(), request.Payload.GetRawText());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendAsync_ForDistinctDispatches_UsesDistinctNonEmptyRequestIds ()
+    {
+        var transportClient = new RecordingIpcTransportClient(request => CreateResponse(request.RequestId));
+        var sessionConnectionProvider = new QueuedDaemonSessionConnectionProvider(
+            CreateConnectionResult("daemon-token"),
+            CreateConnectionResult("daemon-token"));
+        var client = new UnityDaemonIpcClient(
+            transportClient,
+            sessionConnectionProvider,
+            recoveryWaiter: null,
+            timeProvider: TimeProvider.System);
+        var project = ResolvedUnityProjectContextTestFactory.Create();
+
+        var firstResult = await client.SendAsync(
+            project,
+            CreateDispatchRequest(),
+            TimeSpan.FromSeconds(30),
+            CancellationToken.None);
+        var secondResult = await client.SendAsync(
+            project,
+            CreateDispatchRequest(),
+            TimeSpan.FromSeconds(30),
+            CancellationToken.None);
+
+        Assert.True(firstResult.IsSuccess);
+        Assert.True(secondResult.IsSuccess);
+        Assert.Collection(
+            transportClient.Requests,
+            firstRequest => Assert.NotEqual(Guid.Empty, firstRequest.RequestId),
+            secondRequest => Assert.NotEqual(Guid.Empty, secondRequest.RequestId));
+        Assert.NotEqual(transportClient.Requests[0].RequestId, transportClient.Requests[1].RequestId);
     }
 
     [Theory]
@@ -175,9 +210,9 @@ public sealed class UnityDaemonIpcClientDispatchTests
         bool recoverable)
     {
         var timeProvider = new ManualTimeProvider();
-        var transportClient = new RecordingIpcTransportClient(_ => CreateResponse("unused"));
+        var transportClient = new RecordingIpcTransportClient(_ => CreateResponse(Guid.NewGuid()));
         transportClient.EnqueueResponse(CreateSessionTokenInvalidResponse());
-        transportClient.EnqueueResponse(CreateResponse("req-rotated-session"));
+        transportClient.EnqueueResponse(CreateResponse(Guid.NewGuid()));
         var sessionConnectionProvider = new QueuedDaemonSessionConnectionProvider(
             CreateConnectionResult("daemon-token-1"),
             CreateConnectionResult("daemon-token-2"));
@@ -225,7 +260,7 @@ public sealed class UnityDaemonIpcClientDispatchTests
     public async Task SendAsync_WithServerExecutionTimeout_ReservesResponseGraceBeforeTransportDeadline ()
     {
         var timeProvider = new ManualTimeProvider();
-        var response = CreateResponse("req-server-timeout-grace");
+        var response = CreateResponse(Guid.NewGuid());
         var transportClient = new RecordingIpcTransportClient(_ => response);
         var sessionConnectionProvider = new QueuedDaemonSessionConnectionProvider(
             CreateConnectionResult("daemon-token"));
@@ -580,7 +615,7 @@ public sealed class UnityDaemonIpcClientDispatchTests
     [Trait("Size", "Small")]
     public async Task SendAsync_WhenSessionTokenIsNotAvailable_ReturnsFailureWithoutCallingTransport ()
     {
-        var transportClient = new RecordingIpcTransportClient(_ => CreateResponse("unused"));
+        var transportClient = new RecordingIpcTransportClient(_ => CreateResponse(Guid.NewGuid()));
         var sessionConnectionProvider = new QueuedDaemonSessionConnectionProvider(
             DaemonSessionConnectionResolutionResult.SessionNotAvailable());
         var client = new UnityDaemonIpcClient(

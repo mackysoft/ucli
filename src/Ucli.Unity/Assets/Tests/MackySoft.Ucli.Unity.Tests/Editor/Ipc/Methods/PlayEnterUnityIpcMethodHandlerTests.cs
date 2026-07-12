@@ -25,11 +25,11 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var readinessGate = new MutableUnityEditorReadinessGate(CreateReadyStoppedSnapshot());
             var handler = CreateHandler(readinessGate);
-            var firstRequest = CreatePlayEnterRequest("req-play-enter-hash-1", new IpcPlayEnterRequest
+            var firstRequest = CreatePlayEnterRequest(Guid.NewGuid(), new IpcPlayEnterRequest
             {
                 TimeoutMilliseconds = 1000,
             });
-            var secondRequest = CreatePlayEnterRequest("req-play-enter-hash-2", new IpcPlayEnterRequest
+            var secondRequest = CreatePlayEnterRequest(Guid.NewGuid(), new IpcPlayEnterRequest
             {
                 TimeoutMilliseconds = 2000,
             });
@@ -55,7 +55,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var readinessGate = new MutableUnityEditorReadinessGate(CreateReadyStoppedSnapshot());
             var handler = CreateHandler(readinessGate);
-            var request = CreatePlayEnterRequest("req-play-enter-invalid-timeout", new IpcPlayEnterRequest
+            var request = CreatePlayEnterRequest(Guid.NewGuid(), new IpcPlayEnterRequest
             {
                 TimeoutMilliseconds = 0,
             });
@@ -77,7 +77,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var readinessGate = new MutableUnityEditorReadinessGate(CreateReadyStoppedSnapshot());
             var handler = CreateHandler(readinessGate);
-            var request = CreatePlayEnterRequest("req-play-enter-invalid", 123);
+            var request = CreatePlayEnterRequest(Guid.NewGuid(), 123);
 
             var response = await handler.HandleAsync(request, CancellationToken.None);
 
@@ -93,7 +93,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var readinessGate = new MutableUnityEditorReadinessGate(CreateReadyStoppedSnapshot());
             var handler = CreateHandler(readinessGate);
-            var request = CreatePlayEnterRequest("req-play-enter-missing-timeout", new IpcPlayEnterRequest());
+            var request = CreatePlayEnterRequest(Guid.NewGuid(), new IpcPlayEnterRequest());
 
             var response = await handler.HandleAsync(request, CancellationToken.None);
 
@@ -112,7 +112,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 readinessGate,
                 enterPlayModeRequester: () => readinessGate.Snapshot = CreatePlayingSnapshot(generation: "11"));
             var handler = new PlayEnterUnityIpcMethodHandler(runner, NoOpDaemonLogger.Instance);
-            var request = CreatePlayEnterRequest("req-play-enter-success", new IpcPlayEnterRequest
+            var request = CreatePlayEnterRequest(Guid.NewGuid(), new IpcPlayEnterRequest
             {
                 TimeoutMilliseconds = 1000,
             });
@@ -393,17 +393,18 @@ namespace MackySoft.Ucli.Unity.Tests
             IRecoverableIpcOperationStore store,
             PlayEnterRecoveryPayload payload)
         {
+            var requestId = Guid.NewGuid();
             return new RecoverableIpcOperationContext(
                 store,
                 IpcMethodNames.PlayEnter,
-                "req-play-enter-recoverable",
+                requestId,
                 RequestPayloadHash,
                 new RecoverableIpcOperationRecord
                 {
                     SchemaVersion = 1,
                     ProjectFingerprint = "project-fingerprint",
                     Method = IpcMethodNames.PlayEnter,
-                    RequestId = "req-play-enter-recoverable",
+                    RequestId = requestId,
                     State = RecoverableIpcOperationState.Pending,
                     StartedAtUtc = DateTimeOffset.UtcNow,
                     RecoveryPayload = IpcPayloadCodec.SerializeToElement(payload),
@@ -415,7 +416,7 @@ namespace MackySoft.Ucli.Unity.Tests
             return new RecoverableIpcOperationContext(
                 store,
                 IpcMethodNames.PlayEnter,
-                "req-play-enter-recoverable",
+                Guid.NewGuid(),
                 RequestPayloadHash,
                 null);
         }
@@ -436,16 +437,16 @@ namespace MackySoft.Ucli.Unity.Tests
         }
 
         private static IpcRequest CreatePlayEnterRequest (
-            string requestId,
+            Guid requestId,
             object payload)
         {
             return new IpcRequest(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: requestId,
-                SessionToken: "session-token",
-                Method: IpcMethodNames.PlayEnter,
-                Payload: IpcPayloadCodec.SerializeToElement(payload),
-                responseMode: IpcResponseMode.Single);
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: requestId,
+                sessionToken: "session-token",
+                method: IpcMethodNames.PlayEnter,
+                payload: IpcPayloadCodec.SerializeToElement(payload),
+                responseMode: "single");
         }
 
         private static UnityEditorLifecycleSnapshot CreateReadyStoppedSnapshot (string generation = "1")
@@ -614,7 +615,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public ValueTask<RecoverableIpcOperationReadResult> ReadAsync (
                 string method,
-                string requestId,
+                Guid requestId,
                 string requestPayloadHash,
                 CancellationToken cancellationToken)
             {
@@ -625,7 +626,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public ValueTask<RecoverableIpcOperationStoreResult> WritePendingAsync (
                 string method,
-                string requestId,
+                Guid requestId,
                 string requestPayloadHash,
                 DateTimeOffset startedAtUtc,
                 System.Text.Json.JsonElement recoveryPayload,
@@ -649,7 +650,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public ValueTask<RecoverableIpcOperationStoreResult> WriteCompletedAsync (
                 string method,
-                string requestId,
+                Guid requestId,
                 string requestPayloadHash,
                 DateTimeOffset startedAtUtc,
                 DateTimeOffset completedAtUtc,

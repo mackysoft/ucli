@@ -19,9 +19,9 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
     public async Task SendAsync_WhenPlayRetryUsesShorterRemainingBudget_PreservesRequestIdWithUpdatedAttemptTimeout ()
     {
         var timeProvider = new ManualTimeProvider();
-        var transportClient = new RecordingIpcTransportClient(_ => CreateResponse("unused"));
+        var transportClient = new RecordingIpcTransportClient(_ => CreateResponse(Guid.NewGuid()));
         transportClient.EnqueueException(new EndOfStreamException("lost play transition response"));
-        transportClient.EnqueueResponse(CreateResponse("play-transition-recovered"));
+        transportClient.EnqueueResponse(CreateResponse(Guid.NewGuid()));
         var sessionConnectionProvider = new QueuedDaemonSessionConnectionProvider(
             CreateConnectionResult("daemon-token-1"),
             CreateConnectionResult("daemon-token-2"));
@@ -64,9 +64,9 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
     public async Task SendAsync_WhenDispatchUsesRotatedSessionToken_ReloadsSessionAndRetriesSameRequest (bool isRecoverable)
     {
         var timeProvider = new ManualTimeProvider();
-        var transportClient = new RecordingIpcTransportClient(_ => CreateResponse("unused"));
+        var transportClient = new RecordingIpcTransportClient(_ => CreateResponse(Guid.NewGuid()));
         transportClient.EnqueueResponse(CreateSessionTokenInvalidResponse());
-        transportClient.EnqueueResponse(CreateResponse("req-recovered-session"));
+        transportClient.EnqueueResponse(CreateResponse(Guid.NewGuid()));
         var sessionConnectionProvider = new QueuedDaemonSessionConnectionProvider(
             CreateConnectionResult("daemon-token-1"),
             CreateConnectionResult("daemon-token-2"));
@@ -101,10 +101,10 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
     [Trait("Size", "Small")]
     public async Task SendAsync_WhenRecoverableDispatchLosesResponse_RetriesWithSameRequestIdAndReloadedSessionToken ()
     {
-        var transportClient = new RecordingIpcTransportClient(_ => CreateResponse("unused"));
+        var transportClient = new RecordingIpcTransportClient(_ => CreateResponse(Guid.NewGuid()));
         transportClient.EnqueueException(new IpcResponseReadInterruptedException(
             new EndOfStreamException("lost response")));
-        transportClient.EnqueueResponse(CreateResponse("req-recovered"));
+        transportClient.EnqueueResponse(CreateResponse(Guid.NewGuid()));
         var sessionConnectionProvider = new QueuedDaemonSessionConnectionProvider(
             CreateConnectionResult("daemon-token-1"),
             CreateConnectionResult("daemon-token-2"));
@@ -127,7 +127,7 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
             "daemon-token-1",
             "daemon-token-2");
         var requestId = IpcRequestAssert.SingleRequestId(requests);
-        Assert.StartsWith($"{IpcMethodNames.PlayEnter}-", requestId, StringComparison.Ordinal);
+        Assert.NotEqual(Guid.Empty, requestId);
     }
 
     [Fact]
@@ -135,9 +135,9 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
     public async Task SendAsync_WhenRecoverableDispatchConnectionIsRefused_RetriesWithSameRequestIdAndReloadedSessionToken ()
     {
         var timeProvider = new ManualTimeProvider();
-        var transportClient = new RecordingIpcTransportClient(_ => CreateResponse("unused"));
+        var transportClient = new RecordingIpcTransportClient(_ => CreateResponse(Guid.NewGuid()));
         transportClient.EnqueueException(new SocketException((int)SocketError.ConnectionRefused));
-        transportClient.EnqueueResponse(CreateResponse("req-recovered"));
+        transportClient.EnqueueResponse(CreateResponse(Guid.NewGuid()));
         var sessionConnectionProvider = new QueuedDaemonSessionConnectionProvider(
             CreateConnectionResult("daemon-token-1"),
             CreateConnectionResult("daemon-token-2"));
@@ -167,7 +167,7 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
             "daemon-token-1",
             "daemon-token-2");
         var requestId = IpcRequestAssert.SingleRequestId(requests);
-        Assert.StartsWith($"{IpcMethodNames.Compile}-", requestId, StringComparison.Ordinal);
+        Assert.NotEqual(Guid.Empty, requestId);
     }
 
     [Fact]
@@ -213,9 +213,9 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
     public async Task SendAsync_WhenRecoverableResponseAttemptTimesOutBeforeDeadline_RetriesWithSameRequestId ()
     {
         var timeProvider = new ManualTimeProvider();
-        var transportClient = new RecordingIpcTransportClient(_ => CreateResponse("unused"));
+        var transportClient = new RecordingIpcTransportClient(_ => CreateResponse(Guid.NewGuid()));
         transportClient.EnqueueException(new TimeoutException("response wait timed out"));
-        transportClient.EnqueueResponse(CreateResponse("req-recovered"));
+        transportClient.EnqueueResponse(CreateResponse(Guid.NewGuid()));
         var sessionConnectionProvider = new QueuedDaemonSessionConnectionProvider(
             CreateConnectionResult("daemon-token-1"),
             CreateConnectionResult("daemon-token-2"));
@@ -250,7 +250,7 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
             "daemon-token-1",
             "daemon-token-2",
             attemptTimeout);
-        Assert.StartsWith($"{IpcMethodNames.PlayExit}-", requestId, StringComparison.Ordinal);
+        Assert.NotEqual(Guid.Empty, requestId);
     }
 
     [Fact]
@@ -258,8 +258,8 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
     public async Task SendAsync_WhenRecoverableSessionTokenIsTemporarilyUnavailableDuringRecovery_WaitsAndSendsRecoveredSessionToken ()
     {
         var timeProvider = new ManualTimeProvider();
-        var transportClient = new RecordingIpcTransportClient(_ => CreateResponse("unused"));
-        transportClient.EnqueueResponse(CreateResponse("req-recovered-session"));
+        var transportClient = new RecordingIpcTransportClient(_ => CreateResponse(Guid.NewGuid()));
+        transportClient.EnqueueResponse(CreateResponse(Guid.NewGuid()));
         var session = DaemonSessionTestFactory.CreateEditorInstance();
         var recoveryWaiter = CreateRecoveryWaiter(session);
         var sessionConnectionProvider = new QueuedDaemonSessionConnectionProvider(
@@ -289,6 +289,6 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
             transportClient,
             IpcMethodNames.PlayEnter,
             "daemon-token-2");
-        Assert.StartsWith($"{IpcMethodNames.PlayEnter}-", request.RequestId, StringComparison.Ordinal);
+        Assert.NotEqual(Guid.Empty, request.RequestId);
     }
 }

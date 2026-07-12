@@ -29,7 +29,7 @@ public sealed class SupervisorClientProgressTests
 
         var result = await client.EnsureRunningAsync(
             SupervisorClientTestSupport.CreateManifest(),
-            SupervisorClientTestSupport.RequestId,
+            Guid.NewGuid(),
             SupervisorClientTestSupport.CreateUnityProject(),
             SupervisorClientTestSupport.CreateDeadline(TimeSpan.FromSeconds(5)),
             attemptTimeout: TimeSpan.FromSeconds(5),
@@ -63,7 +63,7 @@ public sealed class SupervisorClientProgressTests
 
         var result = await client.EnsureRunningAsync(
             SupervisorClientTestSupport.CreateManifest(),
-            SupervisorClientTestSupport.RequestId,
+            Guid.NewGuid(),
             SupervisorClientTestSupport.CreateUnityProject(),
             SupervisorClientTestSupport.CreateDeadline(TimeSpan.FromSeconds(5)),
             attemptTimeout: TimeSpan.FromSeconds(5),
@@ -89,7 +89,7 @@ public sealed class SupervisorClientProgressTests
 
         var result = await client.EnsureRunningAsync(
             SupervisorClientTestSupport.CreateManifest(),
-            SupervisorClientTestSupport.RequestId,
+            Guid.NewGuid(),
             SupervisorClientTestSupport.CreateUnityProject(),
             SupervisorClientTestSupport.CreateDeadline(TimeSpan.FromSeconds(5)),
             attemptTimeout: TimeSpan.FromSeconds(5),
@@ -124,7 +124,7 @@ public sealed class SupervisorClientProgressTests
         var client = new SupervisorClient(transportClient, TimeProvider.System);
         var resultTask = client.EnsureRunningAsync(
                 SupervisorClientTestSupport.CreateManifest(),
-                SupervisorClientTestSupport.RequestId,
+                Guid.NewGuid(),
                 SupervisorClientTestSupport.CreateUnityProject(),
                 SupervisorClientTestSupport.CreateDeadline(TimeSpan.FromMilliseconds(1)),
                 attemptTimeout: TimeSpan.FromMilliseconds(1),

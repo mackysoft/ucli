@@ -98,7 +98,7 @@ public sealed class UnityOneshotIpcClientLaunchTests
         var launcher = new UnexpectedUnityBatchmodeProcessLauncher("Lifecycle lock timeout should not launch Unity.");
         var client = new UnityOneshotIpcClient(
             launcher,
-            new RecordingUnityIpcTransportClient(_ => CreateSuccessResponse("unused")),
+            new RecordingUnityIpcTransportClient(_ => CreateSuccessResponse(Guid.NewGuid())),
             new StubProjectLifecycleLockProvider((_, _, cancellationToken) =>
             {
                 cancellationToken.ThrowIfCancellationRequested();

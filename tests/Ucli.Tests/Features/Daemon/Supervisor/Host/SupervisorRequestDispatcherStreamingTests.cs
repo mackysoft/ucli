@@ -55,11 +55,11 @@ public sealed class SupervisorRequestDispatcherStreamingTests
             dispatcher,
             runtimeContext,
             new IpcRequest(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: "request-stream-progress",
-                SessionToken: runtimeContext.Manifest.SessionToken,
-                Method: SupervisorIpcContracts.EnsureRunningMethod,
-                Payload: IpcPayloadCodec.SerializeToElement(
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: Guid.NewGuid(),
+                sessionToken: runtimeContext.Manifest.SessionToken,
+                method: SupervisorIpcContracts.EnsureRunningMethod,
+                payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: projectFingerprint,
@@ -67,7 +67,7 @@ public sealed class SupervisorRequestDispatcherStreamingTests
                         AttemptTimeoutMilliseconds: 1000,
                         EditorMode: "batchmode",
                         OnStartupBlocked: "auto")),
-                responseMode: IpcResponseMode.Stream));
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Stream)));
 
         Assert.Equal(2, frames.Count);
         Assert.Equal(IpcStreamFrameKinds.Progress, frames[0].Kind);
@@ -139,11 +139,11 @@ public sealed class SupervisorRequestDispatcherStreamingTests
             dispatcher,
             runtimeContext,
             new IpcRequest(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: "request-stream-write-failure",
-                SessionToken: runtimeContext.Manifest.SessionToken,
-                Method: SupervisorIpcContracts.EnsureRunningMethod,
-                Payload: IpcPayloadCodec.SerializeToElement(
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: Guid.NewGuid(),
+                sessionToken: runtimeContext.Manifest.SessionToken,
+                method: SupervisorIpcContracts.EnsureRunningMethod,
+                payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: projectFingerprint,
@@ -151,7 +151,7 @@ public sealed class SupervisorRequestDispatcherStreamingTests
                         AttemptTimeoutMilliseconds: 1000,
                         EditorMode: "batchmode",
                         OnStartupBlocked: "auto")),
-                responseMode: IpcResponseMode.Stream));
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Stream)));
 
         await TestAwaiter.WaitAsync(
             progressWriteCancellationObserved.Task,
@@ -186,11 +186,11 @@ public sealed class SupervisorRequestDispatcherStreamingTests
         var unityProjectRoot = Path.Combine(runtimeContext.StorageRoot, "UnityProject");
         var projectFingerprint = UnityProjectFingerprintCalculator.Create(runtimeContext.StorageRoot, unityProjectRoot);
         var request = new IpcRequest(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: "request-unrelated-start-cancellation",
-            SessionToken: runtimeContext.Manifest.SessionToken,
-            Method: SupervisorIpcContracts.EnsureRunningMethod,
-            Payload: IpcPayloadCodec.SerializeToElement(
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: Guid.NewGuid(),
+            sessionToken: runtimeContext.Manifest.SessionToken,
+            method: SupervisorIpcContracts.EnsureRunningMethod,
+            payload: IpcPayloadCodec.SerializeToElement(
                 new SupervisorIpcContracts.EnsureRunningRequest(
                     UnityProjectRoot: unityProjectRoot,
                     ProjectFingerprint: projectFingerprint,
@@ -198,7 +198,7 @@ public sealed class SupervisorRequestDispatcherStreamingTests
                     AttemptTimeoutMilliseconds: 1000,
                     EditorMode: "batchmode",
                     OnStartupBlocked: "auto")),
-            responseMode: IpcResponseMode.Single);
+            responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single));
 
         var actualException = await Assert.ThrowsAsync<OperationCanceledException>(
             () => SendRequestAsync(dispatcher, runtimeContext, request));
@@ -250,11 +250,11 @@ public sealed class SupervisorRequestDispatcherStreamingTests
             dispatcher,
             runtimeContext,
             new IpcRequest(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: "request-stream-blocking-cancellation",
-                SessionToken: runtimeContext.Manifest.SessionToken,
-                Method: SupervisorIpcContracts.EnsureRunningMethod,
-                Payload: IpcPayloadCodec.SerializeToElement(
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: Guid.NewGuid(),
+                sessionToken: runtimeContext.Manifest.SessionToken,
+                method: SupervisorIpcContracts.EnsureRunningMethod,
+                payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: projectFingerprint,
@@ -262,7 +262,7 @@ public sealed class SupervisorRequestDispatcherStreamingTests
                         AttemptTimeoutMilliseconds: 1000,
                         EditorMode: "batchmode",
                         OnStartupBlocked: "auto")),
-                responseMode: IpcResponseMode.Stream));
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Stream)));
         await TestAwaiter.WaitAsync(
             cancellationCallbackEntered.Task,
             "Supervisor blocking cancellation callback",
