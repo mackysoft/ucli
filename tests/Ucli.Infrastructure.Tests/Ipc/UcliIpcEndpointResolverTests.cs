@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using System.Text;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
 
@@ -7,18 +8,22 @@ namespace MackySoft.Ucli.Infrastructure.Tests.Ipc;
 
 public sealed class UcliIpcEndpointResolverTests
 {
+    private const string FingerprintText = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+
+    private static readonly ProjectFingerprint Fingerprint = new(FingerprintText);
+
     [Fact]
     [Trait("Size", "Small")]
     public void ResolveDaemonEndpoint_WithEmptyStorageRoot_ThrowsArgumentException ()
     {
-        Assert.Throws<ArgumentException>(() => UcliIpcEndpointResolver.ResolveDaemonEndpoint("", "fingerprint"));
+        Assert.Throws<ArgumentException>(() => UcliIpcEndpointResolver.ResolveDaemonEndpoint("", Fingerprint));
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void ResolveDaemonEndpoint_WithEmptyProjectFingerprint_ThrowsArgumentException ()
+    public void ResolveDaemonEndpoint_WithNullProjectFingerprint_ThrowsArgumentNullException ()
     {
-        Assert.Throws<ArgumentException>(() => UcliIpcEndpointResolver.ResolveDaemonEndpoint(".", " "));
+        Assert.Throws<ArgumentNullException>(() => UcliIpcEndpointResolver.ResolveDaemonEndpoint(".", null!));
     }
 
     [Fact]
@@ -27,16 +32,16 @@ public sealed class UcliIpcEndpointResolverTests
     {
         var storageRoot = Path.GetFullPath(Path.Combine(".", "sandbox", "Unity"));
 
-        var endpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(storageRoot, "abc123");
+        var endpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(storageRoot, Fingerprint);
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
             Assert.Equal(IpcTransportKind.NamedPipe, endpoint.TransportKind);
-            Assert.Equal("ucli-daemon-abc123", endpoint.Address);
+            Assert.Equal("ucli-daemon-" + FingerprintText, endpoint.Address);
             return;
         }
 
-        var preferredPath = Path.Combine(storageRoot, ".ucli", "local", "fingerprints", "abc123", "ipc.sock");
+        var preferredPath = Path.Combine(storageRoot, ".ucli", "local", "fingerprints", FingerprintText, "ipc.sock");
 
         Assert.Equal(IpcTransportKind.UnixDomainSocket, endpoint.TransportKind);
         Assert.True(Encoding.UTF8.GetByteCount(endpoint.Address) <= IpcTransportConstraints.UnixDomainSocketPathMaxBytes);
@@ -64,8 +69,8 @@ public sealed class UcliIpcEndpointResolverTests
             "ucli-tests",
             new string('a', 140)));
 
-        var endpoint1 = UcliIpcEndpointResolver.ResolveDaemonEndpoint(storageRoot, "abc123");
-        var endpoint2 = UcliIpcEndpointResolver.ResolveDaemonEndpoint(storageRoot, "abc123");
+        var endpoint1 = UcliIpcEndpointResolver.ResolveDaemonEndpoint(storageRoot, Fingerprint);
+        var endpoint2 = UcliIpcEndpointResolver.ResolveDaemonEndpoint(storageRoot, Fingerprint);
 
         Assert.Equal(IpcTransportKind.UnixDomainSocket, endpoint1.TransportKind);
         Assert.Equal(endpoint1.Address, endpoint2.Address);

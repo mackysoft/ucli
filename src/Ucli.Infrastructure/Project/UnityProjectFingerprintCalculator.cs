@@ -1,4 +1,5 @@
 using System.Text;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Infrastructure.Paths;
 
@@ -10,9 +11,9 @@ public static class UnityProjectFingerprintCalculator
     /// <summary> Creates one deterministic SHA-256 fingerprint for storage-root and Unity-project identity values. </summary>
     /// <param name="storageRoot"> The normalized absolute storage root path. </param>
     /// <param name="unityProjectRoot"> The normalized absolute Unity project root path. </param>
-    /// <returns> The lowercase hexadecimal SHA-256 string. </returns>
+    /// <returns> The canonical project fingerprint. </returns>
     /// <exception cref="ArgumentException"> Thrown when <paramref name="storageRoot" /> or <paramref name="unityProjectRoot" /> is <see langword="null" />, empty, or whitespace. </exception>
-    public static string Create (
+    public static ProjectFingerprint Create (
         string storageRoot,
         string unityProjectRoot)
     {
@@ -34,7 +35,7 @@ public static class UnityProjectFingerprintCalculator
         var fingerprintInput = $"{normalizedStorageRoot}\n{projectPathFragment}";
         var normalizedBytes = Encoding.UTF8.GetBytes(fingerprintInput);
 
-        return Sha256LowerHex.Compute(normalizedBytes);
+        return new ProjectFingerprint(Sha256LowerHex.Compute(normalizedBytes));
     }
 
     /// <summary> Builds a stable project-path fragment used for fingerprint input. </summary>

@@ -1,11 +1,14 @@
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Infrastructure.Tests.Storage;
 
 internal static class UcliStoragePathResolverTestSupport
 {
-    internal const string ProjectFingerprint = "abc123";
+    internal const string ProjectFingerprintText = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
     internal const string RunId = "run-id";
+
+    internal static readonly ProjectFingerprint ProjectFingerprint = new(ProjectFingerprintText);
 
     internal static readonly string[] UnsafeRunIds =
     [
@@ -17,15 +20,6 @@ internal static class UcliStoragePathResolverTestSupport
         "C:\\absolute",
         ".",
         "..",
-    ];
-
-    internal static readonly string[] UnsafeProjectFingerprints =
-    [
-        ".",
-        "..",
-        "abc/def",
-        "abc\\def",
-        "abc:def",
     ];
 
     internal static string StorageRoot => Path.Combine(Path.GetTempPath(), "ucli-infrastructure-storage-root");
@@ -45,7 +39,7 @@ internal static class UcliStoragePathResolverTestSupport
         expectedRelativeSegments[0] = UcliStoragePathNames.UcliDirectoryName;
         expectedRelativeSegments[1] = UcliStoragePathNames.LocalDirectoryName;
         expectedRelativeSegments[2] = UcliStoragePathNames.FingerprintsDirectoryName;
-        expectedRelativeSegments[3] = ProjectFingerprint;
+        expectedRelativeSegments[3] = ProjectFingerprint.ToString();
         Array.Copy(expectedFingerprintRelativeSegments, 0, expectedRelativeSegments, 4, expectedFingerprintRelativeSegments.Length);
 
         AssertStoragePath(actualPath, expectedRelativeSegments);
@@ -61,5 +55,5 @@ internal static class UcliStoragePathResolverTestSupport
 
     internal sealed record RunScopedPathResolverCase (
         string Name,
-        Func<string, string, string, string> Resolve);
+        Func<string, ProjectFingerprint, string, string> Resolve);
 }

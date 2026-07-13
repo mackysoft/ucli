@@ -92,16 +92,11 @@ public sealed class UcliStoragePathResolverContractTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void ResolveFingerprintDirectory_WithUnsafeProjectFingerprint_ThrowsArgumentException ()
+    public void ResolveFingerprintDirectory_WithNullProjectFingerprint_ThrowsArgumentNullException ()
     {
-        foreach (var projectFingerprint in UcliStoragePathResolverTestSupport.UnsafeProjectFingerprints)
-        {
-            Assert.Throws<ArgumentException>(() =>
-            {
-                UcliStoragePathResolver.ResolveFingerprintDirectory(
-                    UcliStoragePathResolverTestSupport.StorageRoot,
-                    projectFingerprint);
-            });
-        }
+        Assert.Throws<ArgumentNullException>(() =>
+            UcliStoragePathResolver.ResolveFingerprintDirectory(
+                UcliStoragePathResolverTestSupport.StorageRoot,
+                null!));
     }
 }

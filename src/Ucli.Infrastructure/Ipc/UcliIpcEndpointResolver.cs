@@ -1,7 +1,7 @@
 using System.Runtime.InteropServices;
 using System.Text;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Infrastructure.Ipc;
@@ -11,33 +11,34 @@ internal static class UcliIpcEndpointResolver
 {
     /// <summary> Resolves the daemon transport endpoint for the given project identity. </summary>
     /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
-    /// <param name="projectFingerprint"> The project fingerprint value. Must not be <see langword="null" />, empty, or whitespace. </param>
+    /// <param name="projectFingerprint"> The canonical project fingerprint. </param>
     /// <returns> The resolved daemon transport endpoint. </returns>
-    /// <exception cref="ArgumentException"> Thrown when <paramref name="storageRoot" /> or <paramref name="projectFingerprint" /> is empty. </exception>
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="storageRoot" /> is empty. </exception>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="projectFingerprint" /> is <see langword="null" />. </exception>
     public static IpcEndpoint ResolveDaemonEndpoint (
         string storageRoot,
-        string projectFingerprint)
+        ProjectFingerprint projectFingerprint)
     {
         if (string.IsNullOrWhiteSpace(storageRoot))
         {
             throw new ArgumentException("Storage root must not be empty.", nameof(storageRoot));
         }
 
-        if (!StringValueNormalizer.TryTrimToNonEmpty(projectFingerprint, out var normalizedProjectFingerprint))
+        if (projectFingerprint == null)
         {
-            throw new ArgumentException("Project fingerprint must not be empty.", nameof(projectFingerprint));
+            throw new ArgumentNullException(nameof(projectFingerprint));
         }
 
         var normalizedStorageRoot = UcliStoragePathResolver.NormalizeStorageRootPath(storageRoot);
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            var pipeName = UcliIpcEndpointNames.DaemonAddressPrefix + normalizedProjectFingerprint;
+            var pipeName = UcliIpcEndpointNames.DaemonAddressPrefix + projectFingerprint;
             return new IpcEndpoint(IpcTransportKind.NamedPipe, pipeName);
         }
 
         var preferredSocketPath = Path.Combine(
-            UcliStoragePathResolver.ResolveFingerprintDirectory(normalizedStorageRoot, normalizedProjectFingerprint),
+            UcliStoragePathResolver.ResolveFingerprintDirectory(normalizedStorageRoot, projectFingerprint),
             UcliIpcEndpointNames.UnixSocketFileName);
 
         if (Encoding.UTF8.GetByteCount(preferredSocketPath) <= IpcTransportConstraints.UnixDomainSocketPathMaxBytes)
@@ -47,38 +48,40 @@ internal static class UcliIpcEndpointResolver
 
         var fallbackSocketPath = BuildFallbackUnixSocketPath(
             normalizedStorageRoot,
-            normalizedProjectFingerprint);
+            projectFingerprint);
         return new IpcEndpoint(IpcTransportKind.UnixDomainSocket, fallbackSocketPath);
     }
 
     /// <summary> Resolves the GUI supervisor transport endpoint for the given project identity. </summary>
     /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
-    /// <param name="projectFingerprint"> The project fingerprint value. Must not be <see langword="null" />, empty, or whitespace. </param>
+    /// <param name="projectFingerprint"> The canonical project fingerprint. </param>
     /// <returns> The resolved GUI supervisor transport endpoint. </returns>
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="storageRoot" /> is empty. </exception>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="projectFingerprint" /> is <see langword="null" />. </exception>
     public static IpcEndpoint ResolveGuiSupervisorEndpoint (
         string storageRoot,
-        string projectFingerprint)
+        ProjectFingerprint projectFingerprint)
     {
         if (string.IsNullOrWhiteSpace(storageRoot))
         {
             throw new ArgumentException("Storage root must not be empty.", nameof(storageRoot));
         }
 
-        if (!StringValueNormalizer.TryTrimToNonEmpty(projectFingerprint, out var normalizedProjectFingerprint))
+        if (projectFingerprint == null)
         {
-            throw new ArgumentException("Project fingerprint must not be empty.", nameof(projectFingerprint));
+            throw new ArgumentNullException(nameof(projectFingerprint));
         }
 
         var normalizedStorageRoot = UcliStoragePathResolver.NormalizeStorageRootPath(storageRoot);
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            var pipeName = UcliIpcEndpointNames.GuiSupervisorAddressPrefix + normalizedProjectFingerprint;
+            var pipeName = UcliIpcEndpointNames.GuiSupervisorAddressPrefix + projectFingerprint;
             return new IpcEndpoint(IpcTransportKind.NamedPipe, pipeName);
         }
 
         var preferredSocketPath = Path.Combine(
-            UcliStoragePathResolver.ResolveFingerprintDirectory(normalizedStorageRoot, normalizedProjectFingerprint),
+            UcliStoragePathResolver.ResolveFingerprintDirectory(normalizedStorageRoot, projectFingerprint),
             "gui-supervisor.sock");
 
         if (Encoding.UTF8.GetByteCount(preferredSocketPath) <= IpcTransportConstraints.UnixDomainSocketPathMaxBytes)
@@ -88,15 +91,20 @@ internal static class UcliIpcEndpointResolver
 
         var fallbackSocketPath = UnixSocketPathUtilities.BuildFallbackSocketPath(
             UcliIpcEndpointNames.GuiSupervisorAddressPrefix,
-            $"{normalizedStorageRoot}\n{normalizedProjectFingerprint}");
+            $"{normalizedStorageRoot}\n{projectFingerprint}");
         return new IpcEndpoint(IpcTransportKind.UnixDomainSocket, fallbackSocketPath);
     }
 
     private static string BuildFallbackUnixSocketPath (
         string normalizedStorageRoot,
-        string normalizedProjectFingerprint)
+        ProjectFingerprint projectFingerprint)
     {
-        var hashSource = $"{normalizedStorageRoot}\n{normalizedProjectFingerprint}";
+        if (projectFingerprint == null)
+        {
+            throw new ArgumentNullException(nameof(projectFingerprint));
+        }
+
+        var hashSource = $"{normalizedStorageRoot}\n{projectFingerprint}";
         return UnixSocketPathUtilities.BuildFallbackSocketPath(
             UcliIpcEndpointNames.DaemonAddressPrefix,
             hashSource);
