@@ -25,13 +25,9 @@ public static class UnityAssetPathContract
     /// <returns> <see langword="true" /> when <paramref name="path" /> is <c>Assets</c> or an <c>Assets/</c> descendant; otherwise <see langword="false" />. </returns>
     public static bool IsNormalizedAssetsRootOrDescendantPath (string? path)
     {
-        if (path == null || !RelativePathContract.IsNormalized(path))
-        {
-            return false;
-        }
-
-        return string.Equals(path, AssetsRootPath, StringComparison.Ordinal)
-            || path.StartsWith(AssetsRootPrefix, StringComparison.Ordinal);
+        return path != null
+            && RelativePathContract.IsNormalized(path)
+            && IsAssetsRootOrDescendantPath(path);
     }
 
     /// <summary> Normalizes and validates one path that must identify the <c>Assets</c> root or a path under it. </summary>
@@ -43,7 +39,7 @@ public static class UnityAssetPathContract
         out string normalizedPath)
     {
         if (RelativePathContract.TryNormalize(path, out normalizedPath)
-            && IsNormalizedAssetsRootOrDescendantPath(normalizedPath))
+            && IsAssetsRootOrDescendantPath(normalizedPath))
         {
             return true;
         }
@@ -59,7 +55,7 @@ public static class UnityAssetPathContract
     {
         return path != null
             && RelativePathContract.IsNormalized(path)
-            && path.StartsWith(AssetsRootPrefix, StringComparison.Ordinal);
+            && IsAssetsDescendantPath(path);
     }
 
     /// <summary> Normalizes and validates one path that must identify an asset under <c>Assets/</c>. </summary>
@@ -71,7 +67,7 @@ public static class UnityAssetPathContract
         out string normalizedPath)
     {
         if (RelativePathContract.TryNormalize(path, out normalizedPath)
-            && IsNormalizedAssetsDescendantPath(normalizedPath))
+            && IsAssetsDescendantPath(normalizedPath))
         {
             return true;
         }
@@ -99,7 +95,7 @@ public static class UnityAssetPathContract
         out string normalizedPath)
     {
         if (TryNormalizeAssetsDescendantPath(path, out normalizedPath)
-            && IsNormalizedBuildProfileAssetPath(normalizedPath))
+            && !normalizedPath.EndsWith(MetaFileExtension, StringComparison.OrdinalIgnoreCase))
         {
             return true;
         }
@@ -127,7 +123,7 @@ public static class UnityAssetPathContract
         out string normalizedPath)
     {
         if (TryNormalizeAssetsDescendantPath(path, out normalizedPath)
-            && IsNormalizedSceneAssetPath(normalizedPath))
+            && normalizedPath.EndsWith(SceneAssetExtension, StringComparison.Ordinal))
         {
             return true;
         }
@@ -155,23 +151,13 @@ public static class UnityAssetPathContract
         out string normalizedPath)
     {
         if (TryNormalizeAssetsDescendantPath(path, out normalizedPath)
-            && IsNormalizedPrefabAssetPath(normalizedPath))
+            && normalizedPath.EndsWith(PrefabAssetExtension, StringComparison.Ordinal))
         {
             return true;
         }
 
         normalizedPath = string.Empty;
         return false;
-    }
-
-    /// <summary> Determines whether <paramref name="path" /> is a normalized path under <c>ProjectSettings/</c>. </summary>
-    /// <param name="path"> The path to inspect. </param>
-    /// <returns> <see langword="true" /> when <paramref name="path" /> is a normalized <c>ProjectSettings/</c> descendant; otherwise <see langword="false" />. </returns>
-    private static bool IsNormalizedProjectSettingsDescendantPath (string? path)
-    {
-        return path != null
-            && RelativePathContract.IsNormalized(path)
-            && path.StartsWith(ProjectSettingsRootPrefix, StringComparison.Ordinal);
     }
 
     /// <summary> Normalizes and validates one path under <c>ProjectSettings/</c>. </summary>
@@ -183,7 +169,7 @@ public static class UnityAssetPathContract
         out string normalizedPath)
     {
         if (RelativePathContract.TryNormalize(path, out normalizedPath)
-            && IsNormalizedProjectSettingsDescendantPath(normalizedPath))
+            && normalizedPath.StartsWith(ProjectSettingsRootPrefix, StringComparison.Ordinal))
         {
             return true;
         }
@@ -255,6 +241,17 @@ public static class UnityAssetPathContract
     private static ArgumentException CreateInvalidPathException (string message)
     {
         return new ArgumentException(message, "value");
+    }
+
+    private static bool IsAssetsRootOrDescendantPath (string path)
+    {
+        return string.Equals(path, AssetsRootPath, StringComparison.Ordinal)
+            || IsAssetsDescendantPath(path);
+    }
+
+    private static bool IsAssetsDescendantPath (string path)
+    {
+        return path.StartsWith(AssetsRootPrefix, StringComparison.Ordinal);
     }
 
 }
