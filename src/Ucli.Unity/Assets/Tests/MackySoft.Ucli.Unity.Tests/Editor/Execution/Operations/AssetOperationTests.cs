@@ -405,7 +405,7 @@ namespace MackySoft.Ucli.Unity.Tests
             using var scope = new EditorTestScope();
             var createdAssetPath = scope.CreateAssetPath(nameof(AssetOperationTests));
             var targetAsset = scope.CreateScriptableAsset<AssetOperationTestAsset>(nameof(AssetOperationTests), out var targetAssetPath);
-            var targetGlobalObjectId = UnityObjectReferenceResolver.CreateResolvedReference(targetAsset).GlobalObjectId;
+            var targetGlobalObjectId = UnityObjectReferenceResolver.CreateGlobalObjectId(targetAsset);
             var context = scope.CreateExecutionContext();
             var createRequest = CreateOperation(
                 opId: "op-create",
@@ -531,7 +531,7 @@ namespace MackySoft.Ucli.Unity.Tests
             AssertAssetSuccess(result, applied: false, changed: true, assetPath);
             var persistedAsset = AssetDatabase.LoadAssetAtPath<AssetOperationTestAsset>(assetPath);
             Assert.That(persistedAsset, Is.Not.Null);
-            var sourceGlobalObjectId = UnityObjectReferenceResolver.CreateResolvedReference(persistedAsset).GlobalObjectId;
+            var sourceGlobalObjectId = UnityObjectReferenceResolver.CreateGlobalObjectId(persistedAsset);
             Assert.That(context.TryGetAssetShadow(sourceGlobalObjectId, out var shadowAsset, out var shadowAssetPath), Is.True);
             Assert.That(shadowAssetPath, Is.EqualTo(assetPath));
             Assert.That(shadowAsset, Is.TypeOf<AssetOperationTestAsset>());
@@ -678,7 +678,7 @@ namespace MackySoft.Ucli.Unity.Tests
             AssetDatabase.CreateAsset(mainAsset, assetPath);
             AssetDatabase.AddObjectToAsset(subAsset, assetPath);
             var context = scope.CreateExecutionContext();
-            context.AliasStore.Set("target", UnityObjectReferenceResolver.CreateResolvedReference(subAsset));
+            context.AliasStore.Set("target", UnityObjectReferenceResolver.CreateGlobalObjectId(subAsset));
             var requestOperation = CreateOperation(
                 opId: "op-set",
                 opName: UcliPrimitiveOperationNames.AssetSet,

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using MackySoft.Ucli.Contracts.Ipc;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -264,33 +265,33 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return trackedRoot.MirrorMapping.TryGetPreviewObject(sourceObject, out previewObject);
         }
 
-        /// <summary> Tries to resolve one preview prefab object to its stable GlobalObjectId text. </summary>
+        /// <summary> Tries to resolve one preview prefab object to its stable source identity. </summary>
         /// <param name="prefabPath"> The prefab asset path that owns the temporary contents. </param>
         /// <param name="previewObject"> The preview object. </param>
-        /// <param name="stableReference"> The stable GlobalObjectId text when found. </param>
+        /// <param name="globalObjectId"> The stable source identity when found. </param>
         /// <returns> <see langword="true" /> when the preview object has one explicit stable-reference mapping; otherwise <see langword="false" />. </returns>
-        public bool TryResolveStableReferenceFromPreviewObject (
+        public bool TryResolveGlobalObjectIdFromPreviewObject (
             string prefabPath,
             UnityEngine.Object previewObject,
-            out string stableReference)
+            [NotNullWhen(true)] out UnityGlobalObjectId? globalObjectId)
         {
-            stableReference = string.Empty;
+            globalObjectId = null;
             if (!temporaryPrefabContentsRootsByPath.TryGetValue(prefabPath, out var trackedRoot))
             {
                 return false;
             }
 
-            return trackedRoot.StableReferenceIndex.TryGetStableReference(previewObject, out stableReference);
+            return trackedRoot.StableReferenceIndex.TryGetGlobalObjectId(previewObject, out globalObjectId);
         }
 
-        /// <summary> Tries to resolve one stable GlobalObjectId text to its preview prefab object in the specified temporary contents root. </summary>
+        /// <summary> Tries to resolve one stable source identity to its preview prefab object in the specified temporary contents root. </summary>
         /// <param name="prefabPath"> The prefab asset path that owns the temporary contents. </param>
-        /// <param name="stableReference"> The stable GlobalObjectId text. </param>
+        /// <param name="globalObjectId"> The stable source identity. </param>
         /// <param name="previewObject"> The preview object when found. </param>
         /// <returns> <see langword="true" /> when the stable reference maps into the specified temporary contents; otherwise <see langword="false" />. </returns>
-        public bool TryResolvePreviewObjectFromStableReference (
+        public bool TryResolvePreviewObjectFromGlobalObjectId (
             string prefabPath,
-            string stableReference,
+            UnityGlobalObjectId globalObjectId,
             out UnityEngine.Object? previewObject)
         {
             previewObject = null;
@@ -299,21 +300,21 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            return trackedRoot.StableReferenceIndex.TryGetPreviewObject(stableReference, out previewObject);
+            return trackedRoot.StableReferenceIndex.TryGetPreviewObject(globalObjectId, out previewObject);
         }
 
-        /// <summary> Tries to resolve one stable GlobalObjectId text to any tracked preview prefab object. </summary>
-        /// <param name="stableReference"> The stable GlobalObjectId text. </param>
+        /// <summary> Tries to resolve one stable source identity to any tracked preview prefab object. </summary>
+        /// <param name="globalObjectId"> The stable source identity. </param>
         /// <param name="previewObject"> The preview object when found. </param>
         /// <returns> <see langword="true" /> when the stable reference maps into one tracked temporary prefab contents root; otherwise <see langword="false" />. </returns>
-        public bool TryResolvePreviewObjectFromStableReference (
-            string stableReference,
+        public bool TryResolvePreviewObjectFromGlobalObjectId (
+            UnityGlobalObjectId globalObjectId,
             out UnityEngine.Object? previewObject)
         {
             previewObject = null;
             foreach (var pair in temporaryPrefabContentsRootsByPath)
             {
-                if (pair.Value.StableReferenceIndex.TryGetPreviewObject(stableReference, out previewObject))
+                if (pair.Value.StableReferenceIndex.TryGetPreviewObject(globalObjectId, out previewObject))
                 {
                     return true;
                 }

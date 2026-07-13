@@ -41,7 +41,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             public bool HasPrefabPath;
             public bool HasHierarchyPath;
             public bool HasComponentType;
-            public string? GlobalObjectId;
+            public UnityGlobalObjectId? GlobalObjectId;
             public string? AssetGuid;
             public string? AssetPath;
             public string? ProjectAssetPath;
@@ -201,7 +201,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         return false;
                     }
 
-                    state.GlobalObjectId = globalObjectId;
+                    if (!UnityGlobalObjectId.TryParse(globalObjectId, out state.GlobalObjectId))
+                    {
+                        errorMessage = $"'{IpcResolveSelectorPropertyNames.GlobalObjectId}' must be a valid GlobalObjectId string.";
+                        return false;
+                    }
+
                     return true;
                 case SelectorPropertyKind.AssetGuid:
                     if (!TryReadUniqueRequiredString(

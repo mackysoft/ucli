@@ -42,8 +42,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (allowTemporaryState
                 && executionContext != null)
             {
-                var targetReferenceKey = UnityObjectReferenceResolver.CreateTrackingKey(gameObject);
-                if (executionContext.TryGetEnsuredComponentState(targetReferenceKey, componentRuntimeType!, out var ensuredComponentState))
+                if (!OperationResourceUtilities.TryResolveOwnerResource(
+                        gameObject,
+                        executionContext,
+                        out var resource,
+                        out errorMessage))
+                {
+                    return false;
+                }
+
+                var targetTrackingKey = executionContext.CreateGameObjectTrackingKey(gameObject, resource);
+                if (executionContext.TryGetEnsuredComponentState(targetTrackingKey, componentRuntimeType!, out var ensuredComponentState))
                 {
                     ensuredComponent = ensuredComponentState.Component;
                     if (ensuredComponent != null)
@@ -62,37 +71,27 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return true;
         }
 
-        /// <summary> Resolves one reference to a Component. Temporary plan aliases can be enabled when required. </summary>
+        /// <summary> Resolves one reference to a Component under the specified request-local state policy. </summary>
         /// <param name="reference"> The parsed Unity-object reference. </param>
         /// <param name="executionContext"> The request execution context. </param>
-        /// <param name="allowTemporaryState"> Whether temporary plan aliases may satisfy the reference. </param>
+        /// <param name="resolutionPolicy"> The request-local state participation policy. </param>
         /// <param name="resolution"> The resolved component state when successful. </param>
         /// <param name="errorMessage"> The validation error message when resolution fails. </param>
         /// <returns> <see langword="true" /> when the reference resolves to one Component target; otherwise <see langword="false" />. </returns>
         public static bool TryResolveComponent (
             UnityObjectReference reference,
             OperationExecutionContext executionContext,
-            bool allowTemporaryState,
+            OperationObjectReferenceUtilities.ReferenceResolutionPolicy resolutionPolicy,
             out ComponentResolutionState resolution,
             out string errorMessage)
         {
             resolution = default;
-            if (reference.Kind == UnityObjectReferenceKind.Alias
-                && executionContext.TryGetTemporaryAliasState(reference.Alias!, out var temporaryAliasState))
-            {
-                var temporaryComponent = temporaryAliasState.UnityObject as Component;
-                if (temporaryComponent == null)
-                {
-                    errorMessage = "Reference did not resolve to a Component.";
-                    return false;
-                }
-
-                resolution = new ComponentResolutionState(temporaryComponent, temporaryAliasState.Resource);
-                errorMessage = string.Empty;
-                return true;
-            }
-
-            if (!UnityObjectReferenceResolver.TryResolve(reference, executionContext, allowTemporaryState, out var unityObject, out errorMessage))
+            if (!OperationObjectReferenceUtilities.TryResolveUnityObject(
+                    reference,
+                    executionContext,
+                    resolutionPolicy,
+                    out var unityObject,
+                    out errorMessage))
             {
                 return false;
             }
@@ -104,7 +103,16 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (allowTemporaryState
+            if (reference.Kind == UnityObjectReferenceKind.Alias
+                && executionContext.TryGetTemporaryAliasState(reference.Alias!, out var temporaryAliasState)
+                && ReferenceEquals(temporaryAliasState.UnityObject, component))
+            {
+                resolution = new ComponentResolutionState(component, temporaryAliasState.Resource);
+                errorMessage = string.Empty;
+                return true;
+            }
+
+            if (resolutionPolicy != OperationObjectReferenceUtilities.ReferenceResolutionPolicy.LiveOnly
                 && executionContext.TryResolveTrackedComponentResource(component, out var trackedResource))
             {
                 resolution = new ComponentResolutionState(component, trackedResource);

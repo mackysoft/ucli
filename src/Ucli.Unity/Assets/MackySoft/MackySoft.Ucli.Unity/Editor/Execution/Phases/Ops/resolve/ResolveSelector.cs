@@ -1,3 +1,6 @@
+using System;
+using MackySoft.Ucli.Contracts.Ipc;
+
 namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Represents one parsed <c>ucli.resolve</c> selector. </summary>
@@ -17,7 +20,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="componentType"> The optional component type selector literal. </param>
         public ResolveSelector (
             ResolveSelectorKind kind,
-            string? globalObjectId,
+            UnityGlobalObjectId? globalObjectId,
             string? assetGuid,
             string? assetPath,
             string? projectAssetPath,
@@ -43,9 +46,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public ResolveSelectorKind Kind { get; }
 
         /// <summary>
-        /// Gets the GlobalObjectId literal. <see langword="null" /> for non-GlobalObjectId selectors.
+        /// Gets the parsed GlobalObjectId. <see langword="null" /> for non-GlobalObjectId selectors.
         /// </summary>
-        public string? GlobalObjectId { get; }
+        public UnityGlobalObjectId? GlobalObjectId { get; }
 
         /// <summary>
         /// Gets the asset GUID literal. <see langword="null" /> for selectors that do not target an asset GUID.
@@ -85,10 +88,15 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <summary>
         /// Creates one GlobalObjectId selector.
         /// </summary>
-        /// <param name="globalObjectId"> The GlobalObjectId literal. </param>
+        /// <param name="globalObjectId"> The parsed GlobalObjectId. </param>
         /// <returns> One selector that resolves by GlobalObjectId. </returns>
-        public static ResolveSelector FromGlobalObjectId (string globalObjectId)
+        public static ResolveSelector FromGlobalObjectId (UnityGlobalObjectId globalObjectId)
         {
+            if (globalObjectId == null)
+            {
+                throw new ArgumentNullException(nameof(globalObjectId));
+            }
+
             return new ResolveSelector(
                 kind: ResolveSelectorKind.GlobalObjectId,
                 globalObjectId: globalObjectId,

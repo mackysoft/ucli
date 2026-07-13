@@ -772,7 +772,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var previewRoots = temporaryScene.GetRootGameObjects();
             Assert.That(previewRoots, Has.Length.EqualTo(1));
             Assert.That(previewRoots[0].name, Is.EqualTo("RenamedRoot"));
-            Assert.That(UnityObjectReferenceResolver.TryCreateResolvedReference(previewRoots[0], out _), Is.False);
+            Assert.That(UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(previewRoots[0], out _), Is.False);
             var requestOperation = CreateOperation(
                 opId: "op-tree",
                 opName: UcliPrimitiveOperationNames.SceneTree,

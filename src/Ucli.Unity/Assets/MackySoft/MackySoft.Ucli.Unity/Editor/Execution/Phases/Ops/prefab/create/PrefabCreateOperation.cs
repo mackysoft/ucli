@@ -108,7 +108,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             executionContext.MarkRequestAttributedChange(validationState.SourceResource);
-            executionContext.TrackPlannedPrefabCreation(validationState.Target, validationState.PrefabPath);
+            executionContext.TrackPlannedPrefabCreation(
+                validationState.Target,
+                validationState.SourceResource,
+                validationState.PrefabPath);
             return Task.FromResult(OperationPhaseStepResult.Success(
                 applied: false,
                 changed: true,
@@ -175,7 +178,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (!GoOperationUtilities.TryResolveEditableGameObject(
                 targetReference,
                 executionContext,
-                allowTemporaryState,
+                allowTemporaryState
+                    ? OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryState
+                    : operation.AllowRequestLocalAliases
+                        ? OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryAliases
+                        : OperationObjectReferenceUtilities.ReferenceResolutionPolicy.LiveOnly,
                 out var targetResolution,
                 out errorMessage))
             {
@@ -216,9 +223,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             executionContext.SetTemporaryAlias(alias, target, resource);
-            if (UnityObjectReferenceResolver.TryCreateResolvedReference(target, out var resolvedReference))
+            if (UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(target, out var globalObjectId))
             {
-                executionContext.AliasStore.Set(alias, resolvedReference!);
+                executionContext.AliasStore.Set(alias, globalObjectId);
             }
         }
 

@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Unity.Project;
@@ -83,7 +84,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="allowTemporaryState"> Whether temporary aliases may satisfy the reference. </param>
         /// <param name="unityObject"> The resolved asset object when successful. </param>
         /// <param name="assetPath"> The resolved asset path when successful. </param>
-        /// <param name="sourceGlobalObjectId"> The source global-object identifier when available. </param>
+        /// <param name="sourceGlobalObjectId"> The stable source identity when available. </param>
         /// <param name="errorMessage"> The validation error message when resolution fails. </param>
         /// <returns> <see langword="true" /> when the reference resolves to a supported asset target; otherwise <see langword="false" />. </returns>
         public static bool TryResolveAssetTarget (
@@ -92,7 +93,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             bool allowTemporaryState,
             [NotNullWhen(true)] out UnityEngine.Object? unityObject,
             [NotNullWhen(true)] out string? assetPath,
-            out string? sourceGlobalObjectId,
+            out UnityGlobalObjectId? sourceGlobalObjectId,
             out string errorMessage)
         {
             unityObject = null;
@@ -108,7 +109,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 && executionContext.TryGetTemporaryAliasState(reference.Alias!, out var temporaryAliasState))
             {
                 assetPath = temporaryAliasState.Resource.Path;
-                sourceGlobalObjectId = temporaryAliasState.SourceGlobalObjectId;
+                temporaryAliasState.SourceTrackingKey?.TryGetStableGlobalObjectId(out sourceGlobalObjectId);
                 if (temporaryAliasState.Resource.Kind != OperationTouchKind.Asset
                     && temporaryAliasState.Resource.Kind != OperationTouchKind.ProjectSettings)
                 {
@@ -170,9 +171,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             unityObject = liveUnityObject;
-            sourceGlobalObjectId = UnityObjectReferenceResolver.TryCreateResolvedReference(liveUnityObject, out var resolvedReference)
-                ? resolvedReference!.GlobalObjectId
-                : null;
+            UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(liveUnityObject, out sourceGlobalObjectId);
             return true;
         }
 

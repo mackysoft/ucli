@@ -104,8 +104,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 var roots = SceneTreeNodeSnapshotBuilder.BuildRoots(
                     validationState.SceneLease.Scene,
                     validationState.Depth,
-                    gameObject => ResolveReferenceResolver.TryCreateGameObjectResolvedReference(gameObject, executionContext, out var resolvedReference)
-                        ? resolvedReference!.GlobalObjectId
+                    gameObject => ResolveReferenceResolver.TryCreateGameObjectGlobalObjectId(gameObject, executionContext, out var globalObjectId)
+                        ? globalObjectId.Value
                         : null);
                 var windowedRoots = SceneTreeWindowProjector.Apply(roots, validationState.WindowOptions);
                 var tree = new SceneTreeResult(

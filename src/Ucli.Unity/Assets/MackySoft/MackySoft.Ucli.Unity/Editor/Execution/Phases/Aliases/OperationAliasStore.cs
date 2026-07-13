@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 
 #nullable enable
@@ -9,17 +11,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     /// <summary> Stores operation alias values resolved during one request execution. </summary>
     internal sealed class OperationAliasStore
     {
-        private readonly Dictionary<string, ResolvedReference> resolvedReferencesByAlias =
-            new Dictionary<string, ResolvedReference>(StringComparer.Ordinal);
+        private readonly Dictionary<string, UnityGlobalObjectId> globalObjectIdsByAlias =
+            new Dictionary<string, UnityGlobalObjectId>(StringComparer.Ordinal);
 
         /// <summary> Stores or replaces one resolved reference for the specified alias. </summary>
         /// <param name="alias"> The alias name. </param>
-        /// <param name="resolvedReference"> The resolved reference value. </param>
+        /// <param name="globalObjectId"> The resolved object identity. </param>
         /// <exception cref="ArgumentException"> Thrown when <paramref name="alias" /> is null, empty, whitespace, or contains outer whitespace. </exception>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="resolvedReference" /> is <see langword="null" />. </exception>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="globalObjectId" /> is <see langword="null" />. </exception>
         public void Set (
             string alias,
-            ResolvedReference resolvedReference)
+            UnityGlobalObjectId globalObjectId)
         {
             if (string.IsNullOrWhiteSpace(alias))
             {
@@ -31,29 +33,29 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 throw new ArgumentException("Alias must not contain leading or trailing whitespace.", nameof(alias));
             }
 
-            if (resolvedReference == null)
+            if (globalObjectId == null)
             {
-                throw new ArgumentNullException(nameof(resolvedReference));
+                throw new ArgumentNullException(nameof(globalObjectId));
             }
 
-            resolvedReferencesByAlias[alias] = resolvedReference;
+            globalObjectIdsByAlias[alias] = globalObjectId;
         }
 
         /// <summary> Tries to get one previously stored resolved reference by alias. </summary>
         /// <param name="alias"> The alias name. </param>
-        /// <param name="resolvedReference"> The resolved reference when found. </param>
+        /// <param name="globalObjectId"> The resolved identity when found. </param>
         /// <returns> <see langword="true" /> when alias exists; otherwise <see langword="false" />. </returns>
         public bool TryGet (
             string alias,
-            out ResolvedReference? resolvedReference)
+            [NotNullWhen(true)] out UnityGlobalObjectId? globalObjectId)
         {
             if (string.IsNullOrWhiteSpace(alias))
             {
-                resolvedReference = null;
+                globalObjectId = null;
                 return false;
             }
 
-            return resolvedReferencesByAlias.TryGetValue(alias, out resolvedReference);
+            return globalObjectIdsByAlias.TryGetValue(alias, out globalObjectId);
         }
     }
 }

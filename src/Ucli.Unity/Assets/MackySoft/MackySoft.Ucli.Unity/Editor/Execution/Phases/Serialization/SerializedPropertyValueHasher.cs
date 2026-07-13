@@ -1,3 +1,4 @@
+using System;
 using System.Globalization;
 using UnityEditor;
 using UnityEngine;
@@ -104,10 +105,31 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             if (executionContext.TryResolvePreviewSourceTrackingKey(unityObject, resource, out var previewSourceTrackingKey))
             {
-                return $"object:{previewSourceTrackingKey}";
+                return CreateObjectIdentityHash(previewSourceTrackingKey);
             }
 
-            return $"object:{UnityObjectReferenceResolver.CreateTrackingKey(unityObject)}";
+            if (UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(unityObject, out var globalObjectId))
+            {
+                return $"object:global:{globalObjectId.Value}";
+            }
+
+            return $"object:transient:{unityObject.GetInstanceID()}";
+        }
+
+        private static string CreateObjectIdentityHash (RequestLocalObjectIdentity identity)
+        {
+            if (identity.TryGetStableGlobalObjectId(out var globalObjectId))
+            {
+                return $"object:global:{globalObjectId.Value}";
+            }
+
+            if (!identity.TryGetTransientUnityObject(out var unityObject)
+                || unityObject == null)
+            {
+                throw new InvalidOperationException("Object-reference hashing requires a stable GlobalObjectId or live transient Unity object.");
+            }
+
+            return $"object:transient:{unityObject.GetInstanceID()}";
         }
 
         private static string FormatSingle (float value)

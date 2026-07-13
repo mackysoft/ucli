@@ -99,7 +99,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         binding.Alias,
                         sandbox!,
                         OperationResource.PersistentAsset(binding.AssetPath),
-                        binding.SourceGlobalObjectId);
+                        binding.SourceGlobalObjectId == null
+                            ? null
+                            : RequestLocalObjectIdentity.FromGlobalObjectId(binding.SourceGlobalObjectId));
                 }
             }
 
@@ -164,14 +166,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             if (binding.Alias != null
-                && UnityObjectReferenceResolver.TryCreateResolvedReference(binding.UnityObject, out var resolvedReference))
+                && UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(binding.UnityObject, out var globalObjectId))
             {
                 executionContext.SetTemporaryAlias(
                     binding.Alias,
                     binding.UnityObject,
                     OperationResource.PersistentAsset(binding.AssetPath),
-                    resolvedReference!.GlobalObjectId);
-                executionContext.AliasStore.Set(binding.Alias, resolvedReference);
+                    RequestLocalObjectIdentity.FromUnityObject(binding.UnityObject));
+                executionContext.AliasStore.Set(binding.Alias, globalObjectId);
             }
 
             return Task.FromResult(
@@ -217,7 +219,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             var plannedOwnerExecutionKey =
-                string.IsNullOrWhiteSpace(sourceGlobalObjectId)
+                sourceGlobalObjectId == null
                 && executionContext.TryGetPlannedAssetState(assetPath, out var plannedAssetState)
                     ? plannedAssetState.OwnerExecutionKey
                     : null;
@@ -252,7 +254,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 : null;
 
             if (validatedTargetState.SourceGlobalObjectId != null
-                && !string.IsNullOrWhiteSpace(validatedTargetState.SourceGlobalObjectId)
                 && executionContext.TryGetAssetShadow(validatedTargetState.SourceGlobalObjectId, out var shadowAsset, out var shadowAssetPath))
             {
                 binding = new TargetBinding(
@@ -320,7 +321,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 SerializedObjectSetArguments parsedArguments,
                 UnityEngine.Object unityObject,
                 string assetPath,
-                string? sourceGlobalObjectId,
+                UnityGlobalObjectId? sourceGlobalObjectId,
                 string? plannedOwnerExecutionKey)
             {
                 ParsedArguments = parsedArguments;
@@ -336,7 +337,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             public string AssetPath { get; }
 
-            public string? SourceGlobalObjectId { get; }
+            public UnityGlobalObjectId? SourceGlobalObjectId { get; }
 
             public string? PlannedOwnerExecutionKey { get; }
         }
@@ -346,7 +347,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             public TargetBinding (
                 UnityEngine.Object unityObject,
                 string assetPath,
-                string? sourceGlobalObjectId,
+                UnityGlobalObjectId? sourceGlobalObjectId,
                 string? alias,
                 string? plannedOwnerExecutionKey)
             {
@@ -361,7 +362,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             public string AssetPath { get; }
 
-            public string? SourceGlobalObjectId { get; }
+            public UnityGlobalObjectId? SourceGlobalObjectId { get; }
 
             public string? Alias { get; }
 

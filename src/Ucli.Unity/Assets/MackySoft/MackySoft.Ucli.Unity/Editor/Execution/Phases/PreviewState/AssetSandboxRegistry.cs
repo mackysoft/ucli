@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using MackySoft.Ucli.Contracts.Ipc;
 using UnityEngine;
 
 #nullable enable
@@ -10,18 +11,25 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     /// <summary> Tracks asset-specific plan-time shadows independently from other execution state. </summary>
     internal sealed class AssetSandboxRegistry
     {
-        private readonly Dictionary<string, AssetShadowValue> assetShadowsByGlobalObjectId =
-            new Dictionary<string, AssetShadowValue>(StringComparer.Ordinal);
+        private readonly Dictionary<UnityGlobalObjectId, AssetShadowValue> assetShadowsByGlobalObjectId =
+            new Dictionary<UnityGlobalObjectId, AssetShadowValue>();
 
+        /// <summary> Stores or replaces one plan-time asset shadow and advances aliases bound to the same stable source. </summary>
+        /// <param name="sourceGlobalObjectId"> The stable identity of the persisted source asset. </param>
+        /// <param name="unityObject"> The live request-local shadow. </param>
+        /// <param name="assetPath"> The persisted source asset path. </param>
+        /// <param name="temporaryAliasRegistry"> The alias registry to synchronize. </param>
+        /// <exception cref="ArgumentException"> <paramref name="assetPath" /> is missing. </exception>
+        /// <exception cref="ArgumentNullException"> An object or registry argument is <see langword="null" />. </exception>
         public void SetAssetShadow (
-            string globalObjectId,
+            UnityGlobalObjectId sourceGlobalObjectId,
             UnityEngine.Object unityObject,
             string assetPath,
             TemporaryAliasRegistry temporaryAliasRegistry)
         {
-            if (string.IsNullOrWhiteSpace(globalObjectId))
+            if (sourceGlobalObjectId == null)
             {
-                throw new ArgumentException("GlobalObjectId must not be null, empty, or whitespace.", nameof(globalObjectId));
+                throw new ArgumentNullException(nameof(sourceGlobalObjectId));
             }
 
             if (unityObject == null)
@@ -39,33 +47,38 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 throw new ArgumentNullException(nameof(temporaryAliasRegistry));
             }
 
-            assetShadowsByGlobalObjectId[globalObjectId] = new AssetShadowValue(unityObject, assetPath);
-            temporaryAliasRegistry.SynchronizeBySourceGlobalObjectId(
-                globalObjectId,
+            assetShadowsByGlobalObjectId[sourceGlobalObjectId] = new AssetShadowValue(unityObject, assetPath);
+            temporaryAliasRegistry.SynchronizeBySourceTrackingKey(
+                RequestLocalObjectIdentity.FromGlobalObjectId(sourceGlobalObjectId),
                 unityObject,
                 OperationResource.PersistentAsset(assetPath));
         }
 
+        /// <summary> Tries to get the live request-local shadow for one stable source asset. </summary>
+        /// <param name="sourceGlobalObjectId"> The stable identity of the persisted source asset. </param>
+        /// <param name="unityObject"> The live shadow when found; otherwise <see langword="null" />. </param>
+        /// <param name="assetPath"> The associated persisted asset path when found; otherwise an empty string. </param>
+        /// <returns> <see langword="true" /> when a non-destroyed shadow exists; otherwise <see langword="false" />. </returns>
         public bool TryGetAssetShadow (
-            string globalObjectId,
+            UnityGlobalObjectId sourceGlobalObjectId,
             [NotNullWhen(true)] out UnityEngine.Object? unityObject,
             out string assetPath)
         {
             unityObject = null;
             assetPath = string.Empty;
-            if (string.IsNullOrWhiteSpace(globalObjectId))
+            if (sourceGlobalObjectId == null)
             {
                 return false;
             }
 
-            if (!assetShadowsByGlobalObjectId.TryGetValue(globalObjectId, out var value))
+            if (!assetShadowsByGlobalObjectId.TryGetValue(sourceGlobalObjectId, out var value))
             {
                 return false;
             }
 
             if (value.UnityObject == null)
             {
-                assetShadowsByGlobalObjectId.Remove(globalObjectId);
+                assetShadowsByGlobalObjectId.Remove(sourceGlobalObjectId);
                 return false;
             }
 
@@ -122,7 +135,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         internal readonly struct AssetShadowState
         {
             public AssetShadowState (
-                string sourceGlobalObjectId,
+                UnityGlobalObjectId sourceGlobalObjectId,
                 UnityEngine.Object unityObject,
                 string assetPath)
             {
@@ -131,8 +144,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 AssetPath = assetPath;
             }
 
-            /// <summary> Gets the source persistent object's global identifier that the shadow replaces. </summary>
-            public string SourceGlobalObjectId { get; }
+            /// <summary> Gets the stable identity of the persisted source object that the shadow replaces. </summary>
+            public UnityGlobalObjectId SourceGlobalObjectId { get; }
 
             /// <summary> Gets the live shadow object. Collected states always provide a non-destroyed object. </summary>
             public UnityEngine.Object UnityObject { get; }

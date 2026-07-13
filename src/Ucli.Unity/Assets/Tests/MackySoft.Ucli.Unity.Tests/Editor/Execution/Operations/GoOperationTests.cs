@@ -68,7 +68,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var parent = new GameObject("Parent");
             EditorSceneManager.SaveScene(scene, scenePath);
             var context = scope.CreateExecutionContext();
-            context.AliasStore.Set("parent", UnityObjectReferenceResolver.CreateResolvedReference(parent));
+            context.AliasStore.Set("parent", UnityObjectReferenceResolver.CreateGlobalObjectId(parent));
             var requestOperation = CreateOperation(
                 opId: "op-create",
                 opName: UcliPrimitiveOperationNames.GoCreate,
@@ -90,6 +90,35 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(context.AliasStore.TryGet("created", out var resolvedReference), Is.True);
             Assert.That(resolvedReference, Is.Not.Null);
         });
+
+        [Test]
+        [Category("Size.Small")]
+        public void ResolveEditableGameObject_WhenTemporaryStateIsDisabled_ReturnsStableAliasTarget ()
+        {
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(GoOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var liveTarget = new GameObject("LiveTarget");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var temporaryTarget = new GameObject("TemporaryTarget");
+            var context = scope.CreateExecutionContext();
+            context.TrackTemporaryObject(temporaryTarget);
+            context.AliasStore.Set("target", UnityObjectReferenceResolver.CreateGlobalObjectId(liveTarget));
+            context.SetTemporaryAlias(
+                "target",
+                temporaryTarget,
+                new OperationResource(OperationTouchKind.Scene, scenePath));
+
+            var result = GoOperationUtilities.TryResolveEditableGameObject(
+                UnityObjectReference.FromAlias("target"),
+                context,
+                OperationObjectReferenceUtilities.ReferenceResolutionPolicy.LiveOnly,
+                out var resolution,
+                out var errorMessage);
+
+            Assert.That(result, Is.True, errorMessage);
+            Assert.That(resolution.GameObject, Is.SameAs(liveTarget));
+        }
 
         [UnityTest]
         [Category("Size.Small")]
@@ -320,7 +349,7 @@ namespace MackySoft.Ucli.Unity.Tests
             root.AddComponent<BoxCollider>();
             EditorSceneManager.SaveScene(scene, scenePath);
             var context = scope.CreateExecutionContext();
-            context.AliasStore.Set("target", UnityObjectReferenceResolver.CreateResolvedReference(root));
+            context.AliasStore.Set("target", UnityObjectReferenceResolver.CreateGlobalObjectId(root));
             var requestOperation = CreateOperation(
                 opId: "op-describe",
                 opName: UcliPrimitiveOperationNames.GoDescribe,
@@ -442,7 +471,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(temporaryRoot, Is.Not.Null);
             var previewChild = temporaryRoot!.transform.Find("Renamed");
             Assert.That(previewChild, Is.Not.Null);
-            Assert.That(UnityObjectReferenceResolver.TryCreateResolvedReference(previewChild!.gameObject, out _), Is.False);
+            Assert.That(UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(previewChild!.gameObject, out _), Is.False);
             var requestOperation = CreateOperation(
                 opId: "op-describe",
                 opName: UcliPrimitiveOperationNames.GoDescribe,
@@ -485,7 +514,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var temporaryRoot = temporaryScene.GetRootGameObjects().Single(static gameObject => gameObject.name == "Root");
             var previewChild = temporaryRoot.transform.Find("Child");
             Assert.That(previewChild, Is.Not.Null);
-            Assert.That(UnityObjectReferenceResolver.TryCreateResolvedReference(previewChild!.gameObject, out _), Is.False);
+            Assert.That(UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(previewChild!.gameObject, out _), Is.False);
             var requestOperation = CreateOperation(
                 opId: "op-describe",
                 opName: UcliPrimitiveOperationNames.GoDescribe,
@@ -503,9 +532,9 @@ namespace MackySoft.Ucli.Unity.Tests
             AssertSuccess(result, applied: false, changed: false, expectedTouchKind: null);
             Assert.That(result.Result.HasValue, Is.True);
             var describedGlobalObjectId = result.Result!.Value.GetProperty("globalObjectId").GetString();
-            if (UnityObjectReferenceResolver.TryCreateResolvedReference(recreatedChild, out var recreatedReference))
+            if (UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(recreatedChild, out var recreatedReference))
             {
-                Assert.That(describedGlobalObjectId, Is.EqualTo(recreatedReference!.GlobalObjectId));
+                Assert.That(describedGlobalObjectId, Is.EqualTo(recreatedReference!.Value));
             }
             else
             {
@@ -539,7 +568,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(temporaryRoot, Is.Not.Null);
             var previewChild = temporaryRoot!.transform.Find("Child");
             Assert.That(previewChild, Is.Not.Null);
-            Assert.That(UnityObjectReferenceResolver.TryCreateResolvedReference(previewChild!.gameObject, out _), Is.False);
+            Assert.That(UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(previewChild!.gameObject, out _), Is.False);
             var requestOperation = CreateOperation(
                 opId: "op-describe",
                 opName: UcliPrimitiveOperationNames.GoDescribe,

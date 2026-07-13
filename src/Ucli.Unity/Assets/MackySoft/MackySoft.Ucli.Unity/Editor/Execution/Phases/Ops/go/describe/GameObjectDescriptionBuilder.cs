@@ -61,12 +61,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             var children = currentDepth >= maxDepth
                 ? Array.Empty<GameObjectDescriptionResult>()
                 : BuildChildren(transform, currentDepth, maxDepth, executionContext, includeTemporaryState);
-            var globalObjectId = ResolveReferenceResolver.TryCreateGameObjectResolvedReference(gameObject, executionContext, out var resolvedReference)
-                ? resolvedReference!.GlobalObjectId
+            var globalObjectIdText = ResolveReferenceResolver.TryCreateGameObjectGlobalObjectId(gameObject, executionContext, out var globalObjectId)
+                ? globalObjectId.Value
                 : string.Empty;
             return new GameObjectDescriptionResult(
                 name: gameObject.name,
-                globalObjectId: globalObjectId,
+                globalObjectId: globalObjectIdText,
                 components: componentDescriptions,
                 children: children);
         }
@@ -105,9 +105,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             var components = gameObject.GetComponents<Component>();
             List<GameObjectComponentDescriptionResult>? ensuredComponentDescriptions = null;
             if (includeTemporaryState
-                && executionContext != null)
+                && executionContext != null
+                && OperationResourceUtilities.TryResolveOwnerResource(
+                    gameObject,
+                    executionContext,
+                    out var resource,
+                    out _))
             {
-                var targetTrackingKey = UnityObjectReferenceResolver.CreateTrackingKey(gameObject);
+                var targetTrackingKey = executionContext.CreateGameObjectTrackingKey(gameObject, resource);
                 var ensuredComponents = new List<ComponentSandboxRegistry.EnsuredComponentState>();
                 executionContext.CollectEnsuredComponentStates(targetTrackingKey, ensuredComponents);
                 if (ensuredComponents.Count > 0)

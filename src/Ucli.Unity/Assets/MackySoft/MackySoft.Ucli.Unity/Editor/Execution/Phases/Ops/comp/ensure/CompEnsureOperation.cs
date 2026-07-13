@@ -96,8 +96,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
             else
             {
-                var targetReferenceKey = UnityObjectReferenceResolver.CreateTrackingKey(validationState.Target);
-                if (executionContext.TryGetEnsuredComponentState(targetReferenceKey, validationState.ComponentType, out var ensuredComponentState))
+                var targetTrackingKey = executionContext.CreateGameObjectTrackingKey(
+                    validationState.Target,
+                    validationState.Resource);
+                if (executionContext.TryGetEnsuredComponentState(targetTrackingKey, validationState.ComponentType, out var ensuredComponentState))
                 {
                     component = ensuredComponentState.Component;
                     changed = false;
@@ -120,7 +122,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         }
 
                         executionContext.SetEnsuredComponent(
-                            targetReferenceKey,
+                            targetTrackingKey,
                             validationState.ComponentType,
                             component!,
                             validationState.Target,
@@ -133,7 +135,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             {
                 if (component != null)
                 {
-                    executionContext.SetTemporaryAlias(operation.As, component, validationState.Resource, UnityObjectReferenceResolver.CreateTrackingKey(component));
+                    executionContext.SetTemporaryAlias(
+                        operation.As,
+                        component,
+                        validationState.Resource,
+                        executionContext.CreateComponentTrackingKey(component, validationState.Resource));
                 }
                 else
                 {
@@ -187,7 +193,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (!GoOperationUtilities.TryResolveEditableGameObject(
                 targetReference,
                 executionContext,
-                allowTemporaryState,
+                allowTemporaryState
+                    ? OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryState
+                    : operation.AllowRequestLocalAliases
+                        ? OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryAliases
+                        : OperationObjectReferenceUtilities.ReferenceResolutionPolicy.LiveOnly,
                 out var targetResolution,
                 out errorMessage))
             {
@@ -238,10 +248,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return;
             }
 
-            executionContext.SetTemporaryAlias(alias, component, resource, UnityObjectReferenceResolver.CreateTrackingKey(component));
-            if (UnityObjectReferenceResolver.TryCreateResolvedReference(component, out var resolvedReference))
+            executionContext.SetTemporaryAlias(
+                alias,
+                component,
+                resource,
+                executionContext.CreateComponentTrackingKey(component, resource));
+            if (UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(component, out var globalObjectId))
             {
-                executionContext.AliasStore.Set(alias, resolvedReference!);
+                executionContext.AliasStore.Set(alias, globalObjectId);
             }
         }
 

@@ -133,14 +133,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 executionContext.MarkRequestAttributedChange(OperationResource.PersistentAsset(assetPath!));
                 if (operation.As != null)
                 {
-                    if (UnityObjectReferenceResolver.TryCreateResolvedReference(asset, out var resolvedReference))
+                    if (UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(asset, out var globalObjectId))
                     {
                         executionContext.SetTemporaryAlias(
                             operation.As,
                             asset,
                             OperationResource.PersistentAsset(assetPath!),
-                            resolvedReference!.GlobalObjectId);
-                        executionContext.AliasStore.Set(operation.As, resolvedReference);
+                            RequestLocalObjectIdentity.FromUnityObject(asset));
+                        executionContext.AliasStore.Set(operation.As, globalObjectId);
                     }
                     else
                     {

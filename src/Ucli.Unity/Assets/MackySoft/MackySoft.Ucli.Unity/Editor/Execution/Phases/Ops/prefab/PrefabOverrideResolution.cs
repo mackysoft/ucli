@@ -119,10 +119,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            var targetKey = executionContext.CreatePrefabOverrideTargetKey(
-                targetReference,
-                component,
-                componentResolution.Resource);
+            var targetKey = executionContext.CreateComponentTrackingKey(component, componentResolution.Resource);
             if (!executionContext.TryCollectPrefabOverridePropertyChanges(
                     operation.Id,
                     targetKey,
@@ -230,7 +227,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (!ComponentOperationUtilities.TryResolveComponent(
                     targetReference,
                     executionContext,
-                    allowTemporaryState,
+                    allowTemporaryState
+                        ? OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryState
+                        : OperationObjectReferenceUtilities.ReferenceResolutionPolicy.LiveOnly,
                     out componentResolution,
                     out errorMessage))
             {
@@ -240,18 +239,78 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (allowTemporaryState
                 && componentResolution.Component != null
                 && !PrefabUtility.IsPartOfPrefabInstance(componentResolution.Component)
-                && !executionContext.IsPlannedPrefabInstanceLineage(componentResolution.Component)
-                && ComponentOperationUtilities.TryResolveComponent(
-                    targetReference,
-                    executionContext,
-                    allowTemporaryState: false,
-                    out var liveComponentResolution,
-                    out _))
+                && !executionContext.IsPlannedPrefabInstanceLineage(componentResolution.Component))
             {
-                componentResolution = liveComponentResolution;
+                if (TryResolveComponentShadowSource(
+                        componentResolution,
+                        executionContext,
+                        out var sourceComponentResolution)
+                    || TryResolveLiveComponentTarget(
+                        targetReference,
+                        executionContext,
+                        out sourceComponentResolution))
+                {
+                    componentResolution = sourceComponentResolution;
+                }
             }
 
             errorMessage = string.Empty;
+            return true;
+        }
+
+        private static bool TryResolveComponentShadowSource (
+            ComponentOperationUtilities.ComponentResolutionState componentResolution,
+            OperationExecutionContext executionContext,
+            out ComponentOperationUtilities.ComponentResolutionState sourceComponentResolution)
+        {
+            sourceComponentResolution = default;
+            var component = componentResolution.Component;
+            if (component == null)
+            {
+                return false;
+            }
+
+            var sourceTrackingKey = executionContext.CreateComponentTrackingKey(component, componentResolution.Resource);
+            if (!executionContext.TryGetComponentShadowState(sourceTrackingKey, out var componentShadowState)
+                || componentShadowState.SourceComponent == null
+                || !OperationResourceUtilities.TryResolveOwnerResource(
+                    componentShadowState.SourceComponent,
+                    executionContext,
+                    out var sourceResource,
+                    out _))
+            {
+                return false;
+            }
+
+            sourceComponentResolution = new ComponentOperationUtilities.ComponentResolutionState(
+                componentShadowState.SourceComponent,
+                sourceResource);
+            return true;
+        }
+
+        private static bool TryResolveLiveComponentTarget (
+            UnityObjectReference targetReference,
+            OperationExecutionContext executionContext,
+            out ComponentOperationUtilities.ComponentResolutionState componentResolution)
+        {
+            componentResolution = default;
+            if (!UnityObjectReferenceResolver.TryResolve(
+                    targetReference,
+                    executionContext,
+                    allowTemporaryState: false,
+                    out var unityObject,
+                    out _)
+                || !(unityObject is Component component)
+                || !OperationResourceUtilities.TryResolveOwnerResource(
+                    component,
+                    executionContext,
+                    out var resource,
+                    out _))
+            {
+                return false;
+            }
+
+            componentResolution = new ComponentOperationUtilities.ComponentResolutionState(component, resource);
             return true;
         }
 

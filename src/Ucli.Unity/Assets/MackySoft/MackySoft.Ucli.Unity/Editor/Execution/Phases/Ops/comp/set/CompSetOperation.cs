@@ -91,20 +91,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             {
                 executionContext.ReplaceTrackedTemporaryComponent(bindingState.Binding.Component, sandbox!, bindingState.Binding.Resource);
 
-                if (bindingState.Binding.SourceGlobalObjectId != null)
-                {
-                    executionContext.SetComponentShadow(
-                        bindingState.Binding.SourceGlobalObjectId,
-                        sandbox!,
-                        bindingState.Binding.SourceComponent,
-                        bindingState.Binding.OwnerGameObject,
-                        bindingState.Binding.OwnerGameObjectTrackingKey,
-                        bindingState.Binding.Resource);
-                }
+                executionContext.SetComponentShadow(
+                    bindingState.Binding.SourceTrackingKey,
+                    sandbox!,
+                    bindingState.Binding.SourceComponent,
+                    bindingState.Binding.OwnerGameObject,
+                    bindingState.Binding.OwnerGameObjectTrackingKey,
+                    bindingState.Binding.Resource);
 
                 if (bindingState.Binding.Alias != null)
                 {
-                    executionContext.SetTemporaryAlias(bindingState.Binding.Alias, sandbox!, bindingState.Binding.Resource, bindingState.Binding.SourceGlobalObjectId);
+                    executionContext.SetTemporaryAlias(bindingState.Binding.Alias, sandbox!, bindingState.Binding.Resource, bindingState.Binding.SourceTrackingKey);
                 }
 
                 executionContext.MarkRequestAttributedChange(bindingState.Binding.Resource);
@@ -219,7 +216,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (!ComponentOperationUtilities.TryResolveComponent(
                 arguments.TargetReference,
                 executionContext,
-                allowTemporaryState: true,
+                OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryState,
                 out var componentResolution,
                 out errorMessage))
             {
@@ -261,14 +258,22 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     return false;
                 }
 
-                bindingState = new ResolvedBindingState(
-                    CreateTargetBinding(
-                        targetReference,
+                var aliasSourceTrackingKey = temporaryAliasState.SourceTrackingKey
+                    ?? executionContext.CreateComponentTrackingKey(temporaryComponent, temporaryAliasState.Resource);
+                var aliasBinding = executionContext.TryGetComponentShadowState(aliasSourceTrackingKey, out var aliasComponentShadowState)
+                    ? CreateShadowTargetBinding(
+                        aliasComponentShadowState,
+                        aliasSourceTrackingKey,
+                        alias,
+                        executionContext)
+                    : CreateTargetBinding(
                         temporaryComponent,
                         temporaryAliasState.Resource,
-                        temporaryAliasState.SourceGlobalObjectId,
+                        aliasSourceTrackingKey,
                         alias,
-                        executionContext),
+                        executionContext);
+                bindingState = new ResolvedBindingState(
+                    aliasBinding,
                     validatedTargetState.ParsedArguments.Sets);
                 return true;
             }
@@ -276,7 +281,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (!ComponentOperationUtilities.TryResolveComponent(
                 targetReference,
                 executionContext,
-                allowTemporaryState: true,
+                OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryState,
                 out var componentResolution,
                 out var errorMessage))
             {
@@ -284,38 +289,54 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            var sourceGlobalObjectId = GetSourceReferenceKey(
-                targetReference,
+            var sourceTrackingKey = executionContext.CreateComponentTrackingKey(
                 componentResolution.Component!,
-                componentResolution.Resource,
-                executionContext);
+                componentResolution.Resource);
             TargetBinding binding;
-            if (!string.IsNullOrWhiteSpace(sourceGlobalObjectId)
-                && executionContext.TryGetComponentShadowState(sourceGlobalObjectId, out var componentShadowState))
+            if (executionContext.TryGetComponentShadowState(sourceTrackingKey, out var componentShadowState))
             {
-                binding = new TargetBinding(
-                    componentShadowState.Component!,
-                    componentShadowState.Resource,
-                    sourceGlobalObjectId,
-                    componentShadowState.SourceComponent!,
-                    executionContext.CreatePrefabOverrideTargetKey(targetReference, componentShadowState.Component!, componentShadowState.Resource),
-                    ResolveComponentOwnerGameObject(componentShadowState.Component!, executionContext),
-                    executionContext.CreateComponentOwnerTrackingKey(componentShadowState.Component!, componentShadowState.Resource),
-                    alias);
+                binding = CreateShadowTargetBinding(
+                    componentShadowState,
+                    sourceTrackingKey,
+                    alias,
+                    executionContext);
             }
             else
             {
                 binding = CreateTargetBinding(
-                    targetReference,
                     componentResolution.Component!,
                     componentResolution.Resource,
-                    sourceGlobalObjectId,
+                    sourceTrackingKey,
                     alias,
                     executionContext);
             }
 
             bindingState = new ResolvedBindingState(binding, validatedTargetState.ParsedArguments.Sets);
             return true;
+        }
+
+        private static TargetBinding CreateShadowTargetBinding (
+            ComponentSandboxRegistry.ComponentShadowState componentShadowState,
+            RequestLocalObjectIdentity sourceTrackingKey,
+            string? alias,
+            OperationExecutionContext executionContext)
+        {
+            var component = componentShadowState.Component;
+            var sourceComponent = componentShadowState.SourceComponent;
+            if (component == null || sourceComponent == null)
+            {
+                throw new InvalidOperationException("A resolved component shadow must retain its live shadow and source components.");
+            }
+
+            return new TargetBinding(
+                component,
+                componentShadowState.Resource,
+                sourceTrackingKey,
+                sourceComponent,
+                executionContext.CreateComponentTrackingKey(component, componentShadowState.Resource),
+                ResolveComponentOwnerGameObject(component, executionContext),
+                executionContext.CreateComponentOwnerTrackingKey(component, componentShadowState.Resource),
+                alias);
         }
 
         private static bool TryResolveCallBinding (
@@ -336,7 +357,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (!ComponentOperationUtilities.TryResolveComponent(
                 arguments.TargetReference,
                 executionContext,
-                allowTemporaryState: false,
+                operation.AllowRequestLocalAliases
+                    ? OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryAliases
+                    : OperationObjectReferenceUtilities.ReferenceResolutionPolicy.LiveOnly,
                 out var componentResolution,
                 out errorMessage))
             {
@@ -346,14 +369,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             bindingState = new ResolvedBindingState(
                 CreateTargetBinding(
-                    arguments.TargetReference,
                     componentResolution.Component!,
                     componentResolution.Resource,
-                    GetSourceReferenceKey(
-                        arguments.TargetReference,
+                    executionContext.CreateComponentTrackingKey(
                         componentResolution.Component!,
-                        componentResolution.Resource,
-                        executionContext),
+                        componentResolution.Resource),
                     alias: null,
                     executionContext),
                 arguments.Sets);
@@ -361,19 +381,18 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         }
 
         private static TargetBinding CreateTargetBinding (
-            UnityObjectReference targetReference,
             Component component,
             OperationResource resource,
-            string? sourceGlobalObjectId,
+            RequestLocalObjectIdentity sourceTrackingKey,
             string? alias,
             OperationExecutionContext executionContext)
         {
             return new TargetBinding(
                 component,
                 resource,
-                sourceGlobalObjectId,
+                sourceTrackingKey,
                 component,
-                executionContext.CreatePrefabOverrideTargetKey(targetReference, component, resource),
+                executionContext.CreateComponentTrackingKey(component, resource),
                 ResolveComponentOwnerGameObject(component, executionContext),
                 executionContext.CreateComponentOwnerTrackingKey(component, resource),
                 alias);
@@ -390,26 +409,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             return component.gameObject;
-        }
-
-        private static string GetSourceReferenceKey (
-            UnityObjectReference targetReference,
-            Component component,
-            OperationResource resource,
-            OperationExecutionContext executionContext)
-        {
-            if (targetReference.Kind == UnityObjectReferenceKind.Selector
-                && targetReference.Selector.Kind == ResolveSelectorKind.GlobalObjectId)
-            {
-                return targetReference.Selector.GlobalObjectId!;
-            }
-
-            if (executionContext.TryResolvePreviewSourceTrackingKey(component, resource, out var previewSourceTrackingKey))
-            {
-                return previewSourceTrackingKey;
-            }
-
-            return UnityObjectReferenceResolver.CreateTrackingKey(component);
         }
 
         private static void RecordPrefabOverridePropertyChanges (
@@ -461,7 +460,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static bool TryResolvePropertyStateBeforeRequest (
             string editStepId,
-            string targetKey,
+            RequestLocalObjectIdentity targetKey,
             string propertyPath,
             IReadOnlyDictionary<string, PrefabOverridePropertyStateSnapshot>? statesBeforeApply,
             OperationExecutionContext executionContext,
@@ -593,16 +592,16 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             public TargetBinding (
                 Component component,
                 OperationResource resource,
-                string? sourceGlobalObjectId,
+                RequestLocalObjectIdentity sourceTrackingKey,
                 Component sourceComponent,
-                string prefabOverrideTargetKey,
+                RequestLocalObjectIdentity prefabOverrideTargetKey,
                 GameObject ownerGameObject,
-                string ownerGameObjectTrackingKey,
+                RequestLocalObjectIdentity ownerGameObjectTrackingKey,
                 string? alias)
             {
                 Component = component;
                 Resource = resource;
-                SourceGlobalObjectId = sourceGlobalObjectId;
+                SourceTrackingKey = sourceTrackingKey;
                 SourceComponent = sourceComponent;
                 PrefabOverrideTargetKey = prefabOverrideTargetKey;
                 OwnerGameObject = ownerGameObject;
@@ -614,15 +613,15 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             public OperationResource Resource { get; }
 
-            public string? SourceGlobalObjectId { get; }
+            public RequestLocalObjectIdentity SourceTrackingKey { get; }
 
             public Component SourceComponent { get; }
 
-            public string PrefabOverrideTargetKey { get; }
+            public RequestLocalObjectIdentity PrefabOverrideTargetKey { get; }
 
             public GameObject OwnerGameObject { get; }
 
-            public string OwnerGameObjectTrackingKey { get; }
+            public RequestLocalObjectIdentity OwnerGameObjectTrackingKey { get; }
 
             public string? Alias { get; }
         }

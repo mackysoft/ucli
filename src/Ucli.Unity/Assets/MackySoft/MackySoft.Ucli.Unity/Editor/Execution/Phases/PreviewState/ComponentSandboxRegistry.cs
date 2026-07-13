@@ -9,31 +9,28 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     /// <summary> Tracks component-specific plan-time shadows and ensured instances. </summary>
     internal sealed class ComponentSandboxRegistry
     {
-        private readonly Dictionary<string, ComponentShadowValue> componentShadowsByGlobalObjectId =
-            new Dictionary<string, ComponentShadowValue>(StringComparer.Ordinal);
+        private readonly Dictionary<RequestLocalObjectIdentity, ComponentShadowValue> componentShadowsByTrackingKey =
+            new Dictionary<RequestLocalObjectIdentity, ComponentShadowValue>();
 
         private readonly Dictionary<EnsuredComponentKey, EnsuredComponentValue> ensuredComponentsByKey =
             new Dictionary<EnsuredComponentKey, EnsuredComponentValue>();
 
         /// <summary> Stores the request-local component created to satisfy an ensure operation for one target GameObject and component type. </summary>
-        /// <param name="targetGlobalObjectId"> The non-empty tracking key of the GameObject that semantically owns the ensured component. </param>
+        /// <param name="targetTrackingKey"> The validated identity of the GameObject that semantically owns the ensured component. </param>
         /// <param name="componentType"> The non-null component runtime type that was ensured. </param>
         /// <param name="component"> The non-null request-local component instance. </param>
         /// <param name="targetGameObject"> The non-null request-local GameObject that semantically owns <paramref name="component" />. </param>
         /// <param name="resource"> The owner resource whose path must be non-empty. </param>
-        /// <exception cref="ArgumentException"> <paramref name="targetGlobalObjectId" /> or <paramref name="resource" /> path is null, empty, or whitespace. </exception>
+        /// <exception cref="ArgumentException"> <paramref name="targetTrackingKey" /> is invalid or <paramref name="resource" /> has no path. </exception>
         /// <exception cref="ArgumentNullException"> <paramref name="componentType" />, <paramref name="component" />, or <paramref name="targetGameObject" /> is <see langword="null" />. </exception>
         public void SetEnsuredComponent (
-            string targetGlobalObjectId,
+            RequestLocalObjectIdentity targetTrackingKey,
             Type componentType,
             Component component,
             GameObject targetGameObject,
             OperationResource resource)
         {
-            if (string.IsNullOrWhiteSpace(targetGlobalObjectId))
-            {
-                throw new ArgumentException("Target GlobalObjectId must not be null, empty, or whitespace.", nameof(targetGlobalObjectId));
-            }
+            ValidateTrackingKey(targetTrackingKey, nameof(targetTrackingKey));
 
             if (componentType == null)
             {
@@ -51,27 +48,31 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             ValidateResource(resource, nameof(resource));
-            ensuredComponentsByKey[new EnsuredComponentKey(targetGlobalObjectId, componentType)] =
-                new EnsuredComponentValue(component, targetGameObject, resource);
+            var ensuredComponentKey = new EnsuredComponentKey(targetTrackingKey, componentType);
+            var componentTrackingKey = ensuredComponentsByKey.TryGetValue(ensuredComponentKey, out var existingValue)
+                ? existingValue.ComponentTrackingKey
+                : RequestLocalObjectIdentity.FromUnityObject(component);
+            ensuredComponentsByKey[ensuredComponentKey] =
+                new EnsuredComponentValue(component, targetGameObject, resource, componentTrackingKey);
         }
 
         /// <summary> Tries to retrieve the live request-local component previously ensured for one target GameObject and component type. </summary>
-        /// <param name="targetGlobalObjectId"> The target GameObject tracking key. Null, empty, or whitespace values do not match. </param>
+        /// <param name="targetTrackingKey"> The target GameObject identity. Invalid values do not match. </param>
         /// <param name="componentType"> The component runtime type. A <see langword="null" /> value does not match. </param>
         /// <param name="state"> The ensured component state when the method returns <see langword="true" />; otherwise the default value. </param>
         /// <returns> <see langword="true" /> when a non-destroyed ensured component exists for the key; otherwise <see langword="false" />. </returns>
         public bool TryGetEnsuredComponentState (
-            string targetGlobalObjectId,
+            RequestLocalObjectIdentity targetTrackingKey,
             Type componentType,
             out EnsuredComponentState state)
         {
             state = default;
-            if (string.IsNullOrWhiteSpace(targetGlobalObjectId) || componentType == null)
+            if (targetTrackingKey == null || componentType == null)
             {
                 return false;
             }
 
-            var key = new EnsuredComponentKey(targetGlobalObjectId, componentType);
+            var key = new EnsuredComponentKey(targetTrackingKey, componentType);
             if (!ensuredComponentsByKey.TryGetValue(key, out var value))
             {
                 return false;
@@ -101,7 +102,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 throw new ArgumentNullException(nameof(component));
             }
 
-            foreach (var pair in componentShadowsByGlobalObjectId)
+            foreach (var pair in componentShadowsByTrackingKey)
             {
                 if (pair.Value.Component == component)
                 {
@@ -125,12 +126,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         /// <summary> Tries to resolve the Prefab override correlation key for one tracked request-local component. </summary>
         /// <param name="component"> The non-null component to find in component shadows or ensured-component state. </param>
-        /// <param name="targetKey"> The Prefab override correlation key when the method returns <see langword="true" />; otherwise an empty string. </param>
+        /// <param name="targetKey"> The Prefab override correlation identity when the method returns <see langword="true" />; otherwise the invalid default value. </param>
         /// <returns> <see langword="true" /> when <paramref name="component" /> is tracked by this registry; otherwise <see langword="false" />. </returns>
         /// <exception cref="ArgumentNullException"> <paramref name="component" /> is <see langword="null" />. </exception>
         public bool TryResolveTrackedComponentTargetKey (
             Component component,
-            out string targetKey)
+            out RequestLocalObjectIdentity targetKey)
         {
             if (component == null)
             {
@@ -141,12 +142,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             {
                 if (pair.Value.Component == component)
                 {
-                    targetKey = pair.Key.CreateTrackingKey();
+                    targetKey = pair.Value.ComponentTrackingKey;
                     return true;
                 }
             }
 
-            foreach (var pair in componentShadowsByGlobalObjectId)
+            foreach (var pair in componentShadowsByTrackingKey)
             {
                 if (pair.Value.Component == component)
                 {
@@ -155,25 +156,25 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 }
             }
 
-            targetKey = string.Empty;
+            targetKey = null!;
             return false;
         }
 
         /// <summary> Tries to resolve the semantic owner GameObject tracking key for one tracked request-local component. </summary>
         /// <param name="component"> The non-null component to find in component shadows or ensured-component state. </param>
-        /// <param name="ownerKey"> The owner GameObject tracking key when the method returns <see langword="true" />; otherwise an empty string. </param>
+        /// <param name="ownerKey"> The owner GameObject identity when the method returns <see langword="true" />; otherwise the invalid default value. </param>
         /// <returns> <see langword="true" /> when <paramref name="component" /> is tracked by this registry; otherwise <see langword="false" />. </returns>
         /// <exception cref="ArgumentNullException"> <paramref name="component" /> is <see langword="null" />. </exception>
         public bool TryResolveTrackedComponentOwnerKey (
             Component component,
-            out string ownerKey)
+            out RequestLocalObjectIdentity ownerKey)
         {
             if (component == null)
             {
                 throw new ArgumentNullException(nameof(component));
             }
 
-            foreach (var pair in componentShadowsByGlobalObjectId)
+            foreach (var pair in componentShadowsByTrackingKey)
             {
                 if (pair.Value.Component == component)
                 {
@@ -186,12 +187,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             {
                 if (pair.Value.Component == component)
                 {
-                    ownerKey = pair.Key.TargetGlobalObjectId;
+                    ownerKey = pair.Key.TargetTrackingKey;
                     return true;
                 }
             }
 
-            ownerKey = string.Empty;
+            ownerKey = null!;
             return false;
         }
 
@@ -209,7 +210,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 throw new ArgumentNullException(nameof(component));
             }
 
-            foreach (var pair in componentShadowsByGlobalObjectId)
+            foreach (var pair in componentShadowsByTrackingKey)
             {
                 if (pair.Value.Component == component)
                 {
@@ -232,18 +233,15 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         }
 
         /// <summary> Appends non-destroyed ensured component states for one target GameObject tracking key. </summary>
-        /// <param name="targetGlobalObjectId"> The non-empty target GameObject tracking key to match. </param>
+        /// <param name="targetTrackingKey"> The validated target GameObject identity to match. </param>
         /// <param name="destination"> The non-null destination collection that receives matching component states in registry iteration order. </param>
-        /// <exception cref="ArgumentException"> <paramref name="targetGlobalObjectId" /> is null, empty, or whitespace. </exception>
+        /// <exception cref="ArgumentException"> <paramref name="targetTrackingKey" /> is invalid. </exception>
         /// <exception cref="ArgumentNullException"> <paramref name="destination" /> is <see langword="null" />. </exception>
         public void CollectEnsuredComponentStates (
-            string targetGlobalObjectId,
+            RequestLocalObjectIdentity targetTrackingKey,
             ICollection<EnsuredComponentState> destination)
         {
-            if (string.IsNullOrWhiteSpace(targetGlobalObjectId))
-            {
-                throw new ArgumentException("Target GlobalObjectId must not be null, empty, or whitespace.", nameof(targetGlobalObjectId));
-            }
+            ValidateTrackingKey(targetTrackingKey, nameof(targetTrackingKey));
 
             if (destination == null)
             {
@@ -252,7 +250,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             foreach (var pair in ensuredComponentsByKey)
             {
-                if (!string.Equals(pair.Key.TargetGlobalObjectId, targetGlobalObjectId, StringComparison.Ordinal))
+                if (!pair.Key.TargetTrackingKey.Equals(targetTrackingKey))
                 {
                     continue;
                 }
@@ -267,28 +265,25 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         }
 
         /// <summary> Stores or replaces a request-local component shadow keyed by its source component tracking key. </summary>
-        /// <param name="globalObjectId"> The non-empty source component tracking key. </param>
+        /// <param name="sourceTrackingKey"> The validated stable or synthetic source component identity. </param>
         /// <param name="component"> The non-null request-local component shadow. </param>
         /// <param name="sourceComponent"> The non-null component whose serialized state was cloned into <paramref name="component" />. </param>
         /// <param name="ownerGameObject"> The non-null GameObject that owns the source component semantically. </param>
         /// <param name="ownerGameObjectTrackingKey"> The non-empty tracking key of <paramref name="ownerGameObject" />. </param>
         /// <param name="resource"> The owner resource whose path must be non-empty. </param>
         /// <param name="temporaryAliasRegistry"> The non-null alias registry synchronized with the shadow replacement. </param>
-        /// <exception cref="ArgumentException"> <paramref name="globalObjectId" />, <paramref name="ownerGameObjectTrackingKey" />, or <paramref name="resource" /> path is null, empty, or whitespace. </exception>
+        /// <exception cref="ArgumentException"> A tracking key is invalid or <paramref name="resource" /> has no path. </exception>
         /// <exception cref="ArgumentNullException"> <paramref name="component" />, <paramref name="sourceComponent" />, <paramref name="ownerGameObject" />, or <paramref name="temporaryAliasRegistry" /> is <see langword="null" />. </exception>
         public void SetComponentShadow (
-            string globalObjectId,
+            RequestLocalObjectIdentity sourceTrackingKey,
             Component component,
             Component sourceComponent,
             GameObject ownerGameObject,
-            string ownerGameObjectTrackingKey,
+            RequestLocalObjectIdentity ownerGameObjectTrackingKey,
             OperationResource resource,
             TemporaryAliasRegistry temporaryAliasRegistry)
         {
-            if (string.IsNullOrWhiteSpace(globalObjectId))
-            {
-                throw new ArgumentException("GlobalObjectId must not be null, empty, or whitespace.", nameof(globalObjectId));
-            }
+            ValidateTrackingKey(sourceTrackingKey, nameof(sourceTrackingKey));
 
             if (component == null)
             {
@@ -305,10 +300,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 throw new ArgumentNullException(nameof(ownerGameObject));
             }
 
-            if (string.IsNullOrWhiteSpace(ownerGameObjectTrackingKey))
-            {
-                throw new ArgumentException("Owner GameObject tracking key must not be null, empty, or whitespace.", nameof(ownerGameObjectTrackingKey));
-            }
+            ValidateTrackingKey(ownerGameObjectTrackingKey, nameof(ownerGameObjectTrackingKey));
 
             if (temporaryAliasRegistry == null)
             {
@@ -316,13 +308,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             ValidateResource(resource, nameof(resource));
-            componentShadowsByGlobalObjectId[globalObjectId] = new ComponentShadowValue(
+            componentShadowsByTrackingKey[sourceTrackingKey] = new ComponentShadowValue(
                 component,
                 sourceComponent,
                 ownerGameObject,
                 ownerGameObjectTrackingKey,
                 resource);
-            temporaryAliasRegistry.SynchronizeBySourceGlobalObjectId(globalObjectId, component, resource);
+            temporaryAliasRegistry.SynchronizeBySourceTrackingKey(sourceTrackingKey, component, resource);
         }
 
         /// <summary> Replaces a tracked temporary component instance while preserving all registry keys that pointed at the source instance. </summary>
@@ -364,27 +356,29 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         }
 
         /// <summary> Tries to retrieve the live component shadow for one source component tracking key. </summary>
-        /// <param name="globalObjectId"> The source component tracking key. Null, empty, or whitespace values do not match. </param>
+        /// <param name="sourceTrackingKey"> The source component identity. </param>
         /// <param name="state"> The component shadow state when the method returns <see langword="true" />; otherwise the default value. </param>
         /// <returns> <see langword="true" /> when a non-destroyed component shadow exists for the key; otherwise <see langword="false" />. </returns>
         public bool TryGetComponentShadowState (
-            string globalObjectId,
+            RequestLocalObjectIdentity sourceTrackingKey,
             out ComponentShadowState state)
         {
             state = default;
-            if (string.IsNullOrWhiteSpace(globalObjectId))
+            if (sourceTrackingKey == null)
             {
                 return false;
             }
 
-            if (!componentShadowsByGlobalObjectId.TryGetValue(globalObjectId, out var value))
+            if (!componentShadowsByTrackingKey.TryGetValue(sourceTrackingKey, out var value))
             {
                 return false;
             }
 
-            if (value.Component == null)
+            if (value.Component == null
+                || value.SourceComponent == null
+                || value.OwnerGameObject == null)
             {
-                componentShadowsByGlobalObjectId.Remove(globalObjectId);
+                componentShadowsByTrackingKey.Remove(sourceTrackingKey);
                 return false;
             }
 
@@ -392,10 +386,72 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return true;
         }
 
+        /// <summary> Removes component state semantically owned by one request-local GameObject. </summary>
+        /// <param name="ownerTrackingKey"> The tracking key of the deleted owner GameObject. </param>
+        /// <param name="removedComponentTrackingKeys"> The collection that receives the tracking keys whose aliases must be invalidated. </param>
+        /// <exception cref="ArgumentNullException"> <paramref name="ownerTrackingKey" /> or <paramref name="removedComponentTrackingKeys" /> is <see langword="null" />. </exception>
+        public void RemoveByOwnerTrackingKey (
+            RequestLocalObjectIdentity ownerTrackingKey,
+            ICollection<RequestLocalObjectIdentity> removedComponentTrackingKeys)
+        {
+            ValidateTrackingKey(ownerTrackingKey, nameof(ownerTrackingKey));
+
+            if (removedComponentTrackingKeys == null)
+            {
+                throw new ArgumentNullException(nameof(removedComponentTrackingKeys));
+            }
+
+            List<RequestLocalObjectIdentity>? shadowKeysToRemove = null;
+            foreach (var pair in componentShadowsByTrackingKey)
+            {
+                if (!pair.Value.OwnerGameObjectTrackingKey.Equals(ownerTrackingKey))
+                {
+                    continue;
+                }
+
+                shadowKeysToRemove ??= new List<RequestLocalObjectIdentity>();
+                shadowKeysToRemove.Add(pair.Key);
+            }
+
+            if (shadowKeysToRemove != null)
+            {
+                for (var i = 0; i < shadowKeysToRemove.Count; i++)
+                {
+                    var trackingKey = shadowKeysToRemove[i];
+                    componentShadowsByTrackingKey.Remove(trackingKey);
+                    removedComponentTrackingKeys.Add(trackingKey);
+                }
+            }
+
+            List<EnsuredComponentKey>? ensuredKeysToRemove = null;
+            foreach (var pair in ensuredComponentsByKey)
+            {
+                if (!pair.Key.TargetTrackingKey.Equals(ownerTrackingKey))
+                {
+                    continue;
+                }
+
+                ensuredKeysToRemove ??= new List<EnsuredComponentKey>();
+                ensuredKeysToRemove.Add(pair.Key);
+            }
+
+            if (ensuredKeysToRemove == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < ensuredKeysToRemove.Count; i++)
+            {
+                var ensuredKey = ensuredKeysToRemove[i];
+                removedComponentTrackingKeys.Add(ensuredComponentsByKey[ensuredKey].ComponentTrackingKey);
+                ensuredComponentsByKey.Remove(ensuredKey);
+            }
+        }
+
         /// <summary> Clears all component shadows and ensured-component states. </summary>
         public void Clear ()
         {
-            componentShadowsByGlobalObjectId.Clear();
+            componentShadowsByTrackingKey.Clear();
             ensuredComponentsByKey.Clear();
         }
 
@@ -424,10 +480,22 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             for (var i = 0; i < keysToSynchronize.Count; i++)
             {
                 var key = keysToSynchronize[i];
+                var existingValue = ensuredComponentsByKey[key];
                 ensuredComponentsByKey[key] = new EnsuredComponentValue(
                     replacementComponent,
-                    ensuredComponentsByKey[key].TargetGameObject,
-                    resource);
+                    existingValue.TargetGameObject,
+                    resource,
+                    existingValue.ComponentTrackingKey);
+            }
+        }
+
+        private static void ValidateTrackingKey (
+            RequestLocalObjectIdentity trackingKey,
+            string parameterName)
+        {
+            if (trackingKey == null)
+            {
+                throw new ArgumentNullException(parameterName);
             }
         }
 
@@ -447,7 +515,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 Component component,
                 Component sourceComponent,
                 GameObject ownerGameObject,
-                string ownerGameObjectTrackingKey,
+                RequestLocalObjectIdentity ownerGameObjectTrackingKey,
                 OperationResource resource)
             {
                 Component = component;
@@ -463,7 +531,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             public GameObject OwnerGameObject { get; }
 
-            public string OwnerGameObjectTrackingKey { get; }
+            public RequestLocalObjectIdentity OwnerGameObjectTrackingKey { get; }
 
             public OperationResource Resource { get; }
         }
@@ -497,20 +565,20 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         private readonly struct EnsuredComponentKey : IEquatable<EnsuredComponentKey>
         {
             public EnsuredComponentKey (
-                string targetGlobalObjectId,
+                RequestLocalObjectIdentity targetTrackingKey,
                 Type componentType)
             {
-                TargetGlobalObjectId = targetGlobalObjectId;
+                TargetTrackingKey = targetTrackingKey;
                 ComponentType = componentType;
             }
 
-            public string TargetGlobalObjectId { get; }
+            public RequestLocalObjectIdentity TargetTrackingKey { get; }
 
             public Type ComponentType { get; }
 
             public bool Equals (EnsuredComponentKey other)
             {
-                return string.Equals(TargetGlobalObjectId, other.TargetGlobalObjectId, StringComparison.Ordinal)
+                return TargetTrackingKey.Equals(other.TargetTrackingKey)
                     && ComponentType == other.ComponentType;
             }
 
@@ -523,14 +591,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             {
                 unchecked
                 {
-                    return ((TargetGlobalObjectId != null ? StringComparer.Ordinal.GetHashCode(TargetGlobalObjectId) : 0) * 397)
+                    return (TargetTrackingKey.GetHashCode() * 397)
                         ^ (ComponentType != null ? ComponentType.GetHashCode() : 0);
                 }
-            }
-
-            public string CreateTrackingKey ()
-            {
-                return $"ensured:{TargetGlobalObjectId}:{ComponentType.AssemblyQualifiedName}";
             }
         }
 
@@ -539,11 +602,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             public EnsuredComponentValue (
                 Component component,
                 GameObject targetGameObject,
-                OperationResource resource)
+                OperationResource resource,
+                RequestLocalObjectIdentity componentTrackingKey)
             {
                 Component = component;
                 TargetGameObject = targetGameObject;
                 Resource = resource;
+                ComponentTrackingKey = componentTrackingKey;
             }
 
             public Component Component { get; }
@@ -551,6 +616,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             public GameObject TargetGameObject { get; }
 
             public OperationResource Resource { get; }
+
+            public RequestLocalObjectIdentity ComponentTrackingKey { get; }
         }
 
         internal readonly struct EnsuredComponentState

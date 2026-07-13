@@ -13,7 +13,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             out string errorMessage)
         {
             return TryMapSelector(
-                args.GlobalObjectId?.Value,
+                args.GlobalObjectId,
                 args.AssetGuid?.Value,
                 args.AssetPath?.Value,
                 args.ProjectAssetPath?.Value,
@@ -33,7 +33,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             return TryMapReference(
                 args.Alias?.Value,
-                args.GlobalObjectId?.Value,
+                args.GlobalObjectId,
                 assetGuid: null,
                 assetPath: null,
                 projectAssetPath: null,
@@ -54,7 +54,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             return TryMapReference(
                 args.Alias?.Value,
-                args.GlobalObjectId?.Value,
+                args.GlobalObjectId,
                 assetGuid: null,
                 assetPath: null,
                 projectAssetPath: null,
@@ -75,7 +75,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             return TryMapReference(
                 args.Alias?.Value,
-                args.GlobalObjectId?.Value,
+                args.GlobalObjectId,
                 assetGuid: null,
                 assetPath: null,
                 projectAssetPath: null,
@@ -96,7 +96,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             return TryMapReference(
                 args.Alias?.Value,
-                args.GlobalObjectId?.Value,
+                args.GlobalObjectId,
                 args.AssetGuid?.Value,
                 args.AssetPath?.Value,
                 args.ProjectAssetPath?.Value,
@@ -111,7 +111,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static bool TryMapReference (
             string? alias,
-            string? globalObjectId,
+            UnityGlobalObjectId? globalObjectId,
             string? assetGuid,
             string? assetPath,
             string? projectAssetPath,
@@ -152,7 +152,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         }
 
         private static bool TryMapSelector (
-            string? globalObjectId,
+            UnityGlobalObjectId? globalObjectId,
             string? assetGuid,
             string? assetPath,
             string? projectAssetPath,

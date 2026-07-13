@@ -129,9 +129,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     operation.As,
                     prefabContentsRoot,
                     new OperationResource(OperationTouchKind.Prefab, validationState.PrefabPath));
-                if (UnityObjectReferenceResolver.TryCreateResolvedReference(prefabContentsRoot, out var resolvedReference))
+                if (UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(prefabContentsRoot, out var globalObjectId))
                 {
-                    executionContext.AliasStore.Set(operation.As, resolvedReference!);
+                    executionContext.AliasStore.Set(operation.As, globalObjectId);
                 }
             }
 

@@ -41,35 +41,69 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             unityObject = null;
-            if (resolutionPolicy >= ReferenceResolutionPolicy.AllowTemporaryAliases
-                && reference.Kind == UnityObjectReferenceKind.Alias)
+            switch (resolutionPolicy)
             {
-                if (UnityObjectReferenceResolver.TryResolve(reference, executionContext, out unityObject, out errorMessage))
-                {
-                    return true;
-                }
+                case ReferenceResolutionPolicy.LiveOnly:
+                    return UnityObjectReferenceResolver.TryResolve(
+                        reference,
+                        executionContext,
+                        allowTemporaryState: false,
+                        out unityObject,
+                        out errorMessage);
 
-                if (executionContext.TryGetTemporaryAliasState(reference.Alias!, out var temporaryAliasState))
-                {
-                    unityObject = temporaryAliasState.UnityObject;
-                    errorMessage = string.Empty;
-                    return true;
-                }
+                case ReferenceResolutionPolicy.AllowTemporaryAliases:
+                    if (reference.Kind != UnityObjectReferenceKind.Alias)
+                    {
+                        return UnityObjectReferenceResolver.TryResolve(
+                            reference,
+                            executionContext,
+                            allowTemporaryState: false,
+                            out unityObject,
+                            out errorMessage);
+                    }
 
-                return false;
+                    if (executionContext.AliasStore.TryGet(reference.Alias!, out _))
+                    {
+                        return UnityObjectReferenceResolver.TryResolve(
+                            reference,
+                            executionContext,
+                            allowTemporaryState: false,
+                            out unityObject,
+                            out errorMessage);
+                    }
+
+                    if (executionContext.TryGetTemporaryAliasState(reference.Alias!, out var temporaryAliasState))
+                    {
+                        unityObject = temporaryAliasState.UnityObject;
+                        errorMessage = string.Empty;
+                        return true;
+                    }
+
+                    errorMessage = $"Reference alias was not found: {reference.Alias}.";
+                    return false;
+
+                case ReferenceResolutionPolicy.AllowTemporaryState:
+                    if (reference.Kind == UnityObjectReferenceKind.Alias
+                        && executionContext.TryGetTemporaryAliasState(reference.Alias!, out var temporaryStateAlias))
+                    {
+                        unityObject = temporaryStateAlias.UnityObject;
+                        errorMessage = string.Empty;
+                        return true;
+                    }
+
+                    return UnityObjectReferenceResolver.TryResolve(
+                        reference,
+                        executionContext,
+                        allowTemporaryState: true,
+                        out unityObject,
+                        out errorMessage);
+
+                default:
+                    throw new ArgumentOutOfRangeException(
+                        nameof(resolutionPolicy),
+                        resolutionPolicy,
+                        "Unsupported Unity-object reference resolution policy.");
             }
-
-            if (resolutionPolicy == ReferenceResolutionPolicy.AllowTemporaryState)
-            {
-                return UnityObjectReferenceResolver.TryResolve(
-                    reference,
-                    executionContext,
-                    allowTemporaryState: true,
-                    out unityObject,
-                    out errorMessage);
-            }
-
-            return UnityObjectReferenceResolver.TryResolve(reference, executionContext, out unityObject, out errorMessage);
         }
     }
 }

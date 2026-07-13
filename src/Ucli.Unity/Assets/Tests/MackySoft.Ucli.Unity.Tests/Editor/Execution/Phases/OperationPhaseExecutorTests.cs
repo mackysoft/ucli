@@ -72,9 +72,11 @@ namespace MackySoft.Ucli.Unity.Tests
         public void PrefabOverridePropertyChanges_WhenCollectedFromDifferentEditStep_ReturnsError ()
         {
             using var executionContext = new OperationExecutionContext();
+            var targetKey = RequestLocalObjectIdentity.FromGlobalObjectId(
+                new UnityGlobalObjectId("GlobalObjectId_V1-2-0123456789abcdef0123456789abcdef-123-0"));
             executionContext.RecordPrefabOverridePropertyChange(
                 "edit-step-a",
-                "target-1",
+                targetKey,
                 "m_Text",
                 wasPrefabOverrideBeforeRequest: false,
                 valueHashBeforeSet: "before",
@@ -83,7 +85,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var result = executionContext.TryCollectPrefabOverridePropertyChanges(
                 "edit-step-b",
-                "target-1",
+                targetKey,
                 requestedPropertyPaths: null,
                 out var changes,
                 out var errorMessage);
@@ -98,9 +100,11 @@ namespace MackySoft.Ucli.Unity.Tests
         public void PrefabOverridePropertyChanges_WhenCollectedFromSameEditStep_ReturnsRecordedPath ()
         {
             using var executionContext = new OperationExecutionContext();
+            var targetKey = RequestLocalObjectIdentity.FromGlobalObjectId(
+                new UnityGlobalObjectId("GlobalObjectId_V1-2-0123456789abcdef0123456789abcdef-123-0"));
             executionContext.RecordPrefabOverridePropertyChange(
                 "edit-step-a",
-                "target-1",
+                targetKey,
                 "m_Text",
                 wasPrefabOverrideBeforeRequest: false,
                 valueHashBeforeSet: "before",
@@ -109,7 +113,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var result = executionContext.TryCollectPrefabOverridePropertyChanges(
                 "edit-step-a",
-                "target-1",
+                targetKey,
                 requestedPropertyPaths: null,
                 out var changes,
                 out var errorMessage);

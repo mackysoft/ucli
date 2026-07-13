@@ -104,6 +104,213 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator EnsureThenSet_Plan_WhenDirtySceneTargetChangesFromAliasToHierarchy_ReusesOneEnsuredComponent () => UniTask.ToCoroutine(async () =>
+        {
+            var ensureOperation = new CompEnsureOperation();
+            var setOperation = new CompSetOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(CompOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Root");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var context = scope.CreateExecutionContext();
+            context.AliasStore.Set("root", UnityObjectReferenceResolver.CreateGlobalObjectId(root));
+            root.name = "Renamed";
+            EditorSceneManager.MarkSceneDirty(scene);
+            Assert.That(context.TryEnsureSceneExecutionSession(scenePath, out var ensureSceneErrorMessage), Is.True, ensureSceneErrorMessage);
+            var componentTypeId = IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent));
+            var ensureRequest = CreateOperation(
+                opId: "op-ensure",
+                opName: UcliPrimitiveOperationNames.CompEnsure,
+                args: new
+                {
+                    target = new
+                    {
+                        @var = "root",
+                    },
+                    type = componentTypeId,
+                },
+                alias: "ensured");
+            var setRequest = CreateOperation(
+                opId: "op-set",
+                opName: UcliPrimitiveOperationNames.CompSet,
+                args: new
+                {
+                    target = new
+                    {
+                        scene = scenePath,
+                        hierarchyPath = "Renamed",
+                        componentType = componentTypeId,
+                    },
+                    sets = new object[]
+                    {
+                        new
+                        {
+                            path = "integerValue",
+                            value = 42,
+                        },
+                    },
+                });
+
+            var ensureResult = await ensureOperation.PlanAsync(ensureRequest, context, CancellationToken.None);
+            var setResult = await setOperation.PlanAsync(setRequest, context, CancellationToken.None);
+
+            AssertSuccess(ensureResult, applied: false, changed: true, scenePath);
+            AssertSuccess(setResult, applied: false, changed: true, scenePath);
+            Assert.That(context.TryGetTemporaryAliasState("ensured", out var aliasState), Is.True);
+            Assert.That(((CompOperationTestComponent)aliasState.UnityObject).IntegerValue, Is.EqualTo(42));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator EnsureThenSetThenOwnerDelete_Plan_WhenAliasIsUsedAgain_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
+        {
+            var ensureOperation = new CompEnsureOperation();
+            var setOperation = new CompSetOperation();
+            var deleteOperation = new GoDeleteOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(CompOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Root");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var context = scope.CreateExecutionContext();
+            var resource = new OperationResource(OperationTouchKind.Scene, scenePath);
+            var ownerTrackingKey = context.CreateGameObjectTrackingKey(root, resource);
+            var componentTypeId = IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent));
+            var ensureRequest = CreateOperation(
+                opId: "op-ensure",
+                opName: UcliPrimitiveOperationNames.CompEnsure,
+                args: new
+                {
+                    target = new
+                    {
+                        scene = scenePath,
+                        hierarchyPath = "Root",
+                    },
+                    type = componentTypeId,
+                },
+                alias: "ensured");
+            var firstSetRequest = CreateOperation(
+                opId: "op-set-before-delete",
+                opName: UcliPrimitiveOperationNames.CompSet,
+                args: new
+                {
+                    target = new
+                    {
+                        @var = "ensured",
+                    },
+                    sets = new object[]
+                    {
+                        new
+                        {
+                            path = "integerValue",
+                            value = 42,
+                        },
+                    },
+                });
+            var deleteRequest = CreateOperation(
+                opId: "op-delete",
+                opName: UcliPrimitiveOperationNames.GoDelete,
+                args: new
+                {
+                    target = new
+                    {
+                        scene = scenePath,
+                        hierarchyPath = "Root",
+                    },
+                },
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
+            var secondSetRequest = CreateOperation(
+                opId: "op-set-after-delete",
+                opName: UcliPrimitiveOperationNames.CompSet,
+                args: new
+                {
+                    target = new
+                    {
+                        @var = "ensured",
+                    },
+                    sets = new object[]
+                    {
+                        new
+                        {
+                            path = "integerValue",
+                            value = 43,
+                        },
+                    },
+                });
+
+            var ensureResult = await ensureOperation.PlanAsync(ensureRequest, context, CancellationToken.None);
+            var firstSetResult = await setOperation.PlanAsync(firstSetRequest, context, CancellationToken.None);
+            Assert.That(context.TryGetTemporaryAliasState("ensured", out var aliasStateBeforeDelete), Is.True);
+            if (aliasStateBeforeDelete.SourceTrackingKey == null)
+            {
+                throw new InvalidOperationException("Ensured component alias did not preserve its source tracking key.");
+            }
+
+            var componentTrackingKey = aliasStateBeforeDelete.SourceTrackingKey;
+            var deleteResult = await deleteOperation.PlanAsync(deleteRequest, context, CancellationToken.None);
+            var secondSetResult = await setOperation.PlanAsync(secondSetRequest, context, CancellationToken.None);
+
+            AssertSuccess(ensureResult, applied: false, changed: true, scenePath);
+            AssertSuccess(firstSetResult, applied: false, changed: true, scenePath);
+            AssertSuccess(deleteResult, applied: false, changed: true, scenePath);
+            AssertInvalidArgument(secondSetResult, "op-set-after-delete");
+            Assert.That(secondSetResult.Failure!.Message, Does.Contain("alias").And.Contain("ensured"));
+            Assert.That(context.TryGetTemporaryAliasState("ensured", out _), Is.False);
+            Assert.That(context.TryGetEnsuredComponentState(ownerTrackingKey, typeof(CompOperationTestComponent), out _), Is.False);
+            Assert.That(context.TryGetComponentShadowState(componentTrackingKey, out _), Is.False);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator EnsureExistingThenOwnerDelete_Plan_RemovesUnshadowedComponentAlias () => UniTask.ToCoroutine(async () =>
+        {
+            var ensureOperation = new CompEnsureOperation();
+            var deleteOperation = new GoDeleteOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(CompOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Root");
+            _ = root.AddComponent<CompOperationTestComponent>();
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var context = scope.CreateExecutionContext();
+            var componentTypeId = IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent));
+            var ensureRequest = CreateOperation(
+                opId: "op-ensure-existing",
+                opName: UcliPrimitiveOperationNames.CompEnsure,
+                args: new
+                {
+                    target = new
+                    {
+                        scene = scenePath,
+                        hierarchyPath = "Root",
+                    },
+                    type = componentTypeId,
+                },
+                alias: "existing");
+            var deleteRequest = CreateOperation(
+                opId: "op-delete-owner",
+                opName: UcliPrimitiveOperationNames.GoDelete,
+                args: new
+                {
+                    target = new
+                    {
+                        scene = scenePath,
+                        hierarchyPath = "Root",
+                    },
+                },
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
+
+            var ensureResult = await ensureOperation.PlanAsync(ensureRequest, context, CancellationToken.None);
+            var deleteResult = await deleteOperation.PlanAsync(deleteRequest, context, CancellationToken.None);
+
+            AssertSuccess(ensureResult, applied: false, changed: false, scenePath);
+            AssertSuccess(deleteResult, applied: false, changed: true, scenePath);
+            Assert.That(context.TryGetTemporaryAliasState("existing", out _), Is.False);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Ensure_Call_WhenMultipleComponentsExist_ReusesFirstExistingComponent () => UniTask.ToCoroutine(async () =>
         {
             var operation = new CompEnsureOperation();
@@ -134,7 +341,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             AssertSuccess(result, applied: true, changed: false, scenePath);
             Assert.That(context.AliasStore.TryGet("ensured", out var resolvedReference), Is.True);
-            Assert.That(resolvedReference!.GlobalObjectId, Is.EqualTo(UnityObjectReferenceResolver.CreateResolvedReference(first).GlobalObjectId));
+            Assert.That(resolvedReference!.Value, Is.EqualTo(UnityObjectReferenceResolver.CreateGlobalObjectId(first).Value));
         });
 
         [UnityTest]
@@ -293,8 +500,8 @@ namespace MackySoft.Ucli.Unity.Tests
             var other = new GameObject("Other");
             EditorSceneManager.SaveScene(scene, scenePath);
             var context = scope.CreateExecutionContext();
-            context.AliasStore.Set("target", UnityObjectReferenceResolver.CreateResolvedReference(target));
-            context.AliasStore.Set("other", UnityObjectReferenceResolver.CreateResolvedReference(other));
+            context.AliasStore.Set("target", UnityObjectReferenceResolver.CreateGlobalObjectId(target));
+            context.AliasStore.Set("other", UnityObjectReferenceResolver.CreateGlobalObjectId(other));
             var managedTypeId = IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent.ManagedValue));
             const string hashText = "0123456789abcdef0123456789abcdef";
             var requestOperation = CreateOperation(
@@ -508,6 +715,51 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Set_PlanThenCall_WhenTargetAliasHasPlanShadow_CallUpdatesLiveComponent () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new CompSetOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(CompOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var target = new GameObject("Root").AddComponent<CompOperationTestComponent>();
+            var initialValue = target.IntegerValue;
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var context = scope.CreateExecutionContext();
+            context.AliasStore.Set("target", UnityObjectReferenceResolver.CreateGlobalObjectId(target));
+            var requestOperation = CreateOperation(
+                opId: "op-set",
+                opName: UcliPrimitiveOperationNames.CompSet,
+                args: new
+                {
+                    target = new
+                    {
+                        @var = "target",
+                    },
+                    sets = new object[]
+                    {
+                        new
+                        {
+                            path = "integerValue",
+                            value = 42,
+                        },
+                    },
+                });
+
+            var planResult = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
+
+            AssertSuccess(planResult, applied: false, changed: true, scenePath);
+            Assert.That(target.IntegerValue, Is.EqualTo(initialValue));
+            Assert.That(context.TryGetTemporaryAliasState("target", out var temporaryAliasState), Is.True);
+            Assert.That(temporaryAliasState.UnityObject, Is.Not.SameAs(target));
+
+            var callResult = await operation.CallAsync(requestOperation, context, CancellationToken.None);
+
+            AssertSuccess(callResult, applied: true, changed: true, scenePath);
+            Assert.That(target.IntegerValue, Is.EqualTo(42));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Set_Call_WhenObjectReferenceValueUsesTemporaryAlias_ResolvesAliasFromExecutionContext () => UniTask.ToCoroutine(async () =>
         {
             using var scope = new EditorTestScope();
@@ -618,7 +870,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var target = root.AddComponent<CompOperationTestComponent>();
             EditorSceneManager.SaveScene(scene, scenePath);
             var context = scope.CreateExecutionContext();
-            context.AliasStore.Set("host", UnityObjectReferenceResolver.CreateResolvedReference(target));
+            context.AliasStore.Set("host", UnityObjectReferenceResolver.CreateGlobalObjectId(target));
             Assert.That(context.TryEnsureSceneExecutionSession(scenePath, out var ensureErrorMessage), Is.True, ensureErrorMessage);
             Assert.That(context.TryGetTemporaryScene(scenePath, out var temporaryScene), Is.True);
             var previewOnly = new GameObject("PreviewOnly");
@@ -649,8 +901,8 @@ namespace MackySoft.Ucli.Unity.Tests
             var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
 
             AssertSuccess(result, applied: false, changed: true, scenePath);
-            var targetGlobalObjectId = UnityObjectReferenceResolver.CreateResolvedReference(target).GlobalObjectId;
-            Assert.That(context.TryGetComponentShadowState(targetGlobalObjectId, out var shadowState), Is.True);
+            var targetTrackingKey = RequestLocalObjectIdentity.FromUnityObject(target);
+            Assert.That(context.TryGetComponentShadowState(targetTrackingKey, out var shadowState), Is.True);
             var shadowComponent = shadowState.Component as CompOperationTestComponent;
             if (shadowComponent == null)
             {
@@ -673,7 +925,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var target = root.AddComponent<CompOperationTestComponent>();
             EditorSceneManager.SaveScene(scene, scenePath);
             var context = scope.CreateExecutionContext();
-            context.AliasStore.Set("host", UnityObjectReferenceResolver.CreateResolvedReference(target));
+            context.AliasStore.Set("host", UnityObjectReferenceResolver.CreateGlobalObjectId(target));
             Assert.That(context.TryEnsureSceneExecutionSession(scenePath, out var ensureErrorMessage), Is.True, ensureErrorMessage);
             Assert.That(context.TryGetTemporaryScene(scenePath, out var temporaryScene), Is.True);
             var previewOnly = new GameObject("PreviewOnly");
@@ -763,18 +1015,46 @@ namespace MackySoft.Ucli.Unity.Tests
             var target = root.AddComponent<CompOperationTestComponent>();
             EditorSceneManager.SaveScene(scene, scenePath);
             var context = scope.CreateExecutionContext();
-            context.AliasStore.Set("target", UnityObjectReferenceResolver.CreateResolvedReference(target));
+            context.AliasStore.Set("target", UnityObjectReferenceResolver.CreateGlobalObjectId(target));
 
             var result = ComponentOperationUtilities.TryResolveComponent(
                 UnityObjectReference.FromAlias("target"),
                 context,
-                allowTemporaryState: false,
+                OperationObjectReferenceUtilities.ReferenceResolutionPolicy.LiveOnly,
                 out var resolutionState,
                 out var errorMessage);
 
             Assert.That(result, Is.True, errorMessage);
             Assert.That(resolutionState.Resource.Path, Is.EqualTo(scenePath));
             Assert.That(resolutionState.Component, Is.EqualTo(target));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void ResolveComponentSelector_WhenTemporaryStateOwnerCannotBeResolved_ReturnsFalse ()
+        {
+            var previewScene = EditorSceneManager.NewPreviewScene();
+            var target = new GameObject("UntrackedPreviewTarget");
+            SceneManager.MoveGameObjectToScene(target, previewScene);
+            try
+            {
+                using var context = new OperationExecutionContext();
+
+                var result = ComponentOperationUtilities.TryResolveComponentSelector(
+                    target,
+                    IndexTypeIdFormatter.Format(typeof(Transform)),
+                    context,
+                    allowTemporaryState: true,
+                    out _,
+                    out var errorMessage);
+
+                Assert.That(result, Is.False);
+                Assert.That(errorMessage, Does.Contain("loaded scene").Or.Contain("tracked prefab preview"));
+            }
+            finally
+            {
+                EditorSceneManager.ClosePreviewScene(previewScene);
+            }
         }
 
         [UnityTest]
@@ -820,7 +1100,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var target = root.AddComponent<CompOperationTestComponent>();
             EditorSceneManager.SaveScene(scene, scenePath);
             var context = scope.CreateExecutionContext();
-            context.AliasStore.Set("target", UnityObjectReferenceResolver.CreateResolvedReference(target));
+            context.AliasStore.Set("target", UnityObjectReferenceResolver.CreateGlobalObjectId(target));
             var requestOperation = CreateOperation(
                 opId: "op-set",
                 opName: UcliPrimitiveOperationNames.CompSet,
@@ -858,7 +1138,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var target = root.AddComponent<CompOperationTestComponent>();
             EditorSceneManager.SaveScene(scene, scenePath);
             var context = scope.CreateExecutionContext();
-            context.AliasStore.Set("target", UnityObjectReferenceResolver.CreateResolvedReference(target));
+            context.AliasStore.Set("target", UnityObjectReferenceResolver.CreateGlobalObjectId(target));
             var requestOperation = CreateOperation(
                 opId: "op-set",
                 opName: UcliPrimitiveOperationNames.CompSet,
@@ -1052,8 +1332,8 @@ namespace MackySoft.Ucli.Unity.Tests
             var target = root.AddComponent<CompOperationTestComponent>();
             EditorSceneManager.SaveScene(scene, scenePath);
             var context = scope.CreateExecutionContext();
-            context.AliasStore.Set("target", UnityObjectReferenceResolver.CreateResolvedReference(target));
-            var globalObjectId = UnityObjectReferenceResolver.CreateResolvedReference(target).GlobalObjectId;
+            context.AliasStore.Set("target", UnityObjectReferenceResolver.CreateGlobalObjectId(target));
+            var globalObjectId = UnityObjectReferenceResolver.CreateGlobalObjectId(target).Value;
             var firstRequest = CreateOperation(
                 opId: "op-set-alias-1",
                 opName: UcliPrimitiveOperationNames.CompSet,
@@ -1165,6 +1445,72 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Set_Plan_WhenEquivalentGlobalObjectIdSpellingsAreReused_KeepsOneCanonicalShadow () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new CompSetOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(CompOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Root");
+            var target = root.AddComponent<CompOperationTestComponent>();
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var canonicalGlobalObjectId = UnityObjectReferenceResolver.CreateGlobalObjectId(target).Value;
+            var nonCanonicalGlobalObjectId = GlobalObjectIdTestValues.CreateNonCanonicalIdentifierTypeText(canonicalGlobalObjectId);
+            var firstRequest = CreateOperation(
+                opId: "op-set-non-canonical",
+                opName: UcliPrimitiveOperationNames.CompSet,
+                args: new
+                {
+                    target = new
+                    {
+                        globalObjectId = nonCanonicalGlobalObjectId,
+                    },
+                    sets = new object[]
+                    {
+                        new
+                        {
+                            path = "integerValue",
+                            value = 5,
+                        },
+                    },
+                });
+            var secondRequest = CreateOperation(
+                opId: "op-set-canonical",
+                opName: UcliPrimitiveOperationNames.CompSet,
+                args: new
+                {
+                    target = new
+                    {
+                        globalObjectId = canonicalGlobalObjectId,
+                    },
+                    sets = new object[]
+                    {
+                        new
+                        {
+                            path = "floatValue",
+                            value = 2.5f,
+                        },
+                    },
+                });
+            var context = scope.CreateExecutionContext();
+
+            var firstResult = await operation.PlanAsync(firstRequest, context, CancellationToken.None);
+            var secondResult = await operation.PlanAsync(secondRequest, context, CancellationToken.None);
+
+            AssertSuccess(firstResult, applied: false, changed: true, scenePath);
+            AssertSuccess(secondResult, applied: false, changed: true, scenePath);
+            var canonicalTrackingKey = RequestLocalObjectIdentity.FromGlobalObjectId(new UnityGlobalObjectId(canonicalGlobalObjectId));
+            Assert.That(context.TryGetComponentShadowState(canonicalTrackingKey, out var shadowState), Is.True);
+            var shadowComponent = (CompOperationTestComponent)shadowState.Component!;
+            Assert.That(shadowComponent.IntegerValue, Is.EqualTo(5));
+            Assert.That(shadowComponent.FloatValue, Is.EqualTo(2.5f));
+            var equivalentTrackingKey = RequestLocalObjectIdentity.FromGlobalObjectId(new UnityGlobalObjectId(nonCanonicalGlobalObjectId));
+            Assert.That(context.TryGetComponentShadowState(equivalentTrackingKey, out var equivalentShadowState), Is.True);
+            Assert.That(equivalentShadowState.Component, Is.SameAs(shadowState.Component));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Schema_Plan_WhenTypeIsValid_ReturnsSchemaResult () => UniTask.ToCoroutine(async () =>
         {
             var operation = new CompSchemaOperation();
@@ -1222,7 +1568,8 @@ namespace MackySoft.Ucli.Unity.Tests
             string opName,
             object args,
             string? alias = null,
-            bool allowRequestLocalAliases = true)
+            bool allowRequestLocalAliases = true,
+            NormalizedOperation.SourceStepKind sourceKind = NormalizedOperation.SourceStepKind.Op)
         {
             return new NormalizedOperation(
                 Id: opId,
@@ -1230,7 +1577,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 Args: JsonSerializer.SerializeToElement(args),
                 As: alias,
                 Expect: null,
-                AllowRequestLocalAliases: allowRequestLocalAliases);
+                AllowRequestLocalAliases: allowRequestLocalAliases,
+                SourceKind: sourceKind);
         }
 
         private static void AssertInvalidArgument (
