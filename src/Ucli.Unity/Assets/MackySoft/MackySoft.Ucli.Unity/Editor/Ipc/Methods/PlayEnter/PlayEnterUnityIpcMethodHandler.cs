@@ -32,7 +32,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <inheritdoc />
         public bool TryCreateRecoverableRequestPayloadHash (
             IpcRequest request,
-            out string requestPayloadHash,
+            out Sha256Digest requestPayloadHash,
             out IpcResponse errorResponse)
         {
             if (!TryReadPlayEnterRequest(
@@ -50,7 +50,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 TimeoutMilliseconds = null,
             });
-            requestPayloadHash = Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(stablePayload.GetRawText()));
+            requestPayloadHash = Sha256Digest.Compute(Encoding.UTF8.GetBytes(stablePayload.GetRawText()));
             return true;
         }
 

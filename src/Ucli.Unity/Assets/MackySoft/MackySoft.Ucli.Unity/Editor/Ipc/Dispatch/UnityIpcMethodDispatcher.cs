@@ -298,12 +298,12 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return hashErrorResponse;
             }
 
-            if (string.IsNullOrWhiteSpace(requestPayloadHash))
+            if (requestPayloadHash == null)
             {
                 return UnityIpcResponseFactory.CreateErrorResponse(
                     request,
                     UcliCoreErrorCodes.InternalError,
-                    $"IPC method '{request.Method}' returned an empty recoverable request payload hash.",
+                    $"IPC method '{request.Method}' returned a null recoverable request payload hash.",
                     null);
             }
 

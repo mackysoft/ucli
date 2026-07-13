@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Ipc;
@@ -369,7 +370,8 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var store = new StubRecoverableIpcOperationStore
             {
-                ExpectedReadRequestPayloadHash = "other-hash",
+                ExpectedReadRequestPayloadHash = Sha256Digest.Parse(
+                    "711b470712791f2f5eac65e93bca9bc4edb38313b6d56870f8731249b08c166c"),
             };
             var handler = new StubRecoverableMethodHandler(UnityIpcMethod.PlayEnter, static (_, _, _) =>
                 new ValueTask<IpcResponse>(CreateSuccessResponse(Guid.NewGuid())));
@@ -970,11 +972,12 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public UnityIpcMethod Method { get; }
 
-            public string RecoverableRequestPayloadHash { get; set; } = "stub-recoverable-hash";
+            public Sha256Digest RecoverableRequestPayloadHash { get; set; } = Sha256Digest.Parse(
+                "cba57ba7022e93f53db3a8a509e17fbf0ccdf297345f12346e3ed4d7c6a852db");
 
             public bool TryCreateRecoverableRequestPayloadHash (
                 IpcRequest request,
-                out string requestPayloadHash,
+                out Sha256Digest requestPayloadHash,
                 out IpcResponse errorResponse)
             {
                 requestPayloadHash = RecoverableRequestPayloadHash;
@@ -1006,9 +1009,9 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public string ReadErrorMessage { get; set; }
 
-            public string ExpectedReadRequestPayloadHash { get; set; }
+            public Sha256Digest ExpectedReadRequestPayloadHash { get; set; }
 
-            public string LastReadRequestPayloadHash { get; private set; }
+            public Sha256Digest LastReadRequestPayloadHash { get; private set; }
 
             public int ReadCallCount { get; private set; }
 
@@ -1049,7 +1052,7 @@ namespace MackySoft.Ucli.Unity.Tests
             public async ValueTask<RecoverableIpcOperationReadResult> ReadAsync (
                 UnityIpcMethod method,
                 Guid requestId,
-                string requestPayloadHash,
+                Sha256Digest requestPayloadHash,
                 CancellationToken cancellationToken)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -1062,8 +1065,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     cancellationToken.ThrowIfCancellationRequested();
                 }
 
-                if (!string.IsNullOrWhiteSpace(ExpectedReadRequestPayloadHash)
-                    && !string.Equals(ExpectedReadRequestPayloadHash, requestPayloadHash, StringComparison.Ordinal))
+                if (ExpectedReadRequestPayloadHash != null
+                    && ExpectedReadRequestPayloadHash != requestPayloadHash)
                 {
                     return RecoverableIpcOperationReadResult.Failure("identity mismatch");
                 }
@@ -1078,7 +1081,7 @@ namespace MackySoft.Ucli.Unity.Tests
             public async ValueTask<RecoverableIpcOperationStoreResult> WritePendingAsync (
                 UnityIpcMethod method,
                 Guid requestId,
-                string requestPayloadHash,
+                Sha256Digest requestPayloadHash,
                 DateTimeOffset startedAtUtc,
                 System.Text.Json.JsonElement recoveryPayload,
                 CancellationToken cancellationToken)
@@ -1098,7 +1101,7 @@ namespace MackySoft.Ucli.Unity.Tests
             public async ValueTask<RecoverableIpcOperationStoreResult> WriteCompletedAsync (
                 UnityIpcMethod method,
                 Guid requestId,
-                string requestPayloadHash,
+                Sha256Digest requestPayloadHash,
                 DateTimeOffset startedAtUtc,
                 DateTimeOffset completedAtUtc,
                 System.Text.Json.JsonElement recoveryPayload,

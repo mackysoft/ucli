@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
@@ -18,7 +19,8 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class PlayEnterUnityIpcMethodHandlerTests
     {
-        private const string RequestPayloadHash = "request-payload-hash";
+        private static readonly Sha256Digest RequestPayloadHash = Sha256Digest.Parse(
+            "cda34040abc54e9b351b66c6ecbc9708cf2c70996b0805553b3854bdce80d94b");
 
         [Test]
         [Category("Size.Small")]
@@ -46,7 +48,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(firstResult, Is.True, firstError?.Errors[0].Message);
             Assert.That(secondResult, Is.True, secondError?.Errors[0].Message);
-            Assert.That(firstHash, Is.Not.Null.And.Not.Empty);
+            Assert.That(firstHash, Is.Not.Null);
             Assert.That(secondHash, Is.EqualTo(firstHash));
         }
 
@@ -619,7 +621,7 @@ namespace MackySoft.Ucli.Unity.Tests
             public ValueTask<RecoverableIpcOperationReadResult> ReadAsync (
                 UnityIpcMethod method,
                 Guid requestId,
-                string requestPayloadHash,
+                Sha256Digest requestPayloadHash,
                 CancellationToken cancellationToken)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -630,7 +632,7 @@ namespace MackySoft.Ucli.Unity.Tests
             public ValueTask<RecoverableIpcOperationStoreResult> WritePendingAsync (
                 UnityIpcMethod method,
                 Guid requestId,
-                string requestPayloadHash,
+                Sha256Digest requestPayloadHash,
                 DateTimeOffset startedAtUtc,
                 System.Text.Json.JsonElement recoveryPayload,
                 CancellationToken cancellationToken)
@@ -654,7 +656,7 @@ namespace MackySoft.Ucli.Unity.Tests
             public ValueTask<RecoverableIpcOperationStoreResult> WriteCompletedAsync (
                 UnityIpcMethod method,
                 Guid requestId,
-                string requestPayloadHash,
+                Sha256Digest requestPayloadHash,
                 DateTimeOffset startedAtUtc,
                 DateTimeOffset completedAtUtc,
                 System.Text.Json.JsonElement recoveryPayload,

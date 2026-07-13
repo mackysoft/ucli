@@ -1,5 +1,6 @@
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Unity.Ipc
@@ -14,7 +15,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <returns> <see langword="true" /> when the hash was created; otherwise <see langword="false" />. </returns>
         bool TryCreateRecoverableRequestPayloadHash (
             IpcRequest request,
-            out string requestPayloadHash,
+            out Sha256Digest requestPayloadHash,
             out IpcResponse errorResponse);
 
         /// <summary> Handles one IPC request with access to persisted recoverable operation state. </summary>

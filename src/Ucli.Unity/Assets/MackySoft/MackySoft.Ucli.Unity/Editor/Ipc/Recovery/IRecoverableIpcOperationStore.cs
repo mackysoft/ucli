@@ -2,6 +2,7 @@ using System;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Unity.Ipc
@@ -13,14 +14,14 @@ namespace MackySoft.Ucli.Unity.Ipc
         ValueTask<RecoverableIpcOperationReadResult> ReadAsync (
             UnityIpcMethod method,
             Guid requestId,
-            string requestPayloadHash,
+            Sha256Digest requestPayloadHash,
             CancellationToken cancellationToken);
 
         /// <summary> Writes one pending recoverable operation record. </summary>
         ValueTask<RecoverableIpcOperationStoreResult> WritePendingAsync (
             UnityIpcMethod method,
             Guid requestId,
-            string requestPayloadHash,
+            Sha256Digest requestPayloadHash,
             DateTimeOffset startedAtUtc,
             JsonElement recoveryPayload,
             CancellationToken cancellationToken);
@@ -29,7 +30,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         ValueTask<RecoverableIpcOperationStoreResult> WriteCompletedAsync (
             UnityIpcMethod method,
             Guid requestId,
-            string requestPayloadHash,
+            Sha256Digest requestPayloadHash,
             DateTimeOffset startedAtUtc,
             DateTimeOffset completedAtUtc,
             JsonElement recoveryPayload,

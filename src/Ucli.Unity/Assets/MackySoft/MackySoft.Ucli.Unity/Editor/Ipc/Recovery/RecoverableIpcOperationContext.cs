@@ -2,6 +2,7 @@ using System;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 
@@ -13,7 +14,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         private readonly IRecoverableIpcOperationStore store;
         private readonly UnityIpcMethod method;
         private readonly Guid requestId;
-        private readonly string requestPayloadHash;
+        private readonly Sha256Digest requestPayloadHash;
 
         private readonly object completionSyncRoot = new object();
 
@@ -27,7 +28,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             IRecoverableIpcOperationStore store,
             UnityIpcMethod method,
             Guid requestId,
-            string requestPayloadHash,
+            Sha256Digest requestPayloadHash,
             RecoverableIpcOperationRecord? record)
         {
             this.store = store ?? throw new ArgumentNullException(nameof(store));
@@ -41,9 +42,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentException("Request id must not be empty.", nameof(requestId));
             }
 
-            if (string.IsNullOrWhiteSpace(requestPayloadHash))
+            if (requestPayloadHash == null)
             {
-                throw new ArgumentException("Request payload hash must not be empty.", nameof(requestPayloadHash));
+                throw new ArgumentNullException(nameof(requestPayloadHash));
             }
 
             this.method = method;

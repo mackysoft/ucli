@@ -8,6 +8,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
@@ -22,7 +23,12 @@ namespace MackySoft.Ucli.Unity.Tests
     public sealed class FileRecoverableIpcOperationStoreTests
     {
         private const string ProjectFingerprint = "project-fingerprint";
-        private const string RequestPayloadHash = "request-payload-hash";
+
+        private static readonly Sha256Digest RequestPayloadHash = Sha256Digest.Parse(
+            "cda34040abc54e9b351b66c6ecbc9708cf2c70996b0805553b3854bdce80d94b");
+
+        private static readonly Sha256Digest OtherRequestPayloadHash = Sha256Digest.Parse(
+            "43b7a6583da442557792fe0e75ad8e950b6ee17b6d6aa48001e3f4be38f08c90");
 
         [TearDown]
         public void TearDown ()
@@ -74,7 +80,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(readResult.Record.ProjectFingerprint, Is.EqualTo(ProjectFingerprint));
                 Assert.That(readResult.Record.Method, Is.EqualTo(ContractLiteralCodec.ToValue(UnityIpcMethod.PlayEnter)));
                 Assert.That(readResult.Record.RequestId, Is.EqualTo(requestId));
-                Assert.That(readResult.Record.RequestPayloadHash, Is.EqualTo(RequestPayloadHash));
+                Assert.That(readResult.Record.RequestPayloadHash, Is.EqualTo(RequestPayloadHash.ToString()));
                 Assert.That(readResult.Record.HostEditorInstanceId, Is.EqualTo("editor-instance-pending"));
                 Assert.That(readResult.Record.StartedAtUtc, Is.EqualTo(startedAtUtc));
                 Assert.That(readResult.Record.RecoveryPayload.GetRawText(), Is.EqualTo(payload.GetRawText()));
@@ -370,7 +376,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var readResult = await store.ReadAsync(
                     UnityIpcMethod.PlayEnter,
                     requestId,
-                    "other-request-payload-hash",
+                    OtherRequestPayloadHash,
                     CancellationToken.None);
 
                 Assert.That(readResult.IsSuccess, Is.False);

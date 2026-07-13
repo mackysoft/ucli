@@ -52,7 +52,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <inheritdoc />
         public bool TryCreateRecoverableRequestPayloadHash (
             IpcRequest request,
-            out string requestPayloadHash,
+            out Sha256Digest requestPayloadHash,
             out IpcResponse errorResponse)
         {
             if (!TryReadCompileRequest(
@@ -68,7 +68,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             // NOTE: compile retry identity is the requested run. The caller may resend with a
             // refreshed dispatch timeout while recovering the same run after domain reload.
             var stablePayload = IpcPayloadCodec.SerializeToElement(new IpcCompileRequest(compileRequest!.RunId));
-            requestPayloadHash = Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(stablePayload.GetRawText()));
+            requestPayloadHash = Sha256Digest.Compute(Encoding.UTF8.GetBytes(stablePayload.GetRawText()));
             return true;
         }
 

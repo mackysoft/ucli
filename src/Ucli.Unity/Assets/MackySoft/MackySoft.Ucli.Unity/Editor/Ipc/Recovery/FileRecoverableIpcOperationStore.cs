@@ -89,7 +89,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         public ValueTask<RecoverableIpcOperationReadResult> ReadAsync (
             UnityIpcMethod method,
             Guid requestId,
-            string requestPayloadHash,
+            Sha256Digest requestPayloadHash,
             CancellationToken cancellationToken)
         {
             if (!ContractLiteralCodec.IsDefined(method))
@@ -97,10 +97,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentOutOfRangeException(nameof(method), method, "Unity IPC method must be defined.");
             }
 
-            if (string.IsNullOrWhiteSpace(requestPayloadHash))
+            if (requestPayloadHash == null)
             {
-                return new ValueTask<RecoverableIpcOperationReadResult>(
-                    RecoverableIpcOperationReadResult.Failure("Request payload hash must not be empty."));
+                throw new ArgumentNullException(nameof(requestPayloadHash));
             }
 
             cancellationToken.ThrowIfCancellationRequested();
@@ -117,7 +116,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         public ValueTask<RecoverableIpcOperationStoreResult> WritePendingAsync (
             UnityIpcMethod method,
             Guid requestId,
-            string requestPayloadHash,
+            Sha256Digest requestPayloadHash,
             DateTimeOffset startedAtUtc,
             JsonElement recoveryPayload,
             CancellationToken cancellationToken)
@@ -127,10 +126,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentOutOfRangeException(nameof(method), method, "Unity IPC method must be defined.");
             }
 
-            if (string.IsNullOrWhiteSpace(requestPayloadHash))
+            if (requestPayloadHash == null)
             {
-                return new ValueTask<RecoverableIpcOperationStoreResult>(
-                    RecoverableIpcOperationStoreResult.Failure("Request payload hash must not be empty."));
+                throw new ArgumentNullException(nameof(requestPayloadHash));
             }
 
             cancellationToken.ThrowIfCancellationRequested();
@@ -140,7 +138,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 ProjectFingerprint = projectFingerprint,
                 Method = ContractLiteralCodec.ToValue(method),
                 RequestId = requestId,
-                RequestPayloadHash = requestPayloadHash,
+                RequestPayloadHash = requestPayloadHash.ToString(),
                 HostProcessId = hostProcessId,
                 HostEditorInstanceId = hostEditorInstanceId,
                 State = RecoverableIpcOperationState.Pending,
@@ -154,7 +152,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         public ValueTask<RecoverableIpcOperationStoreResult> WriteCompletedAsync (
             UnityIpcMethod method,
             Guid requestId,
-            string requestPayloadHash,
+            Sha256Digest requestPayloadHash,
             DateTimeOffset startedAtUtc,
             DateTimeOffset completedAtUtc,
             JsonElement recoveryPayload,
@@ -178,10 +176,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                     nameof(response));
             }
 
-            if (string.IsNullOrWhiteSpace(requestPayloadHash))
+            if (requestPayloadHash == null)
             {
-                return new ValueTask<RecoverableIpcOperationStoreResult>(
-                    RecoverableIpcOperationStoreResult.Failure("Request payload hash must not be empty."));
+                throw new ArgumentNullException(nameof(requestPayloadHash));
             }
 
             cancellationToken.ThrowIfCancellationRequested();
@@ -191,7 +188,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 ProjectFingerprint = projectFingerprint,
                 Method = ContractLiteralCodec.ToValue(method),
                 RequestId = requestId,
-                RequestPayloadHash = requestPayloadHash,
+                RequestPayloadHash = requestPayloadHash.ToString(),
                 HostProcessId = hostProcessId,
                 HostEditorInstanceId = hostEditorInstanceId,
                 State = RecoverableIpcOperationState.Completed,
@@ -223,7 +220,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         private async Task<RecoverableIpcOperationReadResult> ReadSerializedAsync (
             UnityIpcMethod method,
             Guid requestId,
-            string requestPayloadHash,
+            Sha256Digest requestPayloadHash,
             CancellationToken cancellationToken)
         {
             await ioGate.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -499,15 +496,15 @@ namespace MackySoft.Ucli.Unity.Ipc
                 ContractLiteralCodec.ToValue(method),
                 "\n",
                 requestId.ToString("D"));
-            var operationKey = Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(identity));
-            return Path.Combine(operationsDirectoryPath, operationKey, RecordFileName);
+            var operationKey = Sha256Digest.Compute(Encoding.UTF8.GetBytes(identity));
+            return Path.Combine(operationsDirectoryPath, operationKey.ToString(), RecordFileName);
         }
 
         private bool IsValidRecord (
             RecoverableIpcOperationRecord record,
             UnityIpcMethod method,
             Guid requestId,
-            string requestPayloadHash,
+            Sha256Digest requestPayloadHash,
             out string errorMessage)
         {
             // NOTE: Operation records are scoped to the current Editor host. This prevents
@@ -517,7 +514,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                 || !string.Equals(record.ProjectFingerprint, projectFingerprint, StringComparison.Ordinal)
                 || !string.Equals(record.Method, ContractLiteralCodec.ToValue(method), StringComparison.Ordinal)
                 || record.RequestId != requestId
-                || !string.Equals(record.RequestPayloadHash, requestPayloadHash, StringComparison.Ordinal)
+                || !Sha256Digest.TryParse(record.RequestPayloadHash, out var storedRequestPayloadHash)
+                || storedRequestPayloadHash != requestPayloadHash
                 || record.HostProcessId != hostProcessId
                 || !string.Equals(record.HostEditorInstanceId, hostEditorInstanceId, StringComparison.Ordinal))
             {
