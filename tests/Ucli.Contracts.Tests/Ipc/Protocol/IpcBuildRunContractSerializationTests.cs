@@ -54,7 +54,7 @@ public sealed class IpcBuildRunContractSerializationTests
         var response = IpcPayloadCodec.SerializeToElement(
             new IpcBuildRunResponse(
                 RunId: "build-run-1",
-                ProjectFingerprint: "project-fingerprint",
+                ProjectFingerprint: new ProjectFingerprint(ProjectFingerprintText),
                 LifecycleBefore: CreateBuildLifecycleSnapshot("before", canAcceptExecutionRequests: true),
                 LifecycleAfter: CreateBuildLifecycleSnapshot("after", canAcceptExecutionRequests: true),
                 DirtyState: new IpcBuildDirtyState(
@@ -167,7 +167,7 @@ public sealed class IpcBuildRunContractSerializationTests
                 .HasString("UNITY_LICENSE", "license-value"));
         JsonAssert.For(response)
             .HasString("runId", "build-run-1")
-            .HasString("projectFingerprint", "project-fingerprint")
+            .HasString("projectFingerprint", ProjectFingerprintText)
             .HasProperty("lifecycleBefore", lifecycle => lifecycle
                 .HasString("compileGeneration", "compile-before")
                 .HasString("domainReloadGeneration", "domain-before")

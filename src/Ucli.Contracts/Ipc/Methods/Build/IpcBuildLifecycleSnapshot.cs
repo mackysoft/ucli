@@ -20,7 +20,7 @@ public sealed record IpcBuildLifecycleSnapshot (
     string? ServerVersion,
     string? EditorMode,
     string? UnityVersion,
-    string? ProjectFingerprint,
+    ProjectFingerprint? ProjectFingerprint,
     string? LifecycleState,
     string? BlockingReason,
     string? CompileState,

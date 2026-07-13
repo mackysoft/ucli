@@ -3,6 +3,7 @@ using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
+using static MackySoft.Ucli.Contracts.Tests.Ipc.Common.IpcBuildContractSerializationTestSupport;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
 
@@ -37,7 +38,7 @@ public sealed class IpcBuildPreconditionContractSerializationTests
                 ServerVersion: "1.2.3",
                 EditorMode: "batchmode",
                 UnityVersion: "6000.0.0f1",
-                ProjectFingerprint: "project-fingerprint",
+                ProjectFingerprint: new ProjectFingerprint(ProjectFingerprintText),
                 LifecycleState: IpcEditorLifecycleStateCodec.CompileFailed,
                 BlockingReason: IpcEditorBlockingReasonCodec.CompileFailed,
                 CompileState: IpcCompileStateCodec.Failed,
@@ -83,7 +84,7 @@ public sealed class IpcBuildPreconditionContractSerializationTests
             .HasString("serverVersion", "1.2.3")
             .HasString("editorMode", "batchmode")
             .HasString("unityVersion", "6000.0.0f1")
-            .HasString("projectFingerprint", "project-fingerprint")
+            .HasString("projectFingerprint", ProjectFingerprintText)
             .HasString("lifecycleState", IpcEditorLifecycleStateCodec.CompileFailed)
             .HasString("blockingReason", IpcEditorBlockingReasonCodec.CompileFailed)
             .HasString("compileState", IpcCompileStateCodec.Failed)

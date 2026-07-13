@@ -4,7 +4,7 @@ namespace MackySoft.Ucli.Contracts.Storage;
 internal sealed record GuiSupervisorManifestJsonContract (
     int SchemaVersion,
     string SessionToken,
-    string ProjectFingerprint,
+    ProjectFingerprint ProjectFingerprint,
     string EndpointTransportKind,
     string EndpointAddress,
     int ProcessId,

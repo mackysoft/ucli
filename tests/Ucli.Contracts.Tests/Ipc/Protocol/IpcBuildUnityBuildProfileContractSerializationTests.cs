@@ -52,7 +52,7 @@ public sealed class IpcBuildUnityBuildProfileContractSerializationTests
         var response = IpcPayloadCodec.SerializeToElement(
             new IpcBuildRunResponse(
                 RunId: "build-run-1",
-                ProjectFingerprint: "project-fingerprint",
+                ProjectFingerprint: new ProjectFingerprint(ProjectFingerprintText),
                 LifecycleBefore: CreateBuildLifecycleSnapshot("before", canAcceptExecutionRequests: true),
                 LifecycleAfter: CreateBuildLifecycleSnapshot("after", canAcceptExecutionRequests: true),
                 DirtyState: new IpcBuildDirtyState(
@@ -104,6 +104,7 @@ public sealed class IpcBuildUnityBuildProfileContractSerializationTests
         Assert.False(request.TryGetProperty("sceneSource", out _));
         Assert.False(request.TryGetProperty("outputLayout", out _));
         JsonAssert.For(response)
+            .HasString("projectFingerprint", ProjectFingerprintText)
             .HasProperty("input", input => input
                 .HasString("inputKind", ContractLiteralCodec.ToValue(BuildProfileInputsKind.UnityBuildProfile))
                 .HasString("sceneSource", ContractLiteralCodec.ToValue(BuildProfileSceneSource.UnityBuildProfile))

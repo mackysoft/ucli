@@ -18,4 +18,7 @@ public enum IpcBatchmodeBootstrapParseErrorKind
     /// <summary> One or more required argument values are empty. </summary>
     EmptyRequiredValue,
 
+    /// <summary> The project fingerprint argument value is invalid. </summary>
+    InvalidProjectFingerprint,
+
 }

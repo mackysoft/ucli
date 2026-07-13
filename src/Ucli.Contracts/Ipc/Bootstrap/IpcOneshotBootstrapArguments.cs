@@ -9,7 +9,7 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 /// <param name="EndpointAddress"> The endpoint address used by the oneshot IPC server. </param>
 public sealed record IpcOneshotBootstrapArguments (
     int ParentProcessId,
-    string ProjectFingerprint,
+    ProjectFingerprint ProjectFingerprint,
     string SessionToken,
     DateTimeOffset ExitDeadlineUtc,
     string EndpointTransportKind,

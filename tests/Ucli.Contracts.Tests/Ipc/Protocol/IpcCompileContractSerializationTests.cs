@@ -6,6 +6,8 @@ namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
 
 public sealed class IpcCompileContractSerializationTests
 {
+    private const string ProjectFingerprintText = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+
     [Fact]
     [Trait("Size", "Small")]
     public void IpcCompileContracts_SerializeWithCamelCaseFields ()
@@ -28,7 +30,7 @@ public sealed class IpcCompileContractSerializationTests
             .HasString("runId", "run-1")
             .HasProperty("summary", summary => summary
                 .HasString("runId", "run-1")
-                .HasString("projectFingerprint", "project-fingerprint")
+                .HasString("projectFingerprint", ProjectFingerprintText)
                 .HasBoolean("completed", true)
                 .HasProperty("scriptCompilation", scriptCompilation => scriptCompilation
                     .HasProperty("diagnostics", diagnostics => diagnostics
@@ -46,7 +48,7 @@ public sealed class IpcCompileContractSerializationTests
     {
         var startedPayload = new CompileStartedEntry(
             RunId: "run-1",
-            ProjectFingerprint: "project-fingerprint",
+            ProjectFingerprint: new ProjectFingerprint(ProjectFingerprintText),
             RequestedMode: "auto",
             ResolvedMode: "oneshot",
             SessionKind: "transientProbe",
@@ -91,7 +93,7 @@ public sealed class IpcCompileContractSerializationTests
         Assert.Equal("compile.completed", CompileProgressEventNames.Completed);
         JsonAssert.For(started)
             .HasString("runId", "run-1")
-            .HasString("projectFingerprint", "project-fingerprint")
+            .HasString("projectFingerprint", ProjectFingerprintText)
             .HasString("requestedMode", "auto")
             .HasString("resolvedMode", "oneshot")
             .HasString("sessionKind", "transientProbe")
@@ -131,7 +133,7 @@ public sealed class IpcCompileContractSerializationTests
             Message: "; expected");
         return new IpcCompileSummary(
             RunId: "run-1",
-            ProjectFingerprint: "project-fingerprint",
+            ProjectFingerprint: new ProjectFingerprint(ProjectFingerprintText),
             Completed: true,
             StartedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:00+00:00"),
             CompletedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:02+00:00"),

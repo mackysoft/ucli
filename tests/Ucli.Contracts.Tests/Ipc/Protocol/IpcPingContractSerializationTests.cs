@@ -5,6 +5,8 @@ namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
 
 public sealed class IpcPingContractSerializationTests
 {
+    private const string ProjectFingerprintText = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+
     [Fact]
     [Trait("Size", "Small")]
     public void IpcPingRequest_SerializesFailFastOnlyWhenSpecified ()
@@ -30,7 +32,7 @@ public sealed class IpcPingContractSerializationTests
             ServerVersion: "0.5.0",
             EditorMode: "batchmode",
             UnityVersion: "6000.1.4f1",
-            ProjectFingerprint: "project-fingerprint",
+            ProjectFingerprint: new ProjectFingerprint(ProjectFingerprintText),
             CompileState: IpcCompileStateCodec.Ready,
             LifecycleState: IpcEditorLifecycleStateCodec.Playmode,
             BlockingReason: IpcEditorBlockingReasonCodec.PlayMode,
@@ -47,6 +49,7 @@ public sealed class IpcPingContractSerializationTests
         var json = IpcPayloadCodec.SerializeToElement(response);
 
         JsonAssert.For(json)
+            .HasString("projectFingerprint", ProjectFingerprintText)
             .HasString("lifecycleState", IpcEditorLifecycleStateCodec.Playmode)
             .HasBoolean("canAcceptExecutionRequests", false)
             .HasProperty("playMode", playMode => playMode

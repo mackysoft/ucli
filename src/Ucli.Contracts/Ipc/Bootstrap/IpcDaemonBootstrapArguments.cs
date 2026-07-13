@@ -9,7 +9,7 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 /// <param name="EndpointAddress"> The endpoint address value. </param>
 public sealed record IpcDaemonBootstrapArguments (
     string RepositoryRoot,
-    string ProjectFingerprint,
+    ProjectFingerprint ProjectFingerprint,
     string SessionPath,
     DateTimeOffset SessionIssuedAtUtc,
     string EndpointTransportKind,

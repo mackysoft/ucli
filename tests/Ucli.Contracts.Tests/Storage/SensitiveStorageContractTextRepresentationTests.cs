@@ -4,6 +4,8 @@ namespace MackySoft.Ucli.Contracts.Tests.Storage;
 
 public sealed class SensitiveStorageContractTextRepresentationTests
 {
+    private const string ProjectFingerprintText = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+
     [Fact]
     [Trait("Size", "Small")]
     public void DaemonSessionJsonContract_TextRepresentations_DoNotExposeSessionToken ()
@@ -12,7 +14,7 @@ public sealed class SensitiveStorageContractTextRepresentationTests
         var contract = new DaemonSessionJsonContract(
             SchemaVersion: DaemonSessionStorageContract.CurrentSchemaVersion,
             SessionToken: SessionToken,
-            ProjectFingerprint: "project-fingerprint",
+            ProjectFingerprint: new ProjectFingerprint(ProjectFingerprintText),
             IssuedAtUtc: new DateTimeOffset(2026, 7, 13, 0, 0, 0, TimeSpan.Zero),
             EditorMode: "batchmode",
             OwnerKind: "cli",
@@ -43,7 +45,7 @@ public sealed class SensitiveStorageContractTextRepresentationTests
         var contract = new GuiSupervisorManifestJsonContract(
             SchemaVersion: GuiSupervisorManifestJsonContract.CurrentSchemaVersion,
             SessionToken: SessionToken,
-            ProjectFingerprint: "project-fingerprint",
+            ProjectFingerprint: new ProjectFingerprint(ProjectFingerprintText),
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-gui-supervisor-endpoint",
             ProcessId: 1234,

@@ -19,7 +19,7 @@ public sealed record IpcPingResponse (
     string ServerVersion,
     string EditorMode,
     string UnityVersion,
-    string ProjectFingerprint,
+    ProjectFingerprint ProjectFingerprint,
     string CompileState,
     string? LifecycleState = null,
     string? BlockingReason = null,

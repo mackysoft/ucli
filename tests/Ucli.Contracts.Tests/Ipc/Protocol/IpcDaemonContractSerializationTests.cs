@@ -9,6 +9,8 @@ namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
 
 public sealed class IpcDaemonContractSerializationTests
 {
+    private const string ProjectFingerprintText = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+
     [Fact]
     [Trait("Size", "Small")]
     public void DaemonStartSupervisorProgressContracts_SerializeWithCamelCaseFields ()
@@ -26,7 +28,7 @@ public sealed class IpcDaemonContractSerializationTests
         var startupObservation = IpcPayloadCodec.SerializeToElement(
             new DaemonStartStartupObservationProgressEntry(
                 ContractLiteralCodec.ToValue(DaemonStartProgressPayloadKind.StartupObservation),
-                "project-fingerprint",
+                new ProjectFingerprint(ProjectFingerprintText),
                 120000,
                 ContractLiteralCodec.ToValue(DaemonEditorMode.Batchmode),
                 ContractLiteralCodec.ToValue(DaemonStartupBlockedProcessPolicy.Terminate),
@@ -44,7 +46,7 @@ public sealed class IpcDaemonContractSerializationTests
         var lifecycleSnapshot = IpcPayloadCodec.SerializeToElement(
             new DaemonStartLifecycleSnapshotProgressEntry(
                 ContractLiteralCodec.ToValue(DaemonStartProgressPayloadKind.LifecycleSnapshot),
-                "project-fingerprint",
+                new ProjectFingerprint(ProjectFingerprintText),
                 120000,
                 ContractLiteralCodec.ToValue(DaemonEditorMode.Batchmode),
                 ContractLiteralCodec.ToValue(DaemonStartupBlockedProcessPolicy.Terminate),
@@ -54,7 +56,7 @@ public sealed class IpcDaemonContractSerializationTests
 
         JsonAssert.For(startupObservation)
             .HasString("payloadKind", "startupObservation")
-            .HasString("projectFingerprint", "project-fingerprint")
+            .HasString("projectFingerprint", ProjectFingerprintText)
             .HasInt32("timeoutMilliseconds", 120000)
             .HasString("editorMode", "batchmode")
             .HasString("onStartupBlocked", "terminate")
@@ -75,7 +77,7 @@ public sealed class IpcDaemonContractSerializationTests
 
         JsonAssert.For(lifecycleSnapshot)
             .HasString("payloadKind", "lifecycleSnapshot")
-            .HasString("projectFingerprint", "project-fingerprint")
+            .HasString("projectFingerprint", ProjectFingerprintText)
             .HasInt32("timeoutMilliseconds", 120000)
             .HasString("editorMode", "batchmode")
             .HasString("onStartupBlocked", "terminate")
@@ -106,7 +108,7 @@ public sealed class IpcDaemonContractSerializationTests
     public void DaemonStartProgressContracts_SerializeWithCamelCaseFields ()
     {
         var payload = new DaemonStartProgressEntry(
-            ProjectFingerprint: "project-fingerprint",
+            ProjectFingerprint: new ProjectFingerprint(ProjectFingerprintText),
             TimeoutMilliseconds: 10000,
             EditorMode: "batchmode",
             OnStartupBlocked: "auto",
@@ -118,7 +120,7 @@ public sealed class IpcDaemonContractSerializationTests
         var document = IpcPayloadCodec.SerializeToElement(payload);
 
         JsonAssert.For(document)
-            .HasString("projectFingerprint", "project-fingerprint")
+            .HasString("projectFingerprint", ProjectFingerprintText)
             .HasInt32("timeoutMilliseconds", 10000)
             .HasString("editorMode", "batchmode")
             .HasString("onStartupBlocked", "auto")

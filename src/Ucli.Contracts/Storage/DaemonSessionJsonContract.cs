@@ -18,7 +18,7 @@ namespace MackySoft.Ucli.Contracts.Storage;
 internal sealed record DaemonSessionJsonContract (
     int SchemaVersion,
     string? SessionToken,
-    string? ProjectFingerprint,
+    ProjectFingerprint? ProjectFingerprint,
     DateTimeOffset IssuedAtUtc,
     string? EditorMode,
     string? OwnerKind,

@@ -16,7 +16,7 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 /// <param name="ProjectMutation"> The project mutation audit captured around runner invocation. </param>
 public sealed record IpcBuildRunResponse (
     string RunId,
-    string ProjectFingerprint,
+    ProjectFingerprint ProjectFingerprint,
     IpcBuildLifecycleSnapshot LifecycleBefore,
     IpcBuildLifecycleSnapshot LifecycleAfter,
     IpcBuildDirtyState DirtyState,

@@ -106,6 +106,11 @@ public static class IpcBatchmodeBootstrapArgumentsCodec
             return false;
         }
 
+        if (!TryParseProjectFingerprint(values.ProjectFingerprint, out var projectFingerprint, out error))
+        {
+            return false;
+        }
+
         if (!TryParseTimestamp(values.SessionIssuedAtUtcText, "uCLI daemon bootstrap session issued-at timestamp must be a valid ISO 8601 timestamp with explicit timezone offset.", out var sessionIssuedAtUtc, out error))
         {
             return false;
@@ -113,7 +118,7 @@ public static class IpcBatchmodeBootstrapArgumentsCodec
 
         arguments = new IpcDaemonBootstrapArguments(
             RepositoryRoot: values.RepositoryRoot,
-            ProjectFingerprint: values.ProjectFingerprint,
+            ProjectFingerprint: projectFingerprint,
             SessionPath: values.SessionPath,
             SessionIssuedAtUtc: sessionIssuedAtUtc,
             EndpointTransportKind: values.EndpointTransportKind,
@@ -138,6 +143,11 @@ public static class IpcBatchmodeBootstrapArgumentsCodec
             return false;
         }
 
+        if (!TryParseProjectFingerprint(values.ProjectFingerprint, out var projectFingerprint, out error))
+        {
+            return false;
+        }
+
         if (!TryParseTimestamp(values.ExitDeadlineUtcText, "uCLI oneshot bootstrap exit deadline timestamp must be a valid ISO 8601 timestamp with explicit timezone offset.", out var exitDeadlineUtc, out error))
         {
             return false;
@@ -145,7 +155,7 @@ public static class IpcBatchmodeBootstrapArgumentsCodec
 
         arguments = new IpcOneshotBootstrapArguments(
             parentProcessId,
-            values.ProjectFingerprint,
+            projectFingerprint,
             values.SessionToken,
             exitDeadlineUtc,
             values.EndpointTransportKind,
@@ -170,6 +180,25 @@ public static class IpcBatchmodeBootstrapArgumentsCodec
 
         value = default;
         error = EmptyRequiredValue(errorMessage);
+        return false;
+    }
+
+    private static bool TryParseProjectFingerprint (
+        string text,
+        out ProjectFingerprint value,
+        out IpcBatchmodeBootstrapParseError error)
+    {
+        if (ProjectFingerprint.TryParse(text, out var fingerprint))
+        {
+            value = fingerprint;
+            error = IpcBatchmodeBootstrapParseError.None;
+            return true;
+        }
+
+        value = default!;
+        error = new IpcBatchmodeBootstrapParseError(
+            IpcBatchmodeBootstrapParseErrorKind.InvalidProjectFingerprint,
+            "uCLI batchmode bootstrap project fingerprint must be exactly 64 lowercase hexadecimal SHA-256 characters.");
         return false;
     }
 

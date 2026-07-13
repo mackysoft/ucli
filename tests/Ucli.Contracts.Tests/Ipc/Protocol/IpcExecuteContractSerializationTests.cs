@@ -6,6 +6,8 @@ namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
 
 public sealed class IpcExecuteContractSerializationTests
 {
+    private const string ProjectFingerprintText = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+
     [Fact]
     [Trait("Size", "Small")]
     public void IpcExecuteRequest_SerializesOptionalExecutionControlsOnlyWhenSpecified ()
@@ -78,7 +80,7 @@ public sealed class IpcExecuteContractSerializationTests
             PlanToken = "issued-token",
             Project = new IpcProjectIdentity(
                 ProjectPath: "/repo/UnityProject",
-                ProjectFingerprint: "project-fingerprint",
+                ProjectFingerprint: ProjectFingerprintText,
                 UnityVersion: "6000.1.4f1"),
         };
 
@@ -87,7 +89,7 @@ public sealed class IpcExecuteContractSerializationTests
             .HasArrayLength("opResults", 1)
             .HasProperty("project", project => project
                 .HasString("projectPath", "/repo/UnityProject")
-                .HasString("projectFingerprint", "project-fingerprint")
+                .HasString("projectFingerprint", ProjectFingerprintText)
                 .HasString("unityVersion", "6000.1.4f1"))
             .HasString("planToken", "issued-token")
             .HasProperty("opResults", 0, opResult => opResult

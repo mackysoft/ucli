@@ -6,6 +6,8 @@ namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
 
 public sealed class IpcPlayContractSerializationTests
 {
+    private const string ProjectFingerprintText = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+
     [Fact]
     [Trait("Size", "Small")]
     public void IpcPlayRequestContracts_SerializeWithCamelCaseFields ()
@@ -46,7 +48,7 @@ public sealed class IpcPlayContractSerializationTests
                 .HasString("serverVersion", "0.5.0")
                 .HasString("editorMode", "gui")
                 .HasString("unityVersion", "6000.1.4f1")
-                .HasString("projectFingerprint", "project-fingerprint")
+                .HasString("projectFingerprint", ProjectFingerprintText)
                 .HasString("lifecycleState", "ready")
                 .HasString("blockingReason", "none")
                 .HasString("compileState", "idle")
@@ -88,7 +90,7 @@ public sealed class IpcPlayContractSerializationTests
             ServerVersion: "0.5.0",
             EditorMode: "gui",
             UnityVersion: "6000.1.4f1",
-            ProjectFingerprint: "project-fingerprint",
+            ProjectFingerprint: new ProjectFingerprint(ProjectFingerprintText),
             LifecycleState: "ready",
             BlockingReason: "none",
             CompileState: "idle",

@@ -10,7 +10,7 @@ internal static class IpcBatchmodeBootstrapTokenAppender
     {
         Add(destination, IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Daemon);
         Add(destination, IpcDaemonBootstrapArgumentNames.RepositoryRoot, arguments.RepositoryRoot);
-        Add(destination, IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, arguments.ProjectFingerprint);
+        Add(destination, IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, arguments.ProjectFingerprint.ToString());
         Add(destination, IpcDaemonBootstrapArgumentNames.SessionPath, arguments.SessionPath);
         Add(destination, IpcDaemonBootstrapArgumentNames.SessionIssuedAtUtc, ToIsoText(arguments.SessionIssuedAtUtc));
         AddEndpoint(destination, arguments.EndpointTransportKind, arguments.EndpointAddress);
@@ -22,7 +22,7 @@ internal static class IpcBatchmodeBootstrapTokenAppender
     {
         Add(destination, IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Oneshot);
         Add(destination, IpcOneshotBootstrapArgumentNames.ParentProcessId, arguments.ParentProcessId.ToString(CultureInfo.InvariantCulture));
-        Add(destination, IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, arguments.ProjectFingerprint);
+        Add(destination, IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, arguments.ProjectFingerprint.ToString());
         Add(destination, IpcOneshotBootstrapArgumentNames.SessionToken, arguments.SessionToken);
         Add(destination, IpcOneshotBootstrapArgumentNames.ExitDeadlineUtc, ToIsoText(arguments.ExitDeadlineUtc));
         AddEndpoint(destination, arguments.EndpointTransportKind, arguments.EndpointAddress);

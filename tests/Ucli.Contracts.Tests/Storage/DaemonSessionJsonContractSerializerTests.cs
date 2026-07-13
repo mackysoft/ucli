@@ -6,6 +6,8 @@ namespace MackySoft.Ucli.Contracts.Tests.Storage;
 
 public sealed class DaemonSessionJsonContractSerializerTests
 {
+    private const string ProjectFingerprintText = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+
     [Fact]
     [Trait("Size", "Small")]
     public void Deserialize_WithValidJson_ReturnsContract ()
@@ -14,7 +16,7 @@ public sealed class DaemonSessionJsonContractSerializerTests
             {
               "schemaVersion": 2,
               "sessionToken": "token-123",
-              "projectFingerprint": "fingerprint-abc",
+              "projectFingerprint": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
               "issuedAtUtc": "2026-03-02T00:00:00+00:00",
               "editorMode": "batchmode",
               "ownerKind": "cli",
@@ -32,7 +34,7 @@ public sealed class DaemonSessionJsonContractSerializerTests
         Assert.NotNull(contract);
         Assert.Equal(DaemonSessionStorageContract.CurrentSchemaVersion, contract.SchemaVersion);
         Assert.Equal("token-123", contract.SessionToken);
-        Assert.Equal("fingerprint-abc", contract.ProjectFingerprint);
+        Assert.Equal(new ProjectFingerprint(ProjectFingerprintText), contract.ProjectFingerprint);
         Assert.Equal(DateTimeOffset.Parse("2026-03-02T00:00:00+00:00"), contract.IssuedAtUtc);
         Assert.Equal("batchmode", contract.EditorMode);
         Assert.Equal("cli", contract.OwnerKind);
@@ -43,6 +45,26 @@ public sealed class DaemonSessionJsonContractSerializerTests
         Assert.Equal(DateTimeOffset.Parse("2026-03-02T00:00:01+00:00"), contract.ProcessStartedAtUtc);
         Assert.Equal(5678, contract.OwnerProcessId);
         Assert.Null(contract.EditorInstanceId);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Deserialize_WhenProjectFingerprintIsInvalid_ThrowsJsonException ()
+    {
+        const string Json = """
+            {
+              "schemaVersion": 2,
+              "sessionToken": "token-123",
+              "projectFingerprint": "not-a-project-fingerprint",
+              "issuedAtUtc": "2026-03-02T00:00:00+00:00",
+              "canShutdownProcess": true
+            }
+            """;
+
+        var exception = Assert.Throws<JsonException>(() =>
+            DaemonSessionJsonContractSerializer.Deserialize(Json));
+
+        Assert.Contains("project fingerprint is invalid", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -72,7 +94,7 @@ public sealed class DaemonSessionJsonContractSerializerTests
             {
               "schemaVersion": 2,
               "sessionToken": "token-123",
-              "projectFingerprint": "fingerprint-abc",
+              "projectFingerprint": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
               "issuedAtUtc": "2026-03-02T00:00:00+00:00",
               "editorMode": "gui",
               "ownerKind": "user",
@@ -97,7 +119,7 @@ public sealed class DaemonSessionJsonContractSerializerTests
         var contract = new DaemonSessionJsonContract(
             SchemaVersion: DaemonSessionStorageContract.CurrentSchemaVersion,
             SessionToken: "token-123",
-            ProjectFingerprint: "fingerprint-abc",
+            ProjectFingerprint: new ProjectFingerprint(ProjectFingerprintText),
             IssuedAtUtc: DateTimeOffset.Parse("2026-03-02T00:00:00+00:00"),
             EditorMode: "batchmode",
             OwnerKind: "cli",
@@ -129,7 +151,7 @@ public sealed class DaemonSessionJsonContractSerializerTests
             {
               "schemaVersion": 2,
               "sessionToken": "token-123",
-              "projectFingerprint": "fingerprint-abc",
+              "projectFingerprint": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
               "issuedAtUtc": "2026-03-02T00:00:00+00:00",
               "editorMode": "batchmode",
               "ownerKind": "cli",
@@ -156,7 +178,7 @@ public sealed class DaemonSessionJsonContractSerializerTests
         var contract = new DaemonSessionJsonContract(
             SchemaVersion: DaemonSessionStorageContract.CurrentSchemaVersion,
             SessionToken: "token-123",
-            ProjectFingerprint: "fingerprint-abc",
+            ProjectFingerprint: new ProjectFingerprint(ProjectFingerprintText),
             IssuedAtUtc: DateTimeOffset.Parse("2026-03-02T00:00:00+00:00"),
             EditorMode: "batchmode",
             OwnerKind: "cli",

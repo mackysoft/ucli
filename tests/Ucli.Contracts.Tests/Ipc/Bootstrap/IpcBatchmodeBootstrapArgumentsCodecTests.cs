@@ -4,6 +4,8 @@ namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
 
 public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
 {
+    private const string ProjectFingerprintText = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+
     [Fact]
     [Trait("Size", "Small")]
     public void TryParse_WhenTargetIsMissing_ReturnsMissingTarget ()
@@ -42,7 +44,7 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
         {
             IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Daemon,
             IpcDaemonBootstrapArgumentNames.RepositoryRoot,
-            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, "fingerprint",
+            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, ProjectFingerprintText,
             IpcDaemonBootstrapArgumentNames.SessionPath, "/tmp/session.json",
             IpcEndpointBootstrapArgumentNames.TransportKind, "namedPipe",
             IpcEndpointBootstrapArgumentNames.Address, "ucli-endpoint",
@@ -85,7 +87,7 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
         {
             IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Daemon,
             IpcDaemonBootstrapArgumentNames.RepositoryRoot, "-tmp-repository",
-            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, "fingerprint",
+            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, ProjectFingerprintText,
             IpcDaemonBootstrapArgumentNames.SessionPath, "/tmp/session.json",
             IpcDaemonBootstrapArgumentNames.SessionIssuedAtUtc, "2026-03-09T00:00:00.0000000+00:00",
             IpcEndpointBootstrapArgumentNames.TransportKind, "namedPipe",
@@ -109,7 +111,7 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
         {
             IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Oneshot,
             IpcOneshotBootstrapArgumentNames.ParentProcessId, "123",
-            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, "project-fingerprint",
+            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, ProjectFingerprintText,
             IpcOneshotBootstrapArgumentNames.SessionToken, "oneshot-token",
             IpcOneshotBootstrapArgumentNames.ExitDeadlineUtc, "2026-03-09T00:00:00.0000000+00:00",
             IpcEndpointBootstrapArgumentNames.TransportKind, "namedPipe",
@@ -122,7 +124,7 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
         Assert.Equal(IpcBatchmodeBootstrapParseError.None, error);
         var oneshotArguments = Assert.IsType<IpcOneshotBootstrapArguments>(bootstrapArguments);
         Assert.Equal(123, oneshotArguments.ParentProcessId);
-        Assert.Equal("project-fingerprint", oneshotArguments.ProjectFingerprint);
+        Assert.Equal(new ProjectFingerprint(ProjectFingerprintText), oneshotArguments.ProjectFingerprint);
         Assert.Equal("oneshot-token", oneshotArguments.SessionToken);
         Assert.Equal(DateTimeOffset.Parse("2026-03-09T00:00:00.0000000+00:00"), oneshotArguments.ExitDeadlineUtc);
         Assert.Equal("namedPipe", oneshotArguments.EndpointTransportKind);
@@ -137,7 +139,7 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
         {
             IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Oneshot,
             IpcOneshotBootstrapArgumentNames.ParentProcessId, "123",
-            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, "project-fingerprint",
+            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, ProjectFingerprintText,
             IpcOneshotBootstrapArgumentNames.SessionToken, "oneshot-token",
             IpcOneshotBootstrapArgumentNames.ExitDeadlineUtc, "not-a-timestamp",
             IpcEndpointBootstrapArgumentNames.TransportKind, "namedPipe",
@@ -157,8 +159,8 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
     {
         IpcBatchmodeBootstrapArguments source = new IpcDaemonBootstrapArguments(
             RepositoryRoot: "/repo/root",
-            ProjectFingerprint: "project-fingerprint",
-            SessionPath: "/repo/root/.ucli/local/fingerprints/project-fingerprint/session.json",
+            ProjectFingerprint: new ProjectFingerprint(ProjectFingerprintText),
+            SessionPath: $"/repo/root/.ucli/local/fingerprints/{ProjectFingerprintText}/session.json",
             SessionIssuedAtUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 0, TimeSpan.Zero),
             EndpointTransportKind: "unixDomainSocket",
             EndpointAddress: "/tmp/ucli.sock");
@@ -183,7 +185,7 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
         {
             IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Daemon,
             IpcDaemonBootstrapArgumentNames.RepositoryRoot, "/repo/root",
-            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, "fingerprint",
+            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, ProjectFingerprintText,
             IpcDaemonBootstrapArgumentNames.SessionPath, "/tmp/session.json",
             IpcDaemonBootstrapArgumentNames.SessionIssuedAtUtc, "not-a-timestamp",
             IpcEndpointBootstrapArgumentNames.TransportKind, "namedPipe",
@@ -199,11 +201,55 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void TryParse_WhenDaemonProjectFingerprintIsInvalid_ReturnsInvalidProjectFingerprint ()
+    {
+        var args = new[]
+        {
+            IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Daemon,
+            IpcDaemonBootstrapArgumentNames.RepositoryRoot, "/repo/root",
+            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, "not-a-project-fingerprint",
+            IpcDaemonBootstrapArgumentNames.SessionPath, "/tmp/session.json",
+            IpcDaemonBootstrapArgumentNames.SessionIssuedAtUtc, "2026-03-09T00:00:00.0000000+00:00",
+            IpcEndpointBootstrapArgumentNames.TransportKind, "namedPipe",
+            IpcEndpointBootstrapArgumentNames.Address, "ucli-endpoint",
+        };
+
+        var parsed = IpcBatchmodeBootstrapArgumentsCodec.TryParse(args, out _, out var error);
+
+        Assert.False(parsed);
+        Assert.Equal(IpcBatchmodeBootstrapParseErrorKind.InvalidProjectFingerprint, error.Kind);
+        Assert.Equal("uCLI batchmode bootstrap project fingerprint must be exactly 64 lowercase hexadecimal SHA-256 characters.", error.Message);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryParse_WhenOneshotProjectFingerprintIsInvalid_ReturnsInvalidProjectFingerprint ()
+    {
+        var args = new[]
+        {
+            IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Oneshot,
+            IpcOneshotBootstrapArgumentNames.ParentProcessId, "123",
+            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, "not-a-project-fingerprint",
+            IpcOneshotBootstrapArgumentNames.SessionToken, "oneshot-token",
+            IpcOneshotBootstrapArgumentNames.ExitDeadlineUtc, "2026-03-09T00:00:00.0000000+00:00",
+            IpcEndpointBootstrapArgumentNames.TransportKind, "namedPipe",
+            IpcEndpointBootstrapArgumentNames.Address, "ucli-endpoint",
+        };
+
+        var parsed = IpcBatchmodeBootstrapArgumentsCodec.TryParse(args, out _, out var error);
+
+        Assert.False(parsed);
+        Assert.Equal(IpcBatchmodeBootstrapParseErrorKind.InvalidProjectFingerprint, error.Kind);
+        Assert.Equal("uCLI batchmode bootstrap project fingerprint must be exactly 64 lowercase hexadecimal SHA-256 characters.", error.Message);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void AppendTokens_ThenTryParse_RoundTripsOneshotValues ()
     {
         IpcBatchmodeBootstrapArguments source = new IpcOneshotBootstrapArguments(
             456,
-            "project-fingerprint",
+            new ProjectFingerprint(ProjectFingerprintText),
             "oneshot-token",
             new DateTimeOffset(2026, 03, 09, 0, 0, 0, TimeSpan.Zero),
             "unixDomainSocket",
@@ -229,7 +275,7 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
         {
             IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Oneshot,
             IpcOneshotBootstrapArgumentNames.ParentProcessId, " ",
-            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, "project-fingerprint",
+            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, ProjectFingerprintText,
             IpcOneshotBootstrapArgumentNames.SessionToken, "oneshot-token",
             IpcOneshotBootstrapArgumentNames.ExitDeadlineUtc, "2026-03-09T00:00:00.0000000+00:00",
             IpcEndpointBootstrapArgumentNames.TransportKind, "namedPipe",
@@ -251,7 +297,7 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
         {
             IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Oneshot,
             IpcOneshotBootstrapArgumentNames.ParentProcessId, "0",
-            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, "project-fingerprint",
+            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, ProjectFingerprintText,
             IpcOneshotBootstrapArgumentNames.SessionToken, "oneshot-token",
             IpcOneshotBootstrapArgumentNames.ExitDeadlineUtc, "2026-03-09T00:00:00.0000000+00:00",
             IpcEndpointBootstrapArgumentNames.TransportKind, "namedPipe",
@@ -273,7 +319,7 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
         {
             IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Oneshot,
             IpcOneshotBootstrapArgumentNames.ParentProcessId, "123",
-            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, "project-fingerprint",
+            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, ProjectFingerprintText,
             IpcOneshotBootstrapArgumentNames.SessionToken, " ",
             IpcOneshotBootstrapArgumentNames.ExitDeadlineUtc, "2026-03-09T00:00:00.0000000+00:00",
             IpcEndpointBootstrapArgumentNames.TransportKind, "namedPipe",

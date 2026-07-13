@@ -5,6 +5,8 @@ namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
 
 internal static class IpcBuildContractSerializationTestSupport
 {
+    public const string ProjectFingerprintText = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+
     public static IpcBuildLifecycleSnapshot CreateBuildLifecycleSnapshot (
         string generationSuffix,
         bool canAcceptExecutionRequests)
@@ -13,7 +15,7 @@ internal static class IpcBuildContractSerializationTestSupport
             ServerVersion: "0.5.0",
             EditorMode: "batchmode",
             UnityVersion: "6000.1.4f1",
-            ProjectFingerprint: "project-fingerprint",
+            ProjectFingerprint: new ProjectFingerprint(ProjectFingerprintText),
             LifecycleState: "ready",
             BlockingReason: "none",
             CompileState: "idle",

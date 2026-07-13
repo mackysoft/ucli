@@ -12,7 +12,7 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 /// <param name="Lifecycle"> Final lifecycle evidence after compile observation. </param>
 public sealed record IpcCompileSummary (
     string RunId,
-    string ProjectFingerprint,
+    ProjectFingerprint ProjectFingerprint,
     bool Completed,
     DateTimeOffset StartedAtUtc,
     DateTimeOffset? CompletedAtUtc,

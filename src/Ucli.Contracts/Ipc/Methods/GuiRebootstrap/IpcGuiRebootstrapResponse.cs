@@ -6,5 +6,5 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 /// <param name="ProcessId"> The Unity GUI process identifier. </param>
 public sealed record IpcGuiRebootstrapResponse (
     bool Accepted,
-    string ProjectFingerprint,
+    ProjectFingerprint ProjectFingerprint,
     int ProcessId);
