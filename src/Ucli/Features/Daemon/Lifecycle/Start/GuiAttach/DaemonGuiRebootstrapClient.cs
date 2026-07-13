@@ -265,7 +265,17 @@ internal sealed class DaemonGuiRebootstrapClient : IDaemonGuiRebootstrapClient
                 DaemonErrorCodes.DaemonEndpointNotRegistered);
         }
 
-        endpoint = new IpcEndpoint(transportKind, manifest.EndpointAddress);
+        try
+        {
+            endpoint = new IpcEndpoint(transportKind, manifest.EndpointAddress);
+        }
+        catch (ArgumentException)
+        {
+            return ExecutionError.InternalError(
+                "GUI supervisor manifest contains an invalid endpoint address.",
+                DaemonErrorCodes.DaemonEndpointNotRegistered);
+        }
+
         return null;
     }
 }
