@@ -104,7 +104,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             foreach (var pair in componentShadowsByTrackingKey)
             {
-                if (pair.Value.Component == component)
+                if (ReferenceEquals(pair.Value.Component, component))
                 {
                     resource = pair.Value.Resource;
                     return true;
@@ -113,7 +113,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             foreach (var pair in ensuredComponentsByKey)
             {
-                if (pair.Value.Component == component)
+                if (ReferenceEquals(pair.Value.Component, component))
                 {
                     resource = pair.Value.Resource;
                     return true;
@@ -140,7 +140,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             foreach (var pair in ensuredComponentsByKey)
             {
-                if (pair.Value.Component == component)
+                if (ReferenceEquals(pair.Value.Component, component))
                 {
                     targetKey = pair.Value.ComponentTrackingKey;
                     return true;
@@ -149,7 +149,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             foreach (var pair in componentShadowsByTrackingKey)
             {
-                if (pair.Value.Component == component)
+                if (ReferenceEquals(pair.Value.Component, component))
                 {
                     targetKey = pair.Key;
                     return true;
@@ -176,7 +176,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             foreach (var pair in componentShadowsByTrackingKey)
             {
-                if (pair.Value.Component == component)
+                if (ReferenceEquals(pair.Value.Component, component))
                 {
                     ownerKey = pair.Value.OwnerGameObjectTrackingKey;
                     return true;
@@ -185,7 +185,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             foreach (var pair in ensuredComponentsByKey)
             {
-                if (pair.Value.Component == component)
+                if (ReferenceEquals(pair.Value.Component, component))
                 {
                     ownerKey = pair.Key.TargetTrackingKey;
                     return true;
@@ -212,7 +212,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             foreach (var pair in componentShadowsByTrackingKey)
             {
-                if (pair.Value.Component == component)
+                if (ReferenceEquals(pair.Value.Component, component))
                 {
                     ownerGameObject = pair.Value.OwnerGameObject;
                     return ownerGameObject != null;
@@ -221,7 +221,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             foreach (var pair in ensuredComponentsByKey)
             {
-                if (pair.Value.Component == component)
+                if (ReferenceEquals(pair.Value.Component, component))
                 {
                     ownerGameObject = pair.Value.TargetGameObject;
                     return ownerGameObject != null;
@@ -330,7 +330,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             OperationResource resource,
             TemporaryAliasRegistry temporaryAliasRegistry)
         {
-            if (sourceComponent == null)
+            if (ReferenceEquals(sourceComponent, null))
             {
                 throw new ArgumentNullException(nameof(sourceComponent));
             }
@@ -463,7 +463,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             List<EnsuredComponentKey>? keysToSynchronize = null;
             foreach (var pair in ensuredComponentsByKey)
             {
-                if (pair.Value.Component != sourceComponent)
+                if (!ReferenceEquals(pair.Value.Component, sourceComponent))
                 {
                     continue;
                 }

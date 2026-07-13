@@ -161,7 +161,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             UnityEngine.Object replacementUnityObject,
             OperationResource resource)
         {
-            if (sourceUnityObject == null)
+            if (ReferenceEquals(sourceUnityObject, null))
             {
                 throw new ArgumentNullException(nameof(sourceUnityObject));
             }
@@ -176,7 +176,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             List<string>? aliasesToSynchronize = null;
             foreach (var pair in valuesByAlias)
             {
-                if (pair.Value.UnityObject != sourceUnityObject)
+                if (!ReferenceEquals(pair.Value.UnityObject, sourceUnityObject))
                 {
                     continue;
                 }
