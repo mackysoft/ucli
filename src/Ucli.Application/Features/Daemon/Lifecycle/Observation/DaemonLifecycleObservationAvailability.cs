@@ -26,6 +26,23 @@ internal static class DaemonLifecycleObservationAvailability
             && IsMatchingLiveProcess(session, processIdentityAssessor);
     }
 
+    /// <summary> Determines whether the observation belongs to the same Editor instance, is fresh, and still points to the live process. </summary>
+    public static bool IsUsableForEditorInstanceSession (
+        DaemonLifecycleObservation observation,
+        DaemonSession session,
+        IDaemonProcessIdentityAssessor processIdentityAssessor,
+        TimeProvider timeProvider)
+    {
+        ArgumentNullException.ThrowIfNull(observation);
+        ArgumentNullException.ThrowIfNull(session);
+        ArgumentNullException.ThrowIfNull(processIdentityAssessor);
+        ArgumentNullException.ThrowIfNull(timeProvider);
+
+        return DaemonLifecycleObservationMatcher.MatchesSessionByEditorInstance(observation, session)
+            && IsFresh(observation, timeProvider)
+            && IsMatchingLiveProcess(session, processIdentityAssessor);
+    }
+
     private static bool IsFresh (
         DaemonLifecycleObservation observation,
         TimeProvider timeProvider)

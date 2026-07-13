@@ -48,7 +48,7 @@ internal sealed class UnityDaemonRecoveryWaiter
                 cancellationToken,
                 "Timed out before daemon recovery state could be read.",
                 "Timed out while reading daemon recovery state.",
-                token => IsRecoveringSessionAsync(unityProject, token))
+                token => IsRecoveringSessionAsync(unityProject, deadline.Clock, token))
             .ConfigureAwait(false);
         if (!recoveryReadOperation.IsSuccess
             || !recoveryReadOperation.Value
@@ -67,6 +67,7 @@ internal sealed class UnityDaemonRecoveryWaiter
 
     private async ValueTask<bool> IsRecoveringSessionAsync (
         ResolvedUnityProjectContext unityProject,
+        TimeProvider timeProvider,
         CancellationToken cancellationToken)
     {
         var sessionReadResult = await daemonSessionStore.ReadAsync(
@@ -93,25 +94,18 @@ internal sealed class UnityDaemonRecoveryWaiter
                 unityProject.ProjectFingerprint,
                 cancellationToken)
             .ConfigureAwait(false);
-        if (!lifecycleReadResult.IsSuccess
-            || !lifecycleReadResult.Exists
-            || !lifecycleReadResult.Observation!.IsRecovering
-            || !DaemonLifecycleObservationMatcher.MatchesSessionByEditorInstance(
-                lifecycleReadResult.Observation,
-                sessionReadResult.Session!))
+        if (!lifecycleReadResult.IsSuccess || !lifecycleReadResult.Exists)
         {
             return false;
         }
 
-        if (!session.ProcessId.HasValue)
-        {
-            return false;
-        }
-
-        return processIdentityAssessor.AssessByProcessId(
-                session.ProcessId.Value,
-                session.ProcessStartedAtUtc)
-            .Status == DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess;
+        var observation = lifecycleReadResult.Observation!;
+        return observation.IsRecovering
+            && DaemonLifecycleObservationAvailability.IsUsableForEditorInstanceSession(
+                observation,
+                session,
+                processIdentityAssessor,
+                timeProvider);
     }
 
     private static TimeSpan GetRetryDelay (TimeSpan remainingTimeout)

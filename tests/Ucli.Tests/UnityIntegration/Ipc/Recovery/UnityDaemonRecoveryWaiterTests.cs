@@ -100,6 +100,32 @@ public sealed class UnityDaemonRecoveryWaiterTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task DelayIfRecoveringAsync_WhenRecoveringObservationIsStale_ReturnsFalseWithoutDelay ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var session = DaemonSessionTestFactory.CreateEditorInstance();
+        var observation = CreateObservation(
+            session,
+            IpcEditorLifecycleState.DomainReloading,
+            observedAtUtc: timeProvider.GetUtcNow() - DaemonLifecycleObservationTimings.FreshnessWindow - TimeSpan.FromTicks(1));
+        var waiter = CreateWaiter(
+            session,
+            observation,
+            DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess);
+        var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider);
+
+        var delayTask = waiter.DelayIfRecoveringAsync(
+                ResolvedUnityProjectContextTestFactory.Create(),
+                deadline,
+                CancellationToken.None)
+            .AsTask();
+
+        Assert.False(await delayTask.WaitAsync(TimeSpan.FromSeconds(1)));
+        Assert.Equal(0, timeProvider.ActiveTimerCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task DelayIfRecoveringAsync_WhenSessionEditorInstanceIdIsMissing_ReturnsFalseWithoutDelay ()
     {
         var timeProvider = new ManualTimeProvider();
@@ -255,7 +281,8 @@ public sealed class UnityDaemonRecoveryWaiterTests
         DaemonSession session,
         IpcEditorLifecycleState lifecycleState,
         DateTimeOffset? processStartedAtUtc = null,
-        Guid? editorInstanceId = null)
+        Guid? editorInstanceId = null,
+        DateTimeOffset? observedAtUtc = null)
     {
         return new DaemonLifecycleObservation(
             processId: session.ProcessId!.Value,
@@ -270,7 +297,7 @@ public sealed class UnityDaemonRecoveryWaiterTests
                     IpcPlayModeTransition.None,
                     IsPlaying: false,
                     IsPlayingOrWillChangePlaymode: false)),
-            observedAtUtc: DateTimeOffset.UtcNow,
+            observedAtUtc: observedAtUtc ?? DateTimeOffset.UnixEpoch,
             actionRequired: null,
             primaryDiagnostic: null,
             serverVersion: null,
