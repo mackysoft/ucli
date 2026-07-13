@@ -409,12 +409,6 @@ internal sealed class IpcTransportClient : IIpcTransportClient
                 throw new InvalidDataException("IPC terminal stream frame must contain a response.");
             }
 
-            if (frame.Response.RequestId != request.RequestId)
-            {
-                throw new InvalidDataException(
-                    $"IPC terminal response requestId mismatch. Expected={request.RequestId}, Actual={frame.Response.RequestId}.");
-            }
-
             ValidateIpcResponse(request, frame.Response);
             return;
         }
