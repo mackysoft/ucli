@@ -20,7 +20,7 @@ internal static class ScreenshotServiceCollectionExtensions
             new FileScreenshotArtifactStore(
                 serviceProvider.GetRequiredService<Rgba8SrgbPngEncoder>(),
                 serviceProvider.GetRequiredService<Rgba8SrgbPngValidator>(),
-                TimeProvider.System,
+                serviceProvider.GetRequiredService<TimeProvider>(),
                 FileSystemAccessBoundary.EnsureSecureDirectory,
                 File.Delete));
         return services;

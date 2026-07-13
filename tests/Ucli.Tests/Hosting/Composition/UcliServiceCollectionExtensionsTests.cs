@@ -5,6 +5,7 @@ using MackySoft.Ucli.Application.Features.Assurance.Compile.Contracts;
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
 using MackySoft.Ucli.Application.Features.Assurance.Semantics;
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
+using MackySoft.Ucli.Application.Features.Screenshot.Capture;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Assets;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
 using MackySoft.Ucli.Hosting.Composition.Common;
@@ -52,6 +53,10 @@ public sealed class UcliServiceCollectionExtensionsTests
             });
 
         Assert.Same(timeProvider, serviceProvider.GetRequiredService<TimeProvider>());
+        Assert.StartsWith(
+            "19700101_000000Z_",
+            serviceProvider.GetRequiredService<IScreenshotCaptureIdFactory>().Create(),
+            StringComparison.Ordinal);
     }
 
     [Fact]
