@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using UnityEngine;
 
 #nullable enable
@@ -78,7 +79,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (value.Component == null)
+            if (!IsLive(value))
             {
                 ensuredComponentsByKey.Remove(key);
                 return false;
@@ -104,7 +105,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             foreach (var pair in componentShadowsByTrackingKey)
             {
-                if (ReferenceEquals(pair.Value.Component, component))
+                if (IsLive(pair.Value)
+                    && ReferenceEquals(pair.Value.Component, component))
                 {
                     resource = pair.Value.Resource;
                     return true;
@@ -113,7 +115,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             foreach (var pair in ensuredComponentsByKey)
             {
-                if (ReferenceEquals(pair.Value.Component, component))
+                if (IsLive(pair.Value)
+                    && ReferenceEquals(pair.Value.Component, component))
                 {
                     resource = pair.Value.Resource;
                     return true;
@@ -126,12 +129,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         /// <summary> Tries to resolve the Prefab override correlation key for one tracked request-local component. </summary>
         /// <param name="component"> The non-null component to find in component shadows or ensured-component state. </param>
-        /// <param name="targetKey"> The Prefab override correlation identity when the method returns <see langword="true" />; otherwise the invalid default value. </param>
+        /// <param name="targetKey"> The Prefab override correlation identity when the method returns <see langword="true" />; otherwise <see langword="null" />. </param>
         /// <returns> <see langword="true" /> when <paramref name="component" /> is tracked by this registry; otherwise <see langword="false" />. </returns>
         /// <exception cref="ArgumentNullException"> <paramref name="component" /> is <see langword="null" />. </exception>
         public bool TryResolveTrackedComponentTargetKey (
             Component component,
-            out RequestLocalObjectIdentity targetKey)
+            [NotNullWhen(true)] out RequestLocalObjectIdentity? targetKey)
         {
             if (component == null)
             {
@@ -140,7 +143,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             foreach (var pair in ensuredComponentsByKey)
             {
-                if (ReferenceEquals(pair.Value.Component, component))
+                if (IsLive(pair.Value)
+                    && ReferenceEquals(pair.Value.Component, component))
                 {
                     targetKey = pair.Value.ComponentTrackingKey;
                     return true;
@@ -149,25 +153,26 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             foreach (var pair in componentShadowsByTrackingKey)
             {
-                if (ReferenceEquals(pair.Value.Component, component))
+                if (IsLive(pair.Value)
+                    && ReferenceEquals(pair.Value.Component, component))
                 {
                     targetKey = pair.Key;
                     return true;
                 }
             }
 
-            targetKey = null!;
+            targetKey = null;
             return false;
         }
 
         /// <summary> Tries to resolve the semantic owner GameObject tracking key for one tracked request-local component. </summary>
         /// <param name="component"> The non-null component to find in component shadows or ensured-component state. </param>
-        /// <param name="ownerKey"> The owner GameObject identity when the method returns <see langword="true" />; otherwise the invalid default value. </param>
+        /// <param name="ownerKey"> The owner GameObject identity when the method returns <see langword="true" />; otherwise <see langword="null" />. </param>
         /// <returns> <see langword="true" /> when <paramref name="component" /> is tracked by this registry; otherwise <see langword="false" />. </returns>
         /// <exception cref="ArgumentNullException"> <paramref name="component" /> is <see langword="null" />. </exception>
         public bool TryResolveTrackedComponentOwnerKey (
             Component component,
-            out RequestLocalObjectIdentity ownerKey)
+            [NotNullWhen(true)] out RequestLocalObjectIdentity? ownerKey)
         {
             if (component == null)
             {
@@ -176,7 +181,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             foreach (var pair in componentShadowsByTrackingKey)
             {
-                if (ReferenceEquals(pair.Value.Component, component))
+                if (IsLive(pair.Value)
+                    && ReferenceEquals(pair.Value.Component, component))
                 {
                     ownerKey = pair.Value.OwnerGameObjectTrackingKey;
                     return true;
@@ -185,14 +191,15 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             foreach (var pair in ensuredComponentsByKey)
             {
-                if (ReferenceEquals(pair.Value.Component, component))
+                if (IsLive(pair.Value)
+                    && ReferenceEquals(pair.Value.Component, component))
                 {
                     ownerKey = pair.Key.TargetTrackingKey;
                     return true;
                 }
             }
 
-            ownerKey = null!;
+            ownerKey = null;
             return false;
         }
 
@@ -203,7 +210,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <exception cref="ArgumentNullException"> <paramref name="component" /> is <see langword="null" />. </exception>
         public bool TryResolveTrackedComponentOwnerGameObject (
             Component component,
-            out GameObject? ownerGameObject)
+            [NotNullWhen(true)] out GameObject? ownerGameObject)
         {
             if (component == null)
             {
@@ -212,19 +219,21 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             foreach (var pair in componentShadowsByTrackingKey)
             {
-                if (ReferenceEquals(pair.Value.Component, component))
+                if (IsLive(pair.Value)
+                    && ReferenceEquals(pair.Value.Component, component))
                 {
                     ownerGameObject = pair.Value.OwnerGameObject;
-                    return ownerGameObject != null;
+                    return true;
                 }
             }
 
             foreach (var pair in ensuredComponentsByKey)
             {
-                if (ReferenceEquals(pair.Value.Component, component))
+                if (IsLive(pair.Value)
+                    && ReferenceEquals(pair.Value.Component, component))
                 {
                     ownerGameObject = pair.Value.TargetGameObject;
-                    return ownerGameObject != null;
+                    return true;
                 }
             }
 
@@ -255,7 +264,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     continue;
                 }
 
-                if (pair.Value.Component == null)
+                if (!IsLive(pair.Value))
                 {
                     continue;
                 }
@@ -374,9 +383,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (value.Component == null
-                || value.SourceComponent == null
-                || value.OwnerGameObject == null)
+            if (!IsLive(value))
             {
                 componentShadowsByTrackingKey.Remove(sourceTrackingKey);
                 return false;
@@ -497,6 +504,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             {
                 throw new ArgumentNullException(parameterName);
             }
+        }
+
+        private static bool IsLive (ComponentShadowValue value)
+        {
+            return value.Component != null
+                && value.SourceComponent != null
+                && value.OwnerGameObject != null;
+        }
+
+        private static bool IsLive (EnsuredComponentValue value)
+        {
+            return value.Component != null
+                && value.TargetGameObject != null;
         }
 
         private static void ValidateResource (

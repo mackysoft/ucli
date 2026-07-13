@@ -137,7 +137,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> <see langword="true" /> when the component belongs to tracked plan-time state; otherwise <see langword="false" />. </returns>
         internal bool TryResolveTrackedComponentTargetKey (
             Component component,
-            out RequestLocalObjectIdentity targetKey)
+            [NotNullWhen(true)] out RequestLocalObjectIdentity? targetKey)
         {
             return componentSandboxRegistry.TryResolveTrackedComponentTargetKey(component, out targetKey);
         }
@@ -148,7 +148,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> <see langword="true" /> when the component belongs to tracked plan-time state; otherwise <see langword="false" />. </returns>
         internal bool TryResolveTrackedComponentOwnerKey (
             Component component,
-            out RequestLocalObjectIdentity ownerKey)
+            [NotNullWhen(true)] out RequestLocalObjectIdentity? ownerKey)
         {
             return componentSandboxRegistry.TryResolveTrackedComponentOwnerKey(component, out ownerKey);
         }
@@ -159,7 +159,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> <see langword="true" /> when the component belongs to tracked plan-time state and its owner still exists; otherwise <see langword="false" />. </returns>
         internal bool TryResolveTrackedComponentOwnerGameObject (
             Component component,
-            out GameObject? ownerGameObject)
+            [NotNullWhen(true)] out GameObject? ownerGameObject)
         {
             return componentSandboxRegistry.TryResolveTrackedComponentOwnerGameObject(component, out ownerGameObject);
         }
@@ -357,7 +357,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         internal bool TryResolvePreviewSourceTrackingKey (
             UnityEngine.Object unityObject,
             OperationResource resource,
-            out RequestLocalObjectIdentity trackingKey)
+            [NotNullWhen(true)] out RequestLocalObjectIdentity? trackingKey)
         {
             if (unityObject == null)
             {
@@ -399,7 +399,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     break;
             }
 
-            trackingKey = null!;
+            trackingKey = null;
             return false;
         }
 

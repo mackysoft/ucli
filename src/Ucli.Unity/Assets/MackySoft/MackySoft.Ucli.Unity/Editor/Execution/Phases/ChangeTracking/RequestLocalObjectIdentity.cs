@@ -79,7 +79,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <summary> Tries to get the transient Unity object carried by this identity. </summary>
         /// <param name="unityObject"> The live transient Unity object when available; otherwise <see langword="null" />. </param>
         /// <returns> <see langword="true" /> when this identity still references a live transient Unity object; otherwise <see langword="false" />. </returns>
-        public bool TryGetTransientUnityObject (out UnityEngine.Object? unityObject)
+        public bool TryGetTransientUnityObject ([NotNullWhen(true)] out UnityEngine.Object? unityObject)
         {
             unityObject = transientUnityObject;
             return kind == IdentityKind.TransientUnityObject && unityObject != null;
