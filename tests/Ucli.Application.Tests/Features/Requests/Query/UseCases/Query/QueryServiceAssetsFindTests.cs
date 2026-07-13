@@ -1,3 +1,4 @@
+using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query;
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -8,6 +9,48 @@ using static QueryServiceTestSupport;
 
 public sealed class QueryServiceAssetsFindTests
 {
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenAssetSearchIndexEntryHasNoGuid_ReturnsNullAssetGuid ()
+    {
+        var assetSearchLookupAccessService = new RecordingAssetSearchLookupAccessService
+        {
+            Result = AssetSearchLookupReadResult.Success(
+                new AssetSearchLookupReadOutput(
+                    Entries:
+                    [
+                        CreateMaterialAssetEntry("Assets/Planned.mat", string.Empty, "Planned"),
+                    ],
+                    AccessInfo: CreateAssetLookupAccessInfo()),
+                "Asset-search lookup read completed."),
+        };
+        var service = new QueryService(
+            new StaticProjectContextResolver(ProjectContextResolutionResult.Success(QueryProjectContext)),
+            assetSearchLookupAccessService,
+            new RecordingSceneTreeLiteAccessService(),
+            new UnexpectedUnityRequestExecutor());
+
+        var result = await service.ExecuteAsync(
+            RequestId,
+            CreateInput(
+                new QueryAssetsFindOperationRequest(
+                    CommandName: "query.assets.find",
+                    OperationId: "assets.find",
+                    OperationName: UcliPrimitiveOperationNames.AssetsFind,
+                    Filter: new QueryAssetsFindFilter("UnityEngine.Material, UnityEngine.CoreModule", null, null),
+                    WindowOptions: new BoundedWindowOptions(
+                        All: true,
+                        Limit: 100,
+                        Cursor: null,
+                        Offset: 0)),
+                failFast: true),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var match = Assert.Single(Assert.Single(result.OpResults).Result!.Value.GetProperty("matches").EnumerateArray());
+        Assert.Equal(JsonValueKind.Null, match.GetProperty("assetGuid").ValueKind);
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task Execute_WhenAssetsFindLookupSucceeds_ForwardsFailFastAndReturnsWindowedPlanResultWithoutUnityExecution ()

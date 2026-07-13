@@ -315,11 +315,13 @@ internal sealed class QueryService : IQueryService
         for (var i = 0; i < windowedEntries.Items.Count; i++)
         {
             var entry = windowedEntries.Items[i];
+            var assetGuid = entry.AssetGuid
+                ?? throw new InvalidOperationException("Validated asset-search entry must specify assetGuid.");
             matches[i] = new AssetsFindMatch(
-                assetPath: entry.AssetPath!,
-                assetGuid: entry.AssetGuid!,
+                assetPath: new UnityAssetPath(entry.AssetPath!),
+                assetGuid: assetGuid.Length == 0 ? null : new UnityAssetGuid(assetGuid),
                 name: entry.Name!,
-                typeId: entry.TypeId!);
+                typeId: new UnityTypeId(entry.TypeId!));
         }
 
         return new AssetsFindResult(matches, windowedEntries.Window);

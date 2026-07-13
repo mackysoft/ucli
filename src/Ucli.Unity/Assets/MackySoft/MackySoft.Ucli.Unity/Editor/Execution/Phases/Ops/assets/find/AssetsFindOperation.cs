@@ -81,11 +81,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             var payloadMatches = new AssetsFindMatch[windowedMatches.Items.Count];
             for (var i = 0; i < windowedMatches.Items.Count; i++)
             {
+                var match = windowedMatches.Items[i];
                 payloadMatches[i] = new AssetsFindMatch(
-                    assetPath: windowedMatches.Items[i].AssetPath,
-                    assetGuid: windowedMatches.Items[i].AssetGuid,
-                    name: windowedMatches.Items[i].Name,
-                    typeId: windowedMatches.Items[i].TypeId);
+                    assetPath: new UnityAssetPath(match.AssetPath),
+                    assetGuid: match.AssetGuid == null ? null : new UnityAssetGuid(match.AssetGuid),
+                    name: match.Name,
+                    typeId: new UnityTypeId(match.TypeId));
             }
 
             return OperationPhaseStepResult.Success(

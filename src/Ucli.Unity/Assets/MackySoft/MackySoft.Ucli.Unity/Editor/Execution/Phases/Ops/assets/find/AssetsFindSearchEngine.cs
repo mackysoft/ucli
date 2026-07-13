@@ -135,22 +135,22 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             UnityEngine.Object unityObject,
             IDictionary<string, SearchMatch> matchesByAssetPath)
         {
+            var assetName = AssetSearchNameResolver.Resolve(unityObject, assetPath);
             if (!MatchesType(criteria, unityObject)
-                || !MatchesName(criteria, unityObject.name))
+                || !MatchesName(criteria, assetName))
             {
                 return false;
             }
 
-            var assetGuid = AssetDatabase.AssetPathToGUID(assetPath);
-            if (string.IsNullOrEmpty(assetGuid))
-            {
-                assetGuid = string.Empty;
-            }
+            var persistedAssetGuid = AssetDatabase.AssetPathToGUID(assetPath);
+            var assetGuid = string.IsNullOrEmpty(persistedAssetGuid)
+                ? null
+                : persistedAssetGuid;
 
             matchesByAssetPath[assetPath] = new SearchMatch(
                 assetPath,
                 assetGuid,
-                unityObject.name,
+                assetName,
                 IndexTypeIdFormatter.Format(unityObject.GetType()));
             return true;
         }
@@ -208,10 +208,30 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             public SearchMatch (
                 string assetPath,
-                string assetGuid,
+                string? assetGuid,
                 string name,
                 string typeId)
             {
+                if (string.IsNullOrWhiteSpace(assetPath))
+                {
+                    throw new ArgumentException("Asset path must not be empty or whitespace.", nameof(assetPath));
+                }
+
+                if (assetGuid != null && string.IsNullOrWhiteSpace(assetGuid))
+                {
+                    throw new ArgumentException("Asset GUID must not be whitespace.", nameof(assetGuid));
+                }
+
+                if (string.IsNullOrWhiteSpace(name))
+                {
+                    throw new ArgumentException("Asset name must not be empty or whitespace.", nameof(name));
+                }
+
+                if (string.IsNullOrWhiteSpace(typeId))
+                {
+                    throw new ArgumentException("Asset type identifier must not be empty or whitespace.", nameof(typeId));
+                }
+
                 AssetPath = assetPath;
                 AssetGuid = assetGuid;
                 Name = name;
@@ -220,7 +240,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             public string AssetPath { get; }
 
-            public string AssetGuid { get; }
+            public string? AssetGuid { get; }
 
             public string Name { get; }
 

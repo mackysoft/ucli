@@ -362,6 +362,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var matches = GetMatches(findResult);
             Assert.That(matches.Count, Is.EqualTo(1));
             Assert.That(matches[0].AssetPath, Is.EqualTo(assetPath));
+            Assert.That(matches[0].AssetGuid, Is.Null);
             Assert.That(matches[0].TypeId, Is.EqualTo(IndexTypeIdFormatter.Format(typeof(AssetOperationTestAsset))));
         });
 
@@ -614,7 +615,9 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 matches[index] = new AssetMatchSnapshot(
                     matchElement.GetProperty("assetPath").GetString()!,
-                    matchElement.GetProperty("assetGuid").GetString()!,
+                    matchElement.GetProperty("assetGuid").ValueKind == JsonValueKind.Null
+                        ? null
+                        : matchElement.GetProperty("assetGuid").GetString(),
                     matchElement.GetProperty("name").GetString()!,
                     matchElement.GetProperty("typeId").GetString()!);
                 index++;
@@ -654,7 +657,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             public AssetMatchSnapshot (
                 string assetPath,
-                string assetGuid,
+                string? assetGuid,
                 string name,
                 string typeId)
             {
@@ -666,7 +669,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public string AssetPath { get; }
 
-            public string AssetGuid { get; }
+            public string? AssetGuid { get; }
 
             public string Name { get; }
 

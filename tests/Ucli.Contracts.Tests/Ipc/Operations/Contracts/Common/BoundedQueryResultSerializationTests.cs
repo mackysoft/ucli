@@ -8,6 +8,22 @@ public sealed class BoundedQueryResultSerializationTests
 {
     [Fact]
     [Trait("Size", "Small")]
+    public void SerializeToElement_WhenPlannedAssetHasNoGuid_EmitsNullAssetGuid ()
+    {
+        var match = new AssetsFindMatch(
+            assetPath: new UnityAssetPath("Assets/Data/Planned.asset"),
+            assetGuid: null,
+            name: "Planned",
+            typeId: new UnityTypeId("UnityEngine.ScriptableObject, UnityEngine.CoreModule"));
+
+        var element = IpcPayloadCodec.SerializeToElement(match);
+
+        JsonAssert.For(element)
+            .IsNull("assetGuid");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void SerializeToElement_WhenBoundedResultsContainWindow_EmitsCursorWindowWithoutLegacyAfterField ()
     {
         var cursor = BoundedWindowCursorCodec.Encode(1);

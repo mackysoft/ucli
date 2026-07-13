@@ -9,29 +9,33 @@ public sealed record AssetsFindMatch
     [JsonConstructor]
     public AssetsFindMatch (
         UnityAssetPath assetPath,
-        UnityAssetGuid assetGuid,
+        UnityAssetGuid? assetGuid,
         string name,
         UnityTypeId typeId)
     {
-        AssetPath = assetPath;
+        AssetPath = assetPath ?? throw new ArgumentNullException(nameof(assetPath));
         AssetGuid = assetGuid;
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            throw new ArgumentException("Asset name must not be empty or whitespace.", nameof(name));
+        }
+
         Name = name;
-        TypeId = typeId;
+        TypeId = typeId ?? throw new ArgumentNullException(nameof(typeId));
     }
 
     [UcliRequired]
     [UcliDescription("Unity project relative asset path.")]
-    public UnityAssetPath AssetPath { get; init; }
+    public UnityAssetPath AssetPath { get; }
 
-    [UcliRequired]
-    [UcliDescription("Unity asset GUID.")]
-    public UnityAssetGuid AssetGuid { get; init; }
+    [UcliDescription("Unity asset GUID, or null when a planned asset has not been imported yet.")]
+    public UnityAssetGuid? AssetGuid { get; }
 
     [UcliRequired]
     [UcliDescription("Asset object name.")]
-    public string Name { get; init; }
+    public string Name { get; }
 
     [UcliRequired]
     [UcliDescription("Asset type identifier.")]
-    public UnityTypeId TypeId { get; init; }
+    public UnityTypeId TypeId { get; }
 }
