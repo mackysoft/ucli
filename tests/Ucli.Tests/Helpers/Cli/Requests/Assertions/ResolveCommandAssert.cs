@@ -30,8 +30,8 @@ internal static class ResolveCommandAssert
         Assert.Equal(expectedReadIndexMode, invocation.Input.ReadIndexMode);
         Assert.Equal(expectedFailFast, invocation.Input.FailFast);
         var selector = Assert.IsType<ResolveSceneHierarchySelectorInput>(invocation.Input.Selector);
-        Assert.Equal(expectedScene, selector.Scene);
-        Assert.Equal(expectedHierarchyPath, selector.HierarchyPath);
+        Assert.Equal(expectedScene, selector.Scene.Value);
+        Assert.Equal(expectedHierarchyPath, selector.HierarchyPath.Value);
     }
 
     public static void SucceededWithPayload (

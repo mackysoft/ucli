@@ -306,8 +306,8 @@ public sealed class ResolveServiceTests
     private static ResolveSelectorInput CreateSceneSelector ()
     {
         return new ResolveSceneHierarchySelectorInput(
-            Scene: "Assets/Scenes/Main.unity",
-            HierarchyPath: "Root/Child");
+            scene: new SceneAssetPath("Assets/Scenes/Main.unity"),
+            hierarchyPath: new UnityHierarchyPath("Root/Child"));
     }
 
     private static UnityRequestResponse CreateUnityResponse ()

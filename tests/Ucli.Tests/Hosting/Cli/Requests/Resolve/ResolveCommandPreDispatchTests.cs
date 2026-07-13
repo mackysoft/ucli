@@ -39,6 +39,36 @@ public sealed class ResolveCommandPreDispatchTests
             service);
     }
 
+    [Theory]
+    [InlineData(null, "Assets", null, null, null)]
+    [InlineData(null, null, "Assets/TagManager.asset", null, null)]
+    [InlineData("Assets/Scenes/Main.prefab", null, null, "Root", null)]
+    [InlineData(null, null, null, "Root", "Assets/Prefabs/Player.unity")]
+    [InlineData("Assets/Scenes/Main.unity", null, null, "Root//Child", null)]
+    [Trait("Size", "Small")]
+    public async Task Resolve_WhenPathSelectorIsInvalid_ReturnsInvalidArgumentWithoutCallingService (
+        string? scene,
+        string? assetPath,
+        string? projectAssetPath,
+        string? hierarchyPath,
+        string? prefab)
+    {
+        var service = new RecordingResolveService((_, _) => throw new InvalidOperationException("Service should not be called."));
+        var command = new ResolveCommand(service, CommandResultTestWriter.Create());
+
+        var result = await CommandResultCapture.ExecuteAsync(() => command.ResolveAsync(
+            assetPath: assetPath,
+            projectAssetPath: projectAssetPath,
+            scene: scene,
+            hierarchyPath: hierarchyPath,
+            prefab: prefab,
+            cancellationToken: CancellationToken.None));
+
+        ResolveCommandAssert.InvalidInputRejectedBeforeResolveExecution(
+            result,
+            service);
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task Resolve_WhenSelectorIsNotExactlyOne_ReturnsInvalidArgumentWithoutCallingService ()

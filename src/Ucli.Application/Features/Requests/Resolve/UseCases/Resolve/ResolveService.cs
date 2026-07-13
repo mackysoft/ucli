@@ -133,7 +133,7 @@ internal sealed class ResolveService : IResolveService
                 executionMode,
                 timeout,
                 readIndexMode,
-                selector.Scene,
+                selector.Scene.Value,
                 depth: null,
                 failFast: input.FailFast,
                 cancellationToken: cancellationToken)
@@ -160,7 +160,7 @@ internal sealed class ResolveService : IResolveService
             return (null, output.AccessInfo.FallbackReason ?? "scene-tree-lite readIndex was not used.");
         }
 
-        var resolveResult = SceneTreeLiteHierarchyPathResolver.Resolve(output.Roots, selector.HierarchyPath);
+        var resolveResult = SceneTreeLiteHierarchyPathResolver.Resolve(output.Roots, selector.HierarchyPath.Value);
         if (!resolveResult.IsSuccess)
         {
             return (null, resolveResult.ErrorMessage!);
