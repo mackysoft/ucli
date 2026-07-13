@@ -11,6 +11,7 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 [UcliInputConstraint(UcliOperationInputConstraintKind.GlobalObjectId)]
 public sealed record UnityGlobalObjectId : UcliStringValue
 {
+    private const int AssetGuidTextLength = 32;
     private const string Prefix = "GlobalObjectId_V1-";
 
     /// <summary> Initializes a new instance of the <see cref="UnityGlobalObjectId" /> class. </summary>
@@ -118,15 +119,62 @@ public sealed record UnityGlobalObjectId : UcliStringValue
             throw CreateInvalidValueException();
         }
 
-        var canonicalValue = string.Concat(
-            Prefix,
-            identifierType.ToString(CultureInfo.InvariantCulture),
-            "-",
-            assetGuid.Value,
-            "-",
-            targetObjectId.ToString(CultureInfo.InvariantCulture),
-            "-",
-            targetPrefabId.ToString(CultureInfo.InvariantCulture));
+        var canonicalValueLength = checked(
+            Prefix.Length
+            + GetInvariantDecimalLength((ulong)identifierType)
+            + 1
+            + AssetGuidTextLength
+            + 1
+            + GetInvariantDecimalLength(targetObjectId)
+            + 1
+            + GetInvariantDecimalLength(targetPrefabId));
+        var canonicalValue = string.Create(
+            canonicalValueLength,
+            (IdentifierType: identifierType, AssetGuid: assetGuid.Value, TargetObjectId: targetObjectId, TargetPrefabId: targetPrefabId),
+            static (destination, state) =>
+            {
+                Prefix.AsSpan().CopyTo(destination);
+                var offset = Prefix.Length;
+
+                if (!state.IdentifierType.TryFormat(
+                        destination[offset..],
+                        out var identifierTypeCharsWritten,
+                        provider: CultureInfo.InvariantCulture))
+                {
+                    throw new InvalidOperationException("GlobalObjectId buffer is too small for identifier type formatting.");
+                }
+
+                offset += identifierTypeCharsWritten;
+                destination[offset++] = '-';
+                state.AssetGuid.AsSpan().CopyTo(destination[offset..]);
+                offset += AssetGuidTextLength;
+                destination[offset++] = '-';
+
+                if (!state.TargetObjectId.TryFormat(
+                        destination[offset..],
+                        out var targetObjectIdCharsWritten,
+                        provider: CultureInfo.InvariantCulture))
+                {
+                    throw new InvalidOperationException("GlobalObjectId buffer is too small for target object id formatting.");
+                }
+
+                offset += targetObjectIdCharsWritten;
+                destination[offset++] = '-';
+
+                if (!state.TargetPrefabId.TryFormat(
+                        destination[offset..],
+                        out var targetPrefabIdCharsWritten,
+                        provider: CultureInfo.InvariantCulture))
+                {
+                    throw new InvalidOperationException("GlobalObjectId buffer is too small for target prefab id formatting.");
+                }
+
+                offset += targetPrefabIdCharsWritten;
+                if (offset != destination.Length)
+                {
+                    throw new InvalidOperationException("GlobalObjectId canonical length calculation is inconsistent with formatting.");
+                }
+            });
 
         return new ParsedValue(
             canonicalValue,
@@ -158,6 +206,18 @@ public sealed record UnityGlobalObjectId : UcliStringValue
                 kind = default;
                 return false;
         }
+    }
+
+    private static int GetInvariantDecimalLength (ulong value)
+    {
+        var length = 1;
+        while (value >= 10)
+        {
+            value /= 10;
+            length++;
+        }
+
+        return length;
     }
 
     private static ArgumentException CreateInvalidValueException ()

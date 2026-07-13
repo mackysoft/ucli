@@ -56,6 +56,20 @@ public sealed class UnityGlobalObjectIdTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Constructor_WhenObjectIdentifiersUseMaximumValues_PreservesCanonicalValue ()
+    {
+        const string canonicalValue =
+            "GlobalObjectId_V1-3-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-18446744073709551615-18446744073709551615";
+
+        var value = new UnityGlobalObjectId(canonicalValue);
+
+        Assert.Equal(canonicalValue, value.Value);
+        Assert.Equal(ulong.MaxValue, value.TargetObjectId);
+        Assert.Equal(ulong.MaxValue, value.TargetPrefabId);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void TryParse_WhenValueIsValid_ReturnsCanonicalTypedId ()
     {
         var result = UnityGlobalObjectId.TryParse(
