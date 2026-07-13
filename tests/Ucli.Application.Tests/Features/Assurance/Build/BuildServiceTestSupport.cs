@@ -21,7 +21,7 @@ namespace MackySoft.Ucli.Application.Tests.Features.Assurance.Build;
 internal static class BuildServiceTestSupport
 {
     public const string RunId = "build-run-1";
-    public const string ProjectFingerprint = "project-fingerprint";
+    public static readonly ProjectFingerprint DefaultProjectFingerprint = ProjectFingerprintTestFactory.Create("project-fingerprint");
 
     public const string ProfileJson = """
         {
@@ -121,7 +121,7 @@ internal static class BuildServiceTestSupport
             ?? throw new InvalidOperationException("BuildService tests require a streaming request executor.");
         return new BuildService(
             projectContextResolver ?? new StaticProjectContextResolver(ProjectContextResolutionResult.Success(ProjectContextTestFactory.Create(
-                projectFingerprint: ProjectFingerprint))),
+                projectFingerprint: DefaultProjectFingerprint))),
             profileFileReader ?? new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(ProfileJson, "/workspace/build.ucli.json")),
             environmentVariableReader ?? new StubEnvironmentVariableReader(),
             modeDecisionService ?? new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(new UnityExecutionModeDecision(
@@ -355,7 +355,7 @@ internal static class BuildServiceTestSupport
         return UnityRequestExecutionResult.Success(new UnityRequestResponse(
             IpcPayloadCodec.SerializeToElement(new IpcBuildRunResponse(
                 RunId: RunId,
-                ProjectFingerprint: ProjectFingerprint,
+                ProjectFingerprint: DefaultProjectFingerprint,
                 LifecycleBefore: lifecycleBefore ?? CreateLifecycleSnapshot("before", canAcceptExecutionRequests: true),
                 LifecycleAfter: lifecycleAfter ?? CreateLifecycleSnapshot("after", canAcceptExecutionRequests: true),
                 DirtyState: new IpcBuildDirtyState(
@@ -504,7 +504,7 @@ internal static class BuildServiceTestSupport
             ServerVersion: "0.5.0",
             EditorMode: "batchmode",
             UnityVersion: "6000.1.4f1",
-            ProjectFingerprint: ProjectFingerprint,
+            ProjectFingerprint: DefaultProjectFingerprint,
             LifecycleState: "ready",
             BlockingReason: null,
             CompileState: "idle",

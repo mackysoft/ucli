@@ -12,7 +12,7 @@ public sealed class DaemonExistingSessionGateServiceFailureTests
             daemonPingInfoClient: new RecordingDaemonPingInfoClient(new TimeoutException("timeout")));
 
         var result = await service.TryHandleExistingSessionAsync(
-            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-existing-timeout"),
+            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-existing-timeout")),
             DaemonSessionTestFactory.Create(processId: 4002),
             TimeSpan.FromMilliseconds(500),
             editorMode: null,
@@ -32,7 +32,7 @@ public sealed class DaemonExistingSessionGateServiceFailureTests
             daemonPingInfoClient: new RecordingDaemonPingInfoClient(new InvalidOperationException("unexpected")));
 
         var result = await service.TryHandleExistingSessionAsync(
-            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-existing-unexpected"),
+            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-existing-unexpected")),
             DaemonSessionTestFactory.Create(processId: 4005),
             TimeSpan.FromMilliseconds(500),
             editorMode: null,

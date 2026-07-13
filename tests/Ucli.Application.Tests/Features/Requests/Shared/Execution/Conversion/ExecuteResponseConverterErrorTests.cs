@@ -1,3 +1,4 @@
+using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Tests.Requests.Shared.Execution.Conversion;
@@ -9,7 +10,7 @@ public sealed class ExecuteResponseConverterErrorTests
     public void Convert_WhenErrorsAreMissing_ReturnsInternalError ()
     {
         var response = new UnityRequestResponse(
-            Payload: IpcPayloadCodec.SerializeToElement(new IpcExecuteResponse([])),
+            Payload: CreatePayload(),
             Errors: null!,
             HasFailureStatus: false);
 
@@ -26,7 +27,7 @@ public sealed class ExecuteResponseConverterErrorTests
     public void Convert_WhenErrorRequiredTextIsMissing_ReturnsInternalError ()
     {
         var response = new UnityRequestResponse(
-            Payload: IpcPayloadCodec.SerializeToElement(new IpcExecuteResponse([])),
+            Payload: CreatePayload(),
             Errors:
             [
                 new OperationExecutionError(default, "Unity execution failed.", null),
@@ -46,7 +47,7 @@ public sealed class ExecuteResponseConverterErrorTests
     public void Convert_WhenFailureStatusHasNoErrors_ReturnsStatusMessage ()
     {
         var response = new UnityRequestResponse(
-            Payload: IpcPayloadCodec.SerializeToElement(new IpcExecuteResponse([])),
+            Payload: CreatePayload(),
             Errors: [],
             HasFailureStatus: true,
             FailureStatus: "busy");
@@ -64,7 +65,7 @@ public sealed class ExecuteResponseConverterErrorTests
     public void Convert_WhenPlanTokenValidationFails_PreservesOperationErrorCode ()
     {
         var response = new UnityRequestResponse(
-            Payload: IpcPayloadCodec.SerializeToElement(new IpcExecuteResponse([])),
+            Payload: CreatePayload(),
             Errors:
             [
                 new OperationExecutionError(PlanTokenErrorCodes.PlanTokenInvalid, "Plan token is invalid.", null),
@@ -75,5 +76,13 @@ public sealed class ExecuteResponseConverterErrorTests
 
         Assert.False(result.IsSuccess);
         Assert.Equal(PlanTokenErrorCodes.PlanTokenInvalid, Assert.Single(result.Errors).Code);
+    }
+
+    private static JsonElement CreatePayload ()
+    {
+        return IpcPayloadCodec.SerializeToElement(new IpcExecuteResponse([])
+        {
+            Project = ExecuteResponseConverterTestSupport.CreateProjectIdentity(),
+        });
     }
 }

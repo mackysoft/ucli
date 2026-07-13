@@ -18,7 +18,7 @@ public sealed class VerifyFromInputReaderOperationInvalidInputTests
     {
         var result = VerifyFromInputReader.Read(
             json,
-            ProjectFingerprint);
+            DefaultProjectFingerprint);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(expectedCode, result.Error!.Code);

@@ -19,7 +19,7 @@ internal sealed class TestMutationReadPostconditionStore : IMutationReadPostcond
 
     public ValueTask<MutationReadPostconditionReadResult> ReadOrNullAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -29,7 +29,7 @@ internal sealed class TestMutationReadPostconditionStore : IMutationReadPostcond
 
     public ValueTask<MutationReadPostconditionStoreOperationResult> WriteMergedAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         OperationExecutionReadPostcondition readPostcondition,
         CancellationToken cancellationToken = default)
     {
@@ -41,12 +41,12 @@ internal sealed class TestMutationReadPostconditionStore : IMutationReadPostcond
 
     internal readonly record struct ReadInvocation (
         string StorageRoot,
-        string ProjectFingerprint,
+        ProjectFingerprint ProjectFingerprint,
         CancellationToken CancellationToken);
 
     internal readonly record struct WriteInvocation (
         string StorageRoot,
-        string ProjectFingerprint,
+        ProjectFingerprint ProjectFingerprint,
         OperationExecutionReadPostcondition ReadPostcondition,
         CancellationToken CancellationToken);
 }

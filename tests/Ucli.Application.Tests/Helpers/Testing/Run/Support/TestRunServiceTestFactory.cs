@@ -35,7 +35,7 @@ internal static class TestRunServiceTestFactory
     {
         return new ResolvedTestRunConfiguration(
             UnityProject: ProjectContextTestFactory.CreateSingleRootUnityProject(
-                projectFingerprint: "fingerprint",
+                projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"),
                 unityVersion: ProjectIdentityDefaults.UnknownUnityVersion),
             Mode: mode,
             UnityVersion: "6000.1.4f1",

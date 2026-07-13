@@ -101,7 +101,8 @@ public sealed class ReadyServiceFailureTests
                 UnityExecutionMode.Auto,
                 daemonRunning: false,
                 UnityExecutionTarget.Oneshot),
-            unityRequestExecutor: new RecordingUnityRequestExecutor(CreateReadyPingSuccess(projectFingerprint: "other-fingerprint")));
+            unityRequestExecutor: new RecordingUnityRequestExecutor(CreateReadyPingSuccess(
+                projectFingerprint: ProjectFingerprintTestFactory.Create("other-fingerprint"))));
 
         var result = await service.ExecuteAsync(CreateExecutionInput());
 

@@ -196,7 +196,7 @@ internal static class VerifyServiceTestSupport
     }
 
     public static string CreateFromJson (
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         string coverageImpact,
         string severity = "warning",
         bool applied = true,
@@ -216,6 +216,7 @@ internal static class VerifyServiceTestSupport
         bool includeReadPostcondition = true,
         string op = "edit")
     {
+        var projectFingerprintText = projectFingerprint.ToString();
         var commitJson = commit is null ? "null" : $"\"{commit}\"";
         var readPostconditionJson = includeReadPostcondition
             ? """
@@ -239,7 +240,7 @@ internal static class VerifyServiceTestSupport
           "payload": {
             "project": {
               "projectPath": "/repo/UnityProject",
-              "projectFingerprint": "{{projectFingerprint}}",
+              "projectFingerprint": "{{projectFingerprintText}}",
               "unityVersion": "6000.1.4f1"
             },
             "opResults": [
@@ -279,8 +280,9 @@ internal static class VerifyServiceTestSupport
         """;
     }
 
-    public static string CreateNoOpFromJson (string projectFingerprint)
+    public static string CreateNoOpFromJson (ProjectFingerprint projectFingerprint)
     {
+        var projectFingerprintText = projectFingerprint.ToString();
         return $$"""
         {
           "protocolVersion": 1,
@@ -290,7 +292,7 @@ internal static class VerifyServiceTestSupport
           "payload": {
             "project": {
               "projectPath": "/repo/UnityProject",
-              "projectFingerprint": "{{projectFingerprint}}",
+              "projectFingerprint": "{{projectFingerprintText}}",
               "unityVersion": "6000.1.4f1"
             },
             "opResults": [],
@@ -304,8 +306,9 @@ internal static class VerifyServiceTestSupport
         """;
     }
 
-    public static string CreateMixedBoundAndUnboundDiagnosticFromJson (string projectFingerprint)
+    public static string CreateMixedBoundAndUnboundDiagnosticFromJson (ProjectFingerprint projectFingerprint)
     {
+        var projectFingerprintText = projectFingerprint.ToString();
         return $$"""
         {
           "protocolVersion": 1,
@@ -315,7 +318,7 @@ internal static class VerifyServiceTestSupport
           "payload": {
             "project": {
               "projectPath": "/repo/UnityProject",
-              "projectFingerprint": "{{projectFingerprint}}",
+              "projectFingerprint": "{{projectFingerprintText}}",
               "unityVersion": "6000.1.4f1"
             },
             "opResults": [

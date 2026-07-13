@@ -14,7 +14,7 @@ public sealed class DaemonStartOperationDiagnosisTests
     [Trait("Size", "Small")]
     public async Task Start_WhenWorkflowBegins_DeletesExistingDiagnosisForUnityProject ()
     {
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-start-delete-diagnosis");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-start-delete-diagnosis"));
         var diagnosisStore = new RecordingDaemonDiagnosisStore();
         var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Missing());
         var operation = CreateOperation(
@@ -42,7 +42,7 @@ public sealed class DaemonStartOperationDiagnosisTests
     [Trait("Size", "Small")]
     public async Task Start_WhenDiagnosisDeleteFails_ContinuesSessionReadAndLaunch ()
     {
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-start-delete-diagnosis-fail");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-start-delete-diagnosis-fail"));
         var diagnosisStore = new RecordingDaemonDiagnosisStore
         {
             DeleteResult = DaemonDiagnosisStoreOperationResult.Failure(ExecutionError.InternalError("diagnosis delete failed")),
@@ -73,7 +73,7 @@ public sealed class DaemonStartOperationDiagnosisTests
     [Trait("Size", "Small")]
     public async Task Start_WhenDiagnosisDeleteFailsAndLaunchFails_ReturnsAugmentedFailure ()
     {
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-start-delete-diagnosis-augmented");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-start-delete-diagnosis-augmented"));
         var diagnosisDeleteError = ExecutionError.InternalError("diagnosis delete failed");
         var launchError = ExecutionError.InternalError("launch failed", UcliCoreErrorCodes.CommandNotImplemented);
         var diagnosisStore = new RecordingDaemonDiagnosisStore
@@ -112,7 +112,7 @@ public sealed class DaemonStartOperationDiagnosisTests
     [Trait("Size", "Small")]
     public async Task Start_WhenDiagnosisDeleteFailsAndGuiFreshLaunchFails_PreservesLaunchFailureCode ()
     {
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-start-delete-diagnosis-gui");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-start-delete-diagnosis-gui"));
         var diagnosisStore = new RecordingDaemonDiagnosisStore
         {
             DeleteResult = DaemonDiagnosisStoreOperationResult.Failure(ExecutionError.InternalError("diagnosis delete failed")),
@@ -151,7 +151,7 @@ public sealed class DaemonStartOperationDiagnosisTests
         var compensationOperationOwner = new DaemonCompensationOperationOwner();
         var lifecycleLease = new RecordingAsyncDisposable();
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
-            "fingerprint-start-owned-diagnosis-delete");
+            ProjectFingerprintTestFactory.Create("fingerprint-start-owned-diagnosis-delete"));
         var deleteStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseDelete = new TaskCompletionSource<DaemonDiagnosisStoreOperationResult>(

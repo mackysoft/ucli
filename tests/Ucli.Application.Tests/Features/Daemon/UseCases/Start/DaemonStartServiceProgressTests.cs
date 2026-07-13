@@ -54,7 +54,7 @@ public sealed class DaemonStartServiceProgressTests
             ContractLiteralCodec.ToValue(DaemonStartProgressEvent.Completed));
         DaemonStartProgressAssert.BatchmodeStartCompletedSuccessfully(
             progressSink,
-            expectedProjectFingerprint: "fingerprint",
+            expectedProjectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"),
             expectedTimeoutMilliseconds: 1200);
     }
 }

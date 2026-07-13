@@ -189,13 +189,13 @@ public sealed class PlayEnterServiceInvariantTests
             null,
             true,
             CreateStoppedPlayMode("2"),
-            projectFingerprint: "other-project-fingerprint");
+            projectFingerprint: ProjectFingerprintTestFactory.Create("other-project-fingerprint"));
         var after = CreateSnapshot(
             IpcEditorLifecycleStateCodec.Playmode,
             IpcEditorBlockingReasonCodec.PlayMode,
             false,
             CreatePlayMode("playing", "none", true, true, "3"),
-            projectFingerprint: "other-project-fingerprint");
+            projectFingerprint: ProjectFingerprintTestFactory.Create("other-project-fingerprint"));
         var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
             IpcPlayTransitionCommandNames.Enter,
             IpcPlayTransitionResultNames.Entered,

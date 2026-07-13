@@ -67,11 +67,12 @@ public sealed class ExecuteResponseConverterPostReadSourceTests
     [Trait("Size", "Small")]
     public void Convert_WhenPostReadSourceKindIsUnsupported_ReturnsInternalError ()
     {
-        var response = CreateResponse("""
+        var projectFingerprintText = ProjectFingerprintTestFactory.Create("project-fingerprint").ToString();
+        var response = CreateResponse($$"""
             {
               "project": {
                 "projectPath": "/repo/UnityProject",
-                "projectFingerprint": "project-fingerprint",
+                "projectFingerprint": "{{projectFingerprintText}}",
                 "unityVersion": "6000.1.4f1"
               },
               "opResults": [
@@ -179,11 +180,12 @@ public sealed class ExecuteResponseConverterPostReadSourceTests
     [Trait("Size", "Small")]
     public void Convert_WhenPostReadSourceStepIsMissingForOpResult_ReturnsInternalError ()
     {
-        var response = CreateResponse("""
+        var projectFingerprintText = ProjectFingerprintTestFactory.Create("project-fingerprint").ToString();
+        var response = CreateResponse($$"""
             {
               "project": {
                 "projectPath": "/repo/UnityProject",
-                "projectFingerprint": "project-fingerprint",
+                "projectFingerprint": "{{projectFingerprintText}}",
                 "unityVersion": "6000.1.4f1"
               },
               "opResults": [
@@ -260,11 +262,12 @@ public sealed class ExecuteResponseConverterPostReadSourceTests
         string stepJson,
         string op = "edit")
     {
+        var projectFingerprintText = ProjectFingerprintTestFactory.Create("project-fingerprint").ToString();
         return $$"""
         {
           "project": {
             "projectPath": "/repo/UnityProject",
-            "projectFingerprint": "project-fingerprint",
+            "projectFingerprint": "{{projectFingerprintText}}",
             "unityVersion": "6000.1.4f1"
           },
           "opResults": [

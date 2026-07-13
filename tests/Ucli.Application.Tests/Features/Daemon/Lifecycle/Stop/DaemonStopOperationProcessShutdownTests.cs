@@ -15,7 +15,7 @@ public sealed class DaemonStopOperationProcessShutdownTests
     {
         var shutdownError = ExecutionError.InternalError("shutdown failed");
         var session = DaemonSessionTestFactory.Create(processId: 123);
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-stop-failure");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-stop-failure"));
         var shutdownClient = new RecordingDaemonShutdownClient
         {
             NextResult = DaemonShutdownAttemptResult.Failure(shutdownError),
@@ -47,7 +47,7 @@ public sealed class DaemonStopOperationProcessShutdownTests
     public async Task Stop_WhenShutdownResultIsNotRunning_EnsuresProcessStoppedAndReturnsStopped ()
     {
         var session = DaemonSessionTestFactory.Create(processId: 456);
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-stop-not-running");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-stop-not-running"));
         var shutdownClient = new RecordingDaemonShutdownClient
         {
             NextResult = DaemonShutdownAttemptResult.NotRunning(),
@@ -80,7 +80,7 @@ public sealed class DaemonStopOperationProcessShutdownTests
     public async Task Stop_WhenProcessIdIsMissing_CleansUpAfterShutdownWithoutProcessTermination ()
     {
         var session = DaemonSessionTestFactory.Create(processId: null);
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-stop-pidless");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-stop-pidless"));
         var shutdownClient = new RecordingDaemonShutdownClient
         {
             NextResult = DaemonShutdownAttemptResult.Success(),
@@ -108,7 +108,7 @@ public sealed class DaemonStopOperationProcessShutdownTests
     public async Task Stop_WhenProcessIdIsMissingAndShutdownFails_ReturnsShutdownFailureWithoutCleanup ()
     {
         var shutdownError = ExecutionError.InternalError("shutdown failed");
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-stop-pidless-failure");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-stop-pidless-failure"));
         var processTerminationService = new RecordingDaemonProcessTerminationService();
         var artifactCleaner = new RecordingDaemonArtifactCleaner();
         var operation = CreateOperation(
@@ -140,7 +140,7 @@ public sealed class DaemonStopOperationProcessShutdownTests
             editorMode: "gui",
             issuedAtUtc: issuedAtUtc,
             processStartedAtUtc: processStartedAtUtc);
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-stop-cli-gui");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-stop-cli-gui"));
         var shutdownClient = new RecordingDaemonShutdownClient
         {
             NextResult = DaemonShutdownAttemptResult.Success(),

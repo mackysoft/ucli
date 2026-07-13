@@ -32,7 +32,7 @@ internal sealed record DaemonListItemOutput (
     string? BranchRef,
     string Head,
     string ProjectPath,
-    string ProjectFingerprint,
+    ProjectFingerprint ProjectFingerprint,
     DaemonListItemState State,
     DaemonListItemReason? Reason,
     DateTimeOffset? IssuedAtUtc,

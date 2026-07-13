@@ -65,7 +65,7 @@ internal static class DaemonExistingSessionGateServiceTestSupport
 
     public static DaemonSession CreateRecoveringGuiSession (
         int processId,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         Guid editorInstanceId)
     {
         return DaemonSessionTestFactory.Create(
@@ -112,7 +112,7 @@ internal static class DaemonExistingSessionGateServiceTestSupport
             ServerVersion: "1.0.0",
             EditorMode: "batchmode",
             UnityVersion: "2022.3.0f1",
-            ProjectFingerprint: "fingerprint",
+            ProjectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"),
             CompileState: IpcCompileStateCodec.Ready,
             LifecycleState: lifecycleState,
             BlockingReason: blockingReason,

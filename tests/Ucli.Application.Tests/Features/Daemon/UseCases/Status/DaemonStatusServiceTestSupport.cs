@@ -25,7 +25,7 @@ internal static class DaemonStatusServiceTestSupport
             ServerVersion: "0.0.1",
             EditorMode: "batchmode",
             UnityVersion: "6000.1.4f1",
-            ProjectFingerprint: "project-fingerprint",
+            ProjectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"),
             CompileState: IpcCompileStateCodec.Ready,
             LifecycleState: IpcEditorLifecycleStateCodec.Ready,
             BlockingReason: null,

@@ -698,12 +698,12 @@ internal sealed class CompileService : ICompileService
     private static ApplicationFailure? ValidateSummary (
         IpcCompileSummary summary,
         string expectedRunId,
-        string expectedProjectFingerprint,
+        ProjectFingerprint expectedProjectFingerprint,
         bool requireCompleted)
     {
         ArgumentNullException.ThrowIfNull(summary);
         ArgumentException.ThrowIfNullOrWhiteSpace(expectedRunId);
-        ArgumentException.ThrowIfNullOrWhiteSpace(expectedProjectFingerprint);
+        ArgumentNullException.ThrowIfNull(expectedProjectFingerprint);
 
         if (!string.Equals(summary.RunId, expectedRunId, StringComparison.Ordinal))
         {
@@ -711,7 +711,7 @@ internal sealed class CompileService : ICompileService
                 $"Unity compile summary runId mismatch. Requested={expectedRunId}, Actual={summary.RunId}.");
         }
 
-        if (!string.Equals(summary.ProjectFingerprint, expectedProjectFingerprint, StringComparison.Ordinal))
+        if (summary.ProjectFingerprint != expectedProjectFingerprint)
         {
             return ApplicationFailure.InternalError(
                 $"Unity compile summary projectFingerprint mismatch. Requested={expectedProjectFingerprint}, Actual={summary.ProjectFingerprint}.");

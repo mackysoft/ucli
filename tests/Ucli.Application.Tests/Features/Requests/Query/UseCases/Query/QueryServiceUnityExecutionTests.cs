@@ -44,7 +44,7 @@ public sealed class QueryServiceUnityExecutionTests
         Assert.NotNull(result.Project);
         var project = result.Project!;
         Assert.Equal("/unity/ResponseProject", project.ProjectPath);
-        Assert.Equal("unity-response-fingerprint", project.ProjectFingerprint);
+        Assert.Equal(ProjectFingerprintTestFactory.Create("unity-response-fingerprint"), project.ProjectFingerprint);
         Assert.Equal("7000.0.1f1", project.UnityVersion);
         Assert.Equal(RequestId, result.RequestId);
 
@@ -88,7 +88,7 @@ public sealed class QueryServiceUnityExecutionTests
     {
         return new IpcProjectIdentity(
             ProjectPath: "/unity/ResponseProject",
-            ProjectFingerprint: "unity-response-fingerprint",
+            ProjectFingerprint: ProjectFingerprintTestFactory.Create("unity-response-fingerprint").ToString(),
             UnityVersion: "7000.0.1f1");
     }
 }

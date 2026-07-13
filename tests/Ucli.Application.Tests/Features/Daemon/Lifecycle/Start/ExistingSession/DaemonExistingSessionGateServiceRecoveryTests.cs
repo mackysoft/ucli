@@ -11,7 +11,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
     [Trait("Size", "Small")]
     public async Task TryHandleExistingSession_WhenPingTimesOutDuringRecovery_WaitsForSameProcessAndReturnsAlreadyRunning ()
     {
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-existing-timeout-recovery");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-existing-timeout-recovery"));
         var session = DaemonExistingSessionGateServiceTestSupport.CreateRecoveringGuiSession(
             processId: 4009,
             projectFingerprint: context.ProjectFingerprint,
@@ -53,7 +53,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
     [Trait("Size", "Small")]
     public async Task TryHandleExistingSession_WhenFreshReadyGuiSidecarOutlivesEndpoint_HandsOffToRebootstrapFlow ()
     {
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-existing-ready-handoff");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-existing-ready-handoff"));
         var session = DaemonExistingSessionGateServiceTestSupport.CreateRecoveringGuiSession(
             processId: 4017,
             projectFingerprint: context.ProjectFingerprint,
@@ -94,7 +94,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
     {
         var now = new DateTimeOffset(2026, 7, 10, 0, 0, 0, TimeSpan.Zero);
         var timeProvider = new ManualTimeProvider(now);
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-existing-stale-recovery");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-existing-stale-recovery"));
         var session = DaemonExistingSessionGateServiceTestSupport.CreateRecoveringGuiSession(
             processId: 4018,
             projectFingerprint: context.ProjectFingerprint,
@@ -133,7 +133,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
     [Trait("Size", "Small")]
     public async Task TryHandleExistingSession_WhenInitialPingSucceeds_DoesNotReadLifecycleSidecar ()
     {
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-existing-recovery-detection-budget");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-existing-recovery-detection-budget"));
         var session = DaemonExistingSessionGateServiceTestSupport.CreateRecoveringGuiSession(
             processId: 4015,
             projectFingerprint: context.ProjectFingerprint,
@@ -166,7 +166,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
     public async Task TryHandleExistingSession_WhenRecoveringProbeBudgetExpiresAfterNotRunningError_ReturnsNullForStartFlow ()
     {
         var timeProvider = new ManualTimeProvider();
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-existing-recovery-handoff-not-running");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-existing-recovery-handoff-not-running"));
         var session = DaemonExistingSessionGateServiceTestSupport.CreateRecoveringGuiSession(
             processId: 4012,
             projectFingerprint: context.ProjectFingerprint,
@@ -214,7 +214,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
     public async Task TryHandleExistingSession_WhenRecoveringRetryReportsNotRunningAndProbeBudgetExpires_ReturnsNullForStartFlow ()
     {
         var timeProvider = new ManualTimeProvider();
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-existing-recovery-retry-not-running");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-existing-recovery-retry-not-running"));
         var session = DaemonExistingSessionGateServiceTestSupport.CreateRecoveringGuiSession(
             processId: 4016,
             projectFingerprint: context.ProjectFingerprint,
@@ -261,7 +261,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
     [Trait("Size", "Small")]
     public async Task TryHandleExistingSession_WhenRecoveringGuiSessionConflictsWithRequestedEditorMode_ReturnsMismatch ()
     {
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-existing-recovery-mismatch");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-existing-recovery-mismatch"));
         var session = DaemonExistingSessionGateServiceTestSupport.CreateRecoveringGuiSession(
             processId: 4013,
             projectFingerprint: context.ProjectFingerprint,
@@ -295,7 +295,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
     [Trait("Size", "Small")]
     public async Task TryHandleExistingSession_WhenRecoveringSessionIsNotGui_ReturnsTimeoutFailure ()
     {
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-existing-recovery-batchmode");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-existing-recovery-batchmode"));
         var session = DaemonSessionTestFactory.Create(
             processId: 4014,
             projectFingerprint: context.ProjectFingerprint,
@@ -327,7 +327,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
     public async Task TryHandleExistingSession_WhenRecoveringProbeBudgetExpires_ReturnsNullForStartFlow ()
     {
         var timeProvider = new ManualTimeProvider();
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-existing-recovery-handoff");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-existing-recovery-handoff"));
         var session = DaemonExistingSessionGateServiceTestSupport.CreateRecoveringGuiSession(
             processId: 4010,
             projectFingerprint: context.ProjectFingerprint,
@@ -373,7 +373,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
     [Trait("Size", "Small")]
     public async Task TryHandleExistingSession_WhenRecoveringSidecarHasInvalidEditorInstanceId_ReturnsTimeoutFailure ()
     {
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-existing-timeout-recovery-missing-editor-instance");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-existing-timeout-recovery-missing-editor-instance"));
         var session = DaemonSessionTestFactory.Create(
             processId: 4011,
             projectFingerprint: context.ProjectFingerprint,

@@ -19,7 +19,7 @@ public sealed class VerifyFromInputReaderPostReadInvalidInputTests
     {
         var result = VerifyFromInputReader.Read(
             json,
-            ProjectFingerprint);
+            DefaultProjectFingerprint);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(expectedCode, result.Error!.Code);
@@ -27,6 +27,8 @@ public sealed class VerifyFromInputReaderPostReadInvalidInputTests
 
     private static IEnumerable<InvalidInputCase> EnumerateInvalidPostReadCases ()
     {
+        var projectFingerprintText = DefaultProjectFingerprint.ToString();
+
         yield return new InvalidInputCase(
             CreateValidInputJson(CreateDefaultOpResultJson(), """
             {
@@ -72,7 +74,7 @@ public sealed class VerifyFromInputReaderPostReadInvalidInputTests
             VerifyErrorCodes.VerifyInputPayloadInvalid
         );
         yield return new InvalidInputCase(
-            """
+            $$"""
             {
               "protocolVersion": 1,
               "status": "ok",
@@ -80,7 +82,7 @@ public sealed class VerifyFromInputReaderPostReadInvalidInputTests
               "command": "call",
               "payload": {
                 "project": {
-                  "projectFingerprint": "project-fingerprint"
+                  "projectFingerprint": "{{projectFingerprintText}}"
                 },
                 "opResults": [
                   {

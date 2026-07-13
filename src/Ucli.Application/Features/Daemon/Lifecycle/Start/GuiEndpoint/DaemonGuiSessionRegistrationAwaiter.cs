@@ -133,7 +133,7 @@ internal sealed class DaemonGuiSessionRegistrationAwaiter : IDaemonGuiSessionReg
                 return DaemonGuiSessionRegistrationWaitResult.Failure(lifecycleError!);
             }
 
-            return string.Equals(pingResponse.ProjectFingerprint, unityProject.ProjectFingerprint, StringComparison.Ordinal)
+            return pingResponse.ProjectFingerprint == unityProject.ProjectFingerprint
                    && ContractLiteralCodec.Matches(pingResponse.EditorMode, DaemonEditorMode.Gui)
                 ? DaemonGuiSessionRegistrationWaitResult.Success(session, lifecycleSnapshot)
                 : null;
@@ -189,7 +189,7 @@ internal sealed class DaemonGuiSessionRegistrationAwaiter : IDaemonGuiSessionReg
             }
         }
 
-        if (!string.Equals(candidate.ProjectFingerprint, unityProject.ProjectFingerprint, StringComparison.Ordinal))
+        if (candidate.ProjectFingerprint != unityProject.ProjectFingerprint)
         {
             return false;
         }

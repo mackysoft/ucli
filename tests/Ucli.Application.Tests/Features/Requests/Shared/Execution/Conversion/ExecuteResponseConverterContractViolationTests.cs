@@ -132,11 +132,12 @@ public sealed class ExecuteResponseConverterContractViolationTests
     [Trait("Size", "Small")]
     public void Convert_WhenContractViolationRequiredTextIsMissing_ReturnsInternalError ()
     {
-        var response = CreateResponse("""
+        var projectFingerprintText = ProjectFingerprintTestFactory.Create("project-fingerprint").ToString();
+        var response = CreateResponse($$"""
             {
               "project": {
                 "projectPath": "/repo/UnityProject",
-                "projectFingerprint": "project-fingerprint",
+                "projectFingerprint": "{{projectFingerprintText}}",
                 "unityVersion": "6000.1.4f1"
               },
               "opResults": [],
@@ -163,11 +164,12 @@ public sealed class ExecuteResponseConverterContractViolationTests
     [Trait("Size", "Small")]
     public void Convert_WhenContractViolationApplicationStateIsUnsupported_ReturnsInternalError ()
     {
-        var response = CreateResponse("""
+        var projectFingerprintText = ProjectFingerprintTestFactory.Create("project-fingerprint").ToString();
+        var response = CreateResponse($$"""
             {
               "project": {
                 "projectPath": "/repo/UnityProject",
-                "projectFingerprint": "project-fingerprint",
+                "projectFingerprint": "{{projectFingerprintText}}",
                 "unityVersion": "6000.1.4f1"
               },
               "opResults": [],

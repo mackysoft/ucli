@@ -118,7 +118,7 @@ internal sealed class PlayStatusService : IPlayStatusService
         }
 
         var snapshot = statusResponse.Snapshot;
-        if (!string.Equals(snapshot.ProjectFingerprint, playContext.Project.ProjectFingerprint, StringComparison.Ordinal))
+        if (snapshot.ProjectFingerprint != playContext.Project.ProjectFingerprint)
         {
             return PlayStatusExecutionResult.Failure(ExecutionError.InternalError(
                 $"Unity play status projectFingerprint mismatch. Requested={playContext.Project.ProjectFingerprint}, Actual={snapshot.ProjectFingerprint}."));

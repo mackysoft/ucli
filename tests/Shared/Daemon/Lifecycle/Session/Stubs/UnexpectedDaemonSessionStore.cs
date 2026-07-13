@@ -13,7 +13,7 @@ internal sealed class UnexpectedDaemonSessionStore : IDaemonSessionStore
 
     public ValueTask<DaemonSessionReadResult> ReadAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {
         throw new InvalidOperationException(reason);
@@ -29,7 +29,7 @@ internal sealed class UnexpectedDaemonSessionStore : IDaemonSessionStore
 
     public ValueTask<DaemonSessionStoreOperationResult> DeleteAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {
         throw new InvalidOperationException(reason);

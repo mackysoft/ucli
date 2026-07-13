@@ -284,7 +284,7 @@ internal sealed class PlayExitService : IPlayExitService
         IpcPlayLifecycleSnapshot snapshot,
         string label)
     {
-        if (!string.Equals(snapshot.ProjectFingerprint, context.Project.ProjectFingerprint, StringComparison.Ordinal))
+        if (snapshot.ProjectFingerprint != context.Project.ProjectFingerprint)
         {
             return ApplicationFailure.InternalError(
                 $"Unity play exit {label} projectFingerprint mismatch. Requested={context.Project.ProjectFingerprint}, Actual={snapshot.ProjectFingerprint}.");

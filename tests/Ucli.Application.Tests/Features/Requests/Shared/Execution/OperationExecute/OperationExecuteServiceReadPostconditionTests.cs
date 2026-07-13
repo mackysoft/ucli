@@ -36,7 +36,7 @@ public sealed class OperationExecuteServiceReadPostconditionTests
         MutationReadPostconditionStoreAssert.WrittenAssetSearchRequirement(
             readPostconditionStore,
             expectedStorageRoot: "/repo",
-            expectedProjectFingerprint: "project-fingerprint",
+            expectedProjectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"),
             expectedMinSafeGeneratedAtUtc: readPostcondition.Requirements[0].MinSafeGeneratedAtUtc);
         Assert.NotNull(result.ReadPostcondition);
         var requirement = Assert.Single(result.ReadPostcondition!.Requirements);
@@ -80,7 +80,7 @@ public sealed class OperationExecuteServiceReadPostconditionTests
         MutationReadPostconditionStoreAssert.WrittenOnceForProject(
             readPostconditionStore,
             expectedStorageRoot: "/repo",
-            expectedProjectFingerprint: "project-fingerprint");
+            expectedProjectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"));
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
         Assert.Equal("Failed to persist mutation read postcondition.", error.Message);

@@ -183,7 +183,7 @@ public sealed class VerifyServiceTests
     public async Task Execute_WithFromFingerprintMismatch_ReturnsProjectFingerprintMismatch ()
     {
         using var scope = TestDirectories.CreateTempScope("ucli-verify", nameof(Execute_WithFromFingerprintMismatch_ReturnsProjectFingerprintMismatch));
-        var fromPath = scope.WriteFile("from.json", CreateFromJson("other-fingerprint", coverageImpact: "none"));
+        var fromPath = scope.WriteFile("from.json", CreateFromJson(ProjectFingerprintTestFactory.Create("other-fingerprint"), coverageImpact: "none"));
         var readyService = new RecordingVerifyReadyService(input => CreateReadyResult(input.Target, ProjectIdentityInfoTestFactory.CreateForRepositoryRoot(scope.FullPath)));
         var service = CreateService(scope.FullPath, readyService: readyService);
 

@@ -10,7 +10,7 @@ internal static class DaemonSessionTestFactory
     public static DaemonSession Create (
         int? processId = 1234,
         string sessionToken = "secret-token",
-        string projectFingerprint = "fingerprint",
+        ProjectFingerprint? projectFingerprint = null,
         DateTimeOffset? issuedAtUtc = null,
         string editorMode = "batchmode",
         string ownerKind = "cli",
@@ -38,7 +38,7 @@ internal static class DaemonSessionTestFactory
 
         return new DaemonSession(
             IpcSessionTokenTestFactory.Create(sessionToken),
-            projectFingerprint,
+            projectFingerprint ?? ProjectFingerprintTestFactory.Create("fingerprint"),
             issuedAtUtc ?? new DateTimeOffset(2026, 03, 05, 0, 0, 0, TimeSpan.Zero),
             parsedEditorMode,
             parsedOwnerKind,
@@ -59,7 +59,7 @@ internal static class DaemonSessionTestFactory
     {
         return Create(
             sessionToken: "session-token",
-            projectFingerprint: "project-fingerprint",
+            projectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"),
             editorMode: editorMode,
             ownerKind: "user",
             canShutdownProcess: false,

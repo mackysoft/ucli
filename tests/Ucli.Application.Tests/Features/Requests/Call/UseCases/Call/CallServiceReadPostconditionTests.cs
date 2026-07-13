@@ -67,7 +67,7 @@ public sealed class CallServiceReadPostconditionTests
         MutationReadPostconditionStoreAssert.WrittenSceneTreeLiteRequirement(
             readPostconditionStore,
             expectedStorageRoot: "/repo",
-            expectedProjectFingerprint: "project-fingerprint",
+            expectedProjectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"),
             expectedScenePath: "Assets/Scenes/Main.unity");
         var requirement = Assert.Single(result.Output.ReadPostcondition!.Requirements);
         Assert.Equal(IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite, requirement.Surface);
@@ -135,7 +135,7 @@ public sealed class CallServiceReadPostconditionTests
         MutationReadPostconditionStoreAssert.WrittenOnceForProject(
             readPostconditionStore,
             expectedStorageRoot: "/repo",
-            expectedProjectFingerprint: "project-fingerprint");
+            expectedProjectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"));
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
         Assert.Equal("Failed to persist mutation read postcondition.", error.Message);

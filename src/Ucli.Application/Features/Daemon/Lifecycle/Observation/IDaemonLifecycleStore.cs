@@ -6,12 +6,12 @@ internal interface IDaemonLifecycleStore
     /// <summary> Reads the lifecycle observation for one project fingerprint. </summary>
     ValueTask<DaemonLifecycleObservationReadResult> ReadAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default);
 
     /// <summary> Deletes the lifecycle observation for one project fingerprint. </summary>
     ValueTask<DaemonLifecycleStoreOperationResult> DeleteAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default);
 }

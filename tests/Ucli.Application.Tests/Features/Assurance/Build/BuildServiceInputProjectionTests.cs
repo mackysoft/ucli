@@ -30,7 +30,7 @@ public sealed class BuildServiceInputProjectionTests
         var service = CreateService(
             projectContextResolver: new StaticProjectContextResolver(ProjectContextResolutionResult.Success(ProjectContextTestFactory.Create(
                 config: config,
-                projectFingerprint: ProjectFingerprint))),
+                projectFingerprint: DefaultProjectFingerprint))),
             requestExecutor: requestExecutor,
             artifactStore: new StubBuildRunArtifactStore(tempDirectory.FullPath),
             timeProvider: new ManualTimeProvider());

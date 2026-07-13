@@ -24,7 +24,7 @@ public sealed class DaemonCommandExecutionContextResolverTests
         };
         var initStatusContext = ProjectContextTestFactory.CreateDaemonLifecycleProject(
             config,
-            projectFingerprint: "fingerprint");
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"));
         var initStatusContextResolver = new StaticProjectContextResolver(
             ProjectContextResolutionResult.Success(initStatusContext));
         var resolver = new DaemonCommandExecutionContextResolver(initStatusContextResolver);
@@ -58,7 +58,7 @@ public sealed class DaemonCommandExecutionContextResolverTests
         };
         var initStatusContext = ProjectContextTestFactory.CreateDaemonLifecycleProject(
             config,
-            projectFingerprint: "fingerprint");
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"));
         var initStatusContextResolver = new StaticProjectContextResolver(
             ProjectContextResolutionResult.Success(initStatusContext));
         var resolver = new DaemonCommandExecutionContextResolver(initStatusContextResolver);
@@ -80,7 +80,7 @@ public sealed class DaemonCommandExecutionContextResolverTests
     {
         var initStatusContextResolver = new StaticProjectContextResolver(
             ProjectContextResolutionResult.Success(ProjectContextTestFactory.CreateDaemonLifecycleProject(
-                projectFingerprint: "fingerprint")));
+                projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"))));
         var resolver = new DaemonCommandExecutionContextResolver(initStatusContextResolver);
 
         var result = await resolver.ResolveAsync(
@@ -102,7 +102,7 @@ public sealed class DaemonCommandExecutionContextResolverTests
     {
         var initStatusContextResolver = new StaticProjectContextResolver(
             ProjectContextResolutionResult.Success(ProjectContextTestFactory.CreateDaemonLifecycleProject(
-                projectFingerprint: "fingerprint")));
+                projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"))));
         var resolver = new DaemonCommandExecutionContextResolver(initStatusContextResolver);
 
         await Assert.ThrowsAsync<ArgumentException>(async () =>

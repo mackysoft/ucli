@@ -2,7 +2,7 @@ namespace MackySoft.Ucli.Application.Tests.Features.Assurance.Verify;
 
 internal static class VerifyFromInputReaderTestSupport
 {
-    public const string ProjectFingerprint = "project-fingerprint";
+    public static readonly ProjectFingerprint DefaultProjectFingerprint = ProjectFingerprintTestFactory.Create("project-fingerprint");
 
     public static TheoryData<string, UcliCode> CreateInvalidInputTheoryData (
         IEnumerable<InvalidInputCase> testCases)
@@ -44,6 +44,7 @@ internal static class VerifyFromInputReaderTestSupport
         string command = "call",
         string? postReadSourceJson = null)
     {
+        var projectFingerprintText = DefaultProjectFingerprint.ToString();
         var readPostconditionProperty = string.IsNullOrWhiteSpace(readPostconditionJson)
             ? string.Empty
             : $"""
@@ -73,7 +74,7 @@ internal static class VerifyFromInputReaderTestSupport
           "command": "{{command}}",
           "payload": {
             "project": {
-              "projectFingerprint": "project-fingerprint"
+              "projectFingerprint": "{{projectFingerprintText}}"
             },
             "opResults": [
               {{opResultJson}}

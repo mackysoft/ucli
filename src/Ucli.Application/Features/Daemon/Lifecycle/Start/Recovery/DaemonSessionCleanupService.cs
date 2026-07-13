@@ -219,7 +219,7 @@ internal sealed class DaemonSessionCleanupService : IDaemonSessionCleanupService
     {
         target = default;
 
-        if (!string.Equals(session.ProjectFingerprint, unityProject.ProjectFingerprint, StringComparison.Ordinal))
+        if (session.ProjectFingerprint != unityProject.ProjectFingerprint)
         {
             return false;
         }

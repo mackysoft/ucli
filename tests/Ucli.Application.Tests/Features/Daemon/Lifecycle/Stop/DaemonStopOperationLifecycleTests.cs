@@ -16,7 +16,7 @@ public sealed class DaemonStopOperationLifecycleTests
     [Trait("Size", "Small")]
     public async Task Stop_WhenWorkflowBegins_AcquiresLifecycleLockForUnityProjectRoot ()
     {
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-stop-lock-context");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-stop-lock-context"));
         var lockProvider = new StubProjectLifecycleLockProvider();
         var operation = CreateOperation(
             lifecycleLockProvider: lockProvider,
@@ -41,7 +41,7 @@ public sealed class DaemonStopOperationLifecycleTests
             sessionStore: new RecordingDaemonSessionStore(DaemonSessionReadResult.Missing()));
 
         var result = await operation.StopAsync(
-            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-stop-lock-timeout"),
+            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-stop-lock-timeout")),
             DefaultTimeout,
             CancellationToken.None);
 
@@ -59,7 +59,7 @@ public sealed class DaemonStopOperationLifecycleTests
     {
         var timeProvider = new ManualTimeProvider();
         var session = DaemonSessionTestFactory.Create(processId: 789);
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-stop-timeout-finalization");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-stop-timeout-finalization"));
         var shutdownClient = new RecordingDaemonShutdownClient
         {
             Delay = TimeSpan.FromMilliseconds(80),
@@ -116,7 +116,7 @@ public sealed class DaemonStopOperationLifecycleTests
             });
         var session = DaemonSessionTestFactory.Create(processId: 790);
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
-            "fingerprint-stop-owned-cleanup");
+            ProjectFingerprintTestFactory.Create("fingerprint-stop-owned-cleanup"));
         var cleanupStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseCleanup = new TaskCompletionSource<DaemonArtifactCleanupResult>(
@@ -200,7 +200,7 @@ public sealed class DaemonStopOperationLifecycleTests
         var lifecycleLease = new RecordingAsyncDisposable();
         var session = DaemonSessionTestFactory.Create(processId: 791);
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
-            "fingerprint-stop-canceled-compensation");
+            ProjectFingerprintTestFactory.Create("fingerprint-stop-canceled-compensation"));
         using var cancellationTokenSource = new CancellationTokenSource();
         var terminationStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);

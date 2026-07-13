@@ -10,9 +10,9 @@ internal static class VerifyFromInputReader
     /// <summary> Reads and normalizes one verify input file. </summary>
     public static VerifyFromInputReadResult Read (
         string json,
-        string expectedProjectFingerprint)
+        ProjectFingerprint expectedProjectFingerprint)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(expectedProjectFingerprint);
+        ArgumentNullException.ThrowIfNull(expectedProjectFingerprint);
 
         if (string.IsNullOrWhiteSpace(json))
         {
@@ -32,7 +32,7 @@ internal static class VerifyFromInputReader
 
     private static VerifyFromInputReadResult ReadCore (
         JsonElement root,
-        string expectedProjectFingerprint)
+        ProjectFingerprint expectedProjectFingerprint)
     {
         if (root.ValueKind != JsonValueKind.Object)
         {
@@ -71,13 +71,12 @@ internal static class VerifyFromInputReader
         if (!payload.TryGetProperty("project", out var project) || project.ValueKind != JsonValueKind.Object
             || !project.TryGetProperty("projectFingerprint", out var projectFingerprintElement)
             || projectFingerprintElement.ValueKind != JsonValueKind.String
-            || string.IsNullOrWhiteSpace(projectFingerprintElement.GetString()))
+            || !ProjectFingerprint.TryParse(projectFingerprintElement.GetString(), out var projectFingerprint))
         {
             return Failure("The --from payload.project.projectFingerprint is missing.", VerifyErrorCodes.VerifyInputProjectMissing);
         }
 
-        var projectFingerprint = projectFingerprintElement.GetString()!;
-        if (!string.Equals(projectFingerprint, expectedProjectFingerprint, StringComparison.Ordinal))
+        if (projectFingerprint != expectedProjectFingerprint)
         {
             return Failure(
                 $"The --from project fingerprint does not match the resolved project. Expected={expectedProjectFingerprint}, Actual={projectFingerprint}.",

@@ -19,13 +19,13 @@ internal static class DaemonSessionContractMapper
     /// <returns> <see langword="true" /> when the contract represents a valid session; otherwise <see langword="false" />. </returns>
     public static bool TryCreate (
         DaemonSessionJsonContract contract,
-        string expectedProjectFingerprint,
+        ProjectFingerprint expectedProjectFingerprint,
         string sourceDescription,
         [NotNullWhen(true)] out DaemonSession? session,
         [NotNullWhen(false)] out ExecutionError? error)
     {
         ArgumentNullException.ThrowIfNull(contract);
-        ArgumentException.ThrowIfNullOrWhiteSpace(expectedProjectFingerprint);
+        ArgumentNullException.ThrowIfNull(expectedProjectFingerprint);
         ArgumentException.ThrowIfNullOrWhiteSpace(sourceDescription);
 
         session = null;
@@ -44,13 +44,13 @@ internal static class DaemonSessionContractMapper
             return false;
         }
 
-        if (string.IsNullOrWhiteSpace(contract.ProjectFingerprint))
+        if (contract.ProjectFingerprint is null)
         {
             error = Invalid("projectFingerprint is missing.", sourceDescription);
             return false;
         }
 
-        if (!string.Equals(contract.ProjectFingerprint, expectedProjectFingerprint, StringComparison.Ordinal))
+        if (contract.ProjectFingerprint != expectedProjectFingerprint)
         {
             error = Invalid(
                 $"projectFingerprint mismatch. Requested={expectedProjectFingerprint}, Actual={contract.ProjectFingerprint}.",

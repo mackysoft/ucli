@@ -7,7 +7,7 @@ internal static class MutationReadPostconditionStoreAssert
     public static TestMutationReadPostconditionStore.WriteInvocation WrittenOnceForProject (
         TestMutationReadPostconditionStore store,
         string expectedStorageRoot,
-        string expectedProjectFingerprint)
+        ProjectFingerprint expectedProjectFingerprint)
     {
         var invocation = Assert.Single(store.WriteInvocations);
         Assert.Equal(expectedStorageRoot, invocation.StorageRoot);
@@ -18,7 +18,7 @@ internal static class MutationReadPostconditionStoreAssert
     public static OperationExecutionReadPostconditionRequirement WrittenSceneTreeLiteRequirement (
         TestMutationReadPostconditionStore store,
         string expectedStorageRoot,
-        string expectedProjectFingerprint,
+        ProjectFingerprint expectedProjectFingerprint,
         string expectedScenePath)
     {
         var invocation = WrittenOnceForProject(store, expectedStorageRoot, expectedProjectFingerprint);
@@ -31,7 +31,7 @@ internal static class MutationReadPostconditionStoreAssert
     public static OperationExecutionReadPostconditionRequirement WrittenAssetSearchRequirement (
         TestMutationReadPostconditionStore store,
         string expectedStorageRoot,
-        string expectedProjectFingerprint,
+        ProjectFingerprint expectedProjectFingerprint,
         DateTimeOffset expectedMinSafeGeneratedAtUtc)
     {
         var invocation = WrittenOnceForProject(store, expectedStorageRoot, expectedProjectFingerprint);

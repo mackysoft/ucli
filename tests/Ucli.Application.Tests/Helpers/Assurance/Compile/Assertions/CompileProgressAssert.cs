@@ -9,7 +9,7 @@ internal static class CompileProgressAssert
     {
         var startedEntry = Assert.IsType<CompileStartedEntry>(progressSink.Entries[0].Payload);
         Assert.Equal("run-1", startedEntry.RunId);
-        Assert.Equal("project-fingerprint", startedEntry.ProjectFingerprint);
+        Assert.Equal(ProjectFingerprintTestFactory.Create("project-fingerprint"), startedEntry.ProjectFingerprint);
         Assert.Equal("auto", startedEntry.RequestedMode);
         Assert.Equal("oneshot", startedEntry.ResolvedMode);
         Assert.Equal("transientProbe", startedEntry.SessionKind);

@@ -71,7 +71,7 @@ public sealed class BuildServiceExecuteMethodRunnerTests
             expectedProfileDigest: profileDigest,
             expectedOutputDirectory: outputDirectory,
             expectedProjectPath: "/workspace/UnityProject",
-            expectedProjectFingerprint: ProjectFingerprint,
+            expectedProjectFingerprint: DefaultProjectFingerprint,
             expectedBuildTarget: "standaloneLinux64",
             expectedEnvironmentVariable: "UCLI_MODE",
             expectedEnvironmentValue: EnvironmentValue,

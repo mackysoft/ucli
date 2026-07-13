@@ -36,7 +36,7 @@ internal static class TestRunConfigurationResolverTestSupport
         return ProjectContextTestFactory.CreateUnityProject(
             unityProjectRoot: projectPath,
             repositoryRoot: scope.FullPath,
-            projectFingerprint: "fingerprint",
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"),
             pathSourceLabel: null,
             unityVersion: ProjectIdentityDefaults.UnknownUnityVersion);
     }

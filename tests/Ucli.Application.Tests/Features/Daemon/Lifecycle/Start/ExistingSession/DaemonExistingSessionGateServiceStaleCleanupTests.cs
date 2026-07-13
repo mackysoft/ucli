@@ -21,7 +21,7 @@ public sealed class DaemonExistingSessionGateServiceStaleCleanupTests
             cleanupService: cleanupService);
 
         var result = await service.TryHandleExistingSessionAsync(
-            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-existing-stale"),
+            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-existing-stale")),
             session,
             TimeSpan.FromMilliseconds(500),
             editorMode: null,
@@ -51,7 +51,7 @@ public sealed class DaemonExistingSessionGateServiceStaleCleanupTests
 
         var session = DaemonSessionTestFactory.Create(processId: 4006);
         var result = await service.TryHandleExistingSessionAsync(
-            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-existing-stale-remaining-timeout"),
+            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-existing-stale-remaining-timeout")),
             session,
             TimeSpan.FromMilliseconds(300),
             editorMode: null,
@@ -80,7 +80,7 @@ public sealed class DaemonExistingSessionGateServiceStaleCleanupTests
             timeProvider: timeProvider);
 
         var result = await service.TryHandleExistingSessionAsync(
-            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-existing-stale-timeout-before-cleanup"),
+            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-existing-stale-timeout-before-cleanup")),
             DaemonSessionTestFactory.Create(processId: 4007),
             TimeSpan.FromMilliseconds(20),
             editorMode: null,
@@ -106,7 +106,7 @@ public sealed class DaemonExistingSessionGateServiceStaleCleanupTests
             cleanupService: cleanupService);
 
         var result = await service.TryHandleExistingSessionAsync(
-            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-existing-stale-failed"),
+            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-existing-stale-failed")),
             DaemonSessionTestFactory.Create(processId: 4004),
             TimeSpan.FromMilliseconds(500),
             editorMode: null,

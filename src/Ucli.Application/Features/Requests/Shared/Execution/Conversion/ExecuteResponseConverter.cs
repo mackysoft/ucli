@@ -148,9 +148,9 @@ internal static class ExecuteResponseConverter
             return false;
         }
 
-        if (IsMissingRequiredString(payload.Project.ProjectFingerprint))
+        if (!ProjectFingerprint.TryParse(payload.Project.ProjectFingerprint, out _))
         {
-            errorMessage = "Execute response payload is invalid. The 'project.projectFingerprint' field is missing.";
+            errorMessage = "Execute response payload is invalid. The 'project.projectFingerprint' field is not a canonical project fingerprint.";
             return false;
         }
 
@@ -730,7 +730,7 @@ internal static class ExecuteResponseConverter
 
         return new ProjectIdentityInfo(
             ProjectPath: project.ProjectPath,
-            ProjectFingerprint: project.ProjectFingerprint,
+            ProjectFingerprint: new ProjectFingerprint(project.ProjectFingerprint),
             UnityVersion: project.UnityVersion);
     }
 

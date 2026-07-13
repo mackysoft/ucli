@@ -11,6 +11,7 @@ public sealed class DaemonSessionContractMapperTests
     private const string SessionToken = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 
     private static readonly Guid EditorInstanceId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private static readonly ProjectFingerprint Fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
 
     [Fact]
     [Trait("Size", "Small")]
@@ -23,7 +24,7 @@ public sealed class DaemonSessionContractMapperTests
 
         var isValid = DaemonSessionContractMapper.TryCreate(
             contract,
-            "fingerprint",
+            Fingerprint,
             "/repository/.ucli/local/fingerprints/fingerprint/session.json",
             out var session,
             out var error);
@@ -44,7 +45,7 @@ public sealed class DaemonSessionContractMapperTests
 
         var isValid = DaemonSessionContractMapper.TryCreate(
             contract,
-            "fingerprint",
+            Fingerprint,
             "/repository/.ucli/local/fingerprints/fingerprint/session.json",
             out var session,
             out var error);
@@ -67,7 +68,7 @@ public sealed class DaemonSessionContractMapperTests
         Assert.True(IpcSessionToken.TryParse(SessionToken, out var token));
         var session = new DaemonSession(
             token,
-            "fingerprint",
+            Fingerprint,
             new DateTimeOffset(2026, 7, 13, 0, 0, 0, TimeSpan.Zero),
             DaemonEditorMode.Gui,
             DaemonSessionOwnerKind.User,
@@ -100,7 +101,7 @@ public sealed class DaemonSessionContractMapperTests
 
         var isValid = DaemonSessionContractMapper.TryCreate(
             contract,
-            "fingerprint",
+            Fingerprint,
             "/repository/.ucli/local/fingerprints/fingerprint/session.json",
             out var session,
             out var error);
@@ -126,7 +127,7 @@ public sealed class DaemonSessionContractMapperTests
 
         var isValid = DaemonSessionContractMapper.TryCreate(
             contract,
-            "fingerprint",
+            Fingerprint,
             "/repository/.ucli/local/fingerprints/fingerprint/session.json",
             out var session,
             out var error);
@@ -150,7 +151,7 @@ public sealed class DaemonSessionContractMapperTests
 
         var isValid = DaemonSessionContractMapper.TryCreate(
             contract,
-            "fingerprint",
+            Fingerprint,
             "/repository/.ucli/local/fingerprints/fingerprint/session.json",
             out var session,
             out var error);
@@ -165,7 +166,7 @@ public sealed class DaemonSessionContractMapperTests
         return new DaemonSessionJsonContract(
             SchemaVersion: DaemonSessionStorageContract.CurrentSchemaVersion,
             SessionToken: SessionToken,
-            ProjectFingerprint: "fingerprint",
+            ProjectFingerprint: Fingerprint,
             IssuedAtUtc: new DateTimeOffset(2026, 7, 13, 0, 0, 0, TimeSpan.Zero),
             EditorMode: "batchmode",
             OwnerKind: "cli",

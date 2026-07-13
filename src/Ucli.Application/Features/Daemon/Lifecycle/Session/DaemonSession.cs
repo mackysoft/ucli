@@ -23,7 +23,7 @@ internal sealed record DaemonSession
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when a process identifier is not positive. </exception>
     public DaemonSession (
         IpcSessionToken sessionToken,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         DateTimeOffset issuedAtUtc,
         DaemonEditorMode editorMode,
         DaemonSessionOwnerKind ownerKind,
@@ -35,7 +35,7 @@ internal sealed record DaemonSession
         Guid? editorInstanceId = null)
     {
         ArgumentNullException.ThrowIfNull(sessionToken);
-        ArgumentException.ThrowIfNullOrWhiteSpace(projectFingerprint);
+        ArgumentNullException.ThrowIfNull(projectFingerprint);
         ArgumentNullException.ThrowIfNull(endpoint);
         ArgumentException.ThrowIfNullOrWhiteSpace(endpoint.Address);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(ownerProcessId);
@@ -125,7 +125,7 @@ internal sealed record DaemonSession
     public IpcSessionToken SessionToken { get; }
 
     /// <summary> Gets the associated project fingerprint. </summary>
-    public string ProjectFingerprint { get; }
+    public ProjectFingerprint ProjectFingerprint { get; }
 
     /// <summary> Gets the UTC timestamp when the session was issued. </summary>
     public DateTimeOffset IssuedAtUtc { get; }

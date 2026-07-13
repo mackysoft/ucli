@@ -41,7 +41,7 @@ internal static class CompileServiceTestSupport
 
     public static IpcCompileSummary CreateSummary (
         string runId = "run-1",
-        string projectFingerprint = "project-fingerprint",
+        ProjectFingerprint? projectFingerprint = null,
         int errorCount = 0)
     {
         var primaryDiagnostic = errorCount == 0
@@ -56,7 +56,7 @@ internal static class CompileServiceTestSupport
         var canAcceptExecutionRequests = errorCount == 0;
         return new IpcCompileSummary(
             RunId: runId,
-            ProjectFingerprint: projectFingerprint,
+            ProjectFingerprint: projectFingerprint ?? ProjectContextTestFactory.ProjectFingerprint,
             Completed: true,
             StartedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:00Z"),
             CompletedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:02Z"),

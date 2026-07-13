@@ -146,7 +146,7 @@ public sealed class DaemonListQueryServiceProbeFailureTests
     {
         var currentProject = CreateUnityProject("/repo/wt-current", "UnityProject", "fp-current");
         var session = DaemonSessionTestFactory.Create(
-            projectFingerprint: "fp-current",
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fp-current"),
             endpointAddress: "endpoint-timeout",
             processId: 2100);
         var service = CreateSingleWorktreeService(
@@ -177,7 +177,7 @@ public sealed class DaemonListQueryServiceProbeFailureTests
     {
         var now = new DateTimeOffset(2026, 7, 10, 0, 0, 0, TimeSpan.Zero);
         var currentProject = CreateUnityProject("/repo/wt-current", "UnityProject", "fp-current");
-        var session = CreateGuiSession("fp-current", processId: 2101);
+        var session = CreateGuiSession(ProjectFingerprintTestFactory.Create("fp-current"), processId: 2101);
         var lifecycleStore = CreateRecoveringLifecycleStore(session, now);
         var processIdentityAssessor = RecordingDaemonProcessIdentityAssessor.MatchingLiveProcess(session.ProcessStartedAtUtc);
         var service = CreateSingleWorktreeService(
@@ -205,7 +205,7 @@ public sealed class DaemonListQueryServiceProbeFailureTests
     {
         var now = new DateTimeOffset(2026, 7, 10, 0, 0, 0, TimeSpan.Zero);
         var currentProject = CreateUnityProject("/repo/wt-current", "UnityProject", "fp-current");
-        var session = CreateGuiSession("fp-current", processId: 2201);
+        var session = CreateGuiSession(ProjectFingerprintTestFactory.Create("fp-current"), processId: 2201);
         var lifecycleStore = CreateRecoveringLifecycleStore(session, now);
         var processIdentityAssessor = RecordingDaemonProcessIdentityAssessor.MatchingLiveProcess(session.ProcessStartedAtUtc);
         var service = CreateSingleWorktreeService(
@@ -236,7 +236,7 @@ public sealed class DaemonListQueryServiceProbeFailureTests
     {
         var now = new DateTimeOffset(2026, 7, 10, 0, 0, 0, TimeSpan.Zero);
         var currentProject = CreateUnityProject("/repo/wt-current", "UnityProject", "fp-current");
-        var session = CreateGuiSession("fp-current", processId: 2202);
+        var session = CreateGuiSession(ProjectFingerprintTestFactory.Create("fp-current"), processId: 2202);
         var lifecycleStore = CreateRecoveringLifecycleStore(
             session,
             now - DaemonLifecycleObservationTimings.FreshnessWindow - TimeSpan.FromMilliseconds(1));
@@ -269,7 +269,7 @@ public sealed class DaemonListQueryServiceProbeFailureTests
     {
         var currentProject = CreateUnityProject("/repo/wt-current", "UnityProject", "fp-current");
         var session = DaemonSessionTestFactory.Create(
-            projectFingerprint: "fp-current",
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fp-current"),
             endpointAddress: "endpoint-stale",
             processId: 2200);
         var diagnosis = CreateDiagnosis(session, DaemonDiagnosisReasonValues.ShutdownRequested);
@@ -316,7 +316,7 @@ public sealed class DaemonListQueryServiceProbeFailureTests
     {
         var currentProject = CreateUnityProject("/repo/wt-current", "UnityProject", "fp-current");
         var session = DaemonSessionTestFactory.Create(
-            projectFingerprint: "fp-current",
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fp-current"),
             endpointAddress: "endpoint-stale",
             processId: int.MaxValue);
         var diagnosisStore = new RecordingDaemonDiagnosisStore();
@@ -350,7 +350,7 @@ public sealed class DaemonListQueryServiceProbeFailureTests
     {
         var currentProject = CreateUnityProject("/repo/wt-current", "UnityProject", "fp-current");
         var session = DaemonSessionTestFactory.Create(
-            projectFingerprint: "fp-current",
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fp-current"),
             endpointAddress: "endpoint-failed",
             processId: 2300);
         var service = CreateSingleWorktreeService(
@@ -375,7 +375,7 @@ public sealed class DaemonListQueryServiceProbeFailureTests
     }
 
     private static DaemonSession CreateGuiSession (
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         int processId)
     {
         return DaemonSessionTestFactory.Create(

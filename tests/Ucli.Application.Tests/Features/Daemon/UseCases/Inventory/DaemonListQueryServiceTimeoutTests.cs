@@ -168,7 +168,7 @@ public sealed class DaemonListQueryServiceTimeoutTests
     {
         var currentProject = CreateUnityProject("/repo/wt-current", "UnityProject", "fp-current");
         var session = DaemonSessionTestFactory.Create(
-            projectFingerprint: "fp-current",
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fp-current"),
             endpointAddress: "endpoint-timeout",
             processId: 2100);
         var timeProvider = new ManualTimeProvider();
@@ -206,7 +206,7 @@ public sealed class DaemonListQueryServiceTimeoutTests
     {
         var currentProject = CreateUnityProject("/repo/wt-current", "UnityProject", "fp-current");
         var session = DaemonSessionTestFactory.Create(
-            projectFingerprint: "fp-current",
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fp-current"),
             endpointAddress: "endpoint-timeout",
             processId: 2100);
         var timeProvider = new ManualTimeProvider();
@@ -264,12 +264,12 @@ public sealed class DaemonListQueryServiceTimeoutTests
         {
             ReadAsyncHandler = (_, projectFingerprint, _) => ValueTask.FromResult(projectFingerprint switch
             {
-                "fp-a" => DaemonSessionReadResultTestFactory.Found(DaemonSessionTestFactory.Create(
-                    projectFingerprint: "fp-a",
+                _ when projectFingerprint == worktreeA.ProjectFingerprint => DaemonSessionReadResultTestFactory.Found(DaemonSessionTestFactory.Create(
+                    projectFingerprint: projectFingerprint,
                     endpointAddress: "endpoint-a",
                     processId: 2401)),
-                "fp-b" => DaemonSessionReadResultTestFactory.Found(DaemonSessionTestFactory.Create(
-                    projectFingerprint: "fp-b",
+                _ when projectFingerprint == worktreeB.ProjectFingerprint => DaemonSessionReadResultTestFactory.Found(DaemonSessionTestFactory.Create(
+                    projectFingerprint: projectFingerprint,
                     endpointAddress: "endpoint-b",
                     processId: 2402)),
                 _ => throw new InvalidOperationException($"Unexpected fingerprint: {projectFingerprint}"),
@@ -283,7 +283,7 @@ public sealed class DaemonListQueryServiceTimeoutTests
             diagnosisStore,
             CreatePingClient((unityProject, _, _, _, cancellationToken) =>
             {
-                if (unityProject.ProjectFingerprint == "fp-b")
+                if (unityProject.ProjectFingerprint == worktreeB.ProjectFingerprint)
                 {
                     timeProvider.Advance(TimeSpan.FromMilliseconds(50));
                     return ValueTask.FromException<IpcPingResponse>(new TimeoutException("probe timed out"));
@@ -466,7 +466,7 @@ public sealed class DaemonListQueryServiceTimeoutTests
 
         public async ValueTask<DaemonLifecycleObservationReadResult> ReadAsync (
             string storageRoot,
-            string projectFingerprint,
+            ProjectFingerprint projectFingerprint,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -477,7 +477,7 @@ public sealed class DaemonListQueryServiceTimeoutTests
 
         public ValueTask<DaemonLifecycleStoreOperationResult> DeleteAsync (
             string storageRoot,
-            string projectFingerprint,
+            ProjectFingerprint projectFingerprint,
             CancellationToken cancellationToken = default)
         {
             throw new NotSupportedException();
@@ -492,7 +492,7 @@ public sealed class DaemonListQueryServiceTimeoutTests
 
         public async ValueTask<DaemonDiagnosisReadResult> ReadAsync (
             string storageRoot,
-            string projectFingerprint,
+            ProjectFingerprint projectFingerprint,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -503,7 +503,7 @@ public sealed class DaemonListQueryServiceTimeoutTests
 
         public ValueTask<DaemonDiagnosisStoreOperationResult> WriteAsync (
             string storageRoot,
-            string projectFingerprint,
+            ProjectFingerprint projectFingerprint,
             DaemonDiagnosis diagnosis,
             CancellationToken cancellationToken = default)
         {
@@ -512,7 +512,7 @@ public sealed class DaemonListQueryServiceTimeoutTests
 
         public ValueTask<DaemonDiagnosisStoreOperationResult> DeleteAsync (
             string storageRoot,
-            string projectFingerprint,
+            ProjectFingerprint projectFingerprint,
             CancellationToken cancellationToken = default)
         {
             throw new NotSupportedException();

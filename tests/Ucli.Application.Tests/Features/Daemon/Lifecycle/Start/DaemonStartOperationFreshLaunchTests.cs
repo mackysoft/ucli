@@ -9,7 +9,7 @@ public sealed class DaemonStartOperationFreshLaunchTests
     [Trait("Size", "Small")]
     public async Task Start_WhenNoRunningSessionAndGuiAttachSucceeds_ReturnsAttachedWithoutFreshLaunch ()
     {
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-start-gui-attach");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-start-gui-attach"));
         var guiSession = DaemonSessionTestFactory.Create(
             processId: 6060,
             projectFingerprint: context.ProjectFingerprint,
@@ -49,7 +49,7 @@ public sealed class DaemonStartOperationFreshLaunchTests
     [Trait("Size", "Small")]
     public async Task Start_WhenGuiAttachReturnsNull_ContinuesToFreshLaunchWithRequestedMode ()
     {
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-start-gui-launch");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-start-gui-launch"));
         var guiAttachService = new RecordingDaemonGuiEditorAttachService();
         var launchService = new RecordingDaemonLaunchService
         {
@@ -98,7 +98,7 @@ public sealed class DaemonStartOperationFreshLaunchTests
             daemonLaunchService: launchService);
 
         var result = await operation.StartAsync(
-            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-start-no-session"),
+            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-start-no-session")),
             TimeSpan.FromMilliseconds(500),
             editorMode: null,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
@@ -123,7 +123,7 @@ public sealed class DaemonStartOperationFreshLaunchTests
             daemonLaunchService: launchService);
 
         var result = await operation.StartAsync(
-            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-start-gui-launch-mode"),
+            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-start-gui-launch-mode")),
             TimeSpan.FromMilliseconds(500),
             editorMode: DaemonEditorMode.Gui,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,

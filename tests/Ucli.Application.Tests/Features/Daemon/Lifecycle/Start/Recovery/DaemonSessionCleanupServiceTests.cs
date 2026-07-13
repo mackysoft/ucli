@@ -13,7 +13,7 @@ public sealed class DaemonSessionCleanupServiceTests
     [Trait("Size", "Small")]
     public async Task CleanupInvalidSessionArtifacts_WhenArtifactIdentityIsAvailable_UsesConditionalCleanup ()
     {
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-cleanup-invalid-identity");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-cleanup-invalid-identity"));
         var artifactIdentity = DaemonSessionArtifactIdentity.Create("{ invalid session json");
         var readResult = DaemonSessionReadResultTestFactory.Invalid(artifactIdentity: artifactIdentity);
         var processTerminationService = new RecordingDaemonProcessTerminationService();
@@ -46,7 +46,7 @@ public sealed class DaemonSessionCleanupServiceTests
         string assessmentStatusName)
     {
         var assessmentStatus = Enum.Parse<DaemonProcessIdentityAssessmentStatus>(assessmentStatusName);
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-cleanup-invalid");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-cleanup-invalid"));
         var processStartedAtUtc = new DateTimeOffset(2026, 7, 13, 0, 0, 1, TimeSpan.Zero);
         var artifactIdentity = DaemonSessionArtifactIdentity.Create("invalid-session-stop-target");
         var evidence = DaemonInvalidSessionEvidenceTestFactory.Create(
@@ -90,7 +90,7 @@ public sealed class DaemonSessionCleanupServiceTests
         string assessmentStatusName)
     {
         var assessmentStatus = Enum.Parse<DaemonProcessIdentityAssessmentStatus>(assessmentStatusName);
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-cleanup-invalid-no-stop");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-cleanup-invalid-no-stop"));
         var artifactIdentity = DaemonSessionArtifactIdentity.Create("{ invalid project session json");
         var evidence = DaemonInvalidSessionEvidenceTestFactory.Create(
             context.ProjectFingerprint,
@@ -127,7 +127,7 @@ public sealed class DaemonSessionCleanupServiceTests
     [Trait("Size", "Small")]
     public async Task CleanupStaleSessionArtifacts_WhenSessionExists_StopsThenCleansUp ()
     {
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-cleanup-stale");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-cleanup-stale"));
         var session = DaemonSessionTestFactory.Create(processId: 4242, projectFingerprint: context.ProjectFingerprint);
         var processTerminationService = new RecordingDaemonProcessTerminationService
         {
@@ -164,7 +164,7 @@ public sealed class DaemonSessionCleanupServiceTests
     [Trait("Size", "Small")]
     public async Task CleanupStaleSessionArtifacts_WhenSessionDisallowsShutdown_CleansUpWithoutStopping ()
     {
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-cleanup-stale-user");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-cleanup-stale-user"));
         var session = DaemonSessionTestFactory.Create(
             processId: 4343,
             projectFingerprint: context.ProjectFingerprint,
@@ -200,7 +200,7 @@ public sealed class DaemonSessionCleanupServiceTests
     [Trait("Size", "Small")]
     public async Task CleanupStaleSessionArtifacts_WhenStopFails_PropagatesFailureWithoutCleanup ()
     {
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-cleanup-stop-fail");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-cleanup-stop-fail"));
         var processStartedAtUtc = new DateTimeOffset(2026, 7, 13, 0, 0, 1, TimeSpan.Zero);
         var session = DaemonSessionTestFactory.Create(
             processId: 5151,
@@ -244,9 +244,9 @@ public sealed class DaemonSessionCleanupServiceTests
         var timeProvider = new ManualTimeProvider();
         var owner = new DaemonCompensationOperationOwner();
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
-            invalidSession
+            ProjectFingerprintTestFactory.Create(invalidSession
                 ? "fingerprint-invalid-cleanup-ownership"
-                : "fingerprint-stale-cleanup-ownership");
+                : "fingerprint-stale-cleanup-ownership"));
         var session = DaemonSessionTestFactory.Create(
             processId: 6161,
             projectFingerprint: context.ProjectFingerprint);

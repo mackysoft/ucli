@@ -36,11 +36,12 @@ public sealed class ExecuteResponseConverterDiagnosticTests
     [Trait("Size", "Small")]
     public void Convert_WhenDiagnosticsPropertyIsMissing_ReturnsInternalError ()
     {
-        var response = CreateResponse("""
+        var projectFingerprintText = ProjectFingerprintTestFactory.Create("project-fingerprint").ToString();
+        var response = CreateResponse($$"""
             {
               "project": {
                 "projectPath": "/repo/UnityProject",
-                "projectFingerprint": "project-fingerprint",
+                "projectFingerprint": "{{projectFingerprintText}}",
                 "unityVersion": "6000.1.4f1"
               },
               "opResults": [
@@ -105,11 +106,12 @@ public sealed class ExecuteResponseConverterDiagnosticTests
     [Trait("Size", "Small")]
     public void Convert_WhenDiagnosticCoverageImpactIsMissing_ReturnsInternalError ()
     {
-        var response = CreateResponse("""
+        var projectFingerprintText = ProjectFingerprintTestFactory.Create("project-fingerprint").ToString();
+        var response = CreateResponse($$"""
             {
               "project": {
                 "projectPath": "/repo/UnityProject",
-                "projectFingerprint": "project-fingerprint",
+                "projectFingerprint": "{{projectFingerprintText}}",
                 "unityVersion": "6000.1.4f1"
               },
               "opResults": [
@@ -207,7 +209,7 @@ public sealed class ExecuteResponseConverterDiagnosticTests
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Project);
         Assert.Equal("/repo/UnityProject", result.Project.ProjectPath);
-        Assert.Equal("project-fingerprint", result.Project.ProjectFingerprint);
+        Assert.Equal(ProjectFingerprintTestFactory.Create("project-fingerprint"), result.Project.ProjectFingerprint);
         Assert.Equal("6000.1.4f1", result.Project.UnityVersion);
         var opResult = Assert.Single(result.OpResults);
         var diagnostic = Assert.Single(opResult.Diagnostics);

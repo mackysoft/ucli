@@ -45,13 +45,13 @@ public sealed class PlayExitServiceTransitionValidationTests
             IpcEditorBlockingReasonCodec.PlayMode,
             false,
             CreatePlayingPlayMode("2"),
-            projectFingerprint: "other-project-fingerprint");
+            projectFingerprint: ProjectFingerprintTestFactory.Create("other-project-fingerprint"));
         var after = CreateSnapshot(
             IpcEditorLifecycleStateCodec.Ready,
             null,
             true,
             CreateStoppedPlayMode("3"),
-            projectFingerprint: "other-project-fingerprint");
+            projectFingerprint: ProjectFingerprintTestFactory.Create("other-project-fingerprint"));
         var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
             IpcPlayTransitionCommandNames.Exit,
             IpcPlayTransitionResultNames.Exited,

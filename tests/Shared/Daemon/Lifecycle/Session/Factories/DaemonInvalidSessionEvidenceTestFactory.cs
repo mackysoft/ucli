@@ -6,7 +6,7 @@ namespace MackySoft.Ucli.TestSupport;
 internal static class DaemonInvalidSessionEvidenceTestFactory
 {
     public static DaemonInvalidSessionEvidence Create (
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         int? processId = 1234,
         DateTimeOffset? processStartedAtUtc = null)
     {

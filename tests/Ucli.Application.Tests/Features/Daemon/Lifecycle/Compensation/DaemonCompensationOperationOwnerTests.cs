@@ -14,7 +14,7 @@ public sealed class DaemonCompensationOperationOwnerTests
         var timeProvider = new ManualTimeProvider();
         var owner = new DaemonCompensationOperationOwner();
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
-            "fingerprint-compensation-owner");
+            ProjectFingerprintTestFactory.Create("fingerprint-compensation-owner"));
         var mutationStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseMutation = new TaskCompletionSource(
@@ -111,12 +111,12 @@ public sealed class DaemonCompensationOperationOwnerTests
         var timeProvider = new ManualTimeProvider();
         var owner = new DaemonCompensationOperationOwner();
         var firstContext = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
-            "fingerprint-compensation-owner-first");
-        var secondContext = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
-            "fingerprint-compensation-owner-second") with
-        {
-            UnityProjectRoot = "/tmp/independent-unity-project",
-        };
+            ProjectFingerprintTestFactory.Create("fingerprint-compensation-owner-first"));
+        var secondContext = ProjectContextTestFactory.CreateUnityProject(
+            unityProjectRoot: "/tmp/independent-unity-project",
+            repositoryRoot: "/tmp/repo-root",
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-compensation-owner-second"),
+            pathSourceLabel: null);
         var firstMutationStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseFirstMutation = new TaskCompletionSource(
@@ -169,7 +169,7 @@ public sealed class DaemonCompensationOperationOwnerTests
         var timeProvider = new ManualTimeProvider();
         var owner = new DaemonCompensationOperationOwner();
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
-            "fingerprint-operation-lane-independence");
+            ProjectFingerprintTestFactory.Create("fingerprint-operation-lane-independence"));
         var supplementalStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseSupplemental = new TaskCompletionSource(
@@ -241,7 +241,7 @@ public sealed class DaemonCompensationOperationOwnerTests
         var timeProvider = new ManualTimeProvider();
         var owner = new DaemonCompensationOperationOwner();
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
-            "fingerprint-supplemental-lane-serialization");
+            ProjectFingerprintTestFactory.Create("fingerprint-supplemental-lane-serialization"));
         var firstStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseFirst = new TaskCompletionSource(
@@ -311,7 +311,7 @@ public sealed class DaemonCompensationOperationOwnerTests
         var timeProvider = new ManualTimeProvider();
         var owner = new DaemonCompensationOperationOwner();
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
-            "fingerprint-compensation-blocking-callback");
+            ProjectFingerprintTestFactory.Create("fingerprint-compensation-blocking-callback"));
         var operationStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var callbackStarted = new TaskCompletionSource(
@@ -411,7 +411,7 @@ public sealed class DaemonCompensationOperationOwnerTests
         var timeProvider = new ManualTimeProvider();
         var owner = new DaemonCompensationOperationOwner();
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
-            "fingerprint-compensation-lease-release-failure");
+            ProjectFingerprintTestFactory.Create("fingerprint-compensation-lease-release-failure"));
         var mutationStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseMutation = new TaskCompletionSource(
@@ -471,7 +471,7 @@ public sealed class DaemonCompensationOperationOwnerTests
         var timeProvider = new ManualTimeProvider();
         var owner = new DaemonCompensationOperationOwner();
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
-            "fingerprint-compensation-caller-cancellation");
+            ProjectFingerprintTestFactory.Create("fingerprint-compensation-caller-cancellation"));
         using var cancellationTokenSource = new CancellationTokenSource();
         cancellationTokenSource.Cancel();
         var mutationStarted = new TaskCompletionSource(
@@ -521,7 +521,7 @@ public sealed class DaemonCompensationOperationOwnerTests
         var timeProvider = new ManualTimeProvider();
         var owner = new DaemonCompensationOperationOwner();
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
-            "fingerprint-compensation-caller-cancellation-deadline");
+            ProjectFingerprintTestFactory.Create("fingerprint-compensation-caller-cancellation-deadline"));
         using var cancellationTokenSource = new CancellationTokenSource();
         var mutationStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
@@ -588,7 +588,7 @@ public sealed class DaemonCompensationOperationOwnerTests
         var timeProvider = new ManualTimeProvider();
         var owner = new DaemonCompensationOperationOwner();
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
-            "fingerprint-compensation-deadline-cancellation-race");
+            ProjectFingerprintTestFactory.Create("fingerprint-compensation-deadline-cancellation-race"));
         var operationStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var operationCompletion = new TaskCompletionSource<bool>(
@@ -635,7 +635,7 @@ public sealed class DaemonCompensationOperationOwnerTests
         var timeProvider = new ManualTimeProvider();
         var owner = new DaemonCompensationOperationOwner();
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
-            "fingerprint-compensation-quiescence-cancellation-race");
+            ProjectFingerprintTestFactory.Create("fingerprint-compensation-quiescence-cancellation-race"));
         var operationStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseOperation = new TaskCompletionSource(

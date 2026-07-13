@@ -6,7 +6,7 @@ namespace MackySoft.Ucli.TestSupport;
 
 internal static class DaemonCommandExecutionContextTestFactory
 {
-    public const string ProjectFingerprint = "fingerprint";
+    public static readonly ProjectFingerprint ProjectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
 
     public const string RepositoryRoot = "/tmp/repo-root";
 
@@ -18,7 +18,7 @@ internal static class DaemonCommandExecutionContextTestFactory
         int timeoutMilliseconds,
         string repositoryRoot = RepositoryRoot,
         string unityProjectRoot = UnityProjectRoot,
-        string projectFingerprint = ProjectFingerprint,
+        ProjectFingerprint? projectFingerprint = null,
         string unityVersion = UnityVersion,
         ConfigSource configSource = ConfigSource.Default)
     {
@@ -27,7 +27,7 @@ internal static class DaemonCommandExecutionContextTestFactory
                 new ResolvedUnityProjectContext(
                     UnityProjectRoot: unityProjectRoot,
                     RepositoryRoot: repositoryRoot,
-                    ProjectFingerprint: projectFingerprint,
+                    ProjectFingerprint: projectFingerprint ?? ProjectFingerprint,
                     PathSource: UnityProjectPathSource.CommandOption,
                     PathSourceLabel: null,
                     UnityVersion: unityVersion),

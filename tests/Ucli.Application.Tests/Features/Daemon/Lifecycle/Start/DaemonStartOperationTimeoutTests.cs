@@ -28,7 +28,7 @@ public sealed class DaemonStartOperationTimeoutTests
             daemonExistingSessionGateService: new RecordingDaemonExistingSessionGateService(),
             daemonLaunchService: new RecordingDaemonLaunchService(),
             timeProvider: timeProvider);
-        var unityProject = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-start-session-read-timeout");
+        var unityProject = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-start-session-read-timeout"));
         var timeout = TimeSpan.FromSeconds(1);
 
         var resultTask = operation.StartAsync(

@@ -15,7 +15,7 @@ public sealed class VerifyServicePostReadTests
     public async Task Execute_WithPostReadPartialDiagnostics_ReturnsPartialOptionalClaimWithoutLogs ()
     {
         using var scope = TestDirectories.CreateTempScope("ucli-verify", nameof(Execute_WithPostReadPartialDiagnostics_ReturnsPartialOptionalClaimWithoutLogs));
-        var fromPath = scope.WriteFile("from.json", CreateFromJson("project-fingerprint", coverageImpact: "partial"));
+        var fromPath = scope.WriteFile("from.json", CreateFromJson(ProjectIdentityInfoTestFactory.ProjectFingerprint, coverageImpact: "partial"));
         var logsService = new RecordingVerifyLogsUnityService(async (_, onEvent, cancellationToken) =>
         {
             await onEvent(
@@ -68,7 +68,7 @@ public sealed class VerifyServicePostReadTests
               ]
             }
             """);
-        var fromPath = scope.WriteFile("from.json", CreateFromJson("project-fingerprint", coverageImpact: "partial"));
+        var fromPath = scope.WriteFile("from.json", CreateFromJson(ProjectIdentityInfoTestFactory.ProjectFingerprint, coverageImpact: "partial"));
         var logsService = new RecordingVerifyLogsUnityService(async (_, onEvent, cancellationToken) =>
         {
             await onEvent(
@@ -107,7 +107,7 @@ public sealed class VerifyServicePostReadTests
         var fromPath = scope.WriteFile(
             "from.json",
             CreateFromJson(
-                "project-fingerprint",
+                ProjectIdentityInfoTestFactory.ProjectFingerprint,
                 coverageImpact: "none",
                 severity: "error"));
         var service = CreateService(scope.FullPath);
@@ -137,7 +137,7 @@ public sealed class VerifyServicePostReadTests
         var fromPath = scope.WriteFile(
             "from.json",
             CreateFromJson(
-                "project-fingerprint",
+                ProjectIdentityInfoTestFactory.ProjectFingerprint,
                 coverageImpact: "none",
                 includeReadPostcondition: false));
         var service = CreateService(scope.FullPath);
@@ -167,7 +167,7 @@ public sealed class VerifyServicePostReadTests
         var fromPath = scope.WriteFile(
             "from.json",
             CreateFromJson(
-                "project-fingerprint",
+                ProjectIdentityInfoTestFactory.ProjectFingerprint,
                 coverageImpact: "none",
                 touchedJson: "[]",
                 sourceKind: "operation",
@@ -204,7 +204,7 @@ public sealed class VerifyServicePostReadTests
         var fromPath = scope.WriteFile(
             "from.json",
             CreateFromJson(
-                "project-fingerprint",
+                ProjectIdentityInfoTestFactory.ProjectFingerprint,
                 coverageImpact: "none",
                 applied: false,
                 changed: false,
@@ -235,7 +235,7 @@ public sealed class VerifyServicePostReadTests
     {
         using var scope = TestDirectories.CreateTempScope("ucli-verify", nameof(Execute_WithEmptyNoOpRequiredPostRead_ReturnsIncompleteUnverifiedClaim));
         WriteRequiredPostReadProfile(scope);
-        var fromPath = scope.WriteFile("from.json", CreateNoOpFromJson("project-fingerprint"));
+        var fromPath = scope.WriteFile("from.json", CreateNoOpFromJson(ProjectIdentityInfoTestFactory.ProjectFingerprint));
         var service = CreateService(scope.FullPath);
 
         var result = await service.ExecuteAsync(new VerifyCommandInput(
@@ -261,7 +261,7 @@ public sealed class VerifyServicePostReadTests
     {
         using var scope = TestDirectories.CreateTempScope("ucli-verify", nameof(Execute_WithIndeterminateDiagnostic_ReturnsIndeterminateClaimCoverageNone));
         WriteRequiredPostReadProfile(scope);
-        var fromPath = scope.WriteFile("from.json", CreateFromJson("project-fingerprint", coverageImpact: "indeterminate"));
+        var fromPath = scope.WriteFile("from.json", CreateFromJson(ProjectIdentityInfoTestFactory.ProjectFingerprint, coverageImpact: "indeterminate"));
         var service = CreateService(scope.FullPath);
 
         var result = await service.ExecuteAsync(new VerifyCommandInput(
@@ -287,7 +287,7 @@ public sealed class VerifyServicePostReadTests
         var fromPath = scope.WriteFile(
             "from.json",
             CreateFromJson(
-                "project-fingerprint",
+                ProjectIdentityInfoTestFactory.ProjectFingerprint,
                 coverageImpact: "partial",
                 touchedJson: "[]",
                 sourceKind: "operation",
@@ -319,7 +319,7 @@ public sealed class VerifyServicePostReadTests
     {
         using var scope = TestDirectories.CreateTempScope("ucli-verify", nameof(Execute_WithMixedBoundAndUnboundDiagnostics_ReturnsBlockingResidualRisk));
         WriteRequiredPostReadProfile(scope);
-        var fromPath = scope.WriteFile("from.json", CreateMixedBoundAndUnboundDiagnosticFromJson("project-fingerprint"));
+        var fromPath = scope.WriteFile("from.json", CreateMixedBoundAndUnboundDiagnosticFromJson(ProjectIdentityInfoTestFactory.ProjectFingerprint));
         var service = CreateService(scope.FullPath);
 
         var result = await service.ExecuteAsync(new VerifyCommandInput(

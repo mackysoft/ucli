@@ -19,13 +19,13 @@ internal static class ExecuteUnityRequestResponseTestFactory
                 ? null
                 : ReadPostconditionTestFactory.ToIpcContract(readPostcondition),
         };
-        if (project != null)
+        payload = payload with
         {
-            payload = payload with
-            {
-                Project = project,
-            };
-        }
+            Project = project ?? new IpcProjectIdentity(
+                ProjectPath: "/repo/UnityProject",
+                ProjectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint").ToString(),
+                UnityVersion: "6000.1.4f1"),
+        };
 
         return UnityRequestResponseTestFactory.Create(new IpcResponse(
             protocolVersion: IpcProtocol.CurrentVersion,

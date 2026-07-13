@@ -35,7 +35,7 @@ internal static class ExecuteResponseConverterTestSupport
     {
         return new IpcProjectIdentity(
             ProjectPath: "/repo/UnityProject",
-            ProjectFingerprint: "project-fingerprint",
+            ProjectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint").ToString(),
             UnityVersion: "6000.1.4f1");
     }
 }

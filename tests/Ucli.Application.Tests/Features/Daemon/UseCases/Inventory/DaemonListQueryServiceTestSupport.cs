@@ -78,7 +78,7 @@ internal static class DaemonListQueryServiceTestSupport
     public static ResolvedUnityProjectContext CreateUnityProject (
         string worktreeRoot,
         string projectRelativePath,
-        string fingerprint)
+        string fingerprintLabel)
     {
         var normalizedWorktreeRoot = Path.GetFullPath(worktreeRoot);
         var normalizedProjectRoot = projectRelativePath == "."
@@ -87,7 +87,7 @@ internal static class DaemonListQueryServiceTestSupport
         return ProjectContextTestFactory.CreateUnityProject(
             unityProjectRoot: normalizedProjectRoot,
             repositoryRoot: normalizedWorktreeRoot,
-            projectFingerprint: fingerprint,
+            projectFingerprint: ProjectFingerprintTestFactory.Create(fingerprintLabel),
             pathSourceLabel: null,
             unityVersion: ProjectIdentityDefaults.UnknownUnityVersion);
     }

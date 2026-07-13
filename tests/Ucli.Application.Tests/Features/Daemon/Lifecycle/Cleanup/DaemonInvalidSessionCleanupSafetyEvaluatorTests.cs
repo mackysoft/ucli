@@ -25,7 +25,7 @@ public sealed class DaemonInvalidSessionCleanupSafetyEvaluatorTests
     [Trait("Size", "Small")]
     public void RequiresUnsafeSkip_WhenFingerprintDoesNotMatchAndClaimedProcessIsLive_ReturnsTrueAfterIdentityAssessment ()
     {
-        var evidence = CreateEvidence("fingerprint-other");
+        var evidence = CreateEvidence(ProjectFingerprintTestFactory.Create("fingerprint-other"));
         var assessor = RecordingDaemonProcessIdentityAssessor.MatchingLiveProcess();
         var evaluator = new DaemonInvalidSessionCleanupSafetyEvaluator(assessor);
 
@@ -42,7 +42,7 @@ public sealed class DaemonInvalidSessionCleanupSafetyEvaluatorTests
     [InlineData(-1)]
     public void RequiresUnsafeSkip_WhenProcessIdIsNotPositive_ReturnsFalse (int? processId)
     {
-        var evidence = CreateEvidence("fingerprint-current", processId);
+        var evidence = CreateEvidence(ProjectFingerprintTestFactory.Create("fingerprint-current"), processId);
         var assessor = new RecordingDaemonProcessIdentityAssessor();
         var evaluator = new DaemonInvalidSessionCleanupSafetyEvaluator(assessor);
 
@@ -63,7 +63,7 @@ public sealed class DaemonInvalidSessionCleanupSafetyEvaluatorTests
         bool expected)
     {
         var status = Enum.Parse<DaemonProcessIdentityAssessmentStatus>(statusName);
-        var evidence = CreateEvidence("fingerprint-current");
+        var evidence = CreateEvidence(ProjectFingerprintTestFactory.Create("fingerprint-current"));
         var assessor = new RecordingDaemonProcessIdentityAssessor
         {
             Assessment = new DaemonProcessIdentityAssessment(
@@ -97,7 +97,7 @@ public sealed class DaemonInvalidSessionCleanupSafetyEvaluatorTests
     }
 
     private static DaemonInvalidSessionEvidence CreateEvidence (
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         int? processId = 1234)
     {
         var contract = new DaemonSessionJsonContract(

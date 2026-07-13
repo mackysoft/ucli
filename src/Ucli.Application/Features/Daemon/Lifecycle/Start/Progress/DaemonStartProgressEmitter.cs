@@ -12,7 +12,7 @@ internal sealed class DaemonStartProgressEmitter :
     IDaemonStartProgressObserver
 {
     private readonly ICommandProgressSink progressSink;
-    private readonly string projectFingerprint;
+    private readonly ProjectFingerprint projectFingerprint;
     private readonly int timeoutMilliseconds;
     private readonly string? editorMode;
     private readonly string onStartupBlocked;
@@ -20,12 +20,12 @@ internal sealed class DaemonStartProgressEmitter :
     /// <summary> Initializes a new instance of the <see cref="DaemonStartProgressEmitter" /> class. </summary>
     public DaemonStartProgressEmitter (
         ICommandProgressSink? progressSink,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         int timeoutMilliseconds,
         DaemonEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(projectFingerprint);
+        ArgumentNullException.ThrowIfNull(projectFingerprint);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(timeoutMilliseconds);
 
         this.progressSink = progressSink ?? NullCommandProgressSink.Instance;

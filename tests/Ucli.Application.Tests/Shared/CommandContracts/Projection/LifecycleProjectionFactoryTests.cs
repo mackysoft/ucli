@@ -55,7 +55,7 @@ public sealed class LifecycleProjectionFactoryTests
             ServerVersion: "0.5.0",
             EditorMode: "batchmode",
             UnityVersion: "6000.1.4f1",
-            ProjectFingerprint: "project-fingerprint",
+            ProjectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"),
             CompileState: IpcCompileStateCodec.Ready,
             LifecycleState: IpcEditorLifecycleStateCodec.Ready,
             CanAcceptExecutionRequests: true,

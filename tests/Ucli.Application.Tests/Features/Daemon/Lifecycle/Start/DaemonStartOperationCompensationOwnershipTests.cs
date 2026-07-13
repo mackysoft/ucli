@@ -17,7 +17,7 @@ public sealed class DaemonStartOperationCompensationOwnershipTests
         var compensationOperationOwner = new DaemonCompensationOperationOwner();
         var lifecycleLease = new RecordingAsyncDisposable();
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
-            "fingerprint-start-launch-owned-compensation");
+            ProjectFingerprintTestFactory.Create("fingerprint-start-launch-owned-compensation"));
         var compensationStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseCompensation = new TaskCompletionSource(

@@ -6,6 +6,26 @@ namespace MackySoft.Ucli.Application.Tests.Daemon;
 public sealed class DaemonSessionTests
 {
     private static readonly Guid EditorInstanceId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private static readonly ProjectFingerprint Fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Constructor_WhenProjectFingerprintIsNull_ThrowsArgumentNullException ()
+    {
+        var exception = Assert.Throws<ArgumentNullException>(() => new DaemonSession(
+            IpcSessionTokenTestFactory.Create("null-project-fingerprint"),
+            null!,
+            new DateTimeOffset(2026, 7, 13, 0, 0, 0, TimeSpan.Zero),
+            DaemonEditorMode.Batchmode,
+            DaemonSessionOwnerKind.Cli,
+            canShutdownProcess: true,
+            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-endpoint"),
+            processId: 1234,
+            processStartedAtUtc: new DateTimeOffset(2026, 7, 13, 0, 0, 1, TimeSpan.Zero),
+            ownerProcessId: 5678));
+
+        Assert.Equal("projectFingerprint", exception.ParamName);
+    }
 
     [Fact]
     [Trait("Size", "Small")]
@@ -15,7 +35,7 @@ public sealed class DaemonSessionTests
 
         var exception = Assert.Throws<ArgumentException>(() => new DaemonSession(
             token,
-            "fingerprint",
+            Fingerprint,
             new DateTimeOffset(2026, 7, 13, 0, 0, 0, TimeSpan.Zero),
             DaemonEditorMode.Batchmode,
             DaemonSessionOwnerKind.Cli,
@@ -36,7 +56,7 @@ public sealed class DaemonSessionTests
 
         var exception = Assert.Throws<ArgumentException>(() => new DaemonSession(
             token,
-            "fingerprint",
+            Fingerprint,
             new DateTimeOffset(2026, 7, 13, 0, 0, 0, TimeSpan.Zero),
             DaemonEditorMode.Gui,
             DaemonSessionOwnerKind.User,
@@ -65,7 +85,7 @@ public sealed class DaemonSessionTests
     {
         var exception = Assert.Throws<ArgumentException>(() => new DaemonSession(
             IpcSessionTokenTestFactory.Create("user-owned-without-editor-instance-id"),
-            "fingerprint",
+            Fingerprint,
             new DateTimeOffset(2026, 7, 13, 0, 0, 0, TimeSpan.Zero),
             DaemonEditorMode.Gui,
             DaemonSessionOwnerKind.User,
@@ -110,7 +130,8 @@ public sealed class DaemonSessionTests
         var sessions = difference switch
         {
             SessionDifference.SessionToken => (CreateComparableSession(), CreateComparableSession(sessionToken: "other-session-token")),
-            SessionDifference.ProjectFingerprint => (CreateComparableSession(), CreateComparableSession(projectFingerprint: "other-project-fingerprint")),
+            SessionDifference.ProjectFingerprint => (CreateComparableSession(), CreateComparableSession(
+                projectFingerprint: ProjectFingerprintTestFactory.Create("other-project-fingerprint"))),
             SessionDifference.IssuedAtUtc => (CreateComparableSession(), CreateComparableSession(
                 issuedAtUtc: new DateTimeOffset(2026, 7, 13, 0, 0, 2, TimeSpan.Zero))),
             SessionDifference.EditorMode => (
@@ -137,7 +158,7 @@ public sealed class DaemonSessionTests
 
     private static DaemonSession CreateComparableSession (
         string sessionToken = "same-session-token",
-        string projectFingerprint = "same-project-fingerprint",
+        ProjectFingerprint? projectFingerprint = null,
         DateTimeOffset? issuedAtUtc = null,
         string editorMode = "gui",
         string ownerKind = "user",
@@ -151,7 +172,7 @@ public sealed class DaemonSessionTests
         return DaemonSessionTestFactory.Create(
             processId: processId,
             sessionToken: sessionToken,
-            projectFingerprint: projectFingerprint,
+            projectFingerprint: projectFingerprint ?? ProjectFingerprintTestFactory.Create("same-project-fingerprint"),
             issuedAtUtc: issuedAtUtc ?? new DateTimeOffset(2026, 7, 13, 0, 0, 1, TimeSpan.Zero),
             editorMode: editorMode,
             ownerKind: ownerKind,

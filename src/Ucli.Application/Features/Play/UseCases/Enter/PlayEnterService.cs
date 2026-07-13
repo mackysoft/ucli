@@ -291,7 +291,7 @@ internal sealed class PlayEnterService : IPlayEnterService
         IpcPlayLifecycleSnapshot snapshot,
         string label)
     {
-        if (!string.Equals(snapshot.ProjectFingerprint, context.Project.ProjectFingerprint, StringComparison.Ordinal))
+        if (snapshot.ProjectFingerprint != context.Project.ProjectFingerprint)
         {
             return ApplicationFailure.InternalError(
                 $"Unity play enter {label} projectFingerprint mismatch. Requested={context.Project.ProjectFingerprint}, Actual={snapshot.ProjectFingerprint}.");

@@ -48,7 +48,7 @@ public sealed class DaemonStopOperationTimeoutTests
             artifactCleaner: artifactCleaner,
             timeProvider: timeProvider);
         var unityProject = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
-            "fingerprint-stop-session-read-timeout");
+            ProjectFingerprintTestFactory.Create("fingerprint-stop-session-read-timeout"));
         var timeout = TimeSpan.FromSeconds(1);
 
         var resultTask = operation.StopAsync(

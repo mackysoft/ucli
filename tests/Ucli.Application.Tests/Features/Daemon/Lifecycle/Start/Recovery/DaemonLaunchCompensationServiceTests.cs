@@ -20,7 +20,7 @@ public sealed class DaemonLaunchCompensationServiceTests
         {
             NextResult = DaemonArtifactCleanupResult.Success(),
         };
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-compensation-success");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-compensation-success"));
         var target = CreateTarget(2468);
         var observedSession = DaemonSessionTestFactory.Create(
             projectFingerprint: context.ProjectFingerprint,
@@ -65,7 +65,7 @@ public sealed class DaemonLaunchCompensationServiceTests
             NextResult = DaemonArtifactCleanupResult.Success(),
         };
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
-            "fingerprint-compensation-initial-session");
+            ProjectFingerprintTestFactory.Create("fingerprint-compensation-initial-session"));
         var initialSession = DaemonSessionTestFactory.Create(
             projectFingerprint: context.ProjectFingerprint,
             processId: null,
@@ -99,7 +99,7 @@ public sealed class DaemonLaunchCompensationServiceTests
             NextResult = DaemonArtifactCleanupResult.Success(),
         };
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
-            "fingerprint-compensation-missing-session");
+            ProjectFingerprintTestFactory.Create("fingerprint-compensation-missing-session"));
         var service = new DaemonLaunchCompensationService(
             processTerminationService,
             artifactCleaner,
@@ -131,7 +131,7 @@ public sealed class DaemonLaunchCompensationServiceTests
         {
             NextResult = DaemonArtifactCleanupResult.Success(),
         };
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-compensation-successor");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-compensation-successor"));
         var failedSession = DaemonSessionTestFactory.Create(
             projectFingerprint: context.ProjectFingerprint,
             sessionToken: "failed-session-token",
@@ -174,7 +174,7 @@ public sealed class DaemonLaunchCompensationServiceTests
         var target = CreateTarget(8642);
 
         var result = await service.CleanupFailedLaunchAsync(
-            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-compensation-stop-fail"),
+            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-compensation-stop-fail")),
             expectedSession: null,
             target: target,
             timeout: TimeSpan.FromMilliseconds(500),
@@ -206,7 +206,7 @@ public sealed class DaemonLaunchCompensationServiceTests
             processTerminationService,
             artifactCleaner,
             new ManualTimeProvider());
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-compensation-cleanup-fail");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-compensation-cleanup-fail"));
         var target = CreateTarget(1010);
 
         var result = await service.CleanupFailedLaunchAsync(
@@ -245,7 +245,7 @@ public sealed class DaemonLaunchCompensationServiceTests
             processTerminationService,
             artifactCleaner,
             new ManualTimeProvider());
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-compensation-timeout-cap");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-compensation-timeout-cap"));
         var target = CreateTarget(4040);
 
         var result = await service.CleanupFailedLaunchAsync(
@@ -291,7 +291,7 @@ public sealed class DaemonLaunchCompensationServiceTests
 
         var result = await service.CleanupFailedLaunchAsync(
             ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
-                "fingerprint-compensation-shared-deadline"),
+                ProjectFingerprintTestFactory.Create("fingerprint-compensation-shared-deadline")),
             expectedSession: null,
             target: CreateTarget(5050),
             timeout: TimeSpan.FromMilliseconds(250),

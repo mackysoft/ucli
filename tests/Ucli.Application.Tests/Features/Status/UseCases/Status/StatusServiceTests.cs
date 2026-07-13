@@ -22,13 +22,13 @@ public sealed class StatusServiceTests
         var unityVersionResolver = new RecordingUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
         var session = DaemonSessionTestFactory.Create(
             sessionToken: "session-token",
-            projectFingerprint: "project-fingerprint",
+            projectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"),
             endpointAddress: "ucli-daemon-status");
         var pingResponse = new IpcPingResponse(
             ServerVersion: "0.5.0",
             EditorMode: "batchmode",
             UnityVersion: "2022.3.5f1",
-            ProjectFingerprint: "project-fingerprint",
+            ProjectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"),
             CompileState: "ready",
             LifecycleState: "busy",
             BlockingReason: "busy",
@@ -99,7 +99,7 @@ public sealed class StatusServiceTests
         var unityVersionResolver = new RecordingUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
         var daemonStatusOperation = new RecordingDaemonStatusOperation(DaemonStatusResult.Stale(DaemonSessionTestFactory.Create(
             sessionToken: "stale-session-token",
-            projectFingerprint: "project-fingerprint",
+            projectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"),
             endpointAddress: "ucli-daemon-status")));
         var service = CreateService(contextResolver, unityVersionResolver, daemonStatusOperation);
 

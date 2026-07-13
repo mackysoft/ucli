@@ -11,7 +11,7 @@ public sealed class UnityExecutionModeDecisionServiceTests
     private static readonly TimeSpan DefaultTimeout = TimeSpan.FromMilliseconds(3000);
 
     private static readonly ResolvedUnityProjectContext UnityProject = ProjectContextTestFactory.CreateUnknownVersionUnityProject(
-        projectFingerprint: "fingerprint");
+        projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"));
 
     [Fact]
     [Trait("Size", "Small")]

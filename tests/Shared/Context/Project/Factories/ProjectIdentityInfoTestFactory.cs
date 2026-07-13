@@ -2,7 +2,7 @@ namespace MackySoft.Ucli.TestSupport;
 
 internal static class ProjectIdentityInfoTestFactory
 {
-    public const string ProjectFingerprint = "project-fingerprint";
+    public static readonly ProjectFingerprint ProjectFingerprint = ProjectFingerprintTestFactory.Create("project-fingerprint");
 
     public const string RepositoryFixtureProjectPath = "/repo/UnityProject";
 
@@ -15,17 +15,17 @@ internal static class ProjectIdentityInfoTestFactory
 
     public static ProjectIdentityInfo Create (
         string? projectPath = null,
-        string projectFingerprint = ProjectFingerprint,
+        ProjectFingerprint? projectFingerprint = null,
         string unityVersion = UnityVersion)
     {
         return new ProjectIdentityInfo(
             ProjectPath: projectPath ?? DefaultProjectPath,
-            ProjectFingerprint: projectFingerprint,
+            ProjectFingerprint: projectFingerprint ?? ProjectFingerprint,
             UnityVersion: unityVersion);
     }
 
     public static ProjectIdentityInfo CreateRepositoryFixture (
-        string projectFingerprint = ProjectFingerprint,
+        ProjectFingerprint? projectFingerprint = null,
         string unityVersion = UnityVersion)
     {
         return Create(
@@ -36,7 +36,7 @@ internal static class ProjectIdentityInfoTestFactory
 
     public static ProjectIdentityInfo CreateForRepositoryRoot (
         string repositoryRoot,
-        string projectFingerprint = ProjectFingerprint,
+        ProjectFingerprint? projectFingerprint = null,
         string unityVersion = UnityVersion)
     {
         return Create(

@@ -10,7 +10,7 @@ internal interface IDaemonDiagnosisStore
     /// <returns> The daemon diagnosis read result. </returns>
     ValueTask<DaemonDiagnosisReadResult> ReadAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default);
 
     /// <summary> Writes daemon diagnosis metadata to local storage. </summary>
@@ -21,7 +21,7 @@ internal interface IDaemonDiagnosisStore
     /// <returns> The daemon diagnosis storage operation result. </returns>
     ValueTask<DaemonDiagnosisStoreOperationResult> WriteAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         DaemonDiagnosis diagnosis,
         CancellationToken cancellationToken = default);
 
@@ -32,6 +32,6 @@ internal interface IDaemonDiagnosisStore
     /// <returns> The daemon diagnosis storage operation result. </returns>
     ValueTask<DaemonDiagnosisStoreOperationResult> DeleteAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default);
 }

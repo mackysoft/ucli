@@ -12,7 +12,7 @@ namespace MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 /// <param name="ProcessStartedAtUtc"> The daemon process start timestamp when available; otherwise <see langword="null" />. </param>
 /// <param name="OwnerProcessId"> The owner process identifier when available; otherwise <see langword="null" />. </param>
 internal sealed record DaemonSessionOutput (
-    string ProjectFingerprint,
+    ProjectFingerprint ProjectFingerprint,
     DateTimeOffset IssuedAtUtc,
     string EditorMode,
     string OwnerKind,

@@ -19,11 +19,11 @@ internal sealed class RecordingDaemonLifecycleStore : IDaemonLifecycleStore
 
     public Action? OnRead { get; set; }
 
-    public Func<string, string, CancellationToken, ValueTask<DaemonLifecycleObservationReadResult>>? ReadAsyncHandler { get; set; }
+    public Func<string, ProjectFingerprint, CancellationToken, ValueTask<DaemonLifecycleObservationReadResult>>? ReadAsyncHandler { get; set; }
 
     public ValueTask<DaemonLifecycleObservationReadResult> ReadAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -40,7 +40,7 @@ internal sealed class RecordingDaemonLifecycleStore : IDaemonLifecycleStore
 
     public ValueTask<DaemonLifecycleStoreOperationResult> DeleteAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -52,11 +52,11 @@ internal sealed class RecordingDaemonLifecycleStore : IDaemonLifecycleStore
 
     internal readonly record struct ReadInvocation (
         string StorageRoot,
-        string ProjectFingerprint,
+        ProjectFingerprint ProjectFingerprint,
         CancellationToken CancellationToken);
 
     internal readonly record struct DeleteInvocation (
         string StorageRoot,
-        string ProjectFingerprint,
+        ProjectFingerprint ProjectFingerprint,
         CancellationToken CancellationToken);
 }

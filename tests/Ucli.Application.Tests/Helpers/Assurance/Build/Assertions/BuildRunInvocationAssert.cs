@@ -39,7 +39,7 @@ internal static class BuildRunInvocationAssert
         string expectedProfileDigest,
         string expectedOutputDirectory,
         string expectedProjectPath,
-        string expectedProjectFingerprint,
+        ProjectFingerprint expectedProjectFingerprint,
         string expectedBuildTarget,
         string expectedEnvironmentVariable,
         string expectedEnvironmentValue,
@@ -57,7 +57,7 @@ internal static class BuildRunInvocationAssert
         Assert.Equal(expectedProfilePath, request.RunnerArguments["profile"]);
         Assert.Equal(expectedProfileDigest, request.RunnerArguments["digest"]);
         Assert.Equal(expectedProjectPath, request.RunnerArguments["project"]);
-        Assert.Equal(expectedProjectFingerprint, request.RunnerArguments["fingerprint"]);
+        Assert.Equal(expectedProjectFingerprint.ToString(), request.RunnerArguments["fingerprint"]);
         Assert.Equal(expectedBuildTarget, request.RunnerArguments["target"]);
         Assert.Equal([expectedEnvironmentVariable], request.RunnerEnvironmentVariables);
         Assert.Equal([expectedEnvironmentSecret], request.RunnerEnvironmentSecrets);

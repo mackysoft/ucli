@@ -15,7 +15,7 @@ public sealed class DaemonExistingSessionGateServiceRunningTests
                 DaemonExistingSessionGateServiceTestSupport.CreateReadyPingResponse()));
 
         var result = await service.TryHandleExistingSessionAsync(
-            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-existing-running"),
+            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-existing-running")),
             session,
             TimeSpan.FromMilliseconds(500),
             editorMode: null,
@@ -41,7 +41,7 @@ public sealed class DaemonExistingSessionGateServiceRunningTests
             daemonPingInfoClient: pingClient);
 
         var result = await service.TryHandleExistingSessionAsync(
-            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-existing-running-capped"),
+            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-existing-running-capped")),
             session,
             TimeSpan.FromSeconds(5),
             editorMode: null,
@@ -66,7 +66,7 @@ public sealed class DaemonExistingSessionGateServiceRunningTests
                     canAcceptExecutionRequests: false)));
 
         var result = await service.TryHandleExistingSessionAsync(
-            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-existing-running-compiling"),
+            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-existing-running-compiling")),
             session,
             TimeSpan.FromMilliseconds(500),
             editorMode: null,
@@ -90,7 +90,7 @@ public sealed class DaemonExistingSessionGateServiceRunningTests
                 DaemonExistingSessionGateServiceTestSupport.CreateReadyPingResponse()));
 
         var result = await service.TryHandleExistingSessionAsync(
-            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-existing-running-mismatch"),
+            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-existing-running-mismatch")),
             session,
             TimeSpan.FromMilliseconds(500),
             editorMode: DaemonEditorMode.Gui,

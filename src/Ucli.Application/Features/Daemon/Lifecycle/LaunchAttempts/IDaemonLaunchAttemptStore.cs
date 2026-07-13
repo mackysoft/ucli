@@ -11,7 +11,7 @@ internal interface IDaemonLaunchAttemptStore
     /// <returns> The store operation result. </returns>
     ValueTask<DaemonLaunchAttemptStoreOperationResult> WriteFailureAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         DaemonLaunchAttempt launchAttempt,
         CancellationToken cancellationToken = default);
 
@@ -22,7 +22,7 @@ internal interface IDaemonLaunchAttemptStore
     /// <returns> The read result. </returns>
     ValueTask<DaemonLaunchAttemptReadResult> ReadLastFailureAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default);
 
     /// <summary> Deletes old launch attempts while preserving the most recent entries. </summary>
@@ -33,7 +33,7 @@ internal interface IDaemonLaunchAttemptStore
     /// <returns> The store operation result. </returns>
     ValueTask<DaemonLaunchAttemptStoreOperationResult> PruneAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         int keepCount,
         CancellationToken cancellationToken = default);
 }

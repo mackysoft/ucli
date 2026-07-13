@@ -287,7 +287,7 @@ public sealed class PostReadClaimBuilderTests
     {
         return new VerifyFromInput(
             Command: UcliCommandIds.Call,
-            ProjectFingerprint: "project-fingerprint",
+            ProjectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"),
             OpResults: opResults,
             ReadPostconditionRequirementCount: readPostconditionRequirementCount);
     }

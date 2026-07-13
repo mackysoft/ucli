@@ -18,7 +18,7 @@ public sealed class DaemonStopOperationEndpointOnlyTests
             canShutdownProcess: false,
             editorMode: "gui",
             editorInstanceId: DaemonSessionTestFactory.DefaultEditorInstanceId);
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-stop-disallowed");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-stop-disallowed"));
         var shutdownClient = new RecordingDaemonShutdownClient
         {
             NextResult = DaemonShutdownAttemptResult.Success(),
@@ -54,7 +54,7 @@ public sealed class DaemonStopOperationEndpointOnlyTests
             canShutdownProcess: false,
             editorMode: "gui",
             editorInstanceId: DaemonSessionTestFactory.DefaultEditorInstanceId);
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-stop-endpoint-timeout");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-stop-endpoint-timeout"));
         var shutdownClient = new RecordingDaemonShutdownClient
         {
             NextResult = DaemonShutdownAttemptResult.Failure(shutdownError),
@@ -87,7 +87,7 @@ public sealed class DaemonStopOperationEndpointOnlyTests
             ownerKind: "cli",
             canShutdownProcess: false,
             editorMode: "gui");
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-stop-cli-endpoint-only");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-stop-cli-endpoint-only"));
         var shutdownClient = new RecordingDaemonShutdownClient
         {
             NextResult = DaemonShutdownAttemptResult.NotRunning(),

@@ -107,13 +107,13 @@ internal static class PlayStatusServiceTestSupport
 
     public static IpcPlayStatusResponse CreateStatusResponse (
         IpcPlayModeSnapshot? playMode = null,
-        string projectFingerprint = "project-fingerprint")
+        ProjectFingerprint? projectFingerprint = null)
     {
         return new IpcPlayStatusResponse(new IpcPlayLifecycleSnapshot(
             ServerVersion: "0.5.0",
             EditorMode: "gui",
             UnityVersion: "6000.1.4f1",
-            ProjectFingerprint: projectFingerprint,
+            ProjectFingerprint: projectFingerprint ?? ProjectContextTestFactory.ProjectFingerprint,
             LifecycleState: IpcEditorLifecycleStateCodec.Ready,
             BlockingReason: "none",
             CompileState: IpcCompileStateCodec.Ready,

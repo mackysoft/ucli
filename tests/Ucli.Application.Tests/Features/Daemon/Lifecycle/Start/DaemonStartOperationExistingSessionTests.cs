@@ -24,7 +24,7 @@ public sealed class DaemonStartOperationExistingSessionTests
             daemonLaunchService: launchService);
 
         var result = await operation.StartAsync(
-            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-start-existing"),
+            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-start-existing")),
             TimeSpan.FromMilliseconds(500),
             editorMode: null,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
@@ -63,7 +63,7 @@ public sealed class DaemonStartOperationExistingSessionTests
             daemonGuiEditorAttachService: guiAttachService);
 
         var result = await operation.StartAsync(
-            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-start-existing-priority"),
+            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-start-existing-priority")),
             TimeSpan.FromMilliseconds(500),
             editorMode: null,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
@@ -95,7 +95,7 @@ public sealed class DaemonStartOperationExistingSessionTests
             daemonLaunchService: launchService);
 
         var result = await operation.StartAsync(
-            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-start-existing-editor-mode"),
+            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-start-existing-editor-mode")),
             TimeSpan.FromMilliseconds(500),
             editorMode: DaemonEditorMode.Batchmode,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
@@ -113,7 +113,7 @@ public sealed class DaemonStartOperationExistingSessionTests
     [Trait("Size", "Small")]
     public async Task Start_WhenExistingSessionGateServiceReturnsNull_ContinuesLaunchFlow ()
     {
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-start-stale-cleaned");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-start-stale-cleaned"));
         var existingSession = DaemonSessionTestFactory.Create(processId: 4242, projectFingerprint: context.ProjectFingerprint);
         var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(existingSession));
         var cleanupService = new RecordingDaemonSessionCleanupService();
@@ -148,7 +148,7 @@ public sealed class DaemonStartOperationExistingSessionTests
     [Trait("Size", "Small")]
     public async Task Start_WhenExistingSessionGateServiceReturnsNullAndGuiAttachSucceeds_ReturnsAttachedWithoutFreshLaunch ()
     {
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-start-existing-gui-handoff");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-start-existing-gui-handoff"));
         var existingSession = DaemonSessionTestFactory.Create(
             processId: 4243,
             projectFingerprint: context.ProjectFingerprint,
@@ -220,7 +220,7 @@ public sealed class DaemonStartOperationExistingSessionTests
             daemonLaunchService: launchService);
 
         var result = await operation.StartAsync(
-            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-start-existing-failed"),
+            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-start-existing-failed")),
             TimeSpan.FromMilliseconds(500),
             editorMode: null,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,

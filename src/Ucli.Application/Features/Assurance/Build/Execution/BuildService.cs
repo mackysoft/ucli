@@ -424,7 +424,7 @@ internal sealed class BuildService : IBuildService
         string runId,
         string outputDirectory,
         string projectPath,
-        string projectFingerprint)
+        ProjectFingerprint projectFingerprint)
     {
         ArgumentNullException.ThrowIfNull(profile);
         ArgumentException.ThrowIfNullOrWhiteSpace(runId);
@@ -434,7 +434,7 @@ internal sealed class BuildService : IBuildService
             ArgumentException.ThrowIfNullOrWhiteSpace(profilePath);
             ArgumentException.ThrowIfNullOrWhiteSpace(outputDirectory);
             ArgumentException.ThrowIfNullOrWhiteSpace(projectPath);
-            ArgumentException.ThrowIfNullOrWhiteSpace(projectFingerprint);
+            ArgumentNullException.ThrowIfNull(projectFingerprint);
             return RunnerInvocationResolutionResult.Success(ResolvedRunnerInvocationInput.Empty);
         }
 
@@ -445,7 +445,7 @@ internal sealed class BuildService : IBuildService
             return RunnerInvocationResolutionResult.Failure(pathError!);
         }
 
-        ArgumentException.ThrowIfNullOrWhiteSpace(projectFingerprint);
+        ArgumentNullException.ThrowIfNull(projectFingerprint);
 
         var builtInVariables = CreateBuiltInVariableMap(
             profile,
@@ -516,7 +516,7 @@ internal sealed class BuildService : IBuildService
         string runId,
         string outputDirectory,
         string projectPath,
-        string projectFingerprint)
+        ProjectFingerprint projectFingerprint)
     {
         return new Dictionary<string, string>(StringComparer.Ordinal)
         {
@@ -525,7 +525,7 @@ internal sealed class BuildService : IBuildService
             ["ucli.build.profilePath"] = profilePath,
             ["ucli.build.profileDigest"] = profile.Digest,
             ["project.path"] = projectPath,
-            ["project.fingerprint"] = projectFingerprint,
+            ["project.fingerprint"] = projectFingerprint.ToString(),
             ["build.target"] = profile.BuildTarget.StableName,
         };
     }
@@ -915,7 +915,7 @@ internal sealed class BuildService : IBuildService
     private static BuildResponseResolutionResult ResolveBuildResponse (
         UnityRequestResponse response,
         string expectedRunId,
-        string expectedProjectFingerprint,
+        ProjectFingerprint expectedProjectFingerprint,
         ResolvedBuildProfile expectedProfile,
         string expectedOutputDirectory)
     {
@@ -964,7 +964,7 @@ internal sealed class BuildService : IBuildService
     private static ApplicationFailure? ValidateResponse (
         IpcBuildRunResponse response,
         string expectedRunId,
-        string expectedProjectFingerprint,
+        ProjectFingerprint expectedProjectFingerprint,
         ResolvedBuildProfile expectedProfile,
         string expectedOutputDirectory)
     {
@@ -974,7 +974,7 @@ internal sealed class BuildService : IBuildService
                 $"Unity build response runId mismatch. Requested={expectedRunId}, Actual={response.RunId}.");
         }
 
-        if (!string.Equals(response.ProjectFingerprint, expectedProjectFingerprint, StringComparison.Ordinal))
+        if (response.ProjectFingerprint != expectedProjectFingerprint)
         {
             return ApplicationFailure.InternalError(
                 $"Unity build response projectFingerprint mismatch. Requested={expectedProjectFingerprint}, Actual={response.ProjectFingerprint}.");

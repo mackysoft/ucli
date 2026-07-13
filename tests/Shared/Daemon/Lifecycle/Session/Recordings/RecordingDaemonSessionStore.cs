@@ -24,7 +24,7 @@ internal sealed class RecordingDaemonSessionStore : IDaemonSessionStore
 
     public Action? OnRead { get; set; }
 
-    public Func<string, string, CancellationToken, ValueTask<DaemonSessionReadResult>>? ReadAsyncHandler { get; set; }
+    public Func<string, ProjectFingerprint, CancellationToken, ValueTask<DaemonSessionReadResult>>? ReadAsyncHandler { get; set; }
 
     public Func<IReadOnlyList<ReadInvocation>, DaemonSessionReadResult>? ReadHandler { get; set; }
 
@@ -50,7 +50,7 @@ internal sealed class RecordingDaemonSessionStore : IDaemonSessionStore
 
     public ValueTask<DaemonSessionReadResult> ReadAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -90,7 +90,7 @@ internal sealed class RecordingDaemonSessionStore : IDaemonSessionStore
 
     public ValueTask<DaemonSessionStoreOperationResult> DeleteAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {
         if (readOnly)
@@ -107,7 +107,7 @@ internal sealed class RecordingDaemonSessionStore : IDaemonSessionStore
 
     internal readonly record struct ReadInvocation (
         string StorageRoot,
-        string ProjectFingerprint,
+        ProjectFingerprint ProjectFingerprint,
         CancellationToken CancellationToken);
 
     internal readonly record struct WriteInvocation (
@@ -117,6 +117,6 @@ internal sealed class RecordingDaemonSessionStore : IDaemonSessionStore
 
     internal readonly record struct DeleteInvocation (
         string StorageRoot,
-        string ProjectFingerprint,
+        ProjectFingerprint ProjectFingerprint,
         CancellationToken CancellationToken);
 }

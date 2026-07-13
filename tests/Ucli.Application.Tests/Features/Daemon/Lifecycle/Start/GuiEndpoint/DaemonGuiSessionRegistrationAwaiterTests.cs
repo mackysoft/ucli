@@ -127,14 +127,14 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
     [InlineData(4321, "fingerprint", "batchmode")]
     public async Task WaitForSession_WhenStoredSessionDoesNotMatchExpectedContract_DoesNotProbeAndTimesOut (
         int storedProcessId,
-        string storedProjectFingerprint,
+        string storedProjectFingerprintLabel,
         string storedEditorMode)
     {
         var timeProvider = new ManualTimeProvider();
         var firstRead = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var unityProject = DaemonCommandExecutionContextTestFactory.Create(1000).Context.UnityProject;
         var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(CreateGuiSession(
-            storedProjectFingerprint,
+            ProjectFingerprintTestFactory.Create(storedProjectFingerprintLabel),
             storedProcessId,
             storedEditorMode)))
         {
@@ -225,7 +225,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
         var unityProject = DaemonCommandExecutionContextTestFactory.Create(1000).Context.UnityProject;
         var session = CreateGuiSession(unityProject.ProjectFingerprint, processId: 4321);
         var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(session));
-        var pingClient = new RecordingDaemonPingInfoClient(CreatePingResponse("other-fingerprint", "gui"))
+        var pingClient = new RecordingDaemonPingInfoClient(CreatePingResponse(ProjectFingerprintTestFactory.Create("other-fingerprint"), "gui"))
         {
             OnPingAndRead = () => pingObserved.TrySetResult(),
         };
@@ -421,7 +421,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
     }
 
     private static DaemonSession CreateGuiSession (
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         int processId,
         string sessionToken = "session-token",
         string editorMode = "gui",
@@ -436,7 +436,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
     }
 
     private static IpcPingResponse CreatePingResponse (
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         string editorMode)
     {
         return new IpcPingResponse(

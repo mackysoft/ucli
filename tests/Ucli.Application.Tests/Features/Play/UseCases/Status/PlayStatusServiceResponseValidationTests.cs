@@ -11,9 +11,10 @@ public sealed class PlayStatusServiceResponseValidationTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenResponseProjectFingerprintDiffers_ReturnsMismatchFailure ()
     {
+        var otherProjectFingerprint = ProjectFingerprintTestFactory.Create("other-project-fingerprint");
         var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(CreatePlaySession()));
         var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(CreateStatusResponse(
-            projectFingerprint: "other-project-fingerprint"))));
+            projectFingerprint: otherProjectFingerprint))));
         var service = CreateService(PlayProjectContext, sessionStore, requestExecutor);
 
         var result = await service.ExecuteAsync(new PlayStatusCommandInput(null, null), CancellationToken.None);
@@ -22,8 +23,8 @@ public sealed class PlayStatusServiceResponseValidationTests
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
         Assert.Contains("projectFingerprint mismatch", error.Message, StringComparison.Ordinal);
-        Assert.Contains("project-fingerprint", error.Message, StringComparison.Ordinal);
-        Assert.Contains("other-project-fingerprint", error.Message, StringComparison.Ordinal);
+        Assert.Contains(PlayProjectContext.UnityProject.ProjectFingerprint.ToString(), error.Message, StringComparison.Ordinal);
+        Assert.Contains(otherProjectFingerprint.ToString(), error.Message, StringComparison.Ordinal);
     }
 
     [Fact]

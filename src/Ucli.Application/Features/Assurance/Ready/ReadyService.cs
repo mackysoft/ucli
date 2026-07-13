@@ -335,7 +335,7 @@ internal sealed class ReadyService : IReadyService
         }
 
         var lifecycle = ReadyLifecycleOutputFactory.Create(pingResponse);
-        if (!string.Equals(pingResponse.ProjectFingerprint, context.UnityProject.ProjectFingerprint, StringComparison.Ordinal))
+        if (pingResponse.ProjectFingerprint != context.UnityProject.ProjectFingerprint)
         {
             return ReadyLifecycleProbeResult.FailureResult(ApplicationFailure.InternalError(
                 $"Unity ready ping projectFingerprint mismatch. Requested={context.UnityProject.ProjectFingerprint}, Actual={pingResponse.ProjectFingerprint}."));

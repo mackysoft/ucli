@@ -377,7 +377,7 @@ internal sealed class DaemonCompensationOperationOwner
 
     private readonly record struct OwnedOperationKey (
         string UnityProjectRoot,
-        string ProjectFingerprint,
+        ProjectFingerprint ProjectFingerprint,
         DaemonOperationLane Lane);
 
     private sealed class OwnedCompensation : IDisposable

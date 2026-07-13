@@ -63,13 +63,13 @@ internal static class PlayEnterServiceTestSupport
         string? blockingReason,
         bool canAcceptExecutionRequests,
         IpcPlayModeSnapshot playMode,
-        string projectFingerprint = "project-fingerprint")
+        ProjectFingerprint? projectFingerprint = null)
     {
         return new IpcPlayLifecycleSnapshot(
             ServerVersion: "0.5.0",
             EditorMode: "gui",
             UnityVersion: "6000.1.4f1",
-            ProjectFingerprint: projectFingerprint,
+            ProjectFingerprint: projectFingerprint ?? ProjectContextTestFactory.ProjectFingerprint,
             LifecycleState: lifecycleState,
             BlockingReason: blockingReason,
             CompileState: IpcCompileStateCodec.Ready,

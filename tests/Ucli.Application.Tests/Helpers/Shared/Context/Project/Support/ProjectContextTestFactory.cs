@@ -5,7 +5,7 @@ namespace MackySoft.Ucli.Application.Tests;
 
 internal static class ProjectContextTestFactory
 {
-    public const string ProjectFingerprint = "project-fingerprint";
+    public static readonly ProjectFingerprint ProjectFingerprint = ProjectFingerprintTestFactory.Create("project-fingerprint");
 
     public const string RepositoryRoot = "/workspace";
 
@@ -33,7 +33,7 @@ internal static class ProjectContextTestFactory
         UcliConfig? config = null,
         string unityProjectRoot = UnityProjectRoot,
         string repositoryRoot = RepositoryRoot,
-        string projectFingerprint = ProjectFingerprint,
+        ProjectFingerprint? projectFingerprint = null,
         UnityProjectPathSource pathSource = UnityProjectPathSource.CommandOption,
         string? pathSourceLabel = PathSourceLabel,
         string unityVersion = UnityVersion,
@@ -53,7 +53,7 @@ internal static class ProjectContextTestFactory
 
     public static ProjectContext CreateRepositoryFixtureProject (
         UcliConfig? config = null,
-        string projectFingerprint = ProjectFingerprint,
+        ProjectFingerprint? projectFingerprint = null,
         UnityProjectPathSource pathSource = UnityProjectPathSource.CommandOption,
         string? pathSourceLabel = null,
         string unityVersion = UnityVersion,
@@ -71,7 +71,7 @@ internal static class ProjectContextTestFactory
 
     public static ProjectContext CreateSingleRootProject (
         UcliConfig? config = null,
-        string projectFingerprint = ProjectFingerprint,
+        ProjectFingerprint? projectFingerprint = null,
         string? pathSourceLabel = null,
         string unityVersion = UnityVersion,
         ConfigSource configSource = ConfigSource.Default)
@@ -87,7 +87,7 @@ internal static class ProjectContextTestFactory
 
     public static ProjectContext CreateTemporaryFixtureProject (
         UcliConfig? config = null,
-        string projectFingerprint = ProjectFingerprint,
+        ProjectFingerprint? projectFingerprint = null,
         UnityProjectPathSource pathSource = UnityProjectPathSource.CommandOption,
         string? pathSourceLabel = null,
         string unityVersion = UnityVersion,
@@ -106,7 +106,7 @@ internal static class ProjectContextTestFactory
     public static ResolvedUnityProjectContext CreateUnityProject (
         string unityProjectRoot = UnityProjectRoot,
         string repositoryRoot = RepositoryRoot,
-        string projectFingerprint = ProjectFingerprint,
+        ProjectFingerprint? projectFingerprint = null,
         UnityProjectPathSource pathSource = UnityProjectPathSource.CommandOption,
         string? pathSourceLabel = PathSourceLabel,
         string unityVersion = UnityVersion)
@@ -114,14 +114,14 @@ internal static class ProjectContextTestFactory
         return new ResolvedUnityProjectContext(
             UnityProjectRoot: unityProjectRoot,
             RepositoryRoot: repositoryRoot,
-            ProjectFingerprint: projectFingerprint,
+            ProjectFingerprint: projectFingerprint ?? ProjectFingerprint,
             PathSource: pathSource,
             PathSourceLabel: pathSourceLabel,
             UnityVersion: unityVersion);
     }
 
     public static ResolvedUnityProjectContext CreateRepositoryFixtureUnityProject (
-        string projectFingerprint = ProjectFingerprint,
+        ProjectFingerprint? projectFingerprint = null,
         UnityProjectPathSource pathSource = UnityProjectPathSource.CommandOption,
         string? pathSourceLabel = null,
         string unityVersion = UnityVersion)
@@ -136,7 +136,7 @@ internal static class ProjectContextTestFactory
     }
 
     public static ResolvedUnityProjectContext CreateTemporaryFixtureUnityProject (
-        string projectFingerprint = ProjectFingerprint,
+        ProjectFingerprint? projectFingerprint = null,
         UnityProjectPathSource pathSource = UnityProjectPathSource.CommandOption,
         string? pathSourceLabel = null,
         string unityVersion = UnityVersion)
@@ -151,7 +151,7 @@ internal static class ProjectContextTestFactory
     }
 
     public static ResolvedUnityProjectContext CreateSingleRootUnityProject (
-        string projectFingerprint = ProjectFingerprint,
+        ProjectFingerprint? projectFingerprint = null,
         UnityProjectPathSource pathSource = UnityProjectPathSource.CommandOption,
         string? pathSourceLabel = null,
         string unityVersion = UnityVersion)
@@ -168,7 +168,7 @@ internal static class ProjectContextTestFactory
     public static ResolvedUnityProjectContext CreateUnknownVersionUnityProject (
         string unityProjectRoot = RepositoryFixtureUnityProjectRoot,
         string repositoryRoot = RepositoryFixtureRoot,
-        string projectFingerprint = ProjectFingerprint,
+        ProjectFingerprint? projectFingerprint = null,
         UnityProjectPathSource pathSource = UnityProjectPathSource.CommandOption,
         string? pathSourceLabel = null)
     {
@@ -182,7 +182,7 @@ internal static class ProjectContextTestFactory
     }
 
     public static ResolvedUnityProjectContext CreateDaemonLifecycleUnityProject (
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         UnityProjectPathSource pathSource = UnityProjectPathSource.CommandOption)
     {
         return CreateUnityProject(
@@ -195,13 +195,13 @@ internal static class ProjectContextTestFactory
 
     public static ProjectContext CreateDaemonLifecycleProject (
         UcliConfig? config = null,
-        string projectFingerprint = ProjectFingerprint,
+        ProjectFingerprint? projectFingerprint = null,
         UnityProjectPathSource pathSource = UnityProjectPathSource.CommandOption,
         ConfigSource configSource = ConfigSource.Default)
     {
         return new ProjectContext(
             CreateDaemonLifecycleUnityProject(
-                projectFingerprint: projectFingerprint,
+                projectFingerprint: projectFingerprint ?? ProjectFingerprint,
                 pathSource: pathSource),
             config ?? UcliConfig.CreateDefault(),
             configSource);

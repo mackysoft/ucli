@@ -22,7 +22,7 @@ public sealed class DaemonStartOperationLifecycleLockTests
             lifecycleLockProvider: lockProvider);
 
         var result = await operation.StartAsync(
-            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-start-lock-timeout"),
+            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-start-lock-timeout")),
             TimeSpan.FromMilliseconds(500),
             editorMode: null,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
@@ -38,7 +38,7 @@ public sealed class DaemonStartOperationLifecycleLockTests
     [Trait("Size", "Small")]
     public async Task Start_WhenWorkflowBegins_AcquiresLifecycleLockForUnityProjectRoot ()
     {
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-start-lock-context");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-start-lock-context"));
         var lockProvider = new StubProjectLifecycleLockProvider();
         var operation = CreateOperation(
             daemonSessionStore: new RecordingDaemonSessionStore(DaemonSessionReadResult.Missing()),

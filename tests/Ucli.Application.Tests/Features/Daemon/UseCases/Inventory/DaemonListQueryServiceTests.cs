@@ -35,12 +35,12 @@ public sealed class DaemonListQueryServiceTests
         {
             ReadAsyncHandler = (_, projectFingerprint, _) => ValueTask.FromResult(projectFingerprint switch
             {
-                "fp-current" => DaemonSessionReadResult.Missing(),
-                "fp-a" => DaemonSessionReadResultTestFactory.Found(DaemonSessionTestFactory.Create(
+                _ when projectFingerprint == currentProject.ProjectFingerprint => DaemonSessionReadResult.Missing(),
+                _ when projectFingerprint == worktreeA.ProjectFingerprint => DaemonSessionReadResultTestFactory.Found(DaemonSessionTestFactory.Create(
                     projectFingerprint: projectFingerprint,
                     endpointAddress: "endpoint-a",
                     processId: 1001)),
-                "fp-b" => DaemonSessionReadResultTestFactory.Found(DaemonSessionTestFactory.Create(
+                _ when projectFingerprint == worktreeB.ProjectFingerprint => DaemonSessionReadResultTestFactory.Found(DaemonSessionTestFactory.Create(
                     projectFingerprint: projectFingerprint,
                     endpointAddress: "endpoint-b",
                     processId: 1002)),
@@ -70,7 +70,7 @@ public sealed class DaemonListQueryServiceTests
                 BranchRef: null,
                 Head: "aaaaaaaa",
                 ProjectPath: worktreeA.UnityProjectRoot,
-                ProjectFingerprint: "fp-a",
+                ProjectFingerprint: ProjectFingerprintTestFactory.Create("fp-a"),
                 ProcessId: 1001,
                 EditorMode: "batchmode",
                 OwnerKind: "cli",
@@ -81,7 +81,7 @@ public sealed class DaemonListQueryServiceTests
                 BranchRef: "refs/heads/feature/worktree-b",
                 Head: "bbbbbbbb",
                 ProjectPath: worktreeB.UnityProjectRoot,
-                ProjectFingerprint: "fp-b",
+                ProjectFingerprint: ProjectFingerprintTestFactory.Create("fp-b"),
                 ProcessId: 1002,
                 EditorMode: "batchmode",
                 OwnerKind: "cli",
@@ -97,7 +97,7 @@ public sealed class DaemonListQueryServiceTests
     {
         var currentProject = CreateUnityProject("/repo/wt-current", "UnityProject", "fp-current");
         var session = DaemonSessionTestFactory.Create(
-            projectFingerprint: "fp-current",
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fp-current"),
             endpointAddress: "endpoint-gui",
             processId: 3101,
             editorMode: "gui",

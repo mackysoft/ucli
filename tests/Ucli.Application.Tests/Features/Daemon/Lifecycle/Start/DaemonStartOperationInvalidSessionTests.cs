@@ -13,7 +13,7 @@ public sealed class DaemonStartOperationInvalidSessionTests
     [Trait("Size", "Small")]
     public async Task Start_WhenSessionReadReturnsInvalidSession_CleansArtifactsThenStartsFreshDaemon ()
     {
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-start-invalid-session");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-start-invalid-session"));
         var readResult = DaemonSessionReadResultTestFactory.Invalid();
         var sessionStore = new RecordingDaemonSessionStore(readResult);
         var cleanupService = new RecordingDaemonSessionCleanupService
@@ -52,7 +52,7 @@ public sealed class DaemonStartOperationInvalidSessionTests
     [Trait("Size", "Small")]
     public async Task Start_WhenSessionReadReturnsInvalidSessionAndCleanupFails_ReturnsFailureWithoutLaunch ()
     {
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-start-invalid-session-failure");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-start-invalid-session-failure"));
         var readResult = DaemonSessionReadResultTestFactory.Invalid();
         var expectedError = ExecutionError.InternalError("cleanup failed");
         var sessionStore = new RecordingDaemonSessionStore(readResult);
@@ -92,7 +92,7 @@ public sealed class DaemonStartOperationInvalidSessionTests
     [Trait("Size", "Small")]
     public async Task Start_WhenInvalidEvidencePointsToLiveProcess_ReturnsFailureWithoutTerminationOrLaunch ()
     {
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-start-invalid-legacy-live");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-start-invalid-legacy-live"));
         var readResult = DaemonSessionReadResultTestFactory.Invalid(
             DaemonInvalidSessionEvidenceTestFactory.Create(
                 projectFingerprint: context.ProjectFingerprint,
@@ -163,7 +163,7 @@ public sealed class DaemonStartOperationInvalidSessionTests
             daemonLaunchService: launchService);
 
         var result = await operation.StartAsync(
-            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-start-path-invalid"),
+            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-start-path-invalid")),
             TimeSpan.FromMilliseconds(500),
             editorMode: null,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,

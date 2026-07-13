@@ -48,10 +48,7 @@ internal sealed class DaemonLaunchCompensationService : IDaemonLaunchCompensatio
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         if (expectedSession is not null
-            && !string.Equals(
-                expectedSession.ProjectFingerprint,
-                unityProject.ProjectFingerprint,
-                StringComparison.Ordinal))
+            && expectedSession.ProjectFingerprint != unityProject.ProjectFingerprint)
         {
             return DaemonSessionStoreOperationResult.Failure(ExecutionError.InvalidArgument(
                 "Expected failed-launch session projectFingerprint does not match the compensation target."));

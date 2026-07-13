@@ -8,7 +8,7 @@ internal static class DaemonGuiEditorAttachServiceTestSupport
     public static readonly DateTimeOffset ProbeProcessStartedAtUtc = new(2026, 5, 9, 0, 0, 0, TimeSpan.Zero);
 
     public static readonly ResolvedUnityProjectContext UnityProject = ProjectContextTestFactory.CreateRepositoryFixtureUnityProject(
-        projectFingerprint: "fingerprint");
+        projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"));
 
     public static UnityEditorInstanceMarker CreateMarker ()
     {
@@ -24,7 +24,7 @@ internal static class DaemonGuiEditorAttachServiceTestSupport
     {
         return DaemonSessionTestFactory.Create(
             sessionToken: "session-token",
-            projectFingerprint: "fingerprint",
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"),
             issuedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 2, 0, TimeSpan.Zero),
             editorMode: "gui",
             ownerKind: "user",

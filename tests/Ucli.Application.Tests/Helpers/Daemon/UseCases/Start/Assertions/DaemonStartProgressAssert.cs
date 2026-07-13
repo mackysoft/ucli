@@ -4,7 +4,7 @@ internal static class DaemonStartProgressAssert
 {
     public static void BatchmodeStartCompletedSuccessfully (
         CollectingCommandProgressSink progressSink,
-        string expectedProjectFingerprint,
+        ProjectFingerprint expectedProjectFingerprint,
         int expectedTimeoutMilliseconds)
     {
         var startedEntry = Assert.IsType<DaemonStartProgressEntry>(progressSink.Entries[0].Payload);

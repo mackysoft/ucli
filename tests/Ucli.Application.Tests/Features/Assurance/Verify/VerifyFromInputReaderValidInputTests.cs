@@ -37,12 +37,12 @@ public sealed class VerifyFromInputReaderValidInputTests
                 }
                 """,
                 command),
-            "project-fingerprint");
+            DefaultProjectFingerprint);
 
         Assert.True(result.IsSuccess);
         var input = result.Input!;
         Assert.Equal(command, input.Command);
-        Assert.Equal("project-fingerprint", input.ProjectFingerprint);
+        Assert.Equal(DefaultProjectFingerprint, input.ProjectFingerprint);
         Assert.Equal(1, input.ReadPostconditionRequirementCount);
         var opResult = Assert.Single(input.OpResults);
         Assert.Equal("op-1", opResult.OpId);
@@ -86,7 +86,7 @@ public sealed class VerifyFromInputReaderValidInputTests
                   ]
                 }
                 """),
-            "project-fingerprint");
+            DefaultProjectFingerprint);
 
         Assert.True(result.IsSuccess);
         var input = result.Input!;
@@ -104,8 +104,9 @@ public sealed class VerifyFromInputReaderValidInputTests
     [Trait("Size", "Small")]
     public void Read_WithNoOpInput_ReturnsNormalizedInput ()
     {
+        var projectFingerprintText = DefaultProjectFingerprint.ToString();
         var result = VerifyFromInputReader.Read(
-            """
+            $$"""
             {
               "protocolVersion": 1,
               "status": "ok",
@@ -113,7 +114,7 @@ public sealed class VerifyFromInputReaderValidInputTests
               "command": "call",
               "payload": {
                 "project": {
-                  "projectFingerprint": "project-fingerprint"
+                  "projectFingerprint": "{{projectFingerprintText}}"
                 },
                 "opResults": [],
                 "postReadSource": {
@@ -124,7 +125,7 @@ public sealed class VerifyFromInputReaderValidInputTests
               "errors": []
             }
             """,
-            "project-fingerprint");
+            DefaultProjectFingerprint);
 
         Assert.True(result.IsSuccess);
         Assert.Empty(result.Input!.OpResults);
