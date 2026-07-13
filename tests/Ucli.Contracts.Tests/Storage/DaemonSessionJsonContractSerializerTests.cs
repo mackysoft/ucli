@@ -66,6 +66,32 @@ public sealed class DaemonSessionJsonContractSerializerTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Deserialize_WhenCanShutdownProcessIsMissing_ThrowsJsonException ()
+    {
+        const string Json = """
+            {
+              "schemaVersion": 2,
+              "sessionToken": "token-123",
+              "projectFingerprint": "fingerprint-abc",
+              "issuedAtUtc": "2026-03-02T00:00:00+00:00",
+              "editorMode": "gui",
+              "ownerKind": "user",
+              "endpointTransportKind": "namedPipe",
+              "endpointAddress": "ucli-daemon-endpoint",
+              "processId": null,
+              "processStartedAtUtc": null,
+              "ownerProcessId": 5678
+            }
+            """;
+
+        var exception = Assert.Throws<JsonException>(() =>
+            DaemonSessionJsonContractSerializer.Deserialize(Json));
+
+        Assert.Contains("canShutdownProcess", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Serialize_WithContract_WritesCamelCaseFields ()
     {
         var contract = new DaemonSessionJsonContract(

@@ -22,7 +22,7 @@ internal sealed record DaemonSessionJsonContract (
     DateTimeOffset IssuedAtUtc,
     string? EditorMode,
     string? OwnerKind,
-    bool CanShutdownProcess,
+    [property: JsonRequired] bool CanShutdownProcess,
     string? EndpointTransportKind,
     string? EndpointAddress,
     int? ProcessId,
