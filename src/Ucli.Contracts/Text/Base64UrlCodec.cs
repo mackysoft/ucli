@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace MackySoft.Ucli.Contracts.Text;
 
 /// <summary> Encodes and decodes unpadded base64url text values. </summary>
@@ -28,8 +30,8 @@ internal static class Base64UrlCodec
             .Replace('/', '_');
     }
 
-    /// <summary> Attempts to decode one unpadded base64url text into bytes. </summary>
-    /// <param name="text"> The base64url text. </param>
+    /// <summary> Attempts to decode canonical unpadded base64url text into bytes. </summary>
+    /// <param name="text"> The base64url text without padding or outer whitespace. </param>
     /// <param name="bytes"> The decoded bytes. </param>
     /// <returns> <see langword="true" /> when decode succeeds; otherwise <see langword="false" />. </returns>
     public static bool TryDecode (
@@ -37,38 +39,94 @@ internal static class Base64UrlCodec
         out byte[] bytes)
     {
         bytes = Array.Empty<byte>();
-
-        if (!StringValueNormalizer.TryTrimToNonEmpty(text, out var normalized))
+        if (!IsCanonical(text))
         {
             return false;
         }
 
-        var base64 = normalized
-            .Replace('-', '+')
-            .Replace('_', '/');
+        var remainder = text.Length % 4;
+        var paddingLength = remainder == 0 ? 0 : 4 - remainder;
+        var base64 = new char[text.Length + paddingLength];
+        for (var index = 0; index < text.Length; index++)
+        {
+            base64[index] = text[index] switch
+            {
+                '-' => '+',
+                '_' => '/',
+                _ => text[index],
+            };
+        }
 
-        var padding = base64.Length % 4;
-        if (padding == 2)
+        for (var index = text.Length; index < base64.Length; index++)
         {
-            base64 += "==";
-        }
-        else if (padding == 3)
-        {
-            base64 += "=";
-        }
-        else if (padding != 0)
-        {
-            return false;
+            base64[index] = '=';
         }
 
         try
         {
-            bytes = Convert.FromBase64String(base64);
+            bytes = Convert.FromBase64CharArray(base64, 0, base64.Length);
             return true;
         }
         catch (FormatException)
         {
             return false;
         }
+    }
+
+    /// <summary> Determines whether text is canonical unpadded base64url without allocating a decode buffer. </summary>
+    /// <param name="text"> The candidate base64url text. </param>
+    /// <returns> <see langword="true" /> when the text uses the base64url alphabet and has zero unused trailing bits; otherwise <see langword="false" />. </returns>
+    public static bool IsCanonical ([NotNullWhen(true)] string? text)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            return false;
+        }
+
+        var remainder = text.Length % 4;
+        if (remainder == 1)
+        {
+            return false;
+        }
+
+        var lastValue = 0;
+        for (var index = 0; index < text.Length; index++)
+        {
+            var value = GetBase64UrlValue(text[index]);
+            if (value < 0)
+            {
+                return false;
+            }
+
+            lastValue = value;
+        }
+
+        return (remainder != 2 || (lastValue & 0x0F) == 0)
+            && (remainder != 3 || (lastValue & 0x03) == 0);
+    }
+
+    private static int GetBase64UrlValue (char character)
+    {
+        if (character >= 'A' && character <= 'Z')
+        {
+            return character - 'A';
+        }
+
+        if (character >= 'a' && character <= 'z')
+        {
+            return character - 'a' + 26;
+        }
+
+        if (character >= '0' && character <= '9')
+        {
+            return character - '0' + 52;
+        }
+
+        return character switch
+        {
+            '-' => 62,
+            '_' => 63,
+            _ => -1,
+        };
     }
 }

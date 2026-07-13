@@ -63,26 +63,8 @@ internal sealed class IpcSessionToken : IEquatable<IpcSessionToken>
     /// <returns> <see langword="true" /> when the value is exactly 43 unpadded canonical base64url characters; otherwise <see langword="false" />. </returns>
     internal static bool IsValidEncodedValue ([NotNullWhen(true)] string? value)
     {
-        if (value == null || value.Length != EncodedCharacterCount)
-        {
-            return false;
-        }
-
-        for (var i = 0; i < value.Length; i++)
-        {
-            var alphabetIndex = GetBase64UrlAlphabetIndex(value[i]);
-            if (alphabetIndex < 0)
-            {
-                return false;
-            }
-
-            if (i == EncodedCharacterCount - 1 && (alphabetIndex & 0b11) != 0)
-            {
-                return false;
-            }
-        }
-
-        return true;
+        return value is { Length: EncodedCharacterCount }
+            && Base64UrlCodec.IsCanonical(value);
     }
 
     /// <summary> Compares a presented encoded value with this token without allocating comparison buffers. </summary>
@@ -147,16 +129,4 @@ internal sealed class IpcSessionToken : IEquatable<IpcSessionToken>
             MemoryMarshal.AsBytes(right.AsSpan()));
     }
 
-    private static int GetBase64UrlAlphabetIndex (char character)
-    {
-        return character switch
-        {
-            >= 'A' and <= 'Z' => character - 'A',
-            >= 'a' and <= 'z' => character - 'a' + 26,
-            >= '0' and <= '9' => character - '0' + 52,
-            '-' => 62,
-            '_' => 63,
-            _ => -1,
-        };
-    }
 }
