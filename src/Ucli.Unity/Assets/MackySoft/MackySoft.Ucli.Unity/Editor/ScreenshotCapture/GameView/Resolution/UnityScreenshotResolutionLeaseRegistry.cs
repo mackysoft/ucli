@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using UnityEditor;
+using MackySoft.Ucli.Unity.Runtime;
 
 namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView.Resolution
 {
@@ -12,9 +12,6 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView.Resolution
         internal const string LabelPrefix = "__ucli_screenshot_temp__";
 
         private const int LabelTokenLength = 16;
-
-        private const string SessionStateKey =
-            "MackySoft.Ucli.ScreenshotCapture.TemporaryGameViewResolutions";
 
         /// <summary> Creates one exact, fixed-length ownership label accepted by orphan cleanup. </summary>
         public static string CreateLabel ()
@@ -57,7 +54,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView.Resolution
             var next = entries.Concat(new[] { ownedResolution })
                 .OrderBy(entry => entry.Label, StringComparer.Ordinal)
                 .ToArray();
-            SessionState.SetString(SessionStateKey, Serialize(next));
+            UnityEditorSessionStateStore.PersistScreenshotResolutionLeaseRegistry(Serialize(next));
         }
 
         /// <summary> Removes one ownership marker after the corresponding entry is proven absent. </summary>
@@ -77,7 +74,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView.Resolution
             var next = entries
                 .Where(entry => !string.Equals(entry.Label, label, StringComparison.Ordinal))
                 .ToArray();
-            SessionState.SetString(SessionStateKey, Serialize(next));
+            UnityEditorSessionStateStore.PersistScreenshotResolutionLeaseRegistry(Serialize(next));
             errorMessage = null;
             return true;
         }
@@ -87,7 +84,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView.Resolution
             out IReadOnlyList<OwnedResolution> entries,
             out string errorMessage)
         {
-            var serialized = SessionState.GetString(SessionStateKey, string.Empty);
+            var serialized = UnityEditorSessionStateStore.RestoreScreenshotResolutionLeaseRegistry();
             if (string.IsNullOrEmpty(serialized))
             {
                 entries = Array.Empty<OwnedResolution>();
@@ -158,7 +155,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView.Resolution
 
         internal static void ClearForTests ()
         {
-            SessionState.EraseString(SessionStateKey);
+            UnityEditorSessionStateStore.ClearScreenshotResolutionLeaseRegistryForTests();
         }
 
         private static string Serialize (IReadOnlyList<OwnedResolution> entries)

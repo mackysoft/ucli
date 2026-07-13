@@ -1,7 +1,6 @@
 using MackySoft.Ucli.Contracts.Ipc;
-using UnityEditor;
-
 using MackySoft.Ucli.Contracts.Text;
+using UnityEditor;
 
 namespace MackySoft.Ucli.Unity.Runtime
 {
@@ -16,6 +15,8 @@ namespace MackySoft.Ucli.Unity.Runtime
         private const string PlayModeGenerationKey = "MackySoft.Ucli.Unity.Ipc.PlayModeGeneration";
         private const string PlayModeStableStateKey = "MackySoft.Ucli.Unity.Ipc.PlayModeStableState";
         private const string EditorInstanceIdKey = "MackySoft.Ucli.Unity.Runtime.EditorInstanceId";
+        private const string ScreenshotResolutionLeaseRegistryKey =
+            "MackySoft.Ucli.ScreenshotCapture.TemporaryGameViewResolutions";
 
         /// <summary> Gets the current Unity Editor process instance identifier. </summary>
         /// <returns> A non-empty identifier that remains stable until the Editor process exits. </returns>
@@ -142,6 +143,24 @@ namespace MackySoft.Ucli.Unity.Runtime
             }
 
             SetPlayModeStableState(state.Value);
+        }
+
+        /// <summary> Restores the serialized screenshot resolution lease registry. </summary>
+        public static string RestoreScreenshotResolutionLeaseRegistry ()
+        {
+            return SessionState.GetString(ScreenshotResolutionLeaseRegistryKey, string.Empty);
+        }
+
+        /// <summary> Persists the serialized screenshot resolution lease registry. </summary>
+        public static void PersistScreenshotResolutionLeaseRegistry (string serializedRegistry)
+        {
+            SessionState.SetString(ScreenshotResolutionLeaseRegistryKey, serializedRegistry ?? string.Empty);
+        }
+
+        /// <summary> Clears the screenshot resolution lease registry for tests. </summary>
+        internal static void ClearScreenshotResolutionLeaseRegistryForTests ()
+        {
+            SessionState.EraseString(ScreenshotResolutionLeaseRegistryKey);
         }
 
         private static int AdvanceGeneration (
