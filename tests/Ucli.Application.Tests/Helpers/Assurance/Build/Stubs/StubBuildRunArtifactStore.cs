@@ -33,10 +33,11 @@ internal sealed class StubBuildRunArtifactStore : IBuildRunArtifactStore
 
     public BuildRunArtifactPreparationResult Prepare (
         ResolvedUnityProjectContext unityProject,
-        string runId)
+        Guid runId)
     {
-        var runDirectory = Path.Combine(rootPath, runId);
-        var runnerOutputDirectory = Path.Combine(rootPath, "work", runId, "output");
+        var runIdText = runId.ToString("D");
+        var runDirectory = Path.Combine(rootPath, runIdText);
+        var runnerOutputDirectory = Path.Combine(rootPath, "work", runIdText, "output");
         var artifactOutputDirectory = Path.Combine(runDirectory, "output");
         Directory.CreateDirectory(runnerOutputDirectory);
         PreparedPaths = new BuildRunArtifactPaths(

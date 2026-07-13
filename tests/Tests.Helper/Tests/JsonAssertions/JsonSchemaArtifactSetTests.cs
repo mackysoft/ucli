@@ -86,6 +86,31 @@ public sealed class JsonSchemaArtifactSetTests
         Assert.NotEmpty(schemaSet.Validate("root.schema.json", invalidDocument.RootElement));
     }
 
+    [Fact]
+    [Trait("Size", "Medium")]
+    public void Validate_WithUuidFormat_RequiresDFormatGuid ()
+    {
+        using var scope = TestDirectories.CreateTempScope("json-schema-artifact-set", "uuid-format");
+        WriteManifest(scope, "root.schema.json");
+        scope.WriteFile(
+            "root.schema.json",
+            """
+            {
+              "$schema": "https://json-schema.org/draft/2020-12/schema",
+              "$id": "https://schemas.mackysoft.dev/ucli/v1/root.schema.json",
+              "type": "string",
+              "format": "uuid"
+            }
+            """);
+        using var validDocument = JsonDocument.Parse("\"32c8976c-42f2-4e42-a857-3cba1241a7de\"");
+        using var invalidDocument = JsonDocument.Parse("\"32c8976c42f24e42a8573cba1241a7de\"");
+
+        using var schemaSet = JsonSchemaArtifactSet.Load(scope.FullPath);
+
+        Assert.Empty(schemaSet.Validate("root.schema.json", validDocument.RootElement));
+        Assert.NotEmpty(schemaSet.Validate("root.schema.json", invalidDocument.RootElement));
+    }
+
     private static void WriteManifest (
         TestDirectoryScope scope,
         string schemaPath)

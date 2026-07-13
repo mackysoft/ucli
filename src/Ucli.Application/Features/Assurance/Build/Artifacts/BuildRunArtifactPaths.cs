@@ -12,7 +12,7 @@ namespace MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
 /// <param name="ArtifactOutputDirectory"> The absolute artifact-store output root path. </param>
 internal sealed record BuildRunArtifactPaths (
     string RepositoryRoot,
-    string RunId,
+    Guid RunId,
     string ArtifactsDirectory,
     string BuildJsonPath,
     string BuildReportJsonPath,

@@ -2,7 +2,7 @@ namespace MackySoft.Ucli.Contracts.Assurance;
 
 /// <summary> Represents the <c>compile.completed</c> stream payload. </summary>
 public sealed record CompileCompletedEntry (
-    string RunId,
+    Guid RunId,
     string Verdict,
     int ErrorCount,
     int WarningCount,

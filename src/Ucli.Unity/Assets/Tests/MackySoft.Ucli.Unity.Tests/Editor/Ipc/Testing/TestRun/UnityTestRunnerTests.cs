@@ -18,12 +18,14 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class UnityTestRunnerTests
     {
+        private static readonly Guid RunId = Guid.Parse("00000000-0000-0000-0000-000000000609");
+
         [Test]
         [Category("Size.Small")]
         public void CreateExecutionSettings_WhenEditModeRequest_DoesNotEnableSynchronousRun ()
         {
             var requestContext = new UnityTestRunRequestContext(
-                RunId: "run-id",
+                RunId: RunId,
                 TestPlatform: "editmode",
                 TestMode: UnityTestMode.EditMode,
                 TargetPlatform: null,
@@ -288,7 +290,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public void CreateExecutionSettings_WhenPlayerTargetRequest_SetsTargetPlatform ()
         {
             var requestContext = new UnityTestRunRequestContext(
-                RunId: "run-id",
+                RunId: RunId,
                 TestPlatform: "Android",
                 TestMode: UnityTestMode.PlayMode,
                 TargetPlatform: BuildTarget.Android,
@@ -322,7 +324,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 ResultsXmlPath: "results.xml",
                 EditorLogPath: "editor.log",
                 FailFast: false,
-                RunId: "run-id");
+                RunId: RunId);
 
             var context = factory.Create(request);
 
@@ -333,7 +335,7 @@ namespace MackySoft.Ucli.Unity.Tests
         private static UnityTestRunRequestContext CreateRequestContext ()
         {
             return new UnityTestRunRequestContext(
-                RunId: "run-id",
+                RunId: RunId,
                 TestPlatform: "editmode",
                 TestMode: UnityTestMode.EditMode,
                 TargetPlatform: null,

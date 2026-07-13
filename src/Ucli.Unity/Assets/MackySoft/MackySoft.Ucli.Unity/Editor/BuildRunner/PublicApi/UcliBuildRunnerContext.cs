@@ -11,7 +11,7 @@ namespace MackySoft.Ucli.Unity
     {
         /// <summary> Initializes a new instance of the <see cref="UcliBuildRunnerContext" /> class. </summary>
         internal UcliBuildRunnerContext (
-            string runId,
+            Guid runId,
             string projectPath,
             ProjectFingerprint projectFingerprint,
             string outputDir,
@@ -24,7 +24,12 @@ namespace MackySoft.Ucli.Unity
             IReadOnlyDictionary<string, string> environmentVariables,
             IReadOnlyDictionary<string, string> environmentSecrets)
         {
-            RunId = RequireValue(runId, nameof(runId));
+            if (runId == Guid.Empty)
+            {
+                throw new ArgumentException("runId must not be empty.", nameof(runId));
+            }
+
+            RunId = runId;
             ProjectPath = RequireValue(projectPath, nameof(projectPath));
             ProjectFingerprint = projectFingerprint ?? throw new ArgumentNullException(nameof(projectFingerprint));
             OutputDir = RequireValue(outputDir, nameof(outputDir));
@@ -41,7 +46,7 @@ namespace MackySoft.Ucli.Unity
         public static UcliBuildRunnerContext? Current { get; internal set; }
 
         /// <summary> Gets the uCLI build run identifier. </summary>
-        public string RunId { get; }
+        public Guid RunId { get; }
 
         /// <summary> Gets the absolute Unity project root path. </summary>
         public string ProjectPath { get; }

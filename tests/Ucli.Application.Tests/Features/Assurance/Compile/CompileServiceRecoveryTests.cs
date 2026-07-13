@@ -21,7 +21,7 @@ public sealed class CompileServiceRecoveryTests
                 UnityRequestFailureKind.General,
                 ExecutionErrorCodes.IpcTimeout,
                 "Unity compile request timed out."))),
-            artifactStore: new StubCompileRunArtifactStore(CompileRunArtifactReadResult.Success(CreateSummary(runId: "other-run"))));
+            artifactStore: new StubCompileRunArtifactStore(CompileRunArtifactReadResult.Success(CreateSummary(runId: OtherRunId))));
 
         var result = await service.ExecuteAsync(new CompileCommandInput(
             ProjectPath: null,
@@ -38,7 +38,7 @@ public sealed class CompileServiceRecoveryTests
     [Trait("Size", "Small")]
     public async Task Execute_WithCompileResponseMissingSummary_ReturnsCommandFailure ()
     {
-        using var document = JsonDocument.Parse("""{"runId":"run-1","summary":null}""");
+        using var document = JsonDocument.Parse($$"""{"runId":"{{RunId:D}}","summary":null}""");
         var payload = document.RootElement.Clone();
         var service = CreateService(
             unityRequestExecutor: new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(new UnityRequestResponse(

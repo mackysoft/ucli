@@ -32,7 +32,7 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class BuildRunUnityIpcMethodHandlerTests
     {
-        private const string RunId = "build-run-1";
+        private static readonly Guid RunId = Guid.Parse("00000000-0000-0000-0000-000000000603");
         private const string ExecuteMethodTypeName = "MackySoft.Ucli.Unity.Tests.BuildRunUnityIpcMethodHandlerTests";
 
         private static readonly ProjectFingerprint ProjectFingerprint =

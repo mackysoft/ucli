@@ -1,8 +1,7 @@
 using System.ComponentModel;
-using System.Globalization;
-using System.Security.Cryptography;
 using MackySoft.Ucli.Application.Features.Testing.Run.Artifacts;
 using MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
+using MackySoft.Ucli.Application.Shared.Execution;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Infrastructure.Execution;
@@ -14,23 +13,24 @@ namespace MackySoft.Ucli.Features.Testing.Run.Artifacts;
 /// <summary> Implements run-scoped artifact path preparation and metadata lifecycle updates. </summary>
 internal sealed class TestRunArtifactsService : ITestRunArtifactsService
 {
-    private const int MaxRunIdGenerationAttempts = 5;
-
-    private const string RunIdTimestampFormat = "yyyyMMdd_HHmmss'Z'";
-
     private readonly ITestRunMetaStore metaStore;
+
+    private readonly IRunIdGenerator runIdGenerator;
 
     private readonly TimeProvider timeProvider;
 
     /// <summary> Initializes a new instance of the <see cref="TestRunArtifactsService" /> class. </summary>
     /// <param name="metaStore"> The metadata store dependency. </param>
+    /// <param name="runIdGenerator"> The run identifier generator. </param>
     /// <param name="timeProvider"> The time provider used for metadata timestamps. </param>
     public TestRunArtifactsService (
         ITestRunMetaStore metaStore,
-        TimeProvider? timeProvider = null)
+        IRunIdGenerator runIdGenerator,
+        TimeProvider timeProvider)
     {
         this.metaStore = metaStore ?? throw new ArgumentNullException(nameof(metaStore));
-        this.timeProvider = timeProvider ?? TimeProvider.System;
+        this.runIdGenerator = runIdGenerator ?? throw new ArgumentNullException(nameof(runIdGenerator));
+        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
     /// <summary> Prepares one run-scoped artifact directory and writes initial <c>meta.json</c>. </summary>
@@ -45,75 +45,65 @@ internal sealed class TestRunArtifactsService : ITestRunArtifactsService
         ArgumentNullException.ThrowIfNull(configuration);
 
         var unityProject = configuration.UnityProject;
+        var startedAtUtc = timeProvider.GetUtcNow();
+        var runId = runIdGenerator.Generate();
 
-        // NOTE:
-        // runId may collide when runs are started in the same second.
-        // Retry bounded attempts to avoid sharing one artifact directory across runs.
-        for (var attempt = 0; attempt < MaxRunIdGenerationAttempts; attempt++)
+        string artifactsDir;
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            var startedAtUtc = timeProvider.GetUtcNow();
-            var runId = CreateRunId(startedAtUtc);
-
-            string artifactsDir;
-            try
-            {
-                artifactsDir = UcliStoragePathResolver.ResolveTestRunArtifactsDirectory(
-                    unityProject.RepositoryRoot,
-                    unityProject.ProjectFingerprint,
-                    runId);
-            }
-            catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-            {
-                return ArtifactsPreparationResult.Failure(ExecutionError.InvalidArgument(
-                    $"Artifacts path is invalid. {exception.Message}"));
-            }
-
-            if (Directory.Exists(artifactsDir))
-            {
-                continue;
-            }
-
-            try
-            {
-                FileSystemAccessBoundary.EnsureSecureDirectory(artifactsDir);
-            }
-            catch (Exception exception) when (exception is UnauthorizedAccessException or IOException)
-            {
-                return ArtifactsPreparationResult.Failure(ExecutionError.InternalError(
-                    $"Failed to create artifacts directory: {artifactsDir}. {exception.Message}"));
-            }
-
-            var artifactPaths = CreateArtifactPaths(artifactsDir);
-            var session = new ArtifactsSession(
-                RunId: runId,
-                Paths: artifactPaths,
-                StartedAtUtc: startedAtUtc);
-
-            try
-            {
-                await metaStore.WriteAsync(
-                    configuration,
-                    session,
-                    finishedAtUtc: startedAtUtc,
-                    cancellationToken).ConfigureAwait(false);
-            }
-            catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-            {
-                return ArtifactsPreparationResult.Failure(ExecutionError.InvalidArgument(
-                    $"Failed to write meta.json due to invalid path: {session.Paths.MetaJsonPath}. {exception.Message}"));
-            }
-            catch (Exception exception) when (exception is UnauthorizedAccessException or IOException)
-            {
-                return ArtifactsPreparationResult.Failure(ExecutionError.InternalError(
-                    $"Failed to write meta.json: {session.Paths.MetaJsonPath}. {exception.Message}"));
-            }
-
-            return ArtifactsPreparationResult.Success(session);
+            artifactsDir = UcliStoragePathResolver.ResolveTestRunArtifactsDirectory(
+                unityProject.RepositoryRoot,
+                unityProject.ProjectFingerprint,
+                runId);
+        }
+        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
+        {
+            return ArtifactsPreparationResult.Failure(ExecutionError.InvalidArgument(
+                $"Artifacts path is invalid. {exception.Message}"));
         }
 
-        return ArtifactsPreparationResult.Failure(ExecutionError.InternalError(
-            $"Failed to create unique artifacts directory after {MaxRunIdGenerationAttempts} attempts."));
+        if (File.Exists(artifactsDir) || Directory.Exists(artifactsDir))
+        {
+            return ArtifactsPreparationResult.Failure(ExecutionError.InternalError(
+                $"Test-run artifact directory already exists: {artifactsDir}."));
+        }
+
+        try
+        {
+            FileSystemAccessBoundary.EnsureSecureDirectory(artifactsDir);
+        }
+        catch (Exception exception) when (exception is UnauthorizedAccessException or IOException)
+        {
+            return ArtifactsPreparationResult.Failure(ExecutionError.InternalError(
+                $"Failed to create artifacts directory: {artifactsDir}. {exception.Message}"));
+        }
+
+        var artifactPaths = CreateArtifactPaths(artifactsDir);
+        var session = new ArtifactsSession(
+            RunId: runId,
+            Paths: artifactPaths,
+            StartedAtUtc: startedAtUtc);
+
+        try
+        {
+            await metaStore.WriteAsync(
+                configuration,
+                session,
+                finishedAtUtc: startedAtUtc,
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
+        {
+            return ArtifactsPreparationResult.Failure(ExecutionError.InvalidArgument(
+                $"Failed to write meta.json due to invalid path: {session.Paths.MetaJsonPath}. {exception.Message}"));
+        }
+        catch (Exception exception) when (exception is UnauthorizedAccessException or IOException)
+        {
+            return ArtifactsPreparationResult.Failure(ExecutionError.InternalError(
+                $"Failed to write meta.json: {session.Paths.MetaJsonPath}. {exception.Message}"));
+        }
+
+        return ArtifactsPreparationResult.Success(session);
     }
 
     private static ArtifactPaths CreateArtifactPaths (string artifactsDir)
@@ -214,12 +204,4 @@ internal sealed class TestRunArtifactsService : ITestRunArtifactsService
         }
     }
 
-    /// <summary> Creates one run identifier value. </summary>
-    /// <param name="utcNow"> The current UTC timestamp. </param>
-    /// <returns> The run identifier value. </returns>
-    private static string CreateRunId (DateTimeOffset utcNow)
-    {
-        var suffix = RandomNumberGenerator.GetHexString(8).ToLowerInvariant();
-        return $"{utcNow.ToString(RunIdTimestampFormat, CultureInfo.InvariantCulture)}_{suffix}";
-    }
 }

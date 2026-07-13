@@ -33,6 +33,20 @@ internal ref struct SpanTextWriter
         offset += value.Length;
     }
 
+    /// <summary> Appends one GUID using the canonical <c>D</c> format. </summary>
+    public void Append (Guid value)
+    {
+        if (!value.TryFormat(
+                destination.Slice(offset),
+                out var written,
+                "D"))
+        {
+            throw new InvalidOperationException("Text buffer is too small for GUID formatting.");
+        }
+
+        offset += written;
+    }
+
     /// <summary> Appends one integer using invariant-culture formatting. </summary>
     public void AppendInvariant (long value)
     {

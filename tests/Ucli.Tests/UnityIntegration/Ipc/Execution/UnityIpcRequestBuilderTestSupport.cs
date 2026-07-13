@@ -11,7 +11,7 @@ internal static class UnityIpcRequestBuilderTestSupport
         string runnerKind = "buildPipeline")
     {
         return new UnityRequestPayload.BuildRun(
-            RunId: "build-run-1",
+            RunId: RunIdTestValues.Build,
             InputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit),
             BuildTarget: "standaloneLinux64",
             UnityBuildTarget: "StandaloneLinux64",

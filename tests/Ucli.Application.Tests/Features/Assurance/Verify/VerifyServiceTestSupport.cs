@@ -16,6 +16,9 @@ namespace MackySoft.Ucli.Application.Tests.Features.Assurance.Verify;
 
 internal static class VerifyServiceTestSupport
 {
+    public static readonly Guid CompileRunId = Guid.Parse("34c0c330-8798-4ec1-87ae-3d0ae87fc715");
+    public static readonly Guid TestRunId = Guid.Parse("83ca6714-565c-4c9d-a3ca-44446393afca");
+
     public static VerifyService CreateService (
         string repositoryRoot,
         RecordingVerifyReadyService? readyService = null,
@@ -35,7 +38,7 @@ internal static class VerifyServiceTestSupport
             compileService ?? new RecordingVerifyCompileService(_ => CreateCompileResult(project)),
             testRunService ?? new RecordingVerifyTestRunService(_ => TestRunServiceResult.Pass(
                 "Tests passed.",
-                "test-run-1",
+                TestRunId,
                 "/repo/.ucli/local/test/test-run-1",
                 "/repo/.ucli/local/test/test-run-1/summary.json")),
             logsService ?? new RecordingVerifyLogsUnityService((_, _, _) => ValueTask.FromResult(LogsReadServiceResult.Success())),
@@ -158,7 +161,7 @@ internal static class VerifyServiceTestSupport
             SessionKind: AssuranceSessionKindValues.TransientProbe,
             TimeoutMilliseconds: 10000,
             Compile: new CompileOutput(
-                RunId: "compile-run-1",
+                RunId: CompileRunId,
                 Refresh: new CompileRefreshOutput(
                     Origin: CompileEffectValues.AssetDatabaseRefresh,
                     Requested: true,

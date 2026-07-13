@@ -63,7 +63,7 @@ public sealed class BuildServiceUnityProgressValidationTests
 
     private static UnityRequestProgressFrame CreateProgressFrame (
         string eventName,
-        string runId,
+        Guid runId,
         string profileDigest,
         string phase)
     {

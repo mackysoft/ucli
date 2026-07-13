@@ -52,11 +52,11 @@ internal abstract record UnityRequestPayload
 
     /// <summary> Represents a compile assurance request prepared by application orchestration. </summary>
     internal sealed record Compile (
-        string RunId) : UnityRequestPayload;
+        Guid RunId) : UnityRequestPayload;
 
     /// <summary> Represents a build assurance request prepared by application orchestration. </summary>
     internal sealed record BuildRun (
-        string RunId,
+        Guid RunId,
         string InputKind,
         string? BuildTarget,
         string? UnityBuildTarget,
@@ -109,7 +109,7 @@ internal abstract record UnityRequestPayload
         string ResultsXmlPath,
         string EditorLogPath,
         bool FailFast,
-        string RunId) : UnityRequestPayload;
+        Guid RunId) : UnityRequestPayload;
 
     /// <summary> Represents a Play Mode status request prepared by application orchestration. </summary>
     internal sealed record PlayStatus : UnityRequestPayload;

@@ -15,6 +15,9 @@ namespace MackySoft.Ucli.Application.Tests;
 
 internal static class TestRunServiceTestFactory
 {
+    public static readonly Guid RunId = Guid.Parse("dbd61ee7-6a8a-4555-80a6-64b486a97d29");
+    public static readonly Guid OtherRunId = Guid.Parse("09ff7fb2-67ea-42c2-a142-bd4f7445782a");
+
     public static TestRunCommandInput CreateInput ()
     {
         return new TestRunCommandInput(
@@ -51,8 +54,8 @@ internal static class TestRunServiceTestFactory
     public static ArtifactsSession CreateArtifactsSession (string? artifactsDir = null)
     {
         return new ArtifactsSession(
-            RunId: "run-id",
-            Paths: TestArtifactPaths.Create(artifactsDir ?? Path.Combine(Path.GetTempPath(), "ucli-test-run", "run-id")),
+            RunId: RunId,
+            Paths: TestArtifactPaths.Create(artifactsDir ?? Path.Combine(Path.GetTempPath(), "ucli-test-run", RunId.ToString("D"))),
             StartedAtUtc: new DateTimeOffset(2026, 03, 08, 0, 0, 0, TimeSpan.Zero));
     }
 

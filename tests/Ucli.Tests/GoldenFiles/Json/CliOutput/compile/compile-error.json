@@ -40,7 +40,7 @@
         "statement": "Unity script compilation completed without compiler errors.",
         "subject": {
           "kind": "unityCompile",
-          "runId": "20260517_000000Z_abcdef12"
+          "runId": "32c8976c-42f2-4e42-a857-3cba1241a7de"
         },
         "evidence": [
           {
@@ -77,7 +77,7 @@
         "statement": "Unity domain reload reached a settled state after compile observation.",
         "subject": {
           "kind": "unityDomainReload",
-          "runId": "20260517_000000Z_abcdef12"
+          "runId": "32c8976c-42f2-4e42-a857-3cba1241a7de"
         },
         "evidence": [
           {
@@ -102,7 +102,7 @@
         "statement": "Unity lifecycle is ready after compile observation.",
         "subject": {
           "kind": "unityLifecycle",
-          "runId": "20260517_000000Z_abcdef12"
+          "runId": "32c8976c-42f2-4e42-a857-3cba1241a7de"
         },
         "evidence": [
           {
@@ -147,7 +147,7 @@
     "sessionKind": "transientProbe",
     "timeoutMilliseconds": 10000,
     "compile": {
-      "runId": "20260517_000000Z_abcdef12",
+      "runId": "32c8976c-42f2-4e42-a857-3cba1241a7de",
       "refresh": {
         "origin": "assetDatabaseRefresh",
         "requested": true,

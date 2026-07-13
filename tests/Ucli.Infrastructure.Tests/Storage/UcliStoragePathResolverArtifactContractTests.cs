@@ -65,7 +65,7 @@ public sealed class UcliStoragePathResolverArtifactContractTests
             resolvedPath,
             UcliStoragePathNames.ArtifactsDirectoryName,
             UcliStoragePathNames.TestArtifactsDirectoryName,
-            UcliStoragePathResolverTestSupport.RunId);
+            UcliStoragePathResolverTestSupport.RunIdText);
     }
 
     [Fact]
@@ -95,7 +95,7 @@ public sealed class UcliStoragePathResolverArtifactContractTests
             resolvedPath,
             UcliStoragePathNames.ArtifactsDirectoryName,
             UcliStoragePathNames.CompileArtifactsDirectoryName,
-            UcliStoragePathResolverTestSupport.RunId);
+            UcliStoragePathResolverTestSupport.RunIdText);
     }
 
     [Fact]
@@ -125,7 +125,7 @@ public sealed class UcliStoragePathResolverArtifactContractTests
             resolvedPath,
             UcliStoragePathNames.ArtifactsDirectoryName,
             UcliStoragePathNames.BuildArtifactsDirectoryName,
-            UcliStoragePathResolverTestSupport.RunId);
+            UcliStoragePathResolverTestSupport.RunIdText);
     }
 
     [Fact]
@@ -141,28 +141,25 @@ public sealed class UcliStoragePathResolverArtifactContractTests
             resolvedPath,
             UcliStoragePathNames.WorkDirectoryName,
             UcliStoragePathNames.BuildWorkDirectoryName,
-            UcliStoragePathResolverTestSupport.RunId,
+            UcliStoragePathResolverTestSupport.RunIdText,
             UcliStoragePathNames.BuildOutputDirectoryName);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void RunScopedPathResolvers_WithPathSegmentOrTraversalRunId_ThrowArgumentException ()
+    public void RunScopedPathResolvers_WithEmptyRunId_ThrowArgumentException ()
     {
         foreach (var resolverCase in RunScopedPathResolvers)
         {
-            foreach (var runId in UcliStoragePathResolverTestSupport.UnsafeRunIds)
-            {
-                var exception = Assert.Throws<ArgumentException>(() =>
-                    resolverCase.Resolve(
-                        UcliStoragePathResolverTestSupport.StorageRoot,
-                        UcliStoragePathResolverTestSupport.ProjectFingerprint,
-                        runId));
+            var exception = Assert.Throws<ArgumentException>(() =>
+                resolverCase.Resolve(
+                    UcliStoragePathResolverTestSupport.StorageRoot,
+                    UcliStoragePathResolverTestSupport.ProjectFingerprint,
+                    Guid.Empty));
 
-                Assert.True(
-                    string.Equals("runId", exception.ParamName, StringComparison.Ordinal),
-                    $"{resolverCase.Name} should reject unsafe runId '{runId}' as runId.");
-            }
+            Assert.True(
+                string.Equals("runId", exception.ParamName, StringComparison.Ordinal),
+                $"{resolverCase.Name} should reject an empty runId as runId.");
         }
     }
 }

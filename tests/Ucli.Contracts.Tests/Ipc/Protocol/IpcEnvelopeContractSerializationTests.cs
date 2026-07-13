@@ -159,13 +159,14 @@ public sealed class IpcEnvelopeContractSerializationTests
     public void IpcStreamFrame_ProgressSerializesWithCamelCaseContractFields ()
     {
         var requestId = Guid.Parse("cbd61a0f-a8db-42cf-ad3e-fb5cb558ab87");
+        var runId = Guid.Parse("0a289444-5c8b-4fea-8364-eb4508d857a0");
         var frame = new IpcStreamFrame(
             IpcProtocol.CurrentVersion,
             requestId,
             IpcStreamFrameKinds.Progress,
             TestRunProgressEventNames.RunStarted,
             IpcPayloadCodec.SerializeToElement(new TestRunStartedEntry(
-                "run-1",
+                runId,
                 "editmode",
                 "Namespace.Tests",
                 ["Assembly.Tests"],
@@ -182,7 +183,7 @@ public sealed class IpcEnvelopeContractSerializationTests
             .HasValueKind("payload", JsonValueKind.Object)
             .HasValueKind("response", JsonValueKind.Null);
         JsonAssert.For(json.GetProperty("payload"))
-            .HasString("runId", "run-1")
+            .HasString("runId", runId.ToString("D"))
             .HasString("testPlatform", "editmode")
             .HasString("testFilter", "Namespace.Tests")
             .HasArrayLength("assemblyNames", 1)

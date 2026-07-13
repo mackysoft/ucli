@@ -8,7 +8,7 @@ internal interface IBuildRunArtifactStore
     /// <summary> Prepares the build-run artifact directory and runner working output root. </summary>
     BuildRunArtifactPreparationResult Prepare (
         ResolvedUnityProjectContext unityProject,
-        string runId);
+        Guid runId);
 
     /// <summary> Prepares the command-derived BuildPipeline output layout before runner invocation. </summary>
     BuildRunArtifactPreparationResult PrepareBuildPipelineOutputLayout (

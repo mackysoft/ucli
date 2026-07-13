@@ -9,7 +9,7 @@ internal interface ICompileRunArtifactStore : ICompileRunArtifactReader
     /// <summary> Writes completed compile artifacts for one run. </summary>
     ValueTask<ExecutionError?> WriteArtifactsAsync (
         ResolvedUnityProjectContext unityProject,
-        string runId,
+        Guid runId,
         IpcCompileSummary summary,
         CancellationToken cancellationToken = default);
 }

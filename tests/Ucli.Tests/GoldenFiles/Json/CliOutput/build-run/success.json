@@ -12,7 +12,7 @@
       "unityVersion": "6000.1.4f1"
     },
     "build": {
-      "runId": "build-run-1",
+      "runId": "4d4f6988-c38a-4f9c-9d80-49d46beadf4a",
       "profile": {
         "path": "/workspace/UnityProject/.ucli/build/player.json",
         "digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
@@ -50,7 +50,7 @@
       },
       "output": {
         "manifestRef": "buildOutputManifest",
-        "manifestDigest": "59a71d71a244ad7a978be0bbfe8f87328c036091bb4b5aefef9e89b855d82b9b",
+        "manifestDigest": "1047a19f8c4eb95c4258d04da06d8b7335d006b88bcdc7c34dc6dbb78f98cdba",
         "entryCount": 1,
         "fileCount": 2,
         "totalBytes": 33
@@ -328,7 +328,7 @@
             "evidenceRef": "build",
             "data": {
               "manifestRef": "buildOutputManifest",
-              "manifestDigest": "59a71d71a244ad7a978be0bbfe8f87328c036091bb4b5aefef9e89b855d82b9b",
+              "manifestDigest": "1047a19f8c4eb95c4258d04da06d8b7335d006b88bcdc7c34dc6dbb78f98cdba",
               "entryCount": 1,
               "fileCount": 2,
               "totalBytes": 33
@@ -345,7 +345,7 @@
         "verifierRef": "build",
         "statement": "Build output manifest digest was verified against the written artifact.",
         "subject": {
-          "manifestDigest": "59a71d71a244ad7a978be0bbfe8f87328c036091bb4b5aefef9e89b855d82b9b"
+          "manifestDigest": "1047a19f8c4eb95c4258d04da06d8b7335d006b88bcdc7c34dc6dbb78f98cdba"
         },
         "evidence": [
           {

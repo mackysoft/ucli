@@ -25,6 +25,8 @@ namespace MackySoft.Ucli.Unity.Tests
     {
         private static readonly TimeSpan SignalWaitTimeout = TimeSpan.FromSeconds(5);
 
+        private static readonly Guid RunId = Guid.Parse("00000000-0000-0000-0000-000000000608");
+
         [UnityTest]
         [Category("Size.Small")]
         public IEnumerator Execute_WhenFailFastIsDisabled_DelaysRunnerUntilReady () => UniTask.ToCoroutine(async () =>
@@ -177,13 +179,13 @@ namespace MackySoft.Ucli.Unity.Tests
                 ResultsXmlPath: "/tmp/results.xml",
                 EditorLogPath: "/tmp/editor.log",
                 FailFast: failFast,
-                RunId: "run-id");
+                RunId: RunId);
         }
 
         private static UnityTestRunRequestContext CreateRequestContext ()
         {
             return new UnityTestRunRequestContext(
-                RunId: "run-id",
+                RunId: RunId,
                 TestPlatform: "editmode",
                 TestMode: UnityTestMode.EditMode,
                 TargetPlatform: null,

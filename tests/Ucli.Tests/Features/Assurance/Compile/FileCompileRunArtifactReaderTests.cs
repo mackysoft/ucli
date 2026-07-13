@@ -15,18 +15,18 @@ public sealed class FileCompileRunArtifactReaderTests
         using var scope = TestDirectories.CreateTempScope("compile-artifact-reader", "summary-symlink");
         var store = new FileCompileRunArtifactReader();
         var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, ProjectFingerprintTestFactory.Create("fingerprint"));
-        var summaryPath = store.ResolveSummaryPath(project, "run-1");
+        var summaryPath = store.ResolveSummaryPath(project, RunIdTestValues.Compile);
         var directoryPath = Path.GetDirectoryName(summaryPath)
             ?? throw new InvalidOperationException($"Directory path could not be resolved: {summaryPath}");
         Directory.CreateDirectory(directoryPath);
         var targetPath = Path.Combine(scope.FullPath, "target-summary.json");
-        File.WriteAllText(targetPath, Serialize(CreateSummary()));
+        File.WriteAllText(targetPath, Serialize(CreateSummary(errorCount: 0)));
         if (!TryCreateFileSymbolicLink(summaryPath, targetPath))
         {
             return;
         }
 
-        var result = await store.ReadSummaryAsync(project, "run-1", CancellationToken.None);
+        var result = await store.ReadSummaryAsync(project, RunIdTestValues.Compile, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.False(result.IsMissing);
@@ -42,19 +42,41 @@ public sealed class FileCompileRunArtifactReaderTests
         using var scope = TestDirectories.CreateTempScope("compile-artifact-reader", "summary-too-large");
         var store = new FileCompileRunArtifactReader();
         var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, ProjectFingerprintTestFactory.Create("fingerprint"));
-        var summaryPath = store.ResolveSummaryPath(project, "run-1");
+        var summaryPath = store.ResolveSummaryPath(project, RunIdTestValues.Compile);
         var directoryPath = Path.GetDirectoryName(summaryPath)
             ?? throw new InvalidOperationException($"Directory path could not be resolved: {summaryPath}");
         Directory.CreateDirectory(directoryPath);
         await File.WriteAllTextAsync(summaryPath, new string(' ', (1024 * 1024) + 1), CancellationToken.None);
 
-        var result = await store.ReadSummaryAsync(project, "run-1", CancellationToken.None);
+        var result = await store.ReadSummaryAsync(project, RunIdTestValues.Compile, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.False(result.IsMissing);
         Assert.NotNull(result.Error);
         Assert.Equal(ExecutionErrorKind.InternalError, result.Error.Kind);
         Assert.Contains("exceeded", result.Error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task ReadSummaryAsync_WhenSummaryContainsEmptyRunId_ReturnsInvalidArtifactFailure ()
+    {
+        using var scope = TestDirectories.CreateTempScope("compile-artifact-reader", "summary-empty-run-id");
+        var store = new FileCompileRunArtifactReader();
+        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, ProjectFingerprintTestFactory.Create("fingerprint"));
+        var summaryPath = store.ResolveSummaryPath(project, RunIdTestValues.Compile);
+        Directory.CreateDirectory(Path.GetDirectoryName(summaryPath)!);
+        var invalidJson = Serialize(CreateSummary())
+            .Replace(RunIdTestValues.CompileText, Guid.Empty.ToString("D"), StringComparison.Ordinal);
+        await File.WriteAllTextAsync(summaryPath, invalidJson, CancellationToken.None);
+
+        var result = await store.ReadSummaryAsync(project, RunIdTestValues.Compile, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.False(result.IsMissing);
+        Assert.NotNull(result.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, result.Error.Kind);
+        Assert.Contains("invalid", result.Error.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -67,19 +89,38 @@ public sealed class FileCompileRunArtifactReaderTests
         var first = CreateSummary(errorCount: 1);
         var second = CreateSummary(errorCount: 0);
 
-        var firstError = await store.WriteArtifactsAsync(project, "run-1", first, CancellationToken.None);
-        var secondError = await store.WriteArtifactsAsync(project, "run-1", second, CancellationToken.None);
-        var readResult = await store.ReadSummaryAsync(project, "run-1", CancellationToken.None);
+        var firstError = await store.WriteArtifactsAsync(project, RunIdTestValues.Compile, first, CancellationToken.None);
+        var secondError = await store.WriteArtifactsAsync(project, RunIdTestValues.Compile, second, CancellationToken.None);
+        var readResult = await store.ReadSummaryAsync(project, RunIdTestValues.Compile, CancellationToken.None);
 
         Assert.Null(firstError);
         Assert.Null(secondError);
         Assert.True(readResult.IsSuccess);
         Assert.Equal(0, readResult.Summary!.ScriptCompilation.Diagnostics.ErrorCount);
-        var runDirectoryPath = Path.GetDirectoryName(store.ResolveSummaryPath(project, "run-1"))
+        var runDirectoryPath = Path.GetDirectoryName(store.ResolveSummaryPath(project, RunIdTestValues.Compile))
             ?? throw new InvalidOperationException("Run directory path could not be resolved.");
         Assert.DoesNotContain(
             Directory.EnumerateFiles(runDirectoryPath),
             path => Path.GetFileName(path).Contains(".tmp.", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task WriteArtifactsAsync_WithMismatchedRunId_ReturnsInvalidArgumentWithoutCreatingStorage ()
+    {
+        using var scope = TestDirectories.CreateTempScope("compile-artifact-reader", "write-run-id-mismatch");
+        var store = new FileCompileRunArtifactReader();
+        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, ProjectFingerprintTestFactory.Create("fingerprint"));
+
+        var error = await store.WriteArtifactsAsync(
+            project,
+            RunIdTestValues.Build,
+            CreateSummary(errorCount: 0),
+            CancellationToken.None);
+
+        Assert.NotNull(error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.False(Directory.Exists(Path.Combine(scope.FullPath, ".ucli")));
     }
 
     private static IpcCompileSummary CreateSummary (int errorCount = 0)
@@ -95,7 +136,7 @@ public sealed class FileCompileRunArtifactReaderTests
                 Message: "; expected");
         var canAcceptExecutionRequests = errorCount == 0;
         return new IpcCompileSummary(
-            RunId: "run-1",
+            RunId: RunIdTestValues.Compile,
             ProjectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"),
             Completed: true,
             StartedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:00Z"),

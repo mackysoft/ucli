@@ -64,7 +64,7 @@ public sealed class CompileCommandProgressTests
             outputJson.RootElement,
             UcliCommandNames.Compile);
         Assert.Equal(
-            "compile runId=run-1 verdict=pass errorCount=0 warningCount=0 completed" + Environment.NewLine,
+            $"compile runId={RunIdTestValues.CompileText} verdict=pass errorCount=0 warningCount=0 completed" + Environment.NewLine,
             result.StdErr);
     }
 

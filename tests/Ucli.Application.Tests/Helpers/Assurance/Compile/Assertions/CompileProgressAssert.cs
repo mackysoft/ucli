@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Vocabulary;
 using MackySoft.Ucli.Contracts.Assurance;
+using static MackySoft.Ucli.Application.Tests.Features.Assurance.Compile.CompileServiceTestSupport;
 
 namespace MackySoft.Ucli.Application.Tests;
 
@@ -8,7 +9,7 @@ internal static class CompileProgressAssert
     public static void SuccessfulCompileProgressPayloads (CollectingCommandProgressSink progressSink)
     {
         var startedEntry = Assert.IsType<CompileStartedEntry>(progressSink.Entries[0].Payload);
-        Assert.Equal("run-1", startedEntry.RunId);
+        Assert.Equal(RunId, startedEntry.RunId);
         Assert.Equal(ProjectFingerprintTestFactory.Create("project-fingerprint"), startedEntry.ProjectFingerprint);
         Assert.Equal("auto", startedEntry.RequestedMode);
         Assert.Equal("oneshot", startedEntry.ResolvedMode);
@@ -27,7 +28,7 @@ internal static class CompileProgressAssert
         string expectedSummaryJsonPath)
     {
         var recoveredEntry = Assert.IsType<CompileRecoveredEntry>(progressSink.Entries[2].Payload);
-        Assert.Equal("run-1", recoveredEntry.RunId);
+        Assert.Equal(RunId, recoveredEntry.RunId);
         Assert.Equal(expectedSummaryJsonPath, recoveredEntry.SummaryJsonPath);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout.Value, recoveredEntry.DispatchFailureCode);
         Assert.Equal(1, recoveredEntry.PollAttempts);
@@ -36,7 +37,7 @@ internal static class CompileProgressAssert
     public static void StartupCompilerDiagnosticProgressPayload (CollectingCommandProgressSink progressSink)
     {
         var diagnosticEntry = Assert.IsType<CompileDiagnosticEntry>(progressSink.Entries[2].Payload);
-        Assert.Equal("run-1", diagnosticEntry.RunId);
+        Assert.Equal(RunId, diagnosticEntry.RunId);
         Assert.Equal("diagnosticsRead", diagnosticEntry.RefreshOrigin);
         Assert.Equal("CS0246", diagnosticEntry.PrimaryDiagnostic!.Code);
     }

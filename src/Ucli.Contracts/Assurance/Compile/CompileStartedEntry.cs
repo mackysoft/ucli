@@ -8,14 +8,19 @@ public sealed record CompileStartedEntry
     /// <summary> Initializes one validated <c>compile.started</c> stream payload. </summary>
     [JsonConstructor]
     public CompileStartedEntry (
-        string RunId,
+        Guid RunId,
         ProjectFingerprint ProjectFingerprint,
         string RequestedMode,
         string ResolvedMode,
         string SessionKind,
         int TimeoutMilliseconds)
     {
-        this.RunId = ContractArgumentGuard.RequireValue(RunId, nameof(RunId));
+        if (RunId == Guid.Empty)
+        {
+            throw new ArgumentException("Run id must not be empty.", nameof(RunId));
+        }
+
+        this.RunId = RunId;
         this.ProjectFingerprint = ContractArgumentGuard.RequireNotNull(ProjectFingerprint, nameof(ProjectFingerprint));
         this.RequestedMode = ContractArgumentGuard.RequireValue(RequestedMode, nameof(RequestedMode));
         this.ResolvedMode = ContractArgumentGuard.RequireValue(ResolvedMode, nameof(ResolvedMode));
@@ -23,7 +28,7 @@ public sealed record CompileStartedEntry
         this.TimeoutMilliseconds = ContractArgumentGuard.RequireNonNegative(TimeoutMilliseconds, nameof(TimeoutMilliseconds));
     }
 
-    public string RunId { get; }
+    public Guid RunId { get; }
 
     public ProjectFingerprint ProjectFingerprint { get; }
 

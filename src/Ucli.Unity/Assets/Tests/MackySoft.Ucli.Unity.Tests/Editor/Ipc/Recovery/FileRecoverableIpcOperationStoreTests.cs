@@ -120,7 +120,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     RequestPayloadHash,
                     DateTimeOffset.UtcNow.AddSeconds(-1),
                     DateTimeOffset.UtcNow,
-                    IpcPayloadCodec.SerializeToElement(new { runId = "run-1" }),
+                    IpcPayloadCodec.SerializeToElement(new { runId = Guid.Parse("00000000-0000-0000-0000-000000000613") }),
                     response,
                     CancellationToken.None));
 
@@ -149,7 +149,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     RequestPayloadHash,
                     DateTimeOffset.UtcNow.AddSeconds(-1),
                     DateTimeOffset.UtcNow,
-                    IpcPayloadCodec.SerializeToElement(new { runId = "run-1" }),
+                    IpcPayloadCodec.SerializeToElement(new { runId = Guid.Parse("00000000-0000-0000-0000-000000000613") }),
                     response,
                     CancellationToken.None);
                 var readResult = await store.ReadAsync(
@@ -223,7 +223,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     RequestPayloadHash,
                     DateTimeOffset.UtcNow.AddSeconds(-1),
                     DateTimeOffset.UtcNow,
-                    IpcPayloadCodec.SerializeToElement(new { runId = "run-1" }),
+                    IpcPayloadCodec.SerializeToElement(new { runId = Guid.Parse("00000000-0000-0000-0000-000000000613") }),
                     CreateSuccessResponse(requestId),
                     CancellationToken.None);
                 Assert.That(writeResult.IsSuccess, Is.True, writeResult.ErrorMessage);
@@ -334,7 +334,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     RequestPayloadHash,
                     DateTimeOffset.UtcNow.AddSeconds(-1),
                     DateTimeOffset.UtcNow,
-                    IpcPayloadCodec.SerializeToElement(new { runId = "run-1" }),
+                    IpcPayloadCodec.SerializeToElement(new { runId = Guid.Parse("00000000-0000-0000-0000-000000000613") }),
                     CreateSuccessResponse(requestId),
                     CancellationToken.None);
                 Assert.That(writeResult.IsSuccess, Is.True, writeResult.ErrorMessage);
@@ -408,7 +408,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     RequestPayloadHash,
                     nowUtc.AddMinutes(-12),
                     nowUtc.AddMinutes(-11),
-                    IpcPayloadCodec.SerializeToElement(new { runId = "run-1" }),
+                    IpcPayloadCodec.SerializeToElement(new { runId = Guid.Parse("00000000-0000-0000-0000-000000000613") }),
                     CreateSuccessResponse(requestId),
                     CancellationToken.None);
                 Assert.That(writeResult.IsSuccess, Is.True, writeResult.ErrorMessage);

@@ -17,7 +17,7 @@ public sealed class TestRunCommandDispatchTests
         var service = new RecordingTestRunService(
             (_, _, _) => ValueTask.FromResult(TestRunServiceResult.Pass(
                 message: "Unity test execution completed.",
-                runId: "run-id",
+                runId: RunIdTestValues.Test,
                 artifactsDir: artifactsDir,
                 summaryJsonPath: summaryJsonPath)));
         var command = new TestRunCommand(service, CommandResultTestWriter.Create());

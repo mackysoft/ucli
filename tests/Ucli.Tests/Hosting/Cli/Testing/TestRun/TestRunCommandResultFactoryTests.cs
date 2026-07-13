@@ -18,7 +18,7 @@ public sealed class TestRunCommandResultFactoryTests
     {
         var serviceResult = TestRunServiceResult.Fail(
             message: "Unity test execution completed with failed tests.",
-            runId: "run-id",
+            runId: RunIdTestValues.Test,
             artifactsDir: "/tmp/artifacts",
             summaryJsonPath: "/tmp/artifacts/summary.json");
 
@@ -35,7 +35,7 @@ public sealed class TestRunCommandResultFactoryTests
         JsonAssert.For(payload)
             .HasString("result", "fail")
             .IsNull("errorKind")
-            .HasString("runId", "run-id")
+            .HasString("runId", RunIdTestValues.TestText)
             .HasString("artifactsDir", "/tmp/artifacts")
             .HasString("summaryJsonPath", "/tmp/artifacts/summary.json");
     }
@@ -50,7 +50,7 @@ public sealed class TestRunCommandResultFactoryTests
         var serviceResult = TestRunServiceResult.ToolError(
             message: message,
             errorCode: errorCode,
-            runId: "run-id",
+            runId: RunIdTestValues.Test,
             artifactsDir: "/tmp/artifacts",
             summaryJsonPath: "/tmp/artifacts/summary.json");
 
@@ -68,7 +68,7 @@ public sealed class TestRunCommandResultFactoryTests
         JsonAssert.For(payload)
             .IsNull("result")
             .HasString("errorKind", "toolError")
-            .HasString("runId", "run-id")
+            .HasString("runId", RunIdTestValues.TestText)
             .HasString("artifactsDir", "/tmp/artifacts")
             .HasString("summaryJsonPath", "/tmp/artifacts/summary.json");
     }
@@ -80,7 +80,7 @@ public sealed class TestRunCommandResultFactoryTests
         var serviceResult = TestRunServiceResult.ToolError(
             message: "Unity startup is blocked.",
             errorCode: DaemonErrorCodes.DaemonStartupBlocked,
-            runId: "run-id",
+            runId: RunIdTestValues.Test,
             artifactsDir: "/tmp/artifacts",
             summaryJsonPath: "/tmp/artifacts/summary.json",
             startupFailure: CreateStartupFailureDetail());
@@ -138,7 +138,7 @@ public sealed class TestRunCommandResultFactoryTests
         var serviceResult = TestRunServiceResult.InfraError(
             message,
             UcliCoreErrorCodes.InvalidArgument,
-            runId: "run-id",
+            runId: RunIdTestValues.Test,
             artifactsDir: "/tmp/artifacts",
             summaryJsonPath: "/tmp/artifacts/summary.json");
 
@@ -154,7 +154,7 @@ public sealed class TestRunCommandResultFactoryTests
         JsonAssert.For(payload)
             .IsNull("result")
             .HasString("errorKind", "infraError")
-            .HasString("runId", "run-id")
+            .HasString("runId", RunIdTestValues.TestText)
             .HasString("artifactsDir", "/tmp/artifacts")
             .HasString("summaryJsonPath", "/tmp/artifacts/summary.json");
     }

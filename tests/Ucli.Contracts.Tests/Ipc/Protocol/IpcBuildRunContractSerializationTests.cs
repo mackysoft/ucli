@@ -9,13 +9,59 @@ namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
 
 public sealed class IpcBuildRunContractSerializationTests
 {
+    private const string RunIdText = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+    private static readonly Guid RunId = Guid.Parse(RunIdText);
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcBuildRunRequest_WhenRunIdIsEmpty_ThrowsArgumentException ()
+    {
+        var exception = Assert.Throws<ArgumentException>(() => new IpcBuildRunRequest(
+            RunId: Guid.Empty,
+            InputKind: "explicit",
+            BuildTarget: null,
+            UnityBuildTarget: null,
+            SceneSource: null,
+            ScenePaths: [],
+            Development: false,
+            OutputPath: "/tmp/output",
+            OutputLayout: null,
+            BuildReportPath: "/tmp/build-report.json",
+            BuildLogPath: "/tmp/build.log",
+            AllowedEditorModes: [],
+            ProjectMutationMode: "forbid",
+            RunnerKind: "buildPipeline"));
+
+        Assert.Equal("RunId", exception.ParamName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcBuildRunResponse_WhenRunIdIsEmpty_ThrowsArgumentException ()
+    {
+        var exception = Assert.Throws<ArgumentException>(() => new IpcBuildRunResponse(
+            RunId: Guid.Empty,
+            ProjectFingerprint: null!,
+            LifecycleBefore: null!,
+            LifecycleAfter: null!,
+            DirtyState: null!,
+            Input: null!,
+            OutputLayout: null,
+            UnityBuildProfile: null,
+            Report: null,
+            Logs: null!,
+            ProjectMutation: null!));
+
+        Assert.Equal("RunId", exception.ParamName);
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public void IpcBuildRunContracts_SerializeWithCamelCaseFields ()
     {
         var request = IpcPayloadCodec.SerializeToElement(
             new IpcBuildRunRequest(
-                RunId: "build-run-1",
+                RunId: RunId,
                 InputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit),
                 BuildTarget: "standaloneLinux64",
                 UnityBuildTarget: "StandaloneLinux64",
@@ -53,7 +99,7 @@ public sealed class IpcBuildRunContractSerializationTests
             });
         var response = IpcPayloadCodec.SerializeToElement(
             new IpcBuildRunResponse(
-                RunId: "build-run-1",
+                RunId: RunId,
                 ProjectFingerprint: new ProjectFingerprint(ProjectFingerprintText),
                 LifecycleBefore: CreateBuildLifecycleSnapshot("before", canAcceptExecutionRequests: true),
                 LifecycleAfter: CreateBuildLifecycleSnapshot("after", canAcceptExecutionRequests: true),
@@ -129,7 +175,7 @@ public sealed class IpcBuildRunContractSerializationTests
             });
 
         JsonAssert.For(request)
-            .HasString("runId", "build-run-1")
+            .HasString("runId", RunIdText)
             .HasString("inputKind", ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit))
             .HasString("buildTarget", "standaloneLinux64")
             .HasString("unityBuildTarget", "StandaloneLinux64")
@@ -166,7 +212,7 @@ public sealed class IpcBuildRunContractSerializationTests
             .HasProperty("runnerEnvironmentSecretValues", environment => environment
                 .HasString("UNITY_LICENSE", "license-value"));
         JsonAssert.For(response)
-            .HasString("runId", "build-run-1")
+            .HasString("runId", RunIdText)
             .HasString("projectFingerprint", ProjectFingerprintText)
             .HasProperty("lifecycleBefore", lifecycle => lifecycle
                 .HasString("compileGeneration", "compile-before")

@@ -48,7 +48,7 @@ internal sealed class CompileProgressTextProjector : ICliCommandProgressTextProj
 
         var timeoutLength = SpanTextLength.GetInvariantInt64Length(entry.TimeoutMilliseconds);
         var length = checked(Prefix.Length
-            + entry.RunId.Length
+            + SpanTextLength.GuidDLength
             + RequestedModeLabel.Length
             + entry.RequestedMode.Length
             + ResolvedModeLabel.Length
@@ -86,7 +86,7 @@ internal sealed class CompileProgressTextProjector : ICliCommandProgressTextProj
         const string Status = " started";
 
         var length = checked(Prefix.Length
-            + entry.RunId.Length
+            + SpanTextLength.GuidDLength
             + OriginLabel.Length
             + entry.RefreshOrigin.Length
             + SourceLabel.Length
@@ -117,7 +117,7 @@ internal sealed class CompileProgressTextProjector : ICliCommandProgressTextProj
 
         var pollAttemptsLength = SpanTextLength.GetInvariantInt64Length(entry.PollAttempts);
         var length = checked(Prefix.Length
-            + entry.RunId.Length
+            + SpanTextLength.GuidDLength
             + PollsLabel.Length
             + pollAttemptsLength
             + SummaryLabel.Length
@@ -148,7 +148,7 @@ internal sealed class CompileProgressTextProjector : ICliCommandProgressTextProj
         var diagnostic = entry.PrimaryDiagnostic;
         if (diagnostic is null)
         {
-            var length = checked(Prefix.Length + entry.RunId.Length + OriginLabel.Length + entry.RefreshOrigin.Length);
+            var length = checked(Prefix.Length + SpanTextLength.GuidDLength + OriginLabel.Length + entry.RefreshOrigin.Length);
             return string.Create(
                 length,
                 entry,
@@ -167,7 +167,7 @@ internal sealed class CompileProgressTextProjector : ICliCommandProgressTextProj
         var message = string.IsNullOrWhiteSpace(diagnostic.Message) ? "diagnostics-read summary created" : diagnostic.Message;
         var diagnosticLength = checked(
             Prefix.Length
-            + entry.RunId.Length
+            + SpanTextLength.GuidDLength
             + OriginLabel.Length
             + entry.RefreshOrigin.Length
             + 1
@@ -206,7 +206,7 @@ internal sealed class CompileProgressTextProjector : ICliCommandProgressTextProj
         var errorCountLength = SpanTextLength.GetInvariantInt64Length(entry.ErrorCount);
         var warningCountLength = SpanTextLength.GetInvariantInt64Length(entry.WarningCount);
         var length = checked(Prefix.Length
-            + entry.RunId.Length
+            + SpanTextLength.GuidDLength
             + VerdictLabel.Length
             + entry.Verdict.Length
             + ErrorsLabel.Length

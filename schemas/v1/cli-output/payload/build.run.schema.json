@@ -22,7 +22,8 @@
           "additionalProperties": false,
           "properties": {
             "runId": {
-              "type": "string"
+              "type": "string",
+              "format": "uuid"
             },
             "profile": {
               "type": "object",

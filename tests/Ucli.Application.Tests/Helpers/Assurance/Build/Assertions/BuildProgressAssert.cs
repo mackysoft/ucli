@@ -8,7 +8,7 @@ internal static class BuildProgressAssert
 {
     public static void BuildPipelineSuccessProgressPayloads (
         CollectingCommandProgressSink progressSink,
-        string expectedRunId,
+        Guid expectedRunId,
         string expectedProfileDigest)
     {
         var startedEntry = Assert.IsType<BuildProgressEntry>(progressSink.Entries[0].Payload);
@@ -48,7 +48,7 @@ internal static class BuildProgressAssert
 
     public static void RunnerInvocationFailureDiagnosticEmitted (
         CollectingCommandProgressSink progressSink,
-        string expectedRunId)
+        Guid expectedRunId)
     {
         var diagnostic = Assert.IsType<BuildDiagnosticEntry>(progressSink.Entries[1].Payload);
         Assert.Equal(expectedRunId, diagnostic.RunId);

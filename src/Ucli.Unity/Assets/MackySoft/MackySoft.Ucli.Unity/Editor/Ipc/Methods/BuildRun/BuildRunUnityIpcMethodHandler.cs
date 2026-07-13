@@ -522,7 +522,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private static void PublishLogEntries (
             UnityIpcBuildRunProgressSink? progressSink,
-            string runId,
+            Guid runId,
             UnityLogSnapshot startSnapshot,
             UnityLogSnapshot endSnapshot)
         {
@@ -732,12 +732,6 @@ namespace MackySoft.Ucli.Unity.Ipc
             if (request.TimeoutMilliseconds.HasValue && request.TimeoutMilliseconds.Value <= 0)
             {
                 errorMessage = "Build run timeoutMilliseconds must be greater than zero when specified.";
-                return false;
-            }
-
-            if (!IsValidPathSegment(request.RunId))
-            {
-                errorMessage = "Build runId must be one non-empty path segment.";
                 return false;
             }
 
@@ -1014,31 +1008,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             return true;
         }
 
-        private static bool IsValidPathSegment (string value)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                return false;
-            }
-
-            var span = value.AsSpan();
-            for (var i = 0; i < span.Length; i++)
-            {
-                var character = span[i];
-                if (character == '/'
-                    || character == '\\'
-                    || character == Path.DirectorySeparatorChar
-                    || character == Path.AltDirectorySeparatorChar)
-                {
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
         private static bool TryResolveExpectedArtifactPaths (
-            string runId,
+            Guid runId,
             IpcProjectIdentity projectIdentity,
             out string? expectedOutputPath,
             out string? expectedBuildReportPath,

@@ -17,12 +17,16 @@ namespace MackySoft.Ucli.Unity.Tests
     public sealed class BuildExecuteMethodRunnerTests
     {
         private const string TypeName = "MackySoft.Ucli.Unity.Tests.BuildExecuteMethodRunnerTests";
-        private const string RunId = "build-run-1";
+        private static readonly Guid RunId = Guid.Parse("00000000-0000-0000-0000-000000000602");
 
         private static readonly ProjectFingerprint ProjectFingerprint =
             ProjectFingerprintTestFactory.Create("project-fingerprint");
 
-        private static readonly string OutputDirectory = Path.Combine(Path.GetTempPath(), "ucli-build-execute-method-runner-tests", RunId, "output");
+        private static readonly string OutputDirectory = Path.Combine(
+            Path.GetTempPath(),
+            "ucli-build-execute-method-runner-tests",
+            RunId.ToString("D"),
+            "output");
 
         private static UcliBuildRunnerContext? capturedContext;
         private static UcliBuildRunnerContext? currentAtInvocation;

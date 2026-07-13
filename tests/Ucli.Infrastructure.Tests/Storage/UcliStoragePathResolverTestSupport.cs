@@ -6,21 +6,10 @@ namespace MackySoft.Ucli.Infrastructure.Tests.Storage;
 internal static class UcliStoragePathResolverTestSupport
 {
     internal const string ProjectFingerprintText = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
-    internal const string RunId = "run-id";
+    internal const string RunIdText = "3a1c6904-6c83-4e8d-a39d-0d9e2459ae16";
 
     internal static readonly ProjectFingerprint ProjectFingerprint = new(ProjectFingerprintText);
-
-    internal static readonly string[] UnsafeRunIds =
-    [
-        "../run-id",
-        "..\\run-id",
-        "run/id",
-        "run\\id",
-        "/absolute",
-        "C:\\absolute",
-        ".",
-        "..",
-    ];
+    internal static readonly Guid RunId = Guid.Parse(RunIdText);
 
     internal static string StorageRoot => Path.Combine(Path.GetTempPath(), "ucli-infrastructure-storage-root");
 
@@ -55,5 +44,5 @@ internal static class UcliStoragePathResolverTestSupport
 
     internal sealed record RunScopedPathResolverCase (
         string Name,
-        Func<string, ProjectFingerprint, string, string> Resolve);
+        Func<string, ProjectFingerprint, Guid, string> Resolve);
 }

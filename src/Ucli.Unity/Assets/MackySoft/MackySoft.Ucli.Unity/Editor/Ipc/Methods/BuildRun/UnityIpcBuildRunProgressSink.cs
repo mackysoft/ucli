@@ -11,16 +11,16 @@ namespace MackySoft.Ucli.Unity.Ipc
     /// <summary> Serializes Unity build-run progress events onto one IPC stream frame writer. </summary>
     internal sealed class UnityIpcBuildRunProgressSink
     {
-        private readonly string runId;
+        private readonly Guid runId;
         private readonly UnityIpcProgressFrameQueue progressFrameQueue;
 
         /// <summary> Initializes a new instance of the <see cref="UnityIpcBuildRunProgressSink" /> class. </summary>
         public UnityIpcBuildRunProgressSink (
             IIpcStreamFrameWriter streamWriter,
-            string runId,
+            Guid runId,
             CancellationToken executionCancellationToken)
         {
-            this.runId = string.IsNullOrWhiteSpace(runId) ? "unknown" : runId;
+            this.runId = runId;
             progressFrameQueue = new UnityIpcProgressFrameQueue(
                 streamWriter,
                 executionCancellationToken,

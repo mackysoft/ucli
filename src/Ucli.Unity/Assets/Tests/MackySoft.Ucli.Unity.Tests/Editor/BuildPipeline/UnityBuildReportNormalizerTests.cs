@@ -108,7 +108,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var outputPath = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "ucli", "output"));
             var locationPathName = Path.Combine(outputPath, "player", "Player");
             var request = new IpcBuildRunRequest(
-                RunId: "build-run-1",
+                RunId: Guid.Parse("00000000-0000-0000-0000-000000000604"),
                 InputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit),
                 BuildTarget: "standaloneLinux64",
                 UnityBuildTarget: "StandaloneLinux64",

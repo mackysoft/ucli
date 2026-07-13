@@ -28,7 +28,7 @@ public sealed class UnityIpcRequestFactoryTimeoutTests
     [Trait("Size", "Small")]
     public void UnityIpcRequestFactory_WithCompileDispatchTimeout_InjectsTimeoutPayload ()
     {
-        var dispatchRequest = new UnityIpcRequestBuilder().Build(new UnityRequestPayload.Compile("run-1"));
+        var dispatchRequest = new UnityIpcRequestBuilder().Build(new UnityRequestPayload.Compile(RunIdTestValues.Compile));
 
         var request = UnityIpcRequestFactory.Create(
             IpcSessionTokenTestFactory.CreateFromDiscriminator(1),
@@ -38,7 +38,7 @@ public sealed class UnityIpcRequestFactoryTimeoutTests
             dispatchRequest.ResponseMode);
 
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcCompileRequest compileRequest, out _));
-        Assert.Equal("run-1", compileRequest.RunId);
+        Assert.Equal(RunIdTestValues.Compile, compileRequest.RunId);
         Assert.Equal(1234, compileRequest.TimeoutMilliseconds);
     }
 
@@ -55,7 +55,7 @@ public sealed class UnityIpcRequestFactoryTimeoutTests
             ResultsXmlPath: "/tmp/results.xml",
             EditorLogPath: "/tmp/editor.log",
             FailFast: false,
-            RunId: "run-1"));
+            RunId: RunIdTestValues.Test));
 
         var request = UnityIpcRequestFactory.Create(
             IpcSessionTokenTestFactory.CreateFromDiscriminator(1),
@@ -65,7 +65,7 @@ public sealed class UnityIpcRequestFactoryTimeoutTests
             dispatchRequest.ResponseMode);
 
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcTestRunRequest testRunRequest, out _));
-        Assert.Equal("run-1", testRunRequest.RunId);
+        Assert.Equal(RunIdTestValues.Test, testRunRequest.RunId);
         Assert.Equal(1234, testRunRequest.TimeoutMilliseconds);
     }
 
@@ -87,7 +87,7 @@ public sealed class UnityIpcRequestFactoryTimeoutTests
             dispatchRequest.ResponseMode);
 
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcBuildRunRequest buildRunRequest, out _));
-        Assert.Equal("build-run-1", buildRunRequest.RunId);
+        Assert.Equal(RunIdTestValues.Build, buildRunRequest.RunId);
         Assert.Equal(1234, buildRunRequest.TimeoutMilliseconds);
     }
 

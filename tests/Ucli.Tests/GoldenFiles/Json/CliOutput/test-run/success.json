@@ -7,7 +7,7 @@
   "payload": {
     "result": "pass",
     "errorKind": null,
-    "runId": "run-id",
+    "runId": "5bece4b0-f581-49c8-9b68-a8b5fc8701e3",
     "artifactsDir": "<artifacts>",
     "summaryJsonPath": "<artifacts>/summary.json"
   },

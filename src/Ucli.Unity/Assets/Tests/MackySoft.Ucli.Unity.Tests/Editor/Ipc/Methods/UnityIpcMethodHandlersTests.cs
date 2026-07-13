@@ -37,6 +37,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static readonly TimeSpan SignalWaitTimeout = TimeSpan.FromSeconds(5);
 
+        private static readonly Guid RunId = Guid.Parse("00000000-0000-0000-0000-000000000611");
+
         [UnityTest]
         [Category("Size.Small")]
         public IEnumerator PingHandler_WhenPayloadIsValid_ReturnsOkResponse () => UniTask.ToCoroutine(async () =>
@@ -632,16 +634,16 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(streamWriter.ProgressFrames[0].Event, Is.EqualTo(TestRunProgressEventNames.CaseStarted));
             Assert.That(streamWriter.ProgressFrames[1].Event, Is.EqualTo(TestRunProgressEventNames.CaseFinished));
             Assert.That(IpcPayloadCodec.TryDeserialize(streamWriter.ProgressFrames[0].Payload, out TestCaseStartedEntry started, out _), Is.True);
-            Assert.That(started.RunId, Is.EqualTo("run-id"));
+            Assert.That(started.RunId, Is.EqualTo(RunId));
             Assert.That(started.TestName, Is.EqualTo("SampleTest"));
             Assert.That(IpcPayloadCodec.TryDeserialize(streamWriter.ProgressFrames[1].Payload, out TestCaseFinishedEntry finished, out _), Is.True);
-            Assert.That(finished.RunId, Is.EqualTo("run-id"));
+            Assert.That(finished.RunId, Is.EqualTo(RunId));
             Assert.That(finished.Result, Is.EqualTo("pass"));
 
             service.LastProgressSink.Publish(
                 TestRunProgressEventNames.CaseStarted,
                 new TestCaseStartedEntry(
-                    "run-id",
+                    RunId,
                     "late-test-id",
                     "Late test",
                     "Assembly-CSharp-Editor",
@@ -856,7 +858,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var streamWriter = new BlockingIpcStreamFrameWriter(Guid.NewGuid());
             var progressSink = new UnityIpcTestRunProgressSink(
                 streamWriter,
-                "run-id",
+                RunId,
                 CancellationToken.None);
 
             for (var i = 0; i < 1026; i++)
@@ -864,7 +866,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 progressSink.Publish(
                     TestRunProgressEventNames.CaseStarted,
                     new TestCaseStartedEntry(
-                        "run-id",
+                        RunId,
                         $"test-{i}",
                         $"Test {i}",
                         "Assembly-CSharp-Editor",
@@ -895,12 +897,12 @@ namespace MackySoft.Ucli.Unity.Tests
             var streamWriter = new BlockingIpcStreamFrameWriter(Guid.NewGuid());
             var progressSink = new UnityIpcTestRunProgressSink(
                 streamWriter,
-                "run-id",
+                RunId,
                 CancellationToken.None);
             progressSink.Publish(
                 TestRunProgressEventNames.CaseStarted,
                 new TestCaseStartedEntry(
-                    "run-id",
+                    RunId,
                     "accepted-test-id",
                     "Accepted test",
                     "Assembly-CSharp-Editor",
@@ -915,7 +917,7 @@ namespace MackySoft.Ucli.Unity.Tests
             progressSink.Publish(
                 TestRunProgressEventNames.CaseStarted,
                 new TestCaseStartedEntry(
-                    "run-id",
+                    RunId,
                     "late-test-id",
                     "Late test",
                     "Assembly-CSharp-Editor",
@@ -946,14 +948,14 @@ namespace MackySoft.Ucli.Unity.Tests
             using var cancellationTokenSource = new CancellationTokenSource();
             var progressSink = new UnityIpcTestRunProgressSink(
                 streamWriter,
-                "run-id",
+                RunId,
                 cancellationTokenSource.Token);
             cancellationTokenSource.Cancel();
 
             Assert.DoesNotThrow(() => progressSink.Publish(
                 TestRunProgressEventNames.CaseStarted,
                 new TestCaseStartedEntry(
-                    "run-id",
+                    RunId,
                     "test-id",
                     "Late test",
                     "Assembly-CSharp-Editor",
@@ -1827,7 +1829,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 ResultsXmlPath: "/tmp/results.xml",
                 EditorLogPath: "/tmp/editor.log",
                 FailFast: failFast,
-                RunId: "run-id",
+                RunId: RunId,
                 TimeoutMilliseconds: timeoutMilliseconds);
         }
 

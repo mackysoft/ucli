@@ -7,29 +7,60 @@ namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
 public sealed class IpcCompileContractSerializationTests
 {
     private const string ProjectFingerprintText = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+    private const string RunIdText = "11111111-2222-3333-4444-555555555555";
+    private static readonly Guid RunId = Guid.Parse(RunIdText);
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcCompileRequest_WhenRunIdIsEmpty_ThrowsArgumentException ()
+    {
+        var exception = Assert.Throws<ArgumentException>(() => new IpcCompileRequest(Guid.Empty));
+
+        Assert.Equal("RunId", exception.ParamName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcCompileResponse_WhenRunIdIsEmpty_ThrowsArgumentException ()
+    {
+        var exception = Assert.Throws<ArgumentException>(() => new IpcCompileResponse(
+            Guid.Empty,
+            CreateCompileSummary(RunId)));
+
+        Assert.Equal("RunId", exception.ParamName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcCompileSummary_WhenRunIdIsEmpty_ThrowsArgumentException ()
+    {
+        var exception = Assert.Throws<ArgumentException>(() => CreateCompileSummary(Guid.Empty));
+
+        Assert.Equal("RunId", exception.ParamName);
+    }
 
     [Fact]
     [Trait("Size", "Small")]
     public void IpcCompileContracts_SerializeWithCamelCaseFields ()
     {
-        var requestPayload = new IpcCompileRequest("run-1")
+        var requestPayload = new IpcCompileRequest(RunId)
         {
             TimeoutMilliseconds = 10000,
         };
         var responsePayload = new IpcCompileResponse(
-            RunId: "run-1",
-            Summary: CreateCompileSummary());
+            RunId: RunId,
+            Summary: CreateCompileSummary(RunId));
 
         var request = IpcPayloadCodec.SerializeToElement(requestPayload);
         var response = IpcPayloadCodec.SerializeToElement(responsePayload);
 
         JsonAssert.For(request)
-            .HasString("runId", "run-1")
+            .HasString("runId", RunIdText)
             .HasInt32("timeoutMilliseconds", 10000);
         JsonAssert.For(response)
-            .HasString("runId", "run-1")
+            .HasString("runId", RunIdText)
             .HasProperty("summary", summary => summary
-                .HasString("runId", "run-1")
+                .HasString("runId", RunIdText)
                 .HasString("projectFingerprint", ProjectFingerprintText)
                 .HasBoolean("completed", true)
                 .HasProperty("scriptCompilation", scriptCompilation => scriptCompilation
@@ -47,23 +78,23 @@ public sealed class IpcCompileContractSerializationTests
     public void CompileProgressContracts_SerializeWithCamelCaseFields ()
     {
         var startedPayload = new CompileStartedEntry(
-            RunId: "run-1",
+            RunId: RunId,
             ProjectFingerprint: new ProjectFingerprint(ProjectFingerprintText),
             RequestedMode: "auto",
             ResolvedMode: "oneshot",
             SessionKind: "transientProbe",
             TimeoutMilliseconds: 10000);
         var refreshPayload = new CompileRefreshStartedEntry(
-            RunId: "run-1",
+            RunId: RunId,
             RefreshOrigin: "assetDatabaseRefresh",
             ObservationSource: "hostDispatch");
         var recoveredPayload = new CompileRecoveredEntry(
-            RunId: "run-1",
+            RunId: RunId,
             SummaryJsonPath: "/tmp/ucli/compile/run-1/summary.json",
             DispatchFailureCode: IpcTransportErrorCodes.IpcTimeout.Value,
             PollAttempts: 2);
         var diagnosticPayload = new CompileDiagnosticEntry(
-            RunId: "run-1",
+            RunId: RunId,
             RefreshOrigin: "diagnosticsRead",
             PrimaryDiagnostic: new IpcPrimaryDiagnostic(
                 Kind: "compiler",
@@ -73,7 +104,7 @@ public sealed class IpcCompileContractSerializationTests
                 Column: 16,
                 Message: "; expected"));
         var completedPayload = new CompileCompletedEntry(
-            RunId: "run-1",
+            RunId: RunId,
             Verdict: "fail",
             ErrorCount: 1,
             WarningCount: 0,
@@ -92,29 +123,29 @@ public sealed class IpcCompileContractSerializationTests
         Assert.Equal("compile.diagnostic", CompileProgressEventNames.Diagnostic);
         Assert.Equal("compile.completed", CompileProgressEventNames.Completed);
         JsonAssert.For(started)
-            .HasString("runId", "run-1")
+            .HasString("runId", RunIdText)
             .HasString("projectFingerprint", ProjectFingerprintText)
             .HasString("requestedMode", "auto")
             .HasString("resolvedMode", "oneshot")
             .HasString("sessionKind", "transientProbe")
             .HasInt32("timeoutMilliseconds", 10000);
         JsonAssert.For(refresh)
-            .HasString("runId", "run-1")
+            .HasString("runId", RunIdText)
             .HasString("refreshOrigin", "assetDatabaseRefresh")
             .HasString("observationSource", "hostDispatch");
         JsonAssert.For(recovered)
-            .HasString("runId", "run-1")
+            .HasString("runId", RunIdText)
             .HasString("summaryJsonPath", "/tmp/ucli/compile/run-1/summary.json")
             .HasString("dispatchFailureCode", IpcTransportErrorCodes.IpcTimeout.Value)
             .HasInt32("pollAttempts", 2);
         JsonAssert.For(diagnostic)
-            .HasString("runId", "run-1")
+            .HasString("runId", RunIdText)
             .HasString("refreshOrigin", "diagnosticsRead")
             .HasProperty("primaryDiagnostic", primaryDiagnostic => primaryDiagnostic
                 .HasString("kind", "compiler")
                 .HasString("code", "CS1002"));
         JsonAssert.For(completed)
-            .HasString("runId", "run-1")
+            .HasString("runId", RunIdText)
             .HasString("verdict", "fail")
             .HasInt32("errorCount", 1)
             .HasInt32("warningCount", 0)
@@ -122,7 +153,7 @@ public sealed class IpcCompileContractSerializationTests
             .HasString("diagnosticsJsonPath", "/tmp/ucli/compile/run-1/diagnostics.json");
     }
 
-    private static IpcCompileSummary CreateCompileSummary ()
+    private static IpcCompileSummary CreateCompileSummary (Guid runId)
     {
         var primaryDiagnostic = new IpcPrimaryDiagnostic(
             Kind: "compiler",
@@ -132,7 +163,7 @@ public sealed class IpcCompileContractSerializationTests
             Column: 16,
             Message: "; expected");
         return new IpcCompileSummary(
-            RunId: "run-1",
+            RunId: runId,
             ProjectFingerprint: new ProjectFingerprint(ProjectFingerprintText),
             Completed: true,
             StartedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:00+00:00"),

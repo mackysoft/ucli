@@ -16,7 +16,7 @@ namespace MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
 /// <param name="ProjectMutation"> The project mutation audit section. </param>
 internal sealed record BuildRunMetadataDocument (
     int SchemaVersion,
-    string RunId,
+    Guid RunId,
     JsonElement Profile,
     JsonElement Inputs,
     JsonElement Runner,

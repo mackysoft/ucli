@@ -2,7 +2,7 @@ namespace MackySoft.Ucli.Contracts.Assurance;
 
 /// <summary> Represents one observed <c>build.log.entry</c> stream payload. </summary>
 public sealed record BuildLogEntry (
-    string RunId,
+    Guid RunId,
     DateTimeOffset TimestampUtc,
     string Level,
     string Message,

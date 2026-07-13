@@ -5,6 +5,6 @@ namespace MackySoft.Ucli.Application.Features.Testing.Run.Artifacts;
 /// <param name="Paths"> The fixed artifact file paths. </param>
 /// <param name="StartedAtUtc"> The UTC start timestamp of the run. </param>
 internal sealed record ArtifactsSession (
-    string RunId,
+    Guid RunId,
     ArtifactPaths Paths,
     DateTimeOffset StartedAtUtc);

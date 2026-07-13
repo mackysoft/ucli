@@ -51,7 +51,7 @@ internal static class UnityOneshotIpcClientTestSupport
     {
         return new UnityIpcDispatchRequest(
             UnityIpcMethod.Compile,
-            IpcPayloadCodec.SerializeToElement(new IpcCompileRequest("compile-run-1")),
+            IpcPayloadCodec.SerializeToElement(new IpcCompileRequest(RunIdTestValues.Compile)),
             [IpcEditorLifecycleStateCodec.CompileFailed, IpcEditorLifecycleStateCodec.SafeMode]);
     }
 

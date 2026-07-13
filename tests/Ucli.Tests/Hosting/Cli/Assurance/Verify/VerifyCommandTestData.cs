@@ -92,7 +92,7 @@ internal static class VerifyCommandTestData
             {
                 ["compile.summary"] = new VerifyReportOutput
                 {
-                    Path = ".ucli/local/compile/run-1/summary.json",
+                    Path = $".ucli/local/compile/{RunIdTestValues.CompileText}/summary.json",
                 },
             },
             ResidualRisks: [],

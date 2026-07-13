@@ -18,11 +18,10 @@ internal sealed class FileCompileRunArtifactReader : ICompileRunArtifactStore
     /// <inheritdoc />
     public async ValueTask<CompileRunArtifactReadResult> ReadSummaryAsync (
         ResolvedUnityProjectContext unityProject,
-        string runId,
+        Guid runId,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
-        ArgumentException.ThrowIfNullOrWhiteSpace(runId);
         cancellationToken.ThrowIfCancellationRequested();
 
         string summaryPath;
@@ -53,7 +52,7 @@ internal sealed class FileCompileRunArtifactReader : ICompileRunArtifactStore
                 ? CompileRunArtifactReadResult.Failure(ExecutionError.InternalError($"Compile summary artifact is empty: {summaryPath}."))
                 : CompileRunArtifactReadResult.Success(summary);
         }
-        catch (JsonException exception)
+        catch (Exception exception) when (exception is JsonException or ArgumentException)
         {
             return CompileRunArtifactReadResult.Failure(ExecutionError.InternalError(
                 $"Compile summary artifact is invalid: {summaryPath}. {exception.Message}"));
@@ -72,14 +71,19 @@ internal sealed class FileCompileRunArtifactReader : ICompileRunArtifactStore
     /// <inheritdoc />
     public ValueTask<ExecutionError?> WriteArtifactsAsync (
         ResolvedUnityProjectContext unityProject,
-        string runId,
+        Guid runId,
         IpcCompileSummary summary,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
-        ArgumentException.ThrowIfNullOrWhiteSpace(runId);
         ArgumentNullException.ThrowIfNull(summary);
         cancellationToken.ThrowIfCancellationRequested();
+
+        if (summary.RunId != runId)
+        {
+            return ValueTask.FromResult<ExecutionError?>(ExecutionError.InvalidArgument(
+                "Compile summary run identifier must match its artifact path run identifier."));
+        }
 
         string diagnosticsPath;
         string summaryPath;
@@ -128,7 +132,7 @@ internal sealed class FileCompileRunArtifactReader : ICompileRunArtifactStore
     /// <inheritdoc />
     public string ResolveSummaryPath (
         ResolvedUnityProjectContext unityProject,
-        string runId)
+        Guid runId)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
         return Path.Combine(
@@ -139,7 +143,7 @@ internal sealed class FileCompileRunArtifactReader : ICompileRunArtifactStore
     /// <inheritdoc />
     public string ResolveDiagnosticsPath (
         ResolvedUnityProjectContext unityProject,
-        string runId)
+        Guid runId)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
         return Path.Combine(
@@ -149,10 +153,9 @@ internal sealed class FileCompileRunArtifactReader : ICompileRunArtifactStore
 
     private static string ResolveRunDirectory (
         ResolvedUnityProjectContext unityProject,
-        string runId)
+        Guid runId)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
-        ArgumentException.ThrowIfNullOrWhiteSpace(runId);
         return UcliStoragePathResolver.ResolveCompileRunArtifactsDirectory(
             unityProject.RepositoryRoot,
             unityProject.ProjectFingerprint,
@@ -317,7 +320,7 @@ internal sealed class FileCompileRunArtifactReader : ICompileRunArtifactStore
     }
 
     private sealed record CompileDiagnosticsArtifact (
-        string RunId,
+        Guid RunId,
         int ErrorCount,
         int WarningCount,
         IpcPrimaryDiagnostic? PrimaryDiagnostic);

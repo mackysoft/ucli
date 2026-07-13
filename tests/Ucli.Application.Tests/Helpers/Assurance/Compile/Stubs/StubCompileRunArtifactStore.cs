@@ -21,7 +21,7 @@ internal sealed class StubCompileRunArtifactStore : ICompileRunArtifactStore
 
     public ValueTask<CompileRunArtifactReadResult> ReadSummaryAsync (
         ResolvedUnityProjectContext unityProject,
-        string runId,
+        Guid runId,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -33,7 +33,7 @@ internal sealed class StubCompileRunArtifactStore : ICompileRunArtifactStore
 
     public ValueTask<ExecutionError?> WriteArtifactsAsync (
         ResolvedUnityProjectContext unityProject,
-        string runId,
+        Guid runId,
         IpcCompileSummary summary,
         CancellationToken cancellationToken = default)
     {
@@ -45,14 +45,14 @@ internal sealed class StubCompileRunArtifactStore : ICompileRunArtifactStore
 
     public string ResolveSummaryPath (
         ResolvedUnityProjectContext unityProject,
-        string runId)
+        Guid runId)
     {
         return "/workspace/.ucli/local/compile/run-1/summary.json";
     }
 
     public string ResolveDiagnosticsPath (
         ResolvedUnityProjectContext unityProject,
-        string runId)
+        Guid runId)
     {
         return "/workspace/.ucli/local/compile/run-1/diagnostics.json";
     }

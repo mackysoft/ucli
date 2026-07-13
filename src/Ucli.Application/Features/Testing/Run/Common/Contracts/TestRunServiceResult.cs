@@ -8,12 +8,16 @@ internal sealed record TestRunServiceResult
         TestRunErrorKind? errorKind,
         ApplicationFailure? failure,
         string message,
-        string? runId,
+        Guid? runId,
         string? artifactsDir,
         string? summaryJsonPath,
         StartupFailureDetail? startupFailure = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
+        if (runId == Guid.Empty)
+        {
+            throw new ArgumentException("Run id must not be empty.", nameof(runId));
+        }
 
         if (errorKind is null)
         {
@@ -68,7 +72,7 @@ internal sealed record TestRunServiceResult
     public string Message { get; }
 
     /// <summary> Gets the run identifier when artifacts session exists. </summary>
-    public string? RunId { get; }
+    public Guid? RunId { get; }
 
     /// <summary> Gets the run artifacts directory path when available. </summary>
     public string? ArtifactsDir { get; }
@@ -109,7 +113,7 @@ internal sealed record TestRunServiceResult
     /// <returns> The pass result. </returns>
     public static TestRunServiceResult Pass (
         string message,
-        string runId,
+        Guid runId,
         string artifactsDir,
         string summaryJsonPath)
     {
@@ -131,7 +135,7 @@ internal sealed record TestRunServiceResult
     /// <returns> The fail result. </returns>
     public static TestRunServiceResult Fail (
         string message,
-        string runId,
+        Guid runId,
         string artifactsDir,
         string summaryJsonPath)
     {
@@ -155,7 +159,7 @@ internal sealed record TestRunServiceResult
     public static TestRunServiceResult InvalidInput (
         string message,
         UcliCode errorCode,
-        string? runId = null,
+        Guid? runId = null,
         string? artifactsDir = null,
         string? summaryJsonPath = null,
         StartupFailureDetail? startupFailure = null)
@@ -181,7 +185,7 @@ internal sealed record TestRunServiceResult
     public static TestRunServiceResult InfraError (
         string message,
         UcliCode errorCode,
-        string? runId = null,
+        Guid? runId = null,
         string? artifactsDir = null,
         string? summaryJsonPath = null,
         StartupFailureDetail? startupFailure = null)
@@ -211,7 +215,7 @@ internal sealed record TestRunServiceResult
     public static TestRunServiceResult ToolError (
         string message,
         UcliCode errorCode,
-        string? runId = null,
+        Guid? runId = null,
         string? artifactsDir = null,
         string? summaryJsonPath = null,
         StartupFailureDetail? startupFailure = null)

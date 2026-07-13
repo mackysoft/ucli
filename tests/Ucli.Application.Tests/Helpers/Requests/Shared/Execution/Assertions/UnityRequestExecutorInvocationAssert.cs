@@ -92,7 +92,7 @@ internal static class UnityRequestExecutorInvocationAssert
 
     public static UnityRequestPayload.Compile CompileOnce (
         RecordingUnityRequestExecutor executor,
-        string? expectedRunId = null,
+        Guid? expectedRunId = null,
         TimeSpan? expectedTimeout = null)
     {
         var invocation = ExecutedOnce(executor, UcliCommandIds.Compile);
@@ -102,9 +102,9 @@ internal static class UnityRequestExecutorInvocationAssert
         }
 
         var payload = Assert.IsType<UnityRequestPayload.Compile>(invocation.Payload);
-        if (expectedRunId is not null)
+        if (expectedRunId.HasValue)
         {
-            Assert.Equal(expectedRunId, payload.RunId);
+            Assert.Equal(expectedRunId.Value, payload.RunId);
         }
 
         return payload;

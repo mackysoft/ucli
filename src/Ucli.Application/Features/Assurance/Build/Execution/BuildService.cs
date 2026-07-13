@@ -41,7 +41,7 @@ internal sealed class BuildService : IBuildService
 
     private readonly IUnityStreamingRequestExecutor unityStreamingRequestExecutor;
 
-    private readonly IBuildRunIdFactory runIdFactory;
+    private readonly IRunIdGenerator runIdGenerator;
 
     private readonly IBuildRunArtifactStore artifactStore;
 
@@ -55,7 +55,7 @@ internal sealed class BuildService : IBuildService
         IUnityExecutionModeDecisionService executionModeDecisionService,
         IUnityRequestExecutor unityRequestExecutor,
         IUnityStreamingRequestExecutor unityStreamingRequestExecutor,
-        IBuildRunIdFactory runIdFactory,
+        IRunIdGenerator runIdGenerator,
         IBuildRunArtifactStore artifactStore,
         TimeProvider? timeProvider = null)
     {
@@ -65,7 +65,7 @@ internal sealed class BuildService : IBuildService
         this.executionModeDecisionService = executionModeDecisionService ?? throw new ArgumentNullException(nameof(executionModeDecisionService));
         this.unityRequestExecutor = unityRequestExecutor ?? throw new ArgumentNullException(nameof(unityRequestExecutor));
         this.unityStreamingRequestExecutor = unityStreamingRequestExecutor ?? throw new ArgumentNullException(nameof(unityStreamingRequestExecutor));
-        this.runIdFactory = runIdFactory ?? throw new ArgumentNullException(nameof(runIdFactory));
+        this.runIdGenerator = runIdGenerator ?? throw new ArgumentNullException(nameof(runIdGenerator));
         this.artifactStore = artifactStore ?? throw new ArgumentNullException(nameof(artifactStore));
         this.timeProvider = timeProvider ?? TimeProvider.System;
     }
@@ -153,7 +153,7 @@ internal sealed class BuildService : IBuildService
             return BuildExecutionResult.Failure(CreateTimeoutFailure(timeout), project);
         }
 
-        var runId = runIdFactory.Create();
+        var runId = runIdGenerator.Generate();
         var prepareResult = artifactStore.Prepare(context.UnityProject, runId);
         if (!prepareResult.IsSuccess)
         {
@@ -400,7 +400,7 @@ internal sealed class BuildService : IBuildService
 
     private static ValueTask EmitStartedAsync (
         ICommandProgressSink progressSink,
-        string runId,
+        Guid runId,
         string profileDigest,
         CancellationToken cancellationToken)
     {
@@ -421,14 +421,12 @@ internal sealed class BuildService : IBuildService
     private RunnerInvocationResolutionResult ResolveRunnerInvocation (
         ResolvedBuildProfile profile,
         string profilePath,
-        string runId,
+        Guid runId,
         string outputDirectory,
         string projectPath,
         ProjectFingerprint projectFingerprint)
     {
         ArgumentNullException.ThrowIfNull(profile);
-        ArgumentException.ThrowIfNullOrWhiteSpace(runId);
-
         if (profile.Runner.Kind == BuildProfileRunnerKind.BuildPipeline)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(profilePath);
@@ -513,14 +511,14 @@ internal sealed class BuildService : IBuildService
     private static IReadOnlyDictionary<string, string> CreateBuiltInVariableMap (
         ResolvedBuildProfile profile,
         string profilePath,
-        string runId,
+        Guid runId,
         string outputDirectory,
         string projectPath,
         ProjectFingerprint projectFingerprint)
     {
         return new Dictionary<string, string>(StringComparer.Ordinal)
         {
-            ["ucli.build.runId"] = runId,
+            ["ucli.build.runId"] = runId.ToString("D"),
             ["ucli.build.outputDir"] = outputDirectory,
             ["ucli.build.profilePath"] = profilePath,
             ["ucli.build.profileDigest"] = profile.Digest,
@@ -632,7 +630,7 @@ internal sealed class BuildService : IBuildService
 
     private static ValueTask EmitDiagnosticAsync (
         ICommandProgressSink progressSink,
-        string runId,
+        Guid runId,
         string code,
         string severity,
         string message,
@@ -648,7 +646,7 @@ internal sealed class BuildService : IBuildService
     private static ValueTask EmitProgressAsync (
         ICommandProgressSink progressSink,
         string eventName,
-        string runId,
+        Guid runId,
         string profileDigest,
         string phase,
         string? runnerKind,
@@ -677,7 +675,7 @@ internal sealed class BuildService : IBuildService
         UnityExecutionTarget executionTarget,
         TimeSpan requestTimeout,
         UnityRequestPayload.BuildRun request,
-        string runId,
+        Guid runId,
         string profileDigest,
         ICommandProgressSink progressSink,
         bool useProgressStream,
@@ -715,14 +713,13 @@ internal sealed class BuildService : IBuildService
 
     private static async ValueTask ForwardBuildProgressFrameAsync (
         UnityRequestProgressFrame frame,
-        string expectedRunId,
+        Guid expectedRunId,
         string expectedProfileDigest,
         ICommandProgressSink progressSink,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(frame);
-        ArgumentException.ThrowIfNullOrWhiteSpace(expectedRunId);
         ArgumentException.ThrowIfNullOrWhiteSpace(expectedProfileDigest);
         ArgumentNullException.ThrowIfNull(progressSink);
 
@@ -747,7 +744,7 @@ internal sealed class BuildService : IBuildService
 
     private static async ValueTask ForwardProgressPayloadAsync<TPayload> (
         UnityRequestProgressFrame frame,
-        string expectedRunId,
+        Guid expectedRunId,
         string expectedProfileDigest,
         ICommandProgressSink progressSink,
         CancellationToken cancellationToken)
@@ -772,7 +769,7 @@ internal sealed class BuildService : IBuildService
         string profilePath,
         BuildRunArtifactPaths paths,
         IpcBuildOutputLayout? outputLayout,
-        string runId,
+        Guid runId,
         ResolvedRunnerInvocationInput runnerInvocation)
     {
         var inputKind = ContractLiteralCodec.ToValue(profile.Inputs.Kind);
@@ -914,7 +911,7 @@ internal sealed class BuildService : IBuildService
 
     private static BuildResponseResolutionResult ResolveBuildResponse (
         UnityRequestResponse response,
-        string expectedRunId,
+        Guid expectedRunId,
         ProjectFingerprint expectedProjectFingerprint,
         ResolvedBuildProfile expectedProfile,
         string expectedOutputDirectory)
@@ -963,12 +960,12 @@ internal sealed class BuildService : IBuildService
 
     private static ApplicationFailure? ValidateResponse (
         IpcBuildRunResponse response,
-        string expectedRunId,
+        Guid expectedRunId,
         ProjectFingerprint expectedProjectFingerprint,
         ResolvedBuildProfile expectedProfile,
         string expectedOutputDirectory)
     {
-        if (!string.Equals(response.RunId, expectedRunId, StringComparison.Ordinal))
+        if (response.RunId != expectedRunId)
         {
             return ApplicationFailure.InternalError(
                 $"Unity build response runId mismatch. Requested={expectedRunId}, Actual={response.RunId}.");
@@ -1925,7 +1922,7 @@ internal sealed class BuildService : IBuildService
 
     private static BuildExecutionOutput CreateOutput (
         ProjectIdentityInfo project,
-        string runId,
+        Guid runId,
         string profilePath,
         ResolvedBuildProfile profile,
         IpcBuildRunResponse response,

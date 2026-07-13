@@ -303,13 +303,12 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
 
     private static async ValueTask ForwardTestRunProgressFrameAsync (
         UnityRequestProgressFrame frame,
-        string expectedRunId,
+        Guid expectedRunId,
         ICommandProgressSink progressSink,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(frame);
-        ArgumentException.ThrowIfNullOrWhiteSpace(expectedRunId);
         ArgumentNullException.ThrowIfNull(progressSink);
 
         switch (frame.Event)
@@ -333,7 +332,7 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
 
     private static async ValueTask ForwardProgressPayloadAsync<TPayload> (
         UnityRequestProgressFrame frame,
-        string expectedRunId,
+        Guid expectedRunId,
         ICommandProgressSink progressSink,
         CancellationToken cancellationToken)
         where TPayload : notnull

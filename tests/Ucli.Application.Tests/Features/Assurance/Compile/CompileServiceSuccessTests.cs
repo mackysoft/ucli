@@ -27,13 +27,13 @@ public sealed class CompileServiceSuccessTests
         Assert.True(result.IsSuccess);
         var output = result.Output!;
         Assert.Equal(CompileVerdictValues.Pass, output.Verdict);
-        Assert.Equal("run-1", output.Compile.RunId);
+        Assert.Equal(RunId, output.Compile.RunId);
         Assert.Equal("oneshot", output.ResolvedMode);
         Assert.Equal("transientProbe", output.SessionKind);
         Assert.Equal(3, output.Claims.Count);
         UnityRequestExecutorInvocationAssert.CompileOnce(
             unityRequestExecutor,
-            expectedRunId: "run-1");
+            expectedRunId: RunId);
         EventSequenceAssert.EmittedEventsInOrder(
             progressSink.Entries,
             CompileProgressEventNames.Started,

@@ -278,7 +278,7 @@ public sealed class UnityDaemonIpcClientDispatchTests
             sessionConnectionProvider,
             recoveryWaiter: null,
             timeProvider: timeProvider);
-        var dispatchRequest = new UnityIpcRequestBuilder().Build(new UnityRequestPayload.Compile("run-1"));
+        var dispatchRequest = new UnityIpcRequestBuilder().Build(new UnityRequestPayload.Compile(RunIdTestValues.Compile));
 
         var result = await client.SendAsync(
             ResolvedUnityProjectContextTestFactory.Create(),

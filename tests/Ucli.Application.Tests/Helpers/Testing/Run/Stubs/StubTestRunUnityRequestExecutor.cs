@@ -81,7 +81,7 @@ internal sealed class StubTestRunUnityRequestExecutor : IUnityRequestExecutor, I
                     new UnityRequestProgressFrame(
                         TestRunProgressEventNames.RunDiagnostic,
                         IpcPayloadCodec.SerializeToElement(new TestRunDiagnosticEntry(
-                            testRunRequest.RunId ?? "run-id",
+                            testRunRequest.RunId,
                             "TEST_PROGRESS_STUB",
                             "stub progress",
                             "info"))),

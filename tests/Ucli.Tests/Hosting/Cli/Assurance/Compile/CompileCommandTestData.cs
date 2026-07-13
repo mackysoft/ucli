@@ -18,12 +18,12 @@ internal static class CompileCommandTestData
     public static CompileCompletedEntry CreateCompletedEntry ()
     {
         return new CompileCompletedEntry(
-            RunId: "run-1",
+            RunId: RunIdTestValues.Compile,
             Verdict: "pass",
             ErrorCount: 0,
             WarningCount: 0,
-            SummaryJsonPath: "/tmp/ucli/compile/run-1/summary.json",
-            DiagnosticsJsonPath: "/tmp/ucli/compile/run-1/diagnostics.json");
+            SummaryJsonPath: $"/tmp/ucli/compile/{RunIdTestValues.CompileText}/summary.json",
+            DiagnosticsJsonPath: $"/tmp/ucli/compile/{RunIdTestValues.CompileText}/diagnostics.json");
     }
 
     public static CompileExecutionOutput CreateOutput (int errorCount = 0)
@@ -98,7 +98,7 @@ internal static class CompileCommandTestData
             Subject: new Dictionary<string, object?>(StringComparer.Ordinal)
             {
                 ["kind"] = subjectKind,
-                ["runId"] = "20260517_000000Z_abcdef12",
+                ["runId"] = RunIdTestValues.Compile,
             },
             Evidence: [evidence],
             ResidualRisks: []);
@@ -117,7 +117,7 @@ internal static class CompileCommandTestData
                 Message: "; expected");
         var canAcceptExecutionRequests = errorCount == 0;
         return new CompileOutput(
-            RunId: "20260517_000000Z_abcdef12",
+            RunId: RunIdTestValues.Compile,
             Refresh: new CompileRefreshOutput(
                 Origin: CompileEffectValues.AssetDatabaseRefresh,
                 Requested: true,

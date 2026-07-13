@@ -22,7 +22,7 @@ public sealed class UnityIpcRequestBuilderBuildRunTests
         Assert.Equal(UnityIpcMethod.BuildRun, request.Method);
         Assert.False(request.IsRecoverable);
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcBuildRunRequest payload, out _));
-        Assert.Equal("build-run-1", payload.RunId);
+        Assert.Equal(RunIdTestValues.Build, payload.RunId);
         Assert.Equal(ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit), payload.InputKind);
         Assert.Equal("standaloneLinux64", payload.BuildTarget);
         Assert.Equal("StandaloneLinux64", payload.UnityBuildTarget);
@@ -57,7 +57,7 @@ public sealed class UnityIpcRequestBuilderBuildRunTests
         var builder = new UnityIpcRequestBuilder();
 
         var request = builder.Build(new UnityRequestPayload.BuildRun(
-            RunId: "build-run-1",
+            RunId: RunIdTestValues.Build,
             InputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.UnityBuildProfile),
             BuildTarget: null,
             UnityBuildTarget: null,
@@ -88,7 +88,7 @@ public sealed class UnityIpcRequestBuilderBuildRunTests
     {
         var builder = new UnityIpcRequestBuilder();
         var requestPayload = new UnityRequestPayload.BuildRun(
-            RunId: "build-run-1",
+            RunId: RunIdTestValues.Build,
             InputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit),
             BuildTarget: "standaloneLinux64",
             UnityBuildTarget: "StandaloneLinux64",

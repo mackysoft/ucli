@@ -39,7 +39,7 @@ public sealed class BuildRunCommandProgressTests
         var line = Assert.Single(result.StdErr.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries));
         using var entryJson = JsonDocument.Parse(line);
         AssertBuildStreamEnvelope(entryJson.RootElement, sequence: 1, BuildRunProgressEventNames.Completed);
-        Assert.Equal(BuildRunTestData.RunId, entryJson.RootElement.GetProperty("payload").GetProperty("runId").GetString());
+        Assert.Equal(BuildRunTestData.RunIdText, entryJson.RootElement.GetProperty("payload").GetProperty("runId").GetString());
         Assert.Equal("pass", entryJson.RootElement.GetProperty("payload").GetProperty("verdict").GetString());
     }
 
@@ -74,8 +74,8 @@ public sealed class BuildRunCommandProgressTests
             outputJson.RootElement,
             UcliCommandNames.BuildRun);
         Assert.Equal(
-            "build runId=build-run-1 phase=started runnerKind=null runnerStatus=null verdict=null" + Environment.NewLine
-                + "build runId=build-run-1 phase=completed runnerKind=buildPipeline runnerStatus=succeeded verdict=pass" + Environment.NewLine,
+            $"build runId={BuildRunTestData.RunIdText} phase=started runnerKind=null runnerStatus=null verdict=null" + Environment.NewLine
+                + $"build runId={BuildRunTestData.RunIdText} phase=completed runnerKind=buildPipeline runnerStatus=succeeded verdict=pass" + Environment.NewLine,
             result.StdErr);
     }
 

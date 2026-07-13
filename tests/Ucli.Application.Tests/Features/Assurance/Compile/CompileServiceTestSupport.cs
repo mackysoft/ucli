@@ -10,11 +10,14 @@ namespace MackySoft.Ucli.Application.Tests.Features.Assurance.Compile;
 
 internal static class CompileServiceTestSupport
 {
+    public static readonly Guid RunId = Guid.Parse("0b143533-fbc2-41ee-bc33-08d80b4fc359");
+    public static readonly Guid OtherRunId = Guid.Parse("5d948e1f-d4cd-4357-9f79-eb86604cd355");
+
     public static CompileService CreateService (
         IProjectContextResolver? projectContextResolver = null,
         IUnityExecutionModeDecisionService? modeDecisionService = null,
         IUnityRequestExecutor? unityRequestExecutor = null,
-        ICompileRunIdFactory? runIdFactory = null,
+        IRunIdGenerator? runIdGenerator = null,
         ICompileRunArtifactStore? artifactStore = null,
         TimeProvider? timeProvider = null)
     {
@@ -26,7 +29,7 @@ internal static class CompileServiceTestSupport
                 UnityExecutionTarget.Oneshot,
                 TimeSpan.FromSeconds(10)))),
             unityRequestExecutor ?? new RecordingUnityRequestExecutor(CreateCompileResponseResult(CreateSummary())),
-            runIdFactory ?? new StubCompileRunIdFactory("run-1"),
+            runIdGenerator ?? new StubRunIdGenerator(RunId),
             artifactStore ?? new StubCompileRunArtifactStore(),
             timeProvider ?? TimeProvider.System);
     }
@@ -40,7 +43,7 @@ internal static class CompileServiceTestSupport
     }
 
     public static IpcCompileSummary CreateSummary (
-        string runId = "run-1",
+        Guid? runId = null,
         ProjectFingerprint? projectFingerprint = null,
         int errorCount = 0)
     {
@@ -55,7 +58,7 @@ internal static class CompileServiceTestSupport
                 Message: "; expected");
         var canAcceptExecutionRequests = errorCount == 0;
         return new IpcCompileSummary(
-            RunId: runId,
+            RunId: runId ?? RunId,
             ProjectFingerprint: projectFingerprint ?? ProjectContextTestFactory.ProjectFingerprint,
             Completed: true,
             StartedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:00Z"),

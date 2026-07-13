@@ -6,6 +6,9 @@ namespace MackySoft.Ucli.Contracts.Tests.Assurance.Build;
 
 public sealed class BuildRunProgressEventNamesTests
 {
+    private const string RunIdText = "fedcba98-7654-3210-fedc-ba9876543210";
+    private static readonly Guid RunId = Guid.Parse(RunIdText);
+
     [Fact]
     [Trait("Size", "Small")]
     public void Constants_ExposePublicBuildRunEventNames ()
@@ -34,7 +37,7 @@ public sealed class BuildRunProgressEventNamesTests
     public void BuildProgressEntry_SerializesFinalCamelCaseShape ()
     {
         var json = IpcPayloadCodec.SerializeToElement(new BuildProgressEntry(
-            RunId: "build-run-1",
+            RunId: RunId,
             ProfileDigest: new string('a', 64),
             Phase: "completed",
             RunnerKind: "buildPipeline",
@@ -43,7 +46,7 @@ public sealed class BuildRunProgressEventNamesTests
             ReportRefs: ["build", "buildReport", "buildOutputManifest", "buildLog"],
             ErrorCode: null));
 
-        Assert.Equal("build-run-1", json.GetProperty("runId").GetString());
+        Assert.Equal(RunIdText, json.GetProperty("runId").GetString());
         Assert.Equal(new string('a', 64), json.GetProperty("profileDigest").GetString());
         Assert.Equal("completed", json.GetProperty("phase").GetString());
         Assert.Equal("buildPipeline", json.GetProperty("runnerKind").GetString());
@@ -58,14 +61,14 @@ public sealed class BuildRunProgressEventNamesTests
     public void BuildLogEntry_SerializesFinalCamelCaseShape ()
     {
         var json = IpcPayloadCodec.SerializeToElement(new BuildLogEntry(
-            RunId: "build-run-1",
+            RunId: RunId,
             TimestampUtc: DateTimeOffset.Parse("2026-06-12T00:00:00+00:00"),
             Level: "warning",
             Message: "sample warning",
             Cursor: "stream-1:42",
             Source: "unityLog"));
 
-        Assert.Equal("build-run-1", json.GetProperty("runId").GetString());
+        Assert.Equal(RunIdText, json.GetProperty("runId").GetString());
         Assert.Equal("warning", json.GetProperty("level").GetString());
         Assert.Equal("sample warning", json.GetProperty("message").GetString());
         Assert.Equal("stream-1:42", json.GetProperty("cursor").GetString());
@@ -77,13 +80,13 @@ public sealed class BuildRunProgressEventNamesTests
     public void BuildDiagnosticEntry_SerializesFinalCamelCaseShape ()
     {
         var json = IpcPayloadCodec.SerializeToElement(new BuildDiagnosticEntry(
-            RunId: "build-run-1",
+            RunId: RunId,
             Code: "BUILD_PROGRESS_DROPPED",
             Severity: "warning",
             Message: "progress dropped",
             Phase: "runnerInvocation"));
 
-        Assert.Equal("build-run-1", json.GetProperty("runId").GetString());
+        Assert.Equal(RunIdText, json.GetProperty("runId").GetString());
         Assert.Equal("BUILD_PROGRESS_DROPPED", json.GetProperty("code").GetString());
         Assert.Equal("warning", json.GetProperty("severity").GetString());
         Assert.Equal("progress dropped", json.GetProperty("message").GetString());

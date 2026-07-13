@@ -213,16 +213,6 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return false;
             }
 
-            if (!IsValidRunId(compileRequest!.RunId))
-            {
-                errorResponse = UnityIpcResponseFactory.CreateErrorResponse(
-                    request,
-                    UcliCoreErrorCodes.InvalidArgument,
-                    "Compile runId must be one non-empty path segment.",
-                    null);
-                return false;
-            }
-
             if (!TryValidateTimeoutMilliseconds(compileRequest.TimeoutMilliseconds, out var timeoutErrorMessage))
             {
                 errorResponse = UnityIpcResponseFactory.CreateErrorResponse(
@@ -303,7 +293,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private static IpcResponse CreateCompileSuccessResponse (
             IpcRequest request,
-            string runId,
+            Guid runId,
             IpcCompileSummary summary)
         {
             var response = new IpcCompileResponse(
@@ -330,7 +320,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return false;
             }
 
-            if (!string.Equals(pendingSummary.RunId, compileRequest.RunId, StringComparison.Ordinal))
+            if (pendingSummary.RunId != compileRequest.RunId)
             {
                 errorMessage = "Recoverable compile operation runId does not match the retry request.";
                 return false;
@@ -352,7 +342,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         {
             return completedSummary != null
                 && pendingSummary != null
-                && string.Equals(completedSummary.RunId, pendingSummary.RunId, StringComparison.Ordinal)
+                && completedSummary.RunId == pendingSummary.RunId
                 && completedSummary.ProjectFingerprint == pendingSummary.ProjectFingerprint
                 && completedSummary.StartedAtUtc == pendingSummary.StartedAtUtc;
         }
@@ -471,16 +461,6 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
         }
 
-        private static bool IsValidRunId (string runId)
-        {
-            return !string.IsNullOrWhiteSpace(runId)
-                && runId.IndexOf('/') < 0
-                && runId.IndexOf('\\') < 0
-                && runId.IndexOf(':') < 0
-                && !string.Equals(runId, ".", StringComparison.Ordinal)
-                && !string.Equals(runId, "..", StringComparison.Ordinal);
-        }
-
         private static bool TryValidateTimeoutMilliseconds (
             int? timeoutMilliseconds,
             out string errorMessage)
@@ -564,7 +544,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         private static IpcCompileSummary CreatePendingSummary (
-            string runId,
+            Guid runId,
             IpcProjectIdentity projectIdentity,
             UnityEditorLifecycleSnapshot beforeSnapshot,
             IServerVersionProvider serverVersionProvider,
@@ -912,7 +892,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private sealed class CompileRunRecorder : IDisposable
         {
-            private readonly string runId;
+            private readonly Guid runId;
 
             private readonly IpcProjectIdentity projectIdentity;
 
@@ -927,7 +907,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             private readonly DiagnosticAccumulator diagnostics = new DiagnosticAccumulator();
 
             public CompileRunRecorder (
-                string runId,
+                Guid runId,
                 IpcProjectIdentity projectIdentity,
                 IUnityEditorReadinessGate readinessGate,
                 IServerVersionProvider serverVersionProvider,
@@ -1115,7 +1095,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         {
             public static CompileArtifactPaths Resolve (
                 ProjectFingerprint projectFingerprint,
-                string runId)
+                Guid runId)
             {
                 var artifactsDir = UcliStoragePathResolver.ResolveCompileRunArtifactsDirectory(
                     ResolveStorageRoot(),

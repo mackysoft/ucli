@@ -10,7 +10,7 @@ namespace MackySoft.Ucli.Tests;
 
 internal static class BuildRunCliOutputFixtureFactory
 {
-    private const string SuccessManifestDigest = "59a71d71a244ad7a978be0bbfe8f87328c036091bb4b5aefef9e89b855d82b9b";
+    private const string SuccessManifestDigest = "1047a19f8c4eb95c4258d04da06d8b7335d006b88bcdc7c34dc6dbb78f98cdba";
     private const string FailedManifestDigest = "04d7d7e1eb32bc4521986964ba5e86b772fe46a3b50a73e4dd3783d4c4577d21";
 
     private static readonly string BuildDigest = new('a', 64);
@@ -74,7 +74,7 @@ internal static class BuildRunCliOutputFixtureFactory
         var fileCount = succeeded ? 2 : 0;
         var totalBytes = succeeded ? 33 : 0;
         var build = new BuildOutput(
-            RunId: "build-run-1",
+            RunId: RunIdTestValues.Build,
             Profile: new BuildProfileOutput("/workspace/UnityProject/.ucli/build/player.json", ProfileDigest),
             Inputs: new BuildInputsOutput(
                 InputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit),

@@ -78,7 +78,7 @@ public sealed class UnityDaemonIpcClientStreamingTests
                 ResultsXmlPath: "/tmp/results.xml",
                 EditorLogPath: "/tmp/editor.log",
                 FailFast: false,
-                RunId: "run-1"))
+                RunId: RunIdTestValues.Test))
             .WithResponseMode(IpcResponseMode.Stream);
 
         var result = await client.SendStreamingAsync(

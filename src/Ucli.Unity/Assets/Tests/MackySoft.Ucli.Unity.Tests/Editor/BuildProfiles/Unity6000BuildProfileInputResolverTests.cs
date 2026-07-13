@@ -31,7 +31,7 @@ namespace MackySoft.Ucli.Unity.Tests
         private static readonly ProjectFingerprint ProjectFingerprint =
             ProjectFingerprintTestFactory.Create("unity-6000-build-profile-project");
 
-        private const string RunId = "unity-6000-build-profile-run";
+        private static readonly Guid RunId = Guid.Parse("00000000-0000-0000-0000-000000000601");
 
         [Test]
         [Category("Size.Small")]

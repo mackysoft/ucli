@@ -21,7 +21,7 @@ internal static class FileBuildRunArtifactStoreTestSupport
     {
         var store = CreateStore();
         var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, ProjectFingerprintTestFactory.Create("fingerprint"));
-        var prepareResult = store.Prepare(project, "run-1");
+        var prepareResult = store.Prepare(project, RunIdTestValues.Build);
 
         Assert.True(prepareResult.IsSuccess);
         return (store, Assert.IsType<BuildRunArtifactPaths>(prepareResult.Paths));
@@ -111,34 +111,26 @@ internal static class FileBuildRunArtifactStoreTestSupport
         string pathKind,
         string escapedPath)
     {
-        return pathKind switch
+        if (pathKind is not "buildJson"
+            and not "buildReport"
+            and not "buildLog"
+            and not "outputManifest"
+            and not "artifactOutput"
+            and not "runnerOutput")
         {
-            "buildJson" => paths with
-            {
-                BuildJsonPath = escapedPath,
-            },
-            "buildReport" => paths with
-            {
-                BuildReportJsonPath = escapedPath,
-            },
-            "buildLog" => paths with
-            {
-                BuildLogPath = escapedPath,
-            },
-            "outputManifest" => paths with
-            {
-                OutputManifestJsonPath = escapedPath,
-            },
-            "artifactOutput" => paths with
-            {
-                ArtifactOutputDirectory = escapedPath,
-            },
-            "runnerOutput" => paths with
-            {
-                RunnerOutputDirectory = escapedPath,
-            },
-            _ => throw new ArgumentOutOfRangeException(nameof(pathKind), pathKind, "Unknown artifact path kind."),
-        };
+            throw new ArgumentOutOfRangeException(nameof(pathKind), pathKind, "Unknown artifact path kind.");
+        }
+
+        return new BuildRunArtifactPaths(
+            paths.RepositoryRoot,
+            paths.RunId,
+            paths.ArtifactsDirectory,
+            pathKind == "buildJson" ? escapedPath : paths.BuildJsonPath,
+            pathKind == "buildReport" ? escapedPath : paths.BuildReportJsonPath,
+            pathKind == "buildLog" ? escapedPath : paths.BuildLogPath,
+            pathKind == "outputManifest" ? escapedPath : paths.OutputManifestJsonPath,
+            pathKind == "runnerOutput" ? escapedPath : paths.RunnerOutputDirectory,
+            pathKind == "artifactOutput" ? escapedPath : paths.ArtifactOutputDirectory);
     }
 
     public static void WriteUnityGeneratedArtifacts (BuildRunArtifactPaths paths)

@@ -9,6 +9,7 @@ public sealed class RequiredProjectFingerprintContractTests
 {
     private static readonly DateTimeOffset Timestamp =
         new(2026, 7, 13, 0, 0, 0, TimeSpan.Zero);
+    private static readonly Guid RunId = Guid.Parse("2df1e10d-6a6f-4e36-86e7-5e94040eb0e6");
 
     [Theory]
     [InlineData(ContractKind.DaemonBootstrap)]
@@ -51,14 +52,14 @@ public sealed class RequiredProjectFingerprintContractTests
                 EndpointTransportKind: "namedPipe",
                 EndpointAddress: "ucli-endpoint"),
             ContractKind.CompileStarted => new CompileStartedEntry(
-                RunId: "compile-run",
+                RunId: RunId,
                 ProjectFingerprint: null!,
                 RequestedMode: "auto",
                 ResolvedMode: "daemon",
                 SessionKind: "existing",
                 TimeoutMilliseconds: 1000),
             ContractKind.CompileSummary => new IpcCompileSummary(
-                RunId: "compile-run",
+                RunId: RunId,
                 ProjectFingerprint: null!,
                 Completed: false,
                 StartedAtUtc: Timestamp,
@@ -125,7 +126,7 @@ public sealed class RequiredProjectFingerprintContractTests
                 ProjectFingerprint: null!,
                 ProcessId: 1234),
             ContractKind.BuildRunResponse => new IpcBuildRunResponse(
-                RunId: "build-run",
+                RunId: RunId,
                 ProjectFingerprint: null!,
                 LifecycleBefore: null!,
                 LifecycleAfter: null!,

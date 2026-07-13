@@ -24,12 +24,10 @@ internal static class TestRunProgressPayloadValidator
     public static void Validate<TPayload> (
         string eventName,
         TPayload payload,
-        string expectedRunId)
+        Guid expectedRunId)
         where TPayload : notnull
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(eventName);
-        ArgumentException.ThrowIfNullOrWhiteSpace(expectedRunId);
-
         switch (eventName)
         {
             case TestRunProgressEventNames.RunStarted when payload is TestRunStartedEntry entry:
@@ -68,10 +66,10 @@ internal static class TestRunProgressPayloadValidator
 
     private static void RequireExpectedRunId (
         string eventName,
-        string actualRunId,
-        string expectedRunId)
+        Guid actualRunId,
+        Guid expectedRunId)
     {
-        if (!string.Equals(actualRunId, expectedRunId, StringComparison.Ordinal))
+        if (actualRunId != expectedRunId)
         {
             throw new TestRunProgressProtocolException(
                 $"Unity test-run progress payload runId mismatch for event '{eventName}'. Expected={expectedRunId}, Actual={actualRunId}.");
@@ -92,7 +90,6 @@ internal static class TestRunProgressPayloadValidator
         string eventName,
         TestRunStartedEntry entry)
     {
-        RequireNonEmpty(eventName, "runId", entry.RunId);
         RequireNonEmpty(eventName, "testPlatform", entry.TestPlatform);
         RequireArray(eventName, "assemblyNames", entry.AssemblyNames);
         RequireArray(eventName, "testCategories", entry.TestCategories);
@@ -104,7 +101,6 @@ internal static class TestRunProgressPayloadValidator
     {
         ValidateCaseIdentity(
             eventName,
-            entry.RunId,
             entry.TestId,
             entry.TestName,
             entry.AssemblyName,
@@ -118,7 +114,6 @@ internal static class TestRunProgressPayloadValidator
     {
         ValidateCaseIdentity(
             eventName,
-            entry.RunId,
             entry.TestId,
             entry.TestName,
             entry.AssemblyName,
@@ -135,7 +130,6 @@ internal static class TestRunProgressPayloadValidator
         string eventName,
         TestRunDiagnosticEntry entry)
     {
-        RequireNonEmpty(eventName, "runId", entry.RunId);
         RequireNonEmpty(eventName, "code", entry.Code);
         RequireNonEmpty(eventName, "message", entry.Message);
         RequireLiteral(eventName, "severity", entry.Severity, ValidDiagnosticSeverities);
@@ -143,14 +137,12 @@ internal static class TestRunProgressPayloadValidator
 
     private static void ValidateCaseIdentity (
         string eventName,
-        string runId,
         string testId,
         string testName,
         string? assemblyName,
         string testPlatform,
         IReadOnlyList<string>? categories)
     {
-        RequireNonEmpty(eventName, "runId", runId);
         RequireNonEmpty(eventName, "testId", testId);
         RequireNonEmpty(eventName, "testName", testName);
         RequireOptionalNonEmpty(eventName, "assemblyName", assemblyName);

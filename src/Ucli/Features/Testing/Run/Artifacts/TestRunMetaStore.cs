@@ -70,7 +70,7 @@ internal sealed class TestRunMetaStore : ITestRunMetaStore
     /// <param name="ArtifactsDir"> The run artifacts directory path. </param>
     private sealed record MetaJsonPayload (
         int SchemaVersion,
-        string RunId,
+        Guid RunId,
         string StartedAt,
         string FinishedAt,
         string ProjectPath,

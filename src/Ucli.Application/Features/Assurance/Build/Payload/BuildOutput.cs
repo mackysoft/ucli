@@ -2,7 +2,7 @@ namespace MackySoft.Ucli.Application.Features.Assurance.Build.Payload;
 
 /// <summary> Represents build evidence grouped under <c>payload.build</c>. </summary>
 internal sealed record BuildOutput (
-    string RunId,
+    Guid RunId,
     BuildProfileOutput Profile,
     BuildInputsOutput Inputs,
     BuildRunnerOutput Runner,

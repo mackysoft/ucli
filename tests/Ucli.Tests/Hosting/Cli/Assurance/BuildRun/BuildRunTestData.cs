@@ -6,7 +6,9 @@ namespace MackySoft.Ucli.Tests;
 
 internal static class BuildRunTestData
 {
-    public const string RunId = "build-run-1";
+    public const string RunIdText = RunIdTestValues.BuildText;
+
+    public static readonly Guid RunId = RunIdTestValues.Build;
 
     public static readonly ProjectFingerprint ProjectFingerprint = ProjectFingerprintTestFactory.Create("project-fingerprint");
 

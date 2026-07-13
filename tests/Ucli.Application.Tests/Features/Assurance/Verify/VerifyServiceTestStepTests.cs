@@ -34,7 +34,7 @@ public sealed class VerifyServiceTestStepTests
             """);
         var testRunService = new RecordingVerifyTestRunService(_ => TestRunServiceResult.Pass(
             "Tests passed.",
-            "test-run-1",
+            TestRunId,
             "/repo/.ucli/local/test/test-run-1",
             "/repo/.ucli/local/test/test-run-1/summary.json"));
         var service = CreateService(scope.FullPath, testRunService: testRunService);
@@ -80,7 +80,7 @@ public sealed class VerifyServiceTestStepTests
             """);
         var testRunService = new RecordingVerifyTestRunService(_ => TestRunServiceResult.Fail(
             "Tests failed.",
-            "test-run-1",
+            TestRunId,
             "/repo/.ucli/local/test/test-run-1",
             "/repo/.ucli/local/test/test-run-1/summary.json"));
         var service = CreateService(scope.FullPath, testRunService: testRunService);

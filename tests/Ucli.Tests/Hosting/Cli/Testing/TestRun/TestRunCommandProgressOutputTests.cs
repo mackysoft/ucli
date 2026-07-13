@@ -18,7 +18,7 @@ public sealed class TestRunCommandProgressOutputTests
         var service = new RecordingTestRunService(
             (_, _, _) => ValueTask.FromResult(TestRunServiceResult.Pass(
                 message: "Unity test execution completed.",
-                runId: "run-id",
+                runId: RunIdTestValues.Test,
                 artifactsDir: artifactsDir,
                 summaryJsonPath: summaryJsonPath)));
         var command = new TestRunCommand(service, CommandResultTestWriter.Create());
@@ -44,7 +44,7 @@ public sealed class TestRunCommandProgressOutputTests
             await progressSink!.OnEntryAsync(
                 TestRunProgressEventNames.RunStarted,
                 new TestRunStartedEntry(
-                    "run-id",
+                    RunIdTestValues.Test,
                     "editmode",
                     "Name~Smoke",
                     ["MyGame.Tests"],
@@ -53,7 +53,7 @@ public sealed class TestRunCommandProgressOutputTests
             await progressSink.OnEntryAsync(
                 TestRunProgressEventNames.CaseStarted,
                 new TestCaseStartedEntry(
-                    "run-id",
+                    RunIdTestValues.Test,
                     "test-id",
                     "SmokeTest.Passes",
                     "MyGame.Tests",
@@ -63,7 +63,7 @@ public sealed class TestRunCommandProgressOutputTests
             await progressSink.OnEntryAsync(
                 TestRunProgressEventNames.CaseFinished,
                 new TestCaseFinishedEntry(
-                    "run-id",
+                    RunIdTestValues.Test,
                     "test-id",
                     "SmokeTest.Passes",
                     "MyGame.Tests",
@@ -77,14 +77,14 @@ public sealed class TestRunCommandProgressOutputTests
             await progressSink.OnEntryAsync(
                 TestRunProgressEventNames.RunDiagnostic,
                 new TestRunDiagnosticEntry(
-                    "run-id",
+                    RunIdTestValues.Test,
                     "TEST_PROGRESS_STUB",
                     "stub progress",
                     "info"),
                 cancellationToken);
             return TestRunServiceResult.Pass(
                 message: "Unity test execution completed.",
-                runId: "run-id",
+                runId: RunIdTestValues.Test,
                 artifactsDir: artifactsDir,
                 summaryJsonPath: summaryJsonPath);
         });
@@ -110,7 +110,7 @@ public sealed class TestRunCommandProgressOutputTests
         AssertTestStreamEnvelope(caseStartedEntry.RootElement, sequence: 2, TestRunProgressEventNames.CaseStarted);
         AssertTestStreamEnvelope(finishedEntry.RootElement, sequence: 3, TestRunProgressEventNames.CaseFinished);
         AssertTestStreamEnvelope(diagnosticEntry.RootElement, sequence: 4, TestRunProgressEventNames.RunDiagnostic);
-        Assert.Equal("run-id", startedEntry.RootElement.GetProperty("payload").GetProperty("runId").GetString());
+        Assert.Equal(RunIdTestValues.TestText, startedEntry.RootElement.GetProperty("payload").GetProperty("runId").GetString());
         Assert.Equal("SmokeTest.Passes", caseStartedEntry.RootElement.GetProperty("payload").GetProperty("testName").GetString());
         Assert.Equal("SmokeTest.Passes", finishedEntry.RootElement.GetProperty("payload").GetProperty("testName").GetString());
         Assert.Equal("TEST_PROGRESS_STUB", diagnosticEntry.RootElement.GetProperty("payload").GetProperty("code").GetString());
@@ -128,7 +128,7 @@ public sealed class TestRunCommandProgressOutputTests
             await progressSink!.OnEntryAsync(
                 TestRunProgressEventNames.RunStarted,
                 new TestRunStartedEntry(
-                    "run-id",
+                    RunIdTestValues.Test,
                     "editmode",
                     null,
                     ["MyGame.Tests"],
@@ -137,7 +137,7 @@ public sealed class TestRunCommandProgressOutputTests
             return TestRunServiceResult.InfraError(
                 "Unity test infrastructure failed.",
                 TestRunErrorCodes.UnityTestExecutionFailed,
-                runId: "run-id",
+                runId: RunIdTestValues.Test,
                 artifactsDir: artifactsDir,
                 summaryJsonPath: summaryJsonPath);
         });
@@ -164,7 +164,7 @@ public sealed class TestRunCommandProgressOutputTests
             .HasProperty("payload", payload => payload
                 .IsNull("result")
                 .HasString("errorKind", "infraError")
-                .HasString("runId", "run-id")
+                .HasString("runId", RunIdTestValues.TestText)
                 .HasString("artifactsDir", artifactsDir)
                 .HasString("summaryJsonPath", summaryJsonPath));
     }
@@ -179,14 +179,14 @@ public sealed class TestRunCommandProgressOutputTests
             await progressSink!.OnEntryAsync(
                 TestRunProgressEventNames.RunDiagnostic,
                 new TestRunDiagnosticEntry(
-                    "run-id",
+                    RunIdTestValues.Test,
                     "TEST_PROGRESS_STUB",
                     "line 1\nline 2",
                     "info"),
                 cancellationToken);
             return TestRunServiceResult.Pass(
                 message: "Unity test execution completed.",
-                runId: "run-id",
+                runId: RunIdTestValues.Test,
                 artifactsDir: "/tmp/ucli-test-run-artifacts",
                 summaryJsonPath: "/tmp/ucli-test-run-artifacts/summary.json");
         });
@@ -215,7 +215,7 @@ public sealed class TestRunCommandProgressOutputTests
             await progressSink!.OnEntryAsync(
                 TestRunProgressEventNames.RunStarted,
                 new TestRunStartedEntry(
-                    "run-id",
+                    RunIdTestValues.Test,
                     "editmode",
                     null,
                     ["MyGame.Tests"],
@@ -224,7 +224,7 @@ public sealed class TestRunCommandProgressOutputTests
             await progressSink.OnEntryAsync(
                 TestRunProgressEventNames.CaseStarted,
                 new TestCaseStartedEntry(
-                    "run-id",
+                    RunIdTestValues.Test,
                     "test-id-pass",
                     "SmokeTest.Passes",
                     "MyGame.Tests",
@@ -234,7 +234,7 @@ public sealed class TestRunCommandProgressOutputTests
             await progressSink.OnEntryAsync(
                 TestRunProgressEventNames.CaseFinished,
                 new TestCaseFinishedEntry(
-                    "run-id",
+                    RunIdTestValues.Test,
                     "test-id-pass",
                     "SmokeTest.Passes",
                     "MyGame.Tests",
@@ -248,7 +248,7 @@ public sealed class TestRunCommandProgressOutputTests
             await progressSink.OnEntryAsync(
                 TestRunProgressEventNames.CaseFinished,
                 new TestCaseFinishedEntry(
-                    "run-id",
+                    RunIdTestValues.Test,
                     "test-id-fail",
                     "SmokeTest.Fails",
                     "MyGame.Tests",
@@ -261,7 +261,7 @@ public sealed class TestRunCommandProgressOutputTests
                 cancellationToken);
             return TestRunServiceResult.Fail(
                 message: "Unity test execution completed with failures.",
-                runId: "run-id",
+                runId: RunIdTestValues.Test,
                 artifactsDir: "/tmp/ucli-test-run-artifacts",
                 summaryJsonPath: "/tmp/ucli-test-run-artifacts/summary.json");
         });

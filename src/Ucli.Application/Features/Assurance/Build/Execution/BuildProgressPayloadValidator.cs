@@ -23,7 +23,7 @@ internal static class BuildProgressPayloadValidator
     public static void Validate<TPayload> (
         string eventName,
         TPayload payload,
-        string expectedRunId,
+        Guid expectedRunId,
         string expectedProfileDigest)
         where TPayload : notnull
     {
@@ -71,7 +71,7 @@ internal static class BuildProgressPayloadValidator
     private static void ValidateProgressEntry (
         string eventName,
         BuildProgressEntry entry,
-        string expectedRunId,
+        Guid expectedRunId,
         string expectedProfileDigest)
     {
         ValidateRunId(eventName, entry.RunId, expectedRunId);
@@ -134,7 +134,7 @@ internal static class BuildProgressPayloadValidator
     private static void ValidateLogEntry (
         string eventName,
         BuildLogEntry entry,
-        string expectedRunId)
+        Guid expectedRunId)
     {
         ValidateRunId(eventName, entry.RunId, expectedRunId);
         if (entry.TimestampUtc == default)
@@ -172,7 +172,7 @@ internal static class BuildProgressPayloadValidator
     private static void ValidateDiagnosticEntry (
         string eventName,
         BuildDiagnosticEntry entry,
-        string expectedRunId)
+        Guid expectedRunId)
     {
         ValidateRunId(eventName, entry.RunId, expectedRunId);
         RequireNonEmpty(eventName, nameof(entry.Code), entry.Code);
@@ -197,10 +197,10 @@ internal static class BuildProgressPayloadValidator
 
     private static void ValidateRunId (
         string eventName,
-        string actualRunId,
-        string expectedRunId)
+        Guid actualRunId,
+        Guid expectedRunId)
     {
-        if (!string.Equals(actualRunId, expectedRunId, StringComparison.Ordinal))
+        if (actualRunId != expectedRunId)
         {
             throw new BuildProgressProtocolException(
                 $"Unity build progress payload runId mismatch for event '{eventName}'. Expected={expectedRunId}, Actual={actualRunId}.");

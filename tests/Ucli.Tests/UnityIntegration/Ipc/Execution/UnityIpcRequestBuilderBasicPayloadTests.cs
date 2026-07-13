@@ -60,12 +60,12 @@ public sealed class UnityIpcRequestBuilderBasicPayloadTests
     {
         var builder = new UnityIpcRequestBuilder();
 
-        var request = builder.Build(new UnityRequestPayload.Compile("run-1"));
+        var request = builder.Build(new UnityRequestPayload.Compile(RunIdTestValues.Compile));
 
         Assert.Equal(UnityIpcMethod.Compile, request.Method);
         Assert.True(request.IsRecoverable);
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcCompileRequest payload, out _));
-        Assert.Equal("run-1", payload.RunId);
+        Assert.Equal(RunIdTestValues.Compile, payload.RunId);
         Assert.Null(payload.TimeoutMilliseconds);
         Assert.Equal(
             [IpcEditorLifecycleStateCodec.CompileFailed, IpcEditorLifecycleStateCodec.SafeMode],

@@ -41,7 +41,7 @@ internal sealed class BuildRunProgressTextProjector : ICliCommandProgressTextPro
 
         var length = checked(
             Prefix.Length
-            + entry.RunId.Length
+            + SpanTextLength.GuidDLength
             + PhaseLabel.Length
             + entry.Phase.Length
             + RunnerKindLabel.Length
@@ -79,7 +79,7 @@ internal sealed class BuildRunProgressTextProjector : ICliCommandProgressTextPro
 
         var length = checked(
             Prefix.Length
-            + entry.RunId.Length
+            + SpanTextLength.GuidDLength
             + LevelLabel.Length
             + entry.Level.Length
             + SourceLabel.Length
@@ -114,7 +114,7 @@ internal sealed class BuildRunProgressTextProjector : ICliCommandProgressTextPro
 
         var length = checked(
             Prefix.Length
-            + entry.RunId.Length
+            + SpanTextLength.GuidDLength
             + PhaseLabel.Length
             + entry.Phase.Length
             + SeverityLabel.Length

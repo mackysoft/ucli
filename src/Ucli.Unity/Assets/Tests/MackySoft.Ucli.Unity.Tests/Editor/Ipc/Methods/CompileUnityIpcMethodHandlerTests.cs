@@ -26,13 +26,17 @@ namespace MackySoft.Ucli.Unity.Tests
         private static readonly Sha256Digest RequestPayloadHash = Sha256Digest.Parse(
             "cda34040abc54e9b351b66c6ecbc9708cf2c70996b0805553b3854bdce80d94b");
 
+        private static readonly Guid RunId = Guid.Parse("00000000-0000-0000-0000-000000000606");
+
+        private static readonly Guid OtherRunId = Guid.Parse("00000000-0000-0000-0000-000000000607");
+
         [Test]
         [Category("Size.Small")]
         public void TryCreateRecoverableRequestPayloadHash_WhenOnlyTimeoutDiffers_ReturnsSameHash ()
         {
             var handler = CreateHandler();
-            var firstRequest = CreateCompileRequest(Guid.NewGuid(), "run-hash", timeoutMilliseconds: 1000);
-            var secondRequest = CreateCompileRequest(Guid.NewGuid(), "run-hash", timeoutMilliseconds: 2000);
+            var firstRequest = CreateCompileRequest(Guid.NewGuid(), RunId, timeoutMilliseconds: 1000);
+            var secondRequest = CreateCompileRequest(Guid.NewGuid(), RunId, timeoutMilliseconds: 2000);
 
             var firstResult = handler.TryCreateRecoverableRequestPayloadHash(
                 firstRequest,
@@ -54,8 +58,8 @@ namespace MackySoft.Ucli.Unity.Tests
         public void TryCreateRecoverableRequestPayloadHash_WhenRunIdDiffers_ReturnsDifferentHash ()
         {
             var handler = CreateHandler();
-            var firstRequest = CreateCompileRequest(Guid.NewGuid(), "run-hash-1");
-            var secondRequest = CreateCompileRequest(Guid.NewGuid(), "run-hash-2");
+            var firstRequest = CreateCompileRequest(Guid.NewGuid(), RunId);
+            var secondRequest = CreateCompileRequest(Guid.NewGuid(), OtherRunId);
 
             var firstResult = handler.TryCreateRecoverableRequestPayloadHash(
                 firstRequest,
@@ -73,28 +77,10 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void TryCreateRecoverableRequestPayloadHash_WhenRunIdIsInvalid_ReturnsInvalidArgument ()
-        {
-            var handler = CreateHandler();
-            var request = CreateCompileRequest(Guid.NewGuid(), "../run");
-
-            var result = handler.TryCreateRecoverableRequestPayloadHash(
-                request,
-                out var requestPayloadHash,
-                out var errorResponse);
-
-            Assert.That(result, Is.False);
-            Assert.That(requestPayloadHash, Is.Null);
-            Assert.That(errorResponse.Status, Is.EqualTo(IpcProtocol.StatusError));
-            Assert.That(errorResponse.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
-        }
-
-        [Test]
-        [Category("Size.Small")]
         public void TryCreateRecoverableRequestPayloadHash_WhenTimeoutIsInvalid_ReturnsInvalidArgument ()
         {
             var handler = CreateHandler();
-            var request = CreateCompileRequest(Guid.NewGuid(), "run-hash", timeoutMilliseconds: 0);
+            var request = CreateCompileRequest(Guid.NewGuid(), RunId, timeoutMilliseconds: 0);
 
             var result = handler.TryCreateRecoverableRequestPayloadHash(
                 request,
@@ -111,7 +97,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator HandleRecoverableAsync_WhenPendingSummaryObservedDomainReload_CompletesSummaryAndResponse () => UniTask.ToCoroutine(async () =>
         {
-            var runId = $"recoverable-{Guid.NewGuid():N}";
+            var runId = Guid.NewGuid();
             var artifactsDirectory = ResolveArtifactsDirectory(runId);
             try
             {
@@ -172,7 +158,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static IpcRequest CreateCompileRequest (
             Guid requestId,
-            string runId,
+            Guid runId,
             int timeoutMilliseconds = 5000)
         {
             return new IpcRequest(
@@ -199,7 +185,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 NoOpDaemonLogger.Instance);
         }
 
-        private static IpcCompileSummary CreatePendingSummary (string runId)
+        private static IpcCompileSummary CreatePendingSummary (Guid runId)
         {
             var startedAtUtc = DateTimeOffset.UtcNow.AddSeconds(-1);
             return new IpcCompileSummary(
@@ -241,7 +227,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     PrimaryDiagnostic: null));
         }
 
-        private static string ResolveArtifactsDirectory (string runId)
+        private static string ResolveArtifactsDirectory (Guid runId)
         {
             var storageRoot = UcliStoragePathResolver.ResolveStorageRoot(UnityProjectPathResolver.ResolveProjectRootPath());
             return UcliStoragePathResolver.ResolveCompileRunArtifactsDirectory(

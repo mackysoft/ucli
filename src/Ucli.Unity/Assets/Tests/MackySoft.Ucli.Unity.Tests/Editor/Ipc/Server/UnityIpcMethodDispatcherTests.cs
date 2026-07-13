@@ -290,7 +290,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var request = CreateRequest(
                 Guid.NewGuid(),
                 UnityIpcMethod.Compile,
-                new IpcCompileRequest("run-id") { TimeoutMilliseconds = 50 });
+                new IpcCompileRequest(Guid.Parse("00000000-0000-0000-0000-000000000612")) { TimeoutMilliseconds = 50 });
 
             var response = await TestAwaiter.WaitAsync(
                 dispatcher.DispatchAsync(request, CancellationToken.None).AsUniTask(),

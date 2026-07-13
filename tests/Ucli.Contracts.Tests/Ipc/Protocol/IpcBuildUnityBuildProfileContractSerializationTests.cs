@@ -8,6 +8,8 @@ namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
 
 public sealed class IpcBuildUnityBuildProfileContractSerializationTests
 {
+    private static readonly Guid RunId = Guid.Parse("a7de3be0-34b3-42bc-9188-9d295db8ffb6");
+
     [Fact]
     [Trait("Size", "Small")]
     public void IpcBuildRunUnityBuildProfileContracts_SerializeWithCamelCaseFields ()
@@ -34,7 +36,7 @@ public sealed class IpcBuildUnityBuildProfileContractSerializationTests
                     Items: [])));
         var request = IpcPayloadCodec.SerializeToElement(
             new IpcBuildRunRequest(
-                RunId: "build-run-1",
+                RunId: RunId,
                 InputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.UnityBuildProfile),
                 BuildTarget: null,
                 UnityBuildTarget: null,
@@ -51,7 +53,7 @@ public sealed class IpcBuildUnityBuildProfileContractSerializationTests
                 UnityBuildProfile: new IpcUnityBuildProfileInput("Assets/BuildProfiles/Linux.asset")));
         var response = IpcPayloadCodec.SerializeToElement(
             new IpcBuildRunResponse(
-                RunId: "build-run-1",
+                RunId: RunId,
                 ProjectFingerprint: new ProjectFingerprint(ProjectFingerprintText),
                 LifecycleBefore: CreateBuildLifecycleSnapshot("before", canAcceptExecutionRequests: true),
                 LifecycleAfter: CreateBuildLifecycleSnapshot("after", canAcceptExecutionRequests: true),

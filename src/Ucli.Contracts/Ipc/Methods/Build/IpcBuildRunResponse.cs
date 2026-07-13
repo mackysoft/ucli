@@ -8,7 +8,7 @@ public sealed record IpcBuildRunResponse
     /// <summary> Initializes one validated build-run response payload. </summary>
     [JsonConstructor]
     public IpcBuildRunResponse (
-        string RunId,
+        Guid RunId,
         ProjectFingerprint ProjectFingerprint,
         IpcBuildLifecycleSnapshot LifecycleBefore,
         IpcBuildLifecycleSnapshot LifecycleAfter,
@@ -20,7 +20,12 @@ public sealed record IpcBuildRunResponse
         IpcBuildLogSummary Logs,
         IpcBuildProjectMutationAudit ProjectMutation)
     {
-        this.RunId = ContractArgumentGuard.RequireValue(RunId, nameof(RunId));
+        if (RunId == Guid.Empty)
+        {
+            throw new ArgumentException("Run id must not be empty.", nameof(RunId));
+        }
+
+        this.RunId = RunId;
         this.ProjectFingerprint = ContractArgumentGuard.RequireNotNull(ProjectFingerprint, nameof(ProjectFingerprint));
         this.LifecycleBefore = ContractArgumentGuard.RequireNotNull(LifecycleBefore, nameof(LifecycleBefore));
         this.LifecycleAfter = ContractArgumentGuard.RequireNotNull(LifecycleAfter, nameof(LifecycleAfter));
@@ -33,7 +38,7 @@ public sealed record IpcBuildRunResponse
         this.ProjectMutation = ContractArgumentGuard.RequireNotNull(ProjectMutation, nameof(ProjectMutation));
     }
 
-    public string RunId { get; }
+    public Guid RunId { get; }
 
     public ProjectFingerprint ProjectFingerprint { get; }
 

@@ -129,7 +129,7 @@ public sealed class TestRunServiceProgressTests
             streamingProgressFrame: new UnityRequestProgressFrame(
                 TestRunProgressEventNames.CaseStarted,
                 IpcPayloadCodec.SerializeToElement(new TestCaseStartedEntry(
-                    "other-run-id",
+                    OtherRunId,
                     "test-id",
                     "SmokeTest.Passes",
                     "MyGame.Tests",
@@ -227,11 +227,11 @@ public sealed class TestRunServiceProgressTests
             TestRunProgressPayloadValidator.Validate(
                 TestRunProgressEventNames.CaseStarted,
                 new TestRunDiagnosticEntry(
-                    "run-id",
+                    RunId,
                     "TEST_PROGRESS_STUB",
                     "stub progress",
                     "info"),
-                "run-id"));
+                RunId));
 
         Assert.Contains("payload type violates contract", exception.Message, StringComparison.Ordinal);
         Assert.Contains(TestRunProgressEventNames.CaseStarted, exception.Message, StringComparison.Ordinal);

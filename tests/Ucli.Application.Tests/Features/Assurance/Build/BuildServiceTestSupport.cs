@@ -20,7 +20,7 @@ namespace MackySoft.Ucli.Application.Tests.Features.Assurance.Build;
 
 internal static class BuildServiceTestSupport
 {
-    public const string RunId = "build-run-1";
+    public static readonly Guid RunId = Guid.Parse("b7516435-a107-4dc1-a10b-f72ec743d297");
     public static readonly ProjectFingerprint DefaultProjectFingerprint = ProjectFingerprintTestFactory.Create("project-fingerprint");
 
     public const string ProfileJson = """
@@ -109,7 +109,7 @@ internal static class BuildServiceTestSupport
         IUnityExecutionModeDecisionService? modeDecisionService = null,
         IUnityRequestExecutor? requestExecutor = null,
         IUnityStreamingRequestExecutor? streamingRequestExecutor = null,
-        IBuildRunIdFactory? runIdFactory = null,
+        IRunIdGenerator? runIdGenerator = null,
         TimeProvider? timeProvider = null)
     {
         var resolvedRequestExecutor = requestExecutor ?? CreateBuildResponseExecutor(
@@ -131,7 +131,7 @@ internal static class BuildServiceTestSupport
                 TimeSpan.FromSeconds(10)))),
             resolvedRequestExecutor,
             resolvedStreamingRequestExecutor,
-            runIdFactory ?? new StubBuildRunIdFactory(RunId),
+            runIdGenerator ?? new StubRunIdGenerator(RunId),
             artifactStore,
             timeProvider);
     }

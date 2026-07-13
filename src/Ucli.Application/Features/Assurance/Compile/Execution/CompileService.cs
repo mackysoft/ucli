@@ -30,7 +30,7 @@ internal sealed class CompileService : ICompileService
 
     private readonly IUnityRequestExecutor unityRequestExecutor;
 
-    private readonly ICompileRunIdFactory runIdFactory;
+    private readonly IRunIdGenerator runIdGenerator;
 
     private readonly ICompileRunArtifactStore artifactStore;
 
@@ -41,14 +41,14 @@ internal sealed class CompileService : ICompileService
         IProjectContextResolver projectContextResolver,
         IUnityExecutionModeDecisionService executionModeDecisionService,
         IUnityRequestExecutor unityRequestExecutor,
-        ICompileRunIdFactory runIdFactory,
+        IRunIdGenerator runIdGenerator,
         ICompileRunArtifactStore artifactStore,
         TimeProvider? timeProvider = null)
     {
         this.projectContextResolver = projectContextResolver ?? throw new ArgumentNullException(nameof(projectContextResolver));
         this.executionModeDecisionService = executionModeDecisionService ?? throw new ArgumentNullException(nameof(executionModeDecisionService));
         this.unityRequestExecutor = unityRequestExecutor ?? throw new ArgumentNullException(nameof(unityRequestExecutor));
-        this.runIdFactory = runIdFactory ?? throw new ArgumentNullException(nameof(runIdFactory));
+        this.runIdGenerator = runIdGenerator ?? throw new ArgumentNullException(nameof(runIdGenerator));
         this.artifactStore = artifactStore ?? throw new ArgumentNullException(nameof(artifactStore));
         this.timeProvider = timeProvider ?? TimeProvider.System;
     }
@@ -113,7 +113,7 @@ internal sealed class CompileService : ICompileService
             return CompileExecutionResult.Failure(CreateTimeoutFailure(timeout), project);
         }
 
-        var runId = runIdFactory.Create();
+        var runId = runIdGenerator.Generate();
         await EmitStartedAsync(
                 resolvedProgressSink,
                 runId,
@@ -201,7 +201,7 @@ internal sealed class CompileService : ICompileService
         ProjectIdentityInfo project,
         UnityExecutionMode mode,
         TimeSpan requestTimeout,
-        string runId,
+        Guid runId,
         ICommandProgressSink progressSink,
         CancellationToken cancellationToken)
     {
@@ -274,7 +274,7 @@ internal sealed class CompileService : ICompileService
                 $"Unity compile payload is invalid. {payloadError.Message}"));
         }
 
-        if (!string.Equals(compileResponse.RunId, runId, StringComparison.Ordinal))
+        if (compileResponse.RunId != runId)
         {
             return CompileDispatchResult.Failure(ApplicationFailure.InternalError(
                 $"Unity compile response runId mismatch. Requested={runId}, Actual={compileResponse.RunId}."));
@@ -300,7 +300,7 @@ internal sealed class CompileService : ICompileService
 
     private async ValueTask<CompileSummaryPollResult> ReadSummaryUntilDeadlineAsync (
         ResolvedUnityProjectContext unityProject,
-        string runId,
+        Guid runId,
         ExecutionDeadline deadline,
         ApplicationFailure? dispatchFailure,
         TimeSpan timeout,
@@ -349,7 +349,7 @@ internal sealed class CompileService : ICompileService
 
     private static ValueTask EmitStartedAsync (
         ICommandProgressSink progressSink,
-        string runId,
+        Guid runId,
         ProjectIdentityInfo project,
         UnityExecutionMode requestedMode,
         UnityExecutionTarget executionTarget,
@@ -370,7 +370,7 @@ internal sealed class CompileService : ICompileService
 
     private static ValueTask EmitRefreshStartedAsync (
         ICommandProgressSink progressSink,
-        string runId,
+        Guid runId,
         CancellationToken cancellationToken)
     {
         return progressSink.OnEntryAsync(
@@ -614,7 +614,7 @@ internal sealed class CompileService : ICompileService
     private static bool TryCreateDiagnosticsReadSummary (
         StartupFailureDetail? startupFailure,
         ProjectIdentityInfo project,
-        string runId,
+        Guid runId,
         out IpcCompileSummary? summary)
     {
         summary = null;
@@ -697,15 +697,14 @@ internal sealed class CompileService : ICompileService
 
     private static ApplicationFailure? ValidateSummary (
         IpcCompileSummary summary,
-        string expectedRunId,
+        Guid expectedRunId,
         ProjectFingerprint expectedProjectFingerprint,
         bool requireCompleted)
     {
         ArgumentNullException.ThrowIfNull(summary);
-        ArgumentException.ThrowIfNullOrWhiteSpace(expectedRunId);
         ArgumentNullException.ThrowIfNull(expectedProjectFingerprint);
 
-        if (!string.Equals(summary.RunId, expectedRunId, StringComparison.Ordinal))
+        if (summary.RunId != expectedRunId)
         {
             return ApplicationFailure.InternalError(
                 $"Unity compile summary runId mismatch. Requested={expectedRunId}, Actual={summary.RunId}.");

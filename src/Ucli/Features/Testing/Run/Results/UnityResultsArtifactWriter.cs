@@ -67,7 +67,7 @@ internal sealed class UnityResultsArtifactWriter : IUnityResultsArtifactWriter
     /// <param name="Tests"> The per-test entries. </param>
     private sealed record ResultsJsonPayload (
         int SchemaVersion,
-        string RunId,
+        Guid RunId,
         UnityResultsXmlParseResult.CountsValue Counts,
         IReadOnlyList<UnityResultsXmlParseResult.TestValue> Tests);
 
@@ -79,7 +79,7 @@ internal sealed class UnityResultsArtifactWriter : IUnityResultsArtifactWriter
     /// <param name="TopFailures"> The top failure entries. </param>
     private sealed record SummaryJsonPayload (
         int SchemaVersion,
-        string RunId,
+        Guid RunId,
         string Status,
         UnityResultsXmlParseResult.CountsValue Counts,
         IReadOnlyList<UnityResultsXmlParseResult.TopFailureValue> TopFailures);

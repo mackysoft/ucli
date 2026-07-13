@@ -6,7 +6,7 @@ internal static class TestRunProgressAssert
 {
     public static void RunStartedAndUnityProgressForwarded (
         CollectingCommandProgressSink progressSink,
-        string expectedRunId)
+        Guid expectedRunId)
     {
         Assert.Collection(
             progressSink.Entries,

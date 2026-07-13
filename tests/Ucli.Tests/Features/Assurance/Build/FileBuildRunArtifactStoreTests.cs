@@ -131,7 +131,7 @@ public sealed class FileBuildRunArtifactStoreTests
         using var buildMetadata = JsonDocument.Parse(await File.ReadAllTextAsync(paths.BuildJsonPath, CancellationToken.None));
         var buildRoot = buildMetadata.RootElement;
         Assert.Equal(1, buildRoot.GetProperty("schemaVersion").GetInt32());
-        Assert.Equal("run-1", buildRoot.GetProperty("runId").GetString());
+        Assert.Equal(RunIdTestValues.BuildText, buildRoot.GetProperty("runId").GetString());
         Assert.False(buildRoot.TryGetProperty("project", out _));
         Assert.False(buildRoot.TryGetProperty("input", out _));
         Assert.False(buildRoot.TryGetProperty("output", out _));
@@ -140,7 +140,7 @@ public sealed class FileBuildRunArtifactStoreTests
         Assert.Equal("buildPipeline", buildRoot.GetProperty("runner").GetProperty("kind").GetString());
         Assert.Equal("file", buildRoot.GetProperty("runner").GetProperty("outputLayout").GetProperty("shape").GetString());
         Assert.Equal(
-            "/repo/.ucli/local/fingerprints/fingerprint/work/build/run-1/output/player/Player",
+            $"/repo/.ucli/local/fingerprints/fingerprint/work/build/{RunIdTestValues.BuildText}/output/player/Player",
             buildRoot.GetProperty("runner").GetProperty("outputLayout").GetProperty("locationPathName").GetString());
         var inputs = buildRoot.GetProperty("inputs");
         Assert.Equal("explicit", inputs.GetProperty("inputKind").GetString());
@@ -246,14 +246,39 @@ public sealed class FileBuildRunArtifactStoreTests
         await AssertFileSha256Async(paths.OutputManifestJsonPath, result.BuildOutputManifest.Digest);
     }
 
-    private static BuildRunMetadataDocument CreateMetadata (string runId)
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task WriteMetadataAsync_WithMismatchedRunId_ReturnsInvalidArgumentWithoutWritingMetadata ()
+    {
+        using var scope = TestDirectories.CreateTempScope("build-artifact-store", "metadata-run-id-mismatch");
+        var (store, paths) = PrepareArtifacts(scope);
+        var accounting = new BuildRunArtifactAccountingResult(
+            BuildReport: null,
+            BuildOutputManifest: new BuildArtifactRef(BuildArtifactKind.BuildOutputManifest, "output-manifest.json", new string('a', 64)),
+            BuildLog: new BuildArtifactRef(BuildArtifactKind.BuildLog, "build.log", new string('b', 64)),
+            OutputManifest: new BuildOutputManifestSummary(new string('c', 64), 0, 0, 0));
+
+        var result = await store.WriteMetadataAsync(
+            new BuildRunMetadataWriteRequest(
+                paths,
+                CreateMetadata(Guid.NewGuid()),
+                accounting),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.False(File.Exists(paths.BuildJsonPath));
+    }
+
+    private static BuildRunMetadataDocument CreateMetadata (Guid runId)
     {
         return new BuildRunMetadataDocument(
             1,
             runId,
             ParseJsonElement("""{"path":"/repo/.ucli/build/player.json","digest":"profile-digest"}"""),
             ParseJsonElement("""{"inputKind":"explicit","target":{"stableName":"standaloneLinux64","unityBuildTarget":"StandaloneLinux64"},"scenes":{"source":"explicit","paths":["Assets/Scenes/Main.unity"]},"options":{"development":true}}"""),
-            ParseJsonElement("""{"kind":"buildPipeline","method":null,"invocation":{"arguments":{},"environment":{"variables":[],"secrets":[]}},"outputLayout":{"shape":"file","locationPathName":"/repo/.ucli/local/fingerprints/fingerprint/work/build/run-1/output/player/Player"}}"""),
+            ParseJsonElement($$$"""{"kind":"buildPipeline","method":null,"invocation":{"arguments":{},"environment":{"variables":[],"secrets":[]}},"outputLayout":{"shape":"file","locationPathName":"/repo/.ucli/local/fingerprints/fingerprint/work/build/{{{RunIdTestValues.BuildText}}}/output/player/Player"}}"""),
             ParseJsonElement("""{"source":"buildPipelineBuildReport","status":"succeeded","summary":{"durationMilliseconds":1,"errorCount":0,"warningCount":0},"diagnostics":[],"buildReportRef":"buildReport"}"""),
             ParseJsonElement("""{"state":"completed"}"""),
             ParseJsonElement("""{"compile":"42","domainReload":"7"}"""),

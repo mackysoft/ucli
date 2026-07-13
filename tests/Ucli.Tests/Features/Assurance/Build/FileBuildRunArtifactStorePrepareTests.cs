@@ -18,7 +18,7 @@ public sealed class FileBuildRunArtifactStorePrepareTests
         var store = CreateStore();
         var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, ProjectFingerprintTestFactory.Create("fingerprint"));
 
-        var result = store.Prepare(project, "run-1");
+        var result = store.Prepare(project, RunIdTestValues.Build);
 
         Assert.True(result.IsSuccess);
         var paths = Assert.IsType<BuildRunArtifactPaths>(result.Paths);
@@ -34,7 +34,7 @@ public sealed class FileBuildRunArtifactStorePrepareTests
                 project.ProjectFingerprint.ToString(),
                 UcliStoragePathNames.ArtifactsDirectoryName,
                 UcliStoragePathNames.BuildArtifactsDirectoryName,
-                "run-1"),
+                RunIdTestValues.BuildText),
             paths.ArtifactsDirectory);
         Assert.Equal(
             Path.Combine(
@@ -45,9 +45,25 @@ public sealed class FileBuildRunArtifactStorePrepareTests
                 project.ProjectFingerprint.ToString(),
                 UcliStoragePathNames.WorkDirectoryName,
                 UcliStoragePathNames.BuildWorkDirectoryName,
-                "run-1",
+                RunIdTestValues.BuildText,
                 UcliStoragePathNames.BuildOutputDirectoryName),
             paths.RunnerOutputDirectory);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public void Prepare_WithEmptyRunId_ReturnsInvalidArgumentWithoutCreatingStorage ()
+    {
+        using var scope = TestDirectories.CreateTempScope("build-artifact-store", "prepare-empty-run-id");
+        var store = CreateStore();
+        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, ProjectFingerprintTestFactory.Create("fingerprint"));
+
+        var result = store.Prepare(project, Guid.Empty);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.False(Directory.Exists(Path.Combine(scope.FullPath, UcliStoragePathNames.UcliDirectoryName)));
     }
 
     [Fact]
@@ -58,8 +74,8 @@ public sealed class FileBuildRunArtifactStorePrepareTests
         var store = CreateStore();
         var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, ProjectFingerprintTestFactory.Create("fingerprint"));
 
-        var firstResult = store.Prepare(project, "run-1");
-        var secondResult = store.Prepare(project, "run-1");
+        var firstResult = store.Prepare(project, RunIdTestValues.Build);
+        var secondResult = store.Prepare(project, RunIdTestValues.Build);
 
         Assert.True(firstResult.IsSuccess);
         Assert.False(secondResult.IsSuccess);
@@ -78,11 +94,11 @@ public sealed class FileBuildRunArtifactStorePrepareTests
         var artifactsDirectory = UcliStoragePathResolver.ResolveBuildRunArtifactsDirectory(
             project.RepositoryRoot,
             project.ProjectFingerprint,
-            "run-1");
+            RunIdTestValues.Build);
         Directory.CreateDirectory(artifactsDirectory);
         File.WriteAllText(Path.Combine(artifactsDirectory, "build-summary.json"), "{}");
 
-        var result = store.Prepare(project, "run-1");
+        var result = store.Prepare(project, RunIdTestValues.Build);
 
         Assert.False(result.IsSuccess);
         var error = Assert.IsType<ExecutionError>(result.Error);

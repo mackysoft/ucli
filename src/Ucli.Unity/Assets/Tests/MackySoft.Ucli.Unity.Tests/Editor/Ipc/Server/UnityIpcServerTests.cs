@@ -1225,7 +1225,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     ResultsXmlPath: "/tmp/results.xml",
                     EditorLogPath: "/tmp/editor.log",
                     FailFast: failFast,
-                    RunId: "run-id"),
+                    RunId: Guid.Parse("00000000-0000-0000-0000-000000000610")),
                 SerializerOptions);
             return new IpcRequest(
                 protocolVersion: IpcProtocol.CurrentVersion,

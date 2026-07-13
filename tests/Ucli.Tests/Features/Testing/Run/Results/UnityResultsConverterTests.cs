@@ -41,7 +41,10 @@ public sealed class UnityResultsConverterTests
         Assert.True(File.Exists(session.Paths.ResultsJsonPath));
         Assert.True(File.Exists(session.Paths.SummaryJsonPath));
 
+        using var resultsDocument = JsonDocument.Parse(File.ReadAllText(session.Paths.ResultsJsonPath));
+        Assert.Equal(RunIdTestValues.TestText, resultsDocument.RootElement.GetProperty("runId").GetString());
         using var summaryDocument = JsonDocument.Parse(File.ReadAllText(session.Paths.SummaryJsonPath));
+        Assert.Equal(RunIdTestValues.TestText, summaryDocument.RootElement.GetProperty("runId").GetString());
         Assert.Equal("fail", summaryDocument.RootElement.GetProperty("status").GetString());
         Assert.Equal(1, summaryDocument.RootElement.GetProperty("counts").GetProperty("failed").GetInt32());
     }
@@ -175,7 +178,7 @@ public sealed class UnityResultsConverterTests
         var artifactPaths = TestArtifactPaths.Create(artifactsDirectoryPath);
 
         session = new ArtifactsSession(
-            RunId: "20260301_120000Z_abcd1234",
+            RunId: RunIdTestValues.Test,
             Paths: artifactPaths,
             StartedAtUtc: DateTimeOffset.UtcNow);
         return scope;

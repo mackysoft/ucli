@@ -8,7 +8,7 @@ public sealed record IpcCompileSummary
     /// <summary> Initializes one validated compile assurance summary. </summary>
     [JsonConstructor]
     public IpcCompileSummary (
-        string RunId,
+        Guid RunId,
         ProjectFingerprint ProjectFingerprint,
         bool Completed,
         DateTimeOffset StartedAtUtc,
@@ -18,7 +18,12 @@ public sealed record IpcCompileSummary
         DomainReloadEvidence DomainReload,
         LifecycleEvidence Lifecycle)
     {
-        this.RunId = ContractArgumentGuard.RequireValue(RunId, nameof(RunId));
+        if (RunId == Guid.Empty)
+        {
+            throw new ArgumentException("Run id must not be empty.", nameof(RunId));
+        }
+
+        this.RunId = RunId;
         this.ProjectFingerprint = ContractArgumentGuard.RequireNotNull(ProjectFingerprint, nameof(ProjectFingerprint));
         this.Completed = Completed;
         this.StartedAtUtc = StartedAtUtc;
@@ -29,7 +34,7 @@ public sealed record IpcCompileSummary
         this.Lifecycle = ContractArgumentGuard.RequireNotNull(Lifecycle, nameof(Lifecycle));
     }
 
-    public string RunId { get; }
+    public Guid RunId { get; }
 
     public ProjectFingerprint ProjectFingerprint { get; }
 

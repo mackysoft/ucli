@@ -7,13 +7,16 @@ namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
 
 public sealed class IpcTestRunContractSerializationTests
 {
+    private const string RunIdText = "12345678-1234-5678-9abc-def012345678";
+    private static readonly Guid RunId = Guid.Parse(RunIdText);
+
     [Fact]
     [Trait("Size", "Small")]
     public void IpcTestRunProgressContracts_SerializeWithCamelCaseFields ()
     {
         var started = IpcPayloadCodec.SerializeToElement(
             new TestCaseStartedEntry(
-                "run-1",
+                RunId,
                 "test-1",
                 "CanPass",
                 "Assembly.Tests",
@@ -21,7 +24,7 @@ public sealed class IpcTestRunContractSerializationTests
                 ["smoke"]));
         var finished = IpcPayloadCodec.SerializeToElement(
             new TestCaseFinishedEntry(
-                "run-1",
+                RunId,
                 "test-1",
                 "CanPass",
                 "Assembly.Tests",
@@ -33,13 +36,13 @@ public sealed class IpcTestRunContractSerializationTests
                 StackTrace: null));
         var diagnostic = IpcPayloadCodec.SerializeToElement(
             new TestRunDiagnosticEntry(
-                "run-1",
+                RunId,
                 "TEST_PROGRESS_DROPPED",
                 "Some progress entries were dropped.",
                 "warning"));
 
         JsonAssert.For(started)
-            .HasString("runId", "run-1")
+            .HasString("runId", RunIdText)
             .HasString("testId", "test-1")
             .HasString("testName", "CanPass")
             .HasString("assemblyName", "Assembly.Tests")
@@ -68,6 +71,7 @@ public sealed class IpcTestRunContractSerializationTests
             TestSettingsPath: null,
             ResultsXmlPath: "/tmp/results.xml",
             EditorLogPath: "/tmp/editor.log",
+            RunId: RunId,
             FailFast: true);
         var responsePayload = new IpcTestRunResponse(ExitCode: 2);
 
@@ -82,8 +86,26 @@ public sealed class IpcTestRunContractSerializationTests
             .IsNull("testSettingsPath")
             .HasString("resultsXmlPath", "/tmp/results.xml")
             .HasString("editorLogPath", "/tmp/editor.log")
+            .HasString("runId", RunIdText)
             .HasBoolean("failFast", true);
         JsonAssert.For(response)
             .HasInt32("exitCode", 2);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcTestRunRequest_WhenRunIdIsEmpty_ThrowsArgumentException ()
+    {
+        var exception = Assert.Throws<ArgumentException>(() => new IpcTestRunRequest(
+            TestPlatform: "editmode",
+            TestFilter: null,
+            TestCategories: [],
+            AssemblyNames: [],
+            TestSettingsPath: null,
+            ResultsXmlPath: "/tmp/results.xml",
+            EditorLogPath: "/tmp/editor.log",
+            RunId: Guid.Empty));
+
+        Assert.Equal("RunId", exception.ParamName);
     }
 }

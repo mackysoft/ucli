@@ -4,7 +4,7 @@ internal static class BuildRunInvocationAssert
 {
     public static UnityRequestPayload.BuildRun ExplicitBuildPipelineRequest (
         RecordingUnityRequestExecutor requestExecutor,
-        string expectedRunId,
+        Guid expectedRunId,
         string expectedRunnerOutputDirectory,
         string expectedBuildReportPath,
         string expectedBuildLogPath,
@@ -34,7 +34,7 @@ internal static class BuildRunInvocationAssert
 
     public static UnityRequestPayload.BuildRun ExecuteMethodRunnerRequest (
         RecordingUnityRequestExecutor requestExecutor,
-        string expectedRunId,
+        Guid expectedRunId,
         string expectedProfilePath,
         string expectedProfileDigest,
         string expectedOutputDirectory,
@@ -52,7 +52,7 @@ internal static class BuildRunInvocationAssert
         Assert.Equal(expectedProfilePath, request.ProfilePath);
         Assert.Equal(expectedProfileDigest, request.ProfileDigest);
         Assert.Equal("Build.Entry.Run", request.RunnerMethod);
-        Assert.Equal(expectedRunId, request.RunnerArguments["run"]);
+        Assert.Equal(expectedRunId.ToString("D"), request.RunnerArguments["run"]);
         Assert.Equal(expectedOutputDirectory, request.RunnerArguments["output"]);
         Assert.Equal(expectedProfilePath, request.RunnerArguments["profile"]);
         Assert.Equal(expectedProfileDigest, request.RunnerArguments["digest"]);

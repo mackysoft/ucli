@@ -69,7 +69,7 @@ namespace MackySoft.Ucli.Unity.Tests
         private static UcliBuildRunnerContext CreateContext (string outputDirectory)
         {
             return new UcliBuildRunnerContext(
-                runId: "build-run-1",
+                runId: Guid.Parse("00000000-0000-0000-0000-000000000605"),
                 projectPath: "/workspace/UnityProject",
                 projectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"),
                 outputDir: outputDirectory,

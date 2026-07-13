@@ -48,11 +48,6 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentException("editorLogPath must not be empty.", nameof(request));
             }
 
-            if (string.IsNullOrWhiteSpace(request.RunId))
-            {
-                throw new ArgumentException("runId must not be empty.", nameof(request));
-            }
-
             if (request.TimeoutMilliseconds.HasValue && request.TimeoutMilliseconds.Value <= 0)
             {
                 throw new ArgumentException("timeoutMilliseconds must be greater than zero when specified.", nameof(request));
@@ -67,7 +62,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             return new UnityTestRunRequestContext(
-                RunId: request.RunId!,
+                RunId: request.RunId,
                 TestPlatform: request.TestPlatform,
                 TestMode: testMode,
                 TargetPlatform: targetPlatform,

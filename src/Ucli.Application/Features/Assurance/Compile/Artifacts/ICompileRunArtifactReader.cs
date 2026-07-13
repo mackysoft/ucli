@@ -6,16 +6,16 @@ internal interface ICompileRunArtifactReader
     /// <summary> Reads one compile summary artifact when available. </summary>
     ValueTask<CompileRunArtifactReadResult> ReadSummaryAsync (
         ResolvedUnityProjectContext unityProject,
-        string runId,
+        Guid runId,
         CancellationToken cancellationToken = default);
 
     /// <summary> Resolves the summary artifact path for one compile run. </summary>
     string ResolveSummaryPath (
         ResolvedUnityProjectContext unityProject,
-        string runId);
+        Guid runId);
 
     /// <summary> Resolves the diagnostics artifact path for one compile run. </summary>
     string ResolveDiagnosticsPath (
         ResolvedUnityProjectContext unityProject,
-        string runId);
+        Guid runId);
 }

@@ -52,10 +52,9 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
     /// <inheritdoc />
     public BuildRunArtifactPreparationResult Prepare (
         ResolvedUnityProjectContext unityProject,
-        string runId)
+        Guid runId)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
-        ArgumentException.ThrowIfNullOrWhiteSpace(runId);
 
         BuildRunArtifactPaths paths;
         try
@@ -323,6 +322,12 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         ArgumentNullException.ThrowIfNull(request.Accounting);
         cancellationToken.ThrowIfCancellationRequested();
 
+        if (request.Metadata.RunId != request.Paths.RunId)
+        {
+            return BuildArtifactRefWriteResult.Failure(ExecutionError.InvalidArgument(
+                "Build metadata run identifier must match its artifact path run identifier."));
+        }
+
         try
         {
             EnsureExpectedPathLayout(request.Paths);
@@ -554,7 +559,7 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
 
     private static BuildRunArtifactPaths ResolvePaths (
         ResolvedUnityProjectContext unityProject,
-        string runId)
+        Guid runId)
     {
         var artifactsDirectory = UcliStoragePathResolver.ResolveBuildRunArtifactsDirectory(
             unityProject.RepositoryRoot,
@@ -663,7 +668,8 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
             || !string.Equals(segments[2], UcliStoragePathNames.FingerprintsDirectoryName, StringComparison.Ordinal)
             || !string.Equals(segments[4], UcliStoragePathNames.ArtifactsDirectoryName, StringComparison.Ordinal)
             || !string.Equals(segments[5], UcliStoragePathNames.BuildArtifactsDirectoryName, StringComparison.Ordinal)
-            || !string.Equals(segments[6], paths.RunId, StringComparison.Ordinal))
+            || !Guid.TryParseExact(segments[6], "D", out var pathRunId)
+            || pathRunId != paths.RunId)
         {
             throw new InvalidOperationException(
                 $"Artifact directory must use the build-run storage layout: {paths.ArtifactsDirectory}");
