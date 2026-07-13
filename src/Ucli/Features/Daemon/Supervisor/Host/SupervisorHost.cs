@@ -10,8 +10,6 @@ internal sealed class SupervisorHost
 
     private readonly SupervisorEndpointResolver endpointResolver;
 
-    private readonly SupervisorBootstrapLockProvider bootstrapLockProvider;
-
     private readonly IDaemonSessionTokenGenerator sessionTokenGenerator;
 
     private readonly SupervisorTransportServer transportServer;
@@ -28,7 +26,6 @@ internal sealed class SupervisorHost
     public SupervisorHost (
         SupervisorManifestStore manifestStore,
         SupervisorEndpointResolver endpointResolver,
-        SupervisorBootstrapLockProvider bootstrapLockProvider,
         IDaemonSessionTokenGenerator sessionTokenGenerator,
         SupervisorTransportServer transportServer,
         SupervisorRequestDispatcher requestDispatcher,
@@ -38,7 +35,6 @@ internal sealed class SupervisorHost
     {
         this.manifestStore = manifestStore ?? throw new ArgumentNullException(nameof(manifestStore));
         this.endpointResolver = endpointResolver ?? throw new ArgumentNullException(nameof(endpointResolver));
-        this.bootstrapLockProvider = bootstrapLockProvider ?? throw new ArgumentNullException(nameof(bootstrapLockProvider));
         this.sessionTokenGenerator = sessionTokenGenerator ?? throw new ArgumentNullException(nameof(sessionTokenGenerator));
         this.transportServer = transportServer ?? throw new ArgumentNullException(nameof(transportServer));
         this.requestDispatcher = requestDispatcher ?? throw new ArgumentNullException(nameof(requestDispatcher));
@@ -61,6 +57,41 @@ internal sealed class SupervisorHost
         }
 
         var runtimeContext = CreateRuntimeContext(repositoryRoot);
+        FileExclusiveLock runtimeOwnership;
+
+        try
+        {
+            runtimeOwnership = await FileExclusiveLock.AcquireAsync(
+                    UcliStoragePathResolver.ResolveSupervisorRuntimeOwnershipLockPath(runtimeContext.StorageRoot),
+                    SupervisorConstants.RuntimeOwnershipLockTimeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            return 1;
+        }
+        catch (Exception exception)
+        {
+            await runtimeLogger.WriteAsync(
+                    runtimeContext.StorageRoot,
+                    "error",
+                    $"Supervisor failed to claim runtime ownership. {exception}",
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+            return 1;
+        }
+
+        using (runtimeOwnership)
+        {
+            return await RunWhileOwningRuntimeAsync(runtimeContext, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private async Task<int> RunWhileOwningRuntimeAsync (
+        SupervisorRuntimeContext runtimeContext,
+        CancellationToken cancellationToken)
+    {
         activityTracker.Touch();
 
         using var hostCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -197,12 +228,7 @@ internal sealed class SupervisorHost
     {
         try
         {
-            await using var bootstrapLock = await bootstrapLockProvider.AcquireAsync(
-                    runtimeContext.StorageRoot,
-                    SupervisorConstants.ManifestMutationLockTimeout,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            _ = await manifestStore.CleanupRuntimeIfManifestMatchesAsync(
+            _ = await manifestStore.CleanupOwnedRuntimeIfManifestMatchesAsync(
                     runtimeContext.StorageRoot,
                     runtimeContext.Manifest,
                     endpointResolver.ResolveCanonicalEndpoint(runtimeContext.StorageRoot),

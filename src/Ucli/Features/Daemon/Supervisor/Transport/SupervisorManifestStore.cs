@@ -1,8 +1,8 @@
 using System.Runtime.ExceptionServices;
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Contracts.Text;
@@ -206,71 +206,110 @@ internal sealed class SupervisorManifestStore
         }
     }
 
-    /// <summary> Removes runtime state only when the current manifest is the expected generation. </summary>
+    /// <summary> Removes externally observed runtime state after acquiring exclusive runtime ownership. </summary>
     /// <param name="storageRoot"> The storage-root path. </param>
     /// <param name="expectedManifest"> The exact manifest generation observed by the caller. </param>
+    /// <param name="canonicalEndpoint"> The canonical endpoint resolved from <paramref name="storageRoot" />. </param>
+    /// <param name="timeout"> The timeout shared by runtime ownership and manifest mutation lock acquisition. </param>
+    /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
+    /// <returns> The outcome of the compare-and-delete operation. </returns>
+    public ValueTask<SupervisorManifestCleanupStatus> CleanupObservedRuntimeIfManifestMatchesAsync (
+        string storageRoot,
+        SupervisorInstanceManifest expectedManifest,
+        IpcEndpoint canonicalEndpoint,
+        TimeSpan timeout,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(expectedManifest);
+        return CleanupObservedRuntimeIfArtifactMatchesAsync(
+            storageRoot,
+            json => IsExpectedManifest(storageRoot, json, expectedManifest),
+            canonicalEndpoint,
+            timeout,
+            cancellationToken);
+    }
+
+    /// <summary> Removes externally observed malformed runtime state after acquiring exclusive runtime ownership. </summary>
+    /// <param name="storageRoot"> The storage-root path. </param>
+    /// <param name="expectedArtifactIdentity"> The content identity captured when parsing failed. </param>
+    /// <param name="canonicalEndpoint"> The canonical endpoint resolved from <paramref name="storageRoot" />. </param>
+    /// <param name="timeout"> The timeout shared by runtime ownership and manifest mutation lock acquisition. </param>
+    /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
+    /// <returns> The outcome of the compare-and-delete operation. </returns>
+    public ValueTask<SupervisorManifestCleanupStatus> CleanupObservedRuntimeIfMalformedArtifactMatchesAsync (
+        string storageRoot,
+        Sha256Digest expectedArtifactIdentity,
+        IpcEndpoint canonicalEndpoint,
+        TimeSpan timeout,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(expectedArtifactIdentity);
+        return CleanupObservedRuntimeIfArtifactMatchesAsync(
+            storageRoot,
+            json => ComputeArtifactIdentity(json) == expectedArtifactIdentity,
+            canonicalEndpoint,
+            timeout,
+            cancellationToken);
+    }
+
+    /// <summary> Removes runtime state owned by the calling supervisor host when its manifest generation still matches. </summary>
+    /// <param name="storageRoot"> The storage-root path whose runtime ownership is already held by the caller. </param>
+    /// <param name="expectedManifest"> The exact manifest generation published by the caller. </param>
     /// <param name="canonicalEndpoint"> The canonical endpoint resolved from <paramref name="storageRoot" />. </param>
     /// <param name="mutationLockTimeout"> The maximum time to wait for the manifest mutation lock. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
     /// <returns> The outcome of the compare-and-delete operation. </returns>
-    public ValueTask<SupervisorManifestCleanupStatus> CleanupRuntimeIfManifestMatchesAsync (
+    /// <remarks> The caller must retain the storage root's runtime ownership lease until this operation completes. </remarks>
+    public ValueTask<SupervisorManifestCleanupStatus> CleanupOwnedRuntimeIfManifestMatchesAsync (
         string storageRoot,
         SupervisorInstanceManifest expectedManifest,
         IpcEndpoint canonicalEndpoint,
         TimeSpan mutationLockTimeout,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(expectedManifest);
-        return CleanupRuntimeIfArtifactMatchesAsync(
+        return CleanupOwnedRuntimeIfArtifactMatchesAsync(
             storageRoot,
-            json =>
-            {
-                try
-                {
-                    var manifestPath = UcliStoragePathResolver.ResolveSupervisorManifestPath(storageRoot);
-                    return DeserializeAndValidate(json, manifestPath) == expectedManifest;
-                }
-                catch (Exception exception) when (exception is JsonException or InvalidDataException)
-                {
-                    return false;
-                }
-            },
+            json => IsExpectedManifest(storageRoot, json, expectedManifest),
             canonicalEndpoint,
             mutationLockTimeout,
             cancellationToken);
     }
 
-    /// <summary> Removes runtime state only when the current malformed artifact is the one observed by the caller. </summary>
-    /// <param name="storageRoot"> The storage-root path. </param>
-    /// <param name="expectedArtifactIdentity"> The content identity captured when parsing failed. </param>
-    /// <param name="canonicalEndpoint"> The canonical endpoint resolved from <paramref name="storageRoot" />. </param>
-    /// <param name="mutationLockTimeout"> The maximum time to wait for the manifest mutation lock. </param>
-    /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
-    /// <returns> The outcome of the compare-and-delete operation. </returns>
-    public ValueTask<SupervisorManifestCleanupStatus> CleanupRuntimeIfMalformedArtifactMatchesAsync (
+    private async ValueTask<SupervisorManifestCleanupStatus> CleanupObservedRuntimeIfArtifactMatchesAsync (
         string storageRoot,
-        string expectedArtifactIdentity,
+        Func<string, bool> isExpectedArtifact,
         IpcEndpoint canonicalEndpoint,
-        TimeSpan mutationLockTimeout,
-        CancellationToken cancellationToken = default)
+        TimeSpan timeout,
+        CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(expectedArtifactIdentity))
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(isExpectedArtifact);
+        ArgumentNullException.ThrowIfNull(canonicalEndpoint);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
+
+        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
+        using var runtimeOwnership = await FileExclusiveLock.AcquireAsync(
+                UcliStoragePathResolver.ResolveSupervisorRuntimeOwnershipLockPath(storageRoot),
+                timeout,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!deadline.TryGetRemainingTimeout(out var manifestMutationTimeout))
         {
-            throw new ArgumentException("Manifest artifact identity must not be empty.", nameof(expectedArtifactIdentity));
+            throw new TimeoutException(
+                $"Timed out before observed supervisor manifest mutation could begin. Timeout={timeout.TotalMilliseconds:0}ms.");
         }
 
-        return CleanupRuntimeIfArtifactMatchesAsync(
-            storageRoot,
-            json => string.Equals(
-                ComputeArtifactIdentity(json),
-                expectedArtifactIdentity,
-                StringComparison.Ordinal),
-            canonicalEndpoint,
-            mutationLockTimeout,
-            cancellationToken);
+        return await CleanupOwnedRuntimeIfArtifactMatchesAsync(
+                storageRoot,
+                isExpectedArtifact,
+                canonicalEndpoint,
+                manifestMutationTimeout,
+                cancellationToken)
+            .ConfigureAwait(false);
     }
 
-    private async ValueTask<SupervisorManifestCleanupStatus> CleanupRuntimeIfArtifactMatchesAsync (
+    private async ValueTask<SupervisorManifestCleanupStatus> CleanupOwnedRuntimeIfArtifactMatchesAsync (
         string storageRoot,
         Func<string, bool> isExpectedArtifact,
         IpcEndpoint canonicalEndpoint,
@@ -318,6 +357,22 @@ internal sealed class SupervisorManifestStore
         return SupervisorManifestCleanupStatus.Removed;
     }
 
+    private static bool IsExpectedManifest (
+        string storageRoot,
+        string json,
+        SupervisorInstanceManifest expectedManifest)
+    {
+        try
+        {
+            var manifestPath = UcliStoragePathResolver.ResolveSupervisorManifestPath(storageRoot);
+            return DeserializeAndValidate(json, manifestPath) == expectedManifest;
+        }
+        catch (Exception exception) when (exception is JsonException or InvalidDataException)
+        {
+            return false;
+        }
+    }
+
     private static SupervisorInstanceManifest DeserializeAndValidate (
         string json,
         string manifestPath)
@@ -336,10 +391,22 @@ internal sealed class SupervisorManifestStore
                 $"Supervisor manifest endpointTransportKind is invalid: {contract.EndpointTransportKind}. {manifestPath}");
         }
 
+        IpcEndpoint endpoint;
+        try
+        {
+            endpoint = new IpcEndpoint(transportKind, contract.EndpointAddress!);
+        }
+        catch (ArgumentException exception)
+        {
+            throw new InvalidDataException(
+                $"Supervisor manifest endpoint is invalid. {manifestPath}",
+                exception);
+        }
+
         return new SupervisorInstanceManifest(
             contract.ProcessId,
             sessionToken,
-            new IpcEndpoint(transportKind, contract.EndpointAddress!),
+            endpoint,
             contract.IssuedAtUtc);
     }
 
@@ -398,10 +465,9 @@ internal sealed class SupervisorManifestStore
         FileSystemAccessBoundary.EnsureSecureFile(manifestPath);
     }
 
-    private static string ComputeArtifactIdentity (string json)
+    private static Sha256Digest ComputeArtifactIdentity (string json)
     {
-        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(json));
-        return Convert.ToHexString(hash);
+        return Sha256Digest.Compute(Encoding.UTF8.GetBytes(json));
     }
 
     private static void Validate (
@@ -512,15 +578,13 @@ internal sealed class SupervisorManifestFormatException : Exception
 {
     public SupervisorManifestFormatException (
         string message,
-        string artifactIdentity,
+        Sha256Digest artifactIdentity,
         Exception innerException)
         : base(message, innerException)
     {
-        ArtifactIdentity = !string.IsNullOrWhiteSpace(artifactIdentity)
-            ? artifactIdentity
-            : throw new ArgumentException("Manifest artifact identity must not be empty.", nameof(artifactIdentity));
+        ArtifactIdentity = artifactIdentity ?? throw new ArgumentNullException(nameof(artifactIdentity));
     }
 
     /// <summary> Gets the SHA-256 identity of the exact malformed file contents that failed parsing. </summary>
-    public string ArtifactIdentity { get; }
+    public Sha256Digest ArtifactIdentity { get; }
 }

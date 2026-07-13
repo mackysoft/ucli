@@ -1,6 +1,7 @@
 using System.Text.Json;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
 
@@ -299,11 +300,11 @@ internal sealed class SupervisorBootstrapper
 
         try
         {
-            var cleanupStatus = await manifestStore.CleanupRuntimeIfManifestMatchesAsync(
+            var cleanupStatus = await manifestStore.CleanupObservedRuntimeIfManifestMatchesAsync(
                     storageRoot,
                     expectedManifest,
                     endpointResolver.ResolveCanonicalEndpoint(storageRoot),
-                    GetManifestMutationLockTimeout(remainingTimeout),
+                    GetObservedRuntimeCleanupTimeout(remainingTimeout),
                     cancellationToken)
                 .ConfigureAwait(false);
             return ToManifestAvailabilityProbe(cleanupStatus);
@@ -321,7 +322,7 @@ internal sealed class SupervisorBootstrapper
 
     private async ValueTask<ManifestAvailabilityProbe> CleanupMalformedRuntimeStateAsync (
         string storageRoot,
-        string expectedArtifactIdentity,
+        Sha256Digest expectedArtifactIdentity,
         ExecutionDeadline deadline,
         CancellationToken cancellationToken)
     {
@@ -333,11 +334,11 @@ internal sealed class SupervisorBootstrapper
 
         try
         {
-            var cleanupStatus = await manifestStore.CleanupRuntimeIfMalformedArtifactMatchesAsync(
+            var cleanupStatus = await manifestStore.CleanupObservedRuntimeIfMalformedArtifactMatchesAsync(
                     storageRoot,
                     expectedArtifactIdentity,
                     endpointResolver.ResolveCanonicalEndpoint(storageRoot),
-                    GetManifestMutationLockTimeout(remainingTimeout),
+                    GetObservedRuntimeCleanupTimeout(remainingTimeout),
                     cancellationToken)
                 .ConfigureAwait(false);
             return ToManifestAvailabilityProbe(cleanupStatus);
@@ -361,11 +362,11 @@ internal sealed class SupervisorBootstrapper
             : ManifestAvailabilityProbe.ShouldLaunch();
     }
 
-    private static TimeSpan GetManifestMutationLockTimeout (TimeSpan remainingTimeout)
+    private static TimeSpan GetObservedRuntimeCleanupTimeout (TimeSpan remainingTimeout)
     {
-        return remainingTimeout < SupervisorConstants.ManifestMutationLockTimeout
+        return remainingTimeout < SupervisorConstants.RuntimeOwnershipLockTimeout
             ? remainingTimeout
-            : SupervisorConstants.ManifestMutationLockTimeout;
+            : SupervisorConstants.RuntimeOwnershipLockTimeout;
     }
 
     private bool IsWithinManifestPublicationGrace (long launchTimestamp)

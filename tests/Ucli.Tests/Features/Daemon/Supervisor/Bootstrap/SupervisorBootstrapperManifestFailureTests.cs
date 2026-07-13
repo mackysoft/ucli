@@ -2,6 +2,7 @@ using System.Net.Sockets;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
 
@@ -9,6 +10,99 @@ namespace MackySoft.Ucli.Tests.Supervisor;
 
 public sealed class SupervisorBootstrapperManifestFailureTests
 {
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task EnsureReady_WhenValidUnreachableRuntimeOwnershipIsHeld_PreservesRuntimeWithoutRelaunch ()
+    {
+        using var scope = TestDirectories.CreateTempScope("supervisor-bootstrapper", "owned-valid-runtime");
+        var endpointResolver = new SupervisorEndpointResolver();
+        var endpoint = endpointResolver.ResolveCanonicalEndpoint(scope.FullPath);
+        var manifestStore = SupervisorManifestStoreTestSupport.CreateFileBacked(TimeProvider.System);
+        var manifest = SupervisorBootstrapperTestSupport.CreateManifest(endpoint: endpoint);
+        await manifestStore.WriteAsync(scope.FullPath, manifest, CancellationToken.None);
+        if (endpoint.TransportKind == IpcTransportKind.UnixDomainSocket)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(endpoint.Address)!);
+            await File.WriteAllTextAsync(endpoint.Address, "owned endpoint", CancellationToken.None);
+        }
+
+        using var runtimeOwnership = await FileExclusiveLock.AcquireAsync(
+            UcliStoragePathResolver.ResolveSupervisorRuntimeOwnershipLockPath(scope.FullPath),
+            TimeSpan.FromSeconds(1),
+            CancellationToken.None);
+        var transportClient = new StubIpcTransportClient
+        {
+            SendHandler = static (_, _, _, _) => throw new SocketException((int)SocketError.ConnectionRefused),
+        };
+        var launcher = new RecordingSupervisorProcessLauncher
+        {
+            LaunchError = ExecutionError.InternalError("Owned valid runtime must not be relaunched."),
+        };
+        var bootstrapper = new SupervisorBootstrapper(
+            manifestStore,
+            new SupervisorClient(transportClient, TimeProvider.System),
+            launcher,
+            new SupervisorBootstrapLockProvider(TimeProvider.System),
+            endpointResolver,
+            TimeProvider.System);
+
+        var result = await bootstrapper.EnsureReadyAsync(
+            scope.FullPath,
+            TimeSpan.FromSeconds(1),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ExecutionErrorKind.Timeout, result.Error?.Kind);
+        Assert.Equal(manifest, await manifestStore.ReadOrNullAsync(scope.FullPath, CancellationToken.None));
+        Assert.Empty(launcher.Invocations);
+        Assert.NotEmpty(transportClient.Invocations);
+        if (endpoint.TransportKind == IpcTransportKind.UnixDomainSocket)
+        {
+            Assert.True(File.Exists(endpoint.Address));
+        }
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task EnsureReady_WhenMalformedRuntimeOwnershipIsHeld_PreservesArtifactWithoutRelaunch ()
+    {
+        using var scope = TestDirectories.CreateTempScope("supervisor-bootstrapper", "owned-malformed-runtime");
+        var manifestPath = UcliStoragePathResolver.ResolveSupervisorManifestPath(scope.FullPath);
+        Directory.CreateDirectory(Path.GetDirectoryName(manifestPath)!);
+        await File.WriteAllTextAsync(manifestPath, "{ malformed json", CancellationToken.None);
+        using var runtimeOwnership = await FileExclusiveLock.AcquireAsync(
+            UcliStoragePathResolver.ResolveSupervisorRuntimeOwnershipLockPath(scope.FullPath),
+            TimeSpan.FromSeconds(1),
+            CancellationToken.None);
+        var transportClient = new StubIpcTransportClient
+        {
+            SendHandler = static (_, _, _, _) => throw new InvalidOperationException(
+                "Malformed runtime ownership must block endpoint probing."),
+        };
+        var launcher = new RecordingSupervisorProcessLauncher
+        {
+            LaunchError = ExecutionError.InternalError("Owned malformed runtime must not be relaunched."),
+        };
+        var bootstrapper = new SupervisorBootstrapper(
+            SupervisorManifestStoreTestSupport.CreateFileBacked(TimeProvider.System),
+            new SupervisorClient(transportClient, TimeProvider.System),
+            launcher,
+            new SupervisorBootstrapLockProvider(TimeProvider.System),
+            new SupervisorEndpointResolver(),
+            TimeProvider.System);
+
+        var result = await bootstrapper.EnsureReadyAsync(
+            scope.FullPath,
+            TimeSpan.FromMilliseconds(200),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ExecutionErrorKind.Timeout, result.Error?.Kind);
+        Assert.True(File.Exists(manifestPath));
+        Assert.Empty(launcher.Invocations);
+        Assert.Empty(transportClient.Invocations);
+    }
+
     [Fact]
     [Trait("Size", "Medium")]
     public async Task EnsureReady_WhenManifestReadFailsWithUnauthorizedAccess_ReturnsInternalError ()

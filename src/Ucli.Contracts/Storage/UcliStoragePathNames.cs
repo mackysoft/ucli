@@ -156,6 +156,9 @@ public static class UcliStoragePathNames
     /// <summary> Gets the supervisor bootstrap lock file name under <c>.ucli/local/supervisor</c>. </summary>
     public const string SupervisorBootstrapLockFileName = "bootstrap.lock";
 
+    /// <summary> Gets the supervisor runtime ownership lock file name under <c>.ucli/local/supervisor</c>. </summary>
+    public const string SupervisorRuntimeOwnershipLockFileName = "runtime-ownership.lock";
+
     /// <summary> Gets the supervisor log file name under <c>.ucli/local/supervisor</c>. </summary>
     public const string SupervisorLogFileName = "supervisor.log";
 

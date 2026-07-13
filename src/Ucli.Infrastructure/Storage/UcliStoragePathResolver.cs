@@ -198,6 +198,16 @@ public static class UcliStoragePathResolver
             UcliStoragePathNames.SupervisorBootstrapLockFileName);
     }
 
+    /// <summary> Resolves the absolute path to supervisor <c>runtime-ownership.lock</c>. </summary>
+    /// <param name="storageRoot"> The storage-root path. </param>
+    /// <returns> The absolute supervisor runtime ownership lock file path. </returns>
+    public static string ResolveSupervisorRuntimeOwnershipLockPath (string storageRoot)
+    {
+        return Path.Combine(
+            ResolveSupervisorDirectoryPath(storageRoot),
+            UcliStoragePathNames.SupervisorRuntimeOwnershipLockFileName);
+    }
+
     /// <summary> Resolves the absolute path to supervisor <c>supervisor.log</c>. </summary>
     /// <param name="storageRoot"> The storage-root path. </param>
     /// <returns> The absolute supervisor log file path. </returns>

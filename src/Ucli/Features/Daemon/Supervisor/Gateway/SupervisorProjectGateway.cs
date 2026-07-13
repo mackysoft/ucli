@@ -6,6 +6,7 @@ using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Infrastructure.Paths;
 
@@ -432,7 +433,7 @@ internal sealed class SupervisorProjectGateway : IDaemonProjectLifecycleGateway
 
     private async ValueTask<SupervisorRuntimeCleanupResult> TryCleanupMalformedSupervisorRuntimeAsync (
         string repositoryRoot,
-        string expectedArtifactIdentity,
+        Sha256Digest expectedArtifactIdentity,
         ExecutionDeadline deadline,
         CancellationToken cancellationToken)
     {
@@ -451,7 +452,7 @@ internal sealed class SupervisorProjectGateway : IDaemonProjectLifecycleGateway
                     lockTimeout,
                     cancellationToken)
                 .ConfigureAwait(false);
-            if (!deadline.TryGetRemainingTimeout(out var mutationLockTimeout))
+            if (!deadline.TryGetRemainingTimeout(out var runtimeCleanupTimeout))
             {
                 return new SupervisorRuntimeCleanupResult(
                     null,
@@ -459,13 +460,13 @@ internal sealed class SupervisorProjectGateway : IDaemonProjectLifecycleGateway
                         "Timed out before malformed supervisor manifest cleanup could begin."));
             }
 
-            var cleanupStatus = await supervisorManifestStore.CleanupRuntimeIfMalformedArtifactMatchesAsync(
+            var cleanupStatus = await supervisorManifestStore.CleanupObservedRuntimeIfMalformedArtifactMatchesAsync(
                     repositoryRoot,
                     expectedArtifactIdentity,
                     endpointResolver.ResolveCanonicalEndpoint(repositoryRoot),
-                    mutationLockTimeout < SupervisorConstants.ManifestMutationLockTimeout
-                        ? mutationLockTimeout
-                        : SupervisorConstants.ManifestMutationLockTimeout,
+                    runtimeCleanupTimeout < SupervisorConstants.RuntimeOwnershipLockTimeout
+                        ? runtimeCleanupTimeout
+                        : SupervisorConstants.RuntimeOwnershipLockTimeout,
                     cancellationToken)
                 .ConfigureAwait(false);
             return new SupervisorRuntimeCleanupResult(cleanupStatus, null);
