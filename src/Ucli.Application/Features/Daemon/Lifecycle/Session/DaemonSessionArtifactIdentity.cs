@@ -1,18 +1,17 @@
-using System.Security.Cryptography;
 using System.Text;
+using MackySoft.Ucli.Contracts.Cryptography;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 
 /// <summary> Identifies the exact serialized contents observed in one daemon session file. </summary>
 internal sealed record DaemonSessionArtifactIdentity
 {
-    private DaemonSessionArtifactIdentity (string contentSha256)
+    private DaemonSessionArtifactIdentity (Sha256Digest contentDigest)
     {
-        ContentSha256 = contentSha256;
+        ContentDigest = contentDigest;
     }
 
-    /// <summary> Gets the lowercase SHA-256 digest of the UTF-8 serialized contents. </summary>
-    public string ContentSha256 { get; }
+    private Sha256Digest ContentDigest { get; }
 
     /// <summary> Creates an identity for exact serialized daemon session contents. </summary>
     /// <param name="serializedContent"> The serialized session file contents. </param>
@@ -21,9 +20,8 @@ internal sealed record DaemonSessionArtifactIdentity
     public static DaemonSessionArtifactIdentity Create (string serializedContent)
     {
         ArgumentNullException.ThrowIfNull(serializedContent);
-        var contentBytes = Encoding.UTF8.GetBytes(serializedContent);
-        var digestBytes = SHA256.HashData(contentBytes);
-        return new DaemonSessionArtifactIdentity(Convert.ToHexString(digestBytes).ToLowerInvariant());
+        return new DaemonSessionArtifactIdentity(
+            Sha256Digest.Compute(Encoding.UTF8.GetBytes(serializedContent)));
     }
 
     /// <summary> Determines whether serialized contents have this exact identity. </summary>
@@ -31,9 +29,7 @@ internal sealed record DaemonSessionArtifactIdentity
     /// <returns> <see langword="true" /> when the contents match; otherwise <see langword="false" />. </returns>
     public bool Matches (string serializedContent)
     {
-        return string.Equals(
-            ContentSha256,
-            Create(serializedContent).ContentSha256,
-            StringComparison.Ordinal);
+        ArgumentNullException.ThrowIfNull(serializedContent);
+        return ContentDigest == Sha256Digest.Compute(Encoding.UTF8.GetBytes(serializedContent));
     }
 }
