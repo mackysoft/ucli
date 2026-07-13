@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
 using MackySoft.Ucli.Contracts.Operations;
 
@@ -17,5 +18,23 @@ public sealed record SceneAssetPath : UcliStringValue
     public SceneAssetPath (string value)
         : base(UnityAssetPathContract.NormalizeSceneAssetPathOrThrow(value))
     {
+    }
+
+    /// <summary> Attempts to parse and normalize one Unity scene asset path. </summary>
+    /// <param name="value"> The candidate project-relative path. </param>
+    /// <param name="path"> The normalized typed path when parsing succeeds; otherwise <see langword="null" />. </param>
+    /// <returns> <see langword="true" /> when the value identifies a <c>.unity</c> file below <c>Assets/</c>; otherwise <see langword="false" />. </returns>
+    public static bool TryParse (
+        string? value,
+        [NotNullWhen(true)] out SceneAssetPath? path)
+    {
+        path = null;
+        if (!UnityAssetPathContract.TryNormalizeSceneAssetPath(value, out var normalizedPath))
+        {
+            return false;
+        }
+
+        path = new SceneAssetPath(normalizedPath);
+        return true;
     }
 }

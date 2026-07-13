@@ -178,7 +178,7 @@ public static class UnityAssetPathContract
     /// <param name="path"> The input path. </param>
     /// <param name="normalizedPath"> The slash-separated normalized path when validation succeeds. </param>
     /// <returns> <see langword="true" /> when <paramref name="path" /> can be normalized to a <c>ProjectSettings/</c> descendant; otherwise <see langword="false" />. </returns>
-    private static bool TryNormalizeProjectSettingsDescendantPath (
+    internal static bool TryNormalizeProjectSettingsDescendantPath (
         string? path,
         out string normalizedPath)
     {

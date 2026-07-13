@@ -66,4 +66,36 @@ public sealed class UnityPathValueTests
 
         Assert.Equal("value", argumentException.ParamName);
     }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryParse_WhenPathsAreValid_ReturnsCanonicalTypedValues ()
+    {
+        Assert.True(UnityAssetPath.TryParse(@"Assets\Data\Settings.asset", out var assetPath));
+        Assert.Equal("Assets/Data/Settings.asset", assetPath.Value);
+        Assert.True(SceneAssetPath.TryParse(@"Assets\Scenes\Main.unity", out var scenePath));
+        Assert.Equal("Assets/Scenes/Main.unity", scenePath.Value);
+        Assert.True(PrefabAssetPath.TryParse(@"Assets\Prefabs\Player.prefab", out var prefabPath));
+        Assert.Equal("Assets/Prefabs/Player.prefab", prefabPath.Value);
+        Assert.True(ProjectSettingsAssetPath.TryParse(@"ProjectSettings\TagManager.asset", out var projectSettingsPath));
+        Assert.Equal("ProjectSettings/TagManager.asset", projectSettingsPath.Value);
+        Assert.True(UnityHierarchyPath.TryParse("Root/Child", out var hierarchyPath));
+        Assert.Equal("Root/Child", hierarchyPath.Value);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryParse_WhenPathsAreInvalid_ReturnsFalseWithoutValues ()
+    {
+        Assert.False(UnityAssetPath.TryParse("Assets", out var assetPath));
+        Assert.Null(assetPath);
+        Assert.False(SceneAssetPath.TryParse("Assets/Scenes/Main.prefab", out var scenePath));
+        Assert.Null(scenePath);
+        Assert.False(PrefabAssetPath.TryParse("Assets/Prefabs/Player.unity", out var prefabPath));
+        Assert.Null(prefabPath);
+        Assert.False(ProjectSettingsAssetPath.TryParse("Assets/TagManager.asset", out var projectSettingsPath));
+        Assert.Null(projectSettingsPath);
+        Assert.False(UnityHierarchyPath.TryParse("Root//Child", out var hierarchyPath));
+        Assert.Null(hierarchyPath);
+    }
 }

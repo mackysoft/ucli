@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
 using MackySoft.Ucli.Contracts.Operations;
 
@@ -17,5 +18,23 @@ public sealed record ProjectSettingsAssetPath : UcliStringValue
     public ProjectSettingsAssetPath (string value)
         : base(UnityAssetPathContract.NormalizeProjectSettingsDescendantPathOrThrow(value))
     {
+    }
+
+    /// <summary> Attempts to parse and normalize one ProjectSettings asset path. </summary>
+    /// <param name="value"> The candidate project-relative path. </param>
+    /// <param name="path"> The normalized typed path when parsing succeeds; otherwise <see langword="null" />. </param>
+    /// <returns> <see langword="true" /> when the value identifies a <c>ProjectSettings/</c> descendant; otherwise <see langword="false" />. </returns>
+    public static bool TryParse (
+        string? value,
+        [NotNullWhen(true)] out ProjectSettingsAssetPath? path)
+    {
+        path = null;
+        if (!UnityAssetPathContract.TryNormalizeProjectSettingsDescendantPath(value, out var normalizedPath))
+        {
+            return false;
+        }
+
+        path = new ProjectSettingsAssetPath(normalizedPath);
+        return true;
     }
 }
