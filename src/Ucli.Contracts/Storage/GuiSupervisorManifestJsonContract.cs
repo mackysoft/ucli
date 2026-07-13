@@ -13,4 +13,7 @@ internal sealed record GuiSupervisorManifestJsonContract (
 {
     /// <summary> Current GUI supervisor manifest schema version. </summary>
     public const int CurrentSchemaVersion = 1;
+
+    /// <inheritdoc />
+    public override string ToString () => nameof(GuiSupervisorManifestJsonContract);
 }

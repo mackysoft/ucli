@@ -4,7 +4,7 @@ using System.Text.Json.Serialization;
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Represents one IPC request envelope sent from CLI to Unity. </summary>
-public sealed record IpcRequest
+public sealed class IpcRequest
 {
     /// <summary> Initializes one IPC request envelope. </summary>
     /// <param name="protocolVersion"> The protocol version expected by the sender. </param>

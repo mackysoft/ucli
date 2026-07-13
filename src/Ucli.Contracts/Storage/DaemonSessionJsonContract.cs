@@ -32,4 +32,7 @@ internal sealed record DaemonSessionJsonContract (
     /// <summary> Gets the Unity Editor process instance identifier that survives domain reloads within the process. </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? EditorInstanceId { get; init; }
+
+    /// <inheritdoc />
+    public override string ToString () => nameof(DaemonSessionJsonContract);
 }

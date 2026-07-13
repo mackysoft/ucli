@@ -6,4 +6,8 @@ internal sealed record SupervisorInstanceManifestJsonContract (
     string? SessionToken,
     string? EndpointTransportKind,
     string? EndpointAddress,
-    DateTimeOffset IssuedAtUtc);
+    DateTimeOffset IssuedAtUtc)
+{
+    /// <inheritdoc />
+    public override string ToString () => nameof(SupervisorInstanceManifestJsonContract);
+}

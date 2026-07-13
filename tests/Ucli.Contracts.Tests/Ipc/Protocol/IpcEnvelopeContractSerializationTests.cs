@@ -26,6 +26,31 @@ public sealed class IpcEnvelopeContractSerializationTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void IpcRequest_TextRepresentations_DoNotExposeSessionToken ()
+    {
+        const string SessionToken = "sensitive-session-token-DO-NOT-LOG";
+        var request = new IpcRequest(
+            IpcProtocol.CurrentVersion,
+            Guid.Parse("f73322e8-d990-4f84-b47f-98e6c79d6024"),
+            SessionToken,
+            ContractLiteralCodec.ToValue(UnityIpcMethod.Ping),
+            IpcPayloadCodec.SerializeToElement(new { }),
+            ContractLiteralCodec.ToValue(IpcResponseMode.Single));
+
+        string[] textRepresentations =
+        [
+            request.ToString() ?? string.Empty,
+            $"Request={request}",
+            new DiagnosticEnvelope(request).ToString(),
+        ];
+
+        Assert.All(
+            textRepresentations,
+            text => Assert.DoesNotContain(SessionToken, text, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void IpcRequest_SerializesWithCamelCaseContractFields ()
     {
         var requestId = Guid.Parse("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62");
@@ -280,4 +305,6 @@ public sealed class IpcEnvelopeContractSerializationTests
             payload,
             response: null));
     }
+
+    private sealed record DiagnosticEnvelope (object Value);
 }
