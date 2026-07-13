@@ -33,7 +33,7 @@ public sealed class ResolveCommandPayloadTests
         var command = new ResolveCommand(service, CommandResultTestWriter.Create());
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.ResolveAsync(
-            globalObjectId: "GlobalObjectId_V1-1-2-3-4-5-6",
+            globalObjectId: GlobalObjectId,
             cancellationToken: CancellationToken.None));
 
         Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);

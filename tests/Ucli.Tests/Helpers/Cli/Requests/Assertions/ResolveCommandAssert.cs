@@ -2,6 +2,7 @@ using MackySoft.Ucli.Application.Features.Requests.Resolve.UseCases.Resolve.Cont
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
+using static MackySoft.Ucli.Tests.ResolveCommandTestData;
 
 namespace MackySoft.Tests;
 
@@ -59,7 +60,7 @@ internal static class ResolveCommandAssert
                     .HasBoolean("applied", false)
                     .HasBoolean("changed", false)
                     .HasProperty("result", result => result
-                        .HasString("globalObjectId", "GlobalObjectId_V1-1-2-3-4-5-6")))
+                        .HasString("globalObjectId", GlobalObjectId)))
                 .HasProperty("readIndex", readIndex => readIndex
                     .HasBoolean("used", true)
                     .HasString("source", "index")

@@ -14,7 +14,7 @@ internal static class ResolveSelectorOperationArgsFactory
         var args = selector switch
         {
             ResolveGlobalObjectIdSelectorInput globalObjectId => new ResolveSelectorArgs(
-                globalObjectId: new UnityGlobalObjectId(globalObjectId.GlobalObjectId),
+                globalObjectId: globalObjectId.GlobalObjectId,
                 assetGuid: null,
                 assetPath: null,
                 projectAssetPath: null,
@@ -24,7 +24,7 @@ internal static class ResolveSelectorOperationArgsFactory
                 componentType: null),
             ResolveAssetGuidSelectorInput assetGuid => new ResolveSelectorArgs(
                 globalObjectId: null,
-                assetGuid: new UnityAssetGuid(assetGuid.AssetGuid),
+                assetGuid: assetGuid.AssetGuid,
                 assetPath: null,
                 projectAssetPath: null,
                 scene: null,

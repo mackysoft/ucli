@@ -8,6 +8,8 @@ internal static class ResolveCommandTestData
 {
     public const string RequestId = "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62";
 
+    public const string GlobalObjectId = "GlobalObjectId_V1-2-0123456789abcdef0123456789abcdef-4-5";
+
     private static readonly Guid RequestGuid = Guid.Parse(RequestId);
 
     public static ResolveServiceResult CreateSuccessResult ()
@@ -25,7 +27,7 @@ internal static class ResolveCommandTestData
                 {
                     Result = JsonSerializer.SerializeToElement(new
                     {
-                        globalObjectId = "GlobalObjectId_V1-1-2-3-4-5-6",
+                        globalObjectId = GlobalObjectId,
                     }),
                 },
             ],

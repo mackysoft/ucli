@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.Requests.Resolve.UseCases.Resolve.Contracts;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Hosting.Cli.Requests;
 
@@ -102,11 +103,23 @@ internal static class ResolveSelectorInputFactory
 
         if (normalizedGlobalObjectId is not null)
         {
-            return ResolveSelectorInputCreationResult.Success(new ResolveGlobalObjectIdSelectorInput(normalizedGlobalObjectId));
+            if (!UnityGlobalObjectId.TryParse(normalizedGlobalObjectId, out var typedGlobalObjectId))
+            {
+                return ResolveSelectorInputCreationResult.Failure(ExecutionError.InvalidArgument(
+                    "Selector '--globalObjectId' must be a supported non-null Unity GlobalObjectId."));
+            }
+
+            return ResolveSelectorInputCreationResult.Success(new ResolveGlobalObjectIdSelectorInput(typedGlobalObjectId));
         }
         if (normalizedAssetGuid is not null)
         {
-            return ResolveSelectorInputCreationResult.Success(new ResolveAssetGuidSelectorInput(normalizedAssetGuid));
+            if (!UnityAssetGuid.TryParse(normalizedAssetGuid, out var typedAssetGuid))
+            {
+                return ResolveSelectorInputCreationResult.Failure(ExecutionError.InvalidArgument(
+                    "Selector '--assetGuid' must be a non-zero 32-character hexadecimal Unity asset GUID."));
+            }
+
+            return ResolveSelectorInputCreationResult.Success(new ResolveAssetGuidSelectorInput(typedAssetGuid));
         }
         if (normalizedAssetPath is not null)
         {

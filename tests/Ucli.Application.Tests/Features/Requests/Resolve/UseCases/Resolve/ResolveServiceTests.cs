@@ -171,7 +171,7 @@ public sealed class ResolveServiceTests
         var result = await service.ExecuteAsync(
             RequestId,
             CreateInput(
-                selector: new ResolveAssetGuidSelectorInput("11111111111111111111111111111111"),
+                selector: new ResolveAssetGuidSelectorInput(new UnityAssetGuid("11111111111111111111111111111111")),
                 failFast: true),
             CancellationToken.None);
 
