@@ -9,8 +9,13 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
         /// <summary> Initializes request-level context passed to execute request dispatching. </summary>
         /// <param name="requestId"> The request identifier copied to response envelopes. </param>
         /// <param name="protocolVersion"> The protocol version copied to response envelopes. </param>
+        /// <param name="project"> The Unity project identity copied to execute response payloads. </param>
         /// <exception cref="ArgumentException"> Thrown when <paramref name="requestId" /> is empty. </exception>
-        public ExecuteDispatchContext (Guid requestId, int protocolVersion)
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="project" /> is <see langword="null" />. </exception>
+        public ExecuteDispatchContext (
+            Guid requestId,
+            int protocolVersion,
+            IpcProjectIdentity project)
         {
             if (requestId == Guid.Empty)
             {
@@ -19,6 +24,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
 
             RequestId = requestId;
             ProtocolVersion = protocolVersion;
+            Project = project ?? throw new ArgumentNullException(nameof(project));
         }
 
         /// <summary> Gets the non-empty IPC request identifier copied to response envelopes. </summary>
@@ -28,6 +34,6 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
         public int ProtocolVersion { get; }
 
         /// <summary> Gets the Unity project identity served by this IPC host. </summary>
-        public IpcProjectIdentity Project { get; init; } = IpcProjectIdentity.Unknown;
+        public IpcProjectIdentity Project { get; }
     }
 }

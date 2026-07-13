@@ -54,10 +54,8 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             var context = new ExecuteDispatchContext(
                 requestId: request.RequestId,
-                protocolVersion: request.ProtocolVersion)
-            {
-                Project = projectIdentity,
-            };
+                protocolVersion: request.ProtocolVersion,
+                project: projectIdentity);
 
             if (executeRequest!.TimeoutMilliseconds.HasValue
                 && executeRequest.TimeoutMilliseconds.Value <= 0)

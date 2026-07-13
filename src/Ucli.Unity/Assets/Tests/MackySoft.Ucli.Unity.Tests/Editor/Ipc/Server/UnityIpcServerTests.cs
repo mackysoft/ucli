@@ -32,6 +32,11 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private const string CanonicalSessionToken = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 
+        private static readonly IpcProjectIdentity ProjectIdentity = new IpcProjectIdentity(
+            "/repo/UnityProject",
+            ProjectFingerprintTestFactory.Create("unity-ipc-server"),
+            "6000.1.4f1");
+
         private static readonly JsonSerializerOptions SerializerOptions = new JsonSerializerOptions
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -970,6 +975,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(dispatcher.CallCount, Is.EqualTo(1));
             Assert.That(dispatcher.LastContext, Is.Not.Null);
             Assert.That(dispatcher.LastContext.RequestId, Is.EqualTo(requestId));
+            Assert.That(dispatcher.LastContext.Project, Is.SameAs(ProjectIdentity));
         });
 
         [UnityTest]
@@ -1337,12 +1343,12 @@ namespace MackySoft.Ucli.Unity.Tests
                     new PingUnityIpcMethodHandler(
                         new AssemblyServerVersionProvider(),
                         new StubUnityEditorReadinessGate(),
-                        "project-fingerprint",
+                        ProjectIdentity.ProjectFingerprint,
                         NoOpDaemonLogger.Instance),
                     new ExecuteUnityIpcMethodHandler(
                         executeRequestDispatcher,
                         new IpcRequestTimeoutScopeFactory(),
-                        IpcProjectIdentity.Unknown),
+                        ProjectIdentity),
                     new TestRunUnityIpcMethodHandler(testRunService, new IpcRequestTimeoutScopeFactory()),
                     new DaemonLogsReadUnityIpcMethodHandler(
                         daemonLogStream,
@@ -1729,7 +1735,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 LastContext = context;
 
                 var payload = JsonSerializer.SerializeToElement(
-                    new IpcExecuteResponse(Array.Empty<IpcExecuteOperationResult>()),
+                    new IpcExecuteResponse(Array.Empty<IpcExecuteOperationResult>(), context.Project),
                     SerializerOptions);
                 return Task.FromResult(new IpcResponse(
                     protocolVersion: context.ProtocolVersion,

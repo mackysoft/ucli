@@ -164,9 +164,8 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                 operationTraceIndex += step.PrimitiveCount;
             }
 
-            return new IpcExecuteResponse(opResults)
+            return new IpcExecuteResponse(opResults, project)
             {
-                Project = project,
                 PlanToken = planToken,
                 ReadPostcondition = CreateReadPostcondition(operationTraces, issuedAtUtc),
                 PostReadSource = CreatePostReadSource(steps),
@@ -303,10 +302,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
         /// <returns> The empty execute payload contract model. </returns>
         private static IpcExecuteResponse CreateEmptyExecutePayload (IpcProjectIdentity project)
         {
-            return new IpcExecuteResponse(Array.Empty<IpcExecuteOperationResult>())
-            {
-                Project = project,
-            };
+            return new IpcExecuteResponse(Array.Empty<IpcExecuteOperationResult>(), project);
         }
 
         private static IpcExecuteReadPostcondition? CreateReadPostcondition (

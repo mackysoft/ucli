@@ -27,6 +27,14 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class UnityIpcMethodHandlersTests
     {
+        private static readonly ProjectFingerprint ProjectFingerprint =
+            ProjectFingerprintTestFactory.Create("unity-ipc-method-handlers");
+
+        private static readonly IpcProjectIdentity ProjectIdentity = new IpcProjectIdentity(
+            "/repo/UnityProject",
+            ProjectFingerprint,
+            "6000.1.4f1");
+
         private static readonly TimeSpan SignalWaitTimeout = TimeSpan.FromSeconds(5);
 
         [UnityTest]
@@ -36,7 +44,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var handler = new PingUnityIpcMethodHandler(
                 new StubServerVersionProvider("1.2.3"),
                 new StubUnityEditorReadinessGate(),
-                "project-fingerprint",
+                ProjectFingerprint,
                 NoOpDaemonLogger.Instance);
             var request = CreatePingRequest(Guid.NewGuid(), new IpcPingRequest("client"));
 
@@ -47,7 +55,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcPingResponse payload, out _), Is.True);
             Assert.That(payload.ServerVersion, Is.EqualTo("1.2.3"));
             Assert.That(payload.EditorMode, Is.EqualTo("batchmode"));
-            Assert.That(payload.ProjectFingerprint, Is.EqualTo("project-fingerprint"));
+            Assert.That(payload.ProjectFingerprint, Is.EqualTo(ProjectFingerprint));
             Assert.That(payload.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.Ready));
             Assert.That(payload.BlockingReason, Is.Null);
             Assert.That(payload.CompileGeneration, Is.EqualTo("1"));
@@ -67,7 +75,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var handler = new PingUnityIpcMethodHandler(
                 new StubServerVersionProvider("1.2.3"),
                 new StubUnityEditorReadinessGate(),
-                "project-fingerprint",
+                ProjectFingerprint,
                 NoOpDaemonLogger.Instance);
             var request = CreatePingRequest(Guid.NewGuid(), 123);
 
@@ -85,7 +93,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var handler = new PingUnityIpcMethodHandler(
                 new StubServerVersionProvider("1.2.3"),
                 new StubUnityEditorReadinessGate(DaemonEditorMode.Gui),
-                "project-fingerprint",
+                ProjectFingerprint,
                 NoOpDaemonLogger.Instance);
             var request = CreatePingRequest(Guid.NewGuid(), new IpcPingRequest("client"));
 
@@ -94,7 +102,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
             Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcPingResponse payload, out _), Is.True);
             Assert.That(payload.EditorMode, Is.EqualTo("gui"));
-            Assert.That(payload.ProjectFingerprint, Is.EqualTo("project-fingerprint"));
+            Assert.That(payload.ProjectFingerprint, Is.EqualTo(ProjectFingerprint));
         });
 
         [UnityTest]
@@ -114,7 +122,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     static () => false,
                     static () => false,
                     static () => false),
-                "project-fingerprint",
+                ProjectFingerprint,
                 NoOpDaemonLogger.Instance);
 
             var firstResponse = await handler.HandleAsync(CreatePingRequest(Guid.NewGuid(), new IpcPingRequest("client")), CancellationToken.None);
@@ -153,7 +161,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     static () => false,
                     static () => false,
                     static () => true),
-                "project-fingerprint",
+                ProjectFingerprint,
                 NoOpDaemonLogger.Instance);
 
             var response = await handler.HandleAsync(CreatePingRequest(Guid.NewGuid(), new IpcPingRequest("client")), CancellationToken.None);
@@ -176,7 +184,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var bootstrapStarter = new RecordingUnityGuiBootstrapStarter();
             var handler = new GuiRebootstrapUnityIpcMethodHandler(
                 bootstrapStarter: bootstrapStarter,
-                projectFingerprint: "project-fingerprint",
+                projectFingerprint: ProjectFingerprint,
                 daemonLogger: NoOpDaemonLogger.Instance);
 
             var falseResponse = await handler.HandleAsync(
@@ -184,7 +192,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     Guid.NewGuid(),
                     UnityIpcMethod.GuiRebootstrap,
                     new IpcGuiRebootstrapRequest(
-                        ProjectFingerprint: "project-fingerprint",
+                        ProjectFingerprint: ProjectFingerprint,
                         ReplaceExistingSession: false)),
                 CancellationToken.None);
             var trueResponse = await handler.HandleAsync(
@@ -192,7 +200,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     Guid.NewGuid(),
                     UnityIpcMethod.GuiRebootstrap,
                     new IpcGuiRebootstrapRequest(
-                        ProjectFingerprint: "project-fingerprint",
+                        ProjectFingerprint: ProjectFingerprint,
                         ReplaceExistingSession: true)),
                 CancellationToken.None);
 
@@ -218,7 +226,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var bootstrapStarter = new CancellationObservingUnityGuiBootstrapStarter();
             var handler = new GuiRebootstrapUnityIpcMethodHandler(
                 bootstrapStarter,
-                "project-fingerprint",
+                ProjectFingerprint,
                 NoOpDaemonLogger.Instance);
             using var cancellationTokenSource = new CancellationTokenSource();
             var responseTask = handler.HandleAsync(
@@ -226,7 +234,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         Guid.NewGuid(),
                         UnityIpcMethod.GuiRebootstrap,
                         new IpcGuiRebootstrapRequest(
-                            ProjectFingerprint: "project-fingerprint",
+                            ProjectFingerprint: ProjectFingerprint,
                             ReplaceExistingSession: true)),
                     cancellationTokenSource.Token)
                 .AsTask();
@@ -252,7 +260,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var handler = new PlayStatusUnityIpcMethodHandler(
                 new StubServerVersionProvider("1.2.3"),
                 readinessGate,
-                new IpcProjectIdentity("/repo/UnityProject", "project-fingerprint", "6000.1.4f1"),
+                new IpcProjectIdentity("/repo/UnityProject", ProjectFingerprint, "6000.1.4f1"),
                 NoOpDaemonLogger.Instance);
             var request = CreatePlayStatusRequest(Guid.NewGuid(), new IpcPlayStatusRequest());
 
@@ -266,7 +274,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(payload.Snapshot.ServerVersion, Is.EqualTo("1.2.3"));
             Assert.That(payload.Snapshot.EditorMode, Is.EqualTo("gui"));
             Assert.That(payload.Snapshot.UnityVersion, Is.EqualTo("6000.1.4f1"));
-            Assert.That(payload.Snapshot.ProjectFingerprint, Is.EqualTo("project-fingerprint"));
+            Assert.That(payload.Snapshot.ProjectFingerprint, Is.EqualTo(ProjectFingerprint));
             Assert.That(payload.Snapshot.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.Ready));
             Assert.That(payload.Snapshot.CompileState, Is.EqualTo(IpcCompileStateCodec.Ready));
             Assert.That(payload.Snapshot.PlayMode, Is.Not.Null);
@@ -281,7 +289,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var handler = new PlayStatusUnityIpcMethodHandler(
                 new StubServerVersionProvider("1.2.3"),
                 readinessGate,
-                new IpcProjectIdentity("/repo/UnityProject", "project-fingerprint", "6000.1.4f1"),
+                new IpcProjectIdentity("/repo/UnityProject", ProjectFingerprint, "6000.1.4f1"),
                 NoOpDaemonLogger.Instance);
             var request = CreatePlayStatusRequest(Guid.NewGuid(), 123);
 
@@ -317,6 +325,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(dispatcher.CallCount, Is.EqualTo(1));
             Assert.That(dispatcher.LastContext, Is.Not.Null);
             Assert.That(dispatcher.LastContext.RequestId, Is.EqualTo(requestId));
+            Assert.That(dispatcher.LastContext.Project, Is.SameAs(ProjectIdentity));
             Assert.That(dispatcher.LastRequest, Is.Not.Null);
             Assert.That(dispatcher.LastRequest.Command, Is.EqualTo(UcliCommandIds.Validate.Name));
         });
@@ -386,7 +395,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     protocolVersion: context.ProtocolVersion,
                     requestId: context.RequestId,
                     status: IpcProtocol.StatusOk,
-                    payload: IpcPayloadCodec.SerializeToElement(new IpcExecuteResponse(Array.Empty<IpcExecuteOperationResult>())),
+                    payload: IpcPayloadCodec.SerializeToElement(new IpcExecuteResponse(Array.Empty<IpcExecuteOperationResult>(), context.Project)),
                     errors: Array.Empty<IpcError>());
             });
             var handler = CreateExecuteHandler(dispatcher, timeoutScopeFactory);
@@ -428,7 +437,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var dispatcherAwaitReadySource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             var dispatcherCancellationObservedSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             var requestId = Guid.NewGuid();
-            var dispatcher = new StubExecuteRequestDispatcher(async (_, _, cancellationToken) =>
+            var dispatcher = new StubExecuteRequestDispatcher(async (_, context, cancellationToken) =>
             {
                 try
                 {
@@ -445,7 +454,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     protocolVersion: IpcProtocol.CurrentVersion,
                     requestId: requestId,
                     status: IpcProtocol.StatusOk,
-                    payload: IpcPayloadCodec.SerializeToElement(new IpcExecuteResponse(Array.Empty<IpcExecuteOperationResult>())),
+                    payload: IpcPayloadCodec.SerializeToElement(new IpcExecuteResponse(Array.Empty<IpcExecuteOperationResult>(), context.Project)),
                     errors: Array.Empty<IpcError>());
             });
             var handler = CreateExecuteHandler(dispatcher, new IpcRequestTimeoutScopeFactory());
@@ -1998,7 +2007,7 @@ namespace MackySoft.Ucli.Unity.Tests
             return new ExecuteUnityIpcMethodHandler(
                 executeRequestDispatcher,
                 timeoutScopeFactory,
-                IpcProjectIdentity.Unknown);
+                ProjectIdentity);
         }
 
         private static UnityLogsReadUnityIpcMethodHandler CreateUnityLogsReadHandler (IUnityLogStream stream)
@@ -2137,7 +2146,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     protocolVersion: context.ProtocolVersion,
                     requestId: context.RequestId,
                     status: IpcProtocol.StatusOk,
-                    payload: IpcPayloadCodec.SerializeToElement(new IpcExecuteResponse(Array.Empty<IpcExecuteOperationResult>())),
+                    payload: IpcPayloadCodec.SerializeToElement(new IpcExecuteResponse(Array.Empty<IpcExecuteOperationResult>(), context.Project)),
                     errors: Array.Empty<IpcError>()));
             }
         }

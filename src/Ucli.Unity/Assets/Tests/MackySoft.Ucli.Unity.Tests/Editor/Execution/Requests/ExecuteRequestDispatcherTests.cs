@@ -30,6 +30,11 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class ExecuteRequestDispatcherTests
     {
+        private static readonly IpcProjectIdentity ProjectIdentity = new IpcProjectIdentity(
+            "/repo/UnityProject",
+            ProjectFingerprintTestFactory.Create("execute-request-dispatcher"),
+            "6000.1.4f1");
+
         private static readonly TimeSpan AsyncWaitTimeout = TimeSpan.FromSeconds(5);
 
         [Test]
@@ -37,9 +42,19 @@ namespace MackySoft.Ucli.Unity.Tests
         public void ExecuteDispatchContext_WhenRequestIdIsEmpty_ThrowsArgumentException ()
         {
             var exception = Assert.Throws<ArgumentException>(() =>
-                _ = new ExecuteDispatchContext(Guid.Empty, IpcProtocol.CurrentVersion));
+                _ = new ExecuteDispatchContext(Guid.Empty, IpcProtocol.CurrentVersion, ProjectIdentity));
 
             Assert.That(exception.ParamName, Is.EqualTo("requestId"));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void ExecuteDispatchContext_WhenProjectIsNull_ThrowsArgumentNullException ()
+        {
+            var exception = Assert.Throws<ArgumentNullException>(() =>
+                _ = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion, null!));
+
+            Assert.That(exception.ParamName, Is.EqualTo("project"));
         }
 
         [UnityTest]
@@ -78,7 +93,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
             var phaseExecutor = new SpyOperationPhaseExecutor(CreateSuccessTrace(normalizedRequest, planToken: "issued-token"));
             var dispatcher = CreateDispatcher(normalizer, phaseExecutor);
-            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion);
+            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion, ProjectIdentity);
             var request = CreateExecuteRequest(UcliCommandIds.Plan);
 
             var response = await DispatchAsync(dispatcher, request, context, "Plan token payload mapping");
@@ -115,7 +130,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     operationTrace,
                 }));
             var dispatcher = CreateDispatcher(normalizer, phaseExecutor);
-            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion);
+            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion, ProjectIdentity);
             var request = CreateExecuteRequest(UcliCommandIds.Plan, operationName: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe);
 
             var response = await DispatchAsync(dispatcher, request, context, "Operation result payload mapping");
@@ -157,7 +172,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     operationTrace,
                 }));
             var dispatcher = CreateDispatcher(normalizer, phaseExecutor);
-            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion);
+            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion, ProjectIdentity);
             var request = CreateExecuteRequest(UcliCommandIds.Plan, operationName: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneQuery);
 
             var response = await DispatchAsync(dispatcher, request, context, "Operation diagnostics payload mapping");
@@ -201,7 +216,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         null),
                 }));
             var dispatcher = CreateDispatcher(normalizer, phaseExecutor);
-            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion);
+            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion, ProjectIdentity);
             var request = CreateExecuteRequest(
                 UcliCommandIds.Call,
                 failFast: false,
@@ -252,7 +267,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 }));
             var dispatcher = CreateDispatcher(normalizer, phaseExecutor);
-            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion);
+            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion, ProjectIdentity);
             var request = CreateExecuteRequest(
                 UcliCommandIds.Call,
                 operationId: "step-1",
@@ -298,7 +313,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 }));
             var dispatcher = CreateDispatcher(normalizer, phaseExecutor);
-            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion);
+            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion, ProjectIdentity);
             var request = CreateExecuteRequest(
                 UcliCommandIds.Call,
                 operationId: "step-1",
@@ -339,7 +354,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 }));
             var dispatcher = CreateDispatcher(normalizer, phaseExecutor);
-            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion);
+            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion, ProjectIdentity);
             var request = CreateExecuteRequest(
                 UcliCommandIds.Plan,
                 operationId: "step-1",
@@ -382,7 +397,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 }));
             var dispatcher = CreateDispatcher(normalizer, phaseExecutor);
-            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion);
+            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion, ProjectIdentity);
             var request = CreateExecuteRequest(
                 UcliCommandIds.Query,
                 operationId: "step-1",
@@ -438,7 +453,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 }));
             var dispatcher = CreateDispatcher(normalizer, phaseExecutor);
-            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion);
+            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion, ProjectIdentity);
             var request = CreateExecuteRequest(
                 UcliCommandIds.Call,
                 operationId: "step-1",
@@ -482,7 +497,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 }));
             var dispatcher = CreateDispatcher(normalizer, phaseExecutor);
-            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion);
+            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion, ProjectIdentity);
             var request = CreateExecuteRequest(
                 UcliCommandIds.Plan,
                 operationId: "step-1",
@@ -525,7 +540,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 }));
             var dispatcher = CreateDispatcher(normalizer, phaseExecutor);
-            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion);
+            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion, ProjectIdentity);
             var request = CreateExecuteRequest(
                 UcliCommandIds.Call,
                 operationId: "step-1",
@@ -562,7 +577,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 }));
             var dispatcher = CreateDispatcher(normalizer, phaseExecutor);
-            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion);
+            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion, ProjectIdentity);
             var request = CreateExecuteRequest(
                 UcliCommandIds.Call,
                 operationId: "step-1",
@@ -607,7 +622,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 }));
             var dispatcher = CreateDispatcher(normalizer, phaseExecutor);
-            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion);
+            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion, ProjectIdentity);
             var request = CreateExecuteRequest(
                 UcliCommandIds.Call,
                 operationId: "step-1",
@@ -645,7 +660,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 }));
             var dispatcher = CreateDispatcher(normalizer, phaseExecutor);
-            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion);
+            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion, ProjectIdentity);
             var request = CreateExecuteRequest(
                 UcliCommandIds.Call,
                 operationId: "step-1",
@@ -690,7 +705,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         null),
                 }));
             var dispatcher = CreateDispatcher(normalizer, phaseExecutor);
-            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion);
+            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion, ProjectIdentity);
             var request = CreateExecuteRequest(UcliCommandIds.Call, operationName: "edit");
 
             var response = await DispatchAsync(dispatcher, request, context, "Public step diagnostics payload mapping");
@@ -718,7 +733,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var dispatcher = CreateDispatcher(
                 CreateCatalogNormalizer(),
                 CreateCatalogPhaseExecutor());
-            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion);
+            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion, ProjectIdentity);
             var request = CreateExecuteRequest(
                 UcliCommandIds.Plan,
                 new
@@ -830,7 +845,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     operationTrace,
                 }));
             var dispatcher = CreateDispatcher(normalizer, phaseExecutor);
-            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion);
+            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion, ProjectIdentity);
             var request = CreateExecuteRequest(
                 UcliCommandIds.Call,
                 operationName: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh);
@@ -900,7 +915,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 }));
             var dispatcher = CreateDispatcher(normalizer, phaseExecutor);
-            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion);
+            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion, ProjectIdentity);
             var request = CreateExecuteRequest(
                 UcliCommandIds.Call,
                 failFast: false,
@@ -935,7 +950,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         null),
                 }));
             var dispatcher = CreateDispatcher(normalizer, phaseExecutor);
-            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion);
+            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion, ProjectIdentity);
             var request = CreateExecuteRequest(UcliCommandIds.Plan);
 
             var firstResponse = await DispatchAsync(dispatcher, request, context, "Idempotent first response");
@@ -956,7 +971,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
             var phaseExecutor = new SpyOperationPhaseExecutor(CreateSuccessTrace(normalizedRequest));
             var dispatcher = CreateDispatcher(normalizer, phaseExecutor);
-            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion);
+            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion, ProjectIdentity);
             var firstRequest = CreateExecuteRequest(
                 commandName: UcliCommandIds.Plan,
                 operationId: "op-1",
@@ -984,7 +999,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
             var phaseExecutor = new SpyOperationPhaseExecutor(CreateSuccessTrace(normalizedRequest));
             var dispatcher = CreateDispatcher(normalizer, phaseExecutor);
-            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion);
+            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion, ProjectIdentity);
             var firstRequest = CreateExecuteRequest(
                 commandName: UcliCommandIds.Call,
                 operationId: "op-1",
@@ -1015,7 +1030,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var phaseExecutor = new SpyOperationPhaseExecutor(CreateSuccessTrace(normalizedRequest));
             var readinessGate = StubUnityEditorReadinessGate.CreatePending();
             var dispatcher = CreateDispatcher(normalizer, phaseExecutor, readinessGate);
-            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion);
+            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion, ProjectIdentity);
             var request = CreateExecuteRequest(UcliCommandIds.Plan, failFast: false);
 
             var responseTask = dispatcher.DispatchAsync(request, context).AsUniTask();
@@ -1042,7 +1057,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var phaseExecutor = new SpyOperationPhaseExecutor(CreateSuccessTrace(normalizedRequest));
             var readinessGate = StubUnityEditorReadinessGate.CreatePending();
             var dispatcher = CreateDispatcher(normalizer, phaseExecutor, readinessGate);
-            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion);
+            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion, ProjectIdentity);
             var request = CreateExecuteRequest(UcliCommandIds.Call, failFast: true);
 
             var response = await DispatchAsync(dispatcher, request, context, "Execute dispatcher lifecycle fail-fast response");
@@ -1066,7 +1081,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var phaseExecutor = new SpyOperationPhaseExecutor(CreateSuccessTrace(normalizedRequest));
             var readinessGate = new StubUnityEditorReadinessGate(DaemonEditorMode.Gui);
             var dispatcher = CreateDispatcher(normalizer, phaseExecutor, readinessGate);
-            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion);
+            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion, ProjectIdentity);
             var request = CreateExecuteRequest(UcliCommandIds.Plan) with
             {
                 AllowPlayMode = true,
@@ -1088,7 +1103,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var phaseExecutor = new SpyOperationPhaseExecutor(CreateSuccessTrace(normalizedRequest));
             var readinessGate = new StubUnityEditorReadinessGate(DaemonEditorMode.Gui);
             var dispatcher = CreateDispatcher(normalizer, phaseExecutor, readinessGate);
-            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion);
+            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion, ProjectIdentity);
             var request = CreateExecuteRequest(UcliCommandIds.Call) with
             {
                 AllowPlayMode = true,
@@ -1116,7 +1131,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 new ExecuteRequestNormalizationError(UcliCoreErrorCodes.InvalidArgument, "invalid request", "op-1")));
             var phaseExecutor = new SpyOperationPhaseExecutor(CreateSuccessTrace(CreateNormalizedRequest()));
             var dispatcher = CreateDispatcher(normalizer, phaseExecutor);
-            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion);
+            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion, ProjectIdentity);
             var request = CreateExecuteRequest(UcliCommandIds.Plan);
 
             var response = await DispatchAsync(dispatcher, request, context, "Normalization failure response");
@@ -1138,7 +1153,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var phaseExecutor = new SpyOperationPhaseExecutor(CreateSuccessTrace(CreateNormalizedRequest()));
             var readinessGate = StubUnityEditorReadinessGate.CreatePending();
             var dispatcher = CreateDispatcher(normalizer, phaseExecutor, readinessGate);
-            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion);
+            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion, ProjectIdentity);
             var request = CreateExecuteRequest(UcliCommandIds.Refresh);
 
             var response = await DispatchAsync(dispatcher, request, context, "Command not implemented without readiness wait");
@@ -1160,7 +1175,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var phaseExecutor = new SpyOperationPhaseExecutor(CreateSuccessTrace(CreateNormalizedRequest()));
             var readinessGate = StubUnityEditorReadinessGate.CreatePending();
             var dispatcher = CreateDispatcher(normalizer, phaseExecutor, readinessGate);
-            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion);
+            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion, ProjectIdentity);
             var request = CreateExecuteRequest(UcliCommandIds.Query) with
             {
                 AllowPlayMode = true,
@@ -1186,7 +1201,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var phaseExecutor = new SpyOperationPhaseExecutor(CreateSuccessTrace(CreateNormalizedRequest()));
             var readinessGate = StubUnityEditorReadinessGate.CreatePending();
             var dispatcher = CreateDispatcher(normalizer, phaseExecutor, readinessGate);
-            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion);
+            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion, ProjectIdentity);
             var request = CreateExecuteRequest(UcliCommandIds.Plan);
 
             var response = await DispatchAsync(dispatcher, request, context, "Normalization failure without readiness wait");
@@ -1207,7 +1222,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 new ExecuteRequestNormalizationError(UcliCoreErrorCodes.InvalidArgument, "normalizer should not run", null)));
             var phaseExecutor = new SpyOperationPhaseExecutor(CreateSuccessTrace(CreateNormalizedRequest()));
             var dispatcher = CreateDispatcher(normalizer, phaseExecutor);
-            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion);
+            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion, ProjectIdentity);
             var request = new IpcExecuteRequest(UcliCommandIds.Plan, default);
 
             var response = await DispatchAsync(dispatcher, request, context, "Invalid arguments response");
@@ -1258,7 +1273,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     new OperationFailure(UcliCoreErrorCodes.InvalidArgument, "call failed", "op-1"),
                 }));
             var dispatcher = CreateDispatcher(normalizer, phaseExecutor);
-            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion);
+            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion, ProjectIdentity);
             var request = CreateExecuteRequest(
                 UcliCommandIds.Call,
                 false,
@@ -1312,7 +1327,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     new OperationFailure(UcliCoreErrorCodes.InvalidArgument, "edit failed", "edit-1"),
                 }));
             var dispatcher = CreateDispatcher(normalizer, phaseExecutor);
-            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion);
+            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion, ProjectIdentity);
             var request = CreateExecuteRequest(UcliCommandIds.Call, operationId: "edit-1", operationName: "edit");
 
             var response = await DispatchAsync(dispatcher, request, context, "Aggregated edit failure phase response");
@@ -1334,7 +1349,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 steps: CreateTraceSteps(normalizedRequest, editPrimitiveCount: 0),
                 operationTraces: Array.Empty<OperationPhaseTrace>()));
             var dispatcher = CreateDispatcher(normalizer, phaseExecutor);
-            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion);
+            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion, ProjectIdentity);
             var request = CreateExecuteRequest(UcliCommandIds.Call, operationId: "edit-1", operationName: "edit");
 
             var response = await DispatchAsync(dispatcher, request, context, "Successful no-op edit response");
@@ -1363,7 +1378,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
             var phaseExecutor = new SpyOperationPhaseExecutor(CreateSuccessTrace(normalizedRequest));
             var dispatcher = CreateDispatcher(normalizer, phaseExecutor);
-            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion);
+            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion, ProjectIdentity);
             var request = CreateExecuteRequest(UcliCommandIds.Plan);
             using var cancellationTokenSource = new CancellationTokenSource();
             cancellationTokenSource.Cancel();
@@ -1382,7 +1397,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
             var phaseExecutor = new CancellableThenSuccessfulOperationPhaseExecutor(CreateSuccessTrace(normalizedRequest));
             var dispatcher = CreateDispatcher(normalizer, phaseExecutor);
-            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion);
+            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion, ProjectIdentity);
             var request = CreateExecuteRequest(UcliCommandIds.Plan);
             using var cancellationTokenSource = new CancellationTokenSource();
 
@@ -1439,7 +1454,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         null),
                 }));
             var dispatcher = CreateDispatcher(normalizer, phaseExecutor);
-            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion);
+            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion, ProjectIdentity);
             var request = CreateExecuteRequest(commandName, operationName: operationName);
 
             var response = await DispatchAsync(dispatcher, request, context, "Phase executor delegation response");
@@ -1473,7 +1488,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 new ExecuteRequestNormalizationError(UcliCoreErrorCodes.InvalidArgument, "normalizer should not run", null)));
             var phaseExecutor = new SpyOperationPhaseExecutor(CreateSuccessTrace(CreateNormalizedRequest()));
             var dispatcher = CreateDispatcher(normalizer, phaseExecutor);
-            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion);
+            var context = new ExecuteDispatchContext(Guid.NewGuid(), IpcProtocol.CurrentVersion, ProjectIdentity);
             var request = CreateExecuteRequest(commandName);
 
             var response = await DispatchAsync(dispatcher, request, context, "Command not implemented response");
