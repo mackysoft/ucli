@@ -18,7 +18,7 @@ internal sealed class SupervisorUnixSocketEndpointOwnership
 
     private readonly UnixSocketAccessBoundary generationAccessBoundary;
 
-    private readonly string publicationToken = Guid.NewGuid().ToString("N");
+    private readonly Guid publicationToken = Guid.NewGuid();
 
     private string? replacedGenerationAddress;
 
@@ -36,7 +36,7 @@ internal sealed class SupervisorUnixSocketEndpointOwnership
         this.canonicalAddress = Path.GetFullPath(canonicalAddress);
         BoundAddress = UnixSocketPathUtilities.BuildFallbackSocketPath(
             GenerationDirectoryPrefix,
-            $"{this.canonicalAddress}\n{publicationToken}");
+            $"{this.canonicalAddress}\n{publicationToken:N}");
         generationAccessBoundary = new UnixSocketAccessBoundary(
             BoundAddress,
             GenerationDirectoryPrefix);
@@ -118,7 +118,7 @@ internal sealed class SupervisorUnixSocketEndpointOwnership
                 $"Canonical Unix socket directory could not be resolved. Address={canonicalAddress}");
         var temporaryLinkPath = Path.Combine(
             canonicalDirectoryPath,
-            $".{Path.GetFileName(canonicalAddress)}.{publicationToken}.link");
+            $".{Path.GetFileName(canonicalAddress)}.{publicationToken:N}.link");
         try
         {
             File.Delete(temporaryLinkPath);
