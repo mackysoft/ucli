@@ -96,7 +96,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     ProcessStartedAtUtc: currentProcessStartedAtUtc,
                     OwnerProcessId: sessionOptions.OwnerProcessId)
                 {
-                    EditorInstanceId = editorInstanceId.ToString("N"),
+                    EditorInstanceId = editorInstanceId,
                 };
                 var registration = new UnityGuiSessionRegistration(
                     sessionPath,
@@ -280,7 +280,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 || sessionContract.ProjectFingerprint != projectFingerprint
                 || sessionContract.EditorMode != DaemonEditorMode.Gui
                 || sessionContract.ProcessId != currentProcessId
-                || !MatchesCurrentProcessIdentity(sessionContract, currentEditorInstanceId))
+                || sessionContract.EditorInstanceId != currentEditorInstanceId)
             {
                 return false;
             }
@@ -300,17 +300,6 @@ namespace MackySoft.Ucli.Unity.Ipc
                 && sessionContract.EndpointTransportKind == expectedEndpoint.TransportKind
                 && string.Equals(sessionContract.EndpointAddress, expectedEndpoint.Address, StringComparison.Ordinal)
                 && sessionContract.OwnerProcessId == sessionOptions.OwnerProcessId;
-        }
-
-        private static bool MatchesCurrentProcessIdentity (
-            DaemonSessionJsonContract sessionContract,
-            Guid currentEditorInstanceId)
-        {
-            return sessionContract.EditorInstanceId is string rawEditorInstanceId
-                && rawEditorInstanceId.Length == 32
-                && Guid.TryParseExact(rawEditorInstanceId, "N", out var persistedEditorInstanceId)
-                && persistedEditorInstanceId != Guid.Empty
-                && persistedEditorInstanceId == currentEditorInstanceId;
         }
 
         private static void DeleteUnixEndpointResidue (

@@ -10,6 +10,8 @@ public sealed class DaemonSessionJsonContractSerializerTests
 {
     private const string ProjectFingerprintText = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 
+    private static readonly Guid EditorInstanceId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+
     [Fact]
     [Trait("Size", "Small")]
     public void Deserialize_WithValidJson_ReturnsContract ()
@@ -132,7 +134,7 @@ public sealed class DaemonSessionJsonContractSerializerTests
             ProcessStartedAtUtc: DateTimeOffset.Parse("2026-03-02T00:00:01+00:00"),
             OwnerProcessId: 5678)
         {
-            EditorInstanceId = "11111111111111111111111111111111",
+            EditorInstanceId = EditorInstanceId,
         };
 
         var json = DaemonSessionJsonContractSerializer.Serialize(contract);
@@ -142,7 +144,7 @@ public sealed class DaemonSessionJsonContractSerializerTests
             .MatchesSchema(SessionJsonSchema, nameof(SessionJsonSchema));
         Assert.False(jsonDocument.RootElement.TryGetProperty("runtimeKind", out _));
         Assert.True(jsonDocument.RootElement.TryGetProperty("editorInstanceId", out var editorInstanceId));
-        Assert.Equal("11111111111111111111111111111111", editorInstanceId.GetString());
+        Assert.Equal(EditorInstanceId, editorInstanceId.GetGuid());
     }
 
     [Fact]
@@ -163,14 +165,39 @@ public sealed class DaemonSessionJsonContractSerializerTests
               "processId": 1234,
               "processStartedAtUtc": "2026-03-02T00:00:01+00:00",
               "ownerProcessId": 5678,
-              "editorInstanceId": "11111111111111111111111111111111"
+              "editorInstanceId": "11111111-1111-1111-1111-111111111111"
             }
             """;
 
         var contract = DaemonSessionJsonContractSerializer.Deserialize(Json);
 
         Assert.NotNull(contract);
-        Assert.Equal("11111111111111111111111111111111", contract.EditorInstanceId);
+        Assert.Equal(EditorInstanceId, contract.EditorInstanceId);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Deserialize_WhenEditorInstanceIdIsNotGuid_ThrowsJsonException ()
+    {
+        const string Json = """
+            {
+              "schemaVersion": 2,
+              "sessionToken": "token-123",
+              "projectFingerprint": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+              "issuedAtUtc": "2026-03-02T00:00:00+00:00",
+              "editorMode": "gui",
+              "ownerKind": "user",
+              "canShutdownProcess": false,
+              "endpointTransportKind": "namedPipe",
+              "endpointAddress": "ucli-daemon-endpoint",
+              "processId": 1234,
+              "processStartedAtUtc": "2026-03-02T00:00:01+00:00",
+              "ownerProcessId": 5678,
+              "editorInstanceId": "not-a-guid"
+            }
+            """;
+
+        Assert.Throws<JsonException>(() => DaemonSessionJsonContractSerializer.Deserialize(Json));
     }
 
     [Fact]

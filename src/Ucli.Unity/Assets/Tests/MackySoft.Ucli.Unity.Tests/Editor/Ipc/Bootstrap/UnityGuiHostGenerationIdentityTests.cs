@@ -113,7 +113,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(sessionContract, Is.Not.Null);
                 Assert.That(lifecycleContract, Is.Not.Null);
                 Assert.That(operationReadResult.Record, Is.Not.Null);
-                Assert.That(sessionContract.EditorInstanceId, Is.EqualTo(expectedPersistedId));
+                Assert.That(sessionContract.EditorInstanceId, Is.EqualTo(EditorInstanceId));
                 Assert.That(lifecycleContract.EditorInstanceId, Is.EqualTo(EditorInstanceId));
                 Assert.That(operationReadResult.Record.HostEditorInstanceId, Is.EqualTo(expectedPersistedId));
             }

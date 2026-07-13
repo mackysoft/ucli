@@ -40,7 +40,7 @@ public sealed class DaemonSessionContractMapperTests
     {
         var contract = CreateContract() with
         {
-            EditorInstanceId = EditorInstanceId.ToString("N"),
+            EditorInstanceId = EditorInstanceId,
         };
 
         var isValid = DaemonSessionContractMapper.TryCreate(
@@ -87,7 +87,7 @@ public sealed class DaemonSessionContractMapperTests
         Assert.Equal(DaemonSessionOwnerKind.User, contract.OwnerKind);
         Assert.Equal(IpcTransportKind.UnixDomainSocket, contract.EndpointTransportKind);
         Assert.Equal("/tmp/ucli.sock", contract.EndpointAddress);
-        Assert.Equal(EditorInstanceId.ToString("N"), contract.EditorInstanceId);
+        Assert.Equal(EditorInstanceId, contract.EditorInstanceId);
     }
 
     [Fact]
@@ -111,18 +111,13 @@ public sealed class DaemonSessionContractMapperTests
         Assert.Contains("sessionToken", Assert.IsType<ExecutionError>(error).Message, StringComparison.Ordinal);
     }
 
-    [Theory]
-    [InlineData("editor-instance")]
-    [InlineData("00000000000000000000000000000000")]
-    [InlineData("11111111-1111-1111-1111-111111111111")]
-    [InlineData(" 11111111111111111111111111111111 ")]
-    [InlineData("1111111111111111111111111111111")]
+    [Fact]
     [Trait("Size", "Small")]
-    public void TryCreate_WhenEditorInstanceIdIsInvalid_ReturnsInvalidArgument (string editorInstanceId)
+    public void TryCreate_WhenEditorInstanceIdIsEmpty_ReturnsInvalidArgument ()
     {
         var contract = CreateContract() with
         {
-            EditorInstanceId = editorInstanceId,
+            EditorInstanceId = Guid.Empty,
         };
 
         var isValid = DaemonSessionContractMapper.TryCreate(

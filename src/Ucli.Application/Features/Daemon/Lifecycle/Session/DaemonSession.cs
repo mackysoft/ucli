@@ -37,7 +37,6 @@ internal sealed record DaemonSession
         ArgumentNullException.ThrowIfNull(sessionToken);
         ArgumentNullException.ThrowIfNull(projectFingerprint);
         ArgumentNullException.ThrowIfNull(endpoint);
-        ArgumentException.ThrowIfNullOrWhiteSpace(endpoint.Address);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(ownerProcessId);
 
         if (issuedAtUtc == default)
@@ -53,11 +52,6 @@ internal sealed record DaemonSession
         if (!Enum.IsDefined(ownerKind))
         {
             throw new ArgumentException("Daemon session owner kind is not defined.", nameof(ownerKind));
-        }
-
-        if (!Enum.IsDefined(endpoint.TransportKind))
-        {
-            throw new ArgumentException("Daemon session endpoint transport kind is not defined.", nameof(endpoint));
         }
 
         if (processId is <= 0)

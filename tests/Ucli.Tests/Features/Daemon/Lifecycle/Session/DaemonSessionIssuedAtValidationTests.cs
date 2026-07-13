@@ -28,7 +28,9 @@ public sealed class DaemonSessionIssuedAtValidationTests
               "canShutdownProcess": true,
               "endpointTransportKind": "namedPipe",
               "endpointAddress": "ucli-daemon-test",
-              "processId": 1234
+              "processId": 1234,
+              "processStartedAtUtc": "2026-07-14T00:00:00+00:00",
+              "ownerProcessId": 5678
             }
             """,
             CancellationToken.None);

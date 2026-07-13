@@ -226,6 +226,35 @@ public sealed class DaemonSessionStoreTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task Read_WhenEditorInstanceIdIsNotGuid_ReturnsInvalidArgument ()
+    {
+        using var scope = TestDirectories.CreateTempScope("daemon-session-store", "non-guid-editor-instance-id");
+        var store = new DaemonSessionStore();
+        var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-non-guid-editor-instance-id");
+        var session = DaemonSessionTestFactory.Create(
+            projectFingerprint: projectFingerprint,
+            editorInstanceId: DaemonSessionTestFactory.DefaultEditorInstanceId);
+        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, projectFingerprint);
+        Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
+        var validJson = Serialize(session);
+        var serializedEditorInstanceId = DaemonSessionTestFactory.DefaultEditorInstanceId.ToString("D");
+        Assert.Contains(serializedEditorInstanceId, validJson, StringComparison.Ordinal);
+        var invalidJson = validJson.Replace(serializedEditorInstanceId, "not-a-guid", StringComparison.Ordinal);
+        await File.WriteAllTextAsync(sessionPath, invalidJson, CancellationToken.None);
+
+        var readResult = await store.ReadAsync(scope.FullPath, projectFingerprint, CancellationToken.None);
+
+        Assert.False(readResult.IsSuccess);
+        Assert.False(readResult.Exists);
+        Assert.Equal(DaemonSessionReadFailureKind.InvalidSession, readResult.FailureKind);
+        Assert.Equal(DaemonSessionArtifactIdentity.Create(invalidJson), readResult.ArtifactIdentity);
+        var error = Assert.IsType<ExecutionError>(readResult.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.Contains("editorInstanceId", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task Read_WhenSessionFingerprintDoesNotMatchRequestedFingerprint_ReturnsInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "fingerprint-mismatch");

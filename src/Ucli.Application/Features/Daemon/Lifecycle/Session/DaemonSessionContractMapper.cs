@@ -57,36 +57,21 @@ internal static class DaemonSessionContractMapper
             return false;
         }
 
-        if (contract.IssuedAtUtc == default)
+        if (contract.EditorMode is not DaemonEditorMode editorMode)
         {
-            error = Invalid("issuedAtUtc is invalid.", sourceDescription);
+            error = Invalid("editorMode is missing.", sourceDescription);
             return false;
         }
 
-        if (contract.EditorMode is not DaemonEditorMode editorMode
-            || !Enum.IsDefined(typeof(DaemonEditorMode), editorMode))
+        if (contract.OwnerKind is not DaemonSessionOwnerKind ownerKind)
         {
-            error = Invalid($"editorMode is invalid. Actual: {contract.EditorMode?.ToString() ?? "null"}.", sourceDescription);
+            error = Invalid("ownerKind is missing.", sourceDescription);
             return false;
         }
 
-        if (contract.OwnerKind is not DaemonSessionOwnerKind ownerKind
-            || !Enum.IsDefined(typeof(DaemonSessionOwnerKind), ownerKind))
+        if (contract.EndpointTransportKind is not IpcTransportKind transportKind)
         {
-            error = Invalid($"ownerKind is invalid. Actual: {contract.OwnerKind?.ToString() ?? "null"}.", sourceDescription);
-            return false;
-        }
-
-        if (contract.EndpointTransportKind is not IpcTransportKind transportKind
-            || !Enum.IsDefined(typeof(IpcTransportKind), transportKind))
-        {
-            error = Invalid($"endpointTransportKind is invalid. Actual: {contract.EndpointTransportKind?.ToString() ?? "null"}.", sourceDescription);
-            return false;
-        }
-
-        if (string.IsNullOrWhiteSpace(contract.EndpointAddress))
-        {
-            error = Invalid("endpointAddress is missing.", sourceDescription);
+            error = Invalid("endpointTransportKind is missing.", sourceDescription);
             return false;
         }
 
@@ -96,22 +81,9 @@ internal static class DaemonSessionContractMapper
             return false;
         }
 
-        Guid? editorInstanceId = null;
-        if (contract.EditorInstanceId is string rawEditorInstanceId)
-        {
-            if (rawEditorInstanceId.Length != 32
-                || !Guid.TryParseExact(rawEditorInstanceId, "N", out var parsedEditorInstanceId)
-                || parsedEditorInstanceId == Guid.Empty)
-            {
-                error = Invalid("editorInstanceId is invalid.", sourceDescription);
-                return false;
-            }
-
-            editorInstanceId = parsedEditorInstanceId;
-        }
-
         try
         {
+            var endpoint = new IpcEndpoint(transportKind, contract.EndpointAddress!);
             session = new DaemonSession(
                 sessionToken,
                 contract.ProjectFingerprint,
@@ -119,11 +91,11 @@ internal static class DaemonSessionContractMapper
                 editorMode,
                 ownerKind,
                 contract.CanShutdownProcess,
-                new IpcEndpoint(transportKind, contract.EndpointAddress),
+                endpoint,
                 contract.ProcessId,
                 contract.ProcessStartedAtUtc,
                 ownerProcessId,
-                editorInstanceId);
+                contract.EditorInstanceId);
         }
         catch (ArgumentException exception)
         {
@@ -156,7 +128,7 @@ internal static class DaemonSessionContractMapper
             ProcessStartedAtUtc: session.ProcessStartedAtUtc,
             OwnerProcessId: session.OwnerProcessId)
         {
-            EditorInstanceId = session.EditorInstanceId?.ToString("N"),
+            EditorInstanceId = session.EditorInstanceId,
         };
     }
 

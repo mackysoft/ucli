@@ -3,6 +3,7 @@ using System.Collections;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
@@ -23,14 +24,12 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private const string SecondCanonicalSessionToken = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAE";
 
-        private const string EditorInstanceId = "11111111111111111111111111111111";
-
-        private const string OtherEditorInstanceId = "22222222222222222222222222222222";
-
         private static readonly ProjectFingerprint ProjectFingerprint =
             ProjectFingerprintTestFactory.Create("unity-gui-session");
 
-        private static readonly Guid EditorInstanceGuid = Guid.Parse(EditorInstanceId);
+        private static readonly Guid EditorInstanceId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+
+        private static readonly Guid OtherEditorInstanceId = Guid.Parse("22222222-2222-2222-2222-222222222222");
 
         [Test]
         [Category("Size.Small")]
@@ -536,24 +535,28 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(sessionDirectoryPath, Is.Not.Null);
                 Directory.CreateDirectory(sessionDirectoryPath!);
                 using var currentProcess = Process.GetCurrentProcess();
-                WriteSessionContract(
+                var validContract = new DaemonSessionJsonContract(
+                    SchemaVersion: DaemonSessionStorageContract.CurrentSchemaVersion,
+                    SessionToken: "existing-malformed-editor-token",
+                    ProjectFingerprint: ProjectFingerprint,
+                    IssuedAtUtc: DateTimeOffset.UtcNow.AddSeconds(-1),
+                    EditorMode: DaemonEditorMode.Gui,
+                    OwnerKind: DaemonSessionOwnerKind.User,
+                    CanShutdownProcess: false,
+                    EndpointTransportKind: IpcTransportKind.NamedPipe,
+                    EndpointAddress: "ucli-gui-session-tests",
+                    ProcessId: currentProcess.Id,
+                    ProcessStartedAtUtc: currentProcess.StartTime.ToUniversalTime(),
+                    OwnerProcessId: currentProcess.Id)
+                {
+                    EditorInstanceId = EditorInstanceId,
+                };
+                var validJson = DaemonSessionJsonContractSerializer.Serialize(validContract);
+                var serializedEditorInstanceId = EditorInstanceId.ToString("D");
+                Assert.That(validJson, Does.Contain(serializedEditorInstanceId));
+                File.WriteAllText(
                     sessionPath,
-                    new DaemonSessionJsonContract(
-                        SchemaVersion: DaemonSessionStorageContract.CurrentSchemaVersion,
-                        SessionToken: "existing-malformed-editor-token",
-                        ProjectFingerprint: ProjectFingerprint,
-                        IssuedAtUtc: DateTimeOffset.UtcNow.AddSeconds(-1),
-                        EditorMode: DaemonEditorMode.Gui,
-                        OwnerKind: DaemonSessionOwnerKind.User,
-                        CanShutdownProcess: false,
-                        EndpointTransportKind: IpcTransportKind.NamedPipe,
-                        EndpointAddress: "ucli-gui-session-tests",
-                        ProcessId: currentProcess.Id,
-                        ProcessStartedAtUtc: currentProcess.StartTime.ToUniversalTime(),
-                        OwnerProcessId: currentProcess.Id)
-                    {
-                        EditorInstanceId = "editor-instance",
-                    });
+                    validJson.Replace(serializedEditorInstanceId, "editor-instance") + Environment.NewLine);
 
                 InvalidOperationException exception = null;
                 try
@@ -571,9 +574,13 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 Assert.That(exception, Is.Not.Null);
                 Assert.That(exception.Message, Does.Contain("GUI session already exists"));
-                var contract = ReadSessionContract(storageRoot);
-                Assert.That(contract.SessionToken, Is.EqualTo("existing-malformed-editor-token"));
-                Assert.That(contract.EditorInstanceId, Is.EqualTo("editor-instance"));
+                using var jsonDocument = JsonDocument.Parse(File.ReadAllText(sessionPath));
+                Assert.That(
+                    jsonDocument.RootElement.GetProperty("sessionToken").GetString(),
+                    Is.EqualTo("existing-malformed-editor-token"));
+                Assert.That(
+                    jsonDocument.RootElement.GetProperty("editorInstanceId").GetString(),
+                    Is.EqualTo("editor-instance"));
             }
             finally
             {
@@ -782,7 +789,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 ProjectFingerprint,
                 endpoint,
                 sessionOptions,
-                EditorInstanceGuid,
+                EditorInstanceId,
                 sessionReplacementScope: sessionReplacementScope,
                 cancellationToken: CancellationToken.None);
             return await UnityGuiSessionPersistence.PublishAsync(
