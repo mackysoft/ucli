@@ -14,4 +14,7 @@ public enum UnityGlobalObjectIdKind
 
     /// <summary> An object persisted in a source asset. </summary>
     SourceAsset = 3,
+
+    /// <summary> An object provided by Unity as a built-in asset. </summary>
+    BuiltInAsset = 4,
 }

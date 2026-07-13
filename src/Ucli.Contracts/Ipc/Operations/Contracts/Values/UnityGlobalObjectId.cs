@@ -151,6 +151,9 @@ public sealed record UnityGlobalObjectId : UcliStringValue
             case (int)UnityGlobalObjectIdKind.SourceAsset:
                 kind = UnityGlobalObjectIdKind.SourceAsset;
                 return true;
+            case (int)UnityGlobalObjectIdKind.BuiltInAsset:
+                kind = UnityGlobalObjectIdKind.BuiltInAsset;
+                return true;
             default:
                 kind = default;
                 return false;

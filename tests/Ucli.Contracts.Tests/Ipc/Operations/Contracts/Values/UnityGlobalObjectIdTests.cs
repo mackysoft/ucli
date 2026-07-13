@@ -7,7 +7,7 @@ public sealed class UnityGlobalObjectIdTests
     public static TheoryData<string> InvalidValues => new()
     {
         "GlobalObjectId_V1-0-00000000000000000000000000000000-0-0",
-        "GlobalObjectId_V1-4-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-1-0",
+        "GlobalObjectId_V1-5-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-1-0",
         "GlobalObjectId_V1-2-00000000000000000000000000000000-1-0",
         "GlobalObjectId_V1-2-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-1-0",
         "GlobalObjectId_V1-2-gggggggggggggggggggggggggggggggg-1-0",
@@ -26,6 +26,16 @@ public sealed class UnityGlobalObjectIdTests
         var exception = Assert.Throws<ArgumentException>(() => new UnityGlobalObjectId(value));
 
         Assert.Equal("value", exception.ParamName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Constructor_WhenValueIdentifiesBuiltInAsset_StoresTypedKind ()
+    {
+        var value = new UnityGlobalObjectId(
+            "GlobalObjectId_V1-4-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-1-0");
+
+        Assert.Equal(UnityGlobalObjectIdKind.BuiltInAsset, value.Kind);
     }
 
     [Fact]
