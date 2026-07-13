@@ -529,7 +529,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             if (progressSink == null
                 || !IpcLogCursorCodec.TryParse(startSnapshot.NextCursor, out var startStreamId, out var startSequence)
                 || !IpcLogCursorCodec.TryParse(endSnapshot.NextCursor, out var endStreamId, out var endSequence)
-                || !string.Equals(startStreamId, endStreamId, StringComparison.Ordinal))
+                || startStreamId != endStreamId)
             {
                 return;
             }

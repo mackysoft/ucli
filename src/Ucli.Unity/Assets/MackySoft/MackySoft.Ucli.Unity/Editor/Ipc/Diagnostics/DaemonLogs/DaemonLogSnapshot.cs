@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace MackySoft.Ucli.Unity.Ipc
@@ -7,7 +8,7 @@ namespace MackySoft.Ucli.Unity.Ipc
     /// <param name="NextCursor"> The cursor used for the next incremental read. </param>
     /// <param name="Events"> The current event sequence snapshot. </param>
     internal sealed record DaemonLogSnapshot (
-        string StreamId,
+        Guid StreamId,
         string NextCursor,
         IReadOnlyList<DaemonLogEvent> Events);
 }

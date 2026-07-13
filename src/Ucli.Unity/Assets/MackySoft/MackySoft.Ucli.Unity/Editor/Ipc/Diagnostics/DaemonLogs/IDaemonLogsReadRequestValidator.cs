@@ -1,3 +1,4 @@
+using System;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Unity.Ipc
@@ -13,7 +14,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <returns> <see langword="true" /> when payload is valid; otherwise <see langword="false" />. </returns>
         bool TryValidate (
             IpcDaemonLogsReadRequest request,
-            string currentStreamId,
+            Guid currentStreamId,
             out DaemonLogsReadFilter filter,
             out string errorMessage);
     }

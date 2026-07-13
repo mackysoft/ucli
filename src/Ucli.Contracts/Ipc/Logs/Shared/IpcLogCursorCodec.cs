@@ -5,17 +5,21 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 /// <summary> Encodes and decodes opaque log cursor values. </summary>
 internal static class IpcLogCursorCodec
 {
+    private const int StreamIdTextLength = 32;
+
     /// <summary> Encodes one stream identifier and sequence value to opaque cursor string. </summary>
-    /// <param name="streamId"> The stream identifier. </param>
+    /// <param name="streamId"> The non-empty stream identifier. </param>
     /// <param name="sequence"> The sequence value. </param>
     /// <returns> The encoded cursor value. </returns>
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="streamId" /> is empty. </exception>
+    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="sequence" /> is negative. </exception>
     public static string Encode (
-        string streamId,
+        Guid streamId,
         long sequence)
     {
-        if (string.IsNullOrWhiteSpace(streamId))
+        if (streamId == Guid.Empty)
         {
-            throw new ArgumentException("streamId must not be empty.", nameof(streamId));
+            throw new ArgumentException("Stream id must not be empty.", nameof(streamId));
         }
 
         if (sequence < 0)
@@ -24,16 +28,21 @@ internal static class IpcLogCursorCodec
         }
 
         var sequenceTextLength = GetNonNegativeInvariantInt64Length(sequence);
-        var length = checked(streamId.Length + 1 + sequenceTextLength);
+        var length = checked(StreamIdTextLength + 1 + sequenceTextLength);
         return string.Create(
             length,
             (StreamId: streamId, Sequence: sequence, SequenceTextLength: sequenceTextLength),
             static (destination, state) =>
             {
-                state.StreamId.AsSpan().CopyTo(destination);
-                destination[state.StreamId.Length] = ':';
+                if (!state.StreamId.TryFormat(destination, out var streamIdCharsWritten, "N")
+                    || streamIdCharsWritten != StreamIdTextLength)
+                {
+                    throw new InvalidOperationException("Cursor buffer is too small for stream id formatting.");
+                }
 
-                var sequenceDestination = destination[(state.StreamId.Length + 1)..];
+                destination[StreamIdTextLength] = ':';
+
+                var sequenceDestination = destination[(StreamIdTextLength + 1)..];
                 if (!state.Sequence.TryFormat(
                         sequenceDestination,
                         out var charsWritten,
@@ -52,50 +61,34 @@ internal static class IpcLogCursorCodec
     /// <returns> <see langword="true" /> when parsing succeeded; otherwise <see langword="false" />. </returns>
     public static bool TryParse (
         string? cursor,
-        out string streamId,
+        out Guid streamId,
         out long sequence)
     {
+        streamId = default;
+        sequence = default;
         if (string.IsNullOrWhiteSpace(cursor))
         {
-            streamId = string.Empty;
-            sequence = default;
             return false;
         }
 
         var separatorIndex = cursor.LastIndexOf(':');
-        if (separatorIndex <= 0 || separatorIndex >= cursor.Length - 1)
+        if (separatorIndex != StreamIdTextLength || separatorIndex >= cursor.Length - 1)
         {
-            streamId = string.Empty;
-            sequence = default;
             return false;
         }
 
         var parsedStreamId = cursor.AsSpan(0, separatorIndex);
         var sequenceText = cursor.AsSpan(separatorIndex + 1);
-        if (IsWhiteSpace(parsedStreamId)
+        if (!Guid.TryParseExact(parsedStreamId, "N", out var parsedStreamIdValue)
+            || parsedStreamIdValue == Guid.Empty
             || !long.TryParse(sequenceText, NumberStyles.None, CultureInfo.InvariantCulture, out var parsedSequence)
             || parsedSequence < 0)
         {
-            streamId = string.Empty;
-            sequence = default;
             return false;
         }
 
-        streamId = parsedStreamId.ToString();
+        streamId = parsedStreamIdValue;
         sequence = parsedSequence;
-        return true;
-    }
-
-    private static bool IsWhiteSpace (ReadOnlySpan<char> value)
-    {
-        for (var i = 0; i < value.Length; i++)
-        {
-            if (!char.IsWhiteSpace(value[i]))
-            {
-                return false;
-            }
-        }
-
         return true;
     }
 

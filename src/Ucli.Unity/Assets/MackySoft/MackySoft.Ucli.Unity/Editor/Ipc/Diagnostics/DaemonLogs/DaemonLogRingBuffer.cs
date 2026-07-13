@@ -15,7 +15,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private readonly DaemonLogEvent[] events = new DaemonLogEvent[Capacity];
 
-        private readonly string streamId = Guid.NewGuid().ToString("N", CultureInfo.InvariantCulture);
+        private readonly Guid streamId = Guid.NewGuid();
 
         private int startIndex;
 

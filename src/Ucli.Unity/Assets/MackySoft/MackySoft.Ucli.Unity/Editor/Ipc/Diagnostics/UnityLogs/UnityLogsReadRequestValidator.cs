@@ -15,7 +15,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <returns> <see langword="true" /> when validation succeeds; otherwise <see langword="false" />. </returns>
         public bool TryValidate (
             IpcUnityLogsReadRequest request,
-            string currentStreamId,
+            Guid currentStreamId,
             out UnityLogsReadFilter filter,
             out string errorMessage)
         {
@@ -24,9 +24,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentNullException(nameof(request));
             }
 
-            if (string.IsNullOrWhiteSpace(currentStreamId))
+            if (currentStreamId == Guid.Empty)
             {
-                throw new ArgumentException("current stream id must not be null or empty.", nameof(currentStreamId));
+                throw new ArgumentException("Current stream id must not be empty.", nameof(currentStreamId));
             }
 
             if (!TryResolveAfterSequence(request.After, currentStreamId, out var afterSequence, out errorMessage))
@@ -64,7 +64,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private static bool TryResolveAfterSequence (
             string afterCursor,
-            string currentStreamId,
+            Guid currentStreamId,
             out long? afterSequence,
             out string errorMessage)
         {
@@ -82,7 +82,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return false;
             }
 
-            if (!string.Equals(parsedStreamId, currentStreamId, StringComparison.Ordinal))
+            if (parsedStreamId != currentStreamId)
             {
                 afterSequence = null;
                 errorMessage = $"after streamId does not match current unity log stream. actual={parsedStreamId}, current={currentStreamId}.";

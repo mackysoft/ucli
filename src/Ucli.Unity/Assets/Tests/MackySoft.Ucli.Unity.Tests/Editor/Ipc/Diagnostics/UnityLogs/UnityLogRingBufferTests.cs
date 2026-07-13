@@ -1,3 +1,4 @@
+using System;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Ipc;
 using NUnit.Framework;
@@ -17,6 +18,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var snapshot = buffer.Snapshot();
 
+            Assert.That(snapshot.StreamId, Is.Not.EqualTo(Guid.Empty));
             Assert.That(snapshot.Events.Count, Is.EqualTo(2));
             Assert.That(snapshot.Events[0].Message, Is.EqualTo("runtime message"));
             Assert.That(snapshot.Events[1].Message, Is.EqualTo("compile message"));

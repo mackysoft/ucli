@@ -18,6 +18,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var snapshot = stream.Snapshot();
 
+            Assert.That(snapshot.StreamId, Is.Not.EqualTo(Guid.Empty));
             Assert.That(snapshot.Events.Count, Is.EqualTo(2));
             Assert.That(IpcLogCursorCodec.TryParse(snapshot.Events[0].Cursor, out var streamId, out var firstSequence), Is.True);
             Assert.That(IpcLogCursorCodec.TryParse(snapshot.Events[1].Cursor, out _, out var secondSequence), Is.True);

@@ -1509,7 +1509,8 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(payload.Events.Length, Is.EqualTo(1));
             Assert.That(payload.Events[0].Category, Is.EqualTo("transport"));
             Assert.That(payload.Events[0].Level, Is.EqualTo("warning"));
-            Assert.That(payload.NextCursor, Does.StartWith(snapshot.StreamId + ":"));
+            Assert.That(IpcLogCursorCodec.TryParse(payload.NextCursor, out var responseStreamId, out _), Is.True);
+            Assert.That(responseStreamId, Is.EqualTo(snapshot.StreamId));
         });
 
         [UnityTest]

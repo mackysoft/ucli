@@ -17,19 +17,31 @@ public sealed class IpcLogCursorAndTimestampCodecTests
         { null, true, false },
     };
 
-    public static TheoryData<string, long, string> LogCursorRoundTripCases => new()
+    public static TheoryData<Guid, long, string> LogCursorRoundTripCases => new()
     {
-        { "stream-1", 0L, "stream-1:0" },
-        { "stream-1", 42L, "stream-1:42" },
-        { "stream:with:colon", long.MaxValue, "stream:with:colon:9223372036854775807" },
+        {
+            Guid.Parse("ABCDEF01-2345-6789-ABCD-EF0123456789"),
+            0L,
+            "abcdef0123456789abcdef0123456789:0"
+        },
+        {
+            Guid.Parse("ABCDEF01-2345-6789-ABCD-EF0123456789"),
+            long.MaxValue,
+            "abcdef0123456789abcdef0123456789:9223372036854775807"
+        },
     };
 
     public static TheoryData<string?> InvalidLogCursors => new()
     {
-        "stream",
-        "stream-1:",
+        "not-a-guid:1",
+        "abcdef01-2345-6789-abcd-ef0123456789:1",
+        "00000000000000000000000000000000:1",
+        "stream:with:colon:1",
+        " abcdef0123456789abcdef0123456789:1",
+        "abcdef0123456789abcdef0123456789 :1",
+        "abcdef0123456789abcdef0123456789:",
         ":1",
-        "stream-1:-1",
+        "abcdef0123456789abcdef0123456789:-1",
         "",
         " ",
         null,
@@ -53,7 +65,7 @@ public sealed class IpcLogCursorAndTimestampCodecTests
     [MemberData(nameof(LogCursorRoundTripCases))]
     [Trait("Size", "Small")]
     public void IpcLogCursorCodec_EncodeAndTryParse_RoundTripsValues (
-        string inputStreamId,
+        Guid inputStreamId,
         long inputSequence,
         string expectedCursor)
     {
@@ -67,6 +79,15 @@ public sealed class IpcLogCursorAndTimestampCodecTests
         Assert.Equal(inputSequence, sequence);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcLogCursorCodec_Encode_EmptyStreamId_ThrowsArgumentException ()
+    {
+        var exception = Assert.Throws<ArgumentException>(() => IpcLogCursorCodec.Encode(Guid.Empty, 0));
+
+        Assert.Equal("streamId", exception.ParamName);
+    }
+
     [Theory]
     [MemberData(nameof(InvalidLogCursors))]
     [Trait("Size", "Small")]
@@ -75,7 +96,7 @@ public sealed class IpcLogCursorAndTimestampCodecTests
         var result = IpcLogCursorCodec.TryParse(value, out var streamId, out var sequence);
 
         Assert.False(result);
-        Assert.Equal(string.Empty, streamId);
+        Assert.Equal(Guid.Empty, streamId);
         Assert.Equal(default, sequence);
     }
 }
