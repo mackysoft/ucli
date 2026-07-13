@@ -93,26 +93,6 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         IUnityIpcTransportClient transportClient,
         IProjectLifecycleLockProvider lifecycleLockProvider,
         IUnityProjectLockPreflightService unityProjectLockPreflightService,
-        TimeSpan cleanupTimeout,
-        TimeSpan cleanupRetryDelay,
-        TimeProvider? timeProvider = null)
-        : this(
-            batchmodeProcessLauncher,
-            transportClient,
-            lifecycleLockProvider,
-            unityProjectLockPreflightService,
-            unityLogReader: null,
-            cleanupTimeout,
-            cleanupRetryDelay,
-            timeProvider)
-    {
-    }
-
-    internal UnityOneshotIpcClient (
-        IUnityBatchmodeProcessLauncher batchmodeProcessLauncher,
-        IUnityIpcTransportClient transportClient,
-        IProjectLifecycleLockProvider lifecycleLockProvider,
-        IUnityProjectLockPreflightService unityProjectLockPreflightService,
         IUnityLogReader? unityLogReader,
         TimeSpan cleanupTimeout,
         TimeSpan cleanupRetryDelay,

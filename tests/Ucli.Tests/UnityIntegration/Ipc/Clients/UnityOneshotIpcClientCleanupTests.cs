@@ -75,6 +75,7 @@ public sealed class UnityOneshotIpcClientCleanupTests
             transportClient,
             new StubProjectLifecycleLockProvider(),
             CreateProjectLockPreflightService(),
+            unityLogReader: null,
             TimeSpan.FromSeconds(1),
             TimeSpan.FromMilliseconds(1));
 
@@ -117,6 +118,7 @@ public sealed class UnityOneshotIpcClientCleanupTests
             transportClient,
             new StubProjectLifecycleLockProvider(),
             CreateProjectLockPreflightService(),
+            unityLogReader: null,
             cleanupTimeout,
             TimeSpan.FromMilliseconds(1),
             timeProvider);
@@ -185,6 +187,7 @@ public sealed class UnityOneshotIpcClientCleanupTests
             transportClient,
             new StubProjectLifecycleLockProvider(),
             CreateProjectLockPreflightService(),
+            unityLogReader: null,
             TimeSpan.FromMilliseconds(500),
             TimeSpan.FromMilliseconds(1),
             timeProvider: timeProvider);
@@ -222,6 +225,7 @@ public sealed class UnityOneshotIpcClientCleanupTests
             transportClient,
             new StubProjectLifecycleLockProvider(),
             CreateProjectLockPreflightService(),
+            unityLogReader: null,
             TimeSpan.FromMilliseconds(20),
             TimeSpan.FromMilliseconds(1));
 
@@ -274,6 +278,7 @@ public sealed class UnityOneshotIpcClientCleanupTests
             transportClient,
             new StubProjectLifecycleLockProvider(),
             CreateProjectLockPreflightService(),
+            unityLogReader: null,
             TimeSpan.FromMilliseconds(20),
             TimeSpan.FromMilliseconds(1));
 
@@ -334,6 +339,7 @@ public sealed class UnityOneshotIpcClientCleanupTests
             transportClient,
             new StubProjectLifecycleLockProvider(),
             CreateProjectLockPreflightService(),
+            unityLogReader: null,
             TimeSpan.FromMilliseconds(20),
             TimeSpan.FromMilliseconds(1));
 
@@ -385,6 +391,7 @@ public sealed class UnityOneshotIpcClientCleanupTests
             transportClient,
             new StubProjectLifecycleLockProvider(),
             CreateProjectLockPreflightService(),
+            unityLogReader: null,
             TimeSpan.FromMilliseconds(20),
             TimeSpan.FromMilliseconds(1));
 
@@ -422,6 +429,7 @@ public sealed class UnityOneshotIpcClientCleanupTests
             transportClient,
             new StubProjectLifecycleLockProvider(),
             CreateProjectLockPreflightService(),
+            unityLogReader: null,
             TimeSpan.FromMilliseconds(20),
             TimeSpan.FromMilliseconds(1));
 
@@ -472,6 +480,7 @@ public sealed class UnityOneshotIpcClientCleanupTests
             transportClient,
             new StubProjectLifecycleLockProvider(),
             CreateProjectLockPreflightService(),
+            unityLogReader: null,
             TimeSpan.FromMilliseconds(20),
             TimeSpan.FromMilliseconds(1));
 
@@ -528,6 +537,7 @@ public sealed class UnityOneshotIpcClientCleanupTests
             transportClient,
             new StubProjectLifecycleLockProvider(),
             projectLockPreflightService,
+            unityLogReader: null,
             TimeSpan.FromMilliseconds(20),
             TimeSpan.FromMilliseconds(1));
 
@@ -586,6 +596,7 @@ public sealed class UnityOneshotIpcClientCleanupTests
             transportClient,
             new StubProjectLifecycleLockProvider(),
             CreateProjectLockPreflightService(),
+            unityLogReader: null,
             TimeSpan.FromMilliseconds(20),
             TimeSpan.FromMilliseconds(1));
 
@@ -626,6 +637,7 @@ public sealed class UnityOneshotIpcClientCleanupTests
             transportClient,
             new StubProjectLifecycleLockProvider(),
             CreateProjectLockPreflightService(),
+            unityLogReader: null,
             TimeSpan.FromMilliseconds(20),
             TimeSpan.FromMilliseconds(1));
 
@@ -672,6 +684,7 @@ public sealed class UnityOneshotIpcClientCleanupTests
             transportClient,
             new StubProjectLifecycleLockProvider(),
             projectLockPreflightService,
+            unityLogReader: null,
             TimeSpan.FromMilliseconds(20),
             TimeSpan.FromMilliseconds(1));
 
@@ -716,6 +729,7 @@ public sealed class UnityOneshotIpcClientCleanupTests
             transportClient,
             new StubProjectLifecycleLockProvider(),
             CreateProjectLockPreflightService(),
+            unityLogReader: null,
             TimeSpan.FromMilliseconds(20),
             TimeSpan.FromMilliseconds(1));
 
