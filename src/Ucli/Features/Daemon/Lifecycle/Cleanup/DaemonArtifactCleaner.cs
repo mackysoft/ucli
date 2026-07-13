@@ -118,7 +118,7 @@ internal sealed class DaemonArtifactCleaner : IDaemonArtifactCleaner
                 unityProject,
                 currentSession =>
                 {
-                    if (!currentSession.IsSuccess && currentSession.Session is null)
+                    if (!currentSession.IsSuccess)
                     {
                         return SessionCleanupDecision.Failure(currentSession.Error!);
                     }
@@ -274,7 +274,7 @@ internal sealed class DaemonArtifactCleaner : IDaemonArtifactCleaner
         DaemonSession currentSession,
         DaemonSession expectedSession)
     {
-        return string.Equals(currentSession.SessionToken, expectedSession.SessionToken, StringComparison.Ordinal)
+        return currentSession.SessionToken == expectedSession.SessionToken
             && currentSession.IssuedAtUtc == expectedSession.IssuedAtUtc
             && string.Equals(
                 currentSession.ProjectFingerprint,

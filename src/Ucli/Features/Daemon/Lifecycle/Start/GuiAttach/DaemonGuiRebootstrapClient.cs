@@ -6,8 +6,10 @@ using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Start.GuiAttach;
@@ -46,7 +48,7 @@ internal sealed class DaemonGuiRebootstrapClient : IDaemonGuiRebootstrapClient
 
         var deadline = ExecutionDeadline.Start(timeout, timeProvider);
         var canReloadAfterTokenRejection = true;
-        string? rejectedSessionToken = null;
+        IpcSessionToken? rejectedSessionToken = null;
         IpcResponse? sessionTokenRejection = null;
         IpcRequest? request = null;
 
@@ -94,14 +96,16 @@ internal sealed class DaemonGuiRebootstrapClient : IDaemonGuiRebootstrapClient
                 manifest,
                 unityProject,
                 expectedProcessId,
-                expectedProcessStartedAtUtc);
+                expectedProcessStartedAtUtc,
+                out var sessionToken,
+                out var endpoint);
             if (validationError != null)
             {
                 return DaemonGuiRebootstrapRequestResult.Unavailable(validationError);
             }
 
             if (rejectedSessionToken is not null
-                && string.Equals(manifest!.SessionToken, rejectedSessionToken, StringComparison.Ordinal))
+                && sessionToken!.Equals(rejectedSessionToken))
             {
                 return CreateResponseFailureResult(sessionTokenRejection!);
             }
@@ -113,29 +117,24 @@ internal sealed class DaemonGuiRebootstrapClient : IDaemonGuiRebootstrapClient
                     return CreateTimeoutResult("Timed out before GUI supervisor rebootstrap request could begin.");
                 }
 
-                request ??= new IpcRequest(
-                    protocolVersion: IpcProtocol.CurrentVersion,
-                    requestId: Guid.NewGuid(),
-                    sessionToken: manifest!.SessionToken,
-                    method: ContractLiteralCodec.ToValue(UnityIpcMethod.GuiRebootstrap),
-                    payload: IpcPayloadCodec.SerializeToElement(new IpcGuiRebootstrapRequest(
+                request ??= UnityIpcRequestFactory.Create(
+                    sessionToken!,
+                    UnityIpcMethod.GuiRebootstrap,
+                    IpcPayloadCodec.SerializeToElement(new IpcGuiRebootstrapRequest(
                         ProjectFingerprint: unityProject.ProjectFingerprint,
                         ReplaceExistingSession: true)),
-                    responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single));
-                var requestForManifest = string.Equals(
-                    request.SessionToken,
-                    manifest!.SessionToken,
-                    StringComparison.Ordinal)
+                    Guid.NewGuid(),
+                    IpcResponseMode.Single);
+                var requestForManifest = sessionToken!.Matches(request.SessionToken)
                         ? request
-                        : new IpcRequest(
-                            request.ProtocolVersion,
-                            request.RequestId,
-                            manifest.SessionToken,
-                            request.Method,
+                        : UnityIpcRequestFactory.Create(
+                            sessionToken,
+                            UnityIpcMethod.GuiRebootstrap,
                             request.Payload,
-                            request.ResponseMode);
+                            request.RequestId,
+                            IpcResponseMode.Single);
                 var response = await transportClient.SendAsync(
-                        ResolveEndpoint(manifest),
+                        endpoint!,
                         requestForManifest,
                         requestTimeout,
                         cancellationToken)
@@ -148,7 +147,7 @@ internal sealed class DaemonGuiRebootstrapClient : IDaemonGuiRebootstrapClient
                 if (IsSessionTokenInvalid(response) && canReloadAfterTokenRejection)
                 {
                     canReloadAfterTokenRejection = false;
-                    rejectedSessionToken = manifest.SessionToken;
+                    rejectedSessionToken = sessionToken;
                     sessionTokenRejection = response;
                     continue;
                 }
@@ -212,8 +211,12 @@ internal sealed class DaemonGuiRebootstrapClient : IDaemonGuiRebootstrapClient
         GuiSupervisorManifestJsonContract? manifest,
         ResolvedUnityProjectContext unityProject,
         int expectedProcessId,
-        DateTimeOffset? expectedProcessStartedAtUtc)
+        DateTimeOffset? expectedProcessStartedAtUtc,
+        out IpcSessionToken? sessionToken,
+        out IpcEndpoint? endpoint)
     {
+        sessionToken = null;
+        endpoint = null;
         if (manifest == null)
         {
             return ExecutionError.InternalError(
@@ -253,8 +256,8 @@ internal sealed class DaemonGuiRebootstrapClient : IDaemonGuiRebootstrapClient
                 DaemonErrorCodes.DaemonEndpointNotRegistered);
         }
 
-        if (string.IsNullOrWhiteSpace(manifest.SessionToken)
-            || string.IsNullOrWhiteSpace(manifest.EndpointTransportKind)
+        if (!IpcSessionToken.TryParse(manifest.SessionToken, out sessionToken)
+            || !ContractLiteralCodec.TryParse<IpcTransportKind>(manifest.EndpointTransportKind, out var transportKind)
             || string.IsNullOrWhiteSpace(manifest.EndpointAddress))
         {
             return ExecutionError.InternalError(
@@ -262,16 +265,7 @@ internal sealed class DaemonGuiRebootstrapClient : IDaemonGuiRebootstrapClient
                 DaemonErrorCodes.DaemonEndpointNotRegistered);
         }
 
+        endpoint = new IpcEndpoint(transportKind, manifest.EndpointAddress);
         return null;
-    }
-
-    private static IpcEndpoint ResolveEndpoint (GuiSupervisorManifestJsonContract manifest)
-    {
-        if (!ContractLiteralCodec.TryParse<IpcTransportKind>(manifest.EndpointTransportKind, out var transportKind))
-        {
-            throw new InvalidDataException($"GUI supervisor endpointTransportKind is invalid: {manifest.EndpointTransportKind}.");
-        }
-
-        return new IpcEndpoint(transportKind, manifest.EndpointAddress);
     }
 }

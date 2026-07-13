@@ -284,7 +284,7 @@ public sealed class IpcDaemonReachabilityProbeTests
             {
                 readStartedSource.TrySetResult(true);
                 await readReleaseSource.Task;
-                return DaemonSessionReadResult.Success(null);
+                return DaemonSessionReadResult.Missing();
             },
         };
         var recoveryWaiter = new UnityDaemonRecoveryWaiter(

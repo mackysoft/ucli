@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Infrastructure.Storage;
@@ -321,10 +322,25 @@ internal sealed class SupervisorManifestStore
         string json,
         string manifestPath)
     {
-        var manifest = JsonSerializer.Deserialize<SupervisorInstanceManifest>(json, SerializerOptions)
+        var contract = JsonSerializer.Deserialize<SupervisorInstanceManifestJsonContract>(json, SerializerOptions)
             ?? throw new JsonException("Supervisor manifest JSON is null.");
-        Validate(manifest, manifestPath);
-        return manifest;
+        Validate(contract, manifestPath);
+        if (!IpcSessionToken.TryParse(contract.SessionToken, out var sessionToken))
+        {
+            throw new InvalidDataException($"Supervisor manifest sessionToken is invalid. {manifestPath}");
+        }
+
+        if (!ContractLiteralCodec.TryParse<IpcTransportKind>(contract.EndpointTransportKind, out var transportKind))
+        {
+            throw new InvalidDataException(
+                $"Supervisor manifest endpointTransportKind is invalid: {contract.EndpointTransportKind}. {manifestPath}");
+        }
+
+        return new SupervisorInstanceManifest(
+            contract.ProcessId,
+            sessionToken,
+            new IpcEndpoint(transportKind, contract.EndpointAddress!),
+            contract.IssuedAtUtc);
     }
 
     private async ValueTask WriteWhileMutationLockIsHeldAsync (
@@ -335,8 +351,13 @@ internal sealed class SupervisorManifestStore
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(manifest);
 
-        Validate(manifest, manifestPath);
-        var json = JsonSerializer.Serialize(manifest, SerializerOptions) + Environment.NewLine;
+        var contract = new SupervisorInstanceManifestJsonContract(
+            manifest.ProcessId,
+            manifest.SessionToken.GetEncodedValue(),
+            ContractLiteralCodec.ToValue(manifest.Endpoint.TransportKind),
+            manifest.Endpoint.Address,
+            manifest.IssuedAtUtc);
+        var json = JsonSerializer.Serialize(contract, SerializerOptions) + Environment.NewLine;
         var manifestDirectoryPath = Path.GetDirectoryName(manifestPath)
             ?? throw new InvalidOperationException($"Supervisor manifest directory path could not be resolved: {manifestPath}");
         FileSystemAccessBoundary.EnsureSecureDirectory(manifestDirectoryPath);
@@ -384,7 +405,7 @@ internal sealed class SupervisorManifestStore
     }
 
     private static void Validate (
-        SupervisorInstanceManifest manifest,
+        SupervisorInstanceManifestJsonContract manifest,
         string manifestPath)
     {
         if (manifest.ProcessId <= 0)
@@ -392,8 +413,7 @@ internal sealed class SupervisorManifestStore
             throw new InvalidDataException($"Supervisor manifest processId must be greater than zero. {manifestPath}");
         }
 
-        if (!StringValueNormalizer.TryTrimToNonEmpty(manifest.SessionToken, out _)
-            || !StringValueNormalizer.TryTrimToNonEmpty(manifest.EndpointAddress, out _)
+        if (!StringValueNormalizer.TryTrimToNonEmpty(manifest.EndpointAddress, out _)
             || !StringValueNormalizer.TryTrimToNonEmpty(manifest.EndpointTransportKind, out _))
         {
             throw new InvalidDataException($"Supervisor manifest contains required empty values. {manifestPath}");
@@ -404,11 +424,6 @@ internal sealed class SupervisorManifestStore
             throw new InvalidDataException($"Supervisor manifest issuedAtUtc is invalid. {manifestPath}");
         }
 
-        if (!ContractLiteralCodec.IsDefined<IpcTransportKind>(manifest.EndpointTransportKind))
-        {
-            throw new InvalidDataException(
-                $"Supervisor manifest endpointTransportKind is invalid: {manifest.EndpointTransportKind}. {manifestPath}");
-        }
     }
 
     internal sealed class SupervisorEndpointPublicationLease : IDisposable

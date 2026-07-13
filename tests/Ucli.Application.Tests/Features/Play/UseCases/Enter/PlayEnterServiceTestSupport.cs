@@ -34,7 +34,7 @@ internal static class PlayEnterServiceTestSupport
 
     public static RecordingDaemonSessionStore CreateGuiSessionStore ()
     {
-        return new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(DaemonSessionTestFactory.CreateUserOwned("gui", PlaySessionEndpointAddress)));
+        return new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(DaemonSessionTestFactory.CreateUserOwned("gui", PlaySessionEndpointAddress)));
     }
 
     public static IpcPlayTransitionResponse CreateEnteredResponse ()

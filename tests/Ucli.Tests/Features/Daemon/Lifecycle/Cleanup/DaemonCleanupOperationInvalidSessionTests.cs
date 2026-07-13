@@ -1,7 +1,6 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
-using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
@@ -14,11 +13,10 @@ public sealed class DaemonCleanupOperationInvalidSessionTests
     public async Task Cleanup_WhenInvalidSessionCanBeCleaned_CompletesCleanup ()
     {
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-cleanup-invalid-safe");
-        var invalidSession = DaemonSessionTestFactory.Create(processId: 2003) with
-        {
-            OwnerProcessId = null,
-            ProjectFingerprint = context.ProjectFingerprint,
-        };
+        var invalidEvidence = DaemonInvalidSessionEvidenceTestFactory.Create(
+            projectFingerprint: context.ProjectFingerprint,
+            processId: 2003,
+            ownerProcessId: null);
         var artifactIdentity = DaemonSessionArtifactIdentity.Create("{ invalid session artifact");
         var artifactCleaner = new RecordingDaemonArtifactCleaner
         {
@@ -28,11 +26,7 @@ public sealed class DaemonCleanupOperationInvalidSessionTests
             new ManualTimeProvider(),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
-                ReadResult = DaemonSessionReadResult.Failure(
-                    ExecutionError.InvalidArgument("invalid session"),
-                    DaemonSessionReadFailureKind.InvalidSession,
-                    invalidSession,
-                    artifactIdentity),
+                ReadResult = DaemonSessionReadResultTestFactory.Invalid(invalidEvidence, artifactIdentity),
             },
             daemonPingClient: DaemonCleanupOperationTestSupport.CreateNotRunningPingClient(),
             artifactCleaner: artifactCleaner,
@@ -60,11 +54,7 @@ public sealed class DaemonCleanupOperationInvalidSessionTests
             new ManualTimeProvider(),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
-                ReadResult = DaemonSessionReadResult.Failure(
-                    ExecutionError.InvalidArgument("invalid session"),
-                    DaemonSessionReadFailureKind.InvalidSession,
-                    session: null,
-                    artifactIdentity: null),
+                ReadResult = DaemonSessionReadResultTestFactory.Invalid(),
             },
             daemonPingClient: DaemonCleanupOperationTestSupport.CreateNotRunningPingClient(),
             artifactCleaner: artifactCleaner);
@@ -84,11 +74,7 @@ public sealed class DaemonCleanupOperationInvalidSessionTests
             new ManualTimeProvider(),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
-                ReadResult = DaemonSessionReadResult.Failure(
-                    ExecutionError.InvalidArgument("invalid session"),
-                    DaemonSessionReadFailureKind.InvalidSession,
-                    session: null,
-                    artifactIdentity: null),
+                ReadResult = DaemonSessionReadResultTestFactory.Invalid(),
             },
             daemonPingClient: DaemonCleanupOperationTestSupport.CreateFailingPingClient(
                 new IpcConnectTimeoutException("connect timeout")),
@@ -107,21 +93,16 @@ public sealed class DaemonCleanupOperationInvalidSessionTests
     public async Task Cleanup_WhenInvalidSessionIsUnsafe_ReturnsSkippedWithoutProbing ()
     {
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-cleanup-invalid-unsafe");
-        var invalidSession = DaemonSessionTestFactory.Create(processId: 2004) with
-        {
-            OwnerProcessId = null,
-            ProjectFingerprint = context.ProjectFingerprint,
-        };
+        var invalidEvidence = DaemonInvalidSessionEvidenceTestFactory.Create(
+            projectFingerprint: context.ProjectFingerprint,
+            processId: 2004,
+            ownerProcessId: null);
         var artifactCleaner = new RecordingDaemonArtifactCleaner();
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
             new ManualTimeProvider(),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
-                ReadResult = DaemonSessionReadResult.Failure(
-                    ExecutionError.InvalidArgument("invalid session"),
-                    DaemonSessionReadFailureKind.InvalidSession,
-                    invalidSession,
-                    artifactIdentity: null),
+                ReadResult = DaemonSessionReadResultTestFactory.Invalid(invalidEvidence),
             },
             daemonPingClient: DaemonCleanupOperationTestSupport.CreateFailingPingClient(
                 new InvalidDataException("probe should not run")),

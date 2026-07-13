@@ -28,7 +28,7 @@ public sealed class PlayStatusServiceSessionGateTests
     public async Task Execute_WhenSessionIsMissing_ReturnsSessionNotAvailableWithoutIpcCall ()
     {
         var context = PlayProjectContext;
-        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(null));
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Missing());
         var requestExecutor = new UnexpectedUnityRequestExecutor();
         var service = CreateService(context, sessionStore, requestExecutor);
 
@@ -45,7 +45,10 @@ public sealed class PlayStatusServiceSessionGateTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenRegisteredSessionIsBatchmode_ReturnsRequiresGuiEditorWithoutIpcCall ()
     {
-        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(CreatePlaySession("batchmode")));
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(
+            DaemonSessionTestFactory.Create(
+                editorMode: "batchmode",
+                endpointAddress: PlaySessionEndpointAddress)));
         var requestExecutor = new UnexpectedUnityRequestExecutor();
         var service = CreateService(PlayProjectContext, sessionStore, requestExecutor);
 
@@ -64,9 +67,7 @@ public sealed class PlayStatusServiceSessionGateTests
         var expectedError = ExecutionError.InternalError("Failed to read daemon session.");
         var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Failure(
             expectedError,
-            DaemonSessionReadFailureKind.Unknown,
-            session: null,
-            artifactIdentity: null));
+            DaemonSessionReadFailureKind.Unknown));
         var requestExecutor = new UnexpectedUnityRequestExecutor();
         var service = CreateService(PlayProjectContext, sessionStore, requestExecutor);
 

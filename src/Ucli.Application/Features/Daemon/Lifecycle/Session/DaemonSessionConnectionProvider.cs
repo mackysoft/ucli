@@ -36,11 +36,8 @@ internal sealed class DaemonSessionConnectionProvider : IDaemonSessionConnection
             return DaemonSessionConnectionResolutionResult.SessionNotAvailable();
         }
 
-        if (!DaemonSessionConnectionFactory.TryCreate(readResult.Session!, out var connection, out var error))
-        {
-            return DaemonSessionConnectionResolutionResult.Failure(error!);
-        }
-
+        var session = readResult.Session!;
+        var connection = new DaemonSessionConnection(session.SessionToken, session.Endpoint);
         return DaemonSessionConnectionResolutionResult.Success(connection);
     }
 }

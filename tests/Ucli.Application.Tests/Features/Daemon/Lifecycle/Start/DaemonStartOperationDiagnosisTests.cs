@@ -16,7 +16,7 @@ public sealed class DaemonStartOperationDiagnosisTests
     {
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-start-delete-diagnosis");
         var diagnosisStore = new RecordingDaemonDiagnosisStore();
-        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(null));
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Missing());
         var operation = CreateOperation(
             daemonSessionStore: sessionStore,
             daemonSessionCleanupService: new RecordingDaemonSessionCleanupService(),
@@ -47,7 +47,7 @@ public sealed class DaemonStartOperationDiagnosisTests
         {
             DeleteResult = DaemonDiagnosisStoreOperationResult.Failure(ExecutionError.InternalError("diagnosis delete failed")),
         };
-        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(null));
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Missing());
         var launchService = new RecordingDaemonLaunchService
         {
             NextResult = DaemonStartResult.Started(DaemonSessionTestFactory.Create(processId: 2025, projectFingerprint: context.ProjectFingerprint)),
@@ -80,7 +80,7 @@ public sealed class DaemonStartOperationDiagnosisTests
         {
             DeleteResult = DaemonDiagnosisStoreOperationResult.Failure(diagnosisDeleteError),
         };
-        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(null));
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Missing());
         var launchService = new RecordingDaemonLaunchService
         {
             NextResult = DaemonStartResult.Failure(launchError),
@@ -123,7 +123,7 @@ public sealed class DaemonStartOperationDiagnosisTests
             NextResult = DaemonStartResult.Failure(launchError),
         };
         var operation = CreateOperation(
-            daemonSessionStore: new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(null)),
+            daemonSessionStore: new RecordingDaemonSessionStore(DaemonSessionReadResult.Missing()),
             daemonSessionCleanupService: new RecordingDaemonSessionCleanupService(),
             daemonExistingSessionGateService: new RecordingDaemonExistingSessionGateService(),
             daemonLaunchService: launchService,
@@ -164,7 +164,7 @@ public sealed class DaemonStartOperationDiagnosisTests
                 return new ValueTask<DaemonDiagnosisStoreOperationResult>(releaseDelete.Task);
             },
         };
-        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(null));
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Missing());
         var operation = CreateOperation(
             daemonSessionStore: sessionStore,
             daemonSessionCleanupService: new RecordingDaemonSessionCleanupService(),

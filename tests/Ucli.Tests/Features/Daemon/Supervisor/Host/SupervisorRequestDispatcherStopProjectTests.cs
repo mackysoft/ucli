@@ -25,7 +25,7 @@ public sealed class SupervisorRequestDispatcherStopProjectTests
             new IpcRequest(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
-                sessionToken: runtimeContext.Manifest.SessionToken,
+                sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
                 method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.StopProject),
                 payload: IpcPayloadCodec.SerializeToElement(
                     new
@@ -65,7 +65,7 @@ public sealed class SupervisorRequestDispatcherStopProjectTests
             new IpcRequest(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
-                sessionToken: runtimeContext.Manifest.SessionToken,
+                sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
                 method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.StopProject),
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.StopProjectRequest(
@@ -103,7 +103,7 @@ public sealed class SupervisorRequestDispatcherStopProjectTests
             new IpcRequest(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
-                sessionToken: runtimeContext.Manifest.SessionToken,
+                sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
                 method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.StopProject),
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.StopProjectRequest(
@@ -140,7 +140,7 @@ public sealed class SupervisorRequestDispatcherStopProjectTests
             new IpcRequest(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
-                sessionToken: runtimeContext.Manifest.SessionToken,
+                sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
                 method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.StopProject),
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.StopProjectRequest(

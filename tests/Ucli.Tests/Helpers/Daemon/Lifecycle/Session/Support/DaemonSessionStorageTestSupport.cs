@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Tests.Helpers.Daemon;
@@ -7,7 +6,7 @@ internal static class DaemonSessionStorageTestSupport
 {
     public static DaemonSessionStore CreateStore ()
     {
-        return new DaemonSessionStore(new DaemonSessionJsonSerializer(), new DaemonSessionValidator());
+        return new DaemonSessionStore();
     }
 
     public static async Task WriteJsonAsync (

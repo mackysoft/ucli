@@ -63,7 +63,8 @@ public sealed class SupervisorBootstrapperManifestFailureTests
 
         var maliciousPath = scope.GetPath("do-not-delete.txt");
         File.WriteAllText(maliciousPath, "must remain");
-        var manifest = SupervisorBootstrapperTestSupport.CreateManifest(endpointAddress: maliciousPath);
+        var manifest = SupervisorBootstrapperTestSupport.CreateManifest(
+            endpoint: new IpcEndpoint(IpcTransportKind.UnixDomainSocket, maliciousPath));
         var manifestStore = SupervisorManifestStoreTestSupport.CreateFileBacked(TimeProvider.System);
         await manifestStore.WriteAsync(scope.FullPath, manifest, CancellationToken.None);
         var transportClient = new StubIpcTransportClient
@@ -105,16 +106,13 @@ public sealed class SupervisorBootstrapperManifestFailureTests
         var endpointResolver = new SupervisorEndpointResolver();
         var endpoint = endpointResolver.ResolveCanonicalEndpoint(scope.FullPath);
         var manifestStore = SupervisorManifestStoreTestSupport.CreateFileBacked(TimeProvider.System);
-        var firstManifest = SupervisorBootstrapperTestSupport.CreateManifest(endpointAddress: endpoint.Address) with
-        {
-            SessionToken = "supervisor-token-1",
-            EndpointTransportKind = ContractLiteralCodec.ToValue(endpoint.TransportKind),
-        };
-        var successorManifest = firstManifest with
-        {
-            SessionToken = "supervisor-token-2",
-            IssuedAtUtc = firstManifest.IssuedAtUtc.AddSeconds(1),
-        };
+        var firstManifest = SupervisorBootstrapperTestSupport.CreateManifest(
+            endpoint: endpoint);
+        var successorManifest = SupervisorBootstrapperTestSupport.CreateManifest(
+            sessionTokenDiscriminator: 2,
+            processId: firstManifest.ProcessId,
+            endpoint: firstManifest.Endpoint,
+            issuedAtUtc: firstManifest.IssuedAtUtc.AddSeconds(1));
         await manifestStore.WriteAsync(scope.FullPath, firstManifest, CancellationToken.None);
         if (endpoint.TransportKind == IpcTransportKind.UnixDomainSocket)
         {
@@ -127,13 +125,13 @@ public sealed class SupervisorBootstrapperManifestFailureTests
         {
             SendHandler = async (_, request, _, cancellationToken) =>
             {
-                if (string.Equals(request.SessionToken, firstManifest.SessionToken, StringComparison.Ordinal))
+                if (firstManifest.SessionToken.Matches(request.SessionToken))
                 {
                     await manifestStore.WriteAsync(scope.FullPath, successorManifest, cancellationToken);
                     return CreateSessionTokenInvalidResponse(request.RequestId);
                 }
 
-                Assert.Equal(successorManifest.SessionToken, request.SessionToken);
+                Assert.Equal(successorManifest.SessionToken.GetEncodedValue(), request.SessionToken);
                 return CreatePingResponse(request.RequestId, successorManifest);
             },
         };

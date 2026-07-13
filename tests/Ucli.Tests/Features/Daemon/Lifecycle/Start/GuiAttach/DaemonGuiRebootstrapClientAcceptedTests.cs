@@ -15,10 +15,13 @@ public sealed class DaemonGuiRebootstrapClientAcceptedTests
     [Trait("Size", "Small")]
     public async Task RequestRebootstrapAsync_WhenSessionTokenRotates_ReloadsManifestAndReplaysSameRequestOnce ()
     {
-        var initialManifest = CreateManifest() with { SessionToken = "initial-token" };
+        var initialManifest = CreateManifest() with
+        {
+            SessionToken = IpcSessionTokenTestFactory.Create("initial-token").GetEncodedValue(),
+        };
         var successorManifest = initialManifest with
         {
-            SessionToken = "successor-token",
+            SessionToken = IpcSessionTokenTestFactory.Create("successor-token").GetEncodedValue(),
             IssuedAtUtc = initialManifest.IssuedAtUtc.AddSeconds(1),
         };
         var unityProject = ResolvedUnityProjectContextTestFactory.Create(
@@ -111,15 +114,18 @@ public sealed class DaemonGuiRebootstrapClientAcceptedTests
     [Trait("Size", "Small")]
     public async Task RequestRebootstrapAsync_WhenSuccessorTokenIsAlsoRejected_DoesNotObserveThirdGeneration ()
     {
-        var initialManifest = CreateManifest() with { SessionToken = "initial-token" };
+        var initialManifest = CreateManifest() with
+        {
+            SessionToken = IpcSessionTokenTestFactory.Create("initial-token").GetEncodedValue(),
+        };
         var successorManifest = initialManifest with
         {
-            SessionToken = "successor-token",
+            SessionToken = IpcSessionTokenTestFactory.Create("successor-token").GetEncodedValue(),
             IssuedAtUtc = initialManifest.IssuedAtUtc.AddSeconds(1),
         };
         var unexpectedThirdManifest = successorManifest with
         {
-            SessionToken = "unexpected-third-token",
+            SessionToken = IpcSessionTokenTestFactory.Create("unexpected-third-token").GetEncodedValue(),
             IssuedAtUtc = successorManifest.IssuedAtUtc.AddSeconds(1),
         };
         var unityProject = ResolvedUnityProjectContextTestFactory.Create(

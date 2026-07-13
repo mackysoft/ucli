@@ -1,7 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
-using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
 
 namespace MackySoft.Ucli.Tests.Daemon;
@@ -47,13 +46,12 @@ public sealed class DaemonSessionProbeTests
         var observedSession = DaemonSessionTestFactory.Create(
             projectFingerprint: unityProject.ProjectFingerprint,
             sessionToken: "observed-token");
-        var replacementSession = observedSession with
-        {
-            SessionToken = "replacement-token",
-            IssuedAtUtc = observedSession.IssuedAtUtc.AddSeconds(1),
-        };
+        var replacementSession = DaemonSessionTestFactory.Create(
+            projectFingerprint: unityProject.ProjectFingerprint,
+            sessionToken: "replacement-token",
+            issuedAtUtc: observedSession.IssuedAtUtc.AddSeconds(1));
         var sessionStore = new RecordingDaemonSessionStore(
-            DaemonSessionReadResult.Success(replacementSession));
+            DaemonSessionReadResultTestFactory.Found(replacementSession));
         var replacementPing = IpcPingResponseTestFactory.Create(
             projectFingerprint: unityProject.ProjectFingerprint);
         var pingInfoClient = new RecordingDaemonPingInfoClient(
@@ -91,10 +89,7 @@ public sealed class DaemonSessionProbeTests
         var observedSession = DaemonSessionTestFactory.Create(
             projectFingerprint: unityProject.ProjectFingerprint,
             sessionToken: "observed-token");
-        var readFailure = DaemonSessionReadResult.Failure(
-            ExecutionError.InvalidArgument("Replacement session is invalid."),
-            DaemonSessionReadFailureKind.InvalidSession,
-            session: null,
+        var readFailure = DaemonSessionReadResultTestFactory.Invalid(
             artifactIdentity: DaemonSessionArtifactIdentity.Create("{ invalid"));
         var sessionStore = new RecordingDaemonSessionStore(readFailure);
         var pingInfoClient = new RecordingDaemonPingInfoClient(
@@ -130,11 +125,10 @@ public sealed class DaemonSessionProbeTests
         var observedSession = DaemonSessionTestFactory.Create(
             projectFingerprint: unityProject.ProjectFingerprint,
             sessionToken: "observed-token");
-        var replacementSession = observedSession with
-        {
-            SessionToken = "replacement-token",
-            IssuedAtUtc = observedSession.IssuedAtUtc.AddSeconds(1),
-        };
+        var replacementSession = DaemonSessionTestFactory.Create(
+            projectFingerprint: unityProject.ProjectFingerprint,
+            sessionToken: "replacement-token",
+            issuedAtUtc: observedSession.IssuedAtUtc.AddSeconds(1));
         var replacementFailure = new TimeoutException("Replacement did not respond.");
         var pingInfoClient = new RecordingDaemonPingInfoClient(
             new DaemonPingResponseException(
@@ -142,7 +136,7 @@ public sealed class DaemonSessionProbeTests
                 IpcSessionErrorCodes.SessionTokenInvalid),
             replacementFailure);
         var probe = new DaemonSessionProbe(
-            new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(replacementSession)),
+            new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(replacementSession)),
             pingInfoClient,
             new DaemonReachabilityClassifier());
 
@@ -172,17 +166,17 @@ public sealed class DaemonSessionProbeTests
         var observedSession = DaemonSessionTestFactory.Create(
             projectFingerprint: unityProject.ProjectFingerprint,
             sessionToken: "rejected-token");
-        var refreshedMetadata = observedSession with
-        {
-            EndpointAddress = "updated-endpoint",
-            IssuedAtUtc = observedSession.IssuedAtUtc.AddSeconds(1),
-        };
+        var refreshedMetadata = DaemonSessionTestFactory.Create(
+            projectFingerprint: unityProject.ProjectFingerprint,
+            sessionToken: "rejected-token",
+            issuedAtUtc: observedSession.IssuedAtUtc.AddSeconds(1),
+            endpointAddress: "updated-endpoint");
         var tokenRejection = new DaemonPingResponseException(
             "Session token was rejected.",
             IpcSessionErrorCodes.SessionTokenInvalid);
         var pingInfoClient = new RecordingDaemonPingInfoClient(tokenRejection);
         var probe = new DaemonSessionProbe(
-            new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(refreshedMetadata)),
+            new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(refreshedMetadata)),
             pingInfoClient,
             new DaemonReachabilityClassifier());
 

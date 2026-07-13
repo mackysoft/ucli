@@ -21,10 +21,11 @@ public sealed class IpcUnityLogsRequestCodecTests
             StackTraceMaxFrames: 8,
             StackTraceMaxChars: 4096);
 
-        var request = IpcUnityLogsRequestCodec.CreateRequest(query, "session-token");
+        var sessionToken = IpcSessionTokenTestFactory.CreateFromDiscriminator(1);
+        var request = IpcUnityLogsRequestCodec.CreateRequest(query, sessionToken);
 
         Assert.Equal(IpcProtocol.CurrentVersion, request.ProtocolVersion);
-        Assert.Equal("session-token", request.SessionToken);
+        Assert.Equal(sessionToken.GetEncodedValue(), request.SessionToken);
         Assert.Equal(ContractLiteralCodec.ToValue(UnityIpcMethod.UnityLogsRead), request.Method);
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcUnityLogsReadRequest payload, out _));
         Assert.Equal(32, payload.Tail);

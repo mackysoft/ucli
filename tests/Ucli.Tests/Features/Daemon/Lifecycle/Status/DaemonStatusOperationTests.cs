@@ -23,7 +23,7 @@ public sealed class DaemonStatusOperationTests
         var diagnosis = CreateDiagnosis(session, DaemonDiagnosisReasonValues.ShutdownRequested);
         var sessionStore = new RecordingDaemonSessionStore
         {
-            ReadResult = DaemonSessionReadResult.Success(session),
+            ReadResult = DaemonSessionReadResultTestFactory.Found(session),
         };
         var diagnosisStore = new RecordingDaemonDiagnosisStore
         {
@@ -60,16 +60,16 @@ public sealed class DaemonStatusOperationTests
             processId: 2001,
             sessionToken: "first-token",
             projectFingerprint: context.ProjectFingerprint);
-        var refreshedSession = firstSession with
-        {
-            SessionToken = "refreshed-token",
-            IssuedAtUtc = firstSession.IssuedAtUtc.AddSeconds(1),
-        };
+        var refreshedSession = DaemonSessionTestFactory.Create(
+            processId: 2001,
+            sessionToken: "refreshed-token",
+            projectFingerprint: context.ProjectFingerprint,
+            issuedAtUtc: firstSession.IssuedAtUtc.AddSeconds(1));
         var sessionStore = new RecordingDaemonSessionStore
         {
             ReadHandler = invocations => invocations.Count == 1
-                ? DaemonSessionReadResult.Success(firstSession)
-                : DaemonSessionReadResult.Success(refreshedSession),
+                ? DaemonSessionReadResultTestFactory.Found(firstSession)
+                : DaemonSessionReadResultTestFactory.Found(refreshedSession),
         };
         var pingResponse = IpcPingResponseTestFactory.Create(projectFingerprint: context.ProjectFingerprint);
         var pingInfoClient = new RecordingDaemonPingInfoClient(
@@ -113,17 +113,17 @@ public sealed class DaemonStatusOperationTests
             processId: Environment.ProcessId,
             sessionToken: "observed-token",
             projectFingerprint: context.ProjectFingerprint);
-        var replacementSession = observedSession with
-        {
-            SessionToken = "replacement-token",
-            EndpointAddress = "replacement-endpoint",
-            IssuedAtUtc = observedSession.IssuedAtUtc.AddSeconds(1),
-        };
+        var replacementSession = DaemonSessionTestFactory.Create(
+            processId: Environment.ProcessId,
+            sessionToken: "replacement-token",
+            projectFingerprint: context.ProjectFingerprint,
+            issuedAtUtc: observedSession.IssuedAtUtc.AddSeconds(1),
+            endpointAddress: "replacement-endpoint");
         var sessionStore = new RecordingDaemonSessionStore
         {
             ReadHandler = invocations => invocations.Count == 1
-                ? DaemonSessionReadResult.Success(observedSession)
-                : DaemonSessionReadResult.Success(replacementSession),
+                ? DaemonSessionReadResultTestFactory.Found(observedSession)
+                : DaemonSessionReadResultTestFactory.Found(replacementSession),
         };
         Exception replacementFailure = probeTimesOut
             ? new TimeoutException("Replacement probe timed out.")
@@ -165,7 +165,7 @@ public sealed class DaemonStatusOperationTests
         var session = DaemonSessionTestFactory.Create(processId: Environment.ProcessId, projectFingerprint: context.ProjectFingerprint);
         var sessionStore = new RecordingDaemonSessionStore
         {
-            ReadResult = DaemonSessionReadResult.Success(session),
+            ReadResult = DaemonSessionReadResultTestFactory.Found(session),
         };
         var diagnosisStore = new RecordingDaemonDiagnosisStore();
         var operation = new DaemonStatusOperation(
@@ -194,14 +194,14 @@ public sealed class DaemonStatusOperationTests
     {
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-status-timeout-mismatched-diagnosis");
         var session = DaemonSessionTestFactory.Create(processId: Environment.ProcessId, projectFingerprint: context.ProjectFingerprint);
-        var oldSession = session with
-        {
-            IssuedAtUtc = session.IssuedAtUtc.AddSeconds(-1),
-        };
+        var oldSession = DaemonSessionTestFactory.Create(
+            processId: Environment.ProcessId,
+            projectFingerprint: context.ProjectFingerprint,
+            issuedAtUtc: session.IssuedAtUtc.AddSeconds(-1));
         var persistedDiagnosis = CreateDiagnosis(oldSession, DaemonDiagnosisReasonValues.StartupFailed);
         var sessionStore = new RecordingDaemonSessionStore
         {
-            ReadResult = DaemonSessionReadResult.Success(session),
+            ReadResult = DaemonSessionReadResultTestFactory.Found(session),
         };
         var diagnosisStore = new RecordingDaemonDiagnosisStore
         {
@@ -234,7 +234,7 @@ public sealed class DaemonStatusOperationTests
         var session = DaemonSessionTestFactory.Create(processId: 2003, projectFingerprint: context.ProjectFingerprint);
         var sessionStore = new RecordingDaemonSessionStore
         {
-            ReadResult = DaemonSessionReadResult.Success(session),
+            ReadResult = DaemonSessionReadResultTestFactory.Found(session),
         };
         var diagnosis = CreateDiagnosis(session, DaemonDiagnosisReasonValues.ShutdownRequested);
         var diagnosisStore = new RecordingDaemonDiagnosisStore
@@ -269,7 +269,7 @@ public sealed class DaemonStatusOperationTests
         var session = DaemonSessionTestFactory.Create(processId: 2004, projectFingerprint: context.ProjectFingerprint);
         var sessionStore = new RecordingDaemonSessionStore
         {
-            ReadResult = DaemonSessionReadResult.Success(session),
+            ReadResult = DaemonSessionReadResultTestFactory.Found(session),
         };
         var diagnosisStore = new RecordingDaemonDiagnosisStore();
         var operation = new DaemonStatusOperation(
@@ -299,7 +299,7 @@ public sealed class DaemonStatusOperationTests
         var session = DaemonSessionTestFactory.Create(processId: 2005, projectFingerprint: context.ProjectFingerprint);
         var sessionStore = new RecordingDaemonSessionStore
         {
-            ReadResult = DaemonSessionReadResult.Success(session),
+            ReadResult = DaemonSessionReadResultTestFactory.Found(session),
         };
         var operation = new DaemonStatusOperation(
             daemonSessionStore: sessionStore,
@@ -329,7 +329,7 @@ public sealed class DaemonStatusOperationTests
         var diagnosis = CreateDiagnosis(DaemonSessionTestFactory.Create(processId: null, projectFingerprint: context.ProjectFingerprint), DaemonDiagnosisReasonValues.StartupFailed);
         var sessionStore = new RecordingDaemonSessionStore
         {
-            ReadResult = DaemonSessionReadResult.Success(null),
+            ReadResult = DaemonSessionReadResult.Missing(),
         };
         var diagnosisStore = new RecordingDaemonDiagnosisStore
         {
@@ -362,7 +362,7 @@ public sealed class DaemonStatusOperationTests
         var lastLaunchAttempt = CreateLaunchAttempt(context.ProjectFingerprint);
         var sessionStore = new RecordingDaemonSessionStore
         {
-            ReadResult = DaemonSessionReadResult.Success(null),
+            ReadResult = DaemonSessionReadResult.Missing(),
         };
         var diagnosisStore = new RecordingDaemonDiagnosisStore();
         var launchAttemptStore = new RecordingDaemonLaunchAttemptStore
@@ -396,7 +396,7 @@ public sealed class DaemonStatusOperationTests
         var session = DaemonSessionTestFactory.Create(processId: int.MaxValue, projectFingerprint: context.ProjectFingerprint);
         var sessionStore = new RecordingDaemonSessionStore
         {
-            ReadResult = DaemonSessionReadResult.Success(session),
+            ReadResult = DaemonSessionReadResultTestFactory.Found(session),
         };
         var diagnosisStore = new RecordingDaemonDiagnosisStore
         {
@@ -435,7 +435,7 @@ public sealed class DaemonStatusOperationTests
         var session = DaemonSessionTestFactory.Create(processId: int.MaxValue, projectFingerprint: context.ProjectFingerprint);
         var sessionStore = new RecordingDaemonSessionStore
         {
-            ReadResult = DaemonSessionReadResult.Success(session),
+            ReadResult = DaemonSessionReadResultTestFactory.Found(session),
         };
         var diagnosisStore = new RecordingDaemonDiagnosisStore
         {
@@ -472,7 +472,7 @@ public sealed class DaemonStatusOperationTests
         var session = DaemonSessionTestFactory.Create(processId: 2004, projectFingerprint: context.ProjectFingerprint);
         var sessionStore = new RecordingDaemonSessionStore
         {
-            ReadResult = DaemonSessionReadResult.Success(session),
+            ReadResult = DaemonSessionReadResultTestFactory.Found(session),
         };
         var diagnosisStore = new RecordingDaemonDiagnosisStore
         {
@@ -572,7 +572,7 @@ public sealed class DaemonStatusOperationTests
         var diagnosisStore = new RecordingDaemonDiagnosisStore();
         var sessionStore = new RecordingDaemonSessionStore
         {
-            ReadResult = DaemonSessionReadResult.Success(null),
+            ReadResult = DaemonSessionReadResult.Missing(),
         };
         var operation = new DaemonStatusOperation(
             daemonSessionStore: sessionStore,
@@ -605,7 +605,7 @@ public sealed class DaemonStatusOperationTests
         var diagnosisStore = new RecordingDaemonDiagnosisStore();
         var sessionStore = new RecordingDaemonSessionStore
         {
-            ReadResult = DaemonSessionReadResult.Success(session),
+            ReadResult = DaemonSessionReadResultTestFactory.Found(session),
         };
         var pingInfoClient = new RecordingDaemonPingInfoClient
         {
@@ -644,7 +644,7 @@ public sealed class DaemonStatusOperationTests
         var diagnosisStore = new BlockingDaemonDiagnosisWriteStore();
         var sessionStore = new RecordingDaemonSessionStore
         {
-            ReadResult = DaemonSessionReadResult.Success(session),
+            ReadResult = DaemonSessionReadResultTestFactory.Found(session),
         };
         var operation = new DaemonStatusOperation(
             daemonSessionStore: sessionStore,
@@ -683,7 +683,7 @@ public sealed class DaemonStatusOperationTests
         };
         var sessionStore = new RecordingDaemonSessionStore
         {
-            ReadResult = DaemonSessionReadResult.Success(session),
+            ReadResult = DaemonSessionReadResultTestFactory.Found(session),
             OnRead = () => timeProvider.Advance(TimeSpan.FromMilliseconds(25)),
         };
         var pingInfoClient = new RecordingDaemonPingInfoClient(

@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 
 namespace MackySoft.Ucli.Features.Daemon.Observability.Logs.Ipc;
@@ -11,13 +12,13 @@ internal static class IpcDaemonLogsRequestCodec
     /// <param name="sessionToken"> The daemon session token used for authorization. </param>
     /// <returns> The encoded IPC request envelope. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="query" /> is <see langword="null" />. </exception>
-    /// <exception cref="ArgumentException"> Thrown when <paramref name="sessionToken" /> is empty or whitespace. </exception>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="query" /> or <paramref name="sessionToken" /> is <see langword="null" />. </exception>
     public static IpcRequest CreateRequest (
         IpcDaemonLogsReadRequest query,
-        string sessionToken)
+        IpcSessionToken sessionToken)
     {
         ArgumentNullException.ThrowIfNull(query);
-        ArgumentException.ThrowIfNullOrWhiteSpace(sessionToken);
+        ArgumentNullException.ThrowIfNull(sessionToken);
 
         var payload = IpcPayloadCodec.SerializeToElement(query);
         return UnityIpcRequestFactory.Create(

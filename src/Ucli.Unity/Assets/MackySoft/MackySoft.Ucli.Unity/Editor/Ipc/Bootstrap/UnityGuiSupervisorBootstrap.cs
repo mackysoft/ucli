@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Infrastructure.Project;
@@ -101,7 +102,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 var storageRoot = UcliStoragePathResolver.ResolveStorageRoot(projectRoot);
                 var projectFingerprint = UnityProjectFingerprintCalculator.Create(storageRoot, projectRoot);
                 var endpoint = UcliIpcEndpointResolver.ResolveGuiSupervisorEndpoint(storageRoot, projectFingerprint);
-                var sessionToken = Guid.NewGuid().ToString("N");
+                var sessionToken = IpcSessionToken.CreateRandom();
                 if (!TryAttachStartingIdentity(
                         state,
                         storageRoot,
@@ -144,13 +145,13 @@ namespace MackySoft.Ucli.Unity.Ipc
                     publicationLease,
                     endpoint,
                     sessionToken);
-                if (!TryAttachPublishedManifest(state, manifest))
+                if (!TryValidatePublishedManifest(state, manifest))
                 {
                     throw CreateStartingGenerationCancellation(state);
                 }
 
                 var nextState = new ActiveGuiSupervisorState(
-                    manifest,
+                    sessionToken,
                     server,
                     serviceProvider,
                     state.DaemonLogger,
@@ -210,7 +211,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             StartingGuiSupervisorState state,
             string storageRoot,
             string projectFingerprint,
-            string sessionToken)
+            IpcSessionToken sessionToken)
         {
             lock (SyncRoot)
             {
@@ -241,7 +242,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
         }
 
-        private static bool TryAttachPublishedManifest (
+        private static bool TryValidatePublishedManifest (
             StartingGuiSupervisorState state,
             GuiSupervisorManifestJsonContract manifest)
         {
@@ -252,7 +253,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     return false;
                 }
 
-                state.AttachManifest(manifest);
+                state.ValidateManifest(manifest);
                 return true;
             }
         }
@@ -277,7 +278,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             StartingGuiSupervisorState state,
             UnityGuiSupervisorPersistence.PublicationLease publicationLease,
             IpcEndpoint endpoint,
-            string sessionToken)
+            IpcSessionToken sessionToken)
         {
             lock (SyncRoot)
             {
@@ -612,7 +613,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 UnityGuiSupervisorPersistence.Delete(
                     state.StorageRoot,
                     state.ProjectFingerprint,
-                    state.Manifest.SessionToken);
+                    state.SessionToken);
             }
             catch (Exception exception)
             {
@@ -837,9 +838,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             public string ProjectFingerprint { get; private set; }
 
-            public string SessionToken { get; private set; }
-
-            public GuiSupervisorManifestJsonContract Manifest { get; private set; }
+            public IpcSessionToken SessionToken { get; private set; }
 
             public IUnityIpcServer Server { get; private set; }
 
@@ -866,7 +865,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             public void AttachIdentity (
                 string storageRoot,
                 string projectFingerprint,
-                string sessionToken)
+                IpcSessionToken sessionToken)
             {
                 if (!IsUnclaimed)
                 {
@@ -883,9 +882,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                     throw new ArgumentException("Project fingerprint must not be empty.", nameof(projectFingerprint));
                 }
 
-                if (string.IsNullOrWhiteSpace(sessionToken))
+                if (sessionToken == null)
                 {
-                    throw new ArgumentException("Session token must not be empty.", nameof(sessionToken));
+                    throw new ArgumentNullException(nameof(sessionToken));
                 }
 
                 StorageRoot = storageRoot;
@@ -906,14 +905,24 @@ namespace MackySoft.Ucli.Unity.Ipc
                 ServiceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
             }
 
-            public void AttachManifest (GuiSupervisorManifestJsonContract manifest)
+            public void ValidateManifest (GuiSupervisorManifestJsonContract manifest)
             {
                 if (!IsUnclaimed)
                 {
                     throw new InvalidOperationException("The GUI supervisor startup generation no longer owns resources.");
                 }
 
-                Manifest = manifest ?? throw new ArgumentNullException(nameof(manifest));
+                if (manifest == null)
+                {
+                    throw new ArgumentNullException(nameof(manifest));
+                }
+
+                if (SessionToken == null || !SessionToken.Matches(manifest.SessionToken))
+                {
+                    throw new InvalidOperationException(
+                        "The GUI supervisor manifest does not belong to the startup generation.");
+                }
+
             }
 
             public void AttachPublicationLease (
@@ -1112,7 +1121,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 try
                 {
                     if (ownedPublicationLease != null
-                        && !string.IsNullOrWhiteSpace(SessionToken))
+                        && SessionToken != null)
                     {
                         ownedPublicationLease.DeleteIfOwned(SessionToken);
                     }
@@ -1180,14 +1189,14 @@ namespace MackySoft.Ucli.Unity.Ipc
                 new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
             public ActiveGuiSupervisorState (
-                GuiSupervisorManifestJsonContract manifest,
+                IpcSessionToken sessionToken,
                 IUnityIpcServer server,
                 IServiceProvider serviceProvider,
                 IDaemonLogger daemonLogger,
                 string storageRoot,
                 string projectFingerprint)
             {
-                Manifest = manifest ?? throw new ArgumentNullException(nameof(manifest));
+                SessionToken = sessionToken ?? throw new ArgumentNullException(nameof(sessionToken));
                 Server = server ?? throw new ArgumentNullException(nameof(server));
                 ServiceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
                 DaemonLogger = daemonLogger ?? throw new ArgumentNullException(nameof(daemonLogger));
@@ -1195,7 +1204,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 ProjectFingerprint = projectFingerprint ?? throw new ArgumentNullException(nameof(projectFingerprint));
             }
 
-            public GuiSupervisorManifestJsonContract Manifest { get; }
+            public IpcSessionToken SessionToken { get; }
 
             public IUnityIpcServer Server { get; }
 

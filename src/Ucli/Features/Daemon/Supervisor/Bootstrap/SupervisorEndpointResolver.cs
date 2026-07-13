@@ -1,6 +1,7 @@
 using System.Text;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Infrastructure.Storage;
 
@@ -46,14 +47,14 @@ internal sealed class SupervisorEndpointResolver
     /// <summary> Resolves one listener endpoint for a specific supervisor generation. </summary>
     public IpcEndpoint ResolveRuntimeEndpoint (
         string storageRoot,
-        string generationIdentity)
+        IpcSessionToken sessionToken)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(generationIdentity);
+        ArgumentNullException.ThrowIfNull(sessionToken);
         var canonicalEndpoint = ResolveCanonicalEndpoint(storageRoot);
         return canonicalEndpoint.TransportKind == IpcTransportKind.NamedPipe
             ? new IpcEndpoint(
                 IpcTransportKind.NamedPipe,
-                CreateNamedPipeGenerationAddress(storageRoot, generationIdentity))
+                CreateNamedPipeGenerationAddress(storageRoot, sessionToken.GetEncodedValue()))
             : canonicalEndpoint;
     }
 

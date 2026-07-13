@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
@@ -5,7 +6,7 @@ namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 /// <summary> Defines when uCLI may terminate a daemon process from session metadata. </summary>
 internal static class DaemonSessionTerminationPolicy
 {
-    /// <summary> Represents the daemon stop capability resolved from session metadata. </summary>
+    /// <summary> Represents the daemon stop capability resolved from validated session metadata. </summary>
     public enum StopCapability
     {
         /// <summary> The session does not allow uCLI stop operations. </summary>
@@ -18,28 +19,19 @@ internal static class DaemonSessionTerminationPolicy
         ProcessShutdown,
     }
 
-    /// <summary> Resolves the stop capability encoded by one daemon session. </summary>
-    /// <param name="session"> The daemon session metadata. </param>
-    /// <returns> The stop capability allowed by the session metadata. </returns>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="session" /> is <see langword="null" />. </exception>
+    /// <summary> Resolves the stop capability carried by a validated runtime session. </summary>
+    /// <param name="session"> The validated runtime session. </param>
+    /// <returns> The stop capability allowed by the session. </returns>
     public static StopCapability ResolveStopCapability (DaemonSession session)
     {
         ArgumentNullException.ThrowIfNull(session);
 
-        if (!TryResolveStopMetadata(session, out var editorMode, out var ownerKind))
-        {
-            return StopCapability.None;
-        }
-
-        if (ownerKind == DaemonSessionOwnerKind.Cli
-            && session.CanShutdownProcess)
+        if (session.OwnerKind == DaemonSessionOwnerKind.Cli && session.CanShutdownProcess)
         {
             return StopCapability.ProcessShutdown;
         }
 
-        if (editorMode == DaemonEditorMode.Gui
-            && (ownerKind == DaemonSessionOwnerKind.User || ownerKind == DaemonSessionOwnerKind.Cli)
-            && !session.CanShutdownProcess)
+        if (session.EditorMode == DaemonEditorMode.Gui && !session.CanShutdownProcess)
         {
             return StopCapability.EndpointOnly;
         }
@@ -47,20 +39,18 @@ internal static class DaemonSessionTerminationPolicy
         return StopCapability.None;
     }
 
-    /// <summary> Determines whether one daemon session allows uCLI-managed process shutdown. </summary>
-    /// <param name="session"> The daemon session metadata. </param>
+    /// <summary> Determines whether one validated session allows uCLI-managed process shutdown. </summary>
+    /// <param name="session"> The validated runtime session. </param>
     /// <returns> <see langword="true" /> when uCLI may request or force process shutdown; otherwise <see langword="false" />. </returns>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="session" /> is <see langword="null" />. </exception>
     public static bool CanShutdownProcess (DaemonSession session)
     {
         return ResolveStopCapability(session) == StopCapability.ProcessShutdown;
     }
 
-    /// <summary> Tries to resolve a process termination target from one daemon session. </summary>
-    /// <param name="session"> The daemon session metadata. </param>
-    /// <param name="target"> The process termination target when resolution succeeds; otherwise default value. </param>
-    /// <returns> <see langword="true" /> when a process termination target is safe to use; otherwise <see langword="false" />. </returns>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="session" /> is <see langword="null" />. </exception>
+    /// <summary> Tries to resolve a process termination target from one validated runtime session. </summary>
+    /// <param name="session"> The validated runtime session. </param>
+    /// <param name="target"> The safe process termination target when available. </param>
+    /// <returns> <see langword="true" /> when a target is available; otherwise <see langword="false" />. </returns>
     public static bool TryGetTerminationTarget (
         DaemonSession session,
         out DaemonProcessTerminationTarget target)
@@ -68,32 +58,42 @@ internal static class DaemonSessionTerminationPolicy
         ArgumentNullException.ThrowIfNull(session);
 
         target = default;
+        if (!CanShutdownProcess(session) || session.ProcessId is not int processId)
+        {
+            return false;
+        }
 
-        if (!TryResolveStopMetadata(session, out _, out var ownerKind)
+        target = new DaemonProcessTerminationTarget(processId, session.ProcessStartedAtUtc);
+        return true;
+    }
+
+    /// <summary> Tries to authorize a termination target from restricted untrusted invalid-session evidence. </summary>
+    /// <param name="evidence"> The invalid-session evidence. </param>
+    /// <param name="target"> The safe process termination target when all required evidence is valid. </param>
+    /// <returns> <see langword="true" /> when the evidence independently proves a safe target; otherwise <see langword="false" />. </returns>
+    public static bool TryGetInvalidSessionTerminationTarget (
+        DaemonInvalidSessionEvidence evidence,
+        out DaemonProcessTerminationTarget target)
+    {
+        ArgumentNullException.ThrowIfNull(evidence);
+
+        target = default;
+        if (evidence.SchemaVersion != DaemonSessionStorageContract.CurrentSchemaVersion
+            || evidence.OwnerProcessId is not > 0
+            || !ContractLiteralCodec.TryParse<DaemonEditorMode>(evidence.EditorMode, out _)
+            || !ContractLiteralCodec.TryParse<DaemonSessionOwnerKind>(evidence.OwnerKind, out var ownerKind)
             || ownerKind != DaemonSessionOwnerKind.Cli
-            || !session.CanShutdownProcess
-            || session.ProcessId is not int candidateProcessId
-            || candidateProcessId <= 0)
+            || !evidence.CanShutdownProcess
+            || evidence.ProcessId is not > 0
+            || evidence.ProcessStartedAtUtc is not DateTimeOffset processStartedAtUtc
+            || processStartedAtUtc == default)
         {
             return false;
         }
 
         target = new DaemonProcessTerminationTarget(
-            ProcessId: candidateProcessId,
-            ProcessStartedAtUtc: session.ProcessStartedAtUtc);
+            evidence.ProcessId.Value,
+            processStartedAtUtc);
         return true;
-    }
-
-    private static bool TryResolveStopMetadata (
-        DaemonSession session,
-        out DaemonEditorMode editorMode,
-        out DaemonSessionOwnerKind ownerKind)
-    {
-        editorMode = default;
-        ownerKind = default;
-        return session.SchemaVersion == DaemonSession.CurrentSchemaVersion
-            && session.OwnerProcessId is > 0
-            && ContractLiteralInputParser.TryParseTrimmed<DaemonEditorMode>(session.EditorMode, out editorMode)
-            && ContractLiteralInputParser.TryParseTrimmed<DaemonSessionOwnerKind>(session.OwnerKind, out ownerKind);
     }
 }

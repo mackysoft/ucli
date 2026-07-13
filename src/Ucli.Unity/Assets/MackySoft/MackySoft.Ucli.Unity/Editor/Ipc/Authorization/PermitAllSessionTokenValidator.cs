@@ -12,7 +12,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="cancellationToken"> The cancellation token propagated by operation pipelines. </param>
         /// <returns> Always returns <see langword="true" />. </returns>
         public Task<bool> ValidateAsync (
-            string sessionToken,
+            string? sessionToken,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();

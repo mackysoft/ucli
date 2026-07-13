@@ -25,7 +25,7 @@ internal static class DaemonGuiRebootstrapClientTestSupport
     {
         return new GuiSupervisorManifestJsonContract(
             SchemaVersion: GuiSupervisorManifestJsonContract.CurrentSchemaVersion,
-            SessionToken: "supervisor-token",
+            SessionToken: IpcSessionTokenTestFactory.Create("supervisor-token").GetEncodedValue(),
             ProjectFingerprint: "fingerprint",
             EndpointTransportKind: ContractLiteralCodec.ToValue(IpcTransportKind.UnixDomainSocket),
             EndpointAddress: "/tmp/ucli-gui-supervisor.sock",

@@ -1,7 +1,7 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Contracts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Startup;
+using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Features.Daemon.Supervisor.Contracts;
 
@@ -43,7 +43,7 @@ internal static class SupervisorIpcContracts
     internal sealed record EnsureRunningResponse (
         string StartStatus,
         string DaemonStatus,
-        DaemonSession Session,
+        DaemonSessionJsonContract Session,
         DaemonStartLifecycleSnapshot? LifecycleSnapshot = null);
 
     /// <summary> Represents the payload returned when ensure-running fails with optional startup metadata. </summary>

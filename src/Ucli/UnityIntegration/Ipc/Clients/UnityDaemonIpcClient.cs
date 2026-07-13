@@ -7,6 +7,7 @@ using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 using MackySoft.Ucli.UnityIntegration.Ipc.Failures;
 using MackySoft.Ucli.UnityIntegration.Ipc.Recovery;
@@ -121,7 +122,7 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
         var requestId = Guid.NewGuid();
         ExecutionDeadline? endpointAbsenceRetryDeadline = null;
         var sessionTokenRefreshAttempted = false;
-        string? rejectedSessionToken = null;
+        IpcSessionToken? rejectedSessionToken = null;
         IpcResponse? sessionTokenRejection = null;
 
         while (true)
@@ -175,10 +176,7 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
             {
                 var sessionConnection = sessionConnectionResult.Connection!;
                 if (rejectedSessionToken is not null
-                    && string.Equals(
-                        sessionConnection.SessionToken,
-                        rejectedSessionToken,
-                        StringComparison.Ordinal))
+                    && sessionConnection.SessionToken.Equals(rejectedSessionToken))
                 {
                     return UnityRequestExecutionResult.Success(
                         UnityRequestResponseFactory.Create(sessionTokenRejection!));

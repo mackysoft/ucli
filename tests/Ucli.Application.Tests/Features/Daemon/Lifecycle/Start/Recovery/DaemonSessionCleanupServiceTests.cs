@@ -15,11 +15,7 @@ public sealed class DaemonSessionCleanupServiceTests
     {
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-cleanup-invalid-identity");
         var artifactIdentity = DaemonSessionArtifactIdentity.Create("{ invalid session json");
-        var readResult = DaemonSessionReadResult.Failure(
-            ExecutionError.InvalidArgument("invalid session"),
-            DaemonSessionReadFailureKind.InvalidSession,
-            session: null,
-            artifactIdentity: artifactIdentity);
+        var readResult = DaemonSessionReadResultTestFactory.Invalid(artifactIdentity: artifactIdentity);
         var processTerminationService = new RecordingDaemonProcessTerminationService();
         var artifactCleaner = new RecordingDaemonArtifactCleaner();
         var service = new DaemonSessionCleanupService(
@@ -46,12 +42,13 @@ public sealed class DaemonSessionCleanupServiceTests
     public async Task CleanupInvalidSessionArtifacts_WhenStopTargetIsAvailable_StopsThenCleansUp ()
     {
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-cleanup-invalid");
-        var invalidSession = DaemonSessionTestFactory.Create(processId: 3131, projectFingerprint: context.ProjectFingerprint);
-        var readResult = DaemonSessionReadResult.Failure(
-            ExecutionError.InvalidArgument("invalid session"),
-            DaemonSessionReadFailureKind.InvalidSession,
-            invalidSession,
-            artifactIdentity: null);
+        var processStartedAtUtc = new DateTimeOffset(2026, 7, 13, 0, 0, 1, TimeSpan.Zero);
+        var artifactIdentity = DaemonSessionArtifactIdentity.Create("invalid-session-stop-target");
+        var evidence = DaemonInvalidSessionEvidenceTestFactory.Create(
+            context.ProjectFingerprint,
+            processId: 3131,
+            processStartedAtUtc);
+        var readResult = DaemonSessionReadResultTestFactory.Invalid(evidence, artifactIdentity);
         var processTerminationService = new RecordingDaemonProcessTerminationService
         {
             NextResult = DaemonSessionStoreOperationResult.Success(),
@@ -74,12 +71,11 @@ public sealed class DaemonSessionCleanupServiceTests
             artifactCleaner,
             context,
             3131,
-            invalidSession.ProcessStartedAtUtc);
+            processStartedAtUtc);
         var cleanupInvocation = Assert.Single(artifactCleaner.Invocations);
         Assert.Null(cleanupInvocation.ExpectedSession);
-        Assert.Equal(
-            new DaemonProcessTerminationTarget(3131, invalidSession.ProcessStartedAtUtc),
-            cleanupInvocation.ExpectedStoppedProcess);
+        Assert.Equal(artifactIdentity, cleanupInvocation.ExpectedArtifactIdentity);
+        Assert.Null(cleanupInvocation.ExpectedStoppedProcess);
     }
 
     [Fact]
@@ -88,13 +84,10 @@ public sealed class DaemonSessionCleanupServiceTests
     {
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-cleanup-invalid-no-stop");
         var artifactIdentity = DaemonSessionArtifactIdentity.Create("{ invalid project session json");
-        var readResult = DaemonSessionReadResult.Failure(
-            ExecutionError.InvalidArgument("invalid session"),
-            DaemonSessionReadFailureKind.InvalidSession,
-            DaemonSessionTestFactory.Create(
-                processId: 7171,
-                projectFingerprint: "different-fingerprint"),
-            artifactIdentity);
+        var evidence = DaemonInvalidSessionEvidenceTestFactory.Create(
+            "different-fingerprint",
+            processId: 7171);
+        var readResult = DaemonSessionReadResultTestFactory.Invalid(evidence, artifactIdentity);
         var processTerminationService = new RecordingDaemonProcessTerminationService
         {
             NextResult = DaemonSessionStoreOperationResult.Success(),
@@ -124,15 +117,11 @@ public sealed class DaemonSessionCleanupServiceTests
     public async Task CleanupInvalidSessionArtifacts_WhenOwnerProcessIdIsMissing_ReturnsFailureWithoutCleanup ()
     {
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-cleanup-invalid-legacy");
-        var legacySession = DaemonSessionTestFactory.Create(
+        var evidence = DaemonInvalidSessionEvidenceTestFactory.Create(
+            context.ProjectFingerprint,
             processId: 8181,
-            projectFingerprint: context.ProjectFingerprint,
             ownerProcessId: null);
-        var readResult = DaemonSessionReadResult.Failure(
-            ExecutionError.InvalidArgument("invalid session"),
-            DaemonSessionReadFailureKind.InvalidSession,
-            legacySession,
-            artifactIdentity: null);
+        var readResult = DaemonSessionReadResultTestFactory.Invalid(evidence);
         var processTerminationService = new RecordingDaemonProcessTerminationService
         {
             NextResult = DaemonSessionStoreOperationResult.Success(),
@@ -237,12 +226,12 @@ public sealed class DaemonSessionCleanupServiceTests
     public async Task CleanupInvalidSessionArtifacts_WhenStopFails_PropagatesFailureWithoutCleanup ()
     {
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-cleanup-stop-fail");
-        var invalidSession = DaemonSessionTestFactory.Create(processId: 5151, projectFingerprint: context.ProjectFingerprint);
-        var readResult = DaemonSessionReadResult.Failure(
-            ExecutionError.InvalidArgument("invalid session"),
-            DaemonSessionReadFailureKind.InvalidSession,
-            invalidSession,
-            artifactIdentity: null);
+        var processStartedAtUtc = new DateTimeOffset(2026, 7, 13, 0, 0, 1, TimeSpan.Zero);
+        var evidence = DaemonInvalidSessionEvidenceTestFactory.Create(
+            context.ProjectFingerprint,
+            processId: 5151,
+            processStartedAtUtc);
+        var readResult = DaemonSessionReadResultTestFactory.Invalid(evidence);
         var expectedError = ExecutionError.InternalError("stop failed");
         var processTerminationService = new RecordingDaemonProcessTerminationService
         {
@@ -266,7 +255,7 @@ public sealed class DaemonSessionCleanupServiceTests
             processTerminationService,
             artifactCleaner,
             5151,
-            invalidSession.ProcessStartedAtUtc);
+            processStartedAtUtc);
     }
 
     [Theory]
@@ -310,11 +299,11 @@ public sealed class DaemonSessionCleanupServiceTests
         var cleanupTask = invalidSession
             ? service.CleanupInvalidSessionArtifactsAsync(
                     context,
-                    DaemonSessionReadResult.Failure(
-                        ExecutionError.InvalidArgument("invalid session"),
-                        DaemonSessionReadFailureKind.InvalidSession,
-                        session,
-                        artifactIdentity: null),
+                    DaemonSessionReadResultTestFactory.Invalid(
+                        DaemonInvalidSessionEvidenceTestFactory.Create(
+                            context.ProjectFingerprint,
+                            processId: session.ProcessId,
+                            processStartedAtUtc: session.ProcessStartedAtUtc)),
                     timeout,
                     CancellationToken.None)
                 .AsTask()

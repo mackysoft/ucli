@@ -8,6 +8,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Status.UseCases.Status.Projection;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Application.Shared.Git;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.UseCases.Inventory;
 
@@ -386,11 +387,11 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
             IssuedAtUtc: session?.IssuedAtUtc,
             ProcessId: session?.ProcessId,
             ProcessStartedAtUtc: session?.ProcessStartedAtUtc,
-            EditorMode: session?.EditorMode,
-            OwnerKind: session?.OwnerKind,
+            EditorMode: session is null ? null : ContractLiteralCodec.ToValue(session.EditorMode),
+            OwnerKind: session is null ? null : ContractLiteralCodec.ToValue(session.OwnerKind),
             CanShutdownProcess: session?.CanShutdownProcess,
-            EndpointTransportKind: session?.EndpointTransportKind,
-            EndpointAddress: session?.EndpointAddress,
+            EndpointTransportKind: session is null ? null : ContractLiteralCodec.ToValue(session.Endpoint.TransportKind),
+            EndpointAddress: session?.Endpoint.Address,
             LifecycleState: observation?.LifecycleState,
             BlockingReason: observation?.BlockingReason,
             CompileState: observation?.CompileState,

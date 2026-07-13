@@ -13,16 +13,16 @@ internal sealed class RecordingDaemonInvalidSessionCleanupSafetyEvaluator : IDae
 
     public bool RequiresUnsafeSkip (
         ResolvedUnityProjectContext unityProject,
-        DaemonSession? session)
+        DaemonInvalidSessionEvidence? evidence)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
 
-        invocations.Add(new Invocation(unityProject, session));
+        invocations.Add(new Invocation(unityProject, evidence));
 
         return RequiresUnsafeSkipResult;
     }
 
     internal readonly record struct Invocation (
         ResolvedUnityProjectContext UnityProject,
-        DaemonSession? Session);
+        DaemonInvalidSessionEvidence? Evidence);
 }

@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
+using MackySoft.Ucli.Contracts.Ipc.Authorization;
 
 namespace MackySoft.Ucli.Tests.Helpers.Ipc;
 
@@ -78,10 +79,10 @@ internal sealed class RecordingDaemonPingClient : IDaemonPingClient
     public ValueTask PingCanonicalEndpointWithSessionTokenAsync (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
-        string sessionToken,
+        IpcSessionToken sessionToken,
         CancellationToken cancellationToken)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(sessionToken);
+        ArgumentNullException.ThrowIfNull(sessionToken);
         return RecordPing(
             unityProject,
             timeout,
@@ -94,11 +95,12 @@ internal sealed class RecordingDaemonPingClient : IDaemonPingClient
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
         DaemonSession? session,
-        string? explicitSessionToken,
+        IpcSessionToken? explicitSessionToken,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
-        var sessionToken = session?.SessionToken ?? explicitSessionToken;
+        var sessionToken = session?.SessionToken.GetEncodedValue()
+            ?? explicitSessionToken?.GetEncodedValue();
 
         unityProjects.Add(unityProject);
         timeouts.Add(timeout);
@@ -107,7 +109,7 @@ internal sealed class RecordingDaemonPingClient : IDaemonPingClient
             unityProject,
             timeout,
             session,
-            explicitSessionToken,
+            explicitSessionToken?.GetEncodedValue(),
             cancellationToken));
 
         return handler(unityProject, timeout, sessionToken, cancellationToken);
@@ -120,6 +122,6 @@ internal sealed class RecordingDaemonPingClient : IDaemonPingClient
         string? ExplicitSessionToken,
         CancellationToken CancellationToken)
     {
-        public string? SessionToken => Session?.SessionToken ?? ExplicitSessionToken;
+        public string? SessionToken => Session?.SessionToken.GetEncodedValue() ?? ExplicitSessionToken;
     }
 }

@@ -3,6 +3,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.LaunchAttempts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
@@ -17,9 +18,7 @@ public sealed class DaemonArtifactCleanerTests
     {
         using var scope = TestDirectories.CreateTempScope("daemon-artifact-cleaner", "no-session-successor");
         const string projectFingerprint = "fingerprint-no-session-successor";
-        var sessionStore = new DaemonSessionStore(
-            new DaemonSessionJsonSerializer(),
-            new DaemonSessionValidator());
+        var sessionStore = new DaemonSessionStore();
         var lifecycleStore = new RecordingDaemonLifecycleStore();
         var launchAttemptStore = new RecordingDaemonLaunchAttemptStore();
         var cleaner = new DaemonArtifactCleaner(sessionStore, lifecycleStore, launchAttemptStore);
@@ -41,7 +40,7 @@ public sealed class DaemonArtifactCleanerTests
         var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, projectFingerprint);
         await FileUtilities.WriteAllTextAtomicallyAsync(
             sessionPath,
-            new DaemonSessionJsonSerializer().Serialize(successorSession) + Environment.NewLine,
+            Serialize(successorSession) + Environment.NewLine,
             CancellationToken.None);
         publicationLock.Dispose();
 
@@ -53,7 +52,9 @@ public sealed class DaemonArtifactCleanerTests
 
         Assert.True(cleanupResult.IsSuccess);
         Assert.True(currentSessionResult.IsSuccess);
-        Assert.Equal(successorSession, currentSessionResult.Session);
+        var currentSession = Assert.IsType<DaemonSession>(currentSessionResult.Session);
+        Assert.Equal(successorSession.SessionToken, currentSession.SessionToken);
+        Assert.Equal(successorSession.IssuedAtUtc, currentSession.IssuedAtUtc);
         Assert.Empty(lifecycleStore.DeleteInvocations);
         Assert.Empty(launchAttemptStore.PruneInvocations);
     }
@@ -67,16 +68,15 @@ public sealed class DaemonArtifactCleanerTests
         var retiredSession = DaemonSessionTestFactory.Create(
             sessionToken: "retired-session-token",
             projectFingerprint: projectFingerprint);
-        var successorSession = retiredSession with
-        {
-            SessionToken = "successor-session-token",
-            IssuedAtUtc = retiredSession.IssuedAtUtc.AddSeconds(1),
-        };
+        var successorSession = DaemonSessionTestFactory.Create(
+            sessionToken: "successor-session-token",
+            projectFingerprint: projectFingerprint,
+            issuedAtUtc: retiredSession.IssuedAtUtc.AddSeconds(1));
         var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, projectFingerprint);
         Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
         await File.WriteAllTextAsync(
             sessionPath,
-            new DaemonSessionJsonSerializer().Serialize(retiredSession) + Environment.NewLine,
+            Serialize(retiredSession) + Environment.NewLine,
             CancellationToken.None);
         var cleanupReadStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var allowCleanupRead = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -86,7 +86,7 @@ public sealed class DaemonArtifactCleanerTests
             {
                 cleanupReadStarted.TrySetResult();
                 await allowCleanupRead.Task;
-                return DaemonSessionReadResult.Success(retiredSession);
+                return DaemonSessionReadResultTestFactory.Found(retiredSession);
             },
         };
         var unityProject = ResolvedUnityProjectContextTestFactory.Create(
@@ -97,9 +97,7 @@ public sealed class DaemonArtifactCleanerTests
             cleanupSessionStore,
             new RecordingDaemonLifecycleStore(),
             new RecordingDaemonLaunchAttemptStore());
-        var successorStore = new DaemonSessionStore(
-            new DaemonSessionJsonSerializer(),
-            new DaemonSessionValidator());
+        var successorStore = new DaemonSessionStore();
 
         var cleanupTask = cleaner.CleanupIfSessionMatchesAsync(
             unityProject,
@@ -123,7 +121,9 @@ public sealed class DaemonArtifactCleanerTests
         Assert.True(cleanupResult.IsSuccess);
         Assert.True(successorWriteResult.IsSuccess);
         Assert.True(currentSessionResult.IsSuccess);
-        Assert.Equal(successorSession, currentSessionResult.Session);
+        var currentSession = Assert.IsType<DaemonSession>(currentSessionResult.Session);
+        Assert.Equal(successorSession.SessionToken, currentSession.SessionToken);
+        Assert.Equal(successorSession.IssuedAtUtc, currentSession.IssuedAtUtc);
     }
 
     [Fact]
@@ -139,11 +139,11 @@ public sealed class DaemonArtifactCleanerTests
         Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
         await File.WriteAllTextAsync(
             sessionPath,
-            new DaemonSessionJsonSerializer().Serialize(expectedSession) + Environment.NewLine,
+            Serialize(expectedSession) + Environment.NewLine,
             CancellationToken.None);
         var sessionStore = new RecordingDaemonSessionStore
         {
-            ReadResult = DaemonSessionReadResult.Success(expectedSession),
+            ReadResult = DaemonSessionReadResultTestFactory.Found(expectedSession),
         };
         var lifecycleStore = new RecordingDaemonLifecycleStore();
         var launchAttemptStore = new RecordingDaemonLaunchAttemptStore();
@@ -192,7 +192,7 @@ public sealed class DaemonArtifactCleanerTests
         }
 
         var cleaner = new DaemonArtifactCleaner(
-            new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(null)),
+            new RecordingDaemonSessionStore(DaemonSessionReadResult.Missing()),
             lifecycleStore,
             launchAttemptStore);
         var result = await cleaner.CleanupIfSessionMatchesAsync(
@@ -227,7 +227,7 @@ public sealed class DaemonArtifactCleanerTests
         var lifecycleStore = new RecordingDaemonLifecycleStore();
         var launchAttemptStore = new RecordingDaemonLaunchAttemptStore();
         var cleaner = new DaemonArtifactCleaner(
-            new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(rotatedSession)),
+            new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(rotatedSession)),
             lifecycleStore,
             launchAttemptStore);
 
@@ -246,23 +246,20 @@ public sealed class DaemonArtifactCleanerTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task CleanupIfStoppedProcessMatches_WhenInvalidCurrentSessionBelongsToStoppedProcess_DeletesCurrentArtifacts ()
+    public async Task CleanupIfStoppedProcessMatches_WhenCurrentSessionIsInvalid_ReturnsFailureWithoutDeletingArtifacts ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-artifact-cleaner", "stopped-process-invalid");
         const string ProjectFingerprint = "fingerprint-stopped-process-invalid";
         var processStartedAtUtc = new DateTimeOffset(2026, 07, 10, 0, 0, 0, TimeSpan.Zero);
-        var invalidSession = DaemonSessionTestFactory.Create(
-            sessionToken: "invalid-session-token",
+        var invalidEvidence = DaemonInvalidSessionEvidenceTestFactory.Create(
             projectFingerprint: ProjectFingerprint,
             processId: 4123,
             processStartedAtUtc: processStartedAtUtc);
         var lifecycleStore = new RecordingDaemonLifecycleStore();
         var launchAttemptStore = new RecordingDaemonLaunchAttemptStore();
         var cleaner = new DaemonArtifactCleaner(
-            new RecordingDaemonSessionStore(DaemonSessionReadResult.Failure(
-                ExecutionError.InvalidArgument("invalid session"),
-                DaemonSessionReadFailureKind.InvalidSession,
-                invalidSession,
+            new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Invalid(
+                invalidEvidence,
                 DaemonSessionArtifactIdentity.Create("{ invalid session"))),
             lifecycleStore,
             launchAttemptStore);
@@ -275,9 +272,9 @@ public sealed class DaemonArtifactCleanerTests
             new DaemonProcessTerminationTarget(4123, processStartedAtUtc),
             CancellationToken.None);
 
-        Assert.True(result.IsSuccess);
-        Assert.Single(lifecycleStore.DeleteInvocations);
-        Assert.Single(launchAttemptStore.PruneInvocations);
+        Assert.False(result.IsSuccess);
+        Assert.Empty(lifecycleStore.DeleteInvocations);
+        Assert.Empty(launchAttemptStore.PruneInvocations);
     }
 
     [Fact]
@@ -294,7 +291,7 @@ public sealed class DaemonArtifactCleanerTests
         var lifecycleStore = new RecordingDaemonLifecycleStore();
         var launchAttemptStore = new RecordingDaemonLaunchAttemptStore();
         var cleaner = new DaemonArtifactCleaner(
-            new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(successorSession)),
+            new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(successorSession)),
             lifecycleStore,
             launchAttemptStore);
 
@@ -321,7 +318,7 @@ public sealed class DaemonArtifactCleanerTests
         var lifecycleStore = new RecordingDaemonLifecycleStore();
         var launchAttemptStore = new RecordingDaemonLaunchAttemptStore();
         var cleaner = new DaemonArtifactCleaner(
-            new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(null)),
+            new RecordingDaemonSessionStore(DaemonSessionReadResult.Missing()),
             lifecycleStore,
             launchAttemptStore);
 
@@ -353,9 +350,7 @@ public sealed class DaemonArtifactCleanerTests
         var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, projectFingerprint);
         Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
         await File.WriteAllTextAsync(sessionPath, invalidSessionJson, CancellationToken.None);
-        var persistentSessionStore = new DaemonSessionStore(
-            new DaemonSessionJsonSerializer(),
-            new DaemonSessionValidator());
+        var persistentSessionStore = new DaemonSessionStore();
         var invalidObservation = await persistentSessionStore.ReadAsync(
             scope.FullPath,
             projectFingerprint,
@@ -405,9 +400,7 @@ public sealed class DaemonArtifactCleanerTests
         var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, projectFingerprint);
         Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
         await File.WriteAllTextAsync(sessionPath, invalidSessionJson, CancellationToken.None);
-        var sessionStore = new DaemonSessionStore(
-            new DaemonSessionJsonSerializer(),
-            new DaemonSessionValidator());
+        var sessionStore = new DaemonSessionStore();
         var invalidObservation = await sessionStore.ReadAsync(
             scope.FullPath,
             projectFingerprint,
@@ -466,14 +459,13 @@ public sealed class DaemonArtifactCleanerTests
         var expectedSession = DaemonSessionTestFactory.Create(
             sessionToken: "retired-session-token",
             projectFingerprint: projectFingerprint);
-        var successorSession = expectedSession with
-        {
-            SessionToken = "successor-session-token",
-            IssuedAtUtc = expectedSession.IssuedAtUtc.AddSeconds(1),
-        };
+        var successorSession = DaemonSessionTestFactory.Create(
+            sessionToken: "successor-session-token",
+            projectFingerprint: projectFingerprint,
+            issuedAtUtc: expectedSession.IssuedAtUtc.AddSeconds(1));
         var sessionStore = new RecordingDaemonSessionStore
         {
-            ReadResult = DaemonSessionReadResult.Success(successorSession),
+            ReadResult = DaemonSessionReadResultTestFactory.Found(successorSession),
         };
         var lifecycleStore = new RecordingDaemonLifecycleStore();
         var launchAttemptStore = new RecordingDaemonLaunchAttemptStore();
@@ -588,6 +580,12 @@ public sealed class DaemonArtifactCleanerTests
 
         Assert.False(result.IsSuccess);
         Assert.Equal(pruneError, result.Error);
+    }
+
+    private static string Serialize (DaemonSession session)
+    {
+        return DaemonSessionJsonContractSerializer.Serialize(
+            DaemonSessionContractMapper.ToContract(session));
     }
 
 }

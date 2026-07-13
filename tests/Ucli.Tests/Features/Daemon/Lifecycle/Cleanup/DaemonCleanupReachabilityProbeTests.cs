@@ -49,7 +49,7 @@ public sealed class DaemonCleanupReachabilityProbeTests
             unityProject.RepositoryRoot,
             unityProject.ProjectFingerprint);
         Assert.Equal(expectedEndpoint, Assert.Single(transportClient.Endpoints));
-        Assert.Empty(Assert.Single(transportClient.Requests).SessionToken);
+        Assert.Equal(string.Empty, Assert.Single(transportClient.Requests).SessionToken);
     }
 
     [Fact]
@@ -66,10 +66,11 @@ public sealed class DaemonCleanupReachabilityProbeTests
             TimeProvider.System);
         var probe = new DaemonCleanupReachabilityProbe(pingClient);
 
+        var sessionToken = IpcSessionTokenTestFactory.CreateFromDiscriminator(1);
         var result = await probe.ProbeWithSessionTokenAsync(
             unityProject,
             ExecutionDeadline.Start(DefaultTimeout, TimeProvider.System),
-            "metadata-unavailable-probe-token",
+            sessionToken,
             CancellationToken.None);
 
         Assert.Equal(DaemonCleanupReachabilityStatus.Running, result.Status);
@@ -78,7 +79,7 @@ public sealed class DaemonCleanupReachabilityProbeTests
             unityProject.ProjectFingerprint);
         Assert.Equal(expectedEndpoint, Assert.Single(transportClient.Endpoints));
         Assert.Equal(
-            "metadata-unavailable-probe-token",
+            sessionToken.GetEncodedValue(),
             Assert.Single(transportClient.Requests).SessionToken);
     }
 }

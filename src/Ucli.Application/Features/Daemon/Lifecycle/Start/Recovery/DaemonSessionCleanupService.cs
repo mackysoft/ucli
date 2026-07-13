@@ -136,36 +136,17 @@ internal sealed class DaemonSessionCleanupService : IDaemonSessionCleanupService
             return CreateTimeoutFailure("Timed out before invalid daemon session artifact cleanup could begin.");
         }
 
-        DaemonArtifactCleanupResult cleanupResult;
-        if (hasStopTarget)
-        {
-            cleanupResult = await artifactCleaner.CleanupIfStoppedProcessMatchesAsync(
-                    unityProject,
-                    target,
-                    cancellationToken)
-                .ConfigureAwait(false);
-        }
-        else if (readResult.ArtifactIdentity is not null)
-        {
-            cleanupResult = await artifactCleaner.CleanupIfSessionArtifactMatchesAsync(
-                    unityProject,
-                    readResult.ArtifactIdentity,
-                    cancellationToken)
-                .ConfigureAwait(false);
-        }
-        else if (TryGetObservedSessionGeneration(readResult.Session, unityProject, out var expectedSession))
-        {
-            cleanupResult = await artifactCleaner.CleanupIfSessionMatchesAsync(
-                    unityProject,
-                    expectedSession!,
-                    cancellationToken)
-                .ConfigureAwait(false);
-        }
-        else
+        if (readResult.ArtifactIdentity is null)
         {
             return DaemonSessionStoreOperationResult.Failure(ExecutionError.InternalError(
                 "Invalid daemon session cleanup requires an observed session artifact identity."));
         }
+
+        var cleanupResult = await artifactCleaner.CleanupIfSessionArtifactMatchesAsync(
+                unityProject,
+                readResult.ArtifactIdentity,
+                cancellationToken)
+            .ConfigureAwait(false);
 
         return ToSessionStoreResult(cleanupResult);
     }
@@ -242,18 +223,18 @@ internal sealed class DaemonSessionCleanupService : IDaemonSessionCleanupService
     {
         error = null;
 
-        var session = readResult.Session;
-        if (session == null)
+        var evidence = readResult.InvalidEvidence;
+        if (evidence == null)
         {
             return false;
         }
 
-        if (!string.Equals(session.ProjectFingerprint, unityProject.ProjectFingerprint, StringComparison.Ordinal))
+        if (!string.Equals(evidence.ProjectFingerprint, unityProject.ProjectFingerprint, StringComparison.Ordinal))
         {
             return false;
         }
 
-        if (session.ProcessId is not int processId || processId <= 0)
+        if (evidence.ProcessId is not int processId || processId <= 0)
         {
             return false;
         }
@@ -280,18 +261,18 @@ internal sealed class DaemonSessionCleanupService : IDaemonSessionCleanupService
     {
         target = default;
 
-        var session = readResult.Session;
-        if (session == null)
+        var evidence = readResult.InvalidEvidence;
+        if (evidence == null)
         {
             return false;
         }
 
-        if (!string.Equals(session.ProjectFingerprint, unityProject.ProjectFingerprint, StringComparison.Ordinal))
+        if (!string.Equals(evidence.ProjectFingerprint, unityProject.ProjectFingerprint, StringComparison.Ordinal))
         {
             return false;
         }
 
-        return TryGetSessionStopTarget(session, unityProject, out target);
+        return DaemonSessionTerminationPolicy.TryGetInvalidSessionTerminationTarget(evidence, out target);
     }
 
     private static bool TryGetSessionStopTarget (
@@ -312,24 +293,4 @@ internal sealed class DaemonSessionCleanupService : IDaemonSessionCleanupService
         return DaemonSessionTerminationPolicy.TryGetTerminationTarget(session, out target);
     }
 
-    private static bool TryGetObservedSessionGeneration (
-        DaemonSession? session,
-        ResolvedUnityProjectContext unityProject,
-        out DaemonSession? expectedSession)
-    {
-        expectedSession = null;
-        if (session == null
-            || string.IsNullOrWhiteSpace(session.SessionToken)
-            || session.IssuedAtUtc == default
-            || !string.Equals(
-                session.ProjectFingerprint,
-                unityProject.ProjectFingerprint,
-                StringComparison.Ordinal))
-        {
-            return false;
-        }
-
-        expectedSession = session;
-        return true;
-    }
 }

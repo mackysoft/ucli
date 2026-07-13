@@ -1,4 +1,5 @@
 using MackySoft.Tests;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Project;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
@@ -27,7 +28,7 @@ public sealed class SupervisorRequestDispatcherEnsureRunningTests
             new IpcRequest(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
-                sessionToken: runtimeContext.Manifest.SessionToken,
+                sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
                 method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning),
                 payload: IpcPayloadCodec.SerializeToElement(new
                 {
@@ -66,7 +67,7 @@ public sealed class SupervisorRequestDispatcherEnsureRunningTests
             new IpcRequest(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
-                sessionToken: runtimeContext.Manifest.SessionToken,
+                sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
                 method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning),
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.EnsureRunningRequest(
@@ -103,7 +104,7 @@ public sealed class SupervisorRequestDispatcherEnsureRunningTests
             new IpcRequest(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
-                sessionToken: runtimeContext.Manifest.SessionToken,
+                sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
                 method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning),
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.EnsureRunningRequest(
@@ -151,7 +152,7 @@ public sealed class SupervisorRequestDispatcherEnsureRunningTests
             new IpcRequest(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
-                sessionToken: runtimeContext.Manifest.SessionToken,
+                sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
                 method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning),
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.EnsureRunningRequest(
@@ -188,6 +189,8 @@ public sealed class SupervisorRequestDispatcherEnsureRunningTests
         var session = DaemonSessionTestFactory.Create(
             sessionToken: "session-token",
             issuedAtUtc: new DateTimeOffset(2026, 03, 11, 0, 0, 0, TimeSpan.Zero),
+            editorMode: "gui",
+            ownerKind: "user",
             canShutdownProcess: false,
             endpointTransportKind: "unixDomainSocket",
             endpointAddress: "/tmp/ucli.sock",
@@ -212,7 +215,7 @@ public sealed class SupervisorRequestDispatcherEnsureRunningTests
             new IpcRequest(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
-                sessionToken: runtimeContext.Manifest.SessionToken,
+                sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
                 method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning),
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.EnsureRunningRequest(
@@ -230,7 +233,7 @@ public sealed class SupervisorRequestDispatcherEnsureRunningTests
             out SupervisorIpcContracts.EnsureRunningResponse payload,
             out _));
         Assert.Equal("attached", payload.StartStatus);
-        Assert.Equal(session, payload.Session);
+        Assert.Equal(DaemonSessionContractMapper.ToContract(session), payload.Session);
         Assert.Equal(lifecycleSnapshot, payload.LifecycleSnapshot);
     }
 }

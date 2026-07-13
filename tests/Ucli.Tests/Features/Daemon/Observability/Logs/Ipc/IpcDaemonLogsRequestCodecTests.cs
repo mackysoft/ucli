@@ -18,10 +18,11 @@ public sealed class IpcDaemonLogsRequestCodecTests
             QueryTarget: "message",
             Category: "transport");
 
-        var request = IpcDaemonLogsRequestCodec.CreateRequest(query, "session-token");
+        var sessionToken = IpcSessionTokenTestFactory.CreateFromDiscriminator(1);
+        var request = IpcDaemonLogsRequestCodec.CreateRequest(query, sessionToken);
 
         Assert.Equal(IpcProtocol.CurrentVersion, request.ProtocolVersion);
-        Assert.Equal("session-token", request.SessionToken);
+        Assert.Equal(sessionToken.GetEncodedValue(), request.SessionToken);
         Assert.Equal(ContractLiteralCodec.ToValue(UnityIpcMethod.DaemonLogsRead), request.Method);
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcDaemonLogsReadRequest payload, out _));
         Assert.Equal(32, payload.Tail);

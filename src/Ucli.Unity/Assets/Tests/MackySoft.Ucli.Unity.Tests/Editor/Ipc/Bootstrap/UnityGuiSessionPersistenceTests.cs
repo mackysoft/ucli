@@ -7,6 +7,7 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Ipc;
@@ -18,6 +19,10 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class UnityGuiSessionPersistenceTests
     {
+        private const string FirstCanonicalSessionToken = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+
+        private const string SecondCanonicalSessionToken = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAE";
+
         [TearDown]
         public void TearDown ()
         {
@@ -30,7 +35,8 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var storageRoot = CreateStorageRoot();
             const string ProjectFingerprint = "fingerprint";
-            const string SuccessorToken = "successor-supervisor-token";
+            var successorToken = ParseSessionToken(FirstCanonicalSessionToken);
+            var retiredToken = ParseSessionToken(SecondCanonicalSessionToken);
             try
             {
                 using (var publicationLease = await UnityGuiSupervisorPersistence.AcquirePublicationLeaseAsync(
@@ -40,7 +46,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                     await publicationLease.PublishAsync(
                         CreateDefaultEndpoint(),
-                        SuccessorToken,
+                        successorToken,
                         DateTimeOffset.UtcNow,
                         CancellationToken.None);
                 }
@@ -52,14 +58,14 @@ namespace MackySoft.Ucli.Unity.Tests
                 UnityGuiSupervisorPersistence.Delete(
                     storageRoot,
                     ProjectFingerprint,
-                    expectedSessionToken: "retired-supervisor-token");
+                    expectedSessionToken: retiredToken);
 
                 Assert.That(File.Exists(manifestPath), Is.True);
 
                 UnityGuiSupervisorPersistence.Delete(
                     storageRoot,
                     ProjectFingerprint,
-                    expectedSessionToken: SuccessorToken);
+                    expectedSessionToken: successorToken);
                 Assert.That(File.Exists(manifestPath), Is.False);
             }
             finally
@@ -76,7 +82,7 @@ namespace MackySoft.Ucli.Unity.Tests
             try
             {
                 UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-user-owned");
-                await PrepareAndPublishSessionAsync(
+                var registration = await PrepareAndPublishSessionAsync(
                     storageRoot,
                     UnityGuiBootstrapSessionOptions.Create(null),
                     CreateDefaultEndpoint(),
@@ -97,6 +103,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(contract.EndpointTransportKind, Is.EqualTo("namedPipe"));
                 Assert.That(contract.EndpointAddress, Is.EqualTo("ucli-gui-session-tests"));
                 Assert.That(contract.SessionToken, Is.Not.Null.And.Not.Empty);
+                Assert.That(IpcSessionToken.IsValidEncodedValue(contract.SessionToken), Is.True);
+                Assert.That(registration.SessionToken.Matches(contract.SessionToken), Is.True);
                 Assert.That(contract.ProjectFingerprint, Is.EqualTo("fingerprint"));
             }
             finally
@@ -844,6 +852,12 @@ namespace MackySoft.Ucli.Unity.Tests
         private static string CreateStorageRoot ()
         {
             return Path.Combine(Path.GetTempPath(), $"ucli-gui-session-tests-{Guid.NewGuid():N}");
+        }
+
+        private static IpcSessionToken ParseSessionToken (string value)
+        {
+            Assert.That(IpcSessionToken.TryParse(value, out var sessionToken), Is.True);
+            return sessionToken!;
         }
 
         private static void DeleteDirectory (string storageRoot)

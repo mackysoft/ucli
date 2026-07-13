@@ -11,7 +11,9 @@ internal static class DaemonStopOperationTestSupport
 
     public static RecordingDaemonSessionStore CreateSessionStore (DaemonSession? session)
     {
-        return new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(session));
+        return new RecordingDaemonSessionStore(session is null
+            ? DaemonSessionReadResult.Missing()
+            : DaemonSessionReadResultTestFactory.Found(session));
     }
 
     public static DaemonStopOperation CreateOperation (

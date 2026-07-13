@@ -13,7 +13,7 @@ internal sealed class RecordingDaemonSessionStore : IDaemonSessionStore
 
     public RecordingDaemonSessionStore ()
     {
-        readResult = DaemonSessionReadResult.Success(null);
+        readResult = DaemonSessionReadResult.Missing();
     }
 
     public RecordingDaemonSessionStore (DaemonSessionReadResult readResult)

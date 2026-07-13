@@ -20,7 +20,7 @@ public sealed class DaemonCleanupOperationArtifactCleanupTests
             new ManualTimeProvider(),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
-                ReadResult = DaemonSessionReadResult.Success(null),
+                ReadResult = DaemonSessionReadResult.Missing(),
             },
             daemonPingClient: DaemonCleanupOperationTestSupport.CreateNotRunningPingClient(),
             artifactCleaner: artifactCleaner);
@@ -43,7 +43,7 @@ public sealed class DaemonCleanupOperationArtifactCleanupTests
             new ManualTimeProvider(),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
-                ReadResult = DaemonSessionReadResult.Success(null),
+                ReadResult = DaemonSessionReadResult.Missing(),
             },
             daemonPingClient: DaemonCleanupOperationTestSupport.CreateNotRunningPingClient(),
             artifactCleaner: artifactCleaner);
@@ -71,7 +71,7 @@ public sealed class DaemonCleanupOperationArtifactCleanupTests
             new ManualTimeProvider(),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
-                ReadResult = DaemonSessionReadResult.Success(session),
+                ReadResult = DaemonSessionReadResultTestFactory.Found(session),
             },
             daemonPingClient: DaemonCleanupOperationTestSupport.CreateNotRunningPingClient(),
             artifactCleaner: artifactCleaner);

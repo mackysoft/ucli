@@ -92,8 +92,8 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
         var requests = DaemonIpcDispatchAssert.RecoveredDispatchesWithReloadedSessionToken(
             transportClient,
             UnityIpcMethod.PlayEnter,
-            "daemon-token-1",
-            "daemon-token-2");
+            IpcSessionTokenTestFactory.Create("daemon-token-1").GetEncodedValue(),
+            IpcSessionTokenTestFactory.Create("daemon-token-2").GetEncodedValue());
         _ = IpcRequestAssert.SingleRequestId(requests);
     }
 
@@ -124,8 +124,8 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
         var requests = DaemonIpcDispatchAssert.RecoveredDispatchesWithReloadedSessionToken(
             transportClient,
             UnityIpcMethod.PlayEnter,
-            "daemon-token-1",
-            "daemon-token-2");
+            IpcSessionTokenTestFactory.Create("daemon-token-1").GetEncodedValue(),
+            IpcSessionTokenTestFactory.Create("daemon-token-2").GetEncodedValue());
         var requestId = IpcRequestAssert.SingleRequestId(requests);
         Assert.NotEqual(Guid.Empty, requestId);
     }
@@ -164,8 +164,8 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
         var requests = DaemonIpcDispatchAssert.RecoveredDispatchesWithReloadedSessionToken(
             transportClient,
             UnityIpcMethod.Compile,
-            "daemon-token-1",
-            "daemon-token-2");
+            IpcSessionTokenTestFactory.Create("daemon-token-1").GetEncodedValue(),
+            IpcSessionTokenTestFactory.Create("daemon-token-2").GetEncodedValue());
         var requestId = IpcRequestAssert.SingleRequestId(requests);
         Assert.NotEqual(Guid.Empty, requestId);
     }
@@ -247,8 +247,8 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
         var requestId = DaemonIpcDispatchAssert.RecoverableDispatchRetriedWithReloadedSessionTokenAndAttemptTimeout(
             transportClient,
             UnityIpcMethod.PlayExit,
-            "daemon-token-1",
-            "daemon-token-2",
+            IpcSessionTokenTestFactory.Create("daemon-token-1").GetEncodedValue(),
+            IpcSessionTokenTestFactory.Create("daemon-token-2").GetEncodedValue(),
             attemptTimeout);
         Assert.NotEqual(Guid.Empty, requestId);
     }
@@ -288,7 +288,7 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
         var request = DaemonIpcDispatchAssert.SingleDispatchSent(
             transportClient,
             UnityIpcMethod.PlayEnter,
-            "daemon-token-2");
+            IpcSessionTokenTestFactory.Create("daemon-token-2").GetEncodedValue());
         Assert.NotEqual(Guid.Empty, request.RequestId);
     }
 }

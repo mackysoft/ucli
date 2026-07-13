@@ -1,4 +1,3 @@
-using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Infrastructure.Storage;
@@ -17,11 +16,9 @@ public sealed class SupervisorProjectGatewayStopTests
             "supervisor-project-gateway",
             "ping-token-rotation");
         var scenario = await SupervisorProjectGatewayTestSupport.CreateManifestBackedScenarioAsync(scope.FullPath);
-        var successorManifest = scenario.Manifest with
-        {
-            SessionToken = "successor-token",
-            IssuedAtUtc = scenario.Manifest.IssuedAtUtc.AddSeconds(1),
-        };
+        var successorManifest = SupervisorClientTestSupport.CreateSuccessorManifest(
+            scenario.Manifest,
+            sessionTokenDiscriminator: 2);
         var pingAttempt = 0;
         scenario.TransportClient.SendHandler = async (_, request, _, cancellationToken) =>
         {
@@ -46,7 +43,7 @@ public sealed class SupervisorProjectGatewayStopTests
             }
 
             Assert.Equal(ContractLiteralCodec.ToValue(SupervisorIpcMethod.StopProject), request.Method);
-            Assert.Equal(successorManifest.SessionToken, request.SessionToken);
+            Assert.Equal(successorManifest.SessionToken.GetEncodedValue(), request.SessionToken);
             return SupervisorProjectGatewayTestSupport.CreateStopProjectStoppedResponse(request);
         };
 
@@ -59,9 +56,9 @@ public sealed class SupervisorProjectGatewayStopTests
         Assert.True(result.IsSuccess);
         Assert.Collection(
             scenario.TransportClient.Invocations,
-            invocation => Assert.Equal(scenario.Manifest.SessionToken, invocation.Request.SessionToken),
-            invocation => Assert.Equal(successorManifest.SessionToken, invocation.Request.SessionToken),
-            invocation => Assert.Equal(successorManifest.SessionToken, invocation.Request.SessionToken));
+            invocation => Assert.Equal(scenario.Manifest.SessionToken.GetEncodedValue(), invocation.Request.SessionToken),
+            invocation => Assert.Equal(successorManifest.SessionToken.GetEncodedValue(), invocation.Request.SessionToken),
+            invocation => Assert.Equal(successorManifest.SessionToken.GetEncodedValue(), invocation.Request.SessionToken));
     }
 
     [Fact]
@@ -75,11 +72,9 @@ public sealed class SupervisorProjectGatewayStopTests
         var scenario = await SupervisorProjectGatewayTestSupport.CreateManifestBackedScenarioAsync(
             scope.FullPath,
             timeProvider);
-        var successorManifest = scenario.Manifest with
-        {
-            SessionToken = "successor-token",
-            IssuedAtUtc = scenario.Manifest.IssuedAtUtc.AddSeconds(1),
-        };
+        var successorManifest = SupervisorClientTestSupport.CreateSuccessorManifest(
+            scenario.Manifest,
+            sessionTokenDiscriminator: 2);
         var stopAttempt = 0;
         scenario.TransportClient.SendHandler = async (_, request, _, cancellationToken) =>
         {
@@ -121,8 +116,8 @@ public sealed class SupervisorProjectGatewayStopTests
             .ToArray();
         IpcRequestAssert.SessionTokens(
             requests,
-            scenario.Manifest.SessionToken,
-            successorManifest.SessionToken);
+            scenario.Manifest.SessionToken.GetEncodedValue(),
+            successorManifest.SessionToken.GetEncodedValue());
         _ = IpcRequestAssert.SingleRequestId(requests);
         var firstPayload = SupervisorProjectGatewayTestSupport.ReadStopProjectRequest(requests[0]);
         var replayPayload = SupervisorProjectGatewayTestSupport.ReadStopProjectRequest(requests[1]);
@@ -168,18 +163,16 @@ public sealed class SupervisorProjectGatewayStopTests
         using var scope = TestDirectories.CreateTempScope("supervisor-project-gateway", "malformed-manifest-replaced");
         var timeProvider = new ManualTimeProvider();
         var originalManifest = SupervisorClientTestSupport.CreateManifest();
-        var successorManifest = originalManifest with
-        {
-            SessionToken = "successor-token",
-            IssuedAtUtc = originalManifest.IssuedAtUtc.AddSeconds(1),
-        };
+        var successorManifest = SupervisorClientTestSupport.CreateSuccessorManifest(
+            originalManifest,
+            sessionTokenDiscriminator: 2);
         var manifestReadCount = 0;
         var manifestStore = new SupervisorManifestStore(
             timeProvider,
             (_, _) => ValueTask.FromResult<string?>(
                 Interlocked.Increment(ref manifestReadCount) == 1
                     ? "{ malformed json"
-                    : JsonSerializer.Serialize(successorManifest)),
+                    : SupervisorManifestStoreTestSupport.Serialize(successorManifest)),
             static (_, _, _) => ValueTask.CompletedTask,
             static _ => throw new InvalidOperationException("A successor manifest must not be deleted."));
         var transportClient = new StubIpcTransportClient
@@ -187,7 +180,7 @@ public sealed class SupervisorProjectGatewayStopTests
             SendHandler = (_, request, _, cancellationToken) =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                Assert.Equal(successorManifest.SessionToken, request.SessionToken);
+                Assert.Equal(successorManifest.SessionToken.GetEncodedValue(), request.SessionToken);
                 return string.Equals(request.Method, ContractLiteralCodec.ToValue(SupervisorIpcMethod.Ping), StringComparison.Ordinal)
                     ? ValueTask.FromResult(SupervisorProjectGatewayTestSupport.CreateSupervisorPingResponse(
                         request,
@@ -222,15 +215,10 @@ public sealed class SupervisorProjectGatewayStopTests
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-project-gateway", "manifest-changes-twice");
         var timeProvider = new ManualTimeProvider();
-        var firstSuccessor = SupervisorClientTestSupport.CreateManifest() with
-        {
-            SessionToken = "first-successor-token",
-        };
-        var secondSuccessor = firstSuccessor with
-        {
-            SessionToken = "second-successor-token",
-            IssuedAtUtc = firstSuccessor.IssuedAtUtc.AddSeconds(1),
-        };
+        var firstSuccessor = SupervisorClientTestSupport.CreateManifest(sessionTokenDiscriminator: 2);
+        var secondSuccessor = SupervisorClientTestSupport.CreateSuccessorManifest(
+            firstSuccessor,
+            sessionTokenDiscriminator: 3);
         var manifestReadCount = 0;
         var manifestStore = new SupervisorManifestStore(
             timeProvider,
@@ -238,9 +226,9 @@ public sealed class SupervisorProjectGatewayStopTests
                 Interlocked.Increment(ref manifestReadCount) switch
                 {
                     1 => "{ malformed generation one",
-                    2 => JsonSerializer.Serialize(firstSuccessor),
+                    2 => SupervisorManifestStoreTestSupport.Serialize(firstSuccessor),
                     3 => "{ malformed generation two",
-                    _ => JsonSerializer.Serialize(secondSuccessor),
+                    _ => SupervisorManifestStoreTestSupport.Serialize(secondSuccessor),
                 }),
             static (_, _, _) => ValueTask.CompletedTask,
             static _ => throw new InvalidOperationException("A successor manifest must not be deleted."));

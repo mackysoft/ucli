@@ -1,12 +1,21 @@
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
-
 namespace MackySoft.Ucli.Tests.Helpers.Daemon;
 
 internal sealed class RecordingDaemonStartOperation : IDaemonStartOperation
 {
     private readonly List<Invocation> invocations = [];
 
-    public DaemonStartResult StartResult { get; set; } = DaemonStartResult.AlreadyRunning(CreateDefaultSession());
+    public DaemonStartResult StartResult { get; set; } = DaemonStartResult.AlreadyRunning(
+        DaemonSessionTestFactory.Create(
+            sessionToken: "session-token",
+            projectFingerprint: "fingerprint",
+            issuedAtUtc: new DateTimeOffset(2026, 03, 11, 0, 0, 0, TimeSpan.Zero),
+            editorMode: "batchmode",
+            ownerKind: "cli",
+            canShutdownProcess: true,
+            endpointTransportKind: "unixDomainSocket",
+            endpointAddress: "/tmp/ucli.sock",
+            processId: 42,
+            ownerProcessId: 24));
 
     public TimeSpan DelayBeforeResult { get; set; }
 
@@ -50,23 +59,6 @@ internal sealed class RecordingDaemonStartOperation : IDaemonStartOperation
         }
 
         return StartResult;
-    }
-
-    private static DaemonSession CreateDefaultSession ()
-    {
-        return new DaemonSession(
-            SchemaVersion: DaemonSession.CurrentSchemaVersion,
-            SessionToken: "session-token",
-            ProjectFingerprint: "fingerprint",
-            IssuedAtUtc: new DateTimeOffset(2026, 03, 11, 0, 0, 0, TimeSpan.Zero),
-            EditorMode: "batchmode",
-            OwnerKind: "cli",
-            CanShutdownProcess: true,
-            EndpointTransportKind: "unixDomainSocket",
-            EndpointAddress: "/tmp/ucli.sock",
-            ProcessId: 42,
-            ProcessStartedAtUtc: null,
-            OwnerProcessId: 24);
     }
 
     internal readonly record struct Invocation (

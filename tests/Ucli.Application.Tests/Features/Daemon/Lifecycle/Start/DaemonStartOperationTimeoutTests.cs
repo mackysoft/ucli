@@ -51,7 +51,7 @@ public sealed class DaemonStartOperationTimeoutTests
         }
         finally
         {
-            readCompletion.TrySetResult(DaemonSessionReadResult.Success(null));
+            readCompletion.TrySetResult(DaemonSessionReadResult.Missing());
         }
     }
 }

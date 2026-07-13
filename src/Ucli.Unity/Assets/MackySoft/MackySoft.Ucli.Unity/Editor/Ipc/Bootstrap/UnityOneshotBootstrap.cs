@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using Microsoft.Extensions.DependencyInjection;
 using UnityEditor;
 
@@ -28,11 +29,16 @@ namespace MackySoft.Ucli.Unity.Ipc
                 UnityMainThreadDaemonConsoleLogSink.CaptureCurrent());
             try
             {
+                if (!IpcSessionToken.TryParse(bootstrapArguments.SessionToken, out var sessionToken))
+                {
+                    throw new InvalidOperationException("Oneshot session token is invalid.");
+                }
+
                 using var parentProcessWatcher = OneshotParentProcessWatcher.Start(bootstrapArguments.ParentProcessId);
                 using var deadlineWatcher = OneshotDeadlineWatcher.Start(bootstrapArguments.ExitDeadlineUtc);
                 var services = new ServiceCollection();
                 services.AddUnityIpcApplicationServices(
-                    new ExactSessionTokenValidator(bootstrapArguments.SessionToken),
+                    new ExactSessionTokenValidator(sessionToken),
                     bootstrapArguments.ProjectFingerprint,
                     daemonLogger,
                     DaemonEditorMode.Batchmode);

@@ -1,6 +1,4 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
-using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Features.Daemon.Supervisor.Host;
@@ -73,21 +71,20 @@ internal sealed class SupervisorHost
             await runtimeLogger.WriteAsync(
                     runtimeContext.StorageRoot,
                     "info",
-                    $"Supervisor starting. endpoint={runtimeContext.Manifest.EndpointAddress}",
+                    $"Supervisor starting. endpoint={runtimeContext.Manifest.Endpoint.Address}",
                     CancellationToken.None)
                 .ConfigureAwait(false);
 
             var idleMonitorTask = RunIdleMonitorAsync(hostCancellationTokenSource, hostCancellationToken);
             try
             {
-                var endpoint = ResolveEndpoint(runtimeContext.Manifest);
                 using var endpointPublicationLease = await manifestStore.AcquireEndpointPublicationLeaseAsync(
                         runtimeContext.StorageRoot,
                         SupervisorConstants.ManifestMutationLockTimeout,
                         hostCancellationToken)
                     .ConfigureAwait(false);
                 await transportServer.RunAsync(
-                        endpoint,
+                        runtimeContext.Manifest.Endpoint,
                         (stream, token) => requestDispatcher.HandleConnectionAsync(
                             stream,
                             runtimeContext,
@@ -166,11 +163,10 @@ internal sealed class SupervisorHost
         return new SupervisorRuntimeContext(
             storageRoot,
             new SupervisorInstanceManifest(
-                ProcessId: Environment.ProcessId,
-                SessionToken: sessionToken,
-                EndpointTransportKind: ContractLiteralCodec.ToValue(endpoint.TransportKind),
-                EndpointAddress: endpoint.Address,
-                IssuedAtUtc: DateTimeOffset.UtcNow));
+                processId: Environment.ProcessId,
+                sessionToken: sessionToken,
+                endpoint: endpoint,
+                issuedAtUtc: DateTimeOffset.UtcNow));
     }
 
     private async Task RunIdleMonitorAsync (
@@ -221,14 +217,4 @@ internal sealed class SupervisorHost
         }
     }
 
-    private static IpcEndpoint ResolveEndpoint (SupervisorInstanceManifest manifest)
-    {
-        if (!ContractLiteralCodec.TryParse<IpcTransportKind>(manifest.EndpointTransportKind, out var transportKind))
-        {
-            throw new InvalidOperationException(
-                $"Supervisor manifest endpointTransportKind is invalid: {manifest.EndpointTransportKind}.");
-        }
-
-        return new IpcEndpoint(transportKind, manifest.EndpointAddress);
-    }
 }

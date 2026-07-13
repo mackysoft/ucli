@@ -3,8 +3,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Infrastructure.Ipc;
+using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Infrastructure.Ipc;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -100,6 +101,19 @@ namespace MackySoft.Ucli.Unity.Ipc
                     request,
                     IpcSessionErrorCodes.SessionTokenRequired,
                     "Session token is required.",
+                    null);
+            }
+
+            if (!IpcSessionToken.IsValidEncodedValue(request.SessionToken))
+            {
+                daemonLogger.Warning(
+                    DaemonLogCategories.Auth,
+                    "Session token has an invalid format.",
+                    $"requestId={request.RequestId}, method={request.Method}");
+                return UnityIpcResponseFactory.CreateErrorResponse(
+                    request,
+                    IpcSessionErrorCodes.SessionTokenInvalid,
+                    "Session token is invalid.",
                     null);
             }
 

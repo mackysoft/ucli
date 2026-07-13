@@ -295,10 +295,10 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
     public async Task TryHandleExistingSession_WhenRecoveringSessionIsNotGui_ReturnsTimeoutFailure ()
     {
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-existing-recovery-batchmode");
-        var session = DaemonSessionTestFactory.Create(processId: 4014, projectFingerprint: context.ProjectFingerprint) with
-        {
-            EditorInstanceId = "editor-instance-recovery-batchmode",
-        };
+        var session = DaemonSessionTestFactory.Create(
+            processId: 4014,
+            projectFingerprint: context.ProjectFingerprint,
+            editorInstanceId: "editor-instance-recovery-batchmode");
         var cleanupService = new RecordingDaemonSessionCleanupService();
         var lifecycleStore = DaemonExistingSessionGateServiceTestSupport.CreateRecoveringLifecycleStore(session);
         var service = DaemonExistingSessionGateServiceTestSupport.CreateService(

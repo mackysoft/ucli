@@ -13,15 +13,28 @@ internal static class SupervisorClientTestSupport
     }
 
     public static SupervisorInstanceManifest CreateManifest (
+        byte sessionTokenDiscriminator = 1,
         int? processId = null,
-        string endpointTransportKind = "namedPipe")
+        IpcEndpoint? endpoint = null,
+        DateTimeOffset? issuedAtUtc = null)
     {
         return new SupervisorInstanceManifest(
-            ProcessId: processId ?? Environment.ProcessId,
-            SessionToken: "supervisor-session-token",
-            EndpointTransportKind: endpointTransportKind,
-            EndpointAddress: "ucli-supervisor-test",
-            IssuedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 0, 0, TimeSpan.Zero));
+            processId: processId ?? Environment.ProcessId,
+            sessionToken: IpcSessionTokenTestFactory.CreateFromDiscriminator(sessionTokenDiscriminator),
+            endpoint: endpoint ?? new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-supervisor-test"),
+            issuedAtUtc: issuedAtUtc ?? new DateTimeOffset(2026, 03, 12, 0, 0, 0, TimeSpan.Zero));
+    }
+
+    public static SupervisorInstanceManifest CreateSuccessorManifest (
+        SupervisorInstanceManifest current,
+        byte sessionTokenDiscriminator)
+    {
+        ArgumentNullException.ThrowIfNull(current);
+        return CreateManifest(
+            sessionTokenDiscriminator,
+            current.ProcessId,
+            current.Endpoint,
+            current.IssuedAtUtc.AddSeconds(1));
     }
 
     public static ResolvedUnityProjectContext CreateUnityProject (string projectFingerprint = "fingerprint")
@@ -83,7 +96,7 @@ internal static class SupervisorClientTestSupport
                 new SupervisorIpcContracts.EnsureRunningResponse(
                     StartStatus: startStatus,
                     DaemonStatus: daemonStatus,
-                    Session: session ?? CreateGuiDaemonSession(),
+                    Session: DaemonSessionContractMapper.ToContract(session ?? CreateGuiDaemonSession()),
                     LifecycleSnapshot: lifecycleSnapshot ?? CreateReadyLifecycleSnapshot())),
             errors: []);
     }

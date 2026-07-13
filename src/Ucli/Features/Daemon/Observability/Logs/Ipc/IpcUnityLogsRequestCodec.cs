@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 
 namespace MackySoft.Ucli.Features.Daemon.Observability.Logs.Ipc;
@@ -12,10 +13,10 @@ internal static class IpcUnityLogsRequestCodec
     /// <returns> The encoded IPC request envelope. </returns>
     public static IpcRequest CreateRequest (
         IpcUnityLogsReadRequest query,
-        string sessionToken)
+        IpcSessionToken sessionToken)
     {
         ArgumentNullException.ThrowIfNull(query);
-        ArgumentException.ThrowIfNullOrWhiteSpace(sessionToken);
+        ArgumentNullException.ThrowIfNull(sessionToken);
 
         var payload = IpcPayloadCodec.SerializeToElement(query);
         return UnityIpcRequestFactory.Create(

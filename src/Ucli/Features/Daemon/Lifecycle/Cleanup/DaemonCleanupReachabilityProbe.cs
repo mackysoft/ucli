@@ -4,6 +4,7 @@ using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Cleanup;
@@ -49,24 +50,19 @@ internal sealed class DaemonCleanupReachabilityProbe : IDaemonCleanupReachabilit
     /// <summary> Probes daemon reachability using a known session token. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="deadline"> The shared cleanup execution deadline. </param>
-    /// <param name="sessionToken"> The session token to present. Must be non-empty. </param>
+    /// <param name="sessionToken"> The validated session token to present. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> One cleanup-specific reachability probe result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> or <paramref name="sessionToken" /> is <see langword="null" />. </exception>
-    /// <exception cref="ArgumentException"> Thrown when <paramref name="sessionToken" /> is empty or whitespace. </exception>
     public ValueTask<DaemonCleanupReachabilityProbeResult> ProbeWithSessionTokenAsync (
         ResolvedUnityProjectContext unityProject,
         ExecutionDeadline deadline,
-        string sessionToken,
+        IpcSessionToken sessionToken,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentNullException.ThrowIfNull(sessionToken);
-        if (string.IsNullOrWhiteSpace(sessionToken))
-        {
-            throw new ArgumentException("Cleanup reachability probe session token must be non-empty.", nameof(sessionToken));
-        }
 
         return ProbeCoreAsync(
             unityProject,
@@ -78,7 +74,7 @@ internal sealed class DaemonCleanupReachabilityProbe : IDaemonCleanupReachabilit
     private async ValueTask<DaemonCleanupReachabilityProbeResult> ProbeCoreAsync (
         ResolvedUnityProjectContext unityProject,
         ExecutionDeadline deadline,
-        string? sessionToken,
+        IpcSessionToken? sessionToken,
         CancellationToken cancellationToken)
     {
         if (!deadline.TryGetRemainingTimeout(out var pingTimeout))

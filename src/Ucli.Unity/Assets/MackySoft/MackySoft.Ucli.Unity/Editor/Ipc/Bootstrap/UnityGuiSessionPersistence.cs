@@ -1,12 +1,12 @@
 using System;
 using System.Diagnostics;
 using System.IO;
-using System.Security.Cryptography;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Ipc;
@@ -81,10 +81,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                 }
 
                 var issuedAtUtc = DateTimeOffset.UtcNow;
-                var sessionToken = CreateSessionToken();
+                var sessionToken = IpcSessionToken.CreateRandom();
                 var sessionContract = new DaemonSessionJsonContract(
                     SchemaVersion: DaemonSessionStorageContract.CurrentSchemaVersion,
-                    SessionToken: sessionToken,
+                    SessionToken: sessionToken.GetEncodedValue(),
                     ProjectFingerprint: projectFingerprint,
                     IssuedAtUtc: issuedAtUtc,
                     EditorMode: ContractLiteralCodec.ToValue(DaemonEditorMode.Gui),
@@ -336,7 +336,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         {
             using var currentProcess = Process.GetCurrentProcess();
             return sessionContract.SchemaVersion == DaemonSessionStorageContract.CurrentSchemaVersion
-                && string.Equals(sessionContract.SessionToken, registration.SessionToken, StringComparison.Ordinal)
+                && registration.SessionToken.Matches(sessionContract.SessionToken)
                 && string.Equals(sessionContract.ProjectFingerprint, registration.ProjectFingerprint, StringComparison.Ordinal)
                 && sessionContract.IssuedAtUtc == registration.IssuedAtUtc
                 && sessionContract.CanShutdownProcess == registration.CanShutdownProcess
@@ -381,14 +381,6 @@ namespace MackySoft.Ucli.Unity.Ipc
             UnixSocketPathUtilities.DeleteEmptyFallbackDirectoryIfPresent(
                 registration.Endpoint.Address,
                 UcliIpcEndpointNames.DaemonAddressPrefix);
-        }
-
-        private static string CreateSessionToken ()
-        {
-            var tokenBuffer = new byte[32];
-            using var randomNumberGenerator = RandomNumberGenerator.Create();
-            randomNumberGenerator.GetBytes(tokenBuffer);
-            return Base64UrlCodec.Encode(tokenBuffer);
         }
 
         /// <summary> Represents one unpublished GUI session generation and its exclusive publication lease. </summary>

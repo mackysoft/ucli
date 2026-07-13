@@ -21,11 +21,12 @@ public sealed class DaemonLaunchServiceTests
             projectFingerprint: context.ProjectFingerprint,
             endpointAddress: LaunchEndpointAddress);
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 11, 0, 0, 1, TimeSpan.Zero);
-        var startedSession = initialSession with
-        {
-            ProcessId = 999,
-            ProcessStartedAtUtc = processStartedAtUtc,
-        };
+        var startedSession = DaemonSessionTestFactory.Create(
+            processId: 999,
+            sessionToken: LaunchSessionToken,
+            projectFingerprint: context.ProjectFingerprint,
+            endpointAddress: LaunchEndpointAddress,
+            processStartedAtUtc: processStartedAtUtc);
         var launchSessionService = new RecordingDaemonLaunchSessionService
         {
             InitializeResult = DaemonLaunchSessionWriteResult.Success(initialSession),
@@ -80,11 +81,12 @@ public sealed class DaemonLaunchServiceTests
             projectFingerprint: context.ProjectFingerprint,
             endpointAddress: LaunchEndpointAddress);
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 11, 0, 0, 1, TimeSpan.Zero);
-        var startedSession = initialSession with
-        {
-            ProcessId = 999,
-            ProcessStartedAtUtc = processStartedAtUtc,
-        };
+        var startedSession = DaemonSessionTestFactory.Create(
+            processId: 999,
+            sessionToken: LaunchSessionToken,
+            projectFingerprint: context.ProjectFingerprint,
+            endpointAddress: LaunchEndpointAddress,
+            processStartedAtUtc: processStartedAtUtc);
         var launchSessionService = new RecordingDaemonLaunchSessionService
         {
             InitializeResult = DaemonLaunchSessionWriteResult.Success(initialSession),
@@ -145,11 +147,12 @@ public sealed class DaemonLaunchServiceTests
             endpointAddress: LaunchEndpointAddress);
         var processStartedAtUtc = new DateTimeOffset(2026, 07, 11, 0, 0, 4, TimeSpan.Zero);
         const int processId = 7644;
-        var startedSession = initialSession with
-        {
-            ProcessId = processId,
-            ProcessStartedAtUtc = processStartedAtUtc,
-        };
+        var startedSession = DaemonSessionTestFactory.Create(
+            processId: processId,
+            sessionToken: LaunchSessionToken,
+            projectFingerprint: context.ProjectFingerprint,
+            endpointAddress: LaunchEndpointAddress,
+            processStartedAtUtc: processStartedAtUtc);
         var launchSessionService = new RecordingDaemonLaunchSessionService
         {
             InitializeResult = DaemonLaunchSessionWriteResult.Success(initialSession),

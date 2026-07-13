@@ -54,19 +54,7 @@ internal sealed class RecordingDaemonGuiSessionRegistrationAwaiter : IDaemonGuiS
 
     private static DaemonSession CreateDefaultSession ()
     {
-        return new DaemonSession(
-            SchemaVersion: DaemonSession.CurrentSchemaVersion,
-            SessionToken: "secret-token",
-            ProjectFingerprint: "fingerprint",
-            IssuedAtUtc: new DateTimeOffset(2026, 03, 05, 0, 0, 0, TimeSpan.Zero),
-            EditorMode: "batchmode",
-            OwnerKind: "cli",
-            CanShutdownProcess: true,
-            EndpointTransportKind: "namedPipe",
-            EndpointAddress: "ucli-daemon-endpoint",
-            ProcessId: 1234,
-            ProcessStartedAtUtc: DateTimeOffset.UtcNow,
-            OwnerProcessId: 9876);
+        return DaemonSessionTestFactory.Create();
     }
 
     internal readonly record struct Invocation (

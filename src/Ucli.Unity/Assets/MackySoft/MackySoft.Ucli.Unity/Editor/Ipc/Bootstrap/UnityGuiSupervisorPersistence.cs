@@ -4,6 +4,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Storage;
@@ -44,11 +45,11 @@ namespace MackySoft.Ucli.Unity.Ipc
         public static void Delete (
             string storageRoot,
             string projectFingerprint,
-            string expectedSessionToken)
+            IpcSessionToken expectedSessionToken)
         {
-            if (string.IsNullOrWhiteSpace(expectedSessionToken))
+            if (expectedSessionToken == null)
             {
-                throw new ArgumentException("Expected session token must not be empty.", nameof(expectedSessionToken));
+                throw new ArgumentNullException(nameof(expectedSessionToken));
             }
 
             var manifestLockPath = UcliStoragePathResolver.ResolveGuiSupervisorManifestLockPath(
@@ -64,7 +65,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         private static void DeleteWhileLockIsHeld (
             string storageRoot,
             string projectFingerprint,
-            string expectedSessionToken)
+            IpcSessionToken expectedSessionToken)
         {
             var manifestPath = UcliStoragePathResolver.ResolveGuiSupervisorManifestPath(storageRoot, projectFingerprint);
             var json = FileUtilities.ReadAllTextOrNull(manifestPath);
@@ -84,7 +85,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             if (manifest == null
-                || !string.Equals(manifest.SessionToken, expectedSessionToken, StringComparison.Ordinal))
+                || !expectedSessionToken.Matches(manifest.SessionToken))
             {
                 return;
             }
@@ -129,7 +130,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             public async ValueTask<GuiSupervisorManifestJsonContract> PublishAsync (
                 IpcEndpoint endpoint,
-                string sessionToken,
+                IpcSessionToken sessionToken,
                 DateTimeOffset issuedAtUtc,
                 CancellationToken cancellationToken)
             {
@@ -144,15 +145,15 @@ namespace MackySoft.Ucli.Unity.Ipc
                     throw new ArgumentNullException(nameof(endpoint));
                 }
 
-                if (string.IsNullOrWhiteSpace(sessionToken))
+                if (sessionToken == null)
                 {
-                    throw new ArgumentException("Session token must not be empty.", nameof(sessionToken));
+                    throw new ArgumentNullException(nameof(sessionToken));
                 }
 
                 using var currentProcess = Process.GetCurrentProcess();
                 var manifest = new GuiSupervisorManifestJsonContract(
                     SchemaVersion: GuiSupervisorManifestJsonContract.CurrentSchemaVersion,
-                    SessionToken: sessionToken,
+                    SessionToken: sessionToken.GetEncodedValue(),
                     ProjectFingerprint: projectFingerprint,
                     EndpointTransportKind: ContractLiteralCodec.ToValue(endpoint.TransportKind),
                     EndpointAddress: endpoint.Address,
@@ -179,18 +180,16 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return manifest;
             }
 
-            public void DeleteIfOwned (string expectedSessionToken)
+            public void DeleteIfOwned (IpcSessionToken expectedSessionToken)
             {
                 if (manifestLock == null)
                 {
                     throw new ObjectDisposedException(nameof(PublicationLease));
                 }
 
-                if (string.IsNullOrWhiteSpace(expectedSessionToken))
+                if (expectedSessionToken == null)
                 {
-                    throw new ArgumentException(
-                        "Expected session token must not be empty.",
-                        nameof(expectedSessionToken));
+                    throw new ArgumentNullException(nameof(expectedSessionToken));
                 }
 
                 DeleteWhileLockIsHeld(storageRoot, projectFingerprint, expectedSessionToken);

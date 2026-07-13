@@ -41,7 +41,7 @@ public sealed class UnityDaemonIpcClientDispatchTests
             transportClient,
             "/tmp/ucli-session.sock",
             UnityIpcMethod.OpsRead,
-            "daemon-token");
+            IpcSessionTokenTestFactory.Create("daemon-token").GetEncodedValue());
         Assert.Equal(CreateDispatchPayload().GetRawText(), request.Payload.GetRawText());
     }
 
@@ -123,7 +123,9 @@ public sealed class UnityDaemonIpcClientDispatchTests
         Assert.True(result.IsSuccess);
         Assert.Equal(IpcSessionErrorCodes.SessionTokenInvalid, Assert.Single(result.Response!.Errors).Code);
         var request = Assert.Single(transportClient.Requests);
-        Assert.Equal("daemon-token", request.SessionToken);
+        Assert.Equal(
+            IpcSessionTokenTestFactory.Create("daemon-token").GetEncodedValue(),
+            request.SessionToken);
     }
 
     [Theory]
@@ -196,7 +198,10 @@ public sealed class UnityDaemonIpcClientDispatchTests
 
         Assert.False(result.IsSuccess);
         var requests = transportClient.Invocations.Select(static invocation => invocation.Request).ToArray();
-        IpcRequestAssert.SessionTokens(requests, "daemon-token-1", "daemon-token-2");
+        IpcRequestAssert.SessionTokens(
+            requests,
+            IpcSessionTokenTestFactory.Create("daemon-token-1").GetEncodedValue(),
+            IpcSessionTokenTestFactory.Create("daemon-token-2").GetEncodedValue());
         _ = IpcRequestAssert.SingleRequestId(requests);
     }
 
@@ -249,8 +254,12 @@ public sealed class UnityDaemonIpcClientDispatchTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal(2, transportClient.Requests.Count);
-        Assert.Equal("daemon-token-1", transportClient.Requests[0].SessionToken);
-        Assert.Equal("daemon-token-2", transportClient.Requests[1].SessionToken);
+        Assert.Equal(
+            IpcSessionTokenTestFactory.Create("daemon-token-1").GetEncodedValue(),
+            transportClient.Requests[0].SessionToken);
+        Assert.Equal(
+            IpcSessionTokenTestFactory.Create("daemon-token-2").GetEncodedValue(),
+            transportClient.Requests[1].SessionToken);
         _ = IpcRequestAssert.SingleRequestId(transportClient.Requests);
         Assert.Equal(streaming ? 2 : 0, transportClient.StreamingRequests.Count);
     }
@@ -534,8 +543,12 @@ public sealed class UnityDaemonIpcClientDispatchTests
         Assert.True(result.Response!.HasFailureStatus);
         Assert.Equal(IpcSessionErrorCodes.SessionTokenInvalid, Assert.Single(result.Response.Errors).Code);
         Assert.Equal(2, transportClient.Requests.Count);
-        Assert.Equal("daemon-token-1", transportClient.Requests[0].SessionToken);
-        Assert.Equal("daemon-token-2", transportClient.Requests[1].SessionToken);
+        Assert.Equal(
+            IpcSessionTokenTestFactory.Create("daemon-token-1").GetEncodedValue(),
+            transportClient.Requests[0].SessionToken);
+        Assert.Equal(
+            IpcSessionTokenTestFactory.Create("daemon-token-2").GetEncodedValue(),
+            transportClient.Requests[1].SessionToken);
         _ = IpcRequestAssert.SingleRequestId(transportClient.Requests);
     }
 
@@ -555,7 +568,7 @@ public sealed class UnityDaemonIpcClientDispatchTests
             {
                 readStartedSource.TrySetResult(true);
                 await readReleaseSource.Task;
-                return DaemonSessionReadResult.Success(null);
+                return DaemonSessionReadResult.Missing();
             },
         };
         var recoveryWaiter = new UnityDaemonRecoveryWaiter(

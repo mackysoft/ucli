@@ -4,7 +4,6 @@ using MackySoft.Ucli.Application.Features.Assurance.Compile.Artifacts;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Contracts;
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
 using MackySoft.Ucli.Application.Features.Assurance.Semantics;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Assets;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
@@ -16,18 +15,6 @@ namespace MackySoft.Ucli.Tests.Hosting.Composition;
 
 public sealed class UcliServiceCollectionExtensionsTests
 {
-    [Theory]
-    [InlineData(typeof(IDaemonSessionSerializer))]
-    [InlineData(typeof(IDaemonSessionValidator))]
-    [Trait("Size", "Small")]
-    public void AddUcliServices_RegistersOneDaemonSessionContractImplementation (Type serviceType)
-    {
-        var services = new ServiceCollection();
-        services.AddUcliServices();
-
-        _ = Assert.Single(services, descriptor => descriptor.ServiceType == serviceType);
-    }
-
     [Fact]
     [Trait("Size", "Small")]
     public void AddUcliServices_RegistersSystemTimeProviderAsSingleton ()

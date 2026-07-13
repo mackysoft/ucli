@@ -26,11 +26,12 @@ internal static class DaemonLaunchServiceBatchmodeReadinessFailureTestSupport
             projectFingerprint: context.ProjectFingerprint,
             endpointAddress: LaunchEndpointAddress);
         var startedAtUtc = processStartedAtUtc ?? DefaultProcessStartedAtUtc;
-        var updatedSession = initialSession with
-        {
-            ProcessId = processId,
-            ProcessStartedAtUtc = startedAtUtc,
-        };
+        var updatedSession = DaemonSessionTestFactory.Create(
+            processId: processId,
+            sessionToken: LaunchSessionToken,
+            projectFingerprint: context.ProjectFingerprint,
+            endpointAddress: LaunchEndpointAddress,
+            processStartedAtUtc: startedAtUtc);
         var launchSessionService = new RecordingDaemonLaunchSessionService
         {
             InitializeResult = DaemonLaunchSessionWriteResult.Success(initialSession),

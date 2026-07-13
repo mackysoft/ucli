@@ -6,6 +6,7 @@ using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Infrastructure.Paths;
 
 namespace MackySoft.Ucli.Features.Daemon.Supervisor.Gateway;
@@ -381,7 +382,7 @@ internal sealed class SupervisorProjectGateway : IDaemonProjectLifecycleGateway
 
     private async ValueTask<SupervisorManifestReloadResult> ReloadSuccessorManifestAsync (
         string repositoryRoot,
-        string rejectedSessionToken,
+        IpcSessionToken rejectedSessionToken,
         TimeSpan timeout,
         CancellationToken cancellationToken)
     {
@@ -393,10 +394,7 @@ internal sealed class SupervisorProjectGateway : IDaemonProjectLifecycleGateway
                     cancellationToken)
                 .ConfigureAwait(false);
             if (manifest == null
-                || string.Equals(
-                    manifest.SessionToken,
-                    rejectedSessionToken,
-                    StringComparison.Ordinal))
+                || manifest.SessionToken.Equals(rejectedSessionToken))
             {
                 return new SupervisorManifestReloadResult(null, null);
             }

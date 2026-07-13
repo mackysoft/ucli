@@ -41,7 +41,7 @@ public sealed class SupervisorExitHandlerTests
         };
         var sessionStore = new RecordingDaemonSessionStore
         {
-            ReadResult = DaemonSessionReadResult.Success(session),
+            ReadResult = DaemonSessionReadResultTestFactory.Found(session),
         };
         var exitHandler = new SupervisorExitHandler(
             sessionStore,
@@ -93,7 +93,6 @@ public sealed class SupervisorExitHandlerTests
             ReadResult = DaemonSessionReadResult.Failure(
                 ExecutionError.InternalError("session read failed"),
                 DaemonSessionReadFailureKind.IoFailure,
-                session: null,
                 artifactIdentity: null),
         };
         var artifactCleaner = new RecordingDaemonArtifactCleaner();
@@ -156,7 +155,7 @@ public sealed class SupervisorExitHandlerTests
         var exitHandler = new SupervisorExitHandler(
             new RecordingDaemonSessionStore
             {
-                ReadResult = DaemonSessionReadResult.Success(session),
+                ReadResult = DaemonSessionReadResultTestFactory.Found(session),
             },
             artifactCleaner,
             new SupervisorDiagnosisWriter(diagnosisStore),
@@ -206,7 +205,7 @@ public sealed class SupervisorExitHandlerTests
         var exitHandler = new SupervisorExitHandler(
             new RecordingDaemonSessionStore
             {
-                ReadResult = DaemonSessionReadResult.Success(rotatedSession),
+                ReadResult = DaemonSessionReadResultTestFactory.Found(rotatedSession),
             },
             artifactCleaner,
             new SupervisorDiagnosisWriter(diagnosisStore),
@@ -252,7 +251,7 @@ public sealed class SupervisorExitHandlerTests
         var exitHandler = new SupervisorExitHandler(
             new RecordingDaemonSessionStore
             {
-                ReadResult = DaemonSessionReadResult.Success(successorSession),
+                ReadResult = DaemonSessionReadResultTestFactory.Found(successorSession),
             },
             artifactCleaner,
             new SupervisorDiagnosisWriter(diagnosisStore),
@@ -289,7 +288,7 @@ public sealed class SupervisorExitHandlerTests
             ownerProcessId: 24);
         var sessionStore = new RecordingDaemonSessionStore
         {
-            ReadResult = DaemonSessionReadResult.Success(session),
+            ReadResult = DaemonSessionReadResultTestFactory.Found(session),
         };
         var exitHandler = new SupervisorExitHandler(
             sessionStore,

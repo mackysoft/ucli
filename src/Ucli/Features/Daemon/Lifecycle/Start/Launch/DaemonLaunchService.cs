@@ -257,8 +257,8 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
             await EmitWaitingForEndpointAsync(
                     progressObserver,
                     launchAttemptId,
-                    session.EditorMode,
-                    session.OwnerKind,
+                    ContractLiteralCodec.ToValue(session.EditorMode),
+                    ContractLiteralCodec.ToValue(session.OwnerKind),
                     session.CanShutdownProcess,
                     launchedProcessId,
                     launchedProcessStartedAtUtc,

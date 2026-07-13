@@ -25,7 +25,7 @@ public sealed class IpcDaemonPingClientRequestTests
             unityIpcClient,
             expectedEndpointAddress: "/tmp/ucli-session.sock",
             expectedMethod: UnityIpcMethod.Ping,
-            expectedSessionToken: "resolved-token");
+            expectedSessionToken: IpcSessionTokenTestFactory.Create("resolved-token").GetEncodedValue());
         Assert.InRange(
             Assert.Single(unityIpcClient.Timeouts),
             TimeSpan.FromMilliseconds(1),
@@ -73,10 +73,11 @@ public sealed class IpcDaemonPingClientRequestTests
             TimeProvider.System);
         var unityProject = CreateFingerprintMatchedProject();
 
+        var sessionToken = IpcSessionTokenTestFactory.CreateFromDiscriminator(1);
         await pingClient.PingCanonicalEndpointWithSessionTokenAsync(
             unityProject,
             DefaultTimeout,
-            "provided-token",
+            sessionToken,
             CancellationToken.None);
 
         var expectedEndpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(
@@ -86,7 +87,7 @@ public sealed class IpcDaemonPingClientRequestTests
             unityIpcClient,
             expectedEndpointAddress: expectedEndpoint.Address,
             expectedMethod: UnityIpcMethod.Ping,
-            expectedSessionToken: "provided-token");
+            expectedSessionToken: sessionToken.GetEncodedValue());
     }
 
     [Fact]
@@ -104,10 +105,10 @@ public sealed class IpcDaemonPingClientRequestTests
                     OpId: null),
             ]));
         var firstConnection = new DaemonSessionConnection(
-            "first-token",
+            IpcSessionTokenTestFactory.Create("first-token"),
             new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-first-session.sock"));
         var refreshedConnection = new DaemonSessionConnection(
-            "refreshed-token",
+            IpcSessionTokenTestFactory.Create("refreshed-token"),
             new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-refreshed-session.sock"));
         var sessionConnectionProvider = new QueuedDaemonSessionConnectionProvider(
             DaemonSessionConnectionResolutionResult.Success(firstConnection),
@@ -125,8 +126,12 @@ public sealed class IpcDaemonPingClientRequestTests
 
         Assert.Collection(
             unityIpcClient.Requests,
-            request => Assert.Equal("first-token", request.SessionToken),
-            request => Assert.Equal("refreshed-token", request.SessionToken));
+            request => Assert.Equal(
+                IpcSessionTokenTestFactory.Create("first-token").GetEncodedValue(),
+                request.SessionToken),
+            request => Assert.Equal(
+                IpcSessionTokenTestFactory.Create("refreshed-token").GetEncodedValue(),
+                request.SessionToken));
         var requestId = unityIpcClient.Requests[0].RequestId;
         Assert.NotEqual(Guid.Empty, requestId);
         Assert.Equal(requestId, unityIpcClient.Requests[1].RequestId);
@@ -222,7 +227,9 @@ public sealed class IpcDaemonPingClientRequestTests
             Assert.Same(pingTask, completedTask);
             await Assert.ThrowsAsync<TimeoutException>(() => pingTask);
             var request = Assert.Single(unityIpcClient.Requests);
-            Assert.Equal("first-token", request.SessionToken);
+            Assert.Equal(
+                IpcSessionTokenTestFactory.Create("first-token").GetEncodedValue(),
+                request.SessionToken);
         }
         finally
         {
@@ -258,7 +265,7 @@ public sealed class IpcDaemonPingClientRequestTests
             unityIpcClient,
             expectedEndpointAddress: "/tmp/ucli-captured-session.sock",
             expectedMethod: UnityIpcMethod.Ping,
-            expectedSessionToken: "captured-token");
+            expectedSessionToken: IpcSessionTokenTestFactory.Create("captured-token").GetEncodedValue());
     }
 
     [Theory]
@@ -292,7 +299,7 @@ public sealed class IpcDaemonPingClientRequestTests
         string endpointAddress)
     {
         return DaemonSessionConnectionResolutionResult.Success(new DaemonSessionConnection(
-            sessionToken,
+            IpcSessionTokenTestFactory.Create(sessionToken),
             new IpcEndpoint(IpcTransportKind.UnixDomainSocket, endpointAddress)));
     }
 

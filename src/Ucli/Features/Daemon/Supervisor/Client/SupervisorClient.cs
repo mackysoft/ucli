@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Contracts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
@@ -93,12 +94,7 @@ internal sealed class SupervisorClient
     {
         ArgumentNullException.ThrowIfNull(manifest);
 
-        if (!ContractLiteralCodec.TryParse<IpcTransportKind>(manifest.EndpointTransportKind, out var transportKind))
-        {
-            return true;
-        }
-
-        if (transportKind != IpcTransportKind.NamedPipe)
+        if (manifest.Endpoint.TransportKind != IpcTransportKind.NamedPipe)
         {
             return false;
         }
@@ -171,7 +167,6 @@ internal sealed class SupervisorClient
             var terminalResponseDeadline = ExecutionDeadline.Start(
                 terminalResponseTimeout,
                 timeProvider);
-            var endpoint = ResolveEndpoint(manifest);
             var terminalResponseResult = await ExecutionDeadlineOperation.ExecuteAsync(
                     terminalResponseDeadline,
                     cancellationToken,
@@ -179,12 +174,12 @@ internal sealed class SupervisorClient
                     "Timed out while waiting for the supervisor ensureRunning terminal response.",
                     operationCancellationToken => progressFrameForwarder is null
                         ? transportClient.SendWithUnboundedResponseWaitAsync(
-                            endpoint,
+                            manifest.Endpoint,
                             request,
                             attemptTimeout,
                             operationCancellationToken)
                         : transportClient.SendStreamingWithUnboundedResponseWaitAsync(
-                            endpoint,
+                            manifest.Endpoint,
                             request,
                             attemptTimeout,
                             progressFrameForwarder.ForwardAsync,
@@ -215,19 +210,36 @@ internal sealed class SupervisorClient
                     $"Supervisor ensureRunning response payload is invalid. {payloadError.Message}"));
             }
 
+            if (payload.Session is null)
+            {
+                return DaemonStartResult.Failure(ExecutionError.InternalError(
+                    "Supervisor ensureRunning response session is missing."));
+            }
+
+            if (!DaemonSessionContractMapper.TryCreate(
+                    payload.Session,
+                    unityProject.ProjectFingerprint,
+                    "received from the supervisor ensureRunning response.",
+                    out var session,
+                    out var sessionError))
+            {
+                return DaemonStartResult.Failure(ExecutionError.InternalError(
+                    $"Supervisor ensureRunning response session is invalid. {sessionError.Message}"));
+            }
+
             if (ContractLiteralCodec.Matches(payload.StartStatus, DaemonStartStatus.Started))
             {
-                return DaemonStartResult.Started(payload.Session, payload.LifecycleSnapshot);
+                return DaemonStartResult.Started(session, payload.LifecycleSnapshot);
             }
 
             if (ContractLiteralCodec.Matches(payload.StartStatus, DaemonStartStatus.AlreadyRunning))
             {
-                return DaemonStartResult.AlreadyRunning(payload.Session, payload.LifecycleSnapshot);
+                return DaemonStartResult.AlreadyRunning(session, payload.LifecycleSnapshot);
             }
 
             if (ContractLiteralCodec.Matches(payload.StartStatus, DaemonStartStatus.Attached))
             {
-                return DaemonStartResult.Attached(payload.Session, payload.LifecycleSnapshot);
+                return DaemonStartResult.Attached(session, payload.LifecycleSnapshot);
             }
 
             return DaemonStartResult.Failure(ExecutionError.InternalError(
@@ -290,14 +302,13 @@ internal sealed class SupervisorClient
             var terminalResponseDeadline = ExecutionDeadline.Start(
                 attemptTimeout.Add(SupervisorConstants.StopProjectTerminalResponseGrace),
                 timeProvider);
-            var endpoint = ResolveEndpoint(manifest);
             var terminalResponseResult = await ExecutionDeadlineOperation.ExecuteAsync(
                     terminalResponseDeadline,
                     cancellationToken,
                     "Timed out before waiting for the supervisor stopProject terminal response.",
                     "Timed out while waiting for the supervisor stopProject terminal response.",
                     operationCancellationToken => transportClient.SendWithUnboundedResponseWaitAsync(
-                        endpoint,
+                        manifest.Endpoint,
                         request,
                         attemptTimeout,
                         operationCancellationToken))
@@ -357,8 +368,7 @@ internal sealed class SupervisorClient
         TimeSpan timeout,
         CancellationToken cancellationToken)
     {
-        var endpoint = ResolveEndpoint(manifest);
-        return await transportClient.SendAsync(endpoint, request, timeout, cancellationToken).ConfigureAwait(false);
+        return await transportClient.SendAsync(manifest.Endpoint, request, timeout, cancellationToken).ConfigureAwait(false);
     }
 
     private static int ValidateAttemptTimeout (
@@ -399,21 +409,10 @@ internal sealed class SupervisorClient
         return new IpcRequest(
             protocolVersion: IpcProtocol.CurrentVersion,
             requestId: requestId,
-            sessionToken: manifest.SessionToken,
+            sessionToken: manifest.SessionToken.GetEncodedValue(),
             method: methodLiteral,
             payload: IpcPayloadCodec.SerializeToElement(payload),
             responseMode: ContractLiteralCodec.ToValue(responseMode));
-    }
-
-    private static IpcEndpoint ResolveEndpoint (SupervisorInstanceManifest manifest)
-    {
-        if (!ContractLiteralCodec.TryParse<IpcTransportKind>(manifest.EndpointTransportKind, out var transportKind))
-        {
-            throw new InvalidOperationException(
-                $"Supervisor manifest endpointTransportKind is invalid: {manifest.EndpointTransportKind}.");
-        }
-
-        return new IpcEndpoint(transportKind, manifest.EndpointAddress);
     }
 
     private static ExecutionError MapResponseFailure (

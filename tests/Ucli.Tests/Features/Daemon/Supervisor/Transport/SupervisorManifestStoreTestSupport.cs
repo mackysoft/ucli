@@ -1,9 +1,15 @@
+using System.Text.Json;
 using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Tests.Supervisor;
 
 internal static class SupervisorManifestStoreTestSupport
 {
+    private static readonly JsonSerializerOptions SerializerOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+    };
+
     public static SupervisorManifestStore CreateFileBacked (TimeProvider timeProvider)
     {
         return new SupervisorManifestStore(
@@ -11,5 +17,18 @@ internal static class SupervisorManifestStoreTestSupport
             static (path, cancellationToken) => FileUtilities.ReadAllTextOrNullAsync(path, cancellationToken),
             static (path, contents, cancellationToken) => FileUtilities.WriteAllTextAtomicallyAsync(path, contents, cancellationToken),
             static path => FileUtilities.DeleteIfExists(path));
+    }
+
+    public static string Serialize (SupervisorInstanceManifest manifest)
+    {
+        ArgumentNullException.ThrowIfNull(manifest);
+        return JsonSerializer.Serialize(
+            new SupervisorInstanceManifestJsonContract(
+                manifest.ProcessId,
+                manifest.SessionToken.GetEncodedValue(),
+                ContractLiteralCodec.ToValue(manifest.Endpoint.TransportKind),
+                manifest.Endpoint.Address,
+                manifest.IssuedAtUtc),
+            SerializerOptions);
     }
 }

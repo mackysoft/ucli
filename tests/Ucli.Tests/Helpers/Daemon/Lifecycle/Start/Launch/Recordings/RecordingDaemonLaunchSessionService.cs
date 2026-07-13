@@ -42,7 +42,18 @@ internal sealed class RecordingDaemonLaunchSessionService : IDaemonLaunchSession
         }
 
         var updatedSession = processId is int pid
-            ? session with { ProcessId = pid, ProcessStartedAtUtc = processStartedAtUtc }
+            ? new DaemonSession(
+                session.SessionToken,
+                session.ProjectFingerprint,
+                session.IssuedAtUtc,
+                session.EditorMode,
+                session.OwnerKind,
+                session.CanShutdownProcess,
+                session.Endpoint,
+                pid,
+                processStartedAtUtc ?? throw new ArgumentNullException(nameof(processStartedAtUtc)),
+                session.OwnerProcessId,
+                session.EditorInstanceId)
             : session;
         return ValueTask.FromResult(DaemonLaunchSessionWriteResult.Success(updatedSession));
     }

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
 
@@ -10,22 +11,6 @@ namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Session;
 internal sealed class DaemonSessionStore : IDaemonSessionStore
 {
     private static readonly TimeSpan SessionLockAcquireTimeout = TimeSpan.FromSeconds(1);
-
-    private readonly IDaemonSessionSerializer sessionSerializer;
-
-    private readonly IDaemonSessionValidator sessionValidator;
-
-    /// <summary> Initializes a new instance of the <see cref="DaemonSessionStore" /> class. </summary>
-    /// <param name="sessionSerializer"> The daemon session serializer dependency. </param>
-    /// <param name="sessionValidator"> The daemon session validator dependency. </param>
-    /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
-    public DaemonSessionStore (
-        IDaemonSessionSerializer sessionSerializer,
-        IDaemonSessionValidator sessionValidator)
-    {
-        this.sessionSerializer = sessionSerializer ?? throw new ArgumentNullException(nameof(sessionSerializer));
-        this.sessionValidator = sessionValidator ?? throw new ArgumentNullException(nameof(sessionValidator));
-    }
 
     /// <summary> Reads daemon session metadata for one project fingerprint. </summary>
     /// <param name="storageRoot"> The storage root path. </param>
@@ -48,9 +33,7 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
         {
             return DaemonSessionReadResult.Failure(ExecutionError.InvalidArgument(
                 $"Daemon session path is invalid. {exception.Message}"),
-                DaemonSessionReadFailureKind.PathInvalid,
-                session: null,
-                artifactIdentity: null);
+                DaemonSessionReadFailureKind.PathInvalid);
         }
 
         string? json;
@@ -62,79 +45,64 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
         {
             return DaemonSessionReadResult.Failure(ExecutionError.InvalidArgument(
                 $"Daemon session path is invalid: {sessionPath}. {exception.Message}"),
-                DaemonSessionReadFailureKind.PathInvalid,
-                session: null,
-                artifactIdentity: null);
+                DaemonSessionReadFailureKind.PathInvalid);
         }
         catch (Exception exception) when (IsIoFailure(exception))
         {
             return DaemonSessionReadResult.Failure(ExecutionError.InternalError(
                 $"Failed to read daemon session file: {sessionPath}. {exception.Message}"),
-                DaemonSessionReadFailureKind.IoFailure,
-                session: null,
-                artifactIdentity: null);
+                DaemonSessionReadFailureKind.IoFailure);
         }
 
         if (json == null)
         {
-            return DaemonSessionReadResult.Success(null);
+            return DaemonSessionReadResult.Missing();
         }
 
         var artifactIdentity = DaemonSessionArtifactIdentity.Create(json);
 
-        DaemonSession session;
+        DaemonSessionJsonContract contract;
         try
         {
-            session = sessionSerializer.Deserialize(json);
+            contract = DaemonSessionJsonContractSerializer.Deserialize(json)
+                ?? throw new JsonException("Daemon session JSON root must be an object.");
         }
         catch (JsonException exception)
         {
-            return DaemonSessionReadResult.Failure(ExecutionError.InvalidArgument(
-                $"Daemon session JSON is invalid: {sessionPath}. {exception.Message}"),
-                DaemonSessionReadFailureKind.InvalidSession,
-                session: null,
-                artifactIdentity: artifactIdentity);
+            return DaemonSessionReadResult.Invalid(ExecutionError.InvalidArgument(
+                    $"Daemon session JSON is invalid: {sessionPath}. {exception.Message}"),
+                invalidEvidence: null,
+                artifactIdentity);
         }
         catch (ArgumentException exception)
         {
-            return DaemonSessionReadResult.Failure(ExecutionError.InvalidArgument(
-                $"Daemon session JSON is invalid: {sessionPath}. {exception.Message}"),
-                DaemonSessionReadFailureKind.InvalidSession,
-                session: null,
-                artifactIdentity: artifactIdentity);
+            return DaemonSessionReadResult.Invalid(ExecutionError.InvalidArgument(
+                    $"Daemon session JSON is invalid: {sessionPath}. {exception.Message}"),
+                invalidEvidence: null,
+                artifactIdentity);
         }
         catch (Exception exception)
         {
             return DaemonSessionReadResult.Failure(ExecutionError.InternalError(
                 $"Failed to deserialize daemon session JSON: {sessionPath}. {exception.Message}"),
                 DaemonSessionReadFailureKind.InternalFailure,
-                session: null,
-                artifactIdentity: artifactIdentity);
+                artifactIdentity);
         }
 
-        if (!sessionValidator.TryValidate(session, sessionPath, out var validationError))
+        if (!DaemonSessionContractMapper.TryCreate(
+                contract,
+                projectFingerprint,
+                sessionPath,
+                out var session,
+                out var validationError))
         {
-            return DaemonSessionReadResult.Failure(
+            return DaemonSessionReadResult.Invalid(
                 validationError!,
-                DaemonSessionReadFailureKind.InvalidSession,
-                session,
+                new DaemonInvalidSessionEvidence(contract),
                 artifactIdentity);
         }
 
-        if (!string.Equals(session.ProjectFingerprint, projectFingerprint, StringComparison.Ordinal))
-        {
-            return DaemonSessionReadResult.Failure(ExecutionError.InvalidArgument(
-                $"Daemon session projectFingerprint mismatch. Requested={projectFingerprint}, Actual={session.ProjectFingerprint}. {sessionPath}"),
-                DaemonSessionReadFailureKind.InvalidSession,
-                session,
-                artifactIdentity);
-        }
-
-        return new DaemonSessionReadResult(
-            session,
-            Error: null,
-            FailureKind: DaemonSessionReadFailureKind.None,
-            artifactIdentity);
+        return DaemonSessionReadResult.Found(session, artifactIdentity);
     }
 
     /// <summary> Writes daemon session metadata to local storage. </summary>
@@ -165,15 +133,12 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
                 $"Daemon session path is invalid. {exception.Message}"));
         }
 
-        if (!sessionValidator.TryValidate(session, sessionPath, out var validationError))
-        {
-            return DaemonSessionStoreOperationResult.Failure(validationError!);
-        }
-
         string json;
         try
         {
-            json = sessionSerializer.Serialize(session) + Environment.NewLine;
+            json = DaemonSessionJsonContractSerializer.Serialize(
+                    DaemonSessionContractMapper.ToContract(session))
+                + Environment.NewLine;
         }
         catch (Exception exception)
         {

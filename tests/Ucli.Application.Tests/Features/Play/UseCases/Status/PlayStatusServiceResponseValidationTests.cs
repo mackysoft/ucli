@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Play.UseCases.Status;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -12,7 +11,7 @@ public sealed class PlayStatusServiceResponseValidationTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenResponseProjectFingerprintDiffers_ReturnsMismatchFailure ()
     {
-        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(CreatePlaySession()));
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(CreatePlaySession()));
         var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(CreateStatusResponse(
             projectFingerprint: "other-project-fingerprint"))));
         var service = CreateService(PlayProjectContext, sessionStore, requestExecutor);
@@ -31,7 +30,7 @@ public sealed class PlayStatusServiceResponseValidationTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenPlayModeSnapshotIsInvalid_ReturnsStateUnknown ()
     {
-        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(CreatePlaySession()));
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(CreatePlaySession()));
         var statusResponse = CreateStatusResponse(playMode: new IpcPlayModeSnapshot(
             State: "invalid",
             Transition: "none",

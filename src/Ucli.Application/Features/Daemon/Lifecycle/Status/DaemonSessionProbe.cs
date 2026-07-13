@@ -87,10 +87,7 @@ internal sealed class DaemonSessionProbe
             }
 
             if (!refreshedReadResult.Exists
-                || string.Equals(
-                    refreshedReadResult.Session!.SessionToken,
-                    observedSession.SessionToken,
-                    StringComparison.Ordinal))
+                || refreshedReadResult.Session!.SessionToken == observedSession.SessionToken)
             {
                 return DaemonSessionProbeResult.ProbeFailed(observedSession, exception);
             }

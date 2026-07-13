@@ -54,11 +54,10 @@ internal static class SupervisorRequestDispatcherTestSupport
         return new SupervisorRuntimeContext(
             StorageRoot: ResolvedUnityProjectContextTestFactory.RepositoryRoot,
             Manifest: new SupervisorInstanceManifest(
-                ProcessId: 1234,
-                SessionToken: "supervisor-session-token",
-                EndpointTransportKind: "unixDomainSocket",
-                EndpointAddress: "/tmp/ucli-supervisor-test.sock",
-                IssuedAtUtc: new DateTimeOffset(2026, 03, 11, 0, 0, 0, TimeSpan.Zero)));
+                processId: 1234,
+                sessionToken: IpcSessionTokenTestFactory.CreateFromDiscriminator(1),
+                endpoint: new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-supervisor-test.sock"),
+                issuedAtUtc: new DateTimeOffset(2026, 03, 11, 0, 0, 0, TimeSpan.Zero)));
     }
 
     public static DaemonStartupObservation CreateStartupObservation ()

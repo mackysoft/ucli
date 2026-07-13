@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using static MackySoft.Ucli.Application.Tests.Daemon.DaemonStartOperationTestSupport;
 
@@ -11,7 +10,7 @@ public sealed class DaemonStartOperationExistingSessionTests
     public async Task Start_WhenExistingSessionGateServiceReturnsAlreadyRunning_ReturnsWithoutLaunch ()
     {
         var existingSession = DaemonSessionTestFactory.Create(processId: 2020);
-        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(existingSession));
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(existingSession));
         var cleanupService = new RecordingDaemonSessionCleanupService();
         var existingSessionGateService = new RecordingDaemonExistingSessionGateService
         {
@@ -46,7 +45,7 @@ public sealed class DaemonStartOperationExistingSessionTests
     public async Task Start_WhenExistingSessionGateServiceReturnsAlreadyRunning_DoesNotProbeGuiEditor ()
     {
         var existingSession = DaemonSessionTestFactory.Create(processId: 2022);
-        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(existingSession));
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(existingSession));
         var existingSessionGateService = new RecordingDaemonExistingSessionGateService
         {
             NextResult = DaemonStartResult.AlreadyRunning(existingSession),
@@ -83,7 +82,7 @@ public sealed class DaemonStartOperationExistingSessionTests
     public async Task Start_WhenExistingSessionExists_PropagatesRequestedEditorModeToGate ()
     {
         var existingSession = DaemonSessionTestFactory.Create(processId: 2021);
-        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(existingSession));
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(existingSession));
         var existingSessionGateService = new RecordingDaemonExistingSessionGateService
         {
             NextResult = DaemonStartResult.AlreadyRunning(existingSession),
@@ -116,7 +115,7 @@ public sealed class DaemonStartOperationExistingSessionTests
     {
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-start-stale-cleaned");
         var existingSession = DaemonSessionTestFactory.Create(processId: 4242, projectFingerprint: context.ProjectFingerprint);
-        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(existingSession));
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(existingSession));
         var cleanupService = new RecordingDaemonSessionCleanupService();
         var existingSessionGateService = new RecordingDaemonExistingSessionGateService
         {
@@ -162,7 +161,7 @@ public sealed class DaemonStartOperationExistingSessionTests
             editorMode: "gui",
             ownerKind: "user",
             canShutdownProcess: false);
-        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(existingSession));
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(existingSession));
         var existingSessionGateService = new RecordingDaemonExistingSessionGateService
         {
             NextResult = null,
@@ -205,7 +204,7 @@ public sealed class DaemonStartOperationExistingSessionTests
     {
         var existingSession = DaemonSessionTestFactory.Create(processId: 8080);
         var expectedError = ExecutionError.InternalError("probe failed");
-        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(existingSession));
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(existingSession));
         var cleanupService = new RecordingDaemonSessionCleanupService();
         var existingSessionGateService = new RecordingDaemonExistingSessionGateService
         {

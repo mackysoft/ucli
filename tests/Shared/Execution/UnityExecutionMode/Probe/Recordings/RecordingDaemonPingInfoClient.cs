@@ -87,7 +87,7 @@ internal sealed class RecordingDaemonPingInfoClient : IDaemonPingInfoClient
             return PingAndReadHandler(
                 unityProject,
                 timeout,
-                session?.SessionToken,
+                session?.SessionToken.GetEncodedValue(),
                 validateProjectFingerprint,
                 cancellationToken);
         }
@@ -113,6 +113,6 @@ internal sealed class RecordingDaemonPingInfoClient : IDaemonPingInfoClient
         bool ValidateProjectFingerprint,
         CancellationToken CancellationToken)
     {
-        public string? SessionToken => Session?.SessionToken;
+        public string? SessionToken => Session?.SessionToken.GetEncodedValue();
     }
 }

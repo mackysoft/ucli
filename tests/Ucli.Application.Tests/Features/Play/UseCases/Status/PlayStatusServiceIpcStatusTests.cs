@@ -1,5 +1,4 @@
 using System.Globalization;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Play.UseCases.Status;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
@@ -16,7 +15,7 @@ public sealed class PlayStatusServiceIpcStatusTests
     public async Task Execute_WhenGuiSessionAndIpcSucceeds_ReturnsFlatStatusProjection ()
     {
         var context = PlayProjectContext;
-        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(CreatePlaySession()));
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(CreatePlaySession()));
         var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(CreateStatusResponse())));
         var service = CreateService(context, sessionStore, requestExecutor);
 
@@ -61,7 +60,7 @@ public sealed class PlayStatusServiceIpcStatusTests
             IsPlaying: true,
             IsPlayingOrWillChangePlaymode: true,
             Generation: "9");
-        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(CreatePlaySession()));
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(CreatePlaySession()));
         var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(CreateStatusResponse(playMode: playMode))));
         var service = CreateService(PlayProjectContext, sessionStore, requestExecutor);
 
@@ -80,7 +79,7 @@ public sealed class PlayStatusServiceIpcStatusTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenIpcExecutionTimesOut_ReturnsTimeoutError ()
     {
-        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(CreatePlaySession()));
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(CreatePlaySession()));
         var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Failure(new UnityRequestFailure(
             UnityRequestFailureKind.General,
             ExecutionErrorCodes.IpcTimeout,
@@ -99,7 +98,7 @@ public sealed class PlayStatusServiceIpcStatusTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenIpcExecutionFailsWithoutTimeout_PreservesFailureCodeAndMessage ()
     {
-        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(CreatePlaySession()));
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(CreatePlaySession()));
         var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Failure(new UnityRequestFailure(
             UnityRequestFailureKind.General,
             UnityExecutionModeDecisionErrorCodes.DaemonNotRunning,
@@ -119,7 +118,7 @@ public sealed class PlayStatusServiceIpcStatusTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenIpcErrorResponseIsReturned_PreservesErrorCode ()
     {
-        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(CreatePlaySession()));
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(CreatePlaySession()));
         var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateErrorResponse(
             UcliCoreErrorCodes.InvalidArgument,
             "PlayStatus payload is invalid.")));

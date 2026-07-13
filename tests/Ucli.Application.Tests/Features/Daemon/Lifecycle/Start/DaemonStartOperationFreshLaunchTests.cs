@@ -12,10 +12,8 @@ public sealed class DaemonStartOperationFreshLaunchTests
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-start-gui-attach");
         var guiSession = DaemonSessionTestFactory.Create(
             processId: 6060,
-            projectFingerprint: context.ProjectFingerprint) with
-        {
-            EditorMode = "gui",
-        };
+            projectFingerprint: context.ProjectFingerprint,
+            editorMode: "gui");
         var guiAttachService = new RecordingDaemonGuiEditorAttachService
         {
             NextResult = DaemonStartResult.Attached(guiSession),
@@ -25,7 +23,7 @@ public sealed class DaemonStartOperationFreshLaunchTests
             NextResult = DaemonStartResult.Started(DaemonSessionTestFactory.Create(processId: 7070, projectFingerprint: context.ProjectFingerprint)),
         };
         var operation = CreateOperation(
-            daemonSessionStore: new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(null)),
+            daemonSessionStore: new RecordingDaemonSessionStore(DaemonSessionReadResult.Missing()),
             daemonSessionCleanupService: new RecordingDaemonSessionCleanupService(),
             daemonExistingSessionGateService: new RecordingDaemonExistingSessionGateService(),
             daemonLaunchService: launchService,
@@ -58,7 +56,7 @@ public sealed class DaemonStartOperationFreshLaunchTests
             NextResult = DaemonStartResult.Started(DaemonSessionTestFactory.Create(processId: 8081, projectFingerprint: context.ProjectFingerprint)),
         };
         var operation = CreateOperation(
-            daemonSessionStore: new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(null)),
+            daemonSessionStore: new RecordingDaemonSessionStore(DaemonSessionReadResult.Missing()),
             daemonSessionCleanupService: new RecordingDaemonSessionCleanupService(),
             daemonExistingSessionGateService: new RecordingDaemonExistingSessionGateService(),
             daemonLaunchService: launchService,
@@ -86,7 +84,7 @@ public sealed class DaemonStartOperationFreshLaunchTests
     [Trait("Size", "Small")]
     public async Task Start_WhenSessionDoesNotExist_StartsFreshDaemonWithDefaultBatchmode ()
     {
-        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(null));
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Missing());
         var cleanupService = new RecordingDaemonSessionCleanupService();
         var existingSessionGateService = new RecordingDaemonExistingSessionGateService();
         var launchService = new RecordingDaemonLaunchService
@@ -119,7 +117,7 @@ public sealed class DaemonStartOperationFreshLaunchTests
     {
         var launchService = new RecordingDaemonLaunchService();
         var operation = CreateOperation(
-            daemonSessionStore: new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(null)),
+            daemonSessionStore: new RecordingDaemonSessionStore(DaemonSessionReadResult.Missing()),
             daemonSessionCleanupService: new RecordingDaemonSessionCleanupService(),
             daemonExistingSessionGateService: new RecordingDaemonExistingSessionGateService(),
             daemonLaunchService: launchService);

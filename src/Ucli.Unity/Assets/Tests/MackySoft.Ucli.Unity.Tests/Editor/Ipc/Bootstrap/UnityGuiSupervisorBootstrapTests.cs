@@ -5,6 +5,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Ipc.Authorization;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Ipc;
@@ -257,13 +259,41 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(updateLoop.SubscribeCount, Is.EqualTo(0));
         }
 
+        [Test]
+        [Category("Size.Small")]
+        public void StartingGeneration_WhenManifestTokenDoesNotMatchIdentity_RejectsManifest ()
+        {
+            var sessionToken = IpcSessionToken.CreateRandom();
+            var state = new UnityGuiSupervisorBootstrap.StartingGuiSupervisorState(
+                NoOpDaemonLogger.Instance);
+            try
+            {
+                state.AttachIdentity("storage-root", "project-fingerprint", sessionToken);
+                var foreignManifest = new GuiSupervisorManifestJsonContract(
+                    SchemaVersion: GuiSupervisorManifestJsonContract.CurrentSchemaVersion,
+                    SessionToken: IpcSessionToken.CreateRandom().GetEncodedValue(),
+                    ProjectFingerprint: "project-fingerprint",
+                    EndpointTransportKind: "namedPipe",
+                    EndpointAddress: "ucli-supervisor-foreign-manifest",
+                    ProcessId: 1,
+                    ProcessStartedAtUtc: null,
+                    IssuedAtUtc: DateTimeOffset.UtcNow);
+
+                Assert.Throws<InvalidOperationException>(() => state.ValidateManifest(foreignManifest));
+            }
+            finally
+            {
+                state.DisposeCancellationSource();
+            }
+        }
+
         [UnityTest]
         [Category("Size.Small")]
         public IEnumerator StartingGeneration_WhenEditorLifecycleReleases_CancelsAndReleasesOwnedResourcesOnce () => UniTask.ToCoroutine(async () =>
         {
             var storageRoot = CreateStorageRoot();
             const string ProjectFingerprint = "fingerprint-supervisor-starting";
-            const string SessionToken = "session-token-supervisor-starting";
+            var sessionToken = IpcSessionToken.CreateRandom();
             try
             {
                 using var publicationLease = await UnityGuiSupervisorPersistence.AcquirePublicationLeaseAsync(
@@ -272,7 +302,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     CancellationToken.None);
                 var publicationTask = publicationLease.PublishAsync(
                         new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-supervisor-starting-lifecycle"),
-                        SessionToken,
+                        sessionToken,
                         DateTimeOffset.UtcNow,
                         CancellationToken.None)
                     .AsTask();
@@ -281,11 +311,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 var serviceProvider = new SpyServiceProvider();
                 var state = new UnityGuiSupervisorBootstrap.StartingGuiSupervisorState(
                     NoOpDaemonLogger.Instance);
-                state.AttachIdentity(storageRoot, ProjectFingerprint, SessionToken);
+                state.AttachIdentity(storageRoot, ProjectFingerprint, sessionToken);
                 state.AttachResources(server, serviceProvider);
                 state.AttachPublicationLease(publicationLease);
                 state.AttachManifestPublicationTask(publicationTask);
-                state.AttachManifest(manifest);
+                state.ValidateManifest(manifest);
 
                 Assert.That(state.TryClaimEditorLifecycleRelease(), Is.True);
                 UnityGuiSupervisorBootstrap.ReleaseStartingStateForEditorLifecycleEvent(state);
@@ -314,7 +344,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var storageRoot = CreateStorageRoot();
             const string ProjectFingerprint = "fingerprint-supervisor-stop";
-            const string SessionToken = "session-token-supervisor-stop";
+            var sessionToken = IpcSessionToken.CreateRandom();
             try
             {
                 using var publicationLease = await UnityGuiSupervisorPersistence.AcquirePublicationLeaseAsync(
@@ -323,7 +353,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     CancellationToken.None);
                 var manifest = await publicationLease.PublishAsync(
                     new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-supervisor-duplicate-stop"),
-                    SessionToken,
+                    sessionToken,
                     DateTimeOffset.UtcNow,
                     CancellationToken.None);
                 publicationLease.Dispose();
@@ -332,7 +362,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var server = new SpyUnityIpcServer(stopCompletionSource.Task);
                 var serviceProvider = new SpyServiceProvider();
                 var state = new UnityGuiSupervisorBootstrap.ActiveGuiSupervisorState(
-                    manifest,
+                    sessionToken,
                     server,
                     serviceProvider,
                     NoOpDaemonLogger.Instance,

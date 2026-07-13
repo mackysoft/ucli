@@ -436,7 +436,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var previousGenerationPing = new IpcRequest(
                     protocolVersion: IpcProtocol.CurrentVersion,
                     requestId: Guid.NewGuid(),
-                    sessionToken: previousRegistration.SessionToken,
+                    sessionToken: previousRegistration.SessionToken.GetEncodedValue(),
                     method: ContractLiteralCodec.ToValue(UnityIpcMethod.Ping),
                     payload: IpcPayloadCodec.SerializeToElement(new IpcPingRequest("tests")),
                     responseMode: "single");
@@ -445,7 +445,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     previousGenerationPing,
                     CancellationToken.None);
                 var replacementTokenAccepted = await validator.ValidateAsync(
-                    replacementSession.Registration.SessionToken,
+                    replacementSession.Registration.SessionToken.GetEncodedValue(),
                     CancellationToken.None);
 
                 Assert.That(File.Exists(previousRegistration.SessionPath), Is.True);

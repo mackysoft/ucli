@@ -11,10 +11,8 @@ public sealed class DaemonLifecycleObservationMatcherTests
     {
         var session = DaemonSessionTestFactory.Create(
             editorMode: "gui",
-            processStartedAtUtc: DateTimeOffset.UnixEpoch.AddSeconds(10)) with
-        {
-            EditorInstanceId = "editor-instance-1",
-        };
+            processStartedAtUtc: DateTimeOffset.UnixEpoch.AddSeconds(10),
+            editorInstanceId: "editor-instance-1");
         var observation = CreateObservation(processStartedAtUtc: DateTimeOffset.UnixEpoch.AddSeconds(20)) with
         {
             EditorInstanceId = "editor-instance-1",
@@ -32,10 +30,8 @@ public sealed class DaemonLifecycleObservationMatcherTests
         var startedAtUtc = DateTimeOffset.UnixEpoch.AddSeconds(10);
         var session = DaemonSessionTestFactory.Create(
             editorMode: "gui",
-            processStartedAtUtc: startedAtUtc) with
-        {
-            EditorInstanceId = "editor-instance-1",
-        };
+            processStartedAtUtc: startedAtUtc,
+            editorInstanceId: "editor-instance-1");
         var observation = CreateObservation(processStartedAtUtc: startedAtUtc) with
         {
             EditorInstanceId = "editor-instance-2",
@@ -71,10 +67,8 @@ public sealed class DaemonLifecycleObservationMatcherTests
         var startedAtUtc = DateTimeOffset.UnixEpoch.AddSeconds(10);
         var session = DaemonSessionTestFactory.Create(
             editorMode: "gui",
-            processStartedAtUtc: startedAtUtc) with
-        {
-            EditorInstanceId = "editor-instance-1",
-        };
+            processStartedAtUtc: startedAtUtc,
+            editorInstanceId: "editor-instance-1");
         var observation = CreateObservation(processStartedAtUtc: startedAtUtc);
 
         var result = DaemonLifecycleObservationMatcher.MatchesSession(observation, session);
@@ -117,10 +111,8 @@ public sealed class DaemonLifecycleObservationMatcherTests
     {
         var session = DaemonSessionTestFactory.Create(
             editorMode: "gui",
-            processStartedAtUtc: DateTimeOffset.UnixEpoch.AddSeconds(10)) with
-        {
-            EditorInstanceId = "editor-instance-1",
-        };
+            processStartedAtUtc: DateTimeOffset.UnixEpoch.AddSeconds(10),
+            editorInstanceId: "editor-instance-1");
         var observation = CreateObservation(processStartedAtUtc: DateTimeOffset.UnixEpoch.AddSeconds(20)) with
         {
             EditorInstanceId = "editor-instance-1",

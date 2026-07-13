@@ -1,6 +1,5 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
@@ -23,7 +22,7 @@ public sealed class SupervisorProjectCoordinatorExitCleanupTests
         var diagnosisStore = new RecordingDaemonDiagnosisStore();
         var sessionStore = new RecordingDaemonSessionStore
         {
-            ReadResult = DaemonSessionReadResult.Success(session),
+            ReadResult = DaemonSessionReadResultTestFactory.Found(session),
         };
         var startOperation = new RecordingDaemonStartOperation
         {
@@ -73,7 +72,7 @@ public sealed class SupervisorProjectCoordinatorExitCleanupTests
         var session = CreateExitedProcessSession();
         var sessionStore = new RecordingDaemonSessionStore
         {
-            ReadResult = DaemonSessionReadResult.Success(session),
+            ReadResult = DaemonSessionReadResultTestFactory.Found(session),
         };
         var startOperation = new RecordingDaemonStartOperation
         {
@@ -126,7 +125,7 @@ public sealed class SupervisorProjectCoordinatorExitCleanupTests
         var session = CreateExitedProcessSession();
         var sessionStore = new RecordingDaemonSessionStore
         {
-            ReadResult = DaemonSessionReadResult.Success(session),
+            ReadResult = DaemonSessionReadResultTestFactory.Found(session),
             ReadException = new InvalidOperationException("session read failed"),
         };
         var startOperation = new RecordingDaemonStartOperation

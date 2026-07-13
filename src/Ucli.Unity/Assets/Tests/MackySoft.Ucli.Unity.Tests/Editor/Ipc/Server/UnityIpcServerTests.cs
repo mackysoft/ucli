@@ -30,6 +30,8 @@ namespace MackySoft.Ucli.Unity.Tests
     {
         private const int MaximumActiveConnections = 32;
 
+        private const string CanonicalSessionToken = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+
         private static readonly JsonSerializerOptions SerializerOptions = new JsonSerializerOptions
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -601,7 +603,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator Start_WhenTransportReportsShutdownCompletion_SignalsShutdown () => UniTask.ToCoroutine(async () =>
         {
-            var request = CreateShutdownRequest("valid-token", Guid.NewGuid());
+            var request = CreateShutdownRequest(CanonicalSessionToken, Guid.NewGuid());
             var response = new IpcResponse(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: request.RequestId,
@@ -907,7 +909,24 @@ namespace MackySoft.Ucli.Unity.Tests
                 new StubSessionTokenValidator(accepted: false),
                 new StubExecuteRequestDispatcher(),
                 new StubUnityTestRunService());
-            var request = CreatePingRequest(sessionToken: "invalid-token");
+            var request = CreatePingRequest(sessionToken: CanonicalSessionToken);
+
+            var response = await requestHandler.HandleAsync(request);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(response.Errors.Count, Is.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcSessionErrorCodes.SessionTokenInvalid));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator ProcessRequest_WhenPermitAllValidatorReceivesNonCanonicalToken_ReturnsSessionTokenInvalidError () => UniTask.ToCoroutine(async () =>
+        {
+            var requestHandler = CreateRequestHandler(
+                new PermitAllSessionTokenValidator(),
+                new StubExecuteRequestDispatcher(),
+                new StubUnityTestRunService());
+            var request = CreatePingRequest(sessionToken: "not-canonical");
 
             var response = await requestHandler.HandleAsync(request);
 
@@ -924,7 +943,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 new ThrowingSessionTokenValidator(new IOException("session file read failed")),
                 new StubExecuteRequestDispatcher(),
                 new StubUnityTestRunService());
-            var request = CreatePingRequest(sessionToken: "valid-token");
+            var request = CreatePingRequest(sessionToken: CanonicalSessionToken);
 
             var response = await requestHandler.HandleAsync(request);
 
@@ -941,7 +960,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 new StubSessionTokenValidator(accepted: true),
                 new StubExecuteRequestDispatcher(),
                 new StubUnityTestRunService());
-            var request = CreatePingRequest(sessionToken: "valid-token");
+            var request = CreatePingRequest(sessionToken: CanonicalSessionToken);
 
             var response = await requestHandler.HandleAsync(request);
 
@@ -983,7 +1002,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 dispatcher,
                 new StubUnityTestRunService());
             var requestId = Guid.NewGuid();
-            var request = CreateExecuteRequest(sessionToken: "valid-token", requestId);
+            var request = CreateExecuteRequest(sessionToken: CanonicalSessionToken, requestId);
 
             var response = await requestHandler.HandleAsync(request);
 
@@ -1001,7 +1020,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 new StubSessionTokenValidator(accepted: true),
                 new StubExecuteRequestDispatcher(),
                 new StubUnityTestRunService());
-            var request = CreateShutdownRequest(sessionToken: "valid-token", Guid.NewGuid());
+            var request = CreateShutdownRequest(sessionToken: CanonicalSessionToken, Guid.NewGuid());
 
             var response = await requestHandler.HandleAsync(request);
 
@@ -1020,7 +1039,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 new StubSessionTokenValidator(accepted: true),
                 new StubExecuteRequestDispatcher(),
                 testRunService);
-            var request = CreateTestRunRequest(sessionToken: "valid-token", Guid.NewGuid(), failFast: true);
+            var request = CreateTestRunRequest(sessionToken: CanonicalSessionToken, Guid.NewGuid(), failFast: true);
 
             var response = await requestHandler.HandleAsync(request);
 
@@ -1045,7 +1064,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 new StubSessionTokenValidator(accepted: true),
                 new StubExecuteRequestDispatcher(),
                 testRunService);
-            var request = CreateTestRunRequest(sessionToken: "valid-token", Guid.NewGuid());
+            var request = CreateTestRunRequest(sessionToken: CanonicalSessionToken, Guid.NewGuid());
 
             var response = await requestHandler.HandleAsync(request);
 
@@ -1068,7 +1087,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var request = new IpcRequest(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
-                sessionToken: "valid-token",
+                sessionToken: CanonicalSessionToken,
                 method: ContractLiteralCodec.ToValue(UnityIpcMethod.TestRun),
                 payload: invalidPayload,
                 responseMode: "single");
@@ -1088,7 +1107,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 new StubSessionTokenValidator(accepted: true),
                 new StubExecuteRequestDispatcher(),
                 new StubUnityTestRunService());
-            var request = CreateDaemonLogsReadRequest(sessionToken: "valid-token", Guid.NewGuid());
+            var request = CreateDaemonLogsReadRequest(sessionToken: CanonicalSessionToken, Guid.NewGuid());
 
             var response = await requestHandler.HandleAsync(request);
 
@@ -1108,7 +1127,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 new StubSessionTokenValidator(accepted: true),
                 new StubExecuteRequestDispatcher(),
                 new StubUnityTestRunService());
-            var request = CreateUnityLogsReadRequest(sessionToken: "valid-token", Guid.NewGuid());
+            var request = CreateUnityLogsReadRequest(sessionToken: CanonicalSessionToken, Guid.NewGuid());
 
             var response = await requestHandler.HandleAsync(request);
 
@@ -1129,7 +1148,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 new StubSessionTokenValidator(accepted: true),
                 new StubExecuteRequestDispatcher(),
                 new StubUnityTestRunService());
-            var request = CreateUnityConsoleClearRequest(sessionToken: "valid-token", Guid.NewGuid());
+            var request = CreateUnityConsoleClearRequest(sessionToken: CanonicalSessionToken, Guid.NewGuid());
 
             var response = await requestHandler.HandleAsync(request);
 
@@ -1585,7 +1604,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 CallCount++;
-                var request = CreateShutdownRequest("valid-token", Guid.NewGuid());
+                var request = CreateShutdownRequest(CanonicalSessionToken, Guid.NewGuid());
                 var response = new IpcResponse(
                     protocolVersion: IpcProtocol.CurrentVersion,
                     requestId: request.RequestId,

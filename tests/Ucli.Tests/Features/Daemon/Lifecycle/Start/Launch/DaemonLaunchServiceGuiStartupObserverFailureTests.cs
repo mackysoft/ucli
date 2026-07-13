@@ -77,11 +77,9 @@ public sealed class DaemonLaunchServiceGuiStartupObserverFailureTests
             processId,
             sessionToken: LaunchSessionToken,
             projectFingerprint: context.ProjectFingerprint,
-            endpointAddress: LaunchEndpointAddress) with
-        {
-            EditorMode = ContractLiteralCodec.ToValue(DaemonEditorMode.Gui),
-            ProcessStartedAtUtc = processStartedAtUtc,
-        };
+            editorMode: ContractLiteralCodec.ToValue(DaemonEditorMode.Gui),
+            endpointAddress: LaunchEndpointAddress,
+            processStartedAtUtc: processStartedAtUtc);
         var guiLauncher = new RecordingUnityGuiEditorProcessLauncher
         {
             NextResult = UnityDaemonLaunchResult.Success(processId, processStartedAtUtc),

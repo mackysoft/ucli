@@ -29,7 +29,7 @@ public sealed class DaemonListQueryServiceTimeoutTests
                     new GitWorktreeInfo(currentProject.RepositoryRoot, "abcdef01", "refs/heads/main"),
                 ]))),
             RecordingUnityProjectResolver.FromContexts(currentProject),
-            new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(null))
+            new RecordingDaemonSessionStore(DaemonSessionReadResult.Missing())
             {
                 ReadAsyncHandler = async (_, _, cancellationToken) =>
                 {
@@ -74,7 +74,7 @@ public sealed class DaemonListQueryServiceTimeoutTests
                     new GitWorktreeInfo(currentProject.RepositoryRoot, "abcdef01", "refs/heads/main"),
                 ]))),
             RecordingUnityProjectResolver.FromContexts(currentProject),
-            new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(null))
+            new RecordingDaemonSessionStore(DaemonSessionReadResult.Missing())
             {
                 ReadAsyncHandler = (_, _, _) =>
                 {
@@ -109,7 +109,7 @@ public sealed class DaemonListQueryServiceTimeoutTests
         }
         finally
         {
-            sessionReadCompletion.TrySetResult(DaemonSessionReadResult.Success(null));
+            sessionReadCompletion.TrySetResult(DaemonSessionReadResult.Missing());
         }
     }
 
@@ -130,7 +130,7 @@ public sealed class DaemonListQueryServiceTimeoutTests
                     new GitWorktreeInfo(currentProject.RepositoryRoot, "abcdef01", "refs/heads/main"),
                 ]))),
             RecordingUnityProjectResolver.FromContexts(currentProject),
-            new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(null))
+            new RecordingDaemonSessionStore(DaemonSessionReadResult.Missing())
             {
                 ReadAsyncHandler = async (_, _, cancellationToken) =>
                 {
@@ -175,7 +175,7 @@ public sealed class DaemonListQueryServiceTimeoutTests
         var probeStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var service = CreateSingleWorktreeService(
             currentProject,
-            DaemonSessionReadResult.Success(session),
+            DaemonSessionReadResultTestFactory.Found(session),
             new RecordingDaemonDiagnosisStore(),
             CreatePingClient(async (_, _, _, _, cancellationToken) =>
             {
@@ -214,7 +214,7 @@ public sealed class DaemonListQueryServiceTimeoutTests
         using var cancellationTokenSource = new CancellationTokenSource();
         var service = CreateSingleWorktreeService(
             currentProject,
-            DaemonSessionReadResult.Success(session),
+            DaemonSessionReadResultTestFactory.Found(session),
             new RecordingDaemonDiagnosisStore(),
             CreatePingClient(async (_, _, _, _, cancellationToken) =>
             {
@@ -260,15 +260,15 @@ public sealed class DaemonListQueryServiceTimeoutTests
                 new GitWorktreeInfo("/repo/wt-b", "bbbbbbbb", "refs/heads/b"),
             ])));
         var unityProjectResolver = RecordingUnityProjectResolver.FromContexts(worktreeA, worktreeB);
-        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(null))
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Missing())
         {
             ReadAsyncHandler = (_, projectFingerprint, _) => ValueTask.FromResult(projectFingerprint switch
             {
-                "fp-a" => DaemonSessionReadResult.Success(DaemonSessionTestFactory.Create(
+                "fp-a" => DaemonSessionReadResultTestFactory.Found(DaemonSessionTestFactory.Create(
                     projectFingerprint: "fp-a",
                     endpointAddress: "endpoint-a",
                     processId: 2401)),
-                "fp-b" => DaemonSessionReadResult.Success(DaemonSessionTestFactory.Create(
+                "fp-b" => DaemonSessionReadResultTestFactory.Found(DaemonSessionTestFactory.Create(
                     projectFingerprint: "fp-b",
                     endpointAddress: "endpoint-b",
                     processId: 2402)),
@@ -320,7 +320,7 @@ public sealed class DaemonListQueryServiceTimeoutTests
         var lifecycleStore = new BlockingDaemonLifecycleStore();
         var service = CreateSingleWorktreeService(
             currentProject,
-            DaemonSessionReadResult.Success(session),
+            DaemonSessionReadResultTestFactory.Found(session),
             new RecordingDaemonDiagnosisStore(),
             CreateThrowingPingClient(new SocketException((int)SocketError.ConnectionRefused)),
             new StubDaemonReachabilityClassifier(static _ => true),
@@ -349,7 +349,7 @@ public sealed class DaemonListQueryServiceTimeoutTests
         var diagnosisStore = new BlockingDaemonDiagnosisStore();
         var service = CreateSingleWorktreeService(
             currentProject,
-            DaemonSessionReadResult.Success(session),
+            DaemonSessionReadResultTestFactory.Found(session),
             diagnosisStore,
             CreateThrowingPingClient(new SocketException((int)SocketError.ConnectionRefused)),
             new StubDaemonReachabilityClassifier(static _ => true),
@@ -386,7 +386,7 @@ public sealed class DaemonListQueryServiceTimeoutTests
         };
         var service = CreateSingleWorktreeService(
             currentProject,
-            DaemonSessionReadResult.Success(session),
+            DaemonSessionReadResultTestFactory.Found(session),
             new RecordingDaemonDiagnosisStore(),
             CreateThrowingPingClient(new SocketException((int)SocketError.ConnectionRefused)),
             new StubDaemonReachabilityClassifier(static _ => true),
@@ -425,7 +425,7 @@ public sealed class DaemonListQueryServiceTimeoutTests
         using var cancellationTokenSource = new CancellationTokenSource();
         var service = CreateSingleWorktreeService(
             currentProject,
-            DaemonSessionReadResult.Success(session),
+            DaemonSessionReadResultTestFactory.Found(session),
             new RecordingDaemonDiagnosisStore(),
             CreateThrowingPingClient(new SocketException((int)SocketError.ConnectionRefused)),
             new StubDaemonReachabilityClassifier(static _ => true),

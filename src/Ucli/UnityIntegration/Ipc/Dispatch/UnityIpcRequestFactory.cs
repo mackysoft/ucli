@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
@@ -15,13 +16,13 @@ internal static class UnityIpcRequestFactory
     /// <param name="responseMode"> The response framing mode requested by the caller. </param>
     /// <returns> The created request envelope. </returns>
     public static IpcRequest Create (
-        string sessionToken,
+        IpcSessionToken sessionToken,
         UnityIpcMethod method,
         JsonElement payload,
         Guid requestId,
         IpcResponseMode responseMode)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(sessionToken);
+        ArgumentNullException.ThrowIfNull(sessionToken);
         if (!ContractLiteralCodec.IsDefined(method))
         {
             throw new ArgumentOutOfRangeException(nameof(method), method, "Unity IPC method must be defined.");
@@ -35,7 +36,7 @@ internal static class UnityIpcRequestFactory
         return new IpcRequest(
             protocolVersion: IpcProtocol.CurrentVersion,
             requestId: requestId,
-            sessionToken: sessionToken,
+            sessionToken: sessionToken.GetEncodedValue(),
             method: ContractLiteralCodec.ToValue(method),
             payload: payload,
             responseMode: ContractLiteralCodec.ToValue(responseMode));

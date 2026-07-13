@@ -50,7 +50,7 @@ internal static class IpcDaemonPingClientTestSupport
     private static DaemonSessionConnectionResolutionResult CreateConnectionResult (string sessionToken)
     {
         return DaemonSessionConnectionResolutionResult.Success(new DaemonSessionConnection(
-            sessionToken,
+            IpcSessionTokenTestFactory.Create(sessionToken),
             new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-session.sock")));
     }
 }

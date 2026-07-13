@@ -1,4 +1,5 @@
 using System.Runtime.Versioning;
+using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
@@ -77,11 +78,7 @@ public sealed class SupervisorManifestStoreTests
         using var scope = TestDirectories.CreateTempScope("supervisor-manifest-store", "roundtrip");
         var store = SupervisorManifestStoreTestSupport.CreateFileBacked(TimeProvider.System);
         var endpoint = new SupervisorEndpointResolver().ResolveCanonicalEndpoint(scope.FullPath);
-        var manifest = CreateManifest() with
-        {
-            EndpointTransportKind = ContractLiteralCodec.ToValue(endpoint.TransportKind),
-            EndpointAddress = endpoint.Address,
-        };
+        var manifest = CreateManifest(endpoint: endpoint);
 
         await store.WriteAsync(scope.FullPath, manifest, CancellationToken.None);
 
@@ -90,8 +87,7 @@ public sealed class SupervisorManifestStoreTests
         Assert.NotNull(loadedManifest);
         Assert.Equal(manifest.ProcessId, loadedManifest.ProcessId);
         Assert.Equal(manifest.SessionToken, loadedManifest.SessionToken);
-        Assert.Equal(manifest.EndpointTransportKind, loadedManifest.EndpointTransportKind);
-        Assert.Equal(manifest.EndpointAddress, loadedManifest.EndpointAddress);
+        Assert.Equal(manifest.Endpoint, loadedManifest.Endpoint);
         Assert.Equal(manifest.IssuedAtUtc, loadedManifest.IssuedAtUtc);
 
         var cleanupStatus = await store.CleanupRuntimeIfManifestMatchesAsync(
@@ -104,6 +100,34 @@ public sealed class SupervisorManifestStoreTests
         var readAfterDelete = await store.ReadOrNullAsync(scope.FullPath, CancellationToken.None);
         Assert.Equal(SupervisorManifestCleanupStatus.Removed, cleanupStatus);
         Assert.Null(readAfterDelete);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Read_WhenSessionTokenIsNotCanonical_RejectsManifest ()
+    {
+        using var scope = TestDirectories.CreateTempScope(
+            "supervisor-manifest-store",
+            "noncanonical-session-token");
+        var store = SupervisorManifestStoreTestSupport.CreateFileBacked(TimeProvider.System);
+        var manifest = CreateManifest();
+        var contract = new SupervisorInstanceManifestJsonContract(
+            manifest.ProcessId,
+            "legacy-token",
+            ContractLiteralCodec.ToValue(manifest.Endpoint.TransportKind),
+            manifest.Endpoint.Address,
+            manifest.IssuedAtUtc);
+        var manifestPath = UcliStoragePathResolver.ResolveSupervisorManifestPath(scope.FullPath);
+        Directory.CreateDirectory(Path.GetDirectoryName(manifestPath)!);
+        await File.WriteAllTextAsync(
+            manifestPath,
+            JsonSerializer.Serialize(contract),
+            CancellationToken.None);
+
+        var exception = await Assert.ThrowsAsync<SupervisorManifestFormatException>(
+            () => store.ReadOrNullAsync(scope.FullPath, CancellationToken.None).AsTask());
+
+        Assert.IsType<InvalidDataException>(exception.InnerException);
     }
 
     [Fact]
@@ -132,11 +156,7 @@ public sealed class SupervisorManifestStoreTests
         endpointOwnership.PublishBoundEndpoint();
         var generationDirectoryPath = Path.GetDirectoryName(endpointOwnership.BoundAddress)!;
         var canonicalDirectoryPath = Path.GetDirectoryName(endpoint.Address)!;
-        var manifest = CreateManifest() with
-        {
-            EndpointTransportKind = ContractLiteralCodec.ToValue(endpoint.TransportKind),
-            EndpointAddress = endpoint.Address,
-        };
+        var manifest = CreateManifest(endpoint: endpoint);
         await store.WriteAsync(scope.FullPath, manifest, CancellationToken.None);
 
         var cleanupStatus = await store.CleanupRuntimeIfManifestMatchesAsync(
@@ -167,13 +187,10 @@ public sealed class SupervisorManifestStoreTests
         var formatException = await Assert.ThrowsAsync<SupervisorManifestFormatException>(
             () => store.ReadOrNullAsync(scope.FullPath, CancellationToken.None).AsTask());
         var originalManifest = CreateManifest();
-        var successorManifest = originalManifest with
-        {
-            SessionToken = "successor-token",
-            EndpointTransportKind = ContractLiteralCodec.ToValue(endpoint.TransportKind),
-            EndpointAddress = endpoint.Address,
-            IssuedAtUtc = originalManifest.IssuedAtUtc.AddSeconds(1),
-        };
+        var successorManifest = CreateManifest(
+            sessionTokenDiscriminator: 2,
+            endpoint: endpoint,
+            issuedAtUtc: originalManifest.IssuedAtUtc.AddSeconds(1));
         await store.WriteAsync(scope.FullPath, successorManifest, CancellationToken.None);
         if (endpoint.TransportKind == IpcTransportKind.UnixDomainSocket)
         {
@@ -205,17 +222,11 @@ public sealed class SupervisorManifestStoreTests
         using var scope = TestDirectories.CreateTempScope("supervisor-manifest-store", "endpoint-publication-race");
         var store = SupervisorManifestStoreTestSupport.CreateFileBacked(TimeProvider.System);
         var endpoint = new SupervisorEndpointResolver().ResolveCanonicalEndpoint(scope.FullPath);
-        var firstManifest = CreateManifest() with
-        {
-            SessionToken = "first-token",
-            EndpointTransportKind = ContractLiteralCodec.ToValue(endpoint.TransportKind),
-            EndpointAddress = endpoint.Address,
-        };
-        var successorManifest = firstManifest with
-        {
-            SessionToken = "successor-token",
-            IssuedAtUtc = firstManifest.IssuedAtUtc.AddSeconds(1),
-        };
+        var firstManifest = CreateManifest(endpoint: endpoint);
+        var successorManifest = CreateManifest(
+            sessionTokenDiscriminator: 2,
+            endpoint: firstManifest.Endpoint,
+            issuedAtUtc: firstManifest.IssuedAtUtc.AddSeconds(1));
         await store.WriteAsync(scope.FullPath, firstManifest, CancellationToken.None);
         using var publicationLease = await store.AcquireEndpointPublicationLeaseAsync(
             scope.FullPath,
@@ -259,11 +270,9 @@ public sealed class SupervisorManifestStoreTests
             "consistent-successor-read");
         var store = SupervisorManifestStoreTestSupport.CreateFileBacked(new ManualTimeProvider());
         var initialManifest = CreateManifest();
-        var successorManifest = initialManifest with
-        {
-            SessionToken = "successor-token",
-            IssuedAtUtc = initialManifest.IssuedAtUtc.AddSeconds(1),
-        };
+        var successorManifest = CreateManifest(
+            sessionTokenDiscriminator: 2,
+            issuedAtUtc: initialManifest.IssuedAtUtc.AddSeconds(1));
         await store.WriteAsync(scope.FullPath, initialManifest, CancellationToken.None);
         using var publicationLease = await store.AcquireEndpointPublicationLeaseAsync(
             scope.FullPath,
@@ -292,15 +301,10 @@ public sealed class SupervisorManifestStoreTests
             "supervisor-manifest-store",
             "publication-write-rollback");
         var fileBackedStore = SupervisorManifestStoreTestSupport.CreateFileBacked(TimeProvider.System);
-        var replacedManifest = CreateManifest() with
-        {
-            SessionToken = "replaced-token",
-        };
-        var successorManifest = replacedManifest with
-        {
-            SessionToken = "successor-token",
-            IssuedAtUtc = replacedManifest.IssuedAtUtc.AddSeconds(1),
-        };
+        var replacedManifest = CreateManifest();
+        var successorManifest = CreateManifest(
+            sessionTokenDiscriminator: 2,
+            issuedAtUtc: replacedManifest.IssuedAtUtc.AddSeconds(1));
         await fileBackedStore.WriteAsync(scope.FullPath, replacedManifest, CancellationToken.None);
         var manifestPath = UcliStoragePathResolver.ResolveSupervisorManifestPath(scope.FullPath);
         var replacedManifestJson = await File.ReadAllTextAsync(manifestPath, CancellationToken.None);
@@ -387,13 +391,15 @@ public sealed class SupervisorManifestStoreTests
         WindowsAccessBoundaryAssert.FileIsCurrentUserOnly(manifestPath);
     }
 
-    private static SupervisorInstanceManifest CreateManifest ()
+    private static SupervisorInstanceManifest CreateManifest (
+        byte sessionTokenDiscriminator = 1,
+        IpcEndpoint? endpoint = null,
+        DateTimeOffset? issuedAtUtc = null)
     {
         return new SupervisorInstanceManifest(
-            ProcessId: 2468,
-            SessionToken: "supervisor-session-token",
-            EndpointTransportKind: "unixDomainSocket",
-            EndpointAddress: "/tmp/ucli-supervisor-test/ipc.sock",
-            IssuedAtUtc: new DateTimeOffset(2026, 03, 14, 0, 0, 0, TimeSpan.Zero));
+            processId: 2468,
+            sessionToken: IpcSessionTokenTestFactory.CreateFromDiscriminator(sessionTokenDiscriminator),
+            endpoint: endpoint ?? new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-supervisor-test/ipc.sock"),
+            issuedAtUtc: issuedAtUtc ?? new DateTimeOffset(2026, 03, 14, 0, 0, 0, TimeSpan.Zero));
     }
 }

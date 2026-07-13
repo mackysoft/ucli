@@ -1,6 +1,7 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
 
 namespace MackySoft.Ucli.Tests.Daemon;
@@ -14,13 +15,14 @@ public sealed class DaemonSessionProcessIdValidationTests
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "invalid-process-id-read");
         var store = DaemonSessionStorageTestSupport.CreateStore();
         var projectFingerprint = "fingerprint-invalid-process-id-read";
+        var sessionToken = IpcSessionTokenTestFactory.Create("invalid-process-id-read").GetEncodedValue();
         await DaemonSessionStorageTestSupport.WriteJsonAsync(
             scope.FullPath,
             projectFingerprint,
             $$"""
             {
-              "schemaVersion": {{DaemonSession.CurrentSchemaVersion}},
-              "sessionToken": "token-1",
+              "schemaVersion": {{DaemonSessionStorageContract.CurrentSchemaVersion}},
+              "sessionToken": "{{sessionToken}}",
               "projectFingerprint": "{{projectFingerprint}}",
               "issuedAtUtc": "2026-01-01T00:00:00+00:00",
               "editorMode": "batchmode",
@@ -28,7 +30,8 @@ public sealed class DaemonSessionProcessIdValidationTests
               "canShutdownProcess": true,
               "endpointTransportKind": "namedPipe",
               "endpointAddress": "ucli-daemon-test",
-              "processId": 0
+              "processId": 0,
+              "ownerProcessId": 9876
             }
             """,
             CancellationToken.None);
@@ -50,13 +53,14 @@ public sealed class DaemonSessionProcessIdValidationTests
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "missing-process-started-at-read");
         var store = DaemonSessionStorageTestSupport.CreateStore();
         var projectFingerprint = "fingerprint-missing-process-started-at-read";
+        var sessionToken = IpcSessionTokenTestFactory.Create("missing-process-started-at-read").GetEncodedValue();
         await DaemonSessionStorageTestSupport.WriteJsonAsync(
             scope.FullPath,
             projectFingerprint,
             $$"""
             {
-              "schemaVersion": {{DaemonSession.CurrentSchemaVersion}},
-              "sessionToken": "token-1",
+              "schemaVersion": {{DaemonSessionStorageContract.CurrentSchemaVersion}},
+              "sessionToken": "{{sessionToken}}",
               "projectFingerprint": "{{projectFingerprint}}",
               "issuedAtUtc": "2026-01-01T00:00:00+00:00",
               "editorMode": "batchmode",
@@ -83,42 +87,30 @@ public sealed class DaemonSessionProcessIdValidationTests
     [Theory]
     [InlineData(0)]
     [InlineData(-1)]
-    [Trait("Size", "Medium")]
-    public async Task Write_WhenProcessIdIsNotPositive_ReturnsInvalidArgument (int processId)
+    [Trait("Size", "Small")]
+    public void Constructor_WhenProcessIdIsNotPositive_ThrowsArgumentOutOfRangeException (int processId)
     {
-        using var scope = TestDirectories.CreateTempScope("daemon-session-store", "invalid-process-id-write");
-        var store = DaemonSessionStorageTestSupport.CreateStore();
-        var session = DaemonSessionTestFactory.Create() with
-        {
-            ProjectFingerprint = "fingerprint-invalid-process-id-write",
-            ProcessId = processId,
-        };
-
-        var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);
-
-        Assert.False(writeResult.IsSuccess);
-        var error = Assert.IsType<ExecutionError>(writeResult.Error);
-        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Contains("processId", error.Message, StringComparison.Ordinal);
+        Assert.Throws<ArgumentOutOfRangeException>(() => DaemonSessionTestFactory.Create(
+            projectFingerprint: "fingerprint-invalid-process-id-write",
+            processId: processId));
     }
 
     [Fact]
-    [Trait("Size", "Medium")]
-    public async Task Write_WhenProcessStartedAtUtcIsMissingWithProcessId_ReturnsInvalidArgument ()
+    [Trait("Size", "Small")]
+    public void Constructor_WhenProcessStartedAtUtcIsMissingWithProcessId_ThrowsArgumentException ()
     {
-        using var scope = TestDirectories.CreateTempScope("daemon-session-store", "missing-process-started-at-write");
-        var store = DaemonSessionStorageTestSupport.CreateStore();
-        var session = DaemonSessionTestFactory.Create() with
-        {
-            ProjectFingerprint = "fingerprint-missing-process-started-at-write",
-            ProcessStartedAtUtc = null,
-        };
+        var validSession = DaemonSessionTestFactory.Create();
 
-        var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);
-
-        Assert.False(writeResult.IsSuccess);
-        var error = Assert.IsType<ExecutionError>(writeResult.Error);
-        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Contains("processStartedAtUtc", error.Message, StringComparison.Ordinal);
+        Assert.Throws<ArgumentException>(() => new DaemonSession(
+            validSession.SessionToken,
+            "fingerprint-missing-process-started-at-write",
+            validSession.IssuedAtUtc,
+            validSession.EditorMode,
+            validSession.OwnerKind,
+            validSession.CanShutdownProcess,
+            validSession.Endpoint,
+            processId: 1234,
+            processStartedAtUtc: null,
+            ownerProcessId: validSession.OwnerProcessId));
     }
 }

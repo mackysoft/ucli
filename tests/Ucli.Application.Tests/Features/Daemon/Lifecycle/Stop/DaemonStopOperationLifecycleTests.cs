@@ -20,7 +20,7 @@ public sealed class DaemonStopOperationLifecycleTests
         var lockProvider = new StubProjectLifecycleLockProvider();
         var operation = CreateOperation(
             lifecycleLockProvider: lockProvider,
-            sessionStore: new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(null)));
+            sessionStore: new RecordingDaemonSessionStore(DaemonSessionReadResult.Missing()));
 
         var result = await operation.StopAsync(context, DefaultTimeout, CancellationToken.None);
 
@@ -38,7 +38,7 @@ public sealed class DaemonStopOperationLifecycleTests
         };
         var operation = CreateOperation(
             lifecycleLockProvider: lockProvider,
-            sessionStore: new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(null)));
+            sessionStore: new RecordingDaemonSessionStore(DaemonSessionReadResult.Missing()));
 
         var result = await operation.StopAsync(
             ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-stop-lock-timeout"),

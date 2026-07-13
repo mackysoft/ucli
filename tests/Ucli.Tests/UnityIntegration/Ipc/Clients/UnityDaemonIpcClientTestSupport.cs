@@ -48,7 +48,7 @@ internal static class UnityDaemonIpcClientTestSupport
     public static DaemonSessionConnectionResolutionResult CreateConnectionResult (string sessionToken)
     {
         return DaemonSessionConnectionResolutionResult.Success(new DaemonSessionConnection(
-            sessionToken,
+            IpcSessionTokenTestFactory.Create(sessionToken),
             new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-session.sock")));
     }
 
@@ -57,7 +57,7 @@ internal static class UnityDaemonIpcClientTestSupport
         return new UnityDaemonRecoveryWaiter(
             new RecordingDaemonSessionStore
             {
-                ReadResult = DaemonSessionReadResult.Success(session),
+                ReadResult = DaemonSessionReadResultTestFactory.Found(session),
             },
             new RecordingDaemonLifecycleStore
             {
@@ -92,7 +92,7 @@ internal static class UnityDaemonIpcClientTestSupport
         return new DaemonLifecycleObservation(
             ProcessId: session.ProcessId!.Value,
             ProcessStartedAtUtc: session.ProcessStartedAtUtc!.Value,
-            EditorMode: session.EditorMode,
+            EditorMode: ContractLiteralCodec.ToValue(session.EditorMode),
             LifecycleState: IpcEditorLifecycleStateCodec.DomainReloading,
             BlockingReason: IpcEditorBlockingReasonCodec.DomainReload,
             CompileState: IpcCompileStateCodec.Ready,

@@ -99,10 +99,10 @@ public sealed class UnityDaemonRecoveryWaiterTests
     public async Task DelayIfRecoveringAsync_WhenEditorInstanceIdsAreMissing_ReturnsFalseWithoutDelay ()
     {
         var timeProvider = new ManualTimeProvider();
-        var session = DaemonSessionTestFactory.CreateEditorInstance() with
-        {
-            EditorInstanceId = null,
-        };
+        var session = DaemonSessionTestFactory.CreateUserOwned(
+            editorMode: "gui",
+            endpointAddress: "/tmp/ucli.sock",
+            editorInstanceId: null);
         var observation = CreateObservation(session, IpcEditorLifecycleStateCodec.DomainReloading);
         var waiter = CreateWaiter(
             session,
@@ -137,7 +137,7 @@ public sealed class UnityDaemonRecoveryWaiterTests
     public async Task DelayIfRecoveringAsync_WhenSessionIsBatchmode_ReturnsFalseWithoutDelay ()
     {
         var timeProvider = new ManualTimeProvider();
-        var session = DaemonSessionTestFactory.CreateEditorInstance(editorMode: "batchmode");
+        var session = DaemonSessionTestFactory.Create(editorMode: "batchmode");
         var waiter = CreateWaiter(
             session,
             CreateObservation(session, IpcEditorLifecycleStateCodec.DomainReloading),
@@ -163,7 +163,7 @@ public sealed class UnityDaemonRecoveryWaiterTests
         var session = DaemonSessionTestFactory.CreateEditorInstance();
         var sessionStore = new RecordingDaemonSessionStore
         {
-            ReadResult = DaemonSessionReadResult.Success(session),
+            ReadResult = DaemonSessionReadResultTestFactory.Found(session),
         };
         var lifecycleStore = new RecordingDaemonLifecycleStore
         {
@@ -234,7 +234,7 @@ public sealed class UnityDaemonRecoveryWaiterTests
         return new UnityDaemonRecoveryWaiter(
             new RecordingDaemonSessionStore
             {
-                ReadResult = DaemonSessionReadResult.Success(session),
+                ReadResult = DaemonSessionReadResultTestFactory.Found(session),
             },
             new RecordingDaemonLifecycleStore
             {
@@ -250,7 +250,7 @@ public sealed class UnityDaemonRecoveryWaiterTests
         return new DaemonLifecycleObservation(
             ProcessId: session.ProcessId!.Value,
             ProcessStartedAtUtc: session.ProcessStartedAtUtc!.Value,
-            EditorMode: session.EditorMode,
+            EditorMode: ContractLiteralCodec.ToValue(session.EditorMode),
             LifecycleState: lifecycleState,
             BlockingReason: IpcEditorBlockingReasonCodec.DomainReload,
             CompileState: IpcCompileStateCodec.Ready,

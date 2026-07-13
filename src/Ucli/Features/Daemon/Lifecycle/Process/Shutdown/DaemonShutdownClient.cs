@@ -4,7 +4,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Process.Shutdown;
@@ -43,21 +43,15 @@ internal sealed class DaemonShutdownClient : IDaemonShutdownClient
 
         try
         {
-            if (!DaemonSessionConnectionFactory.TryCreate(session, out var connection, out var connectionError))
-            {
-                return DaemonShutdownAttemptResult.Failure(connectionError!);
-            }
-
             var payload = IpcPayloadCodec.SerializeToElement(new IpcShutdownRequest("ucli-daemon-stop"));
-            var request = new IpcRequest(
-                protocolVersion: IpcProtocol.CurrentVersion,
-                requestId: Guid.NewGuid(),
-                sessionToken: connection.SessionToken,
-                method: ContractLiteralCodec.ToValue(UnityIpcMethod.Shutdown),
-                payload: payload,
-                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single));
+            var request = UnityIpcRequestFactory.Create(
+                session.SessionToken,
+                UnityIpcMethod.Shutdown,
+                payload,
+                Guid.NewGuid(),
+                IpcResponseMode.Single);
             var response = await transportClient.SendAsync(
-                    connection.Endpoint,
+                    session.Endpoint,
                     request,
                     timeout,
                     cancellationToken)

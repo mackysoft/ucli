@@ -113,8 +113,8 @@ public sealed class DaemonGuiEditorAttachServiceAttachTests
         Assert.True(result!.IsSuccess);
         Assert.Equal(DaemonStartStatus.Attached, result.Status);
         Assert.Equal(session, result.Session);
-        Assert.Equal("gui", result.Session!.EditorMode);
-        Assert.Equal("user", result.Session.OwnerKind);
+        Assert.Equal(DaemonEditorMode.Gui, result.Session!.EditorMode);
+        Assert.Equal(DaemonSessionOwnerKind.User, result.Session.OwnerKind);
         Assert.False(result.Session.CanShutdownProcess);
         Assert.Equal(marker.ProcessId, result.Session.ProcessId);
         Assert.Equal(lifecycleSnapshot, result.LifecycleSnapshot);

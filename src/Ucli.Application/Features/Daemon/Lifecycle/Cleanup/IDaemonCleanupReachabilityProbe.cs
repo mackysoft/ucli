@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Ipc.Authorization;
+
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 
 /// <summary> Probes daemon reachability using cleanup-specific safety semantics. </summary>
@@ -23,7 +25,7 @@ internal interface IDaemonCleanupReachabilityProbe
     /// <summary> Probes the canonical daemon endpoint using a known session token. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="deadline"> The shared cleanup execution deadline. </param>
-    /// <param name="sessionToken"> The session token to present. Must be non-empty. </param>
+    /// <param name="sessionToken"> The validated session token to present. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns>
     /// <para> One cleanup-specific reachability probe result. </para>
@@ -33,10 +35,9 @@ internal interface IDaemonCleanupReachabilityProbe
     /// <para> <see cref="DaemonCleanupReachabilityStatus.Failed" /> means probing itself failed unexpectedly. </para>
     /// </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> or <paramref name="sessionToken" /> is <see langword="null" />. </exception>
-    /// <exception cref="ArgumentException"> Thrown when <paramref name="sessionToken" /> is empty or whitespace. </exception>
     ValueTask<DaemonCleanupReachabilityProbeResult> ProbeWithSessionTokenAsync (
         ResolvedUnityProjectContext unityProject,
         ExecutionDeadline deadline,
-        string sessionToken,
+        IpcSessionToken sessionToken,
         CancellationToken cancellationToken = default);
 }

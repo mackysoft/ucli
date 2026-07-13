@@ -70,11 +70,14 @@ public sealed class DaemonSessionDiagnosisResolverTests
             endpointAddress: "/tmp/ucli.sock");
         var diagnosisStore = new RecordingDaemonDiagnosisStore();
         var resolver = new DaemonSessionDiagnosisResolver(diagnosisStore);
+        var mismatchedSession = DaemonSessionTestFactory.Create(
+            processId: int.MaxValue,
+            projectFingerprint: unityProject.ProjectFingerprint,
+            issuedAtUtc: session.IssuedAtUtc.AddMinutes(-1),
+            endpointTransportKind: "unixDomainSocket",
+            endpointAddress: "/tmp/ucli.sock");
         var mismatchedDiagnosis = CreateDiagnosis(
-            session with
-            {
-                IssuedAtUtc = session.IssuedAtUtc.AddMinutes(-1),
-            },
+            mismatchedSession,
             DaemonDiagnosisReasonValues.ShutdownRequested);
 
         var result = await resolver.ResolveForSessionAsync(unityProject, session, mismatchedDiagnosis, CancellationToken.None);

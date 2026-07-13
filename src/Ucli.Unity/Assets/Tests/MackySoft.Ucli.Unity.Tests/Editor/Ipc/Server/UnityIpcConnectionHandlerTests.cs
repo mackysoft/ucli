@@ -19,6 +19,8 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class UnityIpcConnectionHandlerTests
     {
+        private const string CanonicalSessionToken = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+
         private static readonly TimeSpan SignalWaitTimeout = TimeSpan.FromSeconds(5);
 
         private const int NamedPipeCancellationStressIterationCount = 16;
@@ -186,7 +188,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var handler = CreateConnectionHandler(
                 requestHandler,
                 initialFrameReadTimeout: TimeSpan.FromMilliseconds(25));
-            var request = CreateShutdownRequest(Guid.NewGuid(), "single");
+            var request = CreateShutdownRequest(Guid.NewGuid(), "single", CanonicalSessionToken);
             using var requestBytes = new MemoryStream();
             IpcFrameCodec.WriteModelAsync(
                     requestBytes,
@@ -288,7 +290,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 var requestHandler = new StubRequestHandler();
                 var handler = CreateConnectionHandler(requestHandler);
-                var request = CreateShutdownRequest(Guid.NewGuid(), "single");
+                var request = CreateShutdownRequest(Guid.NewGuid(), "single", CanonicalSessionToken);
                 var pipeName = "ucli-" + Guid.NewGuid().ToString("N").Substring(0, 8);
                 using var serverStream = new NamedPipeServerStream(
                     pipeName,
@@ -429,7 +431,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 poisonOnActiveCancellation: true);
             using var shutdownAdmission = new UnityShutdownAdmissionCoordinator(mutationExecutor);
             var requestHandler = new ShutdownPreparingRequestHandler(shutdownAdmission);
-            var request = CreateShutdownRequest(Guid.NewGuid(), "single");
+            var request = CreateShutdownRequest(Guid.NewGuid(), "single", CanonicalSessionToken);
             using var requestBytes = new MemoryStream();
             await IpcFrameCodec.WriteModelAsync(
                 requestBytes,
@@ -462,7 +464,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator Handle_WhenSingleResponseWriteIsPendingAndLifecycleIsCanceled_ReleasesStreamWithinDeadline () => UniTask.ToCoroutine(async () =>
         {
-            var request = CreateShutdownRequest(Guid.NewGuid(), "single");
+            var request = CreateShutdownRequest(Guid.NewGuid(), "single", CanonicalSessionToken);
             using var requestBytes = new MemoryStream();
             await IpcFrameCodec.WriteModelAsync(
                 requestBytes,
@@ -506,7 +508,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator Handle_WhenLifecycleIsCanceledBeforeSingleResponseWrite_DoesNotWriteResponseBytes () => UniTask.ToCoroutine(async () =>
         {
-            var request = CreateShutdownRequest(Guid.NewGuid(), "single");
+            var request = CreateShutdownRequest(Guid.NewGuid(), "single", CanonicalSessionToken);
             using var stream = new MemoryStream();
             await IpcFrameCodec.WriteModelAsync(
                 stream,
@@ -542,7 +544,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Handle_WhenResponseWriteBlocksBeforeReturningTask_StillStopsAtResponseFrameDeadline () => UniTask.ToCoroutine(async () =>
         {
             var requestHandler = new StubRequestHandler();
-            var request = CreateShutdownRequest(Guid.NewGuid(), "single");
+            var request = CreateShutdownRequest(Guid.NewGuid(), "single", CanonicalSessionToken);
             using var requestBytes = new MemoryStream();
             await IpcFrameCodec.WriteModelAsync(
                 requestBytes,
@@ -585,7 +587,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public void Handle_WhenResponseWriteCompletesAfterDeadlineAlreadyWon_DoesNotCommitLateResponse ()
         {
             var requestHandler = new StubRequestHandler();
-            var request = CreateShutdownRequest(Guid.NewGuid(), "single");
+            var request = CreateShutdownRequest(Guid.NewGuid(), "single", CanonicalSessionToken);
             using var requestBytes = new MemoryStream();
             IpcFrameCodec.WriteModelAsync(
                     requestBytes,
@@ -733,7 +735,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 new StubSessionTokenValidator(true),
                 dispatcher,
                 NoOpDaemonLogger.Instance);
-            var request = CreateShutdownRequest(Guid.NewGuid(), "stream");
+            var request = CreateShutdownRequest(Guid.NewGuid(), "stream", CanonicalSessionToken);
 
             var response = await handler.HandleAsync(request, CancellationToken.None);
 
@@ -753,7 +755,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 new StubSessionTokenValidator(true),
                 dispatcher,
                 NoOpDaemonLogger.Instance);
-            var request = CreateShutdownRequest(Guid.NewGuid(), "single");
+            var request = CreateShutdownRequest(Guid.NewGuid(), "single", CanonicalSessionToken);
 
             var response = await handler.HandleStreamingAsync(request, new NoOpStreamFrameWriter(), CancellationToken.None);
 
@@ -764,14 +766,123 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(dispatcher.StreamingDispatchCallCount, Is.EqualTo(0));
         });
 
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator RequestHandler_WhenSingleRequestSessionTokenIsNonCanonical_ReturnsCorrelatedInvalidTokenWithoutValidation () => UniTask.ToCoroutine(async () =>
+        {
+            var sessionTokenValidator = new StubSessionTokenValidator(true);
+            var dispatcher = new StubMethodDispatcher();
+            var handler = new UnityIpcRequestHandler(
+                sessionTokenValidator,
+                dispatcher,
+                NoOpDaemonLogger.Instance);
+            var request = CreateShutdownRequest(Guid.NewGuid(), "single", "not-canonical");
+
+            var response = await handler.HandleAsync(request, CancellationToken.None);
+
+            Assert.That(response.RequestId, Is.EqualTo(request.RequestId));
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(response.Errors.Count, Is.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcSessionErrorCodes.SessionTokenInvalid));
+            Assert.That(sessionTokenValidator.ValidateCallCount, Is.EqualTo(0));
+            Assert.That(dispatcher.DispatchCallCount, Is.EqualTo(0));
+            Assert.That(dispatcher.StreamingDispatchCallCount, Is.EqualTo(0));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator RequestHandler_WhenStreamingRequestSessionTokenIsNonCanonical_ReturnsCorrelatedInvalidTokenWithoutValidation () => UniTask.ToCoroutine(async () =>
+        {
+            var sessionTokenValidator = new StubSessionTokenValidator(true);
+            var dispatcher = new StubMethodDispatcher();
+            var handler = new UnityIpcRequestHandler(
+                sessionTokenValidator,
+                dispatcher,
+                NoOpDaemonLogger.Instance);
+            var request = CreateShutdownRequest(Guid.NewGuid(), "stream", "not-canonical");
+
+            var response = await handler.HandleStreamingAsync(
+                request,
+                new NoOpStreamFrameWriter(),
+                CancellationToken.None);
+
+            Assert.That(response.RequestId, Is.EqualTo(request.RequestId));
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(response.Errors.Count, Is.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcSessionErrorCodes.SessionTokenInvalid));
+            Assert.That(sessionTokenValidator.ValidateCallCount, Is.EqualTo(0));
+            Assert.That(dispatcher.DispatchCallCount, Is.EqualTo(0));
+            Assert.That(dispatcher.StreamingDispatchCallCount, Is.EqualTo(0));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator RequestHandler_WhenSingleRequestSessionTokenIsMissing_ReturnsCorrelatedRequiredTokenWithoutValidation () => UniTask.ToCoroutine(async () =>
+        {
+            var sessionTokenValidator = new StubSessionTokenValidator(true);
+            var dispatcher = new StubMethodDispatcher();
+            var handler = new UnityIpcRequestHandler(
+                sessionTokenValidator,
+                dispatcher,
+                NoOpDaemonLogger.Instance);
+
+            foreach (var missingSessionToken in new[] { null, string.Empty, "   " })
+            {
+                var request = CreateShutdownRequest(Guid.NewGuid(), "single", missingSessionToken);
+
+                var response = await handler.HandleAsync(request, CancellationToken.None);
+
+                Assert.That(response.RequestId, Is.EqualTo(request.RequestId));
+                Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+                Assert.That(response.Errors.Count, Is.EqualTo(1));
+                Assert.That(response.Errors[0].Code, Is.EqualTo(IpcSessionErrorCodes.SessionTokenRequired));
+            }
+
+            Assert.That(sessionTokenValidator.ValidateCallCount, Is.EqualTo(0));
+            Assert.That(dispatcher.DispatchCallCount, Is.EqualTo(0));
+            Assert.That(dispatcher.StreamingDispatchCallCount, Is.EqualTo(0));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator RequestHandler_WhenStreamingRequestSessionTokenIsMissing_ReturnsCorrelatedRequiredTokenWithoutValidation () => UniTask.ToCoroutine(async () =>
+        {
+            var sessionTokenValidator = new StubSessionTokenValidator(true);
+            var dispatcher = new StubMethodDispatcher();
+            var handler = new UnityIpcRequestHandler(
+                sessionTokenValidator,
+                dispatcher,
+                NoOpDaemonLogger.Instance);
+
+            foreach (var missingSessionToken in new[] { null, string.Empty, "   " })
+            {
+                var request = CreateShutdownRequest(Guid.NewGuid(), "stream", missingSessionToken);
+
+                var response = await handler.HandleStreamingAsync(
+                    request,
+                    new NoOpStreamFrameWriter(),
+                    CancellationToken.None);
+
+                Assert.That(response.RequestId, Is.EqualTo(request.RequestId));
+                Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+                Assert.That(response.Errors.Count, Is.EqualTo(1));
+                Assert.That(response.Errors[0].Code, Is.EqualTo(IpcSessionErrorCodes.SessionTokenRequired));
+            }
+
+            Assert.That(sessionTokenValidator.ValidateCallCount, Is.EqualTo(0));
+            Assert.That(dispatcher.DispatchCallCount, Is.EqualTo(0));
+            Assert.That(dispatcher.StreamingDispatchCallCount, Is.EqualTo(0));
+        });
+
         private static IpcRequest CreateShutdownRequest (
             Guid requestId,
-            string responseMode)
+            string responseMode,
+            string sessionToken)
         {
             return new IpcRequest(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: requestId,
-                sessionToken: "token",
+                sessionToken: sessionToken,
                 method: ContractLiteralCodec.ToValue(UnityIpcMethod.Shutdown),
                 payload: JsonSerializer.SerializeToElement(new IpcShutdownRequest("tests")),
                 responseMode: responseMode);
@@ -1453,11 +1564,14 @@ namespace MackySoft.Ucli.Unity.Tests
                 this.result = result;
             }
 
+            public int ValidateCallCount { get; private set; }
+
             public Task<bool> ValidateAsync (
                 string sessionToken,
                 CancellationToken cancellationToken = default)
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                ValidateCallCount++;
                 return Task.FromResult(result);
             }
         }

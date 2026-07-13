@@ -21,8 +21,13 @@ internal static class DaemonLaunchServiceBatchmodeStartupBlockerTestSupport
             sessionToken: LaunchSessionToken,
             projectFingerprint: context.ProjectFingerprint,
             endpointAddress: LaunchEndpointAddress);
-        var updatedSession = initialSession with { ProcessId = processId };
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 09, 0, 0, 1, TimeSpan.Zero);
+        var updatedSession = DaemonSessionTestFactory.Create(
+            processId: processId,
+            sessionToken: LaunchSessionToken,
+            projectFingerprint: context.ProjectFingerprint,
+            endpointAddress: LaunchEndpointAddress,
+            processStartedAtUtc: processStartedAtUtc);
         var classification = CreateCompileBlockerClassification(primaryDiagnostic);
         var launchSessionService = new RecordingDaemonLaunchSessionService
         {

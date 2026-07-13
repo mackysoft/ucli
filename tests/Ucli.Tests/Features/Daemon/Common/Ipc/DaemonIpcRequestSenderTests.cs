@@ -5,6 +5,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Features.Daemon.Common.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Recovery;
@@ -61,7 +62,7 @@ public sealed class DaemonIpcRequestSenderTests
         DaemonIpcDispatchAssert.SingleDispatchPreservedCallerTimeoutBudget(
             transportClient,
             expectedMethod: UnityIpcMethod.UnityLogsRead,
-            expectedSessionToken: "daemon-token",
+            expectedSessionToken: IpcSessionTokenTestFactory.Create("daemon-token").GetEncodedValue(),
             minimumTimeout: TimeSpan.FromSeconds(4.9));
     }
 
@@ -156,7 +157,7 @@ public sealed class DaemonIpcRequestSenderTests
             {
                 readStartedSource.TrySetResult(true);
                 await readReleaseSource.Task;
-                return DaemonSessionReadResult.Success(null);
+                return DaemonSessionReadResult.Missing();
             },
         };
         var recoveryWaiter = new UnityDaemonRecoveryWaiter(
@@ -213,7 +214,7 @@ public sealed class DaemonIpcRequestSenderTests
         var recoveryWaiter = new UnityDaemonRecoveryWaiter(
             new RecordingDaemonSessionStore
             {
-                ReadResult = DaemonSessionReadResult.Success(session),
+                ReadResult = DaemonSessionReadResultTestFactory.Found(session),
             },
             new RecordingDaemonLifecycleStore
             {
@@ -249,7 +250,10 @@ public sealed class DaemonIpcRequestSenderTests
 
         Assert.True(result.IsSuccess);
         var requests = IpcRequestAssert.Methods(transportClient, UnityIpcMethod.UnityLogsRead, UnityIpcMethod.UnityLogsRead);
-        IpcRequestAssert.SessionTokens(requests, "daemon-token-1", "daemon-token-2");
+        IpcRequestAssert.SessionTokens(
+            requests,
+            IpcSessionTokenTestFactory.Create("daemon-token-1").GetEncodedValue(),
+            IpcSessionTokenTestFactory.Create("daemon-token-2").GetEncodedValue());
         Assert.Equal(1, requestCreationCount);
         _ = IpcRequestAssert.SingleRequestId(requests);
     }
@@ -291,7 +295,10 @@ public sealed class DaemonIpcRequestSenderTests
         Assert.True(result.IsSuccess);
         Assert.Equal(IpcProtocol.StatusOk, result.Response!.Status);
         var requests = IpcRequestAssert.Methods(transportClient, UnityIpcMethod.UnityLogsRead, UnityIpcMethod.UnityLogsRead);
-        IpcRequestAssert.SessionTokens(requests, "daemon-token-1", "daemon-token-2");
+        IpcRequestAssert.SessionTokens(
+            requests,
+            IpcSessionTokenTestFactory.Create("daemon-token-1").GetEncodedValue(),
+            IpcSessionTokenTestFactory.Create("daemon-token-2").GetEncodedValue());
         Assert.Equal(1, requestCreationCount);
         _ = IpcRequestAssert.SingleRequestId(requests);
     }
@@ -332,7 +339,10 @@ public sealed class DaemonIpcRequestSenderTests
         Assert.Equal(IpcProtocol.StatusError, result.Response!.Status);
         Assert.Equal(IpcSessionErrorCodes.SessionTokenInvalid, Assert.Single(result.Response.Errors).Code);
         var requests = IpcRequestAssert.Methods(transportClient, UnityIpcMethod.UnityLogsRead, UnityIpcMethod.UnityLogsRead);
-        IpcRequestAssert.SessionTokens(requests, "daemon-token-1", "daemon-token-2");
+        IpcRequestAssert.SessionTokens(
+            requests,
+            IpcSessionTokenTestFactory.Create("daemon-token-1").GetEncodedValue(),
+            IpcSessionTokenTestFactory.Create("daemon-token-2").GetEncodedValue());
     }
 
     [Fact]
@@ -378,7 +388,10 @@ public sealed class DaemonIpcRequestSenderTests
             DaemonErrorCodes.DaemonSessionNotAvailable,
             Assert.IsType<ExecutionError>(result.Error).Code);
         var requests = IpcRequestAssert.Methods(transportClient, UnityIpcMethod.UnityLogsRead, UnityIpcMethod.UnityLogsRead);
-        IpcRequestAssert.SessionTokens(requests, "daemon-token-1", "daemon-token-2");
+        IpcRequestAssert.SessionTokens(
+            requests,
+            IpcSessionTokenTestFactory.Create("daemon-token-1").GetEncodedValue(),
+            IpcSessionTokenTestFactory.Create("daemon-token-2").GetEncodedValue());
     }
 
     [Fact]
@@ -413,7 +426,9 @@ public sealed class DaemonIpcRequestSenderTests
         Assert.Equal(IpcProtocol.StatusError, result.Response!.Status);
         Assert.Equal(IpcSessionErrorCodes.SessionTokenInvalid, Assert.Single(result.Response.Errors).Code);
         var request = Assert.Single(transportClient.Requests);
-        Assert.Equal("daemon-token", request.SessionToken);
+        Assert.Equal(
+            IpcSessionTokenTestFactory.Create("daemon-token").GetEncodedValue(),
+            request.SessionToken);
     }
 
     [Fact]
@@ -467,12 +482,12 @@ public sealed class DaemonIpcRequestSenderTests
 
     private static IpcRequest CreateRequest (
         UnityIpcMethod method,
-        string sessionToken)
+        IpcSessionToken sessionToken)
     {
         return new IpcRequest(
             protocolVersion: IpcProtocol.CurrentVersion,
             requestId: Guid.NewGuid(),
-            sessionToken: sessionToken,
+            sessionToken: sessionToken.GetEncodedValue(),
             method: ContractLiteralCodec.ToValue(method),
             payload: JsonDocument.Parse("{}").RootElement.Clone(),
             responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single));
@@ -512,7 +527,7 @@ public sealed class DaemonIpcRequestSenderTests
     private static DaemonSessionConnectionResolutionResult CreateConnectionResult (string sessionToken)
     {
         return DaemonSessionConnectionResolutionResult.Success(new DaemonSessionConnection(
-            sessionToken,
+            IpcSessionTokenTestFactory.Create(sessionToken),
             new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-session.sock")));
     }
 
@@ -521,7 +536,7 @@ public sealed class DaemonIpcRequestSenderTests
         return new DaemonLifecycleObservation(
             ProcessId: session.ProcessId!.Value,
             ProcessStartedAtUtc: session.ProcessStartedAtUtc!.Value,
-            EditorMode: session.EditorMode,
+            EditorMode: ContractLiteralCodec.ToValue(session.EditorMode),
             LifecycleState: IpcEditorLifecycleStateCodec.DomainReloading,
             BlockingReason: IpcEditorBlockingReasonCodec.DomainReload,
             CompileState: IpcCompileStateCodec.Ready,

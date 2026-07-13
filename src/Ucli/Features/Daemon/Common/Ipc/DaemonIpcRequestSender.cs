@@ -5,6 +5,7 @@ using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.UnityIntegration.Ipc.Recovery;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
@@ -39,7 +40,7 @@ internal sealed class DaemonIpcRequestSender : IDaemonIpcRequestSender
     /// <inheritdoc />
     public async ValueTask<DaemonIpcSendResult> SendAsync (
         ResolvedUnityProjectContext unityProject,
-        Func<string, IpcRequest> createRequest,
+        Func<IpcSessionToken, IpcRequest> createRequest,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
@@ -51,7 +52,7 @@ internal sealed class DaemonIpcRequestSender : IDaemonIpcRequestSender
         var deadline = ExecutionDeadline.Start(timeout, timeProvider);
         ExecutionDeadline? endpointAbsenceRetryDeadline = null;
         var sessionTokenRefreshAttempted = false;
-        string? rejectedSessionToken = null;
+        IpcSessionToken? rejectedSessionToken = null;
         IpcResponse? sessionTokenRejection = null;
         IpcRequest? request = null;
 
@@ -102,25 +103,19 @@ internal sealed class DaemonIpcRequestSender : IDaemonIpcRequestSender
             {
                 var sessionConnection = sessionConnectionResult.Connection!;
                 if (rejectedSessionToken is not null
-                    && string.Equals(
-                        sessionConnection.SessionToken,
-                        rejectedSessionToken,
-                        StringComparison.Ordinal))
+                    && sessionConnection.SessionToken.Equals(rejectedSessionToken))
                 {
                     return DaemonIpcSendResult.Success(sessionTokenRejection!);
                 }
 
                 isSessionTokenReplay = rejectedSessionToken is not null;
                 request ??= createRequest(sessionConnection.SessionToken);
-                var requestForSession = string.Equals(
-                    request.SessionToken,
-                    sessionConnection.SessionToken,
-                    StringComparison.Ordinal)
+                var requestForSession = sessionConnection.SessionToken.Matches(request.SessionToken)
                         ? request
                         : new IpcRequest(
                             request.ProtocolVersion,
                             request.RequestId,
-                            sessionConnection.SessionToken,
+                            sessionConnection.SessionToken.GetEncodedValue(),
                             request.Method,
                             request.Payload,
                             request.ResponseMode);

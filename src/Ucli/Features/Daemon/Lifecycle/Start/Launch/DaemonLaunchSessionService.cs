@@ -2,7 +2,6 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Launch;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Ipc;
 
 namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Start.Launch;
@@ -47,18 +46,16 @@ internal sealed class DaemonLaunchSessionService : IDaemonLaunchSessionService
 
         var endpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(unityProject.RepositoryRoot, unityProject.ProjectFingerprint);
         var session = new DaemonSession(
-            SchemaVersion: DaemonSession.CurrentSchemaVersion,
-            SessionToken: sessionTokenGenerator.Create(),
-            ProjectFingerprint: unityProject.ProjectFingerprint,
-            IssuedAtUtc: DateTimeOffset.UtcNow,
-            EditorMode: ContractLiteralCodec.ToValue(launchEditorMode),
-            OwnerKind: ContractLiteralCodec.ToValue(DaemonSessionOwnerKind.Cli),
-            CanShutdownProcess: true,
-            EndpointTransportKind: ContractLiteralCodec.ToValue(endpoint.TransportKind),
-            EndpointAddress: endpoint.Address,
-            ProcessId: null,
-            ProcessStartedAtUtc: null,
-            OwnerProcessId: Environment.ProcessId);
+            sessionTokenGenerator.Create(),
+            unityProject.ProjectFingerprint,
+            DateTimeOffset.UtcNow,
+            launchEditorMode,
+            DaemonSessionOwnerKind.Cli,
+            canShutdownProcess: true,
+            endpoint,
+            processId: null,
+            processStartedAtUtc: null,
+            Environment.ProcessId);
 
         var writeResult = await daemonSessionStore.WriteAsync(
                 unityProject.RepositoryRoot,
@@ -103,11 +100,18 @@ internal sealed class DaemonLaunchSessionService : IDaemonLaunchSessionService
                 $"Daemon launch processStartedAtUtc is required when processId is specified. processId={launchedProcessId}."));
         }
 
-        var updatedSession = session with
-        {
-            ProcessId = launchedProcessId,
-            ProcessStartedAtUtc = processStartedAtUtc,
-        };
+        var updatedSession = new DaemonSession(
+            session.SessionToken,
+            session.ProjectFingerprint,
+            session.IssuedAtUtc,
+            session.EditorMode,
+            session.OwnerKind,
+            session.CanShutdownProcess,
+            session.Endpoint,
+            launchedProcessId,
+            processStartedAtUtc.Value,
+            session.OwnerProcessId,
+            session.EditorInstanceId);
         var writeResult = await daemonSessionStore.WriteAsync(
                 unityProject.RepositoryRoot,
                 updatedSession,

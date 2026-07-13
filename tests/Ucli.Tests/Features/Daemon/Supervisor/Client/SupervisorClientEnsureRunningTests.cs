@@ -1,4 +1,5 @@
 using MackySoft.Tests;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -88,8 +89,37 @@ public sealed class SupervisorClientEnsureRunningTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal(DaemonStartStatus.Attached, result.Status);
-        Assert.Equal(session, result.Session);
+        Assert.Equal(
+            DaemonSessionContractMapper.ToContract(session),
+            DaemonSessionContractMapper.ToContract(result.Session!));
         Assert.Equal(lifecycleSnapshot, result.LifecycleSnapshot);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task EnsureRunning_WhenResponseSessionTargetsDifferentProject_ReturnsInternalError ()
+    {
+        var transportClient = new StubIpcTransportClient
+        {
+            SendHandler = (_, request, _, _) => ValueTask.FromResult(
+                SupervisorClientTestSupport.CreateEnsureRunningResponse(request)),
+        };
+        var client = new SupervisorClient(transportClient, TimeProvider.System);
+
+        var result = await client.EnsureRunningAsync(
+            SupervisorClientTestSupport.CreateManifest(),
+            Guid.NewGuid(),
+            SupervisorClientTestSupport.CreateUnityProject("different-project-fingerprint"),
+            SupervisorClientTestSupport.CreateDeadline(TimeSpan.FromMilliseconds(100)),
+            attemptTimeout: TimeSpan.FromMilliseconds(100),
+            editorMode: DaemonEditorMode.Gui,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+            cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.Contains("projectFingerprint mismatch", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]

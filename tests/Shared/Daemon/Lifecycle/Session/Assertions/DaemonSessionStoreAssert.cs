@@ -22,7 +22,7 @@ internal static class DaemonSessionStoreAssert
     {
         var session = SingleSessionWrittenFor(sessionStore, expectedUnityProject);
         Assert.Equal(expectedUnityProject.ProjectFingerprint, session.ProjectFingerprint);
-        Assert.Equal(ContractLiteralCodec.ToValue(expectedEditorMode), session.EditorMode);
+        Assert.Equal(expectedEditorMode, session.EditorMode);
         Assert.Null(session.ProcessId);
         Assert.Null(session.ProcessStartedAtUtc);
         return session;
@@ -36,11 +36,17 @@ internal static class DaemonSessionStoreAssert
         DateTimeOffset expectedProcessStartedAtUtc)
     {
         var session = SingleSessionWrittenFor(sessionStore, expectedUnityProject);
-        Assert.Equal(expectedBaseSession with
-        {
-            ProcessId = expectedProcessId,
-            ProcessStartedAtUtc = expectedProcessStartedAtUtc,
-        }, session);
+        Assert.Equal(expectedBaseSession.SessionToken, session.SessionToken);
+        Assert.Equal(expectedBaseSession.ProjectFingerprint, session.ProjectFingerprint);
+        Assert.Equal(expectedBaseSession.IssuedAtUtc, session.IssuedAtUtc);
+        Assert.Equal(expectedBaseSession.EditorMode, session.EditorMode);
+        Assert.Equal(expectedBaseSession.OwnerKind, session.OwnerKind);
+        Assert.Equal(expectedBaseSession.CanShutdownProcess, session.CanShutdownProcess);
+        Assert.Equal(expectedBaseSession.Endpoint, session.Endpoint);
+        Assert.Equal(expectedProcessId, session.ProcessId);
+        Assert.Equal(expectedProcessStartedAtUtc, session.ProcessStartedAtUtc);
+        Assert.Equal(expectedBaseSession.OwnerProcessId, session.OwnerProcessId);
+        Assert.Equal(expectedBaseSession.EditorInstanceId, session.EditorInstanceId);
         return session;
     }
 

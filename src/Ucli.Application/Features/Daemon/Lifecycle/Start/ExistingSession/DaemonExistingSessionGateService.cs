@@ -95,7 +95,7 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
 
             // NOTE: A blocked endpoint must leave time for identity-validated GUI rebootstrap.
             // Lifecycle state cannot decide this cap because a stale endpoint may still publish ready.
-            var initialPingTimeout = ContractLiteralCodec.Matches(session.EditorMode, DaemonEditorMode.Gui)
+            var initialPingTimeout = session.EditorMode == DaemonEditorMode.Gui
                 ? GetShortestTimeout(pingTimeout, DaemonTimeouts.ProbeAttemptTimeoutCap)
                 : pingTimeout;
             var pingResponse = await daemonPingInfoClient.PingSessionAndReadAsync(
@@ -329,7 +329,7 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
         DaemonSession session,
         CancellationToken cancellationToken)
     {
-        if (!ContractLiteralCodec.Matches(session.EditorMode, DaemonEditorMode.Gui))
+        if (session.EditorMode != DaemonEditorMode.Gui)
         {
             return null;
         }
@@ -364,14 +364,14 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
             return null;
         }
 
-        if (ContractLiteralCodec.Matches(session.EditorMode, editorMode.Value))
+        if (session.EditorMode == editorMode.Value)
         {
             return null;
         }
 
         var requestedEditorMode = ContractLiteralCodec.ToValue(editorMode.Value);
         return DaemonStartResult.Failure(ExecutionError.InvalidArgument(
-            $"Requested daemon editorMode '{requestedEditorMode}' does not match running daemon editorMode '{session.EditorMode}'.",
+            $"Requested daemon editorMode '{requestedEditorMode}' does not match running daemon editorMode '{ContractLiteralCodec.ToValue(session.EditorMode)}'.",
             DaemonErrorCodes.DaemonEditorModeMismatch));
     }
 
@@ -418,8 +418,8 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
         await progressObserver.EmitWaitingForEndpointAsync(
                 new DaemonStartStartupProgressObservation(
                     LaunchAttemptId: null,
-                    EditorMode: session.EditorMode,
-                    OwnerKind: session.OwnerKind,
+                    EditorMode: ContractLiteralCodec.ToValue(session.EditorMode),
+                    OwnerKind: ContractLiteralCodec.ToValue(session.OwnerKind),
                     CanShutdownProcess: session.CanShutdownProcess,
                     ProcessId: session.ProcessId,
                     ProcessStartedAtUtc: session.ProcessStartedAtUtc,

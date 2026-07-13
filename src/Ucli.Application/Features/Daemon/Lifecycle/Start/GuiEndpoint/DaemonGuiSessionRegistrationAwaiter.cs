@@ -194,7 +194,7 @@ internal sealed class DaemonGuiSessionRegistrationAwaiter : IDaemonGuiSessionReg
             return false;
         }
 
-        if (!ContractLiteralCodec.Matches(candidate.EditorMode, DaemonEditorMode.Gui))
+        if (candidate.EditorMode != DaemonEditorMode.Gui)
         {
             return false;
         }

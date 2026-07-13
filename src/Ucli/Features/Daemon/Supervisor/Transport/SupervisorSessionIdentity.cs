@@ -16,7 +16,7 @@ internal static class SupervisorSessionIdentity
         ArgumentNullException.ThrowIfNull(left);
         ArgumentNullException.ThrowIfNull(right);
 
-        return string.Equals(left.SessionToken, right.SessionToken, StringComparison.Ordinal)
+        return left.SessionToken.Equals(right.SessionToken)
             && string.Equals(left.ProjectFingerprint, right.ProjectFingerprint, StringComparison.Ordinal)
             && left.IssuedAtUtc == right.IssuedAtUtc;
     }

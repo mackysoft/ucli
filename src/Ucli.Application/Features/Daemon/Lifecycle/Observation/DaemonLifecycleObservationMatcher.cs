@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 
@@ -15,7 +16,7 @@ internal static class DaemonLifecycleObservationMatcher
 
         return session.ProcessId == observation.ProcessId
             && MatchesProcessIdentity(session, observation)
-            && string.Equals(session.EditorMode, observation.EditorMode, StringComparison.Ordinal);
+            && ContractLiteralCodec.Matches(observation.EditorMode, session.EditorMode);
     }
 
     /// <summary> Determines whether one lifecycle observation belongs to the specified daemon session editor instance. </summary>
@@ -30,7 +31,7 @@ internal static class DaemonLifecycleObservationMatcher
         // Domain-reload recovery must use deterministic editor-instance identity. Process start time remains a
         // live-process guard elsewhere, but it must not prove ownership of a recovering lifecycle sidecar.
         return session.ProcessId == observation.ProcessId
-            && string.Equals(session.EditorMode, observation.EditorMode, StringComparison.Ordinal)
+            && ContractLiteralCodec.Matches(observation.EditorMode, session.EditorMode)
             && MatchesEditorInstance(session, observation);
     }
 

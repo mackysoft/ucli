@@ -15,7 +15,7 @@ public sealed class DaemonStartOperationLifecycleLockTests
             ThrowTimeoutOnAcquire = true,
         };
         var operation = CreateOperation(
-            daemonSessionStore: new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(null)),
+            daemonSessionStore: new RecordingDaemonSessionStore(DaemonSessionReadResult.Missing()),
             daemonSessionCleanupService: new RecordingDaemonSessionCleanupService(),
             daemonExistingSessionGateService: new RecordingDaemonExistingSessionGateService(),
             daemonLaunchService: new RecordingDaemonLaunchService(),
@@ -41,7 +41,7 @@ public sealed class DaemonStartOperationLifecycleLockTests
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-start-lock-context");
         var lockProvider = new StubProjectLifecycleLockProvider();
         var operation = CreateOperation(
-            daemonSessionStore: new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(null)),
+            daemonSessionStore: new RecordingDaemonSessionStore(DaemonSessionReadResult.Missing()),
             daemonSessionCleanupService: new RecordingDaemonSessionCleanupService(),
             daemonExistingSessionGateService: new RecordingDaemonExistingSessionGateService(),
             daemonLaunchService: new RecordingDaemonLaunchService

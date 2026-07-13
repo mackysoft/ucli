@@ -247,8 +247,8 @@ internal sealed class DaemonStartProgressEmitter :
     {
         return new DaemonStartStartupProgressObservation(
             LaunchAttemptId: launchAttemptId,
-            EditorMode: session.EditorMode,
-            OwnerKind: session.OwnerKind,
+            EditorMode: ContractLiteralCodec.ToValue(session.EditorMode),
+            OwnerKind: ContractLiteralCodec.ToValue(session.OwnerKind),
             CanShutdownProcess: session.CanShutdownProcess,
             ProcessId: session.ProcessId,
             ProcessStartedAtUtc: session.ProcessStartedAtUtc,

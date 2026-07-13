@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Play.UseCases.Status;
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -15,7 +14,7 @@ public sealed class PlayStatusServiceSidecarTests
     public async Task Execute_WhenIpcExecutionTimesOutAndFreshLifecycleSidecarExists_ReturnsSidecarStatus ()
     {
         var session = CreatePlaySession();
-        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(session));
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(session));
         var lifecycleStore = new RecordingDaemonLifecycleStore
         {
             ReadResult = DaemonLifecycleObservationReadResult.Success(CreateLifecycleObservation(
@@ -59,7 +58,7 @@ public sealed class PlayStatusServiceSidecarTests
     public async Task Execute_WhenIpcExecutionTimesOutAndLifecycleSidecarLacksEditorInstanceId_ReturnsTimeoutError ()
     {
         var session = CreatePlaySession();
-        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(session));
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(session));
         var lifecycleStore = new RecordingDaemonLifecycleStore
         {
             ReadResult = DaemonLifecycleObservationReadResult.Success(
@@ -95,7 +94,7 @@ public sealed class PlayStatusServiceSidecarTests
     public async Task Execute_WhenFreshLifecycleSidecarReportsPlayMode_ReturnsWithoutIpcCall ()
     {
         var session = CreatePlaySession();
-        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(session));
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(session));
         var lifecycleStore = new RecordingDaemonLifecycleStore
         {
             ReadResult = DaemonLifecycleObservationReadResult.Success(CreateLifecycleObservation(session)),
@@ -123,7 +122,7 @@ public sealed class PlayStatusServiceSidecarTests
     public async Task Execute_WhenLifecycleSidecarDoesNotMatchLiveProcess_ReturnsIpcStatus ()
     {
         var session = CreatePlaySession();
-        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(session));
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(session));
         var lifecycleStore = new RecordingDaemonLifecycleStore
         {
             ReadResult = DaemonLifecycleObservationReadResult.Success(CreateLifecycleObservation(session)),

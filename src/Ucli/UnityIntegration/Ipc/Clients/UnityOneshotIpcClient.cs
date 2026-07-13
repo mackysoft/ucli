@@ -11,6 +11,7 @@ using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Infrastructure.Storage;
@@ -220,13 +221,13 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                 return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.OneshotTimeout(timeout));
             }
 
-            var sessionToken = CreateSessionToken();
+            var sessionToken = IpcSessionToken.CreateRandom();
             var launchResult = await batchmodeProcessLauncher.LaunchAsync(
                     unityProject,
                     new IpcOneshotBootstrapArguments(
                         ParentProcessId: Environment.ProcessId,
                         ProjectFingerprint: unityProject.ProjectFingerprint,
-                        SessionToken: sessionToken,
+                        SessionToken: sessionToken.GetEncodedValue(),
                         ExitDeadlineUtc: timeProvider.GetUtcNow() + launchRemainingTimeout,
                         EndpointTransportKind: ContractLiteralCodec.ToValue(endpoint.TransportKind),
                         EndpointAddress: endpoint.Address),
@@ -549,7 +550,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
 
     /// <summary> Waits until the launched oneshot Unity process accepts the startup probe request. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
-    /// <param name="sessionToken"> The session token assigned to the launched oneshot process. Must not be null or white-space. </param>
+    /// <param name="sessionToken"> The canonical session token assigned to the launched oneshot process. </param>
     /// <param name="failFast"> Whether readiness probing should fail immediately instead of waiting for lifecycle readiness. </param>
     /// <param name="deadline"> The shared request deadline. </param>
     /// <param name="processHandle"> The launched process handle. </param>
@@ -558,7 +559,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
     /// <returns> <see langword="null" /> when startup is reachable; otherwise the startup failure. </returns>
     private async ValueTask<UnityRequestFailure?> WaitUntilReachableAsync (
         ResolvedUnityProjectContext unityProject,
-        string sessionToken,
+        IpcSessionToken sessionToken,
         UnityIpcDispatchRequest dispatchRequest,
         bool failFast,
         ExecutionDeadline deadline,
@@ -966,19 +967,12 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
             && selector(request);
     }
 
-    /// <summary> Creates one opaque session token for correlating the launched oneshot Unity process. </summary>
-    /// <returns> A non-empty lowercase hexadecimal token without separators. </returns>
-    private static string CreateSessionToken ()
-    {
-        return Guid.NewGuid().ToString("N");
-    }
-
     /// <summary> Creates the startup probe request for one session token. </summary>
-    /// <param name="sessionToken"> The session token assigned to the launched oneshot process. Must not be null or white-space. </param>
+    /// <param name="sessionToken"> The canonical session token assigned to the launched oneshot process. </param>
     /// <param name="requestId"> The non-empty identifier reused by every startup-probe attempt. </param>
     /// <returns> The IPC ping request used to verify startup readiness. </returns>
     private static IpcRequest CreateStartupProbeRequest (
-        string sessionToken,
+        IpcSessionToken sessionToken,
         Guid requestId)
     {
         var payload = IpcPayloadCodec.SerializeToElement(new IpcPingRequest(IpcPingClientVersions.OneshotStartup));
@@ -991,11 +985,11 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
     }
 
     /// <summary> Creates the shutdown request shared by cleanup attempts for one launched process. </summary>
-    /// <param name="sessionToken"> The session token assigned to the launched oneshot process. Must not be null or white-space. </param>
+    /// <param name="sessionToken"> The canonical session token assigned to the launched oneshot process. </param>
     /// <param name="requestId"> The non-empty identifier reused by every shutdown attempt. </param>
     /// <returns> The IPC shutdown request used during process cleanup. </returns>
     private static IpcRequest CreateShutdownRequest (
-        string sessionToken,
+        IpcSessionToken sessionToken,
         Guid requestId)
     {
         var payload = IpcPayloadCodec.SerializeToElement(new IpcShutdownRequest(CleanupShutdownRequestedBy));

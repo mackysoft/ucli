@@ -20,11 +20,9 @@ public sealed class SupervisorProjectGatewayEnsureRunningTests
         var scenario = await SupervisorProjectGatewayTestSupport.CreateManifestBackedScenarioAsync(
             scope.FullPath,
             timeProvider);
-        var successorManifest = scenario.Manifest with
-        {
-            SessionToken = "successor-token",
-            IssuedAtUtc = scenario.Manifest.IssuedAtUtc.AddSeconds(1),
-        };
+        var successorManifest = SupervisorClientTestSupport.CreateSuccessorManifest(
+            scenario.Manifest,
+            sessionTokenDiscriminator: 2);
         var ensureRunningAttempt = 0;
         scenario.TransportClient.SendHandler = async (_, request, _, cancellationToken) =>
         {
@@ -67,8 +65,8 @@ public sealed class SupervisorProjectGatewayEnsureRunningTests
             .ToArray();
         IpcRequestAssert.SessionTokens(
             requests,
-            scenario.Manifest.SessionToken,
-            successorManifest.SessionToken);
+            scenario.Manifest.SessionToken.GetEncodedValue(),
+            successorManifest.SessionToken.GetEncodedValue());
         _ = IpcRequestAssert.SingleRequestId(requests);
         var firstPayload = SupervisorProjectGatewayTestSupport.ReadEnsureRunningRequest(requests[0]);
         var replayPayload = SupervisorProjectGatewayTestSupport.ReadEnsureRunningRequest(requests[1]);
@@ -90,11 +88,9 @@ public sealed class SupervisorProjectGatewayEnsureRunningTests
             "supervisor-project-gateway",
             "ensure-running-successor-token-rejected");
         var scenario = await SupervisorProjectGatewayTestSupport.CreateManifestBackedScenarioAsync(scope.FullPath);
-        var successorManifest = scenario.Manifest with
-        {
-            SessionToken = "successor-token",
-            IssuedAtUtc = scenario.Manifest.IssuedAtUtc.AddSeconds(1),
-        };
+        var successorManifest = SupervisorClientTestSupport.CreateSuccessorManifest(
+            scenario.Manifest,
+            sessionTokenDiscriminator: 2);
         var ensureRunningAttempt = 0;
         scenario.TransportClient.SendHandler = async (_, request, _, cancellationToken) =>
         {
@@ -136,8 +132,8 @@ public sealed class SupervisorProjectGatewayEnsureRunningTests
             .ToArray();
         IpcRequestAssert.SessionTokens(
             requests,
-            scenario.Manifest.SessionToken,
-            successorManifest.SessionToken);
+            scenario.Manifest.SessionToken.GetEncodedValue(),
+            successorManifest.SessionToken.GetEncodedValue());
         _ = IpcRequestAssert.SingleRequestId(requests);
     }
 

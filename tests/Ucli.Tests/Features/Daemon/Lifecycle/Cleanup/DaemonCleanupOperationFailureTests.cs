@@ -17,7 +17,7 @@ public sealed class DaemonCleanupOperationFailureTests
             new ManualTimeProvider(),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
-                ReadResult = DaemonSessionReadResult.Success(DaemonSessionTestFactory.Create(processId: 2011)),
+                ReadResult = DaemonSessionReadResultTestFactory.Found(DaemonSessionTestFactory.Create(processId: 2011)),
             },
             daemonPingClient: DaemonCleanupOperationTestSupport.CreateFailingPingClient(
                 new InvalidDataException("invalid frame")),
@@ -43,7 +43,7 @@ public sealed class DaemonCleanupOperationFailureTests
             lifecycleLockProvider: lockProvider,
             daemonSessionStore: new RecordingDaemonSessionStore
             {
-                ReadResult = DaemonSessionReadResult.Success(null),
+                ReadResult = DaemonSessionReadResult.Missing(),
             },
             daemonPingClient: DaemonCleanupOperationTestSupport.CreateNotRunningPingClient());
 

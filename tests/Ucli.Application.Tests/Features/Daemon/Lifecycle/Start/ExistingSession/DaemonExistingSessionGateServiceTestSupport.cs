@@ -7,6 +7,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Recovery;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 
 internal static class DaemonExistingSessionGateServiceTestSupport
 {
@@ -43,7 +44,7 @@ internal static class DaemonExistingSessionGateServiceTestSupport
         return new DaemonLifecycleObservation(
             ProcessId: session.ProcessId!.Value,
             ProcessStartedAtUtc: session.ProcessStartedAtUtc!.Value,
-            EditorMode: session.EditorMode,
+            EditorMode: ContractLiteralCodec.ToValue(session.EditorMode),
             LifecycleState: IpcEditorLifecycleStateCodec.Recovering,
             BlockingReason: IpcEditorBlockingReasonCodec.Recovery,
             CompileState: IpcCompileStateCodec.Ready,
@@ -67,10 +68,8 @@ internal static class DaemonExistingSessionGateServiceTestSupport
             projectFingerprint: projectFingerprint,
             editorMode: "gui",
             ownerKind: "user",
-            canShutdownProcess: false) with
-        {
-            EditorInstanceId = editorInstanceId,
-        };
+            canShutdownProcess: false,
+            editorInstanceId: editorInstanceId);
     }
 
     public static RecordingDaemonLifecycleStore CreateRecoveringLifecycleStore (

@@ -35,11 +35,11 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="cancellationToken"> The cancellation token propagated by operation pipelines. </param>
         /// <returns> <see langword="true" /> when the token matches persisted session token; otherwise <see langword="false" />. </returns>
         public Task<bool> ValidateAsync (
-            string sessionToken,
+            string? sessionToken,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (string.IsNullOrWhiteSpace(sessionToken))
+            if (!IpcSessionToken.IsValidEncodedValue(sessionToken))
             {
                 return CachedTask.FromResult(false);
             }
@@ -56,25 +56,32 @@ namespace MackySoft.Ucli.Unity.Ipc
             cancellationToken.ThrowIfCancellationRequested();
             if (TryReadCachedToken(json, out var cachedToken))
             {
-                return CachedTask.FromResult(string.Equals(cachedToken, sessionToken, StringComparison.Ordinal));
+                return CachedTask.FromResult(cachedToken.Matches(sessionToken));
             }
 
             using var sessionJson = JsonDocument.Parse(json);
             if (!SessionTokenContractReader.TryReadSessionToken(
                     sessionJson.RootElement,
-                    out var persistedToken,
+                    out var persistedTokenText,
                     out _))
             {
+                ClearCachedToken();
+                return CachedTask.FromResult(false);
+            }
+
+            if (!IpcSessionToken.TryParse(persistedTokenText, out var persistedToken))
+            {
+                ClearCachedToken();
                 return CachedTask.FromResult(false);
             }
 
             CacheToken(json, persistedToken);
-            return CachedTask.FromResult(string.Equals(persistedToken, sessionToken, StringComparison.Ordinal));
+            return CachedTask.FromResult(persistedToken.Matches(sessionToken));
         }
 
         private bool TryReadCachedToken (
             string sessionJson,
-            out string? sessionToken)
+            out IpcSessionToken? sessionToken)
         {
             lock (syncRoot)
             {
@@ -92,7 +99,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private void CacheToken (
             string sessionJson,
-            string sessionToken)
+            IpcSessionToken sessionToken)
         {
             lock (syncRoot)
             {
@@ -114,15 +121,15 @@ namespace MackySoft.Ucli.Unity.Ipc
         {
             public CachedSessionToken (
                 string sessionJson,
-                string sessionToken)
+                IpcSessionToken sessionToken)
             {
-                SessionJson = sessionJson;
-                SessionToken = sessionToken;
+                SessionJson = sessionJson ?? throw new ArgumentNullException(nameof(sessionJson));
+                SessionToken = sessionToken ?? throw new ArgumentNullException(nameof(sessionToken));
             }
 
             public string SessionJson { get; }
 
-            public string SessionToken { get; }
+            public IpcSessionToken SessionToken { get; }
         }
     }
 }

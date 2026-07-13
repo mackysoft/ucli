@@ -1,4 +1,5 @@
 using MackySoft.Tests;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Project;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
@@ -17,6 +18,8 @@ public sealed class SupervisorRequestDispatcherStreamingTests
         var session = DaemonSessionTestFactory.Create(
             sessionToken: "session-token",
             issuedAtUtc: new DateTimeOffset(2026, 03, 11, 0, 0, 0, TimeSpan.Zero),
+            editorMode: "gui",
+            ownerKind: "user",
             canShutdownProcess: false,
             endpointTransportKind: "unixDomainSocket",
             endpointAddress: "/tmp/ucli.sock",
@@ -31,8 +34,8 @@ public sealed class SupervisorRequestDispatcherStreamingTests
                 await progressObserver!.EmitWaitingForEndpointAsync(
                         new DaemonStartStartupProgressObservation(
                             LaunchAttemptId: "attempt-1",
-                            EditorMode: "batchmode",
-                            OwnerKind: "cli",
+                            EditorMode: "gui",
+                            OwnerKind: "user",
                             CanShutdownProcess: false,
                             ProcessId: 42,
                             ProcessStartedAtUtc: session.ProcessStartedAtUtc,
@@ -57,7 +60,7 @@ public sealed class SupervisorRequestDispatcherStreamingTests
             new IpcRequest(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
-                sessionToken: runtimeContext.Manifest.SessionToken,
+                sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
                 method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning),
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.EnsureRunningRequest(
@@ -65,7 +68,7 @@ public sealed class SupervisorRequestDispatcherStreamingTests
                         ProjectFingerprint: projectFingerprint,
                         DeadlineUtc: CreateEnsureRunningDeadline(1000),
                         AttemptTimeoutMilliseconds: 1000,
-                        EditorMode: "batchmode",
+                        EditorMode: "gui",
                         OnStartupBlocked: "auto")),
                 responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Stream)));
 
@@ -88,14 +91,14 @@ public sealed class SupervisorRequestDispatcherStreamingTests
             out SupervisorIpcContracts.EnsureRunningResponse terminalPayload,
             out _));
         Assert.Equal("started", terminalPayload.StartStatus);
-        Assert.Equal(session, terminalPayload.Session);
+        Assert.Equal(DaemonSessionContractMapper.ToContract(session), terminalPayload.Session);
         DaemonStartOperationAssert.EnsureRunningStreamRequested(
             startOperation,
             runtimeContext.StorageRoot,
             unityProjectRoot,
             projectFingerprint,
             TimeSpan.FromMilliseconds(1000),
-            DaemonEditorMode.Batchmode,
+            DaemonEditorMode.Gui,
             DaemonStartupBlockedProcessPolicy.Auto);
     }
 
@@ -141,7 +144,7 @@ public sealed class SupervisorRequestDispatcherStreamingTests
             new IpcRequest(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
-                sessionToken: runtimeContext.Manifest.SessionToken,
+                sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
                 method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning),
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.EnsureRunningRequest(
@@ -188,7 +191,7 @@ public sealed class SupervisorRequestDispatcherStreamingTests
         var request = new IpcRequest(
             protocolVersion: IpcProtocol.CurrentVersion,
             requestId: Guid.NewGuid(),
-            sessionToken: runtimeContext.Manifest.SessionToken,
+            sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
             method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning),
             payload: IpcPayloadCodec.SerializeToElement(
                 new SupervisorIpcContracts.EnsureRunningRequest(
@@ -252,7 +255,7 @@ public sealed class SupervisorRequestDispatcherStreamingTests
             new IpcRequest(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
-                sessionToken: runtimeContext.Manifest.SessionToken,
+                sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
                 method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning),
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.EnsureRunningRequest(

@@ -1,169 +1,117 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
-namespace MackySoft.Ucli.Application.Tests.Daemon;
-
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Storage;
+
+namespace MackySoft.Ucli.Application.Tests.Daemon;
 
 public sealed class DaemonInvalidSessionCleanupSafetyEvaluatorTests
 {
+    private static readonly DateTimeOffset ProcessStartedAtUtc =
+        new(2026, 7, 13, 0, 0, 1, TimeSpan.Zero);
+
     [Fact]
     [Trait("Size", "Small")]
-    public void RequiresUnsafeSkip_WhenSessionSnapshotIsNull_ReturnsFalse ()
+    public void RequiresUnsafeSkip_WhenEvidenceIsNull_ReturnsFalse ()
     {
         var evaluator = new DaemonInvalidSessionCleanupSafetyEvaluator(new RecordingDaemonProcessIdentityAssessor());
 
-        var requiresUnsafeSkip = evaluator.RequiresUnsafeSkip(ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-invalid-null"), null);
+        var requiresUnsafeSkip = evaluator.RequiresUnsafeSkip(
+            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-invalid-null"),
+            null);
 
         Assert.False(requiresUnsafeSkip);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void RequiresUnsafeSkip_WhenFingerprintMismatchAndProcessIdIsMissing_ReturnsFalse ()
+    public void RequiresUnsafeSkip_WhenFingerprintDoesNotMatch_ReturnsFalseWithoutIdentityAssessment ()
     {
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-invalid-mismatch-no-pid");
-        var session = DaemonSessionTestFactory.Create(projectFingerprint: "different-fingerprint") with
-        {
-            ProcessId = null,
-        };
-        var evaluator = new DaemonInvalidSessionCleanupSafetyEvaluator(new RecordingDaemonProcessIdentityAssessor());
-
-        var requiresUnsafeSkip = evaluator.RequiresUnsafeSkip(context, session);
-
-        Assert.False(requiresUnsafeSkip);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void RequiresUnsafeSkip_WhenFingerprintMismatch_ReturnsFalseBeforeIdentityAssessment ()
-    {
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-invalid-mismatch-not-running");
-        var session = DaemonSessionTestFactory.Create(projectFingerprint: "different-fingerprint");
-        var assessor = new UnexpectedDaemonProcessIdentityAssessor("Fingerprint mismatch should stop before process identity assessment.");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-current");
+        var evidence = CreateEvidence("fingerprint-other");
+        var assessor = new RecordingDaemonProcessIdentityAssessor();
         var evaluator = new DaemonInvalidSessionCleanupSafetyEvaluator(assessor);
 
-        var requiresUnsafeSkip = evaluator.RequiresUnsafeSkip(context, session);
+        var requiresUnsafeSkip = evaluator.RequiresUnsafeSkip(context, evidence);
 
         Assert.False(requiresUnsafeSkip);
+        Assert.Empty(assessor.Invocations);
     }
 
-    [Fact]
+    [Theory]
     [Trait("Size", "Small")]
-    public void RequiresUnsafeSkip_WhenProcessIdIsMissing_ReturnsFalse ()
+    [InlineData(null)]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void RequiresUnsafeSkip_WhenProcessIdIsNotPositive_ReturnsFalse (int? processId)
     {
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-invalid-no-pid");
-        var session = DaemonSessionTestFactory.Create(projectFingerprint: context.ProjectFingerprint) with
-        {
-            ProcessId = null,
-        };
-        var evaluator = new DaemonInvalidSessionCleanupSafetyEvaluator(new RecordingDaemonProcessIdentityAssessor());
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-current");
+        var evidence = CreateEvidence(context.ProjectFingerprint, processId);
+        var assessor = new RecordingDaemonProcessIdentityAssessor();
+        var evaluator = new DaemonInvalidSessionCleanupSafetyEvaluator(assessor);
 
-        var requiresUnsafeSkip = evaluator.RequiresUnsafeSkip(context, session);
+        var requiresUnsafeSkip = evaluator.RequiresUnsafeSkip(context, evidence);
 
         Assert.False(requiresUnsafeSkip);
+        Assert.Empty(assessor.Invocations);
     }
 
-    [Fact]
+    [Theory]
     [Trait("Size", "Small")]
-    public void RequiresUnsafeSkip_WhenIssuedAtUtcIsDefault_StillUsesProcessStartedAtUtcForIdentity ()
+    [InlineData(nameof(DaemonProcessIdentityAssessmentStatus.NotRunning), false)]
+    [InlineData(nameof(DaemonProcessIdentityAssessmentStatus.DifferentProcess), false)]
+    [InlineData(nameof(DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess), true)]
+    [InlineData(nameof(DaemonProcessIdentityAssessmentStatus.Uncertain), true)]
+    public void RequiresUnsafeSkip_WhenProcessIdentityIsAssessed_ReturnsConservativeDecision (
+        string statusName,
+        bool expected)
     {
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-invalid-no-issued-at");
-        var session = DaemonSessionTestFactory.Create(projectFingerprint: context.ProjectFingerprint) with
-        {
-            IssuedAtUtc = default,
-        };
+        var status = Enum.Parse<DaemonProcessIdentityAssessmentStatus>(statusName);
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-current");
+        var evidence = CreateEvidence(context.ProjectFingerprint);
         var assessor = new RecordingDaemonProcessIdentityAssessor
         {
             Assessment = new DaemonProcessIdentityAssessment(
-                DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess,
-                DateTimeOffset.UtcNow,
-                null),
+                status,
+                ObservedStartTimeUtc: null,
+                status is DaemonProcessIdentityAssessmentStatus.DifferentProcess or DaemonProcessIdentityAssessmentStatus.Uncertain
+                    ? ExecutionError.InternalError("identity assessment did not prove a matching stopped process")
+                    : null),
         };
         var evaluator = new DaemonInvalidSessionCleanupSafetyEvaluator(assessor);
 
-        var requiresUnsafeSkip = evaluator.RequiresUnsafeSkip(context, session);
+        var requiresUnsafeSkip = evaluator.RequiresUnsafeSkip(context, evidence);
 
-        Assert.True(requiresUnsafeSkip);
-        DaemonProcessIdentityAssessorAssert.AssessedOnceForSession(assessor, session);
+        Assert.Equal(expected, requiresUnsafeSkip);
+        var invocation = Assert.Single(assessor.Invocations);
+        Assert.Equal(1234, invocation.ProcessId);
+        Assert.Equal(ProcessStartedAtUtc, invocation.ExpectedProcessStartedAtUtc);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void RequiresUnsafeSkip_WhenIdentityAssessmentIsNotRunning_ReturnsFalse ()
+    public void Evidence_DoesNotExposeSessionToken ()
     {
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-invalid-not-running");
-        var session = DaemonSessionTestFactory.Create(projectFingerprint: context.ProjectFingerprint);
-        var assessor = new RecordingDaemonProcessIdentityAssessor
-        {
-            Assessment = new DaemonProcessIdentityAssessment(
-                DaemonProcessIdentityAssessmentStatus.NotRunning,
-                null,
-                null),
-        };
-        var evaluator = new DaemonInvalidSessionCleanupSafetyEvaluator(assessor);
-
-        var requiresUnsafeSkip = evaluator.RequiresUnsafeSkip(context, session);
-
-        Assert.False(requiresUnsafeSkip);
-        DaemonProcessIdentityAssessorAssert.AssessedOnceForSession(assessor, session);
+        Assert.Null(typeof(DaemonInvalidSessionEvidence).GetProperty("SessionToken"));
     }
 
-    [Fact]
-    [Trait("Size", "Small")]
-    public void RequiresUnsafeSkip_WhenIdentityAssessmentIsDifferentProcess_ReturnsFalse ()
+    private static DaemonInvalidSessionEvidence CreateEvidence (
+        string projectFingerprint,
+        int? processId = 1234)
     {
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-invalid-different-process");
-        var session = DaemonSessionTestFactory.Create(projectFingerprint: context.ProjectFingerprint);
-        var assessor = new RecordingDaemonProcessIdentityAssessor
-        {
-            Assessment = new DaemonProcessIdentityAssessment(
-                DaemonProcessIdentityAssessmentStatus.DifferentProcess,
-                DateTimeOffset.UtcNow,
-                ExecutionError.InternalError("identity mismatch")),
-        };
-        var evaluator = new DaemonInvalidSessionCleanupSafetyEvaluator(assessor);
-
-        var requiresUnsafeSkip = evaluator.RequiresUnsafeSkip(context, session);
-
-        Assert.False(requiresUnsafeSkip);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void RequiresUnsafeSkip_WhenIdentityAssessmentIsMatchingLiveProcess_ReturnsTrue ()
-    {
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-invalid-live");
-        var session = DaemonSessionTestFactory.Create(projectFingerprint: context.ProjectFingerprint);
-        var assessor = new RecordingDaemonProcessIdentityAssessor
-        {
-            Assessment = new DaemonProcessIdentityAssessment(
-                DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess,
-                DateTimeOffset.UtcNow,
-                null),
-        };
-        var evaluator = new DaemonInvalidSessionCleanupSafetyEvaluator(assessor);
-
-        var requiresUnsafeSkip = evaluator.RequiresUnsafeSkip(context, session);
-
-        Assert.True(requiresUnsafeSkip);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void RequiresUnsafeSkip_WhenIdentityAssessmentIsUncertain_ReturnsTrue ()
-    {
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-invalid-uncertain");
-        var session = DaemonSessionTestFactory.Create(projectFingerprint: context.ProjectFingerprint);
-        var assessor = new RecordingDaemonProcessIdentityAssessor
-        {
-            Assessment = new DaemonProcessIdentityAssessment(
-                DaemonProcessIdentityAssessmentStatus.Uncertain,
-                null,
-                ExecutionError.InternalError("probe failed")),
-        };
-        var evaluator = new DaemonInvalidSessionCleanupSafetyEvaluator(assessor);
-
-        var requiresUnsafeSkip = evaluator.RequiresUnsafeSkip(context, session);
-
-        Assert.True(requiresUnsafeSkip);
+        var contract = new DaemonSessionJsonContract(
+            SchemaVersion: DaemonSessionStorageContract.CurrentSchemaVersion,
+            SessionToken: "raw-secret-must-not-be-projected",
+            ProjectFingerprint: projectFingerprint,
+            IssuedAtUtc: default,
+            EditorMode: "invalid-editor-mode",
+            OwnerKind: "invalid-owner-kind",
+            CanShutdownProcess: false,
+            EndpointTransportKind: null,
+            EndpointAddress: null,
+            ProcessId: processId,
+            ProcessStartedAtUtc: ProcessStartedAtUtc,
+            OwnerProcessId: null);
+        return new DaemonInvalidSessionEvidence(contract);
     }
 }

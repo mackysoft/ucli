@@ -4,8 +4,10 @@ using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Ipc;
+using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
@@ -83,9 +85,16 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
         // NOTE:
         // The empty token belongs only to the raw wire envelope. Receiving any valid correlated
         // response, including SESSION_TOKEN_REQUIRED, proves that the endpoint is serving IPC.
+        var request = new IpcRequest(
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: Guid.NewGuid(),
+            sessionToken: string.Empty,
+            method: ContractLiteralCodec.ToValue(UnityIpcMethod.Ping),
+            payload: IpcPayloadCodec.SerializeToElement(new IpcPingRequest(ProbeClientVersion)),
+            responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single));
         _ = await transportClient.SendAsync(
                 endpoint,
-                CreatePingRequestEnvelope(string.Empty, Guid.NewGuid()),
+                request,
                 timeout,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -95,10 +104,10 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
     public async ValueTask PingCanonicalEndpointWithSessionTokenAsync (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
-        string sessionToken,
+        IpcSessionToken sessionToken,
         CancellationToken cancellationToken)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(sessionToken);
+        ArgumentNullException.ThrowIfNull(sessionToken);
         ValidateRequest(unityProject, timeout, cancellationToken);
         var endpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(
             unityProject.RepositoryRoot,
@@ -251,7 +260,12 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
 
         return await transportClient.SendAsync(
                 sessionConnection.Endpoint,
-                CreatePingRequestEnvelope(sessionConnection.SessionToken, requestId),
+                UnityIpcRequestFactory.Create(
+                    sessionConnection.SessionToken,
+                    UnityIpcMethod.Ping,
+                    IpcPayloadCodec.SerializeToElement(new IpcPingRequest(ProbeClientVersion)),
+                    requestId,
+                    IpcResponseMode.Single),
                 timeout,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -303,13 +317,7 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
     private static DaemonSessionConnection CreateSessionConnection (DaemonSession session)
     {
         ArgumentNullException.ThrowIfNull(session);
-        if (!DaemonSessionConnectionFactory.TryCreate(session, out var sessionConnection, out var error))
-        {
-            throw new DaemonPingResponseException(
-                $"Daemon session connection could not be created. {error!.Message}");
-        }
-
-        return sessionConnection;
+        return new DaemonSessionConnection(session.SessionToken, session.Endpoint);
     }
 
     private static IpcPingResponse DecodeResponse (
@@ -343,26 +351,6 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         cancellationToken.ThrowIfCancellationRequested();
-    }
-
-    /// <summary> Creates the raw wire envelope for a ping with a session token or an explicit no-session-token ping. </summary>
-    /// <param name="sessionToken"> The session token written to the wire, or an empty string for an explicit no-session-token ping. </param>
-    /// <param name="requestId"> The identifier shared by every delivery attempt for the logical ping. </param>
-    /// <returns> The ping request envelope. </returns>
-    private static IpcRequest CreatePingRequestEnvelope (
-        string sessionToken,
-        Guid requestId)
-    {
-        ArgumentNullException.ThrowIfNull(sessionToken);
-
-        var payload = IpcPayloadCodec.SerializeToElement(new IpcPingRequest(ProbeClientVersion));
-        return new IpcRequest(
-            protocolVersion: IpcProtocol.CurrentVersion,
-            requestId: requestId,
-            sessionToken: sessionToken,
-            method: ContractLiteralCodec.ToValue(UnityIpcMethod.Ping),
-            payload: payload,
-            responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single));
     }
 
 }

@@ -11,11 +11,11 @@ internal static class DaemonServiceOutputAssert
         Assert.NotNull(actual);
         Assert.Equal(expected.ProjectFingerprint, actual.ProjectFingerprint);
         Assert.Equal(expected.IssuedAtUtc, actual.IssuedAtUtc);
-        Assert.Equal(expected.EditorMode, actual.EditorMode);
-        Assert.Equal(expected.OwnerKind, actual.OwnerKind);
+        Assert.Equal(ContractLiteralCodec.ToValue(expected.EditorMode), actual.EditorMode);
+        Assert.Equal(ContractLiteralCodec.ToValue(expected.OwnerKind), actual.OwnerKind);
         Assert.Equal(expected.CanShutdownProcess, actual.CanShutdownProcess);
-        Assert.Equal(expected.EndpointTransportKind, actual.EndpointTransportKind);
-        Assert.Equal(expected.EndpointAddress, actual.EndpointAddress);
+        Assert.Equal(ContractLiteralCodec.ToValue(expected.Endpoint.TransportKind), actual.EndpointTransportKind);
+        Assert.Equal(expected.Endpoint.Address, actual.EndpointAddress);
         Assert.Equal(expected.ProcessId, actual.ProcessId);
         Assert.Equal(expected.ProcessStartedAtUtc, actual.ProcessStartedAtUtc);
         Assert.Equal(expected.OwnerProcessId, actual.OwnerProcessId);

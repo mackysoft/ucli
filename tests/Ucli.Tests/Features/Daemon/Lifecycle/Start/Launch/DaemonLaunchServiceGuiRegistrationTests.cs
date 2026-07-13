@@ -18,10 +18,8 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
             processId: 4321,
             sessionToken: LaunchSessionToken,
             projectFingerprint: context.ProjectFingerprint,
-            endpointAddress: LaunchEndpointAddress) with
-        {
-            EditorMode = "gui",
-        };
+            editorMode: "gui",
+            endpointAddress: LaunchEndpointAddress);
         var launchSessionService = new RecordingDaemonLaunchSessionService();
         var batchmodeLauncher = new RecordingUnityDaemonProcessLauncher();
         var guiLauncher = new RecordingUnityGuiEditorProcessLauncher
@@ -74,11 +72,9 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
             processId: 4321,
             sessionToken: LaunchSessionToken,
             projectFingerprint: context.ProjectFingerprint,
-            endpointAddress: LaunchEndpointAddress) with
-        {
-            EditorMode = "gui",
-            ProcessStartedAtUtc = processStartedAtUtc,
-        };
+            editorMode: "gui",
+            endpointAddress: LaunchEndpointAddress,
+            processStartedAtUtc: processStartedAtUtc);
         var guiLauncher = new RecordingUnityGuiEditorProcessLauncher
         {
             NextResult = UnityDaemonLaunchResult.Success(4321, processStartedAtUtc),

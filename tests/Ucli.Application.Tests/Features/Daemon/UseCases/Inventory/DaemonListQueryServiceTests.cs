@@ -31,16 +31,16 @@ public sealed class DaemonListQueryServiceTests
             currentProject,
             worktreeA,
             worktreeB);
-        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(null))
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Missing())
         {
             ReadAsyncHandler = (_, projectFingerprint, _) => ValueTask.FromResult(projectFingerprint switch
             {
-                "fp-current" => DaemonSessionReadResult.Success(null),
-                "fp-a" => DaemonSessionReadResult.Success(DaemonSessionTestFactory.Create(
+                "fp-current" => DaemonSessionReadResult.Missing(),
+                "fp-a" => DaemonSessionReadResultTestFactory.Found(DaemonSessionTestFactory.Create(
                     projectFingerprint: projectFingerprint,
                     endpointAddress: "endpoint-a",
                     processId: 1001)),
-                "fp-b" => DaemonSessionReadResult.Success(DaemonSessionTestFactory.Create(
+                "fp-b" => DaemonSessionReadResultTestFactory.Found(DaemonSessionTestFactory.Create(
                     projectFingerprint: projectFingerprint,
                     endpointAddress: "endpoint-b",
                     processId: 1002)),
@@ -116,7 +116,7 @@ public sealed class DaemonListQueryServiceTests
             CanAcceptExecutionRequests: true);
         var service = CreateSingleWorktreeService(
             currentProject,
-            DaemonSessionReadResult.Success(session),
+            DaemonSessionReadResultTestFactory.Found(session),
             new RecordingDaemonDiagnosisStore(),
             new RecordingDaemonPingInfoClient(pingResponse),
             new StubDaemonReachabilityClassifier(static _ => false));
@@ -144,7 +144,7 @@ public sealed class DaemonListQueryServiceTests
         var service = CreateService(
             new RecordingGitWorktreeQueryService(GitWorktreeQueryResult.Failure(ExecutionError.InternalError("git failed"))),
             RecordingUnityProjectResolver.FromContexts(currentProject),
-            new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(null)),
+            new RecordingDaemonSessionStore(DaemonSessionReadResult.Missing()),
             new RecordingDaemonDiagnosisStore(),
             CreateDefaultPingClient(),
             new StubDaemonReachabilityClassifier(static _ => false));
@@ -163,11 +163,7 @@ public sealed class DaemonListQueryServiceTests
         var currentProject = CreateUnityProject("/repo/wt-current", "UnityProject", "fp-current");
         var service = CreateSingleWorktreeService(
             currentProject,
-            DaemonSessionReadResult.Failure(
-                ExecutionError.InvalidArgument("Daemon session JSON is invalid."),
-                DaemonSessionReadFailureKind.InvalidSession,
-                session: null,
-                artifactIdentity: null),
+            DaemonSessionReadResultTestFactory.Invalid(),
             new RecordingDaemonDiagnosisStore(),
             CreateDefaultPingClient(),
             new StubDaemonReachabilityClassifier(static _ => false));

@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Contracts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Startup;
@@ -8,6 +9,7 @@ using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Infrastructure.Paths;
@@ -130,7 +132,8 @@ internal sealed class SupervisorRequestDispatcher
                 "Supervisor session token is required.");
         }
 
-        if (!string.Equals(request.SessionToken, runtimeContext.Manifest.SessionToken, StringComparison.Ordinal))
+        if (!IpcSessionToken.IsValidEncodedValue(request.SessionToken)
+            || !runtimeContext.Manifest.SessionToken.Matches(request.SessionToken))
         {
             return SupervisorIpcResponseFactory.CreateErrorResponse(
                 request,
@@ -355,7 +358,7 @@ internal sealed class SupervisorRequestDispatcher
                 new SupervisorIpcContracts.EnsureRunningResponse(
                     StartStatus: startStatus!,
                     DaemonStatus: ContractLiteralCodec.ToValue(DaemonStatusKind.Running),
-                    Session: startResult.Session!,
+                    Session: DaemonSessionContractMapper.ToContract(startResult.Session!),
                     LifecycleSnapshot: startResult.LifecycleSnapshot));
         }
         finally

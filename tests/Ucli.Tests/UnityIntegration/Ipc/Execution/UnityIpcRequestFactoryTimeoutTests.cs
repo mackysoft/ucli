@@ -15,7 +15,7 @@ public sealed class UnityIpcRequestFactoryTimeoutTests
     public void UnityIpcRequestFactory_WhenMethodIsUndefined_ThrowsArgumentOutOfRangeException (int value)
     {
         var exception = Assert.Throws<ArgumentOutOfRangeException>(() => UnityIpcRequestFactory.Create(
-            "session-token",
+            IpcSessionTokenTestFactory.CreateFromDiscriminator(1),
             (UnityIpcMethod)value,
             IpcPayloadCodec.SerializeToElement(new { }),
             Guid.NewGuid(),
@@ -31,7 +31,7 @@ public sealed class UnityIpcRequestFactoryTimeoutTests
         var dispatchRequest = new UnityIpcRequestBuilder().Build(new UnityRequestPayload.Compile("run-1"));
 
         var request = UnityIpcRequestFactory.Create(
-            "session-token",
+            IpcSessionTokenTestFactory.CreateFromDiscriminator(1),
             dispatchRequest.Method,
             dispatchRequest.CreatePayload(TimeSpan.FromMilliseconds(1234)),
             Guid.NewGuid(),
@@ -58,7 +58,7 @@ public sealed class UnityIpcRequestFactoryTimeoutTests
             RunId: "run-1"));
 
         var request = UnityIpcRequestFactory.Create(
-            "session-token",
+            IpcSessionTokenTestFactory.CreateFromDiscriminator(1),
             dispatchRequest.Method,
             dispatchRequest.CreatePayload(TimeSpan.FromMilliseconds(1234)),
             Guid.NewGuid(),
@@ -80,7 +80,7 @@ public sealed class UnityIpcRequestFactoryTimeoutTests
             development: false));
 
         var request = UnityIpcRequestFactory.Create(
-            "session-token",
+            IpcSessionTokenTestFactory.CreateFromDiscriminator(1),
             dispatchRequest.Method,
             dispatchRequest.CreatePayload(TimeSpan.FromMilliseconds(1234)),
             Guid.NewGuid(),
@@ -107,7 +107,7 @@ public sealed class UnityIpcRequestFactoryTimeoutTests
             AllowDangerous: true));
 
         var request = UnityIpcRequestFactory.Create(
-            "session-token",
+            IpcSessionTokenTestFactory.CreateFromDiscriminator(1),
             dispatchRequest.Method,
             dispatchRequest.CreatePayload(TimeSpan.FromMilliseconds(1234)),
             Guid.NewGuid(),
@@ -136,7 +136,7 @@ public sealed class UnityIpcRequestFactoryTimeoutTests
             AllowDangerous: true));
 
         var request = UnityIpcRequestFactory.Create(
-            "session-token",
+            IpcSessionTokenTestFactory.CreateFromDiscriminator(1),
             dispatchRequest.Method,
             dispatchRequest.CreatePayload(TimeSpan.FromMilliseconds(1234)),
             Guid.NewGuid(),

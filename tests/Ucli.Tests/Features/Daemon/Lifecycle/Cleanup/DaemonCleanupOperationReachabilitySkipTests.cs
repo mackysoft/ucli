@@ -19,7 +19,7 @@ public sealed class DaemonCleanupOperationReachabilitySkipTests
             new ManualTimeProvider(),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
-                ReadResult = DaemonSessionReadResult.Success(null),
+                ReadResult = DaemonSessionReadResult.Missing(),
             },
             daemonPingClient: daemonPingClient,
             artifactCleaner: artifactCleaner);
@@ -43,7 +43,7 @@ public sealed class DaemonCleanupOperationReachabilitySkipTests
             new ManualTimeProvider(),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
-                ReadResult = DaemonSessionReadResult.Success(session),
+                ReadResult = DaemonSessionReadResultTestFactory.Found(session),
             },
             daemonPingClient: DaemonCleanupOperationTestSupport.CreateSuccessfulPingClient(),
             artifactCleaner: artifactCleaner);
@@ -66,7 +66,7 @@ public sealed class DaemonCleanupOperationReachabilitySkipTests
             new ManualTimeProvider(),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
-                ReadResult = DaemonSessionReadResult.Success(session),
+                ReadResult = DaemonSessionReadResultTestFactory.Found(session),
             },
             daemonPingClient: DaemonCleanupOperationTestSupport.CreateFailingPingClient(
                 new DaemonPingResponseException("token invalid", IpcSessionErrorCodes.SessionTokenInvalid)),
@@ -90,7 +90,7 @@ public sealed class DaemonCleanupOperationReachabilitySkipTests
             new ManualTimeProvider(),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
-                ReadResult = DaemonSessionReadResult.Success(session),
+                ReadResult = DaemonSessionReadResultTestFactory.Found(session),
             },
             daemonPingClient: DaemonCleanupOperationTestSupport.CreateFailingPingClient(
                 new DaemonPingResponseException("token required", IpcSessionErrorCodes.SessionTokenRequired)),
@@ -114,7 +114,7 @@ public sealed class DaemonCleanupOperationReachabilitySkipTests
             new ManualTimeProvider(),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
-                ReadResult = DaemonSessionReadResult.Success(session),
+                ReadResult = DaemonSessionReadResultTestFactory.Found(session),
             },
             daemonPingClient: DaemonCleanupOperationTestSupport.CreateFailingPingClient(
                 new SocketException((int)SocketError.AccessDenied)),
@@ -138,7 +138,7 @@ public sealed class DaemonCleanupOperationReachabilitySkipTests
             new ManualTimeProvider(),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
-                ReadResult = DaemonSessionReadResult.Success(session),
+                ReadResult = DaemonSessionReadResultTestFactory.Found(session),
             },
             daemonPingClient: DaemonCleanupOperationTestSupport.CreateFailingPingClient(
                 new SocketException((int)SocketError.AddressNotAvailable)),
@@ -162,7 +162,7 @@ public sealed class DaemonCleanupOperationReachabilitySkipTests
             new ManualTimeProvider(),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
-                ReadResult = DaemonSessionReadResult.Success(session),
+                ReadResult = DaemonSessionReadResultTestFactory.Found(session),
             },
             daemonPingClient: DaemonCleanupOperationTestSupport.CreateFailingPingClient(
                 new IpcConnectTimeoutException("connect timeout")),
@@ -186,7 +186,7 @@ public sealed class DaemonCleanupOperationReachabilitySkipTests
             new ManualTimeProvider(),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
-                ReadResult = DaemonSessionReadResult.Success(session),
+                ReadResult = DaemonSessionReadResultTestFactory.Found(session),
             },
             daemonPingClient: DaemonCleanupOperationTestSupport.CreateFailingPingClient(
                 new IpcConnectTimeoutException("connect timeout")),
@@ -209,7 +209,7 @@ public sealed class DaemonCleanupOperationReachabilitySkipTests
             new ManualTimeProvider(),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
-                ReadResult = DaemonSessionReadResult.Success(null),
+                ReadResult = DaemonSessionReadResult.Missing(),
             },
             daemonPingClient: DaemonCleanupOperationTestSupport.CreateFailingPingClient(
                 new SocketException((int)SocketError.AddressNotAvailable)),
@@ -232,7 +232,7 @@ public sealed class DaemonCleanupOperationReachabilitySkipTests
             new ManualTimeProvider(),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
-                ReadResult = DaemonSessionReadResult.Success(DaemonSessionTestFactory.Create(processId: 2005)),
+                ReadResult = DaemonSessionReadResultTestFactory.Found(DaemonSessionTestFactory.Create(processId: 2005)),
             },
             daemonPingClient: DaemonCleanupOperationTestSupport.CreateFailingPingClient(
                 new TimeoutException("probe timeout")),

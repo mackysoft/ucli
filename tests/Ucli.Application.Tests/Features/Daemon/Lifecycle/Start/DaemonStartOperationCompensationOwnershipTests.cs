@@ -44,7 +44,7 @@ public sealed class DaemonStartOperationCompensationOwnershipTests
         };
         var operation = CreateOperation(
             daemonSessionStore: new RecordingDaemonSessionStore(
-                DaemonSessionReadResult.Success(null)),
+                DaemonSessionReadResult.Missing()),
             daemonSessionCleanupService: new RecordingDaemonSessionCleanupService(),
             daemonExistingSessionGateService: new RecordingDaemonExistingSessionGateService(),
             daemonLaunchService: launchService,

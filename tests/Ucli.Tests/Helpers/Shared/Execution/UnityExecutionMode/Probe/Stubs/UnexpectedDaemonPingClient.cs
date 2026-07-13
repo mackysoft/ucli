@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
+using MackySoft.Ucli.Contracts.Ipc.Authorization;
 
 namespace MackySoft.Ucli.Tests.Helpers.Ipc;
 
@@ -42,7 +43,7 @@ internal sealed class UnexpectedDaemonPingClient : IDaemonPingClient
     public ValueTask PingCanonicalEndpointWithSessionTokenAsync (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
-        string sessionToken,
+        IpcSessionToken sessionToken,
         CancellationToken cancellationToken)
     {
         throw new InvalidOperationException(reason);

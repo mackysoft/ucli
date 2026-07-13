@@ -15,11 +15,9 @@ public sealed class DaemonStatusServiceRunningTelemetryTests
         var context = DaemonCommandExecutionContextTestFactory.Create(timeoutMilliseconds: 2450);
         var resolver = new RecordingDaemonCommandExecutionContextResolver(
             DaemonCommandExecutionContextResolutionResult.Success(context));
-        var session = DaemonSessionTestFactory.Create() with
-        {
-            EditorMode = "gui",
-            EditorInstanceId = "editor-instance-1",
-        };
+        var session = DaemonSessionTestFactory.Create(
+            editorMode: "gui",
+            editorInstanceId: "editor-instance-1");
         var persistedDiagnosis = DaemonDiagnosisTestFactory.Create();
         var pingResponse = new IpcPingResponse(
             ServerVersion: "9.9.9",
@@ -60,12 +58,10 @@ public sealed class DaemonStatusServiceRunningTelemetryTests
         var context = DaemonCommandExecutionContextTestFactory.Create(timeoutMilliseconds: 2455);
         var resolver = new RecordingDaemonCommandExecutionContextResolver(
             DaemonCommandExecutionContextResolutionResult.Success(context));
-        var session = DaemonSessionTestFactory.Create() with
-        {
-            EditorMode = "gui",
-            OwnerKind = "user",
-            CanShutdownProcess = false,
-        };
+        var session = DaemonSessionTestFactory.Create(
+            editorMode: "gui",
+            ownerKind: "user",
+            canShutdownProcess: false);
         var pingResponse = new IpcPingResponse(
             ServerVersion: "9.9.10",
             EditorMode: "gui",

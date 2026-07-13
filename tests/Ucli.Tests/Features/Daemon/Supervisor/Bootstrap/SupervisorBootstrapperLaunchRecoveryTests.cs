@@ -1,4 +1,3 @@
-using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
@@ -21,7 +20,7 @@ public sealed class SupervisorBootstrapperLaunchRecoveryTests
             timeProvider,
             readAllTextOrNull: (path, cancellationToken) => ValueTask.FromResult<string?>(
                 timeProvider.GetUtcNow() >= manifestPublicationTime
-                    ? JsonSerializer.Serialize(manifest)
+                    ? SupervisorManifestStoreTestSupport.Serialize(manifest)
                     : null),
             writeAllTextAtomically: static (_, _, _) => ValueTask.CompletedTask,
             deleteIfExists: static _ => { });
@@ -74,7 +73,7 @@ public sealed class SupervisorBootstrapperLaunchRecoveryTests
         var manifestStore = new SupervisorManifestStore(
             timeProvider,
             readAllTextOrNull: (path, cancellationToken) => ValueTask.FromResult<string?>(
-                launchCount >= 2 ? JsonSerializer.Serialize(manifest) : null),
+                launchCount >= 2 ? SupervisorManifestStoreTestSupport.Serialize(manifest) : null),
             writeAllTextAtomically: static (_, _, _) => ValueTask.CompletedTask,
             deleteIfExists: static _ => { });
         var transportClient = CreatePingTransport(manifest);

@@ -24,18 +24,17 @@ public sealed class DaemonListQueryServiceProbeFailureTests
             projectFingerprint: currentProject.ProjectFingerprint,
             endpointAddress: "first-endpoint",
             processId: 2001);
-        var refreshedSession = firstSession with
-        {
-            SessionToken = "refreshed-token",
-            EndpointAddress = "refreshed-endpoint",
-            ProcessId = 2002,
-            IssuedAtUtc = firstSession.IssuedAtUtc.AddSeconds(1),
-        };
+        var refreshedSession = DaemonSessionTestFactory.Create(
+            sessionToken: "refreshed-token",
+            projectFingerprint: currentProject.ProjectFingerprint,
+            issuedAtUtc: firstSession.IssuedAtUtc.AddSeconds(1),
+            endpointAddress: "refreshed-endpoint",
+            processId: 2002);
         var sessionStore = new RecordingDaemonSessionStore
         {
             ReadHandler = invocations => invocations.Count == 1
-                ? DaemonSessionReadResult.Success(firstSession)
-                : DaemonSessionReadResult.Success(refreshedSession),
+                ? DaemonSessionReadResultTestFactory.Found(firstSession)
+                : DaemonSessionReadResultTestFactory.Found(refreshedSession),
         };
         var pingResponse = CreatePingResponse(currentProject);
         var pingClient = new RecordingDaemonPingInfoClient(
@@ -64,7 +63,7 @@ public sealed class DaemonListQueryServiceProbeFailureTests
         var item = Assert.Single(result.Output!.Items);
         Assert.Equal(DaemonListItemState.Running, item.State);
         Assert.Equal(refreshedSession.ProcessId, item.ProcessId);
-        Assert.Equal(refreshedSession.EndpointAddress, item.EndpointAddress);
+        Assert.Equal(refreshedSession.Endpoint.Address, item.EndpointAddress);
         Assert.Equal(2, sessionStore.ReadInvocations.Count);
         Assert.Collection(
             pingClient.Invocations,
@@ -88,18 +87,17 @@ public sealed class DaemonListQueryServiceProbeFailureTests
             projectFingerprint: currentProject.ProjectFingerprint,
             endpointAddress: "observed-endpoint",
             processId: 2011);
-        var replacementSession = observedSession with
-        {
-            SessionToken = "replacement-token",
-            EndpointAddress = "replacement-endpoint",
-            ProcessId = 2012,
-            IssuedAtUtc = observedSession.IssuedAtUtc.AddSeconds(1),
-        };
+        var replacementSession = DaemonSessionTestFactory.Create(
+            sessionToken: "replacement-token",
+            projectFingerprint: currentProject.ProjectFingerprint,
+            issuedAtUtc: observedSession.IssuedAtUtc.AddSeconds(1),
+            endpointAddress: "replacement-endpoint",
+            processId: 2012);
         var sessionStore = new RecordingDaemonSessionStore
         {
             ReadHandler = invocations => invocations.Count == 1
-                ? DaemonSessionReadResult.Success(observedSession)
-                : DaemonSessionReadResult.Success(replacementSession),
+                ? DaemonSessionReadResultTestFactory.Found(observedSession)
+                : DaemonSessionReadResultTestFactory.Found(replacementSession),
         };
         Exception replacementFailure = probeTimesOut
             ? new TimeoutException("Replacement probe timed out.")
@@ -135,7 +133,7 @@ public sealed class DaemonListQueryServiceProbeFailureTests
             probeTimesOut ? DaemonListItemReason.ProbeTimeout : DaemonListItemReason.StaleSession,
             item.Reason);
         Assert.Equal(replacementSession.ProcessId, item.ProcessId);
-        Assert.Equal(replacementSession.EndpointAddress, item.EndpointAddress);
+        Assert.Equal(replacementSession.Endpoint.Address, item.EndpointAddress);
         Assert.Collection(
             pingClient.Invocations,
             invocation => Assert.Equal(observedSession, invocation.Session),
@@ -153,7 +151,7 @@ public sealed class DaemonListQueryServiceProbeFailureTests
             processId: 2100);
         var service = CreateSingleWorktreeService(
             currentProject,
-            DaemonSessionReadResult.Success(session),
+            DaemonSessionReadResultTestFactory.Found(session),
             new RecordingDaemonDiagnosisStore(),
             CreateThrowingPingClient(new TimeoutException("probe timed out")),
             new StubDaemonReachabilityClassifier(static _ => false));
@@ -184,7 +182,7 @@ public sealed class DaemonListQueryServiceProbeFailureTests
         var processIdentityAssessor = RecordingDaemonProcessIdentityAssessor.MatchingLiveProcess(session.ProcessStartedAtUtc);
         var service = CreateSingleWorktreeService(
             currentProject,
-            DaemonSessionReadResult.Success(session),
+            DaemonSessionReadResultTestFactory.Found(session),
             new RecordingDaemonDiagnosisStore(),
             CreateThrowingPingClient(new TimeoutException("probe timed out")),
             new StubDaemonReachabilityClassifier(static _ => false),
@@ -212,7 +210,7 @@ public sealed class DaemonListQueryServiceProbeFailureTests
         var processIdentityAssessor = RecordingDaemonProcessIdentityAssessor.MatchingLiveProcess(session.ProcessStartedAtUtc);
         var service = CreateSingleWorktreeService(
             currentProject,
-            DaemonSessionReadResult.Success(session),
+            DaemonSessionReadResultTestFactory.Found(session),
             new RecordingDaemonDiagnosisStore(),
             CreateThrowingPingClient(new SocketException((int)SocketError.ConnectionRefused)),
             new StubDaemonReachabilityClassifier(static exception => exception is SocketException),
@@ -246,7 +244,7 @@ public sealed class DaemonListQueryServiceProbeFailureTests
         var diagnosisStore = new RecordingDaemonDiagnosisStore();
         var service = CreateSingleWorktreeService(
             currentProject,
-            DaemonSessionReadResult.Success(session),
+            DaemonSessionReadResultTestFactory.Found(session),
             diagnosisStore,
             CreateThrowingPingClient(new SocketException((int)SocketError.ConnectionRefused)),
             new StubDaemonReachabilityClassifier(static exception => exception is SocketException),
@@ -281,7 +279,7 @@ public sealed class DaemonListQueryServiceProbeFailureTests
         };
         var service = CreateSingleWorktreeService(
             currentProject,
-            DaemonSessionReadResult.Success(session),
+            DaemonSessionReadResultTestFactory.Found(session),
             diagnosisStore,
             CreateThrowingPingClient(new SocketException((int)SocketError.ConnectionRefused)),
             new StubDaemonReachabilityClassifier(static exception => exception is SocketException));
@@ -324,7 +322,7 @@ public sealed class DaemonListQueryServiceProbeFailureTests
         var diagnosisStore = new RecordingDaemonDiagnosisStore();
         var service = CreateSingleWorktreeService(
             currentProject,
-            DaemonSessionReadResult.Success(session),
+            DaemonSessionReadResultTestFactory.Found(session),
             diagnosisStore,
             CreateThrowingPingClient(new SocketException((int)SocketError.ConnectionRefused)),
             new StubDaemonReachabilityClassifier(static exception => exception is SocketException));
@@ -357,7 +355,7 @@ public sealed class DaemonListQueryServiceProbeFailureTests
             processId: 2300);
         var service = CreateSingleWorktreeService(
             currentProject,
-            DaemonSessionReadResult.Success(session),
+            DaemonSessionReadResultTestFactory.Found(session),
             new RecordingDaemonDiagnosisStore(),
             CreateThrowingPingClient(new InvalidOperationException("boom")),
             new StubDaemonReachabilityClassifier(static _ => false));
@@ -383,10 +381,8 @@ public sealed class DaemonListQueryServiceProbeFailureTests
         return DaemonSessionTestFactory.Create(
             projectFingerprint: projectFingerprint,
             processId: processId,
-            editorMode: "gui") with
-        {
-            EditorInstanceId = $"editor-instance-{processId}",
-        };
+            editorMode: "gui",
+            editorInstanceId: $"editor-instance-{processId}");
     }
 
     private static RecordingDaemonLifecycleStore CreateRecoveringLifecycleStore (
@@ -398,7 +394,7 @@ public sealed class DaemonListQueryServiceProbeFailureTests
             ReadResult = DaemonLifecycleObservationReadResult.Success(new DaemonLifecycleObservation(
                 ProcessId: session.ProcessId!.Value,
                 ProcessStartedAtUtc: session.ProcessStartedAtUtc!.Value,
-                EditorMode: session.EditorMode,
+                EditorMode: ContractLiteralCodec.ToValue(session.EditorMode),
                 LifecycleState: IpcEditorLifecycleStateCodec.Recovering,
                 BlockingReason: IpcEditorBlockingReasonCodec.Recovery,
                 CompileState: IpcCompileStateCodec.Ready,

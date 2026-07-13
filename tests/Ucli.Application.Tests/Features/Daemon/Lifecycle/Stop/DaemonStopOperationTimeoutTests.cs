@@ -82,7 +82,7 @@ public sealed class DaemonStopOperationTimeoutTests
         }
         finally
         {
-            readCompletion.TrySetResult(DaemonSessionReadResult.Success(null));
+            readCompletion.TrySetResult(DaemonSessionReadResult.Missing());
             await TestAwaiter.WaitAsync(readFinished.Task, "Stop session read completion", SignalWaitTimeout);
         }
     }

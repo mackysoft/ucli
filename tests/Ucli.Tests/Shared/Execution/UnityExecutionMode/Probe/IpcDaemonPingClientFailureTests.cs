@@ -93,7 +93,7 @@ public sealed class IpcDaemonPingClientFailureTests
                     OpId: null),
             ]));
         var firstConnection = new DaemonSessionConnection(
-            "first-token",
+            IpcSessionTokenTestFactory.Create("first-token"),
             new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-first-session.sock"));
         var sessionConnectionProvider = new QueuedDaemonSessionConnectionProvider(
             DaemonSessionConnectionResolutionResult.Success(firstConnection),

@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Ipc.Authorization;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 
@@ -105,7 +106,6 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
             return await HandleReachabilityWithoutSessionTokenAsync(
                     unityProject,
                     deadline,
-                    expectedSession: null,
                     expectedArtifactIdentity: null,
                     cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
@@ -132,22 +132,11 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
             return DaemonCleanupResult.Failure(readResult.Error!);
         }
 
-        if (readResult.Session == null)
-        {
-            return await HandleReachabilityWithoutSessionTokenAsync(
-                    unityProject,
-                    deadline,
-                    expectedSession: null,
-                    expectedArtifactIdentity: readResult.ArtifactIdentity,
-                    cancellationToken: cancellationToken)
-                .ConfigureAwait(false);
-        }
-
         // NOTE:
         // Parseable invalid sessions that still point to a plausible live daemon must block
         // destructive cleanup. Once that condition is met, probing must not override the
         // non-destructive skip with an unrelated failure.
-        var requiresUnsafeSkip = invalidSessionCleanupSafetyEvaluator.RequiresUnsafeSkip(unityProject, readResult.Session);
+        var requiresUnsafeSkip = invalidSessionCleanupSafetyEvaluator.RequiresUnsafeSkip(unityProject, readResult.InvalidEvidence);
         if (requiresUnsafeSkip)
         {
             return DaemonCleanupResult.Skipped(DaemonCleanupSkipReason.UnsafeInvalidSession);
@@ -156,7 +145,6 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
         return await HandleReachabilityWithoutSessionTokenAsync(
                 unityProject,
                 deadline,
-                readResult.Session,
                 readResult.ArtifactIdentity,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -165,7 +153,6 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
     private async ValueTask<DaemonCleanupResult> HandleReachabilityWithoutSessionTokenAsync (
         ResolvedUnityProjectContext unityProject,
         ExecutionDeadline deadline,
-        DaemonSession? expectedSession,
         DaemonSessionArtifactIdentity? expectedArtifactIdentity,
         CancellationToken cancellationToken)
     {
@@ -176,19 +163,19 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
             .ConfigureAwait(false);
 
         return await HandleProbeResultAsync(
-                unityProject,
-                deadline,
-                probeResult,
-                expectedSession,
-                expectedArtifactIdentity,
-                cancellationToken)
+            unityProject,
+            deadline,
+            probeResult,
+            expectedSession: null,
+            expectedArtifactIdentity,
+            cancellationToken)
             .ConfigureAwait(false);
     }
 
     private async ValueTask<DaemonCleanupResult> HandleReachabilityWithSessionTokenAsync (
         ResolvedUnityProjectContext unityProject,
         ExecutionDeadline deadline,
-        string sessionToken,
+        IpcSessionToken sessionToken,
         DaemonSession? expectedSession,
         DaemonSessionArtifactIdentity? expectedArtifactIdentity,
         CancellationToken cancellationToken)

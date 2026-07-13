@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.TestSupport;
 
@@ -18,22 +19,35 @@ internal static class DaemonSessionTestFactory
         int? ownerProcessId = 9876,
         string? editorInstanceId = null)
     {
-        return new DaemonSession(
-            SchemaVersion: DaemonSession.CurrentSchemaVersion,
-            SessionToken: sessionToken,
-            ProjectFingerprint: projectFingerprint,
-            IssuedAtUtc: issuedAtUtc ?? new DateTimeOffset(2026, 03, 05, 0, 0, 0, TimeSpan.Zero),
-            EditorMode: editorMode,
-            OwnerKind: ownerKind,
-            CanShutdownProcess: canShutdownProcess,
-            EndpointTransportKind: endpointTransportKind,
-            EndpointAddress: endpointAddress,
-            ProcessId: processId,
-            ProcessStartedAtUtc: processStartedAtUtc ?? (processId is null ? null : DateTimeOffset.UtcNow),
-            OwnerProcessId: ownerProcessId)
+        if (!ContractLiteralCodec.TryParse<DaemonEditorMode>(editorMode, out var parsedEditorMode))
         {
-            EditorInstanceId = editorInstanceId,
-        };
+            throw new ArgumentException("Editor mode label must be a contract literal.", nameof(editorMode));
+        }
+
+        if (!ContractLiteralCodec.TryParse<DaemonSessionOwnerKind>(ownerKind, out var parsedOwnerKind))
+        {
+            throw new ArgumentException("Owner kind label must be a contract literal.", nameof(ownerKind));
+        }
+
+        if (!ContractLiteralCodec.TryParse<IpcTransportKind>(endpointTransportKind, out var parsedTransportKind))
+        {
+            throw new ArgumentException("Transport kind label must be a contract literal.", nameof(endpointTransportKind));
+        }
+
+        return new DaemonSession(
+            IpcSessionTokenTestFactory.Create(sessionToken),
+            projectFingerprint,
+            issuedAtUtc ?? new DateTimeOffset(2026, 03, 05, 0, 0, 0, TimeSpan.Zero),
+            parsedEditorMode,
+            parsedOwnerKind,
+            canShutdownProcess,
+            new IpcEndpoint(parsedTransportKind, endpointAddress),
+            processId,
+            processStartedAtUtc ?? (processId is null
+                ? null
+                : new DateTimeOffset(2026, 03, 05, 0, 0, 1, TimeSpan.Zero)),
+            ownerProcessId ?? throw new ArgumentNullException(nameof(ownerProcessId)),
+            editorInstanceId);
     }
 
     public static DaemonSession CreateUserOwned (
@@ -63,7 +77,7 @@ internal static class DaemonSessionTestFactory
             endpointAddress: "/tmp/ucli.sock",
             processId: 1234,
             processStartedAtUtc: DateTimeOffset.UnixEpoch.AddSeconds(10),
-            ownerProcessId: null,
+            ownerProcessId: 9876,
             editorInstanceId: "editor-instance-1");
     }
 }

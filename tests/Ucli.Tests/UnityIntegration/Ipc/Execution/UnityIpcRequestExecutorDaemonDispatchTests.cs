@@ -100,7 +100,9 @@ public sealed class UnityIpcRequestExecutorDaemonDispatchTests
             oneshotTransportClient,
             launcher,
             UnityIpcMethod.OpsRead);
-        Assert.Equal("daemon-token", request.SessionToken);
+        Assert.Equal(
+            IpcSessionTokenTestFactory.Create("daemon-token").GetEncodedValue(),
+            request.SessionToken);
     }
 
     [Fact]

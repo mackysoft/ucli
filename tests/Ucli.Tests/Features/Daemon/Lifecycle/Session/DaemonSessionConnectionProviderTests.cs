@@ -19,20 +19,20 @@ public sealed class DaemonSessionConnectionProviderTests
             scope.FullPath,
             projectFingerprint: "fingerprint-session-exists");
 
-        var session = DaemonSessionTestFactory.Create() with
-        {
-            ProjectFingerprint = context.ProjectFingerprint,
-            SessionToken = "resolved-token",
-            EndpointTransportKind = "namedPipe",
-            EndpointAddress = "ucli-daemon-test",
-        };
+        var session = DaemonSessionTestFactory.Create(
+            projectFingerprint: context.ProjectFingerprint,
+            sessionToken: "resolved-token",
+            endpointTransportKind: "namedPipe",
+            endpointAddress: "ucli-daemon-test");
         var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);
         Assert.True(writeResult.IsSuccess);
 
         var resolveResult = await provider.ResolveAsync(context, CancellationToken.None);
 
         Assert.True(resolveResult.IsSuccess);
-        Assert.Equal("resolved-token", resolveResult.Connection!.SessionToken);
+        Assert.Equal(
+            IpcSessionTokenTestFactory.Create("resolved-token"),
+            resolveResult.Connection!.SessionToken);
         Assert.Equal(IpcTransportKind.NamedPipe, resolveResult.Connection.Endpoint.TransportKind);
         Assert.Equal("ucli-daemon-test", resolveResult.Connection.Endpoint.Address);
         Assert.Null(resolveResult.Error);
@@ -56,5 +56,4 @@ public sealed class DaemonSessionConnectionProviderTests
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
         Assert.Contains("not available", error.Message, StringComparison.OrdinalIgnoreCase);
     }
-
 }
