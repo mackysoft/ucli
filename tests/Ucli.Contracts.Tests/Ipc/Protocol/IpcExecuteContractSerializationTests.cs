@@ -10,6 +10,116 @@ public sealed class IpcExecuteContractSerializationTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void IpcProjectIdentity_Constructor_WithNullProjectPath_ThrowsArgumentNullException ()
+    {
+        var exception = Assert.Throws<ArgumentNullException>(() => new IpcProjectIdentity(
+            projectPath: null!,
+            projectFingerprint: new ProjectFingerprint(ProjectFingerprintText),
+            unityVersion: "6000.1.4f1"));
+
+        Assert.Equal("projectPath", exception.ParamName);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData(" ")]
+    [Trait("Size", "Small")]
+    public void IpcProjectIdentity_Constructor_WithEmptyProjectPath_ThrowsArgumentException (string projectPath)
+    {
+        var exception = Assert.Throws<ArgumentException>(() => new IpcProjectIdentity(
+            projectPath,
+            new ProjectFingerprint(ProjectFingerprintText),
+            "6000.1.4f1"));
+
+        Assert.Equal("projectPath", exception.ParamName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcProjectIdentity_Constructor_WithNullProjectFingerprint_ThrowsArgumentNullException ()
+    {
+        var exception = Assert.Throws<ArgumentNullException>(() => new IpcProjectIdentity(
+            projectPath: "/repo/UnityProject",
+            projectFingerprint: null!,
+            unityVersion: "6000.1.4f1"));
+
+        Assert.Equal("projectFingerprint", exception.ParamName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcProjectIdentity_Constructor_WithNullUnityVersion_ThrowsArgumentNullException ()
+    {
+        var exception = Assert.Throws<ArgumentNullException>(() => new IpcProjectIdentity(
+            projectPath: "/repo/UnityProject",
+            projectFingerprint: new ProjectFingerprint(ProjectFingerprintText),
+            unityVersion: null!));
+
+        Assert.Equal("unityVersion", exception.ParamName);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData(" ")]
+    [Trait("Size", "Small")]
+    public void IpcProjectIdentity_Constructor_WithEmptyUnityVersion_ThrowsArgumentException (string unityVersion)
+    {
+        var exception = Assert.Throws<ArgumentException>(() => new IpcProjectIdentity(
+            "/repo/UnityProject",
+            new ProjectFingerprint(ProjectFingerprintText),
+            unityVersion));
+
+        Assert.Equal("unityVersion", exception.ParamName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcExecuteResponse_Constructor_WithNullOperationResults_ThrowsArgumentNullException ()
+    {
+        var exception = Assert.Throws<ArgumentNullException>(() => new IpcExecuteResponse(
+            opResults: null!,
+            project: CreateProjectIdentity()));
+
+        Assert.Equal("opResults", exception.ParamName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcExecuteResponse_Constructor_WithNullProject_ThrowsArgumentNullException ()
+    {
+        var exception = Assert.Throws<ArgumentNullException>(() => new IpcExecuteResponse(
+            opResults: Array.Empty<IpcExecuteOperationResult>(),
+            project: null!));
+
+        Assert.Equal("project", exception.ParamName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void RequiredProjectIdentity_PublicSurface_CannotBypassConstructorValidation ()
+    {
+        var projectIdentityConstructor = Assert.Single(typeof(IpcProjectIdentity).GetConstructors());
+        Assert.Collection(
+            projectIdentityConstructor.GetParameters(),
+            parameter => Assert.Equal(typeof(string), parameter.ParameterType),
+            parameter => Assert.Equal(typeof(ProjectFingerprint), parameter.ParameterType),
+            parameter => Assert.Equal(typeof(string), parameter.ParameterType));
+        Assert.Empty(typeof(IpcProjectIdentity).GetMember("Unknown"));
+        Assert.Null(typeof(IpcProjectIdentity).GetProperty(nameof(IpcProjectIdentity.ProjectPath))!.SetMethod);
+        Assert.Null(typeof(IpcProjectIdentity).GetProperty(nameof(IpcProjectIdentity.ProjectFingerprint))!.SetMethod);
+        Assert.Null(typeof(IpcProjectIdentity).GetProperty(nameof(IpcProjectIdentity.UnityVersion))!.SetMethod);
+
+        var executeResponseConstructor = Assert.Single(typeof(IpcExecuteResponse).GetConstructors());
+        Assert.Collection(
+            executeResponseConstructor.GetParameters(),
+            parameter => Assert.Equal(typeof(IReadOnlyList<IpcExecuteOperationResult>), parameter.ParameterType),
+            parameter => Assert.Equal(typeof(IpcProjectIdentity), parameter.ParameterType));
+        Assert.Null(typeof(IpcExecuteResponse).GetProperty(nameof(IpcExecuteResponse.OpResults))!.SetMethod);
+        Assert.Null(typeof(IpcExecuteResponse).GetProperty(nameof(IpcExecuteResponse.Project))!.SetMethod);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void IpcExecuteRequest_SerializesOptionalExecutionControlsOnlyWhenSpecified ()
     {
         var requestWithToken = new IpcExecuteRequest(
@@ -60,28 +170,26 @@ public sealed class IpcExecuteContractSerializationTests
     [Trait("Size", "Small")]
     public void IpcExecuteResponse_SerializesWithOpResultsContract ()
     {
-        var response = new IpcExecuteResponse(new[]
-        {
-            new IpcExecuteOperationResult(
-                OpId: "op-1",
-                Op: UcliPrimitiveOperationNames.Resolve,
-                Phase: IpcExecuteOperationPhaseNames.Call,
-                Applied: true,
-                Changed: true,
-                Touched: new[]
-                {
-                    new IpcExecuteTouchedResource(
-                        Kind: UcliTouchedResourceKindNames.Scene,
-                        Path: "Assets/Scenes/Main.unity",
-                        Guid: "11111111111111111111111111111111"),
-                }),
-        })
+        var response = new IpcExecuteResponse(
+            opResults:
+            [
+                new IpcExecuteOperationResult(
+                    OpId: "op-1",
+                    Op: UcliPrimitiveOperationNames.Resolve,
+                    Phase: IpcExecuteOperationPhaseNames.Call,
+                    Applied: true,
+                    Changed: true,
+                    Touched:
+                    [
+                        new IpcExecuteTouchedResource(
+                            Kind: UcliTouchedResourceKindNames.Scene,
+                            Path: "Assets/Scenes/Main.unity",
+                            Guid: "11111111111111111111111111111111"),
+                    ]),
+            ],
+            project: CreateProjectIdentity())
         {
             PlanToken = "issued-token",
-            Project = new IpcProjectIdentity(
-                ProjectPath: "/repo/UnityProject",
-                ProjectFingerprint: ProjectFingerprintText,
-                UnityVersion: "6000.1.4f1"),
         };
 
         var json = IpcPayloadCodec.SerializeToElement(response);
@@ -110,7 +218,9 @@ public sealed class IpcExecuteContractSerializationTests
     [Trait("Size", "Small")]
     public void IpcExecuteResponse_RoundTripsContractViolations ()
     {
-        var response = new IpcExecuteResponse(Array.Empty<IpcExecuteOperationResult>())
+        var response = new IpcExecuteResponse(
+            Array.Empty<IpcExecuteOperationResult>(),
+            CreateProjectIdentity())
         {
             ContractViolations =
             [
@@ -144,6 +254,24 @@ public sealed class IpcExecuteContractSerializationTests
         Assert.Equal("assurance.mayDirty=false", violationResult.ExpectedFact);
         Assert.Equal("opResults[].changed=true", violationResult.ObservedResult);
         Assert.Equal(IpcExecuteApplicationStateNames.Indeterminate, violationResult.ApplicationState);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcExecuteResponse_RoundTripsRequiredProjectIdentity ()
+    {
+        var response = new IpcExecuteResponse(
+            Array.Empty<IpcExecuteOperationResult>(),
+            CreateProjectIdentity());
+
+        var jsonElement = IpcPayloadCodec.SerializeToElement(response);
+        var roundTrip = JsonSerializer.Deserialize<IpcExecuteResponse>(
+            jsonElement.GetRawText(),
+            IpcJsonSerializerOptions.Default);
+
+        Assert.NotNull(roundTrip);
+        Assert.Equal(response.Project, roundTrip.Project);
+        Assert.Equal(ProjectFingerprintText, roundTrip.Project.ProjectFingerprint.ToString());
     }
 
     [Fact]
@@ -219,7 +347,9 @@ public sealed class IpcExecuteContractSerializationTests
     [Trait("Size", "Small")]
     public void IpcExecuteResponse_SerializesReadPostconditionContract ()
     {
-        var response = new IpcExecuteResponse(Array.Empty<IpcExecuteOperationResult>())
+        var response = new IpcExecuteResponse(
+            Array.Empty<IpcExecuteOperationResult>(),
+            CreateProjectIdentity())
         {
             ReadPostcondition = new IpcExecuteReadPostcondition(
             [
@@ -253,7 +383,9 @@ public sealed class IpcExecuteContractSerializationTests
     [Trait("Size", "Small")]
     public void IpcExecuteResponse_SerializesPostReadSourceContract ()
     {
-        var response = new IpcExecuteResponse(Array.Empty<IpcExecuteOperationResult>())
+        var response = new IpcExecuteResponse(
+            Array.Empty<IpcExecuteOperationResult>(),
+            CreateProjectIdentity())
         {
             PostReadSource = new IpcExecutePostReadSource(
                 IpcExecutePostReadSource.CurrentSchemaVersion,
@@ -299,7 +431,9 @@ public sealed class IpcExecuteContractSerializationTests
     [Trait("Size", "Small")]
     public void IpcExecuteResponse_SerializesContractViolationsContract ()
     {
-        var response = new IpcExecuteResponse(Array.Empty<IpcExecuteOperationResult>())
+        var response = new IpcExecuteResponse(
+            Array.Empty<IpcExecuteOperationResult>(),
+            CreateProjectIdentity())
         {
             ContractViolations =
             [
@@ -327,7 +461,9 @@ public sealed class IpcExecuteContractSerializationTests
     [Trait("Size", "Small")]
     public void IpcExecuteResponse_OmitsPlanTokenWhenNull ()
     {
-        var response = new IpcExecuteResponse(Array.Empty<IpcExecuteOperationResult>());
+        var response = new IpcExecuteResponse(
+            Array.Empty<IpcExecuteOperationResult>(),
+            CreateProjectIdentity());
 
         var jsonElement = IpcPayloadCodec.SerializeToElement(response);
         Assert.True(jsonElement.TryGetProperty("project", out _));
@@ -335,5 +471,13 @@ public sealed class IpcExecuteContractSerializationTests
         Assert.False(jsonElement.TryGetProperty("readPostcondition", out _));
         Assert.False(jsonElement.TryGetProperty("postReadSource", out _));
         Assert.False(jsonElement.TryGetProperty("contractViolations", out _));
+    }
+
+    private static IpcProjectIdentity CreateProjectIdentity ()
+    {
+        return new IpcProjectIdentity(
+            projectPath: "/repo/UnityProject",
+            projectFingerprint: new ProjectFingerprint(ProjectFingerprintText),
+            unityVersion: "6000.1.4f1");
     }
 }
