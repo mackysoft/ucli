@@ -7,19 +7,14 @@ internal sealed class ScreenshotArtifactCommitRequest
 {
     /// <summary> Initializes a screenshot artifact commit request. </summary>
     public ScreenshotArtifactCommitRequest (
-        ScreenshotArtifactPaths paths,
         int width,
         int height,
         IpcScreenshotStagingImage staging)
     {
-        Paths = paths ?? throw new ArgumentNullException(nameof(paths));
         Width = width;
         Height = height;
         Staging = staging ?? throw new ArgumentNullException(nameof(staging));
     }
-
-    /// <summary> Gets the host-prepared capture paths. </summary>
-    public ScreenshotArtifactPaths Paths { get; }
 
     /// <summary> Gets the captured image width in pixels. </summary>
     public int Width { get; }

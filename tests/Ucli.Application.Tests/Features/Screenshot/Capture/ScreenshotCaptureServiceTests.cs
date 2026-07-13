@@ -64,17 +64,17 @@ public sealed class ScreenshotCaptureServiceTests
         Assert.Equal(target, payload.Target);
         Assert.Equal(requestedWidth, payload.RequestedWidth);
         Assert.Equal(requestedHeight, payload.RequestedHeight);
+        Assert.Equal(RecordingScreenshotArtifactStore.RawStagingPath, payload.StagingPath);
         Assert.Equal(5000, payload.TimeoutMilliseconds);
 
         var commit = Assert.Single(artifactStore.CommitRequests);
-        Assert.Same(RecordingScreenshotArtifactStore.Paths, commit.Paths);
         Assert.Equal(width, commit.Width);
         Assert.Equal(height, commit.Height);
         Assert.Equal(IpcScreenshotPixelFormat.Rgba8Srgb, commit.Staging.PixelFormat);
         Assert.Equal(IpcScreenshotRowOrder.TopDown, commit.Staging.RowOrder);
         Assert.Equal(width * 4, commit.Staging.RowStrideBytes);
         Assert.Equal((long)width * height * 4, commit.Staging.SizeBytes);
-        Assert.Equal(0, artifactStore.DiscardCount);
+        Assert.Equal(1, artifactStore.DiscardCount);
 
         var output = result.Output!;
         Assert.Equal(target, output.Capture.Target);
@@ -229,7 +229,7 @@ public sealed class ScreenshotCaptureServiceTests
             : 1920;
         var height = caseName == "dimensions" ? 1 : 1080;
         var returnedStagingPath = caseName == "returned-path"
-            ? RecordingScreenshotArtifactStore.Paths.RawStagingPath + ".unexpected"
+            ? RecordingScreenshotArtifactStore.RawStagingPath + ".unexpected"
             : null;
         var response = CreateResponse(
             width,
@@ -252,7 +252,7 @@ public sealed class ScreenshotCaptureServiceTests
         Assert.Equal(ScreenshotErrorCodes.ScreenshotCaptureUnsupported, result.Error!.Code);
         var commit = Assert.Single(artifactStore.CommitRequests);
         Assert.Equal(width, commit.Width);
-        Assert.Equal(returnedStagingPath ?? RecordingScreenshotArtifactStore.Paths.RawStagingPath, commit.Staging.Path);
+        Assert.Equal(returnedStagingPath ?? RecordingScreenshotArtifactStore.RawStagingPath, commit.Staging.Path);
         Assert.Equal(1, artifactStore.DiscardCount);
     }
 
@@ -323,6 +323,27 @@ public sealed class ScreenshotCaptureServiceTests
 
         Assert.False(result.IsSuccess);
         Assert.Same(expectedError, result.Error);
+        Assert.Single(artifactStore.CommitRequests);
+        Assert.Equal(1, artifactStore.DiscardCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Capture_WhenArtifactCommitSucceedsButLeaseTerminationFails_ReturnsCleanupFailure ()
+    {
+        var response = CreateResponse(width: 1920, height: 1080);
+        var unityExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(response));
+        var cleanupError = ExecutionError.InternalError("Screenshot staging cleanup failed.");
+        var artifactStore = new RecordingScreenshotArtifactStore
+        {
+            DiscardResult = ScreenshotArtifactDiscardResult.Failure(cleanupError),
+        };
+        var service = CreateService(CreateGuiSessionResult(), unityExecutor, artifactStore);
+
+        var result = await service.CaptureAsync(CreateInput(), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Same(cleanupError, result.Error);
         Assert.Single(artifactStore.CommitRequests);
         Assert.Equal(1, artifactStore.DiscardCount);
     }
@@ -414,7 +435,6 @@ public sealed class ScreenshotCaptureServiceTests
         string? stagingPath = null,
         UnityEditorStateSnapshot? state = null)
     {
-        var paths = RecordingScreenshotArtifactStore.Paths;
         if (colorSpace is not null
             || lifecycleState is not null
             || compileState is not null
@@ -430,7 +450,7 @@ public sealed class ScreenshotCaptureServiceTests
                 lifecycleState,
                 compileState,
                 playModeState,
-                stagingPath ?? paths.RawStagingPath);
+                stagingPath ?? RecordingScreenshotArtifactStore.RawStagingPath);
         }
 
         var payload = new IpcScreenshotCaptureResponse(
@@ -446,7 +466,7 @@ public sealed class ScreenshotCaptureServiceTests
                 IpcScreenshotColorSpace.Linear,
                 state: state ?? CreateState()),
             new IpcScreenshotStagingImage(
-                stagingPath ?? paths.RawStagingPath,
+                stagingPath ?? RecordingScreenshotArtifactStore.RawStagingPath,
                 IpcScreenshotPixelFormat.Rgba8Srgb,
                 IpcScreenshotRowOrder.TopDown,
                 RowStrideBytes: width * 4,
@@ -553,14 +573,8 @@ public sealed class ScreenshotCaptureServiceTests
 
     private sealed class RecordingScreenshotArtifactStore : IScreenshotArtifactStore
     {
-        public static ScreenshotArtifactPaths Paths { get; } = new(
-            RepositoryRoot: "/repo",
-            ProjectFingerprint: "project-fingerprint",
-            CaptureId: "capture-1",
-            ArtifactDirectory: "/repo/.ucli/local/fingerprints/project-fingerprint/artifacts/screenshot/capture-1",
-            PngPath: "/repo/.ucli/local/fingerprints/project-fingerprint/artifacts/screenshot/capture-1/screenshot.png",
-            StagingDirectory: "/repo/.ucli/local/fingerprints/project-fingerprint/work/screenshot/capture-1",
-            RawStagingPath: "/repo/.ucli/local/fingerprints/project-fingerprint/work/screenshot/capture-1/capture.rgba");
+        public const string RawStagingPath =
+            "/repo/.ucli/local/fingerprints/project-fingerprint/work/screenshot/capture-1/capture.rgba";
 
         public int PrepareCount { get; private set; }
 
@@ -577,25 +591,37 @@ public sealed class ScreenshotCaptureServiceTests
             string captureId)
         {
             PrepareCount++;
-            return ScreenshotArtifactPreparationResult.Success(Paths);
+            return ScreenshotArtifactPreparationResult.Success(new RecordingScreenshotArtifactLease(this));
         }
 
-        public ValueTask<ScreenshotArtifactCommitResult> CommitAsync (
-            ScreenshotArtifactCommitRequest request,
-            CancellationToken cancellationToken = default)
+        private sealed class RecordingScreenshotArtifactLease : IScreenshotArtifactLease
         {
-            CommitRequests.Add(request);
-            return ValueTask.FromResult(CommitResult ?? ScreenshotArtifactCommitResult.Success(new ScreenshotArtifact(
-                Path: ".ucli/local/fingerprints/project-fingerprint/artifacts/screenshot/capture-1/screenshot.png",
-                Digest: new string('b', 64),
-                SizeBytes: 1024,
-                CreatedAtUtc)));
-        }
+            private readonly RecordingScreenshotArtifactStore store;
 
-        public ScreenshotArtifactDiscardResult Discard (ScreenshotArtifactPaths paths)
-        {
-            DiscardCount++;
-            return DiscardResult ?? ScreenshotArtifactDiscardResult.Success();
+            public RecordingScreenshotArtifactLease (RecordingScreenshotArtifactStore store)
+            {
+                this.store = store;
+            }
+
+            public string RawStagingPath => RecordingScreenshotArtifactStore.RawStagingPath;
+
+            public ValueTask<ScreenshotArtifactCommitResult> CommitAsync (
+                ScreenshotArtifactCommitRequest request,
+                CancellationToken cancellationToken = default)
+            {
+                store.CommitRequests.Add(request);
+                return ValueTask.FromResult(store.CommitResult ?? ScreenshotArtifactCommitResult.Success(new ScreenshotArtifact(
+                    Path: ".ucli/local/fingerprints/project-fingerprint/artifacts/screenshot/capture-1/screenshot.png",
+                    Digest: new string('b', 64),
+                    SizeBytes: 1024,
+                    CreatedAtUtc)));
+            }
+
+            public ScreenshotArtifactDiscardResult Discard ()
+            {
+                store.DiscardCount++;
+                return store.DiscardResult ?? ScreenshotArtifactDiscardResult.Success();
+            }
         }
     }
 }

@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Features.Screenshot.Artifacts;
 using MackySoft.Ucli.Features.Screenshot.Artifacts;
 using MackySoft.Ucli.Features.Screenshot.Artifacts.Png;
+using MackySoft.Ucli.Infrastructure.Storage;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace MackySoft.Ucli.Hosting.Composition.Features;
@@ -20,6 +21,7 @@ internal static class ScreenshotServiceCollectionExtensions
                 serviceProvider.GetRequiredService<Rgba8SrgbPngEncoder>(),
                 serviceProvider.GetRequiredService<Rgba8SrgbPngValidator>(),
                 TimeProvider.System,
+                FileSystemAccessBoundary.EnsureSecureDirectory,
                 File.Delete));
         return services;
     }

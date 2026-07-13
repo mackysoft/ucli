@@ -1,11 +1,11 @@
 using System.Globalization;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Screenshot.Artifacts;
-using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Features.Screenshot.Artifacts;
 using MackySoft.Ucli.Features.Screenshot.Artifacts.Png;
+using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Tests.Features.Screenshot.Artifacts;
 
@@ -26,7 +26,7 @@ public sealed class FileScreenshotArtifactStoreTests
         var rawBytes = CreateTwoByTwoRawBytes();
         await File.WriteAllBytesAsync(paths.RawStagingPath, rawBytes, CancellationToken.None);
 
-        var result = await store.CommitAsync(CreateCommitRequest(paths), CancellationToken.None);
+        var result = await paths.Lease.CommitAsync(CreateCommitRequest(paths), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var artifact = Assert.IsType<ScreenshotArtifact>(result.Artifact);
@@ -46,6 +46,77 @@ public sealed class FileScreenshotArtifactStoreTests
         Assert.Equal(pngBytes.LongLength, artifact.SizeBytes);
         Assert.Equal(Sha256LowerHex.Compute(pngBytes), artifact.Digest);
         Assert.Equal(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 }, pngBytes[..8]);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Discard_AfterSuccessfulCommit_IsIdempotentAndPreservesCommittedArtifact ()
+    {
+        using var scope = TestDirectories.CreateTempScope("screenshot-artifact-store", "discard-committed");
+        var paths = Prepare(CreateStore(), scope);
+        await File.WriteAllBytesAsync(paths.RawStagingPath, CreateTwoByTwoRawBytes(), CancellationToken.None);
+        var commitResult = await paths.Lease.CommitAsync(CreateCommitRequest(paths), CancellationToken.None);
+        Assert.True(commitResult.IsSuccess);
+
+        var firstDiscard = paths.Lease.Discard();
+        var secondDiscard = paths.Lease.Discard();
+
+        Assert.True(firstDiscard.IsSuccess);
+        Assert.True(secondDiscard.IsSuccess);
+        Assert.True(File.Exists(paths.PngPath));
+        Assert.False(File.Exists(paths.RawStagingPath));
+        Assert.False(Directory.Exists(paths.StagingDirectory));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public void Prepare_WhenSecureDirectoryCreationFailsAfterCreatingCaptureDirectory_RollsBackCaptureDirectory ()
+    {
+        using var scope = TestDirectories.CreateTempScope("screenshot-artifact-store", "prepare-rollback");
+        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, "fingerprint");
+        var expectedPaths = ResolveExpectedPaths(project);
+        var store = CreateStore(
+            new ManualTimeProvider(CreatedAtUtc),
+            ensureSecureStagingDirectory: path =>
+            {
+                Directory.CreateDirectory(path);
+                throw new IOException("Expected secure staging failure.");
+            });
+
+        var result = store.Prepare(project, CaptureId);
+
+        Assert.False(result.IsSuccess);
+        Assert.Contains("Expected secure staging failure.", result.Error!.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("rollback also failed", result.Error.Message, StringComparison.Ordinal);
+        Assert.False(Directory.Exists(expectedPaths.StagingDirectory));
+        Assert.False(Directory.Exists(expectedPaths.ArtifactDirectory));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public void Prepare_WhenSecureDirectoryCreationAndRollbackFail_ReturnsBothDiagnostics ()
+    {
+        using var scope = TestDirectories.CreateTempScope("screenshot-artifact-store", "prepare-rollback-failure");
+        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, "fingerprint");
+        var expectedPaths = ResolveExpectedPaths(project);
+        var unexpectedPath = Path.Combine(expectedPaths.StagingDirectory, "unexpected.txt");
+        var store = CreateStore(
+            new ManualTimeProvider(CreatedAtUtc),
+            ensureSecureStagingDirectory: path =>
+            {
+                Directory.CreateDirectory(path);
+                File.WriteAllText(unexpectedPath, "unexpected");
+                throw new IOException("Expected secure staging failure.");
+            });
+
+        var result = store.Prepare(project, CaptureId);
+
+        Assert.False(result.IsSuccess);
+        Assert.Contains("Expected secure staging failure.", result.Error!.Message, StringComparison.Ordinal);
+        Assert.Contains("rollback also failed", result.Error.Message, StringComparison.Ordinal);
+        Assert.Contains("unexpected entries", result.Error.Message, StringComparison.Ordinal);
+        Assert.True(File.Exists(unexpectedPath));
+        Assert.False(Directory.Exists(expectedPaths.ArtifactDirectory));
     }
 
     [Theory]
@@ -91,7 +162,7 @@ public sealed class FileScreenshotArtifactStoreTests
             _ => throw new ArgumentOutOfRangeException(nameof(caseName), caseName, "Unknown raw contract case."),
         };
 
-        var result = await store.CommitAsync(request, CancellationToken.None);
+        var result = await paths.Lease.CommitAsync(request, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ScreenshotErrorCodes.ScreenshotCaptureUnsupported, result.Error!.Code);
@@ -99,29 +170,6 @@ public sealed class FileScreenshotArtifactStoreTests
         Assert.False(File.Exists(paths.RawStagingPath));
         Assert.False(Directory.Exists(paths.StagingDirectory));
         Assert.False(Directory.Exists(paths.ArtifactDirectory));
-    }
-
-    [Fact]
-    [Trait("Size", "Medium")]
-    public async Task CommitAsync_WhenArtifactPathEscapesPreparedLayout_ReturnsInvalidArgumentWithoutWritingOutside ()
-    {
-        using var scope = TestDirectories.CreateTempScope("screenshot-artifact-store", "path-escape");
-        var store = CreateStore();
-        var paths = Prepare(store, scope);
-        await File.WriteAllBytesAsync(paths.RawStagingPath, CreateTwoByTwoRawBytes(), CancellationToken.None);
-        var outsidePath = Path.Combine(scope.FullPath, "outside.png");
-        var tamperedPaths = paths with { PngPath = outsidePath };
-
-        var result = await store.CommitAsync(CreateCommitRequest(tamperedPaths), CancellationToken.None);
-
-        Assert.False(result.IsSuccess);
-        Assert.Equal(ExecutionErrorKind.InvalidArgument, result.Error!.Kind);
-        Assert.False(File.Exists(outsidePath));
-        Assert.False(File.Exists(paths.PngPath));
-
-        var discardResult = store.Discard(paths);
-        Assert.True(discardResult.IsSuccess);
-        Assert.False(Directory.Exists(paths.StagingDirectory));
     }
 
     [Fact]
@@ -143,7 +191,7 @@ public sealed class FileScreenshotArtifactStoreTests
             return;
         }
 
-        var result = await store.CommitAsync(CreateCommitRequest(paths), CancellationToken.None);
+        var result = await paths.Lease.CommitAsync(CreateCommitRequest(paths), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.False(File.Exists(paths.PngPath));
@@ -173,7 +221,7 @@ public sealed class FileScreenshotArtifactStoreTests
                 RowStrideBytes: rawBytes.Length,
                 SizeBytes: rawBytes.LongLength));
 
-        var result = await store.CommitAsync(request, CancellationToken.None);
+        var result = await paths.Lease.CommitAsync(request, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ScreenshotErrorCodes.ScreenshotCaptureUnsupported, result.Error!.Code);
@@ -203,7 +251,7 @@ public sealed class FileScreenshotArtifactStoreTests
             return;
         }
 
-        var result = await store.CommitAsync(CreateCommitRequest(paths), CancellationToken.None);
+        var result = await paths.Lease.CommitAsync(CreateCommitRequest(paths), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.False(File.Exists(paths.PngPath));
@@ -220,9 +268,11 @@ public sealed class FileScreenshotArtifactStoreTests
         var paths = Prepare(store, scope);
         await File.WriteAllBytesAsync(paths.RawStagingPath, CreateTwoByTwoRawBytes(), CancellationToken.None);
 
-        var result = store.Discard(paths);
+        var firstResult = paths.Lease.Discard();
+        var secondResult = paths.Lease.Discard();
 
-        Assert.True(result.IsSuccess);
+        Assert.True(firstResult.IsSuccess);
+        Assert.True(secondResult.IsSuccess);
         Assert.False(File.Exists(paths.RawStagingPath));
         Assert.False(Directory.Exists(paths.StagingDirectory));
         Assert.False(File.Exists(paths.PngPath));
@@ -241,7 +291,7 @@ public sealed class FileScreenshotArtifactStoreTests
         cancellationTokenSource.Cancel();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            store.CommitAsync(CreateCommitRequest(paths), cancellationTokenSource.Token).AsTask());
+            paths.Lease.CommitAsync(CreateCommitRequest(paths), cancellationTokenSource.Token).AsTask());
 
         Assert.False(File.Exists(paths.RawStagingPath));
         Assert.False(Directory.Exists(paths.StagingDirectory));
@@ -254,23 +304,24 @@ public sealed class FileScreenshotArtifactStoreTests
     public async Task CommitAsync_WhenFinalArtifactDeletionFails_StillCleansStagingAndReturnsFailure ()
     {
         using var scope = TestDirectories.CreateTempScope("screenshot-artifact-store", "final-delete-failure");
-        var paths = Prepare(CreateStore(), scope);
-        await File.WriteAllBytesAsync(paths.RawStagingPath, CreateTwoByTwoRawBytes(), CancellationToken.None);
+        var expectedPaths = ResolveExpectedPaths(scope);
         var deletionAttempts = new List<string>();
         var store = CreateStore(
             new ThrowingTimeProvider(new InvalidOperationException("Expected timestamp failure.")),
             path =>
             {
                 deletionAttempts.Add(path);
-                if (string.Equals(path, paths.PngPath, StringComparison.Ordinal))
+                if (string.Equals(path, expectedPaths.PngPath, StringComparison.Ordinal))
                 {
                     throw new IOException("Expected final PNG deletion failure.");
                 }
 
                 File.Delete(path);
             });
+        var paths = Prepare(store, scope);
+        await File.WriteAllBytesAsync(paths.RawStagingPath, CreateTwoByTwoRawBytes(), CancellationToken.None);
 
-        var result = await store.CommitAsync(CreateCommitRequest(paths), CancellationToken.None);
+        var result = await paths.Lease.CommitAsync(CreateCommitRequest(paths), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Contains("Expected final PNG deletion failure.", result.Error!.Message, StringComparison.Ordinal);
@@ -285,8 +336,6 @@ public sealed class FileScreenshotArtifactStoreTests
     public async Task CommitAsync_WhenTemporaryArtifactDeletionFails_StillRemovesFinalArtifactAndStaging ()
     {
         using var scope = TestDirectories.CreateTempScope("screenshot-artifact-store", "temporary-delete-failure");
-        var paths = Prepare(CreateStore(), scope);
-        await File.WriteAllBytesAsync(paths.RawStagingPath, CreateTwoByTwoRawBytes(), CancellationToken.None);
         var deletionAttempts = new List<string>();
         var store = CreateStore(
             new ManualTimeProvider(CreatedAtUtc),
@@ -300,8 +349,10 @@ public sealed class FileScreenshotArtifactStoreTests
 
                 File.Delete(path);
             });
+        var paths = Prepare(store, scope);
+        await File.WriteAllBytesAsync(paths.RawStagingPath, CreateTwoByTwoRawBytes(), CancellationToken.None);
 
-        var result = await store.CommitAsync(CreateCommitRequest(paths), CancellationToken.None);
+        var result = await paths.Lease.CommitAsync(CreateCommitRequest(paths), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Contains("Expected temporary PNG deletion failure.", result.Error!.Message, StringComparison.Ordinal);
@@ -317,13 +368,13 @@ public sealed class FileScreenshotArtifactStoreTests
     public async Task CommitAsync_WhenCanceledAfterFinalArtifactCreation_RethrowsAndCleansEveryOwnedPath ()
     {
         using var scope = TestDirectories.CreateTempScope("screenshot-artifact-store", "late-cancellation");
-        var paths = Prepare(CreateStore(), scope);
-        await File.WriteAllBytesAsync(paths.RawStagingPath, CreateTwoByTwoRawBytes(), CancellationToken.None);
         var store = CreateStore(new ThrowingTimeProvider(
             new OperationCanceledException("Expected late cancellation.")));
+        var paths = Prepare(store, scope);
+        await File.WriteAllBytesAsync(paths.RawStagingPath, CreateTwoByTwoRawBytes(), CancellationToken.None);
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            store.CommitAsync(CreateCommitRequest(paths), CancellationToken.None).AsTask());
+            paths.Lease.CommitAsync(CreateCommitRequest(paths), CancellationToken.None).AsTask());
 
         Assert.False(File.Exists(paths.RawStagingPath));
         Assert.False(Directory.Exists(paths.StagingDirectory));
@@ -337,50 +388,82 @@ public sealed class FileScreenshotArtifactStoreTests
             new Rgba8SrgbPngEncoder(),
             new Rgba8SrgbPngValidator(),
             new ManualTimeProvider(CreatedAtUtc),
+            FileSystemAccessBoundary.EnsureSecureDirectory,
             File.Delete);
     }
 
     private static FileScreenshotArtifactStore CreateStore (
         TimeProvider timeProvider,
-        Action<string>? deleteOwnedFile = null)
+        Action<string>? deleteOwnedFile = null,
+        Action<string>? ensureSecureStagingDirectory = null)
     {
         return new FileScreenshotArtifactStore(
             new Rgba8SrgbPngEncoder(),
             new Rgba8SrgbPngValidator(),
             timeProvider,
+            ensureSecureStagingDirectory ?? FileSystemAccessBoundary.EnsureSecureDirectory,
             deleteOwnedFile ?? File.Delete);
     }
 
-    private static ScreenshotArtifactPaths Prepare (
+    private static PreparedCapture Prepare (
         FileScreenshotArtifactStore store,
         TestDirectoryScope scope)
     {
         var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, "fingerprint");
+        var expectedPaths = ResolveExpectedPaths(project);
         var result = store.Prepare(project, CaptureId);
 
         Assert.True(result.IsSuccess);
-        var paths = Assert.IsType<ScreenshotArtifactPaths>(result.Paths);
-        Assert.True(Directory.Exists(paths.StagingDirectory));
-        Assert.False(Directory.Exists(paths.ArtifactDirectory));
-        return paths;
+        var lease = Assert.IsAssignableFrom<IScreenshotArtifactLease>(result.Lease);
+        Assert.Equal(expectedPaths.RawStagingPath, lease.RawStagingPath);
+        Assert.True(Path.IsPathRooted(lease.RawStagingPath));
+        Assert.True(Directory.Exists(expectedPaths.StagingDirectory));
+        Assert.False(Directory.Exists(expectedPaths.ArtifactDirectory));
+        return new PreparedCapture(lease, expectedPaths);
     }
 
     private static ScreenshotArtifactCommitRequest CreateCommitRequest (
-        ScreenshotArtifactPaths paths,
+        PreparedCapture capture,
         int width = 2,
         int height = 2,
         IpcScreenshotStagingImage? staging = null)
     {
         return new ScreenshotArtifactCommitRequest(
-            paths,
             width,
             height,
             staging ?? new IpcScreenshotStagingImage(
-                paths.RawStagingPath,
+                capture.RawStagingPath,
                 IpcScreenshotPixelFormat.Rgba8Srgb,
                 IpcScreenshotRowOrder.TopDown,
                 RowStrideBytes: checked(width * 4),
                 SizeBytes: checked((long)width * height * 4)));
+    }
+
+    private static ExpectedCapturePaths ResolveExpectedPaths (TestDirectoryScope scope)
+    {
+        return ResolveExpectedPaths(
+            ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, "fingerprint"));
+    }
+
+    private static ExpectedCapturePaths ResolveExpectedPaths (ResolvedUnityProjectContext project)
+    {
+        return new ExpectedCapturePaths(
+            UcliStoragePathResolver.ResolveScreenshotCaptureArtifactsDirectory(
+                project.RepositoryRoot,
+                project.ProjectFingerprint,
+                CaptureId),
+            UcliStoragePathResolver.ResolveScreenshotCaptureArtifactPath(
+                project.RepositoryRoot,
+                project.ProjectFingerprint,
+                CaptureId),
+            UcliStoragePathResolver.ResolveScreenshotCaptureStagingDirectory(
+                project.RepositoryRoot,
+                project.ProjectFingerprint,
+                CaptureId),
+            UcliStoragePathResolver.ResolveScreenshotCaptureRawStagingPath(
+                project.RepositoryRoot,
+                project.ProjectFingerprint,
+                CaptureId));
     }
 
     private static byte[] CreateTwoByTwoRawBytes ()
@@ -408,4 +491,23 @@ public sealed class FileScreenshotArtifactStoreTests
             throw exception;
         }
     }
+
+    private sealed record PreparedCapture (
+        IScreenshotArtifactLease Lease,
+        ExpectedCapturePaths Paths)
+    {
+        public string ArtifactDirectory => Paths.ArtifactDirectory;
+
+        public string PngPath => Paths.PngPath;
+
+        public string StagingDirectory => Paths.StagingDirectory;
+
+        public string RawStagingPath => Lease.RawStagingPath;
+    }
+
+    private sealed record ExpectedCapturePaths (
+        string ArtifactDirectory,
+        string PngPath,
+        string StagingDirectory,
+        string RawStagingPath);
 }

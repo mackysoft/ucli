@@ -86,7 +86,7 @@ internal sealed class ScreenshotCaptureService : IScreenshotCaptureService
             return ScreenshotCaptureResult.Failure(preparation.Error!);
         }
 
-        var paths = preparation.Paths!;
+        var artifactLease = preparation.Lease!;
         ScreenshotCaptureResult captureResult;
         try
         {
@@ -94,13 +94,13 @@ internal sealed class ScreenshotCaptureService : IScreenshotCaptureService
                     input,
                     context,
                     timeoutResult.Timeout!.Value,
-                    paths,
+                    artifactLease,
                     cancellationToken)
                 .ConfigureAwait(false);
         }
         catch (Exception exception)
         {
-            var cleanupResult = artifactStore.Discard(paths);
+            var cleanupResult = artifactLease.Discard();
             if (!cleanupResult.IsSuccess)
             {
                 return ScreenshotCaptureResult.Failure(ExecutionError.InternalError(
@@ -111,12 +111,7 @@ internal sealed class ScreenshotCaptureService : IScreenshotCaptureService
             throw;
         }
 
-        if (captureResult.IsSuccess)
-        {
-            return captureResult;
-        }
-
-        var discardResult = artifactStore.Discard(paths);
+        var discardResult = artifactLease.Discard();
         return discardResult.IsSuccess
             ? captureResult
             : ScreenshotCaptureResult.Failure(discardResult.Error!);
@@ -126,7 +121,7 @@ internal sealed class ScreenshotCaptureService : IScreenshotCaptureService
         ScreenshotCaptureInput input,
         ProjectContext context,
         TimeSpan timeout,
-        ScreenshotArtifactPaths paths,
+        IScreenshotArtifactLease artifactLease,
         CancellationToken cancellationToken)
     {
         var executionResult = await unityRequestExecutor.ExecuteAsync(
@@ -139,7 +134,7 @@ internal sealed class ScreenshotCaptureService : IScreenshotCaptureService
                     input.Target,
                     input.RequestedWidth,
                     input.RequestedHeight,
-                    paths.RawStagingPath,
+                    artifactLease.RawStagingPath,
                     checked((int)timeout.TotalMilliseconds)),
                 cancellationToken)
             .ConfigureAwait(false);
@@ -171,9 +166,8 @@ internal sealed class ScreenshotCaptureService : IScreenshotCaptureService
 
         var capture = screenshotResponse.Capture;
         var staging = screenshotResponse.Staging;
-        var commitResult = await artifactStore.CommitAsync(
+        var commitResult = await artifactLease.CommitAsync(
                 new ScreenshotArtifactCommitRequest(
-                    paths,
                     capture.Width,
                     capture.Height,
                     staging),

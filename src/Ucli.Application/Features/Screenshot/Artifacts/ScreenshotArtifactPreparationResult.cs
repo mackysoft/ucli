@@ -2,31 +2,31 @@ using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.Application.Features.Screenshot.Artifacts;
 
-/// <summary> Represents the result of preparing one screenshot artifact layout. </summary>
+/// <summary> Represents the result of preparing one capture-scoped screenshot artifact lease. </summary>
 internal sealed record ScreenshotArtifactPreparationResult
 {
     private ScreenshotArtifactPreparationResult (
-        ScreenshotArtifactPaths? paths,
+        IScreenshotArtifactLease? lease,
         ExecutionError? error)
     {
-        Paths = paths;
+        Lease = lease;
         Error = error;
     }
 
-    /// <summary> Gets the prepared paths on success. </summary>
-    public ScreenshotArtifactPaths? Paths { get; }
+    /// <summary> Gets the prepared capture-scoped artifact lease on success. </summary>
+    public IScreenshotArtifactLease? Lease { get; }
 
     /// <summary> Gets the structured preparation error on failure. </summary>
     public ExecutionError? Error { get; }
 
     /// <summary> Gets a value indicating whether preparation succeeded. </summary>
-    public bool IsSuccess => Paths != null;
+    public bool IsSuccess => Lease != null;
 
     /// <summary> Creates a successful preparation result. </summary>
-    public static ScreenshotArtifactPreparationResult Success (ScreenshotArtifactPaths paths)
+    public static ScreenshotArtifactPreparationResult Success (IScreenshotArtifactLease lease)
     {
-        ArgumentNullException.ThrowIfNull(paths);
-        return new ScreenshotArtifactPreparationResult(paths, null);
+        ArgumentNullException.ThrowIfNull(lease);
+        return new ScreenshotArtifactPreparationResult(lease, null);
     }
 
     /// <summary> Creates a failed preparation result. </summary>
