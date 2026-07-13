@@ -240,14 +240,15 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             out string prefabPath,
             out OperationPhaseStepResult? failure)
         {
+            prefabPath = string.Empty;
             failure = null;
-            var requestedPrefabPath = args.Path?.Value ?? string.Empty;
-            if (!PrefabOperationUtilities.TryEnsurePrefabAssetExists(requestedPrefabPath, out prefabPath, out var errorMessage))
+            if (!PrefabOperationUtilities.TryEnsurePrefabAssetExists(args.Path, out var errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;
             }
 
+            prefabPath = args.Path.Value;
             return true;
         }
 

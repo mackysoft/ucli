@@ -52,6 +52,30 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Create_Plan_WhenPathUsesBackslashes_UsesTypedCanonicalPath () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new AssetCreateOperation();
+            using var scope = new EditorTestScope();
+            var canonicalAssetPath = scope.CreateAssetPath(nameof(AssetOperationTests));
+            var requestOperation = CreateOperation(
+                opId: "op-create",
+                opName: UcliPrimitiveOperationNames.AssetCreate,
+                args: new
+                {
+                    type = IndexTypeIdFormatter.Format(typeof(AssetOperationTestAsset)),
+                    path = canonicalAssetPath.Replace('/', '\\'),
+                });
+
+            var result = await operation.PlanAsync(
+                requestOperation,
+                scope.CreateExecutionContext(),
+                CancellationToken.None);
+
+            AssertAssetSuccess(result, applied: false, changed: true, canonicalAssetPath);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Create_Call_WhenArgumentsAreValid_CreatesAssetAndStoresAlias () => UniTask.ToCoroutine(async () =>
         {
             var operation = new AssetCreateOperation();

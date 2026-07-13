@@ -958,18 +958,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             prefabPath = string.Empty;
             var assetPath = AssetDatabase.GetAssetPath(unityObject);
-            if (string.IsNullOrWhiteSpace(assetPath))
+            if (!PrefabAssetPath.TryParse(assetPath, out var typedPrefabPath)
+                || !PrefabOperationUtilities.TryEnsurePrefabAssetExists(typedPrefabPath, out _))
             {
                 return false;
             }
 
-            assetPath = PathStringNormalizer.ToSlashSeparated(assetPath);
-            if (!PrefabOperationUtilities.TryEnsurePrefabAssetExists(assetPath, out var normalizedPrefabPath, out _))
-            {
-                return false;
-            }
-
-            prefabPath = normalizedPrefabPath;
+            prefabPath = typedPrefabPath.Value;
             return true;
         }
 

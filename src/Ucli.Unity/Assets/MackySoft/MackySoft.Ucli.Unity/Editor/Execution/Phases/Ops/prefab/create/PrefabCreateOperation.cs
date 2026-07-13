@@ -194,8 +194,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            var requestedPrefabPath = args.Path?.Value ?? string.Empty;
-            if (!PrefabOperationUtilities.TryEnsurePrefabAssetCanBeCreated(requestedPrefabPath, out var normalizedPrefabPath, out errorMessage))
+            if (!PrefabOperationUtilities.TryEnsurePrefabAssetCanBeCreated(args.Path, out errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;
@@ -213,7 +212,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             validationState = new ValidationState(
                 target,
                 targetResolution.Resource,
-                normalizedPrefabPath);
+                args.Path.Value);
             return true;
         }
 

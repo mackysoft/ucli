@@ -133,17 +133,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 }
             }
 
-            string? normalizedPathPrefix = null;
-            if (args.PathPrefix != null)
-            {
-                if (!UnityAssetPathContract.TryNormalizeAssetsRootOrDescendantPath(args.PathPrefix.Value, out normalizedPathPrefix))
-                {
-                    failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
-                        operation.Id,
-                        $"Path prefix must be 'Assets' or one of its descendants. Actual: {args.PathPrefix.Value}.");
-                    return false;
-                }
-            }
+            var normalizedPathPrefix = args.PathPrefix?.Value;
 
             if (args.NameContains != null && string.IsNullOrWhiteSpace(args.NameContains))
             {

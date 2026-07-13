@@ -98,15 +98,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (!UnityAssetPathContract.TryNormalizePrefabAssetPath(args.TargetAssetPath.Value, out var targetAssetPath))
-            {
-                errorMessage = $"Prefab path must be a project-relative prefab asset path under '{UnityAssetPathContract.AssetsRootPrefix}': {args.TargetAssetPath.Value}.";
-                return false;
-            }
+            var targetAssetPath = args.TargetAssetPath.Value;
 
             var usesPlannedPrefabCreation = allowTemporaryState
                 && executionContext.IsPlannedPrefabInstanceLineage(component, targetAssetPath);
-            if (!PrefabOperationUtilities.TryEnsurePrefabAssetExists(targetAssetPath, out _, out var prefabAssetErrorMessage))
+            if (!PrefabOperationUtilities.TryEnsurePrefabAssetExists(args.TargetAssetPath, out var prefabAssetErrorMessage))
             {
                 if (!usesPlannedPrefabCreation)
                 {
