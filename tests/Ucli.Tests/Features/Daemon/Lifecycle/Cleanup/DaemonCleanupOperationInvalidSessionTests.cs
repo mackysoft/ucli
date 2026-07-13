@@ -16,7 +16,8 @@ public sealed class DaemonCleanupOperationInvalidSessionTests
         var invalidEvidence = DaemonInvalidSessionEvidenceTestFactory.Create(
             projectFingerprint: context.ProjectFingerprint,
             processId: 2003);
-        var artifactIdentity = DaemonSessionArtifactIdentity.Create("{ invalid session artifact");
+        var artifactIdentity = DaemonSessionArtifactIdentity.Create(
+            System.Text.Encoding.UTF8.GetBytes("{ invalid session artifact"));
         var artifactCleaner = new RecordingDaemonArtifactCleaner
         {
             NextResult = DaemonArtifactCleanupResult.Success(),

@@ -260,7 +260,8 @@ public sealed class DaemonArtifactCleanerTests
         var cleaner = new DaemonArtifactCleaner(
             new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Invalid(
                 invalidEvidence,
-                DaemonSessionArtifactIdentity.Create("{ invalid session"))),
+                DaemonSessionArtifactIdentity.Create(
+                    System.Text.Encoding.UTF8.GetBytes("{ invalid session")))),
             lifecycleStore,
             launchAttemptStore);
 
@@ -392,6 +393,41 @@ public sealed class DaemonArtifactCleanerTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task CleanupIfSessionArtifactMatches_WhenDifferentMalformedUtf8ReplacesObservation_PreservesSuccessorArtifacts ()
+    {
+        using var scope = TestDirectories.CreateTempScope("daemon-artifact-cleaner", "malformed-utf8-successor-session");
+        var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-malformed-utf8-successor");
+        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, projectFingerprint);
+        Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
+        await File.WriteAllBytesAsync(sessionPath, new byte[] { (byte)'{', 0xff, (byte)'}' }, CancellationToken.None);
+        var sessionStore = new DaemonSessionStore();
+        var invalidObservation = await sessionStore.ReadAsync(
+            scope.FullPath,
+            projectFingerprint,
+            CancellationToken.None);
+        var expectedArtifactIdentity = Assert.IsType<DaemonSessionArtifactIdentity>(invalidObservation.ArtifactIdentity);
+        var successorBytes = new byte[] { (byte)'{', 0xfe, (byte)'}' };
+        await File.WriteAllBytesAsync(sessionPath, successorBytes, CancellationToken.None);
+        var lifecycleStore = new RecordingDaemonLifecycleStore();
+        var launchAttemptStore = new RecordingDaemonLaunchAttemptStore();
+        var cleaner = new DaemonArtifactCleaner(sessionStore, lifecycleStore, launchAttemptStore);
+
+        var result = await cleaner.CleanupIfSessionArtifactMatchesAsync(
+            ResolvedUnityProjectContextTestFactory.Create(
+                unityProjectRoot: "/tmp/unity-project",
+                repositoryRoot: scope.FullPath,
+                projectFingerprint: projectFingerprint),
+            expectedArtifactIdentity,
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(successorBytes, await File.ReadAllBytesAsync(sessionPath, CancellationToken.None));
+        Assert.Empty(lifecycleStore.DeleteInvocations);
+        Assert.Empty(launchAttemptStore.PruneInvocations);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task CleanupIfSessionArtifactMatches_WhenObservedInvalidArtifactIsCurrent_DeletesSameArtifactArtifacts ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-artifact-cleaner", "invalid-current-session");
@@ -442,7 +478,8 @@ public sealed class DaemonArtifactCleanerTests
                 unityProjectRoot: "/tmp/unity-project",
                 repositoryRoot: scope.FullPath,
                 projectFingerprint: projectFingerprint),
-            DaemonSessionArtifactIdentity.Create("{ invalid session json"),
+            DaemonSessionArtifactIdentity.Create(
+                System.Text.Encoding.UTF8.GetBytes("{ invalid session json")),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);

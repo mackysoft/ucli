@@ -94,7 +94,7 @@ public sealed class DaemonSessionStoreTests
         Assert.Equal(session.ProcessStartedAtUtc, loadedSession.ProcessStartedAtUtc);
         var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, session.ProjectFingerprint);
         Assert.Equal(
-            DaemonSessionArtifactIdentity.Create(await File.ReadAllTextAsync(sessionPath, CancellationToken.None)),
+            DaemonSessionArtifactIdentity.Create(await File.ReadAllBytesAsync(sessionPath, CancellationToken.None)),
             readResult.ArtifactIdentity);
         Assert.Null(readResult.InvalidEvidence);
 
@@ -218,7 +218,9 @@ public sealed class DaemonSessionStoreTests
         Assert.False(readResult.IsSuccess);
         Assert.False(readResult.Exists);
         Assert.Equal(DaemonSessionReadFailureKind.InvalidSession, readResult.FailureKind);
-        Assert.Equal(DaemonSessionArtifactIdentity.Create("{"), readResult.ArtifactIdentity);
+        Assert.Equal(
+            DaemonSessionArtifactIdentity.Create(System.Text.Encoding.UTF8.GetBytes("{")),
+            readResult.ArtifactIdentity);
         var error = Assert.IsType<ExecutionError>(readResult.Error);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
         Assert.Contains("invalid", error.Message, StringComparison.OrdinalIgnoreCase);
@@ -247,7 +249,9 @@ public sealed class DaemonSessionStoreTests
         Assert.False(readResult.IsSuccess);
         Assert.False(readResult.Exists);
         Assert.Equal(DaemonSessionReadFailureKind.InvalidSession, readResult.FailureKind);
-        Assert.Equal(DaemonSessionArtifactIdentity.Create(invalidJson), readResult.ArtifactIdentity);
+        Assert.Equal(
+            DaemonSessionArtifactIdentity.Create(System.Text.Encoding.UTF8.GetBytes(invalidJson)),
+            readResult.ArtifactIdentity);
         var error = Assert.IsType<ExecutionError>(readResult.Error);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
         Assert.Contains("editorInstanceId", error.Message, StringComparison.OrdinalIgnoreCase);

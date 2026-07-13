@@ -1,4 +1,3 @@
-using System.Text;
 using MackySoft.Ucli.Contracts.Cryptography;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
@@ -13,23 +12,11 @@ internal sealed record DaemonSessionArtifactIdentity
 
     private Sha256Digest ContentDigest { get; }
 
-    /// <summary> Creates an identity for exact serialized daemon session contents. </summary>
-    /// <param name="serializedContent"> The serialized session file contents. </param>
+    /// <summary> Creates an identity for the exact bytes observed in a daemon session file. </summary>
+    /// <param name="serializedContent"> The serialized session file bytes. </param>
     /// <returns> The content identity. </returns>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="serializedContent" /> is <see langword="null" />. </exception>
-    public static DaemonSessionArtifactIdentity Create (string serializedContent)
+    public static DaemonSessionArtifactIdentity Create (ReadOnlySpan<byte> serializedContent)
     {
-        ArgumentNullException.ThrowIfNull(serializedContent);
-        return new DaemonSessionArtifactIdentity(
-            Sha256Digest.Compute(Encoding.UTF8.GetBytes(serializedContent)));
-    }
-
-    /// <summary> Determines whether serialized contents have this exact identity. </summary>
-    /// <param name="serializedContent"> The serialized session file contents to compare. </param>
-    /// <returns> <see langword="true" /> when the contents match; otherwise <see langword="false" />. </returns>
-    public bool Matches (string serializedContent)
-    {
-        ArgumentNullException.ThrowIfNull(serializedContent);
-        return ContentDigest == Sha256Digest.Compute(Encoding.UTF8.GetBytes(serializedContent));
+        return new DaemonSessionArtifactIdentity(Sha256Digest.Compute(serializedContent));
     }
 }

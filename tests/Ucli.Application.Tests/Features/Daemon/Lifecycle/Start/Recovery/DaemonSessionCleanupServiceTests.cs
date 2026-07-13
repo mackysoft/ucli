@@ -14,7 +14,8 @@ public sealed class DaemonSessionCleanupServiceTests
     public async Task CleanupInvalidSessionArtifacts_WhenArtifactIdentityIsAvailable_UsesConditionalCleanup ()
     {
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-cleanup-invalid-identity"));
-        var artifactIdentity = DaemonSessionArtifactIdentity.Create("{ invalid session json");
+        var artifactIdentity = DaemonSessionArtifactIdentity.Create(
+            System.Text.Encoding.UTF8.GetBytes("{ invalid session json"));
         var readResult = DaemonSessionReadResultTestFactory.Invalid(artifactIdentity: artifactIdentity);
         var processTerminationService = new RecordingDaemonProcessTerminationService();
         var artifactCleaner = new RecordingDaemonArtifactCleaner();
@@ -48,7 +49,8 @@ public sealed class DaemonSessionCleanupServiceTests
         var assessmentStatus = Enum.Parse<DaemonProcessIdentityAssessmentStatus>(assessmentStatusName);
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-cleanup-invalid"));
         var processStartedAtUtc = new DateTimeOffset(2026, 7, 13, 0, 0, 1, TimeSpan.Zero);
-        var artifactIdentity = DaemonSessionArtifactIdentity.Create("invalid-session-stop-target");
+        var artifactIdentity = DaemonSessionArtifactIdentity.Create(
+            System.Text.Encoding.UTF8.GetBytes("invalid-session-stop-target"));
         var evidence = DaemonInvalidSessionEvidenceTestFactory.Create(
             context.ProjectFingerprint,
             processId: 3131,
@@ -91,7 +93,8 @@ public sealed class DaemonSessionCleanupServiceTests
     {
         var assessmentStatus = Enum.Parse<DaemonProcessIdentityAssessmentStatus>(assessmentStatusName);
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-cleanup-invalid-no-stop"));
-        var artifactIdentity = DaemonSessionArtifactIdentity.Create("{ invalid project session json");
+        var artifactIdentity = DaemonSessionArtifactIdentity.Create(
+            System.Text.Encoding.UTF8.GetBytes("{ invalid project session json"));
         var evidence = DaemonInvalidSessionEvidenceTestFactory.Create(
             context.ProjectFingerprint,
             processId: 7171);

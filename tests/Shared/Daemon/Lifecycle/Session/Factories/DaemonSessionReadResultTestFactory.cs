@@ -10,7 +10,8 @@ internal static class DaemonSessionReadResultTestFactory
         ArgumentNullException.ThrowIfNull(session);
         return DaemonSessionReadResult.Found(
             session,
-            DaemonSessionArtifactIdentity.Create("synthetic-test-session-artifact"));
+            DaemonSessionArtifactIdentity.Create(
+                System.Text.Encoding.UTF8.GetBytes("synthetic-test-session-artifact")));
     }
 
     public static DaemonSessionReadResult Invalid (
@@ -20,6 +21,7 @@ internal static class DaemonSessionReadResultTestFactory
         return DaemonSessionReadResult.Invalid(
             ExecutionError.InvalidArgument("Synthetic invalid daemon session."),
             evidence,
-            artifactIdentity ?? DaemonSessionArtifactIdentity.Create("synthetic-invalid-test-session-artifact"));
+            artifactIdentity ?? DaemonSessionArtifactIdentity.Create(
+                System.Text.Encoding.UTF8.GetBytes("synthetic-invalid-test-session-artifact")));
     }
 }

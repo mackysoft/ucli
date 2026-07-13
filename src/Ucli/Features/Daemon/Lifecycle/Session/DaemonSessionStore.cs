@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -11,6 +12,10 @@ namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Session;
 internal sealed class DaemonSessionStore : IDaemonSessionStore
 {
     private static readonly TimeSpan SessionLockAcquireTimeout = TimeSpan.FromSeconds(1);
+
+    private static readonly UTF8Encoding StrictUtf8 = new(
+        encoderShouldEmitUTF8Identifier: false,
+        throwOnInvalidBytes: true);
 
     /// <summary> Reads daemon session metadata for one project fingerprint. </summary>
     /// <param name="storageRoot"> The storage root path. </param>
@@ -36,10 +41,11 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
                 DaemonSessionReadFailureKind.PathInvalid);
         }
 
-        string? json;
+        ReadOnlyMemory<byte>? serializedContent;
         try
         {
-            json = await FileUtilities.ReadAllTextOrNullAsync(sessionPath, cancellationToken).ConfigureAwait(false);
+            serializedContent = await FileUtilities.ReadAllBytesOrNullAsync(sessionPath, cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
@@ -54,18 +60,26 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
                 DaemonSessionReadFailureKind.IoFailure);
         }
 
-        if (json == null)
+        if (serializedContent == null)
         {
             return DaemonSessionReadResult.Missing();
         }
 
-        var artifactIdentity = DaemonSessionArtifactIdentity.Create(json);
+        var artifactIdentity = DaemonSessionArtifactIdentity.Create(serializedContent.Value.Span);
 
         DaemonSessionJsonContract contract;
         try
         {
+            var json = StrictUtf8.GetString(serializedContent.Value.Span);
             contract = DaemonSessionJsonContractSerializer.Deserialize(json)
                 ?? throw new JsonException("Daemon session JSON root must be an object.");
+        }
+        catch (DecoderFallbackException exception)
+        {
+            return DaemonSessionReadResult.Invalid(ExecutionError.InvalidArgument(
+                    $"Daemon session JSON is not valid UTF-8: {sessionPath}. {exception.Message}"),
+                invalidEvidence: null,
+                artifactIdentity);
         }
         catch (JsonException exception)
         {

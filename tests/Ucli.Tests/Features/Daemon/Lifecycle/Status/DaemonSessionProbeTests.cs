@@ -89,7 +89,8 @@ public sealed class DaemonSessionProbeTests
             projectFingerprint: unityProject.ProjectFingerprint,
             sessionToken: "observed-token");
         var readFailure = DaemonSessionReadResultTestFactory.Invalid(
-            artifactIdentity: DaemonSessionArtifactIdentity.Create("{ invalid"));
+            artifactIdentity: DaemonSessionArtifactIdentity.Create(
+                System.Text.Encoding.UTF8.GetBytes("{ invalid")));
         var sessionStore = new RecordingDaemonSessionStore(readFailure);
         var pingInfoClient = new RecordingDaemonPingInfoClient(
             new DaemonPingResponseException(
