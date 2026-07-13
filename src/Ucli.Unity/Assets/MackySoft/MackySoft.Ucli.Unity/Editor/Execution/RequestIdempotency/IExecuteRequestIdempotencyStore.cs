@@ -1,4 +1,5 @@
 using System;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
@@ -12,7 +13,7 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
         /// <returns> The decision that determines owner execution, replay, conflict, or wait behavior. </returns>
         ExecuteRequestIdempotencyStoreDecision Acquire (
             Guid requestId,
-            string requestFingerprint);
+            Sha256Digest requestFingerprint);
 
         /// <summary> Completes one owner execution successfully and publishes the response to shared waiters. </summary>
         /// <param name="requestId"> The request identifier. </param>
@@ -20,7 +21,7 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
         /// <param name="response"> The completed response envelope. </param>
         void CompleteSuccess (
             Guid requestId,
-            string requestFingerprint,
+            Sha256Digest requestFingerprint,
             IpcResponse response);
 
         /// <summary> Completes one owner execution with cancellation and notifies shared waiters. </summary>

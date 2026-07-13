@@ -1,10 +1,12 @@
 using System;
 using System.Collections;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.RequestIdempotency;
 using NUnit.Framework;
@@ -16,6 +18,12 @@ namespace MackySoft.Ucli.Unity.Tests
     {
         private static readonly TimeSpan SignalWaitTimeout = TimeSpan.FromSeconds(5);
 
+        private static readonly Sha256Digest Fingerprint1 = Sha256Digest.Compute(Encoding.UTF8.GetBytes("fingerprint-1"));
+
+        private static readonly Sha256Digest Fingerprint2 = Sha256Digest.Compute(Encoding.UTF8.GetBytes("fingerprint-2"));
+
+        private static readonly Sha256Digest Fingerprint3 = Sha256Digest.Compute(Encoding.UTF8.GetBytes("fingerprint-3"));
+
         [UnityTest]
         [Category("Size.Small")]
         public IEnumerator Execute_WhenSameRequestIdAndSameFingerprintAfterCompletion_ReusesCachedResponse () => UniTask.ToCoroutine(async () =>
@@ -25,7 +33,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestId = Guid.NewGuid();
             var firstResponse = await coordinator.ExecuteAsync(
                 requestId: requestId,
-                requestFingerprint: "fingerprint-1",
+                requestFingerprint: Fingerprint1,
                 executeRequest: _ =>
                 {
                     executeCount++;
@@ -35,7 +43,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var secondResponse = await coordinator.ExecuteAsync(
                 requestId: requestId,
-                requestFingerprint: "fingerprint-1",
+                requestFingerprint: Fingerprint1,
                 executeRequest: _ =>
                 {
                     executeCount++;
@@ -59,7 +67,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestId = Guid.NewGuid();
             _ = await coordinator.ExecuteAsync(
                 requestId: requestId,
-                requestFingerprint: "fingerprint-1",
+                requestFingerprint: Fingerprint1,
                 executeRequest: _ =>
                 {
                     executeCount++;
@@ -73,7 +81,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var conflictResponse = await coordinator.ExecuteAsync(
                 requestId: requestId,
-                requestFingerprint: "fingerprint-2",
+                requestFingerprint: Fingerprint2,
                 executeRequest: _ =>
                 {
                     executeCount++;
@@ -101,7 +109,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var response = CreateSuccessResponse(Guid.NewGuid(), "other-request");
 
             var exception = Assert.Throws<ArgumentException>(() =>
-                coordinator.CompleteSuccess(requestId, "fingerprint-1", response));
+                coordinator.CompleteSuccess(requestId, Fingerprint1, response));
 
             Assert.That(exception.ParamName, Is.EqualTo("response"));
         }
@@ -119,7 +127,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var ownerTask = coordinator.ExecuteAsync(
                 requestId: requestId,
-                requestFingerprint: "fingerprint-1",
+                requestFingerprint: Fingerprint1,
                 executeRequest: async _ =>
                 {
                     Interlocked.Increment(ref ownerExecutionCount);
@@ -133,7 +141,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var waiterTask = coordinator.ExecuteAsync(
                 requestId: requestId,
-                requestFingerprint: "fingerprint-1",
+                requestFingerprint: Fingerprint1,
                 executeRequest: _ =>
                 {
                     Interlocked.Increment(ref waiterExecutionCount);
@@ -173,7 +181,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var ownerTask = coordinator.ExecuteAsync(
                 requestId: requestId,
-                requestFingerprint: "fingerprint-1",
+                requestFingerprint: Fingerprint1,
                 executeRequest: async _ =>
                 {
                     Interlocked.Increment(ref ownerExecutionCount);
@@ -188,7 +196,7 @@ namespace MackySoft.Ucli.Unity.Tests
             using var waiterCancellationTokenSource = new CancellationTokenSource();
             var waiterTask = coordinator.ExecuteAsync(
                 requestId: requestId,
-                requestFingerprint: "fingerprint-1",
+                requestFingerprint: Fingerprint1,
                 executeRequest: _ =>
                 {
                     Interlocked.Increment(ref waiterExecutionCount);
@@ -237,7 +245,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var ownerTask = coordinator.ExecuteAsync(
                 requestId: requestId,
-                requestFingerprint: "fingerprint-1",
+                requestFingerprint: Fingerprint1,
                 executeRequest: async _ =>
                 {
                     ownerStarted.TrySetResult(true);
@@ -249,7 +257,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var conflictResponse = await coordinator.ExecuteAsync(
                 requestId: requestId,
-                requestFingerprint: "fingerprint-2",
+                requestFingerprint: Fingerprint2,
                 executeRequest: _ =>
                 {
                     conflictExecutionCount++;
@@ -283,7 +291,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var firstResponse = await coordinator.ExecuteAsync(
                 requestId: requestId,
-                requestFingerprint: "fingerprint-1",
+                requestFingerprint: Fingerprint1,
                 executeRequest: _ =>
                 {
                     executeCount++;
@@ -294,7 +302,7 @@ namespace MackySoft.Ucli.Unity.Tests
             nowUtc = nowUtc.AddHours(25);
             var secondResponse = await coordinator.ExecuteAsync(
                 requestId: requestId,
-                requestFingerprint: "fingerprint-1",
+                requestFingerprint: Fingerprint1,
                 executeRequest: _ =>
                 {
                     executeCount++;
@@ -318,24 +326,24 @@ namespace MackySoft.Ucli.Unity.Tests
             var secondRequestId = Guid.NewGuid();
             var thirdRequestId = Guid.NewGuid();
 
-            await ExecuteAsync(firstRequestId, "fingerprint-1", "first-1");
+            await ExecuteAsync(firstRequestId, Fingerprint1, "first-1");
             nowUtc = nowUtc.AddMinutes(1);
-            await ExecuteAsync(secondRequestId, "fingerprint-2", "second-1");
+            await ExecuteAsync(secondRequestId, Fingerprint2, "second-1");
             nowUtc = nowUtc.AddMinutes(1);
-            await ExecuteAsync(thirdRequestId, "fingerprint-3", "third-1");
+            await ExecuteAsync(thirdRequestId, Fingerprint3, "third-1");
 
             // req-1 should be evicted because max entries is 2.
             nowUtc = nowUtc.AddMinutes(1);
-            var req1ResponseAfterEviction = await ExecuteAsync(firstRequestId, "fingerprint-1", "first-2");
+            var req1ResponseAfterEviction = await ExecuteAsync(firstRequestId, Fingerprint1, "first-2");
 
             // req-2 should still be cached.
-            var req2ResponseFromCache = await ExecuteAsync(secondRequestId, "fingerprint-2", "second-2");
+            var req2ResponseFromCache = await ExecuteAsync(secondRequestId, Fingerprint2, "second-2");
 
             Assert.That(executeCount, Is.EqualTo(5));
             Assert.That(GetMarker(req1ResponseAfterEviction), Is.EqualTo("first-2"));
             Assert.That(GetMarker(req2ResponseFromCache), Is.EqualTo("second-2"));
 
-            async Task<IpcResponse> ExecuteAsync (Guid requestId, string requestFingerprint, string marker)
+            async Task<IpcResponse> ExecuteAsync (Guid requestId, Sha256Digest requestFingerprint, string marker)
             {
                 return await coordinator.ExecuteAsync(
                     requestId: requestId,

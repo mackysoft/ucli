@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 
 #nullable enable
@@ -54,10 +55,16 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
         /// <param name="requestId"> The request identifier. </param>
         /// <param name="requestFingerprint"> The deterministic request fingerprint. </param>
         /// <returns> The idempotency decision. </returns>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="requestFingerprint" /> is <see langword="null" />. </exception>
         public ExecuteRequestIdempotencyStoreDecision Acquire (
             Guid requestId,
-            string requestFingerprint)
+            Sha256Digest requestFingerprint)
         {
+            if (requestFingerprint == null)
+            {
+                throw new ArgumentNullException(nameof(requestFingerprint));
+            }
+
             var nowUtc = utcNowProvider();
 
             lock (syncRoot)
@@ -66,7 +73,7 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
 
                 if (completedEntries.TryGetValue(requestId, out var completedEntry))
                 {
-                    if (string.Equals(completedEntry.RequestFingerprint, requestFingerprint, StringComparison.Ordinal))
+                    if (completedEntry.RequestFingerprint == requestFingerprint)
                     {
                         return ExecuteRequestIdempotencyStoreDecision.ReplayCompleted(completedEntry.Response);
                     }
@@ -76,7 +83,7 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
 
                 if (inFlightEntries.TryGetValue(requestId, out var inFlightEntry))
                 {
-                    if (!string.Equals(inFlightEntry.RequestFingerprint, requestFingerprint, StringComparison.Ordinal))
+                    if (inFlightEntry.RequestFingerprint != requestFingerprint)
                     {
                         return ExecuteRequestIdempotencyStoreDecision.Conflict();
                     }
@@ -94,12 +101,17 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
         /// <param name="requestId"> The request identifier. </param>
         /// <param name="requestFingerprint"> The deterministic request fingerprint. </param>
         /// <param name="response"> The completed response envelope. </param>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="response" /> is <see langword="null" />. </exception>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="requestFingerprint" /> or <paramref name="response" /> is <see langword="null" />. </exception>
         public void CompleteSuccess (
             Guid requestId,
-            string requestFingerprint,
+            Sha256Digest requestFingerprint,
             IpcResponse response)
         {
+            if (requestFingerprint == null)
+            {
+                throw new ArgumentNullException(nameof(requestFingerprint));
+            }
+
             if (response == null)
             {
                 throw new ArgumentNullException(nameof(response));
@@ -167,7 +179,7 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
         /// <param name="createdAtUtc"> The completion timestamp in UTC. </param>
         private void SaveCompletedEntry (
             Guid requestId,
-            string requestFingerprint,
+            Sha256Digest requestFingerprint,
             IpcResponse response,
             DateTimeOffset createdAtUtc)
         {
@@ -223,7 +235,7 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
         /// <param name="RequestFingerprint"> The fingerprint used by the owner request. </param>
         /// <param name="CompletionSource"> The shared completion source for waiters. </param>
         private sealed record InFlightEntry (
-            string RequestFingerprint,
+            Sha256Digest RequestFingerprint,
             TaskCompletionSource<IpcResponse> CompletionSource);
 
         /// <summary> Represents one completed response cache entry keyed by request-id. </summary>
@@ -232,7 +244,7 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
         /// <param name="ExpiresAtUtc"> The expiration timestamp in UTC. </param>
         /// <param name="OrderNode"> The insertion-order linked-list node. </param>
         private sealed record CompletedEntry (
-            string RequestFingerprint,
+            Sha256Digest RequestFingerprint,
             IpcResponse Response,
             DateTimeOffset ExpiresAtUtc,
             LinkedListNode<Guid> OrderNode);

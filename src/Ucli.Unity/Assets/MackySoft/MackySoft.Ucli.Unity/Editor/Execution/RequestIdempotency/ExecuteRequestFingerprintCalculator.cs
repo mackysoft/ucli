@@ -15,9 +15,9 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
     {
         /// <summary> Creates one deterministic fingerprint from execute request command, arguments, safety flags and plan-token. </summary>
         /// <param name="request"> The execute request payload. </param>
-        /// <returns> The lowercase hexadecimal SHA-256 fingerprint string. </returns>
+        /// <returns> The SHA-256 fingerprint. </returns>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="request" /> is <see langword="null" />. </exception>
-        public static string Create (IpcExecuteRequest request)
+        public static Sha256Digest Create (IpcExecuteRequest request)
         {
             if (request == null)
             {
@@ -51,7 +51,7 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
             writer.WriteEndObject();
             writer.Flush();
 
-            return Sha256LowerHex.Compute(stream.ToArray());
+            return Sha256Digest.Compute(stream.ToArray());
         }
     }
 }

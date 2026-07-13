@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
@@ -17,7 +18,7 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
         /// <returns> The coordinated response envelope. </returns>
         Task<IpcResponse> ExecuteAsync (
             Guid requestId,
-            string requestFingerprint,
+            Sha256Digest requestFingerprint,
             Func<CancellationToken, Task<IpcResponse>> executeRequest,
             Func<IpcResponse> createConflictResponse,
             CancellationToken cancellationToken = default);
@@ -28,7 +29,7 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
         /// <returns> The idempotency decision for this request. </returns>
         ExecuteRequestIdempotencyStoreDecision Acquire (
             Guid requestId,
-            string requestFingerprint);
+            Sha256Digest requestFingerprint);
 
         /// <summary> Completes one owner execution successfully and publishes response for shared waiters. </summary>
         /// <param name="requestId"> The request identifier used as idempotency key. </param>
@@ -36,7 +37,7 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
         /// <param name="response"> The completed response envelope. </param>
         void CompleteSuccess (
             Guid requestId,
-            string requestFingerprint,
+            Sha256Digest requestFingerprint,
             IpcResponse response);
 
         /// <summary> Completes one owner execution with cancellation and notifies shared waiters. </summary>

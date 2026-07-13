@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
 
 namespace MackySoft.Ucli.Contracts.Cryptography;
@@ -102,7 +103,7 @@ internal static class Sha256LowerHex
     /// <summary> Determines whether a value is one lowercase hexadecimal SHA-256 digest. </summary>
     /// <param name="value"> The value to inspect. </param>
     /// <returns> <see langword="true" /> when <paramref name="value" /> is exactly one lowercase SHA-256 digest; otherwise <see langword="false" />. </returns>
-    internal static bool IsLowerHexDigest (string? value)
+    internal static bool IsLowerHexDigest ([NotNullWhen(true)] string? value)
     {
         if (value == null || value.Length != HexCharCount)
         {
