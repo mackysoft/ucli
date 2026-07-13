@@ -117,4 +117,24 @@ public sealed class UnityPathValueTests
         Assert.False(UnityHierarchyPath.TryParse("Root//Child", out var hierarchyPath));
         Assert.Null(hierarchyPath);
     }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryParse_WhenPathsContainMalformedUtf16_ReturnsFalseWithoutThrowing ()
+    {
+        const string malformedCharacter = "\ud800";
+
+        Assert.False(UnityAssetPath.TryParse($"Assets/{malformedCharacter}.asset", out var assetPath));
+        Assert.Null(assetPath);
+        Assert.False(SceneAssetPath.TryParse($"Assets/{malformedCharacter}.unity", out var scenePath));
+        Assert.Null(scenePath);
+        Assert.False(PrefabAssetPath.TryParse($"Assets/{malformedCharacter}.prefab", out var prefabPath));
+        Assert.Null(prefabPath);
+        Assert.False(ProjectSettingsAssetPath.TryParse(
+            $"ProjectSettings/{malformedCharacter}.asset",
+            out var projectSettingsPath));
+        Assert.Null(projectSettingsPath);
+        Assert.False(UnityHierarchyPath.TryParse($"Root/{malformedCharacter}", out var hierarchyPath));
+        Assert.Null(hierarchyPath);
+    }
 }

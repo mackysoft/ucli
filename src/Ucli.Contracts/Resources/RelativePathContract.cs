@@ -46,21 +46,8 @@ internal static class RelativePathContract
         return path.Length > 0
             && !path.StartsWith("/", StringComparison.Ordinal)
             && !path.Contains(':', StringComparison.Ordinal)
-            && !ContainsControlCharacter(path)
+            && !StringValueValidator.HasControlCharacterOrMalformedUtf16(path)
             && HasValidSegments(path);
-    }
-
-    private static bool ContainsControlCharacter (string path)
-    {
-        for (var i = 0; i < path.Length; i++)
-        {
-            if (char.IsControl(path[i]))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private static bool HasValidSegments (string path)

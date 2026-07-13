@@ -16,6 +16,7 @@ internal static class UnityHierarchyPathContract
         validatedValue = null;
         if (string.IsNullOrWhiteSpace(value)
             || StringValueValidator.HasOuterWhitespace(value)
+            || !StringValueValidator.IsWellFormedUtf16(value)
             || value[0] == '/'
             || value[value.Length - 1] == '/'
             || value.Contains("//", StringComparison.Ordinal))

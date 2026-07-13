@@ -30,7 +30,11 @@ public abstract record UcliStringValue
             throw new ArgumentException("Semantic string value must not contain leading or trailing whitespace.", nameof(value));
         }
 
-        ValidateWellFormedUtf16(value);
+        if (!StringValueValidator.IsWellFormedUtf16(value))
+        {
+            throw new ArgumentException("Semantic string value must contain well-formed UTF-16 text.", nameof(value));
+        }
+
         Value = value;
     }
 
@@ -49,25 +53,4 @@ public abstract record UcliStringValue
         return typeof(UcliStringValue).IsAssignableFrom(actualType);
     }
 
-    private static void ValidateWellFormedUtf16 (string value)
-    {
-        for (var index = 0; index < value.Length; index++)
-        {
-            var character = value[index];
-            if (!char.IsSurrogate(character))
-            {
-                continue;
-            }
-
-            if (char.IsHighSurrogate(character)
-                && index + 1 < value.Length
-                && char.IsLowSurrogate(value[index + 1]))
-            {
-                index++;
-                continue;
-            }
-
-            throw new ArgumentException("Semantic string value must contain well-formed UTF-16 text.", nameof(value));
-        }
-    }
 }
