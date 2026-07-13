@@ -11,17 +11,17 @@ public sealed class DaemonCleanupOperationReachabilitySkipTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Cleanup_WhenSessionDoesNotExistAndProbeFindsLiveDaemon_ReturnsSkippedUncertainReachabilityWithoutCleanup ()
+    public async Task Cleanup_WhenSessionDoesNotExistAndEndpointResponds_ReturnsSkippedRunningWithoutCleanup ()
     {
         var artifactCleaner = new RecordingDaemonArtifactCleaner();
+        var daemonPingClient = DaemonCleanupOperationTestSupport.CreateSuccessfulPingClient();
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
             new ManualTimeProvider(),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
                 ReadResult = DaemonSessionReadResult.Success(null),
             },
-            daemonPingClient: DaemonCleanupOperationTestSupport.CreateFailingPingClient(
-                new DaemonPingResponseException("token invalid", IpcSessionErrorCodes.SessionTokenInvalid)),
+            daemonPingClient: daemonPingClient,
             artifactCleaner: artifactCleaner);
 
         var result = await operation.CleanupAsync(ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-cleanup-none-live"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
@@ -29,7 +29,8 @@ public sealed class DaemonCleanupOperationReachabilitySkipTests
         DaemonCleanupOperationAssert.SkippedWithoutArtifactCleanup(
             result,
             artifactCleaner,
-            DaemonCleanupSkipReason.UncertainReachability);
+            DaemonCleanupSkipReason.Running);
+        Assert.Null(Assert.Single(daemonPingClient.SessionTokens));
     }
 
     [Fact]

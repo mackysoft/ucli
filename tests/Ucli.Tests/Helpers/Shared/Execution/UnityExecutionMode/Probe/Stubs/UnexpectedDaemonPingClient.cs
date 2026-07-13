@@ -31,7 +31,15 @@ internal sealed class UnexpectedDaemonPingClient : IDaemonPingClient
         throw new InvalidOperationException(reason);
     }
 
-    public ValueTask PingCanonicalEndpointWithTokenAsync (
+    public ValueTask PingCanonicalEndpointWithoutSessionTokenAsync (
+        ResolvedUnityProjectContext unityProject,
+        TimeSpan timeout,
+        CancellationToken cancellationToken)
+    {
+        throw new InvalidOperationException(reason);
+    }
+
+    public ValueTask PingCanonicalEndpointWithSessionTokenAsync (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
         string sessionToken,

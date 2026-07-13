@@ -62,7 +62,7 @@ public sealed class IpcDaemonPingClientRequestTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task PingCanonicalEndpointWithToken_UsesProvidedTokenWithoutResolvingSession ()
+    public async Task PingCanonicalEndpointWithSessionToken_UsesProvidedTokenWithoutResolvingSession ()
     {
         var unityIpcClient = CreateSuccessfulPingTransportClient();
         var sessionConnectionProvider = new UnexpectedDaemonSessionConnectionProvider(
@@ -73,7 +73,7 @@ public sealed class IpcDaemonPingClientRequestTests
             TimeProvider.System);
         var unityProject = CreateFingerprintMatchedProject();
 
-        await pingClient.PingCanonicalEndpointWithTokenAsync(
+        await pingClient.PingCanonicalEndpointWithSessionTokenAsync(
             unityProject,
             DefaultTimeout,
             "provided-token",

@@ -7,8 +7,6 @@ namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 /// <summary> Implements safe daemon artifact cleanup workflow for one project fingerprint. </summary>
 internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
 {
-    private const string MetadataUnavailableProbeSessionToken = "ucli-daemon-cleanup-probe";
-
     private readonly IProjectLifecycleLockProvider lifecycleLockProvider;
 
     private readonly IDaemonSessionStore daemonSessionStore;
@@ -104,17 +102,16 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
 
         if (!readResult.Exists)
         {
-            return await HandleReachabilityResultAsync(
+            return await HandleReachabilityWithoutSessionTokenAsync(
                     unityProject,
                     deadline,
-                    MetadataUnavailableProbeSessionToken,
                     expectedSession: null,
                     expectedArtifactIdentity: null,
                     cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
         }
 
-        return await HandleReachabilityResultAsync(
+        return await HandleReachabilityWithSessionTokenAsync(
                 unityProject,
                 deadline,
                 readResult.Session!.SessionToken,
@@ -137,10 +134,9 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
 
         if (readResult.Session == null)
         {
-            return await HandleReachabilityResultAsync(
+            return await HandleReachabilityWithoutSessionTokenAsync(
                     unityProject,
                     deadline,
-                    MetadataUnavailableProbeSessionToken,
                     expectedSession: null,
                     expectedArtifactIdentity: readResult.ArtifactIdentity,
                     cancellationToken: cancellationToken)
@@ -157,28 +153,39 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
             return DaemonCleanupResult.Skipped(DaemonCleanupSkipReason.UnsafeInvalidSession);
         }
 
-        var cleanupProbeResult = await cleanupReachabilityProbe.ProbeAsync(
+        return await HandleReachabilityWithoutSessionTokenAsync(
                 unityProject,
                 deadline,
-                MetadataUnavailableProbeSessionToken,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (cleanupProbeResult.Status == DaemonCleanupReachabilityStatus.Failed)
-        {
-            return DaemonCleanupResult.Failure(cleanupProbeResult.Error!);
-        }
-
-        return await HandleProbeResultAsync(
-                unityProject,
-                deadline,
-                cleanupProbeResult,
                 readResult.Session,
                 readResult.ArtifactIdentity,
                 cancellationToken)
             .ConfigureAwait(false);
     }
 
-    private async ValueTask<DaemonCleanupResult> HandleReachabilityResultAsync (
+    private async ValueTask<DaemonCleanupResult> HandleReachabilityWithoutSessionTokenAsync (
+        ResolvedUnityProjectContext unityProject,
+        ExecutionDeadline deadline,
+        DaemonSession? expectedSession,
+        DaemonSessionArtifactIdentity? expectedArtifactIdentity,
+        CancellationToken cancellationToken)
+    {
+        var probeResult = await cleanupReachabilityProbe.ProbeWithoutSessionTokenAsync(
+                unityProject,
+                deadline,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        return await HandleProbeResultAsync(
+                unityProject,
+                deadline,
+                probeResult,
+                expectedSession,
+                expectedArtifactIdentity,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private async ValueTask<DaemonCleanupResult> HandleReachabilityWithSessionTokenAsync (
         ResolvedUnityProjectContext unityProject,
         ExecutionDeadline deadline,
         string sessionToken,
@@ -186,7 +193,7 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
         DaemonSessionArtifactIdentity? expectedArtifactIdentity,
         CancellationToken cancellationToken)
     {
-        var probeResult = await cleanupReachabilityProbe.ProbeAsync(
+        var probeResult = await cleanupReachabilityProbe.ProbeWithSessionTokenAsync(
                 unityProject,
                 deadline,
                 sessionToken,

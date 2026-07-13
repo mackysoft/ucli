@@ -21,19 +21,40 @@ internal sealed class DaemonCleanupReachabilityProbe : IDaemonCleanupReachabilit
         this.daemonPingClient = daemonPingClient ?? throw new ArgumentNullException(nameof(daemonPingClient));
     }
 
-    /// <summary> Probes daemon reachability using cleanup-specific safety semantics. </summary>
+    /// <summary> Probes daemon reachability without presenting a session token. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="deadline"> The shared cleanup execution deadline. </param>
-    /// <param name="sessionToken"> The probe session token to send. Must be non-empty. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns>
     /// <para> One cleanup-specific reachability probe result. </para>
     /// <para> <see cref="DaemonCleanupReachabilityStatus.NotRunning" /> is returned only for direct endpoint-level absence evidence that is strong enough for destructive cleanup. </para>
     /// <para> Ambiguous transport outcomes return <see cref="DaemonCleanupReachabilityStatus.Uncertain" /> even when the recorded daemon process may already be gone. </para>
     /// </returns>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
+    public ValueTask<DaemonCleanupReachabilityProbeResult> ProbeWithoutSessionTokenAsync (
+        ResolvedUnityProjectContext unityProject,
+        ExecutionDeadline deadline,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(unityProject);
+
+        return ProbeCoreAsync(
+            unityProject,
+            deadline,
+            sessionToken: null,
+            cancellationToken);
+    }
+
+    /// <summary> Probes daemon reachability using a known session token. </summary>
+    /// <param name="unityProject"> The resolved Unity project context. </param>
+    /// <param name="deadline"> The shared cleanup execution deadline. </param>
+    /// <param name="sessionToken"> The session token to present. Must be non-empty. </param>
+    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
+    /// <returns> One cleanup-specific reachability probe result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> or <paramref name="sessionToken" /> is <see langword="null" />. </exception>
     /// <exception cref="ArgumentException"> Thrown when <paramref name="sessionToken" /> is empty or whitespace. </exception>
-    public async ValueTask<DaemonCleanupReachabilityProbeResult> ProbeAsync (
+    public ValueTask<DaemonCleanupReachabilityProbeResult> ProbeWithSessionTokenAsync (
         ResolvedUnityProjectContext unityProject,
         ExecutionDeadline deadline,
         string sessionToken,
@@ -47,6 +68,19 @@ internal sealed class DaemonCleanupReachabilityProbe : IDaemonCleanupReachabilit
             throw new ArgumentException("Cleanup reachability probe session token must be non-empty.", nameof(sessionToken));
         }
 
+        return ProbeCoreAsync(
+            unityProject,
+            deadline,
+            sessionToken,
+            cancellationToken);
+    }
+
+    private async ValueTask<DaemonCleanupReachabilityProbeResult> ProbeCoreAsync (
+        ResolvedUnityProjectContext unityProject,
+        ExecutionDeadline deadline,
+        string? sessionToken,
+        CancellationToken cancellationToken)
+    {
         if (!deadline.TryGetRemainingTimeout(out var pingTimeout))
         {
             return DaemonCleanupReachabilityProbeResult.Failure(ExecutionError.Timeout(
@@ -58,12 +92,24 @@ internal sealed class DaemonCleanupReachabilityProbe : IDaemonCleanupReachabilit
         // cleanup. Only direct endpoint-level absence evidence may map to NotRunning here.
         try
         {
-            await daemonPingClient.PingCanonicalEndpointWithTokenAsync(
-                    unityProject,
-                    pingTimeout,
-                    sessionToken,
-                    cancellationToken)
-                .ConfigureAwait(false);
+            if (sessionToken is null)
+            {
+                await daemonPingClient.PingCanonicalEndpointWithoutSessionTokenAsync(
+                        unityProject,
+                        pingTimeout,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            else
+            {
+                await daemonPingClient.PingCanonicalEndpointWithSessionTokenAsync(
+                        unityProject,
+                        pingTimeout,
+                        sessionToken,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
             return DaemonCleanupReachabilityProbeResult.Running();
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

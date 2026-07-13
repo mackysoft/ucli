@@ -62,7 +62,20 @@ internal sealed class RecordingDaemonPingClient : IDaemonPingClient
             cancellationToken);
     }
 
-    public ValueTask PingCanonicalEndpointWithTokenAsync (
+    public ValueTask PingCanonicalEndpointWithoutSessionTokenAsync (
+        ResolvedUnityProjectContext unityProject,
+        TimeSpan timeout,
+        CancellationToken cancellationToken)
+    {
+        return RecordPing(
+            unityProject,
+            timeout,
+            session: null,
+            explicitSessionToken: null,
+            cancellationToken);
+    }
+
+    public ValueTask PingCanonicalEndpointWithSessionTokenAsync (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
         string sessionToken,

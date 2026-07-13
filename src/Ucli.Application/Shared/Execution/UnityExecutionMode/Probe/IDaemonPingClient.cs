@@ -29,13 +29,30 @@ internal interface IDaemonPingClient
         TimeSpan timeout,
         CancellationToken cancellationToken);
 
-    /// <summary> Sends one ping request to the canonical project endpoint using an explicit authorization token. </summary>
+    /// <summary> Sends one ping request to the canonical project endpoint without presenting a session token. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="timeout"> The timeout for one ping request. Must be greater than <see cref="TimeSpan.Zero" />. </param>
-    /// <param name="sessionToken"> The explicit token to send to the canonical project endpoint. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
-    /// <returns> A task that completes when daemon responds. </returns>
-    ValueTask PingCanonicalEndpointWithTokenAsync (
+    /// <returns>
+    /// A task that completes when the endpoint returns any valid correlated IPC response, including a session-token error response.
+    /// </returns>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
+    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
+    ValueTask PingCanonicalEndpointWithoutSessionTokenAsync (
+        ResolvedUnityProjectContext unityProject,
+        TimeSpan timeout,
+        CancellationToken cancellationToken);
+
+    /// <summary> Sends one ping request to the canonical project endpoint using an explicit session token. </summary>
+    /// <param name="unityProject"> The resolved Unity project context. </param>
+    /// <param name="timeout"> The timeout for one ping request. Must be greater than <see cref="TimeSpan.Zero" />. </param>
+    /// <param name="sessionToken"> The non-empty session token to send to the canonical project endpoint. </param>
+    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
+    /// <returns> A task that completes when the daemon returns a successful ping response for the specified project. </returns>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> or <paramref name="sessionToken" /> is <see langword="null" />. </exception>
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="sessionToken" /> is empty or whitespace. </exception>
+    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
+    ValueTask PingCanonicalEndpointWithSessionTokenAsync (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
         string sessionToken,
