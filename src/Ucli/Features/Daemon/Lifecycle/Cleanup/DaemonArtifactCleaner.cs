@@ -252,10 +252,6 @@ internal sealed class DaemonArtifactCleaner : IDaemonArtifactCleaner
             if (endpoint.TransportKind == IpcTransportKind.UnixDomainSocket)
             {
                 FileUtilities.DeleteIfExists(endpoint.Address);
-
-                UnixSocketPathUtilities.DeleteEmptyFallbackDirectoryIfPresent(
-                    endpoint.Address,
-                    UcliIpcEndpointNames.DaemonAddressPrefix);
             }
 
             return DaemonArtifactCleanupResult.Success();

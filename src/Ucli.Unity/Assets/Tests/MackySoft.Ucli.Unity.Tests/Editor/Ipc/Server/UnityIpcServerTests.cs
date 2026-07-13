@@ -5,7 +5,6 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Pipes;
 using System.Runtime.InteropServices;
-using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -166,17 +165,22 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator UnixDomainSocketListener_Run_WhenUsingFallbackEndpoint_AppliesOwnerOnlyBoundaryAndCleansUp () => UniTask.ToCoroutine(async () =>
+        public IEnumerator UnixDomainSocketListener_Run_WhenUsingFallbackEndpoint_AppliesOwnerOnlyBoundaryAndPreservesDirectory () => UniTask.ToCoroutine(async () =>
         {
             if (Application.platform == RuntimePlatform.WindowsEditor)
             {
                 return;
             }
 
-            var socketDirectoryPath = Path.Combine(Path.GetTempPath(), UcliIpcEndpointNames.DaemonAddressPrefix + Guid.NewGuid().ToString("N"));
-            var address = Path.Combine(socketDirectoryPath, UcliIpcEndpointNames.UnixSocketFileName);
+            var fallbackPath = new UnixSocketFallbackPath(
+                Path.GetTempPath(),
+                UnixSocketFallbackPurpose.Daemon,
+                Guid.NewGuid().ToString("N"));
+            var address = fallbackPath.SocketPath;
+            var socketDirectoryPath = fallbackPath.DirectoryPath;
             var listener = new UnixDomainSocketUnityIpcTransportListener(
                 NoOpDaemonLogger.Instance,
+                new IpcEndpoint(IpcTransportKind.UnixDomainSocket, address),
                 MaximumActiveConnections,
                 ConnectionDrainTimeout);
             var startedTaskSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -213,7 +217,17 @@ namespace MackySoft.Ucli.Unity.Tests
             }
 
             Assert.That(File.Exists(address), Is.False);
-            Assert.That(Directory.Exists(socketDirectoryPath), Is.False);
+            try
+            {
+                Assert.That(Directory.Exists(socketDirectoryPath), Is.True);
+            }
+            finally
+            {
+                if (Directory.Exists(socketDirectoryPath))
+                {
+                    Directory.Delete(socketDirectoryPath, recursive: true);
+                }
+            }
         });
 
         [UnityTest]
@@ -615,31 +629,53 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator UnixDomainSocketListener_Run_WhenAddressExceedsSupportedByteLength_ThrowsArgumentException () => UniTask.ToCoroutine(async () =>
+        public IEnumerator UnixDomainSocketListener_Run_WhenAddressDiffersFromExpected_DoesNotModifyForeignLocalStorage () => UniTask.ToCoroutine(async () =>
         {
             if (Application.platform == RuntimePlatform.WindowsEditor)
             {
                 return;
             }
 
-            var address = CreateSocketPathWithByteLength(IpcTransportConstraints.UnixDomainSocketPathMaxBytes + 1);
+            var testIdentity = Guid.NewGuid().ToString("N");
+            var expectedAddress = new UnixSocketFallbackPath(
+                Path.GetTempPath(),
+                UnixSocketFallbackPurpose.Daemon,
+                testIdentity).SocketPath;
+            var foreignRoot = Path.Combine(Path.GetTempPath(), "ucli-listener-foreign-" + testIdentity);
+            var address = Path.Combine(
+                foreignRoot,
+                ".ucli",
+                "local",
+                "fingerprints",
+                "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+                UcliIpcEndpointNames.UnixSocketFileName);
+            Directory.CreateDirectory(Path.GetDirectoryName(address)!);
+            File.WriteAllText(address, "must-remain");
             var listener = new UnixDomainSocketUnityIpcTransportListener(
                 NoOpDaemonLogger.Instance,
+                new IpcEndpoint(IpcTransportKind.UnixDomainSocket, expectedAddress),
                 MaximumActiveConnections,
                 ConnectionDrainTimeout);
-            var exception = await AsyncExceptionCapture.CaptureAsync<ArgumentException>(async () =>
+            try
             {
-                await listener.RunAsync(
-                        address,
-                        new StubConnectionHandler(),
-                        () => { },
-                        _ => { },
-                        CancellationToken.None)
-                    .AsUniTask();
-            }, "Overlong unix socket address", SignalWaitTimeout);
+                await AsyncExceptionCapture.CaptureAsync<InvalidOperationException>(async () =>
+                {
+                    await listener.RunAsync(
+                            address,
+                            new StubConnectionHandler(),
+                            () => { },
+                            _ => { },
+                            CancellationToken.None)
+                        .AsUniTask();
+                }, "Foreign unix socket address", SignalWaitTimeout);
 
-            Assert.That(exception.ParamName, Is.EqualTo("address"));
-            Assert.That(exception.Message, Does.Contain("Unix domain socket path exceeds"));
+                Assert.That(File.Exists(address), Is.True);
+                Assert.That(File.ReadAllText(address), Is.EqualTo("must-remain"));
+            }
+            finally
+            {
+                Directory.Delete(foreignRoot, recursive: true);
+            }
         });
 
         [UnityTest]
@@ -1283,6 +1319,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         ConnectionDrainTimeout),
                     new UnixDomainSocketUnityIpcTransportListener(
                         NoOpDaemonLogger.Instance,
+                        new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test"),
                         MaximumActiveConnections,
                         ConnectionDrainTimeout),
                 });
@@ -1517,18 +1554,6 @@ namespace MackySoft.Ucli.Unity.Tests
             }
 
             return trimmedOutput;
-        }
-
-        private static string CreateSocketPathWithByteLength (int totalBytes)
-        {
-            var tempRoot = Path.GetFullPath(Path.GetTempPath()).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            var basePath = Path.Combine(tempRoot, "ucli-test-", UcliIpcEndpointNames.UnixSocketFileName);
-            var additionalBytes = totalBytes - Encoding.UTF8.GetByteCount(basePath);
-            Assert.That(additionalBytes, Is.GreaterThanOrEqualTo(0));
-            return Path.Combine(
-                tempRoot,
-                "ucli-test-" + new string('a', additionalBytes),
-                UcliIpcEndpointNames.UnixSocketFileName);
         }
 
         private sealed class StubDaemonShutdownSignal : IDaemonShutdownSignal

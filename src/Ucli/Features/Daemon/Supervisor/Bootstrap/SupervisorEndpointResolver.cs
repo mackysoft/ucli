@@ -70,8 +70,9 @@ internal sealed class SupervisorEndpointResolver
             UcliIpcEndpointNames.UnixSocketFileName);
         return Encoding.UTF8.GetByteCount(preferredSocketPath) <= IpcTransportConstraints.UnixDomainSocketPathMaxBytes
             ? preferredSocketPath
-            : UnixSocketPathUtilities.BuildFallbackSocketPath(
-                UcliIpcEndpointNames.SupervisorAddressPrefix,
-                normalizedStorageRoot);
+            : new UnixSocketFallbackPath(
+                Path.GetTempPath(),
+                UnixSocketFallbackPurpose.Supervisor,
+                normalizedStorageRoot).SocketPath;
     }
 }

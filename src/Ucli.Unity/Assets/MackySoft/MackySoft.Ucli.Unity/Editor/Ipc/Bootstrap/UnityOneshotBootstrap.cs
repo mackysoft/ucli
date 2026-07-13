@@ -7,8 +7,6 @@ using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using Microsoft.Extensions.DependencyInjection;
 using UnityEditor;
 
-using MackySoft.Ucli.Contracts.Text;
-
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Bootstraps one batchmode oneshot IPC server and terminates Unity after one handled request. </summary>
@@ -29,6 +27,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 UnityMainThreadDaemonConsoleLogSink.CaptureCurrent());
             try
             {
+                var endpoint = UnityBatchmodeBootstrapEndpointValidator.ResolveValidatedEndpoint(bootstrapArguments);
                 if (!IpcSessionToken.TryParse(bootstrapArguments.SessionToken, out var sessionToken))
                 {
                     throw new InvalidOperationException("Oneshot session token is invalid.");
@@ -42,19 +41,13 @@ namespace MackySoft.Ucli.Unity.Ipc
                     bootstrapArguments.ProjectFingerprint,
                     daemonLogger,
                     DaemonEditorMode.Batchmode);
-                services.AddUnityIpcOneshotHostServices();
+                services.AddUnityIpcOneshotHostServices(endpoint);
 
                 IServiceProvider serviceProvider = services.BuildServiceProvider();
                 try
                 {
                     var completionSignal = serviceProvider.GetRequiredService<OneshotRequestCompletionSignal>();
                     var server = serviceProvider.GetRequiredService<IUnityIpcServer>();
-                    if (!ContractLiteralCodec.TryParse<IpcTransportKind>(bootstrapArguments.EndpointTransportKind, out var transportKind))
-                    {
-                        throw new InvalidOperationException($"Unsupported endpoint transport kind: {bootstrapArguments.EndpointTransportKind}");
-                    }
-
-                    var endpoint = new IpcEndpoint(transportKind, bootstrapArguments.EndpointAddress);
                     using var publicationFence = await server.StartAsync(endpoint, CancellationToken.None);
                     Task requestCompletionTask = null;
                     Task serverTerminationTask = null;

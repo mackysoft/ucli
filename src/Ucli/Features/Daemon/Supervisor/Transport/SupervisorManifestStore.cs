@@ -6,7 +6,6 @@ using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Contracts.Text;
-using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Features.Daemon.Supervisor.Transport;
@@ -350,9 +349,6 @@ internal sealed class SupervisorManifestStore
                 deleteIfExists(unixSocketCleanupTarget.SocketPath);
             }
 
-            UnixSocketPathUtilities.DeleteEmptyFallbackDirectoryIfPresent(
-                unixSocketCleanupTarget.SocketPath,
-                UcliIpcEndpointNames.SupervisorAddressPrefix);
         }
 
         deleteIfExists(manifestPath);

@@ -497,7 +497,7 @@ public sealed class DaemonArtifactCleanerTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task Cleanup_WhenUnixFallbackSocketDirectoryBecomesEmpty_DeletesFallbackDirectory ()
+    public async Task Cleanup_WhenUnixFallbackSocketDirectoryBecomesEmpty_PreservesStableFallbackDirectory ()
     {
         if (OperatingSystem.IsWindows())
         {
@@ -529,7 +529,17 @@ public sealed class DaemonArtifactCleanerTests
 
         Assert.True(result.IsSuccess);
         Assert.False(File.Exists(socketPath));
-        Assert.False(Directory.Exists(socketDirectoryPath));
+        try
+        {
+            Assert.True(Directory.Exists(socketDirectoryPath));
+        }
+        finally
+        {
+            if (Directory.Exists(socketDirectoryPath))
+            {
+                Directory.Delete(socketDirectoryPath, recursive: true);
+            }
+        }
     }
 
     [Fact]

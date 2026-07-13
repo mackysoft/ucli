@@ -280,9 +280,10 @@ public sealed class SupervisorTransportServerTests
 
         var endpoint = new IpcEndpoint(
             IpcTransportKind.UnixDomainSocket,
-            UnixSocketPathUtilities.BuildFallbackSocketPath(
-                UcliIpcEndpointNames.SupervisorAddressPrefix,
-                Guid.NewGuid().ToString("N")));
+            new UnixSocketFallbackPath(
+                Path.GetTempPath(),
+                UnixSocketFallbackPurpose.Supervisor,
+                Guid.NewGuid().ToString("N")).SocketPath);
         var originalServer = new SupervisorTransportServer(TimeProvider.System);
         var successorServer = new SupervisorTransportServer(TimeProvider.System);
         var originalStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -347,9 +348,10 @@ public sealed class SupervisorTransportServerTests
 
         var endpoint = new IpcEndpoint(
             IpcTransportKind.UnixDomainSocket,
-            UnixSocketPathUtilities.BuildFallbackSocketPath(
-                UcliIpcEndpointNames.SupervisorAddressPrefix,
-                Guid.NewGuid().ToString("N")));
+            new UnixSocketFallbackPath(
+                Path.GetTempPath(),
+                UnixSocketFallbackPurpose.Supervisor,
+                Guid.NewGuid().ToString("N")).SocketPath);
         var server = new SupervisorTransportServer(TimeProvider.System);
         using var cancellationTokenSource = new CancellationTokenSource();
         var generationAddress = string.Empty;
@@ -430,7 +432,10 @@ public sealed class SupervisorTransportServerTests
 
         var endpoint = new IpcEndpoint(
             IpcTransportKind.UnixDomainSocket,
-            UnixSocketPathUtilities.BuildFallbackSocketPath("ucli-supervisor-", Guid.NewGuid().ToString("N")));
+            new UnixSocketFallbackPath(
+                Path.GetTempPath(),
+                UnixSocketFallbackPurpose.Supervisor,
+                Guid.NewGuid().ToString("N")).SocketPath);
         var server = new SupervisorTransportServer(TimeProvider.System);
         var startedTaskSource = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var cancellationTokenSource = new CancellationTokenSource();
@@ -472,7 +477,7 @@ public sealed class SupervisorTransportServerTests
     [Trait("Size", "Medium")]
     [SupportedOSPlatform("macos")]
     [SupportedOSPlatform("linux")]
-    public async Task Run_OnUnix_WhenUsingFallbackEndpoint_DeletesEmptyFallbackDirectoryOnShutdown ()
+    public async Task Run_OnUnix_WhenUsingFallbackEndpoint_PreservesStableFallbackDirectoryOnShutdown ()
     {
         if (OperatingSystem.IsWindows())
         {
@@ -481,7 +486,10 @@ public sealed class SupervisorTransportServerTests
 
         var endpoint = new IpcEndpoint(
             IpcTransportKind.UnixDomainSocket,
-            UnixSocketPathUtilities.BuildFallbackSocketPath("ucli-supervisor-", Guid.NewGuid().ToString("N")));
+            new UnixSocketFallbackPath(
+                Path.GetTempPath(),
+                UnixSocketFallbackPurpose.Supervisor,
+                Guid.NewGuid().ToString("N")).SocketPath);
         var socketDirectoryPath = Path.GetDirectoryName(endpoint.Address)!;
         var server = new SupervisorTransportServer(TimeProvider.System);
         var startedTaskSource = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -519,7 +527,17 @@ public sealed class SupervisorTransportServerTests
         }
 
         Assert.False(File.Exists(endpoint.Address));
-        Assert.False(Directory.Exists(socketDirectoryPath));
+        try
+        {
+            Assert.True(Directory.Exists(socketDirectoryPath));
+        }
+        finally
+        {
+            if (Directory.Exists(socketDirectoryPath))
+            {
+                Directory.Delete(socketDirectoryPath, recursive: true);
+            }
+        }
     }
 
     [Fact]
@@ -721,9 +739,10 @@ public sealed class SupervisorTransportServerTests
 
         return new IpcEndpoint(
             IpcTransportKind.UnixDomainSocket,
-            UnixSocketPathUtilities.BuildFallbackSocketPath(
-                UcliIpcEndpointNames.SupervisorAddressPrefix + "transport-",
-                storageRoot));
+            new UnixSocketFallbackPath(
+                Path.GetTempPath(),
+                UnixSocketFallbackPurpose.Supervisor,
+                storageRoot).SocketPath);
     }
 
     private static IpcRequest CreateRequest (string method)

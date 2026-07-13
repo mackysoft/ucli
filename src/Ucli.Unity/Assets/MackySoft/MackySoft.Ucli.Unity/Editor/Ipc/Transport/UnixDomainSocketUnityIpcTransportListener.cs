@@ -15,8 +15,6 @@ namespace MackySoft.Ucli.Unity.Ipc
         IUnityIpcTransportListener,
         IUnityIpcTransportRunReservation
     {
-        private const string EndpointOwnershipLockDirectoryPrefix = "ucli-ipc-lock-";
-
         private static readonly object EndpointOwnershipSyncRoot = new object();
 
         private static readonly Dictionary<string, EndpointOwnershipState> ActiveEndpointOwners =
@@ -33,6 +31,8 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private readonly IDaemonLogger daemonLogger;
 
+        private readonly IpcEndpoint expectedEndpoint;
+
         private readonly int maximumActiveConnections;
 
         private readonly TimeSpan connectionDrainTimeout;
@@ -45,16 +45,20 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         /// <summary> Initializes a new instance of the <see cref="UnixDomainSocketUnityIpcTransportListener" /> class. </summary>
         /// <param name="daemonLogger"> The daemon logger dependency. </param>
+        /// <param name="expectedEndpoint"> The exact endpoint derived for this host before listener construction. </param>
         /// <param name="maximumActiveConnections"> The maximum number of accepted connections that may be handled concurrently. </param>
         /// <param name="connectionDrainTimeout"> The maximum time allowed for active connections to finish during listener shutdown. </param>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="daemonLogger" /> is <see langword="null" />. </exception>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="daemonLogger" /> or <paramref name="expectedEndpoint" /> is <see langword="null" />. </exception>
         /// <exception cref="ArgumentOutOfRangeException"> Thrown when a numeric limit is not positive. </exception>
         public UnixDomainSocketUnityIpcTransportListener (
             IDaemonLogger daemonLogger,
+            IpcEndpoint expectedEndpoint,
             int maximumActiveConnections,
             TimeSpan connectionDrainTimeout)
         {
             this.daemonLogger = daemonLogger ?? throw new ArgumentNullException(nameof(daemonLogger));
+            this.expectedEndpoint = expectedEndpoint ?? throw new ArgumentNullException(nameof(expectedEndpoint));
+
             if (maximumActiveConnections <= 0)
             {
                 throw new ArgumentOutOfRangeException(
@@ -99,6 +103,15 @@ namespace MackySoft.Ucli.Unity.Ipc
                     throw new ArgumentException("Socket address must not be empty or whitespace.", nameof(address));
                 }
 
+                if (expectedEndpoint.TransportKind != IpcTransportKind.UnixDomainSocket
+                    || !string.Equals(address, expectedEndpoint.Address, StringComparison.Ordinal))
+                {
+                    throw new InvalidOperationException(
+                        "Unix socket listener address does not match the endpoint derived for this host. " +
+                        $"ExpectedTransport={expectedEndpoint.TransportKind}, ExpectedAddress={expectedEndpoint.Address}, " +
+                        $"ActualAddress={address}");
+                }
+
                 if (connectionHandler == null)
                 {
                     throw new ArgumentNullException(nameof(connectionHandler));
@@ -114,7 +127,6 @@ namespace MackySoft.Ucli.Unity.Ipc
                     throw new ArgumentNullException(nameof(onConnectionCompleted));
                 }
 
-                UnixSocketPathUtilities.ValidateSocketPathLength(address, nameof(address));
                 cancellationToken.ThrowIfCancellationRequested();
                 if (runReservation.IsClosed)
                 {
@@ -150,7 +162,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return;
             }
 
-            var accessBoundary = new UnixSocketAccessBoundary(address, UcliIpcEndpointNames.DaemonAddressPrefix);
+            var accessBoundary = new UnixSocketAccessBoundary(address);
             using var endpointOwnershipLease = await ClaimEndpointOwnershipAsync(
                     address,
                     accessBoundary,
@@ -504,10 +516,11 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             var normalizedAddress = Path.GetFullPath(address);
-            var lockIdentityPath = UnixSocketPathUtilities.BuildFallbackSocketPath(
-                EndpointOwnershipLockDirectoryPrefix,
+            var lockIdentityPath = new UnixSocketFallbackPath(
+                Path.GetTempPath(),
+                UnixSocketFallbackPurpose.ListenerOwnershipLock,
                 normalizedAddress);
-            return Path.ChangeExtension(lockIdentityPath, ".lock");
+            return Path.ChangeExtension(lockIdentityPath.SocketPath, ".lock");
         }
 
         private static void AllowSameProcessSuccessor (

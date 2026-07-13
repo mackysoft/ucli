@@ -117,6 +117,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 services.AddUnityGuiSupervisorHostServices(
                     new ExactSessionTokenValidator(sessionToken),
                     projectFingerprint,
+                    endpoint,
                     state.DaemonLogger);
                 var serviceProvider = services.BuildServiceProvider();
                 var server = serviceProvider.GetRequiredService<IUnityIpcServer>();

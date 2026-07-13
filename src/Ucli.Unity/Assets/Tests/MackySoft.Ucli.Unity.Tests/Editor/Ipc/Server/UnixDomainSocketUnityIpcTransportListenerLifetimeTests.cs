@@ -27,12 +27,15 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator Run_WhenReservedGenerationFailsValidation_ReleasesReservation () => UniTask.ToCoroutine(async () =>
         {
-            var socketDirectoryPath = Path.Combine(
+            var fallbackPath = new UnixSocketFallbackPath(
                 Path.GetTempPath(),
-                UcliIpcEndpointNames.DaemonAddressPrefix + Guid.NewGuid().ToString("N"));
-            var address = Path.Combine(socketDirectoryPath, UcliIpcEndpointNames.UnixSocketFileName);
+                UnixSocketFallbackPurpose.Daemon,
+                Guid.NewGuid().ToString("N"));
+            var socketDirectoryPath = fallbackPath.DirectoryPath;
+            var address = fallbackPath.SocketPath;
             var listener = new UnixDomainSocketUnityIpcTransportListener(
                 NoOpDaemonLogger.Instance,
+                new IpcEndpoint(IpcTransportKind.UnixDomainSocket, address),
                 MaximumActiveConnections,
                 ConnectionDrainTimeout);
             using var cancellationTokenSource = new CancellationTokenSource();
@@ -69,6 +72,10 @@ namespace MackySoft.Ucli.Unity.Tests
             finally
             {
                 listener.Release();
+                if (Directory.Exists(socketDirectoryPath))
+                {
+                    Directory.Delete(socketDirectoryPath, recursive: true);
+                }
             }
         });
 
@@ -81,12 +88,15 @@ namespace MackySoft.Ucli.Unity.Tests
                 return;
             }
 
-            var socketDirectoryPath = Path.Combine(
+            var fallbackPath = new UnixSocketFallbackPath(
                 Path.GetTempPath(),
-                UcliIpcEndpointNames.DaemonAddressPrefix + Guid.NewGuid().ToString("N"));
-            var address = Path.Combine(socketDirectoryPath, UcliIpcEndpointNames.UnixSocketFileName);
+                UnixSocketFallbackPurpose.Daemon,
+                Guid.NewGuid().ToString("N"));
+            var socketDirectoryPath = fallbackPath.DirectoryPath;
+            var address = fallbackPath.SocketPath;
             var listener = new UnixDomainSocketUnityIpcTransportListener(
                 NoOpDaemonLogger.Instance,
+                new IpcEndpoint(IpcTransportKind.UnixDomainSocket, address),
                 MaximumActiveConnections,
                 ConnectionDrainTimeout);
             using var releasedCancellationTokenSource = new CancellationTokenSource();
@@ -144,6 +154,11 @@ namespace MackySoft.Ucli.Unity.Tests
                         successorRunTask,
                         "Successor after pre-entry Unix socket release cleanup");
                 }
+
+                if (Directory.Exists(socketDirectoryPath))
+                {
+                    Directory.Delete(socketDirectoryPath, recursive: true);
+                }
             }
         });
 
@@ -170,10 +185,12 @@ namespace MackySoft.Ucli.Unity.Tests
                 return;
             }
 
-            var socketDirectoryPath = Path.Combine(
+            var fallbackPath = new UnixSocketFallbackPath(
                 Path.GetTempPath(),
-                UcliIpcEndpointNames.DaemonAddressPrefix + Guid.NewGuid().ToString("N"));
-            var address = Path.Combine(socketDirectoryPath, UcliIpcEndpointNames.UnixSocketFileName);
+                UnixSocketFallbackPurpose.Daemon,
+                Guid.NewGuid().ToString("N"));
+            var socketDirectoryPath = fallbackPath.DirectoryPath;
+            var address = fallbackPath.SocketPath;
             var lockPath = UnixDomainSocketUnityIpcTransportListener.ResolveEndpointOwnershipLockPath(address);
             var lockDirectoryPath = Path.GetDirectoryName(lockPath);
             Assert.That(lockDirectoryPath, Is.Not.Null);
@@ -183,6 +200,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var listener = new UnixDomainSocketUnityIpcTransportListener(
                 NoOpDaemonLogger.Instance,
+                new IpcEndpoint(IpcTransportKind.UnixDomainSocket, address),
                 MaximumActiveConnections,
                 ConnectionDrainTimeout);
             using var firstCancellationTokenSource = new CancellationTokenSource();
@@ -288,17 +306,21 @@ namespace MackySoft.Ucli.Unity.Tests
                 return;
             }
 
-            var socketDirectoryPath = Path.Combine(
+            var fallbackPath = new UnixSocketFallbackPath(
                 Path.GetTempPath(),
-                UcliIpcEndpointNames.DaemonAddressPrefix + Guid.NewGuid().ToString("N"));
-            var address = Path.Combine(socketDirectoryPath, UcliIpcEndpointNames.UnixSocketFileName);
+                UnixSocketFallbackPurpose.Daemon,
+                Guid.NewGuid().ToString("N"));
+            var socketDirectoryPath = fallbackPath.DirectoryPath;
+            var address = fallbackPath.SocketPath;
             var firstListener = new UnixDomainSocketUnityIpcTransportListener(
                 NoOpDaemonLogger.Instance,
+                new IpcEndpoint(IpcTransportKind.UnixDomainSocket, address),
                 MaximumActiveConnections,
                 ConnectionDrainTimeout);
             var restartedListener = useSeparateListenerInstance
                 ? new UnixDomainSocketUnityIpcTransportListener(
                     NoOpDaemonLogger.Instance,
+                    new IpcEndpoint(IpcTransportKind.UnixDomainSocket, address),
                     MaximumActiveConnections,
                     ConnectionDrainTimeout)
                 : firstListener;
@@ -372,7 +394,17 @@ namespace MackySoft.Ucli.Unity.Tests
             }
 
             Assert.That(File.Exists(address), Is.False);
-            Assert.That(Directory.Exists(socketDirectoryPath), Is.False);
+            try
+            {
+                Assert.That(Directory.Exists(socketDirectoryPath), Is.True);
+            }
+            finally
+            {
+                if (Directory.Exists(socketDirectoryPath))
+                {
+                    Directory.Delete(socketDirectoryPath, recursive: true);
+                }
+            }
         }
 
         private static async Task WaitForListenerStopAsync (

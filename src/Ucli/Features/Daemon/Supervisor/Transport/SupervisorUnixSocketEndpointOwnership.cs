@@ -8,15 +8,13 @@ namespace MackySoft.Ucli.Features.Daemon.Supervisor.Transport;
 /// <summary> Owns one generation-specific supervisor Unix socket node and its canonical publication link. </summary>
 internal sealed class SupervisorUnixSocketEndpointOwnership
 {
-    private const string GenerationDirectoryPrefix = "ucli-supervisor-generation-";
-
-    private const string PublicationLockDirectoryPrefix = "ucli-supervisor-publication-lock-";
-
     private readonly string canonicalAddress;
 
     private readonly string publicationLockPath;
 
     private readonly UnixSocketAccessBoundary generationAccessBoundary;
+
+    private readonly UnixSocketFallbackPath generationFallbackPath;
 
     private readonly Guid publicationToken = Guid.NewGuid();
 
@@ -34,16 +32,17 @@ internal sealed class SupervisorUnixSocketEndpointOwnership
         }
 
         this.canonicalAddress = Path.GetFullPath(canonicalAddress);
-        BoundAddress = UnixSocketPathUtilities.BuildFallbackSocketPath(
-            GenerationDirectoryPrefix,
+        generationFallbackPath = new UnixSocketFallbackPath(
+            Path.GetTempPath(),
+            UnixSocketFallbackPurpose.SupervisorGeneration,
             $"{this.canonicalAddress}\n{publicationToken:N}");
-        generationAccessBoundary = new UnixSocketAccessBoundary(
-            BoundAddress,
-            GenerationDirectoryPrefix);
+        BoundAddress = generationFallbackPath.SocketPath;
+        generationAccessBoundary = new UnixSocketAccessBoundary(BoundAddress);
         publicationLockPath = Path.ChangeExtension(
-            UnixSocketPathUtilities.BuildFallbackSocketPath(
-                PublicationLockDirectoryPrefix,
-                this.canonicalAddress),
+            new UnixSocketFallbackPath(
+                Path.GetTempPath(),
+                UnixSocketFallbackPurpose.SupervisorPublicationLock,
+                this.canonicalAddress).SocketPath,
             ".lock");
     }
 
@@ -150,10 +149,6 @@ internal sealed class SupervisorUnixSocketEndpointOwnership
                 {
                     File.Delete(canonicalAddress);
                 }
-
-                UnixSocketPathUtilities.DeleteEmptyFallbackDirectoryIfPresent(
-                    canonicalAddress,
-                    UcliIpcEndpointNames.SupervisorAddressPrefix);
             }
         }
         catch (TimeoutException)
@@ -163,6 +158,7 @@ internal sealed class SupervisorUnixSocketEndpointOwnership
         finally
         {
             generationAccessBoundary.Cleanup();
+            DeleteOwnedGenerationDirectoryIfEmpty();
         }
     }
 
@@ -210,7 +206,7 @@ internal sealed class SupervisorUnixSocketEndpointOwnership
         return true;
     }
 
-    /// <summary> Deletes a validated abandoned generation node and its empty fallback directory. </summary>
+    /// <summary> Deletes a validated abandoned generation node. </summary>
     public static void DeleteGenerationNode (string generationAddress)
     {
         if (!IsGenerationAddress(generationAddress))
@@ -220,9 +216,6 @@ internal sealed class SupervisorUnixSocketEndpointOwnership
         }
 
         File.Delete(generationAddress);
-        UnixSocketPathUtilities.DeleteEmptyFallbackDirectoryIfPresent(
-            generationAddress,
-            GenerationDirectoryPrefix);
     }
 
     /// <summary> Deletes one canonical publication link before deleting its validated generation node. </summary>
@@ -238,10 +231,21 @@ internal sealed class SupervisorUnixSocketEndpointOwnership
 
         File.Delete(canonicalAddress);
         deleteIfExists(generationAddress);
-        UnixSocketPathUtilities.DeleteEmptyFallbackDirectoryIfPresent(
-            generationAddress,
-            GenerationDirectoryPrefix);
         return true;
+    }
+
+    private void DeleteOwnedGenerationDirectoryIfEmpty ()
+    {
+        if (!Directory.Exists(generationFallbackPath.DirectoryPath))
+        {
+            return;
+        }
+
+        using var enumerator = Directory.EnumerateFileSystemEntries(generationFallbackPath.DirectoryPath).GetEnumerator();
+        if (!enumerator.MoveNext())
+        {
+            Directory.Delete(generationFallbackPath.DirectoryPath);
+        }
     }
 
     private FileExclusiveLock AcquirePublicationLock ()
@@ -266,9 +270,9 @@ internal sealed class SupervisorUnixSocketEndpointOwnership
         var normalizedGenerationAddress = Path.GetFullPath(generationAddress);
         var generationDirectoryPath = Path.GetDirectoryName(normalizedGenerationAddress);
         if (string.IsNullOrWhiteSpace(generationDirectoryPath)
-            || !Path.GetFileName(generationDirectoryPath).StartsWith(
-                GenerationDirectoryPrefix,
-                StringComparison.Ordinal))
+            || !UnixSocketFallbackPath.IsDirectoryNameForPurpose(
+                Path.GetFileName(generationDirectoryPath),
+                UnixSocketFallbackPurpose.SupervisorGeneration))
         {
             return false;
         }

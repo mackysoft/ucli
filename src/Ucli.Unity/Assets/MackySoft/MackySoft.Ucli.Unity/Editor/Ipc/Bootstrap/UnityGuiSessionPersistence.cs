@@ -326,9 +326,6 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             FileUtilities.DeleteIfExists(expectedEndpoint.Address);
-            UnixSocketPathUtilities.DeleteEmptyFallbackDirectoryIfPresent(
-                expectedEndpoint.Address,
-                UcliIpcEndpointNames.DaemonAddressPrefix);
         }
 
         private static bool MatchesRegistration (
@@ -379,9 +376,6 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             FileUtilities.DeleteIfExists(registration.Endpoint.Address);
-            UnixSocketPathUtilities.DeleteEmptyFallbackDirectoryIfPresent(
-                registration.Endpoint.Address,
-                UcliIpcEndpointNames.DaemonAddressPrefix);
         }
 
         /// <summary> Represents one unpublished GUI session generation and its exclusive publication lease. </summary>

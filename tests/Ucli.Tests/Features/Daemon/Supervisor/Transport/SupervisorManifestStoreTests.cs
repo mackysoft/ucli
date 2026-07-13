@@ -250,9 +250,10 @@ public sealed class SupervisorManifestStoreTests
         var store = SupervisorManifestStoreTestSupport.CreateFileBacked(TimeProvider.System);
         var endpoint = new IpcEndpoint(
             IpcTransportKind.UnixDomainSocket,
-            UnixSocketPathUtilities.BuildFallbackSocketPath(
-                UcliIpcEndpointNames.SupervisorAddressPrefix,
-                Guid.NewGuid().ToString("N")));
+            new UnixSocketFallbackPath(
+                Path.GetTempPath(),
+                UnixSocketFallbackPurpose.Supervisor,
+                Guid.NewGuid().ToString("N")).SocketPath);
         var endpointOwnership = new SupervisorUnixSocketEndpointOwnership(endpoint.Address);
         endpointOwnership.PrepareForBind();
         await File.WriteAllTextAsync(endpointOwnership.BoundAddress, "generation socket", CancellationToken.None);
@@ -262,19 +263,35 @@ public sealed class SupervisorManifestStoreTests
         var manifest = CreateManifest(endpoint: endpoint);
         await store.WriteAsync(scope.FullPath, manifest, CancellationToken.None);
 
-        var cleanupStatus = await store.CleanupObservedRuntimeIfManifestMatchesAsync(
-            scope.FullPath,
-            manifest,
-            new SupervisorUnixSocketCleanupTarget(endpoint.Address),
-            SupervisorConstants.ManifestMutationLockTimeout,
-            CancellationToken.None);
+        try
+        {
+            var cleanupStatus = await store.CleanupObservedRuntimeIfManifestMatchesAsync(
+                scope.FullPath,
+                manifest,
+                new SupervisorUnixSocketCleanupTarget(endpoint.Address),
+                SupervisorConstants.ManifestMutationLockTimeout,
+                CancellationToken.None);
 
-        Assert.Equal(SupervisorManifestCleanupStatus.Removed, cleanupStatus);
-        Assert.Null(new FileInfo(endpoint.Address).LinkTarget);
-        Assert.False(File.Exists(endpoint.Address));
-        Assert.False(File.Exists(endpointOwnership.BoundAddress));
-        Assert.False(Directory.Exists(generationDirectoryPath));
-        Assert.False(Directory.Exists(canonicalDirectoryPath));
+            Assert.Equal(SupervisorManifestCleanupStatus.Removed, cleanupStatus);
+            Assert.Null(new FileInfo(endpoint.Address).LinkTarget);
+            Assert.False(File.Exists(endpoint.Address));
+            Assert.False(File.Exists(endpointOwnership.BoundAddress));
+            Assert.True(Directory.Exists(generationDirectoryPath));
+            Assert.True(Directory.Exists(canonicalDirectoryPath));
+
+            endpointOwnership.Cleanup();
+
+            Assert.False(Directory.Exists(generationDirectoryPath));
+            Assert.True(Directory.Exists(canonicalDirectoryPath));
+        }
+        finally
+        {
+            endpointOwnership.Cleanup();
+            if (Directory.Exists(canonicalDirectoryPath))
+            {
+                Directory.Delete(canonicalDirectoryPath, recursive: true);
+            }
+        }
     }
 
     [Fact]

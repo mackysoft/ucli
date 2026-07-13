@@ -8,8 +8,6 @@ using MackySoft.Ucli.Unity.Runtime;
 using Microsoft.Extensions.DependencyInjection;
 using UnityEditor;
 
-using MackySoft.Ucli.Contracts.Text;
-
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Bootstraps IPC daemon server when Unity is launched in batchmode daemon mode. </summary>
@@ -34,20 +32,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             try
             {
-                if (!ContractLiteralCodec.TryParse<IpcTransportKind>(bootstrapArguments.EndpointTransportKind, out var transportKind))
-                {
-                    var errorMessage = $"Unsupported endpoint transport kind: {bootstrapArguments.EndpointTransportKind}";
-                    daemonLogger.Error(
-                        DaemonLogCategories.Lifecycle,
-                        errorMessage);
-                    diagnosisWritten = await PersistDiagnosisAsync(
-                        bootstrapArguments,
-                        DaemonDiagnosisReasonValues.StartupFailed,
-                        errorMessage,
-                        daemonLogger);
-                    EditorApplication.Exit(1);
-                    return;
-                }
+                var endpoint = UnityBatchmodeBootstrapEndpointValidator.ResolveValidatedEndpoint(bootstrapArguments);
 
                 var services = new ServiceCollection();
                 services
@@ -58,6 +43,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                         DaemonEditorMode.Batchmode)
                     .AddUnityIpcDaemonHostServices(
                         bootstrapArguments,
+                        endpoint,
                         daemonLogStream,
                         editorInstanceId);
 
@@ -69,7 +55,6 @@ namespace MackySoft.Ucli.Unity.Ipc
                     using var unityLogCaptureService = serviceProvider.GetRequiredService<UnityLogCaptureService>();
                     unityLogCaptureService.Start();
 
-                    var endpoint = new IpcEndpoint(transportKind, bootstrapArguments.EndpointAddress);
                     using var publicationFence = await server.StartAsync(endpoint, CancellationToken.None);
                     Task shutdownWaitTask = null;
                     Task serverTerminationTask = null;

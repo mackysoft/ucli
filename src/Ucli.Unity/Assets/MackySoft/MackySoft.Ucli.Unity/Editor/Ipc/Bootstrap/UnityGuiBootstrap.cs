@@ -251,6 +251,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                         DaemonEditorMode.Gui)
                     .AddUnityIpcDaemonHostServices(
                         daemonBootstrapArguments,
+                        endpoint,
                         daemonLogStream,
                         state.EditorInstanceId);
 

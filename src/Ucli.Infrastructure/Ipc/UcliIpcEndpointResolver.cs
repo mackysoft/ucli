@@ -46,10 +46,11 @@ internal static class UcliIpcEndpointResolver
             return new IpcEndpoint(IpcTransportKind.UnixDomainSocket, preferredSocketPath);
         }
 
-        var fallbackSocketPath = BuildFallbackUnixSocketPath(
-            normalizedStorageRoot,
-            projectFingerprint);
-        return new IpcEndpoint(IpcTransportKind.UnixDomainSocket, fallbackSocketPath);
+        var fallbackPath = new UnixSocketFallbackPath(
+            Path.GetTempPath(),
+            UnixSocketFallbackPurpose.Daemon,
+            $"{normalizedStorageRoot}\n{projectFingerprint}");
+        return new IpcEndpoint(IpcTransportKind.UnixDomainSocket, fallbackPath.SocketPath);
     }
 
     /// <summary> Resolves the GUI supervisor transport endpoint for the given project identity. </summary>
@@ -89,24 +90,10 @@ internal static class UcliIpcEndpointResolver
             return new IpcEndpoint(IpcTransportKind.UnixDomainSocket, preferredSocketPath);
         }
 
-        var fallbackSocketPath = UnixSocketPathUtilities.BuildFallbackSocketPath(
-            UcliIpcEndpointNames.GuiSupervisorAddressPrefix,
+        var fallbackPath = new UnixSocketFallbackPath(
+            Path.GetTempPath(),
+            UnixSocketFallbackPurpose.GuiSupervisor,
             $"{normalizedStorageRoot}\n{projectFingerprint}");
-        return new IpcEndpoint(IpcTransportKind.UnixDomainSocket, fallbackSocketPath);
-    }
-
-    private static string BuildFallbackUnixSocketPath (
-        string normalizedStorageRoot,
-        ProjectFingerprint projectFingerprint)
-    {
-        if (projectFingerprint == null)
-        {
-            throw new ArgumentNullException(nameof(projectFingerprint));
-        }
-
-        var hashSource = $"{normalizedStorageRoot}\n{projectFingerprint}";
-        return UnixSocketPathUtilities.BuildFallbackSocketPath(
-            UcliIpcEndpointNames.DaemonAddressPrefix,
-            hashSource);
+        return new IpcEndpoint(IpcTransportKind.UnixDomainSocket, fallbackPath.SocketPath);
     }
 }

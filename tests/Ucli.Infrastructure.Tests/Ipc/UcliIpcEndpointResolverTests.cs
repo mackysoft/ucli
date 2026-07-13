@@ -52,7 +52,7 @@ public sealed class UcliIpcEndpointResolverTests
             return;
         }
 
-        AssertFallbackPath(endpoint.Address, UcliIpcEndpointNames.DaemonAddressPrefix);
+        AssertFallbackPath(endpoint.Address, "ucli-d-");
     }
 
     [Fact]
@@ -75,7 +75,30 @@ public sealed class UcliIpcEndpointResolverTests
         Assert.Equal(IpcTransportKind.UnixDomainSocket, endpoint1.TransportKind);
         Assert.Equal(endpoint1.Address, endpoint2.Address);
         Assert.True(Encoding.UTF8.GetByteCount(endpoint1.Address) <= IpcTransportConstraints.UnixDomainSocketPathMaxBytes);
-        AssertFallbackPath(endpoint1.Address, UcliIpcEndpointNames.DaemonAddressPrefix);
+        AssertFallbackPath(endpoint1.Address, "ucli-d-");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ResolveGuiSupervisorEndpoint_WithLongUnixSocketCandidate_ReturnsHostSpecificDeterministicFallbackPath ()
+    {
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            return;
+        }
+
+        var storageRoot = Path.GetFullPath(Path.Combine(
+            Path.GetTempPath(),
+            "ucli-tests",
+            new string('a', 140)));
+
+        var endpoint1 = UcliIpcEndpointResolver.ResolveGuiSupervisorEndpoint(storageRoot, Fingerprint);
+        var endpoint2 = UcliIpcEndpointResolver.ResolveGuiSupervisorEndpoint(storageRoot, Fingerprint);
+
+        Assert.Equal(IpcTransportKind.UnixDomainSocket, endpoint1.TransportKind);
+        Assert.Equal(endpoint1.Address, endpoint2.Address);
+        Assert.True(Encoding.UTF8.GetByteCount(endpoint1.Address) <= IpcTransportConstraints.UnixDomainSocketPathMaxBytes);
+        AssertFallbackPath(endpoint1.Address, "ucli-g-");
     }
 
     private static void AssertFallbackPath (
@@ -86,7 +109,11 @@ public sealed class UcliIpcEndpointResolverTests
 
         var directoryPath = Path.GetDirectoryName(address);
         Assert.False(string.IsNullOrWhiteSpace(directoryPath));
-        Assert.StartsWith(directoryPrefix, Path.GetFileName(directoryPath), StringComparison.Ordinal);
+        var directoryName = Path.GetFileName(directoryPath);
+        Assert.StartsWith(directoryPrefix, directoryName, StringComparison.Ordinal);
+        Assert.Equal(
+            32,
+            directoryName!.Length - directoryPrefix.Length);
         Assert.Equal(
             Path.GetFullPath(Path.GetTempPath()).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
             Path.GetDirectoryName(directoryPath!)!.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));

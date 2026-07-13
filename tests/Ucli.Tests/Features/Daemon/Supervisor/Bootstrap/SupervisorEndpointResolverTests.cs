@@ -90,7 +90,7 @@ public sealed class SupervisorEndpointResolverTests
             return;
         }
 
-        AssertFallbackPath(endpoint.Address, UcliIpcEndpointNames.SupervisorAddressPrefix);
+        AssertFallbackPath(endpoint.Address, "ucli-s-");
     }
 
     [Fact]
@@ -115,7 +115,7 @@ public sealed class SupervisorEndpointResolverTests
         Assert.Equal(IpcTransportKind.UnixDomainSocket, endpoint1.TransportKind);
         Assert.Equal(endpoint1.Address, endpoint2.Address);
         Assert.True(Encoding.UTF8.GetByteCount(endpoint1.Address) <= IpcTransportConstraints.UnixDomainSocketPathMaxBytes);
-        AssertFallbackPath(endpoint1.Address, UcliIpcEndpointNames.SupervisorAddressPrefix);
+        AssertFallbackPath(endpoint1.Address, "ucli-s-");
     }
 
     private static void AssertFallbackPath (
@@ -126,7 +126,11 @@ public sealed class SupervisorEndpointResolverTests
 
         var directoryPath = Path.GetDirectoryName(address);
         Assert.False(string.IsNullOrWhiteSpace(directoryPath));
-        Assert.StartsWith(directoryPrefix, Path.GetFileName(directoryPath), StringComparison.Ordinal);
+        var directoryName = Path.GetFileName(directoryPath);
+        Assert.StartsWith(directoryPrefix, directoryName, StringComparison.Ordinal);
+        Assert.Equal(
+            32,
+            directoryName!.Length - directoryPrefix.Length);
         Assert.Equal(
             Path.GetFullPath(Path.GetTempPath()).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
             Path.GetDirectoryName(directoryPath!)!.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
