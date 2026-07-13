@@ -91,9 +91,11 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(resolvedReference, Is.Not.Null);
         });
 
-        [Test]
+        [TestCase((int)OperationObjectReferenceUtilities.ReferenceResolutionPolicy.LiveOnly)]
+        [TestCase((int)OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryAliases)]
         [Category("Size.Small")]
-        public void ResolveEditableGameObject_WhenTemporaryStateIsDisabled_ReturnsStableAliasTarget ()
+        public void ResolveEditableGameObject_WhenStableAndTemporaryAliasesExist_UsesStableTargetAndResource (
+            int resolutionPolicyValue)
         {
             using var scope = new EditorTestScope();
             var scenePath = scope.CreateScenePath(nameof(GoOperationTests));
@@ -107,17 +109,18 @@ namespace MackySoft.Ucli.Unity.Tests
             context.SetTemporaryAlias(
                 "target",
                 temporaryTarget,
-                new OperationResource(OperationTouchKind.Scene, scenePath));
+                new OperationResource(OperationTouchKind.Scene, "Assets/OtherScene.unity"));
 
             var result = GoOperationUtilities.TryResolveEditableGameObject(
                 UnityObjectReference.FromAlias("target"),
                 context,
-                OperationObjectReferenceUtilities.ReferenceResolutionPolicy.LiveOnly,
+                (OperationObjectReferenceUtilities.ReferenceResolutionPolicy)resolutionPolicyValue,
                 out var resolution,
                 out var errorMessage);
 
             Assert.That(result, Is.True, errorMessage);
             Assert.That(resolution.GameObject, Is.SameAs(liveTarget));
+            Assert.That(resolution.Resource.Path, Is.EqualTo(scenePath));
         }
 
         [UnityTest]

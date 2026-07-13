@@ -147,7 +147,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 reference,
                 executionContext,
                 OperationObjectReferenceUtilities.ReferenceResolutionPolicy.LiveOnly,
-                out var resolvedUnityObject,
+                out var objectResolution,
                 out errorMessage))
             {
                 assetPath = string.Empty;
@@ -155,7 +155,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (resolvedUnityObject is not UnityEngine.Object liveUnityObject || liveUnityObject == null)
+            var liveUnityObject = objectResolution.UnityObject;
+            if (liveUnityObject == null)
             {
                 assetPath = string.Empty;
                 sourceGlobalObjectId = null;

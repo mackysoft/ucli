@@ -90,24 +90,25 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     reference,
                     executionContext,
                     resolutionPolicy,
-                    out var unityObject,
+                    out var objectResolution,
                     out errorMessage))
             {
                 return false;
             }
 
-            var component = unityObject as Component;
+            var component = objectResolution.UnityObject as Component;
             if (component == null)
             {
                 errorMessage = "Reference did not resolve to a Component.";
                 return false;
             }
 
-            if (reference.Kind == UnityObjectReferenceKind.Alias
-                && executionContext.TryGetTemporaryAliasState(reference.Alias!, out var temporaryAliasState)
-                && ReferenceEquals(temporaryAliasState.UnityObject, component))
+            if (objectResolution.TemporaryAliasResource is OperationResource temporaryAliasResource)
             {
-                resolution = new ComponentResolutionState(component, temporaryAliasState.Resource);
+                resolution = new ComponentResolutionState(
+                    component,
+                    temporaryAliasResource,
+                    objectResolution.TemporaryAliasSourceTrackingKey);
                 errorMessage = string.Empty;
                 return true;
             }
@@ -115,7 +116,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (resolutionPolicy != OperationObjectReferenceUtilities.ReferenceResolutionPolicy.LiveOnly
                 && executionContext.TryResolveTrackedComponentResource(component, out var trackedResource))
             {
-                resolution = new ComponentResolutionState(component, trackedResource);
+                resolution = new ComponentResolutionState(component, trackedResource, temporaryAliasSourceTrackingKey: null);
                 errorMessage = string.Empty;
                 return true;
             }
@@ -125,7 +126,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            resolution = new ComponentResolutionState(component, resource);
+            resolution = new ComponentResolutionState(component, resource, temporaryAliasSourceTrackingKey: null);
             return true;
         }
 
@@ -226,15 +227,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             public ComponentResolutionState (
                 Component component,
-                OperationResource resource)
+                OperationResource resource,
+                RequestLocalObjectIdentity? temporaryAliasSourceTrackingKey)
             {
                 Component = component;
                 Resource = resource;
+                TemporaryAliasSourceTrackingKey = temporaryAliasSourceTrackingKey;
             }
 
             public Component? Component { get; }
 
             public OperationResource Resource { get; }
+
+            public RequestLocalObjectIdentity? TemporaryAliasSourceTrackingKey { get; }
         }
 
         internal readonly struct ComponentSelectorResolutionState

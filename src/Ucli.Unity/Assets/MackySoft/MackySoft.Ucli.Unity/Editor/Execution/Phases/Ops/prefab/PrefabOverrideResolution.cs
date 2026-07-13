@@ -238,19 +238,29 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             if (allowTemporaryState
                 && componentResolution.Component != null
-                && !PrefabUtility.IsPartOfPrefabInstance(componentResolution.Component)
-                && !executionContext.IsPlannedPrefabInstanceLineage(componentResolution.Component))
+                && !IsPrefabInstanceOrPlannedLineage(componentResolution.Component, executionContext))
             {
-                if (TryResolveComponentShadowSource(
-                        componentResolution,
-                        executionContext,
-                        out var sourceComponentResolution)
-                    || TryResolveLiveComponentTarget(
-                        targetReference,
-                        executionContext,
-                        out sourceComponentResolution))
+                var hasShadowSource = TryResolveComponentShadowSource(
+                    componentResolution,
+                    executionContext,
+                    out var shadowSourceResolution);
+                if (hasShadowSource
+                    && shadowSourceResolution.Component != null
+                    && IsPrefabInstanceOrPlannedLineage(shadowSourceResolution.Component, executionContext))
                 {
-                    componentResolution = sourceComponentResolution;
+                    componentResolution = shadowSourceResolution;
+                }
+                else if (TryResolveLiveComponentTarget(
+                    targetReference,
+                    componentResolution.TemporaryAliasSourceTrackingKey,
+                    executionContext,
+                    out var liveComponentResolution))
+                {
+                    componentResolution = liveComponentResolution;
+                }
+                else if (hasShadowSource)
+                {
+                    componentResolution = shadowSourceResolution;
                 }
             }
 
@@ -284,23 +294,61 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             sourceComponentResolution = new ComponentOperationUtilities.ComponentResolutionState(
                 componentShadowState.SourceComponent,
-                sourceResource);
+                sourceResource,
+                componentResolution.TemporaryAliasSourceTrackingKey);
             return true;
+        }
+
+        private static bool IsPrefabInstanceOrPlannedLineage (
+            Component component,
+            OperationExecutionContext executionContext)
+        {
+            return PrefabUtility.IsPartOfPrefabInstance(component)
+                || executionContext.IsPlannedPrefabInstanceLineage(component);
         }
 
         private static bool TryResolveLiveComponentTarget (
             UnityObjectReference targetReference,
+            RequestLocalObjectIdentity? temporaryAliasSourceTrackingKey,
             OperationExecutionContext executionContext,
             out ComponentOperationUtilities.ComponentResolutionState componentResolution)
         {
             componentResolution = default;
-            if (!UnityObjectReferenceResolver.TryResolve(
-                    targetReference,
-                    executionContext,
-                    allowTemporaryState: false,
-                    out var unityObject,
-                    out _)
-                || !(unityObject is Component component)
+            UnityEngine.Object? unityObject;
+            if (temporaryAliasSourceTrackingKey != null)
+            {
+                if (temporaryAliasSourceTrackingKey.TryGetStableGlobalObjectId(out var globalObjectId))
+                {
+                    if (!ResolveReferenceResolver.TryResolveUnityObject(
+                        ResolveSelector.FromGlobalObjectId(globalObjectId),
+                        executionContext,
+                        allowTemporaryState: false,
+                        out unityObject,
+                        out _))
+                    {
+                        return false;
+                    }
+                }
+                else if (!temporaryAliasSourceTrackingKey.TryGetTransientUnityObject(out unityObject))
+                {
+                    return false;
+                }
+            }
+            else
+            {
+                if (targetReference.Kind == UnityObjectReferenceKind.Alias
+                    || !UnityObjectReferenceResolver.TryResolve(
+                        targetReference,
+                        executionContext,
+                        allowTemporaryState: false,
+                        out unityObject,
+                        out _))
+                {
+                    return false;
+                }
+            }
+
+            if (!(unityObject is Component component)
                 || !OperationResourceUtilities.TryResolveOwnerResource(
                     component,
                     executionContext,
@@ -310,7 +358,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            componentResolution = new ComponentOperationUtilities.ComponentResolutionState(component, resource);
+            componentResolution = new ComponentOperationUtilities.ComponentResolutionState(
+                component,
+                resource,
+                temporaryAliasSourceTrackingKey: null);
             return true;
         }
 

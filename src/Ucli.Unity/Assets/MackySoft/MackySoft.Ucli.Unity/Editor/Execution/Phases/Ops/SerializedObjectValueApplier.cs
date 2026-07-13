@@ -1036,12 +1036,18 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            return OperationObjectReferenceUtilities.TryResolveUnityObject(
+            if (!OperationObjectReferenceUtilities.TryResolveUnityObject(
                 reference,
                 executionContext,
                 referenceResolutionPolicy,
-                out unityObject,
-                out errorMessage);
+                out var objectResolution,
+                out errorMessage))
+            {
+                return false;
+            }
+
+            unityObject = objectResolution.UnityObject;
+            return true;
         }
 
         private static bool TryApplyEnumWithoutDeclaredType (

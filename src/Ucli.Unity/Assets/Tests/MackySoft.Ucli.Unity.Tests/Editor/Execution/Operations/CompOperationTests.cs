@@ -1006,7 +1006,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void ResolveComponent_WhenAliasTargetsSceneComponent_ReturnsLiveComponent ()
+        public void ResolveComponent_WhenStableAndTemporaryAliasesTargetSameComponent_UsesStableResource ()
         {
             using var scope = new EditorTestScope();
             var scenePath = scope.CreateScenePath(nameof(CompOperationTests));
@@ -1016,11 +1016,15 @@ namespace MackySoft.Ucli.Unity.Tests
             EditorSceneManager.SaveScene(scene, scenePath);
             var context = scope.CreateExecutionContext();
             context.AliasStore.Set("target", UnityObjectReferenceResolver.CreateGlobalObjectId(target));
+            context.SetTemporaryAlias(
+                "target",
+                target,
+                new OperationResource(OperationTouchKind.Scene, "Assets/OtherScene.unity"));
 
             var result = ComponentOperationUtilities.TryResolveComponent(
                 UnityObjectReference.FromAlias("target"),
                 context,
-                OperationObjectReferenceUtilities.ReferenceResolutionPolicy.LiveOnly,
+                OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryAliases,
                 out var resolutionState,
                 out var errorMessage);
 

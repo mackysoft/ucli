@@ -89,24 +89,22 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     reference,
                     executionContext,
                     resolutionPolicy,
-                    out var unityObject,
+                    out var objectResolution,
                     out errorMessage))
             {
                 return false;
             }
 
-            var gameObject = unityObject as GameObject;
+            var gameObject = objectResolution.UnityObject as GameObject;
             if (gameObject == null)
             {
                 errorMessage = "Reference did not resolve to a GameObject.";
                 return false;
             }
 
-            if (reference.Kind == UnityObjectReferenceKind.Alias
-                && executionContext.TryGetTemporaryAliasState(reference.Alias!, out var temporaryAliasState)
-                && ReferenceEquals(temporaryAliasState.UnityObject, gameObject))
+            if (objectResolution.TemporaryAliasResource is OperationResource temporaryAliasResource)
             {
-                resolution = new EditableGameObjectResolutionState(gameObject, temporaryAliasState.Resource);
+                resolution = new EditableGameObjectResolutionState(gameObject, temporaryAliasResource);
                 errorMessage = string.Empty;
                 return true;
             }

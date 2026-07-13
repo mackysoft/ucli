@@ -219,11 +219,14 @@ namespace MackySoft.Ucli.Unity.Tests
                 UnityObjectReference.FromAlias("target"),
                 context,
                 (OperationObjectReferenceUtilities.ReferenceResolutionPolicy)resolutionPolicyValue,
-                out var unityObject,
+                out var resolution,
                 out var errorMessage);
 
             Assert.That(result, Is.True, errorMessage);
-            Assert.That(unityObject, Is.SameAs(expectsTemporaryObject ? shadow : asset));
+            Assert.That(resolution.UnityObject, Is.SameAs(expectsTemporaryObject ? shadow : asset));
+            Assert.That(
+                resolution.TemporaryAliasResource.HasValue,
+                Is.EqualTo(expectsTemporaryObject));
         }
 
         [TestCase((int)OperationObjectReferenceUtilities.ReferenceResolutionPolicy.LiveOnly, false)]
@@ -247,11 +250,41 @@ namespace MackySoft.Ucli.Unity.Tests
                 UnityObjectReference.FromAlias("target"),
                 context,
                 (OperationObjectReferenceUtilities.ReferenceResolutionPolicy)resolutionPolicyValue,
-                out var unityObject,
+                out var resolution,
                 out var errorMessage);
 
             Assert.That(result, Is.EqualTo(expectsSuccess), errorMessage);
-            Assert.That(unityObject, expectsSuccess ? Is.SameAs(shadow) : Is.Null);
+            Assert.That(resolution.UnityObject, expectsSuccess ? Is.SameAs(shadow) : Is.Null);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void OperationReferenceResolution_WhenStableAndTemporaryAliasSourcesDiffer_RejectsBinding ()
+        {
+            using var scope = new EditorTestScope();
+            var stableAsset = scope.CreateScriptableAsset<ResolveTestAsset>(
+                $"{nameof(ResolveOperationTests)}_stable",
+                out _);
+            var temporarySourceAsset = scope.CreateScriptableAsset<ResolveTestAsset>(
+                $"{nameof(ResolveOperationTests)}_temporary",
+                out var temporarySourcePath);
+            var context = scope.CreateExecutionContext();
+            context.AliasStore.Set("target", UnityObjectReferenceResolver.CreateGlobalObjectId(stableAsset));
+            context.SetTemporaryAlias(
+                "target",
+                temporarySourceAsset,
+                OperationResource.PersistentAsset(temporarySourcePath),
+                RequestLocalObjectIdentity.FromUnityObject(temporarySourceAsset));
+
+            var result = OperationObjectReferenceUtilities.TryResolveUnityObject(
+                UnityObjectReference.FromAlias("target"),
+                context,
+                OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryState,
+                out _,
+                out var errorMessage);
+
+            Assert.That(result, Is.False);
+            Assert.That(errorMessage, Does.Contain("inconsistent stable and request-local source identities"));
         }
 
         [Test]
