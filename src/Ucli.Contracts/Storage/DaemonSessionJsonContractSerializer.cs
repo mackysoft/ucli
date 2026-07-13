@@ -1,33 +1,10 @@
 using System.Text.Json;
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Storage;
 
 /// <summary> Provides shared serializer settings for daemon <c>session.json</c> contracts. </summary>
 internal static class DaemonSessionJsonContractSerializer
 {
-    private static readonly JsonSerializerOptions DeserializeOptions = new()
-    {
-        Converters =
-        {
-            new ContractLiteralJsonConverterFactory(),
-        },
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        PropertyNameCaseInsensitive = true,
-        WriteIndented = false,
-    };
-
-    private static readonly JsonSerializerOptions SerializeOptions = new()
-    {
-        Converters =
-        {
-            new ContractLiteralJsonConverterFactory(),
-        },
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        PropertyNameCaseInsensitive = true,
-        WriteIndented = true,
-    };
-
     /// <summary> Deserializes daemon session JSON text to contract. </summary>
     /// <param name="json"> The daemon session JSON text. </param>
     /// <returns> The deserialized contract; or <see langword="null" /> when JSON root is <c>null</c>. </returns>
@@ -40,7 +17,9 @@ internal static class DaemonSessionJsonContractSerializer
             throw new ArgumentException("JSON text must not be empty.", nameof(json));
         }
 
-        return JsonSerializer.Deserialize<DaemonSessionJsonContract>(json, DeserializeOptions);
+        return JsonSerializer.Deserialize<DaemonSessionJsonContract>(
+            json,
+            DaemonStorageJsonSerializerOptions.Deserialize);
     }
 
     /// <summary> Serializes daemon session contract to JSON text. </summary>
@@ -54,6 +33,6 @@ internal static class DaemonSessionJsonContractSerializer
             throw new ArgumentNullException(nameof(contract));
         }
 
-        return JsonSerializer.Serialize(contract, SerializeOptions);
+        return JsonSerializer.Serialize(contract, DaemonStorageJsonSerializerOptions.Serialize);
     }
 }

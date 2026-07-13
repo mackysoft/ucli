@@ -5,20 +5,6 @@ namespace MackySoft.Ucli.Contracts.Storage;
 /// <summary> Provides shared serializer settings for daemon launch-attempt contracts. </summary>
 internal static class DaemonLaunchAttemptJsonContractSerializer
 {
-    private static readonly JsonSerializerOptions DeserializeOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        PropertyNameCaseInsensitive = true,
-        WriteIndented = false,
-    };
-
-    private static readonly JsonSerializerOptions SerializeOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        PropertyNameCaseInsensitive = true,
-        WriteIndented = true,
-    };
-
     /// <summary> Deserializes daemon launch-attempt JSON text to contract. </summary>
     /// <param name="json"> The daemon launch-attempt JSON text. </param>
     /// <returns> The deserialized contract; or <see langword="null" /> when JSON root is <c>null</c>. </returns>
@@ -29,7 +15,9 @@ internal static class DaemonLaunchAttemptJsonContractSerializer
             throw new ArgumentException("JSON text must not be empty.", nameof(json));
         }
 
-        return JsonSerializer.Deserialize<DaemonLaunchAttemptJsonContract>(json, DeserializeOptions);
+        return JsonSerializer.Deserialize<DaemonLaunchAttemptJsonContract>(
+            json,
+            DaemonStorageJsonSerializerOptions.Deserialize);
     }
 
     /// <summary> Serializes daemon launch-attempt contract to JSON text. </summary>
@@ -42,6 +30,6 @@ internal static class DaemonLaunchAttemptJsonContractSerializer
             throw new ArgumentNullException(nameof(contract));
         }
 
-        return JsonSerializer.Serialize(contract, SerializeOptions);
+        return JsonSerializer.Serialize(contract, DaemonStorageJsonSerializerOptions.Serialize);
     }
 }

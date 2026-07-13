@@ -19,13 +19,11 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
         /// <summary> Creates one execution response from phase execution trace. </summary>
         /// <param name="context"> The request-level dispatch context. </param>
         /// <param name="trace"> The phase execution trace. </param>
-        /// <param name="serializerOptions"> The serializer options for payload conversion. </param>
         /// <returns> The mapped execution response. </returns>
         /// <exception cref="ArgumentNullException"> Thrown when any reference argument is <see langword="null" />. </exception>
         public static IpcResponse CreateExecutionResponse (
             ExecuteDispatchContext context,
-            PhaseExecutionTrace trace,
-            JsonSerializerOptions serializerOptions)
+            PhaseExecutionTrace trace)
         {
             if (context == null)
             {
@@ -37,11 +35,6 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                 throw new ArgumentNullException(nameof(trace));
             }
 
-            if (serializerOptions == null)
-            {
-                throw new ArgumentNullException(nameof(serializerOptions));
-            }
-
             var issuedAtUtc = DateTimeOffset.UtcNow;
             var contractViolations = OperationContractViolationDetector.Detect(trace.OperationTraces);
             var payloadModel = CreateExecutePayload(context.Project, trace.Steps, trace.OperationTraces, trace.PlanToken, issuedAtUtc, contractViolations);
@@ -50,7 +43,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                 ProtocolVersion: context.ProtocolVersion,
                 RequestId: context.RequestId,
                 Status: errors.Length == 0 ? IpcProtocol.StatusOk : IpcProtocol.StatusError,
-                Payload: JsonSerializer.SerializeToElement(payloadModel, serializerOptions),
+                Payload: IpcPayloadCodec.SerializeToElement(payloadModel),
                 Errors: errors);
         }
 
@@ -59,31 +52,24 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
         /// <param name="code"> The error code. </param>
         /// <param name="message"> The error message. </param>
         /// <param name="opId"> The related operation identifier. </param>
-        /// <param name="serializerOptions"> The serializer options for payload conversion. </param>
         /// <returns> The error response envelope. </returns>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="context" /> or <paramref name="serializerOptions" /> is <see langword="null" />. </exception>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="context" /> is <see langword="null" />. </exception>
         public static IpcResponse CreateErrorResponse (
             ExecuteDispatchContext context,
             UcliCode code,
             string message,
-            string? opId,
-            JsonSerializerOptions serializerOptions)
+            string? opId)
         {
             if (context == null)
             {
                 throw new ArgumentNullException(nameof(context));
             }
 
-            if (serializerOptions == null)
-            {
-                throw new ArgumentNullException(nameof(serializerOptions));
-            }
-
             return new IpcResponse(
                 ProtocolVersion: context.ProtocolVersion,
                 RequestId: context.RequestId,
                 Status: IpcProtocol.StatusError,
-                Payload: JsonSerializer.SerializeToElement(CreateEmptyExecutePayload(context.Project), serializerOptions),
+                Payload: IpcPayloadCodec.SerializeToElement(CreateEmptyExecutePayload(context.Project)),
                 Errors: new[]
                 {
                     new IpcError(code, message, opId),

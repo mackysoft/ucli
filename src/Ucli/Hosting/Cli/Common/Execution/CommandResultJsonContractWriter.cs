@@ -1,22 +1,13 @@
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Json;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
+using MackySoft.Ucli.Hosting.Cli.Common.Serialization;
 
 namespace MackySoft.Ucli.Hosting.Cli.Common.Execution;
 
 /// <summary> Writes command-result contracts with a fixed public JSON envelope. </summary>
 internal sealed class CommandResultJsonContractWriter : JsonContractWriter<CommandResult>
 {
-    private static readonly JsonSerializerOptions PayloadSerializerOptions = new()
-    {
-        Converters =
-        {
-            new ContractLiteralJsonConverterFactory(),
-        },
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-    };
-
     /// <inheritdoc />
     protected override void WriteCore (
         Utf8JsonWriter writer,
@@ -50,7 +41,11 @@ internal sealed class CommandResultJsonContractWriter : JsonContractWriter<Comma
             return;
         }
 
-        JsonSerializer.Serialize(writer, payload, payload.GetType(), PayloadSerializerOptions);
+        JsonSerializer.Serialize(
+            writer,
+            payload,
+            payload.GetType(),
+            CliOutputJsonSerializerOptions.Default);
     }
 
     private static void WriteErrors (
