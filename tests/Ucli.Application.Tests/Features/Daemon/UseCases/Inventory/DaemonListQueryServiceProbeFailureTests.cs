@@ -403,11 +403,11 @@ public sealed class DaemonListQueryServiceProbeFailureTests
                 observedAtUtc: observedAtUtc,
                 actionRequired: null,
                 primaryDiagnostic: null,
+                serverVersion: null,
+                canAcceptExecutionRequests: true,
                 editorInstanceId: session.EditorInstanceId
-                    ?? throw new ArgumentException("Session must have an Editor instance identifier.", nameof(session)))
-            {
-                CanAcceptExecutionRequests = true,
-            }),
+                    ?? throw new ArgumentException("Session must have an Editor instance identifier.", nameof(session)),
+                playMode: null)),
         };
     }
 

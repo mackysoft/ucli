@@ -53,10 +53,10 @@ public sealed class UnityDaemonRecoveryWaiterTests
     {
         var timeProvider = new ManualTimeProvider();
         var session = DaemonSessionTestFactory.CreateEditorInstance();
-        var observation = CreateObservation(session, IpcEditorLifecycleStateCodec.DomainReloading) with
-        {
-            ProcessStartedAtUtc = session.ProcessStartedAtUtc!.Value.AddMilliseconds(1),
-        };
+        var observation = CreateObservation(
+            session,
+            IpcEditorLifecycleStateCodec.DomainReloading,
+            processStartedAtUtc: session.ProcessStartedAtUtc!.Value.AddMilliseconds(1));
         var waiter = CreateWaiter(
             session,
             observation,
@@ -225,11 +225,12 @@ public sealed class UnityDaemonRecoveryWaiterTests
     private static DaemonLifecycleObservation CreateObservation (
         DaemonSession session,
         string lifecycleState,
-        Guid? editorInstanceId = null)
+        Guid? editorInstanceId = null,
+        DateTimeOffset? processStartedAtUtc = null)
     {
         return new DaemonLifecycleObservation(
             processId: session.ProcessId!.Value,
-            processStartedAtUtc: session.ProcessStartedAtUtc!.Value,
+            processStartedAtUtc: processStartedAtUtc ?? session.ProcessStartedAtUtc!.Value,
             editorMode: ContractLiteralCodec.ToValue(session.EditorMode),
             lifecycleState: lifecycleState,
             blockingReason: IpcEditorBlockingReasonCodec.DomainReload,
@@ -239,7 +240,10 @@ public sealed class UnityDaemonRecoveryWaiterTests
             observedAtUtc: DateTimeOffset.UtcNow,
             actionRequired: null,
             primaryDiagnostic: null,
-            editorInstanceId: editorInstanceId ?? session.EditorInstanceId ?? Guid.NewGuid());
+            serverVersion: null,
+            canAcceptExecutionRequests: false,
+            editorInstanceId: editorInstanceId ?? session.EditorInstanceId ?? Guid.NewGuid(),
+            playMode: null);
     }
 
     private interface IBlockingReadOperation

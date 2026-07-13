@@ -545,8 +545,11 @@ public sealed class DaemonIpcRequestSenderTests
             observedAtUtc: DateTimeOffset.UtcNow,
             actionRequired: null,
             primaryDiagnostic: null,
+            serverVersion: null,
+            canAcceptExecutionRequests: false,
             editorInstanceId: session.EditorInstanceId
-                ?? throw new ArgumentException("Session must have an Editor instance identifier.", nameof(session)));
+                ?? throw new ArgumentException("Session must have an Editor instance identifier.", nameof(session)),
+            playMode: null);
     }
 
     private static async Task ObserveCompletionAsync (Task task)

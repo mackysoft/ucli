@@ -61,12 +61,11 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
         var lifecycleStore = new RecordingDaemonLifecycleStore
         {
             ReadResult = DaemonLifecycleObservationReadResult.Success(
-                DaemonExistingSessionGateServiceTestSupport.CreateRecoveringObservation(session) with
-                {
-                    LifecycleState = IpcEditorLifecycleStateCodec.Ready,
-                    BlockingReason = null,
-                    CanAcceptExecutionRequests = true,
-                }),
+                DaemonExistingSessionGateServiceTestSupport.CreateLifecycleObservation(
+                    session,
+                    IpcEditorLifecycleStateCodec.Ready,
+                    blockingReason: null,
+                    canAcceptExecutionRequests: true)),
         };
         var pingClient = new RecordingDaemonPingInfoClient(new TimeoutException("endpoint occupied"));
         var cleanupService = new RecordingDaemonSessionCleanupService();
@@ -103,10 +102,12 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
         var lifecycleStore = new RecordingDaemonLifecycleStore
         {
             ReadResult = DaemonLifecycleObservationReadResult.Success(
-                DaemonExistingSessionGateServiceTestSupport.CreateRecoveringObservation(session) with
-                {
-                    ObservedAtUtc = now - DaemonLifecycleObservationTimings.FreshnessWindow - TimeSpan.FromMilliseconds(1),
-                }),
+                DaemonExistingSessionGateServiceTestSupport.CreateLifecycleObservation(
+                    session,
+                    IpcEditorLifecycleStateCodec.Recovering,
+                    IpcEditorBlockingReasonCodec.Recovery,
+                    canAcceptExecutionRequests: false,
+                    observedAtUtc: now - DaemonLifecycleObservationTimings.FreshnessWindow - TimeSpan.FromMilliseconds(1))),
         };
         var pingClient = new RecordingDaemonPingInfoClient(new TimeoutException("endpoint unavailable"));
         var service = DaemonExistingSessionGateServiceTestSupport.CreateService(

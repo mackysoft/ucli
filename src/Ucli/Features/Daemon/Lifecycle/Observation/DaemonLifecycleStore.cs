@@ -186,13 +186,11 @@ internal sealed class DaemonLifecycleStore : IDaemonLifecycleStore
             observedAtUtc: observedAtUtc,
             actionRequired: actionRequired,
             primaryDiagnostic: primaryDiagnostic,
-            editorInstanceId: editorInstanceId)
-        {
-            ServerVersion = StringValueNormalizer.TrimToNull(contract.ServerVersion),
-            CanAcceptExecutionRequests = contract.CanAcceptExecutionRequests
+            serverVersion: StringValueNormalizer.TrimToNull(contract.ServerVersion),
+            canAcceptExecutionRequests: contract.CanAcceptExecutionRequests
                 ?? string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Ready, StringComparison.Ordinal),
-            PlayMode = playMode,
-        };
+            editorInstanceId: editorInstanceId,
+            playMode: playMode);
         return true;
     }
 

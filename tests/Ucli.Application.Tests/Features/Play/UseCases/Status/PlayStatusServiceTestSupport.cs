@@ -93,18 +93,16 @@ internal static class PlayStatusServiceTestSupport
             observedAtUtc: ObservedAtUtc,
             actionRequired: null,
             primaryDiagnostic: null,
+            serverVersion: "0.5.0",
+            canAcceptExecutionRequests: canAcceptExecutionRequests,
             editorInstanceId: session.EditorInstanceId
-                ?? throw new ArgumentException("Session must have an Editor instance identifier.", nameof(session)))
-        {
-            ServerVersion = "0.5.0",
-            CanAcceptExecutionRequests = canAcceptExecutionRequests,
-            PlayMode = new IpcPlayModeSnapshot(
+                ?? throw new ArgumentException("Session must have an Editor instance identifier.", nameof(session)),
+            playMode: new IpcPlayModeSnapshot(
                 State: playModeState,
                 Transition: "none",
                 IsPlaying: isPlaying,
                 IsPlayingOrWillChangePlaymode: isPlayingOrWillChangePlaymode,
-                Generation: "9"),
-        };
+                Generation: "9"));
     }
 
     public static IpcPlayStatusResponse CreateStatusResponse (

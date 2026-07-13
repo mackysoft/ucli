@@ -37,24 +37,30 @@ internal static class DaemonExistingSessionGateServiceTestSupport
             timeProvider: timeProvider ?? new ManualTimeProvider(DefaultUtcNow));
     }
 
-    public static DaemonLifecycleObservation CreateRecoveringObservation (
+    public static DaemonLifecycleObservation CreateLifecycleObservation (
         DaemonSession session,
+        string lifecycleState,
+        string? blockingReason,
+        bool canAcceptExecutionRequests,
         DateTimeOffset? observedAtUtc = null)
     {
         return new DaemonLifecycleObservation(
             processId: session.ProcessId!.Value,
             processStartedAtUtc: session.ProcessStartedAtUtc!.Value,
             editorMode: ContractLiteralCodec.ToValue(session.EditorMode),
-            lifecycleState: IpcEditorLifecycleStateCodec.Recovering,
-            blockingReason: IpcEditorBlockingReasonCodec.Recovery,
+            lifecycleState: lifecycleState,
+            blockingReason: blockingReason,
             compileState: IpcCompileStateCodec.Ready,
             compileGeneration: "1",
             domainReloadGeneration: "2",
             observedAtUtc: observedAtUtc ?? DefaultUtcNow,
             actionRequired: null,
             primaryDiagnostic: null,
+            serverVersion: null,
+            canAcceptExecutionRequests: canAcceptExecutionRequests,
             editorInstanceId: session.EditorInstanceId
-                ?? throw new ArgumentException("Session must have an Editor instance identifier.", nameof(session)));
+                ?? throw new ArgumentException("Session must have an Editor instance identifier.", nameof(session)),
+            playMode: null);
     }
 
     public static DaemonSession CreateRecoveringGuiSession (
@@ -77,7 +83,12 @@ internal static class DaemonExistingSessionGateServiceTestSupport
     {
         return new RecordingDaemonLifecycleStore
         {
-            ReadResult = DaemonLifecycleObservationReadResult.Success(CreateRecoveringObservation(session, observedAtUtc)),
+            ReadResult = DaemonLifecycleObservationReadResult.Success(CreateLifecycleObservation(
+                session,
+                IpcEditorLifecycleStateCodec.Recovering,
+                IpcEditorBlockingReasonCodec.Recovery,
+                canAcceptExecutionRequests: false,
+                observedAtUtc: observedAtUtc)),
         };
     }
 

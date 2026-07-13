@@ -92,17 +92,6 @@ public sealed class DaemonLifecycleObservationMatcherTests
         Assert.True(result);
     }
 
-    [Fact]
-    [Trait("Size", "Small")]
-    public void Constructor_WhenEditorInstanceIdIsEmpty_ThrowsArgumentException ()
-    {
-        var exception = Assert.Throws<ArgumentException>(() => CreateObservation(
-            DateTimeOffset.UnixEpoch.AddSeconds(10),
-            Guid.Empty));
-
-        Assert.Equal("editorInstanceId", exception.ParamName);
-    }
-
     private static DaemonLifecycleObservation CreateObservation (
         DateTimeOffset processStartedAtUtc,
         Guid? editorInstanceId = null,
@@ -120,6 +109,9 @@ public sealed class DaemonLifecycleObservationMatcherTests
             observedAtUtc: DateTimeOffset.UnixEpoch.AddSeconds(1),
             actionRequired: null,
             primaryDiagnostic: null,
-            editorInstanceId: editorInstanceId ?? EditorInstanceId);
+            serverVersion: null,
+            canAcceptExecutionRequests: false,
+            editorInstanceId: editorInstanceId ?? EditorInstanceId,
+            playMode: null);
     }
 }

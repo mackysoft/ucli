@@ -101,7 +101,10 @@ internal static class UnityDaemonIpcClientTestSupport
             observedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 0, 0, TimeSpan.Zero),
             actionRequired: null,
             primaryDiagnostic: null,
+            serverVersion: null,
+            canAcceptExecutionRequests: false,
             editorInstanceId: session.EditorInstanceId
-                ?? throw new ArgumentException("Session must have an Editor instance identifier.", nameof(session)));
+                ?? throw new ArgumentException("Session must have an Editor instance identifier.", nameof(session)),
+            playMode: null);
     }
 }
