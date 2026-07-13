@@ -98,7 +98,7 @@ internal sealed class QueryGoDescribeCommand
         string? scene,
         string? hierarchyPath,
         string? prefab,
-        out IReadOnlyDictionary<string, string>? target,
+        out GameObjectReferenceArgs? target,
         out ExecutionError? error)
     {
         target = null;
@@ -139,10 +139,19 @@ internal sealed class QueryGoDescribeCommand
                 return false;
             }
 
-            target = new Dictionary<string, string>(StringComparer.Ordinal)
+            if (!UnityGlobalObjectId.TryParse(normalizedGlobalObjectId, out var typedGlobalObjectId))
             {
-                ["globalObjectId"] = normalizedGlobalObjectId,
-            };
+                error = ExecutionError.InvalidArgument(
+                    "Selector '--globalObjectId' must be a supported non-null Unity GlobalObjectId.");
+                return false;
+            }
+
+            target = new GameObjectReferenceArgs(
+                alias: null,
+                globalObjectId: typedGlobalObjectId,
+                prefab: null,
+                scene: null,
+                hierarchyPath: null);
             return true;
         }
 
@@ -153,11 +162,37 @@ internal sealed class QueryGoDescribeCommand
             return false;
         }
 
-        target = new Dictionary<string, string>(StringComparer.Ordinal)
+        if (!UnityHierarchyPath.TryParse(normalizedHierarchyPath, out var typedHierarchyPath))
         {
-            [normalizedScene is not null ? "scene" : "prefab"] = normalizedScene ?? normalizedPrefab!,
-            ["hierarchyPath"] = normalizedHierarchyPath,
-        };
+            error = ExecutionError.InvalidArgument(
+                "Selector '--hierarchyPath' must contain non-empty slash-separated object names.");
+            return false;
+        }
+
+        SceneAssetPath? typedScene = null;
+        if (normalizedScene is not null
+            && !SceneAssetPath.TryParse(normalizedScene, out typedScene))
+        {
+            error = ExecutionError.InvalidArgument(
+                "Selector '--scene' must be a normalized .unity path below 'Assets/'.");
+            return false;
+        }
+
+        PrefabAssetPath? typedPrefab = null;
+        if (normalizedPrefab is not null
+            && !PrefabAssetPath.TryParse(normalizedPrefab, out typedPrefab))
+        {
+            error = ExecutionError.InvalidArgument(
+                "Selector '--prefab' must be a normalized .prefab path below 'Assets/'.");
+            return false;
+        }
+
+        target = new GameObjectReferenceArgs(
+            alias: null,
+            globalObjectId: null,
+            prefab: typedPrefab,
+            scene: typedScene,
+            hierarchyPath: typedHierarchyPath);
         return true;
     }
 }

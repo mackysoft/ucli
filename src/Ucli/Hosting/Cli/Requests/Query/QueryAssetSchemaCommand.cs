@@ -133,25 +133,49 @@ internal sealed class QueryAssetSchemaCommand
             return true;
         }
 
-        var target = new Dictionary<string, string>(StringComparer.Ordinal);
-        AddIfNotNull(target, "globalObjectId", normalizedGlobalObjectId);
-        AddIfNotNull(target, "assetGuid", normalizedAssetGuid);
-        AddIfNotNull(target, "assetPath", normalizedAssetPath);
-        AddIfNotNull(target, "projectAssetPath", normalizedProjectAssetPath);
-        args = QueryOperationArgsFactory.CreateAssetSchemaTarget(target);
-        return true;
-    }
-
-    private static void AddIfNotNull (
-        IDictionary<string, string> target,
-        string name,
-        string? value)
-    {
-        if (value is null)
+        UnityGlobalObjectId? typedGlobalObjectId = null;
+        if (normalizedGlobalObjectId is not null
+            && !UnityGlobalObjectId.TryParse(normalizedGlobalObjectId, out typedGlobalObjectId))
         {
-            return;
+            error = ExecutionError.InvalidArgument(
+                "Selector '--globalObjectId' must be a supported non-null Unity GlobalObjectId.");
+            return false;
         }
 
-        target.Add(name, value);
+        UnityAssetGuid? typedAssetGuid = null;
+        if (normalizedAssetGuid is not null
+            && !UnityAssetGuid.TryParse(normalizedAssetGuid, out typedAssetGuid))
+        {
+            error = ExecutionError.InvalidArgument(
+                "Selector '--assetGuid' must be a non-zero 32-character hexadecimal Unity asset GUID.");
+            return false;
+        }
+
+        UnityAssetPath? typedAssetPath = null;
+        if (normalizedAssetPath is not null
+            && !UnityAssetPath.TryParse(normalizedAssetPath, out typedAssetPath))
+        {
+            error = ExecutionError.InvalidArgument(
+                "Selector '--assetPath' must be a normalized path below 'Assets/'.");
+            return false;
+        }
+
+        ProjectSettingsAssetPath? typedProjectAssetPath = null;
+        if (normalizedProjectAssetPath is not null
+            && !ProjectSettingsAssetPath.TryParse(normalizedProjectAssetPath, out typedProjectAssetPath))
+        {
+            error = ExecutionError.InvalidArgument(
+                "Selector '--projectAssetPath' must be a normalized path below 'ProjectSettings/'.");
+            return false;
+        }
+
+        var target = new AssetReferenceArgs(
+            alias: null,
+            globalObjectId: typedGlobalObjectId,
+            assetGuid: typedAssetGuid,
+            assetPath: typedAssetPath,
+            projectAssetPath: typedProjectAssetPath);
+        args = QueryOperationArgsFactory.CreateAssetSchemaTarget(target);
+        return true;
     }
 }
