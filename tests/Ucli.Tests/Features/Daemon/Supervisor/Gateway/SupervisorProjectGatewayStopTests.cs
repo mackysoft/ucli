@@ -1,3 +1,4 @@
+using System.Text;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Infrastructure.Storage;
@@ -169,10 +170,10 @@ public sealed class SupervisorProjectGatewayStopTests
         var manifestReadCount = 0;
         var manifestStore = new SupervisorManifestStore(
             timeProvider,
-            (_, _) => ValueTask.FromResult<string?>(
+            (_, _) => ValueTask.FromResult<ReadOnlyMemory<byte>?>(Encoding.UTF8.GetBytes(
                 Interlocked.Increment(ref manifestReadCount) == 1
                     ? "{ malformed json"
-                    : SupervisorManifestStoreTestSupport.Serialize(successorManifest)),
+                    : SupervisorManifestStoreTestSupport.Serialize(successorManifest))),
             static (_, _, _) => ValueTask.CompletedTask,
             static _ => throw new InvalidOperationException("A successor manifest must not be deleted."));
         var transportClient = new StubIpcTransportClient
@@ -222,14 +223,14 @@ public sealed class SupervisorProjectGatewayStopTests
         var manifestReadCount = 0;
         var manifestStore = new SupervisorManifestStore(
             timeProvider,
-            (_, _) => ValueTask.FromResult<string?>(
+            (_, _) => ValueTask.FromResult<ReadOnlyMemory<byte>?>(Encoding.UTF8.GetBytes(
                 Interlocked.Increment(ref manifestReadCount) switch
                 {
                     1 => "{ malformed generation one",
                     2 => SupervisorManifestStoreTestSupport.Serialize(firstSuccessor),
                     3 => "{ malformed generation two",
                     _ => SupervisorManifestStoreTestSupport.Serialize(secondSuccessor),
-                }),
+                })),
             static (_, _, _) => ValueTask.CompletedTask,
             static _ => throw new InvalidOperationException("A successor manifest must not be deleted."));
         var transportClient = new StubIpcTransportClient

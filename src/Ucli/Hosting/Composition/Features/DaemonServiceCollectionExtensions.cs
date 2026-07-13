@@ -101,8 +101,8 @@ internal static class DaemonServiceCollectionExtensions
         services.AddSingleton<SupervisorRuntimeLogger>();
         services.AddSingleton(serviceProvider => new SupervisorManifestStore(
             serviceProvider.GetRequiredService<TimeProvider>(),
-            static (path, cancellationToken) => FileUtilities.ReadAllTextOrNullAsync(path, cancellationToken),
-            static (path, contents, cancellationToken) => FileUtilities.WriteAllTextAtomicallyAsync(path, contents, cancellationToken),
+            static (path, cancellationToken) => FileUtilities.ReadAllBytesOrNullAsync(path, cancellationToken),
+            static (path, contents, cancellationToken) => FileUtilities.WriteAllBytesAtomicallyAsync(path, contents, cancellationToken),
             static path => FileUtilities.DeleteIfExists(path)));
         services.AddSingleton<SupervisorEndpointResolver>();
         services.AddSingleton<SupervisorBootstrapLockProvider>();

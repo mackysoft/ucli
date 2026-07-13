@@ -1,3 +1,4 @@
+using System.Text;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
@@ -18,11 +19,11 @@ public sealed class SupervisorBootstrapperLaunchRecoveryTests
         var manifest = SupervisorBootstrapperTestSupport.CreateManifest();
         var manifestStore = new SupervisorManifestStore(
             timeProvider,
-            readAllTextOrNull: (path, cancellationToken) => ValueTask.FromResult<string?>(
+            readAllBytesOrNull: (path, cancellationToken) => ValueTask.FromResult<ReadOnlyMemory<byte>?>(
                 timeProvider.GetUtcNow() >= manifestPublicationTime
-                    ? SupervisorManifestStoreTestSupport.Serialize(manifest)
+                    ? Encoding.UTF8.GetBytes(SupervisorManifestStoreTestSupport.Serialize(manifest))
                     : null),
-            writeAllTextAtomically: static (_, _, _) => ValueTask.CompletedTask,
+            writeAllBytesAtomically: static (_, _, _) => ValueTask.CompletedTask,
             deleteIfExists: static _ => { });
         var transportClient = CreatePingTransport(manifest);
         var launchStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -72,9 +73,9 @@ public sealed class SupervisorBootstrapperLaunchRecoveryTests
         var manifest = SupervisorBootstrapperTestSupport.CreateManifest();
         var manifestStore = new SupervisorManifestStore(
             timeProvider,
-            readAllTextOrNull: (path, cancellationToken) => ValueTask.FromResult<string?>(
-                launchCount >= 2 ? SupervisorManifestStoreTestSupport.Serialize(manifest) : null),
-            writeAllTextAtomically: static (_, _, _) => ValueTask.CompletedTask,
+            readAllBytesOrNull: (path, cancellationToken) => ValueTask.FromResult<ReadOnlyMemory<byte>?>(
+                launchCount >= 2 ? Encoding.UTF8.GetBytes(SupervisorManifestStoreTestSupport.Serialize(manifest)) : null),
+            writeAllBytesAtomically: static (_, _, _) => ValueTask.CompletedTask,
             deleteIfExists: static _ => { });
         var transportClient = CreatePingTransport(manifest);
         var launcher = new RecordingSupervisorProcessLauncher
@@ -129,8 +130,8 @@ public sealed class SupervisorBootstrapperLaunchRecoveryTests
         var launchCount = 0;
         var manifestStore = new SupervisorManifestStore(
             timeProvider,
-            readAllTextOrNull: static (path, cancellationToken) => ValueTask.FromResult<string?>(null),
-            writeAllTextAtomically: static (_, _, _) => ValueTask.CompletedTask,
+            readAllBytesOrNull: static (path, cancellationToken) => ValueTask.FromResult<ReadOnlyMemory<byte>?>(null),
+            writeAllBytesAtomically: static (_, _, _) => ValueTask.CompletedTask,
             deleteIfExists: static _ => { });
         var transportClient = new StubIpcTransportClient
         {

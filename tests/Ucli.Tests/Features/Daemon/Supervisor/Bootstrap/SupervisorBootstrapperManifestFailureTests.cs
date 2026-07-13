@@ -115,8 +115,8 @@ public sealed class SupervisorBootstrapperManifestFailureTests
         };
         var manifestStore = new SupervisorManifestStore(
             timeProvider,
-            readAllTextOrNull: static (_, _) => throw new UnauthorizedAccessException("manifest denied"),
-            writeAllTextAtomically: static (_, _, _) => ValueTask.CompletedTask,
+            readAllBytesOrNull: static (_, _) => throw new UnauthorizedAccessException("manifest denied"),
+            writeAllBytesAtomically: static (_, _, _) => ValueTask.CompletedTask,
             deleteIfExists: static _ => { });
         var bootstrapper = new SupervisorBootstrapper(
             manifestStore,

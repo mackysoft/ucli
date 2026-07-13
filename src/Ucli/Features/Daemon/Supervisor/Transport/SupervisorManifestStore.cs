@@ -21,9 +21,13 @@ internal sealed class SupervisorManifestStore
         WriteIndented = true,
     };
 
-    private readonly Func<string, CancellationToken, ValueTask<string?>> readAllTextOrNull;
+    private static readonly UTF8Encoding StrictUtf8 = new(
+        encoderShouldEmitUTF8Identifier: false,
+        throwOnInvalidBytes: true);
 
-    private readonly Func<string, string, CancellationToken, ValueTask> writeAllTextAtomically;
+    private readonly Func<string, CancellationToken, ValueTask<ReadOnlyMemory<byte>?>> readAllBytesOrNull;
+
+    private readonly Func<string, ReadOnlyMemory<byte>, CancellationToken, ValueTask> writeAllBytesAtomically;
 
     private readonly Action<string> deleteIfExists;
 
@@ -31,18 +35,18 @@ internal sealed class SupervisorManifestStore
 
     /// <summary> Initializes a new instance of the <see cref="SupervisorManifestStore" /> class. </summary>
     /// <param name="timeProvider"> The time provider used for timeout interpretation. </param>
-    /// <param name="readAllTextOrNull"> Delegate that reads manifest JSON. </param>
-    /// <param name="writeAllTextAtomically"> Delegate that writes manifest JSON atomically. </param>
+    /// <param name="readAllBytesOrNull"> Delegate that reads exact manifest bytes into newly owned read-only memory. </param>
+    /// <param name="writeAllBytesAtomically"> Delegate that writes exact manifest bytes atomically. </param>
     /// <param name="deleteIfExists"> Delegate that deletes a manifest file when present. </param>
     public SupervisorManifestStore (
         TimeProvider timeProvider,
-        Func<string, CancellationToken, ValueTask<string?>> readAllTextOrNull,
-        Func<string, string, CancellationToken, ValueTask> writeAllTextAtomically,
+        Func<string, CancellationToken, ValueTask<ReadOnlyMemory<byte>?>> readAllBytesOrNull,
+        Func<string, ReadOnlyMemory<byte>, CancellationToken, ValueTask> writeAllBytesAtomically,
         Action<string> deleteIfExists)
     {
         this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
-        this.readAllTextOrNull = readAllTextOrNull ?? throw new ArgumentNullException(nameof(readAllTextOrNull));
-        this.writeAllTextAtomically = writeAllTextAtomically ?? throw new ArgumentNullException(nameof(writeAllTextAtomically));
+        this.readAllBytesOrNull = readAllBytesOrNull ?? throw new ArgumentNullException(nameof(readAllBytesOrNull));
+        this.writeAllBytesAtomically = writeAllBytesAtomically ?? throw new ArgumentNullException(nameof(writeAllBytesAtomically));
         this.deleteIfExists = deleteIfExists ?? throw new ArgumentNullException(nameof(deleteIfExists));
     }
 
@@ -57,21 +61,21 @@ internal sealed class SupervisorManifestStore
         cancellationToken.ThrowIfCancellationRequested();
 
         var manifestPath = UcliStoragePathResolver.ResolveSupervisorManifestPath(storageRoot);
-        var json = await readAllTextOrNull(manifestPath, cancellationToken).ConfigureAwait(false);
-        if (json == null)
+        var artifact = await ReadArtifactOrNullAsync(manifestPath, cancellationToken).ConfigureAwait(false);
+        if (artifact == null)
         {
             return null;
         }
 
         try
         {
-            return DeserializeAndValidate(json, manifestPath);
+            return DeserializeAndValidate(artifact.DecodeUtf8Json(), manifestPath);
         }
-        catch (Exception exception) when (exception is JsonException or InvalidDataException)
+        catch (Exception exception) when (exception is DecoderFallbackException or JsonException or InvalidDataException)
         {
             throw new SupervisorManifestFormatException(
-                $"Supervisor manifest JSON is invalid. {manifestPath}",
-                ComputeArtifactIdentity(json),
+                $"Supervisor manifest content is not valid UTF-8 JSON. {manifestPath}",
+                artifact.Identity,
                 exception);
         }
     }
@@ -191,12 +195,12 @@ internal sealed class SupervisorManifestStore
             .ConfigureAwait(false);
         try
         {
-            var replacedManifestJson = await readAllTextOrNull(manifestPath, cancellationToken)
+            var replacedManifestArtifact = await ReadArtifactOrNullAsync(manifestPath, cancellationToken)
                 .ConfigureAwait(false);
             return new SupervisorEndpointPublicationLease(
                 this,
                 manifestPath,
-                replacedManifestJson,
+                replacedManifestArtifact,
                 manifestLock);
         }
         catch
@@ -223,7 +227,7 @@ internal sealed class SupervisorManifestStore
         ArgumentNullException.ThrowIfNull(expectedManifest);
         return CleanupObservedRuntimeIfArtifactMatchesAsync(
             storageRoot,
-            json => IsExpectedManifest(storageRoot, json, expectedManifest),
+            artifact => IsExpectedManifest(storageRoot, artifact, expectedManifest),
             canonicalEndpoint,
             timeout,
             cancellationToken);
@@ -246,7 +250,7 @@ internal sealed class SupervisorManifestStore
         ArgumentNullException.ThrowIfNull(expectedArtifactIdentity);
         return CleanupObservedRuntimeIfArtifactMatchesAsync(
             storageRoot,
-            json => ComputeArtifactIdentity(json) == expectedArtifactIdentity,
+            artifact => artifact.Identity == expectedArtifactIdentity,
             canonicalEndpoint,
             timeout,
             cancellationToken);
@@ -270,7 +274,7 @@ internal sealed class SupervisorManifestStore
         ArgumentNullException.ThrowIfNull(expectedManifest);
         return CleanupOwnedRuntimeIfArtifactMatchesAsync(
             storageRoot,
-            json => IsExpectedManifest(storageRoot, json, expectedManifest),
+            artifact => IsExpectedManifest(storageRoot, artifact, expectedManifest),
             canonicalEndpoint,
             mutationLockTimeout,
             cancellationToken);
@@ -278,7 +282,7 @@ internal sealed class SupervisorManifestStore
 
     private async ValueTask<SupervisorManifestCleanupStatus> CleanupObservedRuntimeIfArtifactMatchesAsync (
         string storageRoot,
-        Func<string, bool> isExpectedArtifact,
+        Func<SupervisorManifestArtifact, bool> isExpectedArtifact,
         IpcEndpoint canonicalEndpoint,
         TimeSpan timeout,
         CancellationToken cancellationToken)
@@ -311,7 +315,7 @@ internal sealed class SupervisorManifestStore
 
     private async ValueTask<SupervisorManifestCleanupStatus> CleanupOwnedRuntimeIfArtifactMatchesAsync (
         string storageRoot,
-        Func<string, bool> isExpectedArtifact,
+        Func<SupervisorManifestArtifact, bool> isExpectedArtifact,
         IpcEndpoint canonicalEndpoint,
         TimeSpan mutationLockTimeout,
         CancellationToken cancellationToken)
@@ -328,13 +332,13 @@ internal sealed class SupervisorManifestStore
                 mutationLockTimeout,
                 cancellationToken)
             .ConfigureAwait(false);
-        var currentJson = await readAllTextOrNull(manifestPath, cancellationToken).ConfigureAwait(false);
-        if (currentJson == null)
+        var currentArtifact = await ReadArtifactOrNullAsync(manifestPath, cancellationToken).ConfigureAwait(false);
+        if (currentArtifact == null)
         {
             return SupervisorManifestCleanupStatus.Missing;
         }
 
-        if (!isExpectedArtifact(currentJson))
+        if (!isExpectedArtifact(currentArtifact))
         {
             return SupervisorManifestCleanupStatus.GenerationMismatch;
         }
@@ -359,15 +363,15 @@ internal sealed class SupervisorManifestStore
 
     private static bool IsExpectedManifest (
         string storageRoot,
-        string json,
+        SupervisorManifestArtifact artifact,
         SupervisorInstanceManifest expectedManifest)
     {
         try
         {
             var manifestPath = UcliStoragePathResolver.ResolveSupervisorManifestPath(storageRoot);
-            return DeserializeAndValidate(json, manifestPath) == expectedManifest;
+            return DeserializeAndValidate(artifact.DecodeUtf8Json(), manifestPath) == expectedManifest;
         }
-        catch (Exception exception) when (exception is JsonException or InvalidDataException)
+        catch (Exception exception) when (exception is DecoderFallbackException or JsonException or InvalidDataException)
         {
             return false;
         }
@@ -425,18 +429,19 @@ internal sealed class SupervisorManifestStore
             manifest.Endpoint.Address,
             manifest.IssuedAtUtc);
         var json = JsonSerializer.Serialize(contract, SerializerOptions) + Environment.NewLine;
+        var bytes = StrictUtf8.GetBytes(json);
         var manifestDirectoryPath = Path.GetDirectoryName(manifestPath)
             ?? throw new InvalidOperationException($"Supervisor manifest directory path could not be resolved: {manifestPath}");
         FileSystemAccessBoundary.EnsureSecureDirectory(manifestDirectoryPath);
-        await writeAllTextAtomically(manifestPath, json, cancellationToken).ConfigureAwait(false);
+        await writeAllBytesAtomically(manifestPath, bytes, cancellationToken).ConfigureAwait(false);
         FileSystemAccessBoundary.EnsureSecureFile(manifestPath);
     }
 
     private async ValueTask RestoreWhileMutationLockIsHeldAsync (
         string manifestPath,
-        string? replacedManifestJson)
+        SupervisorManifestArtifact? replacedManifestArtifact)
     {
-        if (replacedManifestJson is null)
+        if (replacedManifestArtifact is null)
         {
             deleteIfExists(manifestPath);
             return;
@@ -447,14 +452,17 @@ internal sealed class SupervisorManifestStore
         FileSystemAccessBoundary.EnsureSecureDirectory(manifestDirectoryPath);
         try
         {
-            await writeAllTextAtomically(manifestPath, replacedManifestJson, CancellationToken.None)
+            await writeAllBytesAtomically(
+                    manifestPath,
+                    replacedManifestArtifact.CreateWriteCopy(),
+                    CancellationToken.None)
                 .ConfigureAwait(false);
         }
         catch (Exception writeException)
         {
-            var restoredJson = await readAllTextOrNull(manifestPath, CancellationToken.None)
+            var restoredArtifact = await ReadArtifactOrNullAsync(manifestPath, CancellationToken.None)
                 .ConfigureAwait(false);
-            if (!string.Equals(restoredJson, replacedManifestJson, StringComparison.Ordinal))
+            if (!replacedManifestArtifact.ContentEquals(restoredArtifact))
             {
                 throw new InvalidOperationException(
                     "Supervisor manifest publication rollback did not restore the replaced artifact.",
@@ -465,9 +473,14 @@ internal sealed class SupervisorManifestStore
         FileSystemAccessBoundary.EnsureSecureFile(manifestPath);
     }
 
-    private static Sha256Digest ComputeArtifactIdentity (string json)
+    private async ValueTask<SupervisorManifestArtifact?> ReadArtifactOrNullAsync (
+        string manifestPath,
+        CancellationToken cancellationToken)
     {
-        return Sha256Digest.Compute(Encoding.UTF8.GetBytes(json));
+        var externalBytes = await readAllBytesOrNull(manifestPath, cancellationToken).ConfigureAwait(false);
+        return externalBytes is null
+            ? null
+            : new SupervisorManifestArtifact(externalBytes.Value.Span);
     }
 
     private static void Validate (
@@ -492,27 +505,69 @@ internal sealed class SupervisorManifestStore
 
     }
 
+    /// <summary> Owns one immutable snapshot of exact manifest file bytes and its content identity. </summary>
+    internal sealed class SupervisorManifestArtifact
+    {
+        private readonly ReadOnlyMemory<byte> bytes;
+
+        public SupervisorManifestArtifact (ReadOnlySpan<byte> externalBytes)
+        {
+            bytes = externalBytes.ToArray();
+            Identity = Sha256Digest.Compute(bytes.Span);
+        }
+
+        public Sha256Digest Identity { get; }
+
+        public string DecodeUtf8Json ()
+        {
+            var utf8Bytes = bytes.Span;
+
+            // NOTE:
+            // A single UTF-8 BOM is accepted for decoding, while the artifact identity and rollback
+            // retain those three bytes. Other encodings and malformed UTF-8 are rejected strictly.
+            if (utf8Bytes.Length >= 3
+                && utf8Bytes[0] == 0xEF
+                && utf8Bytes[1] == 0xBB
+                && utf8Bytes[2] == 0xBF)
+            {
+                utf8Bytes = utf8Bytes[3..];
+            }
+
+            return StrictUtf8.GetString(utf8Bytes);
+        }
+
+        public ReadOnlyMemory<byte> CreateWriteCopy ()
+        {
+            return bytes.ToArray();
+        }
+
+        public bool ContentEquals (SupervisorManifestArtifact? other)
+        {
+            return other is not null && bytes.Span.SequenceEqual(other.bytes.Span);
+        }
+    }
+
     internal sealed class SupervisorEndpointPublicationLease : IDisposable
     {
         private readonly SupervisorManifestStore owner;
 
         private readonly string manifestPath;
 
-        private readonly string? replacedManifestJson;
+        private readonly SupervisorManifestArtifact? replacedManifestArtifact;
 
         private FileExclusiveLock? manifestLock;
 
-        public SupervisorEndpointPublicationLease (
+        internal SupervisorEndpointPublicationLease (
             SupervisorManifestStore owner,
             string manifestPath,
-            string? replacedManifestJson,
+            SupervisorManifestArtifact? replacedManifestArtifact,
             FileExclusiveLock manifestLock)
         {
             this.owner = owner ?? throw new ArgumentNullException(nameof(owner));
             this.manifestPath = !string.IsNullOrWhiteSpace(manifestPath)
                 ? manifestPath
                 : throw new ArgumentException("Manifest path must not be empty.", nameof(manifestPath));
-            this.replacedManifestJson = replacedManifestJson;
+            this.replacedManifestArtifact = replacedManifestArtifact;
             this.manifestLock = manifestLock ?? throw new ArgumentNullException(nameof(manifestLock));
         }
 
@@ -539,7 +594,7 @@ internal sealed class SupervisorManifestStore
                 {
                     await owner.RestoreWhileMutationLockIsHeldAsync(
                             manifestPath,
-                            replacedManifestJson)
+                            replacedManifestArtifact)
                         .ConfigureAwait(false);
                 }
                 catch (Exception rollbackException)

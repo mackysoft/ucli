@@ -64,13 +64,13 @@ public sealed class SupervisorBootstrapperTimeoutTests
         var manifestReadStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var manifestStore = new SupervisorManifestStore(
             timeProvider,
-            readAllTextOrNull: async (_, cancellationToken) =>
+            readAllBytesOrNull: async (_, cancellationToken) =>
             {
                 manifestReadStarted.TrySetResult();
                 await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken).ConfigureAwait(false);
                 return null;
             },
-            writeAllTextAtomically: static (_, _, _) => ValueTask.CompletedTask,
+            writeAllBytesAtomically: static (_, _, _) => ValueTask.CompletedTask,
             deleteIfExists: static _ => { });
         var bootstrapper = new SupervisorBootstrapper(
             manifestStore,

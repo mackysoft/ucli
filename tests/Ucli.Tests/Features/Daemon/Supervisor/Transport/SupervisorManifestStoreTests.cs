@@ -21,7 +21,7 @@ public sealed class SupervisorManifestStoreTests
         using var scope = TestDirectories.CreateTempScope("supervisor-manifest-store", "noncooperative-read-timeout");
         var timeProvider = new ManualTimeProvider();
         var readStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var readCompletion = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var readCompletion = new TaskCompletionSource<ReadOnlyMemory<byte>?>(TaskCreationOptions.RunContinuationsAsynchronously);
         var cancellationCallbackStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var cancellationCallbackCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var allowCancellationCallbackCompletion = new ManualResetEventSlim();
@@ -37,7 +37,7 @@ public sealed class SupervisorManifestStoreTests
                     cancellationCallbackCompleted.TrySetResult();
                 });
                 readStarted.TrySetResult();
-                return new ValueTask<string?>(readCompletion.Task);
+                return new ValueTask<ReadOnlyMemory<byte>?>(readCompletion.Task);
             },
             static (_, _, _) => ValueTask.CompletedTask,
             static _ => { });
@@ -121,6 +121,84 @@ public sealed class SupervisorManifestStoreTests
         Assert.Equal(
             Sha256Digest.Compute(Encoding.UTF8.GetBytes(malformedJson)),
             exception.ArtifactIdentity);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Read_WhenManifestContainsInvalidUtf8_ReportsDigestOfExactRawBytes ()
+    {
+        using var scope = TestDirectories.CreateTempScope("supervisor-manifest-store", "invalid-utf8-identity");
+        var store = SupervisorManifestStoreTestSupport.CreateFileBacked(TimeProvider.System);
+        var manifestPath = UcliStoragePathResolver.ResolveSupervisorManifestPath(scope.FullPath);
+        Directory.CreateDirectory(Path.GetDirectoryName(manifestPath)!);
+        byte[] invalidUtf8 = [0x7B, 0xFF, 0x7D];
+        await File.WriteAllBytesAsync(manifestPath, invalidUtf8, CancellationToken.None);
+
+        var exception = await Assert.ThrowsAsync<SupervisorManifestFormatException>(
+            () => store.ReadOrNullAsync(scope.FullPath, CancellationToken.None).AsTask());
+
+        Assert.IsType<DecoderFallbackException>(exception.InnerException);
+        Assert.Equal(Sha256Digest.Compute(invalidUtf8), exception.ArtifactIdentity);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Read_WhenManifestIsUtf16_RejectsEncodingAndReportsDigestOfExactRawBytes ()
+    {
+        using var scope = TestDirectories.CreateTempScope("supervisor-manifest-store", "utf16-identity");
+        var store = SupervisorManifestStoreTestSupport.CreateFileBacked(TimeProvider.System);
+        var manifest = CreateManifest();
+        var manifestJson = SupervisorManifestStoreTestSupport.Serialize(manifest);
+        var utf16Bytes = CombineBytes(
+            Encoding.Unicode.GetPreamble(),
+            Encoding.Unicode.GetBytes(manifestJson));
+        var manifestPath = UcliStoragePathResolver.ResolveSupervisorManifestPath(scope.FullPath);
+        Directory.CreateDirectory(Path.GetDirectoryName(manifestPath)!);
+        await File.WriteAllBytesAsync(manifestPath, utf16Bytes, CancellationToken.None);
+
+        var exception = await Assert.ThrowsAsync<SupervisorManifestFormatException>(
+            () => store.ReadOrNullAsync(scope.FullPath, CancellationToken.None).AsTask());
+
+        Assert.IsType<DecoderFallbackException>(exception.InnerException);
+        Assert.Equal(Sha256Digest.Compute(utf16Bytes), exception.ArtifactIdentity);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Read_WhenMalformedManifestHasUtf8Bom_ReportsDigestIncludingBom ()
+    {
+        using var scope = TestDirectories.CreateTempScope("supervisor-manifest-store", "utf8-bom-identity");
+        var store = SupervisorManifestStoreTestSupport.CreateFileBacked(TimeProvider.System);
+        var decodedBytes = Encoding.UTF8.GetBytes("{ malformed json");
+        var rawBytes = CombineBytes(Encoding.UTF8.GetPreamble(), decodedBytes);
+        var manifestPath = UcliStoragePathResolver.ResolveSupervisorManifestPath(scope.FullPath);
+        Directory.CreateDirectory(Path.GetDirectoryName(manifestPath)!);
+        await File.WriteAllBytesAsync(manifestPath, rawBytes, CancellationToken.None);
+
+        var exception = await Assert.ThrowsAsync<SupervisorManifestFormatException>(
+            () => store.ReadOrNullAsync(scope.FullPath, CancellationToken.None).AsTask());
+
+        Assert.Equal(Sha256Digest.Compute(rawBytes), exception.ArtifactIdentity);
+        Assert.NotEqual(Sha256Digest.Compute(decodedBytes), exception.ArtifactIdentity);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Read_WhenValidManifestHasSingleUtf8Bom_AcceptsManifest ()
+    {
+        using var scope = TestDirectories.CreateTempScope("supervisor-manifest-store", "valid-utf8-bom");
+        var store = SupervisorManifestStoreTestSupport.CreateFileBacked(TimeProvider.System);
+        var expectedManifest = CreateManifest();
+        var rawBytes = CombineBytes(
+            Encoding.UTF8.GetPreamble(),
+            Encoding.UTF8.GetBytes(SupervisorManifestStoreTestSupport.Serialize(expectedManifest)));
+        var manifestPath = UcliStoragePathResolver.ResolveSupervisorManifestPath(scope.FullPath);
+        Directory.CreateDirectory(Path.GetDirectoryName(manifestPath)!);
+        await File.WriteAllBytesAsync(manifestPath, rawBytes, CancellationToken.None);
+
+        var manifest = await store.ReadOrNullAsync(scope.FullPath, CancellationToken.None);
+
+        Assert.Equal(expectedManifest, manifest);
     }
 
     [Fact]
@@ -366,6 +444,41 @@ public sealed class SupervisorManifestStoreTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task CleanupObservedMalformedRuntime_WhenWaitingArtifactChangesOnlyByUtf8Bom_PreservesReplacement ()
+    {
+        using var scope = TestDirectories.CreateTempScope("supervisor-manifest-store", "malformed-bom-replaced");
+        var store = SupervisorManifestStoreTestSupport.CreateFileBacked(TimeProvider.System);
+        var endpoint = new SupervisorEndpointResolver().ResolveCanonicalEndpoint(scope.FullPath);
+        var manifestPath = UcliStoragePathResolver.ResolveSupervisorManifestPath(scope.FullPath);
+        Directory.CreateDirectory(Path.GetDirectoryName(manifestPath)!);
+        var observedBytes = Encoding.UTF8.GetBytes("{ malformed json");
+        var replacementBytes = CombineBytes(Encoding.UTF8.GetPreamble(), observedBytes);
+        await File.WriteAllBytesAsync(manifestPath, observedBytes, CancellationToken.None);
+        var formatException = await Assert.ThrowsAsync<SupervisorManifestFormatException>(
+            () => store.ReadOrNullAsync(scope.FullPath, CancellationToken.None).AsTask());
+        using var runtimeOwnership = await FileExclusiveLock.AcquireAsync(
+            UcliStoragePathResolver.ResolveSupervisorRuntimeOwnershipLockPath(scope.FullPath),
+            AsyncTestTimeout,
+            CancellationToken.None);
+        var cleanupTask = store.CleanupObservedRuntimeIfMalformedArtifactMatchesAsync(
+                scope.FullPath,
+                formatException.ArtifactIdentity,
+                endpoint,
+                AsyncTestTimeout,
+                CancellationToken.None)
+            .AsTask();
+        Assert.False(cleanupTask.IsCompleted);
+
+        await File.WriteAllBytesAsync(manifestPath, replacementBytes, CancellationToken.None);
+        runtimeOwnership.Dispose();
+        var cleanupStatus = await cleanupTask.WaitAsync(AsyncTestTimeout);
+
+        Assert.Equal(SupervisorManifestCleanupStatus.GenerationMismatch, cleanupStatus);
+        Assert.Equal(replacementBytes, await File.ReadAllBytesAsync(manifestPath, CancellationToken.None));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task CleanupObservedMalformedRuntime_WhenRuntimeOwnershipIsHeld_TimesOutWithoutDeletingArtifact ()
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-manifest-store", "owned-malformed-runtime");
@@ -568,15 +681,22 @@ public sealed class SupervisorManifestStoreTests
             issuedAtUtc: replacedManifest.IssuedAtUtc.AddSeconds(1));
         await fileBackedStore.WriteAsync(scope.FullPath, replacedManifest, CancellationToken.None);
         var manifestPath = UcliStoragePathResolver.ResolveSupervisorManifestPath(scope.FullPath);
-        var replacedManifestJson = await File.ReadAllTextAsync(manifestPath, CancellationToken.None);
+        var serializedManifestBytes = await File.ReadAllBytesAsync(manifestPath, CancellationToken.None);
+        var replacedManifestBytes = CombineBytes(
+            Encoding.UTF8.GetPreamble(),
+            serializedManifestBytes);
+        await File.WriteAllBytesAsync(manifestPath, replacedManifestBytes, CancellationToken.None);
+        var externalReadBytes = replacedManifestBytes.ToArray();
+        var readCount = 0;
         var writeCount = 0;
         var store = new SupervisorManifestStore(
             TimeProvider.System,
-            static (path, cancellationToken) =>
-                FileUtilities.ReadAllTextOrNullAsync(path, cancellationToken),
+            (path, cancellationToken) => Interlocked.Increment(ref readCount) == 1
+                ? ValueTask.FromResult<ReadOnlyMemory<byte>?>(externalReadBytes)
+                : FileUtilities.ReadAllBytesOrNullAsync(path, cancellationToken),
             async (path, contents, cancellationToken) =>
             {
-                await FileUtilities.WriteAllTextAtomicallyAsync(path, contents, cancellationToken);
+                await FileUtilities.WriteAllBytesAtomicallyAsync(path, contents, cancellationToken);
                 if (Interlocked.Increment(ref writeCount) == 1)
                 {
                     throw new IOException("Injected failure after atomic replacement.");
@@ -587,6 +707,7 @@ public sealed class SupervisorManifestStoreTests
             scope.FullPath,
             SupervisorConstants.ManifestMutationLockTimeout,
             CancellationToken.None);
+        externalReadBytes.AsSpan().Fill(0x00);
 
         var exception = await Assert.ThrowsAsync<IOException>(
             async () => await publicationLease.PublishAsync(successorManifest, CancellationToken.None));
@@ -594,11 +715,64 @@ public sealed class SupervisorManifestStoreTests
         Assert.Contains("after atomic replacement", exception.Message, StringComparison.Ordinal);
         Assert.Equal(2, writeCount);
         Assert.Equal(
-            replacedManifestJson,
-            await File.ReadAllTextAsync(manifestPath, CancellationToken.None));
+            replacedManifestBytes,
+            await File.ReadAllBytesAsync(manifestPath, CancellationToken.None));
         Assert.Equal(
             replacedManifest,
             await store.ReadOrNullAsync(scope.FullPath, CancellationToken.None));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task EndpointPublicationLease_WhenRollbackOnlyMatchesDecodedText_ReportsExactRestorationFailure ()
+    {
+        using var scope = TestDirectories.CreateTempScope(
+            "supervisor-manifest-store",
+            "publication-byte-mismatch");
+        var replacedManifest = CreateManifest();
+        var successorManifest = CreateManifest(
+            sessionTokenDiscriminator: 2,
+            issuedAtUtc: replacedManifest.IssuedAtUtc.AddSeconds(1));
+        var replacedWithoutBom = Encoding.UTF8.GetBytes(
+            SupervisorManifestStoreTestSupport.Serialize(replacedManifest));
+        var replacedWithBom = CombineBytes(Encoding.UTF8.GetPreamble(), replacedWithoutBom);
+        var currentBytes = replacedWithBom.ToArray();
+        var writeCount = 0;
+        var store = new SupervisorManifestStore(
+            TimeProvider.System,
+            (_, _) => ValueTask.FromResult<ReadOnlyMemory<byte>?>(currentBytes.ToArray()),
+            (_, contents, _) =>
+            {
+                if (Interlocked.Increment(ref writeCount) == 1)
+                {
+                    currentBytes = contents.ToArray();
+                    throw new IOException("Injected successor publication failure.");
+                }
+
+                currentBytes = replacedWithoutBom.ToArray();
+                throw new IOException("Injected byte-inexact rollback failure.");
+            },
+            static _ => { });
+        using var publicationLease = await store.AcquireEndpointPublicationLeaseAsync(
+            scope.FullPath,
+            SupervisorConstants.ManifestMutationLockTimeout,
+            CancellationToken.None);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await publicationLease.PublishAsync(successorManifest, CancellationToken.None));
+
+        Assert.Contains("could not be restored", exception.Message, StringComparison.Ordinal);
+        var failures = Assert.IsType<AggregateException>(exception.InnerException);
+        Assert.Collection(
+            failures.InnerExceptions,
+            publicationFailure => Assert.Contains("publication failure", publicationFailure.Message, StringComparison.Ordinal),
+            rollbackFailure =>
+            {
+                var restorationFailure = Assert.IsType<InvalidOperationException>(rollbackFailure);
+                Assert.Contains("did not restore", restorationFailure.Message, StringComparison.Ordinal);
+                Assert.Contains("rollback failure", restorationFailure.InnerException!.Message, StringComparison.Ordinal);
+            });
+        Assert.Equal(replacedWithoutBom, currentBytes);
     }
 
     [Fact]
@@ -662,5 +836,15 @@ public sealed class SupervisorManifestStoreTests
             sessionToken: IpcSessionTokenTestFactory.CreateFromDiscriminator(sessionTokenDiscriminator),
             endpoint: endpoint ?? new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-supervisor-test/ipc.sock"),
             issuedAtUtc: issuedAtUtc ?? new DateTimeOffset(2026, 03, 14, 0, 0, 0, TimeSpan.Zero));
+    }
+
+    private static byte[] CombineBytes (
+        ReadOnlySpan<byte> prefix,
+        ReadOnlySpan<byte> contents)
+    {
+        var result = new byte[prefix.Length + contents.Length];
+        prefix.CopyTo(result);
+        contents.CopyTo(result.AsSpan(prefix.Length));
+        return result;
     }
 }

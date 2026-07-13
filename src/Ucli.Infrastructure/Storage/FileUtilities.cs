@@ -105,6 +105,38 @@ public static class FileUtilities
         }
     }
 
+    /// <summary> Reads the exact bytes of one file without blocking concurrent atomic replacement. </summary>
+    /// <param name="path"> The target file path. </param>
+    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
+    /// <returns> Newly owned read-only file bytes when the file exists; otherwise <see langword="null" />. </returns>
+    public static async ValueTask<ReadOnlyMemory<byte>?> ReadAllBytesOrNullAsync (
+        string path,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            throw new ArgumentException("path must not be empty.", nameof(path));
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        try
+        {
+            using var stream = OpenReopenSafeReadStream(path);
+            using var contents = new MemoryStream();
+            await stream.CopyToAsync(contents, FileReadBufferSize, cancellationToken).ConfigureAwait(false);
+            return new ReadOnlyMemory<byte>(contents.ToArray());
+        }
+        catch (FileNotFoundException)
+        {
+            return null;
+        }
+        catch (DirectoryNotFoundException)
+        {
+            return null;
+        }
+    }
+
     /// <summary> Opens a read handle that does not block concurrent atomic file replacement. </summary>
     /// <param name="path"> The target file path. </param>
     /// <returns> The asynchronous sequential-read stream owned by the caller. </returns>
@@ -160,6 +192,56 @@ public static class FileUtilities
         try
         {
             await File.WriteAllTextAsync(temporaryPath, contents, cancellationToken).ConfigureAwait(false);
+            await ReplaceFileWithRetryAsync(temporaryPath, path, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            DeleteIfExists(temporaryPath);
+        }
+    }
+
+    /// <summary> Writes exact bytes atomically to the target file path. </summary>
+    /// <param name="path"> The target file path. </param>
+    /// <param name="contents"> The borrowed byte contents retained by the caller until this operation completes. </param>
+    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
+    /// <returns> A task that completes when the write operation finishes. </returns>
+    public static async ValueTask WriteAllBytesAtomicallyAsync (
+        string path,
+        ReadOnlyMemory<byte> contents,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            throw new ArgumentException("path must not be empty.", nameof(path));
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var pathResult = PathNormalizer.TryNormalizeFullPath(path);
+        if (!pathResult.IsSuccess)
+        {
+            throw new ArgumentException(pathResult.DiagnosticMessage, nameof(path));
+        }
+
+        var directoryPath = Path.GetDirectoryName(pathResult.FullPath!)
+            ?? throw new InvalidOperationException($"Directory path could not be resolved: {path}");
+        Directory.CreateDirectory(directoryPath);
+        var temporaryPath = CreateTemporaryPath(directoryPath);
+
+        try
+        {
+            using (var stream = new FileStream(
+                       temporaryPath,
+                       FileMode.CreateNew,
+                       FileAccess.Write,
+                       FileShare.None,
+                       FileReadBufferSize,
+                       FileOptions.Asynchronous))
+            {
+                await stream.WriteAsync(contents, cancellationToken).ConfigureAwait(false);
+                await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+            }
+
             await ReplaceFileWithRetryAsync(temporaryPath, path, cancellationToken).ConfigureAwait(false);
         }
         finally
