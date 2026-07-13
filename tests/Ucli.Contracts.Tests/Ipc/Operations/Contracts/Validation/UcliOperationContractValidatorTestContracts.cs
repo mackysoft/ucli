@@ -21,10 +21,6 @@ internal static class UcliOperationContractValidatorTestContracts
         [property: UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]
         string? Name);
 
-    internal sealed record NonEmptySemanticStringArgs (
-        [property: UcliDescription("Path prefix.")]
-        UnityHierarchyPathPrefix? PathPrefix);
-
     internal sealed record NonEmptyArrayArgs (
         [property: UcliDescription("Items.")]
         [property: UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]

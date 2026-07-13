@@ -18,12 +18,4 @@ public sealed record CreatablePrefabAssetPath : UcliStringValue
         : base(value)
     {
     }
-
-    /// <summary> Converts a string to a creatable prefab path contract value. </summary>
-    /// <param name="value"> The project-relative prefab path to create. </param>
-    /// <returns> The semantic creatable prefab path value. </returns>
-    public static implicit operator CreatablePrefabAssetPath (string value)
-    {
-        return new CreatablePrefabAssetPath(value);
-    }
 }

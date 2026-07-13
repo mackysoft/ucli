@@ -104,8 +104,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             validationState = default;
             failure = null;
 
-            if (string.IsNullOrWhiteSpace(args.Type)
-                && string.IsNullOrWhiteSpace(args.PathPrefix)
+            if (args.Type == null
+                && args.PathPrefix == null
                 && string.IsNullOrWhiteSpace(args.NameContains))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
@@ -117,7 +117,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             Type? typeFilter = null;
             if (args.Type != null)
             {
-                if (!OperationRuntimeTypeResolver.TryResolveRuntimeType(args.Type, out typeFilter, out var errorMessage))
+                if (!OperationRuntimeTypeResolver.TryResolveRuntimeType(args.Type.Value, out typeFilter, out var errorMessage))
                 {
                     failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                     return false;
@@ -127,7 +127,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 {
                     failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
                         operation.Id,
-                        $"TypeId must resolve to a UnityEngine.Object type: {args.Type}.");
+                        $"TypeId must resolve to a UnityEngine.Object type: {args.Type.Value}.");
                     return false;
                 }
             }
@@ -135,11 +135,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             string? normalizedPathPrefix = null;
             if (args.PathPrefix != null)
             {
-                if (!UnityAssetPathContract.TryNormalizeAssetsRootOrDescendantPath(args.PathPrefix, out normalizedPathPrefix))
+                if (!UnityAssetPathContract.TryNormalizeAssetsRootOrDescendantPath(args.PathPrefix.Value, out normalizedPathPrefix))
                 {
                     failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
                         operation.Id,
-                        $"Path prefix must be 'Assets' or one of its descendants. Actual: {args.PathPrefix}.");
+                        $"Path prefix must be 'Assets' or one of its descendants. Actual: {args.PathPrefix.Value}.");
                     return false;
                 }
             }

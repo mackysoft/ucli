@@ -17,12 +17,4 @@ public sealed record ProjectRelativePathPrefix : UcliStringValue
         : base(value)
     {
     }
-
-    /// <summary> Converts a string to a project-relative path prefix contract value. </summary>
-    /// <param name="value"> The project-relative path prefix. </param>
-    /// <returns> The semantic path prefix value. </returns>
-    public static implicit operator ProjectRelativePathPrefix (string value)
-    {
-        return new ProjectRelativePathPrefix(value);
-    }
 }

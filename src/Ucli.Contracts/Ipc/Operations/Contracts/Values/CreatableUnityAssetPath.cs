@@ -18,12 +18,4 @@ public sealed record CreatableUnityAssetPath : UcliStringValue
         : base(value)
     {
     }
-
-    /// <summary> Converts a string to a creatable asset path contract value. </summary>
-    /// <param name="value"> The project-relative asset path to create. </param>
-    /// <returns> The semantic creatable asset path value. </returns>
-    public static implicit operator CreatableUnityAssetPath (string value)
-    {
-        return new CreatableUnityAssetPath(value);
-    }
 }

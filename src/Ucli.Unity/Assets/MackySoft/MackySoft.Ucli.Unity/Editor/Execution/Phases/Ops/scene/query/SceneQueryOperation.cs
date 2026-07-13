@@ -93,7 +93,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             var payload = new SceneQueryResult(
-                scene: scenePath,
+                scene: new SceneAssetPath(scenePath),
                 matches: CreatePayloadMatches(matches));
             return Task.FromResult(OperationPhaseStepResult.Success(
                 applied: false,
@@ -110,7 +110,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             failure = null;
             scenePath = string.Empty;
-            queryArguments = new SceneQuerySelectionEngine.QueryArguments(args.PathPrefix, args.ComponentType);
+            queryArguments = new SceneQuerySelectionEngine.QueryArguments(args.PathPrefix?.Value, args.ComponentType?.Value);
 
             var requestedScenePath = args.Scene.Value;
 

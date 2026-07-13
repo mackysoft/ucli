@@ -32,10 +32,10 @@ public sealed class BoundedQueryResultSerializationTests
             matches:
             [
                 new AssetsFindMatch(
-                    assetPath: "Assets/Data/A.asset",
-                    assetGuid: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    assetPath: new UnityAssetPath("Assets/Data/A.asset"),
+                    assetGuid: new UnityAssetGuid("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
                     name: "A",
-                    typeId: "UnityEngine.ScriptableObject, UnityEngine.CoreModule"),
+                    typeId: new UnityTypeId("UnityEngine.ScriptableObject, UnityEngine.CoreModule")),
             ],
             window: new BoundedWindow(
                 limit: 1,

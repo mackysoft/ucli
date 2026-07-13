@@ -129,7 +129,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             if (args.Target == null)
             {
-                if (!AssetTypeResolver.TryResolveCreateAssetType(args.Type!, out var assetType, out var typeErrorMessage))
+                if (!AssetTypeResolver.TryResolveCreateAssetType(args.Type!.Value, out var assetType, out var typeErrorMessage))
                 {
                     failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, typeErrorMessage);
                     return false;

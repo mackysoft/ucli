@@ -153,7 +153,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             validationState = default;
             failure = null;
 
-            if (!PrefabOperationUtilities.TryEnsurePrefabAssetExists(args.Path, out var normalizedPrefabPath, out var errorMessage))
+            if (!PrefabOperationUtilities.TryEnsurePrefabAssetExists(args.Path.Value, out var normalizedPrefabPath, out var errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;

@@ -18,12 +18,4 @@ public sealed record ProjectSettingsAssetPath : UcliStringValue
         : base(value)
     {
     }
-
-    /// <summary> Converts a string to a ProjectSettings asset path contract value. </summary>
-    /// <param name="value"> The project-relative ProjectSettings asset path. </param>
-    /// <returns> The semantic ProjectSettings asset path value. </returns>
-    public static implicit operator ProjectSettingsAssetPath (string value)
-    {
-        return new ProjectSettingsAssetPath(value);
-    }
 }

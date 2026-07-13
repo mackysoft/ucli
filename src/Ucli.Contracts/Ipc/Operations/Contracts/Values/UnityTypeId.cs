@@ -17,12 +17,4 @@ public sealed record UnityTypeId : UcliStringValue
         : base(value)
     {
     }
-
-    /// <summary> Converts a string to a Unity type identifier contract value. </summary>
-    /// <param name="value"> The Unity type identifier. </param>
-    /// <returns> The semantic Unity type identifier value. </returns>
-    public static implicit operator UnityTypeId (string value)
-    {
-        return new UnityTypeId(value);
-    }
 }

@@ -126,7 +126,6 @@ internal static class UcliOperationInputConstraintRuntimeValidator
         return value switch
         {
             string text => string.IsNullOrWhiteSpace(text),
-            UcliStringValue semanticString => string.IsNullOrWhiteSpace(semanticString.Value),
             JsonElement jsonElement => IsEmptyJsonElement(jsonElement),
             IEnumerable enumerable => !HasAny(enumerable),
             _ => false,

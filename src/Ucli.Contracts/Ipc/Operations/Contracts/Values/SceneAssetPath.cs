@@ -18,12 +18,4 @@ public sealed record SceneAssetPath : UcliStringValue
         : base(value)
     {
     }
-
-    /// <summary> Converts a string to a scene asset path contract value. </summary>
-    /// <param name="value"> The project-relative scene asset path. </param>
-    /// <returns> The semantic scene asset path value. </returns>
-    public static implicit operator SceneAssetPath (string value)
-    {
-        return new SceneAssetPath(value);
-    }
 }

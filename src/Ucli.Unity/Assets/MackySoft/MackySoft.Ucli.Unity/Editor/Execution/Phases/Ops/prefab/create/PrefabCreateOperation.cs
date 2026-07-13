@@ -191,7 +191,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (!PrefabOperationUtilities.TryEnsurePrefabAssetCanBeCreated(args.Path, out var normalizedPrefabPath, out errorMessage))
+            if (!PrefabOperationUtilities.TryEnsurePrefabAssetCanBeCreated(args.Path.Value, out var normalizedPrefabPath, out errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;

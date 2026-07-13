@@ -109,7 +109,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         : null);
                 var windowedRoots = SceneTreeWindowProjector.Apply(roots, validationState.WindowOptions);
                 var tree = new SceneTreeResult(
-                    validationState.ScenePath,
+                    new SceneAssetPath(validationState.ScenePath),
                     windowedRoots.Items,
                     validationState.SceneLease.CreateSourceState(),
                     windowedRoots.Window);

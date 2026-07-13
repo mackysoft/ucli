@@ -21,7 +21,7 @@ internal static class QueryOperationArgsFactory
     public static JsonElement CreateCompSchema (string typeId)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(typeId);
-        return IpcPayloadCodec.SerializeToElement(new ComponentTypeArgs(typeId));
+        return IpcPayloadCodec.SerializeToElement(new ComponentTypeArgs(new UnityComponentTypeId(typeId)));
     }
 
     /// <summary> Creates <c>ucli.asset.schema</c> args for a type selector. </summary>
@@ -29,7 +29,7 @@ internal static class QueryOperationArgsFactory
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(typeId);
         return IpcPayloadCodec.SerializeToElement(new AssetSchemaArgs(
-            type: typeId,
+            type: new UnityTypeId(typeId),
             target: null));
     }
 
@@ -45,23 +45,31 @@ internal static class QueryOperationArgsFactory
     private static GameObjectReferenceArgs CreateGameObjectReference (
         IReadOnlyDictionary<string, string> target)
     {
+        var globalObjectId = GetValueOrNull(target, "globalObjectId");
+        var prefab = GetValueOrNull(target, "prefab");
+        var scene = GetValueOrNull(target, "scene");
+        var hierarchyPath = GetValueOrNull(target, "hierarchyPath");
         return new GameObjectReferenceArgs(
             alias: null,
-            globalObjectId: GetValueOrNull(target, "globalObjectId"),
-            prefab: GetValueOrNull(target, "prefab"),
-            scene: GetValueOrNull(target, "scene"),
-            hierarchyPath: GetValueOrNull(target, "hierarchyPath"));
+            globalObjectId: globalObjectId == null ? null : new UnityGlobalObjectId(globalObjectId),
+            prefab: prefab == null ? null : new PrefabAssetPath(prefab),
+            scene: scene == null ? null : new SceneAssetPath(scene),
+            hierarchyPath: hierarchyPath == null ? null : new UnityHierarchyPath(hierarchyPath));
     }
 
     private static AssetReferenceArgs CreateAssetReference (
         IReadOnlyDictionary<string, string> target)
     {
+        var globalObjectId = GetValueOrNull(target, "globalObjectId");
+        var assetGuid = GetValueOrNull(target, "assetGuid");
+        var assetPath = GetValueOrNull(target, "assetPath");
+        var projectAssetPath = GetValueOrNull(target, "projectAssetPath");
         return new AssetReferenceArgs(
             alias: null,
-            globalObjectId: GetValueOrNull(target, "globalObjectId"),
-            assetGuid: GetValueOrNull(target, "assetGuid"),
-            assetPath: GetValueOrNull(target, "assetPath"),
-            projectAssetPath: GetValueOrNull(target, "projectAssetPath"));
+            globalObjectId: globalObjectId == null ? null : new UnityGlobalObjectId(globalObjectId),
+            assetGuid: assetGuid == null ? null : new UnityAssetGuid(assetGuid),
+            assetPath: assetPath == null ? null : new UnityAssetPath(assetPath),
+            projectAssetPath: projectAssetPath == null ? null : new ProjectSettingsAssetPath(projectAssetPath));
     }
 
     private static string? GetValueOrNull (

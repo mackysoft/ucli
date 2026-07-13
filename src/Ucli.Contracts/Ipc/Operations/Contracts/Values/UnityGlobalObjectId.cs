@@ -16,12 +16,4 @@ public sealed record UnityGlobalObjectId : UcliStringValue
         : base(value)
     {
     }
-
-    /// <summary> Converts a string to a Unity GlobalObjectId contract value. </summary>
-    /// <param name="value"> The Unity GlobalObjectId string. </param>
-    /// <returns> The semantic Unity GlobalObjectId value. </returns>
-    public static implicit operator UnityGlobalObjectId (string value)
-    {
-        return new UnityGlobalObjectId(value);
-    }
 }

@@ -16,12 +16,4 @@ public sealed record UnityAssetGuid : UcliStringValue
         : base(value)
     {
     }
-
-    /// <summary> Converts a string to a Unity asset GUID contract value. </summary>
-    /// <param name="value"> The Unity asset GUID string. </param>
-    /// <returns> The semantic Unity asset GUID value. </returns>
-    public static implicit operator UnityAssetGuid (string value)
-    {
-        return new UnityAssetGuid(value);
-    }
 }

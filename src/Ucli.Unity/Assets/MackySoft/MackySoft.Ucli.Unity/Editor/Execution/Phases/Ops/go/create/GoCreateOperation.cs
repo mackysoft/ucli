@@ -182,7 +182,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (args.Parent == null)
             {
                 if (!GoOperationUtilities.TryResolveScene(
-                    args.Scene!,
+                    args.Scene!.Value,
                     executionContext,
                     allowTemporaryState,
                     out var scene,
@@ -196,7 +196,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     args.Name,
                     scene,
                     parent: null,
-                    new OperationResource(OperationTouchKind.Scene, args.Scene!));
+                    new OperationResource(OperationTouchKind.Scene, args.Scene.Value));
                 return true;
             }
 

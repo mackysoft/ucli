@@ -58,18 +58,6 @@ public sealed class UcliOperationContractValidatorPresenceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void TryValidate_WhenNonEmptySemanticStringIsBlank_ReturnsFalse ()
-    {
-        var args = new NonEmptySemanticStringArgs(new UnityHierarchyPathPrefix("   "));
-
-        var isValid = UcliOperationContractValidator.TryValidate(args, typeof(NonEmptySemanticStringArgs), out var errorMessage);
-
-        Assert.False(isValid);
-        Assert.Equal("Operation 'args.pathPrefix' must not be empty.", errorMessage);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
     public void TryValidate_WhenNonEmptyArrayIsEmpty_ReturnsFalse ()
     {
         var args = new NonEmptyArrayArgs(Array.Empty<string>());

@@ -13,14 +13,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             out string errorMessage)
         {
             return TryMapSelector(
-                args.GlobalObjectId,
-                args.AssetGuid,
-                args.AssetPath,
-                args.ProjectAssetPath,
-                args.Scene,
-                args.Prefab,
-                args.HierarchyPath,
-                args.ComponentType,
+                args.GlobalObjectId?.Value,
+                args.AssetGuid?.Value,
+                args.AssetPath?.Value,
+                args.ProjectAssetPath?.Value,
+                args.Scene?.Value,
+                args.Prefab?.Value,
+                args.HierarchyPath?.Value,
+                args.ComponentType?.Value,
                 out selector,
                 out errorMessage);
         }
@@ -32,14 +32,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             out string errorMessage)
         {
             return TryMapReference(
-                args.Alias,
-                args.GlobalObjectId,
+                args.Alias?.Value,
+                args.GlobalObjectId?.Value,
                 assetGuid: null,
                 assetPath: null,
                 projectAssetPath: null,
-                args.Scene,
-                args.Prefab,
-                args.HierarchyPath,
+                args.Scene?.Value,
+                args.Prefab?.Value,
+                args.HierarchyPath?.Value,
                 componentType: null,
                 propertyPath,
                 out reference,
@@ -53,14 +53,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             out string errorMessage)
         {
             return TryMapReference(
-                args.Alias,
-                args.GlobalObjectId,
+                args.Alias?.Value,
+                args.GlobalObjectId?.Value,
                 assetGuid: null,
                 assetPath: null,
                 projectAssetPath: null,
-                args.Scene,
+                args.Scene?.Value,
                 prefabPath: null,
-                args.HierarchyPath,
+                args.HierarchyPath?.Value,
                 componentType: null,
                 propertyPath,
                 out reference,
@@ -74,15 +74,15 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             out string errorMessage)
         {
             return TryMapReference(
-                args.Alias,
-                args.GlobalObjectId,
+                args.Alias?.Value,
+                args.GlobalObjectId?.Value,
                 assetGuid: null,
                 assetPath: null,
                 projectAssetPath: null,
-                args.Scene,
-                args.Prefab,
-                args.HierarchyPath,
-                args.ComponentType,
+                args.Scene?.Value,
+                args.Prefab?.Value,
+                args.HierarchyPath?.Value,
+                args.ComponentType?.Value,
                 propertyPath,
                 out reference,
                 out errorMessage);
@@ -95,11 +95,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             out string errorMessage)
         {
             return TryMapReference(
-                args.Alias,
-                args.GlobalObjectId,
-                args.AssetGuid,
-                args.AssetPath,
-                args.ProjectAssetPath,
+                args.Alias?.Value,
+                args.GlobalObjectId?.Value,
+                args.AssetGuid?.Value,
+                args.AssetPath?.Value,
+                args.ProjectAssetPath?.Value,
                 scenePath: null,
                 prefabPath: null,
                 hierarchyPath: null,

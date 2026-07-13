@@ -17,12 +17,4 @@ public sealed record UnityHierarchyPath : UcliStringValue
         : base(value)
     {
     }
-
-    /// <summary> Converts a string to a hierarchy path contract value. </summary>
-    /// <param name="value"> The Unity hierarchy path. </param>
-    /// <returns> The semantic hierarchy path value. </returns>
-    public static implicit operator UnityHierarchyPath (string value)
-    {
-        return new UnityHierarchyPath(value);
-    }
 }

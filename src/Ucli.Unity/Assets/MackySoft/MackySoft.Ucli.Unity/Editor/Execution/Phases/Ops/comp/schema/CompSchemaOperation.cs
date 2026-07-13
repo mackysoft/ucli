@@ -105,7 +105,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             validationState = default;
             failure = null;
-            if (!ComponentTypeResolver.TryResolveComponentType(args.Type, out var componentType, out var errorMessage))
+            if (!ComponentTypeResolver.TryResolveComponentType(args.Type.Value, out var componentType, out var errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;

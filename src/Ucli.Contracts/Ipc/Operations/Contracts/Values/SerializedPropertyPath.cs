@@ -16,12 +16,4 @@ public sealed record SerializedPropertyPath : UcliStringValue
         : base(value)
     {
     }
-
-    /// <summary> Converts a string to a SerializedProperty path contract value. </summary>
-    /// <param name="value"> The SerializedProperty path. </param>
-    /// <returns> The semantic SerializedProperty path value. </returns>
-    public static implicit operator SerializedPropertyPath (string value)
-    {
-        return new SerializedPropertyPath(value);
-    }
 }

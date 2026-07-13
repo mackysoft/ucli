@@ -195,7 +195,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (!ComponentTypeResolver.TryResolveComponentType(args.Type, out var resolvedComponentType, out errorMessage))
+            if (!ComponentTypeResolver.TryResolveComponentType(args.Type.Value, out var resolvedComponentType, out errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;

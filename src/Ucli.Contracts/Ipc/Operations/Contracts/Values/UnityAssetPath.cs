@@ -18,12 +18,4 @@ public sealed record UnityAssetPath : UcliStringValue
         : base(value)
     {
     }
-
-    /// <summary> Converts a string to an asset path contract value. </summary>
-    /// <param name="value"> The project-relative asset path. </param>
-    /// <returns> The semantic asset path value. </returns>
-    public static implicit operator UnityAssetPath (string value)
-    {
-        return new UnityAssetPath(value);
-    }
 }

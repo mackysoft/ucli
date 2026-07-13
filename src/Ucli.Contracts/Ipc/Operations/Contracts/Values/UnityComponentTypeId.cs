@@ -17,12 +17,4 @@ public sealed record UnityComponentTypeId : UcliStringValue
         : base(value)
     {
     }
-
-    /// <summary> Converts a string to a component type identifier contract value. </summary>
-    /// <param name="value"> The Unity component type identifier. </param>
-    /// <returns> The semantic component type identifier value. </returns>
-    public static implicit operator UnityComponentTypeId (string value)
-    {
-        return new UnityComponentTypeId(value);
-    }
 }
