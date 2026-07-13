@@ -116,12 +116,10 @@ internal static class UnityOneshotIpcClientTestSupport
     public static IpcResponse CreatePingResponse (
         string requestId,
         IpcEditorLifecycleState lifecycleState = IpcEditorLifecycleState.Ready,
-        bool canAcceptExecutionRequests = true,
         string projectFingerprint = "project-fingerprint")
     {
-        var payload = IpcPayloadCodec.SerializeToElement(IpcPingResponseTestFactory.Create(
-            lifecycleState: ContractLiteralCodec.ToValue(lifecycleState),
-            canAcceptExecutionRequests: canAcceptExecutionRequests,
+        var payload = IpcPayloadCodec.SerializeToElement(IpcUnityEditorObservationTestFactory.Create(
+            lifecycleState: lifecycleState,
             projectFingerprint: projectFingerprint));
         return new IpcResponse(
             ProtocolVersion: IpcProtocol.CurrentVersion,

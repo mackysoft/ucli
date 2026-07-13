@@ -47,9 +47,6 @@ internal sealed class ScreenshotCaptureService : IScreenshotCaptureService
             return ScreenshotCaptureResult.Failure(inputError);
         }
 
-        var command = input.Target == IpcScreenshotTarget.Game
-            ? UcliCommandIds.ScreenshotGame
-            : UcliCommandIds.ScreenshotScene;
         var contextResult = await projectContextResolver.ResolveAsync(input.ProjectPath, cancellationToken).ConfigureAwait(false);
         if (!contextResult.IsSuccess)
         {
@@ -59,7 +56,7 @@ internal sealed class ScreenshotCaptureService : IScreenshotCaptureService
         var context = contextResult.Context!;
         var timeoutResult = IpcCommandTimeoutResolver.ResolveNormalized(
             input.TimeoutMilliseconds,
-            command,
+            UcliCommandIds.Screenshot,
             context.Config);
         if (!timeoutResult.IsSuccess)
         {
@@ -76,7 +73,7 @@ internal sealed class ScreenshotCaptureService : IScreenshotCaptureService
             return ScreenshotCaptureResult.Failure(sessionResult.Error!);
         }
 
-        if (!sessionResult.Exists || !IsGuiSession(sessionResult.Session!))
+        if (!sessionResult.Exists || sessionResult.Session!.EditorMode != DaemonEditorMode.Gui)
         {
             return ScreenshotCaptureResult.Failure(ExecutionError.InternalError(
                 RequiresGuiSessionMessage,
@@ -95,16 +92,22 @@ internal sealed class ScreenshotCaptureService : IScreenshotCaptureService
         {
             captureResult = await CapturePreparedAsync(
                     input,
-                    command,
                     context,
                     timeoutResult.Timeout!.Value,
                     paths,
                     cancellationToken)
                 .ConfigureAwait(false);
         }
-        catch
+        catch (Exception exception)
         {
-            await artifactStore.DiscardAsync(paths, CancellationToken.None).ConfigureAwait(false);
+            var cleanupResult = artifactStore.Discard(paths);
+            if (!cleanupResult.IsSuccess)
+            {
+                return ScreenshotCaptureResult.Failure(ExecutionError.InternalError(
+                    "Screenshot capture was interrupted and artifact cleanup failed. "
+                    + $"CaptureError={exception.Message} CleanupError={cleanupResult.Error!.Message}"));
+            }
+
             throw;
         }
 
@@ -113,7 +116,7 @@ internal sealed class ScreenshotCaptureService : IScreenshotCaptureService
             return captureResult;
         }
 
-        var discardResult = await artifactStore.DiscardAsync(paths, CancellationToken.None).ConfigureAwait(false);
+        var discardResult = artifactStore.Discard(paths);
         return discardResult.IsSuccess
             ? captureResult
             : ScreenshotCaptureResult.Failure(discardResult.Error!);
@@ -121,21 +124,19 @@ internal sealed class ScreenshotCaptureService : IScreenshotCaptureService
 
     private async ValueTask<ScreenshotCaptureResult> CapturePreparedAsync (
         ScreenshotCaptureInput input,
-        UcliCommand command,
         ProjectContext context,
         TimeSpan timeout,
         ScreenshotArtifactPaths paths,
         CancellationToken cancellationToken)
     {
-        var target = ContractLiteralCodec.ToValue(input.Target);
         var executionResult = await unityRequestExecutor.ExecuteAsync(
-                command,
+                UcliCommandIds.Screenshot,
                 UnityExecutionMode.Daemon,
                 timeout,
                 context.Config,
                 context.UnityProject,
                 new UnityRequestPayload.ScreenshotCapture(
-                    target,
+                    input.Target,
                     input.RequestedWidth,
                     input.RequestedHeight,
                     paths.RawStagingPath,
@@ -162,7 +163,7 @@ internal sealed class ScreenshotCaptureService : IScreenshotCaptureService
                 $"Unity screenshot capture payload is invalid. {payloadError.Message}"));
         }
 
-        var validationError = ValidateResponse(input, paths, screenshotResponse);
+        var validationError = ValidateResponse(input, screenshotResponse);
         if (validationError is not null)
         {
             return ScreenshotCaptureResult.Failure(validationError);
@@ -173,13 +174,9 @@ internal sealed class ScreenshotCaptureService : IScreenshotCaptureService
         var commitResult = await artifactStore.CommitAsync(
                 new ScreenshotArtifactCommitRequest(
                     paths,
-                    staging.Path,
                     capture.Width,
                     capture.Height,
-                    staging.PixelFormat,
-                    staging.RowOrder,
-                    staging.RowStrideBytes,
-                    staging.SizeBytes),
+                    staging),
                 cancellationToken)
             .ConfigureAwait(false);
         if (!commitResult.IsSuccess)
@@ -190,24 +187,18 @@ internal sealed class ScreenshotCaptureService : IScreenshotCaptureService
         var artifact = commitResult.Artifact!;
         return ScreenshotCaptureResult.Success(new ScreenshotCaptureOutput(
             ProjectIdentityInfo.From(context.UnityProject),
-            input.Target,
-            capture.RequestedWidth,
-            capture.RequestedHeight,
-            capture.Width,
-            capture.Height,
-            capture.ColorSpace,
-            capture.LifecycleStateAtCapture,
-            capture.CompileStateAtCapture,
-            capture.DomainReloadGeneration,
-            capture.PlayModeState,
-            artifact.Path,
-            artifact.Digest,
-            artifact.SizeBytes,
-            artifact.CreatedAtUtc));
+            capture,
+            artifact));
     }
 
     private static ExecutionError? ValidateInput (ScreenshotCaptureInput input)
     {
+        if (!ContractLiteralCodec.IsDefined(input.Target))
+        {
+            return ExecutionError.InvalidArgument(
+                $"Screenshot target must be one of: {string.Join(", ", ContractLiteralCodec.GetLiterals<IpcScreenshotTarget>())}.");
+        }
+
         var hasWidth = input.RequestedWidth.HasValue;
         var hasHeight = input.RequestedHeight.HasValue;
         if (hasWidth != hasHeight
@@ -228,7 +219,6 @@ internal sealed class ScreenshotCaptureService : IScreenshotCaptureService
 
     private static ExecutionError? ValidateResponse (
         ScreenshotCaptureInput input,
-        ScreenshotArtifactPaths paths,
         IpcScreenshotCaptureResponse response)
     {
         if (response.Capture is null || response.Staging is null)
@@ -237,56 +227,37 @@ internal sealed class ScreenshotCaptureService : IScreenshotCaptureService
         }
 
         var capture = response.Capture;
-        var staging = response.Staging;
-        var expectedTarget = ContractLiteralCodec.ToValue(input.Target);
         var expectedSizeMode = input.RequestedWidth.HasValue
             ? IpcScreenshotSizeMode.RequestedResolution
             : IpcScreenshotSizeMode.CurrentSurface;
-        if (!string.Equals(capture.Target, expectedTarget, StringComparison.Ordinal)
-            || !ContractLiteralCodec.Matches(capture.SizeMode, expectedSizeMode)
+        if (capture.Target != input.Target
+            || capture.SizeMode != expectedSizeMode
             || capture.RequestedWidth != input.RequestedWidth
             || capture.RequestedHeight != input.RequestedHeight)
         {
             return InvalidResponse("capture target or requested-size metadata does not match the request");
         }
 
-        if (capture.Width <= 0
-            || capture.Height <= 0
-            || capture.Width > IpcScreenshotCaptureLimits.MaximumDimension
-            || capture.Height > IpcScreenshotCaptureLimits.MaximumDimension
-            || (input.RequestedWidth.HasValue
-                && (capture.Width != input.RequestedWidth || capture.Height != input.RequestedHeight)))
+        if (input.RequestedWidth.HasValue
+            && (capture.Width != input.RequestedWidth || capture.Height != input.RequestedHeight))
         {
             return InvalidResponse("captured dimensions do not satisfy the request");
         }
 
-        if (!ContractLiteralCodec.IsDefined<IpcScreenshotColorSpace>(capture.ColorSpace)
-            || !ContractLiteralCodec.IsDefined<IpcEditorLifecycleState>(capture.LifecycleStateAtCapture)
-            || !ContractLiteralCodec.IsDefined<IpcCompileState>(capture.CompileStateAtCapture)
-            || capture.DomainReloadGeneration < 0
-            || !ContractLiteralCodec.IsDefined<IpcPlayModeState>(capture.PlayModeState))
+        var state = capture.State;
+        var playMode = state.PlayMode;
+        if (state.EditorMode != DaemonEditorMode.Gui
+            || state.LifecycleState != IpcEditorLifecycleState.Ready
+            || state.CompileState != IpcCompileState.Ready
+            || playMode.State != IpcPlayModeState.Stopped
+            || playMode.Transition != IpcPlayModeTransition.None
+            || playMode.IsPlaying
+            || playMode.IsPlayingOrWillChangePlaymode)
         {
             return InvalidResponse("capture state metadata is invalid");
         }
 
-        if (!string.Equals(staging.Path, paths.RawStagingPath, StringComparison.Ordinal)
-            || !ContractLiteralCodec.Matches(staging.PixelFormat, IpcScreenshotPixelFormat.Rgba8Srgb)
-            || !ContractLiteralCodec.Matches(staging.RowOrder, IpcScreenshotRowOrder.TopDown)
-            || staging.RowStrideBytes <= 0
-            || (long)staging.RowStrideBytes != (long)capture.Width * 4
-            || staging.SizeBytes != (long)staging.RowStrideBytes * capture.Height
-            || staging.SizeBytes > IpcScreenshotCaptureLimits.MaximumRawImageBytes)
-        {
-            return InvalidResponse("raw staging metadata is invalid");
-        }
-
         return null;
-    }
-
-    private static bool IsGuiSession (DaemonSession session)
-    {
-        return ContractLiteralInputParser.TryParseTrimmed<DaemonEditorMode>(session.EditorMode, out var editorMode)
-            && editorMode == DaemonEditorMode.Gui;
     }
 
     private static ExecutionError CreateError (UnityRequestFailure failure)

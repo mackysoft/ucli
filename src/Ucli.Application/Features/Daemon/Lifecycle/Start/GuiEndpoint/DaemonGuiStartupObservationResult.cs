@@ -1,39 +1,60 @@
+using System.Diagnostics.CodeAnalysis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiEndpoint;
 
 /// <summary> Represents the bounded observation result for one CLI-launched GUI daemon startup attempt. </summary>
-/// <param name="Session"> The registered GUI daemon session when startup succeeds. </param>
-/// <param name="LifecycleSnapshot"> The endpoint-registered lifecycle snapshot when startup succeeds. </param>
-/// <param name="Blocker"> The terminal startup blocker when one is observed. </param>
-/// <param name="Error"> The structured error when observation fails or times out. </param>
-internal sealed record DaemonGuiStartupObservationResult (
-    DaemonSession? Session,
-    DaemonStartLifecycleSnapshot? LifecycleSnapshot,
-    DaemonGuiStartupBlocker? Blocker,
-    ExecutionError? Error)
+internal sealed record DaemonGuiStartupObservationResult
 {
+    private DaemonGuiStartupObservationResult (
+        DaemonSession? session,
+        IpcUnityEditorObservation? lifecycleObservation,
+        DaemonGuiStartupBlockerObservation? blockerObservation,
+        ExecutionError? error)
+    {
+        Session = session;
+        LifecycleObservation = lifecycleObservation;
+        BlockerObservation = blockerObservation;
+        Error = error;
+    }
+
+    /// <summary> Gets the registered GUI daemon session when startup succeeds. </summary>
+    public DaemonSession? Session { get; }
+
+    /// <summary> Gets the endpoint-registered lifecycle observation when startup succeeds. </summary>
+    public IpcUnityEditorObservation? LifecycleObservation { get; }
+
+    /// <summary> Gets the terminal startup blocker observation when one is available. </summary>
+    public DaemonGuiStartupBlockerObservation? BlockerObservation { get; }
+
+    /// <summary> Gets the structured error when observation fails or times out. </summary>
+    public ExecutionError? Error { get; }
+
     /// <summary> Gets a value indicating whether GUI daemon startup succeeded. </summary>
-    public bool IsSuccess => Session is not null && Blocker is null && Error is null;
+    [MemberNotNullWhen(true, nameof(Session), nameof(LifecycleObservation))]
+    public bool IsSuccess => Session is not null && LifecycleObservation is not null && BlockerObservation is null && Error is null;
 
     /// <summary> Gets a value indicating whether GUI daemon startup was blocked by a known terminal condition. </summary>
-    public bool IsBlocked => Session is null && Blocker is not null && Error is null;
+    [MemberNotNullWhen(true, nameof(BlockerObservation))]
+    public bool IsBlocked => Session is null && BlockerObservation is not null && Error is null;
 
     /// <summary> Creates a successful observation result. </summary>
     public static DaemonGuiStartupObservationResult Success (
         DaemonSession session,
-        DaemonStartLifecycleSnapshot? lifecycleSnapshot = null)
+        IpcUnityEditorObservation lifecycleObservation)
     {
         ArgumentNullException.ThrowIfNull(session);
-        return new DaemonGuiStartupObservationResult(session, lifecycleSnapshot, null, null);
+        ArgumentNullException.ThrowIfNull(lifecycleObservation);
+        return new DaemonGuiStartupObservationResult(session, lifecycleObservation, null, null);
     }
 
     /// <summary> Creates a blocked observation result. </summary>
-    public static DaemonGuiStartupObservationResult Blocked (DaemonGuiStartupBlocker blocker)
+    public static DaemonGuiStartupObservationResult Blocked (DaemonGuiStartupBlockerObservation blockerObservation)
     {
-        ArgumentNullException.ThrowIfNull(blocker);
-        return new DaemonGuiStartupObservationResult(null, null, blocker, null);
+        ArgumentNullException.ThrowIfNull(blockerObservation);
+        return new DaemonGuiStartupObservationResult(null, null, blockerObservation, null);
     }
 
     /// <summary> Creates a failed observation result. </summary>

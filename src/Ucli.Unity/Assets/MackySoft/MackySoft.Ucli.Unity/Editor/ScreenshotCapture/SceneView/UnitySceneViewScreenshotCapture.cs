@@ -98,22 +98,13 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.SceneView
                     return Unsupported(sourceError);
                 }
 
-                if (!string.Equals(
-                    colorSpace,
-                    UnityScreenshotPixelNormalizer.ResolveColorSpace(),
-                    StringComparison.Ordinal))
+                if (colorSpace != UnityScreenshotPixelNormalizer.ResolveColorSpace())
                 {
                     return Unsupported(
                         "Unity project color space changed while SceneView pixels were captured.");
                 }
 
-                var normalizedFrame = normalizeResult.Frame;
-                return UnityScreenshotBackendResult.Success(
-                    new UnityScreenshotBackendResult.CapturedFrame(
-                        normalizedFrame.Width,
-                        normalizedFrame.Height,
-                        normalizedFrame.ColorSpace,
-                        normalizedFrame.Rgba8SrgbTopDown));
+                return UnityScreenshotBackendResult.Success(normalizeResult.Frame);
             }
             catch (OperationCanceledException)
             {

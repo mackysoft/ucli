@@ -1,4 +1,4 @@
-using MackySoft.Ucli.Application.Shared.CommandContracts;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Ready;
 
@@ -6,14 +6,13 @@ namespace MackySoft.Ucli.Application.Features.Assurance.Ready;
 internal sealed record ReadyLifecycleOutput (
     string? ServerVersion,
     string? UnityVersion,
-    string? EditorMode,
-    string? LifecycleState,
-    string? BlockingReason,
-    string? CompileState,
-    string? CompileGeneration,
-    string? DomainReloadGeneration,
+    DaemonEditorMode? EditorMode,
+    IpcEditorLifecycleState? LifecycleState,
+    IpcEditorBlockingReason? BlockingReason,
+    IpcCompileState? CompileState,
+    IpcUnityGenerationSnapshot? Generations,
     bool CanAcceptExecutionRequests,
     DateTimeOffset? ObservedAtUtc,
     string? ActionRequired,
     ReadyPrimaryDiagnosticOutput? PrimaryDiagnostic,
-    PlayModeSnapshotOutput? PlayMode = null);
+    IpcPlayModeSnapshot? PlayMode = null);

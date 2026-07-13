@@ -124,7 +124,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
                         await editorUpdateAwaiter.WaitForNextUpdateAsync(cancellationToken);
                         completedEditorUpdateGeneration = unchecked(completedEditorUpdateGeneration + 1u);
                         cancellationToken.ThrowIfCancellationRequested();
-                        if (!TryValidatePresentationState(
+                        if (!UnityScreenshotPresentationStateFence.TryValidateCurrentStable(
                             presentationState,
                             out var loopPresentationError))
                         {
@@ -168,7 +168,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
                         }
 
                         cancellationToken.ThrowIfCancellationRequested();
-                        if (!TryValidatePresentationState(
+                        if (!UnityScreenshotPresentationStateFence.TryValidateCurrentStable(
                             presentationState,
                             out loopPresentationError))
                         {
@@ -220,7 +220,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
 
                 var colorSpace = UnityScreenshotPixelNormalizer.ResolveColorSpace();
                 if (captureResult == null
-                    && !TryValidatePresentationState(
+                    && !UnityScreenshotPresentationStateFence.TryValidateCurrentStable(
                         presentationState,
                         out var capturePresentationError))
                 {
@@ -257,7 +257,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
                     }
 
                     if (captureResult.IsSuccess
-                        && !TryValidatePresentationState(
+                        && !UnityScreenshotPresentationStateFence.TryValidateCurrentStable(
                             presentationState,
                             out capturePresentationError))
                     {
@@ -265,10 +265,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
                     }
 
                     if (captureResult.IsSuccess
-                        && !string.Equals(
-                            colorSpace,
-                            UnityScreenshotPixelNormalizer.ResolveColorSpace(),
-                            StringComparison.Ordinal))
+                        && colorSpace != UnityScreenshotPixelNormalizer.ResolveColorSpace())
                     {
                         captureResult = Unsupported(
                             "Unity project color space changed while GameView pixels were captured.");
@@ -439,23 +436,6 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
             return recovery.TrySchedule(out errorMessage);
         }
 
-        private static bool TryValidatePresentationState (
-            UnityScreenshotPresentationStateFence.PresentationState expected,
-            out string errorMessage)
-        {
-            if (!UnityScreenshotPresentationStateFence.TryCaptureCurrent(
-                out var current,
-                out errorMessage))
-            {
-                return false;
-            }
-
-            return UnityScreenshotPresentationStateFence.TryValidateStable(
-                expected,
-                current,
-                out errorMessage);
-        }
-
         internal static bool TryValidateNoPendingRecovery (
             UnityEditor.EditorWindow gameView,
             UnityGameViewResolutionAdapter resolutionAdapter,
@@ -552,13 +532,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
                 return Unsupported(normalizationResult.ErrorMessage);
             }
 
-            var frame = normalizationResult.Frame;
-            return UnityScreenshotBackendResult.Success(
-                new UnityScreenshotBackendResult.CapturedFrame(
-                    frame.Width,
-                    frame.Height,
-                    frame.ColorSpace,
-                    frame.Rgba8SrgbTopDown));
+            return UnityScreenshotBackendResult.Success(normalizationResult.Frame);
         }
 
         private static UnityScreenshotBackendResult Unsupported (string message)

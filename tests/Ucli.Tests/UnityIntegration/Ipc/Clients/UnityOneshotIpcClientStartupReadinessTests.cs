@@ -66,8 +66,7 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
             {
                 IpcMethodNames.Ping => CreatePingResponse(
                     request.RequestId,
-                    lifecycleState: ++pingAttempt == 1 ? lifecycleState : IpcEditorLifecycleState.Ready,
-                    canAcceptExecutionRequests: pingAttempt != 1),
+                    lifecycleState: ++pingAttempt == 1 ? lifecycleState : IpcEditorLifecycleState.Ready),
                 IpcMethodNames.OpsRead => CreateSuccessResponse(request.RequestId),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
@@ -114,8 +113,7 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
             {
                 IpcMethodNames.Ping => CreatePingResponse(
                     request.RequestId,
-                    lifecycleState: lifecycleState,
-                    canAcceptExecutionRequests: false),
+                    lifecycleState: lifecycleState),
                 IpcMethodNames.Compile => CreateSuccessResponse(request.RequestId),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
@@ -150,8 +148,7 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
             {
                 IpcMethodNames.Ping => CreatePingResponse(
                     request.RequestId,
-                    lifecycleState: IpcEditorLifecycleState.Starting,
-                    canAcceptExecutionRequests: false),
+                    lifecycleState: IpcEditorLifecycleState.Starting),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
         });
@@ -262,8 +259,7 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
             Assert.Equal(IpcPingClientVersions.OneshotStartup, payload.ClientVersion);
             return CreatePingResponse(
                 request.RequestId,
-                lifecycleState: IpcEditorLifecycleState.Starting,
-                canAcceptExecutionRequests: false);
+                lifecycleState: IpcEditorLifecycleState.Starting);
         }
     }
 

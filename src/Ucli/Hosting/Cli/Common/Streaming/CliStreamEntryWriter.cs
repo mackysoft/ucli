@@ -2,6 +2,7 @@ using System.Buffers;
 using System.Text;
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Hosting.Cli.Common.Streaming;
 
@@ -10,6 +11,10 @@ internal sealed class CliStreamEntryWriter
 {
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
+        Converters =
+        {
+            new ContractLiteralJsonConverterFactory(),
+        },
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
     };
 

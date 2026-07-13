@@ -20,7 +20,7 @@ internal sealed record ScreenshotArtifactCommitResult
     public ExecutionError? Error { get; }
 
     /// <summary> Gets a value indicating whether commit succeeded. </summary>
-    public bool IsSuccess => Artifact != null && Error == null;
+    public bool IsSuccess => Artifact != null;
 
     /// <summary> Creates a successful commit result. </summary>
     public static ScreenshotArtifactCommitResult Success (ScreenshotArtifact artifact)

@@ -35,7 +35,7 @@ public sealed class CompileServiceStartupDiagnosticsTests
         Assert.False(output.Compile.Refresh.Requested);
         Assert.Equal(1, output.Compile.ScriptCompilation.Diagnostics.ErrorCount);
         Assert.Equal("CS0246", output.Compile.ScriptCompilation.Diagnostics.PrimaryDiagnostic!.Code);
-        Assert.Equal("compileFailed", output.Compile.Lifecycle.LifecycleState);
+        Assert.Null(output.Compile.Lifecycle.LifecycleState);
         Assert.Equal(0, artifactStore.ReadCount);
         Assert.Equal(1, artifactStore.WriteCount);
         Assert.Equal("diagnosticsRead", artifactStore.WrittenSummary!.Refresh.Origin);

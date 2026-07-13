@@ -95,9 +95,9 @@ public sealed class DaemonLaunchServiceGuiStartupObserverFailureTests
             processId: 8765,
             processStartedAtUtc: processStartedAtUtc);
         Assert.NotNull(result.Startup);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated), result.Startup!.ProcessAction);
+        Assert.Equal(DaemonStartupProcessAction.Terminated, result.Startup!.ProcessAction);
         var launchAttempt = DaemonLaunchAttemptStoreAssert.LatestLaunchAttemptWrittenFor(launchAttemptStore, context);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupStatus.Failed), launchAttempt.StartupStatus);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated), launchAttempt.ProcessAction);
+        Assert.Equal(DaemonStartupStatus.Failed, launchAttempt.StartupStatus);
+        Assert.Equal(DaemonStartupProcessAction.Terminated, launchAttempt.ProcessAction);
     }
 }

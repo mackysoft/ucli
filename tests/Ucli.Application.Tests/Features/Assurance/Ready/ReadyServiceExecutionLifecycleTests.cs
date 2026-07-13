@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Tests.Features.Assurance.Ready;
 
@@ -28,8 +29,8 @@ public sealed class ReadyServiceExecutionLifecycleTests
         Assert.Equal("transientProbe", output.SessionKind);
         Assert.NotNull(output.Lifecycle);
         Assert.NotNull(output.Lifecycle.PlayMode);
-        Assert.Equal("stopped", output.Lifecycle.PlayMode.State);
-        Assert.Equal("none", output.Lifecycle.PlayMode.Transition);
+        Assert.Equal(IpcPlayModeState.Stopped, output.Lifecycle.PlayMode.State);
+        Assert.Equal(IpcPlayModeTransition.None, output.Lifecycle.PlayMode.Transition);
         var claim = Assert.Single(output.Claims);
         Assert.Equal("probeOnly", claim.Validity.Kind);
         Assert.False(claim.Validity.GuaranteesReusableSession);
@@ -48,8 +49,7 @@ public sealed class ReadyServiceExecutionLifecycleTests
                 daemonRunning: true,
                 UnityExecutionTarget.Daemon),
             daemonPingInfoClient: new RecordingDaemonPingInfoClient(CreateReadyPingResponse(
-                lifecycleState: "compileFailed",
-                canAcceptExecutionRequests: false)));
+                lifecycleState: IpcEditorLifecycleState.CompileFailed)));
 
         var result = await service.ExecuteAsync(CreateExecutionInput(UnityExecutionMode.Daemon, failFast: true));
 
@@ -97,8 +97,7 @@ public sealed class ReadyServiceExecutionLifecycleTests
                 daemonRunning: false,
                 UnityExecutionTarget.Oneshot),
             unityRequestExecutor: new RecordingUnityRequestExecutor(CreateReadyPingSuccess(
-                lifecycleState: "domainReloading",
-                canAcceptExecutionRequests: false)));
+                lifecycleState: IpcEditorLifecycleState.DomainReloading)));
 
         var result = await service.ExecuteAsync(CreateExecutionInput());
 

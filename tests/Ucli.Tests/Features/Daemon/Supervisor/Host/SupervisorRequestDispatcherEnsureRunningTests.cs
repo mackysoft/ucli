@@ -11,18 +11,18 @@ public sealed class SupervisorRequestDispatcherEnsureRunningTests
     [Trait("Size", "Small")]
     public async Task HandleConnection_WhenEditorModeIsSpecified_PassesNormalizedValueToStartOperation ()
     {
-        var lifecycleSnapshot = new DaemonStartLifecycleSnapshot(IpcEditorLifecycleState.Compiling);
+        var lifecycleObservation = IpcUnityEditorObservationTestFactory.Create(IpcEditorLifecycleState.Compiling);
         var startOperation = new RecordingDaemonStartOperation
         {
             StartResult = DaemonStartResult.AlreadyRunning(
                 DaemonSessionTestFactory.Create(
                     sessionToken: "session-token",
                     issuedAtUtc: new DateTimeOffset(2026, 03, 11, 0, 0, 0, TimeSpan.Zero),
-                    endpointTransportKind: "unixDomainSocket",
+                    endpointTransportKind: IpcTransportKind.UnixDomainSocket,
                     endpointAddress: "/tmp/ucli.sock",
                     processId: 42,
                     ownerProcessId: 24),
-                lifecycleSnapshot),
+                lifecycleObservation),
         };
         var dispatcher = CreateDispatcher(startOperation);
         var runtimeContext = CreateRuntimeContext();
@@ -61,7 +61,7 @@ public sealed class SupervisorRequestDispatcherEnsureRunningTests
             response.Payload,
             out SupervisorIpcContracts.EnsureRunningResponse payload,
             out _));
-        Assert.Equal(lifecycleSnapshot, payload.LifecycleSnapshot);
+        Assert.Equal(lifecycleObservation, payload.LifecycleObservation);
     }
 
     [Fact]
@@ -72,14 +72,14 @@ public sealed class SupervisorRequestDispatcherEnsureRunningTests
             sessionToken: "session-token",
             issuedAtUtc: new DateTimeOffset(2026, 03, 11, 0, 0, 0, TimeSpan.Zero),
             canShutdownProcess: false,
-            endpointTransportKind: "unixDomainSocket",
+            endpointTransportKind: IpcTransportKind.UnixDomainSocket,
             endpointAddress: "/tmp/ucli.sock",
             processId: 42,
             ownerProcessId: 24);
-        var lifecycleSnapshot = new DaemonStartLifecycleSnapshot(IpcEditorLifecycleState.Ready);
+        var lifecycleObservation = IpcUnityEditorObservationTestFactory.Create(IpcEditorLifecycleState.Ready);
         var startOperation = new RecordingDaemonStartOperation
         {
-            StartResult = DaemonStartResult.Attached(session, lifecycleSnapshot),
+            StartResult = DaemonStartResult.Attached(session, lifecycleObservation),
         };
         var dispatcher = CreateDispatcher(startOperation);
         var runtimeContext = CreateRuntimeContext();
@@ -110,6 +110,6 @@ public sealed class SupervisorRequestDispatcherEnsureRunningTests
             out _));
         Assert.Equal("attached", payload.StartStatus);
         Assert.Equal(session, payload.Session);
-        Assert.Equal(lifecycleSnapshot, payload.LifecycleSnapshot);
+        Assert.Equal(lifecycleObservation, payload.LifecycleObservation);
     }
 }

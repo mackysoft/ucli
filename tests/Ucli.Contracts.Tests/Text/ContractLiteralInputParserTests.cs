@@ -5,13 +5,6 @@ namespace MackySoft.Ucli.Contracts.Tests.Text;
 
 public sealed class ContractLiteralInputParserTests
 {
-    private static readonly string?[] MissingLiterals =
-    [
-        null,
-        "",
-        " ",
-    ];
-
     [Fact]
     [Trait("Size", "Small")]
     public void IsDefinedIgnoreCase_WithCaseVariant_ReturnsTrue ()
@@ -24,20 +17,6 @@ public sealed class ContractLiteralInputParserTests
     public void IsDefinedIgnoreCase_WithWhitespace_ReturnsFalse ()
     {
         Assert.False(ContractLiteralInputParser.IsDefinedIgnoreCase<OperationPolicy>(" safe "));
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void IsDefinedTrimmed_WithWhitespace_ReturnsTrue ()
-    {
-        Assert.True(ContractLiteralInputParser.IsDefinedTrimmed<OperationPolicy>(" safe "));
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void IsDefinedTrimmed_WithCaseVariant_ReturnsFalse ()
-    {
-        Assert.False(ContractLiteralInputParser.IsDefinedTrimmed<OperationPolicy>("SAFE"));
     }
 
     [Fact]
@@ -80,23 +59,4 @@ public sealed class ContractLiteralInputParserTests
         Assert.Equal(default, policy);
     }
 
-    [Fact]
-    [Trait("Size", "Small")]
-    public void TryParseTrimmedIgnoreCase_WithWhitespaceAndCaseVariant_ReturnsEnumValue ()
-    {
-        var result = ContractLiteralInputParser.TryParseTrimmedIgnoreCase<OperationPolicy>(" SAFE ", out var policy);
-
-        Assert.True(result);
-        Assert.Equal(OperationPolicy.Safe, policy);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void IsDefinedTrimmedIgnoreCase_WithMissingLiteral_ReturnsFalse ()
-    {
-        foreach (string? literal in MissingLiterals)
-        {
-            Assert.False(ContractLiteralInputParser.IsDefinedTrimmedIgnoreCase<OperationPolicy>(literal));
-        }
-    }
 }

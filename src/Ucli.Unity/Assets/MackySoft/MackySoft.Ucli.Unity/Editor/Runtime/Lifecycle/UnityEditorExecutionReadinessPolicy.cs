@@ -37,12 +37,12 @@ namespace MackySoft.Ucli.Unity.Runtime
             };
         }
 
-        /// <summary> Creates the blocked readiness result for one captured lifecycle snapshot. </summary>
-        /// <param name="snapshot"> The lifecycle snapshot captured at decision time. </param>
+        /// <summary> Creates the blocked readiness result for one captured Unity Editor observation. </summary>
+        /// <param name="observation"> The Unity Editor observation captured at decision time. </param>
         /// <returns> The blocked readiness result. </returns>
-        public static UnityEditorExecutionReadinessResult CreateBlockedResult (UnityEditorLifecycleSnapshot snapshot)
+        public static UnityEditorExecutionReadinessResult CreateBlockedResult (UnityEditorObservation observation)
         {
-            var error = snapshot.LifecycleState switch
+            var error = observation.State.LifecycleState switch
             {
                 IpcEditorLifecycleState.Starting => new IpcError(
                     EditorLifecycleErrorCodes.EditorStarting,
@@ -94,25 +94,25 @@ namespace MackySoft.Ucli.Unity.Runtime
                     null),
                 _ => new IpcError(
                     UcliCoreErrorCodes.InternalError,
-                    $"Unity editor lifecycle gate returned unsupported state value '{(int)snapshot.LifecycleState}'.",
+                    $"Unity editor lifecycle gate returned unsupported state value '{(int)observation.State.LifecycleState}'.",
                     null),
             };
 
-            return UnityEditorExecutionReadinessResult.Blocked(snapshot, error);
+            return UnityEditorExecutionReadinessResult.Blocked(observation, error);
         }
 
         /// <summary> Creates the readiness result for a request that explicitly allows Play Mode mutation. </summary>
-        /// <param name="snapshot"> The lifecycle snapshot captured at decision time. </param>
+        /// <param name="observation"> The Unity Editor observation captured at decision time. </param>
         /// <param name="isPlayModeActive"> Whether Unity reports active Play Mode, excluding enter/exit transitions. </param>
         /// <returns> A ready result when GUI Play Mode is active; otherwise a Play Mode contract error. </returns>
         public static UnityEditorExecutionReadinessResult CreatePlayModeAllowedResult (
-            UnityEditorLifecycleSnapshot snapshot,
+            UnityEditorObservation observation,
             bool isPlayModeActive)
         {
-            if (snapshot.EditorMode != DaemonEditorMode.Gui)
+            if (observation.State.EditorMode != DaemonEditorMode.Gui)
             {
                 return UnityEditorExecutionReadinessResult.Blocked(
-                    snapshot,
+                    observation,
                     new IpcError(
                         PlayModeErrorCodes.PlayModeRequiresGuiEditor,
                         "Play Mode mutation requires a GUI Editor session.",
@@ -122,26 +122,26 @@ namespace MackySoft.Ucli.Unity.Runtime
             if (!isPlayModeActive)
             {
                 return UnityEditorExecutionReadinessResult.Blocked(
-                    snapshot,
+                    observation,
                     new IpcError(
                         PlayModeErrorCodes.PlayModeNotActive,
                         "Play Mode mutation requires the target Unity Editor to be in Play Mode.",
                         null));
             }
 
-            if (snapshot.LifecycleState != IpcEditorLifecycleState.PlayMode)
+            if (observation.State.LifecycleState != IpcEditorLifecycleState.PlayMode)
             {
-                return snapshot.CanAcceptExecutionRequests
+                return observation.CanAcceptExecutionRequests
                     ? UnityEditorExecutionReadinessResult.Blocked(
-                        snapshot,
+                        observation,
                         new IpcError(
                             PlayModeErrorCodes.PlayModeNotActive,
                             "Play Mode mutation requires the target Unity Editor to be in Play Mode.",
                             null))
-                    : CreateBlockedResult(snapshot);
+                    : CreateBlockedResult(observation);
             }
 
-            return UnityEditorExecutionReadinessResult.Ready(snapshot);
+            return UnityEditorExecutionReadinessResult.Ready(observation);
         }
     }
 }

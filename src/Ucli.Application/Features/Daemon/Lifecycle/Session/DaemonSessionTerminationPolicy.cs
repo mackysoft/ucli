@@ -91,9 +91,16 @@ internal static class DaemonSessionTerminationPolicy
     {
         editorMode = default;
         ownerKind = default;
-        return session.SchemaVersion == DaemonSession.CurrentSchemaVersion
-            && session.OwnerProcessId is > 0
-            && ContractLiteralInputParser.TryParseTrimmed<DaemonEditorMode>(session.EditorMode, out editorMode)
-            && ContractLiteralInputParser.TryParseTrimmed<DaemonSessionOwnerKind>(session.OwnerKind, out ownerKind);
+        if (session.SchemaVersion != DaemonSession.CurrentSchemaVersion
+            || session.OwnerProcessId is not > 0
+            || !ContractLiteralCodec.IsDefined(session.EditorMode)
+            || !ContractLiteralCodec.IsDefined(session.OwnerKind))
+        {
+            return false;
+        }
+
+        editorMode = session.EditorMode;
+        ownerKind = session.OwnerKind;
+        return true;
     }
 }

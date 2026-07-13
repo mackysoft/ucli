@@ -85,13 +85,13 @@ internal abstract record UnityRequestPayload
     internal sealed record PlayStatus : UnityRequestPayload;
 
     /// <summary> Represents a screenshot capture request prepared by application orchestration. </summary>
-    /// <param name="Target"> The screenshot target literal. </param>
+    /// <param name="Target"> The screenshot target. </param>
     /// <param name="RequestedWidth"> The requested GameView width, or <see langword="null" /> for the current surface size. </param>
     /// <param name="RequestedHeight"> The requested GameView height, or <see langword="null" /> for the current surface size. </param>
     /// <param name="StagingPath"> The host-owned absolute raw-image staging path. </param>
     /// <param name="TimeoutMilliseconds"> The effective server-side capture timeout in milliseconds. </param>
     internal sealed record ScreenshotCapture (
-        string Target,
+        IpcScreenshotTarget Target,
         int? RequestedWidth,
         int? RequestedHeight,
         string StagingPath,

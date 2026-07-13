@@ -34,8 +34,8 @@ public sealed class DaemonStartupReadinessProbeFailureClassificationTests
         Assert.Equal(DaemonErrorCodes.DaemonStartupBlocked, error.Code);
         Assert.Contains("scripts have compiler errors", error.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Marker=Scripts have compiler errors.", error.Message, StringComparison.Ordinal);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Compile), result.FailureClassification!.StartupBlockingReason);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix), result.FailureClassification.RetryDisposition);
+        Assert.Equal(DaemonStartupBlockingReason.Compile, result.FailureClassification!.StartupBlockingReason);
+        Assert.Equal(DaemonStartupRetryDisposition.RetryAfterFix, result.FailureClassification.RetryDisposition);
     }
 
     [Fact]
@@ -94,8 +94,8 @@ public sealed class DaemonStartupReadinessProbeFailureClassificationTests
         Assert.Equal(DaemonErrorCodes.DaemonStartupBlocked, error.Code);
         Assert.Contains("package resolution failed", error.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("FirstError=com.unity.test-framework: Package [com.unity.test-framework@1.6.0] cannot be found", error.Message, StringComparison.Ordinal);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.PackageResolution), result.FailureClassification!.StartupBlockingReason);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix), result.FailureClassification.RetryDisposition);
+        Assert.Equal(DaemonStartupBlockingReason.PackageResolution, result.FailureClassification!.StartupBlockingReason);
+        Assert.Equal(DaemonStartupRetryDisposition.RetryAfterFix, result.FailureClassification.RetryDisposition);
     }
 
     [Fact]

@@ -17,8 +17,8 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 public sealed record IpcBuildRunResponse (
     string RunId,
     string ProjectFingerprint,
-    IpcBuildLifecycleSnapshot LifecycleBefore,
-    IpcBuildLifecycleSnapshot LifecycleAfter,
+    IpcUnityEditorObservation LifecycleBefore,
+    IpcUnityEditorObservation LifecycleAfter,
     IpcBuildDirtyState DirtyState,
     IpcBuildInputProbe Input,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

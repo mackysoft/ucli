@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Application.Shared.CommandContracts.Projection;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 
@@ -8,32 +7,25 @@ namespace MackySoft.Ucli.Application.Features.Assurance.Ready;
 internal static class ReadyLifecycleOutputFactory
 {
     /// <summary> Creates lifecycle evidence from one ping response. </summary>
-    public static ReadyLifecycleOutput Create (IpcPingResponse pingResponse)
+    public static ReadyLifecycleOutput Create (IpcUnityEditorObservation pingResponse)
     {
         ArgumentNullException.ThrowIfNull(pingResponse);
 
-        var projection = LifecycleProjectionFactory.Create(pingResponse);
+        var state = pingResponse.State;
 
         return new ReadyLifecycleOutput(
-            ServerVersion: projection.ServerVersion,
-            UnityVersion: projection.UnityVersion,
-            EditorMode: projection.EditorMode,
-            LifecycleState: projection.LifecycleState.HasValue
-                ? ContractLiteralCodec.ToValue(projection.LifecycleState.Value)
-                : null,
-            BlockingReason: projection.BlockingReason.HasValue
-                ? ContractLiteralCodec.ToValue(projection.BlockingReason.Value)
-                : null,
-            CompileState: projection.CompileState.HasValue
-                ? ContractLiteralCodec.ToValue(projection.CompileState.Value)
-                : null,
-            CompileGeneration: projection.CompileGeneration,
-            DomainReloadGeneration: projection.DomainReloadGeneration,
-            CanAcceptExecutionRequests: projection.CanAcceptExecutionRequests,
-            ObservedAtUtc: projection.ObservedAtUtc,
-            ActionRequired: projection.ActionRequired,
-            PrimaryDiagnostic: ToOutput(projection.PrimaryDiagnostic),
-            PlayMode: projection.PlayMode);
+            ServerVersion: StringValueNormalizer.TrimToNull(pingResponse.ServerVersion),
+            UnityVersion: StringValueNormalizer.TrimToNull(pingResponse.UnityVersion),
+            EditorMode: state.EditorMode,
+            LifecycleState: state.LifecycleState,
+            BlockingReason: IpcEditorLifecycleSemantics.ResolveBlockingReason(state.LifecycleState),
+            CompileState: state.CompileState,
+            Generations: state.Generations,
+            CanAcceptExecutionRequests: IpcEditorLifecycleSemantics.CanAcceptExecutionRequests(state.LifecycleState),
+            ObservedAtUtc: pingResponse.ObservedAtUtc,
+            ActionRequired: StringValueNormalizer.TrimToNull(pingResponse.ActionRequired),
+            PrimaryDiagnostic: ToOutput(pingResponse.PrimaryDiagnostic),
+            PlayMode: state.PlayMode);
     }
 
     private static ReadyPrimaryDiagnosticOutput? ToOutput (IpcPrimaryDiagnostic? diagnostic)

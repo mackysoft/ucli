@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Application.Tests;
@@ -18,8 +19,7 @@ internal static class StatusServiceAssert
         Assert.Null(output.LifecycleState);
         Assert.Null(output.BlockingReason);
         Assert.Null(output.CompileState);
-        Assert.Null(output.CompileGeneration);
-        Assert.Null(output.DomainReloadGeneration);
+        Assert.Null(output.Generations);
         Assert.False(output.CanAcceptExecutionRequests);
         Assert.Null(output.EditorMode);
         Assert.Null(output.PlayMode);
@@ -35,11 +35,10 @@ internal static class StatusServiceAssert
         Assert.Equal(DaemonStatusKind.Stale, output.DaemonStatus);
         Assert.Equal(expectedUnityVersion, output.UnityVersion);
         Assert.Null(output.ServerVersion);
-        Assert.Equal("unavailable", output.LifecycleState);
-        Assert.Equal("unavailable", output.BlockingReason);
+        Assert.Equal(IpcEditorLifecycleState.Unavailable, output.LifecycleState);
+        Assert.Equal(IpcEditorBlockingReason.Unavailable, output.BlockingReason);
         Assert.Null(output.CompileState);
-        Assert.Null(output.CompileGeneration);
-        Assert.Null(output.DomainReloadGeneration);
+        Assert.Null(output.Generations);
         Assert.False(output.CanAcceptExecutionRequests);
         Assert.Null(output.EditorMode);
         Assert.Null(output.PlayMode);

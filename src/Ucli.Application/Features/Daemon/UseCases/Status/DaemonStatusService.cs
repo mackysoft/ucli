@@ -213,8 +213,7 @@ internal sealed class DaemonStatusService : IDaemonStatusService
             LifecycleState: daemonObservation.LifecycleState,
             BlockingReason: daemonObservation.BlockingReason,
             CompileState: daemonObservation.CompileState,
-            CompileGeneration: daemonObservation.CompileGeneration,
-            DomainReloadGeneration: daemonObservation.DomainReloadGeneration,
+            Generations: daemonObservation.Generations,
             CanAcceptExecutionRequests: daemonObservation.CanAcceptExecutionRequests,
             TimeoutMilliseconds: checked((int)executionContext.Timeout.TotalMilliseconds),
             Session: statusResult.Session is null

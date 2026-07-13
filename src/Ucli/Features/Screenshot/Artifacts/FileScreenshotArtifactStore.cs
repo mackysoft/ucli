@@ -79,7 +79,6 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
-        ArgumentNullException.ThrowIfNull(request.Paths);
 
         string? temporaryPngPath = null;
         var layoutValidated = false;
@@ -94,7 +93,7 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
             temporaryPngPath = request.Paths.PngPath + $".tmp.{Guid.NewGuid():N}";
             ValidateStagingContract(request);
             FileSystemAccessBoundary.EnsureSecureDirectory(request.Paths.StagingDirectory);
-            EnsureReadableRawStagingFile(request.Paths.RawStagingPath, request.SizeBytes);
+            EnsureReadableRawStagingFile(request.Paths.RawStagingPath, request.Staging.SizeBytes);
             EnsureCapturePathDoesNotExist(request.Paths.ArtifactDirectory, "Screenshot artifact directory");
             FileSystemAccessBoundary.EnsureSecureDirectory(request.Paths.ArtifactDirectory);
             EnsureWritableNewFilePath(request.Paths.PngPath, "Screenshot PNG artifact");
@@ -185,14 +184,9 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
     }
 
     /// <inheritdoc />
-    public ValueTask<ScreenshotArtifactDiscardResult> DiscardAsync (
-        ScreenshotArtifactPaths paths,
-        CancellationToken cancellationToken = default)
+    public ScreenshotArtifactDiscardResult Discard (ScreenshotArtifactPaths paths)
     {
         ArgumentNullException.ThrowIfNull(paths);
-
-        // NOTE: Discard is a compensation boundary and must remove staging even after the capture token is canceled.
-        _ = cancellationToken;
 
         try
         {
@@ -200,16 +194,16 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
         }
         catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
-            return ValueTask.FromResult(ScreenshotArtifactDiscardResult.Failure(ExecutionError.InvalidArgument(
-                $"Screenshot artifact path is invalid. {exception.Message}")));
+            return ScreenshotArtifactDiscardResult.Failure(ExecutionError.InvalidArgument(
+                $"Screenshot artifact path is invalid. {exception.Message}"));
         }
         catch (InvalidOperationException exception)
         {
-            return ValueTask.FromResult(ScreenshotArtifactDiscardResult.Failure(ExecutionError.InvalidArgument(
-                $"Screenshot artifact path layout is invalid. {exception.Message}")));
+            return ScreenshotArtifactDiscardResult.Failure(ExecutionError.InvalidArgument(
+                $"Screenshot artifact path layout is invalid. {exception.Message}"));
         }
 
-        return ValueTask.FromResult(DiscardCore(paths));
+        return DiscardCore(paths);
     }
 
     private async ValueTask EncodeTemporaryPngAsync (
@@ -237,7 +231,7 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
         CancellationToken cancellationToken)
     {
         EnsureReadablePngFile(pngPath);
-        EnsureReadableRawStagingFile(request.Paths.RawStagingPath, request.SizeBytes);
+        EnsureReadableRawStagingFile(request.Paths.RawStagingPath, request.Staging.SizeBytes);
         await using var pngStream = new FileStream(
             pngPath,
             FileMode.Open,
@@ -264,10 +258,11 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
 
     private static void ValidateStagingContract (ScreenshotArtifactCommitRequest request)
     {
+        var staging = request.Staging;
         string returnedStagingPath;
         try
         {
-            returnedStagingPath = Path.GetFullPath(request.ReturnedStagingPath);
+            returnedStagingPath = Path.GetFullPath(staging.Path);
         }
         catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
@@ -279,16 +274,16 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
             throw new ScreenshotCaptureContractException("Unity returned a staging path other than the host-prepared path.");
         }
 
-        if (!ContractLiteralCodec.Matches(request.PixelFormat, IpcScreenshotPixelFormat.Rgba8Srgb))
+        if (staging.PixelFormat != IpcScreenshotPixelFormat.Rgba8Srgb)
         {
             throw new ScreenshotCaptureContractException(
-                $"Pixel format must be {ContractLiteralCodec.ToValue(IpcScreenshotPixelFormat.Rgba8Srgb)}: {request.PixelFormat}.");
+                $"Pixel format must be {ContractLiteralCodec.ToValue(IpcScreenshotPixelFormat.Rgba8Srgb)}: {staging.PixelFormat}.");
         }
 
-        if (!ContractLiteralCodec.Matches(request.RowOrder, IpcScreenshotRowOrder.TopDown))
+        if (staging.RowOrder != IpcScreenshotRowOrder.TopDown)
         {
             throw new ScreenshotCaptureContractException(
-                $"Row order must be {ContractLiteralCodec.ToValue(IpcScreenshotRowOrder.TopDown)}: {request.RowOrder}.");
+                $"Row order must be {ContractLiteralCodec.ToValue(IpcScreenshotRowOrder.TopDown)}: {staging.RowOrder}.");
         }
 
         if (request.Width <= 0 || request.Height <= 0)
@@ -315,16 +310,16 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
             throw new ScreenshotCaptureContractException($"Captured dimensions exceed the supported raw image size. {exception.Message}");
         }
 
-        if (request.RowStrideBytes != expectedRowStrideBytes)
+        if (staging.RowStrideBytes != expectedRowStrideBytes)
         {
             throw new ScreenshotCaptureContractException(
-                $"Raw row stride does not match RGBA8 dimensions. Expected={expectedRowStrideBytes}, Actual={request.RowStrideBytes}.");
+                $"Raw row stride does not match RGBA8 dimensions. Expected={expectedRowStrideBytes}, Actual={staging.RowStrideBytes}.");
         }
 
-        if (request.SizeBytes != expectedSizeBytes)
+        if (staging.SizeBytes != expectedSizeBytes)
         {
             throw new ScreenshotCaptureContractException(
-                $"Raw byte count does not match RGBA8 dimensions. Expected={expectedSizeBytes}, Actual={request.SizeBytes}.");
+                $"Raw byte count does not match RGBA8 dimensions. Expected={expectedSizeBytes}, Actual={staging.SizeBytes}.");
         }
 
         if (expectedSizeBytes > IpcScreenshotCaptureLimits.MaximumRawImageBytes)

@@ -69,13 +69,24 @@ public sealed class FileScreenshotArtifactStoreTests
 
         await File.WriteAllBytesAsync(paths.RawStagingPath, rawBytes, CancellationToken.None);
         var request = CreateCommitRequest(paths);
+        var staging = request.Staging;
         request = caseName switch
         {
-            "returned-path" => request with { ReturnedStagingPath = Path.Combine(scope.FullPath, "outside.rgba") },
-            "pixel-format" => request with { PixelFormat = "rgba8Linear" },
-            "row-order" => request with { RowOrder = "bottomUp" },
-            "row-stride" => request with { RowStrideBytes = request.RowStrideBytes + 1 },
-            "reported-size" => request with { SizeBytes = request.SizeBytes - 1 },
+            "returned-path" => CreateCommitRequest(
+                paths,
+                staging: staging with { Path = Path.Combine(scope.FullPath, "outside.rgba") }),
+            "pixel-format" => CreateCommitRequest(
+                paths,
+                staging: staging with { PixelFormat = (IpcScreenshotPixelFormat)int.MaxValue }),
+            "row-order" => CreateCommitRequest(
+                paths,
+                staging: staging with { RowOrder = (IpcScreenshotRowOrder)int.MaxValue }),
+            "row-stride" => CreateCommitRequest(
+                paths,
+                staging: staging with { RowStrideBytes = staging.RowStrideBytes + 1 }),
+            "reported-size" => CreateCommitRequest(
+                paths,
+                staging: staging with { SizeBytes = staging.SizeBytes - 1 }),
             "actual-size" => request,
             _ => throw new ArgumentOutOfRangeException(nameof(caseName), caseName, "Unknown raw contract case."),
         };
@@ -108,7 +119,7 @@ public sealed class FileScreenshotArtifactStoreTests
         Assert.False(File.Exists(outsidePath));
         Assert.False(File.Exists(paths.PngPath));
 
-        var discardResult = await store.DiscardAsync(paths, CancellationToken.None);
+        var discardResult = store.Discard(paths);
         Assert.True(discardResult.IsSuccess);
         Assert.False(Directory.Exists(paths.StagingDirectory));
     }
@@ -151,15 +162,16 @@ public sealed class FileScreenshotArtifactStoreTests
         var width = IpcScreenshotCaptureLimits.MaximumDimension + 1;
         var rawBytes = new byte[checked(width * 4)];
         await File.WriteAllBytesAsync(paths.RawStagingPath, rawBytes, CancellationToken.None);
-        var request = new ScreenshotArtifactCommitRequest(
+        var request = CreateCommitRequest(
             paths,
-            paths.RawStagingPath,
-            Width: width,
-            Height: 1,
-            ContractLiteralCodec.ToValue(IpcScreenshotPixelFormat.Rgba8Srgb),
-            ContractLiteralCodec.ToValue(IpcScreenshotRowOrder.TopDown),
-            RowStrideBytes: rawBytes.Length,
-            SizeBytes: rawBytes.LongLength);
+            width,
+            height: 1,
+            new IpcScreenshotStagingImage(
+                paths.RawStagingPath,
+                IpcScreenshotPixelFormat.Rgba8Srgb,
+                IpcScreenshotRowOrder.TopDown,
+                RowStrideBytes: rawBytes.Length,
+                SizeBytes: rawBytes.LongLength));
 
         var result = await store.CommitAsync(request, CancellationToken.None);
 
@@ -201,14 +213,14 @@ public sealed class FileScreenshotArtifactStoreTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task DiscardAsync_AfterCaptureFailure_RemovesStagingAndDoesNotCreateFinalArtifact ()
+    public async Task Discard_AfterCaptureFailure_RemovesStagingAndDoesNotCreateFinalArtifact ()
     {
         using var scope = TestDirectories.CreateTempScope("screenshot-artifact-store", "discard");
         var store = CreateStore();
         var paths = Prepare(store, scope);
         await File.WriteAllBytesAsync(paths.RawStagingPath, CreateTwoByTwoRawBytes(), CancellationToken.None);
 
-        var result = await store.DiscardAsync(paths, CancellationToken.None);
+        var result = store.Discard(paths);
 
         Assert.True(result.IsSuccess);
         Assert.False(File.Exists(paths.RawStagingPath));
@@ -353,17 +365,22 @@ public sealed class FileScreenshotArtifactStoreTests
         return paths;
     }
 
-    private static ScreenshotArtifactCommitRequest CreateCommitRequest (ScreenshotArtifactPaths paths)
+    private static ScreenshotArtifactCommitRequest CreateCommitRequest (
+        ScreenshotArtifactPaths paths,
+        int width = 2,
+        int height = 2,
+        IpcScreenshotStagingImage? staging = null)
     {
         return new ScreenshotArtifactCommitRequest(
             paths,
-            paths.RawStagingPath,
-            Width: 2,
-            Height: 2,
-            ContractLiteralCodec.ToValue(IpcScreenshotPixelFormat.Rgba8Srgb),
-            ContractLiteralCodec.ToValue(IpcScreenshotRowOrder.TopDown),
-            RowStrideBytes: 8,
-            SizeBytes: 16);
+            width,
+            height,
+            staging ?? new IpcScreenshotStagingImage(
+                paths.RawStagingPath,
+                IpcScreenshotPixelFormat.Rgba8Srgb,
+                IpcScreenshotRowOrder.TopDown,
+                RowStrideBytes: checked(width * 4),
+                SizeBytes: checked((long)width * height * 4)));
     }
 
     private static byte[] CreateTwoByTwoRawBytes ()

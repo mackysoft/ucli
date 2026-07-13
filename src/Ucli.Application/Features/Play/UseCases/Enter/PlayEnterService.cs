@@ -1,10 +1,7 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Play.Common;
 using MackySoft.Ucli.Application.Features.Play.Common.Projection;
-using MackySoft.Ucli.Application.Shared.CommandContracts.Projection;
 using MackySoft.Ucli.Contracts.Ipc;
-
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Play.UseCases.Enter;
 
@@ -179,39 +176,27 @@ internal sealed class PlayEnterService : IPlayEnterService
             return PlayEnterOutputCreationResult.Failure(validationFailure);
         }
 
-        var lifecycle = LifecycleProjectionFactory.Create(currentSnapshot);
-        if (!ContractLiteralCodec.Matches(lifecycle.EditorMode, DaemonEditorMode.Gui))
+        var lifecycle = PlayOutputProjectionFactory.CreateSnapshotOutput(currentSnapshot);
+        if (lifecycle.EditorMode != DaemonEditorMode.Gui)
         {
             return PlayEnterOutputCreationResult.Failure(ApplicationFailure.InternalError(
                 RequiresGuiEditorMessage,
                 PlayModeErrorCodes.PlayModeRequiresGuiEditor));
         }
 
-        if (lifecycle.PlayMode is null)
-        {
-            return PlayEnterOutputCreationResult.Failure(CreateStateUnknownFailure("Unity play enter playMode snapshot is missing or invalid."));
-        }
-
         return PlayEnterOutputCreationResult.Success(new PlayEnterExecutionOutput(
             Project: context.Project,
             DaemonStatus: DaemonStatusKind.Running,
             ServerVersion: lifecycle.ServerVersion,
-            EditorMode: ContractLiteralCodec.ToValue(DaemonEditorMode.Gui),
-            LifecycleState: lifecycle.LifecycleState.HasValue
-                ? ContractLiteralCodec.ToValue(lifecycle.LifecycleState.Value)
-                : null,
-            BlockingReason: lifecycle.BlockingReason.HasValue
-                ? ContractLiteralCodec.ToValue(lifecycle.BlockingReason.Value)
-                : null,
-            CompileState: lifecycle.CompileState.HasValue
-                ? ContractLiteralCodec.ToValue(lifecycle.CompileState.Value)
-                : null,
-            CompileGeneration: lifecycle.CompileGeneration,
-            DomainReloadGeneration: lifecycle.DomainReloadGeneration,
+            EditorMode: DaemonEditorMode.Gui,
+            LifecycleState: lifecycle.LifecycleState,
+            BlockingReason: lifecycle.BlockingReason,
+            CompileState: lifecycle.CompileState,
+            Generations: lifecycle.Generations,
             CanAcceptExecutionRequests: lifecycle.CanAcceptExecutionRequests,
             ObservedAtUtc: lifecycle.ObservedAtUtc,
             ActionRequired: lifecycle.ActionRequired,
-            PrimaryDiagnostic: PlayOutputProjectionFactory.CreatePrimaryDiagnosticOutput(lifecycle.PrimaryDiagnostic),
+            PrimaryDiagnostic: lifecycle.PrimaryDiagnostic,
             PlayMode: lifecycle.PlayMode,
             Transition: CreateTransitionOutput(transition),
             TimeoutMilliseconds: context.TimeoutMilliseconds));
@@ -244,7 +229,7 @@ internal sealed class PlayEnterService : IPlayEnterService
             : CreateStateUnknownFailure($"Unity play enter transition error applicationState is invalid. Actual={transition.ApplicationState}.");
     }
 
-    private static IpcPlayLifecycleSnapshot? ResolveCurrentSnapshot (IpcPlayTransitionResult transition)
+    private static IpcUnityEditorObservation? ResolveCurrentSnapshot (IpcPlayTransitionResult transition)
     {
         return transition.Result switch
         {
@@ -268,15 +253,15 @@ internal sealed class PlayEnterService : IPlayEnterService
     private static ApplicationFailure? ValidateTransitionSnapshots (
         PlayCommandExecutionContext context,
         IpcPlayTransitionResult transition,
-        IpcPlayLifecycleSnapshot currentSnapshot)
+        IpcUnityEditorObservation currentSnapshot)
     {
-        var beforeFailure = ValidateSnapshotProjectAndPlayMode(context, transition.Before, "before");
+        var beforeFailure = ValidateSnapshotProject(context, transition.Before, "before");
         if (beforeFailure is not null)
         {
             return beforeFailure;
         }
 
-        var currentFailure = ValidateSnapshotProjectAndPlayMode(context, currentSnapshot, "current");
+        var currentFailure = ValidateSnapshotProject(context, currentSnapshot, "current");
         if (currentFailure is not null)
         {
             return currentFailure;
@@ -292,9 +277,9 @@ internal sealed class PlayEnterService : IPlayEnterService
         };
     }
 
-    private static ApplicationFailure? ValidateSnapshotProjectAndPlayMode (
+    private static ApplicationFailure? ValidateSnapshotProject (
         PlayCommandExecutionContext context,
-        IpcPlayLifecycleSnapshot snapshot,
+        IpcUnityEditorObservation snapshot,
         string label)
     {
         if (!string.Equals(snapshot.ProjectFingerprint, context.Project.ProjectFingerprint, StringComparison.Ordinal))
@@ -303,14 +288,12 @@ internal sealed class PlayEnterService : IPlayEnterService
                 $"Unity play enter {label} projectFingerprint mismatch. Requested={context.Project.ProjectFingerprint}, Actual={snapshot.ProjectFingerprint}.");
         }
 
-        return PlayModeSnapshotOutputFactory.Create(snapshot.PlayMode) is null
-            ? CreateStateUnknownFailure($"Unity play enter {label} playMode snapshot is missing or invalid.")
-            : null;
+        return null;
     }
 
     private static ApplicationFailure? ValidateEntered (
-        IpcPlayLifecycleSnapshot before,
-        IpcPlayLifecycleSnapshot after)
+        IpcUnityEditorObservation before,
+        IpcUnityEditorObservation after)
     {
         if (!IsReadyStoppedSnapshot(before))
         {
@@ -322,26 +305,26 @@ internal sealed class PlayEnterService : IPlayEnterService
             return CreateStateUnknownFailure("Unity play enter reported entered without a playing snapshot.");
         }
 
-        if (string.Equals(before.PlayMode?.Generation, after.PlayMode?.Generation, StringComparison.Ordinal))
+        if (before.State.Generations.PlayModeGeneration == after.State.Generations.PlayModeGeneration)
         {
-            return CreateStateUnknownFailure("Unity play enter reported entered without changing playMode.generation.");
+            return CreateStateUnknownFailure("Unity play enter reported entered without changing generations.playModeGeneration.");
         }
 
         return null;
     }
 
     private static ApplicationFailure? ValidateAlreadyEntered (
-        IpcPlayLifecycleSnapshot before,
-        IpcPlayLifecycleSnapshot after)
+        IpcUnityEditorObservation before,
+        IpcUnityEditorObservation after)
     {
         if (!IsEnteredSnapshot(before) || !IsEnteredSnapshot(after))
         {
             return CreateStateUnknownFailure("Unity play enter reported alreadyEntered without a playing snapshot.");
         }
 
-        if (!string.Equals(before.PlayMode?.Generation, after.PlayMode?.Generation, StringComparison.Ordinal))
+        if (before.State.Generations.PlayModeGeneration != after.State.Generations.PlayModeGeneration)
         {
-            return CreateStateUnknownFailure("Unity play enter reported alreadyEntered after changing playMode.generation.");
+            return CreateStateUnknownFailure("Unity play enter reported alreadyEntered after changing generations.playModeGeneration.");
         }
 
         return null;
@@ -385,49 +368,25 @@ internal sealed class PlayEnterService : IPlayEnterService
             or IpcPlayApplicationStateNames.Unknown;
     }
 
-    private static bool IsReadyStoppedSnapshot (IpcPlayLifecycleSnapshot snapshot)
+    private static bool IsReadyStoppedSnapshot (IpcUnityEditorObservation snapshot)
     {
-        return TryReadPlayModeSnapshot(
-                snapshot,
-                out var playMode,
-                out var playModeState,
-                out var playModeTransition)
-            && ContractLiteralCodec.Matches(snapshot.LifecycleState, IpcEditorLifecycleState.Ready)
-            && string.IsNullOrWhiteSpace(snapshot.BlockingReason)
-            && snapshot.CanAcceptExecutionRequests
-            && playModeState == IpcPlayModeState.Stopped
-            && playModeTransition == IpcPlayModeTransition.None
+        var state = snapshot.State;
+        var playMode = state.PlayMode;
+        return state.LifecycleState == IpcEditorLifecycleState.Ready
+            && playMode.State == IpcPlayModeState.Stopped
+            && playMode.Transition == IpcPlayModeTransition.None
             && !playMode.IsPlaying
             && !playMode.IsPlayingOrWillChangePlaymode;
     }
 
-    private static bool IsEnteredSnapshot (IpcPlayLifecycleSnapshot snapshot)
+    private static bool IsEnteredSnapshot (IpcUnityEditorObservation snapshot)
     {
-        return TryReadPlayModeSnapshot(
-                snapshot,
-                out var playMode,
-                out var playModeState,
-                out var playModeTransition)
-            && ContractLiteralCodec.Matches(snapshot.LifecycleState, IpcEditorLifecycleState.PlayMode)
-            && ContractLiteralCodec.Matches(snapshot.BlockingReason, IpcEditorBlockingReason.PlayMode)
-            && playModeState == IpcPlayModeState.Playing
-            && playModeTransition == IpcPlayModeTransition.None
-            && playMode.IsPlaying
-            && !snapshot.CanAcceptExecutionRequests;
-    }
-
-    private static bool TryReadPlayModeSnapshot (
-        IpcPlayLifecycleSnapshot snapshot,
-        out IpcPlayModeSnapshot playMode,
-        out IpcPlayModeState state,
-        out IpcPlayModeTransition transition)
-    {
-        playMode = snapshot.PlayMode!;
-        state = default;
-        transition = default;
-        return playMode is not null
-            && ContractLiteralInputParser.TryParseTrimmed<IpcPlayModeState>(playMode.State, out state)
-            && ContractLiteralInputParser.TryParseTrimmed<IpcPlayModeTransition>(playMode.Transition, out transition);
+        var state = snapshot.State;
+        var playMode = state.PlayMode;
+        return state.LifecycleState == IpcEditorLifecycleState.PlayMode
+            && playMode.State == IpcPlayModeState.Playing
+            && playMode.Transition == IpcPlayModeTransition.None
+            && playMode.IsPlaying;
     }
 
     private static ApplicationFailure CreateErrorFromUnityRequestFailure (UnityRequestFailure failure)

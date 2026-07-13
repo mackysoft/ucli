@@ -17,42 +17,36 @@ public sealed class StatusDaemonObservationCodecTests
         Assert.Null(actual.LifecycleState);
         Assert.Null(actual.BlockingReason);
         Assert.Null(actual.CompileState);
-        Assert.Null(actual.CompileGeneration);
-        Assert.Null(actual.DomainReloadGeneration);
+        Assert.Null(actual.Generations);
         Assert.False(actual.CanAcceptExecutionRequests);
         Assert.Null(actual.EditorMode);
         Assert.Null(actual.PlayMode);
     }
 
-    [Theory]
+    [Fact]
     [Trait("Size", "Small")]
-    [InlineData("ready", "ready")]
-    [InlineData("compiling", "compiling")]
-    [InlineData(" Ready ", null)]
-    [InlineData("unknown", null)]
-    [InlineData("", null)]
-    [InlineData("  ", null)]
-    public void CreateFromPing_NormalizesCompileStateToSupportedLiterals (
-        string compileState,
-        string? expectedCompileState)
+    public void CreateFromPing_ProjectsTypedEditorStateSnapshot ()
     {
-        var pingResponse = new IpcPingResponse(
-            ServerVersion: " 0.5.0 ",
-            EditorMode: $" {"batchmode"} ",
-            UnityVersion: "2022.3.5f1",
-            ProjectFingerprint: "project-fingerprint",
-            CompileState: compileState,
-            LifecycleState: ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Ready),
-            BlockingReason: null,
-            CompileGeneration: " 42 ",
-            DomainReloadGeneration: " 17 ",
-            CanAcceptExecutionRequests: true,
-            PlayMode: new IpcPlayModeSnapshot(
-                State: " playing ",
-                Transition: " none ",
-                IsPlaying: true,
-                IsPlayingOrWillChangePlaymode: true,
-                Generation: " 9 "));
+        var observedAtUtc = new DateTimeOffset(2026, 7, 13, 1, 2, 3, TimeSpan.Zero);
+        var pingResponse = new IpcUnityEditorObservation(
+            serverVersion: " 0.5.0 ",
+            unityVersion: "2022.3.5f1",
+            projectFingerprint: "project-fingerprint",
+            state: new UnityEditorStateSnapshot(
+                editorMode: DaemonEditorMode.Batchmode,
+                lifecycleState: IpcEditorLifecycleState.Compiling,
+                compileState: IpcCompileState.Compiling,
+                generations: new IpcUnityGenerationSnapshot(
+                    CompileGeneration: 42,
+                    DomainReloadGeneration: 17,
+                    AssetRefreshGeneration: 11,
+                    PlayModeGeneration: 9),
+                playMode: new IpcPlayModeSnapshot(
+                    State: IpcPlayModeState.Entering,
+                    Transition: IpcPlayModeTransition.Entering,
+                    IsPlaying: false,
+                    IsPlayingOrWillChangePlaymode: true)),
+            observedAtUtc: observedAtUtc);
 
         var actual = StatusDaemonObservationCodec.CreateFromPing(
             DaemonStatusKind.Running,
@@ -60,91 +54,21 @@ public sealed class StatusDaemonObservationCodecTests
 
         Assert.Equal(DaemonStatusKind.Running, actual.DaemonStatus);
         Assert.Equal("0.5.0", actual.ServerVersion);
-        Assert.Equal("ready", actual.LifecycleState);
-        Assert.Null(actual.BlockingReason);
-        Assert.Equal(expectedCompileState, actual.CompileState);
-        Assert.Equal("42", actual.CompileGeneration);
-        Assert.Equal("17", actual.DomainReloadGeneration);
-        Assert.True(actual.CanAcceptExecutionRequests);
-        Assert.Equal("batchmode", actual.EditorMode);
+        Assert.Equal(IpcEditorLifecycleState.Compiling, actual.LifecycleState);
+        Assert.Equal(IpcEditorBlockingReason.Compile, actual.BlockingReason);
+        Assert.Equal(IpcCompileState.Compiling, actual.CompileState);
+        Assert.NotNull(actual.Generations);
+        Assert.Equal(42, actual.Generations.CompileGeneration);
+        Assert.Equal(17, actual.Generations.DomainReloadGeneration);
+        Assert.Equal(11, actual.Generations.AssetRefreshGeneration);
+        Assert.Equal(9, actual.Generations.PlayModeGeneration);
+        Assert.False(actual.CanAcceptExecutionRequests);
+        Assert.Equal(DaemonEditorMode.Batchmode, actual.EditorMode);
+        Assert.Equal(observedAtUtc, actual.ObservedAtUtc);
         Assert.NotNull(actual.PlayMode);
-        Assert.Equal("playing", actual.PlayMode.State);
-        Assert.Equal("none", actual.PlayMode.Transition);
-        Assert.True(actual.PlayMode.IsPlaying);
+        Assert.Equal(IpcPlayModeState.Entering, actual.PlayMode.State);
+        Assert.Equal(IpcPlayModeTransition.Entering, actual.PlayMode.Transition);
+        Assert.False(actual.PlayMode.IsPlaying);
         Assert.True(actual.PlayMode.IsPlayingOrWillChangePlaymode);
-        Assert.Equal("9", actual.PlayMode.Generation);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void CreateFromPing_WhenLifecycleStateIsUnsupported_ClearsBlockingAndReadinessFields ()
-    {
-        var pingResponse = new IpcPingResponse(
-            ServerVersion: "0.5.0",
-            EditorMode: "batchmode",
-            UnityVersion: "2022.3.5f1",
-            ProjectFingerprint: "project-fingerprint",
-            CompileState: "ready",
-            LifecycleState: "unsupported",
-            BlockingReason: "busy",
-            CompileGeneration: "42",
-            DomainReloadGeneration: "17",
-            CanAcceptExecutionRequests: true);
-
-        var actual = StatusDaemonObservationCodec.CreateFromPing(
-            DaemonStatusKind.Running,
-            pingResponse);
-
-        Assert.Null(actual.LifecycleState);
-        Assert.Null(actual.BlockingReason);
-        Assert.False(actual.CanAcceptExecutionRequests);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void CreateFromPing_WhenEditorModeIsUnsupported_ClearsEditorMode ()
-    {
-        var pingResponse = new IpcPingResponse(
-            ServerVersion: "0.5.0",
-            EditorMode: "unsupported",
-            UnityVersion: "2022.3.5f1",
-            ProjectFingerprint: "project-fingerprint",
-            CompileState: "ready",
-            LifecycleState: "ready",
-            BlockingReason: null,
-            CompileGeneration: "42",
-            DomainReloadGeneration: "17",
-            CanAcceptExecutionRequests: true);
-
-        var actual = StatusDaemonObservationCodec.CreateFromPing(
-            DaemonStatusKind.Running,
-            pingResponse);
-
-        Assert.Null(actual.EditorMode);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void CreateFromPing_WhenLifecycleTupleIsInconsistent_ClearsLifecycleReadinessFields ()
-    {
-        var pingResponse = new IpcPingResponse(
-            ServerVersion: "0.5.0",
-            EditorMode: "batchmode",
-            UnityVersion: "2022.3.5f1",
-            ProjectFingerprint: "project-fingerprint",
-            CompileState: "ready",
-            LifecycleState: "ready",
-            BlockingReason: "busy",
-            CompileGeneration: "42",
-            DomainReloadGeneration: "17",
-            CanAcceptExecutionRequests: true);
-
-        var actual = StatusDaemonObservationCodec.CreateFromPing(
-            DaemonStatusKind.Running,
-            pingResponse);
-
-        Assert.Null(actual.LifecycleState);
-        Assert.Null(actual.BlockingReason);
-        Assert.False(actual.CanAcceptExecutionRequests);
     }
 }

@@ -76,6 +76,23 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result, Is.False);
         }
 
+        [Test]
+        [Category("Size.Small")]
+        public void TryValidateStable_WhenPipelineAssetIsDestroyedAfterFirstObservation_ReturnsFalse ()
+        {
+            var pipelineAsset = ScriptableObject.CreateInstance<StubRenderPipelineAsset>();
+            var before = State(pipelineAsset: pipelineAsset);
+            Object.DestroyImmediate(pipelineAsset);
+            var after = State(pipelineAsset: pipelineAsset);
+
+            var result = UnityScreenshotPresentationStateFence.TryValidateStable(
+                before,
+                after,
+                out _);
+
+            Assert.That(result, Is.False);
+        }
+
         [TestCase(true, true)]
         [TestCase(false, false)]
         [Category("Size.Small")]
@@ -105,7 +122,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 shaderCompiling,
                 pipelineSwitchCompleted,
                 qualityLevel,
-                pipelineAsset,
+                pipelineAsset != null ? pipelineAsset.GetInstanceID() : (int?)null,
                 pipeline);
         }
 
@@ -115,6 +132,14 @@ namespace MackySoft.Ucli.Unity.Tests
                 ScriptableRenderContext context,
                 Camera[] cameras)
             {
+            }
+        }
+
+        private sealed class StubRenderPipelineAsset : RenderPipelineAsset
+        {
+            protected override RenderPipeline CreatePipeline ()
+            {
+                return new StubRenderPipeline();
             }
         }
     }

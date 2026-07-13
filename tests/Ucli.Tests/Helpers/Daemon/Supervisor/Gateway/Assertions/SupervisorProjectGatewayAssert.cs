@@ -23,7 +23,7 @@ internal static class SupervisorProjectGatewayAssert
                 ContractLiteralCodec.ToValue(DaemonStartProgressEvent.SupervisorBootstrapCompleted),
                 entry.EventName));
         var completedEntry = Assert.IsType<DaemonStartProgressEntry>(progressSink.Entries[^1].Payload);
-        Assert.Equal(ContractLiteralCodec.ToValue(CommandProgressResult.Failed), completedEntry.Result);
+        Assert.Equal(CommandProgressResult.Failed, completedEntry.Result);
         Assert.Null(completedEntry.StartStatus);
         Assert.Null(completedEntry.DaemonStatus);
         Assert.Equal(expectedErrorCode.Value, completedEntry.ErrorCode);

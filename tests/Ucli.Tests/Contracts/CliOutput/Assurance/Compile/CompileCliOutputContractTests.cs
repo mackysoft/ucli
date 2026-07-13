@@ -23,8 +23,8 @@ public sealed class CompileCliOutputContractTests
         Assert.False(domainReload.GetProperty("reloadRequired").GetBoolean());
         Assert.False(domainReload.GetProperty("reloadObserved").GetBoolean());
         Assert.Equal(
-            domainReload.GetProperty("generationBefore").GetString(),
-            domainReload.GetProperty("generationAfter").GetString());
+            domainReload.GetProperty("generationBefore").GetInt64(),
+            domainReload.GetProperty("generationAfter").GetInt64());
     }
 
     [Fact]

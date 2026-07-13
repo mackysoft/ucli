@@ -53,10 +53,10 @@ public sealed class UnityDaemonRecoveryWaiterTests
     {
         var timeProvider = new ManualTimeProvider();
         var session = DaemonSessionTestFactory.CreateEditorInstance();
-        var observation = CreateObservation(session, IpcEditorLifecycleState.DomainReloading) with
-        {
-            ProcessStartedAtUtc = session.ProcessStartedAtUtc!.Value.AddMilliseconds(1),
-        };
+        var observation = CreateObservation(
+            session,
+            IpcEditorLifecycleState.DomainReloading,
+            processStartedAtUtc: session.ProcessStartedAtUtc!.Value.AddMilliseconds(1));
         var waiter = CreateWaiter(
             session,
             observation,
@@ -78,10 +78,10 @@ public sealed class UnityDaemonRecoveryWaiterTests
     {
         var timeProvider = new ManualTimeProvider();
         var session = DaemonSessionTestFactory.CreateEditorInstance();
-        var observation = CreateObservation(session, IpcEditorLifecycleState.DomainReloading) with
-        {
-            EditorInstanceId = "other-editor-instance",
-        };
+        var observation = CreateObservation(
+            session,
+            IpcEditorLifecycleState.DomainReloading,
+            editorInstanceId: "other-editor-instance");
         var waiter = CreateWaiter(
             session,
             observation,
@@ -139,7 +139,7 @@ public sealed class UnityDaemonRecoveryWaiterTests
     public async Task DelayIfRecoveringAsync_WhenSessionIsBatchmode_ReturnsFalseWithoutDelay ()
     {
         var timeProvider = new ManualTimeProvider();
-        var session = DaemonSessionTestFactory.CreateEditorInstance(editorMode: "batchmode");
+        var session = DaemonSessionTestFactory.CreateEditorInstance(editorMode: DaemonEditorMode.Batchmode);
         var waiter = CreateWaiter(
             session,
             CreateObservation(session, IpcEditorLifecycleState.DomainReloading),
@@ -173,22 +173,28 @@ public sealed class UnityDaemonRecoveryWaiterTests
 
     private static DaemonLifecycleObservation CreateObservation (
         DaemonSession session,
-        IpcEditorLifecycleState lifecycleState)
+        IpcEditorLifecycleState lifecycleState,
+        DateTimeOffset? processStartedAtUtc = null,
+        string? editorInstanceId = null)
     {
         return new DaemonLifecycleObservation(
-            ProcessId: session.ProcessId!.Value,
-            ProcessStartedAtUtc: session.ProcessStartedAtUtc!.Value,
-            EditorMode: session.EditorMode,
-            LifecycleState: lifecycleState,
-            CompileState: IpcCompileState.Ready,
-            CompileGeneration: "1",
-            DomainReloadGeneration: "2",
-            ObservedAtUtc: DateTimeOffset.UtcNow,
-            ActionRequired: null,
-            PrimaryDiagnostic: null)
-        {
-            EditorInstanceId = session.EditorInstanceId,
-        };
+            processId: session.ProcessId!.Value,
+            processStartedAtUtc: processStartedAtUtc ?? session.ProcessStartedAtUtc!.Value,
+            state: new UnityEditorStateSnapshot(
+                editorMode: session.EditorMode,
+                lifecycleState: lifecycleState,
+                compileState: IpcCompileState.Ready,
+                generations: new IpcUnityGenerationSnapshot(1, 2, 0, 0),
+                playMode: new IpcPlayModeSnapshot(
+                    IpcPlayModeState.Stopped,
+                    IpcPlayModeTransition.None,
+                    IsPlaying: false,
+                    IsPlayingOrWillChangePlaymode: false)),
+            observedAtUtc: DateTimeOffset.UtcNow,
+            actionRequired: null,
+            primaryDiagnostic: null,
+            serverVersion: null,
+            editorInstanceId: editorInstanceId ?? session.EditorInstanceId);
     }
 
 }

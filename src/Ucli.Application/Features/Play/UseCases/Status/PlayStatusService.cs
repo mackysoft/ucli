@@ -2,7 +2,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Play.Common;
-using MackySoft.Ucli.Application.Shared.CommandContracts.Projection;
+using MackySoft.Ucli.Application.Features.Play.Common.Projection;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
@@ -127,37 +127,25 @@ internal sealed class PlayStatusService : IPlayStatusService
                 $"Unity play status projectFingerprint mismatch. Requested={playContext.Project.ProjectFingerprint}, Actual={snapshot.ProjectFingerprint}."));
         }
 
-        var lifecycle = LifecycleProjectionFactory.Create(snapshot);
-        if (!ContractLiteralCodec.Matches(lifecycle.EditorMode, DaemonEditorMode.Gui))
+        var lifecycle = PlayOutputProjectionFactory.CreateSnapshotOutput(snapshot);
+        if (lifecycle.EditorMode != DaemonEditorMode.Gui)
         {
             return PlayStatusExecutionResult.Failure(CreateRequiresGuiEditorError());
-        }
-
-        if (lifecycle.PlayMode is null)
-        {
-            return PlayStatusExecutionResult.Failure(CreateStateUnknownError("Unity play status playMode snapshot is missing or invalid."));
         }
 
         var output = new PlayStatusExecutionOutput(
             Project: playContext.Project,
             DaemonStatus: DaemonStatusKind.Running,
             ServerVersion: lifecycle.ServerVersion,
-            EditorMode: ContractLiteralCodec.ToValue(DaemonEditorMode.Gui),
-            LifecycleState: lifecycle.LifecycleState.HasValue
-                ? ContractLiteralCodec.ToValue(lifecycle.LifecycleState.Value)
-                : null,
-            BlockingReason: lifecycle.BlockingReason.HasValue
-                ? ContractLiteralCodec.ToValue(lifecycle.BlockingReason.Value)
-                : null,
-            CompileState: lifecycle.CompileState.HasValue
-                ? ContractLiteralCodec.ToValue(lifecycle.CompileState.Value)
-                : null,
-            CompileGeneration: lifecycle.CompileGeneration,
-            DomainReloadGeneration: lifecycle.DomainReloadGeneration,
+            EditorMode: DaemonEditorMode.Gui,
+            LifecycleState: lifecycle.LifecycleState,
+            BlockingReason: lifecycle.BlockingReason,
+            CompileState: lifecycle.CompileState,
+            Generations: lifecycle.Generations,
             CanAcceptExecutionRequests: lifecycle.CanAcceptExecutionRequests,
             ObservedAtUtc: lifecycle.ObservedAtUtc,
             ActionRequired: lifecycle.ActionRequired,
-            PrimaryDiagnostic: ToOutput(lifecycle.PrimaryDiagnostic),
+            PrimaryDiagnostic: lifecycle.PrimaryDiagnostic,
             PlayMode: lifecycle.PlayMode,
             TimeoutMilliseconds: playContext.TimeoutMilliseconds);
         return PlayStatusExecutionResult.Success(output);
@@ -185,13 +173,7 @@ internal sealed class PlayStatusService : IPlayStatusService
             return null;
         }
 
-        if (!ContractLiteralCodec.Matches(observation.EditorMode, DaemonEditorMode.Gui))
-        {
-            return null;
-        }
-
-        var playMode = PlayModeSnapshotOutputFactory.Create(observation.PlayMode);
-        if (playMode is null)
+        if (observation.State.EditorMode != DaemonEditorMode.Gui)
         {
             return null;
         }
@@ -200,21 +182,18 @@ internal sealed class PlayStatusService : IPlayStatusService
             Project: playContext.Project,
             DaemonStatus: DaemonStatusKind.Running,
             ServerVersion: observation.ServerVersion,
-            EditorMode: ContractLiteralCodec.ToValue(DaemonEditorMode.Gui),
-            LifecycleState: ContractLiteralCodec.ToValue(observation.LifecycleState),
-            BlockingReason: observation.BlockingReason.HasValue
-                ? ContractLiteralCodec.ToValue(observation.BlockingReason.Value)
-                : null,
-            CompileState: ContractLiteralCodec.ToValue(observation.CompileState),
-            CompileGeneration: observation.CompileGeneration,
-            DomainReloadGeneration: observation.DomainReloadGeneration,
+            EditorMode: DaemonEditorMode.Gui,
+            LifecycleState: observation.State.LifecycleState,
+            BlockingReason: observation.BlockingReason,
+            CompileState: observation.State.CompileState,
+            Generations: observation.State.Generations,
             CanAcceptExecutionRequests: observation.CanAcceptExecutionRequests,
             ObservedAtUtc: observation.ObservedAtUtc,
             ActionRequired: observation.ActionRequired,
             PrimaryDiagnostic: ToOutput(observation.PrimaryDiagnostic),
-            PlayMode: playMode,
+            PlayMode: observation.State.PlayMode,
             TimeoutMilliseconds: playContext.TimeoutMilliseconds);
-        return new ObservedPlayStatus(output, observation.LifecycleState);
+        return new ObservedPlayStatus(output, observation.State.LifecycleState);
     }
 
     private static DaemonPrimaryDiagnosticOutput? ToOutput (IpcPrimaryDiagnostic? diagnostic)

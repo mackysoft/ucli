@@ -55,8 +55,8 @@ public sealed class IpcBuildRunContractSerializationTests
             new IpcBuildRunResponse(
                 RunId: "build-run-1",
                 ProjectFingerprint: "project-fingerprint",
-                LifecycleBefore: CreateBuildLifecycleSnapshot("before", canAcceptExecutionRequests: true),
-                LifecycleAfter: CreateBuildLifecycleSnapshot("after", canAcceptExecutionRequests: true),
+                LifecycleBefore: CreateBuildLifecycleSnapshot(10, canAcceptExecutionRequests: true),
+                LifecycleAfter: CreateBuildLifecycleSnapshot(11, canAcceptExecutionRequests: true),
                 DirtyState: new IpcBuildDirtyState(
                     Checked: true,
                     Dirty: false,
@@ -169,14 +169,19 @@ public sealed class IpcBuildRunContractSerializationTests
             .HasString("runId", "build-run-1")
             .HasString("projectFingerprint", "project-fingerprint")
             .HasProperty("lifecycleBefore", lifecycle => lifecycle
-                .HasString("compileGeneration", "compile-before")
-                .HasString("domainReloadGeneration", "domain-before")
-                .HasString("assetRefreshGeneration", "asset-before")
-                .HasBoolean("canAcceptExecutionRequests", true))
+                .HasProperty("state", state => state
+                    .HasProperty("generations", generations => generations
+                        .HasInt32("compileGeneration", 10)
+                        .HasInt32("domainReloadGeneration", 10)
+                        .HasInt32("assetRefreshGeneration", 10)
+                        .HasInt32("playModeGeneration", 10))))
             .HasProperty("lifecycleAfter", lifecycle => lifecycle
-                .HasString("compileGeneration", "compile-after")
-                .HasString("domainReloadGeneration", "domain-after")
-                .HasString("assetRefreshGeneration", "asset-after"))
+                .HasProperty("state", state => state
+                    .HasProperty("generations", generations => generations
+                        .HasInt32("compileGeneration", 11)
+                        .HasInt32("domainReloadGeneration", 11)
+                        .HasInt32("assetRefreshGeneration", 11)
+                        .HasInt32("playModeGeneration", 11))))
             .HasProperty("dirtyState", dirty => dirty
                 .HasBoolean("checked", true)
                 .HasBoolean("dirty", false)

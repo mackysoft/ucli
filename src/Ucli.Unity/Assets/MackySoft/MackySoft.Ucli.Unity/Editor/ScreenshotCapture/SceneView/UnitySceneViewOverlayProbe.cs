@@ -50,10 +50,10 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.SceneView
             }
 
             var contentBounds = cameraViewVisualElement.worldBound;
-            if (!IsFinite(contentBounds.x)
-                || !IsFinite(contentBounds.y)
-                || !IsFinitePositive(contentBounds.width)
-                || !IsFinitePositive(contentBounds.height))
+            if (!UnityScreenshotMath.IsFinite(contentBounds.x)
+                || !UnityScreenshotMath.IsFinite(contentBounds.y)
+                || !UnityScreenshotMath.IsFinitePositive(contentBounds.width)
+                || !UnityScreenshotMath.IsFinitePositive(contentBounds.height))
             {
                 errorMessage = "SceneView content bounds are invalid for Overlay exclusion.";
                 return false;
@@ -273,10 +273,10 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.SceneView
                 }
 
                 var bounds = candidate.worldBound;
-                if (!IsFinite(bounds.x)
-                    || !IsFinite(bounds.y)
-                    || !IsFinitePositive(bounds.width)
-                    || !IsFinitePositive(bounds.height))
+                if (!UnityScreenshotMath.IsFinite(bounds.x)
+                    || !UnityScreenshotMath.IsFinite(bounds.y)
+                    || !UnityScreenshotMath.IsFinitePositive(bounds.width)
+                    || !UnityScreenshotMath.IsFinitePositive(bounds.height))
                 {
                     errorMessage = "Displayed SceneView Overlay chrome bounds are unavailable.";
                     return false;
@@ -353,14 +353,5 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.SceneView
             return false;
         }
 
-        private static bool IsFinitePositive (float value)
-        {
-            return value > 0f && IsFinite(value);
-        }
-
-        private static bool IsFinite (float value)
-        {
-            return !float.IsNaN(value) && !float.IsInfinity(value);
-        }
     }
 }

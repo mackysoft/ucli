@@ -4,7 +4,6 @@ using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Unity.Runtime;
 using MackySoft.Ucli.Unity.ScreenshotCapture.Staging;
 
@@ -49,34 +48,21 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Capture
                     readinessResult.Error.Message);
             }
 
-            var before = readinessResult.Snapshot;
-            if (before.PlayMode == null)
-            {
-                return UnityScreenshotCaptureResult.Failure(
-                    ScreenshotErrorCodes.ScreenshotCaptureUnsupported,
-                    "Unity Editor Play Mode state was not available for screenshot metadata.");
-            }
-
+            var before = readinessResult.Observation;
             var stagingPublished = false;
             try
             {
                 var backendResult = await captureBackend.CaptureAsync(request, cancellationToken);
                 if (!backendResult.IsSuccess)
                 {
-                    if (!backendResult.ErrorCode.HasValue)
-                    {
-                        throw new InvalidOperationException(
-                            "Screenshot backend failure did not provide an error code.");
-                    }
-
                     return UnityScreenshotCaptureResult.Failure(
                         backendResult.ErrorCode.Value,
                         backendResult.ErrorMessage);
                 }
 
                 cancellationToken.ThrowIfCancellationRequested();
-                var after = readinessGate.CaptureSnapshot();
-                if (!IsSameCaptureFence(before, after))
+                var after = readinessGate.CaptureObservation();
+                if (before.State != after.State)
                 {
                     return UnityScreenshotCaptureResult.Failure(
                         ScreenshotErrorCodes.ScreenshotCaptureUnsupported,
@@ -84,21 +70,13 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Capture
                 }
 
                 var frame = backendResult.Frame;
-                var expectedSizeBytes = checked((long)frame.Width * frame.Height * 4L);
-                if (frame.Rgba8SrgbTopDown.Length != expectedSizeBytes)
-                {
-                    return UnityScreenshotCaptureResult.Failure(
-                        UcliCoreErrorCodes.InternalError,
-                        "Screenshot backend returned a raw staging buffer with an invalid byte count.");
-                }
-
                 var sizeBytes = await stagingImageWriter.WriteAtomicAsync(
                     request.StagingPath,
                     frame.Rgba8SrgbTopDown,
                     cancellationToken);
                 stagingPublished = true;
                 cancellationToken.ThrowIfCancellationRequested();
-                if (sizeBytes != expectedSizeBytes)
+                if (sizeBytes != frame.Rgba8SrgbTopDown.Length)
                 {
                     stagingImageWriter.DeleteIfExists(request.StagingPath);
                     stagingPublished = false;
@@ -107,26 +85,23 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Capture
                         "Screenshot staging writer returned a byte count that does not match the captured raster.");
                 }
 
-                var sizeMode = ContractLiteralCodec.ToValue(request.RequestedWidth.HasValue
+                var sizeMode = request.RequestedWidth.HasValue
                     ? IpcScreenshotSizeMode.RequestedResolution
-                    : IpcScreenshotSizeMode.CurrentSurface);
+                    : IpcScreenshotSizeMode.CurrentSurface;
                 var response = new IpcScreenshotCaptureResponse(
                     new IpcScreenshotCapture(
-                        Target: request.Target,
-                        SizeMode: sizeMode,
-                        RequestedWidth: request.RequestedWidth,
-                        RequestedHeight: request.RequestedHeight,
-                        Width: frame.Width,
-                        Height: frame.Height,
-                        ColorSpace: frame.ColorSpace,
-                        LifecycleStateAtCapture: ContractLiteralCodec.ToValue(before.LifecycleState),
-                        CompileStateAtCapture: ContractLiteralCodec.ToValue(before.CompileState),
-                        DomainReloadGeneration: before.DomainReloadGeneration,
-                        PlayModeState: ContractLiteralCodec.ToValue(before.PlayMode.State)),
+                        target: request.Target,
+                        sizeMode: sizeMode,
+                        requestedWidth: request.RequestedWidth,
+                        requestedHeight: request.RequestedHeight,
+                        width: frame.Width,
+                        height: frame.Height,
+                        colorSpace: frame.ColorSpace,
+                        state: before.State),
                     new IpcScreenshotStagingImage(
                         Path: request.StagingPath,
-                        PixelFormat: ContractLiteralCodec.ToValue(IpcScreenshotPixelFormat.Rgba8Srgb),
-                        RowOrder: ContractLiteralCodec.ToValue(IpcScreenshotRowOrder.TopDown),
+                        PixelFormat: IpcScreenshotPixelFormat.Rgba8Srgb,
+                        RowOrder: IpcScreenshotRowOrder.TopDown,
                         RowStrideBytes: checked(frame.Width * 4),
                         SizeBytes: sizeBytes));
                 return UnityScreenshotCaptureResult.Success(response);
@@ -145,8 +120,8 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Capture
         private async Task<UnityEditorExecutionReadinessResult> EnsureCaptureReadyAsync (
             CancellationToken cancellationToken)
         {
-            var snapshot = readinessGate.CaptureSnapshot();
-            if (snapshot.EditorMode != DaemonEditorMode.Gui)
+            var snapshot = readinessGate.CaptureObservation();
+            if (snapshot.State.EditorMode != DaemonEditorMode.Gui)
             {
                 return UnityEditorExecutionReadinessResult.Blocked(
                     snapshot,
@@ -164,40 +139,23 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Capture
             var readinessResult = await readinessGate.EnsureExecutionReadyAsync(
                 failFast: false,
                 cancellationToken);
-            if (IsCaptureReady(readinessResult.Snapshot))
+            if (IsCaptureReady(readinessResult.Observation))
             {
-                return UnityEditorExecutionReadinessResult.Ready(readinessResult.Snapshot);
+                return UnityEditorExecutionReadinessResult.Ready(readinessResult.Observation);
             }
 
             return readinessResult;
         }
 
-        private static bool IsCaptureReady (UnityEditorLifecycleSnapshot snapshot)
+        private static bool IsCaptureReady (UnityEditorObservation snapshot)
         {
-            if (snapshot == null || snapshot.EditorMode != DaemonEditorMode.Gui)
+            if (snapshot == null || snapshot.State.EditorMode != DaemonEditorMode.Gui)
             {
                 return false;
             }
 
-            return snapshot.LifecycleState == IpcEditorLifecycleState.Ready;
+            return snapshot.State.LifecycleState == IpcEditorLifecycleState.Ready;
         }
 
-        private static bool IsSameCaptureFence (
-            UnityEditorLifecycleSnapshot before,
-            UnityEditorLifecycleSnapshot after)
-        {
-            if (before == null || after == null)
-            {
-                return false;
-            }
-
-            return before.EditorMode == after.EditorMode
-                && before.LifecycleState == after.LifecycleState
-                && before.CompileState == after.CompileState
-                && before.CompileGeneration == after.CompileGeneration
-                && before.AssetRefreshGeneration == after.AssetRefreshGeneration
-                && before.DomainReloadGeneration == after.DomainReloadGeneration
-                && before.PlayMode == after.PlayMode;
-        }
     }
 }

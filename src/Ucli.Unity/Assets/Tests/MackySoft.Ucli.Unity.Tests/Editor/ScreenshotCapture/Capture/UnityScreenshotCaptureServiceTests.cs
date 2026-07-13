@@ -5,8 +5,8 @@ using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Unity.Runtime;
+using MackySoft.Ucli.Unity.ScreenshotCapture;
 using MackySoft.Ucli.Unity.ScreenshotCapture.Capture;
 using MackySoft.Ucli.Unity.ScreenshotCapture.Staging;
 using NUnit.Framework;
@@ -60,28 +60,30 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(writer.LastBytes.ToArray(), Is.EqualTo(CreateFrameBytes()));
             Assert.That(
                 result.Response.Capture.Target,
-                Is.EqualTo(ContractLiteralCodec.ToValue(IpcScreenshotTarget.Game)));
+                Is.EqualTo(IpcScreenshotTarget.Game));
             Assert.That(
                 result.Response.Capture.SizeMode,
-                Is.EqualTo(ContractLiteralCodec.ToValue(IpcScreenshotSizeMode.CurrentSurface)));
+                Is.EqualTo(IpcScreenshotSizeMode.CurrentSurface));
             Assert.That(result.Response.Capture.Width, Is.EqualTo(2));
             Assert.That(result.Response.Capture.Height, Is.EqualTo(1));
             Assert.That(
-                result.Response.Capture.LifecycleStateAtCapture,
-                Is.EqualTo(ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Ready)));
+                result.Response.Capture.State.LifecycleState,
+                Is.EqualTo(IpcEditorLifecycleState.Ready));
             Assert.That(
-                result.Response.Capture.CompileStateAtCapture,
-                Is.EqualTo(ContractLiteralCodec.ToValue(IpcCompileState.Ready)));
+                result.Response.Capture.State.CompileState,
+                Is.EqualTo(IpcCompileState.Ready));
             Assert.That(
                 result.Response.Capture.ColorSpace,
-                Is.EqualTo(ContractLiteralCodec.ToValue(IpcScreenshotColorSpace.Linear)));
-            Assert.That(result.Response.Capture.DomainReloadGeneration, Is.EqualTo(7));
+                Is.EqualTo(IpcScreenshotColorSpace.Linear));
+            Assert.That(
+                result.Response.Capture.State.Generations,
+                Is.EqualTo(new IpcUnityGenerationSnapshot(3, 7, 5, 2)));
             Assert.That(
                 result.Response.Staging.PixelFormat,
-                Is.EqualTo(ContractLiteralCodec.ToValue(IpcScreenshotPixelFormat.Rgba8Srgb)));
+                Is.EqualTo(IpcScreenshotPixelFormat.Rgba8Srgb));
             Assert.That(
                 result.Response.Staging.RowOrder,
-                Is.EqualTo(ContractLiteralCodec.ToValue(IpcScreenshotRowOrder.TopDown)));
+                Is.EqualTo(IpcScreenshotRowOrder.TopDown));
             Assert.That(result.Response.Staging.RowStrideBytes, Is.EqualTo(8));
             Assert.That(result.Response.Staging.SizeBytes, Is.EqualTo(8));
         }
@@ -110,6 +112,38 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
+        public void CaptureAsync_WhenOnlyObservationMetadataChanges_PublishesStagingImage ()
+        {
+            var captured = CreateSnapshot(DaemonEditorMode.Gui, domainReloadGeneration: 7);
+            var before = new UnityEditorObservation(
+                captured.State,
+                new DateTimeOffset(2026, 7, 13, 0, 0, 0, TimeSpan.Zero));
+            var after = new UnityEditorObservation(
+                before.State,
+                new DateTimeOffset(2026, 7, 13, 0, 0, 1, TimeSpan.Zero),
+                new IpcPrimaryDiagnostic(
+                    Kind: "compiler",
+                    Code: "CS0000",
+                    File: null,
+                    Line: null,
+                    Column: null,
+                    Message: "diagnostic changed"));
+            var writer = new StubStagingImageWriter();
+            var service = new UnityScreenshotCaptureService(
+                new SequenceReadinessGate(before, after),
+                new StubCaptureBackend(CreateBackendSuccess()),
+                writer);
+
+            var result = service.CaptureAsync(CreateRequest(), CancellationToken.None)
+                .GetAwaiter()
+                .GetResult();
+
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(writer.WriteCallCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Size.Small")]
         public void CaptureAsync_WhenAssetRefreshGenerationChanges_DoesNotPublishStagingImage ()
         {
             var backend = new StubCaptureBackend(CreateBackendSuccess());
@@ -133,28 +167,6 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Error.Code, Is.EqualTo(ScreenshotErrorCodes.ScreenshotCaptureUnsupported));
-            Assert.That(writer.WriteCallCount, Is.Zero);
-        }
-
-        [Test]
-        [Category("Size.Small")]
-        public void CaptureAsync_WithoutPlayModeMetadata_FailsBeforePixelCapture ()
-        {
-            var snapshot = CreateSnapshot(DaemonEditorMode.Gui, domainReloadGeneration: 7) with { PlayMode = null };
-            var backend = new StubCaptureBackend(CreateBackendSuccess());
-            var writer = new StubStagingImageWriter();
-            var service = new UnityScreenshotCaptureService(
-                new SequenceReadinessGate(snapshot),
-                backend,
-                writer);
-
-            var result = service.CaptureAsync(CreateRequest(), CancellationToken.None)
-                .GetAwaiter()
-                .GetResult();
-
-            Assert.That(result.IsSuccess, Is.False);
-            Assert.That(result.Error.Code, Is.EqualTo(ScreenshotErrorCodes.ScreenshotCaptureUnsupported));
-            Assert.That(backend.CallCount, Is.Zero);
             Assert.That(writer.WriteCallCount, Is.Zero);
         }
 
@@ -223,7 +235,7 @@ namespace MackySoft.Ucli.Unity.Tests
         private static IpcScreenshotCaptureRequest CreateRequest ()
         {
             return new IpcScreenshotCaptureRequest(
-                ContractLiteralCodec.ToValue(IpcScreenshotTarget.Game),
+                IpcScreenshotTarget.Game,
                 RequestedWidth: null,
                 RequestedHeight: null,
                 StagingPath,
@@ -233,10 +245,10 @@ namespace MackySoft.Ucli.Unity.Tests
         private static UnityScreenshotBackendResult CreateBackendSuccess ()
         {
             return UnityScreenshotBackendResult.Success(
-                new UnityScreenshotBackendResult.CapturedFrame(
-                    Width: 2,
-                    Height: 1,
-                    ContractLiteralCodec.ToValue(IpcScreenshotColorSpace.Linear),
+                new UnityScreenshotFrame(
+                    width: 2,
+                    height: 1,
+                    IpcScreenshotColorSpace.Linear,
                     CreateFrameBytes()));
         }
 
@@ -245,29 +257,32 @@ namespace MackySoft.Ucli.Unity.Tests
             return new byte[] { 1, 2, 3, 255, 4, 5, 6, 255 };
         }
 
-        private static UnityEditorLifecycleSnapshot CreateSnapshot (
+        private static UnityEditorObservation CreateSnapshot (
             DaemonEditorMode editorMode,
-            int domainReloadGeneration,
+            long domainReloadGeneration,
             bool isPlaying = false,
-            int assetRefreshGeneration = 5)
+            long assetRefreshGeneration = 5)
         {
-            return new UnityEditorLifecycleSnapshot(
-                editorMode,
-                isPlaying
-                    ? IpcEditorLifecycleState.PlayMode
-                    : IpcEditorLifecycleState.Ready,
-                CompileState: IpcCompileState.Ready,
-                CompileGeneration: 3,
-                domainReloadGeneration,
-                PlayMode: new UnityEditorPlayModeSnapshot(
-                    State: isPlaying
-                        ? IpcPlayModeState.Playing
-                        : IpcPlayModeState.Stopped,
-                    Transition: IpcPlayModeTransition.None,
-                    IsPlaying: isPlaying,
-                    IsPlayingOrWillChangePlaymode: isPlaying,
-                    Generation: 2),
-                AssetRefreshGeneration: assetRefreshGeneration);
+            return new UnityEditorObservation(
+                state: new UnityEditorStateSnapshot(
+                    editorMode: editorMode,
+                    lifecycleState: isPlaying
+                        ? IpcEditorLifecycleState.PlayMode
+                        : IpcEditorLifecycleState.Ready,
+                    compileState: IpcCompileState.Ready,
+                    generations: new IpcUnityGenerationSnapshot(
+                        CompileGeneration: 3,
+                        DomainReloadGeneration: domainReloadGeneration,
+                        AssetRefreshGeneration: assetRefreshGeneration,
+                        PlayModeGeneration: 2),
+                    playMode: new IpcPlayModeSnapshot(
+                        State: isPlaying
+                            ? IpcPlayModeState.Playing
+                            : IpcPlayModeState.Stopped,
+                        Transition: IpcPlayModeTransition.None,
+                        IsPlaying: isPlaying,
+                        IsPlayingOrWillChangePlaymode: isPlaying)),
+                observedAtUtc: DateTimeOffset.UnixEpoch);
         }
 
         private sealed class StubCaptureBackend : IUnityScreenshotCaptureBackend
@@ -334,16 +349,16 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private sealed class SequenceReadinessGate : IUnityEditorReadinessGate
         {
-            private readonly UnityEditorLifecycleSnapshot[] snapshots;
+            private readonly UnityEditorObservation[] snapshots;
 
             private int snapshotIndex;
 
-            public SequenceReadinessGate (params UnityEditorLifecycleSnapshot[] snapshots)
+            public SequenceReadinessGate (params UnityEditorObservation[] snapshots)
             {
                 this.snapshots = snapshots;
             }
 
-            public UnityEditorLifecycleSnapshot CaptureSnapshot ()
+            public UnityEditorObservation CaptureObservation ()
             {
                 var index = Math.Min(snapshotIndex, snapshots.Length - 1);
                 snapshotIndex++;
@@ -356,7 +371,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 bool allowPlayMode = false)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                var snapshot = CaptureSnapshot();
+                var snapshot = CaptureObservation();
                 return Task.FromResult(snapshot.CanAcceptExecutionRequests
                     ? UnityEditorExecutionReadinessResult.Ready(snapshot)
                     : UnityEditorExecutionReadinessPolicy.CreateBlockedResult(snapshot));

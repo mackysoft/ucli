@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
@@ -11,6 +12,7 @@ public static class IpcJsonSerializerOptions
     {
         Converters =
         {
+            new ContractLiteralJsonConverterFactory(),
             new UcliStringValueJsonConverterFactory(),
         },
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,

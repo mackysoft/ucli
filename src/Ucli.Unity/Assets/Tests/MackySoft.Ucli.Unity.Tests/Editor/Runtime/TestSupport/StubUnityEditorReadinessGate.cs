@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
@@ -38,7 +39,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         public int CallCount { get; private set; }
 
-        public int CaptureSnapshotCallCount { get; private set; }
+        public int CaptureObservationCallCount { get; private set; }
 
         public bool? LastFailFast { get; private set; }
 
@@ -57,16 +58,16 @@ namespace MackySoft.Ucli.Unity.Tests
                 new TaskCompletionSource<UnityEditorExecutionReadinessResult>(TaskCreationOptions.RunContinuationsAsynchronously));
         }
 
-        public UnityEditorLifecycleSnapshot CaptureSnapshot ()
+        public UnityEditorObservation CaptureObservation ()
         {
-            CaptureSnapshotCallCount++;
-            return currentResult.Snapshot;
+            CaptureObservationCallCount++;
+            return currentResult.Observation;
         }
 
         public void Release ()
         {
             currentResult = UnityEditorExecutionReadinessResult.Ready(CreateSnapshot(
-                currentResult.Snapshot.EditorMode,
+                currentResult.Observation.State.EditorMode,
                 IpcEditorLifecycleState.Ready));
             completionSource?.TrySetResult(currentResult);
         }
@@ -100,28 +101,28 @@ namespace MackySoft.Ucli.Unity.Tests
                 new IpcError(errorCode, errorMessage, null));
         }
 
-        private static UnityEditorLifecycleSnapshot CreateSnapshot (
+        private static UnityEditorObservation CreateSnapshot (
             DaemonEditorMode editorMode,
             IpcEditorLifecycleState lifecycleState)
         {
-            return new UnityEditorLifecycleSnapshot(
-                EditorMode: editorMode,
-                LifecycleState: lifecycleState,
-                CompileState: IpcCompileState.Ready,
-                CompileGeneration: 1,
-                DomainReloadGeneration: 1,
-                PlayMode: CreatePlayModeSnapshot(lifecycleState));
+            return new UnityEditorObservation(
+                state: new UnityEditorStateSnapshot(
+                    editorMode: editorMode,
+                    lifecycleState: lifecycleState,
+                    compileState: IpcCompileState.Ready,
+                    generations: new IpcUnityGenerationSnapshot(1, 1, 0, 1),
+                    playMode: CreatePlayModeSnapshot(lifecycleState)),
+                observedAtUtc: DateTimeOffset.UnixEpoch);
         }
 
-        private static UnityEditorPlayModeSnapshot CreatePlayModeSnapshot (IpcEditorLifecycleState lifecycleState)
+        private static IpcPlayModeSnapshot CreatePlayModeSnapshot (IpcEditorLifecycleState lifecycleState)
         {
             var isPlaying = lifecycleState == IpcEditorLifecycleState.PlayMode;
-            return new UnityEditorPlayModeSnapshot(
+            return new IpcPlayModeSnapshot(
                 State: isPlaying ? IpcPlayModeState.Playing : IpcPlayModeState.Stopped,
                 Transition: IpcPlayModeTransition.None,
                 IsPlaying: isPlaying,
-                IsPlayingOrWillChangePlaymode: isPlaying,
-                Generation: 1);
+                IsPlayingOrWillChangePlaymode: isPlaying);
         }
     }
 }

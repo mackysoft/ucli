@@ -140,8 +140,8 @@ public sealed class DaemonSessionCleanupServiceTests
         var session = DaemonSessionTestFactory.Create(
             processId: 4343,
             projectFingerprint: context.ProjectFingerprint,
-            editorMode: "gui",
-            ownerKind: "user",
+            editorMode: DaemonEditorMode.Gui,
+            ownerKind: DaemonSessionOwnerKind.User,
             canShutdownProcess: false);
         var processTerminationService = new RecordingDaemonProcessTerminationService
         {

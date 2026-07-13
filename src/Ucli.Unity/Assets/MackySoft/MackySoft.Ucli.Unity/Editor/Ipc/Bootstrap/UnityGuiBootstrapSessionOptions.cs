@@ -3,13 +3,11 @@ using System.Diagnostics;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 
-using MackySoft.Ucli.Contracts.Text;
-
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Represents normalized GUI session ownership values for bootstrap registration. </summary>
     internal sealed record UnityGuiBootstrapSessionOptions (
-        string OwnerKind,
+        DaemonSessionOwnerKind OwnerKind,
         bool CanShutdownProcess,
         int OwnerProcessId)
     {
@@ -24,7 +22,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             return new UnityGuiBootstrapSessionOptions(
-                OwnerKind: ContractLiteralCodec.ToValue(DaemonSessionOwnerKind.Cli),
+                OwnerKind: DaemonSessionOwnerKind.Cli,
                 CanShutdownProcess: arguments.CanShutdownProcess,
                 OwnerProcessId: arguments.OwnerProcessId);
         }
@@ -33,7 +31,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         {
             using var currentProcess = Process.GetCurrentProcess();
             return new UnityGuiBootstrapSessionOptions(
-                OwnerKind: ContractLiteralCodec.ToValue(DaemonSessionOwnerKind.User),
+                OwnerKind: DaemonSessionOwnerKind.User,
                 CanShutdownProcess: false,
                 OwnerProcessId: currentProcess.Id);
         }

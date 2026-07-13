@@ -122,13 +122,13 @@ namespace MackySoft.Ucli.Unity.Ipc
                 unityLogCaptureService.Start();
 
                 await server.StartAsync(endpoint, CancellationToken.None);
-                var initialSnapshot = readinessGate.CaptureSnapshot();
+                var initialSnapshot = readinessGate.CaptureObservation();
                 UnityLifecycleSidecarPersistence.Write(
                     storageRoot,
                     projectFingerprint,
                     serverVersion,
                     initialSnapshot);
-                lastLifecycleSidecarWriteUtc = initialSnapshot.ObservedAtUtc ?? DateTimeOffset.UtcNow;
+                lastLifecycleSidecarWriteUtc = initialSnapshot.ObservedAtUtc;
                 nextState = new ActiveGuiBootstrapState(
                     registration,
                     server,
@@ -527,10 +527,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                 // CLI status commands may time out while Unity is in Play Mode or recovering, but Unity main-thread
                 // callbacks still own the authoritative lifecycle snapshot. Keep the sidecar fresh enough to serve as
                 // the read-only observation path without moving Unity API access off the main thread.
-                var snapshot = capturedState.ReadinessGate.CaptureSnapshot() with
-                {
-                    ObservedAtUtc = now,
-                };
+                var snapshot = capturedState.ReadinessGate
+                    .CaptureObservation()
+                    .WithObservedAtUtc(now);
                 UnityLifecycleSidecarPersistence.Write(
                     capturedState.StorageRoot,
                     capturedState.ProjectFingerprint,
@@ -585,11 +584,10 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             try
             {
-                var snapshot = capturedState.ReadinessGate.CaptureSnapshot() with
-                {
-                    LifecycleState = IpcEditorLifecycleState.Recovering,
-                    ObservedAtUtc = DateTimeOffset.UtcNow,
-                };
+                var snapshot = capturedState.ReadinessGate
+                    .CaptureObservation()
+                    .WithLifecycleState(IpcEditorLifecycleState.Recovering)
+                    .WithObservedAtUtc(DateTimeOffset.UtcNow);
                 UnityLifecycleSidecarPersistence.Write(
                     capturedState.StorageRoot,
                     capturedState.ProjectFingerprint,

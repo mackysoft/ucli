@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
 
@@ -32,8 +33,8 @@ internal interface IDaemonStartProgressObserver
         string? launchAttemptId,
         CancellationToken cancellationToken);
 
-    /// <summary> Emits the endpoint-registered lifecycle snapshot entry. </summary>
+    /// <summary> Emits the endpoint-registered lifecycle observation entry. </summary>
     ValueTask EmitLifecycleObservedAsync (
-        DaemonStartLifecycleSnapshot lifecycleSnapshot,
+        IpcUnityEditorObservation lifecycleObservation,
         CancellationToken cancellationToken);
 }

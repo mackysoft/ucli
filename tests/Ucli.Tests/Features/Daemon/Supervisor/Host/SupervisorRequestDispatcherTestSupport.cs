@@ -37,7 +37,7 @@ internal static class SupervisorRequestDispatcherTestSupport
             Manifest: new SupervisorInstanceManifest(
                 ProcessId: 1234,
                 SessionToken: "supervisor-session-token",
-                EndpointTransportKind: "unixDomainSocket",
+                EndpointTransportKind: ContractLiteralCodec.ToValue(IpcTransportKind.UnixDomainSocket),
                 EndpointAddress: "/tmp/ucli-supervisor-test.sock",
                 IssuedAtUtc: new DateTimeOffset(2026, 03, 11, 0, 0, 0, TimeSpan.Zero)));
     }
@@ -45,11 +45,11 @@ internal static class SupervisorRequestDispatcherTestSupport
     public static DaemonStartupObservation CreateStartupObservation ()
     {
         return new DaemonStartupObservation(
-            StartupStatus: ContractLiteralCodec.ToValue(DaemonStartupStatus.Blocked),
-            StartupBlockingReason: ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Compile),
+            StartupStatus: DaemonStartupStatus.Blocked,
+            StartupBlockingReason: DaemonStartupBlockingReason.Compile,
             LaunchAttemptId: null,
-            ProcessAction: ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Kept),
-            RetryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix));
+            ProcessAction: DaemonStartupProcessAction.Kept,
+            RetryDisposition: DaemonStartupRetryDisposition.RetryAfterFix);
     }
 
     public static async Task<IpcResponse> SendRequestAsync (

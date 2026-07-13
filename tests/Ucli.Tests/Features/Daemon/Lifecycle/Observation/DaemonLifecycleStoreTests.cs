@@ -9,89 +9,19 @@ namespace MackySoft.Ucli.Tests.Daemon;
 
 public sealed class DaemonLifecycleStoreTests
 {
-    [Theory]
-    [Trait("Size", "Small")]
-    [InlineData(null)]
-    [InlineData(IpcEditorBlockingReason.Startup)]
-    public async Task Read_WhenBlockingReasonDoesNotMatchLifecycleState_ReturnsInvalidArgument (
-        IpcEditorBlockingReason? blockingReason)
-    {
-        using var scope = TestDirectories.CreateTempScope("daemon-lifecycle-store", "inconsistent-blocking-reason");
-        var store = new DaemonLifecycleStore();
-        await WriteContractAsync(
-            scope.FullPath,
-            "fingerprint-invalid",
-            CreateContract() with
-            {
-                BlockingReason = blockingReason.HasValue
-                    ? ContractLiteralCodec.ToValue(blockingReason.Value)
-                    : null,
-            });
-
-        var readResult = await store.ReadAsync(scope.FullPath, "fingerprint-invalid", CancellationToken.None);
-
-        Assert.False(readResult.IsSuccess);
-        var error = Assert.IsType<ExecutionError>(readResult.Error);
-        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Contains("blockingReason", error.Message, StringComparison.Ordinal);
-    }
-
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Read_WhenBlockingReasonIsNotCanonical_ReturnsInvalidArgument ()
+    public async Task Read_WhenStateIsCompileFailed_DerivesLifecycleSemantics ()
     {
-        using var scope = TestDirectories.CreateTempScope("daemon-lifecycle-store", "noncanonical-blocking-reason");
-        var store = new DaemonLifecycleStore();
-        await WriteContractAsync(
-            scope.FullPath,
-            "fingerprint-invalid",
-            CreateContract() with
-            {
-                BlockingReason = $" {ContractLiteralCodec.ToValue(IpcEditorBlockingReason.CompileFailed)} ",
-            });
-
-        var readResult = await store.ReadAsync(scope.FullPath, "fingerprint-invalid", CancellationToken.None);
-
-        Assert.False(readResult.IsSuccess);
-        var error = Assert.IsType<ExecutionError>(readResult.Error);
-        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Contains("blockingReason", error.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task Read_WhenExplicitCanAcceptExecutionRequestsDoesNotMatchLifecycleState_ReturnsInvalidArgument ()
-    {
-        using var scope = TestDirectories.CreateTempScope("daemon-lifecycle-store", "inconsistent-request-acceptance");
-        var store = new DaemonLifecycleStore();
-        await WriteContractAsync(
-            scope.FullPath,
-            "fingerprint-invalid",
-            CreateContract() with
-            {
-                CanAcceptExecutionRequests = true,
-            });
-
-        var readResult = await store.ReadAsync(scope.FullPath, "fingerprint-invalid", CancellationToken.None);
-
-        Assert.False(readResult.IsSuccess);
-        var error = Assert.IsType<ExecutionError>(readResult.Error);
-        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Contains("canAcceptExecutionRequests", error.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task Read_WhenCanAcceptExecutionRequestsIsOmitted_UsesLifecycleSemantics ()
-    {
-        using var scope = TestDirectories.CreateTempScope("daemon-lifecycle-store", "derived-request-acceptance");
+        using var scope = TestDirectories.CreateTempScope("daemon-lifecycle-store", "derived-lifecycle-semantics");
         var store = new DaemonLifecycleStore();
         await WriteContractAsync(scope.FullPath, "fingerprint-valid", CreateContract());
 
         var readResult = await store.ReadAsync(scope.FullPath, "fingerprint-valid", CancellationToken.None);
 
         Assert.True(readResult.IsSuccess);
-        Assert.Equal(IpcEditorBlockingReason.CompileFailed, readResult.Observation!.BlockingReason);
+        Assert.Equal(IpcEditorLifecycleState.CompileFailed, readResult.Observation!.State.LifecycleState);
+        Assert.Equal(IpcEditorBlockingReason.CompileFailed, readResult.Observation.BlockingReason);
         Assert.False(readResult.Observation.CanAcceptExecutionRequests);
     }
 
@@ -104,10 +34,7 @@ public sealed class DaemonLifecycleStoreTests
         await WriteContractAsync(
             scope.FullPath,
             "fingerprint-invalid",
-            CreateContract() with
-            {
-                ActionRequired = "unknownAction",
-            });
+            CreateContract(actionRequired: "unknownAction"));
 
         var readResult = await store.ReadAsync(scope.FullPath, "fingerprint-invalid", CancellationToken.None);
 
@@ -126,16 +53,13 @@ public sealed class DaemonLifecycleStoreTests
         await WriteContractAsync(
             scope.FullPath,
             "fingerprint-invalid",
-            CreateContract() with
-            {
-                PrimaryDiagnostic = new IpcPrimaryDiagnostic(
-                    Kind: "unknownDiagnosticKind",
-                    Code: "CS1739",
-                    File: "Assets/Foo.cs",
-                    Line: 74,
-                    Column: 17,
-                    Message: "Missing parameter"),
-            });
+            CreateContract(primaryDiagnostic: new IpcPrimaryDiagnostic(
+                Kind: "unknownDiagnosticKind",
+                Code: "CS1739",
+                File: "Assets/Foo.cs",
+                Line: 74,
+                Column: 17,
+                Message: "Missing parameter")));
 
         var readResult = await store.ReadAsync(scope.FullPath, "fingerprint-invalid", CancellationToken.None);
 
@@ -154,16 +78,13 @@ public sealed class DaemonLifecycleStoreTests
         await WriteContractAsync(
             scope.FullPath,
             "fingerprint-diagnostic",
-            CreateContract() with
-            {
-                PrimaryDiagnostic = new IpcPrimaryDiagnostic(
-                    Kind: $" {DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler} ",
-                    Code: " CS1739 ",
-                    File: " Assets/Foo.cs ",
-                    Line: 74,
-                    Column: 17,
-                    Message: " Missing parameter "),
-            });
+            CreateContract(primaryDiagnostic: new IpcPrimaryDiagnostic(
+                Kind: $" {DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler} ",
+                Code: " CS1739 ",
+                File: " Assets/Foo.cs ",
+                Line: 74,
+                Column: 17,
+                Message: " Missing parameter ")));
 
         var readResult = await store.ReadAsync(scope.FullPath, "fingerprint-diagnostic", CancellationToken.None);
 
@@ -186,10 +107,7 @@ public sealed class DaemonLifecycleStoreTests
         await WriteContractAsync(
             scope.FullPath,
             "fingerprint-editor-instance",
-            CreateContract() with
-            {
-                EditorInstanceId = " editor-instance-1 ",
-            });
+            CreateContract(editorInstanceId: " editor-instance-1 "));
 
         var readResult = await store.ReadAsync(scope.FullPath, "fingerprint-editor-instance", CancellationToken.None);
 
@@ -199,52 +117,62 @@ public sealed class DaemonLifecycleStoreTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task Read_WhenLifecycleJsonContainsPlayMode_NormalizesSnapshot ()
+    public async Task Read_WhenLifecycleJsonContainsPlayMode_PreservesTypedSnapshot ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-lifecycle-store", "play-mode");
         var store = new DaemonLifecycleStore();
+        var state = new UnityEditorStateSnapshot(
+            editorMode: DaemonEditorMode.Gui,
+            lifecycleState: IpcEditorLifecycleState.PlayMode,
+            compileState: IpcCompileState.Ready,
+            generations: new IpcUnityGenerationSnapshot(1, 2, 0, 3),
+            playMode: new IpcPlayModeSnapshot(
+                IpcPlayModeState.Playing,
+                IpcPlayModeTransition.None,
+                IsPlaying: true,
+                IsPlayingOrWillChangePlaymode: true));
         await WriteContractAsync(
             scope.FullPath,
             "fingerprint-play-mode",
-            CreateContract() with
-            {
-                ServerVersion = " 0.5.0 ",
-                CanAcceptExecutionRequests = false,
-                PlayMode = new IpcPlayModeSnapshot(
-                    State: $" {"playing"} ",
-                    Transition: $" {"none"} ",
-                    IsPlaying: true,
-                    IsPlayingOrWillChangePlaymode: true,
-                    Generation: " 3 "),
-            });
+            CreateContract(state: state, serverVersion: " 0.5.0 "));
 
         var readResult = await store.ReadAsync(scope.FullPath, "fingerprint-play-mode", CancellationToken.None);
 
         Assert.True(readResult.IsSuccess);
         Assert.Equal("0.5.0", readResult.Observation!.ServerVersion);
-        Assert.False(readResult.Observation!.CanAcceptExecutionRequests);
-        var playMode = Assert.IsType<IpcPlayModeSnapshot>(readResult.Observation.PlayMode);
-        Assert.Equal("playing", playMode.State);
-        Assert.Equal("none", playMode.Transition);
-        Assert.True(playMode.IsPlaying);
-        Assert.True(playMode.IsPlayingOrWillChangePlaymode);
-        Assert.Equal("3", playMode.Generation);
+        Assert.False(readResult.Observation.CanAcceptExecutionRequests);
+        Assert.Equal(IpcPlayModeState.Playing, readResult.Observation.State.PlayMode.State);
+        Assert.Equal(IpcPlayModeTransition.None, readResult.Observation.State.PlayMode.Transition);
+        Assert.True(readResult.Observation.State.PlayMode.IsPlaying);
+        Assert.True(readResult.Observation.State.PlayMode.IsPlayingOrWillChangePlaymode);
+        Assert.Equal(3, readResult.Observation.State.Generations.PlayModeGeneration);
     }
 
-    private static DaemonLifecycleJsonContract CreateContract ()
+    private static DaemonLifecycleJsonContract CreateContract (
+        UnityEditorStateSnapshot? state = null,
+        string? actionRequired = DaemonDiagnosisActionRequiredValues.FixCompileErrors,
+        IpcPrimaryDiagnostic? primaryDiagnostic = null,
+        string? serverVersion = null,
+        string? editorInstanceId = null)
     {
         return new DaemonLifecycleJsonContract(
-            ProcessId: 1234,
-            ProcessStartedAtUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 1, TimeSpan.Zero),
-            EditorMode: "gui",
-            LifecycleState: ContractLiteralCodec.ToValue(IpcEditorLifecycleState.CompileFailed),
-            BlockingReason: ContractLiteralCodec.ToValue(IpcEditorBlockingReason.CompileFailed),
-            CompileState: ContractLiteralCodec.ToValue(IpcCompileState.Failed),
-            CompileGeneration: "compile-1",
-            DomainReloadGeneration: "reload-1",
-            ObservedAtUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 2, TimeSpan.Zero),
-            ActionRequired: DaemonDiagnosisActionRequiredValues.FixCompileErrors,
-            PrimaryDiagnostic: null);
+            processId: 1234,
+            processStartedAtUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 1, TimeSpan.Zero),
+            state: state ?? new UnityEditorStateSnapshot(
+                editorMode: DaemonEditorMode.Gui,
+                lifecycleState: IpcEditorLifecycleState.CompileFailed,
+                compileState: IpcCompileState.Failed,
+                generations: new IpcUnityGenerationSnapshot(1, 1, 0, 0),
+                playMode: new IpcPlayModeSnapshot(
+                    IpcPlayModeState.Stopped,
+                    IpcPlayModeTransition.None,
+                    IsPlaying: false,
+                    IsPlayingOrWillChangePlaymode: false)),
+            observedAtUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 2, TimeSpan.Zero),
+            actionRequired: actionRequired,
+            primaryDiagnostic: primaryDiagnostic,
+            serverVersion: serverVersion,
+            editorInstanceId: editorInstanceId);
     }
 
     private static async Task WriteContractAsync (

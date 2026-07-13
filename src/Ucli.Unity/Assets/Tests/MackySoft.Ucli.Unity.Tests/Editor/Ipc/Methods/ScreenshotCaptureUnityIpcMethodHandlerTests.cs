@@ -2,8 +2,8 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Unity.Ipc;
 using MackySoft.Ucli.Unity.ScreenshotCapture.Capture;
 using NUnit.Framework;
@@ -30,7 +30,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(service.CallCount, Is.EqualTo(1));
             Assert.That(
                 service.LastRequest.Target,
-                Is.EqualTo(ContractLiteralCodec.ToValue(IpcScreenshotTarget.Game)));
+                Is.EqualTo(IpcScreenshotTarget.Game));
             Assert.That(
                 IpcPayloadCodec.TryDeserialize(
                     response.Payload,
@@ -51,7 +51,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 new IpcRequestTimeoutScopeFactory());
             var request = CreateRequest(CreatePayload() with
             {
-                Target = ContractLiteralCodec.ToValue(IpcScreenshotTarget.Scene),
+                Target = IpcScreenshotTarget.Scene,
                 RequestedWidth = 640,
                 RequestedHeight = 480,
             });
@@ -126,7 +126,7 @@ namespace MackySoft.Ucli.Unity.Tests
         private static IpcScreenshotCaptureRequest CreatePayload ()
         {
             return new IpcScreenshotCaptureRequest(
-                ContractLiteralCodec.ToValue(IpcScreenshotTarget.Game),
+                IpcScreenshotTarget.Game,
                 RequestedWidth: null,
                 RequestedHeight: null,
                 StagingPath: "/tmp/ucli-screenshot-test/capture.rgba",
@@ -148,21 +148,27 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             return UnityScreenshotCaptureResult.Success(new IpcScreenshotCaptureResponse(
                 new IpcScreenshotCapture(
-                    ContractLiteralCodec.ToValue(IpcScreenshotTarget.Game),
-                    ContractLiteralCodec.ToValue(IpcScreenshotSizeMode.CurrentSurface),
-                    RequestedWidth: null,
-                    RequestedHeight: null,
-                    Width: 2,
-                    Height: 1,
-                    ContractLiteralCodec.ToValue(IpcScreenshotColorSpace.Linear),
-                    LifecycleStateAtCapture: ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Ready),
-                    CompileStateAtCapture: ContractLiteralCodec.ToValue(IpcCompileState.Ready),
-                    DomainReloadGeneration: 4,
-                    PlayModeState: ContractLiteralCodec.ToValue(IpcPlayModeState.Stopped)),
+                    IpcScreenshotTarget.Game,
+                    IpcScreenshotSizeMode.CurrentSurface,
+                    requestedWidth: null,
+                    requestedHeight: null,
+                    width: 2,
+                    height: 1,
+                    IpcScreenshotColorSpace.Linear,
+                    state: new UnityEditorStateSnapshot(
+                        editorMode: DaemonEditorMode.Gui,
+                        lifecycleState: IpcEditorLifecycleState.Ready,
+                        compileState: IpcCompileState.Ready,
+                        generations: new IpcUnityGenerationSnapshot(1, 4, 2, 3),
+                        playMode: new IpcPlayModeSnapshot(
+                            State: IpcPlayModeState.Stopped,
+                            Transition: IpcPlayModeTransition.None,
+                            IsPlaying: false,
+                            IsPlayingOrWillChangePlaymode: false))),
                 new IpcScreenshotStagingImage(
                     "/tmp/ucli-screenshot-test/capture.rgba",
-                    ContractLiteralCodec.ToValue(IpcScreenshotPixelFormat.Rgba8Srgb),
-                    ContractLiteralCodec.ToValue(IpcScreenshotRowOrder.TopDown),
+                    IpcScreenshotPixelFormat.Rgba8Srgb,
+                    IpcScreenshotRowOrder.TopDown,
                     RowStrideBytes: 8,
                     SizeBytes: 8)));
         }

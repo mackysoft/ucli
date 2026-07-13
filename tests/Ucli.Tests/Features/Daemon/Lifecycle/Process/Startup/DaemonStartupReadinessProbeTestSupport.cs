@@ -5,7 +5,6 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Startup;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
-using MackySoft.Ucli.Tests.Helpers.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Unity;
 
 internal static class DaemonStartupReadinessProbeTestSupport
@@ -43,13 +42,10 @@ internal static class DaemonStartupReadinessProbeTestSupport
         return await TestAwaiter.WaitAsync(resultTask, description, TimeSpan.FromSeconds(5));
     }
 
-    public static IpcPingResponse CreatePingPayload (
-        IpcEditorLifecycleState lifecycleState = IpcEditorLifecycleState.Ready,
-        bool canAcceptExecutionRequests = true)
+    public static IpcUnityEditorObservation CreatePingPayload (
+        IpcEditorLifecycleState lifecycleState = IpcEditorLifecycleState.Ready)
     {
-        return IpcPingResponseTestFactory.Create(
-            lifecycleState: ContractLiteralCodec.ToValue(lifecycleState),
-            canAcceptExecutionRequests: canAcceptExecutionRequests);
+        return IpcUnityEditorObservationTestFactory.Create(lifecycleState);
     }
 
     private static RecordingUnityProjectLockPreflightService CreateProjectLockPreflightService (

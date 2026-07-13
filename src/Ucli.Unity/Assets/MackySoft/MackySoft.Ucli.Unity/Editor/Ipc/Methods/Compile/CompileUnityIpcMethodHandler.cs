@@ -1,5 +1,4 @@
 using System;
-using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Text.Json;
@@ -9,13 +8,11 @@ using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Project;
 using MackySoft.Ucli.Unity.Runtime;
 using UnityEditor;
 using UnityEditor.Compilation;
-using UnityEngine;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -157,6 +154,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 TryWriteAbandonedPendingRun(
                     paths,
                     readinessGate,
+                    projectIdentity,
                     serverVersionProvider,
                     daemonLogger);
                 return UnityIpcResponseFactory.CreateErrorResponse(
@@ -287,12 +285,14 @@ namespace MackySoft.Ucli.Unity.Ipc
                 ? CreateFinalSummary(
                     pendingSummary,
                     afterSnapshot,
+                    projectIdentity.UnityVersion,
                     serverVersionProvider,
                     DateTimeOffset.UtcNow,
                     diagnostics: new DiagnosticAccumulator())
                 : CreateAbandonedPendingSummary(
                     pendingSummary,
                     afterSnapshot,
+                    projectIdentity.UnityVersion,
                     serverVersionProvider,
                     DateTimeOffset.UtcNow);
             WriteDiagnostics(paths.DiagnosticsJsonPath, finalSummary);
@@ -341,6 +341,21 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return false;
             }
 
+            if (pendingSummary.Lifecycle == null)
+            {
+                errorMessage = "Recoverable compile operation lifecycle evidence is missing.";
+                return false;
+            }
+
+            if (!string.Equals(
+                    pendingSummary.Lifecycle.UnityVersion,
+                    projectIdentity.UnityVersion,
+                    StringComparison.Ordinal))
+            {
+                errorMessage = "Recoverable compile operation Unity version does not match this daemon.";
+                return false;
+            }
+
             errorMessage = null;
             return true;
         }
@@ -353,7 +368,13 @@ namespace MackySoft.Ucli.Unity.Ipc
                 && pendingSummary != null
                 && string.Equals(completedSummary.RunId, pendingSummary.RunId, StringComparison.Ordinal)
                 && string.Equals(completedSummary.ProjectFingerprint, pendingSummary.ProjectFingerprint, StringComparison.Ordinal)
-                && completedSummary.StartedAtUtc == pendingSummary.StartedAtUtc;
+                && completedSummary.StartedAtUtc == pendingSummary.StartedAtUtc
+                && completedSummary.Lifecycle != null
+                && pendingSummary.Lifecycle != null
+                && string.Equals(
+                    completedSummary.Lifecycle.UnityVersion,
+                    pendingSummary.Lifecycle.UnityVersion,
+                    StringComparison.Ordinal);
         }
 
         private static bool TryReadPendingSummary (
@@ -520,6 +541,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         private static void TryWriteAbandonedPendingRun (
             CompileArtifactPaths paths,
             IUnityEditorReadinessGate readinessGate,
+            IpcProjectIdentity projectIdentity,
             IServerVersionProvider serverVersionProvider,
             IDaemonLogger daemonLogger)
         {
@@ -545,10 +567,11 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             try
             {
-                var snapshot = readinessGate.CaptureSnapshot();
+                var snapshot = readinessGate.CaptureObservation();
                 var abandonedSummary = CreateAbandonedPendingSummary(
                     pendingSummary,
                     snapshot,
+                    projectIdentity.UnityVersion,
                     serverVersionProvider,
                     DateTimeOffset.UtcNow);
                 WriteDiagnostics(paths.DiagnosticsJsonPath, abandonedSummary);
@@ -565,7 +588,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         private static IpcCompileSummary CreatePendingSummary (
             string runId,
             IpcProjectIdentity projectIdentity,
-            UnityEditorLifecycleSnapshot beforeSnapshot,
+            UnityEditorObservation beforeSnapshot,
             IServerVersionProvider serverVersionProvider,
             DateTimeOffset startedAtUtc)
         {
@@ -584,21 +607,25 @@ namespace MackySoft.Ucli.Unity.Ipc
                 ScriptCompilation: new IpcCompileSummary.ScriptCompilationEvidence(
                     Started: false,
                     Completed: false,
-                    CompileGenerationBefore: ToGenerationLiteral(beforeSnapshot.CompileGeneration),
-                    CompileGenerationAfter: ToGenerationLiteral(beforeSnapshot.CompileGeneration),
+                    CompileGenerationBefore: beforeSnapshot.State.Generations.CompileGeneration,
+                    CompileGenerationAfter: beforeSnapshot.State.Generations.CompileGeneration,
                     Diagnostics: new IpcCompileSummary.DiagnosticsEvidence(0, 0, null)),
                 DomainReload: new IpcCompileSummary.DomainReloadEvidence(
                     ReloadRequired: false,
                     ReloadObserved: false,
-                    GenerationBefore: ToGenerationLiteral(beforeSnapshot.DomainReloadGeneration),
-                    GenerationAfter: ToGenerationLiteral(beforeSnapshot.DomainReloadGeneration),
+                    GenerationBefore: beforeSnapshot.State.Generations.DomainReloadGeneration,
+                    GenerationAfter: beforeSnapshot.State.Generations.DomainReloadGeneration,
                     Settled: false),
-                Lifecycle: CreateLifecycleEvidence(beforeSnapshot, projectIdentity, serverVersionProvider));
+                Lifecycle: CreateLifecycleEvidence(
+                    beforeSnapshot,
+                    projectIdentity.UnityVersion,
+                    serverVersionProvider));
         }
 
         private static IpcCompileSummary CreateFinalSummary (
             IpcCompileSummary pendingSummary,
-            UnityEditorLifecycleSnapshot afterSnapshot,
+            UnityEditorObservation afterSnapshot,
+            string unityVersion,
             IServerVersionProvider serverVersionProvider,
             DateTimeOffset completedAtUtc,
             DiagnosticAccumulator diagnostics)
@@ -622,12 +649,11 @@ namespace MackySoft.Ucli.Unity.Ipc
                 },
                 ScriptCompilation = pendingSummary.ScriptCompilation with
                 {
-                    Started = diagnostics.CompilationStarted || !string.Equals(
-                        pendingSummary.ScriptCompilation.CompileGenerationBefore,
-                        ToGenerationLiteral(afterSnapshot.CompileGeneration),
-                        StringComparison.Ordinal),
+                    Started = diagnostics.CompilationStarted
+                        || pendingSummary.ScriptCompilation.CompileGenerationBefore
+                            != afterSnapshot.State.Generations.CompileGeneration,
                     Completed = true,
-                    CompileGenerationAfter = ToGenerationLiteral(afterSnapshot.CompileGeneration),
+                    CompileGenerationAfter = afterSnapshot.State.Generations.CompileGeneration,
                     Diagnostics = new IpcCompileSummary.DiagnosticsEvidence(
                         ErrorCount: errorCount,
                         WarningCount: diagnostics.WarningCount,
@@ -637,16 +663,20 @@ namespace MackySoft.Ucli.Unity.Ipc
                 {
                     ReloadRequired = domainReloadObserved,
                     ReloadObserved = domainReloadObserved,
-                    GenerationAfter = ToGenerationLiteral(afterSnapshot.DomainReloadGeneration),
+                    GenerationAfter = afterSnapshot.State.Generations.DomainReloadGeneration,
                     Settled = IsLifecycleSettled(afterSnapshot),
                 },
-                Lifecycle = CreateLifecycleEvidence(afterSnapshot, pendingSummary.ProjectFingerprint, serverVersionProvider),
+                Lifecycle = CreateLifecycleEvidence(
+                    afterSnapshot,
+                    unityVersion,
+                    serverVersionProvider),
             };
         }
 
         private static IpcCompileSummary CreateAbandonedPendingSummary (
             IpcCompileSummary pendingSummary,
-            UnityEditorLifecycleSnapshot afterSnapshot,
+            UnityEditorObservation afterSnapshot,
+            string unityVersion,
             IServerVersionProvider serverVersionProvider,
             DateTimeOffset completedAtUtc)
         {
@@ -666,7 +696,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 {
                     Started = false,
                     Completed = false,
-                    CompileGenerationAfter = ToGenerationLiteral(afterSnapshot.CompileGeneration),
+                    CompileGenerationAfter = afterSnapshot.State.Generations.CompileGeneration,
                     Diagnostics = new IpcCompileSummary.DiagnosticsEvidence(
                         ErrorCount: errorCount,
                         WarningCount: 0,
@@ -676,16 +706,19 @@ namespace MackySoft.Ucli.Unity.Ipc
                 {
                     ReloadRequired = domainReloadObserved,
                     ReloadObserved = domainReloadObserved,
-                    GenerationAfter = ToGenerationLiteral(afterSnapshot.DomainReloadGeneration),
+                    GenerationAfter = afterSnapshot.State.Generations.DomainReloadGeneration,
                     Settled = IsLifecycleSettled(afterSnapshot),
                 },
-                Lifecycle = CreateLifecycleEvidence(afterSnapshot, pendingSummary.ProjectFingerprint, serverVersionProvider),
+                Lifecycle = CreateLifecycleEvidence(
+                    afterSnapshot,
+                    unityVersion,
+                    serverVersionProvider),
             };
         }
 
         private static bool CanCompletePendingRunFromRecovery (
             IpcCompileSummary pendingSummary,
-            UnityEditorLifecycleSnapshot afterSnapshot)
+            UnityEditorObservation afterSnapshot)
         {
             // NOTE: A pending artifact is written before AssetDatabase.Refresh so it can survive
             // domain reload. Recovery may only claim a completed compile when persisted or
@@ -697,60 +730,36 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private static bool IsDomainReloadObserved (
             IpcCompileSummary pendingSummary,
-            UnityEditorLifecycleSnapshot afterSnapshot)
+            UnityEditorObservation afterSnapshot)
         {
-            return !string.Equals(
-                pendingSummary.DomainReload.GenerationBefore,
-                ToGenerationLiteral(afterSnapshot.DomainReloadGeneration),
-                StringComparison.Ordinal);
+            return pendingSummary.DomainReload.GenerationBefore
+                != afterSnapshot.State.Generations.DomainReloadGeneration;
         }
 
         private static IpcCompileSummary.LifecycleEvidence CreateLifecycleEvidence (
-            UnityEditorLifecycleSnapshot snapshot,
-            IpcProjectIdentity projectIdentity,
+            UnityEditorObservation snapshot,
+            string unityVersion,
             IServerVersionProvider serverVersionProvider)
         {
-            return CreateLifecycleEvidence(snapshot, projectIdentity.ProjectFingerprint, serverVersionProvider);
-        }
-
-        private static IpcCompileSummary.LifecycleEvidence CreateLifecycleEvidence (
-            UnityEditorLifecycleSnapshot snapshot,
-            string projectFingerprint,
-            IServerVersionProvider serverVersionProvider)
-        {
-            _ = projectFingerprint;
             return new IpcCompileSummary.LifecycleEvidence(
                 ServerVersion: serverVersionProvider.GetVersion(),
-                UnityVersion: Application.unityVersion,
-                EditorMode: ContractLiteralCodec.ToValue(snapshot.EditorMode),
-                LifecycleState: ContractLiteralCodec.ToValue(snapshot.LifecycleState),
-                BlockingReason: snapshot.BlockingReason.HasValue
-                    ? ContractLiteralCodec.ToValue(snapshot.BlockingReason.Value)
-                    : null,
-                CompileState: ContractLiteralCodec.ToValue(snapshot.CompileState),
-                CompileGeneration: ToGenerationLiteral(snapshot.CompileGeneration),
-                DomainReloadGeneration: ToGenerationLiteral(snapshot.DomainReloadGeneration),
-                CanAcceptExecutionRequests: snapshot.CanAcceptExecutionRequests,
+                UnityVersion: unityVersion,
+                State: snapshot.State,
                 ObservedAtUtc: snapshot.ObservedAtUtc,
                 ActionRequired: snapshot.ActionRequired,
                 PrimaryDiagnostic: snapshot.PrimaryDiagnostic);
         }
 
-        private static bool IsLifecycleSettled (UnityEditorLifecycleSnapshot snapshot)
+        private static bool IsLifecycleSettled (UnityEditorObservation snapshot)
         {
-            return snapshot.LifecycleState is not IpcEditorLifecycleState.DomainReloading
+            return snapshot.State.LifecycleState is not IpcEditorLifecycleState.DomainReloading
                 and not IpcEditorLifecycleState.Compiling
                 and not IpcEditorLifecycleState.Reimporting
                 and not IpcEditorLifecycleState.Recovering
                 and not IpcEditorLifecycleState.Starting;
         }
 
-        private static string ToGenerationLiteral (int generation)
-        {
-            return generation.ToString(CultureInfo.InvariantCulture);
-        }
-
-        private static async Task<UnityEditorLifecycleSnapshot> WaitUntilCompileSettledAsync (
+        private static async Task<UnityEditorObservation> WaitUntilCompileSettledAsync (
             IUnityEditorReadinessGate readinessGate,
             CancellationToken cancellationToken)
         {
@@ -758,7 +767,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             while (true)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                var snapshot = readinessGate.CaptureSnapshot();
+                var snapshot = readinessGate.CaptureObservation();
                 if (observationWindow.Observe(snapshot))
                 {
                     return snapshot;
@@ -866,11 +875,11 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             private IpcCompileState stableCompileState;
 
-            private int stableCompileGeneration;
+            private long stableCompileGeneration;
 
-            private int stableDomainReloadGeneration;
+            private long stableDomainReloadGeneration;
 
-            public bool Observe (UnityEditorLifecycleSnapshot snapshot)
+            public bool Observe (UnityEditorObservation snapshot)
             {
                 if (!IsLifecycleSettled(snapshot))
                 {
@@ -888,21 +897,21 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return stableUpdates >= RequiredStableLifecycleObservations;
             }
 
-            private bool MatchesStableSnapshot (UnityEditorLifecycleSnapshot snapshot)
+            private bool MatchesStableSnapshot (UnityEditorObservation snapshot)
             {
-                return stableLifecycleState == snapshot.LifecycleState
-                    && stableCompileState == snapshot.CompileState
-                    && stableCompileGeneration == snapshot.CompileGeneration
-                    && stableDomainReloadGeneration == snapshot.DomainReloadGeneration;
+                return stableLifecycleState == snapshot.State.LifecycleState
+                    && stableCompileState == snapshot.State.CompileState
+                    && stableCompileGeneration == snapshot.State.Generations.CompileGeneration
+                    && stableDomainReloadGeneration == snapshot.State.Generations.DomainReloadGeneration;
             }
 
-            private void CaptureStableSnapshot (UnityEditorLifecycleSnapshot snapshot)
+            private void CaptureStableSnapshot (UnityEditorObservation snapshot)
             {
                 hasStableSnapshot = true;
-                stableLifecycleState = snapshot.LifecycleState;
-                stableCompileState = snapshot.CompileState;
-                stableCompileGeneration = snapshot.CompileGeneration;
-                stableDomainReloadGeneration = snapshot.DomainReloadGeneration;
+                stableLifecycleState = snapshot.State.LifecycleState;
+                stableCompileState = snapshot.State.CompileState;
+                stableCompileGeneration = snapshot.State.Generations.CompileGeneration;
+                stableDomainReloadGeneration = snapshot.State.Generations.DomainReloadGeneration;
             }
 
             private void Reset ()
@@ -950,7 +959,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             public async Task<IpcCompileSummary> ExecuteAsync (CancellationToken cancellationToken)
             {
-                var beforeSnapshot = readinessGate.CaptureSnapshot();
+                var beforeSnapshot = readinessGate.CaptureObservation();
                 var startedAtUtc = DateTimeOffset.UtcNow;
                 var pendingSummary = CreatePendingSummary(
                     runId,
@@ -979,6 +988,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     var finalSummary = CreateFinalSummary(
                         pendingSummary,
                         afterSnapshot,
+                        projectIdentity.UnityVersion,
                         serverVersionProvider,
                         completedAtUtc,
                         diagnostics);

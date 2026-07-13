@@ -5,19 +5,19 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
     /// <summary> Represents normalized screenshot pixels or one pixel-processing failure. </summary>
     internal sealed class UnityScreenshotNormalizationResult
     {
-        private UnityScreenshotNormalizationResult (NormalizedFrame frame, string errorMessage)
+        private UnityScreenshotNormalizationResult (UnityScreenshotFrame frame, string errorMessage)
         {
             Frame = frame;
             ErrorMessage = errorMessage;
         }
 
-        public NormalizedFrame Frame { get; }
+        public UnityScreenshotFrame Frame { get; }
 
         public string ErrorMessage { get; }
 
         public bool IsSuccess => Frame != null;
 
-        public static UnityScreenshotNormalizationResult Success (NormalizedFrame frame)
+        public static UnityScreenshotNormalizationResult Success (UnityScreenshotFrame frame)
         {
             return new UnityScreenshotNormalizationResult(
                 frame ?? throw new ArgumentNullException(nameof(frame)),
@@ -35,11 +35,5 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
 
             return new UnityScreenshotNormalizationResult(frame: null, errorMessage);
         }
-
-        internal sealed record NormalizedFrame (
-            int Width,
-            int Height,
-            string ColorSpace,
-            ReadOnlyMemory<byte> Rgba8SrgbTopDown);
     }
 }

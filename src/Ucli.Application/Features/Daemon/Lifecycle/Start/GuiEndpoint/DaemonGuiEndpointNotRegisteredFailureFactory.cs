@@ -1,7 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiEndpoint;
 
@@ -87,7 +86,7 @@ internal static class DaemonGuiEndpointNotRegisteredFailureFactory
             SessionIssuedAtUtc: updatedAtUtc,
             ProcessStartedAtUtc: processStartedAtUtc,
             UnityLogPath: unityLogPath,
-            StartupPhase: ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.EndpointRegistration),
+            StartupPhase: DaemonDiagnosisStartupPhase.EndpointRegistration,
             ActionRequired: DaemonDiagnosisActionRequiredValues.InspectUnityLog);
     }
 

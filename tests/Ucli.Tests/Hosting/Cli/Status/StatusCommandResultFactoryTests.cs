@@ -1,7 +1,6 @@
 using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
-using MackySoft.Ucli.Application.Shared.CommandContracts;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Status;
@@ -12,6 +11,10 @@ public sealed class StatusCommandResultFactoryTests
 {
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
+        Converters =
+        {
+            new ContractLiteralJsonConverterFactory(),
+        },
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
     };
 
@@ -24,20 +27,18 @@ public sealed class StatusCommandResultFactoryTests
                 DaemonStatus: DaemonStatusKind.Running,
                 UnityVersion: "6000.1.4f1",
                 ServerVersion: "0.5.0",
-                LifecycleState: "busy",
-                BlockingReason: "busy",
-                CompileState: "ready",
-                CompileGeneration: "12",
-                DomainReloadGeneration: "7",
+                LifecycleState: IpcEditorLifecycleState.Busy,
+                BlockingReason: IpcEditorBlockingReason.Busy,
+                CompileState: IpcCompileState.Ready,
+                Generations: new IpcUnityGenerationSnapshot(12, 7, 0, 2),
                 CanAcceptExecutionRequests: false,
-                EditorMode: "batchmode",
+                EditorMode: DaemonEditorMode.Batchmode,
                 TimeoutMilliseconds: 1234,
-                PlayMode: new PlayModeSnapshotOutput(
-                    State: "stopped",
-                    Transition: "none",
+                PlayMode: new IpcPlayModeSnapshot(
+                    State: IpcPlayModeState.Stopped,
+                    Transition: IpcPlayModeTransition.None,
                     IsPlaying: false,
-                    IsPlayingOrWillChangePlaymode: false,
-                    Generation: "2")));
+                    IsPlayingOrWillChangePlaymode: false)));
 
         var result = StatusCommandResultFactory.Create(executionResult);
 
@@ -54,16 +55,18 @@ public sealed class StatusCommandResultFactoryTests
             .HasString("lifecycleState", "busy")
             .HasString("blockingReason", "busy")
             .HasString("compileState", "ready")
-            .HasString("compileGeneration", "12")
-            .HasString("domainReloadGeneration", "7")
+            .HasProperty("generations", generations => generations
+                .HasInt32("compileGeneration", 12)
+                .HasInt32("domainReloadGeneration", 7)
+                .HasInt32("assetRefreshGeneration", 0)
+                .HasInt32("playModeGeneration", 2))
             .HasBoolean("canAcceptExecutionRequests", false)
             .HasString("editorMode", "batchmode")
             .HasProperty("playMode", playMode => playMode
                 .HasString("state", "stopped")
                 .HasString("transition", "none")
                 .HasBoolean("isPlaying", false)
-                .HasBoolean("isPlayingOrWillChangePlaymode", false)
-                .HasString("generation", "2"))
+                .HasBoolean("isPlayingOrWillChangePlaymode", false))
             .HasInt32("timeoutMilliseconds", 1234);
         Assert.False(payload.TryGetProperty("runtime", out _));
     }

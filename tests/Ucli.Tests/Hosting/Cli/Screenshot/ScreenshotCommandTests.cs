@@ -1,4 +1,5 @@
 using MackySoft.Tests;
+using MackySoft.Ucli.Application.Features.Screenshot.Artifacts;
 using MackySoft.Ucli.Application.Features.Screenshot.Capture;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Screenshot;
@@ -90,7 +91,11 @@ public sealed class ScreenshotCommandTests
                 .HasString("colorSpace", "linear")
                 .HasString("lifecycleStateAtCapture", "ready")
                 .HasString("compileStateAtCapture", "ready")
-                .HasInt32("domainReloadGeneration", 7)
+                .HasProperty("generations", generations => generations
+                    .HasInt32("compileGeneration", 5)
+                    .HasInt32("domainReloadGeneration", 7)
+                    .HasInt32("assetRefreshGeneration", 11)
+                    .HasInt32("playModeGeneration", 13))
                 .HasString("playModeState", "playing"))
             .HasProperty("artifact", artifact => artifact
                 .HasString("kind", "screenshot")
@@ -135,19 +140,30 @@ public sealed class ScreenshotCommandTests
     {
         return new ScreenshotCaptureOutput(
             new ProjectIdentityInfo("/repo/UnityProject", "pf_test", "6000.0.77f1"),
-            target,
-            requestedWidth,
-            requestedHeight,
-            Width: requestedWidth ?? 1280,
-            Height: requestedHeight ?? 720,
-            ColorSpace: "linear",
-            LifecycleStateAtCapture: "ready",
-            CompileStateAtCapture: "ready",
-            DomainReloadGeneration: 7,
-            PlayModeState: "playing",
-            ArtifactPath: ".ucli/local/fingerprints/pf_test/artifacts/screenshot/capture/screenshot.png",
-            ArtifactDigest: new string('a', 64),
-            ArtifactSizeBytes: 4096,
-            ArtifactCreatedAtUtc: new DateTimeOffset(2026, 7, 11, 1, 2, 3, TimeSpan.Zero));
+            new IpcScreenshotCapture(
+                target,
+                requestedWidth.HasValue
+                    ? IpcScreenshotSizeMode.RequestedResolution
+                    : IpcScreenshotSizeMode.CurrentSurface,
+                requestedWidth,
+                requestedHeight,
+                requestedWidth ?? 1280,
+                requestedHeight ?? 720,
+                IpcScreenshotColorSpace.Linear,
+                new UnityEditorStateSnapshot(
+                    DaemonEditorMode.Gui,
+                    IpcEditorLifecycleState.Ready,
+                    IpcCompileState.Ready,
+                    new IpcUnityGenerationSnapshot(5, 7, 11, 13),
+                    new IpcPlayModeSnapshot(
+                        IpcPlayModeState.Playing,
+                        IpcPlayModeTransition.None,
+                        IsPlaying: true,
+                        IsPlayingOrWillChangePlaymode: true))),
+            new ScreenshotArtifact(
+                ".ucli/local/fingerprints/pf_test/artifacts/screenshot/capture/screenshot.png",
+                new string('a', 64),
+                4096,
+                new DateTimeOffset(2026, 7, 11, 1, 2, 3, TimeSpan.Zero)));
     }
 }

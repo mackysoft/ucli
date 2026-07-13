@@ -1,7 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
-
 using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
@@ -28,7 +27,7 @@ internal static class DaemonSessionConnectionFactory
             return false;
         }
 
-        if (!ContractLiteralCodec.TryParse<IpcTransportKind>(session.EndpointTransportKind, out var transportKind))
+        if (!ContractLiteralCodec.IsDefined(session.EndpointTransportKind))
         {
             connection = null;
             error = ExecutionError.InvalidArgument(
@@ -45,7 +44,7 @@ internal static class DaemonSessionConnectionFactory
 
         connection = new DaemonSessionConnection(
             session.SessionToken,
-            new IpcEndpoint(transportKind, session.EndpointAddress));
+            new IpcEndpoint(session.EndpointTransportKind, session.EndpointAddress));
         error = null;
         return true;
     }

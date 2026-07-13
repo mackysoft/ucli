@@ -84,7 +84,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
             Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
-            Assert.That(readinessGate.CaptureSnapshotCallCount, Is.EqualTo(0));
+            Assert.That(readinessGate.CaptureObservationCallCount, Is.EqualTo(0));
         });
 
         [UnityTest]
@@ -100,7 +100,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
             Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
-            Assert.That(readinessGate.CaptureSnapshotCallCount, Is.EqualTo(0));
+            Assert.That(readinessGate.CaptureObservationCallCount, Is.EqualTo(0));
         });
 
         [UnityTest]
@@ -125,8 +125,8 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(payload.Transition.Transition, Is.EqualTo(IpcPlayTransitionCommandNames.Enter));
             Assert.That(payload.Transition.Result, Is.EqualTo(IpcPlayTransitionResultNames.Entered));
             Assert.That(payload.Transition.After, Is.Not.Null);
-            Assert.That(payload.Transition.After!.PlayMode!.State, Is.EqualTo("playing"));
-            Assert.That(payload.Transition.After.PlayMode.Generation, Is.EqualTo("11"));
+            Assert.That(payload.Transition.After!.State.PlayMode!.State, Is.EqualTo(IpcPlayModeState.Playing));
+            Assert.That(payload.Transition.After.State.Generations.PlayModeGeneration, Is.EqualTo(11));
         });
 
         [UnityTest]
@@ -143,8 +143,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Response.Transition.Result, Is.EqualTo(IpcPlayTransitionResultNames.AlreadyEntered));
-            Assert.That(result.Response.Transition.Before.PlayMode!.Generation, Is.EqualTo("21"));
-            Assert.That(result.Response.Transition.After!.PlayMode!.Generation, Is.EqualTo("21"));
+            Assert.That(result.Response.Transition.Before.State.Generations.PlayModeGeneration, Is.EqualTo(21));
+            Assert.That(result.Response.Transition.After!.State.Generations.PlayModeGeneration, Is.EqualTo(21));
             Assert.That(enterRequestCount, Is.EqualTo(0));
         });
 
@@ -156,7 +156,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var recoverableStore = new StubRecoverableIpcOperationStore();
             var recoverableContext = CreateRecoverableContext(
                 recoverableStore,
-                new PlayEnterRecoveryPayload(CreatePlayLifecycleSnapshot(CreateReadyStoppedSnapshot(generation: 21))));
+                new PlayEnterRecoveryPayload(Create(CreateReadyStoppedSnapshot(generation: 21))));
             var enterRequestCount = 0;
             var runner = CreateRunner(
                 readinessGate,
@@ -166,8 +166,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Response.Transition.Result, Is.EqualTo(IpcPlayTransitionResultNames.Entered));
-            Assert.That(result.Response.Transition.Before.PlayMode!.Generation, Is.EqualTo("21"));
-            Assert.That(result.Response.Transition.After!.PlayMode!.Generation, Is.EqualTo("22"));
+            Assert.That(result.Response.Transition.Before.State.Generations.PlayModeGeneration, Is.EqualTo(21));
+            Assert.That(result.Response.Transition.After!.State.Generations.PlayModeGeneration, Is.EqualTo(22));
             Assert.That(recoverableStore.PendingWriteCallCount, Is.EqualTo(0));
             Assert.That(enterRequestCount, Is.EqualTo(0));
         });
@@ -201,7 +201,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 throw new AssertionException("The pending recovery payload was not captured.");
             }
 
-            Assert.That(pendingPayload.Before.PlayMode!.Generation, Is.EqualTo("21"));
+            Assert.That(pendingPayload.Before.State.Generations.PlayModeGeneration, Is.EqualTo(21));
             Assert.That(enterRequestCount, Is.EqualTo(1));
         });
 
@@ -259,7 +259,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var recoverableStore = new StubRecoverableIpcOperationStore();
             var recoverableContext = CreateRecoverableContext(
                 recoverableStore,
-                new PlayEnterRecoveryPayload(CreatePlayLifecycleSnapshot(CreateReadyStoppedSnapshot(generation: 21))));
+                new PlayEnterRecoveryPayload(Create(CreateReadyStoppedSnapshot(generation: 21))));
             var enterRequestCount = 0;
             var runner = CreateRunner(
                 readinessGate,
@@ -275,8 +275,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Response.Transition.Result, Is.EqualTo(IpcPlayTransitionResultNames.Entered));
-            Assert.That(result.Response.Transition.Before.PlayMode!.Generation, Is.EqualTo("21"));
-            Assert.That(result.Response.Transition.After!.PlayMode!.Generation, Is.EqualTo("22"));
+            Assert.That(result.Response.Transition.Before.State.Generations.PlayModeGeneration, Is.EqualTo(21));
+            Assert.That(result.Response.Transition.After!.State.Generations.PlayModeGeneration, Is.EqualTo(22));
             Assert.That(recoverableStore.PendingWriteCallCount, Is.EqualTo(0));
             Assert.That(enterRequestCount, Is.EqualTo(0));
         });
@@ -285,10 +285,11 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator Runner_WhenPreconditionIsBlocked_ReturnsBlockedWithoutRequestingEnter () => UniTask.ToCoroutine(async () =>
         {
-            var readinessGate = new MutableUnityEditorReadinessGate(CreateLifecycleSnapshot(
+            var readinessGate = new MutableUnityEditorReadinessGate(CreateObservation(
                 DaemonEditorMode.Gui,
                 IpcEditorLifecycleState.Compiling,
-                CreateStoppedPlayMode(generation: 31)));
+                CreateStoppedPlayMode(),
+                playModeGeneration: 31));
             var enterRequestCount = 0;
             var runner = CreateRunner(
                 readinessGate,
@@ -307,15 +308,15 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator Runner_WhenPlayModeIsAlreadyChanging_ReturnsAlreadyChangingWithoutRequestingEnter () => UniTask.ToCoroutine(async () =>
         {
-            var readinessGate = new MutableUnityEditorReadinessGate(CreateLifecycleSnapshot(
+            var readinessGate = new MutableUnityEditorReadinessGate(CreateObservation(
                 DaemonEditorMode.Gui,
                 IpcEditorLifecycleState.PlayMode,
-                new UnityEditorPlayModeSnapshot(
+                new IpcPlayModeSnapshot(
                     State: IpcPlayModeState.Entering,
                     Transition: IpcPlayModeTransition.Entering,
                     IsPlaying: false,
-                    IsPlayingOrWillChangePlaymode: true,
-                    Generation: 41)));
+                    IsPlayingOrWillChangePlaymode: true),
+                playModeGeneration: 41));
             var enterRequestCount = 0;
             var runner = CreateRunner(
                 readinessGate,
@@ -364,7 +365,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.Response.Transition.Result, Is.EqualTo(IpcPlayTransitionResultNames.Timeout));
             Assert.That(result.Response.Transition.ApplicationState, Is.EqualTo(IpcPlayApplicationStateNames.Indeterminate));
             Assert.That(result.Response.Transition.Observed, Is.Not.Null);
-            Assert.That(result.Response.Transition.Observed!.PlayMode!.Generation, Is.EqualTo("61"));
+            Assert.That(result.Response.Transition.Observed!.State.Generations.PlayModeGeneration, Is.EqualTo(61));
         });
 
         private static PlayEnterUnityIpcMethodHandler CreateHandler (MutableUnityEditorReadinessGate readinessGate)
@@ -444,87 +445,88 @@ namespace MackySoft.Ucli.Unity.Tests
                 responseMode: IpcResponseMode.Single);
         }
 
-        private static UnityEditorLifecycleSnapshot CreateReadyStoppedSnapshot (int generation = 1)
+        private static UnityEditorObservation CreateReadyStoppedSnapshot (long generation = 1)
         {
-            return CreateLifecycleSnapshot(
+            return CreateObservation(
                 DaemonEditorMode.Gui,
                 IpcEditorLifecycleState.Ready,
-                CreateStoppedPlayMode(generation));
+                CreateStoppedPlayMode(),
+                generation);
         }
 
-        private static UnityEditorLifecycleSnapshot CreatePlayingSnapshot (int generation = 2)
+        private static UnityEditorObservation CreatePlayingSnapshot (long generation = 2)
         {
-            return CreateLifecycleSnapshot(
+            return CreateObservation(
                 DaemonEditorMode.Gui,
                 IpcEditorLifecycleState.PlayMode,
-                new UnityEditorPlayModeSnapshot(
+                new IpcPlayModeSnapshot(
                     State: IpcPlayModeState.Playing,
                     Transition: IpcPlayModeTransition.None,
                     IsPlaying: true,
-                    IsPlayingOrWillChangePlaymode: true,
-                    Generation: generation));
+                    IsPlayingOrWillChangePlaymode: true),
+                generation);
         }
 
-        private static UnityEditorLifecycleSnapshot CreateEnteringSnapshot (int generation = 2)
+        private static UnityEditorObservation CreateEnteringSnapshot (long generation = 2)
         {
-            return CreateLifecycleSnapshot(
+            return CreateObservation(
                 DaemonEditorMode.Gui,
                 IpcEditorLifecycleState.PlayMode,
-                new UnityEditorPlayModeSnapshot(
+                new IpcPlayModeSnapshot(
                     State: IpcPlayModeState.Entering,
                     Transition: IpcPlayModeTransition.Entering,
                     IsPlaying: false,
-                    IsPlayingOrWillChangePlaymode: true,
-                    Generation: generation));
+                    IsPlayingOrWillChangePlaymode: true),
+                generation);
         }
 
-        private static UnityEditorLifecycleSnapshot CreateLifecycleSnapshot (
+        private static UnityEditorObservation CreateObservation (
             DaemonEditorMode editorMode,
             IpcEditorLifecycleState lifecycleState,
-            UnityEditorPlayModeSnapshot playMode)
+            IpcPlayModeSnapshot playMode,
+            long playModeGeneration)
         {
-            return new UnityEditorLifecycleSnapshot(
-                EditorMode: editorMode,
-                LifecycleState: lifecycleState,
-                CompileState: IpcCompileState.Ready,
-                CompileGeneration: 1,
-                DomainReloadGeneration: 1,
-                PlayMode: playMode);
+            return new UnityEditorObservation(
+                state: new UnityEditorStateSnapshot(
+                    editorMode: editorMode,
+                    lifecycleState: lifecycleState,
+                    compileState: IpcCompileState.Ready,
+                    generations: new IpcUnityGenerationSnapshot(1, 1, 1, playModeGeneration),
+                    playMode: playMode),
+                observedAtUtc: DateTimeOffset.UnixEpoch);
         }
 
-        private static IpcPlayLifecycleSnapshot CreatePlayLifecycleSnapshot (UnityEditorLifecycleSnapshot snapshot)
+        private static IpcUnityEditorObservation Create (UnityEditorObservation snapshot)
         {
-            return UnityLifecycleResponseCodec.CreatePlayLifecycleSnapshot(
-                "6000.1.4f1",
+            return UnityLifecycleResponseFactory.Create(
+                new IpcProjectIdentity("/repo/UnityProject", "project-fingerprint", "6000.1.4f1"),
                 "1.2.3",
-                "project-fingerprint",
                 snapshot);
         }
 
-        private static UnityEditorPlayModeSnapshot CreateStoppedPlayMode (int generation)
+        private static IpcPlayModeSnapshot CreateStoppedPlayMode ()
         {
-            return new UnityEditorPlayModeSnapshot(
+            return new IpcPlayModeSnapshot(
                 State: IpcPlayModeState.Stopped,
                 Transition: IpcPlayModeTransition.None,
                 IsPlaying: false,
-                IsPlayingOrWillChangePlaymode: false,
-                Generation: generation);
+                IsPlayingOrWillChangePlaymode: false);
         }
 
         private sealed class MutableUnityEditorReadinessGate : IUnityEditorReadinessGate
         {
-            public MutableUnityEditorReadinessGate (UnityEditorLifecycleSnapshot snapshot)
+            public MutableUnityEditorReadinessGate (UnityEditorObservation snapshot)
             {
                 Snapshot = snapshot;
             }
 
-            public UnityEditorLifecycleSnapshot Snapshot { get; set; }
+            public UnityEditorObservation Snapshot { get; set; }
 
-            public int CaptureSnapshotCallCount { get; private set; }
+            public int CaptureObservationCallCount { get; private set; }
 
-            public UnityEditorLifecycleSnapshot CaptureSnapshot ()
+            public UnityEditorObservation CaptureObservation ()
             {
-                CaptureSnapshotCallCount++;
+                CaptureObservationCallCount++;
                 return Snapshot;
             }
 

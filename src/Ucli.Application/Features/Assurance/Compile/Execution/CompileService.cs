@@ -19,8 +19,6 @@ internal sealed class CompileService : ICompileService
     private const string DiagnosticsReportRef = "compile.diagnostics";
     private const string RefreshOriginDiagnosticsRead = "diagnosticsRead";
     private const string ProgressObservationSourceHostDispatch = "hostDispatch";
-    private const string UnknownGeneration = "unknown";
-
     private static readonly IReadOnlyList<CompileResidualRiskOutput> EmptyResidualRisks =
         Array.Empty<CompileResidualRiskOutput>();
 
@@ -475,6 +473,7 @@ internal sealed class CompileService : ICompileService
 
     private static CompileOutput CreateCompileOutput (IpcCompileSummary summary)
     {
+        var state = summary.Lifecycle.State;
         return new CompileOutput(
             RunId: summary.RunId,
             Refresh: new CompileRefreshOutput(
@@ -501,13 +500,15 @@ internal sealed class CompileService : ICompileService
             Lifecycle: new CompileLifecycleOutput(
                 ServerVersion: summary.Lifecycle.ServerVersion,
                 UnityVersion: summary.Lifecycle.UnityVersion,
-                EditorMode: summary.Lifecycle.EditorMode,
-                LifecycleState: summary.Lifecycle.LifecycleState,
-                BlockingReason: summary.Lifecycle.BlockingReason,
-                CompileState: summary.Lifecycle.CompileState,
-                CompileGeneration: summary.Lifecycle.CompileGeneration,
-                DomainReloadGeneration: summary.Lifecycle.DomainReloadGeneration,
-                CanAcceptExecutionRequests: summary.Lifecycle.CanAcceptExecutionRequests,
+                EditorMode: state?.EditorMode,
+                LifecycleState: state?.LifecycleState,
+                BlockingReason: state is not null
+                    ? IpcEditorLifecycleSemantics.ResolveBlockingReason(state.LifecycleState)
+                    : null,
+                CompileState: state?.CompileState,
+                Generations: state?.Generations,
+                CanAcceptExecutionRequests: state is not null
+                    && IpcEditorLifecycleSemantics.CanAcceptExecutionRequests(state.LifecycleState),
                 ObservedAtUtc: summary.Lifecycle.ObservedAtUtc,
                 ActionRequired: summary.Lifecycle.ActionRequired,
                 PrimaryDiagnostic: CreatePrimaryDiagnosticOutput(summary.Lifecycle.PrimaryDiagnostic)));
@@ -566,13 +567,16 @@ internal sealed class CompileService : ICompileService
                 ]),
             CreateClaim(
                 CompileClaimCodes.UnityLifecycleReadyAfterCompile,
-                summary.Lifecycle.CanAcceptExecutionRequests ? CompileClaimStatusValues.Passed : CompileClaimStatusValues.Failed,
+                summary.Lifecycle.State is not null
+                    && IpcEditorLifecycleSemantics.CanAcceptExecutionRequests(summary.Lifecycle.State.LifecycleState)
+                    ? CompileClaimStatusValues.Passed
+                    : CompileClaimStatusValues.Failed,
                 "Unity lifecycle is ready after compile observation.",
                 new Dictionary<string, object?>(StringComparer.Ordinal)
                 {
                     ["kind"] = "unityLifecycle",
                     ["runId"] = summary.RunId,
-                    ["lifecycleState"] = summary.Lifecycle.LifecycleState,
+                    ["lifecycleState"] = summary.Lifecycle.State?.LifecycleState,
                 },
                 [
                     new CompileEvidenceOutput(
@@ -667,8 +671,8 @@ internal sealed class CompileService : ICompileService
             ScriptCompilation: new IpcCompileSummary.ScriptCompilationEvidence(
                 Started: false,
                 Completed: true,
-                CompileGenerationBefore: UnknownGeneration,
-                CompileGenerationAfter: UnknownGeneration,
+                CompileGenerationBefore: null,
+                CompileGenerationAfter: null,
                 Diagnostics: new IpcCompileSummary.DiagnosticsEvidence(
                     ErrorCount: 1,
                     WarningCount: 0,
@@ -676,19 +680,13 @@ internal sealed class CompileService : ICompileService
             DomainReload: new IpcCompileSummary.DomainReloadEvidence(
                 ReloadRequired: false,
                 ReloadObserved: false,
-                GenerationBefore: UnknownGeneration,
-                GenerationAfter: UnknownGeneration,
+                GenerationBefore: null,
+                GenerationAfter: null,
                 Settled: true),
             Lifecycle: new IpcCompileSummary.LifecycleEvidence(
                 ServerVersion: null,
                 UnityVersion: project.UnityVersion,
-                EditorMode: startup?.EditorMode,
-                LifecycleState: ContractLiteralCodec.ToValue(IpcEditorLifecycleState.CompileFailed),
-                BlockingReason: ContractLiteralCodec.ToValue(IpcEditorBlockingReason.CompileFailed),
-                CompileState: ContractLiteralCodec.ToValue(IpcCompileState.Failed),
-                CompileGeneration: UnknownGeneration,
-                DomainReloadGeneration: UnknownGeneration,
-                CanAcceptExecutionRequests: false,
+                State: null,
                 ObservedAtUtc: observedAtUtc,
                 ActionRequired: DaemonDiagnosisActionRequiredValues.FixCompileErrors,
                 PrimaryDiagnostic: compileDiagnostic));
@@ -758,6 +756,14 @@ internal sealed class CompileService : ICompileService
         if (summary.Lifecycle is null)
         {
             return ApplicationFailure.InternalError("Unity compile summary is missing lifecycle evidence.");
+        }
+
+        if (summary.ScriptCompilation.CompileGenerationBefore is < 0
+            || summary.ScriptCompilation.CompileGenerationAfter is < 0
+            || summary.DomainReload.GenerationBefore is < 0
+            || summary.DomainReload.GenerationAfter is < 0)
+        {
+            return ApplicationFailure.InternalError("Unity compile summary generation values must not be negative.");
         }
 
         return null;

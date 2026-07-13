@@ -5,6 +5,7 @@ using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Application.Tests.Features.Assurance.Ready;
 
@@ -75,61 +76,64 @@ internal static class ReadyServiceTestSupport
     }
 
     public static UnityRequestExecutionResult CreateReadyPingSuccess (
-        string lifecycleState = "ready",
-        bool canAcceptExecutionRequests = true,
+        IpcEditorLifecycleState lifecycleState = IpcEditorLifecycleState.Ready,
         string projectFingerprint = "project-fingerprint")
     {
         return UnityRequestExecutionResult.Success(new UnityRequestResponse(
             IpcPayloadCodec.SerializeToElement(CreateReadyPingResponse(
                 lifecycleState,
-                canAcceptExecutionRequests,
                 projectFingerprint)),
             [],
             HasFailureStatus: false));
     }
 
-    public static IpcPingResponse CreateReadyPingResponse (
-        string lifecycleState = "ready",
-        bool canAcceptExecutionRequests = true,
+    public static IpcUnityEditorObservation CreateReadyPingResponse (
+        IpcEditorLifecycleState lifecycleState = IpcEditorLifecycleState.Ready,
         string projectFingerprint = "project-fingerprint")
     {
-        return new IpcPingResponse(
-            ServerVersion: "0.5.0",
-            EditorMode: "batchmode",
-            UnityVersion: "6000.1.4f1",
-            ProjectFingerprint: projectFingerprint,
-            CompileState: "ready",
-            LifecycleState: lifecycleState,
-            BlockingReason: lifecycleState == "ready" ? null : "compileFailed",
-            CompileGeneration: "12",
-            DomainReloadGeneration: "7",
-            CanAcceptExecutionRequests: canAcceptExecutionRequests,
-            ObservedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:00Z"),
-            PlayMode: new IpcPlayModeSnapshot(
-                State: "stopped",
-                Transition: "none",
-                IsPlaying: false,
-                IsPlayingOrWillChangePlaymode: false,
-                Generation: "2"));
+        return new IpcUnityEditorObservation(
+            serverVersion: "0.5.0",
+            unityVersion: "6000.1.4f1",
+            projectFingerprint: projectFingerprint,
+            state: new UnityEditorStateSnapshot(
+                editorMode: DaemonEditorMode.Batchmode,
+                lifecycleState: lifecycleState,
+                compileState: lifecycleState == IpcEditorLifecycleState.CompileFailed
+                    ? IpcCompileState.Failed
+                    : IpcCompileState.Ready,
+                generations: new IpcUnityGenerationSnapshot(
+                    CompileGeneration: 12,
+                    DomainReloadGeneration: 7,
+                    AssetRefreshGeneration: 4,
+                    PlayModeGeneration: 2),
+                playMode: new IpcPlayModeSnapshot(
+                    State: IpcPlayModeState.Stopped,
+                    Transition: IpcPlayModeTransition.None,
+                    IsPlaying: false,
+                    IsPlayingOrWillChangePlaymode: false)),
+            observedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:00Z"),
+            actionRequired: lifecycleState == IpcEditorLifecycleState.CompileFailed
+                ? DaemonDiagnosisActionRequiredValues.FixCompileErrors
+                : null);
     }
 
     public static StartupFailureDetail CreateStartupFailureDetail ()
     {
         return new StartupFailureDetail(
             Startup: new DaemonStartupObservationOutput(
-                StartupStatus: "blocked",
-                StartupBlockingReason: "compile",
+                StartupStatus: DaemonStartupStatus.Blocked,
+                StartupBlockingReason: DaemonStartupBlockingReason.Compile,
                 LaunchAttemptId: null,
-                EditorMode: "batchmode",
-                OwnerKind: "cli",
+                EditorMode: DaemonEditorMode.Batchmode,
+                OwnerKind: DaemonSessionOwnerKind.Cli,
                 CanShutdownProcess: true,
                 ProcessId: 1234,
                 StartedAtUtc: DateTimeOffset.Parse("2026-03-12T04:05:01+00:00"),
                 ElapsedMilliseconds: null,
-                ProcessAction: "terminated",
+                ProcessAction: DaemonStartupProcessAction.Terminated,
                 ProcessTermination: null,
                 ArtifactPath: null,
-                RetryDisposition: "retryAfterFix"),
+                RetryDisposition: DaemonStartupRetryDisposition.RetryAfterFix),
             Diagnosis: new DaemonDiagnosisOutput(
                 Reason: "unityScriptCompilationFailed",
                 Message: "Unity startup is blocked.",
@@ -140,7 +144,7 @@ internal static class ReadyServiceTestSupport
                 EditorInstancePath: null,
                 ProcessStartedAtUtc: DateTimeOffset.Parse("2026-03-12T04:05:01+00:00"),
                 UnityLogPath: "/repo/.ucli/local/logs/unity.log",
-                StartupPhase: "scriptCompilation",
+                StartupPhase: DaemonDiagnosisStartupPhase.ScriptCompilation,
                 ActionRequired: "fixCompileErrors",
                 PrimaryDiagnostic: new DaemonPrimaryDiagnosticOutput(
                     Kind: "compiler",
@@ -149,7 +153,7 @@ internal static class ReadyServiceTestSupport
                     Line: 10,
                     Column: 5,
                     Message: "error CS0246")),
-            RetryDisposition: "retryAfterFix",
+            RetryDisposition: DaemonStartupRetryDisposition.RetryAfterFix,
             SafeToRetryImmediately: false);
     }
 }

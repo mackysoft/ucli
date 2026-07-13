@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Unity.ScreenshotCapture.Pixels;
 using NUnit.Framework;
 using UnityEngine.Experimental.Rendering;
@@ -19,7 +18,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 TextureDimension.Tex2D,
                 antiAliasing: 1,
                 useMipMap: false,
-                ContractLiteralCodec.ToValue(IpcScreenshotColorSpace.Linear),
+                IpcScreenshotColorSpace.Linear,
                 out var errorMessage);
 
             Assert.That(result, Is.True, errorMessage);
@@ -42,7 +41,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 dimension,
                 antiAliasing,
                 useMipMap,
-                ContractLiteralCodec.ToValue(IpcScreenshotColorSpace.Linear),
+                IpcScreenshotColorSpace.Linear,
                 out var errorMessage);
 
             Assert.That(result, Is.False);
@@ -58,7 +57,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 TextureDimension.Tex2D,
                 antiAliasing: 1,
                 useMipMap: false,
-                ContractLiteralCodec.ToValue(IpcScreenshotColorSpace.Gamma),
+                IpcScreenshotColorSpace.Gamma,
                 out var errorMessage);
 
             Assert.That(result, Is.False);

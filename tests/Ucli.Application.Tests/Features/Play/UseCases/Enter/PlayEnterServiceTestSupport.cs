@@ -34,18 +34,18 @@ internal static class PlayEnterServiceTestSupport
 
     public static RecordingDaemonSessionStore CreateGuiSessionStore ()
     {
-        return new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(DaemonSessionTestFactory.CreateUserOwned("gui", PlaySessionEndpointAddress)));
+        return new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(DaemonSessionTestFactory.CreateUserOwned(DaemonEditorMode.Gui, PlaySessionEndpointAddress)));
     }
 
     public static IpcPlayTransitionResponse CreateEnteredResponse ()
     {
-        var before = CreateSnapshot("ready", null, true, CreateStoppedPlayMode("2"));
-        var after = CreateSnapshot("playmode", "playMode", false, CreatePlayMode(
-            "playing",
-            "none",
+        var before = CreateSnapshot(IpcEditorLifecycleState.Ready, CreateStoppedPlayMode(), playModeGeneration: 2);
+        var after = CreateSnapshot(IpcEditorLifecycleState.PlayMode, CreatePlayMode(
+            IpcPlayModeState.Playing,
+            IpcPlayModeTransition.None,
             isPlaying: true,
-            isPlayingOrWillChangePlaymode: true,
-            generation: "3"));
+            isPlayingOrWillChangePlaymode: true),
+            playModeGeneration: 3);
         return new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
             IpcPlayTransitionCommandNames.Enter,
             IpcPlayTransitionResultNames.Entered,
@@ -55,53 +55,53 @@ internal static class PlayEnterServiceTestSupport
         });
     }
 
-    public static IpcPlayLifecycleSnapshot CreateSnapshot (
-        string lifecycleState,
-        string? blockingReason,
-        bool canAcceptExecutionRequests,
+    public static IpcUnityEditorObservation CreateSnapshot (
+        IpcEditorLifecycleState lifecycleState,
         IpcPlayModeSnapshot playMode,
+        long playModeGeneration,
         string projectFingerprint = "project-fingerprint")
     {
-        return new IpcPlayLifecycleSnapshot(
-            ServerVersion: "0.5.0",
-            EditorMode: "gui",
-            UnityVersion: "6000.1.4f1",
-            ProjectFingerprint: projectFingerprint,
-            LifecycleState: lifecycleState,
-            BlockingReason: blockingReason,
-            CompileState: "ready",
-            CompileGeneration: "12",
-            DomainReloadGeneration: "7",
-            CanAcceptExecutionRequests: canAcceptExecutionRequests,
-            ObservedAtUtc: DateTimeOffset.Parse("2026-05-21T00:00:00+00:00", CultureInfo.InvariantCulture),
-            ActionRequired: null,
-            PrimaryDiagnostic: null,
-            PlayMode: playMode);
+        return new IpcUnityEditorObservation(
+            serverVersion: "0.5.0",
+            unityVersion: "6000.1.4f1",
+            projectFingerprint: projectFingerprint,
+            state: new UnityEditorStateSnapshot(
+                editorMode: DaemonEditorMode.Gui,
+                lifecycleState: lifecycleState,
+                compileState: lifecycleState == IpcEditorLifecycleState.Compiling
+                    ? IpcCompileState.Compiling
+                    : IpcCompileState.Ready,
+                generations: new IpcUnityGenerationSnapshot(
+                    CompileGeneration: 12,
+                    DomainReloadGeneration: 7,
+                    AssetRefreshGeneration: 4,
+                    PlayModeGeneration: playModeGeneration),
+                playMode: playMode),
+            observedAtUtc: DateTimeOffset.Parse("2026-05-21T00:00:00+00:00", CultureInfo.InvariantCulture),
+            actionRequired: null,
+            primaryDiagnostic: null);
     }
 
-    public static IpcPlayModeSnapshot CreateStoppedPlayMode (string generation)
+    public static IpcPlayModeSnapshot CreateStoppedPlayMode ()
     {
         return CreatePlayMode(
-            "stopped",
-            "none",
+            IpcPlayModeState.Stopped,
+            IpcPlayModeTransition.None,
             isPlaying: false,
-            isPlayingOrWillChangePlaymode: false,
-            generation: generation);
+            isPlayingOrWillChangePlaymode: false);
     }
 
     public static IpcPlayModeSnapshot CreatePlayMode (
-        string state,
-        string transition,
+        IpcPlayModeState state,
+        IpcPlayModeTransition transition,
         bool isPlaying,
-        bool isPlayingOrWillChangePlaymode,
-        string generation)
+        bool isPlayingOrWillChangePlaymode)
     {
         return new IpcPlayModeSnapshot(
             State: state,
             Transition: transition,
             IsPlaying: isPlaying,
-            IsPlayingOrWillChangePlaymode: isPlayingOrWillChangePlaymode,
-            Generation: generation);
+            IsPlayingOrWillChangePlaymode: isPlayingOrWillChangePlaymode);
     }
 
     public static UnityRequestResponse CreateResponse (IpcPlayTransitionResponse payload)

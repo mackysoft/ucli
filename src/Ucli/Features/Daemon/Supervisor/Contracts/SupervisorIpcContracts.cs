@@ -1,7 +1,7 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Contracts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Startup;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Features.Daemon.Supervisor.Contracts;
 
@@ -46,12 +46,12 @@ internal static class SupervisorIpcContracts
     /// <param name="StartStatus"> The daemon start-status literal. </param>
     /// <param name="DaemonStatus"> The daemon status literal. </param>
     /// <param name="Session"> The active daemon session. </param>
-    /// <param name="LifecycleSnapshot"> The endpoint-registered lifecycle snapshot when available. </param>
+    /// <param name="LifecycleObservation"> The endpoint-registered lifecycle observation when available. </param>
     internal sealed record EnsureRunningResponse (
         string StartStatus,
         string DaemonStatus,
         DaemonSession Session,
-        DaemonStartLifecycleSnapshot? LifecycleSnapshot = null);
+        IpcUnityEditorObservation? LifecycleObservation = null);
 
     /// <summary> Represents the payload returned when ensure-running fails with optional startup metadata. </summary>
     /// <param name="DaemonStatus"> The daemon status after the failed start attempt. </param>

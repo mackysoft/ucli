@@ -28,7 +28,7 @@ public sealed class DaemonLaunchAttemptStoreReadTests
         Assert.True(readResult.IsSuccess);
         var actual = Assert.IsType<DaemonLaunchAttempt>(readResult.LaunchAttempt);
         Assert.Equal(attempt.LaunchAttemptId, actual.LaunchAttemptId);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupStatus.Blocked), actual.StartupStatus);
+        Assert.Equal(DaemonStartupStatus.Blocked, actual.StartupStatus);
         Assert.Equal(attempt.UnityLogPath, actual.UnityLogPath);
         Assert.Equal(attempt.UnityLogPath, actual.Diagnosis.UnityLogPath);
         Assert.EndsWith(

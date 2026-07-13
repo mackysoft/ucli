@@ -1,6 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
-using MackySoft.Ucli.Application.Shared.CommandContracts;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.Status.Common.Contracts;
 
@@ -11,8 +11,7 @@ namespace MackySoft.Ucli.Application.Features.Status.Common.Contracts;
 /// <param name="LifecycleState"> The daemon-side lifecycle-state when daemon is reachable; otherwise <see langword="null" />. </param>
 /// <param name="BlockingReason"> The daemon-side blocking-reason when daemon is reachable; otherwise <see langword="null" />. </param>
 /// <param name="CompileState"> The daemon compile-state value when daemon is reachable; otherwise <see langword="null" />. </param>
-/// <param name="CompileGeneration"> The daemon compile generation when daemon is reachable; otherwise <see langword="null" />. </param>
-/// <param name="DomainReloadGeneration"> The daemon domain-reload generation when daemon is reachable; otherwise <see langword="null" />. </param>
+/// <param name="Generations"> The Unity lifecycle generation snapshot when daemon is reachable; otherwise <see langword="null" />. </param>
 /// <param name="CanAcceptExecutionRequests"> Whether execution requests can currently be accepted. </param>
 /// <param name="EditorMode"> The daemon Editor mode when daemon is reachable; otherwise <see langword="null" />. </param>
 /// <param name="ObservedAtUtc"> The daemon lifecycle observation timestamp when available. </param>
@@ -24,15 +23,14 @@ internal sealed record StatusExecutionOutput (
     DaemonStatusKind DaemonStatus,
     string UnityVersion,
     string? ServerVersion,
-    string? LifecycleState,
-    string? BlockingReason,
-    string? CompileState,
-    string? CompileGeneration,
-    string? DomainReloadGeneration,
+    IpcEditorLifecycleState? LifecycleState,
+    IpcEditorBlockingReason? BlockingReason,
+    IpcCompileState? CompileState,
+    IpcUnityGenerationSnapshot? Generations,
     bool CanAcceptExecutionRequests,
-    string? EditorMode,
+    DaemonEditorMode? EditorMode,
     int TimeoutMilliseconds,
     DateTimeOffset? ObservedAtUtc = null,
     string? ActionRequired = null,
     DaemonPrimaryDiagnosticOutput? PrimaryDiagnostic = null,
-    PlayModeSnapshotOutput? PlayMode = null);
+    IpcPlayModeSnapshot? PlayMode = null);

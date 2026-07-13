@@ -1,29 +1,31 @@
 namespace MackySoft.Ucli.Tests.Helpers.Daemon;
 
+using MackySoft.Ucli.Contracts.Storage;
+
 internal static class DaemonStartProgressEntryTestFactory
 {
     public static readonly DateTimeOffset SampleStartedAtUtc = new(2026, 03, 12, 1, 2, 0, TimeSpan.Zero);
 
     public static DaemonStartStartupObservationProgressEntry CreateStartupObservation (
-        string? payloadKind = null,
+        DaemonStartProgressPayloadKind payloadKind = DaemonStartProgressPayloadKind.StartupObservation,
         string projectFingerprint = "fingerprint",
         int timeoutMilliseconds = 1234,
-        string editorMode = "batchmode",
-        string onStartupBlocked = "auto",
+        DaemonEditorMode editorMode = DaemonEditorMode.Batchmode,
+        DaemonStartupBlockedProcessPolicy onStartupBlocked = DaemonStartupBlockedProcessPolicy.Auto,
         string? launchAttemptId = "attempt-1",
-        string ownerKind = "cli",
+        DaemonSessionOwnerKind ownerKind = DaemonSessionOwnerKind.Cli,
         bool canShutdownProcess = true,
         int? processId = 1234,
         DateTimeOffset? startedAtUtc = null,
-        string? startupStatus = null,
-        string? startupBlockingReason = null,
-        string? startupPhase = null,
-        string? retryDisposition = null,
+        DaemonStartupStatus? startupStatus = null,
+        DaemonStartupBlockingReason? startupBlockingReason = null,
+        DaemonDiagnosisStartupPhase? startupPhase = null,
+        DaemonStartupRetryDisposition? retryDisposition = null,
         string? message = null,
         string? errorCode = null)
     {
         return new DaemonStartStartupObservationProgressEntry(
-            payloadKind ?? ContractLiteralCodec.ToValue(DaemonStartProgressPayloadKind.StartupObservation),
+            payloadKind,
             projectFingerprint,
             timeoutMilliseconds,
             editorMode,

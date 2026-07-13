@@ -15,14 +15,14 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
             out string errorMessage)
         {
             sourceUvTransform = default;
-            if (!IsFinite(targetInView.x)
-                || !IsFinite(targetInView.y)
-                || !IsFinitePositive(targetInView.width)
-                || !IsFinitePositive(targetInView.height)
-                || !IsFinite(deviceFlippedTargetInView.x)
-                || !IsFinite(deviceFlippedTargetInView.y)
-                || !IsFinitePositive(deviceFlippedTargetInView.width)
-                || !IsFinite(deviceFlippedTargetInView.height)
+            if (!UnityScreenshotMath.IsFinite(targetInView.x)
+                || !UnityScreenshotMath.IsFinite(targetInView.y)
+                || !UnityScreenshotMath.IsFinitePositive(targetInView.width)
+                || !UnityScreenshotMath.IsFinitePositive(targetInView.height)
+                || !UnityScreenshotMath.IsFinite(deviceFlippedTargetInView.x)
+                || !UnityScreenshotMath.IsFinite(deviceFlippedTargetInView.y)
+                || !UnityScreenshotMath.IsFinitePositive(deviceFlippedTargetInView.width)
+                || !UnityScreenshotMath.IsFinite(deviceFlippedTargetInView.height)
                 || Mathf.Abs(deviceFlippedTargetInView.height) <= RectTolerance
                 || !Approximately(targetInView.x, deviceFlippedTargetInView.x)
                 || !Approximately(targetInView.width, deviceFlippedTargetInView.width))
@@ -61,14 +61,5 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
             return Mathf.Abs(left - right) <= RectTolerance;
         }
 
-        private static bool IsFinite (float value)
-        {
-            return !float.IsNaN(value) && !float.IsInfinity(value);
-        }
-
-        private static bool IsFinitePositive (float value)
-        {
-            return value > 0f && IsFinite(value);
-        }
     }
 }

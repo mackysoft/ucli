@@ -21,7 +21,7 @@ public sealed class PlayStatusServiceSidecarTests
             ReadResult = DaemonLifecycleObservationReadResult.Success(CreateLifecycleObservation(
                 session,
                 IpcEditorLifecycleState.Ready,
-                playModeState: "stopped",
+                playModeState: IpcPlayModeState.Stopped,
                 isPlaying: false,
                 isPlayingOrWillChangePlaymode: false)),
         };
@@ -41,12 +41,12 @@ public sealed class PlayStatusServiceSidecarTests
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<PlayStatusExecutionOutput>(result.Output);
         Assert.Equal(DaemonStatusKind.Running, output.DaemonStatus);
-        Assert.Equal("ready", output.LifecycleState);
+        Assert.Equal(IpcEditorLifecycleState.Ready, output.LifecycleState);
         Assert.Null(output.BlockingReason);
         Assert.True(output.CanAcceptExecutionRequests);
         Assert.Equal("0.5.0", output.ServerVersion);
-        Assert.Equal("stopped", output.PlayMode.State);
-        Assert.Equal("none", output.PlayMode.Transition);
+        Assert.Equal(IpcPlayModeState.Stopped, output.PlayMode.State);
+        Assert.Equal(IpcPlayModeTransition.None, output.PlayMode.Transition);
         Assert.False(output.PlayMode.IsPlaying);
         UnityRequestExecutorInvocationAssert.PlayStatusOnce(requestExecutor);
     }
@@ -60,10 +60,7 @@ public sealed class PlayStatusServiceSidecarTests
         var lifecycleStore = new RecordingDaemonLifecycleStore
         {
             ReadResult = DaemonLifecycleObservationReadResult.Success(
-                CreateLifecycleObservation(session) with
-                {
-                    EditorInstanceId = null,
-                }),
+                CreateLifecycleObservation(session, includeEditorInstanceId: false)),
         };
         var processIdentityAssessor = CreateProcessIdentityAssessor(DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess);
         var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Failure(new UnityRequestFailure(
@@ -110,8 +107,8 @@ public sealed class PlayStatusServiceSidecarTests
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<PlayStatusExecutionOutput>(result.Output);
         Assert.Equal("0.5.0", output.ServerVersion);
-        Assert.Equal("playmode", output.LifecycleState);
-        Assert.Equal("playing", output.PlayMode.State);
+        Assert.Equal(IpcEditorLifecycleState.PlayMode, output.LifecycleState);
+        Assert.Equal(IpcPlayModeState.Playing, output.PlayMode.State);
     }
 
     [Fact]
@@ -137,9 +134,9 @@ public sealed class PlayStatusServiceSidecarTests
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<PlayStatusExecutionOutput>(result.Output);
-        Assert.Equal("ready", output.LifecycleState);
-        Assert.Equal("stopped", output.PlayMode.State);
-        Assert.Equal("2", output.PlayMode.Generation);
+        Assert.Equal(IpcEditorLifecycleState.Ready, output.LifecycleState);
+        Assert.Equal(IpcPlayModeState.Stopped, output.PlayMode.State);
+        Assert.Equal(2, output.Generations!.PlayModeGeneration);
         UnityRequestExecutorInvocationAssert.PlayStatusOnce(requestExecutor);
     }
 }

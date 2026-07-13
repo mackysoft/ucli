@@ -290,7 +290,7 @@ internal sealed class SupervisorRequestDispatcher
                 StartStatus: startStatus!,
                 DaemonStatus: ContractLiteralCodec.ToValue(DaemonStatusKind.Running),
                 Session: startResult.Session!,
-                LifecycleSnapshot: startResult.LifecycleSnapshot));
+                LifecycleObservation: startResult.LifecycleObservation));
     }
 
     private async ValueTask<IpcResponse> HandleStopProjectAsync (

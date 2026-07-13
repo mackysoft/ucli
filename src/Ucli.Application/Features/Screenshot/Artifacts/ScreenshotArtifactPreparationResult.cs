@@ -20,7 +20,7 @@ internal sealed record ScreenshotArtifactPreparationResult
     public ExecutionError? Error { get; }
 
     /// <summary> Gets a value indicating whether preparation succeeded. </summary>
-    public bool IsSuccess => Paths != null && Error == null;
+    public bool IsSuccess => Paths != null;
 
     /// <summary> Creates a successful preparation result. </summary>
     public static ScreenshotArtifactPreparationResult Success (ScreenshotArtifactPaths paths)

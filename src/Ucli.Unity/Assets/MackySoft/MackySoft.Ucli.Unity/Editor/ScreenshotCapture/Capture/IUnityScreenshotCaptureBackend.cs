@@ -8,6 +8,9 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Capture
     internal interface IUnityScreenshotCaptureBackend
     {
         /// <summary> Captures one target surface as top-down RGBA8 sRGB bytes. </summary>
+        /// <param name="request"> The screenshot request validated by the IPC method boundary. </param>
+        /// <param name="cancellationToken"> The capture cancellation token. </param>
+        /// <returns> The normalized frame or a structured backend failure. </returns>
         Task<UnityScreenshotBackendResult> CaptureAsync (
             IpcScreenshotCaptureRequest request,
             CancellationToken cancellationToken);

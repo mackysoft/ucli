@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
 
 namespace MackySoft.Ucli.Tests.Supervisor;
@@ -23,15 +24,15 @@ public sealed class SupervisorClientProgressValidationTests
                 request,
                 ContractLiteralCodec.ToValue(DaemonStartProgressEvent.WaitingForEndpoint),
                 DaemonStartProgressEntryTestFactory.CreateStartupObservation(
-                    payloadKind: ContractLiteralCodec.ToValue(DaemonStartProgressPayloadKind.LifecycleSnapshot),
+                    payloadKind: DaemonStartProgressPayloadKind.LifecycleSnapshot,
                     timeoutMilliseconds: 5000,
-                    editorMode: "gui",
+                    editorMode: DaemonEditorMode.Gui,
                     launchAttemptId: null,
-                    ownerKind: "user",
+                    ownerKind: DaemonSessionOwnerKind.User,
                     canShutdownProcess: false,
                     processId: 42,
-                    startupStatus: "waitingForEndpoint",
-                    startupPhase: "endpointRegistration"))
+                    startupStatus: DaemonStartupStatus.WaitingForEndpoint,
+                    startupPhase: DaemonDiagnosisStartupPhase.EndpointRegistration))
         },
         {
             "known event has no stream payload contract",
@@ -51,13 +52,21 @@ public sealed class SupervisorClientProgressValidationTests
                 DaemonStartProgressEntryTestFactory.CreateStartupObservation(
                     projectFingerprint: "other-fingerprint",
                     timeoutMilliseconds: 5000,
-                    editorMode: "gui",
+                    editorMode: DaemonEditorMode.Gui,
                     launchAttemptId: null,
-                    ownerKind: "user",
+                    ownerKind: DaemonSessionOwnerKind.User,
                     canShutdownProcess: false,
                     processId: 42,
-                    startupStatus: "waitingForEndpoint",
-                    startupPhase: "endpointRegistration"))
+                    startupStatus: DaemonStartupStatus.WaitingForEndpoint,
+                    startupPhase: DaemonDiagnosisStartupPhase.EndpointRegistration))
+        },
+        {
+            "lifecycle tuple is inconsistent",
+            request => SupervisorClientTestSupport.CreateLifecycleSnapshotProgressFrame(
+                request,
+                lifecycleState: IpcEditorLifecycleState.Compiling,
+                blockingReason: IpcEditorBlockingReason.Busy,
+                canAcceptExecutionRequests: false)
         },
     };
 

@@ -46,7 +46,7 @@ public sealed class DaemonStartOperationLifecycleLockTests
             daemonExistingSessionGateService: new RecordingDaemonExistingSessionGateService(),
             daemonLaunchService: new RecordingDaemonLaunchService
             {
-                NextResult = DaemonStartResult.Started(DaemonSessionTestFactory.Create(processId: 2026, projectFingerprint: context.ProjectFingerprint)),
+                NextResult = DaemonStartResult.Started(DaemonSessionTestFactory.Create(processId: 2026, projectFingerprint: context.ProjectFingerprint), IpcUnityEditorObservationTestFactory.Create()),
             },
             lifecycleLockProvider: lockProvider);
 

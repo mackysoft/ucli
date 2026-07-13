@@ -2,7 +2,6 @@ using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Status;
-using MackySoft.Ucli.Application.Shared.CommandContracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Hosting.Cli.Daemon;
@@ -19,10 +18,10 @@ public sealed class DaemonStatusCommandTests
         var session = new DaemonSessionOutput(
             ProjectFingerprint: "fp-gui",
             IssuedAtUtc: new DateTimeOffset(2026, 03, 12, 1, 2, 3, TimeSpan.Zero),
-            EditorMode: "gui",
-            OwnerKind: "user",
+            EditorMode: DaemonEditorMode.Gui,
+            OwnerKind: DaemonSessionOwnerKind.User,
             CanShutdownProcess: false,
-            EndpointTransportKind: "unixDomainSocket",
+            EndpointTransportKind: IpcTransportKind.UnixDomainSocket,
             EndpointAddress: "/tmp/ucli-gui.sock",
             ProcessId: 1234,
             ProcessStartedAtUtc: new DateTimeOffset(2026, 03, 12, 1, 2, 0, TimeSpan.Zero),
@@ -31,12 +30,11 @@ public sealed class DaemonStatusCommandTests
             DaemonStatusExecutionResult.Success(new DaemonStatusExecutionOutput(
                 DaemonStatus: DaemonStatusKind.Running,
                 ServerVersion: "0.0.2",
-                EditorMode: "gui",
-                LifecycleState: ContractLiteralCodec.ToValue(IpcEditorLifecycleState.PlayMode),
-                BlockingReason: ContractLiteralCodec.ToValue(IpcEditorBlockingReason.PlayMode),
-                CompileState: ContractLiteralCodec.ToValue(IpcCompileState.Ready),
-                CompileGeneration: "3",
-                DomainReloadGeneration: "5",
+                EditorMode: DaemonEditorMode.Gui,
+                LifecycleState: IpcEditorLifecycleState.PlayMode,
+                BlockingReason: IpcEditorBlockingReason.PlayMode,
+                CompileState: IpcCompileState.Ready,
+                Generations: new IpcUnityGenerationSnapshot(3, 5, 0, 8),
                 CanAcceptExecutionRequests: false,
                 TimeoutMilliseconds: 3000,
                 Session: session,
@@ -45,12 +43,11 @@ public sealed class DaemonStatusCommandTests
                 ObservedAtUtc: new DateTimeOffset(2026, 03, 12, 1, 3, 0, TimeSpan.Zero),
                 ActionRequired: null,
                 PrimaryDiagnostic: null,
-                PlayMode: new PlayModeSnapshotOutput(
-                    State: "playing",
-                    Transition: "none",
+                PlayMode: new IpcPlayModeSnapshot(
+                    State: IpcPlayModeState.Playing,
+                    Transition: IpcPlayModeTransition.None,
                     IsPlaying: true,
-                    IsPlayingOrWillChangePlaymode: true,
-                    Generation: "8"))));
+                    IsPlayingOrWillChangePlaymode: true))));
         var command = new DaemonStatusCommand(service, CommandResultTestWriter.Create());
 
         CommandExecutionState.Reset();
@@ -71,13 +68,17 @@ public sealed class DaemonStatusCommandTests
                 .HasString("editorMode", "gui")
                 .HasString("lifecycleState", ContractLiteralCodec.ToValue(IpcEditorLifecycleState.PlayMode))
                 .HasString("blockingReason", ContractLiteralCodec.ToValue(IpcEditorBlockingReason.PlayMode))
+                .HasProperty("generations", generations => generations
+                    .HasInt32("compileGeneration", 3)
+                    .HasInt32("domainReloadGeneration", 5)
+                    .HasInt32("assetRefreshGeneration", 0)
+                    .HasInt32("playModeGeneration", 8))
                 .HasBoolean("canAcceptExecutionRequests", false)
                 .HasProperty("playMode", playMode => playMode
                     .HasString("state", "playing")
                     .HasString("transition", "none")
                     .HasBoolean("isPlaying", true)
-                    .HasBoolean("isPlayingOrWillChangePlaymode", true)
-                    .HasString("generation", "8"))
+                    .HasBoolean("isPlayingOrWillChangePlaymode", true))
                 .HasProperty("session", sessionJson => sessionJson
                     .HasString("editorMode", "gui")
                     .HasString("ownerKind", "user")
@@ -102,15 +103,15 @@ public sealed class DaemonStatusCommandTests
             EditorInstancePath: null,
             ProcessStartedAtUtc: new DateTimeOffset(2026, 03, 12, 4, 5, 0, TimeSpan.Zero),
             UnityLogPath: "/repo/.ucli/local/fingerprints/fp/unity.log",
-            StartupPhase: ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.EndpointRegistration),
+            StartupPhase: DaemonDiagnosisStartupPhase.EndpointRegistration,
             ActionRequired: DaemonDiagnosisActionRequiredValues.InspectUnityLog,
             PrimaryDiagnostic: null);
         var launchAttempt = new DaemonLaunchAttemptOutput(
             LaunchAttemptId: "20260312_040500Z_00abcdef",
-            StartupStatus: "timeout",
-            StartupBlockingReason: "endpointNotRegistered",
-            RetryDisposition: "retryFreshLaunch",
-            ProcessAction: "keep",
+            StartupStatus: DaemonStartupStatus.Timeout,
+            StartupBlockingReason: DaemonStartupBlockingReason.EndpointNotRegistered,
+            RetryDisposition: DaemonStartupRetryDisposition.RetryImmediately,
+            ProcessAction: DaemonStartupProcessAction.Kept,
             ArtifactPath: "/repo/.ucli/local/fingerprints/fp/launch-attempts/20260312_040500Z_00abcdef/startup-diagnosis.json",
             UnityLogPath: "/repo/.ucli/local/fingerprints/fp/unity.log",
             UpdatedAtUtc: new DateTimeOffset(2026, 03, 12, 4, 5, 6, TimeSpan.Zero),
@@ -125,8 +126,7 @@ public sealed class DaemonStatusCommandTests
                 LifecycleState: null,
                 BlockingReason: null,
                 CompileState: null,
-                CompileGeneration: null,
-                DomainReloadGeneration: null,
+                Generations: null,
                 CanAcceptExecutionRequests: false,
                 TimeoutMilliseconds: 3000,
                 Session: null,
@@ -152,8 +152,8 @@ public sealed class DaemonStatusCommandTests
                     .HasString("launchAttemptId", "20260312_040500Z_00abcdef")
                     .HasString("startupStatus", "timeout")
                     .HasString("startupBlockingReason", "endpointNotRegistered")
-                    .HasString("retryDisposition", "retryFreshLaunch")
-                    .HasString("processAction", "keep")
+                    .HasString("retryDisposition", "retryImmediately")
+                    .HasString("processAction", "kept")
                     .HasString("artifactPath", "/repo/.ucli/local/fingerprints/fp/launch-attempts/20260312_040500Z_00abcdef/startup-diagnosis.json")
                     .HasString("unityLogPath", "/repo/.ucli/local/fingerprints/fp/unity.log")
                     .HasString("updatedAtUtc", "2026-03-12T04:05:06+00:00")

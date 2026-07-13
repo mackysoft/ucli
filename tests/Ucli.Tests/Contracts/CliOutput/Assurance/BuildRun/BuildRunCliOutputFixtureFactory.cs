@@ -153,9 +153,9 @@ internal static class BuildRunCliOutputFixtureFactory
     private static BuildGenerationsOutput CreateGenerations ()
     {
         return new BuildGenerationsOutput(
-            Before: new BuildGenerationSnapshotOutput("compile-before", "domain-before", "asset-before"),
-            After: new BuildGenerationSnapshotOutput("compile-after", "domain-after", "asset-after"),
-            ValidFor: new BuildGenerationSnapshotOutput("compile-after", "domain-after", "asset-after"));
+            Before: new IpcUnityGenerationSnapshot(1, 1, 1, 1),
+            After: new IpcUnityGenerationSnapshot(2, 1, 1, 1),
+            ValidFor: new IpcUnityGenerationSnapshot(2, 1, 1, 1));
     }
 
     private static IpcBuildDirtyState CreateDirtyState ()

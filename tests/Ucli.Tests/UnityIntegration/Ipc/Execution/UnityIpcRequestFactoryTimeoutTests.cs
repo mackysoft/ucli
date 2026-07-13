@@ -30,7 +30,7 @@ public sealed class UnityIpcRequestFactoryTimeoutTests
     public void UnityIpcRequestFactory_WithScreenshotDispatchTimeout_InjectsTimeoutPayload ()
     {
         var dispatchRequest = new UnityIpcRequestBuilder().Build(new UnityRequestPayload.ScreenshotCapture(
-            Target: ContractLiteralCodec.ToValue(IpcScreenshotTarget.Game),
+            Target: IpcScreenshotTarget.Game,
             RequestedWidth: null,
             RequestedHeight: null,
             StagingPath: "/tmp/ucli-screenshot.raw",

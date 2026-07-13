@@ -49,33 +49,74 @@
   },
   "lifecycle": {
     "before": {
-      "lifecycleState": "ready",
-      "compileGeneration": "compile-before",
-      "domainReloadGeneration": "domain-before",
-      "assetRefreshGeneration": "asset-before"
+      "serverVersion": "0.5.0",
+      "unityVersion": "6000.1.4f1",
+      "projectFingerprint": "project-fingerprint",
+      "state": {
+        "editorMode": "batchmode",
+        "lifecycleState": "ready",
+        "compileState": "ready",
+        "generations": {
+          "compileGeneration": 1,
+          "domainReloadGeneration": 1,
+          "assetRefreshGeneration": 1,
+          "playModeGeneration": 1
+        },
+        "playMode": {
+          "state": "stopped",
+          "transition": "none",
+          "isPlaying": false,
+          "isPlayingOrWillChangePlaymode": false
+        }
+      },
+      "observedAtUtc": "2026-06-01T00:00:00+00:00",
+      "actionRequired": null,
+      "primaryDiagnostic": null
     },
     "after": {
-      "lifecycleState": "ready",
-      "compileGeneration": "compile-after",
-      "domainReloadGeneration": "domain-after",
-      "assetRefreshGeneration": "asset-after"
+      "serverVersion": "0.5.0",
+      "unityVersion": "6000.1.4f1",
+      "projectFingerprint": "project-fingerprint",
+      "state": {
+        "editorMode": "batchmode",
+        "lifecycleState": "ready",
+        "compileState": "ready",
+        "generations": {
+          "compileGeneration": 2,
+          "domainReloadGeneration": 1,
+          "assetRefreshGeneration": 1,
+          "playModeGeneration": 1
+        },
+        "playMode": {
+          "state": "stopped",
+          "transition": "none",
+          "isPlaying": false,
+          "isPlayingOrWillChangePlaymode": false
+        }
+      },
+      "observedAtUtc": "2026-06-01T00:00:02.5+00:00",
+      "actionRequired": null,
+      "primaryDiagnostic": null
     }
   },
   "generations": {
     "before": {
-      "compileGeneration": "compile-before",
-      "domainReloadGeneration": "domain-before",
-      "assetRefreshGeneration": "asset-before"
+      "compileGeneration": 1,
+      "domainReloadGeneration": 1,
+      "assetRefreshGeneration": 1,
+      "playModeGeneration": 1
     },
     "after": {
-      "compileGeneration": "compile-after",
-      "domainReloadGeneration": "domain-after",
-      "assetRefreshGeneration": "asset-after"
+      "compileGeneration": 2,
+      "domainReloadGeneration": 1,
+      "assetRefreshGeneration": 1,
+      "playModeGeneration": 1
     },
     "validFor": {
-      "compileGeneration": "compile-after",
-      "domainReloadGeneration": "domain-after",
-      "assetRefreshGeneration": "asset-after"
+      "compileGeneration": 2,
+      "domainReloadGeneration": 1,
+      "assetRefreshGeneration": 1,
+      "playModeGeneration": 1
     }
   },
   "summary": {

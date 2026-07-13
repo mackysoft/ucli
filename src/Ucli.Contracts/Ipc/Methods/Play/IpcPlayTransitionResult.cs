@@ -9,15 +9,15 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 public sealed record IpcPlayTransitionResult (
     string Transition,
     string Result,
-    IpcPlayLifecycleSnapshot Before)
+    IpcUnityEditorObservation Before)
 {
     /// <summary> Gets the lifecycle snapshot observed after a successful transition. </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public IpcPlayLifecycleSnapshot? After { get; init; }
+    public IpcUnityEditorObservation? After { get; init; }
 
     /// <summary> Gets the latest lifecycle snapshot observed for transition errors or timeouts. </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public IpcPlayLifecycleSnapshot? Observed { get; init; }
+    public IpcUnityEditorObservation? Observed { get; init; }
 
     /// <summary> Gets the application-state literal for transition errors or timeouts. </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

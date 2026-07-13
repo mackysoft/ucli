@@ -45,7 +45,7 @@ public sealed class PlayStatusServiceSessionGateTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenRegisteredSessionIsBatchmode_ReturnsRequiresGuiEditorWithoutIpcCall ()
     {
-        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(CreatePlaySession("batchmode")));
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(CreatePlaySession(DaemonEditorMode.Batchmode)));
         var requestExecutor = new UnexpectedUnityRequestExecutor();
         var service = CreateService(PlayProjectContext, sessionStore, requestExecutor);
 

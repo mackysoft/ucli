@@ -352,11 +352,15 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
             LaunchAttemptId: launchAttempt.LaunchAttemptId,
             StartedAtUtc: launchAttempt.StartedAtUtc,
             UpdatedAtUtc: launchAttempt.UpdatedAtUtc,
-            StartupStatus: launchAttempt.StartupStatus,
-            StartupBlockingReason: launchAttempt.StartupBlockingReason,
-            RetryDisposition: launchAttempt.RetryDisposition,
-            ProcessAction: launchAttempt.ProcessAction,
-            EditorMode: launchAttempt.EditorMode,
+            StartupStatus: ContractLiteralCodec.ToValue(launchAttempt.StartupStatus),
+            StartupBlockingReason: launchAttempt.StartupBlockingReason.HasValue
+                ? ContractLiteralCodec.ToValue(launchAttempt.StartupBlockingReason.Value)
+                : null,
+            RetryDisposition: ContractLiteralCodec.ToValue(launchAttempt.RetryDisposition),
+            ProcessAction: ContractLiteralCodec.ToValue(launchAttempt.ProcessAction),
+            EditorMode: launchAttempt.EditorMode.HasValue
+                ? ContractLiteralCodec.ToValue(launchAttempt.EditorMode.Value)
+                : null,
             ProcessId: launchAttempt.ProcessId,
             ProcessStartedAtUtc: launchAttempt.ProcessStartedAtUtc,
             UnityLogPath: launchAttempt.UnityLogPath,
@@ -376,7 +380,9 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
             SessionIssuedAtUtc: diagnosis.SessionIssuedAtUtc,
             ProcessStartedAtUtc: diagnosis.ProcessStartedAtUtc,
             UnityLogPath: diagnosis.UnityLogPath,
-            StartupPhase: diagnosis.StartupPhase,
+            StartupPhase: diagnosis.StartupPhase.HasValue
+                ? ContractLiteralCodec.ToValue(diagnosis.StartupPhase.Value)
+                : null,
             ActionRequired: diagnosis.ActionRequired,
             PrimaryDiagnostic: diagnosis.PrimaryDiagnostic is null
                 ? null
@@ -398,11 +404,11 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
             LaunchAttemptId: contract.LaunchAttemptId!,
             StartedAtUtc: contract.StartedAtUtc,
             UpdatedAtUtc: contract.UpdatedAtUtc,
-            StartupStatus: contract.StartupStatus!,
-            StartupBlockingReason: StringValueNormalizer.TrimToNull(contract.StartupBlockingReason),
-            RetryDisposition: contract.RetryDisposition!,
-            ProcessAction: contract.ProcessAction!,
-            EditorMode: StringValueNormalizer.TrimToNull(contract.EditorMode),
+            StartupStatus: ParseRequiredLiteral<DaemonStartupStatus>(contract.StartupStatus!),
+            StartupBlockingReason: ParseOptionalLiteral<DaemonStartupBlockingReason>(contract.StartupBlockingReason),
+            RetryDisposition: ParseRequiredLiteral<DaemonStartupRetryDisposition>(contract.RetryDisposition!),
+            ProcessAction: ParseRequiredLiteral<DaemonStartupProcessAction>(contract.ProcessAction!),
+            EditorMode: ParseOptionalLiteral<DaemonEditorMode>(contract.EditorMode),
             ProcessId: contract.ProcessId,
             ProcessStartedAtUtc: contract.ProcessStartedAtUtc,
             UnityLogPath: StringValueNormalizer.TrimToNull(contract.UnityLogPath),
@@ -418,7 +424,7 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
                 SessionIssuedAtUtc: diagnosis.SessionIssuedAtUtc,
                 ProcessStartedAtUtc: diagnosis.ProcessStartedAtUtc,
                 UnityLogPath: StringValueNormalizer.TrimToNull(diagnosis.UnityLogPath),
-                StartupPhase: StringValueNormalizer.TrimToNull(diagnosis.StartupPhase),
+                StartupPhase: ParseOptionalLiteral<DaemonDiagnosisStartupPhase>(diagnosis.StartupPhase),
                 ActionRequired: StringValueNormalizer.TrimToNull(diagnosis.ActionRequired),
                 PrimaryDiagnostic: diagnosis.PrimaryDiagnostic is null
                     ? null
@@ -449,6 +455,7 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
             launchAttempt.StartupBlockingReason,
             launchAttempt.RetryDisposition,
             launchAttempt.ProcessAction,
+            launchAttempt.EditorMode,
             launchAttempt.Diagnosis,
             diagnosisPath,
             out error);
@@ -477,14 +484,52 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
             return false;
         }
 
+        if (!TryReadPersistedTerminalStartupStatus(contract.StartupStatus, out var startupStatus))
+        {
+            error = ExecutionError.InvalidArgument($"Daemon launch-attempt startupStatus is invalid: {diagnosisPath}");
+            return false;
+        }
+
+        if (StringValueNormalizer.TrimToNull(contract.StartupBlockingReason) is not string startupBlockingReasonLiteral
+            || !ContractLiteralCodec.TryParse<DaemonStartupBlockingReason>(startupBlockingReasonLiteral, out var startupBlockingReason))
+        {
+            error = ExecutionError.InvalidArgument($"Daemon launch-attempt startupBlockingReason is invalid: {diagnosisPath}");
+            return false;
+        }
+
+        if (!ContractLiteralCodec.TryParse(contract.RetryDisposition, out DaemonStartupRetryDisposition retryDisposition))
+        {
+            error = ExecutionError.InvalidArgument($"Daemon launch-attempt retryDisposition is invalid: {diagnosisPath}");
+            return false;
+        }
+
+        if (!ContractLiteralCodec.TryParse(contract.ProcessAction, out DaemonStartupProcessAction processAction))
+        {
+            error = ExecutionError.InvalidArgument($"Daemon launch-attempt processAction is invalid: {diagnosisPath}");
+            return false;
+        }
+
+        if (!TryParseOptionalLiteral(contract.EditorMode, out DaemonEditorMode? editorMode))
+        {
+            error = ExecutionError.InvalidArgument($"Daemon launch-attempt editorMode is invalid: {diagnosisPath}");
+            return false;
+        }
+
+        if (!TryParseOptionalLiteral(contract.Diagnosis.StartupPhase, out DaemonDiagnosisStartupPhase? startupPhase))
+        {
+            error = ExecutionError.InvalidArgument($"Daemon launch-attempt diagnosis.startupPhase is invalid: {diagnosisPath}");
+            return false;
+        }
+
         return TryValidateFields(
             contract.StartedAtUtc,
             contract.UpdatedAtUtc,
-            contract.StartupStatus,
-            contract.StartupBlockingReason,
-            contract.RetryDisposition,
-            contract.ProcessAction,
-            ToDiagnosisForValidation(contract.Diagnosis),
+            startupStatus,
+            startupBlockingReason,
+            retryDisposition,
+            processAction,
+            editorMode,
+            ToDiagnosisForValidation(contract.Diagnosis, startupPhase),
             diagnosisPath,
             out error);
     }
@@ -492,10 +537,11 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
     private static bool TryValidateFields (
         DateTimeOffset startedAtUtc,
         DateTimeOffset updatedAtUtc,
-        string? startupStatus,
-        string? startupBlockingReason,
-        string? retryDisposition,
-        string? processAction,
+        DaemonStartupStatus startupStatus,
+        DaemonStartupBlockingReason? startupBlockingReason,
+        DaemonStartupRetryDisposition retryDisposition,
+        DaemonStartupProcessAction processAction,
+        DaemonEditorMode? editorMode,
         DaemonDiagnosis? diagnosis,
         string diagnosisPath,
         out ExecutionError? error)
@@ -512,33 +558,34 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
             return false;
         }
 
-        if (!TryReadPersistedTerminalStartupStatus(startupStatus, out _))
+        if (!IsPersistedTerminalStartupStatus(startupStatus))
         {
             error = ExecutionError.InvalidArgument($"Daemon launch-attempt startupStatus is invalid: {diagnosisPath}");
             return false;
         }
 
-        if (StringValueNormalizer.TrimToNull(startupBlockingReason) is not string normalizedStartupBlockingReason)
+        if (!startupBlockingReason.HasValue
+            || !ContractLiteralCodec.IsDefined(startupBlockingReason.Value))
         {
             error = ExecutionError.InvalidArgument($"Daemon launch-attempt startupBlockingReason is invalid: {diagnosisPath}");
             return false;
         }
 
-        if (!ContractLiteralCodec.IsDefined<DaemonStartupBlockingReason>(normalizedStartupBlockingReason))
-        {
-            error = ExecutionError.InvalidArgument($"Daemon launch-attempt startupBlockingReason is invalid: {diagnosisPath}");
-            return false;
-        }
-
-        if (!ContractLiteralCodec.IsDefined<DaemonStartupRetryDisposition>(retryDisposition))
+        if (!ContractLiteralCodec.IsDefined(retryDisposition))
         {
             error = ExecutionError.InvalidArgument($"Daemon launch-attempt retryDisposition is invalid: {diagnosisPath}");
             return false;
         }
 
-        if (!ContractLiteralCodec.IsDefined<DaemonStartupProcessAction>(processAction))
+        if (!ContractLiteralCodec.IsDefined(processAction))
         {
             error = ExecutionError.InvalidArgument($"Daemon launch-attempt processAction is invalid: {diagnosisPath}");
+            return false;
+        }
+
+        if (editorMode.HasValue && !ContractLiteralCodec.IsDefined(editorMode.Value))
+        {
+            error = ExecutionError.InvalidArgument($"Daemon launch-attempt editorMode is invalid: {diagnosisPath}");
             return false;
         }
 
@@ -557,7 +604,9 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
         return true;
     }
 
-    private static DaemonDiagnosis? ToDiagnosisForValidation (DaemonDiagnosisJsonContract diagnosis)
+    private static DaemonDiagnosis? ToDiagnosisForValidation (
+        DaemonDiagnosisJsonContract diagnosis,
+        DaemonDiagnosisStartupPhase? startupPhase)
     {
         if (diagnosis.IsInferred is null)
         {
@@ -575,7 +624,7 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
             SessionIssuedAtUtc: diagnosis.SessionIssuedAtUtc,
             ProcessStartedAtUtc: diagnosis.ProcessStartedAtUtc,
             UnityLogPath: diagnosis.UnityLogPath,
-            StartupPhase: diagnosis.StartupPhase,
+            StartupPhase: startupPhase,
             ActionRequired: diagnosis.ActionRequired,
             PrimaryDiagnostic: diagnosis.PrimaryDiagnostic is null
                 ? null
@@ -644,17 +693,17 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
     }
 
     private static bool TryValidateOptionalStartupPhase (
-        string? startupPhase,
+        DaemonDiagnosisStartupPhase? startupPhase,
         string diagnosisPath,
         out ExecutionError? error)
     {
-        if (StringValueNormalizer.TrimToNull(startupPhase) is not string normalizedStartupPhase)
+        if (!startupPhase.HasValue)
         {
             error = null;
             return true;
         }
 
-        if (!ContractLiteralCodec.IsDefined<DaemonDiagnosisStartupPhase>(normalizedStartupPhase))
+        if (!ContractLiteralCodec.IsDefined(startupPhase.Value))
         {
             error = ExecutionError.InvalidArgument($"Daemon launch-attempt diagnosis.startupPhase is invalid: {diagnosisPath}");
             return false;
@@ -726,12 +775,7 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
             return false;
         }
 
-        if (!ContractLiteralCodec.TryParse<DaemonStartupStatus>(entry.LaunchAttempt.StartupStatus, out var startupStatus))
-        {
-            return false;
-        }
-
-        return startupStatus is DaemonStartupStatus.Blocked
+        return entry.LaunchAttempt.StartupStatus is DaemonStartupStatus.Blocked
             or DaemonStartupStatus.Timeout
             or DaemonStartupStatus.Failed;
     }
@@ -745,10 +789,55 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
             return false;
         }
 
+        return IsPersistedTerminalStartupStatus(status);
+    }
+
+    private static bool IsPersistedTerminalStartupStatus (DaemonStartupStatus status)
+    {
         return status is DaemonStartupStatus.Blocked
             or DaemonStartupStatus.Timeout
             or DaemonStartupStatus.Failed
             or DaemonStartupStatus.Completed;
+    }
+
+    private static TEnum ParseRequiredLiteral<TEnum> (string literal)
+        where TEnum : struct, Enum
+    {
+        return ContractLiteralCodec.TryParse(literal, out TEnum value)
+            ? value
+            : throw new InvalidOperationException($"Validated {typeof(TEnum).Name} literal could not be parsed.");
+    }
+
+    private static TEnum? ParseOptionalLiteral<TEnum> (string? literal)
+        where TEnum : struct, Enum
+    {
+        if (StringValueNormalizer.TrimToNull(literal) is not string normalizedLiteral)
+        {
+            return null;
+        }
+
+        return ParseRequiredLiteral<TEnum>(normalizedLiteral);
+    }
+
+    private static bool TryParseOptionalLiteral<TEnum> (
+        string? literal,
+        out TEnum? value)
+        where TEnum : struct, Enum
+    {
+        if (StringValueNormalizer.TrimToNull(literal) is not string normalizedLiteral)
+        {
+            value = null;
+            return true;
+        }
+
+        if (ContractLiteralCodec.TryParse(normalizedLiteral, out TEnum parsedValue))
+        {
+            value = parsedValue;
+            return true;
+        }
+
+        value = null;
+        return false;
     }
 
     private static void EnsureSafeLaunchAttemptDirectory (

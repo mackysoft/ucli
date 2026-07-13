@@ -54,18 +54,18 @@ public sealed class DaemonGuiEditorAttachServiceDiagnosisTests
         Assert.Equal(marker.ProcessId, diagnosis.ProcessId);
         Assert.Equal(marker.MarkerPath, diagnosis.EditorInstancePath);
         Assert.NotNull(result.Startup);
-        Assert.Equal("gui", result.Startup!.EditorMode);
-        Assert.Equal("user", result.Startup.OwnerKind);
+        Assert.Equal(DaemonEditorMode.Gui, result.Startup!.EditorMode);
+        Assert.Equal(DaemonSessionOwnerKind.User, result.Startup.OwnerKind);
         Assert.False(result.Startup.CanShutdownProcess);
         Assert.Equal(marker.ProcessId, result.Startup.ProcessId);
         Assert.Equal(DaemonGuiEditorAttachServiceTestSupport.ProbeProcessStartedAtUtc, result.Startup.StartedAtUtc);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Kept), result.Startup.ProcessAction);
+        Assert.Equal(DaemonStartupProcessAction.Kept, result.Startup.ProcessAction);
         progressObserver.AssertEvents(
             DaemonStartProgressEvent.WaitingForEndpoint,
             DaemonStartProgressEvent.BlockerDetected);
         var blockerObservation = progressObserver.PayloadAt<DaemonStartStartupProgressObservation>(1);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupStatus.Timeout), blockerObservation.StartupStatus);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.EndpointNotRegistered), blockerObservation.StartupBlockingReason);
+        Assert.Equal(DaemonStartupStatus.Timeout, blockerObservation.StartupStatus);
+        Assert.Equal(DaemonStartupBlockingReason.EndpointNotRegistered, blockerObservation.StartupBlockingReason);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout.Value, blockerObservation.ErrorCode);
     }
 
@@ -125,14 +125,14 @@ public sealed class DaemonGuiEditorAttachServiceDiagnosisTests
         DaemonDiagnosisStoreAssert.WrittenOnceWithReason(
             diagnosisStore,
             DaemonDiagnosisReasonValues.GuiRebootstrapUnavailable);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Kept), result.Startup!.ProcessAction);
+        Assert.Equal(DaemonStartupProcessAction.Kept, result.Startup!.ProcessAction);
         progressObserver.AssertEvents(
             DaemonStartProgressEvent.WaitingForEndpoint,
             DaemonStartProgressEvent.BlockerDetected);
         var blockerObservation = progressObserver.PayloadAt<DaemonStartStartupProgressObservation>(1);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupStatus.Failed), blockerObservation.StartupStatus);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.EndpointNotRegistered), blockerObservation.StartupBlockingReason);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.Unknown), blockerObservation.RetryDisposition);
+        Assert.Equal(DaemonStartupStatus.Failed, blockerObservation.StartupStatus);
+        Assert.Equal(DaemonStartupBlockingReason.EndpointNotRegistered, blockerObservation.StartupBlockingReason);
+        Assert.Equal(DaemonStartupRetryDisposition.Unknown, blockerObservation.RetryDisposition);
         Assert.Equal(DaemonErrorCodes.DaemonEndpointNotRegistered.Value, blockerObservation.ErrorCode);
     }
 }

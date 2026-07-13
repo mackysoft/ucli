@@ -36,8 +36,8 @@ public sealed class UnityOneshotIpcClientStartupExitTests
         Assert.Contains("exited before startup readiness", result.Message, StringComparison.Ordinal);
         Assert.Contains("Stale Unity project lock file was removed", result.Message, StringComparison.Ordinal);
         Assert.NotNull(result.FailureInfo!.StartupFailure);
-        Assert.Equal("failed", result.FailureInfo.StartupFailure!.Startup!.StartupStatus);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Unknown), result.FailureInfo.StartupFailure.Startup.ProcessAction);
+        Assert.Equal(DaemonStartupStatus.Failed, result.FailureInfo.StartupFailure!.Startup!.StartupStatus);
+        Assert.Equal(DaemonStartupProcessAction.Unknown, result.FailureInfo.StartupFailure.Startup.ProcessAction);
         UnityBatchmodeProcessHandleAssert.WasNotTerminated(processHandle);
     }
 
@@ -66,8 +66,8 @@ public sealed class UnityOneshotIpcClientStartupExitTests
         Assert.Equal(DaemonErrorCodes.DaemonStartProcessExited, result.ErrorCode);
         Assert.Contains("exited before startup readiness", result.Message, StringComparison.Ordinal);
         Assert.NotNull(result.FailureInfo!.StartupFailure);
-        Assert.Equal("failed", result.FailureInfo.StartupFailure!.Startup!.StartupStatus);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Unknown), result.FailureInfo.StartupFailure.Startup.ProcessAction);
+        Assert.Equal(DaemonStartupStatus.Failed, result.FailureInfo.StartupFailure!.Startup!.StartupStatus);
+        Assert.Equal(DaemonStartupProcessAction.Unknown, result.FailureInfo.StartupFailure.Startup.ProcessAction);
     }
 
     [Fact]
@@ -106,9 +106,9 @@ public sealed class UnityOneshotIpcClientStartupExitTests
         Assert.Equal(DaemonErrorCodes.DaemonStartupBlocked, result.ErrorCode);
         Assert.NotNull(result.FailureInfo!.StartupFailure);
         var startupFailure = result.FailureInfo.StartupFailure!;
-        Assert.Equal("blocked", startupFailure.Startup!.StartupStatus);
-        Assert.Equal("compile", startupFailure.Startup.StartupBlockingReason);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Unknown), startupFailure.Startup.ProcessAction);
+        Assert.Equal(DaemonStartupStatus.Blocked, startupFailure.Startup!.StartupStatus);
+        Assert.Equal(DaemonStartupBlockingReason.Compile, startupFailure.Startup.StartupBlockingReason);
+        Assert.Equal(DaemonStartupProcessAction.Unknown, startupFailure.Startup.ProcessAction);
         Assert.Equal("unityScriptCompilationFailed", startupFailure.Diagnosis!.Reason);
         Assert.Equal("CS0246", startupFailure.Diagnosis.PrimaryDiagnostic!.Code);
     }
@@ -150,9 +150,9 @@ public sealed class UnityOneshotIpcClientStartupExitTests
         Assert.Equal(DaemonErrorCodes.DaemonStartupBlocked, result.ErrorCode);
         Assert.NotNull(result.FailureInfo!.StartupFailure);
         var startupFailure = result.FailureInfo.StartupFailure!;
-        Assert.Equal("blocked", startupFailure.Startup!.StartupStatus);
-        Assert.Equal("packageResolution", startupFailure.Startup.StartupBlockingReason);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Unknown), startupFailure.Startup.ProcessAction);
+        Assert.Equal(DaemonStartupStatus.Blocked, startupFailure.Startup!.StartupStatus);
+        Assert.Equal(DaemonStartupBlockingReason.PackageResolution, startupFailure.Startup.StartupBlockingReason);
+        Assert.Equal(DaemonStartupProcessAction.Unknown, startupFailure.Startup.ProcessAction);
         Assert.Equal("unityPackageResolutionFailed", startupFailure.Diagnosis!.Reason);
         Assert.Equal("packageResolution", startupFailure.Diagnosis.PrimaryDiagnostic!.Kind);
     }

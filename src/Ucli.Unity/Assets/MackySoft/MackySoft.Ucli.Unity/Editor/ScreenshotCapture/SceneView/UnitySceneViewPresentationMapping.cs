@@ -30,13 +30,13 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.SceneView
                 return false;
             }
 
-            if (!IsFinitePositive(backingScale)
-                || !IsFinitePositive(windowRect.width)
-                || !IsFinitePositive(windowRect.height)
-                || !IsFinitePositive(contentRect.width)
-                || !IsFinitePositive(contentRect.height)
-                || !IsFinite(contentRect.x)
-                || !IsFinite(contentRect.y)
+            if (!UnityScreenshotMath.IsFinitePositive(backingScale)
+                || !UnityScreenshotMath.IsFinitePositive(windowRect.width)
+                || !UnityScreenshotMath.IsFinitePositive(windowRect.height)
+                || !UnityScreenshotMath.IsFinitePositive(contentRect.width)
+                || !UnityScreenshotMath.IsFinitePositive(contentRect.height)
+                || !UnityScreenshotMath.IsFinite(contentRect.x)
+                || !UnityScreenshotMath.IsFinite(contentRect.y)
                 || contentRect.x < 0f
                 || contentRect.y < 0f
                 || contentRect.xMax > windowRect.width + 0.01f
@@ -86,14 +86,5 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.SceneView
             return true;
         }
 
-        private static bool IsFinitePositive (float value)
-        {
-            return value > 0f && IsFinite(value);
-        }
-
-        private static bool IsFinite (float value)
-        {
-            return !float.IsNaN(value) && !float.IsInfinity(value);
-        }
     }
 }

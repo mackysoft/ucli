@@ -27,7 +27,7 @@ public sealed class DaemonStartCommandFailurePayloadTests
             EditorInstancePath: "/repo/UnityProject/Library/EditorInstance.json",
             ProcessStartedAtUtc: new DateTimeOffset(2026, 03, 12, 4, 5, 0, TimeSpan.Zero),
             UnityLogPath: "/repo/.ucli/local/fingerprints/fp/unity.log",
-            StartupPhase: ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.EndpointRegistration),
+            StartupPhase: DaemonDiagnosisStartupPhase.EndpointRegistration,
             ActionRequired: DaemonDiagnosisActionRequiredValues.InspectUnityLog,
             PrimaryDiagnostic: new DaemonPrimaryDiagnosticOutput(
                 Kind: DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler,
@@ -82,13 +82,13 @@ public sealed class DaemonStartCommandFailurePayloadTests
     {
         var diagnosis = CreateDiagnosis(DaemonDiagnosisReasonValues.UnityScriptCompilationFailed);
         var startup = new DaemonStartupObservation(
-            StartupStatus: ContractLiteralCodec.ToValue(DaemonStartupStatus.Blocked),
-            StartupBlockingReason: ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Compile),
+            StartupStatus: DaemonStartupStatus.Blocked,
+            StartupBlockingReason: DaemonStartupBlockingReason.Compile,
             LaunchAttemptId: "20260312_040500Z_00abcdef",
-            ProcessAction: ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Kept),
-            RetryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix),
-            EditorMode: "batchmode",
-            OwnerKind: "cli",
+            ProcessAction: DaemonStartupProcessAction.Kept,
+            RetryDisposition: DaemonStartupRetryDisposition.RetryAfterFix,
+            EditorMode: DaemonEditorMode.Batchmode,
+            OwnerKind: DaemonSessionOwnerKind.Cli,
             CanShutdownProcess: true,
             ProcessId: 4321,
             StartedAtUtc: new DateTimeOffset(2026, 03, 12, 4, 5, 1, TimeSpan.Zero),
@@ -154,11 +154,11 @@ public sealed class DaemonStartCommandFailurePayloadTests
     public async Task Start_WhenEndpointRegistrationTimesOut_NormalizesFinalWaitThenRetryToUnknown ()
     {
         var startup = new DaemonStartupObservation(
-            StartupStatus: ContractLiteralCodec.ToValue(DaemonStartupStatus.Timeout),
-            StartupBlockingReason: ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.EndpointNotRegistered),
+            StartupStatus: DaemonStartupStatus.Timeout,
+            StartupBlockingReason: DaemonStartupBlockingReason.EndpointNotRegistered,
             LaunchAttemptId: "20260312_040500Z_00abcdef",
-            ProcessAction: ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated),
-            RetryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.WaitThenRetry));
+            ProcessAction: DaemonStartupProcessAction.Terminated,
+            RetryDisposition: DaemonStartupRetryDisposition.WaitThenRetry);
         var service = new RecordingDaemonStartService(DaemonStartExecutionResult.Failure(
             ExecutionError.Timeout("endpoint registration timeout", ExecutionErrorCodes.IpcTimeout),
             DaemonStartFailureExecutionOutput.Create(
@@ -200,11 +200,11 @@ public sealed class DaemonStartCommandFailurePayloadTests
     public async Task Start_WhenFailureCanRetryImmediately_EmitsSafeToRetryImmediately ()
     {
         var startup = new DaemonStartupObservation(
-            StartupStatus: ContractLiteralCodec.ToValue(DaemonStartupStatus.Failed),
-            StartupBlockingReason: ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Unknown),
+            StartupStatus: DaemonStartupStatus.Failed,
+            StartupBlockingReason: DaemonStartupBlockingReason.Unknown,
             LaunchAttemptId: "20260312_040500Z_00abcdef",
-            ProcessAction: ContractLiteralCodec.ToValue(DaemonStartupProcessAction.None),
-            RetryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryImmediately));
+            ProcessAction: DaemonStartupProcessAction.None,
+            RetryDisposition: DaemonStartupRetryDisposition.RetryImmediately);
         var service = new RecordingDaemonStartService(DaemonStartExecutionResult.Failure(
             ExecutionError.InternalError("transient startup failure", DaemonErrorCodes.DaemonStartupBlocked),
             DaemonStartFailureExecutionOutput.Create(

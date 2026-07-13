@@ -19,8 +19,8 @@ public sealed class UnityDaemonReadinessGateTests
     {
         var timeProvider = new ManualTimeProvider();
         var pingClient = new RecordingDaemonPingInfoClient(
-            CreatePingPayload(ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Busy), false),
-            CreatePingPayload(ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Ready), true));
+            CreatePingPayload(IpcEditorLifecycleState.Busy),
+            CreatePingPayload(IpcEditorLifecycleState.Ready));
         var daemonClient = new RecordingUnityIpcClient(CreateSuccessResult());
         var gate = new UnityDaemonReadinessGate(pingClient, timeProvider);
         var unityProject = CreateContext("wait-ready");
@@ -46,8 +46,7 @@ public sealed class UnityDaemonReadinessGateTests
     public async Task Execute_WhenFailFastBusyState_ReturnsEditorBusyWithoutDispatch ()
     {
         var pingClient = new RecordingDaemonPingInfoClient(CreatePingPayload(
-            ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Busy),
-            false));
+            IpcEditorLifecycleState.Busy));
         var daemonClient = new RecordingUnityIpcClient(CreateSuccessResult());
         var gate = new UnityDaemonReadinessGate(pingClient);
 
@@ -70,8 +69,7 @@ public sealed class UnityDaemonReadinessGateTests
     public async Task Execute_WhenDomainReloadingState_ReturnsEditorDomainReloadingWithoutDispatch ()
     {
         var pingClient = new RecordingDaemonPingInfoClient(CreatePingPayload(
-            ContractLiteralCodec.ToValue(IpcEditorLifecycleState.DomainReloading),
-            false));
+            IpcEditorLifecycleState.DomainReloading));
         var daemonClient = new RecordingUnityIpcClient(CreateSuccessResult());
         var gate = new UnityDaemonReadinessGate(pingClient);
         var unityProject = CreateContext("domain-reloading");
@@ -95,10 +93,9 @@ public sealed class UnityDaemonReadinessGateTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenGuiSessionIsInPlaymode_ReturnsEditorPlaymodeWithoutDispatch ()
     {
-        var pingClient = new RecordingDaemonPingInfoClient(IpcPingResponseTestFactory.Create(
-            editorMode: "gui",
-            lifecycleState: ContractLiteralCodec.ToValue(IpcEditorLifecycleState.PlayMode),
-            canAcceptExecutionRequests: false));
+        var pingClient = new RecordingDaemonPingInfoClient(IpcUnityEditorObservationTestFactory.Create(
+            IpcEditorLifecycleState.PlayMode,
+            DaemonEditorMode.Gui));
         var daemonClient = new RecordingUnityIpcClient(CreateSuccessResult());
         var gate = new UnityDaemonReadinessGate(pingClient);
         var unityProject = CreateContext("gui-playmode");
@@ -125,7 +122,7 @@ public sealed class UnityDaemonReadinessGateTests
         var timeProvider = new ManualTimeProvider();
         var pingClient = new RecordingDaemonPingInfoClient(
             new TimeoutException("probe timed out"),
-            CreatePingPayload(ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Ready), true));
+            CreatePingPayload(IpcEditorLifecycleState.Ready));
         var daemonClient = new RecordingUnityIpcClient(CreateSuccessResult());
         var gate = new UnityDaemonReadinessGate(pingClient, timeProvider);
         var unityProject = CreateContext("probe-timeout-ready");
@@ -197,33 +194,11 @@ public sealed class UnityDaemonReadinessGateTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenUnsupportedLifecycleState_ReturnsInternalErrorWithoutDispatch ()
-    {
-        var pingClient = new RecordingDaemonPingInfoClient(CreatePingPayload("unsupported", false));
-        var daemonClient = new RecordingUnityIpcClient(CreateSuccessResult());
-        var gate = new UnityDaemonReadinessGate(pingClient);
-
-        var result = await gate.ExecuteAsync(
-            CreateContext("unsupported"),
-            CreateOpsReadDispatchRequest(failFast: false),
-            new IpcOpsReadRequest(FailFast: false, RequireReadinessGate: true),
-            UnityIpcExecutionBudget.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
-            daemonClient,
-            CancellationToken.None);
-
-        UnityDaemonReadinessGateAssert.RejectedWithoutDispatch(
-            result,
-            daemonClient,
-            UcliCoreErrorCodes.InternalError);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
     public async Task Execute_WhenLateWaitableRegressionOccurs_RewaitsAndRedispatches ()
     {
         var pingClient = new RecordingDaemonPingInfoClient(
-            CreatePingPayload(ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Ready), true),
-            CreatePingPayload(ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Ready), true));
+            CreatePingPayload(IpcEditorLifecycleState.Ready),
+            CreatePingPayload(IpcEditorLifecycleState.Ready));
         var daemonClient = new RecordingUnityIpcClient(
             UnityRequestExecutionResult.Success(UnityRequestResponseTestFactory.Create(CreateErrorResponse(
                 EditorLifecycleErrorCodes.EditorBusy,
@@ -253,8 +228,7 @@ public sealed class UnityDaemonReadinessGateTests
         var budget = UnityIpcExecutionBudget.Start(TimeSpan.FromMilliseconds(100), timeProvider);
         timeProvider.Advance(TimeSpan.FromMilliseconds(120));
         var pingClient = new RecordingDaemonPingInfoClient(CreatePingPayload(
-            ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Ready),
-            true));
+            IpcEditorLifecycleState.Ready));
         var daemonClient = new RecordingUnityIpcClient(CreateSuccessResult());
         var gate = new UnityDaemonReadinessGate(pingClient, timeProvider);
 
@@ -334,13 +308,9 @@ public sealed class UnityDaemonReadinessGateTests
         return JsonDocument.Parse("{}").RootElement.Clone();
     }
 
-    private static IpcPingResponse CreatePingPayload (
-        string lifecycleState,
-        bool canAcceptExecutionRequests)
+    private static IpcUnityEditorObservation CreatePingPayload (IpcEditorLifecycleState lifecycleState)
     {
-        return IpcPingResponseTestFactory.Create(
-            lifecycleState: lifecycleState,
-            canAcceptExecutionRequests: canAcceptExecutionRequests);
+        return IpcUnityEditorObservationTestFactory.Create(lifecycleState);
     }
 
 }

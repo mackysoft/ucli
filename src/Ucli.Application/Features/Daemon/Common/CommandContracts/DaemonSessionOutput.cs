@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Ipc;
+
 namespace MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 
 /// <summary> Represents normalized session payload values returned by daemon command workflows. </summary>
@@ -14,10 +16,10 @@ namespace MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 internal sealed record DaemonSessionOutput (
     string ProjectFingerprint,
     DateTimeOffset IssuedAtUtc,
-    string EditorMode,
-    string OwnerKind,
+    DaemonEditorMode EditorMode,
+    DaemonSessionOwnerKind OwnerKind,
     bool CanShutdownProcess,
-    string EndpointTransportKind,
+    IpcTransportKind EndpointTransportKind,
     string EndpointAddress,
     int? ProcessId,
     DateTimeOffset? ProcessStartedAtUtc,

@@ -1,26 +1,55 @@
+using System.Text.Json.Serialization;
+
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Represents screenshot capture metadata observed by Unity. </summary>
-/// <param name="Target"> The screenshot target literal. </param>
-/// <param name="SizeMode"> The rule used to determine the captured dimensions. </param>
-/// <param name="RequestedWidth"> The requested GameView width, or <see langword="null" /> when omitted. </param>
-/// <param name="RequestedHeight"> The requested GameView height, or <see langword="null" /> when omitted. </param>
-/// <param name="Width"> The captured image width in pixels. </param>
-/// <param name="Height"> The captured image height in pixels. </param>
-/// <param name="ColorSpace"> The active Unity project color-space literal at capture time. </param>
-/// <param name="LifecycleStateAtCapture"> The Unity Editor lifecycle-state literal at capture time. </param>
-/// <param name="CompileStateAtCapture"> The Unity Editor compile-state literal at capture time. </param>
-/// <param name="DomainReloadGeneration"> The domain-reload generation at capture time. </param>
-/// <param name="PlayModeState"> The Play Mode state literal at capture time. </param>
-public sealed record IpcScreenshotCapture (
-    string Target,
-    string SizeMode,
-    int? RequestedWidth,
-    int? RequestedHeight,
-    int Width,
-    int Height,
-    string ColorSpace,
-    string LifecycleStateAtCapture,
-    string CompileStateAtCapture,
-    long DomainReloadGeneration,
-    string PlayModeState);
+public sealed record IpcScreenshotCapture
+{
+    /// <summary> Initializes screenshot capture metadata observed by Unity. </summary>
+    [JsonConstructor]
+    public IpcScreenshotCapture (
+        IpcScreenshotTarget target,
+        IpcScreenshotSizeMode sizeMode,
+        int? requestedWidth,
+        int? requestedHeight,
+        int width,
+        int height,
+        IpcScreenshotColorSpace colorSpace,
+        UnityEditorStateSnapshot state)
+    {
+        Target = target;
+        SizeMode = sizeMode;
+        RequestedWidth = requestedWidth;
+        RequestedHeight = requestedHeight;
+        Width = width;
+        Height = height;
+        ColorSpace = colorSpace;
+        State = state ?? throw new ArgumentNullException(nameof(state));
+    }
+
+    /// <summary> Gets the screenshot target. </summary>
+    public IpcScreenshotTarget Target { get; }
+
+    /// <summary> Gets the rule used to determine the captured dimensions. </summary>
+    public IpcScreenshotSizeMode SizeMode { get; }
+
+    /// <summary> Gets the requested GameView width, or <see langword="null" /> when omitted. </summary>
+    public int? RequestedWidth { get; }
+
+    /// <summary> Gets the requested GameView height, or <see langword="null" /> when omitted. </summary>
+    public int? RequestedHeight { get; }
+
+    /// <summary> Gets the captured image width in pixels. </summary>
+    public int Width { get; }
+
+    /// <summary> Gets the captured image height in pixels. </summary>
+    public int Height { get; }
+
+    /// <summary> Gets the active Unity project color space at capture time. </summary>
+    public IpcScreenshotColorSpace ColorSpace { get; }
+
+    /// <summary> Gets the comparable Unity Editor state at capture time. </summary>
+    [JsonInclude]
+    [JsonRequired]
+    public UnityEditorStateSnapshot State { get; private init; }
+}

@@ -2,7 +2,6 @@ namespace MackySoft.Ucli.Tests.Ipc;
 
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.UnityIntegration.Ipc.Execution;
 
 public sealed class UnityIpcRequestBuilderBasicPayloadTests
@@ -77,7 +76,7 @@ public sealed class UnityIpcRequestBuilderBasicPayloadTests
         var builder = new UnityIpcRequestBuilder();
 
         var request = builder.Build(new UnityRequestPayload.ScreenshotCapture(
-            Target: ContractLiteralCodec.ToValue(IpcScreenshotTarget.Game),
+            Target: IpcScreenshotTarget.Game,
             RequestedWidth: 1920,
             RequestedHeight: 1080,
             StagingPath: "/tmp/ucli-screenshot.raw",
@@ -85,7 +84,7 @@ public sealed class UnityIpcRequestBuilderBasicPayloadTests
 
         Assert.Equal(IpcMethodNames.ScreenshotCapture, request.Method);
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcScreenshotCaptureRequest payload, out _));
-        Assert.Equal(ContractLiteralCodec.ToValue(IpcScreenshotTarget.Game), payload.Target);
+        Assert.Equal(IpcScreenshotTarget.Game, payload.Target);
         Assert.Equal(1920, payload.RequestedWidth);
         Assert.Equal(1080, payload.RequestedHeight);
         Assert.Equal("/tmp/ucli-screenshot.raw", payload.StagingPath);

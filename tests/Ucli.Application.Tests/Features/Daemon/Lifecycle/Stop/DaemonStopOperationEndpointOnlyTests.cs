@@ -14,9 +14,9 @@ public sealed class DaemonStopOperationEndpointOnlyTests
     {
         var session = DaemonSessionTestFactory.Create(
             processId: 456,
-            ownerKind: "user",
+            ownerKind: DaemonSessionOwnerKind.User,
             canShutdownProcess: false,
-            editorMode: "gui");
+            editorMode: DaemonEditorMode.Gui);
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-stop-disallowed");
         var shutdownClient = new RecordingDaemonShutdownClient
         {
@@ -48,9 +48,9 @@ public sealed class DaemonStopOperationEndpointOnlyTests
         var shutdownError = ExecutionError.Timeout("shutdown timed out");
         var session = DaemonSessionTestFactory.Create(
             processId: 456,
-            ownerKind: "user",
+            ownerKind: DaemonSessionOwnerKind.User,
             canShutdownProcess: false,
-            editorMode: "gui");
+            editorMode: DaemonEditorMode.Gui);
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-stop-endpoint-timeout");
         var shutdownClient = new RecordingDaemonShutdownClient
         {
@@ -81,9 +81,9 @@ public sealed class DaemonStopOperationEndpointOnlyTests
     {
         var session = DaemonSessionTestFactory.Create(
             processId: 457,
-            ownerKind: "cli",
+            ownerKind: DaemonSessionOwnerKind.Cli,
             canShutdownProcess: false,
-            editorMode: "gui");
+            editorMode: DaemonEditorMode.Gui);
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-stop-cli-endpoint-only");
         var shutdownClient = new RecordingDaemonShutdownClient
         {

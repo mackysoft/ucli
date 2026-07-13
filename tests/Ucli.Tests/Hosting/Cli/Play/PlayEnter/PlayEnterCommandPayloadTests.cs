@@ -28,13 +28,17 @@ public sealed class PlayEnterCommandPayloadTests
             .HasString("editorMode", "gui")
             .HasString("lifecycleState", ContractLiteralCodec.ToValue(IpcEditorLifecycleState.PlayMode))
             .HasString("blockingReason", ContractLiteralCodec.ToValue(IpcEditorBlockingReason.PlayMode))
+            .HasProperty("generations", generations => generations
+                .HasInt32("compileGeneration", 12)
+                .HasInt32("domainReloadGeneration", 7)
+                .HasInt32("assetRefreshGeneration", 0)
+                .HasInt32("playModeGeneration", 3))
             .HasBoolean("canAcceptExecutionRequests", false)
             .HasProperty("playMode", playMode => playMode
                 .HasString("state", "playing")
                 .HasString("transition", "none")
                 .HasBoolean("isPlaying", true)
-                .HasBoolean("isPlayingOrWillChangePlaymode", true)
-                .HasString("generation", "3"))
+                .HasBoolean("isPlayingOrWillChangePlaymode", true))
             .HasProperty("transition", transition => transition
                 .HasString("transition", IpcPlayTransitionCommandNames.Enter)
                 .HasString("result", IpcPlayTransitionResultNames.Entered)

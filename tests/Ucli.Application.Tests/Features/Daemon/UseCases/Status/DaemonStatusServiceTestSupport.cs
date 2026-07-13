@@ -51,41 +51,30 @@ internal static class DaemonStatusServiceTestSupport
 
     public static RecordingDaemonPingInfoClient CreateSuccessfulPingInfoClient ()
     {
-        return new RecordingDaemonPingInfoClient(new IpcPingResponse(
-            ServerVersion: "0.0.1",
-            EditorMode: "batchmode",
-            UnityVersion: "6000.1.4f1",
-            ProjectFingerprint: "project-fingerprint",
-            CompileState: "ready",
-            LifecycleState: "ready",
-            BlockingReason: null,
-            CompileGeneration: "1",
-            DomainReloadGeneration: "1",
-            CanAcceptExecutionRequests: true));
+        return new RecordingDaemonPingInfoClient(IpcUnityEditorObservationTestFactory.Create());
     }
 
-    public static DaemonLifecycleObservation CreateLifecycleObservation (DaemonSession session)
+    public static DaemonLifecycleObservation CreateLifecycleObservation (
+        DaemonSession session,
+        bool includeEditorInstanceId = true)
     {
         return new DaemonLifecycleObservation(
-            ProcessId: session.ProcessId!.Value,
-            ProcessStartedAtUtc: session.ProcessStartedAtUtc!.Value,
-            EditorMode: session.EditorMode,
-            LifecycleState: IpcEditorLifecycleState.PlayMode,
-            CompileState: IpcCompileState.Ready,
-            CompileGeneration: "12",
-            DomainReloadGeneration: "7",
-            ObservedAtUtc: DateTimeOffset.UtcNow,
-            ActionRequired: null,
-            PrimaryDiagnostic: null)
-        {
-            ServerVersion = "0.5.0",
-            EditorInstanceId = session.EditorInstanceId,
-            PlayMode = new IpcPlayModeSnapshot(
-                State: "playing",
-                Transition: "none",
-                IsPlaying: true,
-                IsPlayingOrWillChangePlaymode: true,
-                Generation: "9"),
-        };
+            processId: session.ProcessId!.Value,
+            processStartedAtUtc: session.ProcessStartedAtUtc!.Value,
+            state: new UnityEditorStateSnapshot(
+                editorMode: session.EditorMode,
+                lifecycleState: IpcEditorLifecycleState.PlayMode,
+                compileState: IpcCompileState.Ready,
+                generations: new IpcUnityGenerationSnapshot(12, 7, 0, 9),
+                playMode: new IpcPlayModeSnapshot(
+                    State: IpcPlayModeState.Playing,
+                    Transition: IpcPlayModeTransition.None,
+                    IsPlaying: true,
+                    IsPlayingOrWillChangePlaymode: true)),
+            observedAtUtc: DateTimeOffset.UtcNow,
+            actionRequired: null,
+            primaryDiagnostic: null,
+            serverVersion: "0.5.0",
+            editorInstanceId: includeEditorInstanceId ? session.EditorInstanceId : null);
     }
 }

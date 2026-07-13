@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Storage;
+
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 
 /// <summary> Represents one structured daemon termination diagnosis associated with one daemon lifecycle. </summary>
@@ -25,6 +27,6 @@ internal sealed record DaemonDiagnosis (
     DateTimeOffset SessionIssuedAtUtc,
     DateTimeOffset? ProcessStartedAtUtc = null,
     string? UnityLogPath = null,
-    string? StartupPhase = null,
+    DaemonDiagnosisStartupPhase? StartupPhase = null,
     string? ActionRequired = null,
     DaemonPrimaryDiagnostic? PrimaryDiagnostic = null);

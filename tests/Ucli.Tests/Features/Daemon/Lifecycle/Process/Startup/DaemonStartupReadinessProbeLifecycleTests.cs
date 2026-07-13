@@ -1,7 +1,6 @@
 namespace MackySoft.Ucli.Tests.Daemon;
 
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Tests.Helpers.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Process;
 using static DaemonStartupReadinessProbeTestSupport;
 
@@ -11,7 +10,7 @@ public sealed class DaemonStartupReadinessProbeLifecycleTests
     [Trait("Size", "Small")]
     public async Task WaitUntilReady_WhenPingSucceeds_ReturnsReadyWithoutLogInspection ()
     {
-        var pingClient = new RecordingDaemonPingInfoClient(CreatePingPayload(canAcceptExecutionRequests: true));
+        var pingClient = new RecordingDaemonPingInfoClient(CreatePingPayload());
         var logReader = new UnexpectedUnityLogReader("Ready ping success should not inspect the Unity log.");
         var probe = CreateProbe(pingClient, logReader);
 
@@ -22,8 +21,8 @@ public sealed class DaemonStartupReadinessProbeLifecycleTests
 
         Assert.True(result.IsReady);
         Assert.Null(result.Error);
-        Assert.Equal(IpcEditorLifecycleState.Ready, result.LifecycleSnapshot!.LifecycleState);
-        Assert.True(result.LifecycleSnapshot.CanAcceptExecutionRequests);
+        Assert.Equal(IpcEditorLifecycleState.Ready, result.LifecycleObservation!.State.LifecycleState);
+        Assert.True(IpcEditorLifecycleSemantics.CanAcceptExecutionRequests(result.LifecycleObservation.State.LifecycleState));
     }
 
     [Fact]
@@ -32,9 +31,8 @@ public sealed class DaemonStartupReadinessProbeLifecycleTests
     {
         var pingClient = new RecordingDaemonPingInfoClient(
             CreatePingPayload(
-                lifecycleState: IpcEditorLifecycleState.Starting,
-                canAcceptExecutionRequests: false),
-            CreatePingPayload(canAcceptExecutionRequests: true));
+                lifecycleState: IpcEditorLifecycleState.Starting),
+            CreatePingPayload());
         var logReader = new UnexpectedUnityLogReader("Accepted starting ping should not inspect the Unity log.");
         var probe = CreateProbe(pingClient, logReader);
 
@@ -45,8 +43,8 @@ public sealed class DaemonStartupReadinessProbeLifecycleTests
 
         Assert.True(result.IsReady);
         Assert.Null(result.Error);
-        Assert.Equal(IpcEditorLifecycleState.Starting, result.LifecycleSnapshot!.LifecycleState);
-        Assert.False(result.LifecycleSnapshot.CanAcceptExecutionRequests);
+        Assert.Equal(IpcEditorLifecycleState.Starting, result.LifecycleObservation!.State.LifecycleState);
+        Assert.False(IpcEditorLifecycleSemantics.CanAcceptExecutionRequests(result.LifecycleObservation.State.LifecycleState));
     }
 
     [Fact]
@@ -55,9 +53,8 @@ public sealed class DaemonStartupReadinessProbeLifecycleTests
     {
         var pingClient = new RecordingDaemonPingInfoClient(
             CreatePingPayload(
-                lifecycleState: IpcEditorLifecycleState.DomainReloading,
-                canAcceptExecutionRequests: false),
-            CreatePingPayload(canAcceptExecutionRequests: true));
+                lifecycleState: IpcEditorLifecycleState.DomainReloading),
+            CreatePingPayload());
         var logReader = new UnexpectedUnityLogReader("Accepted domain reload ping should not inspect the Unity log.");
         var probe = CreateProbe(pingClient, logReader);
 
@@ -68,8 +65,8 @@ public sealed class DaemonStartupReadinessProbeLifecycleTests
 
         Assert.True(result.IsReady);
         Assert.Null(result.Error);
-        Assert.Equal(IpcEditorLifecycleState.DomainReloading, result.LifecycleSnapshot!.LifecycleState);
-        Assert.False(result.LifecycleSnapshot.CanAcceptExecutionRequests);
+        Assert.Equal(IpcEditorLifecycleState.DomainReloading, result.LifecycleObservation!.State.LifecycleState);
+        Assert.False(IpcEditorLifecycleSemantics.CanAcceptExecutionRequests(result.LifecycleObservation.State.LifecycleState));
     }
 
     [Fact]
@@ -77,8 +74,7 @@ public sealed class DaemonStartupReadinessProbeLifecycleTests
     public async Task WaitUntilReady_WhenPingReportsCompiling_ReturnsReadyWithLifecycleSnapshot ()
     {
         var pingClient = new RecordingDaemonPingInfoClient(CreatePingPayload(
-            lifecycleState: IpcEditorLifecycleState.Compiling,
-            canAcceptExecutionRequests: false));
+            lifecycleState: IpcEditorLifecycleState.Compiling));
         var logReader = new UnexpectedUnityLogReader("Compiling lifecycle snapshot should not inspect the Unity log.");
         var probe = CreateProbe(pingClient, logReader);
 
@@ -89,8 +85,8 @@ public sealed class DaemonStartupReadinessProbeLifecycleTests
 
         Assert.True(result.IsReady);
         Assert.Null(result.Error);
-        Assert.Equal(IpcEditorLifecycleState.Compiling, result.LifecycleSnapshot!.LifecycleState);
-        Assert.False(result.LifecycleSnapshot.CanAcceptExecutionRequests);
+        Assert.Equal(IpcEditorLifecycleState.Compiling, result.LifecycleObservation!.State.LifecycleState);
+        Assert.False(IpcEditorLifecycleSemantics.CanAcceptExecutionRequests(result.LifecycleObservation.State.LifecycleState));
     }
 
     [Theory]
@@ -103,10 +99,8 @@ public sealed class DaemonStartupReadinessProbeLifecycleTests
         IpcEditorLifecycleState lifecycleState,
         IpcEditorBlockingReason blockingReason)
     {
-        var pingClient = new RecordingDaemonPingInfoClient(IpcPingResponseTestFactory.Create(
-            lifecycleState: ContractLiteralCodec.ToValue(lifecycleState),
-            blockingReason: ContractLiteralCodec.ToValue(blockingReason),
-            canAcceptExecutionRequests: false));
+        var pingClient = new RecordingDaemonPingInfoClient(
+            IpcUnityEditorObservationTestFactory.Create(lifecycleState));
         var logReader = new UnexpectedUnityLogReader("Non-ready lifecycle snapshot should not inspect the Unity log.");
         var probe = CreateProbe(pingClient, logReader);
 
@@ -118,8 +112,10 @@ public sealed class DaemonStartupReadinessProbeLifecycleTests
 
         Assert.True(result.IsReady);
         Assert.Null(result.Error);
-        Assert.Equal(lifecycleState, result.LifecycleSnapshot!.LifecycleState);
-        Assert.Equal(blockingReason, result.LifecycleSnapshot.BlockingReason);
-        Assert.False(result.LifecycleSnapshot.CanAcceptExecutionRequests);
+        Assert.Equal(lifecycleState, result.LifecycleObservation!.State.LifecycleState);
+        Assert.Equal(
+            blockingReason,
+            IpcEditorLifecycleSemantics.ResolveBlockingReason(result.LifecycleObservation.State.LifecycleState));
+        Assert.False(IpcEditorLifecycleSemantics.CanAcceptExecutionRequests(result.LifecycleObservation.State.LifecycleState));
     }
 }

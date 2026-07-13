@@ -1,6 +1,7 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Inventory;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Hosting.Cli.Daemon;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
@@ -24,16 +25,15 @@ public sealed class DaemonListCommandTests
             IssuedAtUtc: new DateTimeOffset(2026, 03, 09, 12, 0, 0, TimeSpan.Zero),
             ProcessId: 1234,
             ProcessStartedAtUtc: new DateTimeOffset(2026, 03, 09, 11, 59, 0, TimeSpan.Zero),
-            EditorMode: "batchmode",
-            OwnerKind: "cli",
+            EditorMode: DaemonEditorMode.Batchmode,
+            OwnerKind: DaemonSessionOwnerKind.Cli,
             CanShutdownProcess: true,
-            EndpointTransportKind: "unixDomainSocket",
+            EndpointTransportKind: IpcTransportKind.UnixDomainSocket,
             EndpointAddress: "/tmp/ucli.sock",
             LifecycleState: null,
             BlockingReason: null,
             CompileState: null,
-            CompileGeneration: null,
-            DomainReloadGeneration: null,
+            Generations: null,
             CanAcceptExecutionRequests: null,
             ObservedAtUtc: null,
             ActionRequired: null,
@@ -48,7 +48,7 @@ public sealed class DaemonListCommandTests
                 EditorInstancePath: null,
                 ProcessStartedAtUtc: new DateTimeOffset(2026, 03, 09, 11, 59, 0, TimeSpan.Zero),
                 UnityLogPath: "/repo/wt-a/.ucli/local/fingerprints/fp-a/unity.log",
-                StartupPhase: ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.EndpointRegistration),
+                StartupPhase: DaemonDiagnosisStartupPhase.EndpointRegistration,
                 ActionRequired: DaemonDiagnosisActionRequiredValues.InspectUnityLog,
                 PrimaryDiagnostic: new DaemonPrimaryDiagnosticOutput(
                     Kind: DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler,

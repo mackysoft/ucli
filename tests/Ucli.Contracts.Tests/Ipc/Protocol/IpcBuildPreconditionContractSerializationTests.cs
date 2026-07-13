@@ -1,5 +1,6 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Assurance;
+using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
@@ -33,33 +34,33 @@ public sealed class IpcBuildPreconditionContractSerializationTests
                 Scenes: ["Assets/Scenes/Main.unity"],
                 BuildOptions: "Development"));
         var lifecycle = IpcPayloadCodec.SerializeToElement(
-            new IpcBuildLifecycleSnapshot(
-                ServerVersion: "1.2.3",
-                EditorMode: "batchmode",
-                UnityVersion: "6000.0.0f1",
-                ProjectFingerprint: "project-fingerprint",
-                LifecycleState: ContractLiteralCodec.ToValue(IpcEditorLifecycleState.CompileFailed),
-                BlockingReason: ContractLiteralCodec.ToValue(IpcEditorBlockingReason.CompileFailed),
-                CompileState: ContractLiteralCodec.ToValue(IpcCompileState.Failed),
-                CompileGeneration: "compile-1",
-                DomainReloadGeneration: "domain-1",
-                CanAcceptExecutionRequests: false,
-                ObservedAtUtc: DateTimeOffset.Parse("2026-06-12T00:00:00+00:00"),
-                ActionRequired: DaemonDiagnosisActionRequiredValues.FixCompileErrors,
-                PrimaryDiagnostic: new IpcPrimaryDiagnostic(
+            new IpcUnityEditorObservation(
+                serverVersion: "1.2.3",
+                unityVersion: "6000.0.0f1",
+                projectFingerprint: "project-fingerprint",
+                state: new UnityEditorStateSnapshot(
+                    editorMode: DaemonEditorMode.Batchmode,
+                    lifecycleState: IpcEditorLifecycleState.CompileFailed,
+                    compileState: IpcCompileState.Failed,
+                    generations: new IpcUnityGenerationSnapshot(
+                        CompileGeneration: 1,
+                        DomainReloadGeneration: 2,
+                        AssetRefreshGeneration: 3,
+                        PlayModeGeneration: 4),
+                    playMode: new IpcPlayModeSnapshot(
+                        State: IpcPlayModeState.Stopped,
+                        Transition: IpcPlayModeTransition.None,
+                        IsPlaying: false,
+                        IsPlayingOrWillChangePlaymode: false)),
+                observedAtUtc: DateTimeOffset.Parse("2026-06-12T00:00:00+00:00"),
+                actionRequired: DaemonDiagnosisActionRequiredValues.FixCompileErrors,
+                primaryDiagnostic: new IpcPrimaryDiagnostic(
                     Kind: "compiler",
                     Code: "CS1002",
                     File: "Assets/Broken.cs",
                     Line: 4,
                     Column: 16,
-                    Message: "; expected"),
-                PlayMode: new IpcPlayModeSnapshot(
-                    State: "stopped",
-                    Transition: "none",
-                    IsPlaying: false,
-                    IsPlayingOrWillChangePlaymode: false,
-                    Generation: "play-1"),
-                AssetRefreshGeneration: "asset-1"));
+                    Message: "; expected")));
 
         JsonAssert.For(dirtyState)
             .HasBoolean("checked", true)
@@ -81,16 +82,8 @@ public sealed class IpcBuildPreconditionContractSerializationTests
             .HasString("buildOptions", "Development");
         JsonAssert.For(lifecycle)
             .HasString("serverVersion", "1.2.3")
-            .HasString("editorMode", "batchmode")
             .HasString("unityVersion", "6000.0.0f1")
             .HasString("projectFingerprint", "project-fingerprint")
-            .HasString("lifecycleState", ContractLiteralCodec.ToValue(IpcEditorLifecycleState.CompileFailed))
-            .HasString("blockingReason", ContractLiteralCodec.ToValue(IpcEditorBlockingReason.CompileFailed))
-            .HasString("compileState", ContractLiteralCodec.ToValue(IpcCompileState.Failed))
-            .HasString("compileGeneration", "compile-1")
-            .HasString("domainReloadGeneration", "domain-1")
-            .HasString("assetRefreshGeneration", "asset-1")
-            .HasBoolean("canAcceptExecutionRequests", false)
             .HasString("observedAtUtc", "2026-06-12T00:00:00+00:00")
             .HasString("actionRequired", DaemonDiagnosisActionRequiredValues.FixCompileErrors)
             .HasProperty("primaryDiagnostic", diagnostic => diagnostic
@@ -100,11 +93,19 @@ public sealed class IpcBuildPreconditionContractSerializationTests
                 .HasInt32("line", 4)
                 .HasInt32("column", 16)
                 .HasString("message", "; expected"))
-            .HasProperty("playMode", playMode => playMode
-                .HasString("state", "stopped")
-                .HasString("transition", "none")
-                .HasBoolean("isPlaying", false)
-                .HasBoolean("isPlayingOrWillChangePlaymode", false)
-                .HasString("generation", "play-1"));
+            .HasProperty("state", state => state
+                .HasString("editorMode", "batchmode")
+                .HasString("lifecycleState", ContractLiteralCodec.ToValue(IpcEditorLifecycleState.CompileFailed))
+                .HasString("compileState", ContractLiteralCodec.ToValue(IpcCompileState.Failed))
+                .HasProperty("generations", generations => generations
+                    .HasInt32("compileGeneration", 1)
+                    .HasInt32("domainReloadGeneration", 2)
+                    .HasInt32("assetRefreshGeneration", 3)
+                    .HasInt32("playModeGeneration", 4))
+                .HasProperty("playMode", playMode => playMode
+                    .HasString("state", "stopped")
+                    .HasString("transition", "none")
+                    .HasBoolean("isPlaying", false)
+                    .HasBoolean("isPlayingOrWillChangePlaymode", false)));
     }
 }

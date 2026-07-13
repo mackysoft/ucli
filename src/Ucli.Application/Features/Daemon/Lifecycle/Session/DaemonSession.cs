@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
@@ -10,7 +11,7 @@ namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 /// <param name="EditorMode"> The daemon Editor mode. </param>
 /// <param name="OwnerKind"> The daemon owner kind. </param>
 /// <param name="CanShutdownProcess"> Whether daemon management is allowed to shutdown the process. </param>
-/// <param name="EndpointTransportKind"> The transport kind string used by daemon endpoint. </param>
+/// <param name="EndpointTransportKind"> The transport kind used by daemon endpoint. </param>
 /// <param name="EndpointAddress"> The endpoint address string used by daemon endpoint. </param>
 /// <param name="ProcessId"> The daemon process identifier when available. </param>
 /// <param name="ProcessStartedAtUtc"> The daemon process start timestamp when available. </param>
@@ -20,10 +21,10 @@ internal sealed record DaemonSession (
     string SessionToken,
     string ProjectFingerprint,
     DateTimeOffset IssuedAtUtc,
-    string EditorMode,
-    string OwnerKind,
+    DaemonEditorMode EditorMode,
+    DaemonSessionOwnerKind OwnerKind,
     bool CanShutdownProcess,
-    string EndpointTransportKind,
+    IpcTransportKind EndpointTransportKind,
     string EndpointAddress,
     int? ProcessId,
     DateTimeOffset? ProcessStartedAtUtc,

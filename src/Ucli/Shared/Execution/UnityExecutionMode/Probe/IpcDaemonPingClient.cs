@@ -65,7 +65,7 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
     /// <exception cref="ArgumentException"> Thrown when <paramref name="sessionToken" /> is empty or whitespace. </exception>
     /// <exception cref="DaemonPingResponseException"> Thrown when daemon reports contract failures or payload deserialization fails. </exception>
-    public async ValueTask<IpcPingResponse> PingAndReadAsync (
+    public async ValueTask<IpcUnityEditorObservation> PingAndReadAsync (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
         string? sessionToken = null,
@@ -73,7 +73,7 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
         CancellationToken cancellationToken = default)
     {
         var response = await SendPingRequestAsync(unityProject, timeout, sessionToken, cancellationToken).ConfigureAwait(false);
-        IpcPingResponse? payload;
+        IpcUnityEditorObservation? payload;
         DaemonPingResponseException? error;
         var isDecoded = validateProjectFingerprint
             ? DaemonPingResponseCodec.TryDecodePayloadForProject(

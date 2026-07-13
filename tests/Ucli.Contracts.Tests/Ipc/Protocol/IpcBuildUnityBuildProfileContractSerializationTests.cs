@@ -17,16 +17,8 @@ public sealed class IpcBuildUnityBuildProfileContractSerializationTests
             Digest: new string('f', 64),
             ApplyAudit: new IpcUnityBuildProfileApplyAudit(
                 Applied: true,
-                LifecycleBefore: CreateBuildLifecycleSnapshot("profile-before", canAcceptExecutionRequests: true),
-                LifecycleAfter: CreateBuildLifecycleSnapshot("profile-after", canAcceptExecutionRequests: true),
-                GenerationsBefore: new IpcBuildGenerationSnapshot(
-                    "compile-profile-before",
-                    "domain-profile-before",
-                    "asset-profile-before"),
-                GenerationsAfter: new IpcBuildGenerationSnapshot(
-                    "compile-profile-after",
-                    "domain-profile-after",
-                    "asset-profile-after"),
+                LifecycleBefore: CreateBuildLifecycleSnapshot(20, canAcceptExecutionRequests: true),
+                LifecycleAfter: CreateBuildLifecycleSnapshot(21, canAcceptExecutionRequests: true),
                 DirtyStateAfter: new IpcBuildDirtyState(
                     Checked: true,
                     Dirty: false,
@@ -53,8 +45,8 @@ public sealed class IpcBuildUnityBuildProfileContractSerializationTests
             new IpcBuildRunResponse(
                 RunId: "build-run-1",
                 ProjectFingerprint: "project-fingerprint",
-                LifecycleBefore: CreateBuildLifecycleSnapshot("before", canAcceptExecutionRequests: true),
-                LifecycleAfter: CreateBuildLifecycleSnapshot("after", canAcceptExecutionRequests: true),
+                LifecycleBefore: CreateBuildLifecycleSnapshot(10, canAcceptExecutionRequests: true),
+                LifecycleAfter: CreateBuildLifecycleSnapshot(11, canAcceptExecutionRequests: true),
                 DirtyState: new IpcBuildDirtyState(
                     Checked: true,
                     Dirty: false,
@@ -114,9 +106,14 @@ public sealed class IpcBuildUnityBuildProfileContractSerializationTests
                 .HasProperty("applyAudit", applyAudit => applyAudit
                     .HasBoolean("applied", true)
                     .HasProperty("lifecycleBefore", lifecycle => lifecycle
-                        .HasString("compileGeneration", "compile-profile-before"))
-                    .HasProperty("generationsAfter", generations => generations
-                        .HasString("assetRefreshGeneration", "asset-profile-after"))
+                        .HasProperty("state", state => state
+                            .HasProperty("generations", generations => generations
+                                .HasInt32("compileGeneration", 20))))
+                    .HasProperty("lifecycleAfter", lifecycle => lifecycle
+                        .HasProperty("state", state => state
+                            .HasProperty("generations", generations => generations
+                                .HasInt32("assetRefreshGeneration", 21)
+                                .HasInt32("playModeGeneration", 21))))
                     .HasProperty("dirtyStateAfter", dirty => dirty
                         .HasBoolean("checked", true)
                         .HasBoolean("dirty", false))));

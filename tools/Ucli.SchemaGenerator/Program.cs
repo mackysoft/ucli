@@ -394,8 +394,7 @@ internal static class Program
             Optional("lifecycleState", NullableStringSchema()),
             Optional("blockingReason", NullableStringSchema()),
             Optional("compileState", NullableStringSchema()),
-            Optional("compileGeneration", NullableStringSchema()),
-            Optional("domainReloadGeneration", NullableStringSchema()),
+            Optional("generations", NullableUnityGenerationSnapshotSchema()),
             Optional("canAcceptExecutionRequests", BooleanSchema()),
             Optional("editorMode", NullableStringSchema()),
             Optional("observedAtUtc", NullableStringSchema()),
@@ -442,8 +441,7 @@ internal static class Program
                 ["lifecycleState"] = NullableStringSchema(),
                 ["blockingReason"] = NullableStringSchema(),
                 ["compileState"] = NullableStringSchema(),
-                ["compileGeneration"] = NullableStringSchema(),
-                ["domainReloadGeneration"] = NullableStringSchema(),
+                ["generations"] = NullableUnityGenerationSnapshotSchema(),
                 ["canAcceptExecutionRequests"] = BooleanSchema(),
                 ["observedAtUtc"] = NullableStringSchema(),
                 ["actionRequired"] = NullableStringSchema(),
@@ -589,8 +587,8 @@ internal static class Program
                 additionalProperties: false,
                 Required("started", BooleanSchema()),
                 Required("completed", BooleanSchema()),
-                Required("compileGenerationBefore", StringSchema()),
-                Required("compileGenerationAfter", StringSchema()),
+                Required("compileGenerationBefore", NullableNonNegativeIntegerSchema()),
+                Required("compileGenerationAfter", NullableNonNegativeIntegerSchema()),
                 Required("diagnostics", ObjectSchema(
                     additionalProperties: false,
                     Required("errorCount", IntegerSchema()),
@@ -600,8 +598,8 @@ internal static class Program
                 additionalProperties: false,
                 Required("reloadRequired", BooleanSchema()),
                 Required("reloadObserved", BooleanSchema()),
-                Required("generationBefore", StringSchema()),
-                Required("generationAfter", StringSchema()),
+                Required("generationBefore", NullableNonNegativeIntegerSchema()),
+                Required("generationAfter", NullableNonNegativeIntegerSchema()),
                 Required("settled", BooleanSchema()))),
             Required("lifecycle", ObjectSchema(
                 additionalProperties: false,
@@ -611,8 +609,7 @@ internal static class Program
                 Required("lifecycleState", NullableStringSchema()),
                 Required("blockingReason", NullableStringSchema()),
                 Required("compileState", NullableStringSchema()),
-                Required("compileGeneration", NullableStringSchema()),
-                Required("domainReloadGeneration", NullableStringSchema()),
+                Required("generations", NullableUnityGenerationSnapshotSchema()),
                 Required("canAcceptExecutionRequests", BooleanSchema()),
                 Required("observedAtUtc", NullableStringSchema()),
                 Required("actionRequired", NullableStringSchema()),
@@ -627,7 +624,7 @@ internal static class Program
 
         schema["$defs"] = new Dictionary<string, object?>(StringComparer.Ordinal)
         {
-            ["generation"] = CreateBuildRunGenerationSnapshotSchema(),
+            ["generation"] = CreateUnityGenerationSnapshotSchema(),
         };
 
         return schema;
@@ -859,15 +856,6 @@ internal static class Program
             additionalProperties: false,
             Required("path", StringSchema()),
             Required("digest", Sha256LowerHexSchema()));
-    }
-
-    private static Dictionary<string, object?> CreateBuildRunGenerationSnapshotSchema ()
-    {
-        return ObjectSchema(
-            additionalProperties: false,
-            Required("compileGeneration", StringSchema()),
-            Required("domainReloadGeneration", StringSchema()),
-            Required("assetRefreshGeneration", StringSchema()));
     }
 
     private static Dictionary<string, object?> CreateBuildRunDirtyStateSchema ()
@@ -1532,8 +1520,7 @@ internal static class Program
             Required("lifecycleState", CreateLifecycleStateSchema(payloadState)),
             Required("blockingReason", CreateBlockingReasonSchema(payloadState)),
             Required("compileState", NullableStringSchema()),
-            Required("compileGeneration", NullableStringSchema()),
-            Required("domainReloadGeneration", NullableStringSchema()),
+            Required("generations", NullableUnityGenerationSnapshotSchema()),
             Required("canAcceptExecutionRequests", CreateCanAcceptExecutionRequestsSchema(payloadState)),
             Required("observedAtUtc", NullableStringSchema()),
             Required("actionRequired", NullableStringSchema()),
@@ -1681,8 +1668,7 @@ internal static class Program
             Required("lifecycleState", CreateLifecycleStateSchema(payloadState)),
             Required("blockingReason", CreateBlockingReasonSchema(payloadState)),
             Required("compileState", NullableStringSchema()),
-            Required("compileGeneration", NullableStringSchema()),
-            Required("domainReloadGeneration", NullableStringSchema()),
+            Required("generations", NullableUnityGenerationSnapshotSchema()),
             Required("canAcceptExecutionRequests", CreateCanAcceptExecutionRequestsSchema(payloadState)),
             Required("observedAtUtc", NullableStringSchema()),
             Required("actionRequired", NullableStringSchema()),
@@ -1728,8 +1714,7 @@ internal static class Program
                         Literal(IpcPlayModeTransition.Exiting))
                     : ConstString(Literal(IpcPlayModeTransition.None))),
             Required("isPlaying", CreateIsPlayingSchema(payloadState)),
-            Required("isPlayingOrWillChangePlaymode", CreateIsPlayingOrWillChangePlaymodeSchema(payloadState)),
-            Required("generation", NullableStringSchema()));
+            Required("isPlayingOrWillChangePlaymode", CreateIsPlayingOrWillChangePlaymodeSchema(payloadState)));
     }
 
     private static Dictionary<string, object?> CreateLifecycleStateSchema (PlayLifecyclePayloadState payloadState)
@@ -1823,8 +1808,7 @@ internal static class Program
             Optional("lifecycleState", NullableStringSchema()),
             Optional("blockingReason", NullableStringSchema()),
             Optional("compileState", NullableStringSchema()),
-            Optional("compileGeneration", NullableStringSchema()),
-            Optional("domainReloadGeneration", NullableStringSchema()),
+            Optional("generations", NullableUnityGenerationSnapshotSchema()),
             Optional("canAcceptExecutionRequests", BooleanSchema()),
             Optional("observedAtUtc", NullableStringSchema()),
             Optional("actionRequired", NullableStringSchema()),
@@ -2019,6 +2003,32 @@ internal static class Program
             ["type"] = "integer",
             ["minimum"] = 0,
         };
+    }
+
+    private static Dictionary<string, object?> NullableNonNegativeIntegerSchema ()
+    {
+        return new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["type"] = new[] { "integer", "null" },
+            ["minimum"] = 0,
+        };
+    }
+
+    private static Dictionary<string, object?> CreateUnityGenerationSnapshotSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("compileGeneration", NonNegativeIntegerSchema()),
+            Required("domainReloadGeneration", NonNegativeIntegerSchema()),
+            Required("assetRefreshGeneration", NonNegativeIntegerSchema()),
+            Required("playModeGeneration", NonNegativeIntegerSchema()));
+    }
+
+    private static Dictionary<string, object?> NullableUnityGenerationSnapshotSchema ()
+    {
+        return OneOfSchema(
+            CreateUnityGenerationSnapshotSchema(),
+            NullSchema());
     }
 
     private static Dictionary<string, object?> PositiveIntegerSchema ()

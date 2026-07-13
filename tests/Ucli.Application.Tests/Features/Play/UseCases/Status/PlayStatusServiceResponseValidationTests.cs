@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Play.UseCases.Status;
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -29,22 +30,25 @@ public sealed class PlayStatusServiceResponseValidationTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenPlayModeSnapshotIsInvalid_ReturnsStateUnknown ()
+    public async Task Execute_WhenPlayModeStateLiteralIsInvalid_ReturnsInvalidPayloadFailure ()
     {
         var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(CreatePlaySession()));
-        var statusResponse = CreateStatusResponse(playMode: new IpcPlayModeSnapshot(
-            State: "invalid",
-            Transition: "none",
-            IsPlaying: false,
-            IsPlayingOrWillChangePlaymode: false,
-            Generation: "2"));
-        var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(statusResponse)));
+        var payload = JsonNode.Parse(IpcPayloadCodec.SerializeToElement(CreateStatusResponse()).GetRawText())!;
+        payload["snapshot"]!["state"]!["playMode"]!["state"] = "invalid";
+        var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(
+            UnityRequestResponseTestFactory.Create(new IpcResponse(
+                ProtocolVersion: IpcProtocol.CurrentVersion,
+                RequestId: "request-1",
+                Status: IpcProtocol.StatusOk,
+                Payload: IpcPayloadCodec.SerializeToElement(payload),
+                Errors: []))));
         var service = CreateService(PlayProjectContext, sessionStore, requestExecutor);
 
         var result = await service.ExecuteAsync(new PlayStatusCommandInput(null, null), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         var error = Assert.IsType<ExecutionError>(result.Error);
-        Assert.Equal(PlayModeErrorCodes.PlayModeStateUnknown, error.Code);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.Contains("Unity play status payload is invalid.", error.Message, StringComparison.Ordinal);
     }
 }

@@ -26,7 +26,7 @@ public sealed class SupervisorClientEnsureRunningTests
 
                 return ValueTask.FromResult(SupervisorClientTestSupport.CreateEnsureRunningResponse(
                     request,
-                    lifecycleSnapshot: SupervisorClientTestSupport.CreateCompilingLifecycleSnapshot()));
+                    lifecycleObservation: SupervisorClientTestSupport.CreateCompilingLifecycleObservation()));
             },
         };
         var client = new SupervisorClient(transportClient);
@@ -41,9 +41,11 @@ public sealed class SupervisorClientEnsureRunningTests
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(IpcEditorLifecycleState.Compiling, result.LifecycleSnapshot!.LifecycleState);
-        Assert.Equal(IpcEditorBlockingReason.Compile, result.LifecycleSnapshot.BlockingReason);
-        Assert.False(result.LifecycleSnapshot.CanAcceptExecutionRequests);
+        Assert.Equal(IpcEditorLifecycleState.Compiling, result.LifecycleObservation!.State.LifecycleState);
+        Assert.Equal(
+            IpcEditorBlockingReason.Compile,
+            IpcEditorLifecycleSemantics.ResolveBlockingReason(result.LifecycleObservation.State.LifecycleState));
+        Assert.False(IpcEditorLifecycleSemantics.CanAcceptExecutionRequests(result.LifecycleObservation.State.LifecycleState));
         SupervisorTransportAssert.EnsureRunningRequestedWithUnboundedResponseWait(
             transportClient,
             requestedTimeout);
@@ -56,7 +58,7 @@ public sealed class SupervisorClientEnsureRunningTests
     public async Task EnsureRunning_WhenSupervisorReturnsAttached_ReturnsAttachedResult ()
     {
         var session = SupervisorClientTestSupport.CreateGuiDaemonSession();
-        var lifecycleSnapshot = SupervisorClientTestSupport.CreateReadyLifecycleSnapshot();
+        var lifecycleObservation = SupervisorClientTestSupport.CreateReadyLifecycleObservation();
         var transportClient = new StubIpcTransportClient
         {
             SendHandler = (endpoint, request, timeout, cancellationToken) => ValueTask.FromResult(
@@ -64,7 +66,7 @@ public sealed class SupervisorClientEnsureRunningTests
                     request,
                     startStatus: "attached",
                     session: session,
-                    lifecycleSnapshot: lifecycleSnapshot)),
+                    lifecycleObservation: lifecycleObservation)),
         };
         var client = new SupervisorClient(transportClient);
 
@@ -79,7 +81,7 @@ public sealed class SupervisorClientEnsureRunningTests
         Assert.True(result.IsSuccess);
         Assert.Equal(DaemonStartStatus.Attached, result.Status);
         Assert.Equal(session, result.Session);
-        Assert.Equal(lifecycleSnapshot, result.LifecycleSnapshot);
+        Assert.Equal(lifecycleObservation, result.LifecycleObservation);
     }
 
     [Fact]

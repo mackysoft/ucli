@@ -31,12 +31,13 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Capture
                     return false;
                 }
 
+                var renderPipelineAsset = GraphicsSettings.currentRenderPipeline;
                 state = new PresentationState(
                     EditorApplication.isPaused,
                     ShaderUtil.anythingCompiling,
                     pipelineSwitchCompleted,
                     QualitySettings.GetQualityLevel(),
-                    GraphicsSettings.currentRenderPipeline,
+                    renderPipelineAsset != null ? renderPipelineAsset.GetInstanceID() : (int?)null,
                     RenderPipelineManager.currentPipeline);
                 errorMessage = null;
                 return true;
@@ -47,6 +48,28 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Capture
                     $"Unity presentation state could not be captured. {exception.Message}";
                 return false;
             }
+        }
+
+        /// <summary> Captures one presentation observation and rejects transitional state. </summary>
+        public static bool TryCaptureStable (
+            out PresentationState state,
+            out string errorMessage)
+        {
+            return TryCaptureCurrent(out state, out errorMessage)
+                && TryValidateObservation(state, out errorMessage);
+        }
+
+        /// <summary> Captures the current presentation state and compares it with an earlier stable observation. </summary>
+        public static bool TryValidateCurrentStable (
+            PresentationState expected,
+            out string errorMessage)
+        {
+            if (!TryCaptureCurrent(out var current, out errorMessage))
+            {
+                return false;
+            }
+
+            return TryValidateStable(expected, current, out errorMessage);
         }
 
         /// <summary> Rejects an observation made during shader or render-pipeline transition. </summary>
@@ -106,7 +129,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Capture
                 return false;
             }
 
-            if (before.RenderPipelineAsset != after.RenderPipelineAsset
+            if (before.RenderPipelineAssetInstanceId != after.RenderPipelineAssetInstanceId
                 || !ReferenceEquals(before.CurrentRenderPipeline, after.CurrentRenderPipeline))
             {
                 errorMessage = "Unity active render pipeline changed during screenshot capture.";
@@ -123,7 +146,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Capture
             bool ShaderCompilationInProgress,
             bool RenderPipelineSwitchCompleted,
             int QualityLevel,
-            RenderPipelineAsset RenderPipelineAsset,
+            int? RenderPipelineAssetInstanceId,
             RenderPipeline CurrentRenderPipeline);
     }
 }

@@ -1,6 +1,5 @@
 using System;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Text;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
@@ -13,7 +12,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
         /// <summary> Validates one GameView render texture against the supported source contract. </summary>
         public static bool TryValidateGameViewSource (
             RenderTexture source,
-            string colorSpace,
+            IpcScreenshotColorSpace colorSpace,
             out string errorMessage)
         {
             if (source == null)
@@ -60,7 +59,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
             TextureDimension dimension,
             int antiAliasing,
             bool useMipMap,
-            string colorSpace,
+            IpcScreenshotColorSpace colorSpace,
             out string errorMessage)
         {
             if (dimension != TextureDimension.Tex2D
@@ -71,9 +70,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
                 return false;
             }
 
-            if (!ContractLiteralCodec.Matches(
-                colorSpace,
-                IpcScreenshotColorSpace.Linear))
+            if (colorSpace != IpcScreenshotColorSpace.Linear)
             {
                 errorMessage = $"GameView source color space is unsupported: {colorSpace}.";
                 return false;

@@ -5,7 +5,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
 
@@ -164,17 +164,17 @@ internal sealed class DaemonStartService : IDaemonStartService
             return failure;
         }
 
-        var lifecycleSnapshot = startResult.LifecycleSnapshot ?? DaemonStartLifecycleSnapshot.Ready();
+        var lifecycleObservation = startResult.LifecycleObservation!;
         var output = new DaemonStartExecutionOutput(
             StartStatus: startResult.Status,
             DaemonStatus: DaemonStatusKind.Running,
             TimeoutMilliseconds: effectiveTimeoutMilliseconds,
             Session: daemonSessionOutputMapper.ToOutput(startResult.Session!),
-            LifecycleState: ContractLiteralCodec.ToValue(lifecycleSnapshot.LifecycleState),
-            BlockingReason: lifecycleSnapshot.BlockingReason.HasValue
-                ? ContractLiteralCodec.ToValue(lifecycleSnapshot.BlockingReason.Value)
-                : null,
-            CanAcceptExecutionRequests: lifecycleSnapshot.CanAcceptExecutionRequests);
+            LifecycleState: lifecycleObservation.State.LifecycleState,
+            BlockingReason: IpcEditorLifecycleSemantics.ResolveBlockingReason(lifecycleObservation.State.LifecycleState),
+            Generations: lifecycleObservation.State.Generations,
+            PlayMode: lifecycleObservation.State.PlayMode,
+            CanAcceptExecutionRequests: IpcEditorLifecycleSemantics.CanAcceptExecutionRequests(lifecycleObservation.State.LifecycleState));
         var success = DaemonStartExecutionResult.Success(output);
         await EmitProgressOutsideBudgetAsync(
                 timeoutBudget,

@@ -2,7 +2,6 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Launch;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Ipc;
 
 namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Start.Launch;
@@ -51,10 +50,10 @@ internal sealed class DaemonLaunchSessionService : IDaemonLaunchSessionService
             SessionToken: sessionTokenGenerator.Create(),
             ProjectFingerprint: unityProject.ProjectFingerprint,
             IssuedAtUtc: DateTimeOffset.UtcNow,
-            EditorMode: ContractLiteralCodec.ToValue(launchEditorMode),
-            OwnerKind: ContractLiteralCodec.ToValue(DaemonSessionOwnerKind.Cli),
+            EditorMode: launchEditorMode,
+            OwnerKind: DaemonSessionOwnerKind.Cli,
             CanShutdownProcess: true,
-            EndpointTransportKind: ContractLiteralCodec.ToValue(endpoint.TransportKind),
+            EndpointTransportKind: endpoint.TransportKind,
             EndpointAddress: endpoint.Address,
             ProcessId: null,
             ProcessStartedAtUtc: null,

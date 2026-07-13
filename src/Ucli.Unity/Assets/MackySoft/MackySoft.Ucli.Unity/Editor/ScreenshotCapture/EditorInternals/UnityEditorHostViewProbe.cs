@@ -45,7 +45,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.EditorInternals
 
             if (hdrActiveProperty?.GetValue(parent) is not bool resolvedHdrActive
                 || getBackingScaleFactor?.Invoke(parent, parameters: null) is not float resolvedBackingScale
-                || !IsFinitePositive(resolvedBackingScale))
+                || !UnityScreenshotMath.IsFinitePositive(resolvedBackingScale))
             {
                 errorMessage = "Target Editor window backing scale or HDR state could not be resolved.";
                 return false;
@@ -58,9 +58,5 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.EditorInternals
             return true;
         }
 
-        private static bool IsFinitePositive (float value)
-        {
-            return value > 0f && !float.IsNaN(value) && !float.IsInfinity(value);
-        }
     }
 }

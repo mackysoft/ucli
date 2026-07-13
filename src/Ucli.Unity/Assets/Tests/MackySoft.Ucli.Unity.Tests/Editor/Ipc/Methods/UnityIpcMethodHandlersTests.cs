@@ -31,34 +31,32 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator PingHandler_WhenPayloadIsValid_ReturnsOkResponse () => UniTask.ToCoroutine(async () =>
         {
-            var handler = new PingUnityIpcMethodHandler(new StubServerVersionProvider("1.2.3"), new StubUnityEditorReadinessGate(), "project-fingerprint");
+            var handler = new PingUnityIpcMethodHandler(new StubServerVersionProvider("1.2.3"), new StubUnityEditorReadinessGate(), CreateProjectIdentity());
             var request = CreatePingRequest("req-ping-valid", new IpcPingRequest("client"));
 
             var response = await handler.HandleAsync(request, CancellationToken.None);
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
             Assert.That(response.Errors, Is.Empty);
-            Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcPingResponse payload, out _), Is.True);
+            Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcUnityEditorObservation payload, out _), Is.True);
             Assert.That(payload.ServerVersion, Is.EqualTo("1.2.3"));
-            Assert.That(payload.EditorMode, Is.EqualTo("batchmode"));
+            Assert.That(payload.State.EditorMode, Is.EqualTo(DaemonEditorMode.Batchmode));
             Assert.That(payload.ProjectFingerprint, Is.EqualTo("project-fingerprint"));
-            Assert.That(payload.LifecycleState, Is.EqualTo(ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Ready)));
-            Assert.That(payload.BlockingReason, Is.Null);
-            Assert.That(payload.CompileGeneration, Is.EqualTo("1"));
-            Assert.That(payload.DomainReloadGeneration, Is.EqualTo("1"));
-            Assert.That(payload.CanAcceptExecutionRequests, Is.True);
-            Assert.That(payload.PlayMode, Is.Not.Null);
-            Assert.That(payload.PlayMode!.State, Is.EqualTo("stopped"));
-            Assert.That(payload.PlayMode.Transition, Is.EqualTo("none"));
-            Assert.That(payload.PlayMode.IsPlaying, Is.False);
-            Assert.That(payload.PlayMode.IsPlayingOrWillChangePlaymode, Is.False);
+            Assert.That(payload.State.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.Ready));
+            Assert.That(payload.State.Generations.CompileGeneration, Is.EqualTo(1));
+            Assert.That(payload.State.Generations.DomainReloadGeneration, Is.EqualTo(1));
+            Assert.That(payload.State.PlayMode, Is.Not.Null);
+            Assert.That(payload.State.PlayMode!.State, Is.EqualTo(IpcPlayModeState.Stopped));
+            Assert.That(payload.State.PlayMode.Transition, Is.EqualTo(IpcPlayModeTransition.None));
+            Assert.That(payload.State.PlayMode.IsPlaying, Is.False);
+            Assert.That(payload.State.PlayMode.IsPlayingOrWillChangePlaymode, Is.False);
         });
 
         [UnityTest]
         [Category("Size.Small")]
         public IEnumerator PingHandler_WhenPayloadIsInvalid_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
-            var handler = new PingUnityIpcMethodHandler(new StubServerVersionProvider("1.2.3"), new StubUnityEditorReadinessGate(), "project-fingerprint");
+            var handler = new PingUnityIpcMethodHandler(new StubServerVersionProvider("1.2.3"), new StubUnityEditorReadinessGate(), CreateProjectIdentity());
             var request = CreatePingRequest("req-ping-invalid", 123);
 
             var response = await handler.HandleAsync(request, CancellationToken.None);
@@ -75,14 +73,14 @@ namespace MackySoft.Ucli.Unity.Tests
             var handler = new PingUnityIpcMethodHandler(
                 new StubServerVersionProvider("1.2.3"),
                 new StubUnityEditorReadinessGate(DaemonEditorMode.Gui),
-                "project-fingerprint");
+                CreateProjectIdentity());
             var request = CreatePingRequest("req-ping-gui", new IpcPingRequest("client"));
 
             var response = await handler.HandleAsync(request, CancellationToken.None);
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
-            Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcPingResponse payload, out _), Is.True);
-            Assert.That(payload.EditorMode, Is.EqualTo("gui"));
+            Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcUnityEditorObservation payload, out _), Is.True);
+            Assert.That(payload.State.EditorMode, Is.EqualTo(DaemonEditorMode.Gui));
             Assert.That(payload.ProjectFingerprint, Is.EqualTo("project-fingerprint"));
         });
 
@@ -103,15 +101,15 @@ namespace MackySoft.Ucli.Unity.Tests
                     static () => false,
                     static () => false,
                     static () => false),
-                "project-fingerprint");
+                CreateProjectIdentity());
 
             var firstResponse = await handler.HandleAsync(CreatePingRequest("req-ping-starting-1", new IpcPingRequest("client")), CancellationToken.None);
             var secondResponse = await handler.HandleAsync(CreatePingRequest("req-ping-starting-2", new IpcPingRequest("client")), CancellationToken.None);
 
-            Assert.That(IpcPayloadCodec.TryDeserialize(firstResponse.Payload, out IpcPingResponse firstPayload, out _), Is.True);
-            Assert.That(IpcPayloadCodec.TryDeserialize(secondResponse.Payload, out IpcPingResponse secondPayload, out _), Is.True);
-            Assert.That(firstPayload.LifecycleState, Is.EqualTo(ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Starting)));
-            Assert.That(secondPayload.LifecycleState, Is.EqualTo(ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Starting)));
+            Assert.That(IpcPayloadCodec.TryDeserialize(firstResponse.Payload, out IpcUnityEditorObservation firstPayload, out _), Is.True);
+            Assert.That(IpcPayloadCodec.TryDeserialize(secondResponse.Payload, out IpcUnityEditorObservation secondPayload, out _), Is.True);
+            Assert.That(firstPayload.State.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.Starting));
+            Assert.That(secondPayload.State.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.Starting));
 
             telemetryState.ObserveEditorUpdate(
                 isPlaymodeActive: false,
@@ -119,9 +117,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 isUpdating: false);
             var readyResponse = await handler.HandleAsync(CreatePingRequest("req-ping-starting-3", new IpcPingRequest("client")), CancellationToken.None);
 
-            Assert.That(IpcPayloadCodec.TryDeserialize(readyResponse.Payload, out IpcPingResponse readyPayload, out _), Is.True);
-            Assert.That(readyPayload.LifecycleState, Is.EqualTo(ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Ready)));
-            Assert.That(readyPayload.CanAcceptExecutionRequests, Is.True);
+            Assert.That(IpcPayloadCodec.TryDeserialize(readyResponse.Payload, out IpcUnityEditorObservation readyPayload, out _), Is.True);
+            Assert.That(readyPayload.State.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.Ready));
         });
 
         [UnityTest]
@@ -141,19 +138,20 @@ namespace MackySoft.Ucli.Unity.Tests
                     static () => false,
                     static () => false,
                     static () => true),
-                "project-fingerprint");
+                CreateProjectIdentity());
 
             var response = await handler.HandleAsync(CreatePingRequest("req-ping-playmode", new IpcPingRequest("client")), CancellationToken.None);
 
-            Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcPingResponse payload, out _), Is.True);
-            Assert.That(payload.LifecycleState, Is.EqualTo(ContractLiteralCodec.ToValue(IpcEditorLifecycleState.PlayMode)));
-            Assert.That(payload.BlockingReason, Is.EqualTo(ContractLiteralCodec.ToValue(IpcEditorBlockingReason.PlayMode)));
-            Assert.That(payload.CanAcceptExecutionRequests, Is.False);
-            Assert.That(payload.PlayMode, Is.Not.Null);
-            Assert.That(payload.PlayMode!.State, Is.EqualTo("playing"));
-            Assert.That(payload.PlayMode.Transition, Is.EqualTo("none"));
-            Assert.That(payload.PlayMode.IsPlaying, Is.True);
-            Assert.That(payload.PlayMode.IsPlayingOrWillChangePlaymode, Is.True);
+            Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcUnityEditorObservation payload, out _), Is.True);
+            Assert.That(payload.State.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.PlayMode));
+            Assert.That(
+                IpcEditorLifecycleSemantics.ResolveBlockingReason(payload.State.LifecycleState),
+                Is.EqualTo(IpcEditorBlockingReason.PlayMode));
+            Assert.That(payload.State.PlayMode, Is.Not.Null);
+            Assert.That(payload.State.PlayMode!.State, Is.EqualTo(IpcPlayModeState.Playing));
+            Assert.That(payload.State.PlayMode.Transition, Is.EqualTo(IpcPlayModeTransition.None));
+            Assert.That(payload.State.PlayMode.IsPlaying, Is.True);
+            Assert.That(payload.State.PlayMode.IsPlayingOrWillChangePlaymode, Is.True);
         });
 
         [UnityTest]
@@ -210,17 +208,17 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
             Assert.That(response.Errors, Is.Empty);
-            Assert.That(readinessGate.CaptureSnapshotCallCount, Is.EqualTo(1));
+            Assert.That(readinessGate.CaptureObservationCallCount, Is.EqualTo(1));
             Assert.That(readinessGate.CallCount, Is.EqualTo(0));
             Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcPlayStatusResponse payload, out _), Is.True);
             Assert.That(payload.Snapshot.ServerVersion, Is.EqualTo("1.2.3"));
-            Assert.That(payload.Snapshot.EditorMode, Is.EqualTo("gui"));
+            Assert.That(payload.Snapshot.State.EditorMode, Is.EqualTo(DaemonEditorMode.Gui));
             Assert.That(payload.Snapshot.UnityVersion, Is.EqualTo("6000.1.4f1"));
             Assert.That(payload.Snapshot.ProjectFingerprint, Is.EqualTo("project-fingerprint"));
-            Assert.That(payload.Snapshot.LifecycleState, Is.EqualTo(ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Ready)));
-            Assert.That(payload.Snapshot.CompileState, Is.EqualTo(ContractLiteralCodec.ToValue(IpcCompileState.Ready)));
-            Assert.That(payload.Snapshot.PlayMode, Is.Not.Null);
-            Assert.That(payload.Snapshot.PlayMode!.State, Is.EqualTo("stopped"));
+            Assert.That(payload.Snapshot.State.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.Ready));
+            Assert.That(payload.Snapshot.State.CompileState, Is.EqualTo(IpcCompileState.Ready));
+            Assert.That(payload.Snapshot.State.PlayMode, Is.Not.Null);
+            Assert.That(payload.Snapshot.State.PlayMode!.State, Is.EqualTo(IpcPlayModeState.Stopped));
         });
 
         [UnityTest]
@@ -239,7 +237,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
             Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
-            Assert.That(readinessGate.CaptureSnapshotCallCount, Is.EqualTo(0));
+            Assert.That(readinessGate.CaptureObservationCallCount, Is.EqualTo(0));
             Assert.That(readinessGate.CallCount, Is.EqualTo(0));
         });
 
@@ -1693,6 +1691,14 @@ namespace MackySoft.Ucli.Unity.Tests
                 executeRequestDispatcher,
                 timeoutScopeFactory,
                 IpcProjectIdentity.Unknown);
+        }
+
+        private static IpcProjectIdentity CreateProjectIdentity ()
+        {
+            return new IpcProjectIdentity(
+                ProjectPath: "/repo/UnityProject",
+                ProjectFingerprint: "project-fingerprint",
+                UnityVersion: "6000.1.4f1");
         }
 
         private static UnityLogsReadUnityIpcMethodHandler CreateUnityLogsReadHandler (IUnityLogStream stream)

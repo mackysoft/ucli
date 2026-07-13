@@ -1,8 +1,6 @@
 using System;
 using System.Diagnostics;
-using System.Globalization;
 using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Runtime;
 
@@ -16,7 +14,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             string storageRoot,
             string projectFingerprint,
             string serverVersion,
-            UnityEditorLifecycleSnapshot snapshot)
+            UnityEditorObservation snapshot)
         {
             if (string.IsNullOrWhiteSpace(storageRoot))
             {
@@ -41,25 +39,14 @@ namespace MackySoft.Ucli.Unity.Ipc
             using var currentProcess = Process.GetCurrentProcess();
             var path = UcliStoragePathResolver.ResolveDaemonLifecyclePath(storageRoot, projectFingerprint);
             var contract = new DaemonLifecycleJsonContract(
-                ProcessId: currentProcess.Id,
-                ProcessStartedAtUtc: currentProcess.StartTime.ToUniversalTime(),
-                EditorMode: ContractLiteralCodec.ToValue(snapshot.EditorMode),
-                LifecycleState: ContractLiteralCodec.ToValue(snapshot.LifecycleState),
-                BlockingReason: snapshot.BlockingReason.HasValue
-                    ? ContractLiteralCodec.ToValue(snapshot.BlockingReason.Value)
-                    : null,
-                CompileState: ContractLiteralCodec.ToValue(snapshot.CompileState),
-                CompileGeneration: snapshot.CompileGeneration.ToString(CultureInfo.InvariantCulture),
-                DomainReloadGeneration: snapshot.DomainReloadGeneration.ToString(CultureInfo.InvariantCulture),
-                ObservedAtUtc: snapshot.ObservedAtUtc ?? DateTimeOffset.UtcNow,
-                ActionRequired: snapshot.ActionRequired,
-                PrimaryDiagnostic: snapshot.PrimaryDiagnostic)
-            {
-                ServerVersion = serverVersion,
-                CanAcceptExecutionRequests = snapshot.CanAcceptExecutionRequests,
-                EditorInstanceId = UnityEditorSessionStateStore.GetOrCreateEditorInstanceId(),
-                PlayMode = UnityLifecycleResponseCodec.CreatePlayModeSnapshot(snapshot.PlayMode),
-            };
+                processId: currentProcess.Id,
+                processStartedAtUtc: currentProcess.StartTime.ToUniversalTime(),
+                state: snapshot.State,
+                observedAtUtc: snapshot.ObservedAtUtc,
+                actionRequired: snapshot.ActionRequired,
+                primaryDiagnostic: snapshot.PrimaryDiagnostic,
+                serverVersion: serverVersion,
+                editorInstanceId: UnityEditorSessionStateStore.GetOrCreateEditorInstanceId());
             FileUtilities.WriteAllTextAtomically(path, DaemonLifecycleJsonContractSerializer.Serialize(contract));
         }
     }

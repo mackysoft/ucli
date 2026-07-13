@@ -17,5 +17,5 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
         string ProjectFingerprint,
         string UnityVersion,
         IpcCompileState CompileState,
-        int DomainReloadGeneration);
+        long DomainReloadGeneration);
 }

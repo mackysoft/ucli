@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Json;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 
 namespace MackySoft.Ucli.Hosting.Cli.Common.Execution;
@@ -9,6 +10,10 @@ internal sealed class CommandResultJsonContractWriter : JsonContractWriter<Comma
 {
     private static readonly JsonSerializerOptions PayloadSerializerOptions = new()
     {
+        Converters =
+        {
+            new ContractLiteralJsonConverterFactory(),
+        },
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
     };
 

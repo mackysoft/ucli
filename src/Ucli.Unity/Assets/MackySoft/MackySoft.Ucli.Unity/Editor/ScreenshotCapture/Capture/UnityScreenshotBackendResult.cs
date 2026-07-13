@@ -7,7 +7,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Capture
     internal sealed class UnityScreenshotBackendResult
     {
         private UnityScreenshotBackendResult (
-            CapturedFrame frame,
+            UnityScreenshotFrame frame,
             UcliCode? errorCode,
             string errorMessage)
         {
@@ -17,7 +17,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Capture
         }
 
         /// <summary> Gets the captured frame when the operation succeeded. </summary>
-        public CapturedFrame Frame { get; }
+        public UnityScreenshotFrame Frame { get; }
 
         /// <summary> Gets the structured error code when the operation failed. </summary>
         public UcliCode? ErrorCode { get; }
@@ -26,10 +26,10 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Capture
         public string ErrorMessage { get; }
 
         /// <summary> Gets a value indicating whether normalized pixels were captured. </summary>
-        public bool IsSuccess => Frame != null && ErrorCode == null;
+        public bool IsSuccess => Frame != null;
 
         /// <summary> Creates a successful backend result. </summary>
-        public static UnityScreenshotBackendResult Success (CapturedFrame frame)
+        public static UnityScreenshotBackendResult Success (UnityScreenshotFrame frame)
         {
             return new UnityScreenshotBackendResult(
                 frame ?? throw new ArgumentNullException(nameof(frame)),
@@ -57,12 +57,5 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Capture
                 errorCode,
                 errorMessage);
         }
-
-        /// <summary> Represents one normalized screenshot raster. </summary>
-        internal sealed record CapturedFrame (
-            int Width,
-            int Height,
-            string ColorSpace,
-            ReadOnlyMemory<byte> Rgba8SrgbTopDown);
     }
 }

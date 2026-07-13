@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Tests.Helpers.Daemon;
 
@@ -6,7 +7,9 @@ internal sealed class RecordingDaemonStartOperation : IDaemonStartOperation
 {
     private readonly List<Invocation> invocations = [];
 
-    public DaemonStartResult StartResult { get; set; } = DaemonStartResult.AlreadyRunning(CreateDefaultSession());
+    public DaemonStartResult StartResult { get; set; } = DaemonStartResult.AlreadyRunning(
+        CreateDefaultSession(),
+        IpcUnityEditorObservationTestFactory.Create(projectFingerprint: "fingerprint"));
 
     public TimeSpan DelayBeforeResult { get; set; }
 
@@ -59,10 +62,10 @@ internal sealed class RecordingDaemonStartOperation : IDaemonStartOperation
             SessionToken: "session-token",
             ProjectFingerprint: "fingerprint",
             IssuedAtUtc: new DateTimeOffset(2026, 03, 11, 0, 0, 0, TimeSpan.Zero),
-            EditorMode: "batchmode",
-            OwnerKind: "cli",
+            EditorMode: DaemonEditorMode.Batchmode,
+            OwnerKind: DaemonSessionOwnerKind.Cli,
             CanShutdownProcess: true,
-            EndpointTransportKind: "unixDomainSocket",
+            EndpointTransportKind: IpcTransportKind.UnixDomainSocket,
             EndpointAddress: "/tmp/ucli.sock",
             ProcessId: 42,
             ProcessStartedAtUtc: null,

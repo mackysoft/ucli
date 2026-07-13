@@ -1,6 +1,4 @@
 using MackySoft.Ucli.Application.Features.Screenshot.Capture;
-using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Common.Projection;
@@ -21,7 +19,9 @@ internal static class ScreenshotCommandResultFactory
             return CommandResultFactory.FromExecutionError(command, result.Error!);
         }
 
-        var output = result.Output!;
+        var output = result.Output;
+        var capture = output.Capture;
+        var artifact = output.Artifact;
         return CommandResult.Success(
             command,
             "Screenshot capture completed.",
@@ -30,28 +30,26 @@ internal static class ScreenshotCommandResultFactory
                 project = ProjectIdentityPayloadProjector.Create(output.Project),
                 capture = new
                 {
-                    target = ContractLiteralCodec.ToValue(output.Target),
-                    sizeMode = ContractLiteralCodec.ToValue(output.RequestedWidth.HasValue
-                        ? IpcScreenshotSizeMode.RequestedResolution
-                        : IpcScreenshotSizeMode.CurrentSurface),
-                    requestedWidth = output.RequestedWidth,
-                    requestedHeight = output.RequestedHeight,
-                    output.Width,
-                    output.Height,
-                    output.ColorSpace,
-                    output.LifecycleStateAtCapture,
-                    output.CompileStateAtCapture,
-                    output.DomainReloadGeneration,
-                    output.PlayModeState,
+                    capture.Target,
+                    capture.SizeMode,
+                    capture.RequestedWidth,
+                    capture.RequestedHeight,
+                    capture.Width,
+                    capture.Height,
+                    capture.ColorSpace,
+                    lifecycleStateAtCapture = capture.State.LifecycleState,
+                    compileStateAtCapture = capture.State.CompileState,
+                    generations = capture.State.Generations,
+                    playModeState = capture.State.PlayMode.State,
                 },
                 artifact = new
                 {
-                    kind = ContractLiteralCodec.ToValue(ScreenshotArtifactKind.Screenshot),
+                    kind = ScreenshotArtifactKind.Screenshot,
                     mediaType = ScreenshotArtifactContract.MediaType,
-                    path = output.ArtifactPath,
-                    digest = output.ArtifactDigest,
-                    sizeBytes = output.ArtifactSizeBytes,
-                    createdAtUtc = output.ArtifactCreatedAtUtc,
+                    artifact.Path,
+                    artifact.Digest,
+                    artifact.SizeBytes,
+                    artifact.CreatedAtUtc,
                 },
             });
     }

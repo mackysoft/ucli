@@ -75,7 +75,7 @@ public sealed class BuildAssuranceSemanticInvariantValidatorTests
     [Trait("Size", "Small")]
     public void Validate_WithIncompleteBuildGenerationAndPassedClaim_ReturnsGenerationClaimStatusPath ()
     {
-        var result = ValidateBuildPayload(CreateBuildPayload(validForAssetRefreshGeneration: "unknown"));
+        var result = ValidateBuildPayload(CreateBuildPayload(validForAssetRefreshGeneration: null));
 
         AssertViolationPath(result, BuildGenerationClaimPath("status"));
     }
@@ -87,7 +87,7 @@ public sealed class BuildAssuranceSemanticInvariantValidatorTests
         var result = ValidateBuildPayload(CreateBuildPayload(
             verdict: "incomplete",
             buildGenerationClaimStatus: "unverified",
-            validForAssetRefreshGeneration: "unknown"));
+            validForAssetRefreshGeneration: null));
 
         Assert.True(result.IsValid);
         Assert.Empty(result.Violations);
@@ -108,7 +108,7 @@ public sealed class BuildAssuranceSemanticInvariantValidatorTests
     [Trait("Size", "Small")]
     public void Validate_WithBuildGenerationValidForMismatch_ReturnsValidForPath ()
     {
-        var result = ValidateBuildPayload(CreateBuildPayload(validForAssetRefreshGeneration: "asset-other"));
+        var result = ValidateBuildPayload(CreateBuildPayload(validForAssetRefreshGeneration: 3));
 
         AssertViolationPath(result, "$.build.generations.validFor");
     }
@@ -129,7 +129,7 @@ public sealed class BuildAssuranceSemanticInvariantValidatorTests
     {
         var result = ValidateBuildPayload(CreateBuildPayload(
             buildGenerationEvidenceDataOnly: true,
-            buildGenerationEvidenceDataValidForAssetRefreshGeneration: "asset-evidence"));
+            buildGenerationEvidenceDataValidForAssetRefreshGeneration: 3));
 
         AssertViolationPath(result, BuildGenerationClaimPath("evidence"));
     }

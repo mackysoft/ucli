@@ -24,7 +24,7 @@ public sealed class DaemonStartServiceProgressTests
                 await progressObserver!.EmitSupervisorBootstrapStartedAsync(cancellationToken).ConfigureAwait(false);
                 await progressObserver.EmitSupervisorBootstrapCompletedAsync(error: null, cancellationToken).ConfigureAwait(false);
                 await progressObserver.EmitEnsureRunningStartedAsync(cancellationToken).ConfigureAwait(false);
-                var startResult = DaemonStartResult.Started(session);
+                var startResult = DaemonStartResult.Started(session, IpcUnityEditorObservationTestFactory.Create());
                 await progressObserver.EmitEnsureRunningCompletedAsync(startResult, cancellationToken).ConfigureAwait(false);
                 return startResult;
             },

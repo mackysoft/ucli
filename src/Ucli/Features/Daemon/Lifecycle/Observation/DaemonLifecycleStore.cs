@@ -117,53 +117,9 @@ internal sealed class DaemonLifecycleStore : IDaemonLifecycleStore
             return false;
         }
 
-        if (!ContractLiteralInputParser.TryParseTrimmed<DaemonEditorMode>(contract.EditorMode, out var editorMode))
+        if (contract.State is not UnityEditorStateSnapshot state)
         {
-            error = ExecutionError.InvalidArgument($"Daemon lifecycle editorMode is invalid: {path}.");
-            return false;
-        }
-
-        if (!ContractLiteralCodec.TryParse<IpcEditorLifecycleState>(contract.LifecycleState, out var lifecycleState))
-        {
-            error = ExecutionError.InvalidArgument($"Daemon lifecycle lifecycleState is invalid: {path}.");
-            return false;
-        }
-
-        IpcEditorBlockingReason? blockingReason = null;
-        if (contract.BlockingReason is not null)
-        {
-            if (!ContractLiteralCodec.TryParse<IpcEditorBlockingReason>(contract.BlockingReason, out var parsedBlockingReason))
-            {
-                error = ExecutionError.InvalidArgument($"Daemon lifecycle blockingReason is invalid: {path}.");
-                return false;
-            }
-
-            blockingReason = parsedBlockingReason;
-        }
-
-        var expectedBlockingReason = IpcEditorLifecycleSemantics.ResolveBlockingReason(lifecycleState);
-        if (blockingReason != expectedBlockingReason)
-        {
-            error = ExecutionError.InvalidArgument(
-                $"Daemon lifecycle blockingReason is inconsistent with lifecycleState: {path}.");
-            return false;
-        }
-
-        var canAcceptExecutionRequests = contract.CanAcceptExecutionRequests
-            ?? IpcEditorLifecycleSemantics.CanAcceptExecutionRequests(lifecycleState);
-        if (!IpcEditorLifecycleSemantics.IsConsistent(
-                lifecycleState,
-                blockingReason,
-                canAcceptExecutionRequests))
-        {
-            error = ExecutionError.InvalidArgument(
-                $"Daemon lifecycle canAcceptExecutionRequests is inconsistent with lifecycleState: {path}.");
-            return false;
-        }
-
-        if (!ContractLiteralCodec.TryParse<IpcCompileState>(contract.CompileState, out var compileState))
-        {
-            error = ExecutionError.InvalidArgument($"Daemon lifecycle compileState is invalid: {path}.");
+            error = ExecutionError.InvalidArgument($"Daemon lifecycle state is invalid: {path}.");
             return false;
         }
 
@@ -179,11 +135,6 @@ internal sealed class DaemonLifecycleStore : IDaemonLifecycleStore
             return false;
         }
 
-        if (!TryValidatePlayMode(contract.PlayMode, path, out var playMode, out error))
-        {
-            return false;
-        }
-
         if (contract.ObservedAtUtc is not DateTimeOffset observedAtUtc || observedAtUtc == default)
         {
             error = ExecutionError.InvalidArgument($"Daemon lifecycle observedAtUtc is invalid: {path}.");
@@ -191,58 +142,14 @@ internal sealed class DaemonLifecycleStore : IDaemonLifecycleStore
         }
 
         observation = new DaemonLifecycleObservation(
-            ProcessId: processId,
-            ProcessStartedAtUtc: processStartedAtUtc,
-            EditorMode: ContractLiteralCodec.ToValue(editorMode),
-            LifecycleState: lifecycleState,
-            CompileState: compileState,
-            CompileGeneration: StringValueNormalizer.TrimToNull(contract.CompileGeneration),
-            DomainReloadGeneration: StringValueNormalizer.TrimToNull(contract.DomainReloadGeneration),
-            ObservedAtUtc: observedAtUtc,
-            ActionRequired: actionRequired,
-            PrimaryDiagnostic: primaryDiagnostic)
-        {
-            ServerVersion = StringValueNormalizer.TrimToNull(contract.ServerVersion),
-            EditorInstanceId = StringValueNormalizer.TrimToNull(contract.EditorInstanceId),
-            PlayMode = playMode,
-        };
-        return true;
-    }
-
-    private static bool TryValidatePlayMode (
-        IpcPlayModeSnapshot? playMode,
-        string path,
-        out IpcPlayModeSnapshot? normalizedPlayMode,
-        out ExecutionError? error)
-    {
-        normalizedPlayMode = null;
-        if (playMode is null)
-        {
-            error = null;
-            return true;
-        }
-
-        var state = StringValueNormalizer.TrimToNull(playMode.State);
-        if (state == null || !ContractLiteralCodec.IsDefined<IpcPlayModeState>(state))
-        {
-            error = ExecutionError.InvalidArgument($"Daemon lifecycle playMode.state is invalid: {path}.");
-            return false;
-        }
-
-        var transition = StringValueNormalizer.TrimToNull(playMode.Transition);
-        if (transition == null || !ContractLiteralCodec.IsDefined<IpcPlayModeTransition>(transition))
-        {
-            error = ExecutionError.InvalidArgument($"Daemon lifecycle playMode.transition is invalid: {path}.");
-            return false;
-        }
-
-        normalizedPlayMode = new IpcPlayModeSnapshot(
-            State: state,
-            Transition: transition,
-            IsPlaying: playMode.IsPlaying,
-            IsPlayingOrWillChangePlaymode: playMode.IsPlayingOrWillChangePlaymode,
-            Generation: StringValueNormalizer.TrimToNull(playMode.Generation));
-        error = null;
+            processId: processId,
+            processStartedAtUtc: processStartedAtUtc,
+            state: state,
+            observedAtUtc: observedAtUtc,
+            actionRequired: actionRequired,
+            primaryDiagnostic: primaryDiagnostic,
+            serverVersion: StringValueNormalizer.TrimToNull(contract.ServerVersion),
+            editorInstanceId: StringValueNormalizer.TrimToNull(contract.EditorInstanceId));
         return true;
     }
 

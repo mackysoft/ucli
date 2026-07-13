@@ -1,20 +1,22 @@
+using MackySoft.Ucli.Contracts.Storage;
+
 namespace MackySoft.Ucli.Contracts.Daemon;
 
 /// <summary> Represents one <c>daemon.start</c> startup-observation progress payload. </summary>
 public sealed record DaemonStartStartupObservationProgressEntry (
-    string PayloadKind,
+    DaemonStartProgressPayloadKind PayloadKind,
     string ProjectFingerprint,
     int TimeoutMilliseconds,
-    string? EditorMode,
-    string OnStartupBlocked,
+    DaemonEditorMode? EditorMode,
+    DaemonStartupBlockedProcessPolicy OnStartupBlocked,
     string? LaunchAttemptId,
-    string? OwnerKind,
+    DaemonSessionOwnerKind? OwnerKind,
     bool? CanShutdownProcess,
     int? ProcessId,
     DateTimeOffset? ProcessStartedAtUtc,
-    string? StartupStatus,
-    string? StartupBlockingReason,
-    string? StartupPhase,
-    string? RetryDisposition,
+    DaemonStartupStatus? StartupStatus,
+    DaemonStartupBlockingReason? StartupBlockingReason,
+    DaemonDiagnosisStartupPhase? StartupPhase,
+    DaemonStartupRetryDisposition? RetryDisposition,
     string? Message,
     string? ErrorCode);

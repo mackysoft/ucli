@@ -1,16 +1,15 @@
 using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
+using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Testing;
 
 namespace MackySoft.Ucli.Tests;
 
 public sealed class TestRunCommandResultFactoryTests
 {
-    private static readonly JsonSerializerOptions SerializerOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-    };
+    private static readonly CommandResultJsonContractWriter ResultWriter = new();
 
     [Fact]
     [Trait("Size", "Small")]
@@ -31,7 +30,8 @@ public sealed class TestRunCommandResultFactoryTests
         Assert.Equal(serviceResult.Message, result.Message);
         Assert.Empty(result.Errors);
 
-        var payload = JsonSerializer.SerializeToElement(result.Payload, SerializerOptions);
+        using var json = JsonDocument.Parse(ResultWriter.Write(result));
+        var payload = json.RootElement.GetProperty("payload");
         JsonAssert.For(payload)
             .HasString("result", "fail")
             .IsNull("errorKind")
@@ -64,7 +64,8 @@ public sealed class TestRunCommandResultFactoryTests
         Assert.Equal(message, result.Errors[0].Message);
         Assert.Null(result.Errors[0].OpId);
 
-        var payload = JsonSerializer.SerializeToElement(result.Payload, SerializerOptions);
+        using var json = JsonDocument.Parse(ResultWriter.Write(result));
+        var payload = json.RootElement.GetProperty("payload");
         JsonAssert.For(payload)
             .IsNull("result")
             .HasString("errorKind", "toolError")
@@ -93,7 +94,8 @@ public sealed class TestRunCommandResultFactoryTests
         Assert.Equal(DaemonErrorCodes.DaemonStartupBlocked, result.Errors[0].Code);
         Assert.NotNull(serviceResult.Failure!.StartupFailure);
 
-        var payload = JsonSerializer.SerializeToElement(result.Payload, SerializerOptions);
+        using var json = JsonDocument.Parse(ResultWriter.Write(result));
+        var payload = json.RootElement.GetProperty("payload");
         JsonAssert.For(payload)
             .IsNull("result")
             .HasString("errorKind", "toolError")
@@ -121,7 +123,8 @@ public sealed class TestRunCommandResultFactoryTests
         Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, result.Errors[0].Code);
 
-        var payload = JsonSerializer.SerializeToElement(result.Payload, SerializerOptions);
+        using var json = JsonDocument.Parse(ResultWriter.Write(result));
+        var payload = json.RootElement.GetProperty("payload");
         JsonAssert.For(payload)
             .IsNull("result")
             .HasString("errorKind", "infraError")
@@ -150,7 +153,8 @@ public sealed class TestRunCommandResultFactoryTests
         Assert.Equal(UcliCoreErrorCodes.InvalidArgument, error.Code);
         Assert.Equal(message, error.Message);
 
-        var payload = JsonSerializer.SerializeToElement(result.Payload, SerializerOptions);
+        using var json = JsonDocument.Parse(ResultWriter.Write(result));
+        var payload = json.RootElement.GetProperty("payload");
         JsonAssert.For(payload)
             .IsNull("result")
             .HasString("errorKind", "infraError")
@@ -163,19 +167,19 @@ public sealed class TestRunCommandResultFactoryTests
     {
         return new StartupFailureDetail(
             Startup: new DaemonStartupObservationOutput(
-                StartupStatus: "blocked",
-                StartupBlockingReason: "compile",
+                StartupStatus: DaemonStartupStatus.Blocked,
+                StartupBlockingReason: DaemonStartupBlockingReason.Compile,
                 LaunchAttemptId: null,
-                EditorMode: "batchmode",
-                OwnerKind: "cli",
+                EditorMode: DaemonEditorMode.Batchmode,
+                OwnerKind: DaemonSessionOwnerKind.Cli,
                 CanShutdownProcess: true,
                 ProcessId: null,
                 StartedAtUtc: null,
                 ElapsedMilliseconds: null,
-                ProcessAction: "terminated",
+                ProcessAction: DaemonStartupProcessAction.Terminated,
                 ProcessTermination: null,
                 ArtifactPath: null,
-                RetryDisposition: "retryAfterFix"),
+                RetryDisposition: DaemonStartupRetryDisposition.RetryAfterFix),
             Diagnosis: new DaemonDiagnosisOutput(
                 Reason: "unityScriptCompilationFailed",
                 Message: "Unity startup is blocked.",
@@ -186,10 +190,10 @@ public sealed class TestRunCommandResultFactoryTests
                 EditorInstancePath: null,
                 ProcessStartedAtUtc: null,
                 UnityLogPath: "/tmp/artifacts/editor.log",
-                StartupPhase: "scriptCompilation",
+                StartupPhase: DaemonDiagnosisStartupPhase.ScriptCompilation,
                 ActionRequired: "fixCompileErrors",
                 PrimaryDiagnostic: null),
-            RetryDisposition: "retryAfterFix",
+            RetryDisposition: DaemonStartupRetryDisposition.RetryAfterFix,
             SafeToRetryImmediately: false);
     }
 }

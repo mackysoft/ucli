@@ -3,6 +3,7 @@ using MackySoft.Ucli.Application.Features.Assurance;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Payload;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Vocabulary;
 using MackySoft.Ucli.Contracts.Assurance;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -127,8 +128,8 @@ internal static class CompileCommandTestData
             ScriptCompilation: new CompileScriptCompilationOutput(
                 Started: true,
                 Completed: true,
-                CompileGenerationBefore: "12",
-                CompileGenerationAfter: "14",
+                CompileGenerationBefore: 12,
+                CompileGenerationAfter: 14,
                 Diagnostics: new CompileDiagnosticsOutput(
                     ErrorCount: errorCount,
                     WarningCount: 0,
@@ -136,18 +137,23 @@ internal static class CompileCommandTestData
             DomainReload: new CompileDomainReloadOutput(
                 ReloadRequired: false,
                 ReloadObserved: false,
-                GenerationBefore: "7",
-                GenerationAfter: "7",
+                GenerationBefore: 7,
+                GenerationAfter: 7,
                 Settled: true),
             Lifecycle: new CompileLifecycleOutput(
                 ServerVersion: "0.5.0",
                 UnityVersion: "6000.1.4f1",
-                EditorMode: "batchmode",
-                LifecycleState: canAcceptExecutionRequests ? "ready" : "compileFailed",
-                BlockingReason: canAcceptExecutionRequests ? null : "compileFailed",
-                CompileState: canAcceptExecutionRequests ? "ready" : "failed",
-                CompileGeneration: "14",
-                DomainReloadGeneration: "7",
+                EditorMode: DaemonEditorMode.Batchmode,
+                LifecycleState: canAcceptExecutionRequests
+                    ? IpcEditorLifecycleState.Ready
+                    : IpcEditorLifecycleState.CompileFailed,
+                BlockingReason: canAcceptExecutionRequests
+                    ? null
+                    : IpcEditorBlockingReason.CompileFailed,
+                CompileState: canAcceptExecutionRequests
+                    ? IpcCompileState.Ready
+                    : IpcCompileState.Failed,
+                Generations: new IpcUnityGenerationSnapshot(14, 7, 0, 0),
                 CanAcceptExecutionRequests: canAcceptExecutionRequests,
                 ObservedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:03Z"),
                 ActionRequired: canAcceptExecutionRequests ? null : "fixCompileErrors",

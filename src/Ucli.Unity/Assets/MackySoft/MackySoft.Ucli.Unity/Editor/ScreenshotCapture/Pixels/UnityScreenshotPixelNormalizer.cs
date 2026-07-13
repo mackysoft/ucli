@@ -2,7 +2,6 @@ using System;
 using System.Buffers;
 using System.Threading;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Text;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
@@ -22,7 +21,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
             int width,
             int height,
             Vector4 sourceUvTransform,
-            string colorSpace,
+            IpcScreenshotColorSpace colorSpace,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -112,7 +111,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
 
                 cancellationToken.ThrowIfCancellationRequested();
                 return UnityScreenshotNormalizationResult.Success(
-                    new UnityScreenshotNormalizationResult.NormalizedFrame(
+                    new UnityScreenshotFrame(
                         width,
                         height,
                         colorSpace,
@@ -208,16 +207,16 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
             }
         }
 
-        public static string ResolveColorSpace ()
+        public static IpcScreenshotColorSpace ResolveColorSpace ()
         {
-            return ContractLiteralCodec.ToValue(QualitySettings.activeColorSpace == ColorSpace.Linear
+            return QualitySettings.activeColorSpace == ColorSpace.Linear
                 ? IpcScreenshotColorSpace.Linear
-                : IpcScreenshotColorSpace.Gamma);
+                : IpcScreenshotColorSpace.Gamma;
         }
 
         private static bool TryResolveRawRowOrder (
             Material material,
-            string colorSpace,
+            IpcScreenshotColorSpace colorSpace,
             CancellationToken cancellationToken,
             out bool rawIsTopDown,
             out string errorMessage)
@@ -296,7 +295,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
             Material material,
             int shaderPass,
             RenderTexture destination,
-            string colorSpace,
+            IpcScreenshotColorSpace colorSpace,
             CancellationToken cancellationToken,
             out string errorMessage)
         {
@@ -309,9 +308,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
             };
             try
             {
-                GL.sRGBWrite = ContractLiteralCodec.Matches(
-                    colorSpace,
-                    IpcScreenshotColorSpace.Linear);
+                GL.sRGBWrite = colorSpace == IpcScreenshotColorSpace.Linear;
                 commandBuffer.SetRenderTarget(destination);
                 commandBuffer.SetViewport(new Rect(0f, 0f, destination.width, destination.height));
                 commandBuffer.ClearRenderTarget(clearDepth: false, clearColor: true, Color.clear);

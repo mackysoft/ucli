@@ -10,5 +10,5 @@ namespace MackySoft.Ucli.Application.Shared.Execution;
 internal sealed record StartupFailureDetail (
     DaemonStartupObservationOutput? Startup,
     DaemonDiagnosisOutput? Diagnosis,
-    string RetryDisposition,
+    DaemonStartupRetryDisposition RetryDisposition,
     bool SafeToRetryImmediately);

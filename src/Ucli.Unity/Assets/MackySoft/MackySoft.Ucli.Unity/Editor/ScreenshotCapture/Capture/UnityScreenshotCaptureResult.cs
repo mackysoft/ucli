@@ -5,19 +5,31 @@ using MackySoft.Ucli.Contracts.Ipc;
 namespace MackySoft.Ucli.Unity.ScreenshotCapture.Capture
 {
     /// <summary> Represents one Unity-side screenshot capture result. </summary>
-    internal sealed record UnityScreenshotCaptureResult (
-        IpcScreenshotCaptureResponse Response,
-        IpcError Error)
+    internal sealed record UnityScreenshotCaptureResult
     {
+        private UnityScreenshotCaptureResult (
+            IpcScreenshotCaptureResponse response,
+            IpcError error)
+        {
+            Response = response;
+            Error = error;
+        }
+
         /// <summary> Gets a value indicating whether capture succeeded. </summary>
-        public bool IsSuccess => Response != null && Error == null;
+        public bool IsSuccess => Response != null;
+
+        /// <summary> Gets the capture response on success; otherwise <see langword="null" />. </summary>
+        public IpcScreenshotCaptureResponse Response { get; }
+
+        /// <summary> Gets the capture error on failure; otherwise <see langword="null" />. </summary>
+        public IpcError Error { get; }
 
         /// <summary> Creates a successful capture result. </summary>
         public static UnityScreenshotCaptureResult Success (IpcScreenshotCaptureResponse response)
         {
             return new UnityScreenshotCaptureResult(
                 response ?? throw new ArgumentNullException(nameof(response)),
-                Error: null);
+                error: null);
         }
 
         /// <summary> Creates a failed capture result. </summary>
@@ -36,7 +48,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Capture
             }
 
             return new UnityScreenshotCaptureResult(
-                Response: null,
+                response: null,
                 new IpcError(code, message, OpId: null));
         }
     }

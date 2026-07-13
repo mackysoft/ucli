@@ -21,9 +21,6 @@ internal interface IScreenshotArtifactStore
 
     /// <summary> Discards one prepared capture layout without deleting a committed PNG artifact. </summary>
     /// <param name="paths"> The prepared capture paths. </param>
-    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The discard result. </returns>
-    ValueTask<ScreenshotArtifactDiscardResult> DiscardAsync (
-        ScreenshotArtifactPaths paths,
-        CancellationToken cancellationToken = default);
+    ScreenshotArtifactDiscardResult Discard (ScreenshotArtifactPaths paths);
 }

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Storage;
 
@@ -7,6 +8,10 @@ internal static class DaemonSessionJsonContractSerializer
 {
     private static readonly JsonSerializerOptions DeserializeOptions = new()
     {
+        Converters =
+        {
+            new ContractLiteralJsonConverterFactory(),
+        },
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         PropertyNameCaseInsensitive = true,
         WriteIndented = false,
@@ -14,6 +19,10 @@ internal static class DaemonSessionJsonContractSerializer
 
     private static readonly JsonSerializerOptions SerializeOptions = new()
     {
+        Converters =
+        {
+            new ContractLiteralJsonConverterFactory(),
+        },
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         PropertyNameCaseInsensitive = true,
         WriteIndented = true,

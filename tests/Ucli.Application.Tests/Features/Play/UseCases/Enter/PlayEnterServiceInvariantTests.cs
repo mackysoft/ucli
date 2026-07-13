@@ -10,25 +10,13 @@ public sealed class PlayEnterServiceInvariantTests
     {
         var data = new TheoryData<string, object>();
 
-        var readyBefore = CreateSnapshot("ready", null, true, CreateStoppedPlayMode("2"));
+        var readyBefore = CreateSnapshot(
+            IpcEditorLifecycleState.Ready,
+            CreateStoppedPlayMode(),
+            playModeGeneration: 2);
         data.Add(
             "missing transition payload",
             CreateResponseWithoutTransitionPayload());
-
-        data.Add(
-            "invalid play mode state",
-            CreateResponse(new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
-                IpcPlayTransitionCommandNames.Enter,
-                IpcPlayTransitionResultNames.Entered,
-                readyBefore)
-            {
-                After = CreateSnapshot("playmode", "playMode", false, new IpcPlayModeSnapshot(
-                    State: "invalid",
-                    Transition: "none",
-                    IsPlaying: true,
-                    IsPlayingOrWillChangePlaymode: true,
-                    Generation: "3")),
-            })));
 
         data.Add(
             "entered generation did not advance",
@@ -38,17 +26,15 @@ public sealed class PlayEnterServiceInvariantTests
                 readyBefore)
             {
                 After = CreateSnapshot(
-                    "playmode",
-                    "playMode",
-                    false,
-                    CreatePlayMode("playing", "none", true, true, "2")),
+                    IpcEditorLifecycleState.PlayMode,
+                    CreatePlayMode(IpcPlayModeState.Playing, IpcPlayModeTransition.None, true, true),
+                    playModeGeneration: 2),
             })));
 
         var alreadyEnteredBefore = CreateSnapshot(
-            "playmode",
-            "playMode",
-            false,
-            CreatePlayMode("playing", "none", true, true, "9"));
+            IpcEditorLifecycleState.PlayMode,
+            CreatePlayMode(IpcPlayModeState.Playing, IpcPlayModeTransition.None, true, true),
+            playModeGeneration: 9);
         data.Add(
             "already entered generation changed",
             CreateResponse(new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
@@ -57,10 +43,9 @@ public sealed class PlayEnterServiceInvariantTests
                 alreadyEnteredBefore)
             {
                 After = CreateSnapshot(
-                    "playmode",
-                    "playMode",
-                    false,
-                    CreatePlayMode("playing", "none", true, true, "10")),
+                    IpcEditorLifecycleState.PlayMode,
+                    CreatePlayMode(IpcPlayModeState.Playing, IpcPlayModeTransition.None, true, true),
+                    playModeGeneration: 10),
             })));
 
         data.Add(
@@ -71,10 +56,9 @@ public sealed class PlayEnterServiceInvariantTests
                 readyBefore)
             {
                 After = CreateSnapshot(
-                    "playmode",
-                    "playMode",
-                    false,
-                    CreatePlayMode("playing", "none", true, true, "3")),
+                    IpcEditorLifecycleState.PlayMode,
+                    CreatePlayMode(IpcPlayModeState.Playing, IpcPlayModeTransition.None, true, true),
+                    playModeGeneration: 3),
                 Observed = readyBefore,
                 ApplicationState = IpcPlayApplicationStateNames.NotApplied,
             })));
@@ -86,7 +70,10 @@ public sealed class PlayEnterServiceInvariantTests
                 IpcPlayTransitionResultNames.Entered,
                 readyBefore)
             {
-                After = CreateSnapshot("ready", null, true, CreateStoppedPlayMode("3")),
+                After = CreateSnapshot(
+                    IpcEditorLifecycleState.Ready,
+                    CreateStoppedPlayMode(),
+                    playModeGeneration: 3),
             })));
 
         data.Add(
@@ -94,7 +81,10 @@ public sealed class PlayEnterServiceInvariantTests
             CreateResponse(new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
                 IpcPlayTransitionCommandNames.Enter,
                 IpcPlayTransitionResultNames.AlreadyEntered,
-                CreateSnapshot("ready", null, true, CreateStoppedPlayMode("9")))
+                CreateSnapshot(
+                    IpcEditorLifecycleState.Ready,
+                    CreateStoppedPlayMode(),
+                    playModeGeneration: 9))
             {
                 After = alreadyEnteredBefore,
             })));
@@ -105,9 +95,15 @@ public sealed class PlayEnterServiceInvariantTests
                 new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
                     IpcPlayTransitionCommandNames.Enter,
                     IpcPlayTransitionResultNames.Blocked,
-                    CreateSnapshot("compiling", "compile", false, CreateStoppedPlayMode("2")))
+                    CreateSnapshot(
+                        IpcEditorLifecycleState.Compiling,
+                        CreateStoppedPlayMode(),
+                        playModeGeneration: 2))
                 {
-                    Observed = CreateSnapshot("compiling", "compile", false, CreateStoppedPlayMode("2")),
+                    Observed = CreateSnapshot(
+                        IpcEditorLifecycleState.Compiling,
+                        CreateStoppedPlayMode(),
+                        playModeGeneration: 2),
                     ApplicationState = "maybeApplied",
                 }),
                 PlayModeErrorCodes.PlayModeTransitionBlocked,
@@ -122,28 +118,13 @@ public sealed class PlayEnterServiceInvariantTests
                     readyBefore)
                 {
                     Observed = CreateSnapshot(
-                        "playmode",
-                        "playMode",
-                        false,
-                        CreatePlayMode("entering", "entering", false, true, "2")),
+                        IpcEditorLifecycleState.PlayMode,
+                        CreatePlayMode(IpcPlayModeState.Entering, IpcPlayModeTransition.Entering, false, true),
+                        playModeGeneration: 2),
                     ApplicationState = IpcPlayApplicationStateNames.NotApplied,
                 }),
                 PlayModeErrorCodes.PlayModeTransitionTimeout,
                 "Unity Play Mode enter timed out."));
-
-        data.Add(
-            "success snapshot missing play mode blocking reason",
-            CreateResponse(new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
-                IpcPlayTransitionCommandNames.Enter,
-                IpcPlayTransitionResultNames.Entered,
-                readyBefore)
-            {
-                After = CreateSnapshot(
-                    "playmode",
-                    blockingReason: null,
-                    canAcceptExecutionRequests: false,
-                    playMode: CreatePlayMode("playing", "none", true, true, "3")),
-            })));
 
         data.Add(
             "entered before snapshot is already playing",
@@ -153,10 +134,9 @@ public sealed class PlayEnterServiceInvariantTests
                 alreadyEnteredBefore)
             {
                 After = CreateSnapshot(
-                    "playmode",
-                    "playMode",
-                    false,
-                    CreatePlayMode("playing", "none", true, true, "3")),
+                    IpcEditorLifecycleState.PlayMode,
+                    CreatePlayMode(IpcPlayModeState.Playing, IpcPlayModeTransition.None, true, true),
+                    playModeGeneration: 3),
             })));
 
         data.Add(
@@ -165,16 +145,14 @@ public sealed class PlayEnterServiceInvariantTests
                 IpcPlayTransitionCommandNames.Enter,
                 IpcPlayTransitionResultNames.Entered,
                 CreateSnapshot(
-                    "compiling",
-                    "compile",
-                    false,
-                    CreateStoppedPlayMode("2")))
+                    IpcEditorLifecycleState.Compiling,
+                    CreateStoppedPlayMode(),
+                    playModeGeneration: 2))
             {
                 After = CreateSnapshot(
-                    "playmode",
-                    "playMode",
-                    false,
-                    CreatePlayMode("playing", "none", true, true, "3")),
+                    IpcEditorLifecycleState.PlayMode,
+                    CreatePlayMode(IpcPlayModeState.Playing, IpcPlayModeTransition.None, true, true),
+                    playModeGeneration: 3),
             })));
 
         return data;
@@ -185,16 +163,14 @@ public sealed class PlayEnterServiceInvariantTests
     public async Task Execute_WhenResponseProjectFingerprintDiffers_ReturnsMismatchFailure ()
     {
         var before = CreateSnapshot(
-            "ready",
-            null,
-            true,
-            CreateStoppedPlayMode("2"),
+            IpcEditorLifecycleState.Ready,
+            CreateStoppedPlayMode(),
+            playModeGeneration: 2,
             projectFingerprint: "other-project-fingerprint");
         var after = CreateSnapshot(
-            "playmode",
-            "playMode",
-            false,
-            CreatePlayMode("playing", "none", true, true, "3"),
+            IpcEditorLifecycleState.PlayMode,
+            CreatePlayMode(IpcPlayModeState.Playing, IpcPlayModeTransition.None, true, true),
+            playModeGeneration: 3,
             projectFingerprint: "other-project-fingerprint");
         var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
             IpcPlayTransitionCommandNames.Enter,

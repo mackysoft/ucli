@@ -20,7 +20,7 @@ public sealed class DaemonStartOperationDiagnosisTests
             daemonExistingSessionGateService: new RecordingDaemonExistingSessionGateService(),
             daemonLaunchService: new RecordingDaemonLaunchService
             {
-                NextResult = DaemonStartResult.Started(DaemonSessionTestFactory.Create(processId: 2024, projectFingerprint: context.ProjectFingerprint)),
+                NextResult = DaemonStartResult.Started(DaemonSessionTestFactory.Create(processId: 2024, projectFingerprint: context.ProjectFingerprint), IpcUnityEditorObservationTestFactory.Create()),
             },
             daemonDiagnosisStore: diagnosisStore);
 
@@ -47,7 +47,7 @@ public sealed class DaemonStartOperationDiagnosisTests
         var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(null));
         var launchService = new RecordingDaemonLaunchService
         {
-            NextResult = DaemonStartResult.Started(DaemonSessionTestFactory.Create(processId: 2025, projectFingerprint: context.ProjectFingerprint)),
+            NextResult = DaemonStartResult.Started(DaemonSessionTestFactory.Create(processId: 2025, projectFingerprint: context.ProjectFingerprint), IpcUnityEditorObservationTestFactory.Create()),
         };
         var operation = CreateOperation(
             daemonSessionStore: sessionStore,

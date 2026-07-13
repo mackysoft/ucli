@@ -11,20 +11,13 @@ internal static class UnityEditorReadinessPolicy
     /// <param name="failFast"> Whether waitable states should fail immediately. </param>
     /// <returns> The readiness decision. </returns>
     public static UnityReadinessDecision Evaluate (
-        IpcPingResponse pingResponse,
+        IpcUnityEditorObservation pingResponse,
         bool failFast)
     {
         ArgumentNullException.ThrowIfNull(pingResponse);
 
-        if (!ContractLiteralCodec.TryParse<IpcEditorLifecycleState>(pingResponse.LifecycleState, out var lifecycleState))
-        {
-            return UnityReadinessDecision.Failure(
-                UcliCoreErrorCodes.InternalError,
-                $"Unity editor lifecycle gate returned unsupported state '{pingResponse.LifecycleState}'.");
-        }
-
-        if (pingResponse.CanAcceptExecutionRequests
-            && lifecycleState == IpcEditorLifecycleState.Ready)
+        var lifecycleState = pingResponse.State.LifecycleState;
+        if (IpcEditorLifecycleSemantics.CanAcceptExecutionRequests(lifecycleState))
         {
             return UnityReadinessDecision.Ready();
         }

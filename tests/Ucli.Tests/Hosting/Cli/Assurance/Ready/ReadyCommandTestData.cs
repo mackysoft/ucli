@@ -2,7 +2,8 @@ using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Assurance;
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
-using MackySoft.Ucli.Application.Shared.CommandContracts;
+using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -121,19 +122,19 @@ internal static class ReadyCommandTestData
     {
         return new StartupFailureDetail(
             Startup: new DaemonStartupObservationOutput(
-                StartupStatus: "blocked",
-                StartupBlockingReason: "compile",
+                StartupStatus: DaemonStartupStatus.Blocked,
+                StartupBlockingReason: DaemonStartupBlockingReason.Compile,
                 LaunchAttemptId: null,
-                EditorMode: "batchmode",
-                OwnerKind: "cli",
+                EditorMode: DaemonEditorMode.Batchmode,
+                OwnerKind: DaemonSessionOwnerKind.Cli,
                 CanShutdownProcess: true,
                 ProcessId: 1234,
                 StartedAtUtc: DateTimeOffset.Parse("2026-03-12T04:05:01+00:00"),
                 ElapsedMilliseconds: null,
-                ProcessAction: "terminated",
+                ProcessAction: DaemonStartupProcessAction.Terminated,
                 ProcessTermination: null,
                 ArtifactPath: null,
-                RetryDisposition: "retryAfterFix"),
+                RetryDisposition: DaemonStartupRetryDisposition.RetryAfterFix),
             Diagnosis: new DaemonDiagnosisOutput(
                 Reason: "unityScriptCompilationFailed",
                 Message: "Unity startup is blocked.",
@@ -144,7 +145,7 @@ internal static class ReadyCommandTestData
                 EditorInstancePath: null,
                 ProcessStartedAtUtc: DateTimeOffset.Parse("2026-03-12T04:05:01+00:00"),
                 UnityLogPath: "/repo/.ucli/local/logs/unity.log",
-                StartupPhase: "scriptCompilation",
+                StartupPhase: DaemonDiagnosisStartupPhase.ScriptCompilation,
                 ActionRequired: "fixCompileErrors",
                 PrimaryDiagnostic: new DaemonPrimaryDiagnosticOutput(
                     Kind: "compiler",
@@ -153,7 +154,7 @@ internal static class ReadyCommandTestData
                     Line: 10,
                     Column: 5,
                     Message: "error CS0246")),
-            RetryDisposition: "retryAfterFix",
+            RetryDisposition: DaemonStartupRetryDisposition.RetryAfterFix,
             SafeToRetryImmediately: false);
     }
 
@@ -169,22 +170,20 @@ internal static class ReadyCommandTestData
         return new ReadyLifecycleOutput(
             ServerVersion: "0.5.0",
             UnityVersion: "6000.1.4f1",
-            EditorMode: "batchmode",
-            LifecycleState: "ready",
+            EditorMode: DaemonEditorMode.Batchmode,
+            LifecycleState: IpcEditorLifecycleState.Ready,
             BlockingReason: null,
-            CompileState: "ready",
-            CompileGeneration: "12",
-            DomainReloadGeneration: "7",
+            CompileState: IpcCompileState.Ready,
+            Generations: new IpcUnityGenerationSnapshot(12, 7, 0, 2),
             CanAcceptExecutionRequests: true,
             ObservedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:00Z"),
             ActionRequired: null,
             PrimaryDiagnostic: null,
-            PlayMode: new PlayModeSnapshotOutput(
-                State: "stopped",
-                Transition: "none",
+            PlayMode: new IpcPlayModeSnapshot(
+                State: IpcPlayModeState.Stopped,
+                Transition: IpcPlayModeTransition.None,
                 IsPlaying: false,
-                IsPlayingOrWillChangePlaymode: false,
-                Generation: "2"));
+                IsPlayingOrWillChangePlaymode: false));
     }
 
     private static Dictionary<string, object?> CreateSubject (

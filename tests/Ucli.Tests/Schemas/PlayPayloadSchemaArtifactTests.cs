@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using static MackySoft.Ucli.Tests.Schemas.PlayPayloadSchemaTestSupport;
 
 namespace MackySoft.Ucli.Tests.Schemas;
@@ -109,9 +110,43 @@ public sealed class PlayPayloadSchemaArtifactTests
         Assert.NotEmpty(schemaSet.Validate("cli-output/payload/play.status.schema.json", invalidDiagnosticPropertyDocument.RootElement));
     }
 
+    [Theory]
+    [Trait("Size", "Medium")]
+    [InlineData("-1")]
+    [InlineData("\"12\"")]
+    public void PlayStatusPayloadSchema_RejectsInvalidGeneration (string invalidGenerationJson)
+    {
+        var schemaSet = CliOutputSchemaTestSupport.SchemaSet;
+        var payload = JsonNode.Parse(CreatePlayStatusPayloadJson())!.AsObject();
+        payload["generations"]!["compileGeneration"] = JsonNode.Parse(invalidGenerationJson);
+        using var document = JsonDocument.Parse(payload.ToJsonString());
+
+        var errors = schemaSet.Validate(
+            "cli-output/payload/play.status.schema.json",
+            document.RootElement);
+
+        Assert.NotEmpty(errors);
+    }
+
     [Fact]
     [Trait("Size", "Medium")]
-    public void PlayStatusPayloadSchema_RejectsMissingRequiredFlatFields ()
+    public void PlayStatusPayloadSchema_RejectsGenerationOnPlayModeSnapshot ()
+    {
+        var schemaSet = CliOutputSchemaTestSupport.SchemaSet;
+        var payload = JsonNode.Parse(CreatePlayStatusPayloadJson())!.AsObject();
+        payload["playMode"]!["generation"] = 42;
+        using var document = JsonDocument.Parse(payload.ToJsonString());
+
+        var errors = schemaSet.Validate(
+            "cli-output/payload/play.status.schema.json",
+            document.RootElement);
+
+        Assert.NotEmpty(errors);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public void PlayStatusPayloadSchema_RejectsMissingProjectAndLegacyNestedSnapshot ()
     {
         var schemaSet = CliOutputSchemaTestSupport.SchemaSet;
         using var missingProjectDocument = JsonDocument.Parse(
@@ -123,8 +158,12 @@ public sealed class PlayPayloadSchemaArtifactTests
               "lifecycleState": "ready",
               "blockingReason": null,
               "compileState": "ready",
-              "compileGeneration": "12",
-              "domainReloadGeneration": "7",
+              "generations": {
+                "compileGeneration": 12,
+                "domainReloadGeneration": 7,
+                "assetRefreshGeneration": 5,
+                "playModeGeneration": 42
+              },
               "canAcceptExecutionRequests": true,
               "observedAtUtc": "2026-05-21T00:00:00+00:00",
               "actionRequired": null,
@@ -133,8 +172,7 @@ public sealed class PlayPayloadSchemaArtifactTests
                 "state": "stopped",
                 "transition": "none",
                 "isPlaying": false,
-                "isPlayingOrWillChangePlaymode": false,
-                "generation": "42"
+                "isPlayingOrWillChangePlaymode": false
               },
               "timeoutMilliseconds": 1000
             }

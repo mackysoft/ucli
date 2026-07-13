@@ -19,8 +19,7 @@ public sealed class StatusCommandTests
                 LifecycleState: null,
                 BlockingReason: null,
                 CompileState: null,
-                CompileGeneration: null,
-                DomainReloadGeneration: null,
+                Generations: null,
                 CanAcceptExecutionRequests: false,
                 EditorMode: null,
                 TimeoutMilliseconds: 1234))));

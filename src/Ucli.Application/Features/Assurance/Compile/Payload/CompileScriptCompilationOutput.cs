@@ -4,6 +4,6 @@ namespace MackySoft.Ucli.Application.Features.Assurance.Compile.Payload;
 internal sealed record CompileScriptCompilationOutput (
     bool Started,
     bool Completed,
-    string CompileGenerationBefore,
-    string CompileGenerationAfter,
+    long? CompileGenerationBefore,
+    long? CompileGenerationAfter,
     CompileDiagnosticsOutput Diagnostics);

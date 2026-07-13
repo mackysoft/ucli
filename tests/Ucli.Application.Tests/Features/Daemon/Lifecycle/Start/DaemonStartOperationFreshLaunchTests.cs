@@ -14,15 +14,15 @@ public sealed class DaemonStartOperationFreshLaunchTests
             processId: 6060,
             projectFingerprint: context.ProjectFingerprint) with
         {
-            EditorMode = "gui",
+            EditorMode = DaemonEditorMode.Gui,
         };
         var guiAttachService = new RecordingDaemonGuiEditorAttachService
         {
-            NextResult = DaemonStartResult.Attached(guiSession),
+            NextResult = DaemonStartResult.Attached(guiSession, IpcUnityEditorObservationTestFactory.Create(editorMode: DaemonEditorMode.Gui)),
         };
         var launchService = new RecordingDaemonLaunchService
         {
-            NextResult = DaemonStartResult.Started(DaemonSessionTestFactory.Create(processId: 7070, projectFingerprint: context.ProjectFingerprint)),
+            NextResult = DaemonStartResult.Started(DaemonSessionTestFactory.Create(processId: 7070, projectFingerprint: context.ProjectFingerprint), IpcUnityEditorObservationTestFactory.Create()),
         };
         var operation = CreateOperation(
             daemonSessionStore: new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(null)),
@@ -55,7 +55,7 @@ public sealed class DaemonStartOperationFreshLaunchTests
         var guiAttachService = new RecordingDaemonGuiEditorAttachService();
         var launchService = new RecordingDaemonLaunchService
         {
-            NextResult = DaemonStartResult.Started(DaemonSessionTestFactory.Create(processId: 8081, projectFingerprint: context.ProjectFingerprint)),
+            NextResult = DaemonStartResult.Started(DaemonSessionTestFactory.Create(processId: 8081, projectFingerprint: context.ProjectFingerprint), IpcUnityEditorObservationTestFactory.Create()),
         };
         var operation = CreateOperation(
             daemonSessionStore: new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(null)),
@@ -91,7 +91,7 @@ public sealed class DaemonStartOperationFreshLaunchTests
         var existingSessionGateService = new RecordingDaemonExistingSessionGateService();
         var launchService = new RecordingDaemonLaunchService
         {
-            NextResult = DaemonStartResult.Started(DaemonSessionTestFactory.Create(processId: 9001)),
+            NextResult = DaemonStartResult.Started(DaemonSessionTestFactory.Create(processId: 9001), IpcUnityEditorObservationTestFactory.Create()),
         };
         var operation = CreateOperation(
             daemonSessionStore: sessionStore,

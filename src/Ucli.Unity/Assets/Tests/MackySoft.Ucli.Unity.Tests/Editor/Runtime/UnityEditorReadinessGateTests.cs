@@ -81,6 +81,37 @@ namespace MackySoft.Ucli.Unity.Tests
                 "Unity editor lifecycle is unavailable because the daemon endpoint cannot be observed."),
         };
 
+        [Test]
+        [Category("Size.Small")]
+        public void UnityEditorObservationConstructor_WhenStateIsNull_ThrowsArgumentNullException ()
+        {
+            Assert.Throws<ArgumentNullException>(() =>
+            {
+                _ = new UnityEditorObservation(null, DateTimeOffset.UnixEpoch);
+            });
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void UnityEditorObservationConstructor_WhenObservedAtUtcIsDefault_ThrowsArgumentOutOfRangeException ()
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+            {
+                _ = new UnityEditorObservation(
+                    new UnityEditorStateSnapshot(
+                        editorMode: DaemonEditorMode.Batchmode,
+                        lifecycleState: IpcEditorLifecycleState.Ready,
+                        compileState: IpcCompileState.Ready,
+                        generations: new IpcUnityGenerationSnapshot(1, 2, 3, 4),
+                        playMode: new IpcPlayModeSnapshot(
+                            State: IpcPlayModeState.Stopped,
+                            Transition: IpcPlayModeTransition.None,
+                            IsPlaying: false,
+                            IsPlayingOrWillChangePlaymode: false)),
+                    default);
+            });
+        }
+
         [TestCase(IpcEditorLifecycleState.Starting, true)]
         [TestCase(IpcEditorLifecycleState.Recovering, true)]
         [TestCase(IpcEditorLifecycleState.Busy, true)]
@@ -110,24 +141,26 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             foreach (var testCase in BlockedLifecycleStateCases)
             {
-                var snapshot = new UnityEditorLifecycleSnapshot(
-                    EditorMode: DaemonEditorMode.Batchmode,
-                    LifecycleState: testCase.LifecycleState,
-                    CompileState: IpcCompileState.Ready,
-                    CompileGeneration: 2,
-                    DomainReloadGeneration: 3);
+                var snapshot = new UnityEditorObservation(
+                    state: new UnityEditorStateSnapshot(
+                        editorMode: DaemonEditorMode.Batchmode,
+                        lifecycleState: testCase.LifecycleState,
+                        compileState: IpcCompileState.Ready,
+                        generations: new IpcUnityGenerationSnapshot(2, 3, 0, 0),
+                        playMode: CreatePlayModeSnapshot(testCase.LifecycleState)),
+                    observedAtUtc: DateTimeOffset.UnixEpoch);
 
                 var result = UnityEditorExecutionReadinessPolicy.CreateBlockedResult(snapshot);
                 var testCaseName = ContractLiteralCodec.ToValue(testCase.LifecycleState);
 
                 Assert.That(result.IsReady, Is.False, testCaseName);
-                Assert.That(result.Snapshot, Is.EqualTo(snapshot), testCaseName);
-                Assert.That(result.Snapshot.BlockingReason, Is.EqualTo(testCase.BlockingReason), testCaseName);
+                Assert.That(result.Observation, Is.EqualTo(snapshot), testCaseName);
+                Assert.That(result.Observation.BlockingReason, Is.EqualTo(testCase.BlockingReason), testCaseName);
                 Assert.That(
                     IpcEditorLifecycleSemantics.IsConsistent(
-                        result.Snapshot.LifecycleState,
-                        result.Snapshot.BlockingReason,
-                        result.Snapshot.CanAcceptExecutionRequests),
+                        result.Observation.State.LifecycleState,
+                        result.Observation.BlockingReason,
+                        result.Observation.CanAcceptExecutionRequests),
                     Is.True,
                     testCaseName);
                 Assert.That(result.Error, Is.Not.Null, testCaseName);
@@ -138,7 +171,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void CaptureSnapshot_WhenStartupIsPending_DoesNotConsumeStarting ()
+        public void CaptureObservation_WhenStartupIsPending_DoesNotConsumeStarting ()
         {
             var gate = CreateGate(
                 compileGeneration: 4,
@@ -149,22 +182,22 @@ namespace MackySoft.Ucli.Unity.Tests
                 isPlaymodeActive: false,
                 out _);
 
-            var first = gate.CaptureSnapshot();
-            var second = gate.CaptureSnapshot();
+            var first = gate.CaptureObservation();
+            var second = gate.CaptureObservation();
 
-            Assert.That(first.EditorMode, Is.EqualTo(DaemonEditorMode.Batchmode));
-            Assert.That(first.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.Starting));
+            Assert.That(first.State.EditorMode, Is.EqualTo(DaemonEditorMode.Batchmode));
+            Assert.That(first.State.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.Starting));
             Assert.That(first.BlockingReason, Is.EqualTo(IpcEditorBlockingReason.Startup));
             Assert.That(first.CanAcceptExecutionRequests, Is.False);
-            Assert.That(first.CompileGeneration, Is.EqualTo(4));
-            Assert.That(first.DomainReloadGeneration, Is.EqualTo(9));
-            Assert.That(second.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.Starting));
+            Assert.That(first.State.Generations.CompileGeneration, Is.EqualTo(4));
+            Assert.That(first.State.Generations.DomainReloadGeneration, Is.EqualTo(9));
+            Assert.That(second.State.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.Starting));
             Assert.That(second.BlockingReason, Is.EqualTo(IpcEditorBlockingReason.Startup));
         }
 
         [Test]
         [Category("Size.Small")]
-        public void CaptureSnapshot_WhenEditorUpdateCompletesStartup_ReturnsReadySnapshot ()
+        public void CaptureObservation_WhenEditorUpdateCompletesStartup_ReturnsReadySnapshot ()
         {
             var gate = CreateGate(
                 compileGeneration: 4,
@@ -175,20 +208,20 @@ namespace MackySoft.Ucli.Unity.Tests
                 isPlaymodeActive: false,
                 out var lifecycleTelemetryState);
 
-            var beforeUpdate = gate.CaptureSnapshot();
+            var beforeUpdate = gate.CaptureObservation();
             lifecycleTelemetryState.ObserveEditorUpdate(
                 isPlaymodeActive: false,
                 isCompiling: false,
                 isUpdating: false);
-            var afterUpdate = gate.CaptureSnapshot();
+            var afterUpdate = gate.CaptureObservation();
 
-            Assert.That(beforeUpdate.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.Starting));
-            Assert.That(afterUpdate.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.Ready));
+            Assert.That(beforeUpdate.State.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.Starting));
+            Assert.That(afterUpdate.State.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.Ready));
             Assert.That(afterUpdate.BlockingReason, Is.Null);
             Assert.That(afterUpdate.CanAcceptExecutionRequests, Is.True);
             Assert.That(
                 IpcEditorLifecycleSemantics.IsConsistent(
-                    afterUpdate.LifecycleState,
+                    afterUpdate.State.LifecycleState,
                     afterUpdate.BlockingReason,
                     afterUpdate.CanAcceptExecutionRequests),
                 Is.True);
@@ -196,7 +229,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void CaptureSnapshot_WhenEditorUpdateCompletesRecovery_ReturnsReadySnapshot ()
+        public void CaptureObservation_WhenEditorUpdateCompletesRecovery_ReturnsReadySnapshot ()
         {
             var telemetryState = new UnityEditorLifecycleTelemetryState(
                 compileGeneration: 4,
@@ -212,23 +245,23 @@ namespace MackySoft.Ucli.Unity.Tests
                 static () => false,
                 static () => false);
 
-            var beforeUpdate = gate.CaptureSnapshot();
+            var beforeUpdate = gate.CaptureObservation();
             telemetryState.ObserveEditorUpdate(
                 isPlaymodeActive: false,
                 isCompiling: false,
                 isUpdating: false);
-            var afterUpdate = gate.CaptureSnapshot();
+            var afterUpdate = gate.CaptureObservation();
 
-            Assert.That(beforeUpdate.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.Recovering));
+            Assert.That(beforeUpdate.State.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.Recovering));
             Assert.That(beforeUpdate.BlockingReason, Is.EqualTo(IpcEditorBlockingReason.Recovery));
-            Assert.That(afterUpdate.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.Ready));
+            Assert.That(afterUpdate.State.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.Ready));
             Assert.That(afterUpdate.BlockingReason, Is.Null);
             Assert.That(afterUpdate.CanAcceptExecutionRequests, Is.True);
         }
 
         [Test]
         [Category("Size.Small")]
-        public void CaptureSnapshot_WhenEditorModeIsGui_ReturnsGuiEditorMode ()
+        public void CaptureObservation_WhenEditorModeIsGui_ReturnsGuiEditorMode ()
         {
             var telemetryState = new UnityEditorLifecycleTelemetryState(
                 compileGeneration: 4,
@@ -243,16 +276,16 @@ namespace MackySoft.Ucli.Unity.Tests
                 static () => false,
                 static () => false);
 
-            var snapshot = gate.CaptureSnapshot();
+            var snapshot = gate.CaptureObservation();
 
-            Assert.That(snapshot.EditorMode, Is.EqualTo(DaemonEditorMode.Gui));
-            Assert.That(snapshot.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.Ready));
+            Assert.That(snapshot.State.EditorMode, Is.EqualTo(DaemonEditorMode.Gui));
+            Assert.That(snapshot.State.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.Ready));
             Assert.That(snapshot.CanAcceptExecutionRequests, Is.True);
         }
 
         [Test]
         [Category("Size.Small")]
-        public void CaptureSnapshot_WhenPlaymodeIsActive_ReturnsPlaymodeSnapshot ()
+        public void CaptureObservation_WhenPlaymodeIsActive_ReturnsPlaymodeSnapshot ()
         {
             var gate = CreateGate(
                 compileGeneration: 5,
@@ -263,21 +296,21 @@ namespace MackySoft.Ucli.Unity.Tests
                 isPlaymodeActive: true,
                 out _);
 
-            var snapshot = gate.CaptureSnapshot();
+            var snapshot = gate.CaptureObservation();
 
-            Assert.That(snapshot.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.PlayMode));
+            Assert.That(snapshot.State.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.PlayMode));
             Assert.That(snapshot.BlockingReason, Is.EqualTo(IpcEditorBlockingReason.PlayMode));
             Assert.That(snapshot.CanAcceptExecutionRequests, Is.False);
-            Assert.That(snapshot.PlayMode, Is.Not.Null);
-            Assert.That(snapshot.PlayMode.State, Is.EqualTo(IpcPlayModeState.Playing));
-            Assert.That(snapshot.PlayMode.Transition, Is.EqualTo(IpcPlayModeTransition.None));
-            Assert.That(snapshot.PlayMode.IsPlaying, Is.True);
-            Assert.That(snapshot.PlayMode.IsPlayingOrWillChangePlaymode, Is.True);
+            Assert.That(snapshot.State.PlayMode, Is.Not.Null);
+            Assert.That(snapshot.State.PlayMode.State, Is.EqualTo(IpcPlayModeState.Playing));
+            Assert.That(snapshot.State.PlayMode.Transition, Is.EqualTo(IpcPlayModeTransition.None));
+            Assert.That(snapshot.State.PlayMode.IsPlaying, Is.True);
+            Assert.That(snapshot.State.PlayMode.IsPlayingOrWillChangePlaymode, Is.True);
         }
 
         [Test]
         [Category("Size.Small")]
-        public void CaptureSnapshot_WhenBatchmodeIsStopped_ReturnsStoppedPlayModeSnapshot ()
+        public void CaptureObservation_WhenBatchmodeIsStopped_ReturnsStoppedPlayModeSnapshot ()
         {
             var gate = CreateGate(
                 compileGeneration: 4,
@@ -288,52 +321,52 @@ namespace MackySoft.Ucli.Unity.Tests
                 isPlaymodeActive: false,
                 out _);
 
-            var snapshot = gate.CaptureSnapshot();
+            var snapshot = gate.CaptureObservation();
 
-            Assert.That(snapshot.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.Ready));
-            Assert.That(snapshot.PlayMode, Is.Not.Null);
-            Assert.That(snapshot.PlayMode.State, Is.EqualTo(IpcPlayModeState.Stopped));
-            Assert.That(snapshot.PlayMode.Transition, Is.EqualTo(IpcPlayModeTransition.None));
-            Assert.That(snapshot.PlayMode.IsPlaying, Is.False);
-            Assert.That(snapshot.PlayMode.IsPlayingOrWillChangePlaymode, Is.False);
+            Assert.That(snapshot.State.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.Ready));
+            Assert.That(snapshot.State.PlayMode, Is.Not.Null);
+            Assert.That(snapshot.State.PlayMode.State, Is.EqualTo(IpcPlayModeState.Stopped));
+            Assert.That(snapshot.State.PlayMode.Transition, Is.EqualTo(IpcPlayModeTransition.None));
+            Assert.That(snapshot.State.PlayMode.IsPlaying, Is.False);
+            Assert.That(snapshot.State.PlayMode.IsPlayingOrWillChangePlaymode, Is.False);
         }
 
         [Test]
         [Category("Size.Small")]
-        public void CaptureSnapshot_WhenPlayModeChangeIsPending_ReturnsPlaymodeEnteringSnapshot ()
+        public void CaptureObservation_WhenPlayModeChangeIsPending_ReturnsPlaymodeEnteringSnapshot ()
         {
             var monitor = CreateMonitor(
                 isPlaying: false,
                 isPlayingOrWillChangePlaymode: true);
 
-            var snapshot = monitor.CaptureSnapshot(DaemonEditorMode.Batchmode);
+            var snapshot = monitor.CaptureObservation(DaemonEditorMode.Batchmode);
 
-            Assert.That(snapshot.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.PlayMode));
+            Assert.That(snapshot.State.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.PlayMode));
             Assert.That(snapshot.BlockingReason, Is.EqualTo(IpcEditorBlockingReason.PlayMode));
             Assert.That(snapshot.CanAcceptExecutionRequests, Is.False);
-            Assert.That(snapshot.PlayMode.State, Is.EqualTo(IpcPlayModeState.Entering));
-            Assert.That(snapshot.PlayMode.Transition, Is.EqualTo(IpcPlayModeTransition.None));
-            Assert.That(snapshot.PlayMode.IsPlaying, Is.False);
-            Assert.That(snapshot.PlayMode.IsPlayingOrWillChangePlaymode, Is.True);
+            Assert.That(snapshot.State.PlayMode.State, Is.EqualTo(IpcPlayModeState.Entering));
+            Assert.That(snapshot.State.PlayMode.Transition, Is.EqualTo(IpcPlayModeTransition.None));
+            Assert.That(snapshot.State.PlayMode.IsPlaying, Is.False);
+            Assert.That(snapshot.State.PlayMode.IsPlayingOrWillChangePlaymode, Is.True);
         }
 
         [Test]
         [Category("Size.Small")]
-        public void CaptureSnapshot_WhenPlayModeFlagsAreInconsistent_ReturnsPlaymodeWithUnknownPlayModeState ()
+        public void CaptureObservation_WhenPlayModeFlagsAreInconsistent_ReturnsPlaymodeWithUnknownPlayModeState ()
         {
             var monitor = CreateMonitor(
                 isPlaying: true,
                 isPlayingOrWillChangePlaymode: false);
 
-            var snapshot = monitor.CaptureSnapshot(DaemonEditorMode.Batchmode);
+            var snapshot = monitor.CaptureObservation(DaemonEditorMode.Batchmode);
 
-            Assert.That(snapshot.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.PlayMode));
+            Assert.That(snapshot.State.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.PlayMode));
             Assert.That(snapshot.BlockingReason, Is.EqualTo(IpcEditorBlockingReason.PlayMode));
             Assert.That(snapshot.CanAcceptExecutionRequests, Is.False);
-            Assert.That(snapshot.PlayMode.State, Is.EqualTo(IpcPlayModeState.Unknown));
-            Assert.That(snapshot.PlayMode.Transition, Is.EqualTo(IpcPlayModeTransition.None));
-            Assert.That(snapshot.PlayMode.IsPlaying, Is.True);
-            Assert.That(snapshot.PlayMode.IsPlayingOrWillChangePlaymode, Is.False);
+            Assert.That(snapshot.State.PlayMode.State, Is.EqualTo(IpcPlayModeState.Unknown));
+            Assert.That(snapshot.State.PlayMode.Transition, Is.EqualTo(IpcPlayModeTransition.None));
+            Assert.That(snapshot.State.PlayMode.IsPlaying, Is.True);
+            Assert.That(snapshot.State.PlayMode.IsPlayingOrWillChangePlaymode, Is.False);
         }
 
         [Test]
@@ -353,17 +386,19 @@ namespace MackySoft.Ucli.Unity.Tests
             var entering = telemetryState.CapturePlayModeSnapshot(
                 isPlaying: false,
                 isPlayingOrWillChangePlaymode: true);
+            var enteringGeneration = telemetryState.CaptureGenerationSnapshot().PlayModeGeneration;
             telemetryState.OnPlayModeStateChanged(PlayModeStateChange.ExitingPlayMode);
             var exiting = telemetryState.CapturePlayModeSnapshot(
                 isPlaying: true,
                 isPlayingOrWillChangePlaymode: true);
+            var exitingGeneration = telemetryState.CaptureGenerationSnapshot().PlayModeGeneration;
 
             Assert.That(entering.State, Is.EqualTo(IpcPlayModeState.Entering));
             Assert.That(entering.Transition, Is.EqualTo(IpcPlayModeTransition.Entering));
-            Assert.That(entering.Generation, Is.EqualTo(40));
+            Assert.That(enteringGeneration, Is.EqualTo(40));
             Assert.That(exiting.State, Is.EqualTo(IpcPlayModeState.Exiting));
             Assert.That(exiting.Transition, Is.EqualTo(IpcPlayModeTransition.Exiting));
-            Assert.That(exiting.Generation, Is.EqualTo(40));
+            Assert.That(exitingGeneration, Is.EqualTo(40));
         }
 
         [Test]
@@ -379,27 +414,30 @@ namespace MackySoft.Ucli.Unity.Tests
                 isStartupPending: false,
                 playModeGeneration: 100);
 
-            var before = telemetryState.CapturePlayModeSnapshot(
+            _ = telemetryState.CapturePlayModeSnapshot(
                 isPlaying: false,
                 isPlayingOrWillChangePlaymode: false);
+            var beforeGeneration = telemetryState.CaptureGenerationSnapshot().PlayModeGeneration;
             telemetryState.OnPlayModeStateChanged(PlayModeStateChange.ExitingEditMode);
             telemetryState.OnPlayModeStateChanged(PlayModeStateChange.EnteredPlayMode);
             var entered = telemetryState.CapturePlayModeSnapshot(
                 isPlaying: true,
                 isPlayingOrWillChangePlaymode: true);
+            var enteredGeneration = telemetryState.CaptureGenerationSnapshot().PlayModeGeneration;
             telemetryState.OnPlayModeStateChanged(PlayModeStateChange.ExitingPlayMode);
             telemetryState.OnPlayModeStateChanged(PlayModeStateChange.EnteredEditMode);
             var exited = telemetryState.CapturePlayModeSnapshot(
                 isPlaying: false,
                 isPlayingOrWillChangePlaymode: false);
+            var exitedGeneration = telemetryState.CaptureGenerationSnapshot().PlayModeGeneration;
 
-            Assert.That(before.Generation, Is.EqualTo(100));
+            Assert.That(beforeGeneration, Is.EqualTo(100));
             Assert.That(entered.State, Is.EqualTo(IpcPlayModeState.Playing));
             Assert.That(entered.Transition, Is.EqualTo(IpcPlayModeTransition.None));
-            Assert.That(entered.Generation, Is.EqualTo(101));
+            Assert.That(enteredGeneration, Is.EqualTo(101));
             Assert.That(exited.State, Is.EqualTo(IpcPlayModeState.Stopped));
             Assert.That(exited.Transition, Is.EqualTo(IpcPlayModeTransition.None));
-            Assert.That(exited.Generation, Is.EqualTo(102));
+            Assert.That(exitedGeneration, Is.EqualTo(102));
         }
 
         [Test]
@@ -418,14 +456,16 @@ namespace MackySoft.Ucli.Unity.Tests
             var entered = telemetryState.CapturePlayModeSnapshot(
                 isPlaying: true,
                 isPlayingOrWillChangePlaymode: true);
-            var repeated = telemetryState.CapturePlayModeSnapshot(
+            var enteredGeneration = telemetryState.CaptureGenerationSnapshot().PlayModeGeneration;
+            _ = telemetryState.CapturePlayModeSnapshot(
                 isPlaying: true,
                 isPlayingOrWillChangePlaymode: true);
+            var repeatedGeneration = telemetryState.CaptureGenerationSnapshot().PlayModeGeneration;
 
             Assert.That(entered.State, Is.EqualTo(IpcPlayModeState.Playing));
             Assert.That(entered.Transition, Is.EqualTo(IpcPlayModeTransition.None));
-            Assert.That(entered.Generation, Is.EqualTo(201));
-            Assert.That(repeated.Generation, Is.EqualTo(201));
+            Assert.That(enteredGeneration, Is.EqualTo(201));
+            Assert.That(repeatedGeneration, Is.EqualTo(201));
             Assert.That(UnityEditorSessionStateStore.RestorePlayModeStableState(), Is.EqualTo(IpcPlayModeState.Playing));
         }
 
@@ -444,15 +484,16 @@ namespace MackySoft.Ucli.Unity.Tests
             var entered = telemetryState.CapturePlayModeSnapshot(
                 isPlaying: true,
                 isPlayingOrWillChangePlaymode: true);
+            var enteredGeneration = telemetryState.CaptureGenerationSnapshot().PlayModeGeneration;
 
             Assert.That(entered.State, Is.EqualTo(IpcPlayModeState.Playing));
-            Assert.That(entered.Generation, Is.EqualTo(300));
+            Assert.That(enteredGeneration, Is.EqualTo(300));
             Assert.That(UnityEditorSessionStateStore.RestorePlayModeStableState(), Is.EqualTo(IpcPlayModeState.Playing));
         }
 
         [Test]
         [Category("Size.Small")]
-        public void CaptureSnapshot_WhenEditorIsIdle_ReturnsReadySnapshot ()
+        public void CaptureObservation_WhenEditorIsIdle_ReturnsReadySnapshot ()
         {
             var gate = CreateGate(
                 compileGeneration: 5,
@@ -463,14 +504,14 @@ namespace MackySoft.Ucli.Unity.Tests
                 isPlaymodeActive: false,
                 out _);
 
-            var snapshot = gate.CaptureSnapshot();
+            var snapshot = gate.CaptureObservation();
 
-            Assert.That(snapshot.EditorMode, Is.EqualTo(DaemonEditorMode.Batchmode));
-            Assert.That(snapshot.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.Ready));
+            Assert.That(snapshot.State.EditorMode, Is.EqualTo(DaemonEditorMode.Batchmode));
+            Assert.That(snapshot.State.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.Ready));
             Assert.That(snapshot.BlockingReason, Is.Null);
             Assert.That(snapshot.CanAcceptExecutionRequests, Is.True);
-            Assert.That(snapshot.CompileGeneration, Is.EqualTo(5));
-            Assert.That(snapshot.DomainReloadGeneration, Is.EqualTo(12));
+            Assert.That(snapshot.State.Generations.CompileGeneration, Is.EqualTo(5));
+            Assert.That(snapshot.State.Generations.DomainReloadGeneration, Is.EqualTo(12));
         }
 
         [UnityTest]
@@ -501,8 +542,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 AsyncWaitTimeout);
 
             Assert.That(result.IsReady, Is.True);
-            Assert.That(result.Snapshot.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.Ready));
-            Assert.That(result.Snapshot.CanAcceptExecutionRequests, Is.True);
+            Assert.That(result.Observation.State.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.Ready));
+            Assert.That(result.Observation.CanAcceptExecutionRequests, Is.True);
         });
 
         [UnityTest]
@@ -532,8 +573,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 AsyncWaitTimeout);
 
             Assert.That(result.IsReady, Is.True);
-            Assert.That(result.Snapshot.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.Ready));
-            Assert.That(result.Snapshot.CanAcceptExecutionRequests, Is.True);
+            Assert.That(result.Observation.State.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.Ready));
+            Assert.That(result.Observation.CanAcceptExecutionRequests, Is.True);
         });
 
         [UnityTest]
@@ -557,7 +598,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 AsyncWaitTimeout);
 
             Assert.That(result.IsReady, Is.False);
-            Assert.That(result.Snapshot.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.PlayMode));
+            Assert.That(result.Observation.State.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.PlayMode));
             Assert.That(result.Error, Is.Not.Null);
             Assert.That(result.Error!.Code, Is.EqualTo(EditorLifecycleErrorCodes.EditorPlaymode));
         });
@@ -576,8 +617,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 AsyncWaitTimeout);
 
             Assert.That(result.IsReady, Is.True);
-            Assert.That(result.Snapshot.EditorMode, Is.EqualTo(DaemonEditorMode.Gui));
-            Assert.That(result.Snapshot.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.PlayMode));
+            Assert.That(result.Observation.State.EditorMode, Is.EqualTo(DaemonEditorMode.Gui));
+            Assert.That(result.Observation.State.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.PlayMode));
         });
 
         [UnityTest]
@@ -595,7 +636,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 AsyncWaitTimeout);
 
             Assert.That(result.IsReady, Is.False);
-            Assert.That(result.Snapshot.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.PlayMode));
+            Assert.That(result.Observation.State.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.PlayMode));
             Assert.That(result.Error, Is.Not.Null);
             Assert.That(result.Error!.Code, Is.EqualTo(PlayModeErrorCodes.PlayModeNotActive));
         });
@@ -616,7 +657,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 AsyncWaitTimeout);
 
             Assert.That(result.IsReady, Is.False);
-            Assert.That(result.Snapshot.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.Compiling));
+            Assert.That(result.Observation.State.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.Compiling));
             Assert.That(result.Error, Is.Not.Null);
             Assert.That(result.Error!.Code, Is.EqualTo(EditorLifecycleErrorCodes.EditorCompiling));
         });
@@ -685,8 +726,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 AsyncWaitTimeout);
 
             Assert.That(result.IsReady, Is.True);
-            Assert.That(result.Snapshot.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.Ready));
-            Assert.That(result.Snapshot.CanAcceptExecutionRequests, Is.True);
+            Assert.That(result.Observation.State.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.Ready));
+            Assert.That(result.Observation.CanAcceptExecutionRequests, Is.True);
         });
 
         [UnityTest]
@@ -746,8 +787,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 AsyncWaitTimeout);
 
             Assert.That(result.IsReady, Is.False);
-            Assert.That(result.Snapshot.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.DomainReloading));
-            Assert.That(result.Snapshot.CanAcceptExecutionRequests, Is.False);
+            Assert.That(result.Observation.State.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.DomainReloading));
+            Assert.That(result.Observation.CanAcceptExecutionRequests, Is.False);
             Assert.That(result.Error, Is.Not.Null);
             Assert.That(result.Error!.Code, Is.EqualTo(EditorLifecycleErrorCodes.EditorDomainReloading));
         });
@@ -779,8 +820,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 AsyncWaitTimeout);
 
             Assert.That(result.IsReady, Is.False);
-            Assert.That(result.Snapshot.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.ShuttingDown));
-            Assert.That(result.Snapshot.CanAcceptExecutionRequests, Is.False);
+            Assert.That(result.Observation.State.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.ShuttingDown));
+            Assert.That(result.Observation.CanAcceptExecutionRequests, Is.False);
             Assert.That(result.Error, Is.Not.Null);
             Assert.That(result.Error!.Code, Is.EqualTo(EditorLifecycleErrorCodes.EditorShuttingDown));
         });
@@ -826,8 +867,8 @@ namespace MackySoft.Ucli.Unity.Tests
         }
 
         private static UnityEditorReadinessGate CreateGate (
-            int compileGeneration,
-            int domainReloadGeneration,
+            long compileGeneration,
+            long domainReloadGeneration,
             bool isDomainReloading,
             bool isShuttingDown,
             bool isStartupPending,
@@ -848,8 +889,8 @@ namespace MackySoft.Ucli.Unity.Tests
         }
 
         private static UnityEditorReadinessGate CreateGate (
-            int compileGeneration,
-            int domainReloadGeneration,
+            long compileGeneration,
+            long domainReloadGeneration,
             bool isDomainReloading,
             bool isShuttingDown,
             bool isStartupPending,
@@ -874,8 +915,8 @@ namespace MackySoft.Ucli.Unity.Tests
         }
 
         private static UnityEditorReadinessGate CreateGate (
-            int compileGeneration,
-            int domainReloadGeneration,
+            long compileGeneration,
+            long domainReloadGeneration,
             bool isDomainReloading,
             bool isShuttingDown,
             bool isStartupPending,
@@ -961,6 +1002,16 @@ namespace MackySoft.Ucli.Unity.Tests
                 static () => false,
                 () => isPlaying,
                 () => isPlayingOrWillChangePlaymode);
+        }
+
+        private static IpcPlayModeSnapshot CreatePlayModeSnapshot (IpcEditorLifecycleState lifecycleState)
+        {
+            var isPlaying = lifecycleState == IpcEditorLifecycleState.PlayMode;
+            return new IpcPlayModeSnapshot(
+                State: isPlaying ? IpcPlayModeState.Playing : IpcPlayModeState.Stopped,
+                Transition: IpcPlayModeTransition.None,
+                IsPlaying: isPlaying,
+                IsPlayingOrWillChangePlaymode: isPlaying);
         }
 
         private sealed class EditorActivityProbe

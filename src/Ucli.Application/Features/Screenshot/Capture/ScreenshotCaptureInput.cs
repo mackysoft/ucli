@@ -2,7 +2,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.Screenshot.Capture;
 
-/// <summary> Represents normalized inputs for one screenshot capture. </summary>
+/// <summary> Represents inputs for one screenshot capture workflow. </summary>
 /// <param name="Target"> The presentation surface to capture. </param>
 /// <param name="ProjectPath"> The optional target Unity project path. </param>
 /// <param name="RequestedWidth"> The requested GameView render width, or <see langword="null" /> for the current surface. </param>

@@ -5,9 +5,9 @@ using System.Text.Json;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Ipc;
 using MackySoft.Ucli.Unity.Project;
@@ -122,17 +122,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 File.WriteAllText(
                     Path.Combine(artifactsDirectory, UcliStoragePathNames.CompileSummaryFileName),
                     JsonSerializer.Serialize(staleSummary, IpcJsonSerializerOptions.Default));
-                var context = new RecoverableIpcOperationContext(
-                    new StubRecoverableIpcOperationStore(),
-                    IpcMethodNames.Compile,
-                    request.RequestId,
-                    RequestPayloadHash,
-                    new RecoverableIpcOperationRecord
-                    {
-                        State = RecoverableIpcOperationState.Pending,
-                        StartedAtUtc = pendingSummary.StartedAtUtc,
-                        RecoveryPayload = IpcPayloadCodec.SerializeToElement(pendingSummary),
-                    });
+                var context = CreateRecoverableContext(request, pendingSummary);
                 var handler = CreateHandler();
 
                 var response = await handler.HandleRecoverableAsync(request, context, CancellationToken.None);
@@ -144,6 +134,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(payload.Summary.StartedAtUtc, Is.EqualTo(pendingSummary.StartedAtUtc));
                 Assert.That(payload.Summary.DomainReload.ReloadObserved, Is.True);
                 Assert.That(payload.Summary.ScriptCompilation.Completed, Is.True);
+                Assert.That(payload.Summary.Lifecycle.UnityVersion, Is.EqualTo("6000.1.4f1"));
                 var summaryJsonPath = Path.Combine(artifactsDirectory, UcliStoragePathNames.CompileSummaryFileName);
                 Assert.That(File.Exists(summaryJsonPath), Is.True);
                 var persistedSummary = JsonSerializer.Deserialize<IpcCompileSummary>(
@@ -158,6 +149,69 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 DeleteDirectoryIfExists(artifactsDirectory);
             }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator HandleRecoverableAsync_WhenCompletedSummaryUnityVersionDiffers_DoesNotReuseCompletedSummary () => UniTask.ToCoroutine(async () =>
+        {
+            var runId = $"recoverable-completed-version-mismatch-{Guid.NewGuid():N}";
+            var artifactsDirectory = ResolveArtifactsDirectory(runId);
+            try
+            {
+                var request = CreateCompileRequest("req-compile-completed-version-mismatch", runId);
+                var pendingSummary = CreatePendingSummary(runId);
+                var completedSummary = pendingSummary with
+                {
+                    Completed = true,
+                    CompletedAtUtc = pendingSummary.StartedAtUtc.AddSeconds(1),
+                    Lifecycle = pendingSummary.Lifecycle with
+                    {
+                        UnityVersion = "2023.2.22f1",
+                    },
+                };
+                Directory.CreateDirectory(artifactsDirectory);
+                File.WriteAllText(
+                    Path.Combine(artifactsDirectory, UcliStoragePathNames.CompileSummaryFileName),
+                    JsonSerializer.Serialize(completedSummary, IpcJsonSerializerOptions.Default));
+                var context = CreateRecoverableContext(request, pendingSummary);
+                var handler = CreateHandler();
+
+                var response = await handler.HandleRecoverableAsync(request, context, CancellationToken.None);
+
+                Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+                Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcCompileResponse payload, out _), Is.True);
+                Assert.That(payload.Summary.Lifecycle.UnityVersion, Is.EqualTo("6000.1.4f1"));
+                Assert.That(payload.Summary.DomainReload.ReloadObserved, Is.True);
+            }
+            finally
+            {
+                DeleteDirectoryIfExists(artifactsDirectory);
+            }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator HandleRecoverableAsync_WhenPendingSummaryUnityVersionDiffers_RejectsRecovery () => UniTask.ToCoroutine(async () =>
+        {
+            var runId = $"recoverable-version-mismatch-{Guid.NewGuid():N}";
+            var request = CreateCompileRequest("req-compile-version-mismatch", runId);
+            var originalPendingSummary = CreatePendingSummary(runId);
+            var pendingSummary = originalPendingSummary with
+            {
+                Lifecycle = originalPendingSummary.Lifecycle with
+                {
+                    UnityVersion = "2023.2.22f1",
+                },
+            };
+            var context = CreateRecoverableContext(request, pendingSummary);
+            var handler = CreateHandler();
+
+            var response = await handler.HandleRecoverableAsync(request, context, CancellationToken.None);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InternalError));
+            Assert.That(response.Errors[0].Message, Does.Contain("Unity version"));
         });
 
         private static IpcRequest CreateCompileRequest (
@@ -188,6 +242,23 @@ namespace MackySoft.Ucli.Unity.Tests
                 new StubServerVersionProvider("1.2.3"));
         }
 
+        private static RecoverableIpcOperationContext CreateRecoverableContext (
+            IpcRequest request,
+            IpcCompileSummary pendingSummary)
+        {
+            return new RecoverableIpcOperationContext(
+                new StubRecoverableIpcOperationStore(),
+                IpcMethodNames.Compile,
+                request.RequestId,
+                RequestPayloadHash,
+                new RecoverableIpcOperationRecord
+                {
+                    State = RecoverableIpcOperationState.Pending,
+                    StartedAtUtc = pendingSummary.StartedAtUtc,
+                    RecoveryPayload = IpcPayloadCodec.SerializeToElement(pendingSummary),
+                });
+        }
+
         private static IpcCompileSummary CreatePendingSummary (string runId)
         {
             var startedAtUtc = DateTimeOffset.UtcNow.AddSeconds(-1);
@@ -206,25 +277,28 @@ namespace MackySoft.Ucli.Unity.Tests
                 ScriptCompilation: new IpcCompileSummary.ScriptCompilationEvidence(
                     Started: false,
                     Completed: false,
-                    CompileGenerationBefore: "1",
-                    CompileGenerationAfter: "1",
+                    CompileGenerationBefore: 1,
+                    CompileGenerationAfter: 1,
                     Diagnostics: new IpcCompileSummary.DiagnosticsEvidence(0, 0, null)),
                 DomainReload: new IpcCompileSummary.DomainReloadEvidence(
                     ReloadRequired: false,
                     ReloadObserved: false,
-                    GenerationBefore: "0",
-                    GenerationAfter: "0",
+                    GenerationBefore: 0,
+                    GenerationAfter: 0,
                     Settled: false),
                 Lifecycle: new IpcCompileSummary.LifecycleEvidence(
                     ServerVersion: "1.2.3",
                     UnityVersion: "6000.1.4f1",
-                    EditorMode: "batchmode",
-                    LifecycleState: ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Ready),
-                    BlockingReason: null,
-                    CompileState: ContractLiteralCodec.ToValue(IpcCompileState.Ready),
-                    CompileGeneration: "1",
-                    DomainReloadGeneration: "0",
-                    CanAcceptExecutionRequests: true,
+                    State: new UnityEditorStateSnapshot(
+                        editorMode: DaemonEditorMode.Batchmode,
+                        lifecycleState: IpcEditorLifecycleState.Ready,
+                        compileState: IpcCompileState.Ready,
+                        generations: new IpcUnityGenerationSnapshot(1, 0, 0, 0),
+                        playMode: new IpcPlayModeSnapshot(
+                            State: IpcPlayModeState.Stopped,
+                            Transition: IpcPlayModeTransition.None,
+                            IsPlaying: false,
+                            IsPlayingOrWillChangePlaymode: false)),
                     ObservedAtUtc: startedAtUtc,
                     ActionRequired: null,
                     PrimaryDiagnostic: null));
