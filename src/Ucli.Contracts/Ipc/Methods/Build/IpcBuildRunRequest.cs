@@ -64,38 +64,38 @@ public sealed record IpcBuildRunRequest
 
     public Guid RunId { get; }
 
-    public string InputKind { get; }
+    public string InputKind { get; init; }
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? BuildTarget { get; }
+    public string? BuildTarget { get; init; }
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? UnityBuildTarget { get; }
+    public string? UnityBuildTarget { get; init; }
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? SceneSource { get; }
+    public string? SceneSource { get; init; }
 
-    public IReadOnlyList<string> ScenePaths { get; }
+    public IReadOnlyList<string> ScenePaths { get; init; }
 
-    public bool Development { get; }
+    public bool Development { get; init; }
 
-    public string OutputPath { get; }
-
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public IpcBuildOutputLayout? OutputLayout { get; }
-
-    public string BuildReportPath { get; }
-
-    public string BuildLogPath { get; }
-
-    public IReadOnlyList<string> AllowedEditorModes { get; }
-
-    public string ProjectMutationMode { get; }
-
-    public string RunnerKind { get; }
+    public string OutputPath { get; init; }
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public IpcUnityBuildProfileInput? UnityBuildProfile { get; }
+    public IpcBuildOutputLayout? OutputLayout { get; init; }
+
+    public string BuildReportPath { get; init; }
+
+    public string BuildLogPath { get; init; }
+
+    public IReadOnlyList<string> AllowedEditorModes { get; init; }
+
+    public string ProjectMutationMode { get; init; }
+
+    public string RunnerKind { get; init; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IpcUnityBuildProfileInput? UnityBuildProfile { get; init; }
 
     /// <summary> Gets the resolved build profile path used for runner context construction. </summary>
     public string? ProfilePath { get; init; }
