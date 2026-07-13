@@ -21,8 +21,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="snapshot"> The runtime environment snapshot. </param>
         /// <param name="operationTraces"> The operation traces used for touched digest. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by phase execution. </param>
-        /// <returns> The lowercase hexadecimal fingerprint string. </returns>
-        public static string Compute (
+        /// <returns> The state fingerprint. </returns>
+        public static Sha256Digest Compute (
             PlanTokenEnvironmentSnapshot snapshot,
             IReadOnlyList<OperationPhaseTrace> operationTraces,
             CancellationToken cancellationToken = default)
@@ -59,7 +59,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 writer.Flush();
             }
 
-            return Sha256LowerHex.Compute(stream.ToArray());
+            return Sha256Digest.Compute(stream.GetBuffer().AsSpan(0, checked((int)stream.Length)));
         }
 
         /// <summary> Computes configuration digest from shared <c>.ucli/config.json</c> fields. </summary>

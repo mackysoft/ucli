@@ -4,19 +4,16 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Configuration;
-using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
 using MackySoft.Ucli.Infrastructure.Project;
 using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.PlanToken;
 using MackySoft.Ucli.Unity.Execution.Requests;
@@ -1051,44 +1048,6 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void ValidateCall_WhenLegacyTokenOmitsCompiledExecutionDigest_Succeeds ()
-        {
-            using var scope = new PlanTokenTestScope();
-            var environment = scope.CreateEnvironment();
-            var coordinator = new PlanTokenCoordinator(environment);
-            var request = CreateRequest(
-                operations: new[] { ("op-1", UcliPrimitiveOperationNames.Resolve) },
-                planToken: null,
-                canonicalPayloadJson: "{\"ops\":[],\"protocolVersion\":1}");
-            var traces = CreatePlanTraceWithTouched(scope.ProjectRoot, "Assets/Scenes/Main.unity");
-
-            var currentIssueResult = coordinator.Issue(request, traces, CreateCompiledDigestPayloadUtf8());
-            Assert.That(currentIssueResult.IsSuccess, Is.True);
-
-            var signingKey = ReadSigningKey(scope.PlanTokenKeyPath);
-            var legacyToken = CreateLegacyPlanTokenWithoutCompiledExecutionDigest(
-                signingKey,
-                version: PlanTokenCompactCodec.TokenVersion,
-                keyId: PlanTokenCompactCodec.TokenKeyId,
-                projectFingerprint: scope.ProjectFingerprint,
-                requestDigest: Sha256LowerHex.Compute(request.CanonicalDigestPayloadUtf8.ToArray()),
-                stateFingerprint: PlanTokenStateFingerprintCalculator.Compute(environment.Capture(), traces),
-                issuedAtUtc: environment.UtcNow,
-                expiresAtUtc: environment.UtcNow.AddMinutes(15),
-                nonce: "legacy-nonce");
-            var validationRequest = request with
-            {
-                PlanToken = legacyToken,
-            };
-
-            var validationResult = coordinator.ValidateCall(validationRequest, traces, CreateCompiledDigestPayloadUtf8());
-
-            Assert.That(validationResult.IsSuccess, Is.True);
-            Assert.That(validationResult.Failure, Is.Null);
-        }
-
-        [Test]
-        [Category("Size.Small")]
         public void ValidateCall_WhenRequestDigestDiffers_ReturnsPlanTokenRequestMismatch ()
         {
             using var scope = new PlanTokenTestScope();
@@ -1625,46 +1584,6 @@ namespace MackySoft.Ucli.Unity.Tests
         private static ReadOnlyMemory<byte> CreateCompiledDigestPayloadUtf8 ()
         {
             return Encoding.UTF8.GetBytes("{\"ops\":[],\"steps\":[]}");
-        }
-
-        private static byte[] ReadSigningKey (string planTokenKeyPath)
-        {
-            var encodedKey = File.ReadAllText(planTokenKeyPath).Trim();
-            return Convert.FromBase64String(encodedKey);
-        }
-
-        private static string CreateLegacyPlanTokenWithoutCompiledExecutionDigest (
-            byte[] signingKey,
-            int version,
-            string keyId,
-            ProjectFingerprint projectFingerprint,
-            string requestDigest,
-            string stateFingerprint,
-            DateTimeOffset issuedAtUtc,
-            DateTimeOffset expiresAtUtc,
-            string nonce)
-        {
-            var headerBytes = Encoding.UTF8.GetBytes("{\"alg\":\"HS256\",\"kid\":\"v1\",\"typ\":\"ucli-plan-token\"}");
-            var payloadBytes = JsonSerializer.SerializeToUtf8Bytes(new
-            {
-                v = version,
-                kid = keyId,
-                projectFingerprint = projectFingerprint.ToString(),
-                requestDigest,
-                stateFingerprint,
-                issuedAtUtc = issuedAtUtc.ToUniversalTime().ToString("O"),
-                expiresAtUtc = expiresAtUtc.ToUniversalTime().ToString("O"),
-                nonce,
-            });
-            var headerSegment = Base64UrlCodec.Encode(headerBytes);
-            var payloadSegment = Base64UrlCodec.Encode(payloadBytes);
-            var signingInput = headerSegment + "." + payloadSegment;
-            var signingInputBytes = Encoding.UTF8.GetBytes(signingInput);
-
-            using var hmac = new HMACSHA256(signingKey);
-            var signatureBytes = hmac.ComputeHash(signingInputBytes);
-            var signatureSegment = Base64UrlCodec.Encode(signatureBytes);
-            return signingInput + "." + signatureSegment;
         }
 
         private sealed class StubPlanTokenCoordinator : IPlanTokenCoordinator

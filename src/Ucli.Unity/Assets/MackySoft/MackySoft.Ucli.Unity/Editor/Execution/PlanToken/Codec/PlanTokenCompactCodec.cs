@@ -6,6 +6,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Text;
 
 #nullable enable
@@ -125,15 +126,6 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
             return CryptographicOperations.FixedTimeEquals(expectedSignature, decodedToken.SignatureBytes.Span);
         }
 
-        /// <summary> Creates one random nonce string for token payload uniqueness. </summary>
-        /// <returns> The generated nonce string. </returns>
-        public static string CreateNonce ()
-        {
-            var nonceBytes = new byte[16];
-            RandomNumberGenerator.Fill(nonceBytes);
-            return Base64UrlCodec.Encode(nonceBytes);
-        }
-
         /// <summary> Creates compact-token header JSON bytes. </summary>
         /// <returns> The header JSON bytes. </returns>
         private static byte[] CreateHeaderJsonBytes ()
@@ -164,16 +156,12 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
                 writer.WriteNumber("v", payload.Version);
                 writer.WriteString("kid", payload.KeyId);
                 writer.WriteString("projectFingerprint", payload.ProjectFingerprint.ToString());
-                writer.WriteString("requestDigest", payload.RequestDigest);
-                if (!string.IsNullOrWhiteSpace(payload.CompiledExecutionDigest))
-                {
-                    writer.WriteString("compiledExecutionDigest", payload.CompiledExecutionDigest);
-                }
-
-                writer.WriteString("stateFingerprint", payload.StateFingerprint);
+                writer.WriteString("requestDigest", payload.RequestDigest.ToString());
+                writer.WriteString("compiledExecutionDigest", payload.CompiledExecutionDigest.ToString());
+                writer.WriteString("stateFingerprint", payload.StateFingerprint.ToString());
                 writer.WriteString("issuedAtUtc", payload.IssuedAtUtc.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture));
                 writer.WriteString("expiresAtUtc", payload.ExpiresAtUtc.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture));
-                writer.WriteString("nonce", payload.Nonce);
+                writer.WriteString("nonce", payload.Nonce.ToString());
                 writer.WriteEndObject();
                 writer.Flush();
             }
@@ -293,7 +281,6 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
                 var kid = PlanTokenJsonUtilities.TryReadString(root, "kid");
                 var projectFingerprint = PlanTokenJsonUtilities.TryReadString(root, "projectFingerprint");
                 var requestDigest = PlanTokenJsonUtilities.TryReadString(root, "requestDigest");
-                var hasCompiledExecutionDigest = root.TryGetProperty("compiledExecutionDigest", out _);
                 var compiledExecutionDigest = PlanTokenJsonUtilities.TryReadString(root, "compiledExecutionDigest");
                 var stateFingerprint = PlanTokenJsonUtilities.TryReadString(root, "stateFingerprint");
                 var issuedAt = PlanTokenJsonUtilities.TryReadString(root, "issuedAtUtc");
@@ -302,12 +289,12 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
 
                 if (string.IsNullOrWhiteSpace(kid)
                     || !ProjectFingerprint.TryParse(projectFingerprint, out var parsedProjectFingerprint)
-                    || string.IsNullOrWhiteSpace(requestDigest)
-                    || (hasCompiledExecutionDigest && string.IsNullOrWhiteSpace(compiledExecutionDigest))
-                    || string.IsNullOrWhiteSpace(stateFingerprint)
+                    || !Sha256Digest.TryParse(requestDigest, out var parsedRequestDigest)
+                    || !Sha256Digest.TryParse(compiledExecutionDigest, out var parsedCompiledExecutionDigest)
+                    || !Sha256Digest.TryParse(stateFingerprint, out var parsedStateFingerprint)
                     || string.IsNullOrWhiteSpace(issuedAt)
                     || string.IsNullOrWhiteSpace(expiresAt)
-                    || string.IsNullOrWhiteSpace(nonce))
+                    || !PlanTokenNonce.TryParse(nonce, out var parsedNonce))
                 {
                     return false;
                 }
@@ -334,12 +321,12 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
                     version: version,
                     keyId: kid!,
                     projectFingerprint: parsedProjectFingerprint,
-                    requestDigest: requestDigest!,
-                    compiledExecutionDigest: string.IsNullOrWhiteSpace(compiledExecutionDigest) ? null : compiledExecutionDigest,
-                    stateFingerprint: stateFingerprint!,
+                    requestDigest: parsedRequestDigest,
+                    compiledExecutionDigest: parsedCompiledExecutionDigest,
+                    stateFingerprint: parsedStateFingerprint,
                     issuedAtUtc: issuedAtUtc,
                     expiresAtUtc: expiresAtUtc,
-                    nonce: nonce!);
+                    nonce: parsedNonce);
                 return true;
             }
             catch
