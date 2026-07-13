@@ -14,7 +14,7 @@ internal sealed class CliStreamEntryWriter
     };
 
     private readonly string command;
-    private readonly string streamId;
+    private readonly Guid streamId;
     private readonly TextWriter errorWriter;
     private readonly TimeProvider timeProvider;
     private readonly ArrayBufferWriter<byte> jsonBuffer = new();
@@ -32,7 +32,7 @@ internal sealed class CliStreamEntryWriter
         this.command = command;
         this.errorWriter = errorWriter ?? Console.Error;
         this.timeProvider = timeProvider ?? TimeProvider.System;
-        streamId = $"{command.Replace(' ', '.')}-{Guid.NewGuid():N}";
+        streamId = Guid.NewGuid();
     }
 
     /// <summary> Writes one JSON entry envelope as one NDJSON line. </summary>

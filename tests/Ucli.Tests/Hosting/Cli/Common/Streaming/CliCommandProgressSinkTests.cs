@@ -26,11 +26,38 @@ public sealed class CliCommandProgressSinkTests
         using var secondEntry = JsonDocument.Parse(lines[1]);
         AssertEntryEnvelope(firstEntry.RootElement, sequence: 1, eventName: "sample.started");
         AssertEntryEnvelope(secondEntry.RootElement, sequence: 2, eventName: "sample.finished");
+        var firstStreamId = firstEntry.RootElement.GetProperty("streamId").GetGuid();
+        Assert.NotEqual(Guid.Empty, firstStreamId);
         Assert.Equal(
-            firstEntry.RootElement.GetProperty("streamId").GetString(),
-            secondEntry.RootElement.GetProperty("streamId").GetString());
+            firstStreamId,
+            secondEntry.RootElement.GetProperty("streamId").GetGuid());
         Assert.Equal("first", firstEntry.RootElement.GetProperty("payload").GetProperty("name").GetString());
         Assert.Equal("second", secondEntry.RootElement.GetProperty("payload").GetProperty("name").GetString());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task OnEntryAsync_WithDifferentWriters_UsesDifferentStreamIdentifiers ()
+    {
+        var firstOutput = new StringWriter();
+        var secondOutput = new StringWriter();
+        var firstSink = new CliCommandProgressSink(
+            CliStreamEntryFormat.Json,
+            new CliStreamEntryWriter("sample.command", firstOutput),
+            new ThrowingTextProjector());
+        var secondSink = new CliCommandProgressSink(
+            CliStreamEntryFormat.Json,
+            new CliStreamEntryWriter("sample.command", secondOutput),
+            new ThrowingTextProjector());
+
+        await firstSink.OnEntryAsync("sample.started", new { value = true }, CancellationToken.None);
+        await secondSink.OnEntryAsync("sample.started", new { value = true }, CancellationToken.None);
+
+        using var firstEntry = JsonDocument.Parse(firstOutput.ToString());
+        using var secondEntry = JsonDocument.Parse(secondOutput.ToString());
+        Assert.NotEqual(
+            firstEntry.RootElement.GetProperty("streamId").GetGuid(),
+            secondEntry.RootElement.GetProperty("streamId").GetGuid());
     }
 
     [Fact]
@@ -70,7 +97,7 @@ public sealed class CliCommandProgressSinkTests
     {
         Assert.Equal(1, root.GetProperty("protocolVersion").GetInt32());
         Assert.Equal("sample.command", root.GetProperty("command").GetString());
-        Assert.StartsWith("sample.command-", root.GetProperty("streamId").GetString(), StringComparison.Ordinal);
+        Assert.NotEqual(Guid.Empty, root.GetProperty("streamId").GetGuid());
         Assert.Equal(sequence, root.GetProperty("sequence").GetInt32());
         Assert.Equal("2026-03-05T10:30:00.0000000+00:00", root.GetProperty("timestamp").GetString());
         Assert.Equal(eventName, root.GetProperty("event").GetString());
