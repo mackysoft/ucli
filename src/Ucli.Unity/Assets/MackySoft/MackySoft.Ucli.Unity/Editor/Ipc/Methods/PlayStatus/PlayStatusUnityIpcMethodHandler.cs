@@ -11,23 +11,24 @@ namespace MackySoft.Ucli.Unity.Ipc
     internal sealed class PlayStatusUnityIpcMethodHandler : IUnityControlPlaneIpcMethodHandler
     {
         private readonly IServerVersionProvider serverVersionProvider;
-        private readonly IUnityEditorReadinessGate readinessGate;
+        private readonly IUnityEditorAvailabilityObservationSource availabilityObservationSource;
         private readonly IpcProjectIdentity projectIdentity;
         private readonly IDaemonLogger daemonLogger;
 
         /// <summary> Initializes a new instance of the <see cref="PlayStatusUnityIpcMethodHandler" /> class. </summary>
         /// <param name="serverVersionProvider"> The server-version provider dependency. </param>
-        /// <param name="readinessGate"> The Unity Editor observation provider dependency. </param>
+        /// <param name="availabilityObservationSource"> The externally observable Unity Editor availability source. </param>
         /// <param name="projectIdentity"> The project identity served by this IPC host. </param>
         /// <param name="daemonLogger"> The daemon logger dependency. </param>
         public PlayStatusUnityIpcMethodHandler (
             IServerVersionProvider serverVersionProvider,
-            IUnityEditorReadinessGate readinessGate,
+            IUnityEditorAvailabilityObservationSource availabilityObservationSource,
             IpcProjectIdentity projectIdentity,
             IDaemonLogger daemonLogger)
         {
             this.serverVersionProvider = serverVersionProvider ?? throw new ArgumentNullException(nameof(serverVersionProvider));
-            this.readinessGate = readinessGate ?? throw new ArgumentNullException(nameof(readinessGate));
+            this.availabilityObservationSource = availabilityObservationSource
+                ?? throw new ArgumentNullException(nameof(availabilityObservationSource));
             this.projectIdentity = projectIdentity ?? throw new ArgumentNullException(nameof(projectIdentity));
             this.daemonLogger = daemonLogger ?? throw new ArgumentNullException(nameof(daemonLogger));
         }
@@ -60,7 +61,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             var payload = new IpcPlayStatusResponse(UnityLifecycleResponseFactory.Create(
                 projectIdentity,
                 serverVersionProvider.GetVersion(),
-                readinessGate.CaptureObservation()));
+                availabilityObservationSource.CaptureAvailabilityObservation()));
             return new ValueTask<IpcResponse>(UnityIpcResponseFactory.CreateSuccessResponse(request, payload));
         }
     }

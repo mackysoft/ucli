@@ -266,7 +266,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
             Assert.That(response.Errors, Is.Empty);
-            Assert.That(readinessGate.CaptureObservationCallCount, Is.EqualTo(1));
+            Assert.That(readinessGate.CaptureAvailabilityObservationCallCount, Is.EqualTo(1));
+            Assert.That(readinessGate.CaptureObservationCallCount, Is.EqualTo(0));
             Assert.That(readinessGate.CallCount, Is.EqualTo(0));
             Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcPlayStatusResponse payload, out _), Is.True);
             Assert.That(payload.Snapshot.ServerVersion, Is.EqualTo("1.2.3"));
@@ -296,6 +297,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
             Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
+            Assert.That(readinessGate.CaptureAvailabilityObservationCallCount, Is.EqualTo(0));
             Assert.That(readinessGate.CaptureObservationCallCount, Is.EqualTo(0));
             Assert.That(readinessGate.CallCount, Is.EqualTo(0));
         });

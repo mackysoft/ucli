@@ -3,11 +3,11 @@ using System.Threading.Tasks;
 
 namespace MackySoft.Ucli.Unity.Runtime
 {
-    /// <summary> Captures editor lifecycle telemetry and gates execution requests. </summary>
+    /// <summary> Captures the Editor state used by admitted operations and gates execution requests. </summary>
     internal interface IUnityEditorReadinessGate
     {
-        /// <summary> Captures the current Unity Editor observation. </summary>
-        /// <returns> The normalized Unity Editor observation. </returns>
+        /// <summary> Captures the underlying Unity Editor observation without host execution-lane availability. </summary>
+        /// <returns> The normalized Editor observation used by an operation that already owns its execution lane. </returns>
         UnityEditorObservation CaptureObservation ();
 
         /// <summary> Evaluates Editor lifecycle readiness for a request that has already entered its execution lane. </summary>
@@ -19,5 +19,13 @@ namespace MackySoft.Ucli.Unity.Runtime
             bool failFast,
             CancellationToken cancellationToken = default,
             bool allowPlayMode = false);
+    }
+
+    /// <summary> Captures externally observable host availability from Editor state and mutation-lane ownership. </summary>
+    internal interface IUnityEditorAvailabilityObservationSource
+    {
+        /// <summary> Captures the current Unity Editor observation including mutation-lane availability. </summary>
+        /// <returns> The normalized host availability observation exposed by status and lifecycle sidecars. </returns>
+        UnityEditorObservation CaptureAvailabilityObservation ();
     }
 }

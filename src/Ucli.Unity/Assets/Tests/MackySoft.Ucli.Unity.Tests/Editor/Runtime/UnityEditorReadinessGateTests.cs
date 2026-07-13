@@ -262,7 +262,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void CaptureObservation_WhenMutationLaneIsBusy_ReturnsBusyObservation ()
+        public void CaptureObservation_WhenMutationLaneIsBusy_ReturnsUnderlyingEditorObservation ()
         {
             var telemetryState = new UnityEditorLifecycleTelemetryState(
                 compileGeneration: 4,
@@ -289,6 +289,41 @@ namespace MackySoft.Ucli.Unity.Tests
                 subscribeToEditorEvents: false);
 
             var observation = gate.CaptureObservation();
+
+            Assert.That(observation.State.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.Ready));
+            Assert.That(observation.BlockingReason, Is.Null);
+            Assert.That(observation.CanAcceptExecutionRequests, Is.True);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void CaptureAvailabilityObservation_WhenMutationLaneIsBusy_ReturnsBusyObservation ()
+        {
+            var telemetryState = new UnityEditorLifecycleTelemetryState(
+                compileGeneration: 4,
+                domainReloadGeneration: 9,
+                isDomainReloading: false,
+                isShuttingDown: false,
+                isStartupPending: false);
+            var gate = new UnityEditorReadinessGate(
+                DaemonEditorMode.Gui,
+                new UnityEditorLifecycleMonitor(
+                    telemetryState,
+                    static () => false,
+                    static () => false,
+                    static () => false,
+                    static () => false),
+                static () => false,
+                new StubMutationExecutionState(isBusy: true),
+                static _ => { },
+                static _ => { },
+                static _ => { },
+                static _ => { },
+                static _ => { },
+                static _ => { },
+                subscribeToEditorEvents: false);
+
+            var observation = gate.CaptureAvailabilityObservation();
 
             Assert.That(observation.State.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.Busy));
             Assert.That(observation.BlockingReason, Is.EqualTo(IpcEditorBlockingReason.Busy));

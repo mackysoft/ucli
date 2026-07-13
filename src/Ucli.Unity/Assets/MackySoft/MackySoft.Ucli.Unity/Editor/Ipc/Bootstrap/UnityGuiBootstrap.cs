@@ -257,7 +257,8 @@ namespace MackySoft.Ucli.Unity.Ipc
 
                 serviceProvider = services.BuildServiceProvider();
                 server = serviceProvider.GetRequiredService<IUnityIpcServer>();
-                var readinessGate = serviceProvider.GetRequiredService<IUnityEditorReadinessGate>();
+                var availabilityObservationSource = serviceProvider
+                    .GetRequiredService<IUnityEditorAvailabilityObservationSource>();
                 var mutationLaneControl = serviceProvider.GetRequiredService<IUnityMutationLaneControl>();
                 var shutdownSignal = serviceProvider.GetRequiredService<IDaemonShutdownSignal>();
                 var serverVersion = serviceProvider.GetRequiredService<IServerVersionProvider>().GetVersion();
@@ -293,7 +294,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 using var publicationFence = startResult.PublicationFence;
                 preparedSession = null;
                 EnsureStartingGenerationOwnership(state);
-                var initialSnapshot = readinessGate.CaptureObservation();
+                var initialSnapshot = availabilityObservationSource.CaptureAvailabilityObservation();
                 var lifecycleSidecarWriter = new UnityLifecycleSidecarWriter(
                     new UnityLifecycleSidecarPersistence(
                         storageRoot,
@@ -318,7 +319,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     unityLogCaptureService,
                     serviceProvider,
                     daemonLogger,
-                    readinessGate,
+                    availabilityObservationSource,
                     mutationLaneControl,
                     lifecycleSidecarWriter);
                 state.EnsurePreparedSessionPublicationReadyForCommit();
@@ -1199,8 +1200,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                 // CLI status commands may time out while Unity is in Play Mode or recovering, but Unity main-thread
                 // callbacks still own the authoritative lifecycle snapshot. Keep the sidecar fresh enough to serve as
                 // the read-only observation path without moving Unity API access off the main thread.
-                var snapshot = capturedState.ReadinessGate
-                    .CaptureObservation()
+                var snapshot = capturedState.AvailabilityObservationSource
+                    .CaptureAvailabilityObservation()
                     .WithObservedAtUtc(now);
                 _ = capturedState.LifecycleSidecarWriter.TryEnqueue(
                     snapshot,
@@ -1364,8 +1365,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             try
             {
                 var observedAtUtc = DateTimeOffset.UtcNow;
-                var snapshot = state.ReadinessGate
-                    .CaptureObservation()
+                var snapshot = state.AvailabilityObservationSource
+                    .CaptureAvailabilityObservation()
                     .WithLifecycleState(IpcEditorLifecycleState.Recovering)
                     .WithObservedAtUtc(observedAtUtc);
                 if (!state.LifecycleSidecarWriter.TryEnqueue(snapshot, observedAtUtc, out version))
@@ -1974,7 +1975,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 UnityLogCaptureService unityLogCaptureService,
                 IServiceProvider serviceProvider,
                 IDaemonLogger daemonLogger,
-                IUnityEditorReadinessGate readinessGate,
+                IUnityEditorAvailabilityObservationSource availabilityObservationSource,
                 IUnityMutationLaneControl mutationLaneControl,
                 UnityLifecycleSidecarWriter lifecycleSidecarWriter)
             {
@@ -1984,7 +1985,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                 UnityLogCaptureService = unityLogCaptureService ?? throw new ArgumentNullException(nameof(unityLogCaptureService));
                 ServiceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
                 DaemonLogger = daemonLogger ?? throw new ArgumentNullException(nameof(daemonLogger));
-                ReadinessGate = readinessGate ?? throw new ArgumentNullException(nameof(readinessGate));
+                AvailabilityObservationSource = availabilityObservationSource
+                    ?? throw new ArgumentNullException(nameof(availabilityObservationSource));
                 MutationLaneControl = mutationLaneControl ?? throw new ArgumentNullException(nameof(mutationLaneControl));
                 LifecycleSidecarWriter = lifecycleSidecarWriter
                     ?? throw new ArgumentNullException(nameof(lifecycleSidecarWriter));
@@ -2002,7 +2004,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             public IDaemonLogger DaemonLogger { get; }
 
-            public IUnityEditorReadinessGate ReadinessGate { get; }
+            public IUnityEditorAvailabilityObservationSource AvailabilityObservationSource { get; }
 
             public IUnityMutationLaneControl MutationLaneControl { get; }
 

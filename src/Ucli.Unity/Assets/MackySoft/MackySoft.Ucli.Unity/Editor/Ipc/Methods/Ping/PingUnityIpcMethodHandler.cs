@@ -11,7 +11,7 @@ namespace MackySoft.Ucli.Unity.Ipc
     internal sealed class PingUnityIpcMethodHandler : IUnityControlPlaneIpcMethodHandler
     {
         private readonly IServerVersionProvider serverVersionProvider;
-        private readonly IUnityEditorReadinessGate readinessGate;
+        private readonly IUnityEditorAvailabilityObservationSource availabilityObservationSource;
         private readonly IpcProjectIdentity projectIdentity;
         private readonly IDaemonLogger daemonLogger;
 
@@ -20,12 +20,13 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="projectIdentity"> The project identity served by this IPC host. </param>
         public PingUnityIpcMethodHandler (
             IServerVersionProvider serverVersionProvider,
-            IUnityEditorReadinessGate readinessGate,
+            IUnityEditorAvailabilityObservationSource availabilityObservationSource,
             IpcProjectIdentity projectIdentity,
             IDaemonLogger daemonLogger)
         {
             this.serverVersionProvider = serverVersionProvider ?? throw new ArgumentNullException(nameof(serverVersionProvider));
-            this.readinessGate = readinessGate ?? throw new ArgumentNullException(nameof(readinessGate));
+            this.availabilityObservationSource = availabilityObservationSource
+                ?? throw new ArgumentNullException(nameof(availabilityObservationSource));
             this.projectIdentity = projectIdentity ?? throw new ArgumentNullException(nameof(projectIdentity));
             this.daemonLogger = daemonLogger ?? throw new ArgumentNullException(nameof(daemonLogger));
         }
@@ -58,7 +59,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             var payload = UnityLifecycleResponseFactory.Create(
                 projectIdentity,
                 serverVersionProvider.GetVersion(),
-                readinessGate.CaptureObservation());
+                availabilityObservationSource.CaptureAvailabilityObservation());
             return new ValueTask<IpcResponse>(UnityIpcResponseFactory.CreateSuccessResponse(request, payload));
         }
     }

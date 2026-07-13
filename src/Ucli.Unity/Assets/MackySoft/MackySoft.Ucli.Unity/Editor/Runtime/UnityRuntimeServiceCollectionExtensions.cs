@@ -38,9 +38,13 @@ namespace MackySoft.Ucli.Unity.Runtime
                     Thread.CurrentThread.ManagedThreadId,
                     UnitySynchronizationContextRequestExecutor.DefaultMaxPendingInvocations,
                     poisonOnActiveCancellation: false));
-            services.AddSingleton<IUnityEditorReadinessGate>(serviceProvider => new UnityEditorReadinessGate(
+            services.AddSingleton(serviceProvider => new UnityEditorReadinessGate(
                 editorMode,
                 serviceProvider.GetRequiredService<IUnityMutationExecutionState>()));
+            services.AddSingleton<IUnityEditorReadinessGate>(serviceProvider =>
+                serviceProvider.GetRequiredService<UnityEditorReadinessGate>());
+            services.AddSingleton<IUnityEditorAvailabilityObservationSource>(serviceProvider =>
+                serviceProvider.GetRequiredService<UnityEditorReadinessGate>());
             return services;
         }
     }

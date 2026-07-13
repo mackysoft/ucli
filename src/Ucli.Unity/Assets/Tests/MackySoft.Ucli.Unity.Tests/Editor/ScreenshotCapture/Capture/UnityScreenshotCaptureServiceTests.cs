@@ -90,6 +90,52 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
+        public void CaptureAsync_WhenRequestOwnsMutationLane_DoesNotTreatOwnLaneAsLifecycleChange ()
+        {
+            var telemetryState = new UnityEditorLifecycleTelemetryState(
+                compileGeneration: 3,
+                domainReloadGeneration: 7,
+                assetRefreshGeneration: 5,
+                playModeGeneration: 2,
+                isDomainReloading: false,
+                isShuttingDown: false,
+                isStartupPending: false);
+            var readinessGate = new UnityEditorReadinessGate(
+                DaemonEditorMode.Gui,
+                new UnityEditorLifecycleMonitor(
+                    telemetryState,
+                    static () => false,
+                    static () => false,
+                    static () => false,
+                    static () => false),
+                static () => false,
+                new BusyMutationExecutionState(),
+                static _ => { },
+                static _ => { },
+                static _ => { },
+                static _ => { },
+                static _ => { },
+                static _ => { },
+                subscribeToEditorEvents: false);
+            var writer = new StubStagingImageWriter();
+            var service = new UnityScreenshotCaptureService(
+                readinessGate,
+                new StubCaptureBackend(CreateBackendSuccess()),
+                writer);
+
+            var result = service.CaptureAsync(CreateRequest(), CancellationToken.None)
+                .GetAwaiter()
+                .GetResult();
+
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(writer.WriteCallCount, Is.EqualTo(1));
+            Assert.That(
+                readinessGate.CaptureAvailabilityObservation().State.LifecycleState,
+                Is.EqualTo(IpcEditorLifecycleState.Busy));
+        }
+
+        [Test]
+        [Category("Size.Small")]
         public void CaptureAsync_WhenLifecycleFenceChanges_DoesNotPublishStagingImage ()
         {
             var backend = new StubCaptureBackend(CreateBackendSuccess());
@@ -376,6 +422,11 @@ namespace MackySoft.Ucli.Unity.Tests
                     ? UnityEditorExecutionReadinessResult.Ready(snapshot)
                     : UnityEditorExecutionReadinessPolicy.CreateBlockedResult(snapshot));
             }
+        }
+
+        private sealed class BusyMutationExecutionState : IUnityMutationExecutionState
+        {
+            public bool IsBusy => true;
         }
     }
 }

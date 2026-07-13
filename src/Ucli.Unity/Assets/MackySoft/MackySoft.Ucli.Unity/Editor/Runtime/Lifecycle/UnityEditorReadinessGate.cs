@@ -10,7 +10,9 @@ using UnityEditor.Compilation;
 namespace MackySoft.Ucli.Unity.Runtime
 {
     /// <summary> Captures Unity editor lifecycle telemetry and gates execution requests. </summary>
-    internal sealed class UnityEditorReadinessGate : IUnityEditorReadinessGate
+    internal sealed class UnityEditorReadinessGate :
+        IUnityEditorReadinessGate,
+        IUnityEditorAvailabilityObservationSource
     {
         private static readonly UnityEditorLifecycleTelemetryState SharedLifecycleTelemetryState = new UnityEditorLifecycleTelemetryState();
 
@@ -129,6 +131,12 @@ namespace MackySoft.Ucli.Unity.Runtime
 
         /// <inheritdoc />
         public UnityEditorObservation CaptureObservation ()
+        {
+            return CaptureEditorObservation();
+        }
+
+        /// <inheritdoc />
+        public UnityEditorObservation CaptureAvailabilityObservation ()
         {
             var observation = CaptureEditorObservation();
             if (!observation.CanAcceptExecutionRequests || !mutationExecutionState.IsBusy)

@@ -95,7 +95,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 return new PingUnityIpcMethodHandler(
                     serviceProvider.GetRequiredService<IServerVersionProvider>(),
-                    serviceProvider.GetRequiredService<IUnityEditorReadinessGate>(),
+                    serviceProvider.GetRequiredService<IUnityEditorAvailabilityObservationSource>(),
                     serviceProvider.GetRequiredService<IpcProjectIdentity>(),
                     serviceProvider.GetRequiredService<IDaemonLogger>());
             });
@@ -113,7 +113,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 return new PlayStatusUnityIpcMethodHandler(
                     serviceProvider.GetRequiredService<IServerVersionProvider>(),
-                    serviceProvider.GetRequiredService<IUnityEditorReadinessGate>(),
+                    serviceProvider.GetRequiredService<IUnityEditorAvailabilityObservationSource>(),
                     serviceProvider.GetRequiredService<IpcProjectIdentity>(),
                     serviceProvider.GetRequiredService<IDaemonLogger>());
             });
