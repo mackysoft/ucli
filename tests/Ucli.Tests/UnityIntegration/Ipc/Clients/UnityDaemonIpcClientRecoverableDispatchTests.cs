@@ -264,7 +264,7 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
         var transportClient = new RecordingIpcTransportClient(_ => CreateResponse(Guid.NewGuid()));
         transportClient.EnqueueResponse(CreateResponse(Guid.NewGuid()));
         var session = DaemonSessionTestFactory.CreateEditorInstance();
-        var recoveryWaiter = CreateRecoveryWaiter(session);
+        var recoveryWaiter = CreateRecoveryWaiter(session, timeProvider);
         var sessionConnectionProvider = new QueuedDaemonSessionConnectionProvider(
             DaemonSessionConnectionResolutionResult.SessionNotAvailable(),
             CreateConnectionResult("daemon-token-2"));

@@ -52,8 +52,12 @@ internal static class UnityDaemonIpcClientTestSupport
             new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-session.sock")));
     }
 
-    public static UnityDaemonRecoveryWaiter CreateRecoveryWaiter (DaemonSession session)
+    public static UnityDaemonRecoveryWaiter CreateRecoveryWaiter (
+        DaemonSession session,
+        TimeProvider timeProvider)
     {
+        ArgumentNullException.ThrowIfNull(timeProvider);
+
         return new UnityDaemonRecoveryWaiter(
             new RecordingDaemonSessionStore
             {
@@ -61,7 +65,8 @@ internal static class UnityDaemonIpcClientTestSupport
             },
             new RecordingDaemonLifecycleStore
             {
-                ReadResult = DaemonLifecycleObservationReadResult.Success(CreateRecoveringObservation(session)),
+                ReadResult = DaemonLifecycleObservationReadResult.Success(
+                    CreateRecoveringObservation(session, timeProvider.GetUtcNow())),
             },
             new RecordingDaemonProcessIdentityAssessor(DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess));
     }
@@ -87,7 +92,9 @@ internal static class UnityDaemonIpcClientTestSupport
         return JsonDocument.Parse("{}").RootElement.Clone();
     }
 
-    private static DaemonLifecycleObservation CreateRecoveringObservation (DaemonSession session)
+    private static DaemonLifecycleObservation CreateRecoveringObservation (
+        DaemonSession session,
+        DateTimeOffset observedAtUtc)
     {
         return new DaemonLifecycleObservation(
             processId: session.ProcessId!.Value,
@@ -102,7 +109,7 @@ internal static class UnityDaemonIpcClientTestSupport
                     IpcPlayModeTransition.None,
                     IsPlaying: false,
                     IsPlayingOrWillChangePlaymode: false)),
-            observedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 0, 0, TimeSpan.Zero),
+            observedAtUtc: observedAtUtc,
             actionRequired: null,
             primaryDiagnostic: null,
             serverVersion: null,
