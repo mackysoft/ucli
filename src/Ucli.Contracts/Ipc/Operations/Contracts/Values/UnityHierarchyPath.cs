@@ -14,7 +14,7 @@ public sealed record UnityHierarchyPath : UcliStringValue
     /// <param name="value"> The Unity hierarchy path. </param>
     [JsonConstructor]
     public UnityHierarchyPath (string value)
-        : base(value)
+        : base(UnityHierarchyPathContract.Validate(value))
     {
     }
 }

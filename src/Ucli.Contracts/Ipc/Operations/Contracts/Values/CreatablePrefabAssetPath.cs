@@ -15,7 +15,7 @@ public sealed record CreatablePrefabAssetPath : UcliStringValue
     /// <param name="value"> The project-relative prefab path to create. </param>
     [JsonConstructor]
     public CreatablePrefabAssetPath (string value)
-        : base(value)
+        : base(UnityAssetPathContract.NormalizePrefabAssetPathOrThrow(value))
     {
     }
 }

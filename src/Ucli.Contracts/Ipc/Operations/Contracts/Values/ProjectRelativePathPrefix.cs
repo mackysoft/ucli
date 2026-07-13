@@ -14,7 +14,7 @@ public sealed record ProjectRelativePathPrefix : UcliStringValue
     /// <param name="value"> The project-relative path prefix. </param>
     [JsonConstructor]
     public ProjectRelativePathPrefix (string value)
-        : base(value)
+        : base(UnityAssetPathContract.NormalizeAssetsRootOrDescendantPathOrThrow(value))
     {
     }
 }

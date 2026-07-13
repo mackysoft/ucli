@@ -15,7 +15,7 @@ public sealed record SceneAssetPath : UcliStringValue
     /// <param name="value"> The project-relative scene asset path. </param>
     [JsonConstructor]
     public SceneAssetPath (string value)
-        : base(value)
+        : base(UnityAssetPathContract.NormalizeSceneAssetPathOrThrow(value))
     {
     }
 }

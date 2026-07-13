@@ -15,7 +15,7 @@ public sealed record ProjectSettingsAssetPath : UcliStringValue
     /// <param name="value"> The project-relative ProjectSettings asset path. </param>
     [JsonConstructor]
     public ProjectSettingsAssetPath (string value)
-        : base(value)
+        : base(UnityAssetPathContract.NormalizeProjectSettingsDescendantPathOrThrow(value))
     {
     }
 }

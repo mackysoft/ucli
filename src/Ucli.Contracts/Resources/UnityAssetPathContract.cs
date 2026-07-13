@@ -9,6 +9,8 @@ public static class UnityAssetPathContract
     /// <summary> Gets the canonical Unity <c>Assets/</c> descendant prefix. </summary>
     public const string AssetsRootPrefix = "Assets/";
 
+    private const string ProjectSettingsRootPrefix = "ProjectSettings/";
+
     /// <summary> Gets the Unity scene asset extension. </summary>
     public const string SceneAssetExtension = ".unity";
 
@@ -160,6 +162,99 @@ public static class UnityAssetPathContract
 
         normalizedPath = string.Empty;
         return false;
+    }
+
+    /// <summary> Determines whether <paramref name="path" /> is a normalized path under <c>ProjectSettings/</c>. </summary>
+    /// <param name="path"> The path to inspect. </param>
+    /// <returns> <see langword="true" /> when <paramref name="path" /> is a normalized <c>ProjectSettings/</c> descendant; otherwise <see langword="false" />. </returns>
+    private static bool IsNormalizedProjectSettingsDescendantPath (string? path)
+    {
+        return path != null
+            && RelativePathContract.IsNormalized(path)
+            && path.StartsWith(ProjectSettingsRootPrefix, StringComparison.Ordinal);
+    }
+
+    /// <summary> Normalizes and validates one path under <c>ProjectSettings/</c>. </summary>
+    /// <param name="path"> The input path. </param>
+    /// <param name="normalizedPath"> The slash-separated normalized path when validation succeeds. </param>
+    /// <returns> <see langword="true" /> when <paramref name="path" /> can be normalized to a <c>ProjectSettings/</c> descendant; otherwise <see langword="false" />. </returns>
+    private static bool TryNormalizeProjectSettingsDescendantPath (
+        string? path,
+        out string normalizedPath)
+    {
+        if (RelativePathContract.TryNormalize(path, out normalizedPath)
+            && IsNormalizedProjectSettingsDescendantPath(normalizedPath))
+        {
+            return true;
+        }
+
+        normalizedPath = string.Empty;
+        return false;
+    }
+
+    internal static string NormalizeAssetsDescendantPathOrThrow (string? value)
+    {
+        if (value == null)
+        {
+            throw new ArgumentNullException(nameof(value));
+        }
+
+        return TryNormalizeAssetsDescendantPath(value, out var normalizedPath)
+            ? normalizedPath
+            : throw CreateInvalidPathException("Unity asset path must identify an Assets descendant.");
+    }
+
+    internal static string NormalizeAssetsRootOrDescendantPathOrThrow (string? value)
+    {
+        if (value == null)
+        {
+            throw new ArgumentNullException(nameof(value));
+        }
+
+        return TryNormalizeAssetsRootOrDescendantPath(value, out var normalizedPath)
+            ? normalizedPath
+            : throw CreateInvalidPathException("Unity asset path prefix must identify Assets or one of its descendants.");
+    }
+
+    internal static string NormalizeSceneAssetPathOrThrow (string? value)
+    {
+        if (value == null)
+        {
+            throw new ArgumentNullException(nameof(value));
+        }
+
+        return TryNormalizeSceneAssetPath(value, out var normalizedPath)
+            ? normalizedPath
+            : throw CreateInvalidPathException("Unity scene path must identify an Assets descendant with the .unity extension.");
+    }
+
+    internal static string NormalizePrefabAssetPathOrThrow (string? value)
+    {
+        if (value == null)
+        {
+            throw new ArgumentNullException(nameof(value));
+        }
+
+        return TryNormalizePrefabAssetPath(value, out var normalizedPath)
+            ? normalizedPath
+            : throw CreateInvalidPathException("Unity prefab path must identify an Assets descendant with the .prefab extension.");
+    }
+
+    internal static string NormalizeProjectSettingsDescendantPathOrThrow (string? value)
+    {
+        if (value == null)
+        {
+            throw new ArgumentNullException(nameof(value));
+        }
+
+        return TryNormalizeProjectSettingsDescendantPath(value, out var normalizedPath)
+            ? normalizedPath
+            : throw CreateInvalidPathException("ProjectSettings asset path must identify a ProjectSettings descendant.");
+    }
+
+    private static ArgumentException CreateInvalidPathException (string message)
+    {
+        return new ArgumentException(message, "value");
     }
 
 }
