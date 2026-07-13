@@ -576,7 +576,7 @@ internal static class Program
     {
         return ObjectSchema(
             additionalProperties: false,
-            Required("runId", StringSchema()),
+            Required("runId", UuidStringSchema()),
             Required("refresh", ObjectSchema(
                 additionalProperties: false,
                 Required("origin", EnumSchema("assetDatabaseRefresh", "diagnosticsRead")),
@@ -660,7 +660,7 @@ internal static class Program
     {
         return ObjectSchema(
             additionalProperties: false,
-            Required("runId", StringSchema()),
+            Required("runId", UuidStringSchema()),
             Required("profile", ObjectSchema(
                 additionalProperties: false,
                 Required("path", StringSchema()),
@@ -1834,7 +1834,7 @@ internal static class Program
             additionalProperties: false,
             Required("result", NullableStringSchema()),
             Required("errorKind", NullableStringSchema()),
-            Required("runId", NullableStringSchema()),
+            Required("runId", NullableUuidStringSchema()),
             Required("artifactsDir", NullableStringSchema()),
             Required("summaryJsonPath", NullableStringSchema()));
     }
@@ -1950,6 +1950,15 @@ internal static class Program
         };
     }
 
+    private static Dictionary<string, object?> UuidStringSchema ()
+    {
+        return new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["type"] = "string",
+            ["format"] = "uuid",
+        };
+    }
+
     private static Dictionary<string, object?> Sha256LowerHexSchema ()
     {
         return PatternStringSchema("^[0-9a-f]{64}$");
@@ -1991,6 +2000,15 @@ internal static class Program
         return new Dictionary<string, object?>(StringComparer.Ordinal)
         {
             ["type"] = new[] { "string", "null" },
+        };
+    }
+
+    private static Dictionary<string, object?> NullableUuidStringSchema ()
+    {
+        return new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["type"] = new[] { "string", "null" },
+            ["format"] = "uuid",
         };
     }
 
