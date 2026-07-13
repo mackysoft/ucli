@@ -1,26 +1,52 @@
+using System.Text.Json.Serialization;
+
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Represents persisted compile assurance evidence captured inside Unity. </summary>
-/// <param name="RunId"> The compile run identifier. </param>
-/// <param name="ProjectFingerprint"> The project fingerprint served by the Unity IPC host. </param>
-/// <param name="Completed"> Whether the compile run reached a terminal observation. </param>
-/// <param name="StartedAtUtc"> The UTC timestamp when the compile run started. </param>
-/// <param name="CompletedAtUtc"> The UTC timestamp when the compile run completed. </param>
-/// <param name="Refresh"> AssetDatabase refresh evidence. </param>
-/// <param name="ScriptCompilation"> Script compilation evidence. </param>
-/// <param name="DomainReload"> Domain reload evidence. </param>
-/// <param name="Lifecycle"> Final lifecycle evidence after compile observation. </param>
-public sealed record IpcCompileSummary (
-    string RunId,
-    ProjectFingerprint ProjectFingerprint,
-    bool Completed,
-    DateTimeOffset StartedAtUtc,
-    DateTimeOffset? CompletedAtUtc,
-    IpcCompileSummary.RefreshEvidence Refresh,
-    IpcCompileSummary.ScriptCompilationEvidence ScriptCompilation,
-    IpcCompileSummary.DomainReloadEvidence DomainReload,
-    IpcCompileSummary.LifecycleEvidence Lifecycle)
+public sealed record IpcCompileSummary
 {
+    /// <summary> Initializes one validated compile assurance summary. </summary>
+    [JsonConstructor]
+    public IpcCompileSummary (
+        string RunId,
+        ProjectFingerprint ProjectFingerprint,
+        bool Completed,
+        DateTimeOffset StartedAtUtc,
+        DateTimeOffset? CompletedAtUtc,
+        RefreshEvidence Refresh,
+        ScriptCompilationEvidence ScriptCompilation,
+        DomainReloadEvidence DomainReload,
+        LifecycleEvidence Lifecycle)
+    {
+        this.RunId = ContractArgumentGuard.RequireValue(RunId, nameof(RunId));
+        this.ProjectFingerprint = ContractArgumentGuard.RequireNotNull(ProjectFingerprint, nameof(ProjectFingerprint));
+        this.Completed = Completed;
+        this.StartedAtUtc = StartedAtUtc;
+        this.CompletedAtUtc = CompletedAtUtc;
+        this.Refresh = ContractArgumentGuard.RequireNotNull(Refresh, nameof(Refresh));
+        this.ScriptCompilation = ContractArgumentGuard.RequireNotNull(ScriptCompilation, nameof(ScriptCompilation));
+        this.DomainReload = ContractArgumentGuard.RequireNotNull(DomainReload, nameof(DomainReload));
+        this.Lifecycle = ContractArgumentGuard.RequireNotNull(Lifecycle, nameof(Lifecycle));
+    }
+
+    public string RunId { get; }
+
+    public ProjectFingerprint ProjectFingerprint { get; }
+
+    public bool Completed { get; init; }
+
+    public DateTimeOffset StartedAtUtc { get; }
+
+    public DateTimeOffset? CompletedAtUtc { get; init; }
+
+    public RefreshEvidence Refresh { get; init; }
+
+    public ScriptCompilationEvidence ScriptCompilation { get; init; }
+
+    public DomainReloadEvidence DomainReload { get; init; }
+
+    public LifecycleEvidence Lifecycle { get; init; }
+
     /// <summary> Represents AssetDatabase refresh evidence for a compile run. </summary>
     public sealed record RefreshEvidence (
         string Origin,

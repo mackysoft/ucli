@@ -85,19 +85,21 @@ public sealed class DaemonPingResponseCodecTests
         var response = CreateResponse(
             IpcProtocol.StatusOk,
             Array.Empty<IpcError>(),
-            new IpcPingResponse(
-                ServerVersion: " ",
-                EditorMode: "batchmode",
-                UnityVersion: "2022.3.5f1",
-                ProjectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"),
-                CompileState: "ready"));
+            new
+            {
+                ServerVersion = " ",
+                EditorMode = "batchmode",
+                UnityVersion = "2022.3.5f1",
+                ProjectFingerprint = ProjectFingerprintTestFactory.Create("project-fingerprint").ToString(),
+                CompileState = "ready",
+            });
 
         var result = DaemonPingResponseCodec.TryDecodePayload(response, out var payload, out var error);
 
         Assert.False(result);
         Assert.Null(payload);
         Assert.NotNull(error);
-        Assert.Contains("required fields", error.Message, StringComparison.Ordinal);
+        Assert.Contains("invalid", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]

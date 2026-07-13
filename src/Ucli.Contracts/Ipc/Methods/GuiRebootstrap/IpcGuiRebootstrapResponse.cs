@@ -1,10 +1,25 @@
+using System.Text.Json.Serialization;
+
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Represents a <c>gui.rebootstrap</c> IPC response payload. </summary>
-/// <param name="Accepted"> Whether the rebootstrap request was accepted. </param>
-/// <param name="ProjectFingerprint"> The project fingerprint served by the GUI supervisor. </param>
-/// <param name="ProcessId"> The Unity GUI process identifier. </param>
-public sealed record IpcGuiRebootstrapResponse (
-    bool Accepted,
-    ProjectFingerprint ProjectFingerprint,
-    int ProcessId);
+public sealed record IpcGuiRebootstrapResponse
+{
+    /// <summary> Initializes one validated GUI rebootstrap response payload. </summary>
+    [JsonConstructor]
+    public IpcGuiRebootstrapResponse (
+        bool Accepted,
+        ProjectFingerprint ProjectFingerprint,
+        int ProcessId)
+    {
+        this.Accepted = Accepted;
+        this.ProjectFingerprint = ContractArgumentGuard.RequireNotNull(ProjectFingerprint, nameof(ProjectFingerprint));
+        this.ProcessId = ContractArgumentGuard.RequirePositive(ProcessId, nameof(ProcessId));
+    }
+
+    public bool Accepted { get; }
+
+    public ProjectFingerprint ProjectFingerprint { get; }
+
+    public int ProcessId { get; }
+}

@@ -24,9 +24,19 @@ internal sealed class GuiSupervisorManifestStore : IGuiSupervisorManifestStore
         }
 
         var json = await FileUtilities.ReadAllTextOrNullAsync(manifestPath, cancellationToken).ConfigureAwait(false);
-        return json is null
-            ? null
-            : GuiSupervisorManifestJsonContractSerializer.Deserialize(json);
+        if (json is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            return GuiSupervisorManifestJsonContractSerializer.Deserialize(json);
+        }
+        catch (Exception exception) when (exception is ArgumentException or System.Text.Json.JsonException)
+        {
+            return null;
+        }
     }
 
     /// <inheritdoc />

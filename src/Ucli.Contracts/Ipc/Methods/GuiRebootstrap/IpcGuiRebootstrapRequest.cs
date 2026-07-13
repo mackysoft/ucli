@@ -1,8 +1,21 @@
+using System.Text.Json.Serialization;
+
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Represents a <c>gui.rebootstrap</c> IPC request payload. </summary>
-/// <param name="ProjectFingerprint"> The project fingerprint expected by the caller. </param>
-/// <param name="ReplaceExistingSession"> Whether the GUI process may replace an unreachable session owned by the same Editor instance. </param>
-public sealed record IpcGuiRebootstrapRequest (
-    ProjectFingerprint ProjectFingerprint,
-    bool ReplaceExistingSession);
+public sealed record IpcGuiRebootstrapRequest
+{
+    /// <summary> Initializes one validated GUI rebootstrap request payload. </summary>
+    [JsonConstructor]
+    public IpcGuiRebootstrapRequest (
+        ProjectFingerprint ProjectFingerprint,
+        bool ReplaceExistingSession)
+    {
+        this.ProjectFingerprint = ContractArgumentGuard.RequireNotNull(ProjectFingerprint, nameof(ProjectFingerprint));
+        this.ReplaceExistingSession = ReplaceExistingSession;
+    }
+
+    public ProjectFingerprint ProjectFingerprint { get; }
+
+    public bool ReplaceExistingSession { get; }
+}

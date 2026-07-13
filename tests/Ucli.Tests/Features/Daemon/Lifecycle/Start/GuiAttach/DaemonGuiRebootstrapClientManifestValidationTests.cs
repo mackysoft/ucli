@@ -115,10 +115,18 @@ public sealed class DaemonGuiRebootstrapClientManifestValidationTests
             "daemon-command-service",
             $"{nameof(RequestRebootstrapAsync_WhenManifestValidationFails_ReturnsUnavailableWithoutIpc)}-{testCase.Name}");
         var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint"));
-        var manifest = CreateManifest() with
+        var baseManifest = CreateManifest();
+        var manifest = new GuiSupervisorManifestJsonContract(
+            baseManifest.SchemaVersion,
+            baseManifest.SessionToken,
+            testCase.ProjectFingerprint,
+            baseManifest.EndpointTransportKind,
+            baseManifest.EndpointAddress,
+            baseManifest.ProcessId,
+            baseManifest.ProcessStartedAtUtc,
+            baseManifest.IssuedAtUtc) with
         {
             SchemaVersion = testCase.SchemaVersion,
-            ProjectFingerprint = testCase.ProjectFingerprint,
             SessionToken = testCase.SessionToken,
             EndpointTransportKind = testCase.EndpointTransportKind,
             EndpointAddress = testCase.EndpointAddress,
