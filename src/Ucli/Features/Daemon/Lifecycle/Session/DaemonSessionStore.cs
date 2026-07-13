@@ -44,7 +44,10 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
         ReadOnlyMemory<byte>? serializedContent;
         try
         {
-            serializedContent = await FileUtilities.ReadAllBytesOrNullAsync(sessionPath, cancellationToken)
+            serializedContent = await FileUtilities.ReadBytesOrNullWithinLimitAsync(
+                    sessionPath,
+                    DaemonSessionStorageContract.MaximumFileSizeBytes,
+                    cancellationToken)
                 .ConfigureAwait(false);
         }
         catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))

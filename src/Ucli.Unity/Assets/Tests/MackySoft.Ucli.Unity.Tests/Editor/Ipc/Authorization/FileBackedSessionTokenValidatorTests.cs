@@ -3,6 +3,7 @@ using System.Collections;
 using System.IO;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Unity.Ipc;
 using NUnit.Framework;
 using UnityEngine.TestTools;
@@ -76,6 +77,33 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(
                     await validator.ValidateAsync(ReplacementSessionToken, CancellationToken.None),
                     Is.True);
+            }
+            finally
+            {
+                if (Directory.Exists(storageRoot))
+                {
+                    Directory.Delete(storageRoot, recursive: true);
+                }
+            }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator ValidateAsync_WhenSessionFileExceedsStorageLimit_RejectsToken () => UniTask.ToCoroutine(async () =>
+        {
+            var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-file-session-token-validator-tests", Guid.NewGuid().ToString("N"));
+            try
+            {
+                Directory.CreateDirectory(storageRoot);
+                var sessionPath = Path.Combine(storageRoot, "session.json");
+                File.WriteAllText(
+                    sessionPath,
+                    $"{{\"sessionToken\":\"{FirstSessionToken}\",\"padding\":\"{new string('a', DaemonSessionStorageContract.MaximumFileSizeBytes)}\"}}");
+                var validator = new FileBackedSessionTokenValidator(sessionPath);
+
+                Assert.That(
+                    await validator.ValidateAsync(FirstSessionToken, CancellationToken.None),
+                    Is.False);
             }
             finally
             {

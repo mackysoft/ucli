@@ -109,7 +109,7 @@ public static class FileUtilities
     /// <param name="path"> The target file path. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> Newly owned read-only file bytes when the file exists; otherwise <see langword="null" />. </returns>
-    public static async ValueTask<ReadOnlyMemory<byte>?> ReadAllBytesOrNullAsync (
+    public static ValueTask<ReadOnlyMemory<byte>?> ReadAllBytesOrNullAsync (
         string path,
         CancellationToken cancellationToken)
     {
@@ -118,14 +118,83 @@ public static class FileUtilities
             throw new ArgumentException("path must not be empty.", nameof(path));
         }
 
+        return ReadBytesOrNullCoreAsync(path, maximumBytes: null, cancellationToken);
+    }
+
+    /// <summary> Reads at most the specified number of exact file bytes without blocking concurrent atomic replacement. </summary>
+    /// <param name="path"> The target file path. </param>
+    /// <param name="maximumBytes"> The maximum accepted file size in bytes. </param>
+    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
+    /// <returns> Newly owned read-only file bytes when the file exists; otherwise <see langword="null" />. </returns>
+    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="maximumBytes" /> is not positive. </exception>
+    /// <exception cref="IOException"> Thrown when the file exceeds <paramref name="maximumBytes" />. </exception>
+    public static ValueTask<ReadOnlyMemory<byte>?> ReadBytesOrNullWithinLimitAsync (
+        string path,
+        int maximumBytes,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            throw new ArgumentException("path must not be empty.", nameof(path));
+        }
+
+        if (maximumBytes <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(maximumBytes),
+                maximumBytes,
+                "Maximum byte count must be greater than zero.");
+        }
+
+        return ReadBytesOrNullCoreAsync(path, maximumBytes, cancellationToken);
+    }
+
+    private static async ValueTask<ReadOnlyMemory<byte>?> ReadBytesOrNullCoreAsync (
+        string path,
+        int? maximumBytes,
+        CancellationToken cancellationToken)
+    {
         cancellationToken.ThrowIfCancellationRequested();
 
         try
         {
             using var stream = OpenReopenSafeReadStream(path);
+            if (maximumBytes.HasValue && stream.Length > maximumBytes.Value)
+            {
+                throw new IOException(
+                    $"File exceeds the maximum size of {maximumBytes.Value} bytes: {path}");
+            }
+
             using var contents = new MemoryStream();
-            await stream.CopyToAsync(contents, FileReadBufferSize, cancellationToken).ConfigureAwait(false);
-            return new ReadOnlyMemory<byte>(contents.ToArray());
+            var buffer = ArrayPool<byte>.Shared.Rent(FileReadBufferSize);
+            try
+            {
+                long totalBytesRead = 0;
+                while (true)
+                {
+                    var readCount = await stream.ReadAsync(
+                            buffer.AsMemory(0, FileReadBufferSize),
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    if (readCount == 0)
+                    {
+                        return new ReadOnlyMemory<byte>(contents.ToArray());
+                    }
+
+                    totalBytesRead += readCount;
+                    if (maximumBytes.HasValue && totalBytesRead > maximumBytes.Value)
+                    {
+                        throw new IOException(
+                            $"File exceeds the maximum size of {maximumBytes.Value} bytes: {path}");
+                    }
+
+                    contents.Write(buffer, 0, readCount);
+                }
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(buffer);
+            }
         }
         catch (FileNotFoundException)
         {

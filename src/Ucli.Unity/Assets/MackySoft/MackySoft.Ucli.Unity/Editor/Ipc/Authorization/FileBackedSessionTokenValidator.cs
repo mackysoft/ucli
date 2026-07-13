@@ -1,8 +1,11 @@
 using System;
+using System.IO;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Runtime;
 
@@ -34,59 +37,77 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="sessionToken"> The token presented by client connection. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by operation pipelines. </param>
         /// <returns> <see langword="true" /> when the token matches persisted session token; otherwise <see langword="false" />. </returns>
-        public Task<bool> ValidateAsync (
+        public async Task<bool> ValidateAsync (
             string? sessionToken,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (!IpcSessionToken.IsValidEncodedValue(sessionToken))
             {
-                return CachedTask.FromResult(false);
+                return false;
             }
 
             // Session replacement uses atomic rename. The shared reader keeps delete sharing enabled so
             // a probe cannot prevent GUI rebootstrap from publishing the rotated session token on Windows.
-            var json = FileUtilities.ReadAllTextOrNull(sessionPath);
-            if (json == null)
+            ReadOnlyMemory<byte>? serializedSession;
+            try
+            {
+                serializedSession = await FileUtilities.ReadBytesOrNullWithinLimitAsync(
+                        sessionPath,
+                        DaemonSessionStorageContract.MaximumFileSizeBytes,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
             {
                 ClearCachedToken();
-                return CachedTask.FromResult(false);
+                return false;
+            }
+
+            if (serializedSession == null)
+            {
+                ClearCachedToken();
+                return false;
             }
 
             cancellationToken.ThrowIfCancellationRequested();
-            if (TryReadCachedToken(json, out var cachedToken))
+            var artifactIdentity = Sha256Digest.Compute(serializedSession.Value.Span);
+            if (TryReadCachedToken(artifactIdentity, out var cachedToken))
             {
-                return CachedTask.FromResult(cachedToken.Matches(sessionToken));
+                return cachedToken.Matches(sessionToken);
             }
 
-            using var sessionJson = JsonDocument.Parse(json);
-            if (!SessionTokenContractReader.TryReadSessionToken(
-                    sessionJson.RootElement,
-                    out var persistedTokenText,
-                    out _))
+            try
+            {
+                using var sessionJson = JsonDocument.Parse(serializedSession.Value);
+                if (!SessionTokenContractReader.TryReadSessionToken(
+                        sessionJson.RootElement,
+                        out var persistedTokenText,
+                        out _)
+                    || !IpcSessionToken.TryParse(persistedTokenText, out var persistedToken))
+                {
+                    ClearCachedToken();
+                    return false;
+                }
+
+                CacheToken(artifactIdentity, persistedToken);
+                return persistedToken.Matches(sessionToken);
+            }
+            catch (JsonException)
             {
                 ClearCachedToken();
-                return CachedTask.FromResult(false);
+                return false;
             }
-
-            if (!IpcSessionToken.TryParse(persistedTokenText, out var persistedToken))
-            {
-                ClearCachedToken();
-                return CachedTask.FromResult(false);
-            }
-
-            CacheToken(json, persistedToken);
-            return CachedTask.FromResult(persistedToken.Matches(sessionToken));
         }
 
         private bool TryReadCachedToken (
-            string sessionJson,
+            Sha256Digest artifactIdentity,
             out IpcSessionToken? sessionToken)
         {
             lock (syncRoot)
             {
                 if (cachedSessionToken != null
-                    && string.Equals(cachedSessionToken.SessionJson, sessionJson, StringComparison.Ordinal))
+                    && cachedSessionToken.ArtifactIdentity == artifactIdentity)
                 {
                     sessionToken = cachedSessionToken.SessionToken;
                     return true;
@@ -98,13 +119,13 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         private void CacheToken (
-            string sessionJson,
+            Sha256Digest artifactIdentity,
             IpcSessionToken sessionToken)
         {
             lock (syncRoot)
             {
                 cachedSessionToken = new CachedSessionToken(
-                    sessionJson,
+                    artifactIdentity,
                     sessionToken);
             }
         }
@@ -120,14 +141,14 @@ namespace MackySoft.Ucli.Unity.Ipc
         private sealed class CachedSessionToken
         {
             public CachedSessionToken (
-                string sessionJson,
+                Sha256Digest artifactIdentity,
                 IpcSessionToken sessionToken)
             {
-                SessionJson = sessionJson ?? throw new ArgumentNullException(nameof(sessionJson));
+                ArtifactIdentity = artifactIdentity ?? throw new ArgumentNullException(nameof(artifactIdentity));
                 SessionToken = sessionToken ?? throw new ArgumentNullException(nameof(sessionToken));
             }
 
-            public string SessionJson { get; }
+            public Sha256Digest ArtifactIdentity { get; }
 
             public IpcSessionToken SessionToken { get; }
         }

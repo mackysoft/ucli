@@ -18,6 +18,39 @@ public sealed class FileUtilitiesTests
         Assert.Equal("session-contents", contents);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task ReadBytesOrNullWithinLimitAsync_WhenFileFits_ReturnsExactBytes ()
+    {
+        using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "bounded-read-fits");
+        var path = Path.Combine(scope.FullPath, "session.json");
+        var expected = new byte[] { 0x00, 0x7f, 0x80, 0xff };
+        await File.WriteAllBytesAsync(path, expected, CancellationToken.None);
+
+        var contents = await FileUtilities.ReadBytesOrNullWithinLimitAsync(
+            path,
+            expected.Length,
+            CancellationToken.None);
+
+        Assert.NotNull(contents);
+        Assert.Equal(expected, contents.Value.ToArray());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task ReadBytesOrNullWithinLimitAsync_WhenFileExceedsLimit_ThrowsIOException ()
+    {
+        using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "bounded-read-exceeds");
+        var path = Path.Combine(scope.FullPath, "session.json");
+        await File.WriteAllBytesAsync(path, new byte[] { 1, 2, 3, 4 }, CancellationToken.None);
+
+        await Assert.ThrowsAsync<IOException>(() => FileUtilities.ReadBytesOrNullWithinLimitAsync(
+                path,
+                maximumBytes: 3,
+                CancellationToken.None)
+            .AsTask());
+    }
+
     [Theory]
     [Trait("Size", "Small")]
     [InlineData(1, 5)]

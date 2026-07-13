@@ -228,6 +228,30 @@ public sealed class DaemonSessionStoreTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task Read_WhenSessionJsonExceedsStorageLimit_ReturnsIoFailure ()
+    {
+        using var scope = TestDirectories.CreateTempScope("daemon-session-store", "oversized-json");
+        var store = new DaemonSessionStore();
+        var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-oversized-json");
+        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, projectFingerprint);
+        Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
+        await File.WriteAllBytesAsync(
+            sessionPath,
+            new byte[DaemonSessionStorageContract.MaximumFileSizeBytes + 1],
+            CancellationToken.None);
+
+        var readResult = await store.ReadAsync(scope.FullPath, projectFingerprint, CancellationToken.None);
+
+        Assert.False(readResult.IsSuccess);
+        Assert.False(readResult.Exists);
+        Assert.Equal(DaemonSessionReadFailureKind.IoFailure, readResult.FailureKind);
+        var error = Assert.IsType<ExecutionError>(readResult.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.Contains("maximum size", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task Read_WhenEditorInstanceIdIsNotGuid_ReturnsInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "non-guid-editor-instance-id");
