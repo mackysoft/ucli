@@ -71,6 +71,7 @@ internal static class ProcessOwnedTemporaryFilePath
                 CultureInfo.InvariantCulture,
                 out processId)
             && processId > 0
-            && Guid.TryParseExact(ownerToken.Substring(separatorIndex + 1), "N", out _);
+            && Guid.TryParseExact(ownerToken.Substring(separatorIndex + 1), "N", out var ownerNonce)
+            && ownerNonce != Guid.Empty;
     }
 }

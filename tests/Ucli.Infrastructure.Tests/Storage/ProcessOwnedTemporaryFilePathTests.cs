@@ -35,6 +35,7 @@ public sealed class ProcessOwnedTemporaryFilePathTests
             destinationPath + ".tmp." + guid,
             destinationPath + ".tmp.not-a-pid." + guid,
             destinationPath + ".tmp.123.not-a-guid",
+            destinationPath + ".tmp.123.00000000000000000000000000000000",
             destinationPath + ".tmp.123." + guid + ".extra",
             scope.GetPath("other.log.tmp.123." + guid),
             scope.GetPath("other/editor.log.tmp.123." + guid),
