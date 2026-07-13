@@ -50,11 +50,15 @@ namespace MackySoft.Ucli.Unity.Ipc
             CancellationToken cancellationToken)
         {
             ValidateSessionReplacementScope(sessionReplacementScope);
+            var editorInstanceId = UnityEditorSessionStateStore.GetOrCreateEditorInstanceId();
             var daemonLogStream = new DaemonLogRingBuffer();
             var daemonLogger = new DaemonLogger(
                 daemonLogStream,
                 UnityMainThreadDaemonConsoleLogSink.CaptureCurrent());
-            var nextStartingState = new StartingGuiBootstrapState(cancellationToken, daemonLogger);
+            var nextStartingState = new StartingGuiBootstrapState(
+                cancellationToken,
+                editorInstanceId,
+                daemonLogger);
             lock (SyncRoot)
             {
                 if (startingState != null)
@@ -219,6 +223,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     projectFingerprint,
                     endpoint,
                     sessionOptions,
+                    state.EditorInstanceId,
                     sessionReplacementScope: sessionReplacementScope,
                     cancellationToken: state.CancellationToken);
                 if (!TryAttachPreparedSession(state, preparedSession))
@@ -246,7 +251,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                         DaemonEditorMode.Gui)
                     .AddUnityIpcDaemonHostServices(
                         daemonBootstrapArguments,
-                        daemonLogStream);
+                        daemonLogStream,
+                        state.EditorInstanceId);
 
                 serviceProvider = services.BuildServiceProvider();
                 server = serviceProvider.GetRequiredService<IUnityIpcServer>();
@@ -296,6 +302,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     new UnityLifecycleSidecarPersistence(
                         storageRoot,
                         projectFingerprint,
+                        state.EditorInstanceId,
                         serverVersion));
                 if (!TryAttachLifecycleSidecarWriter(state, lifecycleSidecarWriter))
                 {
@@ -1592,15 +1599,24 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             public StartingGuiBootstrapState (
                 CancellationToken callerCancellationToken,
+                Guid editorInstanceId,
                 IDaemonLogger daemonLogger)
             {
+                if (editorInstanceId == Guid.Empty)
+                {
+                    throw new ArgumentException("Editor instance identifier must not be empty.", nameof(editorInstanceId));
+                }
+
                 CallerCancellationToken = callerCancellationToken;
+                EditorInstanceId = editorInstanceId;
                 DaemonLogger = daemonLogger ?? throw new ArgumentNullException(nameof(daemonLogger));
                 cancellationSource = CancellationTokenSource.CreateLinkedTokenSource(callerCancellationToken);
                 cancellationToken = cancellationSource.Token;
             }
 
             public CancellationToken CallerCancellationToken { get; }
+
+            public Guid EditorInstanceId { get; }
 
             public CancellationToken CancellationToken => cancellationToken;
 

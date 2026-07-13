@@ -24,7 +24,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private readonly DateTimeOffset processStartedAtUtc;
 
-        private readonly string editorInstanceId;
+        private readonly Guid editorInstanceId;
 
         private readonly string serverVersion;
 
@@ -32,10 +32,16 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private string currentAttemptContents;
 
-        /// <summary> Captures the generation identity that must only be read from the Unity thread. </summary>
+        /// <summary> Initializes persistence with the Editor identity captured for the host generation. </summary>
+        /// <param name="storageRoot"> The shared storage root path. </param>
+        /// <param name="projectFingerprint"> The project fingerprint served by this Editor. </param>
+        /// <param name="editorInstanceId"> The non-empty Editor process identity captured for this host generation. </param>
+        /// <param name="serverVersion"> The uCLI server version written to lifecycle observations. </param>
+        /// <exception cref="ArgumentException"> Thrown when a required value is empty. </exception>
         public UnityLifecycleSidecarPersistence (
             string storageRoot,
             string projectFingerprint,
+            Guid editorInstanceId,
             string serverVersion)
         {
             if (string.IsNullOrWhiteSpace(storageRoot))
@@ -53,12 +59,17 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentException("serverVersion must not be empty.", nameof(serverVersion));
             }
 
+            if (editorInstanceId == Guid.Empty)
+            {
+                throw new ArgumentException("Editor instance identifier must not be empty.", nameof(editorInstanceId));
+            }
+
             using var currentProcess = Process.GetCurrentProcess();
             path = UcliStoragePathResolver.ResolveDaemonLifecyclePath(storageRoot, projectFingerprint);
             lockPath = path + ".lock";
             processId = currentProcess.Id;
             processStartedAtUtc = currentProcess.StartTime.ToUniversalTime();
-            editorInstanceId = UnityEditorSessionStateStore.GetOrCreateEditorInstanceId();
+            this.editorInstanceId = editorInstanceId;
             this.serverVersion = serverVersion;
         }
 
@@ -88,7 +99,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 ServerVersion = serverVersion,
                 CanAcceptExecutionRequests = snapshot.CanAcceptExecutionRequests,
-                EditorInstanceId = editorInstanceId,
+                EditorInstanceId = editorInstanceId.ToString("N"),
                 PlayMode = snapshot.PlayMode,
             };
             var contents = DaemonLifecycleJsonContractSerializer.Serialize(contract);

@@ -32,7 +32,8 @@ internal static class DaemonGuiEditorAttachServiceTestSupport
             endpointTransportKind: "unixDomainSocket",
             endpointAddress: "/tmp/ucli.sock",
             processId: 1234,
-            ownerProcessId: 1234);
+            ownerProcessId: 1234,
+            editorInstanceId: DaemonSessionTestFactory.DefaultEditorInstanceId);
     }
 
     public static DaemonStartLifecycleSnapshot CreateReadyLifecycleSnapshot ()

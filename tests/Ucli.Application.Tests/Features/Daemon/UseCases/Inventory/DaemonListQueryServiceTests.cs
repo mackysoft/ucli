@@ -102,7 +102,8 @@ public sealed class DaemonListQueryServiceTests
             processId: 3101,
             editorMode: "gui",
             ownerKind: "user",
-            canShutdownProcess: false);
+            canShutdownProcess: false,
+            editorInstanceId: DaemonSessionTestFactory.DefaultEditorInstanceId);
         var pingResponse = new IpcPingResponse(
             ServerVersion: "0.0.2",
             EditorMode: "gui",

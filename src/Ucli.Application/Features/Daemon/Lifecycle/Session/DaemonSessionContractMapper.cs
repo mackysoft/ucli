@@ -94,6 +94,20 @@ internal static class DaemonSessionContractMapper
             return false;
         }
 
+        Guid? editorInstanceId = null;
+        if (contract.EditorInstanceId is string rawEditorInstanceId)
+        {
+            if (rawEditorInstanceId.Length != 32
+                || !Guid.TryParseExact(rawEditorInstanceId, "N", out var parsedEditorInstanceId)
+                || parsedEditorInstanceId == Guid.Empty)
+            {
+                error = Invalid("editorInstanceId is invalid.", sourceDescription);
+                return false;
+            }
+
+            editorInstanceId = parsedEditorInstanceId;
+        }
+
         try
         {
             session = new DaemonSession(
@@ -107,7 +121,7 @@ internal static class DaemonSessionContractMapper
                 contract.ProcessId,
                 contract.ProcessStartedAtUtc,
                 ownerProcessId,
-                contract.EditorInstanceId);
+                editorInstanceId);
         }
         catch (ArgumentException exception)
         {
@@ -140,7 +154,7 @@ internal static class DaemonSessionContractMapper
             ProcessStartedAtUtc: session.ProcessStartedAtUtc,
             OwnerProcessId: session.OwnerProcessId)
         {
-            EditorInstanceId = session.EditorInstanceId,
+            EditorInstanceId = session.EditorInstanceId?.ToString("N"),
         };
     }
 

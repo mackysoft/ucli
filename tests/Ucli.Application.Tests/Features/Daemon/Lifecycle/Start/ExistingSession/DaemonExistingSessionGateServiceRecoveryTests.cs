@@ -15,7 +15,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
         var session = DaemonExistingSessionGateServiceTestSupport.CreateRecoveringGuiSession(
             processId: 4009,
             projectFingerprint: context.ProjectFingerprint,
-            editorInstanceId: "editor-instance-recovering");
+            editorInstanceId: Guid.NewGuid());
         var pingClient = new RecordingDaemonPingInfoClient(
             new TimeoutException("recovering"),
             DaemonExistingSessionGateServiceTestSupport.CreateReadyPingResponse());
@@ -57,7 +57,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
         var session = DaemonExistingSessionGateServiceTestSupport.CreateRecoveringGuiSession(
             processId: 4017,
             projectFingerprint: context.ProjectFingerprint,
-            editorInstanceId: "editor-instance-ready-handoff");
+            editorInstanceId: Guid.NewGuid());
         var lifecycleStore = new RecordingDaemonLifecycleStore
         {
             ReadResult = DaemonLifecycleObservationReadResult.Success(
@@ -99,7 +99,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
         var session = DaemonExistingSessionGateServiceTestSupport.CreateRecoveringGuiSession(
             processId: 4018,
             projectFingerprint: context.ProjectFingerprint,
-            editorInstanceId: "editor-instance-stale-recovery");
+            editorInstanceId: Guid.NewGuid());
         var lifecycleStore = new RecordingDaemonLifecycleStore
         {
             ReadResult = DaemonLifecycleObservationReadResult.Success(
@@ -136,7 +136,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
         var session = DaemonExistingSessionGateServiceTestSupport.CreateRecoveringGuiSession(
             processId: 4015,
             projectFingerprint: context.ProjectFingerprint,
-            editorInstanceId: "editor-instance-recovery-detection-budget");
+            editorInstanceId: Guid.NewGuid());
         var pingClient = new RecordingDaemonPingInfoClient(
             DaemonExistingSessionGateServiceTestSupport.CreateReadyPingResponse());
         var lifecycleStore = DaemonExistingSessionGateServiceTestSupport.CreateRecoveringLifecycleStore(session);
@@ -169,7 +169,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
         var session = DaemonExistingSessionGateServiceTestSupport.CreateRecoveringGuiSession(
             processId: 4012,
             projectFingerprint: context.ProjectFingerprint,
-            editorInstanceId: "editor-instance-recovery-handoff-not-running");
+            editorInstanceId: Guid.NewGuid());
         var pingClient = new RecordingDaemonPingInfoClient(
             new InvalidOperationException("endpoint unavailable"),
             new TimeoutException("recovering endpoint timeout"))
@@ -217,7 +217,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
         var session = DaemonExistingSessionGateServiceTestSupport.CreateRecoveringGuiSession(
             processId: 4016,
             projectFingerprint: context.ProjectFingerprint,
-            editorInstanceId: "editor-instance-recovery-retry-not-running");
+            editorInstanceId: Guid.NewGuid());
         var pingClient = new RecordingDaemonPingInfoClient(
             new TimeoutException("initial endpoint timeout"),
             new InvalidOperationException("endpoint unavailable during recovery"))
@@ -264,7 +264,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
         var session = DaemonExistingSessionGateServiceTestSupport.CreateRecoveringGuiSession(
             processId: 4013,
             projectFingerprint: context.ProjectFingerprint,
-            editorInstanceId: "editor-instance-recovery-mismatch");
+            editorInstanceId: Guid.NewGuid());
         var pingClient = new RecordingDaemonPingInfoClient(new TimeoutException("recovering"));
         var cleanupService = new RecordingDaemonSessionCleanupService();
         var lifecycleStore = DaemonExistingSessionGateServiceTestSupport.CreateRecoveringLifecycleStore(session);
@@ -298,7 +298,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
         var session = DaemonSessionTestFactory.Create(
             processId: 4014,
             projectFingerprint: context.ProjectFingerprint,
-            editorInstanceId: "editor-instance-recovery-batchmode");
+            editorInstanceId: Guid.NewGuid());
         var cleanupService = new RecordingDaemonSessionCleanupService();
         var lifecycleStore = DaemonExistingSessionGateServiceTestSupport.CreateRecoveringLifecycleStore(session);
         var service = DaemonExistingSessionGateServiceTestSupport.CreateService(
@@ -330,7 +330,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
         var session = DaemonExistingSessionGateServiceTestSupport.CreateRecoveringGuiSession(
             processId: 4010,
             projectFingerprint: context.ProjectFingerprint,
-            editorInstanceId: "editor-instance-recovery-handoff");
+            editorInstanceId: Guid.NewGuid());
         var pingClient = new RecordingDaemonPingInfoClient(
             new TimeoutException("initial endpoint timeout"),
             new TimeoutException("recovering endpoint timeout"))
@@ -370,7 +370,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task TryHandleExistingSession_WhenRecoveringSidecarLacksEditorInstanceId_ReturnsTimeoutFailure ()
+    public async Task TryHandleExistingSession_WhenRecoveringSidecarHasInvalidEditorInstanceId_ReturnsTimeoutFailure ()
     {
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-existing-timeout-recovery-missing-editor-instance");
         var session = DaemonSessionTestFactory.Create(
@@ -378,8 +378,13 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
             projectFingerprint: context.ProjectFingerprint,
             editorMode: "gui",
             ownerKind: "user",
-            canShutdownProcess: false);
-        var lifecycleStore = DaemonExistingSessionGateServiceTestSupport.CreateRecoveringLifecycleStore(session);
+            canShutdownProcess: false,
+            editorInstanceId: DaemonSessionTestFactory.DefaultEditorInstanceId);
+        var lifecycleStore = new RecordingDaemonLifecycleStore
+        {
+            ReadResult = DaemonLifecycleObservationReadResult.Failure(
+                ExecutionError.InvalidArgument("Daemon lifecycle editorInstanceId is invalid.")),
+        };
         var service = DaemonExistingSessionGateServiceTestSupport.CreateService(
             daemonPingInfoClient: new RecordingDaemonPingInfoClient(new TimeoutException("recovering")),
             lifecycleStore: lifecycleStore,

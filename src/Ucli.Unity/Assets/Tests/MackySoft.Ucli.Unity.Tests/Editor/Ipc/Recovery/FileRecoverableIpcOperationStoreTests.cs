@@ -14,7 +14,6 @@ using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Ipc;
-using MackySoft.Ucli.Unity.Runtime;
 using NUnit.Framework;
 using UnityEngine.TestTools;
 
@@ -24,16 +23,27 @@ namespace MackySoft.Ucli.Unity.Tests
     {
         private const string ProjectFingerprint = "project-fingerprint";
 
+        private const string EditorInstanceId = "11111111111111111111111111111111";
+
+        private const string OtherEditorInstanceId = "22222222222222222222222222222222";
+
+        private static readonly Guid EditorInstanceGuid = Guid.Parse(EditorInstanceId);
+
         private static readonly Sha256Digest RequestPayloadHash = Sha256Digest.Parse(
             "cda34040abc54e9b351b66c6ecbc9708cf2c70996b0805553b3854bdce80d94b");
 
         private static readonly Sha256Digest OtherRequestPayloadHash = Sha256Digest.Parse(
             "43b7a6583da442557792fe0e75ad8e950b6ee17b6d6aa48001e3f4be38f08c90");
 
-        [TearDown]
-        public void TearDown ()
+        [Test]
+        [Category("Size.Small")]
+        public void Create_WhenHostEditorInstanceIdIsEmpty_ThrowsArgumentException ()
         {
-            UnityEditorSessionStateStore.SetEditorInstanceIdForTests(null);
+            var exception = Assert.Throws<ArgumentException>(() => FileRecoverableIpcOperationStore.Create(
+                new IpcProjectIdentity(Path.GetTempPath(), ProjectFingerprint, "6000.1.4f1"),
+                Guid.Empty));
+
+            Assert.That(exception.ParamName, Is.EqualTo("hostEditorInstanceId"));
         }
 
         [UnityTest]
@@ -43,7 +53,6 @@ namespace MackySoft.Ucli.Unity.Tests
             var projectPath = CreateTemporaryProjectPath();
             try
             {
-                UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-pending");
                 var store = CreateStore(projectPath);
                 var startedAtUtc = DateTimeOffset.UtcNow;
                 var payload = IpcPayloadCodec.SerializeToElement(new { before = "snapshot" });
@@ -81,7 +90,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(readResult.Record.Method, Is.EqualTo(ContractLiteralCodec.ToValue(UnityIpcMethod.PlayEnter)));
                 Assert.That(readResult.Record.RequestId, Is.EqualTo(requestId));
                 Assert.That(readResult.Record.RequestPayloadHash, Is.EqualTo(RequestPayloadHash.ToString()));
-                Assert.That(readResult.Record.HostEditorInstanceId, Is.EqualTo("editor-instance-pending"));
+                Assert.That(readResult.Record.HostEditorInstanceId, Is.EqualTo(EditorInstanceId));
                 Assert.That(readResult.Record.StartedAtUtc, Is.EqualTo(startedAtUtc));
                 Assert.That(readResult.Record.RecoveryPayload.GetRawText(), Is.EqualTo(payload.GetRawText()));
                 Assert.That(FindOperationRecordPath(projectPath), Does.Contain(UcliStoragePathNames.IpcOperationsDirectoryName));
@@ -99,7 +108,6 @@ namespace MackySoft.Ucli.Unity.Tests
             var projectPath = CreateTemporaryProjectPath();
             try
             {
-                UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-response-mismatch");
                 var store = CreateStore(projectPath);
                 var requestId = Guid.NewGuid();
                 var response = CreateSuccessResponse(Guid.NewGuid());
@@ -129,7 +137,6 @@ namespace MackySoft.Ucli.Unity.Tests
             var projectPath = CreateTemporaryProjectPath();
             try
             {
-                UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-completed");
                 var store = CreateStore(projectPath);
                 var requestId = Guid.NewGuid();
                 var response = CreateSuccessResponse(requestId);
@@ -166,12 +173,11 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator ReadAsync_WhenRecordIdentityIsInvalid_RejectsRecord () => UniTask.ToCoroutine(async () =>
+        public IEnumerator ReadAsync_WhenHostEditorInstanceIdIsMalformed_RejectsRecord () => UniTask.ToCoroutine(async () =>
         {
             var projectPath = CreateTemporaryProjectPath();
             try
             {
-                UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-invalid-record");
                 var store = CreateStore(projectPath);
                 var requestId = Guid.NewGuid();
                 var writeResult = await store.WritePendingAsync(
@@ -182,7 +188,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     IpcPayloadCodec.SerializeToElement(new { before = "snapshot" }),
                     CancellationToken.None);
                 Assert.That(writeResult.IsSuccess, Is.True, writeResult.ErrorMessage);
-                RewriteOperationRecord(projectPath, record => record.ProjectFingerprint = "other-project");
+                RewriteOperationRecord(projectPath, record => record.HostEditorInstanceId = "editor-instance");
 
                 var readResult = await store.ReadAsync(
                     UnityIpcMethod.PlayEnter,
@@ -207,7 +213,6 @@ namespace MackySoft.Ucli.Unity.Tests
             var projectPath = CreateTemporaryProjectPath();
             try
             {
-                UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-corrupt-response-id");
                 var store = CreateStore(projectPath);
                 var requestId = Guid.NewGuid();
                 var writeResult = await store.WriteCompletedAsync(
@@ -247,7 +252,6 @@ namespace MackySoft.Ucli.Unity.Tests
             var projectPath = CreateTemporaryProjectPath();
             try
             {
-                UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-unsupported-state");
                 var store = CreateStore(projectPath);
                 var requestId = Guid.NewGuid();
                 var writeResult = await store.WritePendingAsync(
@@ -285,7 +289,6 @@ namespace MackySoft.Ucli.Unity.Tests
             var projectPath = CreateTemporaryProjectPath();
             try
             {
-                UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-host-process");
                 var store = CreateStore(projectPath);
                 var requestId = Guid.NewGuid();
                 var writeResult = await store.WritePendingAsync(
@@ -321,7 +324,6 @@ namespace MackySoft.Ucli.Unity.Tests
             var projectPath = CreateTemporaryProjectPath();
             try
             {
-                UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-host-1");
                 var store = CreateStore(projectPath);
                 var requestId = Guid.NewGuid();
                 var writeResult = await store.WriteCompletedAsync(
@@ -334,7 +336,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     CreateSuccessResponse(requestId),
                     CancellationToken.None);
                 Assert.That(writeResult.IsSuccess, Is.True, writeResult.ErrorMessage);
-                RewriteOperationRecord(projectPath, record => record.HostEditorInstanceId = "editor-instance-host-2");
+                RewriteOperationRecord(projectPath, record => record.HostEditorInstanceId = OtherEditorInstanceId);
 
                 var readResult = await store.ReadAsync(
                     UnityIpcMethod.Compile,
@@ -359,7 +361,6 @@ namespace MackySoft.Ucli.Unity.Tests
             var projectPath = CreateTemporaryProjectPath();
             try
             {
-                UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-hash");
                 var store = CreateStore(projectPath);
                 var requestId = Guid.NewGuid();
                 var writeResult = await store.WriteCompletedAsync(
@@ -396,7 +397,6 @@ namespace MackySoft.Ucli.Unity.Tests
             var projectPath = CreateTemporaryProjectPath();
             try
             {
-                UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-purge");
                 var store = CreateStore(projectPath);
                 var nowUtc = DateTimeOffset.UtcNow;
                 var requestId = Guid.NewGuid();
@@ -435,7 +435,6 @@ namespace MackySoft.Ucli.Unity.Tests
             var projectPath = CreateTemporaryProjectPath();
             try
             {
-                UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-purge-pending");
                 var store = CreateStore(projectPath);
                 var nowUtc = DateTimeOffset.UtcNow;
                 var requestId = Guid.NewGuid();
@@ -472,7 +471,6 @@ namespace MackySoft.Ucli.Unity.Tests
             var projectPath = CreateTemporaryProjectPath();
             try
             {
-                UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-purge-invalid");
                 var store = CreateStore(projectPath);
                 var nowUtc = DateTimeOffset.UtcNow;
                 var requestId = Guid.NewGuid();
@@ -506,7 +504,6 @@ namespace MackySoft.Ucli.Unity.Tests
             var projectPath = CreateTemporaryProjectPath();
             try
             {
-                UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-purge-cursor");
                 var store = CreateStore(projectPath);
                 var operationsDirectoryPath = ResolveOperationsDirectoryPath(projectPath);
                 Directory.CreateDirectory(operationsDirectoryPath);
@@ -545,7 +542,6 @@ namespace MackySoft.Ucli.Unity.Tests
             var projectPath = CreateTemporaryProjectPath();
             try
             {
-                UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-maintenance-gate");
                 var store = CreateStore(projectPath);
                 var maintenanceGate = GetPrivateField<SemaphoreSlim>(store, "maintenanceGate");
                 var requestId = Guid.NewGuid();
@@ -597,7 +593,6 @@ namespace MackySoft.Ucli.Unity.Tests
             var projectPath = CreateTemporaryProjectPath();
             try
             {
-                UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-maintenance-interleave");
                 var store = CreateStore(projectPath);
                 var existingRequestId = Guid.NewGuid();
                 var newRequestId = Guid.NewGuid();
@@ -709,7 +704,6 @@ namespace MackySoft.Ucli.Unity.Tests
             var projectPath = CreateTemporaryProjectPath();
             try
             {
-                UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-large-record");
                 var store = CreateStore(projectPath);
                 var requestId = Guid.NewGuid();
                 var writeResult = await store.WritePendingAsync(
@@ -741,10 +735,12 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static FileRecoverableIpcOperationStore CreateStore (string projectPath)
         {
-            return FileRecoverableIpcOperationStore.Create(new IpcProjectIdentity(
-                projectPath,
-                ProjectFingerprint,
-                "6000.1.4f1"));
+            return FileRecoverableIpcOperationStore.Create(
+                new IpcProjectIdentity(
+                    projectPath,
+                    ProjectFingerprint,
+                    "6000.1.4f1"),
+                EditorInstanceGuid);
         }
 
         private static T GetPrivateField<T> (object instance, string fieldName)

@@ -291,7 +291,8 @@ public sealed class DaemonSessionStoreTests
             sessionToken: "token-1",
             editorMode: "gui",
             ownerKind: "user",
-            canShutdownProcess: false);
+            canShutdownProcess: false,
+            editorInstanceId: DaemonSessionTestFactory.DefaultEditorInstanceId);
 
         var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);
 

@@ -11,7 +11,6 @@ using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Storage;
-using MackySoft.Ucli.Unity.Runtime;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -33,7 +32,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         private readonly string operationsDirectoryPath;
         private readonly string projectFingerprint;
         private readonly int hostProcessId;
-        private readonly string hostEditorInstanceId;
+        private readonly Guid hostEditorInstanceId;
         private readonly SemaphoreSlim ioGate = new SemaphoreSlim(1, 1);
         private readonly SemaphoreSlim maintenanceGate = new SemaphoreSlim(1, 1);
 
@@ -46,7 +45,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             string operationsDirectoryPath,
             string projectFingerprint,
             int hostProcessId,
-            string hostEditorInstanceId)
+            Guid hostEditorInstanceId)
         {
             if (string.IsNullOrWhiteSpace(operationsDirectoryPath))
             {
@@ -58,6 +57,11 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentException("Project fingerprint must not be empty.", nameof(projectFingerprint));
             }
 
+            if (hostEditorInstanceId == Guid.Empty)
+            {
+                throw new ArgumentException("Host Editor instance id must not be empty.", nameof(hostEditorInstanceId));
+            }
+
             this.operationsDirectoryPath = operationsDirectoryPath;
             this.projectFingerprint = projectFingerprint;
             this.hostProcessId = hostProcessId;
@@ -66,7 +70,14 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         /// <summary> Creates a file-backed store for the Unity project served by the IPC host. </summary>
-        public static FileRecoverableIpcOperationStore Create (IpcProjectIdentity projectIdentity)
+        /// <param name="projectIdentity"> The Unity project identity served by the host. </param>
+        /// <param name="hostEditorInstanceId"> The non-empty Editor process identity captured for this host generation. </param>
+        /// <returns> A store scoped to the supplied project and host generation.</returns>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="projectIdentity" /> is <see langword="null" />. </exception>
+        /// <exception cref="ArgumentException"> Thrown when <paramref name="hostEditorInstanceId" /> is empty. </exception>
+        public static FileRecoverableIpcOperationStore Create (
+            IpcProjectIdentity projectIdentity,
+            Guid hostEditorInstanceId)
         {
             if (projectIdentity == null)
             {
@@ -82,7 +93,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 Path.Combine(fingerprintDirectory, UcliStoragePathNames.IpcOperationsDirectoryName),
                 projectIdentity.ProjectFingerprint,
                 process.Id,
-                UnityEditorSessionStateStore.GetOrCreateEditorInstanceId());
+                hostEditorInstanceId);
         }
 
         /// <inheritdoc />
@@ -140,7 +151,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 RequestId = requestId,
                 RequestPayloadHash = requestPayloadHash.ToString(),
                 HostProcessId = hostProcessId,
-                HostEditorInstanceId = hostEditorInstanceId,
+                HostEditorInstanceId = hostEditorInstanceId.ToString("N"),
                 State = RecoverableIpcOperationState.Pending,
                 StartedAtUtc = startedAtUtc,
                 RecoveryPayload = recoveryPayload.Clone(),
@@ -190,7 +201,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 RequestId = requestId,
                 RequestPayloadHash = requestPayloadHash.ToString(),
                 HostProcessId = hostProcessId,
-                HostEditorInstanceId = hostEditorInstanceId,
+                HostEditorInstanceId = hostEditorInstanceId.ToString("N"),
                 State = RecoverableIpcOperationState.Completed,
                 StartedAtUtc = startedAtUtc,
                 CompletedAtUtc = completedAtUtc,
@@ -517,7 +528,11 @@ namespace MackySoft.Ucli.Unity.Ipc
                 || !Sha256Digest.TryParse(record.RequestPayloadHash, out var storedRequestPayloadHash)
                 || storedRequestPayloadHash != requestPayloadHash
                 || record.HostProcessId != hostProcessId
-                || !string.Equals(record.HostEditorInstanceId, hostEditorInstanceId, StringComparison.Ordinal))
+                || record.HostEditorInstanceId == null
+                || record.HostEditorInstanceId.Length != 32
+                || !Guid.TryParseExact(record.HostEditorInstanceId, "N", out var storedHostEditorInstanceId)
+                || storedHostEditorInstanceId == Guid.Empty
+                || storedHostEditorInstanceId != hostEditorInstanceId)
             {
                 errorMessage = "Recoverable IPC operation record identity is invalid.";
                 return false;

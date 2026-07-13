@@ -32,7 +32,7 @@ internal sealed record DaemonSession
         int? processId,
         DateTimeOffset? processStartedAtUtc,
         int ownerProcessId,
-        string? editorInstanceId = null)
+        Guid? editorInstanceId = null)
     {
         ArgumentNullException.ThrowIfNull(sessionToken);
         ArgumentException.ThrowIfNullOrWhiteSpace(projectFingerprint);
@@ -84,9 +84,9 @@ internal sealed record DaemonSession
             throw new ArgumentException("Daemon session process start timestamp must not be the default value.", nameof(processStartedAtUtc));
         }
 
-        if (editorInstanceId is not null && string.IsNullOrWhiteSpace(editorInstanceId))
+        if (editorInstanceId == Guid.Empty)
         {
-            throw new ArgumentException("Daemon session Editor instance identifier must contain a value when specified.", nameof(editorInstanceId));
+            throw new ArgumentException("Daemon session Editor instance identifier must not be empty.", nameof(editorInstanceId));
         }
 
         if (editorMode == DaemonEditorMode.Batchmode
@@ -99,6 +99,13 @@ internal sealed record DaemonSession
             && (editorMode != DaemonEditorMode.Gui || canShutdownProcess))
         {
             throw new ArgumentException("User-owned daemon sessions must run in GUI mode and disallow process shutdown.", nameof(ownerKind));
+        }
+
+        if (ownerKind == DaemonSessionOwnerKind.User && !editorInstanceId.HasValue)
+        {
+            throw new ArgumentException(
+                "User-owned daemon sessions must specify an Editor instance identifier.",
+                nameof(editorInstanceId));
         }
 
         SessionToken = sessionToken;
@@ -145,6 +152,6 @@ internal sealed record DaemonSession
     public int OwnerProcessId { get; }
 
     /// <summary> Gets the Unity Editor instance identifier when known. </summary>
-    public string? EditorInstanceId { get; }
+    public Guid? EditorInstanceId { get; }
 
 }

@@ -382,7 +382,7 @@ public sealed class DaemonListQueryServiceProbeFailureTests
             projectFingerprint: projectFingerprint,
             processId: processId,
             editorMode: "gui",
-            editorInstanceId: $"editor-instance-{processId}");
+            editorInstanceId: Guid.NewGuid());
     }
 
     private static RecordingDaemonLifecycleStore CreateRecoveringLifecycleStore (
@@ -392,20 +392,21 @@ public sealed class DaemonListQueryServiceProbeFailureTests
         return new RecordingDaemonLifecycleStore
         {
             ReadResult = DaemonLifecycleObservationReadResult.Success(new DaemonLifecycleObservation(
-                ProcessId: session.ProcessId!.Value,
-                ProcessStartedAtUtc: session.ProcessStartedAtUtc!.Value,
-                EditorMode: ContractLiteralCodec.ToValue(session.EditorMode),
-                LifecycleState: IpcEditorLifecycleStateCodec.Recovering,
-                BlockingReason: IpcEditorBlockingReasonCodec.Recovery,
-                CompileState: IpcCompileStateCodec.Ready,
-                CompileGeneration: "1",
-                DomainReloadGeneration: "2",
-                ObservedAtUtc: observedAtUtc,
-                ActionRequired: null,
-                PrimaryDiagnostic: null)
+                processId: session.ProcessId!.Value,
+                processStartedAtUtc: session.ProcessStartedAtUtc!.Value,
+                editorMode: ContractLiteralCodec.ToValue(session.EditorMode),
+                lifecycleState: IpcEditorLifecycleStateCodec.Recovering,
+                blockingReason: IpcEditorBlockingReasonCodec.Recovery,
+                compileState: IpcCompileStateCodec.Ready,
+                compileGeneration: "1",
+                domainReloadGeneration: "2",
+                observedAtUtc: observedAtUtc,
+                actionRequired: null,
+                primaryDiagnostic: null,
+                editorInstanceId: session.EditorInstanceId
+                    ?? throw new ArgumentException("Session must have an Editor instance identifier.", nameof(session)))
             {
                 CanAcceptExecutionRequests = true,
-                EditorInstanceId = session.EditorInstanceId,
             }),
         };
     }

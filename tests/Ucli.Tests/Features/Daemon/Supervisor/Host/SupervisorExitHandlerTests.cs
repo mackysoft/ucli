@@ -285,7 +285,8 @@ public sealed class SupervisorExitHandlerTests
             endpointTransportKind: "unixDomainSocket",
             endpointAddress: "/tmp/ucli.sock",
             processId: 1234,
-            ownerProcessId: 24);
+            ownerProcessId: 24,
+            editorInstanceId: DaemonSessionTestFactory.DefaultEditorInstanceId);
         var sessionStore = new RecordingDaemonSessionStore
         {
             ReadResult = DaemonSessionReadResultTestFactory.Found(session),

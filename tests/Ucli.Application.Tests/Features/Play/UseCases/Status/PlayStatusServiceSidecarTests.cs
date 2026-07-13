@@ -55,17 +55,14 @@ public sealed class PlayStatusServiceSidecarTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenIpcExecutionTimesOutAndLifecycleSidecarLacksEditorInstanceId_ReturnsTimeoutError ()
+    public async Task Execute_WhenIpcExecutionTimesOutAndLifecycleSidecarHasInvalidEditorInstanceId_ReturnsTimeoutError ()
     {
         var session = CreatePlaySession();
         var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(session));
         var lifecycleStore = new RecordingDaemonLifecycleStore
         {
-            ReadResult = DaemonLifecycleObservationReadResult.Success(
-                CreateLifecycleObservation(session) with
-                {
-                    EditorInstanceId = null,
-                }),
+            ReadResult = DaemonLifecycleObservationReadResult.Failure(
+                ExecutionError.InvalidArgument("Daemon lifecycle editorInstanceId is invalid.")),
         };
         var processIdentityAssessor = CreateProcessIdentityAssessor(DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess);
         var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Failure(new UnityRequestFailure(

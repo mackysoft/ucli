@@ -534,20 +534,19 @@ public sealed class DaemonIpcRequestSenderTests
     private static DaemonLifecycleObservation CreateRecoveringObservation (DaemonSession session)
     {
         return new DaemonLifecycleObservation(
-            ProcessId: session.ProcessId!.Value,
-            ProcessStartedAtUtc: session.ProcessStartedAtUtc!.Value,
-            EditorMode: ContractLiteralCodec.ToValue(session.EditorMode),
-            LifecycleState: IpcEditorLifecycleStateCodec.DomainReloading,
-            BlockingReason: IpcEditorBlockingReasonCodec.DomainReload,
-            CompileState: IpcCompileStateCodec.Ready,
-            CompileGeneration: "1",
-            DomainReloadGeneration: "2",
-            ObservedAtUtc: DateTimeOffset.UtcNow,
-            ActionRequired: null,
-            PrimaryDiagnostic: null)
-        {
-            EditorInstanceId = session.EditorInstanceId,
-        };
+            processId: session.ProcessId!.Value,
+            processStartedAtUtc: session.ProcessStartedAtUtc!.Value,
+            editorMode: ContractLiteralCodec.ToValue(session.EditorMode),
+            lifecycleState: IpcEditorLifecycleStateCodec.DomainReloading,
+            blockingReason: IpcEditorBlockingReasonCodec.DomainReload,
+            compileState: IpcCompileStateCodec.Ready,
+            compileGeneration: "1",
+            domainReloadGeneration: "2",
+            observedAtUtc: DateTimeOffset.UtcNow,
+            actionRequired: null,
+            primaryDiagnostic: null,
+            editorInstanceId: session.EditorInstanceId
+                ?? throw new ArgumentException("Session must have an Editor instance identifier.", nameof(session)));
     }
 
     private static async Task ObserveCompletionAsync (Task task)

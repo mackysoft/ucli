@@ -1,3 +1,4 @@
+using System;
 using MackySoft.Ucli.Unity.Runtime;
 using NUnit.Framework;
 
@@ -79,11 +80,31 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void GetOrCreateEditorInstanceId_WhenValueExists_ReusesStoredValue ()
         {
-            UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance");
+            var expected = Guid.NewGuid().ToString("N");
+            UnityEditorSessionStateStore.SetEditorInstanceIdForTests(expected);
 
             var actual = UnityEditorSessionStateStore.GetOrCreateEditorInstanceId();
 
-            Assert.That(actual, Is.EqualTo("editor-instance"));
+            Assert.That(actual.ToString("N"), Is.EqualTo(expected));
+        }
+
+        [TestCase("")]
+        [TestCase("editor-instance")]
+        [TestCase("00000000000000000000000000000000")]
+        [TestCase("11111111-1111-1111-1111-111111111111")]
+        [TestCase(" 11111111111111111111111111111111 ")]
+        [TestCase("1111111111111111111111111111111")]
+        [Category("Size.Small")]
+        public void GetOrCreateEditorInstanceId_WhenStoredValueIsInvalid_ReplacesItWithNonEmptyGuid (
+            string editorInstanceId)
+        {
+            UnityEditorSessionStateStore.SetEditorInstanceIdForTests(editorInstanceId);
+
+            var actual = UnityEditorSessionStateStore.GetOrCreateEditorInstanceId();
+            var repeated = UnityEditorSessionStateStore.GetOrCreateEditorInstanceId();
+
+            Assert.That(actual, Is.Not.EqualTo(Guid.Empty));
+            Assert.That(repeated, Is.EqualTo(actual));
         }
     }
 }

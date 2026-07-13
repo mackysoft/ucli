@@ -79,31 +79,10 @@ public sealed class UnityDaemonRecoveryWaiterTests
     {
         var timeProvider = new ManualTimeProvider();
         var session = DaemonSessionTestFactory.CreateEditorInstance();
-        var observation = CreateObservation(session, IpcEditorLifecycleStateCodec.DomainReloading) with
-        {
-            EditorInstanceId = "other-editor-instance",
-        };
-        var waiter = CreateWaiter(
+        var observation = CreateObservation(
             session,
-            observation,
-            DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess);
-        var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider);
-
-        var result = await waiter.DelayIfRecoveringAsync(ResolvedUnityProjectContextTestFactory.Create(), deadline, CancellationToken.None);
-
-        Assert.False(result);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task DelayIfRecoveringAsync_WhenEditorInstanceIdsAreMissing_ReturnsFalseWithoutDelay ()
-    {
-        var timeProvider = new ManualTimeProvider();
-        var session = DaemonSessionTestFactory.CreateUserOwned(
-            editorMode: "gui",
-            endpointAddress: "/tmp/ucli.sock",
-            editorInstanceId: null);
-        var observation = CreateObservation(session, IpcEditorLifecycleStateCodec.DomainReloading);
+            IpcEditorLifecycleStateCodec.DomainReloading,
+            Guid.NewGuid());
         var waiter = CreateWaiter(
             session,
             observation,
@@ -245,23 +224,22 @@ public sealed class UnityDaemonRecoveryWaiterTests
 
     private static DaemonLifecycleObservation CreateObservation (
         DaemonSession session,
-        string lifecycleState)
+        string lifecycleState,
+        Guid? editorInstanceId = null)
     {
         return new DaemonLifecycleObservation(
-            ProcessId: session.ProcessId!.Value,
-            ProcessStartedAtUtc: session.ProcessStartedAtUtc!.Value,
-            EditorMode: ContractLiteralCodec.ToValue(session.EditorMode),
-            LifecycleState: lifecycleState,
-            BlockingReason: IpcEditorBlockingReasonCodec.DomainReload,
-            CompileState: IpcCompileStateCodec.Ready,
-            CompileGeneration: "1",
-            DomainReloadGeneration: "2",
-            ObservedAtUtc: DateTimeOffset.UtcNow,
-            ActionRequired: null,
-            PrimaryDiagnostic: null)
-        {
-            EditorInstanceId = session.EditorInstanceId,
-        };
+            processId: session.ProcessId!.Value,
+            processStartedAtUtc: session.ProcessStartedAtUtc!.Value,
+            editorMode: ContractLiteralCodec.ToValue(session.EditorMode),
+            lifecycleState: lifecycleState,
+            blockingReason: IpcEditorBlockingReasonCodec.DomainReload,
+            compileState: IpcCompileStateCodec.Ready,
+            compileGeneration: "1",
+            domainReloadGeneration: "2",
+            observedAtUtc: DateTimeOffset.UtcNow,
+            actionRequired: null,
+            primaryDiagnostic: null,
+            editorInstanceId: editorInstanceId ?? session.EditorInstanceId ?? Guid.NewGuid());
     }
 
     private interface IBlockingReadOperation

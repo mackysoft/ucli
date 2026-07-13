@@ -96,7 +96,7 @@ internal sealed class UnityDaemonRecoveryWaiter
         if (!lifecycleReadResult.IsSuccess
             || !lifecycleReadResult.Exists
             || !lifecycleReadResult.Observation!.IsRecovering
-            || !DaemonLifecycleObservationMatcher.MatchesSessionByEditorInstance(lifecycleReadResult.Observation, sessionReadResult.Session!))
+            || !DaemonLifecycleObservationMatcher.MatchesSession(lifecycleReadResult.Observation, sessionReadResult.Session!))
         {
             return false;
         }

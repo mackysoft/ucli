@@ -13,7 +13,7 @@ internal static class PlayStatusServiceTestSupport
 {
     public const string PlaySessionEndpointAddress = "ucli-play-status";
 
-    public const string PlaySessionEditorInstanceId = "editor-instance-1";
+    public static readonly Guid PlaySessionEditorInstanceId = Guid.Parse("11111111-1111-1111-1111-111111111111");
 
     public static readonly DateTimeOffset ObservedAtUtc = DateTimeOffset.Parse("2026-05-21T00:00:00+00:00", CultureInfo.InvariantCulture);
 
@@ -82,21 +82,22 @@ internal static class PlayStatusServiceTestSupport
         bool isPlayingOrWillChangePlaymode = true)
     {
         return new DaemonLifecycleObservation(
-            ProcessId: session.ProcessId!.Value,
-            ProcessStartedAtUtc: session.ProcessStartedAtUtc!.Value,
-            EditorMode: "gui",
-            LifecycleState: lifecycleState,
-            BlockingReason: blockingReason,
-            CompileState: IpcCompileStateCodec.Ready,
-            CompileGeneration: "12",
-            DomainReloadGeneration: "7",
-            ObservedAtUtc: ObservedAtUtc,
-            ActionRequired: null,
-            PrimaryDiagnostic: null)
+            processId: session.ProcessId!.Value,
+            processStartedAtUtc: session.ProcessStartedAtUtc!.Value,
+            editorMode: "gui",
+            lifecycleState: lifecycleState,
+            blockingReason: blockingReason,
+            compileState: IpcCompileStateCodec.Ready,
+            compileGeneration: "12",
+            domainReloadGeneration: "7",
+            observedAtUtc: ObservedAtUtc,
+            actionRequired: null,
+            primaryDiagnostic: null,
+            editorInstanceId: session.EditorInstanceId
+                ?? throw new ArgumentException("Session must have an Editor instance identifier.", nameof(session)))
         {
             ServerVersion = "0.5.0",
             CanAcceptExecutionRequests = canAcceptExecutionRequests,
-            EditorInstanceId = session.EditorInstanceId,
             PlayMode = new IpcPlayModeSnapshot(
                 State: playModeState,
                 Transition: "none",

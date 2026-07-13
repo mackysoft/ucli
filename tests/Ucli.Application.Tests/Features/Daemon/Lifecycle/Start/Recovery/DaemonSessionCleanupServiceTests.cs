@@ -170,7 +170,8 @@ public sealed class DaemonSessionCleanupServiceTests
             projectFingerprint: context.ProjectFingerprint,
             editorMode: "gui",
             ownerKind: "user",
-            canShutdownProcess: false);
+            canShutdownProcess: false,
+            editorInstanceId: DaemonSessionTestFactory.DefaultEditorInstanceId);
         var processTerminationService = new RecordingDaemonProcessTerminationService
         {
             NextResult = DaemonSessionStoreOperationResult.Success(),

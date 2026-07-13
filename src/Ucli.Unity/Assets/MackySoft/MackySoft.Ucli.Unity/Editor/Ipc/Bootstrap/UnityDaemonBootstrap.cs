@@ -24,6 +24,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentNullException(nameof(bootstrapArguments));
             }
 
+            var editorInstanceId = UnityEditorSessionStateStore.GetOrCreateEditorInstanceId();
             var daemonLogStream = new DaemonLogRingBuffer();
             var daemonLogger = new DaemonLogger(
                 daemonLogStream,
@@ -57,7 +58,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                         DaemonEditorMode.Batchmode)
                     .AddUnityIpcDaemonHostServices(
                         bootstrapArguments,
-                        daemonLogStream);
+                        daemonLogStream,
+                        editorInstanceId);
 
                 IServiceProvider serviceProvider = services.BuildServiceProvider();
                 try

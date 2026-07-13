@@ -5,6 +5,8 @@ namespace MackySoft.Ucli.Application.Tests.Daemon;
 
 public sealed class DaemonSessionTests
 {
+    private static readonly Guid EditorInstanceId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+
     [Fact]
     [Trait("Size", "Small")]
     public void Constructor_WhenProcessIdentityIsIncomplete_ThrowsArgumentException ()
@@ -45,6 +47,36 @@ public sealed class DaemonSessionTests
             ownerProcessId: 5678));
 
         Assert.Equal("ownerKind", exception.ParamName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Constructor_WhenEditorInstanceIdIsEmpty_ThrowsArgumentException ()
+    {
+        var exception = Assert.Throws<ArgumentException>(() => DaemonSessionTestFactory.Create(
+            editorInstanceId: Guid.Empty));
+
+        Assert.Equal("editorInstanceId", exception.ParamName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Constructor_WhenUserOwnedSessionHasNoEditorInstanceId_ThrowsArgumentException ()
+    {
+        var exception = Assert.Throws<ArgumentException>(() => new DaemonSession(
+            IpcSessionTokenTestFactory.Create("user-owned-without-editor-instance-id"),
+            "fingerprint",
+            new DateTimeOffset(2026, 7, 13, 0, 0, 0, TimeSpan.Zero),
+            DaemonEditorMode.Gui,
+            DaemonSessionOwnerKind.User,
+            canShutdownProcess: false,
+            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-endpoint"),
+            processId: 1234,
+            processStartedAtUtc: new DateTimeOffset(2026, 7, 13, 0, 0, 1, TimeSpan.Zero),
+            ownerProcessId: 5678,
+            editorInstanceId: null));
+
+        Assert.Equal("editorInstanceId", exception.ParamName);
     }
 
     [Fact]
@@ -95,7 +127,7 @@ public sealed class DaemonSessionTests
             SessionDifference.ProcessStartedAtUtc => (CreateComparableSession(), CreateComparableSession(
                 processStartedAtUtc: new DateTimeOffset(2026, 7, 12, 23, 59, 58, TimeSpan.Zero))),
             SessionDifference.OwnerProcessId => (CreateComparableSession(), CreateComparableSession(ownerProcessId: 8765)),
-            SessionDifference.EditorInstanceId => (CreateComparableSession(), CreateComparableSession(editorInstanceId: "other-editor-instance")),
+            SessionDifference.EditorInstanceId => (CreateComparableSession(), CreateComparableSession(editorInstanceId: Guid.Parse("22222222-2222-2222-2222-222222222222"))),
             _ => throw new ArgumentOutOfRangeException(nameof(difference), difference, null),
         };
 
@@ -114,7 +146,7 @@ public sealed class DaemonSessionTests
         int processId = 1234,
         DateTimeOffset? processStartedAtUtc = null,
         int ownerProcessId = 5678,
-        string editorInstanceId = "editor-instance")
+        Guid? editorInstanceId = null)
     {
         return DaemonSessionTestFactory.Create(
             processId: processId,
@@ -128,7 +160,7 @@ public sealed class DaemonSessionTests
             endpointAddress: endpointAddress,
             processStartedAtUtc: processStartedAtUtc ?? new DateTimeOffset(2026, 7, 12, 23, 59, 59, TimeSpan.Zero),
             ownerProcessId: ownerProcessId,
-            editorInstanceId: editorInstanceId);
+            editorInstanceId: editorInstanceId ?? EditorInstanceId);
     }
 
     public enum SessionDifference

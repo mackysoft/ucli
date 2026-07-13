@@ -18,9 +18,10 @@ internal static class DaemonLifecycleObservationAvailability
         ArgumentNullException.ThrowIfNull(timeProvider);
 
         // NOTE:
-        // The lifecycle sidecar is written by Unity main-thread callbacks. The sidecar path intentionally requires
-        // editorInstanceId so file ownership is deterministic; process start time is only a live-process guard here.
-        return DaemonLifecycleObservationMatcher.MatchesSessionByEditorInstance(observation, session)
+        // User-owned GUI sessions are correlated by Editor instance identity. CLI-owned launched sessions are
+        // correlated by the process identity captured by the launcher because their prelaunch session has no
+        // Editor instance identity yet.
+        return DaemonLifecycleObservationMatcher.MatchesSession(observation, session)
             && IsFresh(observation, timeProvider)
             && IsMatchingLiveProcess(session, processIdentityAssessor);
     }

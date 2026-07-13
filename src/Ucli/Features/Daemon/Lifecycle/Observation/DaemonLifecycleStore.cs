@@ -165,23 +165,32 @@ internal sealed class DaemonLifecycleStore : IDaemonLifecycleStore
             return false;
         }
 
+        if (contract.EditorInstanceId is not string rawEditorInstanceId
+            || rawEditorInstanceId.Length != 32
+            || !Guid.TryParseExact(rawEditorInstanceId, "N", out var editorInstanceId)
+            || editorInstanceId == Guid.Empty)
+        {
+            error = ExecutionError.InvalidArgument($"Daemon lifecycle editorInstanceId is invalid: {path}.");
+            return false;
+        }
+
         observation = new DaemonLifecycleObservation(
-            ProcessId: processId,
-            ProcessStartedAtUtc: processStartedAtUtc,
-            EditorMode: ContractLiteralCodec.ToValue(editorMode),
-            LifecycleState: lifecycleState!,
-            BlockingReason: blockingReason,
-            CompileState: compileState!,
-            CompileGeneration: StringValueNormalizer.TrimToNull(contract.CompileGeneration),
-            DomainReloadGeneration: StringValueNormalizer.TrimToNull(contract.DomainReloadGeneration),
-            ObservedAtUtc: observedAtUtc,
-            ActionRequired: actionRequired,
-            PrimaryDiagnostic: primaryDiagnostic)
+            processId: processId,
+            processStartedAtUtc: processStartedAtUtc,
+            editorMode: ContractLiteralCodec.ToValue(editorMode),
+            lifecycleState: lifecycleState!,
+            blockingReason: blockingReason,
+            compileState: compileState!,
+            compileGeneration: StringValueNormalizer.TrimToNull(contract.CompileGeneration),
+            domainReloadGeneration: StringValueNormalizer.TrimToNull(contract.DomainReloadGeneration),
+            observedAtUtc: observedAtUtc,
+            actionRequired: actionRequired,
+            primaryDiagnostic: primaryDiagnostic,
+            editorInstanceId: editorInstanceId)
         {
             ServerVersion = StringValueNormalizer.TrimToNull(contract.ServerVersion),
             CanAcceptExecutionRequests = contract.CanAcceptExecutionRequests
                 ?? string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Ready, StringComparison.Ordinal),
-            EditorInstanceId = StringValueNormalizer.TrimToNull(contract.EditorInstanceId),
             PlayMode = playMode,
         };
         return true;

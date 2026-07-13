@@ -10,6 +10,8 @@ public sealed class DaemonSessionContractMapperTests
 {
     private const string SessionToken = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 
+    private static readonly Guid EditorInstanceId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+
     [Fact]
     [Trait("Size", "Small")]
     public void TryCreate_WhenEditorModeContainsOuterWhitespace_ReturnsInvalidArgumentWithoutNormalizing ()
@@ -35,7 +37,10 @@ public sealed class DaemonSessionContractMapperTests
     [Trait("Size", "Small")]
     public void TryCreate_WhenContractIsValid_ReturnsTypedRuntimeSession ()
     {
-        var contract = CreateContract();
+        var contract = CreateContract() with
+        {
+            EditorInstanceId = EditorInstanceId.ToString("N"),
+        };
 
         var isValid = DaemonSessionContractMapper.TryCreate(
             contract,
@@ -52,6 +57,7 @@ public sealed class DaemonSessionContractMapperTests
         Assert.Equal(IpcTransportKind.NamedPipe, session.Endpoint.TransportKind);
         Assert.Equal("ucli-daemon-endpoint", session.Endpoint.Address);
         Assert.Equal(SessionToken, session.SessionToken.GetEncodedValue());
+        Assert.Equal(EditorInstanceId, session.EditorInstanceId);
     }
 
     [Fact]
@@ -70,7 +76,7 @@ public sealed class DaemonSessionContractMapperTests
             processId: 1234,
             processStartedAtUtc: new DateTimeOffset(2026, 7, 13, 0, 0, 1, TimeSpan.Zero),
             ownerProcessId: 5678,
-            editorInstanceId: "editor-instance-1");
+            editorInstanceId: EditorInstanceId);
 
         var contract = DaemonSessionContractMapper.ToContract(session);
 
@@ -80,7 +86,7 @@ public sealed class DaemonSessionContractMapperTests
         Assert.Equal("user", contract.OwnerKind);
         Assert.Equal("unixDomainSocket", contract.EndpointTransportKind);
         Assert.Equal("/tmp/ucli.sock", contract.EndpointAddress);
-        Assert.Equal("editor-instance-1", contract.EditorInstanceId);
+        Assert.Equal(EditorInstanceId.ToString("N"), contract.EditorInstanceId);
     }
 
     [Fact]
@@ -102,6 +108,56 @@ public sealed class DaemonSessionContractMapperTests
         Assert.False(isValid);
         Assert.Null(session);
         Assert.Contains("sessionToken", Assert.IsType<ExecutionError>(error).Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("editor-instance")]
+    [InlineData("00000000000000000000000000000000")]
+    [InlineData("11111111-1111-1111-1111-111111111111")]
+    [InlineData(" 11111111111111111111111111111111 ")]
+    [InlineData("1111111111111111111111111111111")]
+    [Trait("Size", "Small")]
+    public void TryCreate_WhenEditorInstanceIdIsInvalid_ReturnsInvalidArgument (string editorInstanceId)
+    {
+        var contract = CreateContract() with
+        {
+            EditorInstanceId = editorInstanceId,
+        };
+
+        var isValid = DaemonSessionContractMapper.TryCreate(
+            contract,
+            "fingerprint",
+            "/repository/.ucli/local/fingerprints/fingerprint/session.json",
+            out var session,
+            out var error);
+
+        Assert.False(isValid);
+        Assert.Null(session);
+        Assert.Contains("editorInstanceId", Assert.IsType<ExecutionError>(error).Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryCreate_WhenUserOwnedSessionHasNoEditorInstanceId_ReturnsInvalidArgument ()
+    {
+        var contract = CreateContract() with
+        {
+            EditorMode = "gui",
+            OwnerKind = "user",
+            CanShutdownProcess = false,
+            EditorInstanceId = null,
+        };
+
+        var isValid = DaemonSessionContractMapper.TryCreate(
+            contract,
+            "fingerprint",
+            "/repository/.ucli/local/fingerprints/fingerprint/session.json",
+            out var session,
+            out var error);
+
+        Assert.False(isValid);
+        Assert.Null(session);
+        Assert.Contains("editorInstanceId", Assert.IsType<ExecutionError>(error).Message, StringComparison.Ordinal);
     }
 
     private static DaemonSessionJsonContract CreateContract ()

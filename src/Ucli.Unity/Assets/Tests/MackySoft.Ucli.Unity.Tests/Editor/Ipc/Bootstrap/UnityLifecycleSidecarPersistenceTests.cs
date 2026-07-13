@@ -14,6 +14,21 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class UnityLifecycleSidecarPersistenceTests
     {
+        private static readonly Guid EditorInstanceId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+
+        [Test]
+        [Category("Size.Small")]
+        public void Constructor_WhenEditorInstanceIdIsEmpty_ThrowsArgumentException ()
+        {
+            var exception = Assert.Throws<ArgumentException>(() => new UnityLifecycleSidecarPersistence(
+                Path.GetTempPath(),
+                "lifecycle-sidecar-fingerprint",
+                Guid.Empty,
+                "1.2.3-tests"));
+
+            Assert.That(exception.ParamName, Is.EqualTo("editorInstanceId"));
+        }
+
         [Test]
         [Category("Size.Small")]
         public async Task WriteAsync_WithCapturedSnapshot_PersistsLifecycleContract ()
@@ -26,6 +41,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var persistence = new UnityLifecycleSidecarPersistence(
                 storageRoot,
                 ProjectFingerprint,
+                EditorInstanceId,
                 "1.2.3-tests");
             var snapshot = new UnityEditorLifecycleSnapshot(
                 DaemonEditorMode.Gui,
@@ -53,6 +69,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(contract.CanAcceptExecutionRequests, Is.False);
                 Assert.That(contract.ObservedAtUtc, Is.EqualTo(observedAtUtc));
                 Assert.That(contract.ServerVersion, Is.EqualTo("1.2.3-tests"));
+                Assert.That(contract.EditorInstanceId, Is.EqualTo(EditorInstanceId.ToString("N")));
 
                 await persistence.DeleteIfOwnedAsync(CancellationToken.None);
 
@@ -78,10 +95,12 @@ namespace MackySoft.Ucli.Unity.Tests
             var predecessor = new UnityLifecycleSidecarPersistence(
                 storageRoot,
                 ProjectFingerprint,
+                EditorInstanceId,
                 "predecessor");
             var successor = new UnityLifecycleSidecarPersistence(
                 storageRoot,
                 ProjectFingerprint,
+                EditorInstanceId,
                 "successor");
             var sidecarPath = UcliStoragePathResolver.ResolveDaemonLifecyclePath(
                 storageRoot,

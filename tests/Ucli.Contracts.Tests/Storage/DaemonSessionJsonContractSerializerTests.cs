@@ -108,7 +108,7 @@ public sealed class DaemonSessionJsonContractSerializerTests
             ProcessStartedAtUtc: DateTimeOffset.Parse("2026-03-02T00:00:01+00:00"),
             OwnerProcessId: 5678)
         {
-            EditorInstanceId = "editor-instance-1",
+            EditorInstanceId = "11111111111111111111111111111111",
         };
 
         var json = DaemonSessionJsonContractSerializer.Serialize(contract);
@@ -118,7 +118,7 @@ public sealed class DaemonSessionJsonContractSerializerTests
             .MatchesSchema(SessionJsonSchema, nameof(SessionJsonSchema));
         Assert.False(jsonDocument.RootElement.TryGetProperty("runtimeKind", out _));
         Assert.True(jsonDocument.RootElement.TryGetProperty("editorInstanceId", out var editorInstanceId));
-        Assert.Equal("editor-instance-1", editorInstanceId.GetString());
+        Assert.Equal("11111111111111111111111111111111", editorInstanceId.GetString());
     }
 
     [Fact]
@@ -139,14 +139,14 @@ public sealed class DaemonSessionJsonContractSerializerTests
               "processId": 1234,
               "processStartedAtUtc": "2026-03-02T00:00:01+00:00",
               "ownerProcessId": 5678,
-              "editorInstanceId": "editor-instance-1"
+              "editorInstanceId": "11111111111111111111111111111111"
             }
             """;
 
         var contract = DaemonSessionJsonContractSerializer.Deserialize(Json);
 
         Assert.NotNull(contract);
-        Assert.Equal("editor-instance-1", contract.EditorInstanceId);
+        Assert.Equal("11111111111111111111111111111111", contract.EditorInstanceId);
     }
 
     [Fact]

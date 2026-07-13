@@ -5,6 +5,8 @@ namespace MackySoft.Ucli.TestSupport;
 
 internal static class DaemonSessionTestFactory
 {
+    public static readonly Guid DefaultEditorInstanceId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+
     public static DaemonSession Create (
         int? processId = 1234,
         string sessionToken = "secret-token",
@@ -17,7 +19,7 @@ internal static class DaemonSessionTestFactory
         string endpointAddress = "ucli-daemon-endpoint",
         DateTimeOffset? processStartedAtUtc = null,
         int? ownerProcessId = 9876,
-        string? editorInstanceId = null)
+        Guid? editorInstanceId = null)
     {
         if (!ContractLiteralCodec.TryParse<DaemonEditorMode>(editorMode, out var parsedEditorMode))
         {
@@ -53,7 +55,7 @@ internal static class DaemonSessionTestFactory
     public static DaemonSession CreateUserOwned (
         string editorMode,
         string endpointAddress,
-        string? editorInstanceId = null)
+        Guid editorInstanceId)
     {
         return Create(
             sessionToken: "session-token",
@@ -78,6 +80,6 @@ internal static class DaemonSessionTestFactory
             processId: 1234,
             processStartedAtUtc: DateTimeOffset.UnixEpoch.AddSeconds(10),
             ownerProcessId: 9876,
-            editorInstanceId: "editor-instance-1");
+            editorInstanceId: DefaultEditorInstanceId);
     }
 }

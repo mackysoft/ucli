@@ -16,6 +16,8 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class UnityGuiBootstrapTests
     {
+        private static readonly Guid EditorInstanceId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+
         [UnityTest]
         [Category("Size.Small")]
         public IEnumerator StartServerAndPublishSession_WhenServerStarts_PublishesSessionOnlyAfterListenSucceeds () => UniTask.ToCoroutine(async () =>
@@ -30,6 +32,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     "fingerprint-publication-order",
                     endpoint,
                     UnityGuiBootstrapSessionOptions.Create(null),
+                    EditorInstanceId,
                     UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession,
                     CancellationToken.None);
                 var server = new SpyUnityIpcServer(onStart: _ =>
@@ -74,6 +77,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     "fingerprint-failed-listen",
                     endpoint,
                     UnityGuiBootstrapSessionOptions.Create(null),
+                    EditorInstanceId,
                     UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession,
                     CancellationToken.None);
                 var server = new SpyUnityIpcServer(onStart: _ =>
@@ -298,6 +302,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     "fingerprint-starting-lifecycle",
                     new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-gui-bootstrap-starting-lifecycle"),
                     UnityGuiBootstrapSessionOptions.Create(null),
+                    EditorInstanceId,
                     UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession,
                     CancellationToken.None);
                 var registration = await UnityGuiSessionPersistence.PublishAsync(
@@ -308,6 +313,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var serviceProvider = new SpyServiceProvider();
                 var state = new UnityGuiBootstrap.StartingGuiBootstrapState(
                     CancellationToken.None,
+                    EditorInstanceId,
                     NoOpDaemonLogger.Instance);
                 var publicationCompletionSource = new TaskCompletionSource<UnityGuiSessionRegistration>(
                     TaskCreationOptions.RunContinuationsAsynchronously);
@@ -354,6 +360,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var state = new UnityGuiBootstrap.StartingGuiBootstrapState(
                 CancellationToken.None,
+                EditorInstanceId,
                 NoOpDaemonLogger.Instance);
             var server = new SpyUnityIpcServer();
             var logCapture = new SpyDisposable();
@@ -412,6 +419,7 @@ namespace MackySoft.Ucli.Unity.Tests
                            "fingerprint-token-rotation",
                            endpoint,
                            UnityGuiBootstrapSessionOptions.Create(null),
+                           EditorInstanceId,
                            UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession,
                            CancellationToken.None))
                 {
@@ -425,6 +433,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     "fingerprint-token-rotation",
                     endpoint,
                     UnityGuiBootstrapSessionOptions.Create(null),
+                    EditorInstanceId,
                     UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession,
                     CancellationToken.None);
                 var validator = new ExactSessionTokenValidator(
@@ -475,6 +484,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 "fingerprint",
                 new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-gui-bootstrap-tests"),
                 UnityGuiBootstrapSessionOptions.Create(null),
+                EditorInstanceId,
                 UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession,
                 CancellationToken.None);
             return await UnityGuiSessionPersistence.PublishAsync(preparedSession, CancellationToken.None);

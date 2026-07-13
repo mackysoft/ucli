@@ -17,7 +17,7 @@ public sealed class DaemonStatusServiceRunningTelemetryTests
             DaemonCommandExecutionContextResolutionResult.Success(context));
         var session = DaemonSessionTestFactory.Create(
             editorMode: "gui",
-            editorInstanceId: "editor-instance-1");
+            editorInstanceId: Guid.NewGuid());
         var persistedDiagnosis = DaemonDiagnosisTestFactory.Create();
         var pingResponse = new IpcPingResponse(
             ServerVersion: "9.9.9",
@@ -61,7 +61,8 @@ public sealed class DaemonStatusServiceRunningTelemetryTests
         var session = DaemonSessionTestFactory.Create(
             editorMode: "gui",
             ownerKind: "user",
-            canShutdownProcess: false);
+            canShutdownProcess: false,
+            editorInstanceId: DaemonSessionTestFactory.DefaultEditorInstanceId);
         var pingResponse = new IpcPingResponse(
             ServerVersion: "9.9.10",
             EditorMode: "gui",

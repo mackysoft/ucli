@@ -66,7 +66,10 @@ public sealed class PlayEnterServiceTests
     public async Task Execute_WhenEnterSucceeds_ReturnsFlatPayloadAndTransition ()
     {
         var context = PlayProjectContext;
-        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(DaemonSessionTestFactory.CreateUserOwned("gui", PlaySessionEndpointAddress)));
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(DaemonSessionTestFactory.CreateUserOwned(
+            "gui",
+            PlaySessionEndpointAddress,
+            DaemonSessionTestFactory.DefaultEditorInstanceId)));
         var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(CreateEnteredResponse())));
         var service = CreateService(context, sessionStore, requestExecutor);
 
@@ -133,7 +136,10 @@ public sealed class PlayEnterServiceTests
         {
             After = before,
         });
-        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(DaemonSessionTestFactory.CreateUserOwned("gui", PlaySessionEndpointAddress)));
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(DaemonSessionTestFactory.CreateUserOwned(
+            "gui",
+            PlaySessionEndpointAddress,
+            DaemonSessionTestFactory.DefaultEditorInstanceId)));
         var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(response)));
         var service = CreateService(PlayProjectContext, sessionStore, requestExecutor);
 

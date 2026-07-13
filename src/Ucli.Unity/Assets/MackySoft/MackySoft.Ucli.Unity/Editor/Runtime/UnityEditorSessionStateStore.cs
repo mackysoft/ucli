@@ -19,17 +19,19 @@ namespace MackySoft.Ucli.Unity.Runtime
 
         /// <summary> Gets the current Unity Editor process instance identifier. </summary>
         /// <returns> A non-empty identifier that remains stable until the Editor process exits. </returns>
-        public static string GetOrCreateEditorInstanceId ()
+        public static System.Guid GetOrCreateEditorInstanceId ()
         {
             var existingValue = SessionState.GetString(EditorInstanceIdKey, string.Empty);
-            if (!string.IsNullOrWhiteSpace(existingValue))
+            if (existingValue.Length == 32
+                && System.Guid.TryParseExact(existingValue, "N", out var existingEditorInstanceId)
+                && existingEditorInstanceId != System.Guid.Empty)
             {
-                return existingValue;
+                return existingEditorInstanceId;
             }
 
-            var createdValue = System.Guid.NewGuid().ToString("N");
-            SessionState.SetString(EditorInstanceIdKey, createdValue);
-            return createdValue;
+            var createdEditorInstanceId = System.Guid.NewGuid();
+            SessionState.SetString(EditorInstanceIdKey, createdEditorInstanceId.ToString("N"));
+            return createdEditorInstanceId;
         }
 
         /// <summary> Replaces the current process instance identifier for tests. </summary>

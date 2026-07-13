@@ -195,7 +195,8 @@ public sealed class SupervisorRequestDispatcherEnsureRunningTests
             endpointTransportKind: "unixDomainSocket",
             endpointAddress: "/tmp/ucli.sock",
             processId: 42,
-            ownerProcessId: 24);
+            ownerProcessId: 24,
+            editorInstanceId: DaemonSessionTestFactory.DefaultEditorInstanceId);
         var lifecycleSnapshot = new DaemonStartLifecycleSnapshot(
             IpcEditorLifecycleStateCodec.Ready,
             null,

@@ -34,7 +34,10 @@ internal static class PlayExitServiceTestSupport
 
     public static RecordingDaemonSessionStore CreateGuiSessionStore ()
     {
-        return new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(DaemonSessionTestFactory.CreateUserOwned("gui", PlaySessionEndpointAddress)));
+        return new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(DaemonSessionTestFactory.CreateUserOwned(
+            "gui",
+            PlaySessionEndpointAddress,
+            DaemonSessionTestFactory.DefaultEditorInstanceId)));
     }
 
     public static IpcPlayTransitionResponse CreateExitedResponse ()

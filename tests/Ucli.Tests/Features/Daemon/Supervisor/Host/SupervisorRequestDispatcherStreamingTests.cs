@@ -24,7 +24,8 @@ public sealed class SupervisorRequestDispatcherStreamingTests
             endpointTransportKind: "unixDomainSocket",
             endpointAddress: "/tmp/ucli.sock",
             processId: 42,
-            ownerProcessId: 24);
+            ownerProcessId: 24,
+            editorInstanceId: DaemonSessionTestFactory.DefaultEditorInstanceId);
         var startOperation = new RecordingDaemonStartOperation
         {
             StartResult = DaemonStartResult.Started(session),

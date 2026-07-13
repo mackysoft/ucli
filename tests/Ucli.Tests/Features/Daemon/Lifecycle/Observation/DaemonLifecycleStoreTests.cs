@@ -9,6 +9,8 @@ namespace MackySoft.Ucli.Tests.Daemon;
 
 public sealed class DaemonLifecycleStoreTests
 {
+    private static readonly Guid EditorInstanceId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+
     [Fact]
     [Trait("Size", "Medium")]
     public async Task Read_WhenLifecycleJsonContainsInvalidActionRequired_ReturnsInvalidArgument ()
@@ -89,11 +91,19 @@ public sealed class DaemonLifecycleStoreTests
         Assert.Equal(74, diagnostic.Line);
         Assert.Equal(17, diagnostic.Column);
         Assert.Equal("Missing parameter", diagnostic.Message);
+        Assert.Equal(EditorInstanceId, readResult.Observation.EditorInstanceId);
     }
 
-    [Fact]
+    [Theory]
+    [InlineData(null)]
+    [InlineData("editor-instance")]
+    [InlineData("00000000000000000000000000000000")]
+    [InlineData("11111111-1111-1111-1111-111111111111")]
+    [InlineData(" 11111111111111111111111111111111 ")]
+    [InlineData("1111111111111111111111111111111")]
     [Trait("Size", "Medium")]
-    public async Task Read_WhenLifecycleJsonContainsEditorInstanceId_NormalizesField ()
+    public async Task Read_WhenLifecycleJsonContainsInvalidEditorInstanceId_ReturnsInvalidArgument (
+        string? editorInstanceId)
     {
         using var scope = TestDirectories.CreateTempScope("daemon-lifecycle-store", "editor-instance-id");
         var store = new DaemonLifecycleStore();
@@ -102,13 +112,15 @@ public sealed class DaemonLifecycleStoreTests
             "fingerprint-editor-instance",
             CreateContract() with
             {
-                EditorInstanceId = " editor-instance-1 ",
+                EditorInstanceId = editorInstanceId,
             });
 
         var readResult = await store.ReadAsync(scope.FullPath, "fingerprint-editor-instance", CancellationToken.None);
 
-        Assert.True(readResult.IsSuccess);
-        Assert.Equal("editor-instance-1", readResult.Observation!.EditorInstanceId);
+        Assert.False(readResult.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(readResult.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.Contains("editorInstanceId", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -158,7 +170,10 @@ public sealed class DaemonLifecycleStoreTests
             DomainReloadGeneration: "reload-1",
             ObservedAtUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 2, TimeSpan.Zero),
             ActionRequired: DaemonDiagnosisActionRequiredValues.FixCompileErrors,
-            PrimaryDiagnostic: null);
+            PrimaryDiagnostic: null)
+        {
+            EditorInstanceId = EditorInstanceId.ToString("N"),
+        };
     }
 
     private static async Task WriteContractAsync (

@@ -138,11 +138,13 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="services"> The target service collection. </param>
         /// <param name="bootstrapArguments"> The daemon bootstrap arguments. </param>
         /// <param name="daemonLogStream"> The daemon log stream. </param>
+        /// <param name="editorInstanceId"> The non-empty Editor process identity captured for this host generation. </param>
         /// <returns> The updated service collection. </returns>
         public static IServiceCollection AddUnityIpcDaemonHostServices (
             this IServiceCollection services,
             IpcDaemonBootstrapArguments bootstrapArguments,
-            IDaemonLogStream daemonLogStream)
+            IDaemonLogStream daemonLogStream,
+            Guid editorInstanceId)
         {
             if (services == null)
             {
@@ -159,10 +161,17 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentNullException(nameof(daemonLogStream));
             }
 
+            if (editorInstanceId == Guid.Empty)
+            {
+                throw new ArgumentException("Editor instance identifier must not be empty.", nameof(editorInstanceId));
+            }
+
             services.AddSingleton(bootstrapArguments);
             services.AddSingleton<IDaemonLogStream>(daemonLogStream);
             services.AddSingleton<IRecoverableIpcOperationStore>(serviceProvider =>
-                FileRecoverableIpcOperationStore.Create(serviceProvider.GetRequiredService<IpcProjectIdentity>()));
+                FileRecoverableIpcOperationStore.Create(
+                    serviceProvider.GetRequiredService<IpcProjectIdentity>(),
+                    editorInstanceId));
             services.AddSingleton<IUnityIpcMethodDispatcher>(serviceProvider => CreateMethodDispatcher(
                 serviceProvider,
                 serviceProvider.GetRequiredService<IRecoverableIpcOperationStore>()));

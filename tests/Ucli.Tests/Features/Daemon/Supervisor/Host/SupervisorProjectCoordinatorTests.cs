@@ -122,7 +122,8 @@ public sealed class SupervisorProjectCoordinatorTests
             processId: 4242,
             editorMode: "gui",
             ownerKind: "user",
-            canShutdownProcess: false);
+            canShutdownProcess: false,
+            editorInstanceId: DaemonSessionTestFactory.DefaultEditorInstanceId);
         var startOperation = new RecordingDaemonStartOperation
         {
             StartResult = DaemonStartResult.AlreadyRunning(userOwnedSession),
@@ -157,7 +158,8 @@ public sealed class SupervisorProjectCoordinatorTests
             processId: 4243,
             editorMode: "gui",
             ownerKind: "user",
-            canShutdownProcess: false);
+            canShutdownProcess: false,
+            editorInstanceId: DaemonSessionTestFactory.DefaultEditorInstanceId);
         var startOperation = new RecordingDaemonStartOperation
         {
             StartResult = DaemonStartResult.Started(userOwnedSession),

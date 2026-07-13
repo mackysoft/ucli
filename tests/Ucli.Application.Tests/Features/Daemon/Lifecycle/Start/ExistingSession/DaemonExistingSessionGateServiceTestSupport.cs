@@ -42,26 +42,25 @@ internal static class DaemonExistingSessionGateServiceTestSupport
         DateTimeOffset? observedAtUtc = null)
     {
         return new DaemonLifecycleObservation(
-            ProcessId: session.ProcessId!.Value,
-            ProcessStartedAtUtc: session.ProcessStartedAtUtc!.Value,
-            EditorMode: ContractLiteralCodec.ToValue(session.EditorMode),
-            LifecycleState: IpcEditorLifecycleStateCodec.Recovering,
-            BlockingReason: IpcEditorBlockingReasonCodec.Recovery,
-            CompileState: IpcCompileStateCodec.Ready,
-            CompileGeneration: "1",
-            DomainReloadGeneration: "2",
-            ObservedAtUtc: observedAtUtc ?? DefaultUtcNow,
-            ActionRequired: null,
-            PrimaryDiagnostic: null)
-        {
-            EditorInstanceId = session.EditorInstanceId,
-        };
+            processId: session.ProcessId!.Value,
+            processStartedAtUtc: session.ProcessStartedAtUtc!.Value,
+            editorMode: ContractLiteralCodec.ToValue(session.EditorMode),
+            lifecycleState: IpcEditorLifecycleStateCodec.Recovering,
+            blockingReason: IpcEditorBlockingReasonCodec.Recovery,
+            compileState: IpcCompileStateCodec.Ready,
+            compileGeneration: "1",
+            domainReloadGeneration: "2",
+            observedAtUtc: observedAtUtc ?? DefaultUtcNow,
+            actionRequired: null,
+            primaryDiagnostic: null,
+            editorInstanceId: session.EditorInstanceId
+                ?? throw new ArgumentException("Session must have an Editor instance identifier.", nameof(session)));
     }
 
     public static DaemonSession CreateRecoveringGuiSession (
         int processId,
         string projectFingerprint,
-        string editorInstanceId)
+        Guid editorInstanceId)
     {
         return DaemonSessionTestFactory.Create(
             processId: processId,

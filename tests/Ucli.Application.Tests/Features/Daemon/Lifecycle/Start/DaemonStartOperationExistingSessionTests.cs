@@ -154,13 +154,15 @@ public sealed class DaemonStartOperationExistingSessionTests
             projectFingerprint: context.ProjectFingerprint,
             editorMode: "gui",
             ownerKind: "user",
-            canShutdownProcess: false);
+            canShutdownProcess: false,
+            editorInstanceId: DaemonSessionTestFactory.DefaultEditorInstanceId);
         var attachedSession = DaemonSessionTestFactory.Create(
             processId: 4243,
             projectFingerprint: context.ProjectFingerprint,
             editorMode: "gui",
             ownerKind: "user",
-            canShutdownProcess: false);
+            canShutdownProcess: false,
+            editorInstanceId: DaemonSessionTestFactory.DefaultEditorInstanceId);
         var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(existingSession));
         var existingSessionGateService = new RecordingDaemonExistingSessionGateService
         {
