@@ -386,28 +386,35 @@ public sealed class SupervisorTransportServerTests
             return;
         }
 
-        using var scope = TestDirectories.CreateTempScope("supervisor-transport-server", "blocked-socket-directory");
-        var blockedDirectoryPath = scope.WriteFile("blocked", "directory path is blocked");
+        var blockedDirectoryPath = Path.Combine("/tmp", $"ucli-blocked-{Guid.NewGuid():N}");
+        File.WriteAllText(blockedDirectoryPath, "directory path is blocked");
         var endpoint = new IpcEndpoint(
             IpcTransportKind.UnixDomainSocket,
             Path.Combine(blockedDirectoryPath, UcliIpcEndpointNames.UnixSocketFileName));
         var server = new SupervisorTransportServer(TimeProvider.System);
 
-        var exception = await Assert.ThrowsAsync<IOException>(async () =>
+        try
         {
-            await TestAwaiter.WaitAsync(
-                server.RunAsync(
-                    endpoint,
-                    static (_, _) => Task.CompletedTask,
-                    static _ => Task.CompletedTask,
-                    SupervisorConstants.MaximumActiveConnections,
-                    SupervisorConstants.ConnectionDrainTimeout,
-                    CancellationToken.None),
-                "Blocked socket directory server start",
-                SignalWaitTimeout);
-        });
+            var exception = await Assert.ThrowsAsync<IOException>(async () =>
+            {
+                await TestAwaiter.WaitAsync(
+                    server.RunAsync(
+                        endpoint,
+                        static (_, _) => Task.CompletedTask,
+                        static _ => Task.CompletedTask,
+                        SupervisorConstants.MaximumActiveConnections,
+                        SupervisorConstants.ConnectionDrainTimeout,
+                        CancellationToken.None),
+                    "Blocked socket directory server start",
+                    SignalWaitTimeout);
+            });
 
-        Assert.Contains(blockedDirectoryPath, exception.Message, StringComparison.Ordinal);
+            Assert.Contains(blockedDirectoryPath, exception.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            File.Delete(blockedDirectoryPath);
+        }
     }
 
     [Fact]

@@ -118,67 +118,27 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(exception.ParamName, Is.EqualTo("endpoint"));
         });
 
-        [UnityTest]
+        [Test]
         [Category("Size.Small")]
-        public IEnumerator Start_WhenAddressIsWhitespace_ThrowsArgumentException () => UniTask.ToCoroutine(async () =>
+        public void IpcEndpointConstructor_WhenAddressIsWhitespace_ThrowsArgumentException ()
         {
-            var server = CreateServerForLifecycle();
-            var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, " ");
-            var exception = await AsyncExceptionCapture.CaptureAsync<ArgumentException>(async () =>
-            {
-                await server.StartAsync(endpoint).AsUniTask();
-            }, "Whitespace endpoint start", SignalWaitTimeout);
-
-            Assert.That(exception.ParamName, Is.EqualTo("endpoint"));
-        });
-
-        [UnityTest]
-        [Category("Size.Small")]
-        public IEnumerator Start_WhenTransportIsUnsupported_LeavesServerAvailableForLaterStart () => UniTask.ToCoroutine(async () =>
-        {
-            var listener = new BlockingTransportListener(
+            var exception = Assert.Throws<ArgumentException>(() => new IpcEndpoint(
                 IpcTransportKind.NamedPipe,
-                signalStarted: true);
-            var server = CreateServer(
-                new PermitAllSessionTokenValidator(),
-                new StubExecuteRequestDispatcher(),
-                new StubUnityTestRunService(),
-                new StubDaemonShutdownSignal(),
-                new IUnityIpcTransportListener[]
-                {
-                    listener,
-                });
-            var unsupportedEndpoint = new IpcEndpoint(
+                " "));
+
+            Assert.That(exception.ParamName, Is.EqualTo("address"));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void IpcEndpointConstructor_WhenTransportIsUnsupported_ThrowsArgumentOutOfRangeException ()
+        {
+            var exception = Assert.Throws<ArgumentOutOfRangeException>(() => new IpcEndpoint(
                 (IpcTransportKind)int.MaxValue,
-                "ucli-unsupported-transport");
-            var validEndpoint = new IpcEndpoint(
-                IpcTransportKind.NamedPipe,
-                "ucli-supported-transport");
+                "ucli-unsupported-transport"));
 
-            try
-            {
-                await AsyncExceptionCapture.CaptureAsync<InvalidOperationException>(async () =>
-                {
-                    await server.StartAsync(unsupportedEndpoint).AsUniTask();
-                }, "Unsupported transport start", SignalWaitTimeout);
-
-                Assert.That(server.IsRunning, Is.False);
-
-                await TestAwaiter.WaitAsync(
-                    server.StartAsync(validEndpoint).AsUniTask(),
-                    "Server start after unsupported transport",
-                    SignalWaitTimeout);
-
-                Assert.That(server.IsRunning, Is.True);
-            }
-            finally
-            {
-                await TestAwaiter.WaitAsync(
-                    server.StopAsync().AsUniTask(),
-                    "Server cleanup after unsupported transport",
-                    SignalWaitTimeout);
-            }
-        });
+            Assert.That(exception.ParamName, Is.EqualTo("transportKind"));
+        }
 
         [UnityTest]
         [Category("Size.Small")]

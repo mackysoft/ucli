@@ -61,10 +61,15 @@ public sealed class SupervisorBootstrapperManifestFailureTests
             File.WriteAllText(resolvedEndpoint.Address, "stale supervisor socket placeholder");
         }
 
-        var maliciousPath = scope.GetPath("do-not-delete.txt");
+        var maliciousPath = resolvedEndpoint.TransportKind == IpcTransportKind.UnixDomainSocket
+            ? Path.Combine(Path.GetDirectoryName(resolvedEndpoint.Address)!, "x.sock")
+            : scope.GetPath("do-not-delete.txt");
         File.WriteAllText(maliciousPath, "must remain");
+        var manifestEndpoint = resolvedEndpoint.TransportKind == IpcTransportKind.UnixDomainSocket
+            ? new IpcEndpoint(IpcTransportKind.UnixDomainSocket, maliciousPath)
+            : new IpcEndpoint(IpcTransportKind.NamedPipe, $"ucli-do-not-delete-{Guid.NewGuid():N}");
         var manifest = SupervisorBootstrapperTestSupport.CreateManifest(
-            endpoint: new IpcEndpoint(IpcTransportKind.UnixDomainSocket, maliciousPath));
+            endpoint: manifestEndpoint);
         var manifestStore = SupervisorManifestStoreTestSupport.CreateFileBacked(TimeProvider.System);
         await manifestStore.WriteAsync(scope.FullPath, manifest, CancellationToken.None);
         var transportClient = new StubIpcTransportClient

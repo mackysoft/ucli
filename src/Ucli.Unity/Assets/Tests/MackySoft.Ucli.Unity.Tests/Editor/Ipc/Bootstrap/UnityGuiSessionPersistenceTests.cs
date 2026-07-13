@@ -622,6 +622,8 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator PrepareAndPublish_WhenCurrentProcessGuiSessionUsesUnexpectedUnixEndpoint_DoesNotDeleteEndpointResidue () => UniTask.ToCoroutine(async () =>
         {
             var storageRoot = CreateStorageRoot();
+            var unexpectedEndpointPath = CreateShortUnixSocketPath();
+            var expectedEndpointPath = CreateShortUnixSocketPath();
             try
             {
                 UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-unexpected-endpoint");
@@ -630,8 +632,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(sessionDirectoryPath, Is.Not.Null);
                 Directory.CreateDirectory(sessionDirectoryPath!);
                 using var currentProcess = Process.GetCurrentProcess();
-                var unexpectedEndpointPath = Path.Combine(storageRoot, "unexpected.sock");
-                var expectedEndpointPath = Path.Combine(storageRoot, "expected.sock");
                 File.WriteAllText(unexpectedEndpointPath, "socket residue placeholder");
                 WriteSessionContract(
                     sessionPath,
@@ -674,6 +674,8 @@ namespace MackySoft.Ucli.Unity.Tests
             }
             finally
             {
+                DeleteFile(unexpectedEndpointPath);
+                DeleteFile(expectedEndpointPath);
                 DeleteDirectory(storageRoot);
             }
         });
@@ -738,10 +740,10 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Delete_WhenSessionWasReplaced_LeavesCurrentSessionAndEndpointResidue () => UniTask.ToCoroutine(async () =>
         {
             var storageRoot = CreateStorageRoot();
+            var endpointResiduePath = CreateShortUnixSocketPath();
             try
             {
                 UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-delete-replaced");
-                var endpointResiduePath = Path.Combine(storageRoot, "ipc.sock");
                 var registration = await PrepareAndPublishSessionAsync(
                     storageRoot,
                     UnityGuiBootstrapSessionOptions.Create(null),
@@ -772,6 +774,7 @@ namespace MackySoft.Ucli.Unity.Tests
             }
             finally
             {
+                DeleteFile(endpointResiduePath);
                 DeleteDirectory(storageRoot);
             }
         });
@@ -854,6 +857,11 @@ namespace MackySoft.Ucli.Unity.Tests
             return Path.Combine(Path.GetTempPath(), $"ucli-gui-session-tests-{Guid.NewGuid():N}");
         }
 
+        private static string CreateShortUnixSocketPath ()
+        {
+            return $"/tmp/ucli-{Guid.NewGuid():N}.sock";
+        }
+
         private static IpcSessionToken ParseSessionToken (string value)
         {
             Assert.That(IpcSessionToken.TryParse(value, out var sessionToken), Is.True);
@@ -865,6 +873,14 @@ namespace MackySoft.Ucli.Unity.Tests
             if (Directory.Exists(storageRoot))
             {
                 Directory.Delete(storageRoot, recursive: true);
+            }
+        }
+
+        private static void DeleteFile (string path)
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
             }
         }
     }
