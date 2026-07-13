@@ -81,6 +81,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             if (!TryResolveComponentTarget(
+                    operation,
                     targetReference,
                     executionContext,
                     allowTemporaryState,
@@ -218,6 +219,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         }
 
         private static bool TryResolveComponentTarget (
+            NormalizedOperation operation,
             UnityObjectReference targetReference,
             OperationExecutionContext executionContext,
             bool allowTemporaryState,
@@ -227,9 +229,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (!ComponentOperationUtilities.TryResolveComponent(
                     targetReference,
                     executionContext,
-                    allowTemporaryState
-                        ? OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryState
-                        : OperationObjectReferenceUtilities.ReferenceResolutionPolicy.LiveOnly,
+                    OperationObjectReferenceUtilities.GetReferenceResolutionPolicy(operation, allowTemporaryState),
                     out componentResolution,
                     out errorMessage))
             {

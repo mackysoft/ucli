@@ -1376,6 +1376,72 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator ApplyOverrides_PlanThenCall_WhenTargetUsesTemporaryOnlyAlias_AppliesLiveComponentOverride () => UniTask.ToCoroutine(async () =>
+        {
+            var setOperation = new CompSetOperation();
+            var applyOperation = new PrefabApplyOverridesOperation();
+            using var scope = new EditorTestScope()
+                .EnableEditorSceneReset();
+            var prefabInstance = CreateSavedPrefabInstanceWithTestComponent(scope);
+            var context = scope.CreateExecutionContext();
+            Assert.That(context.TryEnsureSceneExecutionSession(prefabInstance.ScenePath, out var ensureErrorMessage), Is.True, ensureErrorMessage);
+            context.SetTemporaryAlias(
+                "component",
+                prefabInstance.Component,
+                new OperationResource(OperationTouchKind.Scene, prefabInstance.ScenePath));
+            Assert.That(context.AliasStore.TryGet("component", out _), Is.False);
+
+            var setRequest = CreateOperation(
+                opId: "edit-step",
+                opName: UcliPrimitiveOperationNames.CompSet,
+                args: new
+                {
+                    target = new
+                    {
+                        scene = prefabInstance.ScenePath,
+                        hierarchyPath = "InstanceRoot",
+                        componentType = prefabInstance.ComponentTypeId,
+                    },
+                    sets = new object[]
+                    {
+                        new
+                        {
+                            path = "integerValue",
+                            value = 42,
+                        },
+                    },
+                });
+            var applyRequest = CreateOperation(
+                opId: "edit-step",
+                opName: UcliPrimitiveOperationNames.PrefabApplyOverrides,
+                args: new
+                {
+                    target = new
+                    {
+                        @var = "component",
+                    },
+                    targetAssetPath = prefabInstance.PrefabPath,
+                    propertyPaths = new[] { "integerValue" },
+                },
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
+
+            var setPlanResult = await setOperation.PlanAsync(setRequest, context, CancellationToken.None);
+            var applyPlanResult = await applyOperation.PlanAsync(applyRequest, context, CancellationToken.None);
+            var setCallResult = await setOperation.CallAsync(setRequest, context, CancellationToken.None);
+            var applyCallResult = await applyOperation.CallAsync(applyRequest, context, CancellationToken.None);
+
+            AssertSuccess(setPlanResult, applied: false, changed: true);
+            AssertSuccess(applyPlanResult, applied: false, changed: true);
+            AssertSuccess(setCallResult, applied: true, changed: true);
+            AssertSuccess(applyCallResult, applied: true, changed: true);
+            var loadedPrefabContentsRoot = scope.LoadPrefabContents(prefabInstance.PrefabPath);
+            var loadedComponent = loadedPrefabContentsRoot.GetComponent<CompOperationTestComponent>();
+            Assert.That(loadedComponent, Is.Not.Null);
+            Assert.That(loadedComponent!.IntegerValue, Is.EqualTo(42));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator ApplyOverrides_Call_WhenPlayModeLiveSceneFallbackIsRecorded_CopiesLiveValueToExplicitPrefabAsset () => UniTask.ToCoroutine(async () =>
         {
             var setOperation = new CompSetOperation();

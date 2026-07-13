@@ -1,4 +1,5 @@
 using System;
+using MackySoft.Ucli.Unity.Execution.Requests;
 using UnityEngine;
 
 #nullable enable
@@ -19,6 +20,30 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             /// <summary> Resolves live state, temporary aliases, and request-local mirrors, shadows, and deletions. </summary>
             AllowTemporaryState = 2,
+        }
+
+        /// <summary> Selects the reference-resolution policy required by one operation phase. </summary>
+        /// <param name="operation"> The normalized operation whose alias eligibility must be honored. </param>
+        /// <param name="allowTemporaryState"> Whether plan-time mirrors, shadows, and deletions participate in resolution. </param>
+        /// <returns> The single resolution policy matching the phase and operation contract. </returns>
+        /// <exception cref="ArgumentNullException"> <paramref name="operation" /> is <see langword="null" />. </exception>
+        public static ReferenceResolutionPolicy GetReferenceResolutionPolicy (
+            NormalizedOperation operation,
+            bool allowTemporaryState)
+        {
+            if (operation == null)
+            {
+                throw new ArgumentNullException(nameof(operation));
+            }
+
+            if (allowTemporaryState)
+            {
+                return ReferenceResolutionPolicy.AllowTemporaryState;
+            }
+
+            return operation.AllowRequestLocalAliases
+                ? ReferenceResolutionPolicy.AllowTemporaryAliases
+                : ReferenceResolutionPolicy.LiveOnly;
         }
 
         /// <summary> Resolves one reference to a Unity object according to the specified request-local resolution policy. </summary>

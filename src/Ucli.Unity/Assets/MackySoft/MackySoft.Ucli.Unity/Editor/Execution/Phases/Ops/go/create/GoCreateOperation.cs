@@ -209,11 +209,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (!GoOperationUtilities.TryResolveEditableGameObject(
                 parentReference,
                 executionContext,
-                allowTemporaryState
-                    ? OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryState
-                    : operation.AllowRequestLocalAliases
-                        ? OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryAliases
-                        : OperationObjectReferenceUtilities.ReferenceResolutionPolicy.LiveOnly,
+                OperationObjectReferenceUtilities.GetReferenceResolutionPolicy(operation, allowTemporaryState),
                 out var parentResolution,
                 out parentErrorMessage))
             {

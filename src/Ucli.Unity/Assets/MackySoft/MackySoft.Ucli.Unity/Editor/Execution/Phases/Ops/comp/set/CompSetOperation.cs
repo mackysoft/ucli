@@ -357,9 +357,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (!ComponentOperationUtilities.TryResolveComponent(
                 arguments.TargetReference,
                 executionContext,
-                operation.AllowRequestLocalAliases
-                    ? OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryAliases
-                    : OperationObjectReferenceUtilities.ReferenceResolutionPolicy.LiveOnly,
+                OperationObjectReferenceUtilities.GetReferenceResolutionPolicy(operation, allowTemporaryState: false),
                 out var componentResolution,
                 out errorMessage))
             {
