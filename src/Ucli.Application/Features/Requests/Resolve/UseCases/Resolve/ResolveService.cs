@@ -210,7 +210,9 @@ internal sealed class ResolveService : IResolveService
                 project);
         }
 
-        var convertedResponse = ExecuteResponseConverter.Convert(executionResult.Response!);
+        var convertedResponse = ExecuteResponseConverter.Convert(
+            executionResult.Response!,
+            projectContext.UnityProject.ProjectFingerprint);
         var responseProject = convertedResponse.Project ?? project;
         if (convertedResponse.IsSuccess)
         {

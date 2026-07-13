@@ -12,19 +12,17 @@ internal static class ExecuteUnityRequestResponseTestFactory
         OperationExecutionReadPostcondition? readPostcondition = null,
         IpcProjectIdentity? project = null)
     {
-        var payload = new IpcExecuteResponse(opResults)
+        var payload = new IpcExecuteResponse(
+            opResults,
+            project ?? new IpcProjectIdentity(
+                projectPath: "/repo/UnityProject",
+                projectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"),
+                unityVersion: "6000.1.4f1"))
         {
             PlanToken = planToken,
             ReadPostcondition = readPostcondition == null
                 ? null
                 : ReadPostconditionTestFactory.ToIpcContract(readPostcondition),
-        };
-        payload = payload with
-        {
-            Project = project ?? new IpcProjectIdentity(
-                ProjectPath: "/repo/UnityProject",
-                ProjectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint").ToString(),
-                UnityVersion: "6000.1.4f1"),
         };
 
         return UnityRequestResponseTestFactory.Create(new IpcResponse(

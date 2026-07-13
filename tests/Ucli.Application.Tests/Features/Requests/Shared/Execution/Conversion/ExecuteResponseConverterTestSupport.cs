@@ -6,15 +6,12 @@ namespace MackySoft.Ucli.Application.Tests.Requests.Shared.Execution.Conversion;
 
 internal static class ExecuteResponseConverterTestSupport
 {
+    public static ProjectFingerprint ExpectedProjectFingerprint { get; } =
+        ProjectFingerprintTestFactory.Create("project-fingerprint");
+
     public static UnityRequestResponse CreateResponse (IpcExecuteResponse payload)
     {
-        if (payload.Project == IpcProjectIdentity.Unknown)
-        {
-            payload = payload with
-            {
-                Project = CreateProjectIdentity(),
-            };
-        }
+        ArgumentNullException.ThrowIfNull(payload);
 
         return new UnityRequestResponse(
             Payload: IpcPayloadCodec.SerializeToElement(payload),
@@ -31,11 +28,18 @@ internal static class ExecuteResponseConverterTestSupport
             HasFailureStatus: false);
     }
 
+    public static IpcExecuteResponse CreateExecuteResponse (
+        IReadOnlyList<IpcExecuteOperationResult> opResults)
+    {
+        ArgumentNullException.ThrowIfNull(opResults);
+        return new IpcExecuteResponse(opResults, CreateProjectIdentity());
+    }
+
     public static IpcProjectIdentity CreateProjectIdentity ()
     {
         return new IpcProjectIdentity(
-            ProjectPath: "/repo/UnityProject",
-            ProjectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint").ToString(),
-            UnityVersion: "6000.1.4f1");
+            projectPath: "/repo/UnityProject",
+            projectFingerprint: ExpectedProjectFingerprint,
+            unityVersion: "6000.1.4f1");
     }
 }

@@ -10,7 +10,7 @@ public sealed class ExecuteResponseConverterPostReadSourceTests
     [Trait("Size", "Small")]
     public void Convert_WhenPostReadSourceIsPresent_PropagatesSourceFacts ()
     {
-        var response = CreateResponse(new IpcExecuteResponse(
+        var response = CreateResponse(CreateExecuteResponse(
         [
             new IpcExecuteOperationResult(
                 OpId: "edit-1",
@@ -19,7 +19,7 @@ public sealed class ExecuteResponseConverterPostReadSourceTests
                 Applied: true,
                 Changed: true,
                 Touched: []),
-        ])
+        ]) with
         {
             PostReadSource = new IpcExecutePostReadSource(
                 IpcExecutePostReadSource.CurrentSchemaVersion,
@@ -34,7 +34,7 @@ public sealed class ExecuteResponseConverterPostReadSourceTests
                 ]),
         });
 
-        var result = ExecuteResponseConverter.Convert(response);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.PostReadSource);
@@ -51,12 +51,12 @@ public sealed class ExecuteResponseConverterPostReadSourceTests
     [Trait("Size", "Small")]
     public void Convert_WhenPostReadSourceIsEmpty_PropagatesSourceFacts ()
     {
-        var response = CreateResponse(new IpcExecuteResponse([])
+        var response = CreateResponse(CreateExecuteResponse([]) with
         {
             PostReadSource = new IpcExecutePostReadSource(IpcExecutePostReadSource.CurrentSchemaVersion, []),
         });
 
-        var result = ExecuteResponseConverter.Convert(response);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.PostReadSource);
@@ -102,7 +102,7 @@ public sealed class ExecuteResponseConverterPostReadSourceTests
             }
             """);
 
-        var result = ExecuteResponseConverter.Convert(response);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
@@ -118,7 +118,7 @@ public sealed class ExecuteResponseConverterPostReadSourceTests
         {
             var response = CreateResponse(CreatePostReadSourcePayload(testCase.StepJson));
 
-            var result = ExecuteResponseConverter.Convert(response);
+            var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
 
             Assert.False(result.IsSuccess);
             var error = Assert.Single(result.Errors);
@@ -144,7 +144,7 @@ public sealed class ExecuteResponseConverterPostReadSourceTests
             """,
             UcliPrimitiveOperationNames.SceneOpen));
 
-        var result = ExecuteResponseConverter.Convert(response);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
@@ -168,7 +168,7 @@ public sealed class ExecuteResponseConverterPostReadSourceTests
             }
             """));
 
-        var result = ExecuteResponseConverter.Convert(response);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
@@ -206,7 +206,7 @@ public sealed class ExecuteResponseConverterPostReadSourceTests
             }
             """);
 
-        var result = ExecuteResponseConverter.Convert(response);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);

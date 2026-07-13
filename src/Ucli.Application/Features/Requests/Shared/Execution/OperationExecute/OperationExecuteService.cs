@@ -167,7 +167,9 @@ internal sealed class OperationExecuteService : IOperationExecuteService
         }
 
         var postprocessedResponse = await ExecuteResponseReadPostconditionProcessor.PersistAsync(
-                ExecuteResponseConverter.Convert(executionResult.Response!),
+                ExecuteResponseConverter.Convert(
+                    executionResult.Response!,
+                    projectContext.UnityProject.ProjectFingerprint),
                 mutationReadPostconditionStore,
                 projectContext.UnityProject.RepositoryRoot,
                 projectContext.UnityProject.ProjectFingerprint,
@@ -254,7 +256,9 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                     project: project));
         }
 
-        var convertedResponse = ExecuteResponseConverter.Convert(executionResult.Response!);
+        var convertedResponse = ExecuteResponseConverter.Convert(
+            executionResult.Response!,
+            unityProject.ProjectFingerprint);
         if (!convertedResponse.IsSuccess)
         {
             return (

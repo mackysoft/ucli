@@ -8,19 +8,68 @@ public sealed class ExecuteResponseConverterTests
 {
     [Fact]
     [Trait("Size", "Small")]
+    public void Convert_WhenExpectedProjectFingerprintIsNull_ThrowsArgumentNullException ()
+    {
+        var response = CreateResponse(CreateExecuteResponse([]));
+
+        var exception = Assert.Throws<ArgumentNullException>(
+            () => ExecuteResponseConverter.Convert(response, null!));
+
+        Assert.Equal("expectedProjectFingerprint", exception.ParamName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Convert_WhenProjectFingerprintMatches_Succeeds ()
+    {
+        var response = CreateResponse(CreateExecuteResponse([]));
+
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(ExpectedProjectFingerprint, Assert.IsType<ProjectIdentityInfo>(result.Project).ProjectFingerprint);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Convert_WhenProjectFingerprintDoesNotMatch_ReturnsInternalErrorWithoutResponseData ()
+    {
+        var responseProjectFingerprint = ProjectFingerprintTestFactory.Create("another-project");
+        var response = CreateResponse(new IpcExecuteResponse(
+            [],
+            new IpcProjectIdentity(
+                projectPath: "/repo/AnotherUnityProject",
+                projectFingerprint: responseProjectFingerprint,
+                unityVersion: "6000.1.4f1")));
+
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
+
+        Assert.False(result.IsSuccess);
+        Assert.Empty(result.OpResults);
+        Assert.Empty(result.ContractViolations);
+        Assert.Null(result.Project);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
+        Assert.Contains("does not match the requested Unity project", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Convert_WhenProjectIsMissing_ReturnsInternalError ()
     {
-        var response = CreateResponse(new IpcExecuteResponse([])
-        {
-            Project = null!,
-        });
+        var response = CreateResponse("""
+            {
+              "project": null,
+              "opResults": []
+            }
+            """);
 
-        var result = ExecuteResponseConverter.Convert(response);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains("'project' field", error.Message, StringComparison.Ordinal);
+        Assert.Contains("payload is invalid", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -33,7 +82,7 @@ public sealed class ExecuteResponseConverterTests
             }
             """);
 
-        var result = ExecuteResponseConverter.Convert(response);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
@@ -45,12 +94,12 @@ public sealed class ExecuteResponseConverterTests
     [Trait("Size", "Small")]
     public void Convert_WhenOpResultIsMissing_ReturnsInternalError ()
     {
-        var response = CreateResponse(new IpcExecuteResponse(
+        var response = CreateResponse(CreateExecuteResponse(
         [
             null!,
         ]));
 
-        var result = ExecuteResponseConverter.Convert(response);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
@@ -62,7 +111,7 @@ public sealed class ExecuteResponseConverterTests
     [Trait("Size", "Small")]
     public void Convert_WhenTouchedResourcesAreMissing_ReturnsInternalError ()
     {
-        var response = CreateResponse(new IpcExecuteResponse(
+        var response = CreateResponse(CreateExecuteResponse(
         [
             new IpcExecuteOperationResult(
                 OpId: "refresh",
@@ -73,7 +122,7 @@ public sealed class ExecuteResponseConverterTests
                 Touched: null!),
         ]));
 
-        var result = ExecuteResponseConverter.Convert(response);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
@@ -85,7 +134,7 @@ public sealed class ExecuteResponseConverterTests
     [Trait("Size", "Small")]
     public void Convert_WhenOpResultRequiredTextIsMissing_ReturnsInternalError ()
     {
-        var response = CreateResponse(new IpcExecuteResponse(
+        var response = CreateResponse(CreateExecuteResponse(
         [
             new IpcExecuteOperationResult(
                 OpId: null!,
@@ -96,7 +145,7 @@ public sealed class ExecuteResponseConverterTests
                 Touched: []),
         ]));
 
-        var result = ExecuteResponseConverter.Convert(response);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
@@ -108,7 +157,7 @@ public sealed class ExecuteResponseConverterTests
     [Trait("Size", "Small")]
     public void Convert_WhenTouchedResourceRequiredTextIsMissing_ReturnsInternalError ()
     {
-        var response = CreateResponse(new IpcExecuteResponse(
+        var response = CreateResponse(CreateExecuteResponse(
         [
             new IpcExecuteOperationResult(
                 OpId: "refresh",
@@ -125,7 +174,7 @@ public sealed class ExecuteResponseConverterTests
                 ]),
         ]));
 
-        var result = ExecuteResponseConverter.Convert(response);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
@@ -137,12 +186,12 @@ public sealed class ExecuteResponseConverterTests
     [Trait("Size", "Small")]
     public void Convert_WhenReadPostconditionRequirementsAreMissing_ReturnsInternalError ()
     {
-        var response = CreateResponse(new IpcExecuteResponse([])
+        var response = CreateResponse(CreateExecuteResponse([]) with
         {
             ReadPostcondition = new IpcExecuteReadPostcondition(null!),
         });
 
-        var result = ExecuteResponseConverter.Convert(response);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
@@ -154,7 +203,7 @@ public sealed class ExecuteResponseConverterTests
     [Trait("Size", "Small")]
     public void Convert_WhenReadPostconditionSurfaceIsMissing_ReturnsInternalError ()
     {
-        var response = CreateResponse(new IpcExecuteResponse([])
+        var response = CreateResponse(CreateExecuteResponse([]) with
         {
             ReadPostcondition = new IpcExecuteReadPostcondition(
             [
@@ -164,7 +213,7 @@ public sealed class ExecuteResponseConverterTests
             ]),
         });
 
-        var result = ExecuteResponseConverter.Convert(response);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
@@ -176,7 +225,7 @@ public sealed class ExecuteResponseConverterTests
     [Trait("Size", "Small")]
     public void Convert_WhenOperationPhaseIsUnsupported_ReturnsInternalError ()
     {
-        var response = CreateResponse(new IpcExecuteResponse(
+        var response = CreateResponse(CreateExecuteResponse(
         [
             new IpcExecuteOperationResult(
                 OpId: "refresh",
@@ -187,7 +236,7 @@ public sealed class ExecuteResponseConverterTests
                 Touched: []),
         ]));
 
-        var result = ExecuteResponseConverter.Convert(response);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
@@ -200,7 +249,7 @@ public sealed class ExecuteResponseConverterTests
     [Trait("Size", "Small")]
     public void Convert_WhenTouchedResourceKindIsUnsupported_ReturnsInternalError ()
     {
-        var response = CreateResponse(new IpcExecuteResponse(
+        var response = CreateResponse(CreateExecuteResponse(
         [
             new IpcExecuteOperationResult(
                 OpId: "refresh",
@@ -217,7 +266,7 @@ public sealed class ExecuteResponseConverterTests
                 ]),
         ]));
 
-        var result = ExecuteResponseConverter.Convert(response);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
@@ -230,7 +279,7 @@ public sealed class ExecuteResponseConverterTests
     [Trait("Size", "Small")]
     public void Convert_WhenReadPostconditionSurfaceIsUnsupported_ReturnsInternalError ()
     {
-        var response = CreateResponse(new IpcExecuteResponse([])
+        var response = CreateResponse(CreateExecuteResponse([]) with
         {
             ReadPostcondition = new IpcExecuteReadPostcondition(
             [
@@ -240,7 +289,7 @@ public sealed class ExecuteResponseConverterTests
             ]),
         });
 
-        var result = ExecuteResponseConverter.Convert(response);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);

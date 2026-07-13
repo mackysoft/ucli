@@ -10,7 +10,7 @@ public sealed class ExecuteResponseConverterDiagnosticTests
     [Trait("Size", "Small")]
     public void Convert_WhenDiagnosticsAreMissing_ReturnsInternalError ()
     {
-        var response = CreateResponse(new IpcExecuteResponse(
+        var response = CreateResponse(CreateExecuteResponse(
         [
             new IpcExecuteOperationResult(
                 OpId: "refresh",
@@ -24,7 +24,7 @@ public sealed class ExecuteResponseConverterDiagnosticTests
             },
         ]));
 
-        var result = ExecuteResponseConverter.Convert(response);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
@@ -57,7 +57,7 @@ public sealed class ExecuteResponseConverterDiagnosticTests
             }
             """);
 
-        var result = ExecuteResponseConverter.Convert(response);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
@@ -69,7 +69,7 @@ public sealed class ExecuteResponseConverterDiagnosticTests
     [Trait("Size", "Small")]
     public void Convert_WhenDiagnosticSeverityIsUnsupported_ReturnsInternalError ()
     {
-        var response = CreateResponse(new IpcExecuteResponse(
+        var response = CreateResponse(CreateExecuteResponse(
         [
             new IpcExecuteOperationResult(
                 OpId: "refresh",
@@ -88,12 +88,9 @@ public sealed class ExecuteResponseConverterDiagnosticTests
                         "coverage is partial."),
                 ],
             },
-        ])
-        {
-            Project = CreateProjectIdentity(),
-        });
+        ]));
 
-        var result = ExecuteResponseConverter.Convert(response);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
@@ -134,7 +131,7 @@ public sealed class ExecuteResponseConverterDiagnosticTests
             }
             """);
 
-        var result = ExecuteResponseConverter.Convert(response);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
@@ -146,7 +143,7 @@ public sealed class ExecuteResponseConverterDiagnosticTests
     [Trait("Size", "Small")]
     public void Convert_WhenDiagnosticCoverageImpactIsUnsupported_ReturnsInternalError ()
     {
-        var response = CreateResponse(new IpcExecuteResponse(
+        var response = CreateResponse(CreateExecuteResponse(
         [
             new IpcExecuteOperationResult(
                 OpId: "refresh",
@@ -165,12 +162,9 @@ public sealed class ExecuteResponseConverterDiagnosticTests
                         "coverage is partial."),
                 ],
             },
-        ])
-        {
-            Project = CreateProjectIdentity(),
-        });
+        ]));
 
-        var result = ExecuteResponseConverter.Convert(response);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
@@ -183,7 +177,7 @@ public sealed class ExecuteResponseConverterDiagnosticTests
     [Trait("Size", "Small")]
     public void Convert_WhenDiagnosticIsPresent_PropagatesDiagnostic ()
     {
-        var response = CreateResponse(new IpcExecuteResponse(
+        var response = CreateResponse(CreateExecuteResponse(
         [
             new IpcExecuteOperationResult(
                 OpId: "query",
@@ -204,7 +198,7 @@ public sealed class ExecuteResponseConverterDiagnosticTests
             },
         ]));
 
-        var result = ExecuteResponseConverter.Convert(response);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Project);

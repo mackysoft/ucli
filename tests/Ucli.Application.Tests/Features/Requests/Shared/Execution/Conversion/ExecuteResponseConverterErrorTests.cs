@@ -1,6 +1,8 @@
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
 
+using static MackySoft.Ucli.Application.Tests.Requests.Shared.Execution.Conversion.ExecuteResponseConverterTestSupport;
+
 namespace MackySoft.Ucli.Application.Tests.Requests.Shared.Execution.Conversion;
 
 public sealed class ExecuteResponseConverterErrorTests
@@ -14,7 +16,7 @@ public sealed class ExecuteResponseConverterErrorTests
             Errors: null!,
             HasFailureStatus: false);
 
-        var result = ExecuteResponseConverter.Convert(response);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
@@ -34,7 +36,7 @@ public sealed class ExecuteResponseConverterErrorTests
             ],
             HasFailureStatus: true);
 
-        var result = ExecuteResponseConverter.Convert(response);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
@@ -52,7 +54,7 @@ public sealed class ExecuteResponseConverterErrorTests
             HasFailureStatus: true,
             FailureStatus: "busy");
 
-        var result = ExecuteResponseConverter.Convert(response);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
@@ -72,7 +74,7 @@ public sealed class ExecuteResponseConverterErrorTests
             ],
             HasFailureStatus: true);
 
-        var result = ExecuteResponseConverter.Convert(response);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(PlanTokenErrorCodes.PlanTokenInvalid, Assert.Single(result.Errors).Code);
@@ -80,9 +82,6 @@ public sealed class ExecuteResponseConverterErrorTests
 
     private static JsonElement CreatePayload ()
     {
-        return IpcPayloadCodec.SerializeToElement(new IpcExecuteResponse([])
-        {
-            Project = ExecuteResponseConverterTestSupport.CreateProjectIdentity(),
-        });
+        return IpcPayloadCodec.SerializeToElement(CreateExecuteResponse([]));
     }
 }

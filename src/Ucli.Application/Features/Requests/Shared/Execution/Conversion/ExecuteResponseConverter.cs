@@ -9,10 +9,22 @@ internal static class ExecuteResponseConverter
 {
     /// <summary> Converts one execute response into normalized operation results and errors. </summary>
     /// <param name="response"> The host-decoded Unity response. </param>
+    /// <param name="expectedProjectFingerprint"> The fingerprint of the Unity project targeted by the request. </param>
     /// <returns> The converted execute response. </returns>
-    public static ExecuteResponseConversionResult Convert (UnityRequestResponse response)
+    /// <exception cref="ArgumentNullException">
+    /// Thrown when <paramref name="response" /> or <paramref name="expectedProjectFingerprint" /> is <see langword="null" />.
+    /// </exception>
+    public static ExecuteResponseConversionResult Convert (
+        UnityRequestResponse response,
+        ProjectFingerprint expectedProjectFingerprint)
     {
         ArgumentNullException.ThrowIfNull(response);
+        ArgumentNullException.ThrowIfNull(expectedProjectFingerprint);
+
+        if (!TryValidateRequiredPayloadProperties(response.Payload, out var requiredPayloadPropertyError))
+        {
+            return CreateInvalidPayloadFailure(requiredPayloadPropertyError);
+        }
 
         if (!IpcPayloadCodec.TryDeserialize(response.Payload, out IpcExecuteResponse? payload, out var payloadError))
         {
@@ -25,14 +37,15 @@ internal static class ExecuteResponseConverter
                 ]);
         }
 
-        if (!TryValidateRequiredPayloadProperties(response.Payload, out var requiredPayloadPropertyError))
-        {
-            return CreateInvalidPayloadFailure(requiredPayloadPropertyError);
-        }
-
         if (!TryValidatePayload(response.Payload, payload, out var payloadValidationError))
         {
             return CreateInvalidPayloadFailure(payloadValidationError);
+        }
+
+        if (payload!.Project.ProjectFingerprint != expectedProjectFingerprint)
+        {
+            return CreateInvalidPayloadFailure(
+                "Execute response payload is invalid. The 'project.projectFingerprint' field does not match the requested Unity project.");
         }
 
         if (!TryValidateErrors(response.Errors, out var errorsValidationError))
@@ -133,30 +146,6 @@ internal static class ExecuteResponseConverter
         if (payload == null || payload.OpResults is null)
         {
             errorMessage = "Execute response payload is invalid. The 'opResults' field is missing.";
-            return false;
-        }
-
-        if (payload.Project == null)
-        {
-            errorMessage = "Execute response payload is invalid. The 'project' field is missing.";
-            return false;
-        }
-
-        if (IsMissingRequiredString(payload.Project.ProjectPath))
-        {
-            errorMessage = "Execute response payload is invalid. The 'project.projectPath' field is missing.";
-            return false;
-        }
-
-        if (!ProjectFingerprint.TryParse(payload.Project.ProjectFingerprint, out _))
-        {
-            errorMessage = "Execute response payload is invalid. The 'project.projectFingerprint' field is not a canonical project fingerprint.";
-            return false;
-        }
-
-        if (IsMissingRequiredString(payload.Project.UnityVersion))
-        {
-            errorMessage = "Execute response payload is invalid. The 'project.unityVersion' field is missing.";
             return false;
         }
 
@@ -730,7 +719,7 @@ internal static class ExecuteResponseConverter
 
         return new ProjectIdentityInfo(
             ProjectPath: project.ProjectPath,
-            ProjectFingerprint: new ProjectFingerprint(project.ProjectFingerprint),
+            ProjectFingerprint: project.ProjectFingerprint,
             UnityVersion: project.UnityVersion);
     }
 

@@ -16,9 +16,9 @@ public sealed class ExecuteResponseConverterContractViolationTests
     [Trait("Size", "Small")]
     public void Convert_WhenContractViolationsAreMissing_UsesEmptyCollection ()
     {
-        var response = CreateResponse(new IpcExecuteResponse([]));
+        var response = CreateResponse(CreateExecuteResponse([]));
 
-        var result = ExecuteResponseConverter.Convert(response);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
 
         Assert.True(result.IsSuccess);
         Assert.Empty(result.ContractViolations);
@@ -30,7 +30,7 @@ public sealed class ExecuteResponseConverterContractViolationTests
     {
         var response = CreateContractViolationFailureResponse(CreateContractViolationPayload());
 
-        var result = ExecuteResponseConverter.Convert(response);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
 
         Assert.False(result.IsSuccess);
         var violation = Assert.Single(result.ContractViolations);
@@ -45,7 +45,7 @@ public sealed class ExecuteResponseConverterContractViolationTests
     [Trait("Size", "Small")]
     public void Convert_WhenContractViolationPayloadHasNoError_ReturnsInternalError ()
     {
-        var response = CreateResponse(new IpcExecuteResponse([])
+        var response = CreateResponse(CreateExecuteResponse([]) with
         {
             ContractViolations =
             [
@@ -53,7 +53,7 @@ public sealed class ExecuteResponseConverterContractViolationTests
             ],
         });
 
-        var result = ExecuteResponseConverter.Convert(response);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
@@ -69,7 +69,7 @@ public sealed class ExecuteResponseConverterContractViolationTests
             CreateContractViolationPayload(),
             hasFailureStatus: false);
 
-        var result = ExecuteResponseConverter.Convert(response);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
@@ -85,7 +85,7 @@ public sealed class ExecuteResponseConverterContractViolationTests
             CreateContractViolationPayload(),
             [CreateContractViolationError(StepTwo)]);
 
-        var result = ExecuteResponseConverter.Convert(response);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
@@ -101,7 +101,7 @@ public sealed class ExecuteResponseConverterContractViolationTests
             CreateContractViolationPayload(),
             [CreateContractViolationError(null)]);
 
-        var result = ExecuteResponseConverter.Convert(response);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
@@ -120,7 +120,7 @@ public sealed class ExecuteResponseConverterContractViolationTests
                 CreateContractViolationError(StepTwo),
             ]);
 
-        var result = ExecuteResponseConverter.Convert(response);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
@@ -152,7 +152,7 @@ public sealed class ExecuteResponseConverterContractViolationTests
             }
             """);
 
-        var result = ExecuteResponseConverter.Convert(response);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
@@ -185,7 +185,7 @@ public sealed class ExecuteResponseConverterContractViolationTests
             }
             """);
 
-        var result = ExecuteResponseConverter.Convert(response);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
@@ -198,12 +198,9 @@ public sealed class ExecuteResponseConverterContractViolationTests
     [Trait("Size", "Small")]
     public void Convert_WhenContractViolationErrorHasNoPayloadItems_ReturnsInternalError ()
     {
-        var response = CreateContractViolationFailureResponse(new IpcExecuteResponse([])
-        {
-            Project = CreateProjectIdentity(),
-        });
+        var response = CreateContractViolationFailureResponse(CreateExecuteResponse([]));
 
-        var result = ExecuteResponseConverter.Convert(response);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
@@ -213,9 +210,8 @@ public sealed class ExecuteResponseConverterContractViolationTests
 
     private static IpcExecuteResponse CreateContractViolationPayload ()
     {
-        return new IpcExecuteResponse([])
+        return CreateExecuteResponse([]) with
         {
-            Project = CreateProjectIdentity(),
             ContractViolations =
             [
                 CreateContractViolation(),

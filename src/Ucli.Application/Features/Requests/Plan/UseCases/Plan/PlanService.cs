@@ -167,7 +167,9 @@ internal sealed class PlanService : IPlanService
                 baseOutput);
         }
 
-        var convertedResponse = ExecuteResponseConverter.Convert(executionResult.Response!);
+        var convertedResponse = ExecuteResponseConverter.Convert(
+            executionResult.Response!,
+            preparedRequest.ProjectContext.UnityProject.ProjectFingerprint);
         var executionOutput = baseOutput with
         {
             Project = convertedResponse.Project ?? baseOutput.Project,

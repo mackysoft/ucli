@@ -271,7 +271,9 @@ internal sealed class QueryService : IQueryService
                 project);
         }
 
-        var convertedResponse = ExecuteResponseConverter.Convert(executionResult.Response!);
+        var convertedResponse = ExecuteResponseConverter.Convert(
+            executionResult.Response!,
+            projectContext.UnityProject.ProjectFingerprint);
         var responseProject = convertedResponse.Project ?? project;
         if (convertedResponse.IsSuccess)
         {

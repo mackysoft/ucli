@@ -76,7 +76,9 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
                     baseOutput);
             }
 
-            var convertedPlanResponse = ExecuteResponseConverter.Convert(planExecutionResult.Response!);
+            var convertedPlanResponse = ExecuteResponseConverter.Convert(
+                planExecutionResult.Response!,
+                preparedRequest.UnityProject.ProjectFingerprint);
             var planProject = convertedPlanResponse.Project ?? baseOutput.Project;
             var planOutput = new CallPlanOutput(
                 opResults: convertedPlanResponse.OpResults,
@@ -148,7 +150,9 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
                 baseOutput);
         }
 
-        var convertedCallResponse = ExecuteResponseConverter.Convert(callExecutionResult.Response!);
+        var convertedCallResponse = ExecuteResponseConverter.Convert(
+            callExecutionResult.Response!,
+            preparedRequest.UnityProject.ProjectFingerprint);
         var callProject = convertedCallResponse.Project ?? baseOutput.Project;
         var executionOutput = baseOutput with
         {
