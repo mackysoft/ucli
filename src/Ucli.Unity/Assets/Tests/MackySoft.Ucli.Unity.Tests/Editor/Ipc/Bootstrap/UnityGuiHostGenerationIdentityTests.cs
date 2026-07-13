@@ -106,8 +106,6 @@ namespace MackySoft.Ucli.Unity.Tests
                     File.ReadAllText(UcliStoragePathResolver.ResolveDaemonLifecyclePath(
                         storageRoot,
                         ProjectFingerprint)));
-                var expectedPersistedId = EditorInstanceId.ToString("N");
-
                 Assert.That(operationWriteResult.IsSuccess, Is.True, operationWriteResult.ErrorMessage);
                 Assert.That(operationReadResult.IsSuccess, Is.True, operationReadResult.ErrorMessage);
                 Assert.That(sessionContract, Is.Not.Null);
@@ -115,7 +113,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(operationReadResult.Record, Is.Not.Null);
                 Assert.That(sessionContract.EditorInstanceId, Is.EqualTo(EditorInstanceId));
                 Assert.That(lifecycleContract.EditorInstanceId, Is.EqualTo(EditorInstanceId));
-                Assert.That(operationReadResult.Record.HostEditorInstanceId, Is.EqualTo(expectedPersistedId));
+                Assert.That(operationReadResult.Record.HostEditorInstanceId, Is.EqualTo(EditorInstanceId));
             }
             finally
             {

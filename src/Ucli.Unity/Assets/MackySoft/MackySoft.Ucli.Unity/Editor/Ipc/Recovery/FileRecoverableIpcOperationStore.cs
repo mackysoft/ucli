@@ -149,7 +149,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 RequestId = requestId,
                 RequestPayloadHash = requestPayloadHash.ToString(),
                 HostProcessId = hostProcessId,
-                HostEditorInstanceId = hostEditorInstanceId.ToString("N"),
+                HostEditorInstanceId = hostEditorInstanceId,
                 State = RecoverableIpcOperationState.Pending,
                 StartedAtUtc = startedAtUtc,
                 RecoveryPayload = recoveryPayload.Clone(),
@@ -199,7 +199,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 RequestId = requestId,
                 RequestPayloadHash = requestPayloadHash.ToString(),
                 HostProcessId = hostProcessId,
-                HostEditorInstanceId = hostEditorInstanceId.ToString("N"),
+                HostEditorInstanceId = hostEditorInstanceId,
                 State = RecoverableIpcOperationState.Completed,
                 StartedAtUtc = startedAtUtc,
                 CompletedAtUtc = completedAtUtc,
@@ -526,11 +526,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 || !Sha256Digest.TryParse(record.RequestPayloadHash, out var storedRequestPayloadHash)
                 || storedRequestPayloadHash != requestPayloadHash
                 || record.HostProcessId != hostProcessId
-                || record.HostEditorInstanceId == null
-                || record.HostEditorInstanceId.Length != 32
-                || !Guid.TryParseExact(record.HostEditorInstanceId, "N", out var storedHostEditorInstanceId)
-                || storedHostEditorInstanceId == Guid.Empty
-                || storedHostEditorInstanceId != hostEditorInstanceId)
+                || record.HostEditorInstanceId != hostEditorInstanceId)
             {
                 errorMessage = "Recoverable IPC operation record identity is invalid.";
                 return false;

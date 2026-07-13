@@ -22,14 +22,12 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class FileRecoverableIpcOperationStoreTests
     {
-        private const string EditorInstanceId = "11111111111111111111111111111111";
-
-        private const string OtherEditorInstanceId = "22222222222222222222222222222222";
-
         private static readonly ProjectFingerprint ProjectFingerprint =
             ProjectFingerprintTestFactory.Create("project-fingerprint");
 
-        private static readonly Guid EditorInstanceGuid = Guid.Parse(EditorInstanceId);
+        private static readonly Guid EditorInstanceId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+
+        private static readonly Guid OtherEditorInstanceId = Guid.Parse("22222222-2222-2222-2222-222222222222");
 
         private static readonly Sha256Digest RequestPayloadHash = Sha256Digest.Parse(
             "cda34040abc54e9b351b66c6ecbc9708cf2c70996b0805553b3854bdce80d94b");
@@ -85,6 +83,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(
                     recordDocument.RootElement.GetProperty("requestId").GetString(),
                     Is.EqualTo("7b6d4c17-1b8e-4f28-a2e6-123456789abc"));
+                Assert.That(
+                    recordDocument.RootElement.GetProperty("hostEditorInstanceId").GetGuid(),
+                    Is.EqualTo(EditorInstanceId));
                 Assert.That(
                     Path.GetFileName(Path.GetDirectoryName(recordPath)),
                     Is.EqualTo("14fb8047edc50c557a2f91c0c5570982c268705dc819642f2055bcc2defaf8ce"));
@@ -190,7 +191,48 @@ namespace MackySoft.Ucli.Unity.Tests
                     IpcPayloadCodec.SerializeToElement(new { before = "snapshot" }),
                     CancellationToken.None);
                 Assert.That(writeResult.IsSuccess, Is.True, writeResult.ErrorMessage);
-                RewriteOperationRecord(projectPath, record => record.HostEditorInstanceId = "editor-instance");
+                RewriteOperationRecordText(
+                    projectPath,
+                    text => text.Replace(
+                        $"\"hostEditorInstanceId\":\"{EditorInstanceId:D}\"",
+                        "\"hostEditorInstanceId\":\"editor-instance\"",
+                        StringComparison.Ordinal));
+
+                var readResult = await store.ReadAsync(
+                    UnityIpcMethod.PlayEnter,
+                    requestId,
+                    RequestPayloadHash,
+                    CancellationToken.None);
+
+                Assert.That(readResult.IsSuccess, Is.False);
+                Assert.That(readResult.Record, Is.Null);
+                Assert.That(readResult.ErrorMessage, Does.Contain("Guid"));
+                Assert.That(readResult.ErrorMessage, Does.Contain("hostEditorInstanceId"));
+            }
+            finally
+            {
+                DeleteDirectoryIfExists(projectPath);
+            }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator ReadAsync_WhenHostEditorInstanceIdIsEmpty_RejectsRecord () => UniTask.ToCoroutine(async () =>
+        {
+            var projectPath = CreateTemporaryProjectPath();
+            try
+            {
+                var store = CreateStore(projectPath);
+                var requestId = Guid.NewGuid();
+                var writeResult = await store.WritePendingAsync(
+                    UnityIpcMethod.PlayEnter,
+                    requestId,
+                    RequestPayloadHash,
+                    DateTimeOffset.UtcNow,
+                    IpcPayloadCodec.SerializeToElement(new { before = "snapshot" }),
+                    CancellationToken.None);
+                Assert.That(writeResult.IsSuccess, Is.True, writeResult.ErrorMessage);
+                RewriteOperationRecord(projectPath, record => record.HostEditorInstanceId = Guid.Empty);
 
                 var readResult = await store.ReadAsync(
                     UnityIpcMethod.PlayEnter,
@@ -742,7 +784,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     projectPath,
                     ProjectFingerprint,
                     "6000.1.4f1"),
-                EditorInstanceGuid);
+                EditorInstanceId);
         }
 
         private static T GetPrivateField<T> (object instance, string fieldName)

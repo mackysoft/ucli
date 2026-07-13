@@ -33,7 +33,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         public int HostProcessId { get; set; }
 
         /// <summary> Gets or sets the Unity Editor process instance identifier that created this record. </summary>
-        public string HostEditorInstanceId { get; set; }
+        public Guid HostEditorInstanceId { get; set; }
 
         /// <summary> Gets or sets the typed operation state used by recovery logic. </summary>
         [JsonIgnore]
