@@ -44,36 +44,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="describeContract"> The agent-facing operation describe contract. </param>
         /// <param name="argsType"> The operation args contract type. </param>
         /// <param name="resultType"> The operation result contract type. </param>
-        /// <param name="exposure"> Whether the operation is reachable from public request surfaces. </param>
-        /// <param name="playModeSupport"> Whether the raw operation can be executed through Play Mode mutation requests. </param>
-        /// <exception cref="ArgumentException"> Thrown when one argument is invalid. </exception>
-        /// <exception cref="ArgumentNullException"> Thrown when one contract type is <see langword="null" />. </exception>
-        public UcliOperationMetadata (
-            string operationName,
-            UcliOperationKind kind,
-            UcliOperationDescribeContract describeContract,
-            Type argsType,
-            Type resultType,
-            UcliOperationExposure exposure = UcliOperationExposure.Public,
-            UcliOperationPlayModeSupport playModeSupport = UcliOperationPlayModeSupport.Disallowed)
-            : this(
-                operationName,
-                kind,
-                describeContract,
-                argsType,
-                resultType,
-                requiresPreCallPlanReplay: false,
-                exposure: exposure,
-                playModeSupport: playModeSupport)
-        {
-        }
-
-        /// <summary> Initializes a new instance of the <see cref="UcliOperationMetadata" /> class. </summary>
-        /// <param name="operationName"> The operation name. </param>
-        /// <param name="kind"> The operation kind metadata. </param>
-        /// <param name="describeContract"> The agent-facing operation describe contract. </param>
-        /// <param name="argsType"> The operation args contract type. </param>
-        /// <param name="resultType"> The operation result contract type. </param>
         /// <param name="requiresPreCallPlanReplay"> Whether call execution must replay plan immediately beforehand. </param>
         /// <param name="exposure"> Whether the operation is reachable from public request surfaces. </param>
         /// <param name="playModeSupport"> Whether the raw operation can be executed through Play Mode mutation requests. </param>

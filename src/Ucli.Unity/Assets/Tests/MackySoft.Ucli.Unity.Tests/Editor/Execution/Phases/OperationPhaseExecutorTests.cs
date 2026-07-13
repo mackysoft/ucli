@@ -1414,7 +1414,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 $"{operationName} test operation.",
                 Array.Empty<UcliOperationInputContract>(),
                 UcliOperationResultContract.NoResult("This test operation does not emit operation-specific result data."),
-                assurance ?? CreateValidationOnlyAssurance(policy, sideEffects));
+                assurance ?? CreateValidationOnlyAssurance(policy, sideEffects),
+                codeContract: null);
         }
 
         private static UcliOperationAssuranceContract CreateValidationOnlyAssurance (
@@ -1845,7 +1846,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     UcliOperationKind.Mutation,
                     CreateDescribeContract(operationName, assurance: CreateMutableAssurance()),
                     typeof(UcliEmptyArgs),
-                    typeof(UcliNoResult));
+                    typeof(UcliNoResult),
+                    requiresPreCallPlanReplay: false);
             }
 
             public UcliOperationMetadata Metadata { get; }
@@ -1885,7 +1887,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     UcliOperationKind.Mutation,
                     CreateDescribeContract(operationName, assurance: CreateMutableAssurance()),
                     typeof(UcliEmptyArgs),
-                    typeof(UcliNoResult));
+                    typeof(UcliNoResult),
+                    requiresPreCallPlanReplay: false);
             }
 
             public UcliOperationMetadata Metadata { get; }

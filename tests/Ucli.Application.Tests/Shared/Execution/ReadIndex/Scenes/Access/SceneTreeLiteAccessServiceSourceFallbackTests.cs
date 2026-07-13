@@ -33,7 +33,8 @@ public sealed class SceneTreeLiteAccessServiceSourceFallbackTests
                     Roots:
                     [
                         new IndexSceneTreeLiteNodeJsonContract("FreshRoot", "GlobalObjectId_V1-1-1-1", Array.Empty<IndexSceneTreeLiteNodeJsonContract>(), IndexSceneTreeLiteNodeChildrenStateValues.Complete),
-                    ]),
+                    ],
+                    SourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.PersistedPreview, isDirty: false)),
                 "Existing scene-tree-lite index freshness is 'stale'."),
         };
         var service = CreateService(indexReader, freshnessEvaluator, new TestMutationReadPostconditionStore(), refreshService, new RecordingSceneTreeLiteSourceProbe());
@@ -73,7 +74,8 @@ public sealed class SceneTreeLiteAccessServiceSourceFallbackTests
                 new IpcIndexSceneTreeLiteReadResponse(
                     GeneratedAtUtc: DateTimeOffset.Parse("2026-04-14T00:01:00+00:00"),
                     ScenePath: "Assets/Scenes/Main.unity",
-                    Roots: CreateTree()),
+                    Roots: CreateTree(),
+                    SourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.PersistedPreview, isDirty: false)),
                 "readIndex disabled by mode."),
         };
         var indexReader = new RecordingReadIndexArtifactReader();
@@ -115,7 +117,8 @@ public sealed class SceneTreeLiteAccessServiceSourceFallbackTests
                 new IpcIndexSceneTreeLiteReadResponse(
                     GeneratedAtUtc: DateTimeOffset.Parse("2026-04-14T00:01:00+00:00"),
                     ScenePath: "Packages/com.example/Scenes/Main.unity",
-                    Roots: CreateTree()),
+                    Roots: CreateTree(),
+                    SourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.PersistedPreview, isDirty: false)),
                 "scene-tree-lite readIndex is unavailable for non-Assets scene paths."),
         };
         var indexReader = new RecordingReadIndexArtifactReader();
@@ -162,7 +165,8 @@ public sealed class SceneTreeLiteAccessServiceSourceFallbackTests
                 new IpcIndexSceneTreeLiteReadResponse(
                     GeneratedAtUtc: DateTimeOffset.Parse("2026-04-14T00:01:00+00:00"),
                     ScenePath: "Assets/Scenes/Main.unity",
-                    Roots: CreateTree()),
+                    Roots: CreateTree(),
+                    SourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.PersistedPreview, isDirty: false)),
                 "scene-tree-lite lookup is missing."),
         };
         var service = CreateService(indexReader, new RecordingReadIndexFreshnessEvaluator(), new TestMutationReadPostconditionStore(), refreshService, new RecordingSceneTreeLiteSourceProbe());
@@ -208,7 +212,8 @@ public sealed class SceneTreeLiteAccessServiceSourceFallbackTests
                 new IpcIndexSceneTreeLiteReadResponse(
                     GeneratedAtUtc: DateTimeOffset.Parse("2026-04-14T00:01:00+00:00"),
                     ScenePath: "Assets/Scenes/Main.unity",
-                    Roots: CreateTree()),
+                    Roots: CreateTree(),
+                    SourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.PersistedPreview, isDirty: false)),
                 "Index contract file 'lookups/scene-tree-lite/*.lookup.json' is malformed."),
         };
         var service = CreateService(indexReader, new RecordingReadIndexFreshnessEvaluator(), new TestMutationReadPostconditionStore(), refreshService, new RecordingSceneTreeLiteSourceProbe());

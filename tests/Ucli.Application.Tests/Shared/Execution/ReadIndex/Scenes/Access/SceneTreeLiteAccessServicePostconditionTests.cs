@@ -47,7 +47,8 @@ public sealed class SceneTreeLiteAccessServicePostconditionTests
                     Roots:
                     [
                         new IndexSceneTreeLiteNodeJsonContract("FreshRoot", "GlobalObjectId_V1-1-1-1", Array.Empty<IndexSceneTreeLiteNodeJsonContract>(), IndexSceneTreeLiteNodeChildrenStateValues.Complete),
-                    ]),
+                    ],
+                    SourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.PersistedPreview, isDirty: false)),
                 "Existing scene-tree-lite index generatedAtUtc is older than mutation read postcondition."),
         };
         var service = CreateService(indexReader, freshnessEvaluator, readPostconditionStore, refreshService, new RecordingSceneTreeLiteSourceProbe());
@@ -102,7 +103,8 @@ public sealed class SceneTreeLiteAccessServicePostconditionTests
                     Roots:
                     [
                         new IndexSceneTreeLiteNodeJsonContract("FreshRoot", "GlobalObjectId_V1-1-1-1", Array.Empty<IndexSceneTreeLiteNodeJsonContract>(), IndexSceneTreeLiteNodeChildrenStateValues.Complete),
-                    ]),
+                    ],
+                    SourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.PersistedPreview, isDirty: false)),
                 "Existing scene-tree-lite index generatedAtUtc is older than mutation read postcondition."),
         };
         var service = CreateService(indexReader, freshnessEvaluator, readPostconditionStore, refreshService, new RecordingSceneTreeLiteSourceProbe());

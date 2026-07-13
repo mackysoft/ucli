@@ -37,7 +37,8 @@ public static class UcliOperationDescribeContractBuilder
             description,
             CreateInputs(typeof(TArgs)),
             CreateResultContract(typeof(TResult)),
-            assurance);
+            assurance,
+            codeContract: null);
     }
 
     private static IReadOnlyList<UcliOperationInputContract> CreateInputs (Type argsType)

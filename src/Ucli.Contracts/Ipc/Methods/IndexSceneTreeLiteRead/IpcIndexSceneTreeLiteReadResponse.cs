@@ -19,19 +19,6 @@ public sealed record IpcIndexSceneTreeLiteReadResponse
         this.SourceState = SourceState;
     }
 
-    /// <summary> Initializes a response that represents persisted-preview source state. </summary>
-    public IpcIndexSceneTreeLiteReadResponse (
-        DateTimeOffset GeneratedAtUtc,
-        string ScenePath,
-        IReadOnlyList<IndexSceneTreeLiteNodeJsonContract>? Roots)
-        : this(
-            GeneratedAtUtc,
-            ScenePath,
-            Roots,
-            new SceneTreeSourceState(SceneTreeSourceStateKind.PersistedPreview, isDirty: false))
-    {
-    }
-
     /// <summary> Gets the server-side snapshot generation timestamp. </summary>
     public DateTimeOffset GeneratedAtUtc { get; init; }
 

@@ -171,7 +171,8 @@ namespace MackySoft.Ucli.Unity.Tests
                             emitted: true,
                             resultType: "DifferentResult",
                             description: "Wrong result contract."),
-                    CreateValidationOnlyAssurance()));
+                        CreateValidationOnlyAssurance(),
+                        codeContract: null));
             });
         }
 
@@ -310,7 +311,8 @@ namespace MackySoft.Ucli.Unity.Tests
                                 }),
                         },
                         UcliOperationResultContract.NoResult("This operation does not emit operation-specific result data."),
-                        CreateValidationOnlyAssurance()));
+                        CreateValidationOnlyAssurance(),
+                        codeContract: null));
             });
         }
 
@@ -340,7 +342,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 "Defensive copy operation.",
                 new[] { input },
                 UcliOperationResultContract.NoResult("This operation does not emit operation-specific result data."),
-                CreateValidationOnlyAssurance());
+                CreateValidationOnlyAssurance(),
+                codeContract: null);
 
             var metadata = UcliOperationMetadata.Create<GenericDiscoverableArgs, UcliNoResult>(
                 operationName: "ucli.tests.describe-defensive-copy",
@@ -1360,7 +1363,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 $"{operationName} test operation.",
                 Array.Empty<UcliOperationInputContract>(),
                 UcliOperationResultContract.NoResult("This test operation does not emit operation-specific result data."),
-                CreateValidationOnlyAssurance());
+                CreateValidationOnlyAssurance(),
+                codeContract: null);
         }
     }
 }

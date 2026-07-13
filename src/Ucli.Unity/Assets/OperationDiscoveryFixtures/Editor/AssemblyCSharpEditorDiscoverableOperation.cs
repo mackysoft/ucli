@@ -32,7 +32,8 @@ namespace MackySoft.Ucli.Unity.OperationDiscoveryFixtures
                     touchedContract: "Reports no touched resources.",
                     readPostconditionContract: "Does not stale read surfaces.",
                     failureSemantics: "Failure means the fixture operation did not complete.",
-                    dangerousNotes: Array.Empty<string>())));
+                    dangerousNotes: Array.Empty<string>()),
+                codeContract: null));
 
         protected override Task<OperationPhaseStepResult> ValidateAsync (
             NormalizedOperation operation,
