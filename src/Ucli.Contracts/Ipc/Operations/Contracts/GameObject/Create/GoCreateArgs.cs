@@ -19,14 +19,6 @@ public sealed record GoCreateArgs
         Parent = parent;
     }
 
-    public GoCreateArgs (
-        string name,
-        string? scene,
-        GameObjectReferenceArgs? parent)
-        : this(name, scene == null ? null : new SceneAssetPath(scene), parent)
-    {
-    }
-
     [UcliRequired]
     [UcliDescription("Name assigned to the created GameObject.")]
     [UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]

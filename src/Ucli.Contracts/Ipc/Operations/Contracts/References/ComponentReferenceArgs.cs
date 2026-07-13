@@ -27,23 +27,6 @@ public sealed record ComponentReferenceArgs
         ComponentType = componentType;
     }
 
-    public ComponentReferenceArgs (
-        string? alias,
-        string? globalObjectId,
-        string? scene,
-        string? prefab,
-        string? hierarchyPath,
-        string? componentType)
-        : this(
-            alias == null ? null : new UcliPlanAlias(alias),
-            globalObjectId == null ? null : new UnityGlobalObjectId(globalObjectId),
-            scene == null ? null : new SceneAssetPath(scene),
-            prefab == null ? null : new PrefabAssetPath(prefab),
-            hierarchyPath == null ? null : new UnityHierarchyPath(hierarchyPath),
-            componentType == null ? null : new UnityComponentTypeId(componentType))
-    {
-    }
-
     [UcliDescription("Request-local alias produced by an earlier plan step.")]
     [JsonPropertyName(UcliOperationContractPropertyNames.Alias)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

@@ -15,13 +15,6 @@ public sealed record ComponentEnsureArgs
         Type = type;
     }
 
-    public ComponentEnsureArgs (
-        GameObjectReferenceArgs target,
-        string type)
-        : this(target, new UnityComponentTypeId(type))
-    {
-    }
-
     [UcliRequired]
     [UcliDescription("Target GameObject that should contain the component.")]
     [UcliInputConstraint(UcliOperationInputConstraintKind.ReferenceResolvable, TargetKind = UcliOperationReferenceTargetKind.GameObject)]

@@ -21,37 +21,6 @@ public sealed record AssetsFindArgs
         Cursor = cursor;
     }
 
-    public AssetsFindArgs (
-        UnityTypeId? type,
-        ProjectRelativePathPrefix? pathPrefix,
-        string? nameContains)
-        : this(type, pathPrefix, nameContains, limit: null, cursor: null)
-    {
-    }
-
-    public AssetsFindArgs (
-        string? type,
-        string? pathPrefix,
-        string? nameContains)
-        : this(type, pathPrefix, nameContains, limit: null, cursor: null)
-    {
-    }
-
-    public AssetsFindArgs (
-        string? type,
-        string? pathPrefix,
-        string? nameContains,
-        int? limit,
-        string? cursor)
-        : this(
-            type == null ? null : new UnityTypeId(type),
-            pathPrefix == null ? null : new ProjectRelativePathPrefix(pathPrefix),
-            nameContains,
-            limit,
-            cursor)
-    {
-    }
-
     [UcliDescription("Optional asset type identifier filter.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public UnityTypeId? Type { get; init; }

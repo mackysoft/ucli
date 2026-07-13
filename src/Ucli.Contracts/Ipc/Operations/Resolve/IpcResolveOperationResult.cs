@@ -15,17 +15,7 @@ public sealed record IpcResolveOperationResult
             throw new ArgumentNullException(nameof(globalObjectId));
         }
 
-        if (string.IsNullOrWhiteSpace(globalObjectId.Value))
-        {
-            throw new ArgumentException("GlobalObjectId must not be empty or whitespace.", nameof(globalObjectId));
-        }
-
         GlobalObjectId = globalObjectId;
-    }
-
-    public IpcResolveOperationResult (string globalObjectId)
-        : this(new UnityGlobalObjectId(globalObjectId))
-    {
     }
 
     /// <summary> Gets the resolved GlobalObjectId string. </summary>

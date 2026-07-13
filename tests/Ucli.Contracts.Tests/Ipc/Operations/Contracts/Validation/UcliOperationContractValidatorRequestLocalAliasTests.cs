@@ -12,7 +12,7 @@ public sealed class UcliOperationContractValidatorRequestLocalAliasTests
     {
         var args = new ReferenceArgs(
             new GameObjectReferenceArgs(
-                alias: "created",
+                alias: new UcliPlanAlias("created"),
                 globalObjectId: null,
                 prefab: null,
                 scene: null,

@@ -17,17 +17,6 @@ public sealed record SceneQueryArgs
         ComponentType = componentType;
     }
 
-    public SceneQueryArgs (
-        string scene,
-        string? pathPrefix,
-        string? componentType)
-        : this(
-            new SceneAssetPath(scene),
-            pathPrefix == null ? null : new UnityHierarchyPathPrefix(pathPrefix),
-            componentType == null ? null : new UnityComponentTypeId(componentType))
-    {
-    }
-
     [UcliRequired]
     [UcliDescription("Scene asset path to query.")]
     public SceneAssetPath Scene { get; init; }

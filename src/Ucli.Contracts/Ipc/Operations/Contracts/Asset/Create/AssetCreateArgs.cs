@@ -15,13 +15,6 @@ public sealed record AssetCreateArgs
         Path = path;
     }
 
-    public AssetCreateArgs (
-        string type,
-        string path)
-        : this(new UnityTypeId(type), new CreatableUnityAssetPath(path))
-    {
-    }
-
     [UcliRequired]
     [UcliDescription("Unity asset type identifier to create.")]
     public UnityTypeId Type { get; init; }

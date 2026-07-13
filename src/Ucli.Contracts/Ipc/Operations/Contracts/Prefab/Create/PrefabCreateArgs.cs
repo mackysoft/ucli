@@ -15,13 +15,6 @@ public sealed record PrefabCreateArgs
         Path = path;
     }
 
-    public PrefabCreateArgs (
-        SceneGameObjectReferenceArgs target,
-        string path)
-        : this(target, new CreatablePrefabAssetPath(path))
-    {
-    }
-
     [UcliRequired]
     [UcliDescription("Source scene GameObject reference.")]
     [UcliInputConstraint(UcliOperationInputConstraintKind.ReferenceResolvable, TargetKind = UcliOperationReferenceTargetKind.GameObject)]

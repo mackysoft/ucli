@@ -280,7 +280,8 @@ public sealed class IpcExecuteContractSerializationTests
     [Trait("Size", "Small")]
     public void IpcExecuteOperationResultFactory_CreatePlanResult_CreatesSharedEnvelopeContract ()
     {
-        var payload = IpcPayloadCodec.SerializeToElement(new IpcResolveOperationResult(GlobalObjectIdText));
+        var payload = IpcPayloadCodec.SerializeToElement(
+            new IpcResolveOperationResult(new UnityGlobalObjectId(GlobalObjectIdText)));
         var opResult = IpcExecuteOperationResultFactory.CreatePlanResult(
             opId: "resolve",
             op: UcliPrimitiveOperationNames.Resolve,
@@ -320,7 +321,7 @@ public sealed class IpcExecuteContractSerializationTests
     [Trait("Size", "Small")]
     public void IpcResolveOperationResult_SerializesWithCamelCaseContractFields ()
     {
-        var payload = new IpcResolveOperationResult(GlobalObjectIdText);
+        var payload = new IpcResolveOperationResult(new UnityGlobalObjectId(GlobalObjectIdText));
 
         var json = IpcPayloadCodec.SerializeToElement(payload);
 

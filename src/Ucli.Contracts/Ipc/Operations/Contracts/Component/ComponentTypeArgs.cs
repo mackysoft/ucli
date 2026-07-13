@@ -12,11 +12,6 @@ public sealed record ComponentTypeArgs
         Type = type;
     }
 
-    public ComponentTypeArgs (string type)
-        : this(new UnityComponentTypeId(type))
-    {
-    }
-
     [UcliRequired]
     public UnityComponentTypeId Type { get; init; }
 }

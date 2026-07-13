@@ -19,29 +19,6 @@ public sealed record SceneTreeArgs
         Cursor = cursor;
     }
 
-    public SceneTreeArgs (
-        SceneAssetPath path,
-        int? depth)
-        : this(path, depth, limit: null, cursor: null)
-    {
-    }
-
-    public SceneTreeArgs (
-        string path,
-        int? depth)
-        : this(path, depth, limit: null, cursor: null)
-    {
-    }
-
-    public SceneTreeArgs (
-        string path,
-        int? depth,
-        int? limit,
-        string? cursor)
-        : this(new SceneAssetPath(path), depth, limit, cursor)
-    {
-    }
-
     [UcliRequired]
     [UcliDescription("Scene asset path to inspect.")]
     public SceneAssetPath Path { get; init; }

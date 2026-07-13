@@ -12,11 +12,6 @@ public sealed record PrefabPathArgs
         Path = path;
     }
 
-    public PrefabPathArgs (string path)
-        : this(new PrefabAssetPath(path))
-    {
-    }
-
     [UcliRequired]
     public PrefabAssetPath Path { get; init; }
 }

@@ -22,19 +22,6 @@ public sealed record SceneGameObjectReferenceArgs
         HierarchyPath = hierarchyPath;
     }
 
-    public SceneGameObjectReferenceArgs (
-        string? alias,
-        string? globalObjectId,
-        string? scene,
-        string? hierarchyPath)
-        : this(
-            alias == null ? null : new UcliPlanAlias(alias),
-            globalObjectId == null ? null : new UnityGlobalObjectId(globalObjectId),
-            scene == null ? null : new SceneAssetPath(scene),
-            hierarchyPath == null ? null : new UnityHierarchyPath(hierarchyPath))
-    {
-    }
-
     [UcliDescription("Request-local alias produced by an earlier plan step.")]
     [JsonPropertyName(UcliOperationContractPropertyNames.Alias)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

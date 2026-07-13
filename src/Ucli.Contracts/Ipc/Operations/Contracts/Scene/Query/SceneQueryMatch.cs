@@ -17,17 +17,6 @@ public sealed record SceneQueryMatch
         ComponentType = componentType;
     }
 
-    public SceneQueryMatch (
-        string kind,
-        string hierarchyPath,
-        string? componentType)
-        : this(
-            kind,
-            new UnityHierarchyPath(hierarchyPath),
-            componentType == null ? null : new UnityComponentTypeId(componentType))
-    {
-    }
-
     [UcliRequired]
     [UcliDescription("Matched target kind.")]
     public string Kind { get; init; }

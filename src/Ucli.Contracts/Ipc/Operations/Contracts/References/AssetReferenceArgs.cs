@@ -26,21 +26,6 @@ public sealed record AssetReferenceArgs
         ProjectAssetPath = projectAssetPath;
     }
 
-    public AssetReferenceArgs (
-        string? alias,
-        string? globalObjectId,
-        string? assetGuid,
-        string? assetPath,
-        string? projectAssetPath)
-        : this(
-            alias == null ? null : new UcliPlanAlias(alias),
-            globalObjectId == null ? null : new UnityGlobalObjectId(globalObjectId),
-            assetGuid == null ? null : new UnityAssetGuid(assetGuid),
-            assetPath == null ? null : new UnityAssetPath(assetPath),
-            projectAssetPath == null ? null : new ProjectSettingsAssetPath(projectAssetPath))
-    {
-    }
-
     [UcliDescription("Request-local alias produced by an earlier plan step.")]
     [JsonPropertyName(UcliOperationContractPropertyNames.Alias)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

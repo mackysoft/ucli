@@ -12,11 +12,6 @@ public sealed record ScenePathArgs
         Path = path;
     }
 
-    public ScenePathArgs (string path)
-        : this(new SceneAssetPath(path))
-    {
-    }
-
     [UcliRequired]
     public SceneAssetPath Path { get; init; }
 }

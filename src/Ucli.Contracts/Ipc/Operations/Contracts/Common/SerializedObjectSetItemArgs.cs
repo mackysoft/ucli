@@ -16,13 +16,6 @@ public sealed record SerializedObjectSetItemArgs
         Value = value;
     }
 
-    public SerializedObjectSetItemArgs (
-        string path,
-        JsonElement value)
-        : this(new SerializedPropertyPath(path), value)
-    {
-    }
-
     [UcliRequired]
     [UcliDescription("SerializedProperty path to assign.")]
     [UcliInputConstraint(UcliOperationInputConstraintKind.SerializedProperty, Access = UcliOperationSerializedPropertyAccess.Write)]
