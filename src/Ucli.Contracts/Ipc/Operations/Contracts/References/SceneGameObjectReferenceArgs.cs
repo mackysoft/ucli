@@ -32,6 +32,7 @@ public sealed record SceneGameObjectReferenceArgs
     public UnityGlobalObjectId? GlobalObjectId { get; init; }
 
     [UcliDescription("Scene asset path for a hierarchy selector.")]
+    [UcliInputConstraint(UcliOperationInputConstraintKind.AssetExists, AssetKind = UcliOperationAssetKind.Scene)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public SceneAssetPath? Scene { get; init; }
 

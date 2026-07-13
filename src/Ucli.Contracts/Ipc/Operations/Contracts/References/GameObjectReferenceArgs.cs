@@ -35,10 +35,12 @@ public sealed record GameObjectReferenceArgs
     public UnityGlobalObjectId? GlobalObjectId { get; init; }
 
     [UcliDescription("Prefab asset path for a hierarchy selector.")]
+    [UcliInputConstraint(UcliOperationInputConstraintKind.AssetExists, AssetKind = UcliOperationAssetKind.Prefab)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public PrefabAssetPath? Prefab { get; init; }
 
     [UcliDescription("Scene asset path for a hierarchy selector.")]
+    [UcliInputConstraint(UcliOperationInputConstraintKind.AssetExists, AssetKind = UcliOperationAssetKind.Scene)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public SceneAssetPath? Scene { get; init; }
 

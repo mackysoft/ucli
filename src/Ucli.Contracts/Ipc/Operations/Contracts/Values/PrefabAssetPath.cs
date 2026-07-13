@@ -4,12 +4,11 @@ using MackySoft.Ucli.Contracts.Operations;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-/// <summary> Project-relative path to an existing Unity prefab asset. </summary>
+/// <summary> Project-relative path to a Unity prefab asset. </summary>
 [JsonConverter(typeof(UcliStringValueJsonConverterFactory))]
-[UcliDescription("Project-relative path to an existing Unity prefab asset.")]
+[UcliDescription("Project-relative path to a Unity prefab asset.")]
 [UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]
 [UcliInputConstraint(UcliOperationInputConstraintKind.ProjectRelativePath)]
-[UcliInputConstraint(UcliOperationInputConstraintKind.AssetExists, AssetKind = UcliOperationAssetKind.Prefab)]
 public sealed record PrefabAssetPath : UcliStringValue
 {
     /// <summary> Initializes a new instance of the <see cref="PrefabAssetPath" /> class. </summary>

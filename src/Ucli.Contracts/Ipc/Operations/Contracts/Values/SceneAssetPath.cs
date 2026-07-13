@@ -4,12 +4,11 @@ using MackySoft.Ucli.Contracts.Operations;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-/// <summary> Project-relative path to an existing Unity scene asset. </summary>
+/// <summary> Project-relative path to a Unity scene asset. </summary>
 [JsonConverter(typeof(UcliStringValueJsonConverterFactory))]
-[UcliDescription("Project-relative path to an existing Unity scene asset.")]
+[UcliDescription("Project-relative path to a Unity scene asset.")]
 [UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]
 [UcliInputConstraint(UcliOperationInputConstraintKind.ProjectRelativePath)]
-[UcliInputConstraint(UcliOperationInputConstraintKind.AssetExists, AssetKind = UcliOperationAssetKind.Scene)]
 public sealed record SceneAssetPath : UcliStringValue
 {
     /// <summary> Initializes a new instance of the <see cref="SceneAssetPath" /> class. </summary>

@@ -13,5 +13,6 @@ public sealed record ScenePathArgs
     }
 
     [UcliRequired]
+    [UcliInputConstraint(UcliOperationInputConstraintKind.AssetExists, AssetKind = UcliOperationAssetKind.Scene)]
     public SceneAssetPath Path { get; init; }
 }

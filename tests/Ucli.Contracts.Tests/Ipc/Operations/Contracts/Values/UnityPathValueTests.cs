@@ -5,13 +5,19 @@ namespace MackySoft.Ucli.Contracts.Tests.Ipc.Operations.Contracts.Values;
 
 public sealed class UnityPathValueTests
 {
+    public static TheoryData<Type> AssetPathValueTypes => new()
+    {
+        typeof(UnityAssetPath),
+        typeof(SceneAssetPath),
+        typeof(PrefabAssetPath),
+        typeof(ProjectSettingsAssetPath),
+    };
+
     public static TheoryData<Type, string, string> NormalizedPathCases => new()
     {
         { typeof(UnityAssetPath), @"Assets\Data\Settings.asset", "Assets/Data/Settings.asset" },
-        { typeof(CreatableUnityAssetPath), @"Assets\Data\Settings.asset", "Assets/Data/Settings.asset" },
         { typeof(SceneAssetPath), @"Assets\Scenes\Main.unity", "Assets/Scenes/Main.unity" },
         { typeof(PrefabAssetPath), @"Assets\Prefabs\Player.prefab", "Assets/Prefabs/Player.prefab" },
-        { typeof(CreatablePrefabAssetPath), @"Assets\Prefabs\Player.prefab", "Assets/Prefabs/Player.prefab" },
         { typeof(ProjectSettingsAssetPath), @"ProjectSettings\TagManager.asset", "ProjectSettings/TagManager.asset" },
         { typeof(ProjectRelativePathPrefix), @"Assets\Data", "Assets/Data" },
     };
@@ -21,12 +27,9 @@ public sealed class UnityPathValueTests
         { typeof(UnityAssetPath), "Assets" },
         { typeof(UnityAssetPath), "Packages/Data/Settings.asset" },
         { typeof(UnityAssetPath), "Assets/../Settings.asset" },
-        { typeof(CreatableUnityAssetPath), "Assets" },
-        { typeof(CreatableUnityAssetPath), "/Assets/Data/Settings.asset" },
         { typeof(SceneAssetPath), "Assets/Scenes/Main.prefab" },
         { typeof(SceneAssetPath), "Assets/Scenes/Main.UNITY" },
         { typeof(PrefabAssetPath), "Assets/Prefabs/Player.unity" },
-        { typeof(CreatablePrefabAssetPath), "Assets/Prefabs/Player.PREFAB" },
         { typeof(ProjectSettingsAssetPath), "ProjectSettings" },
         { typeof(ProjectSettingsAssetPath), "Assets/TagManager.asset" },
         { typeof(ProjectSettingsAssetPath), "ProjectSettings/../TagManager.asset" },
@@ -65,6 +68,22 @@ public sealed class UnityPathValueTests
         var argumentException = Assert.IsAssignableFrom<ArgumentException>(exception.InnerException);
 
         Assert.Equal("value", argumentException.ParamName);
+    }
+
+    [Theory]
+    [MemberData(nameof(AssetPathValueTypes))]
+    [Trait("Size", "Small")]
+    public void Metadata_WhenAssetPathTypeIsInspected_DeclaresOnlyLexicalConstraints (Type valueType)
+    {
+        var constraints = valueType.GetCustomAttributes<UcliInputConstraintAttribute>();
+
+        Assert.Equal(
+            new[]
+            {
+                UcliOperationInputConstraintKind.NonEmpty,
+                UcliOperationInputConstraintKind.ProjectRelativePath,
+            },
+            constraints.Select(static constraint => constraint.Kind));
     }
 
     [Fact]

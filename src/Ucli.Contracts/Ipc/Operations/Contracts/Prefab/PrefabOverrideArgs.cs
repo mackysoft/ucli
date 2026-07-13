@@ -24,6 +24,7 @@ public sealed record PrefabOverrideArgs
 
     [UcliRequired]
     [UcliDescription("Prefab asset path that receives or provides the property override.")]
+    [UcliInputConstraint(UcliOperationInputConstraintKind.AssetExists, AssetKind = UcliOperationAssetKind.Prefab)]
     public PrefabAssetPath TargetAssetPath { get; init; }
 
     [UcliDescription("Exact SerializedProperty paths changed by a preceding set action. Omit to use all request-attributed paths.")]

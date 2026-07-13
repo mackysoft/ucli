@@ -19,6 +19,7 @@ public sealed record SceneQueryArgs
 
     [UcliRequired]
     [UcliDescription("Scene asset path to query.")]
+    [UcliInputConstraint(UcliOperationInputConstraintKind.AssetExists, AssetKind = UcliOperationAssetKind.Scene)]
     public SceneAssetPath Scene { get; init; }
 
     [UcliDescription("Optional hierarchy path prefix filter.")]

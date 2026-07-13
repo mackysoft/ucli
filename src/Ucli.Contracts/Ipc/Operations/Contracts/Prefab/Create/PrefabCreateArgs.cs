@@ -9,7 +9,7 @@ public sealed record PrefabCreateArgs
     [JsonConstructor]
     public PrefabCreateArgs (
         SceneGameObjectReferenceArgs target,
-        CreatablePrefabAssetPath path)
+        PrefabAssetPath path)
     {
         Target = target;
         Path = path;
@@ -22,5 +22,6 @@ public sealed record PrefabCreateArgs
 
     [UcliRequired]
     [UcliDescription("Prefab asset path to create.")]
-    public CreatablePrefabAssetPath Path { get; init; }
+    [UcliInputConstraint(UcliOperationInputConstraintKind.AssetCreatable, AssetKind = UcliOperationAssetKind.Prefab)]
+    public PrefabAssetPath Path { get; init; }
 }

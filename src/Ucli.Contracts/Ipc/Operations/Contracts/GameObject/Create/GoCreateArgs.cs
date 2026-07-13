@@ -25,6 +25,7 @@ public sealed record GoCreateArgs
     public string Name { get; init; }
 
     [UcliDescription("Scene asset path that receives the new root GameObject.")]
+    [UcliInputConstraint(UcliOperationInputConstraintKind.AssetExists, AssetKind = UcliOperationAssetKind.Scene)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public SceneAssetPath? Scene { get; init; }
 

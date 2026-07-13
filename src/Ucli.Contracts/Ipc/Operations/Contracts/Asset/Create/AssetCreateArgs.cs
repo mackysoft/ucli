@@ -9,7 +9,7 @@ public sealed record AssetCreateArgs
     [JsonConstructor]
     public AssetCreateArgs (
         UnityTypeId type,
-        CreatableUnityAssetPath path)
+        UnityAssetPath path)
     {
         Type = type;
         Path = path;
@@ -21,5 +21,6 @@ public sealed record AssetCreateArgs
 
     [UcliRequired]
     [UcliDescription("Unity project relative asset path to create.")]
-    public CreatableUnityAssetPath Path { get; init; }
+    [UcliInputConstraint(UcliOperationInputConstraintKind.AssetCreatable, AssetKind = UcliOperationAssetKind.Asset)]
+    public UnityAssetPath Path { get; init; }
 }

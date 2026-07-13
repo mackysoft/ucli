@@ -13,5 +13,6 @@ public sealed record PrefabPathArgs
     }
 
     [UcliRequired]
+    [UcliInputConstraint(UcliOperationInputConstraintKind.AssetExists, AssetKind = UcliOperationAssetKind.Prefab)]
     public PrefabAssetPath Path { get; init; }
 }

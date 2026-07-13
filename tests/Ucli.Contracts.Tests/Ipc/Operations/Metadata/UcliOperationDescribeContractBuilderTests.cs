@@ -41,12 +41,36 @@ public sealed class UcliOperationDescribeContractBuilderTests
 
         var input = Assert.Single(describe.Inputs!);
         Assert.Equal("path", input.Name);
-        Assert.Equal("Project-relative path to an existing Unity scene asset.", input.Description);
+        Assert.Equal("Project-relative path to a Unity scene asset.", input.Description);
         Assert.Equal("string", input.ValueType);
         Assert.Contains(input.Constraints!, constraint => constraint.Kind == "nonEmpty");
         Assert.Contains(input.Constraints!, constraint =>
             constraint.Kind == "assetExists"
             && constraint.AssetKind == "scene");
+    }
+
+    [Theory]
+    [InlineData(false, "asset")]
+    [InlineData(true, "prefab")]
+    [Trait("Size", "Small")]
+    public void Create_WhenPathIsCreationTarget_PublishesCreatableConstraintWithoutExists (
+        bool prefab,
+        string expectedAssetKind)
+    {
+        var describe = prefab
+            ? UcliOperationDescribeContractBuilder.Create<PrefabCreateArgs, UcliNoResult>(
+                "Creates a prefab asset.",
+                CreateSafeAssurance())
+            : UcliOperationDescribeContractBuilder.Create<AssetCreateArgs, UcliNoResult>(
+                "Creates an asset.",
+                CreateSafeAssurance());
+
+        var input = Assert.Single(describe.Inputs!, candidate => candidate.Name == "path");
+        Assert.Equal(
+            new[] { "nonEmpty", "projectRelativePath", "assetCreatable" },
+            input.Constraints!.Select(static constraint => constraint.Kind));
+        var creatable = Assert.Single(input.Constraints!, constraint => constraint.Kind == "assetCreatable");
+        Assert.Equal(expectedAssetKind, creatable.AssetKind);
     }
 
     [Fact]

@@ -790,7 +790,7 @@ Custom operations are Unity Editor code. Put the implementation in an Editor ass
 An operation has three parts:
 
 1. Define a typed Args type and, when needed, a typed Result type.
-2. Add descriptions and constraints to Args properties or reusable semantic value types.
+2. Add descriptions and operation-specific constraints to Args properties; keep reusable semantic value types limited to intrinsic format constraints.
 3. Implement `UcliOperation<TArgs,TResult>` and mark the class with `[UcliOperation]`.
 
 Use `UcliNoResult` for operations that do not emit `opResults[].result`.
@@ -816,8 +816,6 @@ Use existing semantic value types before adding new plain strings:
 - `PrefabAssetPath`
 - `UnityAssetPath`
 - `ProjectSettingsAssetPath`
-- `CreatableUnityAssetPath`
-- `CreatablePrefabAssetPath`
 - `ProjectRelativePathPrefix`
 - `UnityHierarchyPath`
 - `UnityHierarchyPathPrefix`
@@ -836,7 +834,8 @@ If you need a new string-shaped semantic value:
 - Define a public `string` constructor.
 - Add `[JsonConverter(typeof(UcliStringValueJsonConverterFactory))]`.
 - Add `[UcliDescription]`.
-- Put `[UcliInputConstraint]` attributes on the value type.
+- Put intrinsic constraints such as path syntax on the value type.
+- Put project-state constraints such as `AssetExists` or `AssetCreatable` on the Args property whose operation requires them.
 
 Do not use arbitrary custom scalar wrappers unless uCLI has a supported base type for that JSON shape.
 
@@ -955,6 +954,7 @@ public sealed record CountSceneObjectsArgs
 
     [UcliRequired]
     [UcliDescription("Scene asset path to inspect.")]
+    [UcliInputConstraint(UcliOperationInputConstraintKind.AssetExists, AssetKind = UcliOperationAssetKind.Scene)]
     public SceneAssetPath Path { get; init; }
 }
 

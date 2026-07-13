@@ -40,10 +40,12 @@ public sealed record AssetReferenceArgs
     public UnityAssetGuid? AssetGuid { get; init; }
 
     [UcliDescription("Asset path selector under the Unity project.")]
+    [UcliInputConstraint(UcliOperationInputConstraintKind.AssetExists, AssetKind = UcliOperationAssetKind.Asset)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public UnityAssetPath? AssetPath { get; init; }
 
     [UcliDescription("Project-scoped asset path selector.")]
+    [UcliInputConstraint(UcliOperationInputConstraintKind.AssetExists, AssetKind = UcliOperationAssetKind.ProjectSettings)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public ProjectSettingsAssetPath? ProjectAssetPath { get; init; }
 }

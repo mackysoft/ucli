@@ -43,18 +43,22 @@ public sealed record ResolveSelectorArgs
     public UnityAssetGuid? AssetGuid { get; init; }
 
     [UcliDescription("Asset path selector under the Unity project.")]
+    [UcliInputConstraint(UcliOperationInputConstraintKind.AssetExists, AssetKind = UcliOperationAssetKind.Asset)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public UnityAssetPath? AssetPath { get; init; }
 
     [UcliDescription("Project-scoped asset path selector, such as ProjectSettings assets.")]
+    [UcliInputConstraint(UcliOperationInputConstraintKind.AssetExists, AssetKind = UcliOperationAssetKind.ProjectSettings)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public ProjectSettingsAssetPath? ProjectAssetPath { get; init; }
 
     [UcliDescription("Scene asset path for a hierarchy selector.")]
+    [UcliInputConstraint(UcliOperationInputConstraintKind.AssetExists, AssetKind = UcliOperationAssetKind.Scene)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public SceneAssetPath? Scene { get; init; }
 
     [UcliDescription("Prefab asset path for a hierarchy selector.")]
+    [UcliInputConstraint(UcliOperationInputConstraintKind.AssetExists, AssetKind = UcliOperationAssetKind.Prefab)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public PrefabAssetPath? Prefab { get; init; }
 

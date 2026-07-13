@@ -21,6 +21,7 @@ public sealed record SceneTreeArgs
 
     [UcliRequired]
     [UcliDescription("Scene asset path to inspect.")]
+    [UcliInputConstraint(UcliOperationInputConstraintKind.AssetExists, AssetKind = UcliOperationAssetKind.Scene)]
     public SceneAssetPath Path { get; init; }
 
     [UcliDescription("Maximum hierarchy depth to include; null means unbounded.")]
