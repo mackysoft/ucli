@@ -463,7 +463,7 @@ internal sealed class SupervisorProjectGateway : IDaemonProjectLifecycleGateway
             var cleanupStatus = await supervisorManifestStore.CleanupObservedRuntimeIfMalformedArtifactMatchesAsync(
                     repositoryRoot,
                     expectedArtifactIdentity,
-                    endpointResolver.ResolveCanonicalEndpoint(repositoryRoot),
+                    endpointResolver.ResolveUnixSocketCleanupTargetOrNull(repositoryRoot),
                     runtimeCleanupTimeout < SupervisorConstants.RuntimeOwnershipLockTimeout
                         ? runtimeCleanupTimeout
                         : SupervisorConstants.RuntimeOwnershipLockTimeout,

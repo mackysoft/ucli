@@ -79,7 +79,11 @@ public sealed class SupervisorManifestStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-manifest-store", "roundtrip");
         var store = SupervisorManifestStoreTestSupport.CreateFileBacked(TimeProvider.System);
-        var endpoint = new SupervisorEndpointResolver().ResolveCanonicalEndpoint(scope.FullPath);
+        var endpointResolver = new SupervisorEndpointResolver();
+        var endpoint = endpointResolver.ResolveRuntimeEndpoint(
+            scope.FullPath,
+            IpcSessionTokenTestFactory.CreateFromDiscriminator(1));
+        var cleanupTarget = endpointResolver.ResolveUnixSocketCleanupTargetOrNull(scope.FullPath);
         var manifest = CreateManifest(endpoint: endpoint);
 
         await store.WriteAsync(scope.FullPath, manifest, CancellationToken.None);
@@ -95,7 +99,7 @@ public sealed class SupervisorManifestStoreTests
         var cleanupStatus = await store.CleanupObservedRuntimeIfManifestMatchesAsync(
             scope.FullPath,
             manifest,
-            endpoint,
+            cleanupTarget,
             SupervisorConstants.ManifestMutationLockTimeout,
             CancellationToken.None);
 
@@ -261,7 +265,7 @@ public sealed class SupervisorManifestStoreTests
         var cleanupStatus = await store.CleanupObservedRuntimeIfManifestMatchesAsync(
             scope.FullPath,
             manifest,
-            endpoint,
+            new SupervisorUnixSocketCleanupTarget(endpoint.Address),
             SupervisorConstants.ManifestMutationLockTimeout,
             CancellationToken.None);
 
@@ -275,11 +279,47 @@ public sealed class SupervisorManifestStoreTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task CleanupObservedRuntime_WithoutUnixSocketTarget_DeletesOnlyManifestArtifact ()
+    {
+        using var scope = TestDirectories.CreateTempScope("supervisor-manifest-store", "manifest-only-cleanup");
+        var deletedPaths = new List<string>();
+        var store = new SupervisorManifestStore(
+            TimeProvider.System,
+            static (path, cancellationToken) => FileUtilities.ReadAllBytesOrNullAsync(path, cancellationToken),
+            static (path, contents, cancellationToken) => FileUtilities.WriteAllBytesAtomicallyAsync(path, contents, cancellationToken),
+            path =>
+            {
+                deletedPaths.Add(path);
+                FileUtilities.DeleteIfExists(path);
+            });
+        var manifest = CreateManifest(
+            endpoint: new IpcEndpoint(IpcTransportKind.NamedPipe, $"ucli-supervisor-{Guid.NewGuid():N}"));
+        await store.WriteAsync(scope.FullPath, manifest, CancellationToken.None);
+
+        var cleanupStatus = await store.CleanupObservedRuntimeIfManifestMatchesAsync(
+            scope.FullPath,
+            manifest,
+            unixSocketCleanupTarget: null,
+            timeout: SupervisorConstants.ManifestMutationLockTimeout,
+            cancellationToken: CancellationToken.None);
+
+        Assert.Equal(SupervisorManifestCleanupStatus.Removed, cleanupStatus);
+        Assert.Collection(
+            deletedPaths,
+            path => Assert.Equal(UcliStoragePathResolver.ResolveSupervisorManifestPath(scope.FullPath), path));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task CleanupObservedValidRuntime_WhenSuccessorReplacesManifestWhileOwnershipIsContended_PreservesSuccessorRuntime ()
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-manifest-store", "valid-generation-replaced");
         var store = SupervisorManifestStoreTestSupport.CreateFileBacked(TimeProvider.System);
-        var endpoint = new SupervisorEndpointResolver().ResolveCanonicalEndpoint(scope.FullPath);
+        var endpointResolver = new SupervisorEndpointResolver();
+        var endpoint = endpointResolver.ResolveRuntimeEndpoint(
+            scope.FullPath,
+            IpcSessionTokenTestFactory.CreateFromDiscriminator(1));
+        var cleanupTarget = endpointResolver.ResolveUnixSocketCleanupTargetOrNull(scope.FullPath);
         var observedManifest = CreateManifest(endpoint: endpoint);
         var successorManifest = CreateManifest(
             sessionTokenDiscriminator: 2,
@@ -293,7 +333,7 @@ public sealed class SupervisorManifestStoreTests
         var cleanupTask = store.CleanupObservedRuntimeIfManifestMatchesAsync(
                 scope.FullPath,
                 observedManifest,
-                endpoint,
+                cleanupTarget,
                 AsyncTestTimeout,
                 CancellationToken.None)
             .AsTask();
@@ -323,7 +363,11 @@ public sealed class SupervisorManifestStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-manifest-store", "released-valid-runtime");
         var store = SupervisorManifestStoreTestSupport.CreateFileBacked(TimeProvider.System);
-        var endpoint = new SupervisorEndpointResolver().ResolveCanonicalEndpoint(scope.FullPath);
+        var endpointResolver = new SupervisorEndpointResolver();
+        var endpoint = endpointResolver.ResolveRuntimeEndpoint(
+            scope.FullPath,
+            IpcSessionTokenTestFactory.CreateFromDiscriminator(1));
+        var cleanupTarget = endpointResolver.ResolveUnixSocketCleanupTargetOrNull(scope.FullPath);
         var manifest = CreateManifest(endpoint: endpoint);
         await store.WriteAsync(scope.FullPath, manifest, CancellationToken.None);
         if (endpoint.TransportKind == IpcTransportKind.UnixDomainSocket)
@@ -341,7 +385,7 @@ public sealed class SupervisorManifestStoreTests
         var cleanupStatus = await store.CleanupObservedRuntimeIfManifestMatchesAsync(
             scope.FullPath,
             manifest,
-            endpoint,
+            cleanupTarget,
             AsyncTestTimeout,
             CancellationToken.None);
 
@@ -359,7 +403,11 @@ public sealed class SupervisorManifestStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-manifest-store", "canceled-valid-cleanup");
         var store = SupervisorManifestStoreTestSupport.CreateFileBacked(TimeProvider.System);
-        var endpoint = new SupervisorEndpointResolver().ResolveCanonicalEndpoint(scope.FullPath);
+        var endpointResolver = new SupervisorEndpointResolver();
+        var endpoint = endpointResolver.ResolveRuntimeEndpoint(
+            scope.FullPath,
+            IpcSessionTokenTestFactory.CreateFromDiscriminator(1));
+        var cleanupTarget = endpointResolver.ResolveUnixSocketCleanupTargetOrNull(scope.FullPath);
         var manifest = CreateManifest(endpoint: endpoint);
         await store.WriteAsync(scope.FullPath, manifest, CancellationToken.None);
         if (endpoint.TransportKind == IpcTransportKind.UnixDomainSocket)
@@ -376,7 +424,7 @@ public sealed class SupervisorManifestStoreTests
         var cleanupTask = store.CleanupObservedRuntimeIfManifestMatchesAsync(
                 scope.FullPath,
                 manifest,
-                endpoint,
+                cleanupTarget,
                 AsyncTestTimeout,
                 cancellationTokenSource.Token)
             .AsTask();
@@ -398,7 +446,11 @@ public sealed class SupervisorManifestStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-manifest-store", "malformed-generation-replaced");
         var store = SupervisorManifestStoreTestSupport.CreateFileBacked(TimeProvider.System);
-        var endpoint = new SupervisorEndpointResolver().ResolveCanonicalEndpoint(scope.FullPath);
+        var endpointResolver = new SupervisorEndpointResolver();
+        var endpoint = endpointResolver.ResolveRuntimeEndpoint(
+            scope.FullPath,
+            IpcSessionTokenTestFactory.CreateFromDiscriminator(1));
+        var cleanupTarget = endpointResolver.ResolveUnixSocketCleanupTargetOrNull(scope.FullPath);
         var manifestPath = UcliStoragePathResolver.ResolveSupervisorManifestPath(scope.FullPath);
         Directory.CreateDirectory(Path.GetDirectoryName(manifestPath)!);
         await File.WriteAllTextAsync(manifestPath, "{ malformed json", CancellationToken.None);
@@ -416,7 +468,7 @@ public sealed class SupervisorManifestStoreTests
         var cleanupTask = store.CleanupObservedRuntimeIfMalformedArtifactMatchesAsync(
                 scope.FullPath,
                 formatException.ArtifactIdentity,
-                endpoint,
+                cleanupTarget,
                 AsyncTestTimeout,
                 CancellationToken.None)
             .AsTask();
@@ -448,7 +500,8 @@ public sealed class SupervisorManifestStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-manifest-store", "malformed-bom-replaced");
         var store = SupervisorManifestStoreTestSupport.CreateFileBacked(TimeProvider.System);
-        var endpoint = new SupervisorEndpointResolver().ResolveCanonicalEndpoint(scope.FullPath);
+        var endpointResolver = new SupervisorEndpointResolver();
+        var cleanupTarget = endpointResolver.ResolveUnixSocketCleanupTargetOrNull(scope.FullPath);
         var manifestPath = UcliStoragePathResolver.ResolveSupervisorManifestPath(scope.FullPath);
         Directory.CreateDirectory(Path.GetDirectoryName(manifestPath)!);
         var observedBytes = Encoding.UTF8.GetBytes("{ malformed json");
@@ -463,7 +516,7 @@ public sealed class SupervisorManifestStoreTests
         var cleanupTask = store.CleanupObservedRuntimeIfMalformedArtifactMatchesAsync(
                 scope.FullPath,
                 formatException.ArtifactIdentity,
-                endpoint,
+                cleanupTarget,
                 AsyncTestTimeout,
                 CancellationToken.None)
             .AsTask();
@@ -483,15 +536,16 @@ public sealed class SupervisorManifestStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-manifest-store", "owned-malformed-runtime");
         var store = SupervisorManifestStoreTestSupport.CreateFileBacked(TimeProvider.System);
-        var endpoint = new SupervisorEndpointResolver().ResolveCanonicalEndpoint(scope.FullPath);
+        var endpointResolver = new SupervisorEndpointResolver();
+        var cleanupTarget = endpointResolver.ResolveUnixSocketCleanupTargetOrNull(scope.FullPath);
         var manifestPath = UcliStoragePathResolver.ResolveSupervisorManifestPath(scope.FullPath);
         Directory.CreateDirectory(Path.GetDirectoryName(manifestPath)!);
         const string malformedJson = "{ malformed json";
         await File.WriteAllTextAsync(manifestPath, malformedJson, CancellationToken.None);
-        if (endpoint.TransportKind == IpcTransportKind.UnixDomainSocket)
+        if (cleanupTarget is not null)
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(endpoint.Address)!);
-            await File.WriteAllTextAsync(endpoint.Address, "owned endpoint", CancellationToken.None);
+            Directory.CreateDirectory(Path.GetDirectoryName(cleanupTarget.SocketPath)!);
+            await File.WriteAllTextAsync(cleanupTarget.SocketPath, "owned endpoint", CancellationToken.None);
         }
 
         var formatException = await Assert.ThrowsAsync<SupervisorManifestFormatException>(
@@ -505,15 +559,15 @@ public sealed class SupervisorManifestStoreTests
             () => store.CleanupObservedRuntimeIfMalformedArtifactMatchesAsync(
                     scope.FullPath,
                     formatException.ArtifactIdentity,
-                    endpoint,
+                    cleanupTarget,
                     TimeSpan.FromMilliseconds(100),
                     CancellationToken.None)
                 .AsTask());
 
         Assert.Equal(malformedJson, await File.ReadAllTextAsync(manifestPath, CancellationToken.None));
-        if (endpoint.TransportKind == IpcTransportKind.UnixDomainSocket)
+        if (cleanupTarget is not null)
         {
-            Assert.True(File.Exists(endpoint.Address));
+            Assert.True(File.Exists(cleanupTarget.SocketPath));
         }
     }
 
@@ -523,14 +577,15 @@ public sealed class SupervisorManifestStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-manifest-store", "released-malformed-runtime");
         var store = SupervisorManifestStoreTestSupport.CreateFileBacked(TimeProvider.System);
-        var endpoint = new SupervisorEndpointResolver().ResolveCanonicalEndpoint(scope.FullPath);
+        var endpointResolver = new SupervisorEndpointResolver();
+        var cleanupTarget = endpointResolver.ResolveUnixSocketCleanupTargetOrNull(scope.FullPath);
         var manifestPath = UcliStoragePathResolver.ResolveSupervisorManifestPath(scope.FullPath);
         Directory.CreateDirectory(Path.GetDirectoryName(manifestPath)!);
         await File.WriteAllTextAsync(manifestPath, "{ malformed json", CancellationToken.None);
-        if (endpoint.TransportKind == IpcTransportKind.UnixDomainSocket)
+        if (cleanupTarget is not null)
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(endpoint.Address)!);
-            await File.WriteAllTextAsync(endpoint.Address, "stale endpoint", CancellationToken.None);
+            Directory.CreateDirectory(Path.GetDirectoryName(cleanupTarget.SocketPath)!);
+            await File.WriteAllTextAsync(cleanupTarget.SocketPath, "stale endpoint", CancellationToken.None);
         }
 
         var formatException = await Assert.ThrowsAsync<SupervisorManifestFormatException>(
@@ -544,15 +599,15 @@ public sealed class SupervisorManifestStoreTests
         var cleanupStatus = await store.CleanupObservedRuntimeIfMalformedArtifactMatchesAsync(
             scope.FullPath,
             formatException.ArtifactIdentity,
-            endpoint,
+            cleanupTarget,
             AsyncTestTimeout,
             CancellationToken.None);
 
         Assert.Equal(SupervisorManifestCleanupStatus.Removed, cleanupStatus);
         Assert.False(File.Exists(manifestPath));
-        if (endpoint.TransportKind == IpcTransportKind.UnixDomainSocket)
+        if (cleanupTarget is not null)
         {
-            Assert.False(File.Exists(endpoint.Address));
+            Assert.False(File.Exists(cleanupTarget.SocketPath));
         }
     }
 
@@ -562,7 +617,8 @@ public sealed class SupervisorManifestStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-manifest-store", "canceled-malformed-cleanup");
         var store = SupervisorManifestStoreTestSupport.CreateFileBacked(TimeProvider.System);
-        var endpoint = new SupervisorEndpointResolver().ResolveCanonicalEndpoint(scope.FullPath);
+        var endpointResolver = new SupervisorEndpointResolver();
+        var cleanupTarget = endpointResolver.ResolveUnixSocketCleanupTargetOrNull(scope.FullPath);
         var manifestPath = UcliStoragePathResolver.ResolveSupervisorManifestPath(scope.FullPath);
         Directory.CreateDirectory(Path.GetDirectoryName(manifestPath)!);
         const string malformedJson = "{ malformed json";
@@ -578,7 +634,7 @@ public sealed class SupervisorManifestStoreTests
         var cleanupTask = store.CleanupObservedRuntimeIfMalformedArtifactMatchesAsync(
                 scope.FullPath,
                 formatException.ArtifactIdentity,
-                endpoint,
+                cleanupTarget,
                 AsyncTestTimeout,
                 cancellationTokenSource.Token)
             .AsTask();
@@ -595,7 +651,11 @@ public sealed class SupervisorManifestStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-manifest-store", "endpoint-publication-race");
         var store = SupervisorManifestStoreTestSupport.CreateFileBacked(TimeProvider.System);
-        var endpoint = new SupervisorEndpointResolver().ResolveCanonicalEndpoint(scope.FullPath);
+        var endpointResolver = new SupervisorEndpointResolver();
+        var endpoint = endpointResolver.ResolveRuntimeEndpoint(
+            scope.FullPath,
+            IpcSessionTokenTestFactory.CreateFromDiscriminator(1));
+        var cleanupTarget = endpointResolver.ResolveUnixSocketCleanupTargetOrNull(scope.FullPath);
         var firstManifest = CreateManifest(endpoint: endpoint);
         var successorManifest = CreateManifest(
             sessionTokenDiscriminator: 2,
@@ -615,7 +675,7 @@ public sealed class SupervisorManifestStoreTests
         var cleanupTask = store.CleanupObservedRuntimeIfManifestMatchesAsync(
                 scope.FullPath,
                 firstManifest,
-                endpoint,
+                cleanupTarget,
                 AsyncTestTimeout,
                 CancellationToken.None)
             .AsTask();

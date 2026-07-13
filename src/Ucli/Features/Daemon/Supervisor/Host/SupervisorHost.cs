@@ -231,7 +231,7 @@ internal sealed class SupervisorHost
             _ = await manifestStore.CleanupOwnedRuntimeIfManifestMatchesAsync(
                     runtimeContext.StorageRoot,
                     runtimeContext.Manifest,
-                    endpointResolver.ResolveCanonicalEndpoint(runtimeContext.StorageRoot),
+                    endpointResolver.ResolveUnixSocketCleanupTargetOrNull(runtimeContext.StorageRoot),
                     SupervisorConstants.ManifestMutationLockTimeout,
                     cancellationToken)
                 .ConfigureAwait(false);

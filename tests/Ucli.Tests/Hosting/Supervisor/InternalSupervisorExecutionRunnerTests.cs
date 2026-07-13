@@ -1,5 +1,4 @@
 using MackySoft.Tests;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Supervisor;
 using MackySoft.Ucli.Infrastructure.Storage;
 using Microsoft.Extensions.DependencyInjection;
@@ -63,18 +62,18 @@ public sealed class InternalSupervisorExecutionRunnerTests
         using var scope = TestDirectories.CreateTempScope("supervisor-host", "ownership-release-order");
         using var serviceProvider = InternalSupervisorExecutionRunner.BuildServiceProvider();
         var host = serviceProvider.GetRequiredService<SupervisorHost>();
-        var endpoint = serviceProvider
+        var cleanupTarget = serviceProvider
             .GetRequiredService<SupervisorEndpointResolver>()
-            .ResolveCanonicalEndpoint(scope.FullPath);
+            .ResolveUnixSocketCleanupTargetOrNull(scope.FullPath);
         var manifestPath = UcliStoragePathResolver.ResolveSupervisorManifestPath(scope.FullPath);
         var ownershipLockPath = UcliStoragePathResolver.ResolveSupervisorRuntimeOwnershipLockPath(scope.FullPath);
         using var hostCancellation = new CancellationTokenSource();
         var hostTask = host.RunAsync(scope.FullPath, hostCancellation.Token);
 
         await WaitForFileExistsAsync(manifestPath, AsyncTestTimeout);
-        if (endpoint.TransportKind == IpcTransportKind.UnixDomainSocket)
+        if (cleanupTarget is not null)
         {
-            Assert.True(File.Exists(endpoint.Address));
+            Assert.True(File.Exists(cleanupTarget.SocketPath));
         }
 
         var ownershipWaitTask = FileExclusiveLock.AcquireAsync(
@@ -90,9 +89,9 @@ public sealed class InternalSupervisorExecutionRunnerTests
 
         Assert.Equal(1, exitCode);
         Assert.False(File.Exists(manifestPath));
-        if (endpoint.TransportKind == IpcTransportKind.UnixDomainSocket)
+        if (cleanupTarget is not null)
         {
-            Assert.False(File.Exists(endpoint.Address));
+            Assert.False(File.Exists(cleanupTarget.SocketPath));
         }
     }
 

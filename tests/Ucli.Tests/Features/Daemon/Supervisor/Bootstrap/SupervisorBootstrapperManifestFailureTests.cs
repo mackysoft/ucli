@@ -16,7 +16,9 @@ public sealed class SupervisorBootstrapperManifestFailureTests
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-bootstrapper", "owned-valid-runtime");
         var endpointResolver = new SupervisorEndpointResolver();
-        var endpoint = endpointResolver.ResolveCanonicalEndpoint(scope.FullPath);
+        var endpoint = endpointResolver.ResolveRuntimeEndpoint(
+            scope.FullPath,
+            IpcSessionTokenTestFactory.CreateFromDiscriminator(1));
         var manifestStore = SupervisorManifestStoreTestSupport.CreateFileBacked(TimeProvider.System);
         var manifest = SupervisorBootstrapperTestSupport.CreateManifest(endpoint: endpoint);
         await manifestStore.WriteAsync(scope.FullPath, manifest, CancellationToken.None);
@@ -143,23 +145,23 @@ public sealed class SupervisorBootstrapperManifestFailureTests
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-bootstrapper", "stale-manifest-cleanup");
         var endpointResolver = new SupervisorEndpointResolver();
-        var resolvedEndpoint = endpointResolver.ResolveCanonicalEndpoint(scope.FullPath);
-        if (resolvedEndpoint.TransportKind == IpcTransportKind.UnixDomainSocket)
+        var cleanupTarget = endpointResolver.ResolveUnixSocketCleanupTargetOrNull(scope.FullPath);
+        if (cleanupTarget is not null)
         {
-            var resolvedEndpointDirectoryPath = Path.GetDirectoryName(resolvedEndpoint.Address);
+            var resolvedEndpointDirectoryPath = Path.GetDirectoryName(cleanupTarget.SocketPath);
             if (!string.IsNullOrWhiteSpace(resolvedEndpointDirectoryPath))
             {
                 Directory.CreateDirectory(resolvedEndpointDirectoryPath);
             }
 
-            File.WriteAllText(resolvedEndpoint.Address, "stale supervisor socket placeholder");
+            File.WriteAllText(cleanupTarget.SocketPath, "stale supervisor socket placeholder");
         }
 
-        var maliciousPath = resolvedEndpoint.TransportKind == IpcTransportKind.UnixDomainSocket
-            ? Path.Combine(Path.GetDirectoryName(resolvedEndpoint.Address)!, "x.sock")
+        var maliciousPath = cleanupTarget is not null
+            ? Path.Combine(Path.GetDirectoryName(cleanupTarget.SocketPath)!, "x.sock")
             : scope.GetPath("do-not-delete.txt");
         File.WriteAllText(maliciousPath, "must remain");
-        var manifestEndpoint = resolvedEndpoint.TransportKind == IpcTransportKind.UnixDomainSocket
+        var manifestEndpoint = cleanupTarget is not null
             ? new IpcEndpoint(IpcTransportKind.UnixDomainSocket, maliciousPath)
             : new IpcEndpoint(IpcTransportKind.NamedPipe, $"ucli-do-not-delete-{Guid.NewGuid():N}");
         var manifest = SupervisorBootstrapperTestSupport.CreateManifest(
@@ -191,9 +193,9 @@ public sealed class SupervisorBootstrapperManifestFailureTests
         Assert.False(result.IsSuccess);
         Assert.Null(await manifestStore.ReadOrNullAsync(scope.FullPath, CancellationToken.None));
         Assert.True(File.Exists(maliciousPath));
-        if (resolvedEndpoint.TransportKind == IpcTransportKind.UnixDomainSocket)
+        if (cleanupTarget is not null)
         {
-            Assert.False(File.Exists(resolvedEndpoint.Address));
+            Assert.False(File.Exists(cleanupTarget.SocketPath));
         }
     }
 
@@ -203,7 +205,9 @@ public sealed class SupervisorBootstrapperManifestFailureTests
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-bootstrapper", "manifest-generation-rotation");
         var endpointResolver = new SupervisorEndpointResolver();
-        var endpoint = endpointResolver.ResolveCanonicalEndpoint(scope.FullPath);
+        var endpoint = endpointResolver.ResolveRuntimeEndpoint(
+            scope.FullPath,
+            IpcSessionTokenTestFactory.CreateFromDiscriminator(1));
         var manifestStore = SupervisorManifestStoreTestSupport.CreateFileBacked(TimeProvider.System);
         var firstManifest = SupervisorBootstrapperTestSupport.CreateManifest(
             endpoint: endpoint);

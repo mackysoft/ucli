@@ -213,14 +213,14 @@ internal sealed class SupervisorManifestStore
     /// <summary> Removes externally observed runtime state after acquiring exclusive runtime ownership. </summary>
     /// <param name="storageRoot"> The storage-root path. </param>
     /// <param name="expectedManifest"> The exact manifest generation observed by the caller. </param>
-    /// <param name="canonicalEndpoint"> The canonical endpoint resolved from <paramref name="storageRoot" />. </param>
+    /// <param name="unixSocketCleanupTarget"> The canonical Unix socket cleanup target, or <see langword="null" /> when no filesystem endpoint exists. </param>
     /// <param name="timeout"> The timeout shared by runtime ownership and manifest mutation lock acquisition. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
     /// <returns> The outcome of the compare-and-delete operation. </returns>
     public ValueTask<SupervisorManifestCleanupStatus> CleanupObservedRuntimeIfManifestMatchesAsync (
         string storageRoot,
         SupervisorInstanceManifest expectedManifest,
-        IpcEndpoint canonicalEndpoint,
+        SupervisorUnixSocketCleanupTarget? unixSocketCleanupTarget,
         TimeSpan timeout,
         CancellationToken cancellationToken)
     {
@@ -228,7 +228,7 @@ internal sealed class SupervisorManifestStore
         return CleanupObservedRuntimeIfArtifactMatchesAsync(
             storageRoot,
             artifact => IsExpectedManifest(storageRoot, artifact, expectedManifest),
-            canonicalEndpoint,
+            unixSocketCleanupTarget,
             timeout,
             cancellationToken);
     }
@@ -236,14 +236,14 @@ internal sealed class SupervisorManifestStore
     /// <summary> Removes externally observed malformed runtime state after acquiring exclusive runtime ownership. </summary>
     /// <param name="storageRoot"> The storage-root path. </param>
     /// <param name="expectedArtifactIdentity"> The content identity captured when parsing failed. </param>
-    /// <param name="canonicalEndpoint"> The canonical endpoint resolved from <paramref name="storageRoot" />. </param>
+    /// <param name="unixSocketCleanupTarget"> The canonical Unix socket cleanup target, or <see langword="null" /> when no filesystem endpoint exists. </param>
     /// <param name="timeout"> The timeout shared by runtime ownership and manifest mutation lock acquisition. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
     /// <returns> The outcome of the compare-and-delete operation. </returns>
     public ValueTask<SupervisorManifestCleanupStatus> CleanupObservedRuntimeIfMalformedArtifactMatchesAsync (
         string storageRoot,
         Sha256Digest expectedArtifactIdentity,
-        IpcEndpoint canonicalEndpoint,
+        SupervisorUnixSocketCleanupTarget? unixSocketCleanupTarget,
         TimeSpan timeout,
         CancellationToken cancellationToken)
     {
@@ -251,7 +251,7 @@ internal sealed class SupervisorManifestStore
         return CleanupObservedRuntimeIfArtifactMatchesAsync(
             storageRoot,
             artifact => artifact.Identity == expectedArtifactIdentity,
-            canonicalEndpoint,
+            unixSocketCleanupTarget,
             timeout,
             cancellationToken);
     }
@@ -259,7 +259,7 @@ internal sealed class SupervisorManifestStore
     /// <summary> Removes runtime state owned by the calling supervisor host when its manifest generation still matches. </summary>
     /// <param name="storageRoot"> The storage-root path whose runtime ownership is already held by the caller. </param>
     /// <param name="expectedManifest"> The exact manifest generation published by the caller. </param>
-    /// <param name="canonicalEndpoint"> The canonical endpoint resolved from <paramref name="storageRoot" />. </param>
+    /// <param name="unixSocketCleanupTarget"> The canonical Unix socket cleanup target, or <see langword="null" /> when no filesystem endpoint exists. </param>
     /// <param name="mutationLockTimeout"> The maximum time to wait for the manifest mutation lock. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
     /// <returns> The outcome of the compare-and-delete operation. </returns>
@@ -267,7 +267,7 @@ internal sealed class SupervisorManifestStore
     public ValueTask<SupervisorManifestCleanupStatus> CleanupOwnedRuntimeIfManifestMatchesAsync (
         string storageRoot,
         SupervisorInstanceManifest expectedManifest,
-        IpcEndpoint canonicalEndpoint,
+        SupervisorUnixSocketCleanupTarget? unixSocketCleanupTarget,
         TimeSpan mutationLockTimeout,
         CancellationToken cancellationToken)
     {
@@ -275,7 +275,7 @@ internal sealed class SupervisorManifestStore
         return CleanupOwnedRuntimeIfArtifactMatchesAsync(
             storageRoot,
             artifact => IsExpectedManifest(storageRoot, artifact, expectedManifest),
-            canonicalEndpoint,
+            unixSocketCleanupTarget,
             mutationLockTimeout,
             cancellationToken);
     }
@@ -283,13 +283,12 @@ internal sealed class SupervisorManifestStore
     private async ValueTask<SupervisorManifestCleanupStatus> CleanupObservedRuntimeIfArtifactMatchesAsync (
         string storageRoot,
         Func<SupervisorManifestArtifact, bool> isExpectedArtifact,
-        IpcEndpoint canonicalEndpoint,
+        SupervisorUnixSocketCleanupTarget? unixSocketCleanupTarget,
         TimeSpan timeout,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(isExpectedArtifact);
-        ArgumentNullException.ThrowIfNull(canonicalEndpoint);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
         var deadline = ExecutionDeadline.Start(timeout, timeProvider);
@@ -307,7 +306,7 @@ internal sealed class SupervisorManifestStore
         return await CleanupOwnedRuntimeIfArtifactMatchesAsync(
                 storageRoot,
                 isExpectedArtifact,
-                canonicalEndpoint,
+                unixSocketCleanupTarget,
                 manifestMutationTimeout,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -316,13 +315,12 @@ internal sealed class SupervisorManifestStore
     private async ValueTask<SupervisorManifestCleanupStatus> CleanupOwnedRuntimeIfArtifactMatchesAsync (
         string storageRoot,
         Func<SupervisorManifestArtifact, bool> isExpectedArtifact,
-        IpcEndpoint canonicalEndpoint,
+        SupervisorUnixSocketCleanupTarget? unixSocketCleanupTarget,
         TimeSpan mutationLockTimeout,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(isExpectedArtifact);
-        ArgumentNullException.ThrowIfNull(canonicalEndpoint);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(mutationLockTimeout, TimeSpan.Zero);
 
         var manifestPath = UcliStoragePathResolver.ResolveSupervisorManifestPath(storageRoot);
@@ -343,17 +341,17 @@ internal sealed class SupervisorManifestStore
             return SupervisorManifestCleanupStatus.GenerationMismatch;
         }
 
-        if (canonicalEndpoint.TransportKind == IpcTransportKind.UnixDomainSocket)
+        if (unixSocketCleanupTarget is not null)
         {
             if (!SupervisorUnixSocketEndpointOwnership.DeletePublishedGenerationIfPresent(
-                    canonicalEndpoint.Address,
+                    unixSocketCleanupTarget.SocketPath,
                     deleteIfExists))
             {
-                deleteIfExists(canonicalEndpoint.Address);
+                deleteIfExists(unixSocketCleanupTarget.SocketPath);
             }
 
             UnixSocketPathUtilities.DeleteEmptyFallbackDirectoryIfPresent(
-                canonicalEndpoint.Address,
+                unixSocketCleanupTarget.SocketPath,
                 UcliIpcEndpointNames.SupervisorAddressPrefix);
         }
 

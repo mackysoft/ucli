@@ -303,7 +303,7 @@ internal sealed class SupervisorBootstrapper
             var cleanupStatus = await manifestStore.CleanupObservedRuntimeIfManifestMatchesAsync(
                     storageRoot,
                     expectedManifest,
-                    endpointResolver.ResolveCanonicalEndpoint(storageRoot),
+                    endpointResolver.ResolveUnixSocketCleanupTargetOrNull(storageRoot),
                     GetObservedRuntimeCleanupTimeout(remainingTimeout),
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -337,7 +337,7 @@ internal sealed class SupervisorBootstrapper
             var cleanupStatus = await manifestStore.CleanupObservedRuntimeIfMalformedArtifactMatchesAsync(
                     storageRoot,
                     expectedArtifactIdentity,
-                    endpointResolver.ResolveCanonicalEndpoint(storageRoot),
+                    endpointResolver.ResolveUnixSocketCleanupTargetOrNull(storageRoot),
                     GetObservedRuntimeCleanupTimeout(remainingTimeout),
                     cancellationToken)
                 .ConfigureAwait(false);

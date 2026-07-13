@@ -7,6 +7,14 @@ public sealed class SupervisorEndpointResolverTests
 {
     [Fact]
     [Trait("Size", "Small")]
+    public void SupervisorUnixSocketCleanupTarget_WithRelativePath_ThrowsArgumentException ()
+    {
+        Assert.Throws<ArgumentException>(
+            () => new SupervisorUnixSocketCleanupTarget("relative-supervisor.sock"));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void CreateNamedPipeGenerationAddress_WithDifferentGenerationIdentity_ReturnsDistinctStableNames ()
     {
         var storageRoot = Path.GetFullPath(Path.Combine(".", "sandbox", "Supervisor"));
@@ -22,26 +30,52 @@ public sealed class SupervisorEndpointResolverTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Resolve_WithEmptyStorageRoot_ThrowsArgumentException ()
-    {
-        var resolver = new SupervisorEndpointResolver();
-
-        Assert.Throws<ArgumentException>(() => resolver.ResolveCanonicalEndpoint(""));
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void Resolve_WithValidInputs_ReturnsPlatformSpecificEndpoint ()
+    public void ResolveUnixSocketCleanupTargetOrNull_ReturnsOnlyARealFilesystemCleanupTarget ()
     {
         var resolver = new SupervisorEndpointResolver();
         var storageRoot = Path.GetFullPath(Path.Combine(".", "sandbox", "Supervisor"));
 
-        var endpoint = resolver.ResolveCanonicalEndpoint(storageRoot);
+        var cleanupTarget = resolver.ResolveUnixSocketCleanupTargetOrNull(storageRoot);
+
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Null(cleanupTarget);
+            return;
+        }
+
+        Assert.NotNull(cleanupTarget);
+        Assert.True(Path.IsPathFullyQualified(cleanupTarget.SocketPath));
+        Assert.True(Encoding.UTF8.GetByteCount(cleanupTarget.SocketPath) <= IpcTransportConstraints.UnixDomainSocketPathMaxBytes);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ResolveRuntimeEndpoint_WithEmptyStorageRoot_ThrowsArgumentException ()
+    {
+        var resolver = new SupervisorEndpointResolver();
+        var sessionToken = IpcSessionTokenTestFactory.CreateFromDiscriminator(1);
+
+        Assert.Throws<ArgumentException>(() => resolver.ResolveRuntimeEndpoint("", sessionToken));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ResolveRuntimeEndpoint_WithValidInputs_ReturnsPlatformSpecificEndpoint ()
+    {
+        var resolver = new SupervisorEndpointResolver();
+        var storageRoot = Path.GetFullPath(Path.Combine(".", "sandbox", "Supervisor"));
+        var sessionToken = IpcSessionTokenTestFactory.CreateFromDiscriminator(1);
+
+        var endpoint = resolver.ResolveRuntimeEndpoint(storageRoot, sessionToken);
 
         if (OperatingSystem.IsWindows())
         {
             Assert.Equal(IpcTransportKind.NamedPipe, endpoint.TransportKind);
-            Assert.StartsWith(UcliIpcEndpointNames.SupervisorAddressPrefix, endpoint.Address, StringComparison.Ordinal);
+            Assert.Equal(
+                SupervisorEndpointResolver.CreateNamedPipeGenerationAddress(
+                    storageRoot,
+                    sessionToken.GetEncodedValue()),
+                endpoint.Address);
             return;
         }
 
@@ -61,7 +95,7 @@ public sealed class SupervisorEndpointResolverTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Resolve_WithLongUnixSocketCandidate_ReturnsShortDeterministicFallbackPath ()
+    public void ResolveRuntimeEndpoint_WithLongUnixSocketCandidate_ReturnsShortDeterministicFallbackPath ()
     {
         if (OperatingSystem.IsWindows())
         {
@@ -69,13 +103,14 @@ public sealed class SupervisorEndpointResolverTests
         }
 
         var resolver = new SupervisorEndpointResolver();
+        var sessionToken = IpcSessionTokenTestFactory.CreateFromDiscriminator(1);
         var storageRoot = Path.GetFullPath(Path.Combine(
             Path.GetTempPath(),
             "ucli-tests",
             new string('a', 140)));
 
-        var endpoint1 = resolver.ResolveCanonicalEndpoint(storageRoot);
-        var endpoint2 = resolver.ResolveCanonicalEndpoint(storageRoot);
+        var endpoint1 = resolver.ResolveRuntimeEndpoint(storageRoot, sessionToken);
+        var endpoint2 = resolver.ResolveRuntimeEndpoint(storageRoot, sessionToken);
 
         Assert.Equal(IpcTransportKind.UnixDomainSocket, endpoint1.TransportKind);
         Assert.Equal(endpoint1.Address, endpoint2.Address);
